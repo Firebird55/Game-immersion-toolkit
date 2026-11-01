@@ -1,5 +1,6 @@
 """Scoped behavior fixtures; real extracted Job/handle cases run on Windows."""
 import io
+from dataclasses import replace
 import json
 import os
 from pathlib import Path
@@ -308,6 +309,53 @@ def test_registered_wal_choice_changes_only_the_fixed_api_probe(registered, layo
     assert not any(call[0] == 'resume' for call in calls)
     host.resume_registered(); host.close()
     assert calls[-3:] == [('stop', 101), ('stop', 102), 'job-close']
+
+
+def test_registered_populated_choice_binds_only_api_to_fixed_owned_test_host(registered, layout):
+    from backend.bundle_host import create_synthetic_root
+    host, calls, _ = registered
+    source = create_synthetic_root(layout.work_root/'p2-native/legacy')
+    roots = {name:create_synthetic_root(source.path.parent/name, installation_id=source.installation_id)
+        for name in ('private-target', 'external-state', 'host-profile')}
+    root = source.path
+    host.layout = replace(layout, settings_root=root, data_root=root/'data', cache_root=root/'cache-v1',
+        work_root=root/'cache-v1/work', tool_root=root/'tools-v1', state_root=root/'probe-state', default_export_root=root/'exports')
+    host.start_registered(detached_console=True, populated_probe=True)
+    creation = [call for call in calls if call[0] == 'create']
+    assert creation[0][2] == host.layout.child_command('frontend', ['--port','3000'])
+    assert creation[1][2] == [str(layout.executable),'--runtime-probe','api-populated']
+    assert creation[1][3]['env']['LOCALAPPDATA'] == str(roots['host-profile'].path)
+    assert creation[0][3]['env'].get('LOCALAPPDATA') != str(roots['host-profile'].path)
+    assert all(call[3]['detached_console'] is True for call in creation)
+    assert not any(call[0] == 'resume' for call in calls)
+    host.resume_registered(); host.close()
+
+
+@pytest.mark.parametrize('selection', [{'populated_probe':value} for value in (None, 0, 1, 'true', [], {})]+
+    [{'populated_probe':True}, {'populated_probe':True,'detached_console':True,'grammar_probe':True},
+     {'populated_probe':True,'detached_console':True,'wal_probe':True}])
+def test_populated_policy_refuses_ambiguous_or_non_detached_choices_before_creation(registered, selection):
+    host, calls, _ = registered
+    with pytest.raises(runtime_host.HostProbeFailure): host.start_registered(**selection)
+    assert calls == [] and host.tree is None
+
+
+def test_populated_role_roots_are_validated_before_creating_any_native_object(registered):
+    host, calls, _ = registered
+    with pytest.raises(RuntimeError): host.start_registered(detached_console=True, populated_probe=True)
+    assert calls == [] and host.tree is None
+
+
+def test_fixed_populated_case_dispatch_has_no_new_general_child_target(layout, monkeypatch):
+    from backend import runtime_data_copy_probe
+    calls = []
+    monkeypatch.setattr(runtime_host.sys, 'stdin', io.StringIO('authored-populated-state-copy-v1\n'))
+    monkeypatch.setattr(runtime_data_copy_probe, 'run_populated', lambda current, stream:calls.append((current, stream)) or 19)
+    assert runtime_host.main('host', layout) == 19 and calls[0][0] is layout
+    assert 'api-populated' not in bundle_entry.CHILD_TARGETS
+    monkeypatch.setattr(runtime_host.sys, 'stdin', io.StringIO('authored-populated-state-copy-v1 arbitrary\n'))
+    with pytest.raises(runtime_host.HostProbeFailure): runtime_host.main('host', layout)
+    assert len(calls) == 1
 
 
 def test_registered_grammar_choice_changes_only_the_fixed_api_probe(registered, layout):

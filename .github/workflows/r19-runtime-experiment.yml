@@ -380,6 +380,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Provisioned dependency closure is inconsistent.' }
           "PYTHON=$python" >> $env:GITHUB_ENV
           "R19_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - name: Check the populated-state projector and exclusive metadata sink
+        # Authored parser/file-sink checks only; no runtime or lease is started.
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/test-populated-state-harness.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Populated-state control or publication contracts failed.' }
       - name: Build static frontend and run affected contracts
         shell: pwsh
         run: |
@@ -523,6 +529,22 @@ jobs:
           path: output/checks/r19-frozen-data-copy-grammar.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Copy populated authored state between two genuine frozen source cohorts
+        # A living coordinator owns both leases. TEST accounts and a fixed mock
+        # transport supply no DPAPI, activation, keeper-loss or Windows 11 proof.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-populated-state.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-populated-state-copy.json')
+      - name: Retain only sanitized populated-state failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-populated-state-copy-failure-observations
+          path: output/checks/r19-frozen-populated-state-copy.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Retain only sanitized native collection refusal
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -569,6 +591,7 @@ jobs:
             output/checks/r19-frozen-data-copy-resume.json
             output/checks/r19-frozen-data-copy-wal.json
             output/checks/r19-frozen-data-copy-grammar.json
+            output/checks/r19-frozen-populated-state-copy.json
             output/runtime-bundle/build-check.json
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json

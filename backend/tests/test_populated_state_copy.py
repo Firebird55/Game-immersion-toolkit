@@ -1,7 +1,8 @@
 """Real authored services/SQLite/export bytes; process signals here are doubles."""
-from contextlib import closing
+from contextlib import closing, contextmanager, ExitStack
 from dataclasses import replace
 import hashlib
+import io
 import json
 from pathlib import Path
 import builtins
@@ -9,6 +10,7 @@ import os
 import sqlite3
 import subprocess
 import threading
+from unittest.mock import patch
 from types import SimpleNamespace
 
 import pytest
@@ -652,3 +654,345 @@ console.log(JSON.stringify(result));
     assert [(row['source'], row['target']) for row in rows] == [('zh-Hans', 'en'), ('en', 'zh-Hans')]
     assert rows[0]['sourceText'] == rows[1]['translation'] == '自制屏幕消息'
     assert rows[0]['translation'] == rows[1]['sourceText'] == 'Authored screen message'
+
+
+@pytest.fixture
+def native_populated(tmp_path, monkeypatch):
+    """Real normal owners/ASGI only; no Windows process or native proof here."""
+    import httpx
+    from backend import lexirise, runtime_probe
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('Private populated fixture reached a real network or credential fallback.')
+    monkeypatch.setattr(httpx.HTTPTransport, 'handle_request', forbidden)
+    monkeypatch.setattr(lexirise, '_protect', forbidden)
+    original_mkdir, original_open = Path.mkdir, Path.open
+    def owned_mkdir(path, *args, **kwargs):
+        assert path.resolve().is_relative_to(tmp_path.resolve()), 'Native-source fixture attempted an unowned directory write.'
+        return original_mkdir(path, *args, **kwargs)
+    def owned_open(path, mode='r', *args, **kwargs):
+        if any(flag in mode for flag in 'wax+'):
+            assert path.resolve().is_relative_to(tmp_path.resolve()), 'Native-source fixture attempted an unowned file write.'
+        return original_open(path, mode, *args, **kwargs)
+    monkeypatch.setattr(Path, 'mkdir', owned_mkdir)
+    monkeypatch.setattr(Path, 'open', owned_open)
+    source = create_synthetic_root(tmp_path/'p2-native/legacy')
+    roots = {name:create_synthetic_root(source.path.parent/name, installation_id=source.installation_id)
+        for name in ('private-target', 'external-state', 'host-profile')}
+    code = Path(__file__).resolve().parents[2]
+    catalog = 'public/mobile-capture/games-data.json'
+    layout = RuntimeLayout(mode='bundle', profile='runtime-experiment', application_root=tmp_path/'app',
+        resource_root=code, source_commit='b'*40, build_id='authored-populated-api-fixture',
+        data_root=source.path/'data', settings_root=source.path, cache_root=source.path/'cache-v1',
+        work_root=source.path/'cache-v1/work', tool_root=source.path/'tools-v1', state_root=source.path/'probe-state',
+        default_export_root=source.path/'exports', resources={catalog:hashlib.sha256((code/catalog).read_bytes()).hexdigest()})
+    fixture = probe.PopulatedStateCopy(source, roots['private-target'], layout, roots['external-state'], roots['host-profile']).seed(api_fixture=True)
+    monkeypatch.setenv('LOCALAPPDATA', str(roots['host-profile'].path))
+    monkeypatch.setenv('PROXY_TRANSCRIPT_STANDBY', '1')
+    from backend import language_preparation
+    # Exercise its real frozen locator branch; this remains a source ASGI fixture.
+    monkeypatch.setattr(language_preparation, 'sys', SimpleNamespace(frozen=True))
+    monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
+    from backend import api
+    monkeypatch.setattr(api, 'RUNTIME_LAYOUT', layout)
+    monkeypatch.setattr(api, 'DATA_DIR', layout.data_root)
+    monkeypatch.setattr(api, 'PROJECT_ROOT', code)
+    async def no_ocr(_self): return None
+    monkeypatch.setattr(api.CaptureService, 'warmup', no_ocr)
+    monkeypatch.setattr(api.Runtime, 'start_updates', lambda _self: None)
+    with runtime_probe.authored_populated_layout(layout, roots['host-profile']):
+        yield SimpleNamespace(fixture=fixture, layout=layout, roots=roots, api=api)
+
+
+def test_fixed_populated_actual_api_reads_same_owners_and_idempotent_saved_line(native_populated):
+    from fastapi.testclient import TestClient
+    from backend import runtime_probe
+    value = native_populated
+    with runtime_probe.authored_populated_api(value.layout, value.api) as policy:
+        with TestClient(value.api.app, base_url='http://127.0.0.1:8766') as client:
+            policy.check_runtime(value.api.runtime)
+            state = probe._PopulatedCopyProbe.__new__(probe._PopulatedCopyProbe)
+            state.state, state.external = value.fixture, value.roots['external-state']
+            state.host_profile = value.roots['host-profile']
+            state.external_inventory = tuple(migration._inventory(root.path, skip_marker=True)
+                for root in (state.external, state.host_profile))
+            def request(path, *, method='GET', body=None, status=200, account=None):
+                headers = {'X-Proxy-Transcript':'lexirise'}
+                if account is not None: headers['X-Proxy-Transcript-Account'] = account
+                response = client.request(method, path, json=body, headers=headers)
+                assert response.status_code == status
+                return response.json()
+            state._http = request  # Only transport: routes/middleware/Runtime/stores are real.
+            state._read_api(fresh=False)
+            assert state.first_api and policy.ledger.status()['sent']['line:3'] == 1901
+            assert not policy.transport.items and not policy.transport.members
+            assert policy.account_path.read_bytes() == value.fixture.expected['protected']
+            assert value.api.runtime.languages.entries() == value.fixture.languages.entries()
+
+
+@pytest.fixture
+def populated_native_runner(native_populated, monkeypatch):
+    """Actual two ASGI lifetimes and C2; process/object/listener signals are doubles."""
+    from fastapi.testclient import TestClient
+    from backend import runtime_probe, language_preparation
+    value = native_populated
+    calls = []
+    class ASGIHost:
+        def __init__(self, layout):
+            self.layout, self.registered = layout, {}
+            self.closed = self.recovery_required = False
+            self.tree, self.stack = object(), None
+        def start_registered(self, *, detached_console, populated_probe):
+            assert detached_console is populated_probe is True
+            self.registered = {role:SimpleNamespace(created=True, resumed=False, exited=False, closed=False)
+                for role in ('frontend', 'api')}
+            calls.append(('created-source-double', self))
+        def resume_registered(self):
+            self.stack = ExitStack()
+            roots = runtime_probe.populated_roots(self.layout)
+            self.stack.enter_context(runtime_probe.authored_populated_layout(self.layout, roots['host-profile']))
+            for name, selected in (('RUNTIME_LAYOUT', self.layout), ('DATA_DIR', self.layout.data_root),
+                                   ('PROJECT_ROOT', self.layout.application_root)):
+                self.stack.enter_context(patch.object(value.api, name, selected))
+            self.stack.enter_context(patch.object(language_preparation, 'discover_layout', lambda:self.layout))
+            self.policy = self.stack.enter_context(runtime_probe.authored_populated_api(self.layout, value.api))
+            self.client = self.stack.enter_context(TestClient(value.api.app, base_url='http://127.0.0.1:8766'))
+            for child in self.registered.values(): child.resumed = True
+        def wait_services(self):
+            assert self.client.get('/api/health').json() == {'status':'ok'}
+            assert self.client.get('/api/runtime/ready').json()['ready'] is True
+        @contextmanager
+        def _registered_listener_scope(self):
+            calls.append(('listener-double-before', self))
+            yield True
+            calls.append(('listener-double-after', self))
+        def quiesce_registered(self):
+            response = self.client.post('/api/runtime/quiesce?writers=true', headers={'X-Proxy-Transcript':'update'})
+            assert response.status_code == 200 and response.json()['running'] is False
+            assert self.client.get('/api/status').status_code == 503
+            assert self.client.get('/api/health').json() == {'status':'ok'}
+            calls.append(('actual-c2-asgi', self))
+        def close(self):
+            if self.stack is not None:
+                self.stack.close()
+            for child in self.registered.values(): child.exited = child.closed = True
+            self.tree, self.closed = None, True
+            calls.append(('signaled-source-double', self))
+    monkeypatch.setattr(probe, 'FrozenProbeHost', ASGIHost)
+    outer = replace(value.layout, work_root=value.layout.cache_root/'native-controller-work')
+    stream = io.StringIO(''.join('observed '+phase+'\n' for phase in probe.POPULATED_PHASES[:-1]))
+    current = probe._PopulatedCopyProbe(outer, stream)
+    def response(request, timeout):
+        assert timeout == 5
+        host = current.adapter.host
+        result = host.client.request(request.get_method(), request.full_url,
+            headers=dict(request.header_items()), content=request.data)
+        data = result.content
+        if result.status_code >= 400:
+            raise probe.HTTPError(request.full_url, result.status_code, 'Authored ASGI status', {}, io.BytesIO(data))
+        return Response(result.status_code, data)
+    class Response:
+        def __init__(self, status, data): self.code, self.data = status, data
+        def __enter__(self): return self
+        def __exit__(self, *_): return None
+        def read(self, limit): return self.data[:limit]
+    monkeypatch.setattr(probe, 'urlopen', response)
+    class Held(RuntimeError): pass
+    def held(): raise Held('Authored source hold sentinel')
+    monkeypatch.setattr(probe, 'hold_keeper_recovery', held)
+    yield SimpleNamespace(probe=current, calls=calls, held=Held, host_type=ASGIHost)
+    if current.coordinator is not None and not current.released:
+        # Test-only cleanup for known ASGI doubles, never a recovery implementation.
+        for host in current.adapter.cohorts:
+            if not host.closed: host.close()
+        current.adapter.poisoned = current.adapter.active = False
+        current.coordinator._recovery_required = False
+        current.adapter.stop = lambda: probe.STOPPED
+        current.coordinator.close(current.coordinator.owner)
+
+
+def test_fixed_populated_full_asgi_c2_copy_and_fresh_source_readback(populated_native_runner, capsys):
+    value = populated_native_runner.probe
+    assert value.run() == 0
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    keys = set('schema kind case scope phase status failure source_commit build_id generation writers_created '
+        'writers_resumed writers_signaled strict_drains owner_interval fixture_seed api_readback copy_verification '
+        'service_readback source_bytes snapshot_bytes source_logical external_state pointer old_barrier_refused '
+        'setup_sql_fences api_external_side_effects sqlite native_owned_process_tree writer_console_mode authority '
+        'credentials wal_claim browser keeper_loss dynamic_writer_admission warm_routing physical_replace windows11 '
+        'rights_review production_activation target_activation installer r19_complete'.split())
+    assert len(keys) == 44 and all(set(event) == keys for event in events)
+    assert [event['phase'] for event in events] == list(probe.POPULATED_PHASES)
+    assert [(event['generation'], event['writers_signaled'], event['strict_drains']) for event in events] == [
+        (0,0,0), (0,0,0), (1,0,0), (1,0,1), (1,2,1), (1,2,1), (1,2,1), (2,2,1), (2,2,2), (2,4,2), (2,4,2)]
+    assert all(event['r19_complete'] is False and event['production_activation'] is False for event in events)
+    assert all(event['source_commit'] == 'b'*40 for event in events)
+    assert [event['owner_interval'] for event in events] == ['not-entered']+['leases-held']*9+['leases-released']
+    assert events[-1]['api_readback'] == 'both-cohorts-passed' and events[-1]['service_readback'] == 'passed'
+    serialized = json.dumps(events, ensure_ascii=False)
+    assert all(secret not in serialized for secret in (str(value.source.path), value.source.fixture_id,
+        value.host_profile.fixture_id, 'lx_r19_authored_profile_one_only', probe.GRAMMAR_TEXT))
+    assert value.copy_verified and value.second_api and value.old_barrier_refused and value.released
+    assert value.coordinator.pointer_path.read_bytes() == value.pointer
+    assert value.state.manifest['activation_allowed'] is False
+    assert len(value.state.manifest['databases']) == 4 and not value.state.verification_ownership
+    assert value.state.expected['ledger']['sent']['line:3'] == 1901
+    assert len(value.adapter.cohorts) == 2
+    for host in value.adapter.cohorts:
+        assert not host.policy.transport.items and not host.policy.transport.members
+
+
+@pytest.mark.parametrize('phase', ['strict-drain-complete', 'writers-signaled'])
+@pytest.mark.parametrize('field', ['owner', 'current', 'owned', 'generation', 'barrier', 'lease', 'layout'])
+def test_populated_both_drain_acks_recheck_actual_owner_frame_before_copy(populated_native_runner, phase, field):
+    fixture, value = populated_native_runner, populated_native_runner.probe
+    original = value.observe
+    saved = {}
+    def observe(stage):
+        original(stage)
+        if stage != phase: return
+        coord, adapter = value.coordinator, value.adapter
+        saved.update(owner=coord._owner, current=coord.current, owned=list(coord._owned),
+            generation=adapter.generation, barrier=coord._barrier, lease=coord._legacy_lease, layout=adapter.layout)
+        if field == 'owner': coord._owner = object()
+        elif field == 'current': coord.current = probe._FrozenAuthoredDataRuntime(value.inner, value.source.installation_id, lambda _:None)
+        elif field == 'owned': coord._owned.append(adapter)
+        elif field == 'generation': adapter.generation += 1
+        elif field == 'barrier': coord._barrier = object()
+        elif field == 'lease': coord._legacy_lease = SimpleNamespace(held=True)
+        else: adapter.layout = replace(value.inner, data_root=value.inner.settings_root/'foreign-data')
+    value.observe = observe
+    try:
+        with pytest.raises(fixture.held): value.run()
+        assert value.adapter.poisoned and value.coordinator._recovery_required and not value.released
+        assert saved['lease'].held and value.coordinator._target_lease.held
+        assert len(value.adapter.cohorts) == 1 and value.state.manifest is None
+    finally:
+        if saved:
+            coord, adapter = value.coordinator, value.adapter
+            coord._owner, coord.current, coord._owned = saved['owner'], saved['current'], saved['owned']
+            coord._barrier, coord._legacy_lease = saved['barrier'], saved['lease']
+            adapter.generation, adapter.layout = saved['generation'], saved['layout']
+
+
+@pytest.mark.parametrize('phase', ['strict-drain-complete', 'writers-signaled'])
+def test_populated_checks_barrier_none_before_each_drain_event_not_just_after_ack(populated_native_runner, monkeypatch, capsys, phase):
+    fixture, value = populated_native_runner, populated_native_runner.probe
+    method = 'quiesce_registered' if phase == 'strict-drain-complete' else 'close'
+    original = getattr(fixture.host_type, method)
+    def finish(host):
+        original(host)
+        if value.adapter.generation == 1:
+            value.coordinator._barrier = object()
+    monkeypatch.setattr(fixture.host_type, method, finish)
+    with pytest.raises(fixture.held): value.run()
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert phase not in [event['phase'] for event in events]
+    assert events[-1]['phase'] == 'recovery-required'
+    assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+    assert value.state.manifest is None
+
+
+@pytest.mark.parametrize('stage', ['api-populated-checked', 'copy-progress', 'copy-verified'])
+def test_populated_source_mutation_after_ack_holds_leases_and_never_admits_fresh_source(populated_native_runner, stage):
+    fixture, value = populated_native_runner, populated_native_runner.probe
+    original = value.observe
+    def observe(phase):
+        original(phase)
+        if phase == stage:
+            (value.inner.data_root/'authored-payload.bin').write_bytes(b'authored unexpected source replacement')
+    value.observe = observe
+    with pytest.raises(fixture.held): value.run()
+    assert value.adapter.poisoned and value.coordinator._leases_held() and value.coordinator._recovery_required
+    assert len(value.adapter.cohorts) == 1 and not value.released
+
+
+def test_populated_snapshot_is_rechecked_after_fresh_source_without_freezing_live_source_sql(populated_native_runner):
+    fixture, value = populated_native_runner, populated_native_runner.probe
+    original = value.observe
+    def observe(phase):
+        original(phase)
+        if phase == 'source-resumed':
+            (value.snapshot/'data/authored-payload.bin').write_bytes(b'authored snapshot mutation')
+    value.observe = observe
+    with pytest.raises(fixture.held): value.run()
+    assert value.adapter.poisoned and value.coordinator._leases_held() and not value.released
+    assert len(value.adapter.cohorts) == 2 and value.second_api
+
+
+@pytest.mark.parametrize('fault', ['emit-fails', 'bad-ack'])
+def test_populated_control_failure_before_owner_has_no_lease_or_copy_claim_and_retains_live_holder(populated_native_runner, monkeypatch, capsys, fault):
+    fixture, value = populated_native_runner, populated_native_runner.probe
+    if fault == 'emit-fails':
+        monkeypatch.setattr(value, 'emit', lambda *_args, **_kwargs: (_ for _ in ()).throw(BrokenPipeError('authored closed control')))
+    else:
+        import queue
+        value.commands = queue.Queue(maxsize=1)
+        value.commands.put('unexpected authored ACK\n')
+    with pytest.raises(fixture.held): value.run()
+    assert value.state is not None and value.state.seeded and value.failure is not None
+    assert value.coordinator is None and value.adapter is None and not value.entered and not value.released
+    if fault == 'bad-ack':
+        event = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert event['status'] == 'failed' and event['owner_interval'] == 'not-entered'
+        assert event['copy_verification'] == 'not-run' and event['writers_created'] == 0
+
+
+@pytest.mark.parametrize('selection', ['account-arguments', 'ledger-before-account', 'wrong-account', 'automatic-root', 'duplicate-account'])
+def test_populated_strict_factories_reject_conflicting_or_repeated_normal_owner_inputs(native_populated, selection):
+    from backend import runtime_probe
+    from backend.runtime_bundle import RuntimeBundleError
+    value = native_populated
+    policy = runtime_probe._AuthoredPopulatedAPI(value.layout, value.api)
+    with pytest.raises(RuntimeBundleError):
+        if selection == 'account-arguments': policy.accounts(path=policy.account_path)
+        elif selection == 'ledger-before-account': policy.lexirise(value.layout.data_root/'lexirise', accounts=None)
+        elif selection == 'wrong-account':
+            policy.accounts(); policy.lexirise(value.layout.data_root/'lexirise', accounts=object())
+        elif selection == 'automatic-root': policy.automatic_exports(value.layout.application_root/'foreign', install_lookup=None)
+        else: policy.accounts(); policy.accounts()
+    assert not policy.transport.calls
+
+
+@pytest.mark.parametrize('fault', ['wrong-prefix', 'extra-field', 'other-key'])
+def test_populated_account_codec_refuses_every_other_envelope_before_normal_constructor(native_populated, fault):
+    from backend import runtime_probe
+    from backend.runtime_bundle import RuntimeBundleError
+    value = native_populated
+    path = value.fixture.accounts.path
+    payload = json.loads(runtime_probe.authored_test_protect(path.read_bytes(), decrypt=True))
+    if fault == 'wrong-prefix':
+        path.write_bytes(b'not-an-authored-TEST-envelope')
+    else:
+        if fault == 'extra-field': payload['unowned'] = True
+        else: payload['profiles'][next(key for key in payload['profiles'] if key != payload['active'])]['key'] = 'not-an-approved-fake-key'
+        path.write_bytes(runtime_probe.authored_test_protect(json.dumps(payload).encode()))
+    with pytest.raises((RuntimeBundleError, ValueError)):
+        runtime_probe._AuthoredPopulatedAPI(value.layout, value.api)
+
+
+def test_populated_factory_retains_actual_partial_sql_owner_and_original_preclose_failure(native_populated, monkeypatch):
+    from backend import runtime_probe
+    from backend.lexirise import LexiriseConnectionCloseError
+    value = native_populated
+    policy = runtime_probe._AuthoredPopulatedAPI(value.layout, value.api)
+    account = policy.accounts()
+    original = sqlite3.connect
+    close_error = OSError('Authored actual constructor connection close failure')
+    class FailedClose(sqlite3.Connection):
+        def close(self):
+            self.calls = getattr(self, 'calls', 0)+1
+            raise close_error
+    monkeypatch.setattr(sqlite3, 'connect', lambda *args, **kwargs:original(*args, factory=FailedClose, **kwargs))
+    with pytest.raises(LexiriseConnectionCloseError) as refused:
+        policy.lexirise(value.layout.data_root/'lexirise', accounts=account)
+    error = refused.value
+    assert policy.failure is error and policy.owners[-1] is error.service
+    assert error.close_error is close_error and error.connection.calls == 1
+    assert error.connection.execute('PRAGMA user_version').fetchone()[0] == 0
+    from backend.runtime_bundle import RuntimeBundleError
+    for _ in range(2):
+        with pytest.raises(RuntimeBundleError): policy.lexirise(value.layout.data_root/'lexirise', accounts=account)
+        assert policy.failure is error and error.connection.calls == 1 and policy.owners[-1] is error.service
+    # Explicit disposal of this source-test connection; the product factory
+    # never retries the failed close or drops its partial-owner/error record.
+    sqlite3.Connection.close(error.connection)

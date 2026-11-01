@@ -28,6 +28,203 @@ POPULATED_OTHER_KEY = 'lx_r19_authored_profile_two_only'
 POPULATED_RULES = ('r19-populated-known', 'r19-populated-learning')
 
 
+def authored_test_protect(data, *, decrypt=False):
+    """Visibly authored envelope only; never DPAPI, a key locator or a fallback."""
+    if type(data) is not bytes or type(decrypt) is not bool or len(data) > 8192:
+        raise ValueError('Unknown authored account envelope.')
+    if decrypt:
+        if not data.startswith(b'R19-TEST\x00'):
+            raise ValueError('Unknown authored account envelope.')
+        return data[9:]
+    return b'R19-TEST\x00'+data
+
+
+def populated_roots(layout):
+    """Fixed private role derivation, not roots learned from a control record."""
+    import tempfile
+    import uuid
+    from .bundle_host import SyntheticRoot
+    from .runtime_data_copy_probe import _guard_path
+    root = layout.settings_root
+    if (layout.mode != 'bundle' or layout.profile != 'runtime-experiment'
+            or root.name != 'legacy' or root.parent.name != 'p2-native'
+            or not root.is_relative_to(Path(tempfile.gettempdir()).resolve())
+            or layout.data_root != root/'data' or layout.cache_root != root/'cache-v1'
+            or layout.work_root != root/'cache-v1/work' or layout.tool_root != root/'tools-v1'
+            or layout.state_root != root/'probe-state' or layout.default_export_root != root/'exports'):
+        raise RuntimeBundleError('Authored populated role roots differ.')
+    roots = {}
+    for name in ('legacy', 'private-target', 'external-state', 'host-profile'):
+        path = root.parent/name
+        _guard_path(path, 'directory')
+        marker = path/'.r19-synthetic-fixture.json'
+        if _guard_path(marker, 'file').st_size > 4096:
+            raise RuntimeBundleError('Authored populated marker differs.')
+        with marker.open('rb') as stream:
+            value = json.loads(stream.read(4097))
+        if type(value) is not dict or set(value) != {'schema', 'fixture_id', 'installation_id'}:
+            raise RuntimeBundleError('Authored populated marker differs.')
+        for key in ('fixture_id', 'installation_id'):
+            if type(value[key]) is not str or str(uuid.UUID(value[key])) != value[key]:
+                raise RuntimeBundleError('Authored populated marker identity differs.')
+        owned = roots[name] = SyntheticRoot(path, value['fixture_id'], value['installation_id'])
+        owned.verify()
+    if len({owned.installation_id for owned in roots.values()}) != 1:
+        raise RuntimeBundleError('Authored populated installations differ.')
+    return roots
+
+
+class _AuthoredPopulatedAPI:
+    """Strict factories return real owners; account and remote effects are TEST only."""
+    def __init__(self, layout, service):
+        from .accounts import AccountStore
+        from .automatic_mobile_export import AutomaticMobileExports
+        from .lexirise import LexiriseService
+        from .runtime_data_copy_probe import _guard_path
+        self.layout, self.service, self.roots, self.guard = layout, service, populated_roots(layout), _guard_path
+        if (service.RUNTIME_LAYOUT != layout or service.DATA_DIR != layout.data_root
+                or service._SQL_LEDGER_TYPE is not LexiriseService):
+            raise RuntimeBundleError('Authored populated API layout differs.')
+        self.account_type, self.ledger_type, self.automatic_type = AccountStore, LexiriseService, AutomaticMobileExports
+        self.transport = AuthoredPopulatedTransport(writes=False)
+        self.owners = []
+        self.account = self.ledger = self.automatic = self.runtime = None
+        self.failure = None
+        self.account_path = self.roots['host-profile'].path/'Programs/Proxy Transcript/accounts.dpapi'
+        self.account_bytes = self._read_account_bytes()
+        first, second = (hashlib.sha256(value).hexdigest()[:24] for value in (b'r19-one', b'r19-two'))
+        expected = {'active':first, 'profiles':{
+            first:{'key':POPULATED_KEY, 'name':'Authored first profile'},
+            second:{'key':POPULATED_OTHER_KEY, 'name':'Authored second profile'}}}
+        if json.loads(authored_test_protect(self.account_bytes, decrypt=True)) != expected:
+            raise RuntimeBundleError('Authored populated TEST profiles differ.')
+
+    def _read_account_bytes(self):
+        if self.guard(self.account_path, 'file').st_size > 8192:
+            raise RuntimeBundleError('Authored populated TEST envelope exceeds its bound.')
+        with self.account_path.open('rb') as stream:
+            value = stream.read(8193)
+        if len(value) > 8192:
+            raise RuntimeBundleError('Authored populated TEST envelope exceeds its bound.')
+        return value
+
+    def _own(self, kind, *args, **kwargs):
+        if self.failure is not None:
+            raise RuntimeBundleError('Authored populated constructor cleanup remains unconfirmed.') from self.failure
+        owner = object.__new__(kind)
+        self.owners.append(owner)  # Preserve real partial constructors on any failure.
+        try:
+            kind.__init__(owner, *args, **kwargs)
+            return owner
+        except BaseException as error:
+            self.failure = error
+            raise
+
+    def accounts(self, *args, **options):
+        if self.failure is not None or args or options or self.account is not None:
+            raise RuntimeBundleError('Authored populated account constructor differs.')
+        self.guard(self.account_path, 'file')
+        self.account = self._own(self.account_type, self.account_path, protect=authored_test_protect,
+                                  transport=self.transport.transport)
+        status = self.account.status()
+        if (self.account.active_key() != POPULATED_KEY or len(status['profiles']) != 2
+                or status['active'] == 'legacy' or self._read_account_bytes() != self.account_bytes):
+            raise RuntimeBundleError('Authored populated account fixture differs.')
+        return self.account
+
+    def lexirise(self, directory, *args, **options):
+        expected = self.layout.data_root/'lexirise'
+        if (self.failure is not None or args or set(options) != {'accounts'} or self.account is None
+                or options['accounts'] is not self.account or directory != expected or self.ledger is not None):
+            raise RuntimeBundleError('Authored populated ledger constructor differs.')
+        self.guard(expected, 'directory')
+        self.ledger = self._own(self.ledger_type, expected, accounts=self.account,
+            api_key=POPULATED_KEY, transport=self.transport.transport)
+        return self.ledger
+
+    def automatic_exports(self, root, *args, **options):
+        if (self.failure is not None or self.runtime is None or args or root != self.service.PROJECT_ROOT or set(options) != {'install_lookup'}
+                or options['install_lookup'] != self.runtime.setup_install or self.automatic is not None):
+            raise RuntimeBundleError('Authored populated automatic constructor differs.')
+        home = self.roots['external-state'].path/'automatic'
+        self.guard(home, 'directory')
+        self.automatic = self._own(self.automatic_type, root, home=home, **options)
+        return self.automatic
+
+    def initialize(self, runtime, initialize):
+        if self.runtime is not None:
+            raise RuntimeBundleError('Authored populated Runtime was already initialized.')
+        self.runtime = runtime
+        try:
+            initialize(runtime)
+            self.check_runtime(runtime)
+        except BaseException as error:
+            self.failure = error
+            raise
+
+    def check_runtime(self, runtime):
+        from .storage import TranscriptStore
+        from .reading import LexiriseReadingService
+        layout = self.layout
+        checks = {'runtime': runtime is self.runtime and runtime.standby,
+            'accounts': runtime.accounts is self.account, 'ledger': runtime.lexirise is self.ledger,
+            'automatic': runtime.automatic_exports is self.automatic,
+            'transcript': type(runtime.transcript) is TranscriptStore and runtime.transcript.path == layout.data_root/'transcript-v2.db',
+            'reading': type(runtime.reading) is LexiriseReadingService and runtime.reading.path == layout.data_root/'lexirise/reading-cache-v2.db',
+            'settings': runtime.settings.path == layout.settings_root/'settings.json',
+            'languages': runtime.languages.path == layout.settings_root/'languages.json',
+            'installation': runtime.installation.completed,
+            'requests': any('fr' in targets for _game, _locale, targets in runtime.languages.entries()),
+            'opaque-account': self._read_account_bytes() == self.account_bytes}
+        for name, confirmed in checks.items():
+            if confirmed is not True:
+                raise RuntimeBundleError('Authored populated normal owner differs: '+name)
+
+
+@contextmanager
+def authored_populated_api(layout, service):
+    """One fixed probe-only construction context; normal API/routes are untouched."""
+    from contextlib import ExitStack
+    from unittest.mock import patch
+    policy = _AuthoredPopulatedAPI(layout, service)
+    initialize = service.Runtime.__init__
+    def authored_install(_runtime, game):
+        if game != 'halflife':
+            return None
+        path = policy.roots['external-state'].path/'authored-install'
+        policy.guard(path, 'directory')
+        return path
+    with ExitStack() as stack:
+        stack.enter_context(patch.object(service, 'runtime', getattr(service, 'runtime', None), create=True))
+        stack.enter_context(patch.object(service.Runtime, 'setup_install', authored_install))
+        stack.enter_context(patch.object(service, 'AccountStore', policy.accounts))
+        stack.enter_context(patch.object(service, 'LexiriseService', policy.lexirise))
+        stack.enter_context(patch.object(service, 'AutomaticMobileExports', policy.automatic_exports))
+        stack.enter_context(patch.object(service.Runtime, '__init__', lambda runtime: policy.initialize(runtime, initialize)))
+        yield policy
+
+
+def populated_api(layout):
+    if 'backend.api' in sys.modules:
+        raise RuntimeBundleError('Authored populated API import was not isolated.')
+    populated_roots(layout)
+    from unittest.mock import patch
+    from contextlib import ExitStack
+    from . import game_paths
+    with ExitStack() as stack:
+        for name in ('discover_install', 'configured_install'):
+            stack.enter_context(patch.object(game_paths, name, lambda *_a, **_k: None))
+        service = importlib.import_module('backend.api')
+        stack.enter_context(authored_populated_api(layout, service))
+        async def no_ocr(_self):
+            return None
+        stack.enter_context(patch.object(service.Runtime, 'start_updates', lambda _self: None))
+        stack.enter_context(patch.object(service.CaptureService, 'warmup', no_ocr))
+        import uvicorn
+        uvicorn.run(service.app, host='127.0.0.1', port=8766, log_level='warning', access_log=False)
+    return 0
+
+
 class AuthoredPopulatedTransport:
     """Finite normal-service mock; no real credentials or catch-all responses."""
     def __init__(self, *, writes=True):
@@ -357,6 +554,8 @@ def main(kind, layout):
     synthetic_roots(layout)
     developer_environment()
     sys.addaudithook(block_remote_access)
+    if kind == 'api-populated':
+        return populated_api(layout)
     if kind in {'api', 'api-wal', 'api-grammar'}:
         if kind == 'api-wal' and sys.version_info[:3] != (3, 12, 16):
             raise RuntimeBundleError('Authored WAL probe requires its exact reviewed Python supplier.')

@@ -184,6 +184,23 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert not ({'scope', 'copy_attempts', 'authored_interruptions', 'partial_revalidations'} & set(events[-1]))
 
 
+@pytest.mark.parametrize('options', [{'populated_probe':value} for value in (None, 0, 1, 'true', [], {})]+
+    [{'populated_probe':True}, {'populated_checkpoint':lambda *_:None},
+     {'populated_probe':True,'populated_checkpoint':lambda *_:None,'grammar_probe':True,'grammar_checkpoint':lambda *_:None},
+     {'populated_probe':True,'populated_checkpoint':lambda *_:None,'wal_probe':True}])
+def test_populated_adapter_choice_cannot_create_authority_from_flags_or_arbitrary_callback(fixture, options):
+    with pytest.raises(probe.DataCopyFailure):
+        probe._FrozenAuthoredDataRuntime(fixture.layout, 'authored', lambda _:None, **options)
+    assert fixture.calls == []
+
+
+def test_populated_fixed_api_rejects_already_imported_service_before_launch(fixture, monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, 'backend.api', object())
+    with pytest.raises(RuntimeError, match='not isolated'):
+        runtime_probe.populated_api(fixture.layout)
+
+
 def test_populated_programmatic_unit_is_not_an_added_frozen_case(fixture):
     with pytest.raises(probe.DataCopyFailure) as refused:
         fixture.make('authored-populated-state-copy')
