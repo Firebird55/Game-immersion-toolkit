@@ -1,0 +1,101 @@
+name: Diagnose original Windows reader tag
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    # Diagnostic only: no installer, acceptance, release or publication step.
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: source
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: reporter
+      - uses: actions/checkout@v4
+        with:
+          ref: v0.23.0
+          path: source
+      - name: Verify the immutable original tag
+        run: |
+          $commit = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $commit -ne 'eb27e74e084dde6f4b2dab0a7b486838a8bcb781') { throw 'Unexpected original tag source.' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: source/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            source/requirements.lock.txt
+            source/packaging/desktop/build-requirements.lock.txt
+      - name: Replay the original tag metadata preparation
+        run: |
+          $originalRef = $env:GITHUB_REF
+          try {
+            $env:GITHUB_REF = 'refs/tags/v0.23.0'
+            node scripts/prepare-release-version.mjs
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally { $env:GITHUB_REF = $originalRef }
+      - name: Inspect missing build prerequisites before acquisition
+        continue-on-error: true
+        run: npm run dev:doctor -- --full
+      - name: Prepare the exact native CPython supplier
+        run: python scripts/prepare-desktop-python.py --output output/python-supplier --cache output/python-archive-cache --github-output $env:GITHUB_OUTPUT --github-path $env:GITHUB_PATH
+      - run: npm ci --ignore-scripts
+      - name: Acquire exact native Python wheels
+        run: |
+          python -m pip download --only-binary=:all: --dest output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install --no-index --find-links output/wheelhouse -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify installed wheel bytes
+        run: python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
+      - name: Replay original focused tests
+        run: >-
+          python -m pytest -q backend/tests/test_desktop_packaging.py
+          backend/tests/test_desktop_host.py backend/tests/test_owned_process.py
+          backend/tests/test_desktop_host_ui.py
+          backend/tests/test_desktop_browser_environment.py
+          backend/tests/test_linux_desktop_ui.py
+          backend/tests/test_linux_system_resources.py
+          backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
+          backend/tests/test_macos_supplier_replay.py backend/tests/test_desktop_input_review.py
+          backend/tests/test_cyberpunk_input_review.py backend/tests/test_cyberpunk_build.py
+          backend/tests/test_cyberpunk_redistribution.py
+          backend/tests/test_zzz_inputs.py backend/tests/test_zzz_input_review.py
+          backend/tests/test_ooz_source_build.py backend/tests/test_native_zzz_probe.py
+          backend/tests/test_production_zzz_reader.py backend/tests/test_zzz_toolchain_build.py
+          backend/tests/test_desktop_build_environment.py
+      - name: Replay original authored desktop capture
+        run: |
+          python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json
+          if ($LASTEXITCODE -eq 2) { exit 0 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Prepare the exact managed-reader SDK
+        id: reader_sdk
+        run: python scripts/prepare-game-reader-sdk.py --rid win-x64 --output output/reader-sdk --cache output/reader-sdk-inputs --github-output $env:GITHUB_OUTPUT
+      - name: Build original tag helper and collect original dependencies
+        run: |
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -RuntimeIdentifier win-x64 -OutputRoot output/reader-helper -EvidenceRoot '${{ steps.reader_sdk.outputs.evidence_root }}' -Dotnet '${{ steps.reader_sdk.outputs.dotnet }}' -ExpectedSdkVersion 10.0.403 -Python (Get-Command python).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/build-nte-toolchain.py --platform win-x64 --output output/managed-reader-resources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run external diagnostic against unchanged tag backend
+        run: python ../reporter/scripts/diagnose-native-reader-tag.py --source-root . --helper-root output/reader-helper/nte --resources output/managed-reader-resources --output output/native-reader-tag-diagnostic.json
+      - name: Retain bounded diagnostic only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-reader-tag-diagnostic-windows
+          path: source/output/native-reader-tag-diagnostic.json
+          retention-days: 7
+          if-no-files-found: warn
