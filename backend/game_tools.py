@@ -97,8 +97,8 @@ def install_archive(url: str, digest: str, directory: Path, required: tuple[str,
                                   "files": {name: _digest(content) for name, content in files.items()}}).encode())
 
 
-def refresh_zzz_metadata(root: Path, *, revision=None) -> tuple[str, bool]:
-    directory = voice_work_root(root)
+def refresh_zzz_metadata(root: Path, *, revision=None, directory: Path | None = None) -> tuple[str, bool]:
+    directory = directory if directory is not None else voice_work_root(root)
     base = METADATA_BASE.replace('/branch/master/', '/commit/' + revision + '/') if revision else METADATA_BASE
     payloads = {name: download(base + source) for name, source in METADATA_FILES.items()}
     for name, data in payloads.items():

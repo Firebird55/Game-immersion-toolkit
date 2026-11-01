@@ -1,14 +1,14 @@
 // Read authored subtitle -> Mandarin event links from installed cinematic
 // timelines. This runs once per changed local catalog, outside the OCR process.
 import {readFile,writeFile,rename,open}from'node:fs/promises';
-import{join,resolve}from'node:path';import{pathToFileURL}from'node:url';import{createHash}from'node:crypto';import ts from'typescript';
+import{join,resolve}from'node:path';import{pathToFileURL}from'node:url';import{createHash}from'node:crypto';
 import{sceneCatalog,cinematicBundleRanges,resourceCatalogBytes}from'./scene-catalog.mjs';
 import{cinematicVoicePairs}from'./cinematic-links.mjs';
-const[gameArgument,toolsArgument]=process.argv.slice(2);
+const[gameArgument,toolsArgument,compiledReader]=process.argv.slice(2);
 if(!gameArgument||!toolsArgument)throw Error('Pass installed game data and the private tool directory');
 const game=resolve(gameArgument),tools=resolve(toolsArgument);
 if(tools.toLowerCase().startsWith(game.toLowerCase()))throw Error('Generated files must stay outside the game');
-const source=await readFile(join(tools,'galgame-perform.ts'),'utf8');
+const source=await readFile(compiledReader?resolve(compiledReader):join(tools,'galgame-perform.ts'),'utf8');
 const signatures=[];
 for(const[layer,name]of[['Persistent','res_version_persist'],['StreamingAssets','res_version']]){
  try{signatures.push(await readFile(join(game,layer,name),'utf8'));}catch{signatures.push('');}
@@ -23,8 +23,11 @@ try{
   console.log('Installed cinematic timeline links are current.');process.exit(0);
  }
 }catch{/* An absent/incomplete cache must be rebuilt. */}
-const readerPath=join(tools,'cinematic-reader.mjs');
-await writeFile(readerPath,ts.transpileModule(source+'\nexport {unpackMhyFile};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
+const readerPath=compiledReader?resolve(compiledReader):join(tools,'cinematic-reader.mjs');
+if(!compiledReader){
+ const{default:ts}=await import('typescript');
+ await writeFile(readerPath,ts.transpileModule(source+'\nexport {unpackMhyFile};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);
+}
 const{unpackMhyFile}=await import(pathToFileURL(readerPath).href);
 async function local(name){for(const layer of['Persistent','StreamingAssets']){try{return await readFile(join(game,layer,name));}catch{}}}
 let catalog;

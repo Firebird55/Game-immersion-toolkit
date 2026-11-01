@@ -45,7 +45,7 @@ def seal(layout, root, value):
 
 def test_game_receipts_cannot_authorize_zzz_even_with_approval_strings():
     for kind in ('voice-links', 'cinematic-links', 'zzz', 'probe', '../probe'):
-        with pytest.raises(PreparationFailure, match='corresponding-source'):
+        with pytest.raises(PreparationFailure, match='only the authored probe'):
             reader.prebuilt_node_reader(kind, layout=SimpleNamespace(rights='approved', profile='full'))
 
 
@@ -121,6 +121,6 @@ def test_frozen_zzz_dispatch_stops_before_path_probe_or_metadata_download(tmp_pa
     monkeypatch.setattr(reader, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
     monkeypatch.setattr(zzz_assets.game_tools, 'refresh_zzz_metadata', lambda *args, **kwargs: pytest.fail('Unexpected download'))
     monkeypatch.setattr(zzz_assets.shutil, 'which', lambda *args: pytest.fail('Unexpected PATH discovery'))
-    with pytest.raises(PreparationFailure, match='corresponding-source'):
+    with pytest.raises(PreparationFailure, match='bundled ZZZ scene reader'):
         zzz_assets._links(tmp_path / 'absent-game', tmp_path / 'absent-data', 'revision', lambda _: None)
     assert list(tmp_path.iterdir()) == []

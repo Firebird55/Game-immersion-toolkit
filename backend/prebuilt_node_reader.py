@@ -1,8 +1,8 @@
 """Fixed app-local Node resources; no npm, TypeScript, PATH or game fallback.
 
-Only the authored synthetic probe may execute. The separately acquired ZZZ
-reader is deliberately blocked regardless of manifest approval-like strings.
-Its upstream constants and combined GPL/source obligations are not closed.
+The historical authored probe remains separate from the production reader.
+Production commands require a closed resource inventory and the shared pinned
+Node runtime; probe receipts and approval-like strings cannot authorize them.
 """
 from __future__ import annotations
 
@@ -90,7 +90,7 @@ class PrebuiltNodeReader:
 
 def prebuilt_node_reader(kind: str, *, layout=None) -> PrebuiltNodeReader:
     if kind != 'authored-probe':
-        raise _failure('The frozen ZZZ game reader remains blocked by unreviewed game constants, combined rights and GPL corresponding-source obligations. Keep using the source runtime.')
+        raise _failure('This historical resolver accepts only the authored probe. Production games require their verified reader resources.')
     layout = layout or discover_layout()
     if layout.mode != 'bundle':
         raise _failure('The prebuilt Node resolver requires an explicit frozen resource layout.')
@@ -171,7 +171,144 @@ def prebuilt_node_reader(kind: str, *, layout=None) -> PrebuiltNodeReader:
         raise _failure('The authored prebuilt Node resources are missing or incompatible. Re-extract a verified candidate; no npm, compiler or download was started.') from error
 
 
+ZZZ_PREFIX = 'toolchains/zzz/'
+ZZZ_SCHEMA = 'toolkit-zzz-reader-v1'
+ZZZ_SCRIPTS = ('extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-catalog.mjs',
+               'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs')
+ZZZ_DEPENDENCIES = {
+    'ooz/package.json': '44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1',
+    'ooz/index.js': '042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562',
+    'ooz/build/ooz.js': '5aed30da1da505793fd1e3383db4572797bcce8a0e9e71176d1f6a5d60ec0e6c',
+    'ooz/LICENSE': '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986',
+    'xxhash/package.json': 'f2c48d47dbdef2f9a3e0fb1025a1394726a1028ddee21f5c38452de50d00bcf2',
+    'xxhash/esm/xxhash-wasm.js': 'e3be9143c10d60a015448de1ceef383b8f2ea1fd2773a5a5c69973ed52d8325a',
+    'xxhash/LICENSE.md': '6f6b3afa109ea0d073b8e3cf0feea0aba07d357fcdebeef54dd34b3c0b3f9ac5',
+}
+
+
+def _digest(path):
+    with path.open('rb') as stream:
+        return hashlib.file_digest(stream, 'sha256').hexdigest()
+
+
+@dataclass(frozen=True)
+class ZzzReader:
+    executable: Path
+    root: Path
+    identity: str
+    work_root: Path
+
+    def command(self, mode, *, game_data, work):
+        """Only owned scene operations, reading a game and writing private work."""
+        if mode not in {'dialogue', 'comic', 'cinematic'}:
+            raise _failure('Unsupported ZZZ reader operation.')
+        game_data, work = Path(game_data), Path(work)
+        for path in (game_data, work):
+            if not path.is_absolute() or path != path.resolve():
+                raise _failure('ZZZ game and work paths must be explicit absolute normalized paths.')
+            _no_links(path)
+        if (not game_data.is_dir() or not work.is_dir() or work == self.work_root
+                or not _within(work, self.work_root) or _within(work, game_data)
+                or _within(game_data, work) or _within(work, self.root)):
+            raise _failure('ZZZ preparation requires a separate private work directory outside the game.')
+        # Existing metadata/output names cannot redirect generated data elsewhere.
+        for candidate in work.rglob('*'):
+            _no_links(candidate)
+        compiled = str(self.root / 'upstream/galgame-perform.mjs')
+        if mode == 'cinematic':
+            return [str(self.executable), str(self.root / 'scripts/extract_cinematic_links.mjs'),
+                    str(game_data), str(work), compiled]
+        return [str(self.executable), str(self.root / 'scripts/extract_voice_links.mjs'),
+                str(game_data), str(work), mode, 'language-links-' + mode + '.json', compiled]
+
+    environment = staticmethod(PrebuiltNodeReader.environment)
+
+
+def production_zzz_reader(*, layout=None) -> ZzzReader:
+    """Verify real packaged reader bytes; never use mutable/PATH code fallbacks."""
+    from .game_tools import READER_REVISION, READER_SHA
+    from .node_tools import ARCHIVES, NODE_VERSION, host_platform
+    layout = layout or discover_layout()
+    try:
+        if layout.mode != 'bundle' or layout.profile != 'runtime':
+            raise ValueError('Production profile required')
+
+        def resource(name):
+            _no_links(layout.resource_root / name)
+            return layout.resource(name)
+
+        manifest = resource(ZZZ_PREFIX + 'runtime.json')
+        if manifest.stat().st_size > 256 * 1024:
+            raise ValueError('Oversized reader manifest')
+        value = json.loads(manifest.read_text(encoding='utf-8'), object_pairs_hook=_unique_json)
+        target = host_platform()
+        if (value.get('schema') != ZZZ_SCHEMA or value.get('platform') != target
+                or value.get('source_commit') != layout.source_commit or value.get('source_dirty') is not False
+                or value.get('upstream_revision') != READER_REVISION or value.get('upstream_sha256') != READER_SHA):
+            raise ValueError('Incompatible reader identity')
+        files = value['files']
+        required = {'upstream/galgame-perform.ts', 'upstream/galgame-perform.mjs', 'upstream/LICENSE',
+                    'inputs.json', 'BUILD-RECIPE.json', 'TOOLKIT-LICENSE',
+                    *('scripts/' + name for name in ZZZ_SCRIPTS),
+                    *('dependencies/' + name for name in ZZZ_DEPENDENCIES)}
+        if not isinstance(files, dict) or not required.issubset(files):
+            raise ValueError('Incomplete reader inventory')
+        for name, entry in files.items():
+            relative_resource(name)
+            if (name not in required and not name.startswith(('sources/', 'notices/'))
+                    or not isinstance(entry, dict) or set(entry) != {'bytes', 'sha256'}
+                    or type(entry['bytes']) is not int or not 1 <= entry['bytes'] <= 150 * 1024 * 1024
+                    or not SHA.fullmatch(str(entry['sha256']))):
+                raise ValueError('Unexpected reader resource')
+        identity = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        if value.get('build_id') != identity:
+            raise ValueError('Reader inventory identity differs')
+        expected = {*files, 'runtime.json'}
+        if {name.removeprefix(ZZZ_PREFIX) for name in layout.resources if name.startswith(ZZZ_PREFIX)} != expected:
+            raise ValueError('Unbound reader files')
+        root = layout.resource_root / ZZZ_PREFIX
+        allowed_dirs = {parent.as_posix() for name in expected for parent in Path(name).parents if parent != Path('.')}
+        actual = set()
+        for candidate in root.rglob('*'):
+            _no_links(candidate)
+            name = candidate.relative_to(root).as_posix()
+            if candidate.is_dir():
+                if name not in allowed_dirs:
+                    raise ValueError('Unexpected reader directory')
+            elif candidate.is_file():
+                actual.add(name)
+            else:
+                raise ValueError('Unsupported reader file type')
+        if actual != expected:
+            raise ValueError('Reader files differ')
+        for name, entry in files.items():
+            path = resource(ZZZ_PREFIX + name)
+            if path.stat().st_size != entry['bytes'] or _digest(path) != entry['sha256']:
+                raise ValueError('Reader resource differs')
+        if files['upstream/galgame-perform.ts']['sha256'] != READER_SHA or any(
+                files['dependencies/' + name]['sha256'] != digest for name, digest in ZZZ_DEPENDENCIES.items()):
+            raise ValueError('Supplier reader bytes differ')
+        if value.get('inputs_sha256') != files['inputs.json']['sha256']:
+            raise ValueError('Supplier inputs identity differs')
+        node_manifest = resource('toolchains/node/runtime.json')
+        if node_manifest.stat().st_size > 16384:
+            raise ValueError('Oversized Node manifest')
+        node = json.loads(node_manifest.read_text(encoding='utf-8'), object_pairs_hook=_unique_json)
+        executable_name = 'node.exe' if target.startswith('win-') else 'node'
+        if (target not in ARCHIVES or node.get('schema') != 'toolkit-node-runtime-v1'
+                or node.get('platform') != target or node.get('version') != NODE_VERSION
+                or node.get('executable') != executable_name or node.get('archive_sha256') != ARCHIVES[target][1]):
+            raise ValueError('Incompatible Node runtime')
+        executable = resource('toolchains/node/' + executable_name)
+        if _digest(executable) != node.get('executable_sha256'):
+            raise ValueError('Node executable identity differs')
+        resource('toolchains/node/LICENSE')
+        return ZzzReader(executable, root, identity, layout.work_root)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RuntimeBundleError) as error:
+        raise _failure('The bundled ZZZ scene reader or Node runtime is missing or incompatible. Repair the toolkit installation; no system Node.js, npm or compiler fallback was started.') from error
+
+
 def require_zzz_reader():
     """Source behavior stays separate; a probe can never authorize a game."""
-    if discover_layout().mode == 'bundle':
-        prebuilt_node_reader('voice-links')
+    layout = discover_layout()
+    return production_zzz_reader(layout=layout) if layout.mode == 'bundle' else None

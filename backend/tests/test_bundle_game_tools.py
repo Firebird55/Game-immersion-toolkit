@@ -58,6 +58,17 @@ def test_verified_cyberpunk_runtime_uses_same_packaged_preparation(tmp_path, mon
     assert checked == [True, True]
 
 
+def test_verified_zzz_reader_uses_same_packaged_readiness_without_npm(tmp_path, monkeypatch):
+    from backend import prebuilt_node_reader
+    layout = included_runtime(tmp_path, monkeypatch)
+    checked = []
+    monkeypatch.setattr(prebuilt_node_reader, 'require_zzz_reader', lambda: checked.append(True))
+    monkeypatch.setattr(game_tools.shutil, 'which', lambda *_: pytest.fail('No developer tool discovery'))
+    assert game_tools.missing_tools(layout.application_root, 'zzz') == []
+    game_tools.prepare_tools(layout.application_root, 'zzz')
+    assert checked == [True, True]
+
+
 def test_missing_reader_does_not_disable_other_games_or_start_executable_downloads(tmp_path, monkeypatch):
     from backend import prebuilt_node_reader, nte_toolchain, cyberpunk_toolchain
     layout = included_runtime(tmp_path, monkeypatch)
