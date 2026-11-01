@@ -1,6 +1,10 @@
 # Native desktop delivery acceptance
 
-Updated 2026-10-31. This is remaining implementation and acceptance work under
+Updated 2026-11-01. Current accepted target results and final delivery steps are
+in the [dated verification record](native-delivery-verification-2026-11-01.md).
+The unchecked rows below retain the broader acceptance scope; later construction
+results supersede historical pending observations, without closing physical-device
+or unexecuted installer scenarios. This is acceptance work under
 [R19](r19-completion-plan.md) and the
 [desktop delivery plan](desktop-delivery-completion-plan.md). The owner's current
 request authorizes installer development and local replacement. It does not turn

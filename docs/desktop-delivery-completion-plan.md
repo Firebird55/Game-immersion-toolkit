@@ -1,6 +1,8 @@
 # Host, installer and cross-platform completion plan
 
-Status: remaining implementation, with native crash evidence recovered.
+Status: implementation integrated; final combined-head checks, release and local
+installation remain. See the [dated target verification](native-delivery-verification-2026-11-01.md)
+for accepted native results that supersede historical pending observations below.
 Tracks [issue #61](https://github.com/Firebird55/Game-immersion-toolkit/issues/61)
 alongside the [R19 completion plan](r19-completion-plan.md). R19 A/B owns exact
 runtime/helper closure; C owns supervision/handoff; D/E owns native and browser
