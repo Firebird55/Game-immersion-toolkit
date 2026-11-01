@@ -1,6 +1,12 @@
 name: Diagnose original Windows reader tag
 on:
   workflow_dispatch:
+  push:
+    branches: [codex/native-reader-probe-followup]
+    paths:
+      - .github/workflows/native-reader-tag-diagnostic.yml
+      - scripts/diagnose-native-reader-tag.py
+      - scripts/probe-native-unreal.py
 permissions:
   contents: read
 jobs:
