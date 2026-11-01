@@ -23,6 +23,8 @@ from .steam_games import STEAM_GAMES
 from .preparation_errors import PreparationFailure, public_failure
 from . import runtime_payload
 
+RUNTIME_STATUS_REFRESH_SECONDS = 5.0
+
 
 def _runtime_inventory_stamp(root: Path) -> tuple:
     """Invalidate the display cache on file changes without hashing GBs each poll.
@@ -126,6 +128,9 @@ class InstallationService:
         self._runtime_thread: threading.Thread | None = None
         self._runtime_verified_key = None
         self._runtime_verified = False
+        self._runtime_verified_inventory = None
+        self._runtime_next_check = 0.0
+        self._runtime_help = ''
         self._native: dict[str, subprocess.Popen] = {}
         self._native_owners = {}
         self._native_threads = set()
@@ -198,45 +203,58 @@ class InstallationService:
                   'help': 'This candidate is awaiting native capture, game-tool and distribution review.'}
         if layout.profile != 'runtime':
             return result
-        try:
-            receipt, receipt_digest = runtime_payload.read_installed_receipt(layout)
-            # The production release gate is independent of the older R19
-            # experiment. Its incomplete milestones cannot demote a release,
-            # and a candidate's profile alone cannot approve one.
-            if not runtime_payload.release_eligible(receipt):
-                return result
-            identity = tuple((name, getattr(layout, name)) for name in
-                             ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol'))
-            key = (str(layout.application_root), str(layout.executable), identity,
-                   receipt_digest, _runtime_inventory_stamp(layout.application_root))
-        except (OSError, ValueError, TypeError, RecursionError):
-            return {**result, 'help': 'Installed runtime verification is unavailable. Repair the toolkit installation.'}
+        identity = tuple((name, getattr(layout, name)) for name in
+                         ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol'))
+        key = (str(layout.application_root), str(layout.executable), identity)
+        # Setup polling must not read a large receipt or walk the installed
+        # payload on the ASGI event loop. This short-lived display cache is not
+        # the independent full verification required for activation or release.
         with self._lock:
-            if key == self._runtime_verified_key:
-                return {**result, 'ready': self._runtime_verified, 'help': (
-                    'Installed runtime matches its approved release inventory.' if self._runtime_verified else
-                    'Installed runtime verification failed. Repair the toolkit installation.')}
+            if key == self._runtime_verified_key and time.monotonic() < self._runtime_next_check:
+                return {**result, 'ready': self._runtime_verified, 'help': self._runtime_help}
             result['help'] = 'Checking the installed runtime against its approved release inventory.'
             if not self._paused and not (self._runtime_thread and self._runtime_thread.is_alive()):
                 self._runtime_thread = threading.Thread(target=self._verify_runtime,
-                    args=(layout, receipt, key), daemon=True, name='setup-runtime-verification')
+                    args=(layout, key), daemon=True, name='setup-runtime-verification')
                 self._runtime_thread.start()
         return result
 
-    def _verify_runtime(self, layout, receipt, key):
+    def _verify_runtime(self, layout, key):
         verified = False
+        inventory_key = None
+        help_text = 'Installed runtime verification failed. Repair the toolkit installation.'
         try:
-            verified = runtime_payload.validate(layout.application_root, receipt,
-                runtime_payload.executable_target(layout.executable), installed=True)
-            # A changed tree during verification is never published as ready.
-            if _runtime_inventory_stamp(layout.application_root) != key[-1]:
-                verified = False
+            receipt, receipt_digest = runtime_payload.read_installed_receipt(layout)
+            # Production release approval is independent of the R19 experiment.
+            # A candidate's profile alone cannot approve its actual inventory.
+            if runtime_payload.release_eligible(receipt):
+                stamp = _runtime_inventory_stamp(layout.application_root)
+                inventory_key = (key, receipt_digest, stamp)
+                with self._lock:
+                    unchanged = inventory_key == self._runtime_verified_inventory
+                    prior_verified = self._runtime_verified
+                verified = prior_verified if unchanged else runtime_payload.validate(layout.application_root, receipt,
+                    runtime_payload.executable_target(layout.executable), installed=True)
+                # Check both receipt and tree again. A replacement occurring
+                # between the first receipt read and scan cannot publish ready.
+                if (_runtime_inventory_stamp(layout.application_root) != stamp
+                        or runtime_payload.read_installed_receipt(layout)[1] != receipt_digest):
+                    verified = False
+                    inventory_key = None
+                if verified:
+                    help_text = 'Installed runtime matches its approved release inventory.'
+            else:
+                help_text = 'This candidate is awaiting native capture, game-tool and distribution review.'
         except (OSError, ValueError, TypeError, KeyError, RecursionError):
             logging.getLogger(__name__).warning('Installed runtime inventory verification failed.')
+            help_text = 'Installed runtime verification is unavailable. Repair the toolkit installation.'
         finally:
             with self._lock:
                 self._runtime_verified_key = key
                 self._runtime_verified = verified
+                self._runtime_verified_inventory = inventory_key
+                self._runtime_help = help_text
+                self._runtime_next_check = time.monotonic() + RUNTIME_STATUS_REFRESH_SECONDS
 
     def complete(self, auto_start: bool) -> None:
         with self._lock:

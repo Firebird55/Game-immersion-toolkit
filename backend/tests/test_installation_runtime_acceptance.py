@@ -166,6 +166,9 @@ def test_missing_or_mutated_inventory_invalidates_previously_ready_status(instal
         (root / 'extra').mkdir()
     else:
         (root / 'LICENSE').unlink()
+    # Setup is a bounded display cache. Activation independently verifies every
+    # payload byte; the next background refresh invalidates changed installs.
+    service._runtime_next_check = 0
     assert requirement(service)['ready'] is False
     assert finish_check(service)['ready'] is False
 
@@ -178,6 +181,58 @@ def test_unchanged_inventory_does_not_repeat_full_payload_hashing(installed, mon
     monkeypatch.setattr(installation.runtime_payload, 'validate', unexpected)
     assert requirement(service)['ready'] is True
     assert requirement(service)['ready'] is True
+    service._runtime_next_check = 0
+    assert finish_check(service)['ready'] is True
+
+
+@pytest.mark.parametrize('operation', ['receipt', 'inventory'])
+def test_slow_metadata_io_is_owned_off_the_setup_poll_thread(installed, monkeypatch, operation):
+    service, _, _ = installed
+    entered, release = threading.Event(), threading.Event()
+    target = installation.runtime_payload if operation == 'receipt' else installation
+    name = 'read_installed_receipt' if operation == 'receipt' else '_runtime_inventory_stamp'
+    original = getattr(target, name)
+    caller = threading.current_thread()
+    def slow(*args, **kwargs):
+        assert threading.current_thread() is not caller
+        entered.set()
+        assert release.wait(3)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(target, name, slow)
+    try:
+        assert requirement(service)['ready'] is False
+        assert entered.wait(1)
+        thread = service._runtime_thread
+        for _ in range(5):
+            assert requirement(service)['ready'] is False
+            assert service._runtime_thread is thread
+        with pytest.raises(TimeoutError):
+            service.quiesce(timeout=.01)
+        assert service._runtime_thread is thread and thread.is_alive()
+    finally:
+        release.set()
+        service.quiesce(timeout=3)
+    service.resume()
+    assert requirement(service)['ready'] is True
+
+
+def test_cached_polls_perform_no_receipt_or_tree_io(installed, monkeypatch):
+    service, _, _ = installed
+    assert finish_check(service)['ready'] is True
+    def unexpected(*args, **kwargs):
+        pytest.fail('Cached setup polls cannot read the receipt or scan the payload')
+    monkeypatch.setattr(installation.runtime_payload, 'read_installed_receipt', unexpected)
+    monkeypatch.setattr(installation, '_runtime_inventory_stamp', unexpected)
+    for _ in range(5):
+        assert requirement(service)['ready'] is True
+
+
+def test_layout_identity_change_invalidates_unexpired_display_cache(installed, monkeypatch):
+    service, layout, _ = installed
+    assert finish_check(service)['ready'] is True
+    monkeypatch.setattr(installation, 'discover_layout', lambda: replace(layout, build_id='different-build'))
+    assert requirement(service)['ready'] is False
+    assert finish_check(service)['ready'] is False
 
 
 def test_verification_is_retained_and_does_not_block_setup_or_escape_quiesce(installed, monkeypatch):
