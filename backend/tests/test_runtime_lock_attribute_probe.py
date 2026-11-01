@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import threading
 from types import SimpleNamespace
 
@@ -410,19 +411,21 @@ def closed_real_control_boundary(value):
     return dict(value)
 
 
-def run_grant_codec_control(executable, script, environment, *, diagnostic=None):
+def run_grant_codec_control(executable, script, environment, *, diagnostic=None, cwd=None, observe=None):
     import base64
-    unavailable = {'state': 'unavailable', 'stderr_present': False}
+    unavailable = ({'state': 'unavailable', 'stderr_present': False} if observe is None
+        else observe(None, b'', b''))
     boundary = {'refusal': 'none', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
     def publish_boundary():
         if diagnostic is not None:
             diagnostic.clear()
             diagnostic.update(closed_real_control_boundary(boundary))
     try:
+        options = {} if cwd is None else {'cwd': cwd}
         process = subprocess.Popen([executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
             base64.b64encode(script.encode('utf-16le')).decode('ascii')],
             env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW)
+            creationflags=subprocess.CREATE_NO_WINDOW, **options)
     except OSError:
         boundary['refusal'] = 'spawn-refused'
         publish_boundary()
@@ -500,9 +503,12 @@ def run_grant_codec_control(executable, script, environment, *, diagnostic=None)
     if failed or uncertain or not exited or any(len(value) > 8192 for value in captured.values()):
         if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
         publish_boundary()
+        if observe is not None:
+            return observe(None, captured.get('out', b''), captured.get('err', b''))
         unavailable['stderr_present'] = bool(captured.get('err'))
         return unavailable
-    observed = grant_codec_observation(code, captured.get('out', b''), captured.get('err', b''))
+    observed = (grant_codec_observation if observe is None else observe)(
+        code, captured.get('out', b''), captured.get('err', b''))
     if observed['state'] == 'unavailable': boundary['refusal'] = 'protocol-refused'
     publish_boundary()
     return observed
@@ -1159,3 +1165,390 @@ def test_actual_c7g5_decoder_under_inherited_and_exact_attempt_environment():
     if any(value['observation'] != {'state': 'passed', 'stderr_present': False}
             or value['boundary']['cleanup'] != 'child-exit-and-readers-finished' for value in results.values()):
         pytest.fail('Authored C7G5 codec controls refused: '+json.dumps(results,sort_keys=True,separators=(',',':')))
+
+
+# Separate test-only observations. None of these is a legacy-operation result.
+OPERATION_MARKERS = {
+    'prefix': ('fixture-validated', 'before-join-data', 'after-join-data',
+        'before-create-directory', 'after-create-directory', 'before-join-lock',
+        'after-join-lock', 'complete'),
+    'managed-io': ('fixture-validated', 'before-open', 'open-returned', 'closed', 'complete'),
+}
+_UNCONFIRMED_OPERATION_FIXTURES = []  # Private roots/actual owners, never printed or retried.
+
+
+def operation_observation(kind, code, output, stderr):
+    result = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': bool(stderr)}
+    if (kind not in OPERATION_MARKERS or type(output) is not bytes or len(output) > 8192
+            or type(stderr) is not bytes or len(stderr) > 8192):
+        return result
+    expected = OPERATION_MARKERS[kind]
+    position = 0
+    # Admit only complete literal lines; an unfinished line never becomes a marker.
+    for line in output.split(b'\n')[:-1]:
+        if line.endswith(b'\r'): line = line[:-1]
+        if position >= len(expected) or line != ('C7O|'+expected[position]).encode('ascii'):
+            return result
+        result['last_marker'] = expected[position]
+        position += 1
+    if (output.endswith(b'\n') and position == len(expected)
+            and type(code) is int and code == 0):
+        result['state'] = 'passed'
+    return result
+
+
+def closed_operation_observation(kind, value):
+    fallback = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False}
+    if (kind not in OPERATION_MARKERS or type(value) is not dict or set(value) != set(fallback)
+            or type(value['state']) is not str or value['state'] not in {'passed', 'unavailable'}
+            or type(value['last_marker']) is not str
+            or value['last_marker'] not in ('not-started', *OPERATION_MARKERS[kind])
+            or type(value['stderr_present']) is not bool
+            or (value['state'] == 'passed' and value['last_marker'] != 'complete')):
+        return fallback
+    return dict(value)
+
+
+class OperationFixture:
+    marker_name = '.r19-c7-operation-control'
+
+    def __init__(self, base=None):
+        base = Path(tempfile.gettempdir() if base is None else base).absolute()
+        module.guarded(base)
+        self.root = Path(tempfile.mkdtemp(prefix='r19-c7-operation-', dir=base))
+        self.closed = False
+        self.streams = []
+        # Retain from creation, even if nonce/marker/identity setup then fails.
+        _UNCONFIRMED_OPERATION_FIXTURES.append(self)
+        self.nonce = module.uuid.uuid4().hex
+        self.marker = ('owned-c7-operation:'+self.nonce).encode('ascii')
+        info = module.guarded(self.root)
+        self.identity = info.st_dev, info.st_ino
+        stream = (self.root/self.marker_name).open('xb')
+        self.streams.append(stream)
+        try:
+            if stream.write(self.marker) != len(self.marker):
+                raise ValueError('Authored operation fixture refused.')
+        finally:
+            stream.close()
+            self.streams.remove(stream)
+        self.validate()
+
+    def validate(self):
+        if self.streams:
+            raise ValueError('Authored operation fixture refused.')
+        info = module.guarded(self.root)
+        if not module.stat.S_ISDIR(info.st_mode) or (info.st_dev, info.st_ino) != self.identity:
+            raise ValueError('Authored operation fixture refused.')
+        path = self.root/self.marker_name
+        info = module.guarded(path)
+        if not module.stat.S_ISREG(info.st_mode) or info.st_size != len(self.marker) or info.st_nlink != 1:
+            raise ValueError('Authored operation fixture refused.')
+        stream = path.open('rb')
+        self.streams.append(stream)
+        try:
+            if stream.read(len(self.marker)+1) != self.marker:
+                raise ValueError('Authored operation fixture refused.')
+        finally:
+            stream.close()
+            self.streams.remove(stream)
+
+    def remove_after_confirmed_cleanup(self):
+        self.validate()
+        # Only the fixed authored entries may be removed. Never recurse, chmod,
+        # follow a link, delete an unknown entry or use an automatic destructor.
+        allowed = {self.marker_name, 'data', 'io.lock'}
+        if set(os.listdir(self.root))-allowed:
+            raise ValueError('Authored operation fixture refused.')
+        data = self.root/'data'
+        if 'data' in os.listdir(self.root):
+            info = module.guarded(data)
+            if not module.stat.S_ISDIR(info.st_mode) or os.listdir(data):
+                raise ValueError('Authored operation fixture refused.')
+            data.rmdir()
+        file = self.root/'io.lock'
+        if 'io.lock' in os.listdir(self.root):
+            info = module.guarded(file)
+            if not module.stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size != 0:
+                raise ValueError('Authored operation fixture refused.')
+            file.unlink()
+        (self.root/self.marker_name).unlink()
+        self.root.rmdir()
+        self.closed = True
+        _UNCONFIRMED_OPERATION_FIXTURES.remove(self)
+
+
+def operation_control_script(kind, nonce):
+    if kind not in OPERATION_MARKERS or type(nonce) is not str or not module.re.fullmatch('[0-9a-f]{32}', nonce):
+        raise ValueError('Authored operation source refused.')
+    # No root/source/profile path is in the command. CurrentDirectory is the
+    # fresh Popen cwd, validated privately by the parent before the child starts.
+    script = r'''$ErrorActionPreference='Stop'
+$Root=[Environment]::CurrentDirectory
+if (-not [IO.Path]::IsPathRooted($Root) -or
+    -not [string]::Equals([IO.Path]::GetFullPath($Root),$Root,[StringComparison]::OrdinalIgnoreCase) -or
+    ([int][IO.File]::GetAttributes($Root) -band 1040) -ne 16) { throw 'Authored fixture refused.' }
+$marker=[IO.Path]::Combine($Root,'.r19-c7-operation-control')
+if (([int][IO.File]::GetAttributes($marker) -band 1040) -ne 0) { throw 'Authored fixture refused.' }
+$expected=[Text.Encoding]::ASCII.GetBytes('owned-c7-operation:__NONCE__')
+$source=[IO.File]::Open($marker,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+try {
+    if ($source.Length -ne $expected.Length) { throw 'Authored fixture refused.' }
+    for ($index=0; $index -lt $expected.Length; $index++) {
+        if ($source.ReadByte() -ne $expected[$index]) { throw 'Authored fixture refused.' }
+    }
+    if ($source.ReadByte() -ne -1) { throw 'Authored fixture refused.' }
+} finally { $source.Dispose() }
+[Console]::Out.WriteLine('C7O|fixture-validated')
+'''.replace('__NONCE__', nonce)
+    if kind == 'prefix':
+        script += r'''[Console]::Out.WriteLine('C7O|before-join-data')
+$data = Join-Path $Root 'data'
+[Console]::Out.WriteLine('C7O|after-join-data')
+[Console]::Out.WriteLine('C7O|before-create-directory')
+New-Item -ItemType Directory -Path $data -Force | Out-Null
+[Console]::Out.WriteLine('C7O|after-create-directory')
+[Console]::Out.WriteLine('C7O|before-join-lock')
+$path = Join-Path $data 'companion-operation.lock'
+[Console]::Out.WriteLine('C7O|after-join-lock')
+'''
+    else:
+        script += r'''$path=[IO.Path]::Combine($Root,'io.lock')
+$file=$null
+[Console]::Out.WriteLine('C7O|before-open')
+try {
+    $file=[IO.File]::Open($path,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    [Console]::Out.WriteLine('C7O|open-returned')
+} finally {
+    if ($null -ne $file) { $file.Dispose(); [Console]::Out.WriteLine('C7O|closed') }
+}
+'''
+    return script + "[Console]::Out.WriteLine('C7O|complete')\nexit 0\n"
+
+
+def measure_operation_controls(executable, parent, *, run=run_grant_codec_control, make=OperationFixture):
+    environment = module.legacy_environment(dict(parent))
+    results = {kind: {'observation': operation_observation(kind, None, b'', b''),
+        'boundary': closed_real_control_boundary(None), 'fixture': 'not-created'}
+        for kind in OPERATION_MARKERS}
+    for kind in OPERATION_MARKERS:
+        boundary, fixture = {}, None
+        value = operation_observation(kind, None, b'', b'')
+        fixture_state = 'retained'
+        try:
+            fixture = make()
+            fixture.validate()
+            value = run(executable, operation_control_script(kind, fixture.nonce), dict(environment),
+                diagnostic=boundary, cwd=fixture.root,
+                observe=lambda code, out, err: operation_observation(kind, code, out, err))
+        except Exception:
+            value = operation_observation(kind, None, b'', b'')
+        boundary = closed_real_control_boundary(boundary)
+        if boundary['cleanup'] == 'child-exit-and-readers-finished' and fixture is not None:
+            try:
+                fixture.remove_after_confirmed_cleanup()
+                fixture_state = 'removed-after-confirmed-cleanup'
+            except Exception:
+                pass  # The private fixture remains owned/retained; never retry.
+        results[kind] = {'observation': closed_operation_observation(kind, value),
+            'boundary': boundary, 'fixture': fixture_state}
+        if boundary['cleanup'] != 'child-exit-and-readers-finished' or fixture_state == 'retained':
+            break  # Never start B while A ownership or fixture cleanup is unknown.
+    return results
+
+
+def require_operation_controls(results):
+    if (set(results) != set(OPERATION_MARKERS) or any(
+            value['observation'] != {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+            or value['boundary'] != {'refusal': 'none', 'stderr_prefix': 'empty',
+                'cleanup': 'child-exit-and-readers-finished'}
+            or value['fixture'] != 'removed-after-confirmed-cleanup' for value in results.values())):
+        pytest.fail('Authored C7 operation controls refused: '+json.dumps(results,sort_keys=True,separators=(',',':')))
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Protected Windows operation boundary controls unavailable locally')
+def test_actual_preopen_prefix_and_separate_managed_io_under_attempt_environment():
+    try: executable = module.Windows().powershell()
+    except Exception: pytest.fail('Authored operation executable unavailable.')
+    require_operation_controls(measure_operation_controls(executable, dict(os.environ)))
+
+
+def operation_output(kind, *, count=None, newline=b'\r\n'):
+    markers = OPERATION_MARKERS[kind] if count is None else OPERATION_MARKERS[kind][:count]
+    return b''.join(('C7O|'+item).encode('ascii')+newline for item in markers)
+
+
+@pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
+@pytest.mark.parametrize('mutation', ['duplicate', 'reordered', 'unknown', 'trailing', 'blank',
+    'unterminated', 'partial', 'private', 'oversized', 'exit', 'stderr'])
+def test_operation_markers_require_exact_order_and_complete_terminal_without_private_output(kind, mutation):
+    raw = operation_output(kind); code, err = 0, b''
+    if mutation == 'duplicate': raw = raw.splitlines(keepends=True)[0]+raw
+    if mutation == 'reordered': raw = operation_output(kind, count=2).splitlines(keepends=True)[1]+raw
+    if mutation == 'unknown': raw = b'C7O|private-unknown\n'+raw
+    if mutation == 'trailing': raw += b'private-tail\n'
+    if mutation == 'blank': raw += b'\n'
+    if mutation == 'unterminated': raw = raw[:-2]
+    if mutation == 'partial': raw = operation_output(kind, count=2)+b'C7O|priv'
+    if mutation == 'private': raw = b'private-path\n'
+    if mutation == 'oversized': raw += b'x'*8192
+    if mutation == 'exit': code = 2
+    if mutation == 'stderr': err = b'private-stderr'
+    result = operation_observation(kind, code, raw, err)
+    assert result['state'] == ('passed' if mutation == 'stderr' else 'unavailable')
+    assert result['stderr_present'] is (mutation == 'stderr')
+    assert 'priv' not in json.dumps(result)
+    if mutation == 'partial': assert result['last_marker'] == OPERATION_MARKERS[kind][1]
+    if mutation == 'unterminated': assert result['last_marker'] == OPERATION_MARKERS[kind][-2]
+
+
+@pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
+@pytest.mark.parametrize('newline', [b'\n', b'\r\n'])
+def test_operation_timeout_can_preserve_only_last_complete_marker_and_never_success(kind, newline):
+    raw = operation_output(kind, count=2, newline=newline)
+    assert operation_observation(kind, None, raw, b'') == {
+        'state': 'unavailable', 'last_marker': OPERATION_MARKERS[kind][1], 'stderr_present': False}
+    assert operation_observation(kind, None, operation_output(kind), b'')['state'] == 'unavailable'
+    assert operation_observation(kind, 0, operation_output(kind, newline=newline), b'') == {
+        'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+
+
+@pytest.mark.parametrize('mutation', ['extra', 'private-marker', 'private-state', 'numeric', 'false-pass'])
+def test_operation_projection_cannot_print_an_injected_private_runner_value(mutation):
+    value = {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+    if mutation == 'extra': value['raw'] = 'private-path'
+    if mutation == 'private-marker': value['last_marker'] = 'private-path'
+    if mutation == 'private-state': value['state'] = 'private-state'
+    if mutation == 'numeric': value['stderr_present'] = 1
+    if mutation == 'false-pass': value['last_marker'] = 'before-join-data'
+    observed = closed_operation_observation('prefix', value)
+    assert observed == {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False}
+    assert 'private' not in json.dumps(observed)
+
+
+@pytest.mark.parametrize('mutation', ['marker-bytes', 'marker-size', 'root-link', 'marker-link', 'unknown-entry'])
+def test_private_operation_fixture_refuses_changed_nonce_links_and_unknown_entries_before_cleanup(tmp_path, mutation):
+    fixture = OperationFixture(tmp_path)
+    marker = fixture.root/fixture.marker_name
+    outside = tmp_path/'outside'; outside.mkdir()
+    sentinel = outside/'sentinel'; sentinel.write_bytes(b'private-owned-outside')
+    moved = None
+    if mutation == 'marker-bytes': marker.write_bytes(b'x'*len(fixture.marker))
+    if mutation == 'marker-size': marker.write_bytes(fixture.marker+b'x')
+    if mutation == 'root-link':
+        moved = fixture.root.with_name(fixture.root.name+'-moved')
+        fixture.root.rename(moved); fixture.root.symlink_to(outside, target_is_directory=True)
+    if mutation == 'marker-link': marker.unlink(); marker.symlink_to(sentinel)
+    if mutation == 'unknown-entry': (fixture.root/'unexpected-private-file').write_bytes(b'keep')
+    with pytest.raises((ValueError, module.Refused)): fixture.remove_after_confirmed_cleanup()
+    assert fixture in _UNCONFIRMED_OPERATION_FIXTURES and not fixture.closed
+    assert sentinel.read_bytes() == b'private-owned-outside'
+    if mutation == 'unknown-entry': assert (fixture.root/'unexpected-private-file').read_bytes() == b'keep'
+    # These synthetic fixtures have no process. Restore only our test mutations
+    # explicitly, outside the control's deliberately non-retrying cleanup path.
+    if moved:
+        fixture.root.unlink(); moved.rename(fixture.root)
+    if mutation == 'marker-link': marker.unlink()
+    marker.write_bytes(fixture.marker)
+    if mutation == 'unknown-entry': (fixture.root/'unexpected-private-file').unlink()
+    fixture.remove_after_confirmed_cleanup()
+
+
+@pytest.mark.parametrize('failure', ['none', 'timeout', 'stderr', 'unknown-observation', 'cleanup', 'fixture-cleanup'])
+def test_operation_pair_owns_private_cwds_and_only_cleanup_uncertainty_blocks_second_child(tmp_path, failure):
+    calls, fixtures = [], []
+    parent = {'SystemRoot': 'authored-system', 'TEMP': str(tmp_path), 'PATH': 'private-tools'}
+    before = dict(parent)
+    def make():
+        fixture = OperationFixture(tmp_path); fixtures.append(fixture); return fixture
+    def run(executable, script, environment, *, diagnostic, cwd, observe):
+        index = len(calls); fixture = fixtures[index]
+        assert executable == 'authored-protected-image' and cwd == fixture.root
+        assert str(cwd) not in script and str(tmp_path) not in script
+        assert environment == module.legacy_environment(parent) and 'PATH' not in environment
+        assert fixture.marker == ('owned-c7-operation:'+fixture.nonce).encode('ascii')
+        fixture.validate(); calls.append(cwd)
+        if index == 0: (cwd/'data').mkdir()
+        else:
+            with (cwd/'io.lock').open('xb') as stream: assert stream.write(b'') == 0
+        diagnostic.update(refusal='none', stderr_prefix='empty', cleanup='child-exit-and-readers-finished')
+        kind = tuple(OPERATION_MARKERS)[index]
+        if index == 0 and failure == 'timeout':
+            diagnostic['refusal'] = 'wait-deadline'
+            return observe(None, operation_output(kind, count=2), b'')
+        if index == 0 and failure == 'cleanup': diagnostic['cleanup'] = 'unconfirmed'
+        if index == 0 and failure == 'fixture-cleanup': (cwd/'unknown').touch()
+        if index == 0 and failure == 'unknown-observation':
+            return {'state': 'private-state', 'last_marker': str(cwd), 'stderr_present': False}
+        return observe(0, operation_output(kind), b'private-stderr' if index == 0 and failure == 'stderr' else b'')
+    result = measure_operation_controls('authored-protected-image', parent, run=run, make=make)
+    assert parent == before and len(calls) == (1 if failure in {'cleanup', 'fixture-cleanup'} else 2)
+    assert len(set(calls)) == len(calls) and str(tmp_path) not in json.dumps(result)
+    assert set(result) == set(OPERATION_MARKERS)
+    if failure in {'cleanup', 'fixture-cleanup'}:
+        assert result['managed-io']['fixture'] == 'not-created'
+        assert result['managed-io']['observation']['last_marker'] == 'not-started'
+    if failure == 'none': require_operation_controls(result)
+    else:
+        with pytest.raises(pytest.fail.Exception): require_operation_controls(result)
+    for fixture in fixtures:
+        if not fixture.closed:
+            assert fixture.root.exists() and fixture in _UNCONFIRMED_OPERATION_FIXTURES
+            if failure == 'fixture-cleanup': (fixture.root/'unknown').unlink()
+            fixture.remove_after_confirmed_cleanup()  # No actual child was created by this fake.
+        assert not fixture.root.exists()
+
+
+def test_operation_runner_passes_private_cwd_only_to_popen_and_observes_partial_timeout(monkeypatch, tmp_path):
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    calls = []
+    class Process:
+        def __init__(self, command, **kwargs):
+            assert str(tmp_path) not in repr(command) and kwargs['cwd'] == tmp_path
+            assert kwargs['env'] == {'SystemRoot': 'authored-system'}
+            self.stdout = io.BytesIO(operation_output('prefix', count=2)); self.stderr = io.BytesIO(b'')
+            self.waits = 0
+        def wait(self, timeout):
+            calls.append(('wait', timeout)); self.waits += 1
+            if self.waits == 1: raise subprocess.TimeoutExpired('private-program', timeout)
+            return 0
+        def kill(self): calls.append(('kill',))
+    monkeypatch.setattr(subprocess, 'Popen', Process)
+    boundary = {}
+    result = run_grant_codec_control('authored-image', 'authored-source', {'SystemRoot': 'authored-system'},
+        cwd=tmp_path, diagnostic=boundary,
+        observe=lambda code, out, err: operation_observation('prefix', code, out, err))
+    assert result == {'state': 'unavailable', 'last_marker': 'before-join-data', 'stderr_present': False}
+    assert boundary == {'refusal': 'wait-deadline', 'stderr_prefix': 'empty',
+        'cleanup': 'child-exit-and-readers-finished'}
+    assert calls == [('wait', 10), ('kill',), ('wait', 5)]
+
+
+@pytest.mark.parametrize('mode', ['xb', 'rb'])
+def test_operation_fixture_retains_actual_stream_on_unconfirmed_marker_close(tmp_path, monkeypatch, mode):
+    original = Path.open
+    streams, fixtures = [], []
+    class CloseFault:
+        def __init__(self, stream): self.stream, self.closes = stream, 0
+        def write(self, value): return self.stream.write(value)
+        def read(self, count): return self.stream.read(count)
+        def close(self):
+            self.closes += 1
+            raise OSError('private-marker-close')
+    def open_file(path, actual_mode='r', *args, **kwargs):
+        stream = original(path, actual_mode, *args, **kwargs)
+        if path.name == OperationFixture.marker_name and actual_mode == mode:
+            value = CloseFault(stream); streams.append(value); return value
+        return stream
+    prior = list(_UNCONFIRMED_OPERATION_FIXTURES)
+    monkeypatch.setattr(Path, 'open', open_file)
+    with pytest.raises(OSError): OperationFixture(tmp_path)
+    fixture = next(value for value in _UNCONFIRMED_OPERATION_FIXTURES if value not in prior)
+    assert fixture.streams == streams and streams[0].closes == 1
+    with pytest.raises(ValueError): fixture.remove_after_confirmed_cleanup()
+    assert streams[0].closes == 1 and fixture.root.exists() and not fixture.closed
+    # Explicitly release this authored injected resource; production cleanup
+    # never retries an uncertain stream close or removes its fixture.
+    streams[0].stream.close(); fixture.streams.clear()
+    monkeypatch.setattr(Path, 'open', original)
+    fixture.remove_after_confirmed_cleanup()

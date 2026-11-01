@@ -599,6 +599,79 @@ The producer, public mechanism schema/publisher, environment policy and deadline
 remain unchanged. The initial native refusal above remains intact; rights,
 ordinary-user Windows 11, keeper-loss and R19 gates remain open.
 
+## Actual v5 baseline refusal and next test-only observations
+
+Exact `d35cd89fb31afa35cf4675709591860f99969e19`
+[run 41308862562](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41308862562),
+job 124854867354, passed all 216 Windows contracts in 4.31 seconds, including
+the two actual inherited/Attempt decoder children. The subsequent mechanism
+failed at `legacy-baseline`, with no accepted observations. Its last complete
+checkpoint was parent `receive-result`, script `operationentered`, child
+`not-signaled`; failure was `protocol-refused`, cleanup was
+`unconfirmed-fixture-retained`, conversion context was null and every
+acceptance/production gate remained closed. The source before/after digest was
+`5f899e1da29ed710eba666bc7bb4c7e5884d9b3af42f7deb57e2e3f8f322a335`.
+The public legacy-source digest was the reviewed Windows CRLF pin
+`f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e`.
+That negative receipt is not relabeled by the following source candidate.
+
+`operationentered` is sent immediately **before** calling the unchanged
+`Enter-CompanionOperation`. It does not prove function entry, File.Open,
+attribute arming or absence of a later action. The source body first uses
+Join-Path, `New-Item ... | Out-Null`, and another Join-Path before its managed
+exclusive open. [Join-Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/join-path?view=powershell-5.1)
+and [New-Item](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/new-item?view=powershell-5.1)
+belong to Microsoft.PowerShell.Management;
+[Out-Null is in Core](https://learn.microsoft.com/en-us/powershell/scripting/whats-new/cmdlet-versions?view=powershell-7.4).
+This identifies static prerequisites, without proving a loading cause or
+authorizing an Import-Module or environment repair.
+
+One additional Windows-only test therefore measures at most two fresh children
+after the separate decoder preflight, using the same protected executable,
+legacy argument mode and captured 15-name Attempt environment:
+
+1. **Prefix:** the exact three pre-Open source statements, including the original
+   `New-Item -ItemType Directory -Path $data -Force | Out-Null` pipeline, with
+   fixed managed before/after markers around each statement. It never opens the
+   mechanism lock or calls a replacement legacy function.
+2. **Managed IO:** managed Path.Combine followed by the same
+   File.Open(OpenOrCreate, ReadWrite, None) and Dispose on a different authored
+   empty file. Fixed markers distinguish before-open, open-returned and closed.
+   This is only a basic IO diagnostic. It cannot count as an actual legacy open
+   or replace the required original Enter call, source hash/AST verification,
+   attribute/identity/time checks, owner-loss exclusion or cleanup acceptance.
+
+Each child uses its own newly created marked temporary cwd. Parent root-first
+non-link metadata, directory identity and exact nonce bytes are rechecked before
+launch and deletion. The encoded command/arguments contain no fixture, source
+or profile path; managed CurrentDirectory supplies the root. The child checks
+the directory and non-reparse marker and reads only its exact bounded nonce
+before any diagnostic action. No real grant, repository/data root, attributes,
+account, import, module discovery command, environment addition or warm-up is
+supplied. There is no automatic READONLY clearing.
+
+The existing runner retains its default decoder behavior. Only these controls
+use its optional cwd and closed marker observer. Each still has a ten-second
+wait, 8,192 bytes per stdout/stderr stream, the existing five-second cleanup wait
+and bounded reader joins. A timeout with confirmed direct-child/reader/stream
+cleanup may proceed to the second measurement; uncertain cleanup stops further
+creation. Both fixed observation slots are present before the joint assertion;
+an unstarted second child remains unavailable/not-started, never a fabricated
+measurement. Confirmed cleanup is required before removing only the fixed
+authored entries. Unknown entries, replaced identities, links or uncertain
+stream closes retain the private workmap/objects, with no recursive destructor,
+chmod, blind delete or cleanup retry.
+
+Only ordered complete literal marker lines are observed. Duplicate, reordered,
+unknown, malformed or trailing output, an unfinished terminal line, nonzero
+exit, stderr, deadline or unconfirmed cleanup cannot pass. Incomplete stdout
+may retain only the last complete admitted marker; even a complete final marker
+with a timeout remains unavailable. Marker absence is not evidence an action
+did not occur. Direct Popen/stdout controls do not recreate the mechanism's
+named pipe, Job or retained creation authority and cannot identify its cause.
+Both new controls are **native pending**; the producer, schema, original Enter
+bytes, actual mechanism criteria and all rights/Win11/R18/R19 gates are unchanged.
+
 ## Current source validation
 
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
@@ -613,7 +686,11 @@ One Windows-only preflight case exercises the exact v5 .NET codec using authored
 StringReader inputs in both actual environment sets. It performs no C7 fixture,
 source file, native file API or legacy operation. It is explicitly skipped on
 other hosts and cannot substitute for the actual mechanism. The old v4 engine
-and literal-control tests remain historical, not active v5 gates. Run
+and literal-control tests remain historical, not active v5 gates. A separate
+Windows-only case covers the two authored prefix/managed-IO observations above;
+portable regressions cover strict markers, private cwd/nonce admission,
+malformed/partial output, two-slot ordering, and actual retained marker streams
+on injected close failure. Neither local skip establishes Windows behavior. Run
 `python -B -m pytest --noconftest -q backend/tests/test_runtime_lock_attribute_probe.py`
 and documentation checks. Shared process-helper evidence remains separate.
 No installer, old ZIP edit, global writer admission, real data copy, owner-aware
