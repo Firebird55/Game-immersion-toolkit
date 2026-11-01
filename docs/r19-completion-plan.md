@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `a2e1fb6`, 1,379 Windows contracts without skips, native/C1/cold-slot, both living-keeper cases and C3–C6 passed, including SQL Phase A's 66 known statement sites; independent reviews bind seven archives/28 entries and 96 exact Git inputs | Latest complete bounded frozen checkpoint; subsequent 0f93531 fails an affected contract before EXE/C1–C6 and has no integrated archive. Its six positive archives and failed C7 pair do not supersede a2e. Main/reference/frontend image `20261021.278.1`, other four jobs image `20261030.294.1`. Same-head FFmpeg/BSD source replay is separate and supplies no runtime/MP3/CCS-rights approval. C7 fails its authored paired control before mechanism/upload, with zero artifacts. Historical negatives remain; later Phase B/C7 environment work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `11bf1ec`, 1,436 Windows contracts without skips, one warning and 197.70 seconds, then native/C1/cold-slot, both bounded living-keeper cases and C3–C6 passed; seven archives/28 entries and 106 named immutable Git inputs independently verified | Latest complete bounded frozen checkpoint. Historical 0f contract failure and b598 C6 failure remain negative. Main image `20261030.294.1`, other six jobs `20261021.278.1`. Separate same-head C7 controls fail before mechanism/upload with zero artifacts; class and StringWriter are not distinguished. Later SQL file-replacement/P2 and MP3/source-license work is excluded. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -270,6 +270,50 @@ No individual elapsed time or environment/search-path cause is inferred. Later
 local deterministic test fixes, extra C7 search-path controls and ExportLock
 work are outside that run. All physical/global/warm, keeper-loss, exact-output
 rights, ordinary-user Windows 11 and R19 gates remain open.
+
+The later `b598dc5` [run 41292558284](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41292558284)
+passed 1,434 contracts without skips, one warning, 141.18 seconds, then built
+and passed C1/cold/both bounded living-keeper/C3–C5 observations. C6 failed:
+`unexpected-data-copy-failure`, fixed phase/context `strict-drain-complete`,
+cleanup `unconfirmed-recovery-required`. The 1,933-byte failed receipt has zero
+approved cohorts/signals, three source-operation blocks and not-approved
+copy/grammar/pointer fields. The phase label proves no completed drain; the
+receipt proves neither absence of physical operations nor a native cause.
+Eight verified archives/29 entries and 104 named Git inputs preserve this
+partial checkpoint. Its separate [C7 run 41292608812](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41292608812)
+fails authored controls (223 passed, one failed, no skips, 44.43 seconds),
+image `20261030.294.1`, with zero artifacts and mechanism/upload skipped.
+Attempt plus all three system-search controls are unavailable/wait-deadline;
+Inherited is parsed/null/no stderr. Direct child/readers cleanup supplies no
+descendant, causal environment or actual-mechanism proof.
+
+The subsequent `11bf1ec` [run 41297097507](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297097507)
+is now the latest complete bounded checkpoint: 1,436 passed, no skips, one
+warning, 197.70 seconds, followed by C1/cold/both bounded living-keeper/C3–C6
+passes. The historical a2e/0f cutoff statements above retain their chronological
+meaning; neither 0f nor b598 is reclassified. Seven archives/28 entries and 106
+immutable Git inputs bind 1,449 files/642 directories/620,182,894 bytes, inventory
+SHA-256 `682313b3966629169aea61b69003909186dc4d3b5d0a4c017ef6c7c7e01c79c4`.
+The 473 A2/P1 records and all 113 notice references/104 hashes across 57
+components were checked. Main used image `20261030.294.1`; six other jobs used
+`20261021.278.1`. Xiph remains CMake 4.4.4/compiler 19.51.36260.0; the separate
+FFmpeg replay recipe's CMake 4.4.5 was not applied to it.
+
+C6 again exercises actual frozen HTTP/SQLite with fixed mocked remote grammar state 0,
+local state 0→4, one copied scoped override at 4 and fresh source readback 4. This is a
+bounded authored fixture, not complete populated migration. The captured ledger
+type and bundle-aware language default are in this head; later SQL physical-file
+tests/P2 and MP3/source-license work are not. The separate [C7 run 41297534444](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297534444)
+fails with 268 passed/one failed/no skips/55.49 seconds on image
+`20261021.278.1`: five filtered controls end at `before-conversion` with parent
+wait-deadline; both inherited controls are parsed with last frame
+`after-conversion`. All seven
+direct cleanups are confirmed. Authored class versus StringWriter, causal
+environment, descendant cleanup and the actual mechanism remain unresolved.
+Mechanism/upload are skipped, with zero artifacts. The [ledger](r19-frozen-checkpoint-20261031.json)
+retains all 96 historical records unchanged plus these four new results.
+Physical/global/warm, keeper-loss, complete source/rights, Windows 11 and full
+R19 gates remain open; no installer or PR #59 change follows.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

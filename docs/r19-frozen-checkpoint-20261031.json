@@ -8474,5 +8474,1366 @@
       }
     },
     "producer_sha256": "e55ae6c407d7449b52b27286364eaf4fc11b13f495cf754737e55d1992e89b3f"
+  },
+  "negative_grammar_copy_runtime_checkpoint_b598dc5": {
+    "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+    "run": 41292558284,
+    "build_id": "runtime-experiment-41292558284-1",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41292558284",
+    "status": "partial-negative-C6-checkpoint",
+    "workflow": "failure",
+    "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+    "contracts": {
+      "passed": 1434,
+      "seconds": 141.18,
+      "skipped": 0,
+      "summary": "1434 passed, 1 warning in 141.18s (0:02:21)",
+      "warnings": 1
+    },
+    "artifacts": [
+      {
+        "id": 13078866448,
+        "name": "r19-frozen-data-copy-grammar-failure-observations",
+        "bytes": 995,
+        "sha256": "6fdeafbec20457df58a31350440ea4f8ca6862090387b2d20b9fa799d505d9c6",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558284
+      },
+      {
+        "id": 13077978633,
+        "name": "r19-integrated-runtime-metadata",
+        "bytes": 1337417,
+        "sha256": "81a2098025fbab03b98f93290e5f6b3cdd834653c227b6e0efad1648463f38a4",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558284
+      },
+      {
+        "id": 13077768584,
+        "name": "r19-reference-codec-source-and-metadata",
+        "bytes": 1095193,
+        "sha256": "61728c81438afd8b1c867532c38cefc709dfb9be01166c95fa4cf849fa97a828",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558284
+      },
+      {
+        "id": 13078260066,
+        "name": "r19-managed-helper-metadata",
+        "bytes": 1684,
+        "sha256": "9f06769adce4b1839190cea76927fd37aa9df7c58ecf8db90e03d143e257d871",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558253
+      },
+      {
+        "id": 13077534365,
+        "name": "r19-node-helper-metadata",
+        "bytes": 674,
+        "sha256": "fb89f176e3d1edd4cc65f5fea8f244cb6f91913e77b11cdd1e2453be4b1a1615",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558253
+      },
+      {
+        "id": 13078235331,
+        "name": "r19-diagnostic-metadata",
+        "bytes": 872,
+        "sha256": "05c48753eecb768bf250f31d29593a6c0e760264a6eccc695533f0691259e0fb",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558257
+      },
+      {
+        "id": 13078115047,
+        "name": "r19-protected-test-state",
+        "bytes": 538,
+        "sha256": "2a3b234170539c716d1aa787b9e2015bfca2e7aabb97eaa218139c9559151a7c",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558257
+      },
+      {
+        "id": 13077925967,
+        "name": "r19-frontend-experiment-metadata",
+        "bytes": 3220,
+        "sha256": "8454a4afbf12494e6d7b5de6ae2e92a028cfec66341082603917004d456a113e",
+        "head_sha": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+        "run": 41292558257
+      }
+    ],
+    "metadata_archives": 8,
+    "metadata_entries": 29,
+    "integrated_entries": 13,
+    "named_git_inputs": 104,
+    "job_images": [
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "extracted-runtime",
+        "job_id": 124806656901
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "reference-codec-source",
+        "job_id": 124806656925
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "node-probe",
+        "job_id": 124806629426
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261030.294.1",
+        "job": "managed-probe",
+        "job_id": 124806629692
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "protected-test-state",
+        "job_id": 124806629640
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261030.294.1",
+        "job": "diagnostic (diagnostic)",
+        "job_id": 124806629579
+      },
+      {
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "diagnostic (frontend-experiment)",
+        "job_id": 124806629410
+      }
+    ],
+    "file_count": 1449,
+    "directory_count": 642,
+    "bytes": 620182699,
+    "inventory_sha256": "cd705d6460c3b298eb3817ab41763be5853b4d56029253b6b19f2c5c75fc1f2f",
+    "main_executable_sha256": "7f1ad4dd049b9c0a321f4da238e486d55d8a1ba3b8b7fc7f22fb73889d504655",
+    "asr_executable_sha256": "3d184fe4d94a9915980fe9a36d92860aa72837bddb0c0ad852b3659ce2e15248",
+    "A2_P1_records": 473,
+    "native_input_ownership_counts": {
+      "ambiguous": 7,
+      "exact": 462,
+      "generated": 2,
+      "unmatched": 2
+    },
+    "notice_components": 57,
+    "notice_references": 113,
+    "distinct_notice_hashes": 104,
+    "retained_python_supplier_texts": 20,
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_kit_inputs": 6,
+    "reference_cmake": "cmake version 4.4.4",
+    "reference_compiler": "19.51.36260.0",
+    "FFmpeg_replay_recipe_CMake_4_4_5_applies": false,
+    "C1_host": [
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "stop",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "exit-frontend",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "parent-crash",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "unprepared-index",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "case": "foreign-ready-listeners",
+        "outside_job_services": "retained-fixture-still-live",
+        "readiness": "refused",
+        "status": "passed"
+      }
+    ],
+    "cold_slots": {
+      "api_external_side_effects": "mocked",
+      "build_id": "runtime-experiment-41292558284-1",
+      "candidate_versions": "two-identical-verified-copies",
+      "credentials": "not-accessed",
+      "early_unregistered_host_crash": "recovery-required",
+      "guardian_crash": "unavailable",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "migration": false,
+      "native_owned_process_tree": "observed-existing-c1",
+      "production_activation": false,
+      "r19_complete": false,
+      "router_takeover": "not-tested",
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "scope": "authored-cold-slot-lifecycle",
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_operation_blocked_observations": 29,
+      "source_updater_invoked": false,
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "status": "passed",
+      "store_copy": false,
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_lease": "separate-private-guardian-root",
+      "warm_candidate_before_drain": "not-proved"
+    },
+    "bounded_living_keeper": {
+      "api_external_side_effects": "mocked",
+      "authority": "two-retained-createprocess-records",
+      "build_id": "runtime-experiment-41292558284-1",
+      "cases": [
+        {
+          "case": "keeper-before-resume",
+          "guardian_exit": "signaled",
+          "legacy_exclusion": "held-through-writer-exit",
+          "status": "passed",
+          "strict_writer_protocol": "writers-never-resumed",
+          "writer_exit": "retained-objects-signaled",
+          "writers_created": 2,
+          "writers_resumed": 0
+        },
+        {
+          "case": "keeper-after-ready",
+          "guardian_exit": "signaled",
+          "legacy_exclusion": "held-through-writer-exit",
+          "status": "passed",
+          "strict_writer_protocol": "existing-c2-paused-api",
+          "writer_exit": "retained-objects-signaled",
+          "writers_created": 2,
+          "writers_resumed": 2
+        }
+      ],
+      "census": "bounded-observations-and-onedir-source-inference-not-lifetime-proof",
+      "cleanup": "retained-writers-signaled-leases-explicitly-released-private-tree-removed",
+      "credentials": "not-accessed",
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "guardian": "retained-popen-readonly-frontend-port-zero",
+      "guardian_console_mode": "detached-process",
+      "guardian_descendants": {
+        "candidate_count": 0,
+        "inspected_count": 0,
+        "lineage": "census-not-authority",
+        "reason": "none",
+        "records": [],
+        "schema": "proxy-r19-guardian-census-observation-v1",
+        "state": "not-observed",
+        "truncated": false
+      },
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "migration": false,
+      "production_activation": false,
+      "r19_complete": false,
+      "schema": "proxy-r19-frozen-keeper-receipt-v1",
+      "scope": "authored-guardian-loss-with-living-frozen-keeper",
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_operation_blocked_observations": 4,
+      "status": "passed",
+      "store_copy": false,
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_lease": "separate-private-keeper-root",
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process",
+      "writer_state": "fresh-authored-state"
+    },
+    "C3": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41292558284-1",
+      "case": "authored-data-copy",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-receipt-v1",
+      "scope": "authored-transcript-copy-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 9,
+      "sqlite": "real",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C4": {
+      "api_external_side_effects": "mocked",
+      "authored_interruptions": 1,
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41292558284-1",
+      "case": "authored-data-copy-resume",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_attempts": 2,
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "fault_model": "one-authored-post-file-checkpoint-exception",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "partial_completed_files": 1,
+      "partial_revalidations": 2,
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "resume_authority": "same-live-owner-plan-barrier-generation-leases",
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-resume-receipt-v1",
+      "scope": "authored-transcript-interrupted-copy-resume-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 10,
+      "sqlite": "real",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C5": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41292558284-1",
+      "case": "authored-data-copy-wal",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_model": "one-plain-copy-without-injected-interruption",
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-wal-receipt-v1",
+      "scope": "authored-transcript-retained-wal-copy-with-living-coordinator",
+      "shm_files": 2,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 10,
+      "sqlite": "real",
+      "sqlite_policy": "no-checkpoint-on-close-per-open-readback",
+      "sqlite_version": "3.53.1",
+      "sqlite_version_scope": "frozen-coordinator",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "transcript_shm_bytes": 32768,
+      "transcript_wal_bytes": 16512,
+      "wal_dependency": "main-only-false-full-set-true",
+      "wal_files": 2,
+      "wal_set": "nonempty-after-retained-signals",
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C6": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41292558284-1",
+      "case": "authored-data-copy-grammar",
+      "cleanup": "unconfirmed-recovery-required",
+      "copy_verification": "not-approved",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "unexpected-data-copy-failure",
+      "failure_stage": "strict-drain-complete",
+      "grammar_baseline": "not-approved",
+      "grammar_credential_fixture": "in-memory-noncredential",
+      "grammar_override_rows": 0,
+      "grammar_restarted": "not-approved",
+      "grammar_snapshot": "not-approved",
+      "grammar_written": "not-approved",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "not-approved",
+      "pointer": "not-approved",
+      "production_activation": false,
+      "r19_complete": false,
+      "reading_transport": "fixed-mock-settings-analysis-only",
+      "retained_writer_signals": 0,
+      "schema": "proxy-r19-frozen-data-copy-grammar-receipt-v1",
+      "scope": "authored-populated-local-grammar-copy-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "not-approved",
+      "source_cohorts": 0,
+      "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+      "source_logical": "not-approved",
+      "source_operation_blocked_observations": 3,
+      "sqlite": "real",
+      "status": "failed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "unknown_grammar_rule": "not-approved",
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+    "review_sha256": "a520d10f17ae407a225d4e3b33f6501a449983cd8f0cb356cabfbb0b4830d1a7",
+    "metadata_replay": "Archive/provider hashes, exact ZIP entry sets, JSON and inventory/A2-P1/C3-C6/kit bindings rebound locally; no native payload download/execution.",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false,
+    "failure_category": "unexpected-data-copy-failure",
+    "failure_stage": "strict-drain-complete",
+    "cleanup": "unconfirmed-recovery-required",
+    "C6_failed_receipt": {
+      "bytes": 1933,
+      "sha256": "c6705ae2e7e1e260641a3f363f9d865dec391b7fa219cacb1b39802c1e2d1e1e"
+    },
+    "failure_interpretation": "Fixed receipt phase/context strict-drain-complete and generic unexpected-data-copy-failure only. This label is not proof that a strict drain completed. Zero approved cohorts/signals and not-approved copy/grammar/pointer fields do not prove absence of physical activity. Cleanup remains unconfirmed-recovery-required.",
+    "native_cause": "not-established; receipt identifies neither exception type/message nor constructor",
+    "latest_complete_at_this_historical_cutoff": "a2e1fb6aa2162a843581b7e90135a53c83b65c6f",
+    "constructor_source_repair_is_cause_proof": false,
+    "scope_limit": "Earlier C1/cold/living-keeper/C3-C5 positives do not approve C6 or the overall workflow. Zero approved cohorts/signals and not-approved fields do not prove absence of physical operations."
+  },
+  "negative_c7_system_search_controls_b598dc5": {
+    "artifacts": [],
+    "attempt": 1,
+    "conclusion": "failure",
+    "contracts": {
+      "failed": 1,
+      "passed": 223,
+      "seconds": 44.43,
+      "skipped": 0
+    },
+    "controls": {
+      "attempt": {
+        "context": null,
+        "state": "unavailable",
+        "stderr_present": false
+      },
+      "inherited": {
+        "context": null,
+        "state": "parsed",
+        "stderr_present": false
+      }
+    },
+    "counted_in_main_runtime": false,
+    "event": "workflow_dispatch",
+    "head": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+    "identical_closed_print_count": 2,
+    "image": "windows-2025-vs2026",
+    "image_version": "20261030.294.1",
+    "job": 124806810969,
+    "mechanism": "skipped",
+    "native_executed_by_reviewer": false,
+    "native_windows_11_acceptance": "unavailable",
+    "parent_boundary": {
+      "attempt": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "wait-deadline",
+        "stderr_prefix": "empty"
+      },
+      "inherited": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "none",
+        "stderr_prefix": "empty"
+      }
+    },
+    "publisher": "skipped",
+    "r19_complete": false,
+    "raw_logs_saved": false,
+    "run": 41292608812,
+    "schema": "r19-b598-separate-C7-negative-review-v1",
+    "source_7_git_blob_records": {
+      ".github/workflows/r19-runtime-experiment.yml": {
+        "bytes": 43108,
+        "sha256": "76876a14bd1550ef6fcdc9743f5733666e0d01ca7ee17b85cb016e9fb547eb9d"
+      },
+      "backend/runtime_lock_attribute_probe.py": {
+        "bytes": 42407,
+        "sha256": "e55ae6c407d7449b52b27286364eaf4fc11b13f495cf754737e55d1992e89b3f"
+      },
+      "backend/tests/test_runtime_lock_attribute_probe.py": {
+        "bytes": 83282,
+        "sha256": "3e1148e8c6877aa34104b04a76cc8568783cbac75e61c2fff73d298443f38d8c"
+      },
+      "backend/windows_preparation_process.py": {
+        "bytes": 25651,
+        "sha256": "24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0"
+      },
+      "docs/r19-legacy-lock-attribute-experiment.md": {
+        "bytes": 31444,
+        "sha256": "167c71ebd7e29f90722be2629f19701e373b7c9f29796d2d405cadd41da50e3f"
+      },
+      "scripts/check-evidence.mjs": {
+        "bytes": 15421,
+        "sha256": "11165611299c46a660dc6b34b01dd78ed133c50951503ecaae23f18a7c7555e6"
+      },
+      "scripts/companion-runtime.ps1": {
+        "bytes": 28780,
+        "sha256": "c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef"
+      }
+    },
+    "source_or_causal_environment_claim": false,
+    "system_search_controls": {
+      "system-modules": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        }
+      },
+      "system-path": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        }
+      },
+      "system-path-and-modules": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        }
+      }
+    },
+    "source_commit": "b598dc51cab0f8a4f3ae0a5e0fab73f05c434e1a",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41292608812",
+    "status": "negative-authored-controls-before-mechanism",
+    "artifact_count": 0,
+    "direct_control_cleanup": "five reported direct child/readers cleanups; not descendant or actual mechanism cleanup",
+    "cause": "not-established",
+    "proof_limit": "Repeated identical literal pair is one observation. Attempt and all three system-search controls unavailable/wait-deadline; Inherited parsed with null context. No causal variable/path/class identity, absent operation or mechanism result follows.",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "verified_runtime_sql_composition_checkpoint_11bf1ec": {
+    "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+    "run": 41297097507,
+    "build_id": "runtime-experiment-41297097507-1",
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297097507",
+    "status": "complete-bounded-frozen-checkpoint",
+    "workflow": "success",
+    "scope": "Downloaded source and sanitized metadata checked; native binaries remain runner-local; not final candidate or rights acceptance",
+    "contracts": {
+      "duration_seconds": 197.7,
+      "passed": 1436,
+      "skipped": 0,
+      "warnings": 1
+    },
+    "artifacts": [
+      {
+        "id": 13080215592,
+        "name": "r19-reference-codec-source-and-metadata",
+        "bytes": 1095190,
+        "sha256": "d759119428171c0e7b0bdcf6be2bf1a1b01e879f49ff7979697dbffdb517bbbb",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097507
+      },
+      {
+        "id": 13079978526,
+        "name": "r19-integrated-runtime-metadata",
+        "bytes": 1337501,
+        "sha256": "e8ec284c353946153cbb8dcfd19e73c40ab4f45c423d8ded8cb79dcfa8e9b41d",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097507
+      },
+      {
+        "id": 13079463390,
+        "name": "r19-managed-helper-metadata",
+        "bytes": 1674,
+        "sha256": "4735987a4940007cc5ba63515ee9dbf3b7808aa4107a1a2705602de71ee03295",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097485
+      },
+      {
+        "id": 13079233829,
+        "name": "r19-node-helper-metadata",
+        "bytes": 674,
+        "sha256": "799106cba7eba15aa23aa56ed8a920b48326b49dccf259ee456d4bda466d4f14",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097485
+      },
+      {
+        "id": 13080190550,
+        "name": "r19-protected-test-state",
+        "bytes": 535,
+        "sha256": "c395042aa446f54b15e177986d0b11a586ffdebc845dc7dbb2b01fb9c65a2981",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097497
+      },
+      {
+        "id": 13080121041,
+        "name": "r19-frontend-experiment-metadata",
+        "bytes": 3214,
+        "sha256": "8045ca93b344e698c64891e653654d8d74c536b50ef10b4f46fc32b706b6fc1d",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097497
+      },
+      {
+        "id": 13079228557,
+        "name": "r19-diagnostic-metadata",
+        "bytes": 869,
+        "sha256": "9ebae7ec4cb0375dccc5b68d3e1b679eaa6f598485bf5b372eec13195476c91e",
+        "head_sha": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+        "run_id": 41297097497
+      }
+    ],
+    "metadata_archives": 7,
+    "metadata_entries": 28,
+    "integrated_entries": 13,
+    "named_git_inputs": 106,
+    "job_images": [
+      {
+        "id": 124820125909,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261030.294.1",
+        "job": "extracted-runtime"
+      },
+      {
+        "id": 124820125964,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "reference-codec-source"
+      },
+      {
+        "id": 124820106249,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "node-probe"
+      },
+      {
+        "id": 124820106477,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "managed-probe"
+      },
+      {
+        "id": 124820106163,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "protected-test-state"
+      },
+      {
+        "id": 124820106358,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "diagnostic (diagnostic)"
+      },
+      {
+        "id": 124820106447,
+        "image": "windows-2025-vs2026",
+        "image_version": "20261021.278.1",
+        "job": "diagnostic (frontend-experiment)"
+      }
+    ],
+    "file_count": 1449,
+    "directory_count": 642,
+    "bytes": 620182894,
+    "inventory_sha256": "682313b3966629169aea61b69003909186dc4d3b5d0a4c017ef6c7c7e01c79c4",
+    "main_executable_sha256": "4943c4565f8789290dc4ed0c44944b877e3e35921eae486cca95612c806905fa",
+    "asr_executable_sha256": "2560fb612958caf63f0f2e9df8a710a34aaabec44b2c9718a753db03d4ff98ee",
+    "A2_P1_records": 473,
+    "native_input_ownership_counts": {
+      "ambiguous": 7,
+      "exact": 462,
+      "generated": 2,
+      "unmatched": 2
+    },
+    "notice_components": 57,
+    "notice_references": 113,
+    "distinct_notice_hashes": 104,
+    "retained_python_supplier_texts": 20,
+    "source_kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+    "source_kit_inputs": 6,
+    "reference_cmake": "cmake version 4.4.4",
+    "reference_compiler": "19.51.36260.0",
+    "FFmpeg_replay_recipe_CMake_4_4_5_applies": false,
+    "C1_host": [
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "stop",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "exit-frontend",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "parent-crash",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "api_external_side_effects": "mocked",
+        "canonical_ports": "released",
+        "case": "unprepared-index",
+        "child_exit": "retained-handles-signaled",
+        "native_owned_process_tree": "real",
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "retained_windows_console_helpers": 2,
+        "status": "passed"
+      },
+      {
+        "case": "foreign-ready-listeners",
+        "outside_job_services": "retained-fixture-still-live",
+        "readiness": "refused",
+        "status": "passed"
+      }
+    ],
+    "cold_slots": {
+      "api_external_side_effects": "mocked",
+      "build_id": "runtime-experiment-41297097507-1",
+      "candidate_versions": "two-identical-verified-copies",
+      "credentials": "not-accessed",
+      "early_unregistered_host_crash": "recovery-required",
+      "guardian_crash": "unavailable",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "legacy_exclusion": "guardian-exclusive-open-through-retained-child-exit",
+      "legacy_source_operation": "existing-enter-operation-blocked",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "migration": false,
+      "native_owned_process_tree": "observed-existing-c1",
+      "production_activation": false,
+      "r19_complete": false,
+      "router_takeover": "not-tested",
+      "schema": "proxy-r19-guarded-cold-slot-probe-v1",
+      "scope": "authored-cold-slot-lifecycle",
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_operation_blocked_observations": 29,
+      "source_updater_invoked": false,
+      "stages": [
+        "leases-held",
+        "slot-a-ready",
+        "slot-a-drained",
+        "slot-a-reaped",
+        "slot-b-paused-active",
+        "cold-rollback-a",
+        "candidate-readiness-failure-reaped",
+        "rollback-after-readiness-failure",
+        "host-crash-children-signaled-leases-held"
+      ],
+      "status": "passed",
+      "store_copy": false,
+      "strict_writer_protocol": "actual-api-paused-capture",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_lease": "separate-private-guardian-root",
+      "warm_candidate_before_drain": "not-proved"
+    },
+    "bounded_living_keeper": {
+      "api_external_side_effects": "mocked",
+      "authority": "two-retained-createprocess-records",
+      "build_id": "runtime-experiment-41297097507-1",
+      "cases": [
+        {
+          "case": "keeper-before-resume",
+          "guardian_exit": "signaled",
+          "legacy_exclusion": "held-through-writer-exit",
+          "status": "passed",
+          "strict_writer_protocol": "writers-never-resumed",
+          "writer_exit": "retained-objects-signaled",
+          "writers_created": 2,
+          "writers_resumed": 0
+        },
+        {
+          "case": "keeper-after-ready",
+          "guardian_exit": "signaled",
+          "legacy_exclusion": "held-through-writer-exit",
+          "status": "passed",
+          "strict_writer_protocol": "existing-c2-paused-api",
+          "writer_exit": "retained-objects-signaled",
+          "writers_created": 2,
+          "writers_resumed": 2
+        }
+      ],
+      "census": "bounded-observations-and-onedir-source-inference-not-lifetime-proof",
+      "cleanup": "retained-writers-signaled-leases-explicitly-released-private-tree-removed",
+      "credentials": "not-accessed",
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "guardian": "retained-popen-readonly-frontend-port-zero",
+      "guardian_console_mode": "detached-process",
+      "guardian_descendants": {
+        "candidate_count": 0,
+        "inspected_count": 0,
+        "lineage": "census-not-authority",
+        "reason": "none",
+        "records": [],
+        "schema": "proxy-r19-guardian-census-observation-v1",
+        "state": "not-observed",
+        "truncated": false
+      },
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "migration": false,
+      "production_activation": false,
+      "r19_complete": false,
+      "schema": "proxy-r19-frozen-keeper-receipt-v1",
+      "scope": "authored-guardian-loss-with-living-frozen-keeper",
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_operation_blocked_observations": 4,
+      "status": "passed",
+      "store_copy": false,
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_lease": "separate-private-keeper-root",
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process",
+      "writer_state": "fresh-authored-state"
+    },
+    "C3": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41297097507-1",
+      "case": "authored-data-copy",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-receipt-v1",
+      "scope": "authored-transcript-copy-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 9,
+      "sqlite": "real",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C4": {
+      "api_external_side_effects": "mocked",
+      "authored_interruptions": 1,
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41297097507-1",
+      "case": "authored-data-copy-resume",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_attempts": 2,
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "fault_model": "one-authored-post-file-checkpoint-exception",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "partial_completed_files": 1,
+      "partial_revalidations": 2,
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "resume_authority": "same-live-owner-plan-barrier-generation-leases",
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-resume-receipt-v1",
+      "scope": "authored-transcript-interrupted-copy-resume-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 10,
+      "sqlite": "real",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C5": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41297097507-1",
+      "case": "authored-data-copy-wal",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_model": "one-plain-copy-without-injected-interruption",
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-wal-receipt-v1",
+      "scope": "authored-transcript-retained-wal-copy-with-living-coordinator",
+      "shm_files": 2,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 10,
+      "sqlite": "real",
+      "sqlite_policy": "no-checkpoint-on-close-per-open-readback",
+      "sqlite_version": "3.53.1",
+      "sqlite_version_scope": "frozen-coordinator",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "transcript_shm_bytes": 32768,
+      "transcript_wal_bytes": 16512,
+      "wal_dependency": "main-only-false-full-set-true",
+      "wal_files": 2,
+      "wal_set": "nonempty-after-retained-signals",
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "C6": {
+      "api_external_side_effects": "mocked",
+      "authored_transcript_rows": 2,
+      "authority": "retained-creation-objects-and-typed-barrier",
+      "browser": "not-run",
+      "build_id": "runtime-experiment-41297097507-1",
+      "case": "authored-data-copy-grammar",
+      "cleanup": "retained-writers-signaled-leases-released-private-tree-removed",
+      "copy_verification": "passed",
+      "credentials": "not-accessed",
+      "database_schema_pins": [
+        0,
+        0,
+        0
+      ],
+      "dynamic_writer_admission": "unavailable",
+      "failure_category": "none",
+      "failure_stage": "none",
+      "grammar_baseline": "zero-without-local-override",
+      "grammar_credential_fixture": "in-memory-noncredential",
+      "grammar_override_rows": 1,
+      "grammar_restarted": "four-with-local-override",
+      "grammar_snapshot": "one-scoped-choice-four",
+      "grammar_written": "four-with-local-override",
+      "http_transport_timeout_ms": 35000,
+      "installer": "not-built",
+      "keeper_loss": "unavailable",
+      "legacy_source_operation": "existing-enter-operation",
+      "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+      "old_barrier": "refused-after-new-generation",
+      "pointer": "baseline-unchanged",
+      "production_activation": false,
+      "r19_complete": false,
+      "reading_transport": "fixed-mock-settings-analysis-only",
+      "retained_writer_signals": 4,
+      "schema": "proxy-r19-frozen-data-copy-grammar-receipt-v1",
+      "scope": "authored-populated-local-grammar-copy-with-living-coordinator",
+      "shm_files": 0,
+      "source_bytes": "preserved-before-resume",
+      "source_cohorts": 2,
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_logical": "passed-after-fresh-source-cohort",
+      "source_operation_blocked_observations": 10,
+      "sqlite": "real",
+      "status": "passed",
+      "strict_writer_runtime_budget_ms": 30000,
+      "target_activation": false,
+      "unknown_grammar_rule": "rejected-404",
+      "wal_files": 0,
+      "warm_routing": "unavailable",
+      "writer_console_mode": "detached-process"
+    },
+    "legacy_source_sha256": "f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e",
+    "review_sha256": "938b221232acba81e5255130516276c34b011ade8f2d0d01ad73ade0071f7aef",
+    "metadata_replay": "Archive/provider hashes, exact ZIP entry sets, JSON and inventory/A2-P1/C3-C6/kit bindings rebound locally; no native payload download/execution.",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false,
+    "latest_complete_bounded_checkpoint": true,
+    "reference_codec": {
+      "authored_decode_fault_and_origins": "passed",
+      "candidate_bytes_identical": true,
+      "cmake": "cmake version 4.4.4",
+      "compiler": "19.51.36260.0",
+      "kit_sha256": "7dd55f62a9c558bf1065ec89b873f9f17dc6c542e806bf44e157475c870ab7b9",
+      "native_windows_11_acceptance": "unavailable",
+      "r19_complete": false,
+      "reference_codec": "exact-original-and-delivered-kit-rebuild-verified",
+      "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+      "source_entries": 6,
+      "upstream_tar_entries": 907
+    },
+    "immutable_source_composition": {
+      "captured_original_ledger_type": true,
+      "captured_type_checks": 2,
+      "bundle_language_default_and_source_fallback": true,
+      "ASR_inputs_unchanged": 15,
+      "source_only_checks_are_native_proof": false
+    },
+    "scope_limit": "Authored bounded C1/cold/living-keeper/C3-C6 only. Later SQL file-replacement/P2 and MP3/license source work is outside this head. Operation/statement ownership is not physical/global/dynamic file closure, copied-target activation, warm routing or Windows11/rights/R19 acceptance."
+  },
+  "negative_c7_class_and_StringWriter_controls_11bf1ec": {
+    "schema": "r19-c7-authored-provider-review-v1",
+    "repository": "matthias-van-der-galien/Game-immersion-toolkit",
+    "source_commit": "11bf1ece6f510faa2a7610f4172601fa67e1e2be",
+    "run": 41297534444,
+    "job": 124821453648,
+    "attempt": 1,
+    "event": "workflow_dispatch",
+    "conclusion": "failure",
+    "source_contracts": {
+      "passed": 268,
+      "failed": 1,
+      "skipped": 0,
+      "seconds": 55.49
+    },
+    "image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "literal_pair": {
+      "attempt": {
+        "context": null,
+        "state": "unavailable",
+        "stderr_present": false
+      },
+      "inherited": {
+        "context": null,
+        "state": "parsed",
+        "stderr_present": false
+      }
+    },
+    "parent_boundaries": {
+      "attempt": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "wait-deadline",
+        "stderr_prefix": "empty"
+      },
+      "inherited": {
+        "cleanup": "child-exit-and-readers-finished",
+        "refusal": "none",
+        "stderr_prefix": "empty"
+      }
+    },
+    "ordered_literal_progress": {
+      "attempt": {
+        "last_delivered": "before-conversion",
+        "protocol": "ordered-prefix"
+      },
+      "inherited": {
+        "last_delivered": "after-conversion",
+        "protocol": "ordered-prefix"
+      }
+    },
+    "system_search_controls": {
+      "system-modules": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        },
+        "progress": {
+          "last_delivered": "before-conversion",
+          "protocol": "ordered-prefix"
+        }
+      },
+      "system-path": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        },
+        "progress": {
+          "last_delivered": "before-conversion",
+          "protocol": "ordered-prefix"
+        }
+      },
+      "system-path-and-modules": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        },
+        "progress": {
+          "last_delivered": "before-conversion",
+          "protocol": "ordered-prefix"
+        }
+      }
+    },
+    "StringWriter_controls": {
+      "attempt": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "wait-deadline",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "unavailable",
+          "stderr_present": false
+        },
+        "progress": {
+          "last_delivered": "before-conversion",
+          "protocol": "ordered-prefix"
+        }
+      },
+      "inherited": {
+        "boundary": {
+          "cleanup": "child-exit-and-readers-finished",
+          "refusal": "none",
+          "stderr_prefix": "empty"
+        },
+        "observation": {
+          "context": null,
+          "state": "parsed",
+          "stderr_present": false
+        },
+        "progress": {
+          "last_delivered": "after-conversion",
+          "protocol": "ordered-prefix"
+        }
+      }
+    },
+    "direct_child_cleanup": "all seven confirmed; not the actual C7 cohort/descendant cleanup",
+    "mechanism_and_upload": "skipped after authored contract failure",
+    "artifact_count": 0,
+    "conversion_failure_cause": "not established",
+    "authored_class_distinguished_from_standard_writer": false,
+    "actual_conversion_result_under_attempt_environment": "not observed",
+    "rights_review": "pending-exact-output",
+    "native_windows_11_acceptance": "unavailable",
+    "keeper_loss_global_physical_warm_accepted": false,
+    "r19_complete": false,
+    "installer": "not-built",
+    "raw_log_persisted_or_published": false,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41297534444",
+    "status": "negative-authored-class-and-StringWriter-controls-before-mechanism",
+    "provider_review_sha256": "95e3482c7534f1946419b6ab243adcb632bc8b8d413c379e20b5c363d5e4c922",
+    "proof_limit": "Five filtered controls last delivered before-conversion and timed out; both inherited controls parsed after-conversion. All seven direct child/readers cleanups confirmed. Authored class and standard StringWriter are not distinguished; no actual conversion result under Attempt, causal environmental variable, descendant cleanup or mechanism pass follows.",
+    "source_delivery_approved": false,
+    "production_execution_allowed": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "raw_private_logs_saved": false
   }
 }
