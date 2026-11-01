@@ -176,6 +176,20 @@ test('native targets run supplier replay and select only the pinned Cyberpunk pa
     assert.ok(review.includes(`'${name}'`), `Missing supplier archive: ${name}`);
 });
 
+test('exact native input review precedes UI probes without weakening target acceptance', () => {
+  const native = readFileSync(new URL('../.github/workflows/desktop-native.yml', import.meta.url), 'utf8');
+  const phases = ['Freeze the native runtime and isolated ASR child', 'Review the exact delivered dependency inputs',
+    'Exercise frozen startup, API crash recovery and owned shutdown',
+    'Observe native window, tray and mounted transcript navigation', 'Accept the exact native target'];
+  const positions = phases.map(phase => native.indexOf(`- name: ${phase}`));
+  assert.ok(positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
+  const acceptance = native.slice(positions.at(-1), native.indexOf('- name: Construct the platform installer'));
+  assert.match(acceptance, /steps\.review\.outputs\.approved == 'true'/);
+  assert.match(acceptance, /--native-report output\/native-host-probe\.json --native-report output\/native-ui-probe\.json/);
+  assert.doesNotMatch(acceptance, /always\(\)|continue-on-error/);
+  assert.match(native, /backend\/tests\/test_linux_desktop_ui\.py/);
+});
+
 test('workflow separates source audit and integration checkout and always runs stable gate', () => {
   assert.match(job('source-audit'), /ref: \$\{\{ github\.event\.pull_request\.head\.sha \|\| github\.sha \}\}/);
   assert.match(job('source-audit'), /run: npm run audit:public/);
