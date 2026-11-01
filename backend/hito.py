@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from pathlib import Path
 import queue
 import re
-import shutil
 import subprocess
 import threading
 import time
+from .update_workers import start_process, stop_process
 
 from rapidfuzz import fuzz
 
@@ -44,6 +43,8 @@ class HitoTextIndex:
         self._retry_at = 0.0
         self._signature: tuple | None = None
         self._thread: threading.Thread | None = None
+        self._response_threads = []
+        self._owned_processes = []
         cached = data_dir / 'textmap.json'
         if cached.exists():
             try:
@@ -92,6 +93,8 @@ class HitoTextIndex:
             self.message = 'Hito resources/app.asar was not found'
             return False
         with self._lock:
+            if self._closed:
+                return False
             stat = archive.stat()
             signature = (archive, stat.st_size, stat.st_mtime_ns)
             if self._preparing or (not force and time.monotonic() < self._retry_at) or (not force and signature == self._signature and self._process is not None
@@ -113,23 +116,19 @@ class HitoTextIndex:
         process = None
         try:
             self.data_dir.mkdir(parents=True, exist_ok=True)
-            node = shutil.which('node')
-            if not node:
-                raise RuntimeError('Node.js is needed to read Hito grammar')
-            env = os.environ.copy()
-            installed = Path(env.get('LOCALAPPDATA', '')) / 'Programs/Proxy Transcript/frontend/node_modules'
-            project = Path(env.get('PROXY_TRANSCRIPT_PROJECT_ROOT', Path(__file__).resolve().parents[1]))
-            env['NODE_PATH'] = os.pathsep.join([
-                env.get('NODE_PATH', ''), str(installed), str(project / 'node_modules')])
-            with (self.data_dir / 'grammar.log').open('w', encoding='utf-8') as errors:
-                process = subprocess.Popen(
-                    [node, str(Path(__file__).with_name('hito-grammar.cjs')), str(archive),
-                     str(self.data_dir / 'textmap.json')],
+            from .node_tools import grammar_command
+            command, env = grammar_command(archive, self.data_dir / 'textmap.json')
+            with self._lock, (self.data_dir / 'grammar.log').open('w', encoding='utf-8') as errors:
+                if self._closed:
+                    return
+                process = start_process(
+                    command,
                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors,
                     text=True, encoding='utf-8', env=env,
                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                 )
                 self._starting_process = process
+                self._owned_processes.append(process)
             responses: queue.Queue = queue.Queue()
 
             def read_responses() -> None:
@@ -141,13 +140,16 @@ class HitoTextIndex:
                 finally:
                     responses.put(None)
 
-            threading.Thread(target=read_responses, daemon=True).start()
+            reader = threading.Thread(target=read_responses, daemon=True)
+            with self._lock:
+                self._response_threads.append(reader)
+                reader.start()
             catalog = responses.get(timeout=90)
             if not catalog or not catalog.get('records'):
                 raise RuntimeError('Unsupported Hito grammar; see data/hito/grammar.log')
             with self._lock:
                 if self._closed:
-                    process.terminate()
+                    stop_process(process)
                     return
                 previous = self._process
                 self._process = process
@@ -158,14 +160,14 @@ class HitoTextIndex:
                 self.ready = True
                 self.message = 'Hito game text and generated-sentence validation ready'
                 if previous and previous.poll() is None:
-                    previous.terminate()
+                    stop_process(previous)
                 cached = self.data_dir / 'textmap.json'
                 temporary = cached.with_suffix('.tmp')
                 temporary.write_text(json.dumps(catalog, ensure_ascii=False), encoding='utf-8')
                 temporary.replace(cached)
         except Exception as error:
             if process and process.poll() is None:
-                process.terminate()
+                stop_process(process)
             if self._records:
                 self.ready = True
                 self.message = f'Cached Hito text ready; game grammar update deferred: {error}'
@@ -187,7 +189,7 @@ class HitoTextIndex:
             result = self._responses.get(timeout=3)
             return result.get('records', []) if result else []
         except (OSError, queue.Empty):
-            process.terminate()
+            stop_process(process)
             self.message = 'Hito grammar validation timed out; fixed game text remains available'
             return []
 
@@ -273,9 +275,26 @@ class HitoTextIndex:
             return match
 
     def close(self) -> None:
-        self._closed = True
         with self._lock:
-            for process in (self._process, self._starting_process):
-                if process and process.poll() is None:
-                    process.terminate()
-                    process.wait(timeout=5)
+            self._closed = True
+            processes = list(self._owned_processes)
+            worker = self._thread
+        for process in processes:
+            stop_process(process)
+        if worker:
+            worker.join(timeout=10)
+            if worker.is_alive():
+                raise RuntimeError('Game grammar preparation is still stopping.')
+        # The preparation worker can register a reader just after close starts.
+        for reader in self._response_threads:
+            reader.join(timeout=5)
+            if reader.is_alive():
+                raise RuntimeError('Game grammar responses are still stopping.')
+        self._owned_processes.clear()
+        self._response_threads.clear()
+
+    def resume(self) -> None:
+        with self._lock:
+            if (self._thread and self._thread.is_alive()) or any(t.is_alive() for t in self._response_threads):
+                raise RuntimeError('Game grammar has not finished stopping.')
+            self._closed = False

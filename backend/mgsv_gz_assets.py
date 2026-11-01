@@ -18,7 +18,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 
 GAME = 'mgsvgz'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'ja')
 TEXT_LOCALES = ('ja', 'en', 'fr', 'it', 'de', 'es-419', 'pt-BR', 'ru')
 TEXT_NAMES = dict(zip(TEXT_LOCALES, ('Jpn', 'Eng', 'Fre', 'Ita', 'Ger', 'Spa', 'Por', 'Rus')))
@@ -130,7 +130,9 @@ def _tables(archives, source_locale, selected, inventory):
                     if not pages:
                         continue
                     text = ' '.join(pages)
-                    row = tables[locale].setdefault(key, {'text': text, 'pages': pages, 'variants': {}})
+                    row = tables[locale].setdefault(key, {'text': text, 'pages': pages, 'timings': item['timings'], 'variants': {}})
+                    if row['pages'] != pages or row['timings'] != item['timings']:
+                        row['timings'] = []
                     row['variants'][text] = pages
                     if len(row['variants']) > 1:
                         conflicts.add((locale, key))
@@ -209,7 +211,35 @@ def _record(identity, texts, pages, locale, audio, kind, status=None):
             'source_locale': locale, 'source_text': texts[locale], 'texts': texts,
             'ocr_texts': pages, 'ocr_english': pages.get('en'), 'audio_locale': locale,
             'audio': audio, 'voice_status': status or ('voiced' if audio else 'unavailable'),
+            'audio_scope': 'paragraph' if audio and audio.get('playback_scope') == 'full_track' else 'line',
             'dialogue_kind': kind}
+
+
+def _page_records(identity, localized, source, audio, kind):
+    """Preserve each SUBP page; intervals align text, never cut the recording."""
+    selected = localized[source]
+    records = []
+    for number, text in enumerate(selected['pages']):
+        texts = {source: text}
+        times = selected.get('timings', [])
+        timing = times[number] if len(times) == len(selected['pages']) else None
+        if timing and times.count(timing) != 1:
+            timing = None
+        for locale, target in localized.items():
+            if locale == source:
+                continue
+            if len(selected['pages']) == len(target['pages']) == 1:
+                texts[locale] = target['pages'][0]
+            elif timing and timing[0] < timing[1] and len(target.get('timings', [])) == len(target['pages']):
+                matches = [page for page, interval in zip(target['pages'], target['timings']) if interval == timing]
+                if len(matches) == 1:
+                    texts[locale] = matches[0]
+        row = _record(identity + (f':page:{number}' if len(selected['pages']) > 1 else ''),
+                      texts, {locale: [value] for locale, value in texts.items()}, source, audio, kind)
+        if audio and len(selected['pages']) > 1:
+            row['audio_scope'] = 'paragraph'
+        records.append(row)
+    return records
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
@@ -276,11 +306,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             audio = {**entry.reference(), 'locale_name': source_locale, 'dialogue_kind': 'cinematic_full_track',
                      'scene_binding': binding, 'subtitle_events': animation, 'playback_scope': 'full_track'}
             for key in dict.fromkeys(keys):
-                pages = {locale: table[key]['pages'] for locale, table in tables.items()
+                localized = {locale: table[key] for locale, table in tables.items()
                          if key in table and (locale, key) not in conflicts}
-                rows.append(_record(f'scene:{entry.name_hash:016x}:{key:08x}',
-                                    {locale: ' '.join(p) for locale, p in pages.items()},
-                                    pages, source_locale, audio, 'cinematic_full_track'))
+                rows.extend(_page_records(f'scene:{entry.name_hash:016x}:{key:08x}',
+                                          localized, source_locale, audio, 'cinematic_full_track'))
             scene_keys.update(keys)
             seen_movies.add(entry.name_hash)
             inventory['bound_cinematic_streams'] += 1
@@ -295,13 +324,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 continue
             texts = {locale: table[key]['text'] for locale, table in tables.items()
                      if key in table and (locale, key) not in conflicts}
-            pages = {locale: table[key]['pages'] for locale, table in tables.items() if locale in texts}
+            localized = {locale: table[key] for locale, table in tables.items() if locale in texts}
             audios = voices.get(key, [])
             if not audios and key in scene_keys:
                 continue  # Every source page is already retained with its complete scene.
             for ordinal, audio in enumerate(audios or [None]):
-                rows.append(_record(f'sub:{key:08x}:{ordinal}', texts, pages, source_locale, audio,
-                                    audio['dialogue_kind'] if audio else kind))
+                rows.extend(_page_records(f'sub:{key:08x}:{ordinal}', localized, source_locale, audio,
+                                           audio['dialogue_kind'] if audio else kind))
         for (resource, key), variants in sorted(localization[source_locale].items()):
             kind = {'gz_backstory': 'backstory_readable', 'gz_quiz': 'quiz_choice_or_prompt',
                     'gz_end_roll': 'ending_chronology_or_credits'}.get(resource, 'unclassified_localization')

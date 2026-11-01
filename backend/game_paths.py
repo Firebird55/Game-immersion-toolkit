@@ -18,7 +18,8 @@ _path_lock = threading.RLock()
 
 
 def settings_path() -> Path:
-    return Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local/share")) / "Proxy Transcript/game-paths.json"
+    from .runtime_bundle import discover_layout
+    return discover_layout().settings_root / 'game-paths.json'
 
 
 def validate_install(game: str, path: Path) -> Path:

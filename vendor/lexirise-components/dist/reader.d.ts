@@ -103,7 +103,7 @@ export declare function createReader(adapter: ReaderAdapter): {
         onSummary?: (summary: ReadingSummary) => void;
         sentenceTranslation?: string;
     }>;
-    LookupWindow: (props: Omit<ComponentProps<({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation }: {
+    LookupWindow: (props: Omit<ComponentProps<({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation, onPointerEnter, onPointerLeave }: {
         id: number;
         text: string;
         token: Token;
@@ -127,9 +127,12 @@ export declare function createReader(adapter: ReaderAdapter): {
             settingsError: boolean;
             layout: import("./word-popup.js").WordPopupSettings;
             disabled: boolean;
+            openMode: "click" | "hover" | "shift-hover";
             hover: boolean;
         }>;
         sentenceTranslation?: string;
+        onPointerEnter?: () => void;
+        onPointerLeave?: () => void;
     }) => import("react/jsx-runtime").JSX.Element>, "preferences">) => import("react/jsx-runtime").JSX.Element | null;
     resetReadingCaches: () => void;
 };

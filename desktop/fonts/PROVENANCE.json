@@ -1,0 +1,36 @@
+{
+  "schema": "proxy-desktop-fonts-v1",
+  "repository": "https://github.com/google/fonts",
+  "source_commit": "bd8f81ddb5c74d5c8897b36ad88b440266245103",
+  "reviewed": "2026-10-28",
+  "license": "SIL Open Font License 1.1",
+  "notice": {
+    "path": "LICENSE.txt",
+    "sha256": "1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f",
+    "git_blob": "61f6f4b7853081236aec6407f2dd3c7170997f84",
+    "sources": [
+      "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/geist/OFL.txt",
+      "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/geistmono/OFL.txt"
+    ]
+  },
+  "files": {
+    "geist-variable.ttf": {
+      "family": "Geist",
+      "style": "normal",
+      "weight": "100 900",
+      "bytes": 169056,
+      "sha256": "73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659",
+      "git_blob": "f63f0afc6390323715972b6645115485f37cc9f4",
+      "source": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/geist/Geist%5Bwght%5D.ttf"
+    },
+    "geist-mono-variable.ttf": {
+      "family": "Geist Mono",
+      "style": "normal",
+      "weight": "100 900",
+      "bytes": 171948,
+      "sha256": "d00e590b8eb3a59acc329b2d044fd143ae935090b7da33199ebee27cc7de8196",
+      "git_blob": "173867dce0580ea751e4b9c558740d34f20ce549",
+      "source": "https://raw.githubusercontent.com/google/fonts/bd8f81ddb5c74d5c8897b36ad88b440266245103/ofl/geistmono/GeistMono%5Bwght%5D.ttf"
+    }
+  }
+}

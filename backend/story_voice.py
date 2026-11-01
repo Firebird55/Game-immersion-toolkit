@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import sqlite3
 import subprocess
-import sys
 import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -315,15 +314,14 @@ class StoryVoiceIndexUpdater:
 
         self.state = "updating"
         self.message = "Indexing isolated story voices; capture continues"
-        root = Path(__file__).resolve().parents[1]
+        from .runtime_bundle import child_command, discover_layout
+        layout = discover_layout()
         log_path = self.resolver.folder / "story-index.log"
         with log_path.open("w", encoding="utf-8") as log:
             self._process = subprocess.Popen(
-                [
-                    sys.executable, "-m", "scripts.build_story_fingerprints",
-                    "--game-data", str(game_data),
-                ],
-                cwd=root,
+                child_command('story-fingerprints', ['--game-data', str(game_data)]),
+                cwd=layout.resource_root,
+                env=layout.child_environment('story-fingerprints'),
                 stdout=log,
                 stderr=log,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),

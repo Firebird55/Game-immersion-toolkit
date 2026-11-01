@@ -10,9 +10,10 @@ import struct
 from .preparation_errors import PreparationFailure
 from .spyro_unreal import Cursor, Package, PakSet, invalid, read_locres
 from .textmaps import display_text
+from .subtitle_pages import aligned_texts, anonymous_pages
 
 GAME = 'spyro'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 # The public study locale stays Norwegian (no); Unreal uses nb and Wwise no.
 # pt is the game's Brazilian Portuguese pack, and latam is Latin American Spanish.
 TEXT_LOCALES = {'en': 'en-US', 'fr': 'fr', 'it': 'it', 'de': 'de', 'es-ES': 'es',
@@ -246,19 +247,17 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         state = ('voiced' if audio else 'unavailable' if ref or event in unresolved or identity.startswith('vo_') or voiced_line[0] != 'None'
                  else 'unvoiced' if identity.startswith('tx_') and voiced_line == ('None', '') else 'unknown')
         cinematic = bool(row.get('IsSubtitle')) or (path, identity) in subtitles
-        pages = {}
-        for locale, value in raw.items():
-            splits = value.split('{N}')
-            # Retain every authored page, including ordinary dialogue pages.
-            # Cinematic SplitIndex addresses the same localized line pages.
-            pages[locale] = list(dict.fromkeys(_clean(part) for part in splits if _clean(part)))
+        pages = {locale: anonymous_pages(value, '{N}', _clean) for locale, value in raw.items()}
         speakers = _localized(row.get('DisplayName'), voice_tables)
         category = 'cinematic' if cinematic else 'dialogue'
-        records.append({'text_id': f'{GAME}:dialogue:{identity}', 'english': texts.get('en', ''),
-            'chinese': '', 'source_locale': source_locale, 'source_text': texts[source_locale],
-            'texts': texts, 'audio_locale': source_locale, 'audio': audio, 'voice_status': state,
-            'speaker_english': _clean(speakers['en']) if speakers.get('en') else None,
-            'dialogue_kind': category, 'ocr_texts': pages, 'ocr_english': pages.get('en')})
+        for page in pages[source_locale]:
+            page_texts = aligned_texts(page, source_locale, pages)
+            records.append({'text_id': f'{GAME}:dialogue:{identity}' + (':' + page.identity if page.identity != 'complete' else ''),
+                'english': page_texts.get('en', ''), 'chinese': '', 'source_locale': source_locale, 'source_text': page.text,
+                'texts': page_texts, 'audio_locale': source_locale, 'audio': audio, 'voice_status': state,
+                'audio_scope': 'paragraph' if audio and '{N}' in raw[source_locale] else 'line',
+                'speaker_english': _clean(speakers['en']) if speakers.get('en') else None,
+                'dialogue_kind': category})
         counts['spyro_' + path.split('VO_Spyro')[1][0] + '_rows'] += 1
     if len({record['text_id'] for record in records}) != len(records):
         raise invalid('Ambiguous Spyro dialogue identity.')
@@ -282,7 +281,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if fingerprint(install) != stamp:
         raise PreparationFailure('spyro_files_changed', 'Spyro game files changed during preparation. Wait for Steam to finish and retry.',
                                  game_files_changed=True, previous_snapshot_retained=True)
-    warnings = ['Cinematic subtitle pages match the complete authored voice event; scene timeline times are not audio-file cut points.',
+    warnings = ['Authored dialogue and cinematic pages stay separate with explicitly labeled paragraph audio. Anonymous page positions do not establish translated page alignment; scene timeline times are not audio-file cut points.',
         'Localized speech events with no authored dialogue text are inventoried but cannot be matched from OCR. Nonverbal sound effects are outside the transcript.',
         'Menu and epilogue localization remains unknown voice status. Explicit tx_ dialogue rows with null VoicedLine are text-only; missing vo_ audio is unavailable.']
     if not bank_count:

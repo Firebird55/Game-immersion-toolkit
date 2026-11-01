@@ -1,0 +1,11 @@
+{
+  "version": "7.1.1",
+  "architecture": "x64",
+  "filename": "innosetup-7.1.1-x64.exe",
+  "url": "https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe",
+  "sha256": "8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0",
+  "publisher": "Pyrsys B.V.",
+  "verification": "https://jrsoftware.org/isdl-verify.php",
+  "source": "https://github.com/jrsoftware/issrc/tree/is-7_1_1",
+  "purpose": "Build-host installer compiler; never an end-user prerequisite"
+}

@@ -10,6 +10,7 @@
     "dev:doctor": "node scripts/dev-doctor.mjs",
     "dev:prepare": "node scripts/prepare-mobile-assets.mjs",
     "build": "node scripts/prepare-mobile-assets.mjs && vinext build",
+    "desktop:build": "node scripts/build-desktop-frontend.mjs",
     "start": "wrangler dev --config dist/server/wrangler.json --port 3000",
     "lint": "oxlint",
     "format": "oxfmt",

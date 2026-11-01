@@ -1,0 +1,123 @@
+{
+  "schema": "toolkit-ooz-build-policy-v1",
+  "source": {
+    "url": "https://codeload.github.com/SnosMe/ooz-wasm/tar.gz/ebed82851988add824e092dc4db320c8fa39aaca",
+    "archive": "ooz-source.tar.gz",
+    "sha256": "1a2c47f3a1e7bf06f8ee08317e6881f27669acbdacf8d706ccd20565ecb3fe98",
+    "revision": "ebed82851988add824e092dc4db320c8fa39aaca",
+    "prefix": "ooz-wasm-ebed82851988add824e092dc4db320c8fa39aaca/"
+  },
+  "emscripten_source": {
+    "url": "https://codeload.github.com/emscripten-core/emscripten/tar.gz/e13ee988ce3d87a738dd8f3661d02223308c412a",
+    "archive": "emscripten-source.tar.gz",
+    "sha256": "0eb45cf55702db363e5dacd06fec69b63345ce6ffe61156c0e7fcbf3ae842d4e",
+    "revision": "e13ee988ce3d87a738dd8f3661d02223308c412a",
+    "prefix": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/"
+  },
+  "toolchain": {
+    "version": "6.0.13",
+    "release_revision": "eb132757325583b787fe9414b09afea9442b72ad",
+    "release_metadata": "https://github.com/emscripten-core/emsdk/blob/main/emscripten-releases-tags.json",
+    "archives": {
+      "windows-x64": {
+        "url": "https://storage.googleapis.com/webassembly/emscripten-releases-builds/win/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.zip",
+        "archive": "emscripten-6.0.13-windows-x64.zip",
+        "sha256": "937b834b397e33645923794c1a20566a86c63ebc02b213e537c0a86dd380ab6c",
+        "bytes": 701262388
+      },
+      "linux-x64": {
+        "url": "https://storage.googleapis.com/webassembly/emscripten-releases-builds/linux/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.tar.xz",
+        "archive": "emscripten-6.0.13-linux-x64.tar.xz",
+        "sha256": "cda6801012ff3319a539111826ed02a9abd7eff135c2ef261c8941caf5a3763e",
+        "bytes": 311791988
+      },
+      "macos-arm64": {
+        "url": "https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries-arm64.tar.xz",
+        "archive": "emscripten-6.0.13-macos-arm64.tar.xz",
+        "sha256": "3d8ced05935fbef5b3edda4252dce260004860bf8d579617f13d417338aa4cac",
+        "bytes": 286147016
+      },
+      "macos-x64": {
+        "url": "https://storage.googleapis.com/webassembly/emscripten-releases-builds/mac/eb132757325583b787fe9414b09afea9442b72ad/wasm-binaries.tar.xz",
+        "archive": "emscripten-6.0.13-macos-x64.tar.xz",
+        "sha256": "3b2e7dd84910f7866e8e5f16627410a2f5255507b90963e460d6a7e8c166eefc",
+        "bytes": 275912844
+      }
+    }
+  },
+  "node": {
+    "version": "24.22.1",
+    "executable_sha256": {
+      "windows-x64": "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5",
+      "linux-x64": "e32e2d16081cf644f88392934288086e7662529d0d43277c34f7aad2207cfafb",
+      "macos-arm64": "6f32069480ec14d52b6d7b1f3c7124cfbbc46203abf5ddf5c65b127435f3f329",
+      "macos-x64": "cc6f41f72e3eb4460154952e56a35afdd96b6995cea51cd25e637355a2955a51"
+    }
+  },
+  "sources": [
+    "lib/bitknit.cpp",
+    "lib/kraken.cpp",
+    "lib/lzna.cpp"
+  ],
+  "arguments": [
+    "--output-eol",
+    "linux",
+    "-msimd128",
+    "-msse2",
+    "-O3",
+    "-fno-rtti",
+    "-fno-exceptions",
+    "-sWASM=1",
+    "-sFILESYSTEM=0",
+    "-sMODULARIZE=1",
+    "-sEXPORT_ES6=1",
+    "-sSTRICT=1",
+    "-sSINGLE_FILE=1",
+    "-sALLOW_MEMORY_GROWTH=1",
+    "-sEXPORTED_FUNCTIONS=[\"_Kraken_Decompress\",\"_malloc\",\"_free\"]",
+    "-sEXPORTED_RUNTIME_METHODS=[\"HEAPU8\"]"
+  ],
+  "output": {
+    "path": "build/ooz.js",
+    "sha256": "fda7d49be8ee8f45cf7de2c7411b36627b6c5f358397f86900744f79964aca27",
+    "bytes": 111486
+  },
+  "notices": [
+    {
+      "archive": "ooz-source.tar.gz",
+      "member": "ooz-wasm-ebed82851988add824e092dc4db320c8fa39aaca/LICENSE",
+      "path": "notices/ooz-LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "archive": "emscripten-source.tar.gz",
+      "member": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/LICENSE",
+      "path": "notices/emscripten-LICENSE",
+      "sha256": "620a78084fc7ca97c0b5dea9abf891f3ffcadfdbf305276f099c9c4e12fc1d86"
+    },
+    {
+      "archive": "emscripten-source.tar.gz",
+      "member": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/system/lib/compiler-rt/LICENSE.TXT",
+      "path": "notices/emscripten-system-lib-compiler-rt-LICENSE.TXT",
+      "sha256": "1a8f1058753f1ba890de984e48f0242a3a5c29a6a8f2ed9fd813f36985387e8d"
+    },
+    {
+      "archive": "emscripten-source.tar.gz",
+      "member": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/system/lib/libc/musl/COPYRIGHT",
+      "path": "notices/emscripten-system-lib-libc-musl-COPYRIGHT",
+      "sha256": "b870108ec5e7790e9f9919064f1b9421d62d5f9b0e6c230c6adf7ea2da62e97b"
+    },
+    {
+      "archive": "emscripten-source.tar.gz",
+      "member": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/system/lib/libcxx/LICENSE.TXT",
+      "path": "notices/emscripten-system-lib-libcxx-LICENSE.TXT",
+      "sha256": "539dd7aed86e8a4f12cbdd0e6c50c189c7d74847e4fecc64ce2c6ee3a01da38b"
+    },
+    {
+      "archive": "emscripten-source.tar.gz",
+      "member": "emscripten-e13ee988ce3d87a738dd8f3661d02223308c412a/system/lib/libcxxabi/LICENSE.TXT",
+      "path": "notices/emscripten-system-lib-libcxxabi-LICENSE.TXT",
+      "sha256": "e2b35be49f7284a45b7baca8fc7b3ab7440e7902392b2528a457816b5bb2a15c"
+    }
+  ]
+}

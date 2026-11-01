@@ -5,6 +5,20 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
+@pytest.mark.parametrize('scope', [None, 'line', 'paragraph'])
+def test_authored_full_track_always_has_paragraph_scope_in_all_indexes(tmp_path, scope):
+    from backend.local_game import LocalDialogue
+    row = {'text_id': 'test:page', 'source_locale': 'en', 'audio_locale': 'en',
+           'source_text': 'An individual visible page.', 'texts': {'en': 'An individual visible page.'},
+           'english': 'An individual visible page.', 'chinese': '',
+           'audio': {'voice': 'original-track', 'playback_scope': 'full_track'}}
+    if scope is not None:
+        row['audio_scope'] = scope
+    assert LocalDialogue(**row).audio_scope == 'paragraph'
+    hit = index(tmp_path, 'en', [row]).match_lines([row['source_text']])
+    assert hit and hit.audio_scope == 'paragraph' and hit.source_text == row['source_text']
+
+
 def test_chinese_voice_pack_identity_is_game_specific(tmp_path):
     # Tomb Raider ships separate packs. Endfield explicitly shares Mandarin.
     for game, voice in [('shadowofthetombraider', 'zh-Hant'), ('riseofthetombraider', 'zh-Hant'), ('endfield', 'zh-Hans')]:
@@ -89,6 +103,29 @@ def test_bad_refresh_preserves_previous_language_snapshot(tmp_path):
     (tmp_path / 'textmap.json').write_text('{bad', encoding='utf-8')
     assert not value.load() and value.ready
     assert value.match_lines(['Stay close. I will protect you.'])
+
+
+def test_paragraph_audio_does_not_disambiguate_different_subtitle_pages(tmp_path):
+    first = {'text_id': 'page-1', 'source_locale': 'en', 'audio_locale': 'en',
+             'source_text': 'Please wait at the station.', 'texts': {'en': 'Please wait at the station.', 'fr': 'Attendez ici.'},
+             'audio': {'voice': 'whole-recording'}, 'audio_scope': 'paragraph'}
+    second = {**first, 'text_id': 'page-2', 'texts': {**first['texts'], 'fr': 'Attendez là.'}}
+    value = index(tmp_path, 'en', [first, second])
+    assert value.match_lines([first['source_text']]) is None
+    assert value.match_lines(['Attendez ici.']).text_id == 'page-1'
+    assert value.match_lines(['Attendez là.']).audio_scope == 'paragraph'
+    value = index(tmp_path, 'en', [{**first, 'audio_scope': 'guessed'}])
+    assert not value.ready and 'voice scope' in value.message
+
+
+def test_legacy_complete_beyond_audio_is_never_labelled_a_single_page(tmp_path):
+    row = {'text_id': 'beyond:TEST:complete', 'source_locale': 'nl', 'audio_locale': 'nl',
+           'source_text': 'Dit is een volledige opname.', 'texts': {'nl': 'Dit is een volledige opname.'},
+           'audio': {'voice': 1}}
+    (tmp_path/'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'nl',
+                                                   'records': [row]}), encoding='utf-8')
+    value = MultilingualTextIndex('beyond', tmp_path)
+    assert value.match_lines([row['source_text']]).audio_scope == 'paragraph'
 
 
 def test_full_screen_silent_match_is_opt_in_exact_and_excludes_voiced_collisions(tmp_path):

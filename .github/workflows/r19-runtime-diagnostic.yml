@@ -1,0 +1,198 @@
+name: R19 quarantined runtime diagnostic
+on:
+  push:
+    branches: [codex/r19-runtime-bundle]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: r19-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  protected-test-state:
+    # Source/native contract evidence only; this dependency environment never
+    # enters the stdlib diagnostic bundle or a published runtime artifact.
+    runs-on: windows-2025
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before test preparation
+        run: npm run dev:doctor
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12.10'
+      - name: Prepare only locked import dependencies for the protection helper
+        shell: pwsh
+        run: |
+          $names = @('httpx', 'httpcore', 'h11', 'anyio', 'certifi', 'idna', 'typing_extensions')
+          $locked = @(Get-Content requirements.lock.txt | Where-Object { ($_ -split '==')[0] -in $names })
+          if ($locked.Count -ne $names.Count) { throw 'The protection probe dependency subset differs from the application lock.' }
+          $requirements = Join-Path $env:RUNNER_TEMP 'r19-native-probe-requirements.txt'
+          $locked | Set-Content -LiteralPath $requirements -Encoding utf8
+          python -m pip install --no-deps -r $requirements
+          if ($LASTEXITCODE -ne 0) { throw 'Protection probe import dependencies unavailable.' }
+      - name: Verify actual same-user protected TEST bytes with synthetic migration
+        shell: python
+        run: |
+          import json, os, pathlib, platform, sys, unittest
+          from importlib.metadata import version
+          # GitHub executes this Python shell from a temporary script file.
+          sys.path.insert(0, os.environ['GITHUB_WORKSPACE'])
+          if os.name != 'nt':
+              raise SystemExit('Native DPAPI proof requires Windows.')
+          name = 'backend.tests.test_bundle_migration.BundleMigrationTests.test_current_user_dpapi_test_fallback_survives_copy_without_plaintext_or_named_store_repair'
+          result = unittest.TextTestRunner(verbosity=1).run(unittest.defaultTestLoader.loadTestsFromName(name))
+          passed = result.wasSuccessful() and result.testsRun == 1 and not result.skipped
+          report = {'schema': 'proxy-r19-protected-test-state-v1', 'source_commit': os.environ['GITHUB_SHA'],
+                    'python': platform.python_version(), 'environment': 'Windows Server 2025 hosted source probe',
+                    'os_version': platform.version(), 'machine': platform.machine(),
+                    'dependencies': {package: version(package) for package in ('httpx', 'httpcore', 'h11', 'anyio', 'certifi', 'idna', 'typing_extensions')},
+                    'tests_run': result.testsRun, 'skipped': len(result.skipped),
+                    'same_user_test_dpapi_copy': 'passed' if passed else 'failed',
+                    'real_accounts_accessed': False, 'live_migration': False, 'r19_complete': False}
+          output = pathlib.Path('output/checks/r19-protected-test-state.json')
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
+          if not passed:
+              raise SystemExit('Protected TEST state probe failed or did not execute.')
+      - name: Upload sanitized protection metadata only
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-protected-test-state
+          path: output/checks/r19-protected-test-state.json
+          if-no-files-found: ignore
+          retention-days: 7
+  diagnostic:
+    # Hosted Server evidence is bootloader/contract evidence only. It cannot
+    # replace native Windows 11 25H2 OCR/capture/DPI or clean-user acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [diagnostic, frontend-experiment]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Fetch the actual comparison target
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual comparison target is unavailable.' }
+      - name: Audit source before preparing build dependencies
+        run: npm run audit:public
+      - name: Observe development prerequisites
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          # Product packages are deliberately absent from this stdlib-only
+          # diagnostic environment. Their unavailability is not a product pass.
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid development preflight.' }
+          exit 0
+      - name: Provision a diagnostic interpreter and packaging wheels
+        shell: pwsh
+        run: |
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-evidence'
+          New-Item -ItemType Directory -Path (Join-Path $evidence 'wheelhouse') -Force | Out-Null
+          $archive = Join-Path $evidence 'python-3.12.10-amd64.exe'
+          $url = 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe'
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          $signature = Get-AuthenticodeSignature -LiteralPath $archive
+          if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch 'Python Software Foundation') { throw 'The downloaded diagnostic installer has no valid expected publisher signature.' }
+          $pythonRoot = Join-Path $env:RUNNER_TEMP 'r19-diagnostic-python'
+          $install = Start-Process -FilePath $archive -ArgumentList @('/quiet', 'InstallAllUsers=0', "TargetDir=`"$pythonRoot`"", 'PrependPath=0', 'Include_launcher=0', 'Include_test=0', 'Include_doc=0') -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw 'Diagnostic interpreter installation failed.' }
+          $python = Join-Path $pythonRoot 'python.exe'
+          # 3.12.10 is the last official Windows installer, deliberately an
+          # unaccepted diagnostic supplier. It does not close the serviced
+          # CPython security-build gate. Nothing is installed on a user's PC.
+          & $python -m pip download --only-binary=:all: --dest (Join-Path $evidence 'wheelhouse') PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging wheel acquisition failed.' }
+          & $python -m pip install --no-index --find-links (Join-Path $evidence 'wheelhouse') PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Offline packaging environment installation failed.' }
+          "PYTHON=$python" >> $env:GITHUB_ENV
+          "R19_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - name: Record exact diagnostic inputs and build onedir
+        shell: pwsh
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-inputs.json'
+          $frontendArgs = @()
+          if ('${{ matrix.profile }}' -eq 'frontend-experiment') {
+            npm ci
+            if ($LASTEXITCODE -ne 0) { throw 'Locked frontend build preparation failed.' }
+            npm run desktop:build
+            if ($LASTEXITCODE -ne 0) { throw 'Public static desktop build failed.' }
+            npx playwright install chromium firefox
+            if ($LASTEXITCODE -ne 0) { throw 'Comparison browsers are unavailable.' }
+            node scripts/r19-frontend-equivalence.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'Source/static frontend equivalence failed.' }
+            $frontendArgs = @('--frontend-root', (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend'))
+          }
+          & $env:PYTHON -B packaging/runtime-bundle/record_diagnostic.py --evidence $env:R19_EVIDENCE --python-artifact python-3.12.10-amd64.exe --python-source https://www.python.org/ftp/python/3.12.10/python-3.12.10-amd64.exe --build-id "${{ matrix.profile }}-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs @frontendArgs
+          if ($LASTEXITCODE -ne 0) { throw 'Exact input observation failed.' }
+          if ('${{ matrix.profile }}' -eq 'frontend-experiment') {
+            ./scripts/build-runtime-bundle.ps1 -InputManifest $inputs -EvidenceRoot $env:R19_EVIDENCE -Python $env:PYTHON -FrontendExperiment
+          } else {
+            ./scripts/build-runtime-bundle.ps1 -InputManifest $inputs -EvidenceRoot $env:R19_EVIDENCE -Python $env:PYTHON -DiagnosticOnly
+          }
+      - name: Probe relocated candidate with developer PATH removed
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/GameImmersionToolkit'
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 space 漢字/Runtime'
+          New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
+          Copy-Item -LiteralPath $source -Destination $relocated -Recurse
+          $state = Join-Path $env:RUNNER_TEMP 'r19-synthetic-state'
+          $env:PROXY_TRANSCRIPT_DATA_ROOT = Join-Path $state 'data-v1'
+          $env:PROXY_TRANSCRIPT_SETTINGS_ROOT = $state
+          $env:PROXY_TRANSCRIPT_CACHE_ROOT = Join-Path $state 'cache-v1'
+          $env:PROXY_TRANSCRIPT_TOOL_ROOT = Join-Path $state 'tools-v1'
+          $env:PROXY_TRANSCRIPT_WORK_ROOT = Join-Path $state 'cache-v1/work'
+          $env:PROXY_TRANSCRIPT_STATE_ROOT = Join-Path $state 'host-v1'
+          $env:PROXY_TRANSCRIPT_DEFAULT_EXPORT_ROOT = Join-Path $state 'exports'
+          $env:PATH = "$env:WINDIR/System32;$env:WINDIR"
+          Remove-Item Env:PYTHON -ErrorAction SilentlyContinue
+          Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+          . (Join-Path $env:GITHUB_WORKSPACE 'scripts/r19-runtime-inventory.ps1')
+          Test-R19RuntimeInventory $env:RUNNER_TEMP
+          $before = @(Get-R19RuntimeInventory $relocated) -join ','
+          Push-Location $env:RUNNER_TEMP
+          try {
+            $result = & (Join-Path $relocated 'GameImmersionToolkit.exe') --runtime-diagnose | ConvertFrom-Json
+            $expectedChildren = if ('${{ matrix.profile }}' -eq 'frontend-experiment') { 'frontend' } else { '' }
+            if ($LASTEXITCODE -ne 0 -or $result.mode -ne 'bundle' -or $result.profile -ne '${{ matrix.profile }}' -or $result.r19_complete -ne $false -or (@($result.children) -join ',') -ne $expectedChildren) { throw 'Diagnostic identity/dispatch mismatch.' }
+            if ('${{ matrix.profile }}' -eq 'frontend-experiment') {
+              & (Join-Path $env:GITHUB_WORKSPACE 'scripts/probe-frozen-frontend.ps1') -RuntimeRoot $relocated
+            }
+          } finally { Pop-Location }
+          $after = @(Get-R19RuntimeInventory $relocated) -join ','
+          if ($before -ne $after -or (Test-Path -LiteralPath $state)) { throw 'Root resolution wrote to the immutable candidate or synthetic state.' }
+          $executableHash = (Get-FileHash -LiteralPath (Join-Path $relocated 'GameImmersionToolkit.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $provenanceHash = (Get-FileHash -LiteralPath output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json -Algorithm SHA256).Hash.ToLowerInvariant()
+          $report = @{schema='proxy-r19-hosted-diagnostic-v1'; source_commit=$env:GITHUB_SHA; profile='${{ matrix.profile }}'; executable_sha256=$executableHash; candidate_provenance_sha256=$provenanceHash; relocated_start='pass'; developer_path='removed'; application_writes_observed=$false; r19_complete=$false; native_windows_11_acceptance='unavailable'; redistribution_review='pending-exact-output'; full_toolchains='unavailable'; browser_equivalence='separate-report'; installer='not-built'}
+          $report.hidden_system_inventory_fixture = 'passed'
+          New-Item -ItemType Directory -Path output/checks -Force | Out-Null
+          $report | ConvertTo-Json | Set-Content output/checks/r19-hosted-diagnostic.json -Encoding utf8
+      - name: Upload sanitized metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-${{ matrix.profile }}-metadata
+          # No executable, private receipt, wheel cache, raw log or native model
+          # is published while exact-output redistribution remains unreviewed.
+          path: |
+            output/checks/r19-hosted-diagnostic.json
+            output/runtime-bundle/build-check.json
+            output/checks/r19-frozen-frontend.json
+            output/checks/r19-frontend-equivalence.json
+          retention-days: 7

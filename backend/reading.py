@@ -7,13 +7,16 @@ import sqlite3
 import threading
 import time
 from html.parser import HTMLParser
-from concurrent.futures import Future, ThreadPoolExecutor
-from contextlib import closing
+from concurrent.futures import Future
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 from pypinyin import Style, lazy_pinyin
 
+from .runtime_writers import QuiesceableExecutor
+from .sqlite_operation_lifetime import SqliteOperationLifetime
 from .lexirise import API_BASE, LexiriseError, LexiriseService
 from .grammar import normalize_grammar
 from .lexirise_settings import STUDY_LANGUAGES
@@ -81,6 +84,36 @@ def word_zhuyin(word: str, tones: list[int]) -> str:
     return " ".join(result)
 
 
+class ReadingConnectionCloseError(RuntimeError):
+    """Private failed SQL ownership; not a remote retry instruction."""
+    def __init__(self, service, connection, body_error, transaction_error, close_error):
+        super().__init__('Reading connection cleanup is unconfirmed.')
+        self.service, self.owner, self.connection = service, service._sql_lifetime, connection
+        self.body_error, self.transaction_error, self.close_error = body_error, transaction_error, close_error
+
+
+class ReadingConnectionsPoisonedError(RuntimeError):
+    def __init__(self, failure):
+        super().__init__('Reading connection cleanup remains unconfirmed.')
+        self.failure = failure
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class ReadingConnectionFence:
+    """One reader's admitted SQL scopes, not its pool or physical resources."""
+    _service: LexiriseReadingService
+    _epoch: int
+
+    @property
+    def _lifetime_subject(self):
+        return self._service
+
+    def check(self, service):
+        if not isinstance(service, LexiriseReadingService) or service is not self._service:
+            raise ValueError('The reading connection fence belongs to another owner.')
+        service._sql_lifetime.check(self)
+
+
 class LexiriseReadingService:
     """Analyze transcript words and update explicit learner choices server-side."""
 
@@ -92,27 +125,56 @@ class LexiriseReadingService:
         self.path = directory / "reading-cache-v2.db"
         self.lexirise = lexirise
         self.lock = threading.RLock()
-        self.pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
+        self.pool = QuiesceableExecutor(max_workers=4, thread_name_prefix="lexirise-gloss")
         self.pending_meanings: set[str] = set()
+        self._sql_lifetime = SqliteOperationLifetime(self, close_error=ReadingConnectionCloseError,
+            poisoned_error=ReadingConnectionsPoisonedError, fence_type=ReadingConnectionFence,
+            label='Reading connection')
         directory.mkdir(parents=True, exist_ok=True)
-        with closing(sqlite3.connect(self.path)) as db, db:
+        with self._connection_scope(transaction=True) as db:
             db.execute("CREATE TABLE IF NOT EXISTS cache (kind TEXT, key TEXT, value TEXT, at REAL, PRIMARY KEY(kind,key))")
             db.execute("CREATE TABLE IF NOT EXISTS grammar_choices (slug TEXT PRIMARY KEY, proficiency INTEGER NOT NULL CHECK(proficiency IN (0,4)))")
+
+    @contextmanager
+    def _connection_scope(self, *, transaction=False):
+        with self._sql_lifetime.operation():
+            db = sqlite3.connect(self.path)
+            scope = self._sql_lifetime.transaction(db) if transaction else self._sql_lifetime.closing(db)
+            with scope:
+                yield db
+
+    def freeze_connections(self, timeout):
+        return self._sql_lifetime.freeze(timeout)
+
+    def resume_connections(self, fence):
+        self._sql_lifetime.resume(fence)
 
     def _scope(self, kind: str) -> str:
         account = hashlib.sha256(self.lexirise._key().encode()).hexdigest()
         settings = getattr(self.lexirise, '_settings_scope', 'unloaded')
         return f'{account}:{self.source_language}:{self.translation_language}:{settings}:{kind}'
 
+    def quiesce(self, timeout=5):
+        """Wait for queued lookups *and their cache-writing callbacks*.
+
+        Waiting on Future.done() alone can precede its completion callbacks.
+        Executor shutdown joins its actual worker threads. A timed-out drain
+        remains owned and cannot be replaced by a newly resumed pool.
+        """
+        self.pool.quiesce(timeout)
+
+    def resume(self):
+        self.pool.resume()
+
     def _cached(self, kind: str, key: str, max_age: float):
         kind = self._scope(kind)
-        with self.lock, closing(sqlite3.connect(self.path)) as db:
+        with self.lock, self._connection_scope() as db:
             row = db.execute("SELECT value,at FROM cache WHERE kind=? AND key=?", (kind, key)).fetchone()
         return json.loads(row[0]) if row and time.time() - row[1] < max_age else None
 
     def _save(self, kind: str, key: str, value: dict):
         kind = self._scope(kind)
-        with self.lock, closing(sqlite3.connect(self.path)) as db, db:
+        with self.lock, self._connection_scope(transaction=True) as db:
             db.execute("INSERT OR REPLACE INTO cache VALUES (?,?,?,?)", (kind, key, json.dumps(value), time.time()))
 
     def _post(self, path: str, payload: dict, timeout: float = 25) -> dict:
@@ -222,7 +284,7 @@ class LexiriseReadingService:
                 pending = self._schedule_meaning(word) or pending
         for token in tokens:
             token["meaning"] = token["meaning"] or meanings.get(token["word"], "")
-        with self.lock, closing(sqlite3.connect(self.path)) as db:
+        with self.lock, self._connection_scope() as db:
             grammar_choices = {slug.rsplit(":", 1)[-1]: level for slug, level in db.execute("SELECT slug,proficiency FROM grammar_choices")
                                if slug.startswith(self.lexirise._scope() + ":" + self.source_language + ":")}
         return {"text": text, "tokens": tokens, "pendingMeanings": pending,
@@ -236,7 +298,7 @@ class LexiriseReadingService:
         if rule is None:
             return None
         proficiency = 4 if known else 0
-        with self.lock, closing(sqlite3.connect(self.path)) as db, db:
+        with self.lock, self._connection_scope(transaction=True) as db:
             db.execute("INSERT OR REPLACE INTO grammar_choices VALUES (?,?)", (self.lexirise._scope() + ":" + self.source_language + ":" + slug, proficiency))
         return {"slug": slug, "proficiency": proficiency, "localOverride": True}
 

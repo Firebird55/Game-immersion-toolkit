@@ -100,6 +100,24 @@ def test_base_and_dlc_captions_are_additive_with_priority(installed, tmp_path):
     assert assets.probe_voice_pack(installed, 'en') == 'present'
 
 
+def test_delayed_caption_pages_preserve_complete_original_audio(installed, tmp_path):
+    folder = installed / 'update/resource'
+    folder.mkdir(parents=True)
+    for native, text in [('english', 'First visible page.<delay:1>Later visible page.'),
+                         ('french', 'Première page.<delay:1.0>Page suivante.'),
+                         ('german', 'Erste Seite.<delay:2>Spätere Seite.')]:
+        rows = {'test.one': text}
+        (folder / f'subtitles_{native}.txt').write_bytes(localization(native, rows))
+        (folder / f'subtitles_{native}.dat').write_bytes(compiled(rows))
+    result = assets.index_language(installed, tmp_path, 'en', ['fr', 'de'])
+    rows = [row for row in result['records'] if 'test.one:page:' in row['text_id']]
+    assert [row['source_text'] for row in rows] == ['First visible page.', 'Later visible page.']
+    assert [row['texts']['fr'] for row in rows] == ['Première page.', 'Page suivante.']
+    assert all('de' not in row['texts'] and row['audio_scope'] == 'paragraph' for row in rows)
+    assert rows[0]['audio'] == rows[1]['audio']
+    assert unpack_performance(assets.extract_voice(installed, rows[0]['audio'], None, tmp_path)) == [pcm(11)]
+
+
 @pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
 def test_all_official_voice_locales_are_isolated_even_with_missing_packs(installed, tmp_path, locale):
     if locale != 'en':

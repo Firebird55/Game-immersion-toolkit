@@ -7,5 +7,6 @@ export * from './grammar-rules.js';
 export * from './client.js';
 export * from './zhuyin.js';
 export * from './word-popup.js';
+export * from './reading-layout.js';
 export * from './session.js';
 export * from './interface-language.js';

@@ -1,6 +1,7 @@
 """Build a compact acoustic index for unnamed Mandarin story WEM files."""
 from __future__ import annotations
 
+from backend.runtime_paths import data_root as runtime_data_root
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -23,7 +24,7 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=2)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    folder = root / "data/voice-assets"
+    folder = runtime_data_root(root) / "voice-assets"
     manifest_path = folder / "manifest.json"
     decoder = folder / "vgmstream/vgmstream-cli.exe"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))["entries"]

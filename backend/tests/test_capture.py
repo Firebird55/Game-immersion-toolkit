@@ -69,6 +69,10 @@ def test_screen_header_classifier_excludes_history_interfaces() -> None:
     assert CaptureService._classify_screen_header(["Knock Knock", "Anton"]) == "phone"
     assert CaptureService._classify_screen_header(["NEW!", "Story Commission", "70%"]) == "hdd"
     assert CaptureService._classify_screen_header(["Belobog Industries", "Ben"]) is None
+    assert CaptureService._classify_screen_header(['LEVEL', '52', 'NEW!', 'EVENTS']) == 'menu'
+    assert CaptureService._classify_screen_header(['Mail', 'Options', 'Notices', 'New Eridu City Fund']) == 'menu'
+    assert CaptureService._classify_screen_header(['Menu', 'NEW!', 'Rain, Rain! Are you okay?']) is None
+    assert CaptureService._classify_screen_header(['...New?']) is None
 
 
 def test_visual_novel_filmstrip_is_distinct_from_normal_gameplay() -> None:
@@ -221,6 +225,8 @@ def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkey
     service._scan_epoch = 0
     service._scan_index = 0
     service._tracker = StableMatchTracker(2)
+    service._zzz_cutscene_context = module.ZzzCutsceneContext()
+    service._zzz_dialogue_context = module.ZzzDialogueContext()
     service.language_setup = lambda game: False
     service.snapshot = lambda: SimpleNamespace(active_game=None)
     service._caption_context = []

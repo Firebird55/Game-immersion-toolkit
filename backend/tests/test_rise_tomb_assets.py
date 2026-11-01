@@ -46,10 +46,13 @@ def test_pages_and_original_fsb_binding(tmp_path):
                extra_pages=((('0', 'Synthetic second page.'), ('13', '合成第二页。')),))
     write_tiger(tmp_path, 'bigfile_ENGLISH.000.tiger', records=((42, 0xFFFF0001, data),))
     index = assets.index_language(tmp_path, tmp_path / 'cache', 'en', ['zh-Hans'])
-    record, = index['records']
+    record, second = index['records']
     assert record['voice_status'] == 'voiced'
-    assert record['source_text'] == 'Synthetic first page. Synthetic second page.'
-    assert record['ocr_english'] == ['Synthetic first page.', 'Synthetic second page.']
+    assert [row['source_text'] for row in index['records']] == ['Synthetic first page.', 'Synthetic second page.']
+    assert record['texts']['zh-Hans'] == '合成第一页。' and second['texts']['zh-Hans'] == '合成第二页。'
+    assert 'ocr_texts' not in record
+    assert (record['audio']['start_ms'], record['audio']['end_ms']) == (0, 1000)
+    assert 'start_ms' not in second['audio'] and second['audio_scope'] == 'paragraph'
     assert assets.extract_voice(tmp_path, record['audio'], Path(), tmp_path) == fsb()
     with pytest.raises(ValueError, match='language'):
         assets.extract_voice(tmp_path, {**record['audio'], 'locale_name': 'zh-Hans'}, Path(), tmp_path)
@@ -111,12 +114,35 @@ def test_shared_frame_cuts_preserve_staggered_language_pages():
         {'frame': 32, 'texts': {'zh-Hans': '二。'}},
         {'frame': 90, 'texts': {'en': 'Three.', 'zh-Hans': '三。'}}]}
     groups = list(assets._subtitle_groups(stream, {'en', 'zh-Hans'}, 'en'))
-    assert groups == [(0, 3000, {'en': ['One.', 'Two.'], 'zh-Hans': ['一。', '二。']}, True),
+    assert groups == [(0, 1000, {'en': ['One.']}, True),
+                      (30, 3000, {'en': ['Two.']}, True),
                       (90, 10000, {'en': ['Three.'], 'zh-Hans': ['三。']}, True)]
     data = bytearray(mul())
     struct.pack_into('<f', data, 60, float('nan'))
     with pytest.raises(ValueError, match='mix'):
         assets.read_mul(bytes(data))
+
+
+def test_repeated_source_pages_remain_distinct_without_translation_order_guessing():
+    stream = {'duration_ms': 3000, 'pages': [
+        {'frame': 0, 'texts': {'en': 'Same.', 'fr': 'Une longue traduction.'}},
+        {'frame': 30, 'texts': {'en': 'Same.'}},
+        {'frame': 60, 'texts': {'en': 'Last.', 'fr': 'Dernière.'}}]}
+    assert list(assets._subtitle_groups(stream, {'en', 'fr'}, 'en')) == [
+        (0, 1000, {'en': ['Same.']}, True),
+        (30, 2000, {'en': ['Same.']}, True),
+        (60, 3000, {'en': ['Last.'], 'fr': ['Dernière.']}, True)]
+
+
+def test_page_cut_is_revalidated_without_any_requested_translation(tmp_path):
+    data = bytearray(mul(extra_pages=((('0', 'Next.'),),)))
+    struct.pack_into('<I', data, 8, 44100 * 3)
+    write_tiger(tmp_path, 'bigfile_ENGLISH.000.tiger', records=((42, 0xFFFF0001, bytes(data)),))
+    first, second = assets.index_language(tmp_path, tmp_path, 'en', [])['records']
+    assert (second['audio']['start_ms'], second['audio']['end_ms']) == (1000, 3000)
+    assert assets.extract_voice(tmp_path, second['audio'], Path(), tmp_path) == fsb()
+    with pytest.raises(ValueError, match='timing'):
+        assets.extract_voice(tmp_path, {**first['audio'], 'end_ms': 3000}, Path(), tmp_path)
 
 
 def test_locals_bounds_and_unknown_voice_inventory(tmp_path):

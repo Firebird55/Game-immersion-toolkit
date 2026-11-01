@@ -14,6 +14,26 @@ NAMESPACES = {'en': 'english(en)', 'zh-Hans': 'chinese(prc)', 'zh-Hant': 'chines
               'ja': 'japanese(jp)', 'ko': 'korean(kr)'}
 
 
+def test_consecutive_movie_captions_keep_authored_text_and_translation_ids(tmp_path):
+    package = tmp_path / 'voice.pck'; package.write_bytes(bytes(128))
+    ids = ['CS_SyntheticSequence_001', 'CS_SyntheticSequence_002']
+    tables = {'en': {ids[0]: 'This is the first displayed cinematic caption.', ids[1]: 'A second caption replaces it later.'},
+              'zh-Hans': {ids[0]: '这是第一条合成电影字幕。', ids[1]: '之后显示第二条合成字幕。'}}
+    # Sharing an original recording must not concatenate its two text IDs.
+    binding = {'package': str(package), 'file_id': '00000001', 'offset': 0, 'size': 128,
+               'event': 'Play_vo_SyntheticSequence', 'matched_by': 'authored_cinematic_event'}
+    rows = assets.build_records(tables, 'zh-Hans', {'en', 'zh-Hans'}, [], [], {},
+                                {identity: binding for identity in ids}, NAMESPACES['zh-Hans'])
+    assert [row['source_text'] for row in rows] == [tables['zh-Hans'][identity] for identity in ids]
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'zzz', 'source_locale': 'zh-Hans',
+                                                     'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('zzz', tmp_path); index.target_locale = 'en'
+    for identity in ids:
+        hit = index.match_lines([tables['en'][identity]], channel='cinematic')
+        assert hit.text_id == identity and hit.source_text == tables['zh-Hans'][identity]
+        assert hit.translation_text == tables['en'][identity]
+
+
 @pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
 def test_selected_text_uses_the_authored_namespace_and_original_pack(tmp_path, locale):
     root = tmp_path / 'ZenlessZoneZero_Data'

@@ -4,6 +4,12 @@ Audit date: 2026-10-27. Scope: read-only installed PC metadata and selected
 Mandarin voice decoding, plus primary-source research. No game files,
 transcripts, recordings, personal paths or account data belong in this report.
 
+2026-10-30 archive-reader update: the [owned Python reader](../re-pak-runtime.md)
+replaces the compiler-dependent extraction path. Eight selected installed
+MSG/SBNK/SPCK/TMLFSM2 files matched the earlier extractor byte for byte, including
+chunked voices and a patch layer. This changes the extraction implementation;
+the language inventory and voice-binding counts below are not reclassified.
+
 ## What the game presents
 
 The Shelter includes progress-dependent conversations, REM interactions,

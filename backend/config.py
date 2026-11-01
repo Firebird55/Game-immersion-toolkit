@@ -40,3 +40,12 @@ class SettingsStore:
             temporary.replace(self.path)
             self._settings = settings.model_copy(deep=True)
             return self.get()
+
+    def remember_zzz_proxy(self, voice: str) -> AppSettings:
+        """Persist conclusive scene evidence without overwriting concurrent edits."""
+        with self._lock:
+            current = self.get()
+            if voice in {'male', 'female'} and current.zzz_detected_proxy != voice:
+                current.zzz_detected_proxy = voice
+                return self.save(current)
+            return current

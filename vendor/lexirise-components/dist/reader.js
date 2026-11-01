@@ -7,7 +7,8 @@ import { Popover } from '@base-ui/react/popover';
 import { Bookmark, Play, Volume2, X } from 'lucide-react';
 import { countUnknownWords, restoreTranslationLimit } from './translation-visibility.js';
 import { appliesToWord, unknownWordGrammar, grammarUrl } from './grammar-rules.js';
-import { popupPreferences, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab } from './word-popup.js';
+import { popupPreferences, popupOpensOnPointerEnter, popupTogglesOnShift, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab } from './word-popup.js';
+import { readingWrapRanges } from './reading-layout.js';
 export const DEFAULT_TONE_PALETTE = ['#ff526b', '#ffd34d', '#43cfa1', '#4fa8ff', '#9ca9b7'];
 /** @deprecated Use DEFAULT_TONE_PALETTE. Saved colors are unchanged. */
 export const MIGAKU_TONE_PALETTE = DEFAULT_TONE_PALETTE;
@@ -120,6 +121,33 @@ export function createReader(adapter) {
         const first = meaning.split(/[,;]/, 1)[0].trim();
         return first.length > 32 ? `${first.slice(0, 29)}…` : first;
     }
+    function groupReadingParts(text, parts) {
+        const ranges = readingWrapRanges(text, parts.filter(part => typeof part.node !== 'string'));
+        const groups = new Map();
+        const result = [];
+        for (const part of parts) {
+            const cuts = typeof part.node === 'string'
+                ? [...new Set([part.start, ...ranges.flatMap(range => [range.start, range.end]).filter(at => at > part.start && at < part.end), part.end])].sort((a, b) => a - b)
+                : [part.start, part.end];
+            for (let i = 0; i < cuts.length - 1; i++) {
+                const start = cuts[i], end = cuts[i + 1];
+                const range = ranges.find(range => range.start <= start && range.end >= end);
+                const node = typeof part.node === 'string' ? text.slice(start, end) : part.node;
+                if (!range) {
+                    result.push({ start, end, node });
+                    continue;
+                }
+                if (!groups.has(range.start)) {
+                    const group = { key: `word-${range.start}`, children: [] };
+                    groups.set(range.start, group);
+                    result.push(group);
+                }
+                groups.get(range.start).children.push(node);
+            }
+        }
+        return result.map(part => 'children' in part
+            ? _jsx("span", { className: "reading-word", children: part.children }, part.key) : part.node);
+    }
     const WORD_LEVELS = [
         { value: 1, short: 'T', label: 'Tracked' },
         { value: 2, short: 'L', label: 'Learning' },
@@ -145,15 +173,16 @@ export function createReader(adapter) {
             if (token.start < cursor || token.end > text.length)
                 continue;
             if (token.start > cursor)
-                parts.push(text.slice(cursor, token.start));
+                parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
             const word = text.slice(token.start, token.end);
             const unknown = token.proficiency < 4;
-            parts.push(_jsxs("span", { className: "reading-token", children: [enabled(options.pinyin, unknown) && token.pinyin && _jsx("span", { className: "reading-pinyin", children: token.pinyin }), enabled(options.zhuyin, unknown) && token.zhuyin && _jsx("span", { className: "reading-zhuyin", children: token.zhuyin }), _jsx("span", { className: "reading-hanzi", style: enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined, children: word }), enabled(options.meanings, unknown) && token.meaning && _jsx("span", { className: "reading-meaning", children: shortGloss(token.meaning) })] }, `${token.start}-${index}`));
+            const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+            parts.push({ start: token.start, end: token.end, node: _jsxs("span", { className: `reading-token${meaning ? ' has-meaning' : ''}`, children: [_jsxs("span", { className: "reading-above", children: [enabled(options.pinyin, unknown) && token.pinyin && _jsx("span", { className: "reading-pinyin", children: token.pinyin }), enabled(options.zhuyin, unknown) && token.zhuyin && _jsx("span", { className: "reading-zhuyin", children: token.zhuyin })] }), _jsx("span", { className: "reading-hanzi", style: enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined, children: word }), meaning && _jsx("span", { className: "reading-meaning", title: token.meaning, children: shortGloss(token.meaning) })] }, `${token.start}-${index}`) });
             cursor = token.end;
         }
         if (cursor < text.length)
-            parts.push(text.slice(cursor));
-        return _jsx("div", { className: "word-example-chinese", lang: language, dir: capability.direction, children: parts });
+            parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
+        return _jsx("div", { className: "word-example-chinese", lang: language, dir: capability.direction, children: groupReadingParts(text, parts) });
     }
     function pronunciationTone(reading) {
         const index = ['āēīōūǖ', 'áéíóúǘ', 'ǎěǐǒǔǚ', 'àèìòùǜ']
@@ -168,7 +197,7 @@ export function createReader(adapter) {
                                                     toneStyle([pronunciationTone(part.pinyin[0])], part.character, options.palette) : undefined, children: part.character })] }), _jsxs("div", { children: [_jsx("span", { className: "word-component-type", children: part.type.join(', ') || 'Component' }), part.gloss && _jsx("p", { className: "word-component-gloss", children: part.gloss }), (part.hint || part.characterHint) && _jsx("p", { children: part.hint || part.characterHint }), part.hint && part.characterHint && part.hint !== part.characterHint &&
                                                 _jsxs("details", { children: [_jsx("summary", { children: uiText("Character explanation") }), _jsx("p", { children: part.characterHint })] })] })] }, index)) })] })] });
     }
-    function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation }) {
+    function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation, onPointerEnter, onPointerLeave }) {
         const uiText = useInterfaceTranslation();
         const available = ['definition', 'context', 'translation', ...(capability.characters ? ['components'] : []), 'examples', 'similar', ...(lookup?.topWords?.length ? ['words'] : []), ...(token.savedExpressionId ? ['notes'] : []), ...(capability.grammar ? ['grammar'] : [])];
         const tabs = orderWordPopupTabs(preferences.layout, available);
@@ -360,10 +389,10 @@ export function createReader(adapter) {
                 }
                 if (!open)
                     onClose();
-            }, children: _jsx(Popover.Portal, { container: getPortalContainer(), children: _jsx(Popover.Positioner, { anchor: anchor, side: "bottom", sideOffset: 8, align: "start", positionMethod: "fixed", collisionPadding: 12, collisionAvoidance: { side: 'flip', align: 'shift', fallbackAxisSide: 'none' }, className: "word-sheet-positioner", children: _jsxs(Popover.Popup, { className: "word-sheet", initialFocus: keyboard, finalFocus: keyboard ? () => anchor : false, children: [_jsx(Popover.Close, { className: "word-sheet-close", "aria-label": uiText("Close word lookup"), children: _jsx(X, { size: 17 }) }), _jsxs("div", { className: "word-sheet-top", children: [_jsxs("div", { className: "word-sheet-identity", children: [_jsxs("div", { className: "word-sheet-headword", children: [_jsx(Popover.Title, { className: "word-sheet-title", style: enabled(options.toneColors, token.proficiency < 4) ? toneStyle(token.tones || [], token.word, options.palette) : undefined, children: token.word }), _jsx("button", { type: "button", className: "word-speak", onClick: () => speakChinese(token.word), title: uiText("Speak using this device's source-language voice"), "aria-label": `Pronounce ${token.word}`, children: _jsx(Play, { size: 17, fill: "currentColor" }) })] }), _jsxs("div", { className: "word-sheet-reading", children: [token.pinyin, lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''] }), enabled(options.zhuyin, token.proficiency < 4) && token.zhuyin && _jsx("div", { className: "word-sheet-zhuyin", children: token.zhuyin })] }), _jsx("div", { className: "word-levels", role: "group", "aria-label": uiText("Lexirise vocabulary status"), children: WORD_LEVELS.map(level => _jsx("button", { type: "button", className: token.proficiency === level.value ? `active level-${level.value}` : '', disabled: saving !== null, onClick: () => void setLevel(level.value), title: level.label, "aria-label": `Mark ${token.word} ${level.label}`, "aria-pressed": token.proficiency === level.value, children: saving === level.value ? '…' : level.short }, level.value)) })] }), saveError && _jsx("p", { className: "word-sheet-error", role: "alert", children: saveError }), _jsx("div", { className: "word-tabs", role: "tablist", "aria-label": uiText("Word details"), children: tabs.map(value => _jsx("button", { type: "button", role: "tab", "aria-selected": tab === value, id: `word-tab-${id}-${token.start}-${value}`, "aria-controls": `word-panel-${id}-${token.start}`, tabIndex: tab === value ? 0 : -1, onKeyDown: event => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
+            }, children: _jsx(Popover.Portal, { container: getPortalContainer(), children: _jsx(Popover.Positioner, { anchor: anchor, side: "bottom", sideOffset: 8, align: "start", positionMethod: "fixed", collisionPadding: 12, collisionAvoidance: { side: 'flip', align: 'shift', fallbackAxisSide: 'none' }, className: "word-sheet-positioner", children: _jsxs(Popover.Popup, { className: "word-sheet", initialFocus: keyboard, finalFocus: keyboard ? () => anchor : false, onPointerEnter: onPointerEnter, onPointerLeave: onPointerLeave, children: [_jsx(Popover.Close, { className: "word-sheet-close", "aria-label": uiText("Close word lookup"), children: _jsx(X, { size: 17 }) }), _jsxs("div", { className: "word-sheet-top", children: [_jsxs("div", { className: "word-sheet-identity", children: [_jsxs("div", { className: "word-sheet-headword", children: [_jsx(Popover.Title, { className: "word-sheet-title", style: enabled(options.toneColors, token.proficiency < 4) ? toneStyle(token.tones || [], token.word, options.palette) : undefined, children: token.word }), _jsx("button", { type: "button", className: "word-speak", onClick: () => speakChinese(token.word), title: uiText("Speak using this device's source-language voice"), "aria-label": `Pronounce ${token.word}`, children: _jsx(Play, { size: 17, fill: "currentColor" }) })] }), _jsxs("div", { className: "word-sheet-reading", children: [token.pinyin, lookup?.alternateReadings?.length ? ` · ${lookup.alternateReadings.join(' · ')}` : ''] }), enabled(options.zhuyin, token.proficiency < 4) && token.zhuyin && _jsx("div", { className: "word-sheet-zhuyin", children: token.zhuyin })] }), _jsx("div", { className: "word-levels", role: "group", "aria-label": uiText("Lexirise vocabulary status"), children: WORD_LEVELS.map(level => _jsx("button", { type: "button", className: token.proficiency === level.value ? `active level-${level.value}` : '', disabled: saving !== null, onClick: () => void setLevel(level.value), title: level.label, "aria-label": `Mark ${token.word} ${level.label}`, "aria-pressed": token.proficiency === level.value, children: saving === level.value ? '…' : level.short }, level.value)) })] }), saveError && _jsx("p", { className: "word-sheet-error", role: "alert", children: saveError }), _jsx("div", { className: "word-tabs", role: "tablist", "aria-label": uiText("Word details"), children: tabs.map(value => _jsx("button", { type: "button", role: "tab", "aria-selected": tab === value, id: `word-tab-${id}-${token.start}-${value}`, "aria-controls": `word-panel-${id}-${token.start}`, tabIndex: tab === value ? 0 : -1, onKeyDown: event => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
                                         return; event.preventDefault(); const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (tabs.indexOf(value) + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length; setTab(tabs[index]); event.currentTarget.parentElement?.children[index]?.focus(); }, className: tab === value ? 'active' : '', onClick: () => setTab(value), children: value[0].toUpperCase() + value.slice(1) }, value)) }), _jsxs("div", { className: "word-sheet-body", role: "tabpanel", id: `word-panel-${id}-${token.start}`, "aria-labelledby": `word-tab-${id}-${token.start}-${tab}`, children: [preferences.settingsError && _jsx("p", { role: "status", children: uiText("Popup preferences unavailable. Using the default layout; reload Lexirise settings to retry.") }), tab === 'definition' && tabs.includes('grammar') && (unknownGrammar.length > 0 || analysisPending) &&
                                         _jsxs("section", { className: "word-grammar-summary", "aria-label": uiText("Unknown grammar for this word"), children: [_jsx("small", { children: uiText("Unknown grammar") }), unknownGrammar.slice(0, 3).map(rule => _jsxs("button", { type: "button", title: `${rule.title}: ${rule.subtitle}`, onClick: () => setTab('grammar'), children: [_jsx("strong", { lang: language, dir: capability.direction, children: rule.title }), _jsx("span", { children: rule.subtitle })] }, rule.slug)), unknownGrammar.length > 3 && _jsxs("button", { type: "button", className: "word-grammar-more", onClick: () => setTab('grammar'), children: ["+", unknownGrammar.length - 3, " ", uiText("more")] }), analysisPending && _jsx("small", { children: uiText("Checking grammar…") })] }), tab === 'grammar' && _jsxs("div", { className: "word-grammar-details", children: [_jsx("h3", { children: uiText("Grammar in this sentence") }), _jsx("p", { className: "word-grammar-sentence", lang: language, dir: capability.direction, children: text }), analysisPending && _jsxs("p", { className: "word-grammar-note", children: [uiText("Detailed analysis is still running."), _jsx("button", { type: "button", onClick: onGrammarRetry, children: uiText("Check again") })] }), !grammar.length && !analysisPending && _jsxs("p", { children: [uiText("No grammar rules were returned for this sentence."), _jsx("button", { type: "button", className: "word-retry", onClick: onGrammarRetry, children: uiText("Retry grammar analysis") })] }), sortedGrammar.map(rule => _jsxs("article", { className: `${rule.proficiency >= 4 ? 'is-known' : ''} ${appliesToWord(rule, token.start, token.end) ? 'uses-selected-word' : ''}`, children: [_jsxs("div", { className: "word-grammar-heading", children: [_jsxs("a", { href: grammarUrl(rule.slug, language), target: "_blank", rel: "noopener noreferrer", "aria-label": `Read about ${rule.title} on Lexirise`, children: [_jsx("strong", { lang: language, dir: capability.direction, children: rule.title }), _jsx("span", { children: "\u2197" })] }), rule.level && _jsx("small", { children: rule.level })] }), _jsx("p", { children: rule.subtitle }), _jsx("div", { className: "word-grammar-examples", lang: language, dir: capability.direction, children: rule.examples.map((example, index) => _jsx("span", { children: example }, index)) }), _jsxs("div", { className: "word-grammar-actions", children: [_jsxs("small", { children: [rule.proficiency >= 4 ? 'Known' :
-                                                                        WORD_LEVELS.find(level => level.value === rule.proficiency)?.label || 'Unknown', rule.localOverride ? ' · Local' : '', appliesToWord(rule, token.start, token.end) ? ' · Uses this word' : ''] }), _jsx("button", { type: "button", disabled: savingGrammar !== null, onClick: () => void setGrammarKnown(rule), children: savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known' })] })] }, rule.slug)), grammarSaveError && _jsx("p", { className: "word-sheet-error", role: "alert", children: grammarSaveError }), _jsx("small", { className: "word-grammar-note", children: uiText("Status changes are saved on this browser. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.") })] }), !lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
+                                                                        WORD_LEVELS.find(level => level.value === rule.proficiency)?.label || 'Unknown', rule.localOverride ? ' · Local' : '', appliesToWord(rule, token.start, token.end) ? ' · Uses this word' : ''] }), _jsx("button", { type: "button", disabled: savingGrammar !== null, onClick: () => void setGrammarKnown(rule), children: savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known' })] })] }, rule.slug)), grammarSaveError && _jsx("p", { className: "word-sheet-error", role: "alert", children: grammarSaveError }), _jsx("small", { className: "word-grammar-note", children: uiText("These status changes are saved locally. Use the rule links to read more or change your grammar status on Lexirise.") })] }), !lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
                                         _jsxs("p", { children: [token.meaning || 'Looking up word details…', _jsx("small", { className: "word-loading-note", children: uiText("Loading dictionary details…") })] }), lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
                                         _jsxs("p", { children: [uiText("Dictionary details are unavailable."), token.meaning, _jsx("button", { type: "button", className: "word-retry", onClick: onRetry, children: uiText("Retry dictionary lookup") })] }), tab === 'definition' && lookup && _jsxs("div", { className: "word-definition-sections", children: [sections.includes('senses') && _jsx("div", { className: "word-definition-senses", style: sectionStyle('senses'), children: lookup.translations.length ? lookup.translations.map((sense, index) => _jsxs("div", { className: "word-definition-lead", children: [_jsx("span", { children: sense.meaning }), sense.partOfSpeech.map((part, partIndex) => _jsx("span", { className: "word-pos", children: part }, partIndex))] }, index)) : _jsx("p", { children: token.meaning || 'No definition yet' }) }), sections.includes('breakdown') && _jsxs("div", { style: sectionStyle('breakdown'), children: [token.word.length > 1 && _jsxs("section", { className: "word-character-summary", children: [_jsx("h3", { children: uiText("Characters") }), characters ? _jsx("div", { className: "word-character-summary-list", children: characters.characters.map((character, index) => _jsxs("div", { className: "word-character-summary-item", children: [_jsxs("span", { children: [_jsx("small", { children: character.pinyin?.join(' · ') }), _jsx("strong", { children: character.character })] }), _jsx("p", { children: character.gloss || (character.unavailable ? 'Details unavailable' : '') })] }, index)) }) : _jsx("p", { children: charactersError ? _jsx("button", { type: "button", className: "word-retry", onClick: () => setCharactersError(false), children: uiText("Retry character details") }) : 'Loading character details…' })] }), token.word.length === 1 ? _jsx(DefinitionComponents, { character: lookup.character || token.word, options: options, hint: lookup.characterHint, strokeCount: lookup.strokeCount, components: characters?.characters[0]?.components || lookup.components }) :
                                                         characters?.characters.map((character, index) => _jsx(DefinitionComponents, { options: options, character: character.character, hint: character.hint, strokeCount: character.strokeCount, components: character.components }, index)), charactersError && _jsx("button", { type: "button", className: "word-retry", onClick: () => setCharactersError(false), children: uiText("Retry component details") }), characters?.partial && _jsx("button", { type: "button", className: "word-retry", onClick: () => setCharacters(null), children: uiText("Retry missing character explanations") })] }), sections.includes('dictionaries') && _jsx("div", { style: sectionStyle('dictionaries'), children: lookup.dictionaries.map((dictionary, index) => _jsxs("section", { className: "word-dictionary", children: [_jsx("h3", { children: dictionary.name }), _jsxs("p", { children: [_jsx("strong", { children: dictionary.headword }), " ", _jsx("span", { children: dictionary.reading })] }), _jsx("ul", { children: dictionary.definitions.map((meaning, item) => _jsx("li", { children: meaning }, item)) })] }, index)) }), sections.includes('frequency') && _jsxs("div", { style: sectionStyle('frequency'), children: [lookup.hskLevel != null && _jsxs("span", { className: "word-hsk", children: [uiText("HSK"), lookup.hskLevel] }), lookup.rank != null && _jsxs("div", { className: "word-frequency", children: [_jsx("span", { children: uiText("Frequency") }), lookup.frequencyScore != null && _jsx("span", { className: "word-frequency-bars", "aria-label": `Frequency score ${Math.round(lookup.frequencyScore * 100)} percent`, children: Array.from({ length: 4 }, (_, index) => _jsx("i", { className: lookup.frequencyScore >= (index + 1) / 4 ? 'on' : '' }, index)) }), _jsx("span", { children: lookup.rank <= 100 ? 'Very common' : lookup.rank <= 5000 ? 'Common' : 'Less common' }), _jsxs("span", { children: ["#", lookup.rank.toLocaleString()] })] })] })] }), tab === 'translation' && _jsxs("div", { className: "word-context", children: [_jsx("p", { lang: language, dir: capability.direction, children: text }), _jsx("p", { children: sentenceTranslation || 'No sentence translation is available for this line.' })] }), tab === 'words' && _jsxs("div", { className: "word-similar", children: [_jsxs("h3", { children: [uiText("Words containing"), token.word] }), lookup?.topWords?.map((word, index) => _jsxs("article", { children: [_jsx("strong", { lang: language, children: word.word }), word.trad && word.trad !== word.word && _jsx("small", { children: word.trad }), _jsx("p", { children: word.gloss }), word.share != null && _jsxs("small", { children: [Math.round(word.share * 100), uiText("% of occurrences")] })] }, index))] }), tab === 'notes' && _jsxs("div", { className: "word-context", children: [_jsx("h3", { children: uiText("Notes") }), notes ? _jsx("p", { className: "word-notes", children: notes.notes || 'No notes saved for this word.' }) : _jsx("p", { children: notesError ? _jsxs(_Fragment, { children: [uiText("Notes unavailable."), _jsx("button", { type: "button", onClick: () => setNotesError(false), children: uiText("Retry notes") })] }) : 'Loading notes…' }), _jsx("a", { href: `https://lexirise.app/vocabulary?language=${language}`, target: "_blank", rel: "noopener noreferrer", children: uiText("Edit notes on Lexirise ↗") })] }), tab === 'context' && _jsxs("div", { className: "word-context", children: [_jsx("p", { lang: language, dir: capability.direction, children: text }), context ? _jsxs(_Fragment, { children: [_jsx("strong", { children: context.conciseMeaning || token.meaning }), _jsx("p", { children: context.meaning }), context.reading && _jsxs("small", { children: [uiText("In this line:"), context.reading] })] }) :
@@ -378,6 +407,8 @@ export function createReader(adapter) {
         const hoverTimer = useRef(null);
         const cancelHover = () => { if (hoverTimer.current)
             clearTimeout(hoverTimer.current); hoverTimer.current = null; };
+        const hoveredWord = useRef(null);
+        const hoverOpened = useRef(false);
         useEffect(() => () => cancelHover(), []);
         const [reading, setReading] = useState(cachedReading(id, text));
         const [open, setOpen] = useState(null);
@@ -386,11 +417,36 @@ export function createReader(adapter) {
         const [lookup, setLookup] = useState(null);
         const [lookupAttempt, setLookupAttempt] = useState(0);
         const [error, setError] = useState(false);
+        const leavePopup = () => {
+            cancelHover();
+            if (preferences.openMode === 'shift-hover' && hoverOpened.current)
+                hoverTimer.current = setTimeout(() => setOpen(null), 100);
+        };
         const refreshReading = useRef(null);
         useEffect(() => { if (preferences.disabled) {
             cancelHover();
             setOpen(null);
         } }, [preferences.disabled]);
+        useEffect(() => {
+            const shift = (event) => {
+                if (preferences.disabled || !hoveredWord.current || !popupTogglesOnShift(preferences.openMode, event))
+                    return;
+                // composedPath also sees inputs inside a consumer's Shadow DOM.
+                if (event.composedPath().some(node => node instanceof HTMLElement && (node.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName))))
+                    return;
+                cancelHover();
+                const { index, target } = hoveredWord.current;
+                if (!target.isConnected)
+                    return;
+                hoverOpened.current = true;
+                notify('lexirise-open-word', id);
+                setAnchor(target);
+                setKeyboard(false);
+                setOpen(previous => previous === index ? null : index);
+            };
+            window.addEventListener('keydown', shift, true);
+            return () => { window.removeEventListener('keydown', shift, true); cancelHover(); };
+        }, [preferences.openMode, preferences.disabled, id, text]);
         useEffect(() => {
             const dismiss = (event) => {
                 const path = event.composedPath();
@@ -400,8 +456,10 @@ export function createReader(adapter) {
             };
             const otherWord = (event) => { if (event.detail !== id)
                 setOpen(null); };
-            const escape = (event) => { if (event.key === 'Escape')
-                setOpen(null); };
+            const escape = (event) => { if (event.key === 'Escape') {
+                cancelHover();
+                setOpen(null);
+            } };
             window.addEventListener('click', dismiss, true);
             window.addEventListener('lexirise-open-word', otherWord);
             window.addEventListener('keydown', escape, true);
@@ -416,6 +474,8 @@ export function createReader(adapter) {
             let refreshCount = 0;
             const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000, 12000, 16000, 20000];
             setOpen(null);
+            cancelHover();
+            hoveredWord.current = null;
             const saved = cachedReading(id, text);
             setReading(saved);
             async function refresh() {
@@ -504,29 +564,39 @@ export function createReader(adapter) {
             if (token.start < cursor || token.end > text.length)
                 continue;
             if (token.start > cursor)
-                parts.push(text.slice(cursor, token.start));
+                parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
             const unknown = token.proficiency < 4;
             const wordText = text.slice(token.start, token.end);
             const colorStyle = enabled(options.toneColors, unknown)
                 ? toneStyle(token.tones || [], wordText, options.palette) : undefined;
             const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
-            parts.push(_jsxs("span", { className: "reading-token", children: [enabled(options.toneMarks, unknown) && !!toneMarks && _jsx("span", { className: "reading-tone-marks", "aria-hidden": "true", children: toneMarks }), enabled(options.pinyin, unknown) && !!token.pinyin && _jsx("span", { className: "reading-pinyin", "aria-hidden": "true", children: token.pinyin }), enabled(options.zhuyin, unknown) && !!token.zhuyin && _jsx("span", { className: "reading-zhuyin", "aria-hidden": "true", children: token.zhuyin }), _jsx("span", { className: "reading-hanzi", role: "button", tabIndex: 0, "aria-haspopup": preferences.disabled ? undefined : 'dialog', "aria-expanded": open === index, onPointerEnter: event => { if (!preferences.hover || preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches)
-                            return; cancelHover(); const target = event.currentTarget; hoverTimer.current = setTimeout(() => { notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, 180); }, onPointerLeave: cancelHover, onClick: event => { cancelHover(); if (preferences.disabled)
-                            return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }, onKeyDown: event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) {
-                            cancelHover();
-                            event.preventDefault();
-                            event.stopPropagation();
-                            notify('lexirise-open-word', id);
-                            setAnchor(event.currentTarget);
-                            setKeyboard(true);
-                            setOpen(open === index ? null : index);
-                        } }, style: colorStyle, title: token.meaning || 'Tap for word details', children: wordText }), enabled(options.meanings, unknown) && !!token.meaning && _jsx("span", { className: "reading-meaning", children: shortGloss(token.meaning) })] }, `${token.start}-${index}`));
+            const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+            parts.push({ start: token.start, end: token.end, node: _jsxs("span", { className: `reading-token${meaning ? ' has-meaning' : ''}`, children: [_jsxs("span", { className: "reading-above", "aria-hidden": "true", children: [enabled(options.toneMarks, unknown) && !!toneMarks && _jsx("span", { className: "reading-tone-marks", "aria-hidden": "true", children: toneMarks }), enabled(options.pinyin, unknown) && !!token.pinyin && _jsx("span", { className: "reading-pinyin", "aria-hidden": "true", children: token.pinyin }), enabled(options.zhuyin, unknown) && !!token.zhuyin && _jsx("span", { className: "reading-zhuyin", "aria-hidden": "true", children: token.zhuyin })] }), _jsx("span", { className: "reading-hanzi", role: "button", tabIndex: 0, "aria-haspopup": preferences.disabled ? undefined : 'dialog', "aria-expanded": open === index, onPointerEnter: event => {
+                                if (preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches)
+                                    return;
+                                cancelHover();
+                                const target = event.currentTarget;
+                                hoveredWord.current = { index, target };
+                                if (event.buttons || !popupOpensOnPointerEnter(preferences.openMode, event))
+                                    return;
+                                hoverTimer.current = setTimeout(() => { hoverOpened.current = true; notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, preferences.openMode === 'shift-hover' ? 0 : 180);
+                            }, onPointerLeave: () => { hoveredWord.current = null; leavePopup(); }, onClick: event => { cancelHover(); hoverOpened.current = false; if (preferences.disabled)
+                                return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }, onKeyDown: event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) {
+                                cancelHover();
+                                hoverOpened.current = false;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                notify('lexirise-open-word', id);
+                                setAnchor(event.currentTarget);
+                                setKeyboard(true);
+                                setOpen(open === index ? null : index);
+                            } }, style: colorStyle, title: token.meaning || 'Tap for word details', children: wordText }), meaning && _jsx("span", { className: "reading-meaning", "aria-hidden": "true", title: token.meaning, children: shortGloss(token.meaning) })] }, `${token.start}-${index}`) });
             cursor = token.end;
         }
         if (cursor < text.length)
-            parts.push(text.slice(cursor));
+            parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
         const selected = open === null ? null : reading.tokens[open];
-        return _jsxs(_Fragment, { children: [_jsx("p", { className: `reading-text ${current ? 'current-chinese' : ''}`, lang: language, dir: capability.direction, children: parts }), selected && anchor && !preferences.disabled && _jsx(WordSheet, { id: id, text: text, token: selected, options: options, anchor: anchor, keyboard: keyboard, preferences: preferences, sentenceTranslation: sentenceTranslation, grammar: reading.grammar || [], analysisPending: !!reading.analysisPending, onGrammarChange: onGrammarChange, onGrammarRetry: () => void refreshReading.current?.(), lookup: lookup?.index === open ? lookup.value : undefined, lookupError: lookup?.index === open && !!lookup.error, onClose: () => setOpen(null), onProficiency: onProficiency, onRetry: () => { setLookup(null); setLookupAttempt(value => value + 1); } }, `${id}:${selected.start}`)] });
+        return _jsxs(_Fragment, { children: [_jsx("p", { className: `reading-text ${current ? 'current-chinese' : ''}`, lang: language, dir: capability.direction, children: groupReadingParts(text, parts) }), selected && anchor && !preferences.disabled && _jsx(WordSheet, { id: id, text: text, token: selected, options: options, anchor: anchor, keyboard: keyboard, preferences: preferences, sentenceTranslation: sentenceTranslation, grammar: reading.grammar || [], analysisPending: !!reading.analysisPending, onGrammarChange: onGrammarChange, onGrammarRetry: () => void refreshReading.current?.(), lookup: lookup?.index === open ? lookup.value : undefined, lookupError: lookup?.index === open && !!lookup.error, onClose: () => setOpen(null), onProficiency: onProficiency, onPointerEnter: cancelHover, onPointerLeave: leavePopup, onRetry: () => { setLookup(null); setLookupAttempt(value => value + 1); } }, `${id}:${selected.start}`)] });
     });
     function LookupSheet(props) {
         const preferences = usePopupPreferences();

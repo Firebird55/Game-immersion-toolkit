@@ -1,0 +1,646 @@
+name: R19 integrated extracted runtime experiment
+on:
+  push:
+    branches: [codex/r19-runtime-bundle]
+    paths:
+      - 'backend/**'
+      - 'packaging/runtime-bundle/**'
+      - 'packaging/codecs/**'
+      - 'scripts/*runtime*'
+      - 'requirements*.txt'
+      - '.github/workflows/r19-runtime-experiment.yml'
+  workflow_dispatch:
+    inputs:
+      source_replay:
+        description: Run one separate quarantined R19 experiment only
+        type: choice
+        options: [none, ffmpeg-opus, sherpa-asr, msvc-redist-census, legacy-lock-attribute]
+        default: none
+      observer_contract_only:
+        description: Run only PowerShell observer and guardian contracts (no runtime build)
+        type: boolean
+        default: false
+      codec_source_only:
+        description: Build and verify the reference-codec source kit only
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: r19-${{ inputs.source_replay != '' && inputs.source_replay != 'none' && format('source-{0}', inputs.source_replay) || inputs.observer_contract_only && 'observer-contract' || 'integrated' }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate-selection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse ambiguous or unknown manual experiment selections
+        shell: bash
+        env:
+          R19_SOURCE_REPLAY: ${{ inputs.source_replay || 'none' }}
+          R19_OBSERVER_ONLY: ${{ inputs.observer_contract_only && 'true' || 'false' }}
+          R19_CODEC_ONLY: ${{ inputs.codec_source_only && 'true' || 'false' }}
+        run: |
+          set -euo pipefail
+          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr|msvc-redist-census|legacy-lock-attribute) ;; *) exit 1 ;; esac
+          selected=0
+          if [[ "$R19_SOURCE_REPLAY" != none ]]; then selected=$((selected+1)); fi
+          if [[ "$R19_OBSERVER_ONLY" == true ]]; then selected=$((selected+1)); fi
+          if [[ "$R19_CODEC_ONLY" == true ]]; then selected=$((selected+1)); fi
+          if (( selected > 1 )); then
+            echo 'Choose exactly one manual experiment scope.' >&2
+            exit 1
+          fi
+  game-codec-source-replay:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-opus' }}
+    uses: ./.github/workflows/r19-game-codec-replay.yml
+  asr-source-replay:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'sherpa-asr' }}
+    uses: ./.github/workflows/r19-asr-source-experiment.yml
+  msvc-redist-census:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'msvc-redist-census' }}
+    # Metadata-only build-host observation; no CRT selection or runtime build.
+    runs-on: windows-2025
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before preparing the observer interpreter
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid census preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public census source audit failed.' }
+      - uses: actions/setup-python@v7
+        id: census-python
+        with:
+          # Named build-host observer only. No application or pip dependencies.
+          python-version: '3.12.10'
+      - name: Run authored contracts and a source-bound read-only census
+        id: census
+        shell: pwsh
+        env:
+          R19_CENSUS_PYTHON: ${{ steps.census-python.outputs.python-path }}
+        run: |
+          node --test tests/msvc-redist-census-ci.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Census binding contracts failed.' }
+          $result = @(node scripts/run-msvc-redist-census.mjs)
+          $censusExit = $LASTEXITCODE
+          if ($censusExit -in @(0, 2) -and $result.Count -eq 1 -and $result[0] -ceq 'MSVC_METADATA_PAIR_VALIDATED') {
+            'validated_pair=true' >> $env:GITHUB_OUTPUT
+          }
+          if ($censusExit -ne 0) { throw 'Census unavailable; no source admitted.' }
+          if ($result.Count -ne 1 -or $result[0] -cne 'MSVC_METADATA_PAIR_VALIDATED') { throw 'Census pair validation unavailable.' }
+      - name: Upload only validated census metadata and its independent source binding
+        if: ${{ !cancelled() && steps.census.outputs.validated_pair == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-msvc-redist-census-metadata
+          path: |
+            output/checks/MSVC-REDIST-CENSUS.json
+            output/checks/MSVC-REDIST-CI-BINDING.json
+          if-no-files-found: ignore
+          retention-days: 7
+  legacy-lock-attribute:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'legacy-lock-attribute' }}
+    # Source-only zero-writer mechanism, never runtime/recovery acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites and audit before test preparation
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid mechanism preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public mechanism source audit failed.' }
+      - uses: actions/setup-python@v7
+        id: attribute-python
+        with:
+          python-version: '3.12.10'
+      - name: Prepare the exactly locked source-test subset
+        shell: pwsh
+        env:
+          R19_ATTRIBUTE_BASE_PYTHON: ${{ steps.attribute-python.outputs.python-path }}
+        run: |
+          $names = @('pytest', 'iniconfig', 'packaging', 'pluggy', 'Pygments', 'colorama')
+          $locked = @(Get-Content requirements.lock.txt | Where-Object { ($_ -split '==')[0] -in $names })
+          if ($locked.Count -ne $names.Count -or @($locked | Where-Object { $_ -notmatch '^[A-Za-z0-9_.-]+==[A-Za-z0-9.+!-]+$' }).Count) { throw 'Pytest subset differs from the exact application lock.' }
+          $requirements = Join-Path $env:RUNNER_TEMP 'r19-attribute-requirements.txt'
+          $locked | Set-Content -LiteralPath $requirements -Encoding utf8NoBOM
+          $environment = Join-Path $env:RUNNER_TEMP 'r19-attribute-venv'
+          & $env:R19_ATTRIBUTE_BASE_PYTHON -m venv $environment
+          if ($LASTEXITCODE -ne 0) { throw 'Source test environment creation failed.' }
+          $python = Join-Path $environment 'Scripts/python.exe'
+          & $python -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r $requirements
+          if ($LASTEXITCODE -ne 0) { throw 'Exact source test subset unavailable.' }
+          & $python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Source test subset is inconsistent.' }
+          "R19_ATTRIBUTE_PYTHON=$python" >> $env:GITHUB_ENV
+      - name: Check authored contracts before the native mechanism
+        shell: pwsh
+        run: |
+          $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'
+          $env:PYTEST_ADDOPTS = ''
+          & $env:R19_ATTRIBUTE_PYTHON -I -B -c "import struct,sys; assert sys.version_info[:3] == (3,12,10) and struct.calcsize('P') == 8"
+          if ($LASTEXITCODE -ne 0) { throw 'Selected source interpreter differs.' }
+          & $env:R19_ATTRIBUTE_PYTHON -B -m pytest --noconftest -q backend/tests/test_runtime_lock_attribute_probe.py
+          if ($LASTEXITCODE -ne 0) { throw 'Authored mechanism contracts failed.' }
+      - name: Bind and validate the zero-writer native observation
+        id: attribute
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import {spawnSync, execFileSync} from 'node:child_process';
+          import {mkdirSync, writeFileSync, appendFileSync, lstatSync, openSync, fstatSync, readSync, closeSync} from 'node:fs';
+          import {resolve, dirname} from 'node:path';
+          import {captureSourceSnapshot} from './scripts/check-evidence.mjs';
+          const refuse = () => {throw new Error('Fixed mechanism validation refused.');};
+          const clean = () => execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8',maxBuffer:65536}).trim() === '';
+          const inspect = (path,missing=false) => {
+            const absolute=resolve(path), chain=[];
+            for (let p=absolute;;p=dirname(p)) {chain.unshift(p);if (dirname(p) === p) break;}
+            let info;
+            for (const p of chain) {
+              try {info=lstatSync(p);} catch(error) {if (missing && p === absolute && error.code === 'ENOENT') return null;refuse();}
+              if (info.isSymbolicLink() || (p !== absolute && !info.isDirectory())) refuse();
+            }
+            return info;
+          };
+          const readPublished = (path,expected) => {
+            const ordinary=info=>info.isFile() && info.nlink === 1 && info.size === expected.length;
+            if (!ordinary(inspect(path))) refuse();
+            const descriptor=openSync(path,'r');
+            try {
+              if (!ordinary(fstatSync(descriptor))) refuse();
+              const buffer=Buffer.alloc(expected.length+1);let used=0;
+              while (used < buffer.length) {const count=readSync(descriptor,buffer,used,buffer.length-used,used);if (!count) break;used+=count;}
+              if (used !== expected.length || !buffer.subarray(0,used).equals(expected) || !ordinary(fstatSync(descriptor))) refuse();
+            } finally {closeSync(descriptor);}
+            if (!ordinary(inspect(path))) refuse();
+          };
+          try {
+            const before = captureSourceSnapshot();
+            if (before.sourceStatus !== 'available' || before.head !== process.env.GITHUB_SHA || !clean()) refuse();
+            const child = spawnSync(process.env.R19_ATTRIBUTE_PYTHON,['-I','-B','backend/runtime_lock_attribute_probe.py'],{encoding:'utf8',timeout:180000,maxBuffer:8192,windowsHide:true});
+            const after = captureSourceSnapshot();
+            if (after.sourceStatus !== 'available' || before.head !== after.head || before.sourceHash !== after.sourceHash || !clean() || child.error || child.signal || ![0,2].includes(child.status)) refuse();
+            let value; try {value=JSON.parse(child.stdout);} catch {refuse();}
+            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v4',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
+            const keys=[...Object.keys(fixed),'status','phase','failure','legacy_source_sha256','observed','timestamp_equalities','cleanup','baseline_checkpoint','grant_conversion_failure'].sort();
+            if (!value || typeof value !== 'object' || Array.isArray(value) || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) refuse();
+            for (const [key,expected] of Object.entries(fixed)) if (value[key] !== expected) refuse();
+            const phases=['fixture','legacy-baseline','lease-start','arm','live-clear','rearm','owner-loss','post-loss','test-restore','restored','cleanup','complete'];
+            const failures=['none','unsupported-host','fixture-refused','native-call-failed','protocol-refused','source-changed','preservation-refused','legacy-outcome-differed','owned-cleanup-unconfirmed','unexpected-failure'];
+            const hashes=['c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef','f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e'];
+            const observations=['writable-open','exclusive-held','arm','live-clear','rearm','genuine-owner-signaled-and-closed','post-loss-readonly-refused','restored-open'];
+            const times=['arm','live-clear','rearm','post-loss','test-restore','restored'];
+            const fields=['access_equal','change_equal','creation_equal','write_equal'];
+            if (!['failed','mechanism-observed'].includes(value.status) || !phases.includes(value.phase) || !failures.includes(value.failure) || !['unconfirmed-fixture-retained','owned-handles-closed-fixture-retained'].includes(value.cleanup) || !(value.legacy_source_sha256 === null || hashes.includes(value.legacy_source_sha256))) refuse();
+            if (!Array.isArray(value.observed) || value.observed.length > observations.length || JSON.stringify(value.observed) !== JSON.stringify(observations.slice(0,value.observed.length))) refuse();
+            const equalities=value.timestamp_equalities;
+            if (!equalities || typeof equalities !== 'object' || Array.isArray(equalities) || Object.keys(equalities).some(key=>!times.includes(key))) refuse();
+            for (const item of Object.values(equalities)) if (!item || typeof item !== 'object' || Array.isArray(item) || JSON.stringify(Object.keys(item).sort()) !== JSON.stringify(fields) || Object.values(item).some(v=>typeof v !== 'boolean')) refuse();
+            const checkpoint=value.baseline_checkpoint;
+            const checkpointValues={parent_step:['not-started','create-pipe','create-owned-process','resume-owned-process','bind-client','send-grant','receive-script-progress','receive-result','cleanup'],script_step:['not-started','connected','grantread','grantparsed','grantvalidated','sourceopened','hashbound','definitionbound','operationentered','operationresult'],child_state:['not-created','signaled','not-signaled','unavailable']};
+            if (!checkpoint || typeof checkpoint !== 'object' || Array.isArray(checkpoint) || JSON.stringify(Object.keys(checkpoint).sort()) !== JSON.stringify(Object.keys(checkpointValues).sort())) refuse();
+            for (const [key,allowed] of Object.entries(checkpointValues)) if (typeof checkpoint[key] !== 'string' || !allowed.includes(checkpoint[key])) refuse();
+            const passed=value.status === 'mechanism-observed';
+            if (child.status !== (passed ? 0 : 2)) refuse();
+            const conversion=value.grant_conversion_failure;
+            if (conversion !== null) {
+              const conversionKeys=['category','chain_end','exceptions','line'];
+              const families=['command-not-found','parameter-binding','cmdlet-invocation','type-initialization','argument-null','argument','unknown'];
+              const categories=['NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected','InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType','MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped','OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy','ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr','SecurityError','ProtocolError','ConnectionError','AuthenticationError','LimitsExceeded','QuotaExceeded','NotEnabled','unknown'];
+              if (!conversion || typeof conversion !== 'object' || Array.isArray(conversion) || JSON.stringify(Object.keys(conversion).sort()) !== JSON.stringify(conversionKeys)) refuse();
+              if (!['null','empty','nonempty'].includes(conversion.line) || !['complete','truncated','unknown'].includes(conversion.chain_end) || !categories.includes(conversion.category)) refuse();
+              if (!Array.isArray(conversion.exceptions) || conversion.exceptions.length > 8 || conversion.exceptions.some(item=>typeof item !== 'string' || !families.includes(item))) refuse();
+              if ((conversion.chain_end === 'complete' && conversion.exceptions.length === 0) || (conversion.chain_end === 'truncated' && conversion.exceptions.length !== 8)) refuse();
+              if (passed || value.phase !== 'legacy-baseline' || checkpoint.parent_step !== 'receive-script-progress' || checkpoint.script_step !== 'grantread' || value.observed.length !== 0 || Object.keys(equalities).length !== 0 || !hashes.includes(value.legacy_source_sha256) || !['protocol-refused','owned-cleanup-unconfirmed'].includes(value.failure) || value.cleanup !== 'unconfirmed-fixture-retained') refuse();
+            }
+            if (passed && (value.phase !== 'complete' || value.failure !== 'none' || value.cleanup !== 'owned-handles-closed-fixture-retained' || !hashes.includes(value.legacy_source_sha256) || value.observed.length !== observations.length || Object.keys(equalities).length !== times.length || Object.values(equalities).some(item=>!item.creation_equal || !item.write_equal))) refuse();
+            const binding={schema:'proxy-r19-legacy-lock-attribute-ci-binding-v1',source_commit:before.head,source_before_sha256:before.sourceHash,source_after_sha256:after.sourceHash,source_clean:true,build_host_python:'3.12.10',mechanism:value};
+            for (const directory of ['output','output/checks']) {
+              let info=inspect(directory,true);
+              if (info === null) {mkdirSync(directory);info=inspect(directory);}
+              if (!info.isDirectory()) refuse();
+            }
+            const destination='output/checks/r19-legacy-lock-attribute.json';
+            if (inspect(destination,true) !== null) refuse();
+            const serialized=Buffer.from(JSON.stringify(binding,null,2)+'\n','utf8');
+            if (serialized.length > 8192) refuse();
+            writeFileSync(destination,serialized,{flag:'wx'});
+            readPublished(destination,serialized);
+            const final=captureSourceSnapshot();
+            if (final.sourceStatus !== 'available' || final.head !== before.head || final.sourceHash !== before.sourceHash || !clean()) refuse();
+            readPublished(destination,serialized);
+            appendFileSync(process.env.GITHUB_OUTPUT,'metadata_validated=true\n');
+            process.exitCode=passed ? 0 : 2;
+          } catch {
+            process.stderr.write('Fixed native mechanism validation failed; no raw output retained.\n');
+            process.exitCode=2;
+          }
+          NODE
+      - name: Retain only source-bound finite mechanism metadata
+        if: ${{ !cancelled() && steps.attribute.outputs.metadata_validated == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-legacy-lock-attribute-metadata
+          path: output/checks/r19-legacy-lock-attribute.json
+          if-no-files-found: error
+          retention-days: 7
+  observer-contract:
+    needs: validate-selection
+    # Authored classifier/lease fixtures, not frozen process ownership evidence.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.observer_contract_only }}
+    runs-on: windows-2025
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites before preparing the isolated contract environment
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual comparison target is unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid contract preflight.' }
+          # Missing application/browser packages are intentional, not a product pass.
+          exit 0
+      - uses: actions/setup-python@v7
+        with:
+          # Test interpreter only; no runtime supplier or product acceptance claim.
+          python-version: '3.12.10'
+      - name: Prepare only the exactly locked pytest dependency subset
+        shell: pwsh
+        run: |
+          $names = @('pytest', 'iniconfig', 'packaging', 'pluggy', 'Pygments', 'colorama')
+          $locked = @(Get-Content requirements.lock.txt | Where-Object { ($_ -split '==')[0] -in $names })
+          if ($locked.Count -ne $names.Count -or @($locked | Where-Object { $_ -notmatch '^[A-Za-z0-9_.-]+==[A-Za-z0-9.+!-]+$' }).Count) { throw 'Pytest subset differs from the exact application lock.' }
+          $requirements = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-requirements.txt'
+          $locked | Set-Content -LiteralPath $requirements -Encoding utf8NoBOM
+          $environment = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-venv'
+          python -m venv $environment
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated test environment creation failed.' }
+          $python = Join-Path $environment 'Scripts/python.exe'
+          & $python -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r $requirements
+          if ($LASTEXITCODE -ne 0) { throw 'Exact pytest subset installation failed.' }
+          & $python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Pytest subset is inconsistent.' }
+          "R19_OBSERVER_PYTHON=$python" >> $env:GITHUB_ENV
+      - name: Execute observer and guardian contracts without application conftest
+        shell: pwsh
+        run: |
+          $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = '1'
+          $env:PYTEST_ADDOPTS = ''
+          $report = Join-Path $env:RUNNER_TEMP 'r19-observer-contract-junit.xml'
+          & $env:R19_OBSERVER_PYTHON -B -m pytest --noconftest -q --junitxml=$report backend/tests/test_runtime_host.py::test_observer_diagnostics_are_fixed_categories_and_do_not_weaken_identity backend/tests/test_guarded_slot_probe.py
+          $testExit = $LASTEXITCODE
+          [xml]$junit = Get-Content -LiteralPath $report -Raw
+          $tests = [int]$junit.testsuites.testsuite.tests
+          $skipped = [int]$junit.testsuites.testsuite.skipped
+          if ($tests -ne 4 -or $skipped -ne 0) { $testExit = 1 }
+          $status = if ($testExit -eq 0) {'passed'} else {'failed'}
+          # This diagnostic receipt schema cannot satisfy runtime acceptance rows.
+          $receipt = @{schema='proxy-r19-host-observer-contract-v1'; source_commit=$env:GITHUB_SHA;
+            scope='powershell-observer-and-guardian-contracts'; status=$status; tests=$tests; skipped=$skipped;
+            runtime_built=$false; frozen_runtime_started=$false; native_process_ownership='not-tested';
+            runtime_gates_changed=$false; r19_complete=$false}
+          New-Item -ItemType Directory -Path output/checks -Force | Out-Null
+          $receipt | ConvertTo-Json | Set-Content output/checks/r19-host-observer-contract.json -Encoding utf8NoBOM
+          'Observer classifiers and authored lease/inventory/cleanup fixtures only. No frontend/freezer build, frozen process ownership, runtime schema/gate change or R19 acceptance.' >> $env:GITHUB_STEP_SUMMARY
+          exit $testExit
+      - name: Upload only the sanitized classifier contract receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-host-observer-contract
+          path: output/checks/r19-host-observer-contract.json
+          if-no-files-found: ignore
+          retention-days: 7
+  extracted-runtime:
+    needs: validate-selection
+    if: ${{ !inputs.codec_source_only && !inputs.observer_contract_only && (!inputs.source_replay || inputs.source_replay == 'none') }}
+    # Server packaging/loading evidence, never Windows 11 capture acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites and audit before preparing dependencies
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual PR comparison target is unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public source audit failed.' }
+      - name: Prepare exact supplier and locked wheel payloads on build host only
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/runtime-bundle/python-supplier.json -Raw | ConvertFrom-Json
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-integrated-evidence'
+          New-Item -ItemType Directory -Path (Join-Path $evidence 'wheelhouse') -Force | Out-Null
+          $archive = Join-Path $evidence $pin.archive
+          Invoke-WebRequest $pin.url -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $pin.sha256) { throw 'Python supplier archive hash mismatch.' }
+          $pythonRoot = Join-Path $env:RUNNER_TEMP 'r19-integrated-python'
+          New-Item -ItemType Directory -Path $pythonRoot | Out-Null
+          tar -xzf $archive -C $pythonRoot
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python extraction failed.' }
+          $python = Join-Path $pythonRoot 'python/python.exe'
+          & $python -m pip download --only-binary=:all: --dest (Join-Path $evidence 'wheelhouse') -r requirements.lock.txt PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Exact runtime/build wheel acquisition failed.' }
+          & $python -m pip install --no-index --find-links (Join-Path $evidence 'wheelhouse') -r requirements.lock.txt PyInstaller==6.22.3 setuptools
+          if ($LASTEXITCODE -ne 0) { throw 'Offline runtime/build provisioning failed.' }
+          & $python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw 'Provisioned dependency closure is inconsistent.' }
+          "PYTHON=$python" >> $env:GITHUB_ENV
+          "R19_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - name: Build static frontend and run affected contracts
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'Locked frontend preparation failed.' }
+          npm run desktop:build
+          if ($LASTEXITCODE -ne 0) { throw 'Static frontend build failed.' }
+          node --test tests/companion-router.test.mjs tests/source-delivery-publication.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Router ownership/source delivery boundaries failed.' }
+          $contracts = @(
+            'runtime_bundle', 'runtime_composition', 'runtime_experiment', 'desktop_frontend',
+            'prebuilt_readers', 'prebuilt_node_reader', 'blocked_game_helpers', 'prebuilt_codecs',
+            'native_collection_provenance', 'native_images', 'native_image_collection', 'runtime_build_environment',
+            'windows_preparation_drain', 'preparation_process_tree', 'suspended_preparation_process', 'python_supplier_notices',
+            'r19_acceptance', 'game_paths', 'unvoiced_export_probe', 'runtime_writers',
+            'runtime_handoff', 'preparation_cancellation', 'mobile_export_api',
+            'scoped_mobile_exports', 'automatic_mobile_exports', 'installation', 'local_access', 'hito_api',
+            'runtime_codec_output', 'native_input_ownership', 'source_pcm_probe', 'source_formats',
+            'portal_assets', 'portal2_assets', 'halflife2_assets', 'window_capture', 'runtime_host',
+            'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe',
+            'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage',
+            'hito_storage', 'lexirise_lifetime', 'reading_lifetime',
+            'runtime_readers', 'game_update_schedule'
+          ) | ForEach-Object { "backend/tests/test_$_.py" }
+          & $env:PYTHON -B -m pytest -q @contracts
+          if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
+      - name: Prebuild only the owned NTE bridge on the build host
+        shell: pwsh
+        run: |
+          $pin = Get-Content packaging/game-readers/inputs.json -Raw | ConvertFrom-Json
+          $evidence = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-inputs'
+          New-Item -ItemType Directory -Path $evidence | Out-Null
+          $archive = Join-Path $evidence $pin.sdk.artifact
+          Invoke-WebRequest $pin.sdk.source -OutFile $archive
+          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA512).Hash.ToLowerInvariant() -ne $pin.sdk.sha512) { throw 'NTE build-host SDK archive hash mismatch.' }
+          $sdk = Join-Path $env:RUNNER_TEMP 'r19-runtime-managed-sdk'
+          Expand-Archive -LiteralPath $archive -DestinationPath $sdk
+          ./scripts/build-game-reader-helpers.ps1 -Kind nte -OutputRoot output/runtime-nte-helper -EvidenceRoot $evidence -Dotnet (Join-Path $sdk 'dotnet.exe')
+      - name: Observe exact inputs and build isolated executable trees
+        shell: pwsh
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-integrated-inputs.json'
+          $codec = Get-Content packaging/codecs/flac-reference.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $codec.source.filename
+          Invoke-WebRequest $codec.source.url -OutFile $archive
+          ./scripts/build-reference-codec.ps1 -SourceArchive $archive -OutputRoot output/reference-codec -Python $env:PYTHON
+          & $env:PYTHON -B scripts/prepare-runtime-codec.py --reference-root output/reference-codec --output output/runtime-codec
+          if ($LASTEXITCODE -ne 0) { throw 'Exact experimental codec preparation failed.' }
+          & $env:PYTHON -B packaging/runtime-bundle/record_runtime.py --evidence $env:R19_EVIDENCE --frontend-root (Join-Path $env:GITHUB_WORKSPACE 'output/desktop-frontend') --nte-helper-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-nte-helper/nte') --codec-root (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-codec') --build-id "runtime-experiment-$env:GITHUB_RUN_ID-$env:GITHUB_RUN_ATTEMPT" --output $inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Exact source/archive/installed payload observation failed.' }
+          ./scripts/build-runtime-bundle.ps1 -InputManifest $inputs -EvidenceRoot $env:R19_EVIDENCE -Python $env:PYTHON -RuntimeExperiment
+      - name: Relocate and probe extracted candidate with no developer environment
+        id: extracted_runtime_probes
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/GameImmersionToolkit'
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
+          Copy-Item -LiteralPath $source -Destination $relocated -Recurse
+          ./scripts/probe-frozen-runtime.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json')
+          ./scripts/probe-frozen-slots.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-guarded-slots.json')
+      - name: Probe guardian loss with a living frozen keeper
+        # An unconfirmed live owner retains leases. This external deadline ends
+        # a failed experiment; it cannot establish keeper-loss containment.
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-keeper.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-keeper.json')
+      - name: Retain only sanitized keeper failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-keeper-failure-observations
+          path: output/checks/r19-frozen-keeper.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Copy authored stores under retained frozen writer exclusion
+        # A living coordinator retains exclusion on unknown cleanup. The outer
+        # deadline records a failed experiment, never keeper-loss containment.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy.json')
+      - name: Retain only sanitized authored-copy failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-failure-observations
+          path: output/checks/r19-frozen-data-copy.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Interrupt and resume an authored copy under the same live owner
+        # A planned callback exception proves only this living-owner recovery
+        # case. Unknown cleanup retains exclusion; timeout is a failed probe.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -ProbeCase authored-data-copy-resume -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy-resume.json')
+      - name: Retain only sanitized interrupted-copy failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-resume-failure-observations
+          path: output/checks/r19-frozen-data-copy-resume.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Copy a real authored WAL set after retained writer signals
+        # A separate plain-copy case; no interrupted-WAL or keeper-loss claim.
+        # Unknown authority retains exclusion; timeout is a failed experiment.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -ProbeCase authored-data-copy-wal -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy-wal.json')
+      - name: Retain only sanitized authored WAL failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-wal-failure-observations
+          path: output/checks/r19-frozen-data-copy-wal.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Preserve one authored local grammar override through a stopped copy
+        # Actual local API/store semantics with a fixed mocked analysis service.
+        # A living owner holds uncertain cleanup; timeout is a failed experiment.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-data-copy.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -ProbeCase authored-data-copy-grammar -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-data-copy-grammar.json')
+      - name: Retain only sanitized authored grammar-copy failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-data-copy-grammar-failure-observations
+          path: output/checks/r19-frozen-data-copy-grammar.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Retain only sanitized native collection refusal
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-native-collection-refusal-metadata
+          path: output/runtime-bundle/quarantine/NATIVE-COLLECTION-FAILED.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Retain only sanitized native image refusal
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-native-image-refusal-metadata
+          path: output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Retain completed observations before native image refusal
+        # Failed-run observations only. A P1 refusal cannot approve earlier A2
+        # output, native execution, source delivery or the complete workflow.
+        if: ${{ failure() && hashFiles('output/runtime-bundle/quarantine/NATIVE-IMAGES-FAILED.json') != '' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-failed-run-observed-not-approved-native-metadata
+          # Exact completed metadata only: no globs, image bytes or raw logs.
+          path: |
+            output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload public source kit and sanitized metadata only
+        # Preserve completed earlier observations if keeper or copy fails.
+        # Artifact presence never upgrades the workflow or a failed receipt.
+        if: ${{ !cancelled() && steps.extracted_runtime_probes.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-integrated-runtime-metadata
+          # No binaries, wheelhouse, private receipt, fixture content or raw log.
+          path: |
+            output/checks/r19-frozen-runtime.json
+            output/checks/r19-guarded-slots.json
+            output/checks/r19-frozen-keeper.json
+            output/checks/r19-frozen-data-copy.json
+            output/checks/r19-frozen-data-copy-resume.json
+            output/checks/r19-frozen-data-copy-wal.json
+            output/checks/r19-frozen-data-copy-grammar.json
+            output/runtime-bundle/build-check.json
+            output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
+            output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
+            output/runtime-bundle/quarantine/NATIVE-IMAGES.json
+            output/reference-codec/codec-sources.zip
+          if-no-files-found: error
+          retention-days: 7
+  reference-codec-source:
+    needs: validate-selection
+    if: ${{ !inputs.observer_contract_only && (!inputs.source_replay || inputs.source_replay == 'none') }}
+    # Keep delivered-kit rebuild evidence on the same head as frozen collection.
+    # codec_source_only omits the larger runtime job, never this source boundary.
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe prerequisites and audit public source before build preparation
+        shell: pwsh
+        run: |
+          npm run dev:doctor
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid build preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public audit failed.' }
+          node --test tests/source-delivery-publication.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Source delivery publication boundary failed.' }
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Check trust boundaries and acquire exact upstream source only
+        shell: pwsh
+        run: |
+          python -B -m unittest backend.tests.test_reference_codec
+          if ($LASTEXITCODE -ne 0) { throw 'Source trust contracts failed.' }
+          $pin = Get-Content packaging/codecs/flac-reference.json -Raw | ConvertFrom-Json
+          $archive = Join-Path $env:RUNNER_TEMP $pin.source.filename
+          Invoke-WebRequest $pin.source.url -OutFile $archive
+          "R19_CODEC_SOURCE=$archive" >> $env:GITHUB_ENV
+      - name: Build selected x64 codec and probe owned audio without developer PATH
+        shell: pwsh
+        run: |
+          ./scripts/build-reference-codec.ps1 -SourceArchive $env:R19_CODEC_SOURCE -OutputRoot output/reference-codec
+          Get-ChildItem output/reference-codec/candidate -Recurse -File | ForEach-Object { $_.IsReadOnly = $true }
+          python -B scripts/probe-reference-codec.py --root output/reference-codec
+          if ($LASTEXITCODE -ne 0) { throw 'Actual selected codec probe failed.' }
+      - name: Rebuild from the delivered source ZIP without repository recipe fallback
+        shell: pwsh
+        run: |
+          $retained = 'third_party/codecs/xiph-flac-1.5.0-gpl-recipes/codec-sources.zip'
+          if ((Get-FileHash $retained).Hash -ne (Get-FileHash output/reference-codec/codec-sources.zip).Hash) { throw 'Retained source delivery differs from the actual build.' }
+          Expand-Archive -LiteralPath $retained -DestinationPath output/reference-codec-delivered
+          & ./output/reference-codec-delivered/scripts/build-reference-codec.ps1 -SourceArchive (Join-Path $env:GITHUB_WORKSPACE 'output/reference-codec-delivered/inputs/flac-1.5.0.tar.xz') -OutputRoot output/reference-codec-rebuild
+          Get-ChildItem output/reference-codec-rebuild/candidate -Recurse -File | ForEach-Object { $_.IsReadOnly = $true }
+          python -B scripts/probe-reference-codec.py --root output/reference-codec-rebuild
+          if ($LASTEXITCODE -ne 0) { throw 'Delivered-source rebuild decode failed.' }
+          if ((Get-FileHash output/reference-codec/codec-sources.zip).Hash -ne (Get-FileHash output/reference-codec-rebuild/codec-sources.zip).Hash) { throw 'Rebuilt source kit differs.' }
+      - name: Upload complete public source delivery and sanitized metadata only
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-reference-codec-source-and-metadata
+          path: |
+            output/reference-codec/codec-sources.zip
+            output/reference-codec/CODEC-CANDIDATE.json
+            output/reference-codec/CODEC-PROBE.json
+            output/reference-codec-rebuild/CODEC-CANDIDATE.json
+            output/reference-codec-rebuild/CODEC-PROBE.json
+          if-no-files-found: error
+          retention-days: 7

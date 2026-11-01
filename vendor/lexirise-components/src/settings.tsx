@@ -6,7 +6,7 @@ import { capabilities, studyLanguages, translationLanguages, type StudyLanguage 
 import { accountToneColorPresets, globalFields, languageFields, settingsPatch, validateAccount, type AccountSettings, type JsonObject, type SettingsAdapter } from './account.js';
 import { DEFAULT_TONE_PALETTE, restoreReadingOptions, type ReadingOptions, type ReadingScope } from './reader.js';
 import { restoreTranslationLimit } from './translation-visibility.js';
-import { normalizeWordPopupSettings, type WordPopupSettings } from './word-popup.js';
+import { normalizeWordPopupSettings, WORD_POPUP_OPEN_MODES, type WordPopupSettings } from './word-popup.js';
 export type LocalSettings = ReadingOptions & {fontSize?:number; sourceLanguage?:StudyLanguage|'auto'; translationLanguage?:string};
 export function restoreLocalSettings(value:unknown):LocalSettings {
  const saved=value as Partial<LocalSettings>|null;
@@ -15,7 +15,7 @@ export function restoreLocalSettings(value:unknown):LocalSettings {
  translationLanguage:translationLanguages.includes(saved?.translationLanguage as any)?saved!.translationLanguage:'en'};
 }
 const labels:Record<string,string>={pinyin:'Pronunciation readings',zhuyin:'Zhuyin',toneMarks:'Separate tone marks',meanings:'Inline glosses',toneColors:'Tone colors'};
-const choices:Record<string,readonly string[]>={interfaceLanguage:['translation','device',...translationLanguages],translationLanguage:translationLanguages,wordPopupOpenMode:['click','hover'],inlineGlossMode:['off','unknown','all'],coloringMode:['learning_state','tone'],toneColorPreset:accountToneColorPresets,wordSpacing:['none','sm','md','lg'],fontSize:['sm','md','lg'],script:['simplified','traditional']};
+const choices:Record<string,readonly string[]>={interfaceLanguage:['translation','device',...translationLanguages],translationLanguage:translationLanguages,wordPopupOpenMode:WORD_POPUP_OPEN_MODES,inlineGlossMode:['off','unknown','all'],coloringMode:['learning_state','tone'],toneColorPreset:accountToneColorPresets,wordSpacing:['none','sm','md','lg'],fontSize:['sm','md','lg'],script:['simplified','traditional']};
 export function WordPopupControls({value,onChange}:{value:unknown;onChange:(value:WordPopupSettings|null)=>void}) {
  const uiText=useInterfaceTranslation();
  const popup=normalizeWordPopupSettings(value);

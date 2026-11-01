@@ -140,7 +140,9 @@ def test_incremental_manifest_keeps_only_valid_previous_entries(tmp_path):
     assert set(merged) == {"old", "new"}
 
 
-def test_fingerprint_learned_alias_survives_restart(tmp_path):
+def test_fingerprint_learned_alias_survives_restart(tmp_path, monkeypatch):
+    # This tests the alias manifest, not an installed encoder or decoding.
+    monkeypatch.setattr('backend.voice_assets.ffmpeg_executable', lambda: 'fixture-ffmpeg')
     path = package(tmp_path)
     manifest = tmp_path / "manifest.json"
     learned = tmp_path / "learned.json"
@@ -179,7 +181,9 @@ def test_batch_keeps_exact_player_variants_and_never_publishes_incomplete_audio(
             'file_id': f'{number:016x}', 'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
     manifest = tmp_path / 'manifest.json'
     manifest.write_text(json.dumps({'version': 1, 'entries': entries}))
-    service = VoiceAssetService(manifest, tmp_path / 'decoder.exe', tmp_path / 'out')
+    decoder = tmp_path / 'decoder.exe'
+    decoder.touch()
+    service = VoiceAssetService(manifest, decoder, tmp_path / 'out')
     calls = []
     def run(command, **options):
         calls.append(command)

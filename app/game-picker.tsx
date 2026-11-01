@@ -1,4 +1,6 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 
 import {useEffect, useRef, useState} from 'react';
 import {isStudyLanguage} from '@firebird55/lexirise-components';
@@ -6,7 +8,7 @@ import catalog from '../public/mobile-capture/games-data.json';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
 
-const API = 'http://127.0.0.1:8766';
+const API = desktopApiBase();
 const baseLanguage = (code: string) => code.toLowerCase().split('-')[0];
 export const voicedLanguages = [...new Set(catalog.games.flatMap(game => game.audio.map(baseLanguage)))];
 const accountLanguages = voicedLanguages.filter(isStudyLanguage);

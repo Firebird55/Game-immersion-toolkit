@@ -1,0 +1,11 @@
+{
+  "schema": "proxy-runtime-build-inputs-v1",
+  "profile": "diagnostic",
+  "source_commit": null,
+  "build_id": null,
+  "python_executable_sha256": null,
+  "components": [],
+  "resources": [],
+  "gates": {},
+  "status": "blocked: exact maintained Windows Python supplier, packaging pins, archive hashes and reviewed licenses/native closure are not yet available"
+}

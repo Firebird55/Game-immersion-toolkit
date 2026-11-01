@@ -17,7 +17,7 @@ synthetic tests and aggregate evidence.
 | --- | --- | --- |
 | Conversations, missions, ambient speech and combat/traversal dialogue | MUL packets contain both multilingual captions and original FSB audio channels. The exact archive entry binds them without fuzzy text matching. | A stream with no authored caption does not become a guessed dialogue line. The native English selection contained 2,960 such streams. |
 | Radio and voiced documents | Captioned recordings use the same MUL binding. Native archive evidence includes a radio-named original stream and long narrated Blood Ties recordings. | Internal filenames do not provide a complete narrative taxonomy. Readable titles, descriptions and spoken narration are not joined by similar text. |
-| Cinematics | Original streams have one to eleven channels. Every channel is preserved and mixed with the original header's left/right gains. Caption timing uses authored 30 Hz frames. | Different languages can paginate at different frames. Cuts occur only at boundaries shared by the requested available languages; unmatched pages stay in the same performance group. This may yield a longer group instead of a guessed one-line translation. |
+| Cinematics | Original streams have one to eleven channels. Every channel is preserved and mixed with the original header's left/right gains. Caption timing uses authored 30 Hz frames. | Each source page stays separate. Translations require identical authored frame intervals; staggered pagination leaves the translation unavailable instead of expanding the source to a longer paragraph. |
 | Blood Ties, Cold Darkness, Endurance and Baba Yaga | Installed DLC directory entries participate in the same patch ordering, original-pack isolation and caption parser. All fourteen supported study languages have successful native DLC decodes. | Installed archives are not proof of entitlement or complete gameplay coverage. Arabic evidence is limited to two DLC families. |
 | Readable/UI localization | Official `locals.bin` strings are inventoried with explicit unknown voice status. | The numeric localization table does not itself prove voice links or authored silence. No native unvoiced record was established. |
 | Pre-rendered movies | Twenty-one Bink containers are inventoried: seven have no audio tracks, seven have one, and seven have fourteen, for 105 tracks. | Movie track-to-language order and caption bindings are unverified. The adapter does not infer track order or claim all Bink dialogue is mapped. |
@@ -41,6 +41,21 @@ references, and bounds decompression output. Rise chooses voice packs by their
 explicit archive suffix, not locale bitmask overlap. Fingerprints include
 archives, package metadata and movie metadata; changed inputs retain the prior
 prepared snapshot instead of publishing a partial replacement.
+
+### Subtitle boundary correction, 2026-10-31
+
+Reader revision 2 no longer combines pages until all requested languages reach a
+shared boundary. Each source page retains its own authored frame interval; only
+translations with the exact same start and next-page frame are attached. Staggered
+translations remain unavailable for that page, rather than expanding the displayed
+source text or guessing a translation by position. Simultaneous captions in the
+same frame remain together because they are displayed together.
+
+An authored page outside the recording's duration remains a separate text row
+with explicit paragraph audio. Valid intervals retain the existing 30 Hz cut and
+extraction-time validation. Synthetic tests cover staggered locales, repeated
+pages, invalid audio bounds and altered excerpt references. Native counts below
+predate this revision; a fresh gameplay acceptance run has not been claimed.
 
 Mono original FSB4 streams use the existing pinned vgmstream r2117. Its
 [MUL reader](https://github.com/vgmstream/vgmstream/blob/r2117/src/meta/mul.c)

@@ -1,5 +1,12 @@
 # METAL GEAR SOLID V: GROUND ZEROES
 
+Subtitle boundary correction, 2026-10-31: reader revision 2 emits individual
+SUBP pages for field speech, radio, cassettes and supported scene records.
+Multi-page translations require a unique identical authored interval; an
+unsplit target paragraph is never copied onto a split source page. The exact
+original recording remains unchanged and multi-page recordings have paragraph
+scope. Synthetic cassette extraction verifies the retained original bytes.
+
 Audit date: 2026-10-28. Steam app **311340**, game ID `mgsvgz`, executable
 `MgsGroundZeroes.exe`. The adapter reads the user's installed files without
 changing them or executing their Lua scripts.

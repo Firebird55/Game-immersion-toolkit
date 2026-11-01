@@ -2,6 +2,7 @@
 
 Run with python -m scripts.index_voice_assets --help. All game files are read-only.
 """
+from backend.runtime_paths import data_root as runtime_data_root
 import argparse
 import json
 import os
@@ -21,7 +22,7 @@ def main():
     parser.add_argument("--audio-resource", type=Path)
     args = parser.parse_args()
     project = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", Path(__file__).resolve().parents[1]))
-    output = project / "data/voice-assets"
+    output = runtime_data_root(project) / "voice-assets"
     output.mkdir(parents=True, exist_ok=True)
     entries = index_mandarin(args.game_data)
     links = json.loads(args.links.read_text(encoding="utf-8"))

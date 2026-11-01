@@ -13,7 +13,7 @@ from . import deusex_hr_cinematics as movies
 from .preparation_errors import PreparationFailure
 
 GAME = 'deusexhrdc'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES')
 TEXT_LOCALES = {'en': 0, 'fr': 1, 'it': 2, 'de': 3, 'es-ES': 4}
 _LOCALS = fmt.filename_hash('pc-w\\local\\locals.bin')
@@ -77,6 +77,31 @@ def captions(text):
     ends = [*(match.start() for match in matches), len(text)]
     return [(index, clean_text(text[start:end]), 0 if index == 0 else round(float(matches[index-1][1]) * 1000))
             for index, (start, end) in enumerate(zip(starts, ends))]
+
+
+def _page_texts(page, source, localized):
+    """Align unique authored intervals in a caption resource, not row count."""
+    ordinal, text, start = page
+    result = {source: text}
+    source_pages = localized[source]
+    if sum(value[2] == start for value in source_pages) != 1:
+        return result
+    end = source_pages[ordinal + 1][2] if ordinal + 1 < len(source_pages) else None
+    if end is not None and end <= start:
+        return result
+    for locale, pages in localized.items():
+        if locale == source:
+            continue
+        # An unsplit paragraph has no identity for a page in a split paragraph.
+        if (len(source_pages) == 1) != (len(pages) == 1):
+            continue
+        candidates = [(index, value[1]) for index, value in enumerate(pages) if value[2] == start]
+        if len(candidates) == 1 and candidates[0][1]:
+            index, value = candidates[0]
+            other_end = pages[index + 1][2] if index + 1 < len(pages) else None
+            if end == other_end:
+                result[locale] = value
+    return result
 
 
 def _sound_inventory(archive, progress):
@@ -222,8 +247,7 @@ def _cinematic_records(archive, cinematics, tables, source_locale, counts):
                 for page, text, relative_start in pages:
                     if not text:
                         continue
-                    texts = {locale: values[page][1] for locale, values in translations.items()
-                             if len(values) == len(pages) and values[page][1]}
+                    texts = _page_texts((page, text, relative_start), source_locale, translations)
                     audio = None
                     if track:
                         audio = {'locale': source_locale, 'owner': owner, 'movie': identity,
@@ -315,10 +339,7 @@ def _index_language(install, source_locale, target_locales, progress):
         for page, text, start in source_pages:
             if not text:
                 continue
-            # Only corresponding authored page ordinals are aligned. Never put
-            # a translation's complete future paragraph in a current caption.
-            texts = {locale: pages[page][1] for locale, pages in translated.items()
-                     if len(pages) == len(source_pages) and pages[page][1]}
+            texts = _page_texts((page, text, start), source_locale, translated)
             reference = dict(audio) if audio else None
             category = kind
             if reference:

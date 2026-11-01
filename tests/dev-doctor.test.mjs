@@ -14,6 +14,7 @@ function fixture(t) {
   put('package-lock.json', JSON.stringify({version: '1.0.0', packages: {'': manifest, 'node_modules/synthetic': {version: '1.2.3'}}}));
   put('node_modules/synthetic/package.json', JSON.stringify({version: '1.2.3'}));
   put('requirements.lock.txt', 'pytest==9.1.1\nwindows-capture==2.0.1; sys_platform == \'win32\'\n');
+  put('packaging/desktop/build-requirements.lock.txt', '# Authored fixture: no build packages unless explicitly requested.\n');
   put('scripts/mobile-ocr-integrity.json', JSON.stringify({files: {'ocr/core/synthetic.wasm.js': 'unused'}}));
   return {root, put};
 }
@@ -73,6 +74,24 @@ test('package mismatch and wrong Python are configuration failures', async t => 
   assert.equal(item(report, 'python').status, 'fail');
   assert.equal(item(report, 'npm-packages').status, 'fail');
   assert.deepEqual(item(report, 'python-packages').details.mismatched, ['pytest']);
+});
+
+test('backend and full checks require the pinned freezer while browser-only checks do not', async t => {
+  const {root, put} = fixture(t);
+  put('packaging/desktop/build-requirements.lock.txt', 'PyInstaller==6.22.3\nmacholib==1.16.4; sys_platform == "darwin"\n');
+  for (const checks of [['python'], ['full']]) {
+    const missing = await runDoctor({...options, root, checks});
+    assert.equal(item(missing, 'python-packages').status, 'unavailable');
+    assert.deepEqual(item(missing, 'python-packages').details.missing, ['PyInstaller']);
+    assert.match(item(missing, 'python-packages').remediation, /-r requirements\.lock\.txt -r packaging\/desktop\/build-requirements\.lock\.txt/);
+    const ready = await runDoctor({...options, root, checks, pythonProbe: () => ({...options.pythonProbe(), packages: {...options.pythonProbe().packages, pyinstaller: '6.22.3'}})});
+    assert.equal(item(ready, 'python-packages').status, 'pass');
+    const mismatched = await runDoctor({...options, root, checks, pythonProbe: () => ({...options.pythonProbe(), packages: {...options.pythonProbe().packages, pyinstaller: '6.22.2'}})});
+    assert.equal(item(mismatched, 'python-packages').status, 'fail');
+    assert.deepEqual(item(mismatched, 'python-packages').details.mismatched, ['PyInstaller']);
+  }
+  const browserOnly = await runDoctor({...options, root, checks: ['desktop'], scenarios: {browser: ['ui-state-react-e2e'], windows: []}, browserProbe: () => ({chromium: true, firefox: true})});
+  assert.equal(item(browserOnly, 'python-packages').status, 'pass');
 });
 test('missing npm install is actionable while unsupported Node is a failed prerequisite', async t => {
   const {root} = fixture(t);

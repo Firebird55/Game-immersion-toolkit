@@ -1,0 +1,72 @@
+{
+  "schema": "proxy-zzz-build-inputs-v1",
+  "node": {
+    "version": "24.22.1",
+    "release": "https://nodejs.org/en/blog/release/v24.22.1",
+    "checksums": "https://nodejs.org/dist/v24.22.1/SHASUMS256.txt",
+    "win-x64": {
+      "archive": "node-v24.22.1-win-x64.zip",
+      "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-win-x64.zip",
+      "archive_sha256": "d2046d28c2c3dcd211ac5145c0bf30e2047ef9dfb306693c8c6e2eccd8b95fa5",
+      "executable": "node.exe",
+      "executable_sha256": "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5"
+    },
+    "darwin-arm64": {
+      "archive": "node-v24.22.1-darwin-arm64.tar.gz",
+      "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-darwin-arm64.tar.gz",
+      "archive_sha256": "89c682593d76cd44233fa53b1563264e7de9cbb189cad169135c5b4fadfbc0a7",
+      "executable": "bin/node",
+      "executable_sha256": "6f32069480ec14d52b6d7b1f3c7124cfbbc46203abf5ddf5c65b127435f3f329"
+    }
+  },
+  "upstream_reader": {
+    "repository": "https://github.com/simon300000/zenless-voice",
+    "commit": "bb2b9790d2d45a5c662c36cd9f046d05893d0ef4",
+    "path": "galgame-perform.ts",
+    "sha256": "176491a567b6152f5031b71ea7d742dba3228462d404a6abf03c2242c6ca2731",
+    "license_path": "LICENSE",
+    "license_sha256": "e8cdd3cbaac74e1ef97ab5ef823de23a4b13076396510802c97d57ebe1f02c91",
+    "status": "blocked-unreviewed-game-constants-and-combined-rights"
+  },
+  "npm": {
+    "typescript": {
+      "version": "5.9.3",
+      "archive_sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3",
+      "url": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "role": "build-only",
+      "files": ["lib/typescript.js", "LICENSE.txt", "ThirdPartyNoticeText.txt"]
+    },
+    "ooz-wasm": {
+      "version": "2.0.0",
+      "archive_sha256": "9d620bfee0d4ec98f304c291a49af4cd5bafaa9b6a1ef6e9248808d2467d05fe",
+      "url": "https://registry.npmjs.org/ooz-wasm/-/ooz-wasm-2.0.0.tgz",
+      "integrity": "sha512-Ewk+Vga2m9niFGV5qT+4EKfBnFEQSQfnTdOWSlnQcpDB2OAdk7TpRHfKqxLSLhDKRjKjw9R+sGlOreWW8ABR0A==",
+      "license": "GPL-3.0-or-later",
+      "repository": "https://github.com/SnosMe/ooz-wasm",
+      "role": "runtime",
+      "files": ["package.json", "index.js", "build/ooz.js", "LICENSE"],
+      "runtime_sha256": {
+        "package.json": "44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1",
+        "index.js": "042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562",
+        "build/ooz.js": "5aed30da1da505793fd1e3383db4572797bcce8a0e9e71176d1f6a5d60ec0e6c",
+        "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+      }
+    },
+    "xxhash-wasm": {
+      "version": "1.1.0",
+      "archive_sha256": "cddd90f792012cd253728e11a643e15251268a7a9588851ccc51a5c8f16340ad",
+      "url": "https://registry.npmjs.org/xxhash-wasm/-/xxhash-wasm-1.1.0.tgz",
+      "integrity": "sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA==",
+      "license": "MIT",
+      "repository": "https://github.com/jungomi/xxhash-wasm",
+      "role": "runtime",
+      "files": ["package.json", "esm/xxhash-wasm.js", "LICENSE.md"],
+      "runtime_sha256": {
+        "package.json": "f2c48d47dbdef2f9a3e0fb1025a1394726a1028ddee21f5c38452de50d00bcf2",
+        "esm/xxhash-wasm.js": "e3be9143c10d60a015448de1ceef383b8f2ea1fd2773a5a5c69973ed52d8325a",
+        "LICENSE.md": "6f6b3afa109ea0d073b8e3cf0feea0aba07d357fcdebeef54dd34b3c0b3f9ac5"
+      }
+    }
+  }
+}

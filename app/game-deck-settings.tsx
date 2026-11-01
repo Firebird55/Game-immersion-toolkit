@@ -1,7 +1,8 @@
+import {desktopApiBase} from '../lib/desktop-endpoints';
 import {useInterfaceTranslation} from '../lib/interface-language';
 import {useEffect,useRef,useState} from 'react';
 type Deck={id:number;title:string};
-const API='http://127.0.0.1:8766';
+const API=desktopApiBase();
 export function GameDeckSettings({game,title,current,onConfigured,language="zh"}:{game:string;title:string;current?:Deck;onConfigured:()=>void;language?:string}) {
  const uiText=useInterfaceTranslation();
  const [decks,setDecks]=useState<Deck[]>([]),[selected,setSelected]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');

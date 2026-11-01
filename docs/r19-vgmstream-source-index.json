@@ -1,0 +1,1134 @@
+{
+  "schema": "proxy-r19-vgmstream-source-index-v1",
+  "reviewed_on": "2026-10-31",
+  "scope": "Deterministic source-input index only; no corresponding-source, build, redistribution, native or game acceptance",
+  "upstream": {
+    "repository": "vgmstream/vgmstream",
+    "release": "r2168",
+    "release_id": 423550987,
+    "commit": "d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+    "release_url": "https://github.com/vgmstream/vgmstream/releases/tag/r2168",
+    "latest_official_release_observed_on": "2026-10-31"
+  },
+  "index_identity": {
+    "algorithm": "sha256",
+    "sha256": "2d25a1919a5f6758fc541944b79b475c6ba4f6aef2e1e0c8d45244a18b69fe27",
+    "material": "identity_material; UTF-8 JSON with sorted keys, no insignificant whitespace, ensure_ascii=false; array order retained",
+    "meaning": "Stable identity of reviewed input records, not a supplier build or rights receipt"
+  },
+  "identity_material": {
+    "vgmstream_source": {
+      "component": "vgmstream",
+      "version": "r2168",
+      "commit": "d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+      "filename": "vgmstream-d9875b1fff307e4759dfb85e49e3d5e6fb196f7c.zip",
+      "source": "https://codeload.github.com/vgmstream/vgmstream/zip/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c",
+      "bytes": 9584384,
+      "sha256": "4c7579a58084556e60a120de29b8d765c6ad10d94e7e38bb5511f03bab5155e1",
+      "source_archive_is_source_only": false,
+      "prebuilt_native_members": 18,
+      "note": "The original repository archive contains prebuilt dependency DLLs. No new native download or execution in this indexing step; prior mixed archive is not the prepared source-only tree."
+    },
+    "dependency_archives": [
+      {
+        "component": "celt-0061",
+        "version": "0.6.1",
+        "filename": "celt-0.6.1.tar.gz",
+        "source": "https://downloads.xiph.org/releases/celt/celt-0.6.1.tar.gz",
+        "bytes": 422769,
+        "sha256": "a991dff4a9e0772ede0881d81cdc7ac559148c2194885cbdd534fe4af43779da",
+        "regular_files": 104,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "celt-0110",
+        "version": "0.11.0",
+        "filename": "celt-0.11.0.tar.gz",
+        "source": "https://downloads.xiph.org/releases/celt/celt-0.11.0.tar.gz",
+        "bytes": 464316,
+        "sha256": "c94d4d34f5a2caa1574b1a94869202cacd959b55f643a8bafe0660008acad9c3",
+        "regular_files": 98,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "ffmpeg",
+        "version": "9.0.2",
+        "filename": "ffmpeg-9.0.2.tar.xz",
+        "source": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+        "bytes": 12040788,
+        "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e",
+        "regular_files": 10399,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "libogg",
+        "version": "1.3.5",
+        "filename": "libogg-1.3.5.zip",
+        "source": "https://downloads.xiph.org/releases/ogg/libogg-1.3.5.zip",
+        "bytes": 665108,
+        "sha256": "fd4e5ba7e93b84b3ec41cdf01494cc586ef6e912b313dbab25512dd02665dfaf",
+        "regular_files": 134,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "libvorbis",
+        "version": "1.3.7",
+        "filename": "libvorbis-1.3.7.zip",
+        "source": "https://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.zip",
+        "bytes": 1924556,
+        "sha256": "57c8bc92d2741934b8dc939af49c2639edc44b8879cba2ec14ad3189e2814582",
+        "regular_files": 428,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "mpg123",
+        "version": "1.33.7",
+        "filename": "mpg123-1.33.7.tar.bz2",
+        "source": "https://www.mpg123.de/download/mpg123-1.33.7.tar.bz2",
+        "bytes": 1126376,
+        "sha256": "31d0e35a4ca567ec9b5ebda6c3062bb4435d6d3eacd6ef0d95cadd7854dc03ee",
+        "regular_files": 366,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "opus",
+        "version": "1.6.1",
+        "filename": "opus-1.6.1.tar.gz",
+        "source": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+        "bytes": 10472813,
+        "sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+        "regular_files": 482,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      },
+      {
+        "component": "speex",
+        "version": "1.2.1",
+        "filename": "speex-1.2.1.tar.gz",
+        "source": "https://downloads.xiph.org/releases/speex/speex-1.2.1.tar.gz",
+        "bytes": 1043278,
+        "sha256": "4b44d4f2b38a370a2d98a78329fefc56a0cf93d1c1be70029217baae6628feea",
+        "regular_files": 238,
+        "native_payloads_observed": 0,
+        "verification": "observed-HTTPS-bytes;locally-computed-sha256;signature-not-verified",
+        "matches_shipping_binary_build": "unverified"
+      }
+    ],
+    "original_vgmstream_recipe_records": [
+      {
+        "path": ".github/workflows/vs-win.yml",
+        "bytes": 2419,
+        "sha256": "b12503e7604c6f10655bd0e565a37de1059dd5437206b9caf7870d5e75af73f9",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/.github/workflows/vs-win.yml"
+      },
+      {
+        "path": "CMakeLists.txt",
+        "bytes": 11397,
+        "sha256": "3de24e1133a39ad214403789c254ed1c53719a6d613cbc80b110b8e114d35192",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/CMakeLists.txt"
+      },
+      {
+        "path": "COPYING",
+        "bytes": 1314,
+        "sha256": "fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING"
+      },
+      {
+        "path": "Directory.Build.props",
+        "bytes": 1216,
+        "sha256": "69b74716ff39d52ad032d01b792b8ef251964cab162f51c361d5b47f0bfd4dd2",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/Directory.Build.props"
+      },
+      {
+        "path": "README.md",
+        "bytes": 4908,
+        "sha256": "676e5a0319ee203d6980a80a04e3860b4ee18d716beac654242ebbcbe1d3199b",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/README.md"
+      },
+      {
+        "path": "cli/vgmstream_cli.vcxproj",
+        "bytes": 7663,
+        "sha256": "ddc3731a7b9185fd56b860c670e1ed3494f3fcf281af51a2df93232e46d28cb7",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cli/vgmstream_cli.vcxproj"
+      },
+      {
+        "path": "cmake/FetchDependency.cmake",
+        "bytes": 3652,
+        "sha256": "c3bc041c8d44d73ff20715bafe8182d7fd6888dd39b22476361a00a14a0047a5",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FetchDependency.cmake"
+      },
+      {
+        "path": "cmake/FindAO.cmake",
+        "bytes": 982,
+        "sha256": "f233dd5735c45781b5ba1921e531633ef6a2352deae259f478e50198e9f435c8",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindAO.cmake"
+      },
+      {
+        "path": "cmake/FindFFmpeg.cmake",
+        "bytes": 5829,
+        "sha256": "1f5f3cfa44a37221a73691ccd7f62d1678a90a5e811b3cebee88b124b6a205b2",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindFFmpeg.cmake"
+      },
+      {
+        "path": "cmake/FindMPG123.cmake",
+        "bytes": 891,
+        "sha256": "9e7db763689d35ade3af9a46700668e12824f3ee90749625c5c2cd0eef75f17b",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindMPG123.cmake"
+      },
+      {
+        "path": "cmake/FindOgg.cmake",
+        "bytes": 1474,
+        "sha256": "71eb95debaef35b6862b1778ad511b0a58c6f8db35a37a782141545624123fa3",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindOgg.cmake"
+      },
+      {
+        "path": "cmake/FindSpeex.cmake",
+        "bytes": 1300,
+        "sha256": "985b28b309373b9f20ec944e537de1e6ba94366447d50e5cc3851626a49cd083",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindSpeex.cmake"
+      },
+      {
+        "path": "cmake/FindVorbis.cmake",
+        "bytes": 1598,
+        "sha256": "5898ed8911769e2b08aa748eca5ca6f80fa1ee3de1d1e466b2540410bae766ce",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindVorbis.cmake"
+      },
+      {
+        "path": "cmake/FindVorbisFile.cmake",
+        "bytes": 1790,
+        "sha256": "863b3d82ad713e8c1f2d503242a4b3169e8e9ad811d1f12a4b862729cab2ac69",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/FindVorbisFile.cmake"
+      },
+      {
+        "path": "cmake/dependencies/audacious.cmake",
+        "bytes": 335,
+        "sha256": "0a85c675d7ece931f0564321fe4334f94820c1a7eeb9fe34bfd413e32a47e594",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/audacious.cmake"
+      },
+      {
+        "path": "cmake/dependencies/celt.cmake",
+        "bytes": 4510,
+        "sha256": "a835c2201ff2755c161a76496e3bb8f7063d9cfb3b94d54699553c6e75f1ea04",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/celt.cmake"
+      },
+      {
+        "path": "cmake/dependencies/ffmpeg.cmake",
+        "bytes": 5037,
+        "sha256": "916853fcceea6e7bba0c272dd32abf5557f14ea5a311eb2ddd2318d1cbf5dbae",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/ffmpeg.cmake"
+      },
+      {
+        "path": "cmake/dependencies/libao.cmake",
+        "bytes": 1859,
+        "sha256": "53e2f13c46a8bdc5b54f4c0b3cd9489630166292d4c12be41e02016be69f208d",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/libao.cmake"
+      },
+      {
+        "path": "cmake/dependencies/mpg123.cmake",
+        "bytes": 2117,
+        "sha256": "119ef3239f556d6a87d3318ba377fb8ea406e6da4987ae10ed57e0e6674195ba",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/mpg123.cmake"
+      },
+      {
+        "path": "cmake/dependencies/ogg.cmake",
+        "bytes": 826,
+        "sha256": "c9570e384c0627ba4aa34526de86dd4c57c4d914a66b760cdac46873c85e0b1a",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/ogg.cmake"
+      },
+      {
+        "path": "cmake/dependencies/speex.cmake",
+        "bytes": 1408,
+        "sha256": "d5bec66095ffce27bdc3a4150d009973813aff65de27975d3546e835fc0d57a8",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/speex.cmake"
+      },
+      {
+        "path": "cmake/dependencies/vorbis.cmake",
+        "bytes": 1260,
+        "sha256": "ceb4292fada37d0536b7679523b22d0c17c233dedc7780ac94035227f896a85f",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/dependencies/vorbis.cmake"
+      },
+      {
+        "path": "cmake/fdk-aac.cmake",
+        "bytes": 4086,
+        "sha256": "f2698bf3c7415dae8c41ba0d085c52ce9a4e271d08b070dcf844e445847b261d",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/fdk-aac.cmake"
+      },
+      {
+        "path": "cmake/mp4v2.cmake",
+        "bytes": 5487,
+        "sha256": "2c90f86b0cb8323b3a9ed43d93dc08bdfcd57e760ffd2e4d3b1b707956d09f5c",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/mp4v2.cmake"
+      },
+      {
+        "path": "cmake/vgmstream.cmake",
+        "bytes": 4853,
+        "sha256": "a11f3d114411d1420bb7b86bd50f2d3b9ac341048913786fa2c2148aac4769aa",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/cmake/vgmstream.cmake"
+      },
+      {
+        "path": "doc/BUILD-LIB.md",
+        "bytes": 33923,
+        "sha256": "05e5fe5707eb6301c1c57815479621d432f1aaf16ebdb4eca0a28af5509a3f4c",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD-LIB.md"
+      },
+      {
+        "path": "doc/BUILD.md",
+        "bytes": 30896,
+        "sha256": "b687b97f9ac6826a1f7f2f2227d15495a7a12beb5344e75077b43c9dbfb3f025",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/doc/BUILD.md"
+      },
+      {
+        "path": "ext_libs/Getopt/getopt.vcxproj",
+        "bytes": 4370,
+        "sha256": "5ae411e6fb7f59ebe9ae744f83b180d08165caaa9cdc35c826bb255089d206ea",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/Getopt/getopt.vcxproj"
+      },
+      {
+        "path": "ext_libs/avcodec-vgmstream-63.def",
+        "bytes": 4123,
+        "sha256": "582c190598d3c759cce010345f541275caef454836786f0f3963f86e1e307586",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/avcodec-vgmstream-63.def"
+      },
+      {
+        "path": "ext_libs/avformat-vgmstream-63.def",
+        "bytes": 3494,
+        "sha256": "3d515a1a579cad7ecd8a56e515af8ebfa93c6949cb121de845f6a7073c327a8d",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/avformat-vgmstream-63.def"
+      },
+      {
+        "path": "ext_libs/avutil-vgmstream-61.def",
+        "bytes": 15121,
+        "sha256": "f6f8817d15cff7b91ab0b3d6140f5a3b2d3c719349a2174e398fc1dd775a5798",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/avutil-vgmstream-61.def"
+      },
+      {
+        "path": "ext_libs/ext_libs.vcxproj",
+        "bytes": 7011,
+        "sha256": "a5824f089d1165789c2f9fbddbc1d013d0245690550724c8258ef23e68d21f3c",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/ext_libs.vcxproj"
+      },
+      {
+        "path": "ext_libs/extra/celt-0110/ecintrin.h",
+        "bytes": 5782,
+        "sha256": "a4c4e3af0387af91ec8737f31d08c85c1bc6481ef6c84e4d1f8ec3dc4e473a64",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/celt-0110/ecintrin.h"
+      },
+      {
+        "path": "ext_libs/extra/ffmpeg_options.txt",
+        "bytes": 5530,
+        "sha256": "ebf1a9897af02234c27ae4cc4b3d50e728f8ed6d772f047ac468c13c195f525e",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/extra/ffmpeg_options.txt"
+      },
+      {
+        "path": "ext_libs/libcelt-0061.def",
+        "bytes": 235,
+        "sha256": "e1d473a1f8740fe191e95f3f77afc74ad1f8bd54ea6f4f5dc1c93b9d59da1cdd",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/libcelt-0061.def"
+      },
+      {
+        "path": "ext_libs/libcelt-0110.def",
+        "bytes": 242,
+        "sha256": "f0af75c109de48509c1c1d0bdaec45becded0d9935cc30f7180c136b401dfdd1",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/libcelt-0110.def"
+      },
+      {
+        "path": "ext_libs/libmpg123-0.def",
+        "bytes": 3275,
+        "sha256": "d2675b744b5c2dda76bf01d7802ed37e66db00d1db0bd7bcf6dda4ead6ddf390",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/libmpg123-0.def"
+      },
+      {
+        "path": "ext_libs/libspeex-1.def",
+        "bytes": 1324,
+        "sha256": "4be592c7e921ff8d6fadc3bd01df6b3cc9c358dbee31effcf2f397cac43d4346",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/libspeex-1.def"
+      },
+      {
+        "path": "ext_libs/libvorbis.def",
+        "bytes": 2895,
+        "sha256": "da0a780a74c66958b5dbbef423cae97dceb9ef4c2b8f014d6d539c6b7284553b",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/libvorbis.def"
+      },
+      {
+        "path": "ext_libs/swresample-vgmstream-7.def",
+        "bytes": 475,
+        "sha256": "f9218bbdf6a09284adae3ef14e4b481a7a405d5a57de39907a6e803950114677",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/swresample-vgmstream-7.def"
+      },
+      {
+        "path": "msvc-build-clean.bat",
+        "bytes": 76,
+        "sha256": "20b9098a3f4ed7980efac2886819aa7aaa827726dbe005ca5b4a23d0cc5eae91",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/msvc-build-clean.bat"
+      },
+      {
+        "path": "msvc-build-init.bat",
+        "bytes": 75,
+        "sha256": "d60c1effec68cfdb5e0a10a0c611f047b324af0cd3c59f37ddcb50f644f049ca",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/msvc-build-init.bat"
+      },
+      {
+        "path": "msvc-build-package.bat",
+        "bytes": 78,
+        "sha256": "3412f659c357fd04f4b442ced7813965baa6f8c1ce0982a908f67958bcc094e3",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/msvc-build-package.bat"
+      },
+      {
+        "path": "msvc-build.bat",
+        "bytes": 74,
+        "sha256": "f817a931558debc8f3b2014005c72339eb2f7a259908d8c943da1da829768e77",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/msvc-build.bat"
+      },
+      {
+        "path": "msvc-build.ps1",
+        "bytes": 13080,
+        "sha256": "432ab5a992cadd9b25ee6eea39f2c957c6ea8fd60bf5e8f46a99e08848e0c57a",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/msvc-build.ps1"
+      },
+      {
+        "path": "src/libvgmstream.vcxproj",
+        "bytes": 44572,
+        "sha256": "88c9c8ca66d3741e665263f5f31ac1dec836103a3ec2ad11b53f283c370413a7",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/src/libvgmstream.vcxproj"
+      },
+      {
+        "path": "version-make.bat",
+        "bytes": 2091,
+        "sha256": "78a1741351554939aa65204af312dad8cf0e755aa52703742d56e36813786066",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/version-make.bat"
+      },
+      {
+        "path": "vgmstream_full.sln",
+        "bytes": 9976,
+        "sha256": "807416a9d036306fb6efcea5fb6d440b69360b83203f519d795767c61c30ce96",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/vgmstream_full.sln"
+      },
+      {
+        "path": "vgmstream_msvc.props",
+        "bytes": 7359,
+        "sha256": "ee9cfff844d1e5db5e1dde9040f220b30b3513b0b142eb3a06526bb6e0d0cd51",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/vgmstream_msvc.props"
+      }
+    ],
+    "original_dependency_build_records": [
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/INSTALL",
+        "bytes": 31,
+        "sha256": "3fd6630029477b4df1546d6b17b07216b78aba11dbf96e6b35e7959e873ce730"
+      },
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/Makefile.am",
+        "bytes": 492,
+        "sha256": "ec164ab54ab1e32488380d79d14e591b363dea7b9c42727c6c392618ac615818"
+      },
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/Makefile.in",
+        "bytes": 21932,
+        "sha256": "629874f5435fef6ff5a59ca9e05f353a7f3634c6b3060830458e7621197e4604"
+      },
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/configure",
+        "bytes": 485185,
+        "sha256": "1b7beea965f8d0ed2ab53b44c0aa9ec024f7466c71722c04ea5ebe9c61ff536b"
+      },
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/configure.ac",
+        "bytes": 6923,
+        "sha256": "6605fe3ad85d662723e6b5aef5812643951d23de1ca64c83b3d47821d1dea04e"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/INSTALL",
+        "bytes": 31,
+        "sha256": "3fd6630029477b4df1546d6b17b07216b78aba11dbf96e6b35e7959e873ce730"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/Makefile.am",
+        "bytes": 492,
+        "sha256": "ec164ab54ab1e32488380d79d14e591b363dea7b9c42727c6c392618ac615818"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/Makefile.in",
+        "bytes": 25349,
+        "sha256": "bc148bad4e614b86df3b7a6160b9b0afb156e93076ef6f0b37641bffe206595d"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/configure",
+        "bytes": 419433,
+        "sha256": "7a02c0a349faf74a9149033399e090a20d8ca44c8c41ded4691d48d7ef4dbcb0"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/configure.ac",
+        "bytes": 7039,
+        "sha256": "88e5789e07b754c0dffd494beaf11c401c5f14dd93fde2e6afc0672807bcc822"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/Makefile",
+        "bytes": 7663,
+        "sha256": "ae7553003cc417d5eeb563d2bae3723dfd0792d4b0c1fb1d2c89841a19a824dd"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/configure",
+        "bytes": 311304,
+        "sha256": "5b281b249ad5ad859030b4da0a24ec105b5abff7b3d87a65b302df8bf5fd9833"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/CMakeLists.txt",
+        "bytes": 6287,
+        "sha256": "f19626356bd8f1711199854cc45c73fb0c4d537beaa15d8704c9d356b91db720"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/Makefile.am",
+        "bytes": 1055,
+        "sha256": "098d27f5beb9c58f6ae53b14d4d87274c444de9490528e9064b900e4af6be78e"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/Makefile.in",
+        "bytes": 31068,
+        "sha256": "ba104b6d744bd5423e20dd60a4c8f418c0b1bd7d2d6f0398585ffd357da4952c"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/configure",
+        "bytes": 475414,
+        "sha256": "4496e471e8f1a18589dc2bda71957542e5ccd9c6b39f817de138e6caafc4e27a"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/configure.ac",
+        "bytes": 5256,
+        "sha256": "31d3125a2ac5a984ecb5300c81b6e64eff6592393bde0328da9a12f9d69da3c7"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/CMakeLists.txt",
+        "bytes": 2705,
+        "sha256": "66083c2c545fab98a075e3c5aa3b73d113ae41dcfeb6040a5f435e58059e69d5"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/Makefile.am",
+        "bytes": 1030,
+        "sha256": "7d1feef1b92fc80cdb7bf9f4b97317923f67d1afed5466320f725b821a85d743"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/Makefile.in",
+        "bytes": 31978,
+        "sha256": "93026bb36469f70bdfd92ddb64dce37c96d3a04fc178fa091fc4b832bdca6a5f"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/autogen.sh",
+        "bytes": 245,
+        "sha256": "9825dccae7dfdc8a43d57e6426e5dcbd0e7298b0eba70a4b52e573d6bf3cfc73"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/configure",
+        "bytes": 478442,
+        "sha256": "6ea0eb76f8c2996c59ed9a5b67d3215a610cd4bcda7a68c09c4f66b5ab82605b"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/configure.ac",
+        "bytes": 9618,
+        "sha256": "f28f6a79162f31639d12ab86ffcc496c3bcb0b5e3ede9544eb69ec37abf76901"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/INSTALL",
+        "bytes": 9468,
+        "sha256": "11fb1c2ee1f77fcfc0fdbe67f7b74e639e53d5fe19d1529a414e15d4fe046421"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/Makefile.am",
+        "bytes": 2589,
+        "sha256": "7e84de67d4b7d372255bf38bec135396a25cd9eb763fc22cca94722675d0a1f1"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/Makefile.in",
+        "bytes": 458218,
+        "sha256": "bfe2ed0f6ef4ea2a44e0367aa53b5e8a17d56f07db4d32d150e6bb31c4c0424c"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/configure",
+        "bytes": 702414,
+        "sha256": "3e164f45df0eaf3a6a202d0784cd418b157350a28af503235bcb788b39c63920"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/configure.ac",
+        "bytes": 97180,
+        "sha256": "450164601de0650114afa883ca2df3cf97f995e85f773c033049d0dbccaf9253"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/CMakeLists.txt",
+        "bytes": 31685,
+        "sha256": "5429c90612bf6210e5999452ad98fb3e9d561f3b89a4916cb3a95e8106233c51"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/INSTALL",
+        "bytes": 15766,
+        "sha256": "edebc46c7d07258a20170050d9595ce4e630f5d584a4eb00220bb90c8997a31b"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/Makefile.am",
+        "bytes": 16056,
+        "sha256": "c079ba7e7a99776856da288af5fbc5b1c9ec92746739f4ee56cb71a369d6f599"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/Makefile.in",
+        "bytes": 234973,
+        "sha256": "515b910b71302da8530338639322245a3fd8878a0a2cbc6f2148cf295f2fd3c2"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/configure",
+        "bytes": 561856,
+        "sha256": "69463a90768c6214bfc73a1acd783e9f5f05e47e29ec9ec58540a0983d085921"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/configure.ac",
+        "bytes": 41371,
+        "sha256": "3ea2e11ef34ca70ef4e861594398da52ef846a07f688f17a99ed1e6b596b9415"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/meson.build",
+        "bytes": 26257,
+        "sha256": "a96772a773fc40283b46d93c94e2bc2b6a6e1e1202f73dc49199404f3ab94e55"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/INSTALL",
+        "bytes": 198,
+        "sha256": "60084647b798f90b484a1f3f6ef09610e042aabf44944cce8f14cb8b70fa7afc"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/Makefile.am",
+        "bytes": 720,
+        "sha256": "f341d3cfd305b161b1fa989082e065b986c322bae6f5032d0fdbf49ad7bf7d0e"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/Makefile.in",
+        "bytes": 30609,
+        "sha256": "3b054d6deeccd3f542d5a86e3cceace80ec48bdbe4cd43f927d80b8d77026f63"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/configure",
+        "bytes": 509560,
+        "sha256": "4d382001e419a74da9508a705d048d00e90c0514b8ece869990dd59d01063793"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/configure.ac",
+        "bytes": 10379,
+        "sha256": "eab828c8c97f549c75c5e6ac81796c476cff8fbc12c493c0d80d0aeb73529fc7"
+      }
+    ],
+    "original_vgmstream_notice_records": [
+      {
+        "path": "COPYING",
+        "bytes": 1314,
+        "sha256": "fcc26d35c4c4365e31f21734f846e4ee362ff0b57ba696085605a7b4768d8763",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/celt-0.11.0.COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/celt-0.11.0.COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/celt-0.6.1.COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/celt-0.6.1.COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv2.1",
+        "bytes": 26517,
+        "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv2.1"
+      },
+      {
+        "path": "ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv3",
+        "bytes": 7651,
+        "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv3"
+      },
+      {
+        "path": "ext_libs/licenses/libogg-1.3.5.COPYING",
+        "bytes": 1466,
+        "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/libogg-1.3.5.COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/libvorbis-1.3.7.COPYING",
+        "bytes": 1470,
+        "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/libvorbis-1.3.7.COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/mpg123-1.33.7-COPYING",
+        "bytes": 40718,
+        "sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/mpg123-1.33.7-COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/opus-1.6.1-COPYING",
+        "bytes": 1945,
+        "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/opus-1.6.1-COPYING"
+      },
+      {
+        "path": "ext_libs/licenses/speex-1.2.1.COPYING",
+        "bytes": 1773,
+        "sha256": "2654a4264b2bfe298dedc508748d140111840c315cc8eb646a3a68c13fa75b01",
+        "source": "https://github.com/vgmstream/vgmstream/blob/d9875b1fff307e4759dfb85e49e3d5e6fb196f7c/ext_libs/licenses/speex-1.2.1.COPYING"
+      }
+    ],
+    "original_dependency_notice_records": [
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/AUTHORS",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "component": "celt-0061",
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/AUTHORS",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "component": "celt-0110",
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.GPLv2",
+        "bytes": 18092,
+        "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.GPLv3",
+        "bytes": 35147,
+        "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.LGPLv2.1",
+        "bytes": 26517,
+        "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.LGPLv3",
+        "bytes": 7651,
+        "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/LICENSE.md",
+        "bytes": 4346,
+        "sha256": "2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/doc/authors.texi",
+        "bytes": 403,
+        "sha256": "fb5fac6dd8f7474033e933814491a8297d8723c52be4dcbcc82eef9c4f008dd2"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/tests/checkasm/ext/LICENSE",
+        "bytes": 1402,
+        "sha256": "a2dc8194271e5989c0622531c645a7b41af5da92eeb2531e4f2a3ec31023bc52"
+      },
+      {
+        "component": "ffmpeg",
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/tests/checkasm/ext/src/html_data/LICENSE",
+        "bytes": 1361,
+        "sha256": "0fd2c601fb2ead2add56807b7e32664da8d973b9835a422464f210bfea997a52"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/AUTHORS",
+        "bytes": 198,
+        "sha256": "6fcb33d0cdd60b5054e7df820916388b590427514288c2bab01c626bb8ae9506"
+      },
+      {
+        "component": "libogg",
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/COPYING",
+        "bytes": 1466,
+        "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/AUTHORS",
+        "bytes": 65,
+        "sha256": "f5cab9f16035f770f50299f85cf2938c06dc3a9a30425961067788102ec896d3"
+      },
+      {
+        "component": "libvorbis",
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/COPYING",
+        "bytes": 1470,
+        "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/AUTHORS",
+        "bytes": 9370,
+        "sha256": "fb18c9abae864a20f691e949e4c7871c79f5f0861b3a3dcaf5881c3c02cf5cc2"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/COPYING",
+        "bytes": 40718,
+        "sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/doc/LICENSE",
+        "bytes": 957,
+        "sha256": "cca79ea6fc0a7715e52450df2d86311f990e85067dd13f4d7f5a88d4fd23a07c"
+      },
+      {
+        "component": "mpg123",
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/doc/PATENTS",
+        "bytes": 3211,
+        "sha256": "a16db5483cc2ab07a81b152fe9147f0ef196d38d26477c7b8c803aff6522e8bc"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/AUTHORS",
+        "bytes": 239,
+        "sha256": "f9fd849e652219ce98e008303370b352d37663d0ffb27b8dc514ad93c9c7438b"
+      },
+      {
+        "component": "opus",
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/COPYING",
+        "bytes": 1945,
+        "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/AUTHORS",
+        "bytes": 502,
+        "sha256": "6e5a9d92c5f9ccd28fe0b15ad59443fbf435bfc6ab2221f532006d3717ddf642"
+      },
+      {
+        "component": "speex",
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/COPYING",
+        "bytes": 1773,
+        "sha256": "2654a4264b2bfe298dedc508748d140111840c315cc8eb646a3a68c13fa75b01"
+      }
+    ],
+    "notice_comparisons": [
+      {
+        "archive": "celt-0.6.1.tar.gz",
+        "path": "celt-0.6.1/COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "retained_path": "ext_libs/licenses/celt-0.6.1.COPYING",
+        "retained_bytes": 1536,
+        "retained_sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "celt-0.11.0.tar.gz",
+        "path": "celt-0.11.0/COPYING",
+        "bytes": 1536,
+        "sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "retained_path": "ext_libs/licenses/celt-0.11.0.COPYING",
+        "retained_bytes": 1536,
+        "retained_sha256": "6913f9754c576d04e2c7452202aeff5910ba9b8dd29ac6949926a6d12f33c0b2",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.LGPLv2.1",
+        "bytes": 26517,
+        "sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+        "retained_path": "ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv2.1",
+        "retained_bytes": 26517,
+        "retained_sha256": "246041b6ecf9bc32d718a62c57877c78b5eb397b6467e74ed7ae2626ab189c30",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "ffmpeg-9.0.2.tar.xz",
+        "path": "ffmpeg-9.0.2/COPYING.LGPLv3",
+        "bytes": 7651,
+        "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+        "retained_path": "ext_libs/licenses/ffmpeg-9.0.2.COPYING.LGPLv3",
+        "retained_bytes": 7651,
+        "retained_sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "libogg-1.3.5.zip",
+        "path": "libogg-1.3.5/COPYING",
+        "bytes": 1466,
+        "sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814",
+        "retained_path": "ext_libs/licenses/libogg-1.3.5.COPYING",
+        "retained_bytes": 1466,
+        "retained_sha256": "d2ab5758336489da61c12cc5bb757da5339c4ae9001f9bb0562b4370249af814",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "libvorbis-1.3.7.zip",
+        "path": "libvorbis-1.3.7/COPYING",
+        "bytes": 1470,
+        "sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a",
+        "retained_path": "ext_libs/licenses/libvorbis-1.3.7.COPYING",
+        "retained_bytes": 1470,
+        "retained_sha256": "ec1815db59fcd302846df949d7424876cb2e2dc5ed1606c5fb0b36787b1cf43a",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "mpg123-1.33.7.tar.bz2",
+        "path": "mpg123-1.33.7/COPYING",
+        "bytes": 40718,
+        "sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366",
+        "retained_path": "ext_libs/licenses/mpg123-1.33.7-COPYING",
+        "retained_bytes": 40718,
+        "retained_sha256": "c22482728a634a8dfdb4ff72a96d4c1ed64cd8f3e79335c401751ac591609366",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "opus-1.6.1.tar.gz",
+        "path": "opus-1.6.1/COPYING",
+        "bytes": 1945,
+        "sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+        "retained_path": "ext_libs/licenses/opus-1.6.1-COPYING",
+        "retained_bytes": 1945,
+        "retained_sha256": "01e1167d54a096d123cf6dfbbeb19587278845c6481d2d66d545669846079551",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      },
+      {
+        "archive": "speex-1.2.1.tar.gz",
+        "path": "speex-1.2.1/COPYING",
+        "bytes": 1773,
+        "sha256": "2654a4264b2bfe298dedc508748d140111840c315cc8eb646a3a68c13fa75b01",
+        "retained_path": "ext_libs/licenses/speex-1.2.1.COPYING",
+        "retained_bytes": 1773,
+        "retained_sha256": "2654a4264b2bfe298dedc508748d140111840c315cc8eb646a3a68c13fa75b01",
+        "raw_equal": true,
+        "canonical_lf_equal": true
+      }
+    ],
+    "source_only_retention": {
+      "regular_files": 1163,
+      "inventory_sha256": "c45ba1dabf681e6895a2c2f1ea32d21d85f0d9e224131bc3c106de0f5764f811",
+      "content_modifications": [],
+      "excluded_prebuilt_or_compiled_paths": [
+        "ext_libs/avcodec-vgmstream-63.dll",
+        "ext_libs/avformat-vgmstream-63.dll",
+        "ext_libs/avutil-vgmstream-61.dll",
+        "ext_libs/dll-x64/avcodec-vgmstream-63.dll",
+        "ext_libs/dll-x64/avformat-vgmstream-63.dll",
+        "ext_libs/dll-x64/avutil-vgmstream-61.dll",
+        "ext_libs/dll-x64/libcelt-0061.dll",
+        "ext_libs/dll-x64/libcelt-0110.dll",
+        "ext_libs/dll-x64/libmpg123-0.dll",
+        "ext_libs/dll-x64/libspeex-1.dll",
+        "ext_libs/dll-x64/libvorbis.dll",
+        "ext_libs/dll-x64/swresample-vgmstream-7.dll",
+        "ext_libs/libcelt-0061.dll",
+        "ext_libs/libcelt-0110.dll",
+        "ext_libs/libmpg123-0.dll",
+        "ext_libs/libspeex-1.dll",
+        "ext_libs/libvorbis.dll",
+        "ext_libs/swresample-vgmstream-7.dll"
+      ],
+      "original_source_is_retained_privately": true,
+      "public_source_archive_or_source_service_created": false
+    }
+  },
+  "observations": {
+    "dependency_archive_count": 8,
+    "retained_dependency_notice_matches": 9,
+    "notice_equality": "All nine ext_libs/licenses copies match their original dependency archive notice bytes exactly",
+    "sourceforge_mpg123_recipe_url": "https://sourceforge.net/projects/mpg123/files/mpg123/1.33.7/mpg123-1.33.7.tar.bz2",
+    "mpg123_acquisition": "SourceForge request unavailable; fetched same named version from author-operated mpg123.de; notice match does not prove binary correspondence",
+    "old_documentation_label": "doc/BUILD.md still says FFmpeg n5.1.2; BUILD-LIB.md, CMake tag, FFmpeg options and retained notices identify 9.0.2. No version label silently substitutes for actual build evidence.",
+    "windows_vs_nonwindows": "Windows dependency project consumes prebuilt DLL import libraries. Non-Windows CMake FFmpeg recipe enables GPL/static configuration and is not the Windows shared-DLL recipe.",
+    "windows_init_scope": "Default Init/full solution also downloads/builds unrelated plugin SDK inputs; a future CLI-only replay must select its actual closure explicitly.",
+    "source_licensing": "Core COPYING is ISC; CELT archive notices have three BSD-style conditions despite the general build guide MIT shorthand. Original per-file/third-party notices remain authoritative."
+  },
+  "unresolved": [
+    {
+      "id": "source-to-binary-correspondence",
+      "status": "open",
+      "required": "Independently rebuild the selected source/configuration and bind each actual output to supplying archive, patches, full source and original notices. Notice/version matches and prebuilt DLL hashes do not establish this."
+    },
+    {
+      "id": "windows-toolchain-and-configuration",
+      "status": "open",
+      "required": "Fix exact MSVC/Windows SDK/MSYS2/GCC/NASM/make/configure inputs, CPU/CRT choices, environment and CLI-only project graph. Avoid latest tool lookup, user props and unreviewed system/developer artifacts."
+    },
+    {
+      "id": "dependency-transforms",
+      "status": "open",
+      "required": "Retain actual CELT renamed-symbol/config/libtool/ecintrin changes, Speex export changes and combined Ogg/Vorbis/Vorbisfile link/export recipe. The indexed guide and files are instructions, not a replay receipt."
+    },
+    {
+      "id": "incorporated-code-and-notices",
+      "status": "open",
+      "required": "Map vendored/internal decoder headers, static Opus/MSVC or GCC runtime objects, file-level copyright/patent terms and all actual output notices. The main ISC license and nine dependency notices alone do not close rights."
+    },
+    {
+      "id": "servicing-and-feature-parity",
+      "status": "open",
+      "required": "Review security changes after each pinned dependency and preserve required game codecs. A current vgmstream release is not dependency security clearance; do not remove formats to claim acceptance."
+    },
+    {
+      "id": "durable-corresponding-source",
+      "status": "open",
+      "required": "Prepare, verify and retain a complete matching source/build kit under applicable original terms, with canonical source access beside any eventual binary. This metadata index creates no public source service."
+    },
+    {
+      "id": "functional-and-native-acceptance",
+      "status": "open",
+      "required": "Run authored real-format decode and missing/corrupt/cancel/cleanup/DLL-origin probes on an exact eligible output, then separate Windows 11 25H2 ordinary-user and installed-pack acceptance."
+    }
+  ],
+  "next_step": {
+    "kind": "build-host-only-independent-source-replay",
+    "first_output": "A quarantined source-built FFmpeg 9.0.2 plus Opus 1.6.1 dependency subtree using the original indexed Windows shared-DLL instructions and exact controlled build tools; no prebuilt substitution.",
+    "then": "Record configuration, patches, complete notices/imports/output hashes and source correspondence before rebuilding other dependencies and the existing vgmstream CLI. Later authored PCM/WEM/ADX or other distinct game-format probes must remain separately scoped.",
+    "new_toolkit_license_grant_required_by_this_index": false,
+    "license_scope": "No project or upstream license changed. Xiph FLAC build-recipe grant remains limited to its three approved files; it is not reused or expanded."
+  },
+  "native_binary_acquired_this_step": false,
+  "native_binary_executed": false,
+  "native_build_performed": false,
+  "runtime_collection_allowed": false,
+  "rights_review": "unresolved;original-source-and-notice-identification-only",
+  "source_delivery_approved": false,
+  "production_execution_allowed": false,
+  "native_windows_11_acceptance": "unavailable",
+  "installer": "not-built",
+  "r19_complete": false
+}

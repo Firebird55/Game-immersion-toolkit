@@ -1,4 +1,5 @@
 """Decode local bank voices and build a resumable audio fingerprint index."""
+from backend.runtime_paths import data_root as runtime_data_root
 from concurrent.futures import ThreadPoolExecutor
 import argparse
 import json
@@ -36,14 +37,14 @@ def index_matches_library(database: sqlite3.Connection, clips: dict, pcm_dir: Pa
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    folder = root / 'data/agent-voices'
+    folder = runtime_data_root(root) / 'agent-voices'
     parser = argparse.ArgumentParser()
     parser.add_argument('--library', type=Path, default=folder/'library.json')
     parser.add_argument('--database', type=Path, default=folder/'fingerprints.db',
                         help='Optional temporary build database; copy back only after a successful run')
     args = parser.parse_args()
     library = json.loads(args.library.read_text(encoding='utf-8'))
-    decoder = root / 'data/voice-assets/vgmstream/vgmstream-cli.exe'
+    decoder = runtime_data_root(root) / 'voice-assets/vgmstream/vgmstream-cli.exe'
     pcm_dir = folder / 'pcm'
     pcm_dir.mkdir(exist_ok=True)
     database_path = args.database

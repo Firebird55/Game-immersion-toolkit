@@ -1,36 +1,106 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net from 'node:net';
 import {createHash} from 'node:crypto';
 import {once} from 'node:events';
-import {mkdtempSync,writeFileSync,renameSync,mkdirSync,rmSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,renameSync,mkdirSync,rmSync,existsSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve,sep} from 'node:path';
 import {startRouter} from '../scripts/companion-router.mjs';
 
 const listen=server=>new Promise(resolve=>server.listen(0,'127.0.0.1',()=>resolve(server.address().port)));
 const close=server=>new Promise(resolve=>server.close(resolve));
-test('prepared runtime switches without interrupting active responses or losing old interface assets',async()=>{
+test('router shutdown closes owned preconnected sockets without stopping an unrelated listener',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ const backend=http.createServer((_request,response)=>response.end('still available'));
+ let router,idle,closing,timer;
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0});
+  idle=net.connect({host:'127.0.0.1',port:router.apiPort});await once(idle,'connect');
+  closing=router.close();
+  const result=await Promise.race([closing.then(()=>true),new Promise(resolve=>{timer=setTimeout(()=>resolve(false),1000);})]);
+  assert.equal(result,true,'Shutdown retained a preconnected socket with no active request');
+  assert.equal(await(await fetch('http://127.0.0.1:'+port)).text(),'still available');
+ }finally{
+  clearTimeout(timer);idle?.destroy();await closing;await router?.close();await close(backend);
+  rmSync(directory,{recursive:true,force:true});
+ }
+});
+
+for(const finishDuringDrain of [true,false])test(`router shutdown ${finishDuringDrain?'drains a finishing response':'reports its deadline and reaps a stalled response'}`,async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ let started,response,router,closing;
+ const pending=new Promise(resolve=>started=resolve);
+ const backend=http.createServer((_request,reply)=>{response=reply;started();});
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0,shutdownTimeoutMs:100});
+  // A drained gateway may reject with HTTP 5xx or close the transport; neither is a completed upstream response.
+  const answer=fetch('http://127.0.0.1:'+router.apiPort).then(reply=>reply.ok?reply.text():null).catch(()=>null);
+  await pending;closing=router.close();assert.equal(router.close(),closing,'Concurrent shutdown must share one outcome');
+  if(finishDuringDrain){response.end('complete response');assert.equal(await answer,'complete response');await closing;}
+  else{await assert.rejects(closing,/shutdown deadline expired/);assert.equal(await answer,null);}
+ }finally{
+  response?.destroy();await closing?.catch(()=>{});await router?.close().catch(()=>{});
+  backend.closeAllConnections();await close(backend);rmSync(directory,{recursive:true,force:true});
+ }
+});
+async function preparedRuntimeSwitch(beforeSwitch=()=>{}){
  const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json'),assets=join(directory,'assets');
  mkdirSync(assets);writeFileSync(join(assets,'old-reader.js'),'old interface asset');
  let finish,started;const pending=new Promise(resolve=>started=resolve);
- const old=http.createServer((request,response)=>{if(request.url==='/slow'){started();finish=()=>response.end('old answer completed');}else response.end('old runtime');});
+ const old=http.createServer((request,response)=>{if(request.url==='/slow'){started();finish=()=>{if(!response.writableEnded)response.end('old answer completed');};}else response.end('old runtime');});
  const fresh=http.createServer((_request,response)=>response.end('new runtime'));
- let router;
+ let router,answer,failure;
  try{
   const a=await listen(old),b=await listen(fresh);
   writeFileSync(statePath,JSON.stringify({active:{apiPort:a,frontendPort:a}}));
   router=await startRouter({statePath,assetDirectory:assets,apiPort:0,frontendPort:0});
   const base='http://127.0.0.1:'+router.apiPort;
   assert.equal(await(await fetch(base)).text(),'old runtime');
-  const answer=fetch(base+'/slow').then(response=>response.text());await pending;
+  answer=fetch(base+'/slow').then(async response=>({text:await response.text(),port:response.headers.get('x-proxy-transcript-upstream-port')}));
+  // Retain a rejected response until cleanup can report it alongside the primary failure.
+  void answer.catch(()=>{});await pending;
+  beforeSwitch({old,fresh,router,directory});
   const temporary=statePath+'.pending';writeFileSync(temporary,JSON.stringify({active:{apiPort:b,frontendPort:b}}));renameSync(temporary,statePath);
-  assert.equal(await(await fetch(base)).text(),'new runtime');
-  finish();assert.equal(await answer,'old answer completed');
+  const until=Date.now()+2000;while(await(await fetch(base)).text()!=='new runtime'&&Date.now()<until)await new Promise(resolve=>setTimeout(resolve,25));
+  const switched=await fetch(base);assert.equal(await switched.text(),'new runtime');
+  assert.equal(switched.headers.get('x-proxy-transcript-upstream-port'),String(b));
+  finish();assert.deepEqual(await answer,{text:'old answer completed',port:String(a)});
   assert.equal(await(await fetch('http://127.0.0.1:'+router.frontendPort+'/_next/static/old-reader.js')).text(),'old interface asset');
   writeFileSync(statePath,'{incomplete');
   assert.equal(await(await fetch(base)).text(),'new runtime','A broken candidate cannot replace the working route');
- }finally{await router?.close();await Promise.all([close(old),close(fresh)]);assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});}
+ }catch(error){failure=error;}finally{
+  // An assertion or filesystem error before the switch must not leave this
+  // authored response blocking the real gateway's graceful shutdown deadline.
+  // The dedicated stalled-response test above still requires that deadline to fail.
+  const cleanupErrors=[];
+  try{finish?.();}catch(error){cleanupErrors.push(error);}
+  try{await answer;}catch(error){cleanupErrors.push(error);}
+  try{await router?.close();}catch(error){cleanupErrors.push(error);}
+  old.closeAllConnections();fresh.closeAllConnections();
+  for(const result of await Promise.allSettled([close(old),close(fresh)]))if(result.status==='rejected')cleanupErrors.push(result.reason);
+  try{
+   assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));
+   rmSync(directory,{recursive:true,force:true});
+  }catch(error){cleanupErrors.push(error);}
+  if(cleanupErrors.length)throw new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Prepared runtime fixture cleanup failed',{cause:failure});
+ }
+ if(failure)throw failure;
+}
+
+test('prepared runtime switches without interrupting active responses or losing old interface assets',async()=>{
+ await preparedRuntimeSwitch();
+});
+
+test('a failed runtime switch preserves its primary error and closes the pending fixture response',async()=>{
+ const primary=Error('Authored switch publication failure');let observed;
+ await assert.rejects(preparedRuntimeSwitch(state=>{observed=state;throw primary;}),error=>error===primary);
+ assert.equal(observed.old.listening,false);assert.equal(observed.fresh.listening,false);
+ assert.equal(existsSync(observed.directory),false);
+ await assert.rejects(fetch('http://127.0.0.1:'+observed.router.apiPort,{signal:AbortSignal.timeout(1000)}));
 });
 
 test('open readers reconnect their WebSocket to the prepared runtime',async()=>{
@@ -49,14 +119,55 @@ test('open readers reconnect their WebSocket to the prepared runtime',async()=>{
  try{
   const a=await listen(old),b=await listen(fresh);writeFileSync(statePath,JSON.stringify({active:{apiPort:a,frontendPort:a}}));
   router=await startRouter({statePath,apiPort:0,frontendPort:0});
-  first=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/ws');
+  first=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/api/ws');
   assert.equal((await event(first,'message'))[0].data,'old');
   const disconnected=event(first,'close');
   writeFileSync(statePath,JSON.stringify({active:{apiPort:b,frontendPort:b}}));await disconnected;
-  second=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/ws');
+  second=new WebSocket('ws://127.0.0.1:'+router.apiPort+'/api/ws');
   assert.equal((await event(second,'message'))[0].data,'new');
  }finally{
-  first?.close();second?.close();await router?.close();for(const socket of sockets)socket.destroy();
-  await Promise.all([close(old),close(fresh)]);assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});
+  first?.close();second?.close();
+  try{await router?.close();}finally{
+   for(const socket of sockets)socket.destroy();await Promise.all([close(old),close(fresh)]);
+   assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});
+  }
+ }
+});
+
+for(const teardown of ['destroy','end','leave-open'])test(`router drains simultaneous WebSocket readers after ${teardown}`,async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ const upstreamSockets=new Set(),readers=[];let router,logs='';
+ const backend=http.createServer((_request,response)=>response.end('upstream remains available'));
+ backend.on('upgrade',(request,socket)=>{
+  upstreamSockets.add(socket);socket.on('close',()=>upstreamSockets.delete(socket));socket.on('error',()=>{});
+  const accept=createHash('sha1').update(request.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
+  socket.on('data',bytes=>{if((bytes[0]&15)===8)socket.end(Buffer.from([0x88,0]));});
+ });
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0,onLog:chunk=>{logs=(logs+chunk).slice(-8000);}});
+  await Promise.all(Array.from({length:8},async()=>{
+   const reader=net.connect({host:'127.0.0.1',port:router.apiPort});readers.push(reader);reader.on('error',()=>{});
+   await once(reader,'connect',{signal:AbortSignal.timeout(5000)});
+   const accepted=new Promise((resolve,reject)=>{
+    let response='';const timer=setTimeout(()=>reject(Error('Owned WebSocket handshake timed out')),5000);
+    reader.on('data',chunk=>{response+=chunk.toString();if(response.includes('\r\n\r\n')){clearTimeout(timer);resolve(response);}});
+   });
+   reader.write('GET /api/ws HTTP/1.1\r\nHost: 127.0.0.1:'+router.apiPort+'\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n');
+   assert.match(await accepted,/^HTTP\/1\.1 101 /);
+  }));
+  // Both abrupt loss and TCP EOF can race the ASGI bridge's final close. Open
+  // readers must also be closed by the gateway without waiting for a reply.
+  for(const reader of readers)if(teardown!=='leave-open')reader[teardown]();
+  await router.close();
+  assert.doesNotMatch(logs,/Exception in ASGI application|Traceback|timeout graceful shutdown exceeded/);
+  assert.equal(await(await fetch('http://127.0.0.1:'+port)).text(),'upstream remains available');
+ }finally{
+  for(const reader of readers)reader.destroy();
+  try{await router?.close();}finally{
+   for(const socket of upstreamSockets)socket.destroy();backend.closeAllConnections();await close(backend);
+   assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});
+  }
  }
 });

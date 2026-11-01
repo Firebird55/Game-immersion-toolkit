@@ -109,6 +109,8 @@ try{
    assert.equal(requests.filter(r=>r.path==='/api/lines/1/lexirise').at(-1).account,'first','Initial missing account resolves to current account before export');
    await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor({timeout:5000});
 
+   const beforeUpdate=await page.locator('.current-line').boundingBox();
+   await page.getByLabel('Game language updates',{exact:true}).click();
    const updatePanel=page.getByRole('region',{name:'Automatic data update status'});
    await updatePanel.locator('summary').click();
    assert(await updatePanel.getByText(/BEYOND: Two Souls.*Ready/).isVisible(),'Successful games are labelled ready even while another game has failed');
@@ -117,6 +119,8 @@ try{
    assert(details.fits&&details.width>details.parent*.8,'Expanded update details use the full row, not a narrow right column');
    await updatePanel.screenshot({path:`${preview.output}/update-details-${name}-${width}.png`});
    await updatePanel.locator('summary').click();
+   assert.equal((await page.locator('.current-line').boundingBox()).y,beforeUpdate.y,'Update details never move the current sentence');
+   await page.getByLabel('Game language updates',{exact:true}).click();
    await page.screenshot({path:`${preview.output}/main-${name}-${width}.png`});
    await page.getByRole('button',{name:'Capture setup',exact:true}).click();
    const captureSettings=page.getByRole('dialog',{name:'Capture setup',exact:true});

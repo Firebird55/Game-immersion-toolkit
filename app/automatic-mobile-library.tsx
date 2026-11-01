@@ -1,9 +1,10 @@
+import {desktopApiBase} from '../lib/desktop-endpoints';
 "use client";
 import {useEffect,useRef,useState} from 'react';
 import {Button} from '@/components/ui/button';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {languageName,formatBytes} from '../public/mobile-capture/interface-language.mjs';
-const API='http://127.0.0.1:8766/api/setup/games/';
+const API=desktopApiBase()+'/api/setup/games/';
 type Job={state:string;message:string;bytes?:number;estimatedBytes?:number};
 type Status={configurationError?:string;enabled:boolean;paused:boolean;destination:string;languages:Record<string,string>;jobs:Record<string,Job>;locales:{locale:string;name:string;voice_label:string}[];translations:string[];browseActive:boolean;browsedDestination:string;browseMessage:string};
 export function AutomaticMobileLibrary({game}:{game:string}){

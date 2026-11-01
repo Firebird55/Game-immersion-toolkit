@@ -183,3 +183,32 @@ def test_quantic_original_wav_is_trimmed_without_external_wem_decoder(tmp_path, 
         assert len(commands) == 1
     finally:
         service.close()
+
+
+def test_paragraph_pages_reuse_verified_audio_without_sharing_history_file_lifetime(tmp_path, monkeypatch):
+    data = tmp_path/'cache'; data.mkdir()
+    rows = [{'text_id': f'beyond:TEST:page-{cue}', 'audio': {'identity': 42}, 'audio_scope': 'paragraph'} for cue in (4, 5)]
+    (data/'textmap.json').write_text(json.dumps({'install': str(tmp_path), 'fingerprint': 'verified',
+                                               'source_locale': 'nl', 'records': rows}))
+    decoded = []
+    def extract(*_):
+        decoded.append(True)
+        return b'RIFF' + bytes(100)
+    adapter = SimpleNamespace(fingerprint=lambda _: 'verified', extract_voice=extract)
+    monkeypatch.setattr(module, 'asset_adapter', lambda _: (adapter, ''))
+    monkeypatch.setattr(module, 'ffmpeg_executable', lambda: 'encoder')
+    def encode(args, **_):
+        assert '-ss' not in args and '-t' not in args
+        Path(args[-1]).write_bytes(bytes(200))
+    monkeypatch.setattr(module.subprocess, 'run', encode)
+    service = module.LocalVoiceAssetService('beyond', data, None, tmp_path/'clips')
+    try:
+        names = service.extract_batch([(row['text_id'], number, '') for number, row in enumerate(rows)])
+        assert len(decoded) == 1 and len(set(names)) == 2
+        (service.output_dir/names[0]).unlink()
+        assert (service.output_dir/names[1]).read_bytes() == bytes(200)
+        adapter.fingerprint = lambda _: 'changed'
+        with pytest.raises(ValueError, match='Game files changed'):
+            service.extract(rows[0]['text_id'], 3)
+    finally:
+        service.close()

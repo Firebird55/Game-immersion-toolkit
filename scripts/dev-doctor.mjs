@@ -7,8 +7,8 @@ import {changedFiles, selectChecks, scenarioPlan} from './check-changed.mjs';
 import {resolvePython} from './python-runtime.mjs';
 
 const allEngines = ['chromium', 'firefox', 'webkit'];
-const threeEngineScenarios = new Set(['local-access-e2e', 'companion-e2e', 'mobile-reader-layout-e2e', 'mobile-capture-e2e', 'mobile-recovery-e2e', 'mobile-vdo-source-e2e', 'mobile-source-e2e', 'mobile-library-e2e', 'mobile-games-e2e', 'mobile-update-e2e']);
-const pythonScenarios = new Set(['ui-state-e2e', 'ui-state-react-e2e', 'local-access-e2e']);
+const threeEngineScenarios = new Set(['desktop-lan-e2e', 'local-access-e2e', 'companion-e2e', 'mobile-reader-layout-e2e', 'mobile-capture-e2e', 'mobile-recovery-e2e', 'mobile-vdo-source-e2e', 'mobile-source-e2e', 'mobile-library-e2e', 'mobile-games-e2e', 'mobile-update-e2e']);
+const pythonScenarios = new Set(['desktop-lan-e2e', 'ui-state-e2e', 'ui-state-react-e2e', 'local-access-e2e']);
 const normalize = name => name.toLowerCase().replace(/[-_.]+/g, '-');
 const safeVersion = value => /^\d+(?:\.\d+)*(?:[a-zA-Z0-9.+-]*)$/.test(String(value)) ? String(value) : 'unknown';
 const json = (read, path) => JSON.parse(read(path, 'utf8'));
@@ -121,7 +121,11 @@ export async function runDoctor({root = process.cwd(), env = process.env, platfo
       const version = safeVersion(probe.version), supported = /^3\.12\./.test(version);
       add('python', supported ? 'pass' : 'fail', true, supported ? 'Python 3.12 is selected.' : 'The selected Python version differs from the locked Python 3.12 environment.', supported ? undefined : 'Create the project .venv with Python 3.12 or set PYTHON explicitly.', {source: selected.source, version});
       try {
-        const pinned = parsePythonLock(read(join(root, 'requirements.lock.txt'), 'utf8'), probe.platform);
+        // Backend tests exercise the real freezer API and selected-interpreter
+        // discovery. Browser-only Python scenarios need only runtime packages.
+        const locks = ['requirements.lock.txt'];
+        if (checks.some(check => ['full', 'python'].includes(check))) locks.push('packaging/desktop/build-requirements.lock.txt');
+        const pinned = locks.flatMap(path => parsePythonLock(read(join(root, path), 'utf8'), probe.platform));
         const installed = new Map(Object.entries(probe.packages).map(([name, version]) => [normalize(name), version]));
         const missing = [], mismatched = [];
         for (const {name, version: wanted} of pinned) {
@@ -130,7 +134,7 @@ export async function runDoctor({root = process.cwd(), env = process.env, platfo
         }
         add('python-packages', missing.length ? 'unavailable' : mismatched.length ? 'fail' : 'pass', true,
           missing.length || mismatched.length ? 'Python distribution metadata does not match the applicable lock pins.' : 'Python distribution metadata matches the applicable lock pins.',
-          missing.length || mismatched.length ? 'With the selected interpreter, run python -m pip install -r requirements.lock.txt (Windows; Python 3.12).' : undefined, {missing, mismatched});
+          missing.length || mismatched.length ? `With the selected Python 3.12 interpreter, run python -m pip install ${locks.map(path => `-r ${path}`).join(' ')}.` : undefined, {missing, mismatched});
       } catch { add('python-lock', 'fail', true, 'The Python lock is missing or uses unsupported pin/marker syntax.', 'Restore the lock file or extend the doctor parser with tests for the new syntax.'); }
     }
   }

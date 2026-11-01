@@ -126,13 +126,14 @@ export function validateRow(row){
  const tagged=row?.sourceText!=null;
  if(tagged&&(!locale(row.sourceLanguage)||!locale(row.sourceLocale)||!locale(row.audioLocale)||!locale(row.translationLocale)||typeof row.sourceText!=='string'||!row.sourceText.trim()||row.sourceText.length>8000||typeof row.translationText!=='string'||row.translationText.length>8000))fail('Invalid dialogue language context.');
  if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!tagged&&(!row.english.trim()||!row.chinese.trim())||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
+ if(row.audioScope!=null&&!['line','paragraph'].includes(row.audioScope))fail('Invalid original voice scope.');
  if(row.audio&&!hex(row.sourceVoice))fail('Missing original voice binding.');
  for(const field of ['anchorsEnglish','anchorsChinese','anchorsSource','anchorsTranslation'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
  if(row.memberTextIds!=null&&(!row.textId.includes(':context-')||!Array.isArray(row.memberTextIds)||row.memberTextIds.length!==2||row.memberTextIds.some(v=>typeof v!=='string'||v.length>512||!v.startsWith(row.textId.split(':context-')[0]+':'))||new Set(row.memberTextIds).size!==2))fail('Invalid authored context members.');
  if(row.playerVoice!=null&&!['male','female'].includes(row.playerVoice))fail('Unsupported player voice.');
  if(!Array.isArray(row.channels)||row.channels.some(c=>!['dialogue','cinematic','gameplay','tip'].includes(c)))fail('Invalid dialogue channels.');
  for(const field of ['speakerEnglish','speakerChinese'])if(row[field]!=null&&(typeof row[field]!=='string'||row[field].length>512))fail('Invalid speaker.');
- return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale','anchorsSource','anchorsTranslation','memberTextIds'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
+ return Object.fromEntries(['id','textId','english','chinese','audio','sourceVoice','speakerEnglish','speakerChinese','playerVoice','anchorsEnglish','anchorsChinese','channels','sourceText','sourceLanguage','sourceLocale','translationText','translationLocale','audioLocale','audioScope','anchorsSource','anchorsTranslation','memberTextIds'].filter(k=>Object.hasOwn(row,k)).map(k=>[k,row[k]]));
 }
 export async function readCatalog(zip, progress=()=>{}){
  const m=zip.manifest;

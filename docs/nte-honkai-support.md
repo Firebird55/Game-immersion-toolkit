@@ -18,11 +18,15 @@ Steam libraries on any registered drive are discovered automatically.
 - **Honkai Impact 3rd:** choose the folder containing `BH3.exe` and `BH3_Data`,
   or select BH3_Data itself. Download Chinese story audio inside the game.
 
-NTE needs the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-Install the SDK, then click **Install game tools**. Setup downloads a pinned,
+Source installations of NTE need the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+For source development, install the SDK, then click **Install game tools**. Setup downloads a pinned,
 checksum-verified UEExtractor and decompression libraries, retains its MIT
 notice, and compiles this project's small reader bridge locally. These binaries
 are separate local tools and are excluded from the toolkit repository and ZIP.
+The desktop [compiler-free runtime contract](nte-runtime.md) instead uses its
+bundled self-contained bridge and verified dependency inventory. It never asks
+the user to install a compiler or downloads executables at runtime. Candidate
+distribution/native acceptance is tracked separately in that document.
 Honkai's package reader is built in; only the separately downloaded original
 voice decoder is required.
 

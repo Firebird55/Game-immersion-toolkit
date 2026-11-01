@@ -5,13 +5,14 @@ runtime manifest stays in data/voice-assets.
 """
 from __future__ import annotations
 
+from backend.runtime_paths import data_root as runtime_data_root, voice_work_root
+from backend.runtime_bundle import child_command, discover_layout
 import json
 import os
 import re
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 
 from backend.agent_library import atomic_json
 from backend.textmaps import localized_variants
@@ -60,7 +61,7 @@ def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str,
 
 def merged_english_maps(root: Path) -> dict[str, str]:
     from backend.textmaps import TextMapIndex
-    directory = TextMapIndex(root / "data/textmaps").active_directory()
+    directory = TextMapIndex(runtime_data_root(root) / "textmaps").active_directory()
     result: dict[str, str] = {}
     for name in ("en_base.json", "en_overwrite.json"):
         result.update(json.loads((directory / name).read_text(encoding="utf-8-sig")))
@@ -74,8 +75,8 @@ def discover_game_data(root: Path) -> Path | None:
         from backend.config import SettingsStore
         from backend.windows import installed_zzz_game_data_directory
         import os
-        local = Path(os.environ.get("LOCALAPPDATA", root / "data")) / "Proxy Transcript/settings.json"
-        live = installed_zzz_game_data_directory(SettingsStore(local, legacy_path=root / "data/settings.json").get())
+        local = Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/settings.json"
+        live = installed_zzz_game_data_directory(SettingsStore(local, legacy_path=runtime_data_root(root) / "settings.json").get())
         if live:
             return live
     except (OSError, ValueError):
@@ -88,7 +89,7 @@ def discover_game_data(root: Path) -> Path | None:
             candidates.insert(0, Path(root.anchor, *path.parts[1:]))
         return next((item for item in candidates if item.is_dir()), None)
 
-    library = root / "data/agent-voices/library.json"
+    library = runtime_data_root(root) / "agent-voices/library.json"
     if library.exists():
         try:
             candidate = Path(json.loads(library.read_text(encoding="utf-8"))["game_data"])
@@ -97,7 +98,7 @@ def discover_game_data(root: Path) -> Path | None:
                 return found
         except (OSError, ValueError, KeyError):
             pass
-    manifest = root / "data/voice-assets/manifest.json"
+    manifest = runtime_data_root(root) / "voice-assets/manifest.json"
     if manifest.exists():
         try:
             entries = json.loads(manifest.read_text(encoding="utf-8"))["entries"]
@@ -126,15 +127,17 @@ def inventory(game_data: Path, sources: list[Path]) -> dict:
 
 
 def main() -> None:
+    if discover_layout().mode == 'bundle':
+        raise RuntimeError('ZZZ helper closure is incomplete for this R19 candidate; source tools are not a bundled fallback.')
     code = Path(__file__).resolve().parents[1]
     root = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", code))
-    tools = root / "work/voice-assets"
+    tools = voice_work_root(root)
     template = tools / "PerformTemplateTb.json"
     prefixes = tools / "VoiceData.json"
     decoder = tools / "vgmstream"
     reader = tools / "galgame-perform.ts"
     ongoing_config = tools / "OngoingTipsConfigTemplateTb.json"
-    state_path = root / "data/voice-assets/full-index-state.json"
+    state_path = runtime_data_root(root) / "voice-assets/full-index-state.json"
     audio_resource = tools / "AudioResourceData.json"
     required = [template, prefixes, reader, ongoing_config, audio_resource, decoder / "vgmstream-cli.exe"]
     game_data = discover_game_data(root)
@@ -143,14 +146,14 @@ def main() -> None:
         return
 
     from backend.textmaps import TextMapIndex
-    maps = TextMapIndex(root / "data/textmaps").active_directory()
+    maps = TextMapIndex(runtime_data_root(root) / "textmaps").active_directory()
     sources = [*required, *(maps / name for name in ("en_base.json", "en_overwrite.json"))]
     current = inventory(game_data, sources)
     try:
         previous = json.loads(state_path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         previous = {}
-    manifest = root / "data/voice-assets/manifest.json"
+    manifest = runtime_data_root(root) / "voice-assets/manifest.json"
     if previous.get("version") == 6 and previous.get("inventory") == current and manifest.exists():
         print("Full local voice manifest is already current.")
         return
@@ -194,15 +197,14 @@ def main() -> None:
     atomic_json(combined_path, combined_links)
     subprocess.run(["node", str(code / "scripts/extract_cinematic_links.mjs"),
                     str(game_data), str(tools)], **options)
-    subprocess.run([
-        sys.executable, "-m", "scripts.index_voice_assets",
+    subprocess.run(child_command('index-voice', [
         "--game-data", str(game_data),
         "--links", str(tools / "scene-links.json"),
         "--prefixes", str(prefixes),
         "--decoder-dir", str(decoder),
         "--cinematic-links", str(tools / "scene-links-cinematic.json"),
         "--audio-resource", str(audio_resource),
-    ], **options)
+    ]), **options)
     atomic_json(state_path, {"version": 6, "inventory": inventory(game_data, sources)})
     total = len(json.loads(manifest.read_text(encoding="utf-8"))["entries"])
     print(f"Full local Mandarin voice manifest ready: {total:,} exact lines.")

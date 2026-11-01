@@ -26,7 +26,8 @@ from backend.pragmata_audio import (
 )
 
 
-DATA_DIR = Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", PROJECT_ROOT)) / "data" / "pragmata"
+from backend.runtime_paths import data_root as runtime_data_root
+DATA_DIR = runtime_data_root(Path(os.environ.get("PROXY_TRANSCRIPT_PROJECT_ROOT", PROJECT_ROOT))) / "pragmata"
 RELEASE_LIST_URL = (
     "https://raw.githubusercontent.com/Ekey/REE.PAK.Tool/main/Projects/P_STM_Release.list"
 )

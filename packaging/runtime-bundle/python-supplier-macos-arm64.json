@@ -1,0 +1,33 @@
+{
+  "schema": "proxy-runtime-python-supplier-v1",
+  "reviewed_on": "2026-10-31",
+  "version": "3.12.16",
+  "architecture": "macos-arm64",
+  "supplier": "astral-sh/python-build-standalone",
+  "release": "20261026",
+  "source_commit": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+  "github_release_id": 424411241,
+  "immutable_release_observed": true,
+  "archive": "cpython-3.12.16+20261026-aarch64-apple-darwin-install_only.tar.gz",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-aarch64-apple-darwin-install_only.tar.gz",
+  "sha256": "fbf4afef53c2a6b72bb741bc06d5671a9dfaf87bd84e5aa73ac9b3d0d589f14e",
+  "release_notes": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261026",
+  "cpython_release": "https://www.python.org/downloads/release/python-31216/",
+  "supplier_acceptance": "observed-experiment-only",
+  "redistribution_review": "pending-exact-output",
+  "target": "macos-arm64",
+  "sys_platform": "darwin",
+  "machine_names": [
+    "arm64",
+    "aarch64"
+  ],
+  "github_asset_id": 678574498,
+  "bytes": 25172086,
+  "executable": "bin/python3.12",
+  "required_files": [
+    "bin/python3.12",
+    "lib/libpython3.12.dylib",
+    "lib/python3.12/LICENSE.txt"
+  ],
+  "native_acceptance": "unavailable"
+}

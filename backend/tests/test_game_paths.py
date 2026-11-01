@@ -157,3 +157,40 @@ def test_saving_an_active_game_preserves_archived_local_locations(tmp_path):
     save_install('zzz', make_game(tmp_path, 'zzz'))
     assert 'hito' not in load_paths()
     assert json.loads(path.read_text())['hito'] == 'retained-local-location'
+
+
+def test_bundle_game_paths_and_export_lock_use_selected_settings_without_touching_legacy(tmp_path, monkeypatch, capsys):
+    import json
+    from types import SimpleNamespace
+    from backend import runtime_bundle
+    from backend.game_paths import settings_path
+    legacy = settings_path()
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text(json.dumps({'zzz': 'retained legacy location'}))
+    selected = tmp_path / 'selected-state'
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: SimpleNamespace(mode='bundle', settings_root=selected))
+    root = make_game(tmp_path, 'zzz')
+    save_install('zzz', root)
+    assert settings_path() == selected / 'game-paths.json'
+    assert load_paths() == {'zzz': str(root.resolve())}
+    from backend import mobile_export_worker
+    def unavailable_source(*_args, **_kwargs):
+        raise ValueError('Authored missing source')
+    monkeypatch.setattr(mobile_export_worker, 'prepare_source', unavailable_source)
+    monkeypatch.setattr('sys.argv', ['mobile-export-worker', '--root', str(tmp_path / 'source'),
+        '--game', 'zzz', '--output', str(tmp_path / 'exports' / 'output.catalog.zip')])
+    assert mobile_export_worker.main() == 1
+    assert (selected / 'mobile-export.lock').is_file()
+    assert not (legacy.parent / 'mobile-export.lock').exists()
+    assert json.loads(capsys.readouterr().out)['state'] == 'error'
+    assert json.loads(legacy.read_text()) == {'zzz': 'retained legacy location'}
+
+
+def test_invalid_bundle_layout_does_not_fall_back_to_legacy_game_paths(tmp_path, monkeypatch):
+    from backend import runtime_bundle
+    from backend.game_paths import settings_path
+    def unavailable():
+        raise runtime_bundle.RuntimeBundleError('Invalid selected roots')
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', unavailable)
+    with pytest.raises(runtime_bundle.RuntimeBundleError, match='Invalid selected roots'):
+        settings_path()

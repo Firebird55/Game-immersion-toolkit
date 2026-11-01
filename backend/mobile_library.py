@@ -1,6 +1,7 @@
 """Private, resumable mobile exports. Never serialize original archive references."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import hashlib
 from itertools import islice
 import json
@@ -15,6 +16,8 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from .game_paths import GAMES, GAME_NAMES
 from .textmaps import TextMapIndex, display_text
 from .mobile_bundle import write_bundle
+from .atomic_files import sharing_retry
+from .local_game import dialogue_audio_scope
 from .mobile_export_layout import work_folder, catalog_name, voice_pack_name, export_folder_name, write_instructions, archive_previous_exports, hide_work_metadata
 
 FORMAT = "proxy-mobile-library-v1"
@@ -84,7 +87,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     for number, original in enumerate(records):
         guard()
         row = {key: original[key] for key in ("textId", "english", "chinese", "speakerEnglish", "speakerChinese",
-               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "anchorsSource", "anchorsTranslation", "memberTextIds") if key in original}
+               "playerVoice", "anchorsEnglish", "anchorsChinese", "channels", "sourceVoice", "sourceLanguage", "sourceLocale", "sourceText", "translationLocale", "translationText", "audioLocale", "audioScope", "anchorsSource", "anchorsTranslation", "memberTextIds") if key in original}
         source = original.get("sourceVoice")
         row["id"] = digest([game, row["textId"], row["english"], row["chinese"], row.get("playerVoice")])
         if row["id"] in identities:
@@ -269,7 +272,11 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
         raise ValueError("Unsafe private pack location")
     parts.mkdir(exist_ok=True)
     for path in staging.iterdir():
-        path.replace(parts / path.name)
+        def publish_part():
+            guard()
+            getattr(check, "force", check)()
+            path.replace(parts / path.name)
+        sharing_retry(publish_part)
     staging.rmdir()
     transfer = work / (revision + ".transfer.pending")
     if destination.exists() and (destination.resolve().parent != output.resolve()
@@ -284,13 +291,21 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     if not reused:
         if destination.exists():
             destination.rename(work / (revision + ".invalid-" + str(time.time_ns())))
-        transfer.replace(destination)
+        def publish_transfer():
+            guard()
+            getattr(check, "force", check)()
+            transfer.replace(destination)
+        sharing_retry(publish_transfer)
     bundle = destination / bundle.name
     pointer = output / "latest.pending"
     pointer.write_bytes(encoded({"revision": revision, "folder": destination.name, "catalog": bundle.name, "bundle": bundle.name, "coverage": coverage}))
     guard()
     getattr(check, "force", check)()
-    os.replace(pointer, output / "latest.json")
+    def publish_pointer():
+        guard()
+        getattr(check, "force", check)()
+        os.replace(pointer, output / "latest.json")
+    sharing_retry(publish_pointer)
     hide_work_metadata(output / 'latest.json')
     # Tidying is optional once publication succeeded; failures must not turn a
     # valid completed export into an error or discard the previous library.
@@ -308,7 +323,8 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
 def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
-    data, decoder = root / "data", root / "data/voice-assets/vgmstream/vgmstream-cli.exe"
+    from .media_tools import vgmstream_executable
+    data, decoder = runtime_data_root(root), vgmstream_executable(root)
     watched = {}
     service = None
     account_check = lambda: True
@@ -413,6 +429,18 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 raise ValueError("Hito changed; refresh game data first")
             inputs.append(archive)
             source_check = lambda: True
+        elif game == 'halflife':
+            # Original GoldSrc has authored sound-free screen messages, but no
+            # implemented speech/transcript binding. Do not initialize a voice
+            # service (and its decoder lookup) for this text-only capability.
+            from .game_assets import asset_adapter
+            capabilities = payload.get('capture_capabilities', {})
+            if (payload.get('format') != 2 or payload.get('game') != game
+                    or capabilities.get('voiced') is not False or capabilities.get('unvoiced') is not True
+                    or any(item.get('audio') for item in payload['records'])):
+                raise ValueError('Prepare the confirmed unvoiced Half-Life language table before exporting.')
+            adapter, _ = asset_adapter(game)
+            source_check = lambda: adapter.fingerprint(Path(payload['install'])) == payload['fingerprint']
         elif game == "pragmata":
             from .pragmata_audio import PragmataVoiceAssetService
             from scripts.index_pragmata_assets import fingerprint
@@ -430,12 +458,18 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         for item in payload["records"]:
             # Other adapters retain their verified performance coverage gates.
             # In particular, unbound Honkai/NTE tables do not verify new scenes.
-            if game != 'hito' and not item.get('audio'):
+            if game == 'halflife':
+                from .local_game import LocalDialogue
+                validated = LocalDialogue(**item)
+                if validated.voice_status != 'unvoiced' or validated.dialogue_kind != 'screen_message':
+                    continue
+            elif game != 'hito' and not item.get('audio'):
                 continue
             text_id = str(item.get("text_id", item.get("identity", digest(item))))
             if game == "pragmata" and not text_id.startswith("pragmata:"):
                 text_id = "pragmata:" + text_id
             row = {"textId": text_id, "english": display_text(item["english"]), "chinese": display_text(item["chinese"]),
+                   "audioScope": dialogue_audio_scope(item.get('audio'), item.get('audio_scope')),
                    "channels": item.get('channels') or ["dialogue", "cinematic", "gameplay"],
                    "sourceVoice": digest([payload.get("fingerprint"), item["audio"]]) if item.get("audio") else None}
             if payload.get('format') == 2:

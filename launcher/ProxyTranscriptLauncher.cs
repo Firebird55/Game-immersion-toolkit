@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 
-[assembly: AssemblyTitle("Proxy Transcript")]
-[assembly: AssemblyProduct("Proxy Transcript")]
-[assembly: AssemblyDescription("Launches the Proxy Transcript game companion")]
-[assembly: AssemblyCompany("Proxy Transcript")]
+[assembly: AssemblyTitle("Game Immersion Toolkit")]
+[assembly: AssemblyProduct("Game Immersion Toolkit")]
+[assembly: AssemblyDescription("Launches the Game Immersion Toolkit companion")]
+[assembly: AssemblyCompany("Game Immersion Toolkit contributors")]
 [assembly: AssemblyVersion("1.0.0.0")]
 
 internal static class ProxyTranscriptLauncher

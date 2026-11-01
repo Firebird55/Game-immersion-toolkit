@@ -1,11 +1,15 @@
 import asyncio
 import threading
 import time
+import sys
+import json
 from types import SimpleNamespace
+import pytest
 
 from fastapi.testclient import TestClient
 
 from backend.runtime_handoff import CaptureHandoff
+from backend.runtime_workers import RequestBarrier, ResumableExecutor, WriterBarrierMiddleware
 from backend.tests.test_subtitle_capture import fixture_service
 
 
@@ -23,6 +27,7 @@ def test_real_runtime_initializes_standby_without_starting_capture_or_updates(tm
             assert not runtime.capture.snapshot().running
         finally:
             await runtime.capture.close()
+            runtime._reading_registry.shutdown(time.monotonic()+2)
             runtime.voice_assets.close()
             runtime.pragmata_voice_assets.close()
             for voices in runtime.game_voice_assets.values():
@@ -74,7 +79,7 @@ def test_quiescing_capture_drains_native_work_before_exporting_state(tmp_path):
 def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatch):
     from backend import api
     calls = []
-    capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=False),
+    capture = SimpleNamespace(native_stop_pending=False, snapshot=lambda: SimpleNamespace(running=False),
         import_handoff=lambda state: calls.append(('import', state.session_id)), start=lambda: calls.append('capture'))
     fake = SimpleNamespace(textmaps=SimpleNamespace(ready=True), pragmata=None, hito=None,
         game_indexes={}, warm_task=SimpleNamespace(done=lambda: False), standby=True,
@@ -82,6 +87,12 @@ def test_runtime_activation_requires_local_action_and_ready_candidate(monkeypatc
         languages=SimpleNamespace(selected=lambda *_: 'zh-Hans', prepared=lambda *_: {'targets': ['en']}),
         language_state=lambda *_: {'ready': True},
         capture=capture, start_updates=lambda: calls.append('updates'))
+    fake._handoff_lock, fake._writer_handoff, fake._handoff_drains = asyncio.Lock(), False, []
+    fake.request_barrier = RequestBarrier()
+    fake._check_owned_drain = lambda: None
+    fake.resume_writers = lambda: None
+    fake.admit_requests = lambda: None
+    fake.activate_handoff = lambda payload, **options: api.Runtime.activate_handoff(fake, payload, **options)
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
     assert not client.get('/api/runtime/ready?game=zzz').json()['ready']
@@ -131,18 +142,220 @@ def test_standby_readiness_uses_only_the_active_accounts_prepared_language(monke
     assert not client.get('/api/runtime/ready?game=unknown').json()['ready']
 
 
-def test_old_capture_remains_active_until_background_work_has_quiesced(monkeypatch):
+@pytest.mark.parametrize('query', ['', '?writers=true'])
+def test_public_handoff_drains_all_writers_before_capture_transfer(monkeypatch, query):
     from backend import api
-    calls = []
-    async def stop_updates():
+    from backend.runtime_writers import RuntimeWriterGate, WritersQuiescing
+    calls, running = [], [True]
+    async def stop_updates(**_options):
+        assert running[0]
         calls.append('updates')
-    async def stop_capture():
+    async def stop_capture(_timeout):
         calls.append('capture')
-    fake = SimpleNamespace(standby=False, stop_updates=stop_updates,
-        capture=SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=stop_capture,
-            export_handoff=lambda running: CaptureHandoff(running=running, session_id='continued')))
+        running[0] = False
+    fake = api.Runtime.__new__(api.Runtime)
+    fake.standby, fake._quiesce_task, fake._handoff_state = False, None, None
+    fake._writer_handoff, fake._handoff_lock, fake._handoff_drains = False, asyncio.Lock(), []
+    fake.request_barrier, fake.request_writers = RequestBarrier(), RuntimeWriterGate()
+    fake.stop_updates = stop_updates
+    fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=running[0]), quiesce=stop_capture,
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='continued'))
+    fake.mobile_exports = SimpleNamespace(drain=lambda: calls.append('manual-exports'))
+    fake.automatic_exports = SimpleNamespace(picker=SimpleNamespace(drain=lambda: calls.append('automatic-picker')))
+    fake.installation = SimpleNamespace(pause=lambda: calls.append('setup-pause'),
+        quiesce=lambda _timeout: calls.append('setup'))
+    fake._reading_registry = SimpleNamespace(stop_creation=lambda _deadline: calls.append('reader-admission'),
+        quiesce_owned=lambda _deadline: calls.append('reading'))
+    fake.capture.drain_publications = lambda: asyncio.sleep(0)
+    fake.map_task = None
+    fake.hito = SimpleNamespace(close=lambda: calls.append('hito'))
+    fake._voice_pools = lambda: []
+    fake._verify_background_stopped = lambda: None
     monkeypatch.setattr(api, 'runtime', fake, raising=False)
     client = TestClient(api.app, base_url='http://127.0.0.1:8767')
-    response = client.post('/api/runtime/quiesce', headers={'X-Proxy-Transcript': 'update'})
-    assert response.status_code == 200 and response.json()['running']
-    assert calls == ['updates', 'capture']
+    response = client.post('/api/runtime/quiesce'+query, headers={'X-Proxy-Transcript': 'update'})
+    assert response.status_code == 200, response.text
+    assert response.json()['running'] and response.json()['session_id'] == 'continued'
+    assert fake.standby and not running[0]
+    with pytest.raises(WritersQuiescing):
+        fake.request_writers.enter()
+    assert calls == ['reader-admission', 'manual-exports', 'automatic-picker', 'setup-pause',
+                     'setup', 'updates', 'reading', 'capture', 'hito']
+
+
+def test_explicit_capture_only_experiment_does_not_claim_writer_drain():
+    from backend import api
+    from backend.runtime_writers import RuntimeWriterGate
+    calls = []
+    old = api.Runtime.__new__(api.Runtime)
+    old._handoff_lock, old._writer_handoff = asyncio.Lock(), False
+    old.request_writers, old.standby = RuntimeWriterGate(), False
+    async def stop_updates(): calls.append('updates')
+    async def stop_capture(): calls.append('capture')
+    old.stop_updates = stop_updates
+    old.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), stop=stop_capture,
+        export_handoff=lambda active: CaptureHandoff(running=active, session_id='experiment'))
+    state = asyncio.run(old.quiesce_capture_handoff())
+    assert state.running and state.session_id == 'experiment'
+    old.request_writers.enter(); old.request_writers.leave()
+    assert calls == ['updates', 'capture'] and not old._writer_handoff
+
+
+def test_legacy_activation_cannot_bypass_explicit_strict_handoff():
+    from backend.api import Runtime
+    async def run():
+        old = Runtime.__new__(Runtime)
+        old._handoff_lock, old._writer_handoff = asyncio.Lock(), True
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.activate_handoff(CaptureHandoff(running=True))
+        with pytest.raises(TimeoutError, match='explicit writers protocol'):
+            await old.quiesce_capture_handoff()
+    asyncio.run(run())
+
+
+def test_pool_drain_waits_for_pending_work_and_cache_completion_callback():
+    # A cancelled asyncio Future and an empty replacement queue both missed
+    # callbacks writing dictionaries/audio in the retiring runtime.
+    pool = ResumableExecutor(max_workers=1)
+    entered, release, callback, finish = (threading.Event() for _ in range(4))
+    writes = []
+    def work():
+        entered.set()
+        assert release.wait(3)
+    def completed(_):
+        callback.set()
+        assert finish.wait(3)
+        writes.append('cache')
+    first = pool.submit(work)
+    first.add_done_callback(completed)
+    second = pool.submit(lambda: writes.append('queued'))
+    assert entered.wait(1)
+    drain = threading.Thread(target=pool.drain)
+    drain.start()
+    try:
+        with pytest.raises(RuntimeError):
+            pool.submit(lambda: None)
+        release.set()
+        assert callback.wait(1)
+        drain.join(.03)
+        assert drain.is_alive() and writes == []
+        finish.set()
+        drain.join(2)
+        assert not drain.is_alive() and writes == ['cache', 'queued']
+        assert second.done()
+        pool.resume()
+        assert pool.submit(lambda: 'resumed').result(1) == 'resumed'
+    finally:
+        release.set(); finish.set()
+        drain.join(3)
+        pool.shutdown()
+
+
+def test_request_barrier_counts_get_through_response_completion():
+    async def run():
+        gate = RequestBarrier()
+        entered, release = asyncio.Event(), asyncio.Event()
+        messages = []
+        async def app(scope, receive, send):
+            await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+            entered.set()
+            await release.wait()  # A streaming response still owns its cache work.
+            await send({'type': 'http.response.body', 'body': b'done'})
+        async def send(message):
+            messages.append(message)
+        middleware = WriterBarrierMiddleware(app, lambda: gate)
+        scope = {'type': 'http', 'path': '/api/lines/1/reading', 'method': 'GET'}
+        first = asyncio.create_task(middleware(scope, None, send))
+        await entered.wait()
+        drain = asyncio.create_task(gate.pause())
+        await asyncio.sleep(0)
+        await middleware(scope, None, send)
+        assert messages[-2]['status'] == 503 and not drain.done()
+        release.set()
+        await first; await drain
+        gate.resume()
+        assert gate.enter()
+        gate.leave()
+    asyncio.run(run())
+
+
+def test_cancelled_handoff_waiter_does_not_release_actual_workers(tmp_path):
+    capture, _, _, _ = fixture_service(tmp_path)
+    retired = ResumableExecutor(max_workers=1)
+    entered, release = threading.Event(), threading.Event()
+    def old_scan():
+        entered.set()
+        assert release.wait(5)
+    retired.submit(old_scan)
+    assert entered.wait(1)
+    capture._retired_executors.append(retired)
+    async def run():
+        waiter = asyncio.create_task(capture.stop())
+        await asyncio.sleep(.03)
+        waiter.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await waiter
+        with pytest.raises(RuntimeError, match='previous scan'):
+            capture.start()
+        assert not capture._stop_task.done()
+        release.set()
+        await capture.stop()
+        assert capture._retired_executors == []
+    try:
+        asyncio.run(run())
+    finally:
+        release.set()
+        retired.shutdown(); capture._executor.shutdown()
+
+
+def test_handoff_timeout_keeps_drain_alive_and_blocks_activation(monkeypatch):
+    from backend import api
+    from starlette.requests import Request
+    from fastapi import HTTPException
+    fake = object.__new__(api.Runtime)
+    fake._quiesce_task = None
+    fake._handoff_state = None
+    fake.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True),
+        export_handoff=lambda running: CaptureHandoff(running=running, session_id='same-session'))
+    monkeypatch.setattr(api, 'runtime', fake, raising=False)
+    monkeypatch.setattr(api, 'HANDOFF_TIMEOUT_SECONDS', .01)
+    request = Request({'type': 'http', 'method': 'POST', 'path': '/api/runtime/quiesce',
+                       'headers': [], 'server': ('127.0.0.1', 8766), 'scheme': 'http', 'query_string': b''})
+    async def run():
+        release = asyncio.Event()
+        fake._drain_workers = release.wait
+        with pytest.raises(HTTPException) as failure:
+            await api.runtime_quiesce(request, 'update')
+        assert failure.value.status_code == 503
+        assert not fake._quiesce_task.done()
+        with pytest.raises(RuntimeError, match='still stopping'):
+            fake.activate_workers()
+        release.set()
+        monkeypatch.setattr(api, 'HANDOFF_TIMEOUT_SECONDS', 1)
+        result = await api.runtime_quiesce(request, 'update')
+        assert result['running'] and result['session_id'] == 'same-session'
+    asyncio.run(run())
+
+
+def test_export_drain_stops_decoder_left_after_export_parent_exits(tmp_path):
+    # Exercise the export manager's actual ownership, not merely the process
+    # wrapper: otherwise a clean parent exit could skip descendant cleanup.
+    import psutil
+    from backend.mobile_export_controls import MobileExportManager
+    marker = tmp_path / 'decoder.json'
+    script = '''import subprocess, sys, json
+from pathlib import Path
+p = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'],
+    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+Path(sys.argv[1]).write_text(json.dumps({'pid': p.pid}))
+print(json.dumps({'state': 'complete', 'progress': 100}), flush=True)
+'''
+    manager = MobileExportManager(tmp_path)
+    manager._worker_args = lambda *_: [sys.executable, '-c', script, str(marker)]
+    manager._thread = threading.Thread(target=manager._run, args=('zzz', False, tmp_path))
+    manager._thread.start()
+    manager._thread.join(15)
+    manager.drain()
+    assert not manager._thread.is_alive()
+    assert manager.status()['state'] == 'complete'
+    assert not psutil.pid_exists(json.loads(marker.read_text())['pid'])

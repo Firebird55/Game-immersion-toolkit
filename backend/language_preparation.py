@@ -1,8 +1,8 @@
 """Explicit language preparation; automatic refresh only visits prepared entries."""
 from __future__ import annotations
 
+from .runtime_paths import data_root as runtime_data_root
 import json
-import os
 from pathlib import Path
 import threading
 import time
@@ -15,7 +15,7 @@ from .preparation_worker import PreparationCancelled, PreparationCleanupError, P
 
 def selected_snapshot(root: Path, game: str):
     """Read an explicit host selection without preparing data or preferences."""
-    data = Path(root) / 'data'
+    data = runtime_data_root(root)
     if not (data / 'languages' / game).is_dir():
         return data / game / 'textmap.json', None, 'legacy'
     from .accounts import AccountStore
@@ -29,7 +29,8 @@ def selected_snapshot(root: Path, game: str):
 
 class LanguagePreparation:
     def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None, cancellable=False):
-        self.path = path or Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'
+        from .runtime_bundle import discover_layout
+        self.path = path if path is not None else discover_layout().settings_root / 'languages.json'
         self.build, self.activate, self.state = build, activate, state
         self.rebuild = rebuild or build
         self.cancellable = cancellable

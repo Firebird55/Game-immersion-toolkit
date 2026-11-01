@@ -17,6 +17,7 @@ from backend.lexirise_settings import account_settings
 from backend.models import AppSettings, TextMatch
 from backend.state_version import StateVersion
 from backend.storage import TranscriptStore
+from backend.runtime_writers import RuntimeWriterGate
 
 remote_calls = []
 def remote(request):
@@ -52,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='toolkit-state-fixture-') as directory:
         languages=languages, language_inventory=SimpleNamespace(status=lambda *_: {'locales': {}}),
         account_preferences=lambda: account_settings(service.pin()), speakers=SimpleNamespace(enrich=lambda item: item),
         game_indexes={}, textmaps=SimpleNamespace(is_capture_text=lambda *_: True),
-        hub=hub, capture=SimpleNamespace(_scan_epoch=0),
+        hub=hub, capture=SimpleNamespace(_scan_epoch=0), request_writers=RuntimeWriterGate(),
         installation=SimpleNamespace(status=lambda: {'completed': True, 'version': 'fixture', 'games': [],
             'requirements': [], 'jobs': {}, 'native': {}, 'auto_start': False, 'free_gb': 1, 'lexirise_configured': True}))
     async def on_line(item):

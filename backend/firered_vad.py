@@ -5,6 +5,8 @@ import struct
 import threading
 from pathlib import Path
 
+from .runtime_bundle import discover_layout
+
 import kaldi_native_fbank as knf
 import numpy as np
 import onnxruntime as ort
@@ -44,7 +46,8 @@ class FireRedVad:
     def __init__(self) -> None:
         # Keep the capture model with the portable Proxy Transcript project.
         # The legacy GameSentenceMiner installation is an optional fallback.
-        project_assets = Path(__file__).resolve().parents[1] / "assets" / "fireredvad"
+        layout = discover_layout()
+        project_assets = layout.resource_root / "assets" / "fireredvad"
         legacy_assets = (
             Path(os.environ.get("LOCALAPPDATA", ""))
             / "Programs"
@@ -54,9 +57,15 @@ class FireRedVad:
             / "assets"
             / "fireredvad"
         )
-        asset_dir = project_assets if (project_assets / "fireredvad_vad.onnx").is_file() else legacy_assets
-        model_path = asset_dir / "fireredvad_vad.onnx"
-        cmvn_path = asset_dir / "cmvn.ark"
+        if layout.mode == 'bundle':
+            # A developer installation must never mask missing/tampered frozen
+            # resources, and capture must never load sherpa's adjacent DLL set.
+            model_path = layout.resource('assets/fireredvad/fireredvad_vad.onnx')
+            cmvn_path = layout.resource('assets/fireredvad/cmvn.ark')
+        else:
+            asset_dir = project_assets if (project_assets / "fireredvad_vad.onnx").is_file() else legacy_assets
+            model_path = asset_dir / "fireredvad_vad.onnx"
+            cmvn_path = asset_dir / "cmvn.ark"
         if not model_path.exists() or not cmvn_path.exists():
             raise FileNotFoundError("FireRedVAD assets are missing; run Proxy Transcript setup")
 

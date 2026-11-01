@@ -9,10 +9,12 @@ import os
 import sqlite3
 import threading
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
 from .steam_games import STEAM_GAMES
+from .sqlite_operation_lifetime import SqliteOperationLifetime
 
 
 GAME_TITLES = {"zzz": "Zenless Zone Zero", "pragmata": "PRAGMATA", "wwm": "Where Winds Meet", "cyberpunk": "Cyberpunk 2077",
@@ -29,10 +31,45 @@ class LexiriseError(Exception):
     """Safe user-facing error; never includes requests, credentials or responses."""
 
 
+class LexiriseConnectionCloseError(RuntimeError):
+    """Private failed ledger ownership; not a remote retry instruction."""
+    def __init__(self, service, connection, body_error, transaction_error, close_error):
+        super().__init__('Lexirise ledger connection cleanup is unconfirmed.')
+        self.service, self.owner, self.connection = service, service._sql_lifetime, connection
+        self.body_error, self.transaction_error, self.close_error = body_error, transaction_error, close_error
+
+
+class LexiriseLedgerPoisonedError(RuntimeError):
+    def __init__(self, failure):
+        super().__init__('Lexirise ledger cleanup remains unconfirmed.')
+        self.failure = failure
+
+
+@dataclass(frozen=True, eq=False, repr=False)
+class LexiriseConnectionFence:
+    """One root/pin owner group's operation scopes, not physical resources."""
+    _service: LexiriseService
+    _epoch: int
+
+    @property
+    def _lifetime_subject(self):
+        return self._service
+
+    def check(self, service):
+        if (not isinstance(service, LexiriseService) or not isinstance(self._service, LexiriseService)
+                or service._sql_lifetime is not self._service._sql_lifetime):
+            raise ValueError('The Lexirise connection fence belongs to another owner.')
+        service._sql_lifetime.check(self)
+
+
 def _protect(value: bytes, decrypt: bool = False) -> bytes:
-    """Windows DPAPI, bound to this Windows user's credentials."""
+    """Bind credentials to this desktop user's protected host storage."""
     if os.name != "nt":
-        raise LexiriseError("Set LEXIRISE_API_KEY on this non-Windows host.")
+        from .protected_storage import ProtectedBlobs, ProtectedStorageError
+        try:
+            return ProtectedBlobs().protect(value, decrypt=decrypt)
+        except ProtectedStorageError as error:
+            raise LexiriseError(str(error)) from None
 
     class Blob(ctypes.Structure):
         _fields_ = [("size", ctypes.c_ulong), ("data", ctypes.POINTER(ctypes.c_ubyte))]
@@ -51,12 +88,9 @@ def _protect(value: bytes, decrypt: bool = False) -> bytes:
 
 
 def save_api_key(directory: Path, key: str) -> None:
-    directory.mkdir(parents=True, exist_ok=True)
+    from .protected_storage import private_write
     encrypted = _protect(key.strip().encode())
-    path = directory / "key.dpapi"
-    pending = path.with_suffix(".tmp")
-    pending.write_bytes(encrypted)
-    pending.replace(path)
+    private_write(directory / 'key.dpapi', encrypted)
 
 
 class LexiriseService:
@@ -70,6 +104,9 @@ class LexiriseService:
         self.transport = transport
         self._api_key = api_key
         self._lock = threading.Lock()
+        self._sql_lifetime = SqliteOperationLifetime(self, close_error=LexiriseConnectionCloseError,
+            poisoned_error=LexiriseLedgerPoisonedError, fence_type=LexiriseConnectionFence,
+            label='Lexirise ledger connection')
         with self._connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
@@ -80,12 +117,16 @@ class LexiriseService:
 
     @contextmanager
     def _connect(self):
-        db = sqlite3.connect(self.db_path, timeout=10)
-        try:
-            with db:
+        with self._sql_lifetime.operation():
+            db = sqlite3.connect(self.db_path, timeout=10)
+            with self._sql_lifetime.transaction(db):
                 yield db
-        finally:
-            db.close()
+
+    def freeze_connections(self, timeout):
+        return self._sql_lifetime.freeze(timeout)
+
+    def resume_connections(self, fence):
+        self._sql_lifetime.resume(fence)
 
     def _key(self) -> str:
         key = self._api_key or REQUEST_KEY.get() or (self.accounts.active_key() if self.accounts else None) or os.environ.get("LEXIRISE_API_KEY")
@@ -93,11 +134,10 @@ class LexiriseService:
             return key.strip()
         # A synced project can be used on several Windows PCs, but a DPAPI
         # blob can only be decrypted on the PC/user that created it.
-        local_app_data = os.environ.get("LOCALAPPDATA")
-        if os.name == "nt" and local_app_data:
-            local_key = Path(local_app_data) / "Programs" / "Proxy Transcript" / "key.dpapi"
-            if local_key.is_file():
-                return _protect(local_key.read_bytes(), decrypt=True).decode()
+        from .protected_storage import credential_directory
+        local_key = credential_directory() / 'key.dpapi'
+        if local_key.is_file():
+            return _protect(local_key.read_bytes(), decrypt=True).decode()
         try:
             return _protect((self.directory / "key.dpapi").read_bytes(), decrypt=True).decode()
         except OSError:
@@ -119,6 +159,9 @@ class LexiriseService:
         """Pin credentials and language before network work or background jobs."""
         from .lexirise_settings import STUDY_LANGUAGES
         session = copy.copy(self)
+        # Gate, failures and canonical fence belong to the root/pin group;
+        # no copied scalar epoch or independently accepting pin lifetime.
+        session._sql_lifetime = self._sql_lifetime
         session._api_key = self._key()
         session.accounts = None
         session.source_language = source_language or self.source_language
@@ -271,17 +314,18 @@ class LexiriseService:
         db.commit()
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
-             audio: Path | None, audio_source: str = "original") -> dict:
+             audio: Path | None, audio_source: str = "original", audio_scope: str = "line") -> dict:
         if game not in GAME_TITLES or not chinese.strip():
             raise LexiriseError("This line has no supported game or study sentence.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
         try:
-            return self._send(ref, game, chinese.strip(), english, speaker, audio, audio_source)
+            return self._send(ref, game, chinese.strip(), english, speaker,
+                              None if audio_scope == 'paragraph' else audio, audio_source, audio_scope)
         finally:
             self._lock.release()
 
-    def _send(self, ref, game, chinese, english, speaker, audio, audio_source):
+    def _send(self, ref, game, chinese, english, speaker, audio, audio_source, audio_scope):
         decks = self._decks()
         if game not in decks:
             raise LexiriseError("This game's Lexirise deck has not been configured yet.")
@@ -336,7 +380,9 @@ class LexiriseService:
                     else:
                         payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
                                    "notes": f"{game_title}{' — ' + speaker if speaker else ''}\n" +
-                                            (f"Audio: {audio_source}" if audio is not None else "Unvoiced game dialogue"),
+                                            (f"Audio: {audio_source}" if audio is not None else
+                                             "Voiced dialogue; full-paragraph recording omitted (individual subtitle timing unavailable)."
+                                             if audio_scope == 'paragraph' else "Unvoiced game dialogue"),
                                    "tags": [game], "audioUrls": [state["audio_url"]] if audio is not None else []}
                         if english:
                             payload["translation"] = english

@@ -31,6 +31,7 @@ def is_comic_text_id(text_id: str) -> bool:
 
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
+    zzz_detected_proxy: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
     preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider", "spyro", "mgsvtpp", "mgsvgz", "deathstranding", "plaguetaleinnocence", "detroit", "portal", "portal2", "halflife", "halflife2", "persona5royal", "deusexhrdc"] = "auto"
 
     @field_validator("preferred_game", mode="before")
@@ -117,6 +118,9 @@ class LanguageContext(BaseModel):
     translation_locale: str = 'en'
     translation_text: str | None = None
     audio_locale: str = 'zh-Hans'
+    # Some authored subtitle pages identify a complete recording but have no
+    # verified individual audio cut. Keep that explicit through every reader.
+    audio_scope: Literal['line', 'paragraph'] = 'line'
     texts: dict[str, str] = Field(default_factory=dict)
     voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
     dialogue_kind: str | None = None
@@ -181,6 +185,8 @@ class CaptureSnapshot(BaseModel):
     active_game: GameId | None = None
     window_title: str | None = None
     window_bounds: tuple[int, int, int, int] | None = None
+    monitor_name: str | None = None
+    monitor_bounds: tuple[int, int, int, int] | None = None
     crop_bounds: tuple[int, int, int, int] | None = None
     tip_crop_bounds: tuple[int, int, int, int] | None = None
     cinematic_crop_bounds: tuple[int, int, int, int] | None = None

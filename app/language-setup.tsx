@@ -1,10 +1,12 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {useEffect,useRef,useState} from 'react';
 import {StatePoll, validContext, type StateContext} from './state-sync';
 import {Button} from '@/components/ui/button';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {formatBytes,languageName} from '../public/mobile-capture/interface-language.mjs';
-const API='http://127.0.0.1:8766';
+const API=desktopApiBase();
 class LanguageStatusError extends Error {}
 type VoiceCounts=Record<'voiced'|'unvoiced'|'unavailable'|'unknown',number>;
 type Locale={capture_capabilities?:{voiced:boolean;unvoiced:boolean;reason?:string};dialogue_inventory?:{voice_counts:VoiceCounts;categories:Record<string,VoiceCounts>};coverage_warnings?:string[];locale:string;language:string;name:string;reader_available:boolean;table_bytes?:number;reclaimable_bytes?:number;voice_state?:string;support?:string;prepared:null|{targets:string[];mapped_lines:number};job?:{state?:string;message?:string;progress?:number|null}};

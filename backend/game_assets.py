@@ -12,7 +12,7 @@ ARCHIVED_GAMES = {"honkai3": "Honkai Impact 3rd", "hito": "Hito's World"}
 _ADAPTERS = {"starrail": ("starrail_assets", ""), "genshin": ("genshin_assets", ""), "endfield": ("endfield_assets", "EndfieldReader.dll"), "heavyrain": ("heavy_rain_assets", ""), "beyond": ("beyond_assets", ""), "cyberpunk": ("cyberpunk_assets", "WolvenKit.CLI.exe"),
              'zzz': ('zzz_assets', ''),
              'pragmata': ('pragmata_assets', 'REE.Unpacker.exe'),
-             "wuwa": ("wuthering_assets", "FModelCLI.exe"), "witcher3": ("witcher_assets", ""),
+             "wuwa": ("wuthering_assets", "NteReader.dll"), "witcher3": ("witcher_assets", ""),
              "nte": ("nte_assets", "NteReader.dll"), "honkai3": ("honkai_assets", "")}
 _ADAPTERS.update(riseofthetombraider=("rise_tomb_assets", ""), shadowofthetombraider=("shadow_tomb_assets", ""))
 _ADAPTERS.update({game: (spec.adapter, '') for game, spec in STEAM_GAMES.items()})

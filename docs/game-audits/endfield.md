@@ -1,5 +1,11 @@
 # Arknights: Endfield presentation audit
 
+2026-10-30 runtime addendum: the normal VFS/PCK path now uses the built-in Python
+reader without SDK compilation. The authored-language join reproduces the
+coverage counts below; initial/hotfix clips match the legacy bridge exactly.
+See [archive runtime evidence](../endfield-runtime.md). Presentation support and
+absent-pack playback claims remain as documented here.
+
 Audited and rechecked 2026-10-27. Coverage is **partial**, with explicit per-record
 voice status and aggregate preparation warnings. The Chinese pack and production
 clip decoding are now verified; native gameplay/OCR acceptance is still incomplete.

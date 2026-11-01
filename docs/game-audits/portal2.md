@@ -1,5 +1,12 @@
 # Portal 2 language and dialogue audit
 
+Subtitle boundary correction, 2026-10-31: reader revision 2 emits each authored
+`<delay:...>` page independently, requiring identical localized delay layouts
+for translation alignment. Delayed captions retain their complete original
+recording with paragraph scope. Existing individually timed movie cues and
+credit display groups stay separate. Synthetic archive tests verify individual
+pages, mismatched translations and unchanged original audio.
+
 Reviewed 2026-10-28. Game ID `portal2`; Steam application `620`; Windows process
 `portal2.exe`. This is partial native dialogue coverage. Unresolved recordings,
 absent language packs and confirmed text-only content remain distinct states.

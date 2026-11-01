@@ -54,7 +54,7 @@ class PragmataUpdateTests(unittest.TestCase):
             with patch("scripts.index_pragmata_assets.find_install", return_value=moved), \
                  patch("backend.game_tools.missing_tools", return_value=[]), \
                  patch("scripts.index_pragmata_assets.fingerprint", return_value="same"), \
-                 patch("backend.pragmata_updates.subprocess.Popen", return_value=SimpleNamespace(
+                 patch("backend.pragmata_updates.start_process", return_value=SimpleNamespace(
                      returncode=0, communicate=lambda timeout: ('', ''), poll=lambda: 0)) as run:
                 manager._run()
             self.assertEqual(run.call_args.args[0][-2:], ["--install", str(moved)])

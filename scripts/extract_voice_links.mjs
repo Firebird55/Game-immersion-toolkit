@@ -3,23 +3,27 @@
 import { access, open, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
 import { sceneAssetPaths, sceneBundleRangesFromCatalog, resourceCatalogBytes } from './scene-catalog.mjs';
 import { comicVoicePairs, uniqueComicLinks } from './comic-links.mjs';
 import { authoredDialogueFromCab, uniqueDialogueLinks } from './zzz-dialogue.mjs';
 
-const [gameDataArg, toolsArg, filter = 'zenkov', outputName = 'scene-links.json'] = process.argv.slice(2);
+const [gameDataArg, toolsArg, filter = 'zenkov', outputName = 'scene-links.json', compiledReader] = process.argv.slice(2);
 if (!gameDataArg || !toolsArg) throw new Error('Pass GAME_DATA and TOOL_DIR');
 const gameData = resolve(gameDataArg);
 const toolDir = resolve(toolsArg);
 if (toolDir.toLowerCase().startsWith(gameData.toLowerCase())) throw new Error('Tool directory must be outside the game');
-const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');
-// Expose the pinned reader's unpacker to our owned comic-format adapter.
-await writeFile(join(toolDir, 'galgame-perform.mjs'), ts.transpileModule(source + '\nexport { unpackMhyFile };', {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
-}).outputText);
+// Frozen callers supply an immutable, verified module built with the release.
+// The source checkout keeps its separate developer-only transpilation path.
+const readerPath = compiledReader ? resolve(compiledReader) : join(toolDir, 'galgame-perform.mjs');
+if (!compiledReader) {
+  const { default: ts } = await import('typescript');
+  const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');
+  await writeFile(readerPath, ts.transpileModule(source + '\nexport { unpackMhyFile };', {
+    compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext },
+  }).outputText);
+}
 const { galGameLinksFromBlocks, unpackMhyFile, xxHash64 } =
-  await import(pathToFileURL(join(toolDir, 'galgame-perform.mjs')).href);
+  await import(pathToFileURL(readerPath).href);
 const table = JSON.parse(await readFile(join(toolDir, 'PerformTemplateTb.json')));
 const category = ['comic', 'dialogue'].includes(filter.toLowerCase()) ? filter.toLowerCase() : 'galgame';
 const paths = sceneAssetPaths(table, category)

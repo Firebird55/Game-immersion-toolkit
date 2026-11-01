@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import threading
+from types import SimpleNamespace
 import zipfile
 
 import pytest
@@ -11,7 +12,7 @@ from backend.mobile_library import export_library, digest, ExportCancelled, FORM
 
 def rows(game="zzz"):
     return [{"textId": game+":dialogue1", "english": "The lantern is bright.", "chinese": "灯笼很亮。",
-             "sourceVoice": digest("voice1"), "channels": ["dialogue"],
+             "sourceVoice": digest("voice1"), "channels": ["dialogue"], "audioScope": "paragraph",
              "anchorsEnglish": ["The lantern"], "playerVoice": "female", "speakerEnglish": "Guide"},
             {"textId": game+":dialogue2", "english": "We can keep walking.", "chinese": "我们可以继续走。",
              "sourceVoice": digest("voice1"), "channels": ["dialogue"], "install": "private-path", "api_key": "private-key"}]
@@ -39,6 +40,8 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
         assert manifest["coverage"]["exportedVoices"] == 2
         assert "install" not in catalog[1] and "api_key" not in catalog[1]
         assert catalog[0]["anchorsEnglish"] == ["The lantern"]
+        assert catalog[0]["audioScope"] == "paragraph"
+        assert "audioScope" not in catalog[1]  # Legacy sentence clips remain compatible.
         assert catalog[0]["audio"] == catalog[1]["audio"]
         assert all(info.compress_type == zipfile.ZIP_STORED for info in pack.infolist())
     assert len(calls) == 1
@@ -54,6 +57,43 @@ def test_catalog_only_never_decodes(tmp_path):
     result = export_library("zzz", rows(), tmp_path, include_audio=False)
     assert result["coverage"]["exportedVoices"] == 0
     assert len(list(Path(result["folder"]).glob("*.zip"))) == 1
+
+
+@pytest.mark.parametrize('stage', ['private_pack', 'transfer', 'pointer'])
+@pytest.mark.parametrize('cancel_retry', [False, True])
+def test_windows_publication_sharing_retry_preserves_cancellation(tmp_path, monkeypatch, stage, cancel_retry):
+    from backend import atomic_files, mobile_library
+    cancel = threading.Event()
+    attempts = []
+    original = mobile_library.os.replace
+    def transient_lock(source, target):
+        source = Path(source)
+        selected = (source.parent.name.endswith('.pending') and source.suffix == '.zip'
+                    if stage == 'private_pack' else source.name.endswith('.transfer.pending') if stage == 'transfer'
+                    else source.name == 'latest.pending')
+        if selected:
+            attempts.append(source)
+            if len(attempts) == 1:
+                error = PermissionError('Synthetic Windows sharing violation')
+                error.winerror = 32
+                raise error
+        return original(source, target)
+    monkeypatch.setattr(mobile_library.os, 'replace', transient_lock)
+    monkeypatch.setattr(atomic_files, 'os', SimpleNamespace(name='nt'))
+    monkeypatch.setattr(atomic_files.time, 'sleep', lambda _: cancel.set() if cancel_retry else None)
+    output = tmp_path / 'export'
+    if cancel_retry:
+        with pytest.raises(ExportCancelled):
+            export_library('zzz', rows(), output, include_audio=False, cancel=cancel)
+        assert len(attempts) == 1
+        assert not (output / 'latest.json').exists()
+    else:
+        result = export_library('zzz', rows(), output, include_audio=False, cancel=cancel)
+        assert len(attempts) == 2
+        pointer = json.loads((output / 'latest.json').read_bytes())
+        assert output / pointer['folder'] / pointer['bundle'] == Path(result['bundle'])
+        with zipfile.ZipFile(result['bundle']) as archive:
+            assert archive.testzip() is None
 
 
 def test_dutch_catalog_preserves_source_and_official_target_without_private_references(tmp_path):

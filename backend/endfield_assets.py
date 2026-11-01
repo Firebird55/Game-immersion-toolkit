@@ -5,13 +5,9 @@ import hashlib
 import json
 from pathlib import Path
 import re
-import subprocess
-import tempfile
 
 from .dialogue_catalog import DialogueCatalog, selected_tables
-from .game_tools import download, _atomic_file
 from .languages import audio_locale, resolve_locale
-from .nte_assets import dotnet_sdk
 from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
@@ -43,68 +39,23 @@ def fingerprint(install):
 
 
 def ensure_extractor(directory):
-    directory = directory.resolve()
-    sdk = dotnet_sdk()
-    if sdk is None:
-        raise ValueError('Endfield needs the Microsoft .NET 10 SDK; install it and prepare game tools again.')
-    code = Path(__file__).resolve().parents[1]
-    manifest = json.loads((code / 'scripts/endfield-reader-sources.json').read_text())
-    directory.mkdir(parents=True, exist_ok=True)
-    upstream = directory / 'upstream'
-    for relative, digest in manifest['files'].items():
-        path = upstream / relative.removeprefix('AnimeStudio.Endfield/')
-        if path.is_file() and hashlib.sha256(path.read_bytes()).hexdigest() == digest:
-            continue
-        data = download(f'https://raw.githubusercontent.com/{manifest["repository"]}/{manifest["revision"]}/{relative}')
-        if hashlib.sha256(data).hexdigest() != digest:
-            raise ValueError('Endfield reader checksum mismatch.')
-        _atomic_file(path, data)
-    license_text = download(f'https://raw.githubusercontent.com/{manifest["repository"]}/{manifest["revision"]}/LICENSE')
-    if not license_text.startswith(b'MIT License'):
-        raise ValueError('Endfield reader license notice is unavailable.')
-    _atomic_file(directory / 'ENDFIELDSTUDIO-LICENSE.txt', license_text)
-    sources = code / 'scripts/game-readers'
-    signature = hashlib.sha256((sources / 'EndfieldReader.cs').read_bytes() +
-        (sources / 'EndfieldReader.csproj').read_bytes() + json.dumps(manifest, sort_keys=True).encode()).hexdigest()
-    marker = directory / 'reader-build.json'
-    target = directory / 'EndfieldReader.dll'
-    try:
-        previous = json.loads(marker.read_text())
-        if previous['source'] == signature and previous['files'] and all(
-            hashlib.sha256((directory / name).read_bytes()).hexdigest() == digest for name, digest in previous['files'].items()):
-            return target
-    except (OSError, KeyError, ValueError):
-        pass
-    with tempfile.TemporaryDirectory(prefix='endfield-build-', dir=directory) as temporary:
-        build = Path(temporary)
-        result = subprocess.run([str(sdk), 'build', str(sources / 'EndfieldReader.csproj'), '-c', 'Release',
-            '-o', str(build / 'out'), f'-p:EndfieldSource={upstream.resolve()}',
-            f'-p:BaseIntermediateOutputPath={build.resolve() / "obj"}/',
-            '-p:RestoreSources=https://api.nuget.org/v3/index.json', '-p:NuGetAudit=false', '--nologo'],
-            capture_output=True, timeout=240, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-        if result.returncode:
-            raise ValueError('Endfield reader build failed; install or repair the .NET 10 SDK.')
-        files = {}
-        for path in (build / 'out').iterdir():
-            if path.suffix not in {'.dll', '.json'}:
-                continue
-            data = path.read_bytes()
-            files[path.name] = hashlib.sha256(data).hexdigest()
-            _atomic_file(directory / path.name, data)
-        _atomic_file(marker, json.dumps({'source': signature, 'files': files}).encode())
-    return target
+    from .endfield_metadata import cache_root, parameters
+    parameters(directory)
+    return cache_root(directory)
 
 
 def reader(install, executable, action, request):
-    sdk = dotnet_sdk()
-    if sdk is None or not executable.is_file():
-        raise ValueError('Prepare Endfield game tools in Setup first.')
-    result = subprocess.run([str(sdk), str(executable), action, str(streaming_assets(install, request.get('layer', 'StreamingAssets')))],
-        input=json.dumps(request).encode(), capture_output=True, timeout=900,
-        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    if result.returncode:
-        raise ValueError('Endfield voice data could not be read; refresh installed game data and tools.')
-    return result.stdout
+    from .endfield_metadata import parameters
+    from .endfield_vfs import FormatError, run
+    # Preserve the existing caller's tool-directory argument for stored audio
+    # records. No executable at this legacy path is loaded or launched.
+    metadata = parameters(executable.parent)
+    try:
+        return run(streaming_assets(install, request.get('layer', 'StreamingAssets')), metadata, action, request)
+    except (FormatError, UnicodeError) as error:
+        raise PreparationFailure('unsupported_game_format',
+            'Endfield voice data uses an unsupported or incomplete structure. Refresh installed game data '
+            'and toolkit format metadata; the previous language table is retained.') from error
 
 
 def _audio_source(value):

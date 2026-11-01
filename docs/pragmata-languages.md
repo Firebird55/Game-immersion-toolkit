@@ -4,6 +4,12 @@ Prepare a language explicitly in **Setup → PRAGMATA → Languages**. Preparati
 reads that language's installed dialogue banks and official message tables.
 Opening settings or adding an account does not prepare other languages.
 
+Archive reading runs inside the toolkit on Windows, Linux and macOS; it no
+longer builds or launches a separate REE/.NET extractor. Initial preparation
+downloads verified format metadata into the private cache. See the
+[reader implementation and acceptance limits](re-pak-runtime.md). Packaging,
+capture and original-voice codec validation remain separate platform checks.
+
 Study text and original voices support English, French, Italian, German,
 Spanish–Spain, Spanish–Latin America, Portuguese–Brazil, Russian, Simplified
 Chinese (Mandarin), Japanese and Korean. Official sentence translation targets
