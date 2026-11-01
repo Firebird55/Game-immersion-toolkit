@@ -27,6 +27,12 @@ The component uses documented Lexirise interfaces; this repository does not redi
 
 ## Toolkit assets and tools
 
+- The Windows gateway socket cleanup in `backend/gateway_loop.py` adapts
+  CPython 3.12's `Lib/asyncio/proactor_events.py` (Python Software Foundation,
+  PSF-2.0). The change handles WSAECONNRESET from socket shutdown before normal
+  close and server detachment. Full upstream terms are retained in
+  [LICENSE.cpython.txt](packaging/runtime-bundle/python-notices/LICENSE.cpython.txt)
+  and the native Python notices; this adapted code retains those terms.
 - Desktop status/tray uses PySide6-Essentials and shiboken6 6.12.0 from Qt.
   Qt Core, GUI and Widgets are dynamically loaded; the toolkit does not claim
   ownership of Qt. The applicable Qt/PySide LGPLv3/GPL/commercial terms and

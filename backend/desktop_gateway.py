@@ -36,6 +36,7 @@ from websockets.exceptions import WebSocketException
 from starlette.middleware.cors import CORSMiddleware
 
 from .local_access import COMPANION_ORIGINS
+from .gateway_loop import new_gateway_loop
 
 LOG = logging.getLogger(__name__)
 COOKIE = 'toolkit_device'
@@ -464,7 +465,7 @@ def main():
             await serving
             if server.shutdown_expired:
                 raise RuntimeError('Companion router shutdown deadline expired; active requests were stopped.')
-        asyncio.run(run())
+        asyncio.run(run(), loop_factory=new_gateway_loop)
     finally:
         for listener in sockets:
             listener.close()
