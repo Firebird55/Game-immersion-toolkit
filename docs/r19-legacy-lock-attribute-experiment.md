@@ -900,3 +900,65 @@ on injected close failure. Neither local skip establishes Windows behavior. Run
 and documentation checks. Shared process-helper evidence remains separate.
 No installer, old ZIP edit, global writer admission, real data copy, owner-aware
 update, preserving recovery or Windows 11 acceptance follows.
+
+## 1b4366f guard-base refusal and control-only base-role projection
+
+[Run 41337882449](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337882449),
+attempt 1, tested exact `1b4366f81f9734ca6f4d95207dbbc4246dd15b64`.
+Windows job 124941494224 on image windows-2025-vs2026/20261030.294.1
+failed authored contracts with 455 passed, one failed, zero skipped in 5.69
+seconds. Both actual controls reported `module/guard-base` after
+`fixture-validated`, with `unavailable`, `protocol-refused` and empty stderr.
+Both child/readers finished and both fixtures were removed after confirmed
+cleanup. The mechanism and publisher steps were skipped; the run has zero
+artifacts. This is negative evidence, not a C7 mechanism observation. The
+earlier 8449 `module/guard` result is not retrospectively relabeled.
+
+This concerns the protected OS `Microsoft.PowerShell.Management` module, not
+the companion script. Its actual `ModuleBase` value was not emitted. The
+[generic SDK property documentation](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.psmoduleinfo.modulebase?view=powershellsdk-7.6.0),
+which also applies to Windows PowerShell 5.1, describes the manifest-parent
+default. However, the official engine importer has a separate override for
+engine modules to the PowerShell application base, and its engine-module set
+includes `Microsoft.PowerShell.Management`.
+See the [tagged importer](https://github.com/PowerShell/PowerShell/blob/v6.0.0/src/System.Management.Automation/engine/Modules/ImportModuleCommand.cs#L1645)
+and [engine-module set](https://github.com/PowerShell/PowerShell/blob/v6.0.0/src/System.Management.Automation/engine/InitialSessionState.cs#L4469).
+These Core-era sources are not an observation of this runner's protected
+Desktop 5.1 implementation. They support checking the relationship; they do
+not establish the actual role or explain the failure.
+
+The next test-control observation reuses `bootstrap_error`, the existing third
+field of the single `C7B|phase|category` terminal. After the existing classifier
+has selected exactly `module/guard-base`, it reads the returned ModuleBase
+once and emits only one fixed role category:
+
+- `guard-base-system-home`: a string equals the already validated protected
+  system home using OrdinalIgnoreCase.
+- `guard-base-manifest-parent`: a string equals the parent of the already
+  constructed exact OS manifest using OrdinalIgnoreCase.
+- `guard-base-other`: a string matches neither fixed role; its value is private.
+- `guard-base-unavailable`: the value is not a string or classification throws.
+
+The original ErrorRecord stays retained; a classification error stays private
+and cannot replace it or produce success. All four categories are admitted only
+as an unavailable module-phase failure after the validated fixture, with the
+existing complete exit2 terminal and no stderr. Historical `guard-base` remains
+valid. Malformed, private, future, cross-phase, duplicated, trailing, partial,
+deadline or unconfirmed-cleanup output still cannot pass the operation controls.
+
+Only the test catch adds this 633-character projection. It performs string
+comparisons and path-string processing, with no additional IO, import, process,
+frame, field, environment or deadline. The actual producer module guard,
+shared 6194-character fragment and its 6400-character cap, legacy script,
+original Enter and process helper remain unchanged. There is no new origin
+allowlist or mechanism eligibility. In particular, an assembly-parent role
+cannot be inferred before the later actual assembly-origin validation.
+
+Portable quoting checks count UTF-16 units including NUL: the conventional
+protected system-image text fixture yields 26694 for the prefix control and
+26470 for managed IO, below 32767. The unchanged legacy command yields 31126.
+These are source-text measurements; the existing Windows pre-launch assertions
+still check the actual protected executable before either control. Native
+PowerShell is unavailable on this Mac. The actual base-role result, any later
+origin-binding correction, C7 mechanism, rights, Windows 11 and R19 acceptance
+remain unverified. No installer or release is authorized by this observation.
