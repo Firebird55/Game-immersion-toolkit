@@ -81,20 +81,33 @@ class QuiesceableExecutor(Executor):
 
 
 class RuntimeWriterGate:
-    def __init__(self):
+    def __init__(self, *, closed_candidate=False):
+        if type(closed_candidate) is not bool:
+            raise TypeError('Closed candidate mode must be a boolean.')
         self._condition = threading.Condition()
-        self._accepting = True
+        self._closed_candidate = closed_candidate
+        self._accepting = not closed_candidate
         self._active = 0
         self._epoch = object()
 
+    @property
+    def closed_candidate(self):
+        return self._closed_candidate
+
+    def require_reopenable(self):
+        if self._closed_candidate:
+            raise WritersQuiescing('This experimental candidate cannot admit work or activate.')
+
     def capture_ticket(self):
         with self._condition:
+            self.require_reopenable()
             if not self._accepting:
                 raise WritersQuiescing('Runtime handoff is stopping writers. Retry after activation or recovery.')
             return RuntimeAdmissionTicket(self, self._epoch)
 
     def enter(self, ticket=_UNTICKETED):
         with self._condition:
+            self.require_reopenable()
             if not self._accepting:
                 raise WritersQuiescing('Runtime handoff is stopping writers. Retry after activation or recovery.')
             if ticket is not _UNTICKETED and (type(ticket) is not RuntimeAdmissionTicket
@@ -125,6 +138,7 @@ class RuntimeWriterGate:
 
     def resume(self):
         with self._condition:
+            self.require_reopenable()
             self._accepting = True
 
 
@@ -140,14 +154,24 @@ class RuntimeWriterMiddleware:
     async def __call__(self, scope, receive, send):
         current = self.current_runtime()
         gate = getattr(current, 'request_writers', None)
-        if scope['type'] != 'http' or scope.get('path') in self._control or gate is None:
+        if scope['type'] != 'http':
             await self.app(scope, receive, send)
             return
         try:
-            gate.enter()
+            pinned = getattr(current, '_candidate_writer_gate', None)
+            if pinned is not None and (type(pinned) is not RuntimeWriterGate
+                    or not pinned.closed_candidate or gate is not pinned):
+                raise WritersQuiescing('Experimental candidate gate ownership changed.')
+            controls = {'/api/health', '/api/runtime/ready'} if gate is not None and gate.closed_candidate else self._control
+            bypass = scope.get('path') in controls or gate is None
+            if not bypass:
+                gate.enter()
         except WritersQuiescing as error:
             from starlette.responses import JSONResponse
             await JSONResponse({'detail': str(error)}, status_code=503, headers={'Retry-After': '1'})(scope, receive, send)
+            return
+        if bypass:
+            await self.app(scope, receive, send)
             return
         try:
             # Pure ASGI scope includes body/stream completion, unlike a

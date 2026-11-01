@@ -148,7 +148,8 @@ snapshot before creation and again before readiness is accepted; it does not
 provide continuous filesystem protection or a concurrent replacement proof.
 
 Both exact native creation records are retained in the existing Windows Job
-before either resumes. Commands are fixed normal `api --port … --standby` and
+before either resumes. Commands are fixed normal
+`api --port … --standby --candidate-closed` and
 `frontend --port …` entrypoints. Their environment comes from
 `layout.child_environment` with an explicit minimal OS environment: authoritative
 Windows directories and fresh disposable profile/temp locations. Parent keys,
@@ -191,10 +192,45 @@ partial creation, changed inventory, root links, foreign/reused listener identit
 child exit, deadline expiry and independent sticky cleanup failures. They are
 source behavior evidence, not Win32 or normal frozen startup acceptance.
 
-`--standby` currently leaves ordinary request/capture admission open. A private
-port or a successful readiness result therefore does **not** make this a safe
-candidate for an A/B transaction or establish single-capture ownership. Candidate
-admission, coherent final-copy/store rebind, retained OCR warmth, stable routing,
-WS/chunk continuity, keeper-loss/global-writer closure, recovery, source/rights
-eligibility and Win11 remain open. No installer, migration, activation, capture
-start, ordinary updater change or PR59 change is part of this building block.
+### Closed candidate admission: source implementation, native proof pending
+
+Ordinary source startup and `--standby` retain their existing open request and
+capture-control behavior. Only the fixed experimental owner adds
+`--candidate-closed`. That option requires explicit standby, an explicit private
+port, Windows and the validated frozen experimental main image. It constructs
+one permanently closed `RuntimeWriterGate` before importing the API services,
+then passes that exact object through a process-local app/lifespan binding into
+Runtime before its first service constructor. Missing, wrong or replaced startup
+bindings refuse startup; a changed Runtime gate refuses work. There is no open
+fallback, new environment permission, endpoint, ticket or owner-authorized opener.
+
+The existing writer middleware permits only health and readiness HTTP paths.
+For this candidate configuration alone, that same middleware moves inside local
+access validation and outside CORS, so even a trusted preflight for another path
+returns retryable 503 before dispatch. Ordinary middleware order remains unchanged.
+Configuration also binds the original writer registration and its exact original
+runtime callback, with no positional arguments or extra keyword inputs; replacing
+the same-class record or changing its callback refuses before any configuration
+or service effects. The bound lifespan rechecks that registration, callback and
+configured order before constructing Runtime.
+WebSockets accept then close with 1013 before hub/status access; untrusted origins
+still close with 1008. Both handoff controls return 503, including spoofed local
+update headers and malformed bodies. Direct activation, pool/SQL recovery,
+reader-creation admission, update start and gate resume refuse before their effects.
+Stop/drain remain available, but neither is a global writer or resource proof.
+
+Constructors and existing standby OCR/map warming still run against private state.
+An Event-held warm-task fixture with actual Runtime/stores and ASGI requests tests
+closure both while readiness is false and after readiness becomes true. Account
+transport and native OCR are authored fixtures there; it is source behavior proof,
+not an ordinary frozen startup or Windows OCR result. The fresh marker-only profile
+still lacks native OneOCR prerequisites, and this unit supplies no assets, rights
+approval or readiness exception.
+
+Monotone closure does not make this a usable A/B candidate: there is deliberately
+no supported transition that opens it. Coherent final-copy/store rebind, retained
+OCR warmth, stable routing, WS/chunk continuity, keeper-loss/global-writer closure,
+physical resource cleanup, recovery, source/rights eligibility and Win11 remain
+open. A private port, 503 or readiness response confers no takeover authority. No
+installer, migration, activation, capture start, ordinary updater change or PR59
+change is part of this building block.

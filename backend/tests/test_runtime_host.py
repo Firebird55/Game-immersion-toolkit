@@ -142,7 +142,7 @@ def test_normal_standby_owns_fixed_real_commands_before_resume_and_actual_http_i
     calls=value.state.calls;creates=[call for call in calls if call[0]=='create']
     assert len(creates)==2 and calls.index(creates[1])<next(i for i,call in enumerate(calls) if call[0]=='resume')
     assert creates[0][2]==value.layout.child_command('frontend',['--port',str(value.frontend.server_port)])
-    assert creates[1][2]==value.layout.child_command('api',['--port',str(value.api.server_port),'--standby'])
+    assert creates[1][2]==value.layout.child_command('api',['--port',str(value.api.server_port),'--standby','--candidate-closed'])
     assert all('--runtime-probe' not in call[2] for call in creates)
     for _,_,_,options in creates:
         assert options['detached_console'] is True

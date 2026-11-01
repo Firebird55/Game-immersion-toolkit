@@ -98,7 +98,7 @@ def _standby_system_environment():
 
 
 class OwnedStandbySlot:
-    """Internal, gated normal-process building block, NOT candidate admission.
+    """Internal normal-process owner with permanently closed work admission.
 
     The caller supplies independently reviewed full inventory pins and a fresh
     disposable root. These pins confer no source, rights or slot eligibility.
@@ -403,7 +403,7 @@ class OwnedStandbySlot:
                 WindowsPreparationProcess.__init__(self.tree)
                 self._tree_constructed = True
                 with self._job(deadline):
-                    for role,args in (('frontend',['--port',str(self.frontend_port)]),('api',['--port',str(self.api_port),'--standby'])):
+                    for role,args in (('frontend',['--port',str(self.frontend_port)]),('api',['--port',str(self.api_port),'--standby','--candidate-closed'])):
                         self._remaining(deadline)
                         before = tuple(self.tree.created_children)
                         try:

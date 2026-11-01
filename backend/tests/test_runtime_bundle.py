@@ -35,6 +35,70 @@ def frozen_layout(tmp_path, *, children=(), resources=None, profile='diagnostic'
         resources=resources or {}, version='0.22.0', source_commit='a' * 40, build_id='synthetic', profile=profile)
 
 
+@pytest.mark.parametrize('arguments', [[], ['--standby'], ['--standby', '--port', '18767']])
+def test_ordinary_main_keeps_import_string_and_source_standby_behavior(monkeypatch, arguments):
+    from backend import main
+    calls = []
+    monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
+    monkeypatch.setattr(main.sys, 'argv', ['api', *arguments])
+    monkeypatch.setattr(main.uvicorn, 'run', lambda target, **options: calls.append((target, options)))
+    main.main()
+    assert calls == [('backend.api:app', dict(host='127.0.0.1', port=18767 if '--port' in arguments else 8766,
+                                            log_level='info', reload=False))]
+    assert main.os.environ.get('PROXY_TRANSCRIPT_STANDBY') == ('1' if '--standby' in arguments else None)
+
+
+@pytest.mark.parametrize('failure', ['source', 'not-windows', 'no-standby', 'no-port', 'public-port',
+    'frontend-port', 'privileged-port', 'invalid-port', 'diagnostic', 'production', 'asr', 'child-subset', 'resources'])
+def test_closed_candidate_cli_refuses_unsupported_startup_before_api_configuration(tmp_path, monkeypatch, failure):
+    from backend import main
+    layout = frozen_layout(tmp_path, children=bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
+    arguments = ['api', '--candidate-closed', '--standby', '--port', '18767']
+    monkeypatch.setattr(main.sys, 'frozen', failure != 'source', raising=False)
+    monkeypatch.setattr(main.sys, 'platform', 'darwin' if failure == 'not-windows' else 'win32')
+    if failure == 'no-standby': arguments.remove('--standby')
+    if failure == 'no-port': arguments = arguments[:-2]
+    for case, port in [('public-port','8766'), ('frontend-port','3000'), ('privileged-port','1024'), ('invalid-port','65536')]:
+        if failure == case: arguments[-1] = port
+    if failure == 'diagnostic': layout = replace(layout, profile='diagnostic')
+    if failure == 'production': layout = replace(layout, profile='runtime')
+    if failure == 'asr': layout = replace(layout, executable=layout.application_root/'ProxyTranscriptAsr.exe')
+    if failure == 'child-subset': layout = replace(layout, children=('api',))
+    if failure == 'resources': layout = replace(layout, resource_root=layout.application_root/'other')
+    monkeypatch.setattr(bundle, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(main.sys, 'argv', arguments)
+    monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
+    monkeypatch.setattr(main.uvicorn, 'run', lambda *_args, **_options: pytest.fail('An invalid candidate started Uvicorn'))
+    # Guard rejection precedes even importing/configuring the API target.
+    monkeypatch.setitem(sys.modules, 'backend.api', SimpleNamespace(
+        closed_candidate_app=lambda *_: pytest.fail('An invalid candidate configured the API')))
+    with pytest.raises(bundle.RuntimeBundleError): main.main()
+    assert 'PROXY_TRANSCRIPT_STANDBY' not in main.os.environ
+
+
+def test_closed_candidate_cli_passes_exact_closed_gate_to_process_local_app(tmp_path, monkeypatch):
+    from backend import main
+    from backend.runtime_writers import RuntimeWriterGate, WritersQuiescing
+    layout = frozen_layout(tmp_path, children=bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
+    monkeypatch.setattr(main.sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(main.sys, 'platform', 'win32')
+    monkeypatch.setattr(main.sys, 'argv', ['api', '--candidate-closed', '--standby', '--port', '18767'])
+    monkeypatch.setattr(bundle, 'discover_layout', lambda: layout)
+    monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
+    gates, calls, target = [], [], object()
+    def configure(gate):
+        assert type(gate) is RuntimeWriterGate and gate.closed_candidate
+        assert main.os.environ['PROXY_TRANSCRIPT_STANDBY'] == '1'
+        with pytest.raises(WritersQuiescing): gate.capture_ticket()
+        with pytest.raises(WritersQuiescing): gate.resume()
+        gates.append(gate)
+        return target
+    monkeypatch.setitem(sys.modules, 'backend.api', SimpleNamespace(closed_candidate_app=configure))
+    monkeypatch.setattr(main.uvicorn, 'run', lambda value, **options: calls.append((value, options)))
+    main.main()
+    assert len(gates) == 1 and calls == [(target, dict(host='127.0.0.1', port=18767, log_level='info', reload=False))]
+
+
 def test_source_roots_ignore_cwd_and_keep_legacy_data(tmp_path, monkeypatch):
     unrelated = tmp_path / 'unrelated'
     unrelated.mkdir()

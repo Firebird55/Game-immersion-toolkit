@@ -8,6 +8,24 @@ import pytest
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 
 
+def test_closed_candidate_gate_cannot_issue_tickets_enter_or_reopen_after_stop():
+    gate = RuntimeWriterGate(closed_candidate=True)
+    ordinary = RuntimeWriterGate()
+    old_ticket = ordinary.capture_ticket()
+    for _ in range(2):
+        gate.stop_admission()
+        gate.wait_drained(0)
+        for operation in (gate.capture_ticket, gate.enter, lambda: gate.enter(old_ticket), gate.resume):
+            with pytest.raises(WritersQuiescing): operation()
+    assert gate.closed_candidate and not gate._accepting and gate._active == 0
+    with pytest.raises(AttributeError): gate.closed_candidate = False
+    for invalid in (None, 0, 1, 'true'):
+        with pytest.raises(TypeError): RuntimeWriterGate(closed_candidate=invalid)
+    ordinary.enter(old_ticket); ordinary.leave()
+    ordinary.stop_admission(); ordinary.resume()
+    ordinary.enter(); ordinary.leave()
+
+
 def test_admission_tickets_bind_gate_and_epoch_and_retire_across_resume():
     gate, other = RuntimeWriterGate(), RuntimeWriterGate()
     ticket = gate.capture_ticket()

@@ -162,9 +162,12 @@ class _RuntimeSqlHandoff:
 
 
 class Runtime:
-    def __init__(self) -> None:
+    def __init__(self, *, candidate_gate=None) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
-        self.request_writers = RuntimeWriterGate()
+        if candidate_gate is not None:
+            _validate_candidate_gate(candidate_gate)
+        self.request_writers = candidate_gate if candidate_gate is not None else RuntimeWriterGate()
+        self._candidate_writer_gate = candidate_gate
         self._handoff_lock = asyncio.Lock()
         self._handoff_drains = []
         self._writer_handoff = False
@@ -603,6 +606,7 @@ class Runtime:
         return self.hito.refresh()
 
     def start_updates(self) -> None:
+        Runtime._require_reopenable(self)
         if self._updates_started:
             return
         self._updates_started = True
@@ -866,6 +870,7 @@ class Runtime:
         return record.payload
 
     def _resume_sql_handoff(self, deadline):
+        Runtime._require_reopenable(self)
         record = self._sql_handoff
         if record is None:
             return  # An earlier producer failure never reached SQL reservation.
@@ -948,6 +953,7 @@ class Runtime:
         self._handoff_drains.clear()
 
     async def activate_handoff(self, payload, *, writers=False):
+        Runtime._require_reopenable(self)
         # A recovery call cannot reopen admission between two quiesce steps.
         deadline = time.monotonic()+30 if writers else None
         async with self._handoff_until(deadline):
@@ -985,12 +991,14 @@ class Runtime:
                 raise
 
     def resume_writers(self, deadline=None):
+        Runtime._require_reopenable(self)
         if any(not task.done() for task in self._handoff_drains):
             raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
         self._resume_writer_pools(deadline)
         self._clear_handoff_drains()
 
     def _resume_writer_pools(self, deadline=None):
+        Runtime._require_reopenable(self)
         if self._sql_handoff is not None:
             if deadline is None: raise TimeoutError('Runtime SQL recovery requires its active deadline.')
             self._check_sql_handoff(self._sql_handoff, deadline, resumed=True)
@@ -1009,6 +1017,7 @@ class Runtime:
         self.automatic_exports.picker.resume()
 
     def admit_requests(self, deadline=None):
+        Runtime._require_reopenable(self)
         record = self._sql_handoff
         if record is None:
             self._reading_registry.reopen_creation()
@@ -1048,6 +1057,15 @@ class Runtime:
             return
         self._sql_handoff = None
         self._writer_handoff = False
+
+    def _require_reopenable(self):
+        pinned = getattr(self, '_candidate_writer_gate', None)
+        gate = getattr(self, 'request_writers', None)
+        if pinned is not None and (type(pinned) is not RuntimeWriterGate
+                or gate is not pinned or not pinned.closed_candidate):
+            raise WritersQuiescing('Experimental candidate gate ownership changed.')
+        if gate is not None:
+            gate.require_reopenable()
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -1141,10 +1159,26 @@ class Runtime:
 runtime: Runtime
 
 
+def _validate_candidate_gate(gate):
+    if (type(gate) is not RuntimeWriterGate or not gate.closed_candidate
+            or os.environ.get('PROXY_TRANSCRIPT_STANDBY') != '1'):
+        raise RuntimeError('Closed candidate startup requires its exact closed gate and standby.')
+
+
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(_app: FastAPI, *, candidate_gate=None):
     global runtime
-    runtime = Runtime()
+    if candidate_gate is None and hasattr(_app.state, '_candidate_writer_gate'):
+        raise RuntimeError('Closed candidate startup gate binding is missing.')
+    if candidate_gate is not None:
+        _validate_candidate_gate(candidate_gate)
+        if getattr(_app.state, '_candidate_writer_gate', None) is not candidate_gate:
+            raise RuntimeError('Closed candidate startup gate binding changed.')
+        runtime = Runtime(candidate_gate=candidate_gate)
+        if runtime.request_writers is not candidate_gate or runtime._candidate_writer_gate is not candidate_gate:
+            raise RuntimeError('Closed candidate Runtime gate binding changed.')
+    else:
+        runtime = Runtime()
     if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
             and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
         runtime.start_map_prepare()
@@ -1185,6 +1219,51 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
 
 
+def _validate_writer_middleware_binding(writers):
+    if (writers is not _RUNTIME_WRITER_MIDDLEWARE or writers.cls is not RuntimeWriterMiddleware
+            or type(writers.args) is not tuple or writers.args != ()
+            or type(writers.kwargs) is not dict or set(writers.kwargs) != {'current_runtime'}
+            or writers.kwargs['current_runtime'] is not _RUNTIME_WRITER_CALLBACK):
+        raise RuntimeError('Closed candidate writer middleware binding changed.')
+
+
+def closed_candidate_app(gate):
+    """One restrictive process-local startup binding; there is no opener."""
+    _validate_candidate_gate(gate)
+    if app.router.lifespan_context is not lifespan:
+        raise RuntimeError('The API startup lifetime is already bound.')
+    if app.middleware_stack is not None:
+        raise RuntimeError('Closed candidate configuration must precede ASGI startup.')
+    # Use the same writer middleware/gate before CORS can answer a preflight.
+    # Local access remains outermost; ordinary/source app ordering is untouched.
+    ordered = app.user_middleware
+    roles = (LocalAccessMiddleware, CORSMiddleware, RuntimeWriterMiddleware)
+    if (len(ordered) < 3 or tuple(item.cls for item in ordered[:3]) != roles
+            or any(sum(item.cls is role for item in ordered) != 1 for role in roles)):
+        raise RuntimeError('Closed candidate middleware ownership differs.')
+    local, cors, writers = ordered[:3]
+    _validate_writer_middleware_binding(writers)
+    ordered[:3] = [local, writers, cors]
+    configured_order = tuple(ordered)
+    app.state._candidate_writer_gate = gate
+
+    @asynccontextmanager
+    async def candidate_lifespan(application):
+        if application is not app or getattr(application.state, '_candidate_writer_gate', None) is not gate:
+            raise RuntimeError('Closed candidate startup gate binding changed.')
+        current_order = application.user_middleware
+        if (len(current_order) != len(configured_order)
+                or any(current is not captured for current, captured in zip(current_order, configured_order))):
+            raise RuntimeError('Closed candidate writer middleware binding changed.')
+        _validate_writer_middleware_binding(writers)
+        _validate_candidate_gate(gate)
+        async with lifespan(application, candidate_gate=gate):
+            yield
+
+    app.router.lifespan_context = candidate_lifespan
+    return app
+
+
 @app.middleware('http')
 async def pin_account_request(request: Request, call_next):
     current = globals().get('runtime')
@@ -1208,7 +1287,9 @@ async def pin_account_request(request: Request, call_next):
         REQUEST_KEY.reset(token)
 
 
-app.add_middleware(RuntimeWriterMiddleware, current_runtime=lambda: globals().get('runtime'))
+_RUNTIME_WRITER_CALLBACK = lambda: globals().get('runtime')
+app.add_middleware(RuntimeWriterMiddleware, current_runtime=_RUNTIME_WRITER_CALLBACK)
+_RUNTIME_WRITER_MIDDLEWARE = app.user_middleware[0]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(COMPANION_ORIGINS),
@@ -2086,9 +2167,13 @@ def windows() -> list[dict[str, object]]:
 @app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket) -> None:
     current = runtime
-    hub, gate, status = current.hub, current.request_writers, current.status
+    gate, hub = getattr(current, 'request_writers', None), None
     try:
         try:
+            pinned = getattr(current, '_candidate_writer_gate', None)
+            if pinned is not None and (type(pinned) is not RuntimeWriterGate
+                    or not pinned.closed_candidate or gate is not pinned):
+                raise WritersQuiescing('Experimental candidate gate ownership changed.')
             ticket = gate.capture_ticket()
         except WritersQuiescing:
             # Accept first: an ASGI close before acceptance is HTTP denial,
@@ -2096,6 +2181,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             await websocket.accept()
             await websocket.close(code=1013)
             return
+
+        hub, status = current.hub, current.status
 
         def snapshot_status():
             gate.enter(ticket)
@@ -2121,7 +2208,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         except Exception:
             pass
     finally:
-        await hub.disconnect(websocket)
+        if hub is not None:
+            await hub.disconnect(websocket)
 
 
 class ToolkitUpdatePreferences(BaseModel):
