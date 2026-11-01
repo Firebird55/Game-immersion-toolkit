@@ -4,7 +4,7 @@ import ctypes
 import io
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import subprocess
 import sys
 import threading
@@ -987,6 +987,77 @@ def real_conversion_pair(parent_environment, run):
     return result
 
 
+def real_conversion_system_environments(parent_environment, executable):
+    # The caller obtains this exact image from Windows.powershell(), not PATH.
+    # These three fresh controls do not change the actual Attempt environment.
+    if executable is None:
+        return {}
+    image = PureWindowsPath(executable)
+    if (not image.is_absolute() or len(image.drive) != 2 or '..' in image.parts
+            or tuple(part.casefold() for part in image.parts[-3:]) !=
+                ('windowspowershell', 'v1.0', 'powershell.exe')
+            or image.parents[2].name.casefold() != 'system32'):
+        raise ValueError('Protected Windows PowerShell system search inputs unavailable.')
+    folder, system = image.parent, image.parents[2]
+    values = {
+        'system-path': {'PATH': ';'.join((str(system), str(folder)))},
+        'system-modules': {'PSModulePath': str(folder / 'Modules')},
+    }
+    values['system-path-and-modules'] = {**values['system-path'], **values['system-modules']}
+    baseline = module.legacy_environment(parent_environment)
+    return {name: {**baseline, **overrides} for name, overrides in values.items()}
+
+
+def test_system_search_controls_use_only_protected_image_paths_and_independent_filtered_snapshots():
+    parent = {'SystemRoot': 'authored-system', 'TEMP': 'authored-temp',
+        'PATH': 'private-tools', 'PSModulePath': 'private-modules', 'PRIVATE_KEY': 'private-value'}
+    original = dict(parent)
+    controls = real_conversion_system_environments(parent,
+        r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe')
+    baseline = {'SystemRoot': 'authored-system', 'TEMP': 'authored-temp'}
+    paths = {'PATH': r'S:\Windows\System32;S:\Windows\System32\WindowsPowerShell\v1.0'}
+    modules = {'PSModulePath': r'S:\Windows\System32\WindowsPowerShell\v1.0\Modules'}
+    assert controls == {'system-path': {**baseline, **paths},
+        'system-modules': {**baseline, **modules}, 'system-path-and-modules': {**baseline, **paths, **modules}}
+    assert parent == original and 'private-' not in json.dumps(controls)
+    controls['system-path']['TEMP'] = 'changed-authored-value'
+    assert controls['system-modules']['TEMP'] == controls['system-path-and-modules']['TEMP'] == parent['TEMP']
+
+
+@pytest.mark.parametrize('executable', ['powershell.exe', r'S:\tools\pwsh.exe',
+    r'S:\Windows\System32\..\System32\WindowsPowerShell\v1.0\powershell.exe'])
+def test_system_search_controls_refuse_noncanonical_image_shapes_without_exposing_input(executable):
+    with pytest.raises(ValueError, match='^Protected Windows PowerShell system search inputs unavailable\\.$'):
+        real_conversion_system_environments({}, executable)
+    assert real_conversion_system_environments({}, None) == {}
+
+
+@pytest.mark.parametrize('refusal', ['none', 'attempt', 'extra-cleanup'])
+def test_five_control_decision_preserves_actual_pair_and_refuses_uncertain_extra_cleanup(monkeypatch, refusal):
+    image = r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(powershell=lambda: image))
+    monkeypatch.setattr(sys.modules[__name__], 'os', SimpleNamespace(environ={
+        'SystemRoot': 'authored-system', 'PRIVATE_KEY': 'private-parent-value'}))
+    calls = []
+    def run(executable, script, environment, *, diagnostic):
+        assert executable == image
+        calls.append(dict(environment))
+        diagnostic.update(refusal='none', stderr_prefix='empty', cleanup='child-exit-and-readers-finished')
+        if refusal == 'extra-cleanup' and len(calls) == 5:
+            diagnostic['cleanup'] = 'unconfirmed'
+        state = 'unavailable' if len(calls) > 2 or refusal == 'attempt' and len(calls) == 2 else 'parsed'
+        return {'state': state, 'context': None, 'stderr_present': False}
+    monkeypatch.setattr(sys.modules[__name__], 'run_real_conversion_control', run)
+    if refusal == 'none':
+        test_authored_real_conversion_under_inherited_and_attempt_environment()
+    else:
+        with pytest.raises(pytest.fail.Exception) as failed:
+            test_authored_real_conversion_under_inherited_and_attempt_environment()
+        assert 'private-' not in str(failed.value) and image not in str(failed.value)
+    assert len(calls) == 5
+    assert 'PRIVATE_KEY' in calls[0] and all('PRIVATE_KEY' not in value for value in calls[1:])
+
+
 def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mutating_parent():
     parent = {'SystemRoot': 'authored-root', 'WINDIR': 'authored-windows', 'TEMP': 'authored-temp',
         'tMp': 'authored-tmp', 'LOCALAPPDATA': 'authored-cache', 'ProgramFiles': 'authored-programs',
@@ -1240,12 +1311,25 @@ if ($state -ceq 'parsed') { exit 0 } else { exit 2 }
             diagnostic.update(closed_real_control_boundary(None))
             return None
         return run_real_conversion_control(executable, script, environment, diagnostic=diagnostic)
-    observed = real_conversion_pair(dict(os.environ), run)
+    parent_environment = dict(os.environ)
+    observed = real_conversion_pair(parent_environment, run)
+    system_controls = {}
+    for name, environment in real_conversion_system_environments(parent_environment, executable).items():
+        diagnostic = {}
+        try:
+            value = run_real_conversion_control(executable, script, environment, diagnostic=diagnostic)
+        except Exception:
+            value = None
+        system_controls[name] = {'observation': closed_real_conversion_observation(value),
+            'boundary': closed_real_control_boundary(diagnostic)}
     expected = {'state': 'parsed', 'context': None, 'stderr_present': False}
-    if any(value != expected for value in observed.values()):
+    if (any(value != expected for value in observed.values()) or any(
+            value['boundary']['cleanup'] != 'child-exit-and-readers-finished'
+            for value in system_controls.values())):
         closed = {key: closed_real_control_boundary(boundaries.get(key)) for key in ('inherited', 'attempt')}
         pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':'))
-            + '; parent boundaries: ' + json.dumps(closed, sort_keys=True, separators=(',', ':')))
+            + '; parent boundaries: ' + json.dumps(closed, sort_keys=True, separators=(',', ':'))
+            + '; system search controls: ' + json.dumps(system_controls, sort_keys=True, separators=(',', ':')))
 
 
 def test_changed_wire_does_not_relabel_historical_v2_receipts():

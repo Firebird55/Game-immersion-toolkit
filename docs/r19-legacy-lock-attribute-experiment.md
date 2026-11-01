@@ -315,7 +315,36 @@ cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
 
 ### Separate paired real-cmdlet control and bounded parent observation
 
-#### Later Windows-runtime environment candidate, native pending
+#### Windows-runtime environment candidate and system-search controls
+
+At `0f93531`, separate run `41254860334` on image `20261021.278.1` passed
+216 authored contracts and failed the paired control (15.32 seconds, no skips).
+Inherited reported `parsed`, null context, no stderr and refusal `none`;
+the fifteen-name Attempt reported `unavailable`, null context, no stderr and
+`wait-deadline`. Both direct test children/readers finished. Mechanism/upload
+were skipped, with no artifact. The earlier four-name negatives remain intact;
+this result does not identify a missing variable or an actual-mechanism cause.
+
+The later test-only diagnostic adds three fresh literal-input children after
+collecting the original pair: filtered environment plus a fixed system PATH,
+plus a fixed PowerShell module path, and plus both. Paths are derived only from
+the protected legacy PowerShell image obtained through GetSystemDirectoryW:
+PATH contains System32 and that image's directory; PSModulePath is its Modules
+directory. No inherited program/module path or new parent value is admitted.
+These are three explicit prospective controls, not changes to Attempt policy.
+
+The [documented module search](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath)
+motivates measuring these inputs; it is not evidence that either caused the
+refusal. PowerShell can further construct its effective module path, so the
+supplied value alone does not prove exclusive loaded-module origin. The literal
+script, conversion/projector, capture/wait/cleanup limits and original two-way
+parsed/null-context/no-stderr requirement remain unchanged. All five children
+are collected before that joint decision. Additional children must have
+confirmed direct-child/reader cleanup before the test can pass. Only closed
+observation/parent labels are included on refusal; environment values, program
+paths, raw stderr and exception text are never added to the diagnostic.
+Native measurements of these added controls remain pending. They grant no
+keeper-loss, physical/global, rights, Windows 11 or R19 acceptance.
 
 At `a2e1fb6`, run `41250877798` passed 214 contracts and failed the paired case
 on image 20261021.278.1 (14.54 seconds, zero skips). Its closed parent labels
