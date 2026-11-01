@@ -254,7 +254,9 @@ class Review:
                        if not self.has_hash(value_sha, 'THIRD_PARTY/' + name + '/')]
             if missing:
                 self.block('complete_notices', 'wheel-notices', 'Full exact wheel notices are missing: ' + name, missing)
-            if not value['notices'] and normalized(name) not in {'rapidocr-onnxruntime', 'sherpa-onnx-core', 'flatbuffers', 'oneocr'}:
+            # These two Qt wheels defer their primary grant to sources(), which
+            # binds their exact version to the retained supplier source/license.
+            if not value['notices'] and normalized(name) not in {'rapidocr-onnxruntime', 'sherpa-onnx-core', 'flatbuffers', 'oneocr', 'pyside6-essentials', 'shiboken6'}:
                 self.block('complete_notices', 'wheel-no-grant', 'Wheel has no full primary license evidence; an independently pinned source notice is needed: ' + name)
             self.evidence('exact_wheels', name=name, version=value['version'], archive_sha256=value['sha256'], verified_members=len(value['files']))
 
@@ -541,7 +543,11 @@ class Review:
             selected.update({'mesa-qt', 'llvm-mesa'})
             self.block('corresponding_sources', 'mesa-supplier-build', 'Selected Qt software renderer needs supplier patch/build correspondence; upstream Mesa/LLVM source versions alone do not prove the supplier build. Remove the optional renderer with native raster-UI validation, or retain the exact supplier build source.', mesa)
         self.collection(native_pins, 'native', selected)
-        if 'pyside6-essentials' in names:
+        if names & {'pyside6-essentials', 'shiboken6'}:
+            for name in names & {'pyside6-essentials', 'shiboken6'}:
+                if self.wheels[name]['version'] != qt_pins['version']:
+                    self.block('complete_notices', 'qt-source-version', 'Qt primary source notice differs from the selected wheel: ' + name)
+                    raise ValueError('Qt source-notice version differs from the selected wheel: ' + name)
             qt = {'pyside-setup', 'qtbase', 'qtsvg', 'qtimageformats'}
             if any(name.endswith('.qm') for name in self.inventory):
                 qt.add('qttranslations')
@@ -561,7 +567,9 @@ class Review:
         audit = json.loads(result.stdout)
         if audit['lock_sha256'] != frontend.value['lock_sha256']:
             raise ValueError('Installed frontend notice closure uses a different package lock.')
-        text = (frontend.root / 'notices/THIRD_PARTY_LICENSES.txt').read_text(encoding='utf-8')
+        # Node retains each supplier notice's original CRLF/LF bytes. Universal
+        # newline conversion would falsely report those exact notices missing.
+        text = (frontend.root / 'notices/THIRD_PARTY_LICENSES.txt').read_bytes().decode('utf-8')
         missing = [item['package'] + ' @ ' + item['version'] + ': ' + item['file']
             for item in audit['records'] if (item['package'] + ' @ ' + item['version'] not in text or item['text'] not in text)]
         if missing:

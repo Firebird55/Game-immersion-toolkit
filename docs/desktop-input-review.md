@@ -66,6 +66,13 @@ The checks verify:
   text in a build folder does not count unless
   retained in the delivered frontend.
 
+Qt wheels without an embedded primary grant defer that check to the exact
+version-matched PySide/Shiboken source collection. Missing source archives,
+changed versions or missing full source notices still fail review. Frontend
+notice comparison retains original CRLF/LF bytes when reading the delivered
+file; newline conversion cannot turn a present supplier notice into an omission,
+and truncated notice text remains rejected.
+
 The exact locked `@img/sharp-libvips-*` native image-optimizer packages are a
 separate build-input case: their npm archives omit full native-library notices,
 and the supplier's Apache license covers its scripts rather than its linked
