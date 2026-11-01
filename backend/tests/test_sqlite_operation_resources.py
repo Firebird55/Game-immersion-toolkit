@@ -1,10 +1,14 @@
-"""Owned SQLite statements and error identities, without physical-detach claims.
+"""Owned SQLite statements/error identities and bounded Windows file replacement.
 
 These actual Cursor/Connection fixtures catch resources which an operation
 counter alone cannot settle, including execute failing before cursor handover.
-Native/frame/credential/account work is forbidden; all HTTP uses strict mocks.
+Capture/frame/credential/account work is forbidden; all HTTP uses strict mocks.
+The three Windows-only cases cover owned temporary DB/WAL/SHM files, not a
+Runtime/global mutable-root detach. Their explicit raw-private connection/cursor
+is a physical-handle negative, not evidence of an ordinary service/API race.
 """
-from contextlib import closing
+from contextlib import closing, contextmanager
+import os
 import sqlite3
 import threading
 from types import SimpleNamespace
@@ -171,6 +175,21 @@ def path(value):
     return value.db_path if isinstance(value, LexiriseService) else value.path
 
 
+@contextmanager
+def raw_private_cursor(value):
+    """Authored uncounted client, not a service scope or a close_v2 proof."""
+    options = {} if isinstance(value, LexiriseReadingService) else {'timeout': 10}
+    db = sqlite3.connect(path(value), **options)
+    try:
+        cursor = db.cursor()
+        try:
+            yield db, cursor
+        finally:
+            cursor.close()  # CPython refuses this after Connection.close().
+    finally:
+        db.close()
+
+
 def thread_call(state, operation):
     result = SimpleNamespace(done=threading.Event(), value=None, error=None)
 
@@ -240,6 +259,152 @@ def test_owned_unfinished_cursor_and_body_traceback_can_remain_referenced_after_
     with pytest.raises(sqlite3.ProgrammingError):
         retained.fetchone()
     exclusive(state, value)  # Retained cursor/error/traceback are all still alive.
+
+
+@pytest.mark.parametrize('kind', ['transcript', 'ledger', 'reading'])
+def test_raw_private_cleanup_closes_unfinished_cursor_before_connection_even_with_body_error(sql_state, kind):
+    """Run the Windows negative's actual cleanup helper on real SQLite here.
+
+    Reversing this order raises ProgrammingError and loses the original body
+    error; the once-counts, retained identity and real lock probe guard that bug.
+    """
+    state = sql_state
+    root = state.make(kind)
+    value = root.pin('ja') if kind == 'ledger' else root
+    owner = value._sql_lifetime
+    with scope(value) as db:
+        with owner.cursor(db) as statement:
+            statement.execute('PRAGMA journal_mode=DELETE')
+        with owner.cursor(db) as statement:
+            statement.execute('CREATE TABLE owned_private_rows (id INTEGER)')
+        with owner.cursor(db) as statement:
+            statement.executemany('INSERT INTO owned_private_rows VALUES (?)', [(1,), (2,), (3,)])
+    token = value.freeze_connections(0)
+    body = RuntimeError('Authored private-client body error.')
+    with pytest.raises(RuntimeError) as raised:
+        with raw_private_cursor(value) as (private_db, private_cursor):
+            assert private_cursor.execute('SELECT id FROM owned_private_rows ORDER BY id').fetchone()[0] == 1
+            token.check(value)  # This separate raw client is outside owner admission.
+            with pytest.raises(sqlite3.OperationalError, match='locked'): exclusive(state, value)
+            raise body
+    retained_traceback = body.__traceback__
+    assert raised.value is body and retained_traceback is not None
+    assert private_cursor.close_calls == private_db.close_calls == 1
+    assert private_cursor.native_closed and private_db.closed_cleanly
+    assert private_db.order[-3:] == [('cursor-close-enter', private_cursor),
+        ('cursor-close-return', private_cursor), ('connection-close', private_db)]
+    token.check(value)
+    exclusive(state, value)
+    assert body.__traceback__ is retained_traceback and private_cursor.connection is private_db
+    assert not owner.failures
+
+
+@pytest.mark.skipif(os.name != 'nt', reason='Real Windows SQLite file-sharing replacement is unavailable on this platform.')
+@pytest.mark.parametrize('kind', ['transcript', 'ledger', 'reading'])
+def test_windows_owned_db_wal_shm_replace_with_retained_objects_and_raw_private_cursor_negative(sql_state, tmp_path, monkeypatch, kind):
+    state = sql_state
+    # Exactly C5's native supplier API, never an extra SQL keeper connection.
+    # Missing API on hosted Windows is a failure, never another platform skip.
+    assert callable(getattr(sqlite3.Connection, 'setconfig', None))
+    assert callable(getattr(sqlite3.Connection, 'getconfig', None))
+    option = getattr(sqlite3, 'SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE', None)
+    assert type(option) is int
+    allowed = {tmp_path/'owned-transcript.db', tmp_path/'owned-lexirise/exports-v2.db',
+               tmp_path/'owned-lexirise/reading-cache-v2.db'}
+    connect = sqlite3.connect
+
+    def retained_wal(database, *args, **options):
+        assert database in allowed
+        # The existing observer asserts the exact production arguments before
+        # adding its test-only recording Connection/Cursor subclasses.
+        db = connect(database, *args, **options)
+        try:
+            db.setconfig(option, True)
+            assert db.getconfig(option) is True
+        except BaseException:
+            db.close()  # This actual pre-handover connection closes once only.
+            raise
+        return db
+
+    monkeypatch.setattr(sqlite3, 'connect', retained_wal)
+    root = state.make(kind)
+    value = root.pin('ja') if kind == 'ledger' else root
+    owner = value._sql_lifetime
+    assert owner is root._sql_lifetime
+    with scope(value) as db:
+        with owner.cursor(db) as statement:
+            assert statement.execute('PRAGMA journal_mode=WAL').fetchone()[0] == 'wal'
+        with owner.cursor(db) as statement:
+            statement.execute('CREATE TABLE owned_replace_rows (id INTEGER PRIMARY KEY, text TEXT)')
+        with owner.cursor(db) as statement:
+            statement.executemany('INSERT INTO owned_replace_rows VALUES (?,?)', [(1, '甲'), (2, '乙'), (3, '丙')])
+    read(value)  # A normal service operation materializes its return value.
+    body = RuntimeError('Authored retained statement body traceback.')
+    with pytest.raises(RuntimeError) as raised:
+        with scope(value, read=True) as closed_db:
+            with owner.cursor(closed_db) as closed_cursor:
+                assert tuple(closed_cursor.execute('SELECT id,text FROM owned_replace_rows ORDER BY id').fetchone()) == (1, '甲')
+                raise body
+    retained_traceback = body.__traceback__
+    assert raised.value is body and retained_traceback is not None
+    assert closed_cursor.close_calls == closed_db.close_calls == 1 and closed_cursor.native_closed
+    if kind == 'reading': assert closed_db.enters == closed_db.exits == 0
+    token = value.freeze_connections(0)
+    token.check(value)
+    database = path(value)
+    family = (database, database.with_name(database.name+'-wal'), database.with_name(database.name+'-shm'))
+
+    def replace_and_restore():
+        before = {file: file.read_bytes() for file in family}
+        assert all(before.values()), 'Owned DB/WAL/SHM must all be present and nonempty.'
+        moved = []
+        try:
+            for file in family:
+                parked = file.with_name(file.name+'.authored-moved')
+                assert not parked.exists()
+                os.replace(file, parked)
+                moved.append((file, parked))
+                assert not file.exists() and parked.read_bytes() == before[file]
+        finally:
+            for file, parked in reversed(moved): os.replace(parked, file)
+        assert all(file.read_bytes() == before[file] for file in family)
+
+    # No objects are discarded and no GC is invoked as resource-release proof.
+    # The observer retains every successful Connection/Cursor too.
+    assert all(db.close_calls == 1 and db.closed_cleanly for db in state.opened)
+    assert all(cursor.close_calls == 1 and cursor.native_closed for db in state.opened for cursor in db.cursors)
+    replace_and_restore()
+    assert body.__traceback__ is retained_traceback and closed_cursor.connection is closed_db
+    token.check(value)
+
+    # Explicit raw-private client, outside owner admission. Its still-open
+    # connection/cursor hold physical handles despite this valid owner token.
+    # This is not a service API race or a closed-DB cursor-cleanup claim.
+    try:
+        with raw_private_cursor(value) as (escaped_db, escaped):
+            assert tuple(escaped.execute('SELECT id,text FROM owned_replace_rows ORDER BY id').fetchone()) == (1, '甲')
+            assert escaped_db.close_calls == escaped.close_calls == 0
+            assert not escaped_db.closed_cleanly and not escaped.native_closed
+            assert value.freeze_connections(0) is token
+            token.check(value)  # Operation fence alone is insufficient here.
+            for file in family:
+                parked = file.with_name(file.name+'.authored-escaped')
+                assert not parked.exists()
+                with pytest.raises(PermissionError) as blocked: os.replace(file, parked)
+                assert blocked.value.winerror in {32, 33}, 'Expected an actual Windows sharing/lock violation.'
+    finally:
+        # Restore an unexpected successful negative-case rename before failing
+        # the test; raw_private_cursor already closed cursor then connection.
+        for file in family:
+            parked = file.with_name(file.name+'.authored-escaped')
+            if parked.exists(): os.replace(parked, file)
+    assert escaped.close_calls == escaped_db.close_calls == 1 and escaped.native_closed and escaped_db.closed_cleanly
+    assert escaped_db.order[-3:] == [('cursor-close-enter', escaped),
+        ('cursor-close-return', escaped), ('connection-close', escaped_db)]
+    token.check(value)
+    assert body.__traceback__ is retained_traceback and closed_cursor.connection is closed_db
+    replace_and_restore()
+    assert not owner.failures
 
 
 @pytest.mark.parametrize('kind', ['transcript', 'ledger', 'reading'])
