@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
 
@@ -10,6 +11,9 @@ const end = source.indexOf('            const binding=', start);
 assert.ok(start >= 0 && end > start);
 const admit = new Function('value', 'child',
   "const refuse=()=>{throw new Error('refused')};\n" + source.slice(start, end) + '\nreturn true;');
+const companionLF = readFileSync(new URL('../scripts/companion-runtime.ps1', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
+const currentSourceHashes = [companionLF, companionLF.replaceAll('\n', '\r\n')]
+  .map(value => createHash('sha256').update(value, 'utf8').digest('hex'));
 
 function failed() {
   return {schema:'proxy-r19-legacy-lock-attribute-mechanism-v5',
@@ -22,10 +26,10 @@ function failed() {
     grant_conversion_failure:null};
 }
 
-function complete() {
+function complete(hash = currentSourceHashes[0]) {
   const value = failed();
   Object.assign(value, {status:'mechanism-observed',phase:'complete',failure:'none',
-    legacy_source_sha256:'c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef',
+    legacy_source_sha256:hash,
     cleanup:'owned-handles-closed-fixture-retained',
     baseline_checkpoint:{parent_step:'cleanup',script_step:'operationresult',child_state:'signaled'},
     observed:['writable-open','exclusive-held','arm','live-clear','rearm',
@@ -40,6 +44,25 @@ test('v5 publisher admits complete criteria and bounded failure without a native
   assert.equal(admit(failed(), {status:2}), true);
   // Changed access/metadata-change times remain observations, not new promises.
   assert.equal(admit(complete(), {status:0}), true);
+});
+
+test('v5 publisher binds both actual source line endings and refuses stale or unknown sources', () => {
+  for (const hash of currentSourceHashes) {
+    const value = failed();
+    value.legacy_source_sha256 = hash;
+    assert.equal(admit(value, {status:2}), true);
+    assert.equal(admit(complete(hash), {status:0}), true);
+  }
+  for (const hash of [
+    'c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef',
+    'f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e',
+    '0'.repeat(64),
+  ]) {
+    const value = failed();
+    value.legacy_source_sha256 = hash;
+    assert.throws(() => admit(value, {status:2}), /refused/);
+    assert.throws(() => admit(complete(hash), {status:0}), /refused/);
+  }
 });
 
 test('v5 publisher refuses historical contexts, type substitutions and incomplete acceptance', () => {

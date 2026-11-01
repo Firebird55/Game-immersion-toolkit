@@ -212,7 +212,7 @@ jobs:
             for (const [key,expected] of Object.entries(fixed)) if (value[key] !== expected) refuse();
             const phases=['fixture','legacy-baseline','lease-start','arm','live-clear','rearm','owner-loss','post-loss','test-restore','restored','cleanup','complete'];
             const failures=['none','unsupported-host','fixture-refused','native-call-failed','protocol-refused','source-changed','preservation-refused','legacy-outcome-differed','owned-cleanup-unconfirmed','unexpected-failure'];
-            const hashes=['c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef','f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e'];
+            const hashes=['c3735131417eb01d93e5fb19138f64997bf771a0b4d5f913d7b4f08aef0f350f','9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056'];
             const observations=['writable-open','exclusive-held','arm','live-clear','rearm','genuine-owner-signaled-and-closed','post-loss-readonly-refused','restored-open'];
             const times=['arm','live-clear','rearm','post-loss','test-restore','restored'];
             const fields=['access_equal','change_equal','creation_equal','write_equal'];
