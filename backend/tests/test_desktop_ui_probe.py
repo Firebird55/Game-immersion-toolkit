@@ -154,3 +154,33 @@ def test_browser_diagnostics_are_checkpointed_without_granting_navigation(tmp_pa
         'browser': {'1': 'animation-frame-pending'}, 'visibility': {'1': 'hidden'},
         'http': {'document': 200, 'script': 200, 'snapshot': 'pending'}}
     assert host.browser_probe_token not in raw and 'private-url' not in raw
+
+
+def test_browser_ack_can_follow_observed_logs_after_browser_covers_window(tmp_path):
+    probe, host, opened = fixture(tmp_path)
+    host.open_browser('http://127.0.0.1:12345')
+    probe.tick()
+    probe.tick()
+    assert probe.checks['show_logs_action'] and 'browser_open' not in probe.checks
+    probe.window.hide()
+    probe.browser_result.write_text('{"stages":[1]}')
+    probe.tick()
+    assert probe.checks['browser_open'] and len(opened) == 2
+    probe.browser_result.write_text('{"stages":[1,2]}')
+    probe.tick()
+    code, value = finish(probe, host, tmp_path)
+    assert code == 0 and value['passed'] and value['complete']
+    assert value['checks']['show_logs_action'] and value['checks']['open_transcript_navigation']
+
+
+def test_browser_ack_cannot_replace_unobserved_show_logs_action(tmp_path):
+    probe, host, opened = fixture(tmp_path)
+    host.open_browser('http://127.0.0.1:12345')
+    probe.tick()
+    probe.window.hide()
+    probe.browser_result.write_text('{"stages":[1,2]}')
+    probe.tick()
+    assert 'show_logs_action' not in probe.checks and 'browser_open' not in probe.checks
+    assert len(opened) == 1 and not host.stop_requested.is_set()
+    code, value = finish(probe, host, tmp_path)
+    assert code == 1 and not value['passed']

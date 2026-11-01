@@ -99,9 +99,13 @@ class DesktopUiProbe:
             self.actions['logs'].trigger()
             self.phase = 'logs'
         elif self.phase == 'logs':
-            if not self.visible():
-                return
-            self.checks['show_logs_action'] = True
+            if not self.checks.get('show_logs_action'):
+                if not self.visible():
+                    return
+                self.checks['show_logs_action'] = True
+            # A newly opened browser can cover the log window. Its earlier
+            # exposure remains valid evidence of Show logs; requiring both
+            # windows to stay exposed traps a genuine mounted-reader reply.
             if not self.requests[0]:
                 self.stop('default-browser-handler-unavailable')
                 return
