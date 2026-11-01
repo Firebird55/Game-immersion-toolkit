@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `020c44f`, 1,598 Windows contracts without skips, one warning, 118 subtests and 392.44 seconds, 37 actual PowerShell projector/sink cases, then C1/cold/living-keeper/C3–C6 plus the new fixed populated P2 case passed; seven artifacts/29 entries and 127 immutable Git inputs with twelve new source freeze pins independently verified | Latest complete bounded checkpoint. P2 covers one authored four-root fixture with TEST envelopes, real normal API/SQLite, separate verification clone, two cohorts/four signals/two drains/nine source checks and confirmed cleanup. The separate C7 bootstrap gate fails before mechanism/upload. No full real-library/browser/DPAPI migration, target activation, global/dynamic writer fence, physical closure, keeper loss, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `8449d81`, 1,628 Windows contracts without skips, one warning, 118 subtests and 386.98 seconds, 37 actual PowerShell sink cases, then all selected C1/cold/living-keeper/C3–C6/P2 fixtures passed; seven artifacts/29 entries, 127 core Git inputs plus one owner doc (128 read) independently verified | Latest complete bounded checkpoint. P2 retains its one authored four-root TEST/API/clone fixture and closed gates. Normal standby owner is source-only, with no native ordinary-owner/admission/warm case. Separate C7 shared module guard and MP3 configure-ffmpeg failure remain negative. No complete real libraries/browser/DPAPI continuity, target activation, global/dynamic fence, physical closure, keeper loss, usable warm OCR/routing, exact-output rights or ordinary Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -362,10 +362,10 @@ target activation, physical/global/dynamic fencing, warm usable OCR/routing,
 full corresponding-source/rights, ordinary Windows 11 and full R19 remain open.
 No production activation, installer, PR #59 change or new ASR replay is implied.
 
-## Current bounded populated checkpoint at 020c44f
+## Bounded populated checkpoint at 020c44f
 
 The [020c44f checkpoint](r19-runtime-bundle.md#verified-populated-bounded-checkpoint-at-020c44f)
-supersedes 589 as the latest complete bounded result: 1,598 Windows contracts,
+superseded 589 as the latest complete bounded result at that cutoff: 1,598 Windows contracts,
 no skips, one warning, 118 subtests, 392.44 seconds; 37 actual PowerShell
 projector/sink cases also passed. Seven artifacts/29 entries, 127 immutable Git
 inputs and twelve new source freeze pins bind the exact candidate. Inventory is
@@ -399,6 +399,38 @@ from 020. The [ledger](r19-frozen-checkpoint-20261031.json) retains 107 old reco
 and appends this positive and separate negative. Physical/global/dynamic/warm/
 keeper-loss, exact-output rights, ordinary Windows 11, production activation and
 full R19 stay unaccepted; no installer or PR #59 change follows.
+
+## Current bounded source-owner checkpoint at 8449d81
+
+The [8449 checkpoint](r19-runtime-bundle.md#verified-bounded-source-owner-checkpoint-at-8449d81)
+supersedes 020: 1,628 Windows contracts/zero skips/one warning/118 subtests/
+386.98 seconds and 37 actual PowerShell sink cases, then all selected C1/cold/
+living-keeper/C3–C6/P2 fixtures. Seven artifacts/29 entries, 127 core Git inputs
+plus one owner doc (**128 read**) bind 1,449 files/642 directories/620,248,890
+bytes, inventory SHA-256
+`7cb2aba875706c342b4182ca48fa3cec307fa06b637c5fee68f364173e445cbf`.
+Protected-TEST image is `20261030.294.1`; six other jobs use `20261021.278.1`.
+Xiph's six-entry/907-member source/rebuild remains exact; actual CMake 4.4.4/
+compiler 19.51.36260.0 and all 473 A2/P1/notice bindings were checked.
+
+The P2 receipt retains the same 55 typed fixture fields as 020 apart from source/
+build identity: two cohorts/four signals/two drains/nine source checks and
+confirmed API/clone/preservation/cleanup outcomes. This completes the fixed
+authored case, not full real libraries, browser/DPAPI, all locale/schema/WAL
+continuity or physical/global copy authority. The new normal standby-owner
+class is source-only with no native ordinary-owner or candidate-admission case;
+existing FrozenProbeHost/C3–C6 ASTs remain 020-identical. Later monotone candidate
+work and C7 subguard localization have no native acceptance at this head.
+
+The separate C7 gate failed 350/one/no skips in 5.11 seconds: shared module guard,
+not a distinguished predicate or import/path/GAC cause; direct cleanup confirmed,
+mechanism/upload skipped, zero artifacts. Separate MP3 failure artifact 13090411643,
+2,776 bytes, binds 17 raw/canonical-LF inputs but fails configure-ffmpeg/exit 1
+with no diagnostic code or known condition. There is no encode/decode pass,
+complete compiled source/rights approval or runtime adoption. The ledger keeps
+109 historic values/rawprefix unchanged and adds these three outcomes.
+Production/installer, real-state repair, global/dynamic/physical/warm/keeper-loss,
+exact-output rights, Windows 11 and full R19 gates remain open; PR #59 is intact.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

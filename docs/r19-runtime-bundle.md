@@ -15,8 +15,8 @@ game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
 data migration are outside this task. No release, tag or Pages publication is
 authorized. Engineering evidence below distinguishes source contracts,
 synthetic probes, a diagnostic executable and the accepted product candidate.
-The latest complete **bounded** frozen checkpoint is now `020c44f`, described
-[below](#verified-populated-bounded-checkpoint-at-020c44f). Historical
+The latest complete **bounded** frozen checkpoint is now `8449d81`, described
+[below](#verified-bounded-source-owner-checkpoint-at-8449d81). Historical
 negative checkpoints remain negative; this is not full R19 acceptance.
 
 ## R02b method fixed before optimization
@@ -1661,7 +1661,7 @@ job `124876632364`, passed **1,598 Windows contracts, no skips, one warning,
 118 subtests, 392.44 seconds**, plus **37 actual PowerShell projector/sink
 cases** before the build. Both EXE/COLLECT trees, relocation/native/C1,
 cold slots, both bounded living-keeper cases, C3–C6 and the new separate P2
-populated fixture passed. This is the latest complete bounded checkpoint;
+populated fixture passed. This was the latest complete bounded checkpoint at that cutoff;
 589 and all earlier positive and negative records remain historical.
 
 Root and peer independently bound seven provider artifacts/29 entries and
@@ -1714,6 +1714,77 @@ locale/DPAPI migration, global/dynamic fencing, physical closure, keeper loss,
 usable warm OCR/routing, exact-output rights and ordinary Windows 11 remain
 open. Production/profile activation, installer and full R19 stay disabled;
 PR #59 is unchanged.
+
+## Verified bounded source-owner checkpoint at 8449d81
+
+At `8449d816bc52fedd11c0d531c05e46f0d693c795`,
+[run 41323015203](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323015203),
+job `124897070135`, passed **1,628 Windows contracts, no skips, one warning,
+118 subtests, 386.98 seconds**, plus 37 actual PowerShell projector/sink cases,
+both EXE/COLLECT trees and all selected native/C1/cold/living-keeper/C3–C6/P2
+fixtures. It is the latest complete bounded checkpoint. Root and peer checked
+seven artifacts/29 exact entries and 127 core immutable Git inputs plus one
+additional owner document (**128 read**); no old evidence was overwritten.
+
+Integrated artifact **13090437434** is 1,338,759 bytes, SHA-256
+`1132571d197f703749f0760b6cb4e6915e879475f9f66837d54e1fbbde8c8640`;
+reference artifact **13089699883** is 1,095,192 bytes, SHA-256
+`09083bdf39eca79ca79c24e9f4ef8cbd7ded214b10ac729e067368441d7937ad`.
+The 661,687-byte inventory binds 1,449 files/642 directories/620,248,890 bytes,
+SHA-256 `7cb2aba875706c342b4182ca48fa3cec307fa06b637c5fee68f364173e445cbf`.
+Protected-TEST used image `20261030.294.1`; the other six actual jobs used
+`20261021.278.1`. No image/tool version is inherited from 020.
+
+All 473 A2/P1 extension-selected records and 57 components/113 notice references/
+104 distinct hashes, 20 retained supplier texts/provenance and wheel notices
+were rebound. The unchanged six-entry Xiph kit/907 upstream members and
+byte-identical original/rebuild, decode/fault/DLL-origin checks passed. Actual
+reference tools were **CMake 4.4.4/compiler 19.51.36260.0**. Metadata/source
+binding still does not approve complete dynamic/native closure or rights.
+
+The seven authored host/copy receipts retain 020's exact typed fields apart
+from current source/build identity. P2's 2,487-byte/55-field receipt has SHA-256
+`650a22ae124c0551aca2d14771f61dec2b5896db32c86571ad7dd4b82bdcde03`:
+two genuine source cohorts/four retained signals/two strict drains/nine source
+checks, both API/clone readback, stopped-source/snapshot/external/pointer
+preservation and confirmed cleanup. The TEST envelope, fixed MockTransport,
+single four-root fixture and lack of browser/DPAPI/WAL/physical/activation
+acceptance remain unchanged. Fifteen ASR inputs remain unchanged without replay.
+
+The additive `OwnedStandbySlot` is a **source-only building block** at this
+head. All fourteen existing host definitions, full FrozenProbeHost and C3–C6
+driver ASTs match 020. There is no actual ordinary frozen-owner/candidate-
+admission case, routing/warm rebind or production caller. Current monotone
+candidate-admission work is outside this native checkpoint.
+
+Separate [C7 run 41323022215](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323022215),
+job `124897083316`, failed its shared module guard controls: **350 passed,
+one failed, no skips, 5.11 seconds**, image `20261021.278.1`. Both controls
+last delivered `fixture-validated`, phase `module`/error `guard`, unavailable/
+`protocol-refused`, empty stderr. Both direct children/readers and fixture
+removals are confirmed. Duplicate log renderings describe one independent pair.
+Mechanism/upload were skipped; artifacts zero. None of the five guard predicates,
+module path/import/GAC causes, absent operations or descendant cleanup is proved.
+Later subguard localization is source work, not a native repair result.
+
+Separate [MP3 run 41323030583](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323030583),
+attempt 1/job `124897111061`, produced failure metadata pair **13090411643**: 2,776 bytes,
+SHA-256 `d8cf32c6a61bd593ad93de5ebf2685caf357032098740c779d4659dea3f345f2`.
+Its exact `MP3-FAILURE.json` is 592 bytes/SHA-256
+`e5579f5d3f0d5d32794ca4fd35125c2853ac0d9d8c40281c997ef90c4788b738`;
+`MP3-CI-BINDING.json` is 5,027 bytes/SHA-256
+`28026040c8915eef3d3ffc1882e261924a8b9ccdd50326ae29e65ebcc2fe96b7`.
+It records equal verified source and 17 exact raw/canonical-LF project copies,
+then `configure-ffmpeg`, exit 1, unclassified-command-failure, no diagnostic code
+and no truncation. The failed condition is unknown. Encode/decode did not run;
+no cleanup, compiled source-delivery/rights or runtime approval follows.
+
+The [ledger](r19-frozen-checkpoint-20261031.json) retains 109 old values and
+their exact raw prefix, appending these three separate outcomes. Full real-
+library/browser/DPAPI continuity, global/dynamic admission, physical closure,
+keeper loss, usable warm OCR/routing, exact-output rights, ordinary Windows 11,
+production/profile activation and full R19 remain open. No installer or PR #59
+change follows; local P4/C7/MP3 work is not retrospective native evidence.
 
 ## Continuation and rollback
 

@@ -201,14 +201,14 @@ copied-target activation, protected-store repair, full corresponding-source/
 rights, ordinary-user Windows 11 and complete R19 remain false/unavailable.
 No installer or production/profile activation is added; PR #59 remains intact.
 
-## Current populated bounded checkpoint at 020c44f
+## Populated bounded checkpoint at 020c44f
 
 At `020c44fec8afd66de9e471fe732cb852af5a96da`,
 [run 41316180498](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316180498)
 passed 1,598 Windows contracts without skips, one warning, 118 subtests in 392.44
 seconds and 37 actual PowerShell projector/sink checks, then C1/cold/both
 living-keeper/C3–C6 and the distinct populated P2 native fixture. It is the
-latest complete bounded checkpoint. Seven artifacts/29 entries and 127 exact
+latest complete bounded checkpoint at that cutoff. Seven artifacts/29 entries and 127 exact
 Git inputs, including twelve new source freeze pins, were independently bound.
 Integrated artifact 13087833846 is 1,338,889 bytes/SHA-256
 `91bee0bd6a07d70890c727901f46d5754b810750f410f582a86eb2b5ea984e43`;
@@ -247,6 +247,48 @@ Later C7/P4/MP3 source work is not this candidate's native result. The
 and their raw prefix, appending the separate 020 positive and C7 negative.
 Physical/global/dynamic fencing, keeper loss, usable warm OCR/routing, full
 real-state repair, exact-output rights, ordinary Windows 11, production/profile
+activation and full R19 remain open; no installer or PR #59 change follows.
+
+## Current bounded copy checkpoint at 8449d81
+
+At `8449d816bc52fedd11c0d531c05e46f0d693c795`,
+[run 41323015203](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323015203)
+passed 1,628 contracts/zero skips/one warning/118 subtests in 386.98 seconds,
+37 actual PowerShell sink cases and all selected C1/cold/living-keeper/C3–C6/P2
+fixtures. This is the latest complete bounded checkpoint: seven artifacts/
+29 entries, 127 core immutable Git inputs plus one owner doc (**128 read**).
+Integrated artifact 13090437434 is 1,338,759 bytes/SHA-256
+`1132571d197f703749f0760b6cb4e6915e879475f9f66837d54e1fbbde8c8640`;
+inventory is 1,449 files/642 directories/620,248,890 bytes/SHA-256
+`7cb2aba875706c342b4182ca48fa3cec307fa06b637c5fee68f364173e445cbf`.
+
+The new 2,487-byte P2 receipt, SHA-256
+`650a22ae124c0551aca2d14771f61dec2b5896db32c86571ad7dd4b82bdcde03`,
+retains all 55 typed fields from 020 apart from head/build identity. Both genuine
+cohorts/four retained signals/two drains/nine independent source checks,
+normal API and disposable clone readback, stopped-source/snapshot/external/
+pointer preservation, old-barrier refusal and confirmed cleanup pass again.
+The source/clone policy, TEST envelope/mock HTTP and exact fixture rows remain
+bounded; no new real-library/browser/DPAPI/WAL/physical/activation claim follows.
+C3–C6 remain distinct original fixtures, and fifteen ASR inputs are unchanged.
+
+The additive ordinary standby-owner class is only a source building block;
+all fourteen original host definitions and full FrozenProbeHost/C3–C6 ASTs
+remain 020-identical, with no actual ordinary frozen-owner/admission case.
+Protected-TEST alone used image `20261030.294.1`; six other jobs used
+`20261021.278.1`. Actual Xiph CMake 4.4.4/compiler 19.51.36260.0 and unchanged
+source/rebuild/473 A2/P1/notices were independently bound.
+
+Separate [C7 run 41323022215](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323022215)
+failed 350/one/no skips in 5.11 seconds at the shared module guard. Direct child/
+reader/fixture cleanup is confirmed. No failed predicate/cause is identified;
+mechanism/upload were skipped and the provider returned zero artifacts.
+The separate MP3 configure-ffmpeg/exit 1 failure metadata pair binds 17
+raw/LF copies but supplies no encode/decode, cleanup approval or copy authority.
+The [ledger](r19-frozen-checkpoint-20261031.json) retains 109 old values/rawprefix
+and appends three separate outcomes. Current candidate-admission, C7 subguard
+and MP3 observer work is not native evidence from 8449. Global/dynamic/physical/
+keeper-loss/warm, full real-state repair/source-rights, Windows 11, production
 activation and full R19 remain open; no installer or PR #59 change follows.
 
 ## Verified frozen checkpoint
