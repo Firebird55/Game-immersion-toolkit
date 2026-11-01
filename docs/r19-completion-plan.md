@@ -3,7 +3,7 @@
 Status: **planned remaining work; no acceptance gate is closed by this plan**.
 
 Current PR #60 task boundary (2026-11-01): the ongoing integration with `main`
-at `eb27e74e084dde6f4b2dab0a7b486838a8bcb781` preserves its production desktop
+at `0ec5f5f74a19a9de4fbc119ba3f5a283f01674ce` preserves its production desktop
 host, current credential layout and shared component pin. Focused source reviews
 passed; joint branch checks and native acceptance require their own evidence for
 the combined commit. Older frozen receipts do not verify that combined source.
@@ -66,6 +66,26 @@ PR #59 remains unchanged. No installer, release/tag, Pages publication, installe
 shortcut transaction or live migration is authorized by this plan.
 
 ## Historical starting point
+
+The combined `1b4366f` attempt is a subsequent negative checkpoint, recorded
+separately in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
+Its 1,780 selected Windows contracts passed before the experimental collector
+incorrectly required a Linux-only wheel. The frontend diagnostic stopped at its
+static browser fixture before recording/freezing; the managed bridge's authored
+assemblies no longer matched the production provider interface. Both C7 controls
+refused at the system module's base guard, so the actual mechanism did not run.
+The separate MP3 configure observation reached `libmp3lame-check-failed`; its
+compiler-probe codes do not identify a causal linker failure. Two downloaded
+private-reader metadata receipts passed their bounded review without supplying
+a replayable private build cohort or collection/rights approval.
+
+The corresponding source/fixture repairs and closed diagnostics need a new
+exact-head Windows run. The source fix for [native-reader observation](r19-native-unreal-probe.md)
+retains actual resources and the first failure when cleanup is uncertain.
+The newer `main` also supplies release-metadata and tag-diagnostic changes;
+their integration must preserve the existing consumer interface. The latest
+complete bounded frozen checkpoint remains `8449d81`. Ordinary-user Windows 11
+hardware is still unavailable; no installer or new acceptance follows.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |

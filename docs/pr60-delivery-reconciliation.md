@@ -35,3 +35,13 @@ separate evidence for the combined commit. Parent-held activation authority,
 retaining usable OCR warmth through final-store rebind, complete source/rights
 delivery and ordinary-user Windows 11 evidence remain open. No installer,
 release, live migration or PR #59 action is part of this task.
+
+The next actual target is `0ec5f5f74a19a9de4fbc119ba3f5a283f01674ce`
+(externally published 0.23.1). It adds bounded reader failure phases, the
+immutable-tag diagnostic and a release-metadata preparer that preserves already
+correct CRLF files. The overlapping probe keeps one actual private holder while
+supporting the existing three-argument diagnostic view and its closed v1 report;
+the ordinary two-argument path retains the closed v2 failure. Module retention
+must survive diagnostic return and collection without turning metadata into
+cleanup or activation authority. New tests cover that compatibility boundary;
+neither the old Windows negatives nor the original tag are rewritten.

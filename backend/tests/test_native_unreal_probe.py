@@ -71,8 +71,9 @@ def test_probe_reuses_exact_runtime_receipts_and_dependency_closure(tmp_path, mo
     assert set(identities) == {'helper_manifest_sha256', 'resource_manifest_sha256', 'managed_components_sha256'}
 
 
+@pytest.mark.parametrize('observation_mode', ['private', 'legacy'])
 @pytest.mark.parametrize('fault', ['dirty', 'commit', 'source', 'dependency-bytes', 'checkout-dirty'])
-def test_probe_rejects_stale_or_changed_collection_evidence_before_execution(tmp_path, monkeypatch, fault):
+def test_probe_rejects_stale_or_changed_collection_evidence_before_execution(tmp_path, monkeypatch, fault, observation_mode):
     probe = module(); helper, resources, source = source_fixture(tmp_path, monkeypatch, probe)
     path = resources / 'resource-manifest.json'
     receipt = json.loads(path.read_text())
@@ -83,12 +84,24 @@ def test_probe_rejects_stale_or_changed_collection_evidence_before_execution(tmp
         monkeypatch.setattr(probe.subprocess, 'check_output', lambda command, **kw: ' M changed' if command[1] == 'status' else 'a' * 40)
     else: (resources / 'toolchains/nte/UEExtractor.dll').write_bytes(b'changed')
     path.write_text(json.dumps(receipt))
-    observation=probe._Observation()
-    with pytest.raises(ValueError) as caught: probe._layout(helper, resources, tmp_path / 'probe', observation=observation)
-    observation.failed(caught.value)
-    value=observation.failure()
-    assert value['stage'] == ('source-identity' if fault == 'checkout-dirty' else 'helper-receipt' if fault == 'dependency-bytes' else 'resource-receipt')
-    assert value['child'] == probe._child_default() and observation.owners == [] and value['completed_checks'] == []
+    observation=probe._Observation() if observation_mode == 'private' else {}
+    with pytest.raises(ValueError) as caught: probe._layout(helper, resources, tmp_path / 'probe', observation)
+    if observation_mode == 'private':
+        observation.failed(caught.value)
+        value=observation.failure()
+        assert value['stage'] == ('source-identity' if fault == 'checkout-dirty' else 'helper-receipt' if fault == 'dependency-bytes' else 'resource-receipt')
+        assert value['child'] == probe._child_default() and observation.owners == [] and value['completed_checks'] == []
+        view=observation.compatibility_view()
+    else: view=observation
+    expected = {
+        'dirty': ('dependency-source-identity', 'source-receipt-dirty'),
+        'commit': ('dependency-source-identity', 'source-receipt-commit'),
+        'source': ('dependency-source-identity', 'source-input-hash'),
+        'dependency-bytes': ('dependency-inventory', 'dependency-inventory-bytes'),
+        'checkout-dirty': ('checkout-cleanliness', 'source-checkout-dirty'),
+    }
+    report=probe.failure_report(caught.value,view)
+    assert (report['phase'],report['reason']) == expected[fault] and report['passed'] is False
 
 
 @pytest.mark.parametrize('fault', [None, 'runtime', 'payload'])
@@ -296,7 +309,8 @@ def test_failed_probe_keeps_actual_fixture_owner_and_error_without_cleanup_retry
     assert value['passed'] is False and value['stage']=='runtime-identity' and 'PRIVATE' not in json.dumps(value)
 
 
-def test_success_projection_and_fixture_cleanup_are_not_replaced_by_diagnostics(tmp_path,monkeypatch):
+@pytest.mark.parametrize('legacy_mode', [False, True])
+def test_success_projection_and_fixture_cleanup_are_not_replaced_by_diagnostics(tmp_path,monkeypatch,legacy_mode):
     probe=module(); fixture=tmp_path/'owned-fixture'; fixture.mkdir(); source='a'*40
     monkeypatch.setattr(probe.tempfile,'mkdtemp',lambda **kwargs:str(fixture)); monkeypatch.setattr(probe,'host_platform',lambda:'win-x64')
     identities={n:'b'*64 for n in ('helper_manifest_sha256','resource_manifest_sha256','managed_components_sha256')}
@@ -304,12 +318,14 @@ def test_success_projection_and_fixture_cleanup_are_not_replaced_by_diagnostics(
     def checks(*args,observation):
         observation.completed=list(probe.CHECKS);return {n:True for n in probe.CHECKS}
     monkeypatch.setattr(probe,'run_checks',checks)
-    result=probe.probe(tmp_path/'helper',tmp_path/'resources')
+    view={}
+    result=probe.probe(tmp_path/'helper',tmp_path/'resources',view) if legacy_mode else probe.probe(tmp_path/'helper',tmp_path/'resources')
     assert result == dict(schema='toolkit-unreal-native-probe-v1',platform='win-x64',source_commit=source,source_dirty=False,
         execution='actual-app-local-process',**identities,probe_source_sha256=probe.digest(Path(probe.__file__).read_bytes()),
         checks={n:True for n in probe.CHECKS},passed=True,real_games_accessed=False,real_accounts_accessed=False,
         game_asset_validation='not-performed',encrypted_archive_validation='not-performed',oodle_validation='not-performed',rights_review='pending')
     assert not fixture.exists() and probe._RETAINED_FAILURES == []
+    if legacy_mode: assert view['phase']=='report'
 
 
 def test_closed_failure_projection_refuses_forged_progress_labels_and_private_fields():
@@ -359,3 +375,99 @@ def test_successful_native_checks_cannot_mask_failed_fixture_removal(tmp_path,mo
     assert value['completed_checks']==list(probe.CHECKS) and value['cleanup']==dict(state='unconfirmed',step='fixture')
     assert held.fixture==fixture and held.errors[0] is error and calls==[fixture] and fixture.exists()
     assert 'PRIVATE' not in json.dumps(value)
+
+
+@pytest.mark.parametrize('error,reason', [
+    (FileNotFoundError('private/missing.dll'), 'missing-file'),
+    (PermissionError('private/denied.dll'), 'permission-denied'),
+    (json.JSONDecodeError('private document', 'private data', 0), 'invalid-json'),
+    (ValueError('private validation detail'), 'validation-error'),
+    (RuntimeError('private child output'), 'unexpected-error'),
+])
+def test_public_failure_diagnostics_never_copy_exception_text_or_unknown_phases(error, reason):
+    probe = module()
+    report = probe.failure_report(error, {'phase': 'private/path', 'stderr': 'private child stderr'})
+    assert report['phase'] == 'initializing'
+    assert report['reason'] == reason
+    assert report['passed'] is False
+    assert 'private' not in json.dumps(report)
+    assert set(report) == {'schema', 'platform', 'passed', 'error', 'phase', 'reason'}
+
+
+def test_probe_diagnostic_reasons_are_fixed_not_caller_controlled():
+    probe = module()
+    with pytest.raises(ValueError, match='Unknown native reader diagnostic code'):
+        probe.ProbeFailure('private failure message')
+    error = probe.ProbeFailure('source-receipt-dirty')
+    error.code = 'private mutation'
+    report = probe.failure_report(error, {'phase': 'dependency-source-identity'})
+    assert report['reason'] == 'validation-error'
+    assert 'private' not in json.dumps(report)
+
+
+def test_probe_distinguishes_missing_receipt_from_dirty_checkout(tmp_path, monkeypatch):
+    probe = module()
+    monkeypatch.setattr(probe.subprocess, 'check_output', lambda command, **kw: '' if command[1] == 'status' else 'a' * 40)
+    observation = {}
+    with pytest.raises(FileNotFoundError) as caught:
+        probe._layout(tmp_path / 'helper', tmp_path / 'resources', tmp_path / 'work', observation)
+    report = probe.failure_report(caught.value, observation)
+    assert (report['phase'], report['reason']) == ('dependency-receipt-json', 'missing-file')
+
+
+def test_dirty_checkout_diagnostics_only_name_allowlisted_release_metadata():
+    probe = module()
+    observation = {'phase': 'checkout-cleanliness', **probe.checkout_diagnostic(
+        ' M package.json\n M VERSION\n?? private/account.json\n M scripts/changed.py\n')}
+    report = probe.failure_report(probe.ProbeFailure('source-checkout-dirty'), observation)
+    assert report['changed_release_metadata'] == ['VERSION', 'package.json']
+    assert report['other_changed'] is True
+    assert 'private' not in json.dumps(report) and 'scripts/' not in json.dumps(report)
+    observation['changed_release_metadata'].append('private/added-later')
+    assert probe.failure_report(probe.ProbeFailure('source-checkout-dirty'), observation) == report
+    assert probe.checkout_diagnostic(' M release-version.json\n')['other_changed'] is False
+
+
+def test_real_three_argument_probe_preserves_exact_release_diagnostic_and_original_error(tmp_path, monkeypatch):
+    probe=module();helper,resources,_=source_fixture(tmp_path,monkeypatch,probe)
+    names=('VERSION','package-lock.json','package.json','release-version.json')
+    monkeypatch.setattr(probe.subprocess,'check_output',lambda command,**kw:'\n'.join(' M '+n for n in names) if command[1]=='status' else 'a'*40)
+    monkeypatch.setattr(probe,'OwnedProcess',lambda *a,**kw:pytest.fail('Dirty source must refuse before ownership'))
+    view={'phase':'PRIVATE','ignored':'PRIVATE'}
+    with pytest.raises(probe.ProbeFailure) as caught:probe.probe(helper,resources,view)
+    held=probe._RETAINED_FAILURES[-1]
+    assert held.errors[0] is caught.value and held.owners==[] and held.fixture.is_dir()
+    report=probe.failure_report(caught.value,view)
+    assert set(report)=={'schema','platform','passed','error','phase','reason','changed_release_metadata','other_changed'}
+    assert (report['phase'],report['reason'])==('checkout-cleanliness','source-checkout-dirty')
+    assert report['changed_release_metadata']==list(names) and report['other_changed'] is False
+    assert report['passed'] is False and 'PRIVATE' not in json.dumps(report)
+    probe.shutil.rmtree(held.fixture)  # Test owns this no-child fixture and knows its end.
+
+
+def test_legacy_view_cannot_replace_original_body_or_supply_cleanup_authority(tmp_path,monkeypatch):
+    probe=module();monkeypatch.setattr(probe,'host_platform',lambda:'win-x64')
+    body=probe.subprocess.TimeoutExpired(['PRIVATE-COMMAND'],60);stop=OSError('PRIVATE-STOP')
+    owner,calls=fake_owner(probe,monkeypatch,communicate_error=body,stop_error=stop)
+    contexts=[];original_stop=owner.stop
+    def changed_phase_stop():
+        probe.phase(contexts[0],'report')
+        original_stop()
+    owner.stop=changed_phase_stop
+    def layout(*args,observation):
+        contexts.append(observation)
+        probe.phase(observation,'runtime-identity');observation.at('runtime-identity','runtime-identity')
+        probe._execute(['owned'],{}, {},tmp_path,observation=observation)
+    monkeypatch.setattr(probe,'_layout',layout)
+    view={'phase':'report','passed':True,'cleanup':'confirmed'}
+    with pytest.raises(probe.subprocess.TimeoutExpired) as caught:probe.probe(tmp_path/'helper',tmp_path/'resources',view)
+    held=probe._RETAINED_FAILURES[-1]
+    assert caught.value is body and held.errors[0] is body and stop in held.errors
+    assert held.owners==[owner] and calls[-1]=='stop' and 'close' not in calls
+    assert len(contexts)==1 and sum(isinstance(c,tuple) and c[0]=='create' for c in calls)==1
+    assert held.failure()['cleanup']==dict(state='unconfirmed',step='stop')
+    report=probe.failure_report(caught.value,view)
+    assert (report['phase'],report['reason'])==('runtime-identity','child-timeout')
+    assert set(report)=={'schema','platform','passed','error','phase','reason'} and report['passed'] is False
+    assert 'PRIVATE' not in json.dumps(report)
+    probe.shutil.rmtree(held.fixture)  # Fake owner has no native process/streams.

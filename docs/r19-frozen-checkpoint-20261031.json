@@ -12147,5 +12147,306 @@
     "native_windows_11_acceptance": "unavailable",
     "installer": "not-built",
     "raw_private_logs_saved": false
+  },
+  "negative_runtime_platform_marker_closure_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337807990,
+    "job": 124941266016,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337807990",
+    "scope": "Actual Windows source contracts passed; integrated experiment refused before executable build.",
+    "contracts": {
+      "passed": 1780,
+      "skipped": 0,
+      "warnings": 1,
+      "subtests": 118,
+      "seconds": 488.15
+    },
+    "failure": "Runtime wheel/version evidence is missing: python-xlib",
+    "source_disposition": "Experimental Windows closure ignored the newly platform-marked lock; source-only Windows selector correction requires a fresh build.",
+    "frozen_runtime_built": false,
+    "frozen_probes": "not-run",
+    "source_replay_or_reference_job_success": "separate provider observation; not a successful frozen runtime",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "negative_frontend_static_fixture_transport_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337807818,
+    "job": 124941242725,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337807818",
+    "scope": "Both source browser phases completed; static same-origin replacement reached the original Reading assertion and timed out before recorder/freezer.",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "operation": "locator.inputValue",
+    "label": "Reading",
+    "timeout_ms": 30000,
+    "recording_or_freezing": "not-run",
+    "local_source_disposition": "Unchanged harness reproduced failure; fixed snapshot endpoint was 200 at API origin and 404 at static frontend origin. Only authored HTTP/WS mocks were corrected to model both fixed origins.",
+    "local_repair": {
+      "platform": "macOS",
+      "engines": [
+        "Chromium",
+        "Firefox"
+      ],
+      "seconds": 17.45,
+      "cleanup": "owned cleanup passed",
+      "remote_account_writes": 0,
+      "scope": "Two reviewed harness/test files; exact frontend inputs, not a whole-checkout or Windows result."
+    },
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "negative_managed_bridge_fixture_contract_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337808148,
+    "job": 124941243662,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337808148",
+    "scope": "Actual owned-bridge authored reflected dependency probe failed; no actual game input.",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "observed_failure": "bridge-unexpected-exit",
+    "actual_child_exception_or_exit_code": "not-established",
+    "source_disposition": "The old authored assembly lacks the current production bridge provider type/constructor/initialization contract. Fixture-only correction preserves production code and adds an Initialize-rejection witness; compilation and Windows replay pending.",
+    "node_job_success": "separate provider-only observation, not managed bridge acceptance",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "negative_c7_system_module_base_controls_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337882449,
+    "job": 124941494224,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337882449",
+    "scope": "Authored zero-writer Windows controls only; actual mechanism and publisher were not run.",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261030.294.1"
+    },
+    "contracts": {
+      "passed": 455,
+      "failed": 1,
+      "skipped": 0,
+      "seconds": 5.69
+    },
+    "controls": [
+      {
+        "kind": "prefix",
+        "bootstrap_phase": "module",
+        "bootstrap_error": "guard-base",
+        "last_complete_marker": "fixture-validated",
+        "stderr": false,
+        "category": "protocol-refused",
+        "direct_child_and_readers_finished": true
+      },
+      {
+        "kind": "managed-io",
+        "bootstrap_phase": "module",
+        "bootstrap_error": "guard-base",
+        "last_complete_marker": "fixture-validated",
+        "stderr": false,
+        "category": "protocol-refused",
+        "direct_child_and_readers_finished": true
+      }
+    ],
+    "artifact_count": 0,
+    "actual_module_base_role": "not-established",
+    "actual_mechanism": "not-run",
+    "source_disposition": "A control-only closed role projection was prepared. The actual producer, module guard, original Enter function and native criteria remain unchanged; a systemHome repair is not yet validated.",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "negative_mp3_libmp3lame_check_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337883561,
+    "job": 124941497760,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337883561",
+    "scope": "Exact source-bound configure failure; finite private-log observations only, not a causal compiler diagnosis.",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "artifact": {
+      "id": 13095939286,
+      "bytes": 2958,
+      "sha256": "910be6fde617aa498fb0ffce7998478ec869be9f64bd48de2341a9da0044957c"
+    },
+    "native_receipt": {
+      "bytes": 1084,
+      "file": "MP3-FAILURE.json",
+      "sha256": "6920fbe5d8f32e5c9551059b74926b1fd962ff39b6c97dd970445f1585baa1e5"
+    },
+    "binding": {
+      "file": "MP3-CI-BINDING.json",
+      "bytes": 5028,
+      "sha256": "36695ef7521842411af76427b3312d67e9e21e040d2e7601c087fbbc01d529e1"
+    },
+    "schema": "proxy-r19-mp3-ci-configure-failure-v2",
+    "phase": "configure-ffmpeg",
+    "exit_code": 1,
+    "whole_source_capture_hash": "da693fb7e7b72533303187f7e5bfbc718a3035cc15a35e20dbc678623e7e2b6b",
+    "source_before_after": "equal-verified",
+    "immutable_Git_input_records": 17,
+    "configure_observation": {
+      "logs": [
+        {
+          "fatal_templates": [
+            "libmp3lame-check-failed"
+          ],
+          "probe_codes": [
+            "C1083",
+            "C1189",
+            "C2039",
+            "C2065",
+            "C2143",
+            "C2146",
+            "D8021",
+            "LNK1120",
+            "LNK1181",
+            "LNK2019"
+          ],
+          "role": "configure-log",
+          "state": "read",
+          "terminal": "libmp3lame-check-failed",
+          "truncated": false
+        },
+        {
+          "fatal_templates": [
+            "libmp3lame-check-failed"
+          ],
+          "probe_codes": [],
+          "role": "cumulative-build-output",
+          "state": "read",
+          "terminal": "not-attributed",
+          "truncated": false
+        }
+      ],
+      "scope": "private-log-observations-not-cause"
+    },
+    "exact_C_or_linker_cause": false,
+    "source_disposition": "Verified configure converts -lmp3lame to mp3lame.lib, while this recipe supplies libmp3lame.lib. This is a static basename mismatch, not proof of a particular LNK error or complete absence in native LIB roots. An exact one-driver alias revision is proposed; no new grant or native pass follows.",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "verified_private_reader_metadata_only_1b4366f": {
+    "source_commit": "1b4366f81f9734ca6f4d95207dbbc4246dd15b64",
+    "run": 41337808137,
+    "job": null,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41337808137",
+    "scope": "Two independently downloaded regular single-JSON artifacts; private selected reader preparation only.",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "artifacts": {
+      "endfield": {
+        "archive": {
+          "file": "13096072150.zip",
+          "bytes": 864,
+          "sha256": "261bf6a95e9d741f262fdeb0dcb2b734ac658eef5e0a35b5de53be2f55bc1f3e"
+        },
+        "entry": {
+          "name": "r19-blocked-endfield.json",
+          "bytes": 1351,
+          "sha256": "86a803b6976fe8c2e803be7196ef578323d00f02f3e3b21ac3ee1b2b997038a4"
+        },
+        "declared_private_files": 204,
+        "manifest_sha256": "33b40b8b566a8686762d967574cf751f729ace22dc3b9e70a12d53fef2151b68",
+        "platform": "win-x64",
+        "scope": "actual selected reader; app-local runtime and hashing; empty-pack/malformed-input probes only"
+      },
+      "pragmata": {
+        "archive": {
+          "file": "13096185851.zip",
+          "bytes": 715,
+          "sha256": "4853fa162c7dc6213f4fd4b2102e3dfd810b3b0e8f374a13ce8620497a99ecbd"
+        },
+        "entry": {
+          "name": "r19-blocked-pragmata.json",
+          "bytes": 1009,
+          "sha256": "aa8d119ee90027769eaefd24ff18b2336b90f730d0a7429d3bf31418e13fd9b7"
+        },
+        "declared_private_files": 7,
+        "manifest_sha256": "9822e559b623af6a0221a44f990f07451f12ba07a9234f142cbf4311b50b08f1",
+        "platform": "win-x86",
+        "scope": "actual selective x86 reader; authored uncompressed PAK selection and oversized-table rejection only"
+      }
+    },
+    "download_bytes": 1579,
+    "immutable_Git_review_inputs": 17,
+    "private_build_cohort_replay": "unavailable; no private source-input map or compiled binary inventory was uploaded",
+    "native_binary_downloads": 0,
+    "collection": "not-approved",
+    "game_execution": "not-approved",
+    "rights_review": "pending-exact-output",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
   }
 }
