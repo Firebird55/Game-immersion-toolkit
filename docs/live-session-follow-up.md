@@ -62,7 +62,9 @@ mobile packages and desktop sharing preserve that distinction.
 - [ ] Complete hosted native input, executable, browser and installer acceptance,
   then follow the normal clean-main release and verified-download procedure.
 - [ ] Hand off the running installation only after preparation succeeds, retaining
-  the transcript origin and session data. Record any remaining native limitations.
+  the transcript origin, settings, calibration and protected credentials. The
+  owner authorized a fresh local transcript/favorites history; omit those stores
+  during this handoff. Record any remaining native limitations.
 
 See the [desktop delivery plan](desktop-delivery-completion-plan.md) and
 [R19 completion plan](r19-completion-plan.md) for the broader release gates.

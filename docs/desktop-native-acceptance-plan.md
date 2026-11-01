@@ -200,6 +200,14 @@ navigation acknowledgements and owned shutdown checks. The 294 focused backend
 checks also passed. This is source-host evidence; the frozen candidate must
 still execute the same checks on each shipping platform.
 
+Setup and runtime diagnostics now read the installed production receipt and
+verify its payload inventory. An accepted production release can report its
+actual OCR/audio readiness without inheriting the historical experimental
+bundle's restrictions. Candidate or modified payloads remain unverified.
+The focused receipt, lifecycle and packaging checks passed (188 tests, three
+platform-specific skips); final frozen execution remains part of the next
+candidate gate.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),
