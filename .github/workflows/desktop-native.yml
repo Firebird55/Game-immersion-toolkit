@@ -66,6 +66,7 @@ jobs:
         run: >-
           python -m pytest -q backend/tests/test_desktop_packaging.py
           backend/tests/test_desktop_host.py backend/tests/test_owned_process.py
+          backend/tests/test_desktop_browser_environment.py
           backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
           backend/tests/test_macos_supplier_replay.py backend/tests/test_desktop_input_review.py
           backend/tests/test_cyberpunk_input_review.py backend/tests/test_cyberpunk_build.py
