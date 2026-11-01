@@ -47,9 +47,14 @@ def test_export_and_selected_snapshot_share_explicit_data_without_app_writes(tmp
 
 @pytest.mark.parametrize('legacy_environment', [True, False])
 def test_frozen_language_selection_and_export_use_only_selected_settings_root(tmp_path, monkeypatch, legacy_environment):
-    from backend import accounts
+    from backend import accounts, language_preparation
     from backend.language_preparation import LanguagePreparation, selected_snapshot
     layout = fixture_layout(tmp_path, monkeypatch)
+    # Exercise the actual frozen branch and its module-bound discovery seam;
+    # a bundle layout stub alone must not silently read source host settings.
+    monkeypatch.setattr(language_preparation.sys, 'frozen', True, raising=False)
+    monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
+    assert language_preparation.discover_layout() is layout
     legacy = tmp_path / 'old-host/Proxy Transcript'
     legacy.mkdir(parents=True)
     previous = json.dumps({'prepared': {}, 'selected': {'synthetic': {'beyond': 'zh-Hans'}}})
@@ -67,6 +72,12 @@ def test_frozen_language_selection_and_export_use_only_selected_settings_root(tm
     pending.write_text(json.dumps({'synthetic': {'beyond': {'locale': 'nl', 'target': 'en'}}}), encoding='utf-8')
     activations = []
     manager = LanguagePreparation(None, lambda *args: activations.append(args), None)
+    assert manager.path == layout.settings_root / 'languages.json'
+    assert manager.prepared('beyond', 'nl') == {'targets': ['en']}
+    # Missing preparation still refuses, even when a legacy profile selected it.
+    with pytest.raises(ValueError, match='Prepare this language first'):
+        manager.select('beyond', 'zh-Hans', 'synthetic', target='en')
+    assert activations == [] and pending.exists()
     manager.select('beyond', 'nl', 'synthetic', target='en')
     assert activations == [('beyond', 'nl', 'synthetic')]
     assert not pending.exists()

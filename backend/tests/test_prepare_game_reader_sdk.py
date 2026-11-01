@@ -2,7 +2,9 @@
 import hashlib
 import importlib.util
 import io
+import os
 from pathlib import Path
+import stat
 import tarfile
 import zipfile
 
@@ -21,7 +23,10 @@ def test_expanded_input_matches_exact_supplier_and_detects_changed_file(tmp_path
     if kind == 'zip':
         with zipfile.ZipFile(archive, 'w') as bundle:
             for name, data in content.items():
-                bundle.writestr(name, data)
+                entry = zipfile.ZipInfo(name)
+                entry.create_system = 3
+                entry.external_attr = (stat.S_IFREG | (0o755 if name == executable else 0o644)) << 16
+                bundle.writestr(entry, data)
     else:
         with tarfile.open(archive, 'w:gz') as bundle:
             root = tarfile.TarInfo('.')
@@ -35,6 +40,12 @@ def test_expanded_input_matches_exact_supplier_and_detects_changed_file(tmp_path
     output = tmp_path / 'expanded'
     sdk.expand(archive, output)
     assert set(sdk.verifier.verify(archive, output, pin)['files']) == set(content)
+    if os.name != 'nt':
+        assert os.access(output / executable, os.X_OK)
+        (output / executable).chmod(0o644)
+        with pytest.raises(ValueError, match='executable'):
+            sdk.verifier.verify(archive, output, pin)
+        (output / executable).chmod(0o755)
     (output / 'sdk/compiler.dll').write_bytes(b'changed')
     with pytest.raises(ValueError, match='missing|differ'):
         sdk.verifier.verify(archive, output, pin)
