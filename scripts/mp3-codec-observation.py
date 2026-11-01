@@ -12,6 +12,18 @@ FLAGS = dict(source_delivery_approved=False, runtime_collection_allowed=False,
              production_execution_allowed=False, r19_complete=False,
              native_windows_11_acceptance='unavailable', installer='not-built')
 PUBLIC_LIMIT = 256 * 1024
+CONFIGURE_LOG_LIMIT = 1024 * 1024  # Two fixed files, at most 2MiB total.
+CONFIGURE_SCHEMA = 'proxy-r19-mp3-ci-configure-failure-v2'
+CONFIGURE_SCOPE = 'private-log-observations-not-cause'
+CONFIGURE_LOGS = (('configure-log', 'ffmpeg-build/ffbuild/config.log'),
+                  ('cumulative-build-output', 'PRIVATE-BUILD.log'))
+CONFIGURE_FATAL = {
+    b'C compiler test failed.': 'compiler-test-failed',
+    b'ERROR: libmp3lame >= 3.98.3 not found': 'libmp3lame-check-failed',
+    b'ERROR: opus not found using pkg-config': 'opus-pkg-config-check-failed',
+}
+CONFIGURE_STATIC_NOTE = b'Note: When building a static binary, add --pkg-config-flags="--static".'
+_CONFIGURE_READERS = []  # Actual streams/errors only; never serialized or retried.
 CMAKE_KNOWN = {'executable': {'path': 'cmake-4.4.5-windows-x86_64/bin/cmake.exe', 'bytes': 13465672, 'sha256': '84935c0b7cb09c140de0d3b042d4e93e5fac4e6371e75bf28eae3d841f79dfb3'}, 'notices': [{'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/LICENSE.rst', 'bytes': 1526, 'sha256': 'cd944d878806fee998ef3f88ca41ec060ae198bd8ba615e284f7d8d90c25593e'}, {'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/cmsys/Copyright.txt', 'bytes': 1851, 'sha256': '0998690e8dc877e5d9d79d852f85630ba42b4061962baefc9651675ecf972082'}, {'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/cmzlib/Copyright.txt', 'bytes': 1063, 'sha256': 'd5bbd7748a19e3fed6ea31242e8de9814e69a0125ae7758a7491057d5fe76f34'}], 'archive': {'filename': 'cmake-4.4.5-windows-x86_64.zip', 'root': 'cmake-4.4.5-windows-x86_64', 'bytes': 54412232, 'sha256': '326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004', 'entries': 8979, 'regular_files': 8817, 'expanded_bytes': 143317490}}
 HEX = re.compile(r'[a-f0-9]{64}\Z')
 SHA = lambda b: hashlib.sha256(b).hexdigest()
@@ -68,6 +80,116 @@ def read_json(module, path, limit=64*1024*1024):
         raw = f.read(limit+1)
     require(len(raw) == info.st_size and len(raw) <= limit)
     return json.loads(raw, object_pairs_hook=unique, parse_constant=lambda _v: require(False))
+
+
+def configure_log_tail(module, path):
+    # no_links is root-first and stops at a missing suffix; no leaf metadata or
+    # content is inspected through an unreviewed/link ancestor.
+    held = dict(stream=None, errors=[], close_confirmed=False)
+    _CONFIGURE_READERS.append(held)
+    data = None; truncated = False
+    try:
+        info = module.base.no_links(path)
+        if info is not None:
+            require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1)
+            stream = path.open('rb'); held['stream'] = stream
+            opened = os.fstat(stream.fileno())
+            identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_nlink, item.st_size, item.st_mtime_ns)
+            require(identity(opened) == identity(info))
+            start = max(0, opened.st_size-CONFIGURE_LOG_LIMIT)
+            stream.seek(start)
+            data = stream.read(CONFIGURE_LOG_LIMIT)
+            require(type(data) is bytes and len(data) == opened.st_size-start and len(data) <= CONFIGURE_LOG_LIMIT)
+            require(identity(os.fstat(stream.fileno())) == identity(opened))
+            truncated = start > 0
+            if truncated:
+                data = data.partition(b'\n')[2]  # Never classify the cut-off first line.
+    except BaseException as error:
+        held['errors'].append(error)
+    if held['stream'] is not None:
+        try:
+            held['stream'].close()
+            held['close_confirmed'] = True
+        except BaseException as error:
+            held['errors'].append(error)
+    if held['errors']:
+        require(False)  # Keep actual reader/errors privately, including a closed failed reader.
+    _CONFIGURE_READERS.remove(held)
+    return data, truncated
+
+
+def checked_configure_context(value, module):
+    keys(value, ('scope', 'logs')); require(value['scope'] == CONFIGURE_SCOPE)
+    require(type(value['logs']) is list and len(value['logs']) == 2)
+    labels = set(CONFIGURE_FATAL.values())
+    for row, (role, _path) in zip(value['logs'], CONFIGURE_LOGS):
+        keys(row, ('role', 'state', 'truncated', 'terminal', 'fatal_templates', 'probe_codes'))
+        require(row['role'] == role and row['state'] in ('read', 'missing') and type(row['truncated']) is bool)
+        for name, allowed in (('fatal_templates', labels), ('probe_codes', module.base.ERROR_CODES)):
+            entries = row[name]
+            require(type(entries) is list and len(entries) <= 64 and all(type(v) is str and v in allowed for v in entries)
+                    and entries == sorted(set(entries)))
+        terminal = row['terminal']
+        require(type(terminal) is str and terminal in labels|{'missing', 'not-observed', 'unknown', 'conflicting', 'not-attributed'})
+        if row['state'] == 'missing':
+            require(terminal == 'missing' and not row['truncated'] and not row['fatal_templates'] and not row['probe_codes'])
+        elif role == 'cumulative-build-output':
+            require(terminal == 'not-attributed')
+        else:
+            require(terminal != 'missing' and terminal != 'not-attributed')
+            if len(row['fatal_templates']) > 1: require(terminal == 'conflicting')
+            else: require(terminal != 'conflicting')
+            if terminal in labels: require(row['fatal_templates'] == [terminal])
+            if terminal == 'not-observed': require(not row['fatal_templates'])
+    return value
+
+
+def configure_context(module, output):
+    require(not _CONFIGURE_READERS)  # No second observation after retained uncertainty.
+    logs = []
+    for role, relative_path in CONFIGURE_LOGS:
+        data, truncated = configure_log_tail(module, output/relative_path)
+        row = dict(role=role, state='missing' if data is None else 'read', truncated=truncated,
+                   terminal='missing', fatal_templates=[], probe_codes=[])
+        if data is not None:
+            # Only complete ASCII literal lines are matched. No decoding,
+            # unescaping, arbitrary dependency names or regex capture is emitted.
+            lines = [line[:-1] if line.endswith(b'\r') else line for line in data.split(b'\n')[:-1]]
+            row['fatal_templates'] = sorted({CONFIGURE_FATAL[line] for line in lines if line in CONFIGURE_FATAL})
+            # Match only the shared recognizer's fixed compiler-code format.
+            # Its general category regexes are unnecessary for this projection.
+            codes = {code.upper() for code in re.findall(
+                r'\berror[ \t]+((?:C|D|LNK|MSB)[0-9]{4})[ \t]*:',
+                b'\n'.join(lines).decode('utf-8', errors='replace'), flags=re.IGNORECASE)}
+            row['probe_codes'] = sorted(codes & module.base.ERROR_CODES)
+            complete = [line for line in lines if line.strip(b' \t')]
+            if role == 'cumulative-build-output': row['terminal'] = 'not-attributed'
+            elif len(row['fatal_templates']) > 1: row['terminal'] = 'conflicting'
+            elif complete and complete[-1] in CONFIGURE_FATAL: row['terminal'] = CONFIGURE_FATAL[complete[-1]]
+            elif (len(complete) >= 2 and complete[-1] == CONFIGURE_STATIC_NOTE and
+                  complete[-2] == b'ERROR: opus not found using pkg-config'):
+                row['terminal'] = 'opus-pkg-config-check-failed'
+            else: row['terminal'] = 'unknown' if complete else 'not-observed'
+            if role == 'configure-log' and data.split(b'\n')[-1].strip(b' \t\r') and row['terminal'] != 'conflicting':
+                row['terminal'] = 'unknown'  # An incomplete trailing line cannot establish a terminal template.
+        logs.append(row)
+    return checked_configure_context(dict(scope=CONFIGURE_SCOPE, logs=logs), module)
+
+
+def collect_failure(module, output, head):
+    items = []
+    for name in ('FAILED-STAGE.json', 'FAILED-CLI-OWNERSHIP.json'):
+        if module.base.no_links(output/name) is not None:
+            raw = read_json(module, output/name, 65536)
+            value = projected_failure(raw, module, head)
+            items.append((raw, value))
+    require(len(items) == 1)
+    raw, value = items[0]
+    if raw['schema'] == 'proxy-r19-mp3-draft-failure-v1' and raw['phase'] == 'configure-ffmpeg':
+        require(type(head) is str and re.fullmatch(r'[a-f0-9]{40}', head) and raw['source_commit'] == head)
+        value['details']['configure_observation'] = configure_context(module, output)
+        value['schema'] = CONFIGURE_SCHEMA
+    return value
 
 
 def load_controller(root):
@@ -289,20 +411,31 @@ def public_native_shape(module,value):
 
 def public_failure_shape(module,value,head):
     keys(value,('schema','status','producer_schema','phase','controller_source_commit','draft_base_commit','details',*FLAGS));checked_flags(value)
-    require(value['schema']=='proxy-r19-mp3-ci-failure-v1' and value['status']=='failed' and value['draft_base_commit']==BASE)
+    require(value['schema'] in ('proxy-r19-mp3-ci-failure-v1', CONFIGURE_SCHEMA) and value['status']=='failed' and value['draft_base_commit']==BASE)
     # Rebuild only a closed private-schema object, then reuse its exact projector.
     schema=value['producer_schema'];details=value['details'];raw={'schema':schema,'status':'failed','phase':value['phase'],'source_commit':value['controller_source_commit'],**FLAGS}
     manifest=record(module.base.recipe_bytes(module.PIN))
+    if value['schema'] == CONFIGURE_SCHEMA:
+        require(schema == 'proxy-r19-mp3-draft-failure-v1' and value['phase'] == 'configure-ffmpeg'
+                and type(head) is str and re.fullmatch(r'[a-f0-9]{40}', head) and value['controller_source_commit'] == head)
+        keys(details, ('exit_code','diagnostic_codes','diagnostic_categories','log_truncated','configure_observation'))
+        checked_configure_context(details['configure_observation'], module)
+        details = {n:v for n,v in details.items() if n != 'configure_observation'}
     if schema=='proxy-r19-mp3-draft-failure-v1':keys(details,('exit_code','diagnostic_codes','diagnostic_categories','log_truncated'));raw.update(details,profile_manifest=manifest,raw_log_published=False)
     elif schema=='proxy-r19-mp3-cli-cleanup-refusal-v1':keys(details,('category',));raw.update(details,draft_base_commit=BASE,profile_manifest=manifest,project_inputs={n:r['raw'] for n,r in project_inputs(module).items()})
     elif schema=='proxy-r19-mp3-draft-preflight-failure-v1':
         keys(details,('expected_versions','observed_tools','mismatch_fields'));raw.update(details,draft_base_commit=BASE,input_manifest={'path':'packaging/codecs/ffmpeg-mp3-replay.json',**manifest},cl_product_resource_role='observation-only; compiler identification is not inferred from resource versions',raw_log_published=False,native_codec_built=False,native_codec_executed=False)
     elif schema=='proxy-r19-mp3-codec-replay-toolchain-preflight-failure-v2':keys(details,('search_paths',));raw.update(details,input_manifest={'path':'packaging/codecs/ffmpeg-mp3-replay.json',**manifest},raw_log_published=False,native_codec_built=False,native_codec_executed=False)
     else:require(False)
-    require(serialized(projected_failure(raw,module,head))==serialized(value))
+    projected = projected_failure(raw,module,head)
+    if value['schema'] == CONFIGURE_SCHEMA:
+        projected['schema'] = CONFIGURE_SCHEMA
+        projected['details']['configure_observation'] = value['details']['configure_observation']
+    require(serialized(projected)==serialized(value))
 
 
 def publication_values(module,values):
+    require(not _CONFIGURE_READERS)
     require(type(values) is dict)
     success=set(values)=={'MP3-DRAFT-RECEIPT.json','MP3-CI-BINDING.json'}
     require(success or set(values)=={'MP3-FAILURE.json','MP3-CI-BINDING.json'})
@@ -368,11 +501,7 @@ def main():
     if command=='snapshot':
         require(sys.version_info[:3]==(3,12,10));value={'schema':'proxy-r19-mp3-project-inputs-v1','project_inputs':project_inputs(module)}
     elif command=='observe':value=collect_native(module,Path(args[0]),Path(args[1]))
-    elif command=='failure':
-        output=Path(args[0]);head=args[1];items=[]
-        for n in ('FAILED-STAGE.json','FAILED-CLI-OWNERSHIP.json'):
-            if module.base.no_links(output/n) is not None:items.append(projected_failure(read_json(module,output/n,65536),module,head))
-        require(len(items)==1);value=items[0]
+    elif command=='failure':value=collect_failure(module,Path(args[0]),args[1])
     elif command in ('save-start','publish','read-pair'):
         data=sys.stdin.buffer.read(2*PUBLIC_LIMIT+1);require(len(data)<=2*PUBLIC_LIMIT);value=json.loads(data,object_pairs_hook=unique);require(type(value) is dict)
         if command=='save-start':print(source_state(module,root,value))

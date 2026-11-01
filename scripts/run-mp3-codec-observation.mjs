@@ -60,11 +60,31 @@ export function validateNative(value){
  if(value.cli_scope!=='two stable live snapshots during each authored encode/decode only; not all possible CLI paths'||value.authored_two_tones!=='actual CLI encode/decode and forbidden-other-tone check passed'||value.malformed_input!=='rejected; previous complete output preserved'||value.ordinary_voiced_mobile_export!=='not-run'||value.runtime_integration!=='not-implemented'||value.fft_provenance!=='unresolved')fail();
  if(canonical(value).length>limit)fail();return value;
 }
+const configureSchema='proxy-r19-mp3-ci-configure-failure-v2';
+const configureFatal=new Set(['compiler-test-failed','libmp3lame-check-failed','opus-pkg-config-check-failed']);
+function checkedConfigureContext(value){
+ keys(value,['scope','logs']);if(value.scope!=='private-log-observations-not-cause'||!Array.isArray(value.logs)||value.logs.length!==2)fail();
+ for(const [i,row]of value.logs.entries()){
+  keys(row,['role','state','truncated','terminal','fatal_templates','probe_codes']);
+  if(row.role!==['configure-log','cumulative-build-output'][i]||!['read','missing'].includes(row.state)||typeof row.truncated!=='boolean'||!new Set([...configureFatal,'missing','not-observed','unknown','conflicting','not-attributed']).has(row.terminal))fail();
+  for(const [n,allowed]of [['fatal_templates',configureFatal],['probe_codes',errorCodes]])if(!Array.isArray(row[n])||row[n].length>64||row[n].some(v=>typeof v!=='string'||!allowed.has(v))||!equal(row[n],[...new Set(row[n])].sort()))fail();
+  if(row.state==='missing'){if(row.terminal!=='missing'||row.truncated||row.fatal_templates.length||row.probe_codes.length)fail();}
+  else if(i===1){if(row.terminal!=='not-attributed')fail();}
+  else{
+   if(['missing','not-attributed'].includes(row.terminal)||(row.fatal_templates.length>1)!==(row.terminal==='conflicting'))fail();
+   if(configureFatal.has(row.terminal)&&!equal(row.fatal_templates,[row.terminal]))fail();
+   if(row.terminal==='not-observed'&&row.fatal_templates.length)fail();
+  }
+ }
+}
 export function validateFailure(value){
  dataOnly(value);keys(value,['schema','status','producer_schema','phase','controller_source_commit','draft_base_commit','details',...Object.keys(flags)]);checkedFlags(value);
- if(value.schema!=='proxy-r19-mp3-ci-failure-v1'||value.status!=='failed'||value.draft_base_commit!==baseCommit||!(value.controller_source_commit===null||head(value.controller_source_commit)))fail();if(typeof value.phase!=='string')fail();const d=value.details;
+ if(!['proxy-r19-mp3-ci-failure-v1',configureSchema].includes(value.schema)||value.status!=='failed'||value.draft_base_commit!==baseCommit||!(value.controller_source_commit===null||head(value.controller_source_commit)))fail();if(typeof value.phase!=='string')fail();const d=value.details;
+ const configure=value.schema===configureSchema;
+ if(configure&&(value.producer_schema!=='proxy-r19-mp3-draft-failure-v1'||value.phase!=='configure-ffmpeg'||!head(value.controller_source_commit)))fail();
  if(value.producer_schema==='proxy-r19-mp3-draft-failure-v1'){
-  keys(d,['exit_code','diagnostic_codes','diagnostic_categories','log_truncated']);if(!Number.isSafeInteger(d.exit_code)||d.exit_code===0||d.exit_code<-(2**31)||d.exit_code>=2**32||typeof d.log_truncated!=='boolean'||!/^(?:check-(?:shell|make|nasm|pkgconf)|configure-(?:opus|ffmpeg)|build-(?:opus|ffmpeg|lame)|install-(?:opus|ffmpeg|lame)|clean-ffmpeg|compile-probe|observe-and-package)$/.test(value.phase))fail();
+  keys(d,['exit_code','diagnostic_codes','diagnostic_categories','log_truncated',...(configure?['configure_observation']:[])]);if(!Number.isSafeInteger(d.exit_code)||d.exit_code===0||d.exit_code<-(2**31)||d.exit_code>=2**32||typeof d.log_truncated!=='boolean'||!/^(?:check-(?:shell|make|nasm|pkgconf)|configure-(?:opus|ffmpeg)|build-(?:opus|ffmpeg|lame)|install-(?:opus|ffmpeg|lame)|clean-ffmpeg|compile-probe|observe-and-package)$/.test(value.phase))fail();
+  if(configure)checkedConfigureContext(d.configure_observation);
   for(const [n,allowed,min]of [['diagnostic_codes',errorCodes,0],['diagnostic_categories',errorCategories,1]])if(!Array.isArray(d[n])||d[n].length<min||d[n].length>64||new Set(d[n]).size!==d[n].length||d[n].some(v=>typeof v!=='string'||!allowed.has(v)))fail();
  }else if(value.producer_schema==='proxy-r19-mp3-cli-cleanup-refusal-v1'){
   keys(d,['category']);if(value.phase!=='authored-cli-ownership'||d.category!=='cleanup-unconfirmed'||value.controller_source_commit!==null)fail();
