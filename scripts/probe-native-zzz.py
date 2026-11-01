@@ -75,7 +75,9 @@ def probe(zzz_resources: Path, node_resources: Path):
     if zzz_files.keys() & node_files.keys():
         raise ValueError('Native resource inputs overlap')
     with tempfile.TemporaryDirectory(prefix='toolkit-zzz-probe-') as temporary:
-        work = Path(temporary)
+        # Hosted Windows can expose its temp directory through an 8.3 alias;
+        # macOS also aliases /var. Derive owned paths from the actual directory.
+        work = Path(temporary).resolve(strict=True)
         app, resources, private = work / 'app', work / 'app/resources', work / 'private'
         resources.mkdir(parents=True)
         inventory = {}
