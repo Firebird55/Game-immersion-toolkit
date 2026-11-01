@@ -7,6 +7,7 @@ profile, global default association or browser security setting is changed.
 from importlib.util import module_from_spec, spec_from_file_location
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -24,6 +25,11 @@ def desktop_argument(value):
     """
     if any(ord(character) < 32 or ord(character) == 127 for character in value):
         raise ValueError('Desktop argument contains a control character.')
+    # xdg-open's generic fallback uses `read first rest`, not a Desktop Entry
+    # quote parser. Unnecessary quotes become part of the command/arguments.
+    # Spec-safe hosted paths and options therefore use their literal spelling.
+    if value and re.fullmatch(r'[A-Za-z0-9_./:=+@-]+', value):
+        return value
     quoted = ''.join('\\' + character if character in '\\"`$' else character for character in value)
     return '"' + quoted.replace('\\', '\\\\').replace('%', '%%') + '"'
 

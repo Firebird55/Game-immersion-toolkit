@@ -84,6 +84,8 @@ def test_missing_installed_browser_fails_without_a_request_fallback(monkeypatch,
 
 
 def test_desktop_exec_escapes_field_codes_and_string_reserved_characters():
+    assert linux.desktop_argument('/opt/google/chrome/google-chrome') == '/opt/google/chrome/google-chrome'
+    assert linux.desktop_argument('--user-data-dir=/tmp/authored-profile') == '--user-data-dir=/tmp/authored-profile'
     assert linux.desktop_argument('/path with spaces/chrome') == '"/path with spaces/chrome"'
     assert linux.desktop_argument('a%u') == '"a%%u"'
     assert linux.desktop_argument('a"$`\\b') == '"a\\\\"\\\\$\\\\`\\\\\\\\b"'
@@ -99,3 +101,29 @@ def test_actual_xdg_mime_selects_only_the_private_default(monkeypatch, tmp_path)
     env = environment(base)
     browser(monkeypatch, base)
     assert linux.prepare_browser(base, env)['browser_launch_context'] == 'isolated-xdg-default'
+
+
+@pytest.mark.skipif(not __import__('sys').platform.startswith('linux'), reason='Actual Linux desktop opener')
+def test_actual_xdg_open_routes_exact_url_and_profile_through_private_default(monkeypatch, tmp_path):
+    # This authored executable proves desktop routing only. The separate frozen
+    # native probe still requires the real browser to mount the transcript.
+    import json
+    import subprocess
+    import sys
+    base = tmp_path.resolve()
+    env = environment(base)
+    env['DISPLAY'] = ':authored-routing-fixture'
+    env['XDG_CURRENT_DESKTOP'] = 'X-Generic'
+    executable = base / 'authored-browser'
+    output = base / 'observed-arguments.json'
+    executable.write_text('#!' + sys.executable + '\nimport json,sys\n'
+        + 'open(' + repr(str(output)) + ', "w").write(json.dumps(sys.argv[1:]))\n')
+    executable.chmod(0o700)
+    monkeypatch.setattr(linux.shutil, 'which', lambda *_a, **_k: str(executable))
+    linux.prepare_browser(base, env)
+    url = 'http://127.0.0.1:17866/transcript?authored=1#fragment'
+    result = subprocess.run(['/usr/bin/xdg-open', url], env=env,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=15, check=False)
+    assert result.returncode == 0
+    assert json.loads(output.read_text()) == ['--no-first-run', '--no-default-browser-check',
+        '--user-data-dir=' + str(base / 'native-browser-profile'), url]
