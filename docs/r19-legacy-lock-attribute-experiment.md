@@ -829,6 +829,54 @@ The revised controls and actual mechanism remain **native pending**. No module
 repair, historical failure cause or production/rights/Win11/R18/R19 acceptance
 follows from portable checks or the earlier negative observations.
 
+## 8449 module refusal and test-only predicate localization
+
+Exact `8449d816bc52fedd11c0d531c05e46f0d693c795`
+[run 41323022215](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41323022215),
+attempt 1, job 124897083316, image `20261021.278.1`, passed 350 Windows
+contracts and failed one, with zero skips in 5.11 seconds. Both existing
+controls reported `fixture-validated`, phase `module` and error `guard`, with
+protocol refusal and empty stderr. Both direct children/readers finished and
+both fixtures were removed after confirmed cleanup. The mechanism and metadata
+retention steps were skipped; the provider returned zero artifacts. Duplicate
+renderings of the same two control results are not additional observations.
+These results identify the combined module guard, without identifying which
+predicate failed or establishing an import, module path, type or GAC cause.
+The earlier raw 589 and bootstrap 020 negatives retain their separate meaning.
+
+The next source candidate changes only the existing test-control catch and its
+closed observer. Only for `module` plus `guard`, it rereads the same five
+metadata predicates in their original short-circuit order and reports the first
+still-failing predicate as `guard-count`, `guard-type`, `guard-name`, `guard-path`
+or `guard-base`. It performs no additional IO or import. If no predicate still
+fails, the original `guard` remains. If classification throws, its actual
+ErrorRecord is retained privately and the fixed category becomes `other`;
+the original bootstrap ErrorRecord remains retained separately. No raw value,
+path, type name, error message or stack is serialized.
+
+The [PowerShell 5.1 Import-Module contract](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/import-module?view=powershell-5.1)
+documents the PassThru module object and full-path import. The documented
+[Path](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.psmoduleinfo.path?view=powershellsdk-7.4.0)
+and [ModuleBase](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.psmoduleinfo.modulebase?view=powershellsdk-7.6.0)
+properties distinguish the defining file and module directory. These contracts
+do not reveal this run's actual metadata values or justify weakening its exact
+path or origin checks. The finite predicate result is a later observation of
+the existing metadata, not proof that a particular value caused the original
+exception.
+
+The five subcategories occupy the existing error field and are admitted only
+with phase `module`, the complete existing terminal C7B frame, exit 2, empty
+stderr and the existing order/cleanup requirements. Other phases, future or
+malformed categories, extra fields, private bytes and partial/deadline output
+refuse. They cannot supply success. No field, frame, child, checkpoint, schema,
+environment, deadline or import/trust criterion is added. The actual shared
+module fragment and legacy script, original Enter and process helper remain
+byte-identical to 8449. Complete encoded commands retain the existing Windows
+UTF-16 capacity check. Portable tests establish these source/parser properties;
+PowerShell 5.1 execution and the revised native controls remain **unavailable
+locally**. This is cause localization, with no proven fix or new mechanism,
+cleanup, keeper, rights, Windows 11, R18 or R19 acceptance.
+
 ## Current source validation
 
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)

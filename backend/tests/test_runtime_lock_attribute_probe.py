@@ -1177,6 +1177,7 @@ OPERATION_MARKERS = {
 }
 BOOTSTRAP_PHASES = ('unavailable', 'image', 'paths', 'core', 'import', 'module', 'assembly', 'visible', 'complete')
 BOOTSTRAP_ERRORS = ('guard', 'binding', 'close', 'other')
+MODULE_GUARD_ERRORS = ('guard-count', 'guard-type', 'guard-name', 'guard-path', 'guard-base')
 _UNCONFIRMED_OPERATION_FIXTURES = []  # Private roots/actual owners, never printed or retried.
 
 
@@ -1201,8 +1202,9 @@ def operation_observation(kind, code, output, stderr):
             parts = line.split(b'|')
             if len(parts) != 3: return result
             phases = {value.encode('ascii'): value for value in BOOTSTRAP_PHASES}
-            errors = {value.encode('ascii'): value for value in BOOTSTRAP_ERRORS}
-            if parts[1] in phases and parts[2] in errors:
+            errors = {value.encode('ascii'): value for value in (*BOOTSTRAP_ERRORS, *MODULE_GUARD_ERRORS)}
+            if (parts[1] in phases and parts[2] in errors
+                    and (errors[parts[2]] not in MODULE_GUARD_ERRORS or parts[1] == b'module')):
                 result.update(bootstrap_phase=phases[parts[1]], bootstrap_error=errors[parts[2]])
             return result
         if position >= len(expected) or line != ('C7O|'+expected[position]).encode('ascii'):
@@ -1225,14 +1227,15 @@ def closed_operation_observation(kind, value):
             or type(value['stderr_present']) is not bool
             or type(value['bootstrap_phase']) is not str or value['bootstrap_phase'] not in BOOTSTRAP_PHASES
             or type(value['bootstrap_error']) is not str
-            or value['bootstrap_error'] not in ('unavailable', 'none', *BOOTSTRAP_ERRORS)):
+            or value['bootstrap_error'] not in ('unavailable', 'none', *BOOTSTRAP_ERRORS, *MODULE_GUARD_ERRORS)):
         return fallback
     success = value['state'] == 'passed'
-    reported_error = value['bootstrap_error'] in BOOTSTRAP_ERRORS
+    reported_error = value['bootstrap_error'] in (*BOOTSTRAP_ERRORS, *MODULE_GUARD_ERRORS)
     if (success and (value['last_marker'] != 'complete' or value['bootstrap_phase'] != 'complete'
             or value['bootstrap_error'] != 'none')
             or not success and value['bootstrap_error'] == 'none'
             or reported_error and (success or value['last_marker'] != 'fixture-validated' or value['stderr_present'])
+            or value['bootstrap_error'] in MODULE_GUARD_ERRORS and value['bootstrap_phase'] != 'module'
             or value['bootstrap_error'] == 'unavailable' and value['bootstrap_phase'] != 'unavailable'):
         return fallback
     return dict(value)
@@ -1323,6 +1326,18 @@ def operation_bootstrap_control():
         if ($exception.Message -ceq 'System module refused.') { $category='guard'; break }
         if ($exception -is [Management.Automation.ParameterBindingException]) { $category='binding'; break }
         $exception=$exception.InnerException
+    }
+    if ($phase -ceq 'module' -and $category -ceq 'guard') {
+        try {
+            if ($loaded.Count -ne 1) { $category='guard-count' }
+            elseif ($loaded[0] -isnot [Management.Automation.PSModuleInfo]) { $category='guard-type' }
+            elseif ($loaded[0].Name -cne 'Microsoft.PowerShell.Management') { $category='guard-name' }
+            elseif (-not [string]::Equals($loaded[0].Path,$manifest,[StringComparison]::OrdinalIgnoreCase)) { $category='guard-path' }
+            elseif (-not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)) { $category='guard-base' }
+        } catch {
+            $C7BootstrapClassificationFailure=$_
+            $category='other'
+        }
     }
     [Console]::Out.WriteLine('C7B|'+$phase+'|'+$category)
     exit 2
@@ -1728,11 +1743,38 @@ def test_closed_bootstrap_failure_admits_only_finite_terminal_context_and_never_
 
 
 @pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
+@pytest.mark.parametrize('error', MODULE_GUARD_ERRORS)
+def test_module_guard_categories_are_closed_failures_only_at_the_existing_module_phase(kind, error):
+    value=operation_observation(kind,2,bootstrap_error_output('module',error),b'')
+    assert value=={'state':'unavailable','last_marker':'fixture-validated','stderr_present':False,
+        'bootstrap_phase':'module','bootstrap_error':error}
+    assert closed_operation_observation(kind,value)==value
+    forged=dict(value,state='passed',last_marker='complete')
+    assert closed_operation_observation(kind,forged)['bootstrap_error']=='unavailable'
+    results={name:{'observation':dict(value),'boundary':{'refusal':'protocol-refused','stderr_prefix':'empty',
+        'cleanup':'child-exit-and-readers-finished'},'fixture':'removed-after-confirmed-cleanup'} for name in OPERATION_MARKERS}
+    with pytest.raises(pytest.fail.Exception):require_operation_controls(results)
+
+
+@pytest.mark.parametrize('phase', tuple(value for value in BOOTSTRAP_PHASES if value!='module'))
+@pytest.mark.parametrize('error', MODULE_GUARD_ERRORS)
+def test_module_guard_categories_refuse_every_other_wire_and_projected_phase(phase, error):
+    observed=operation_observation('prefix',2,bootstrap_error_output(phase,error),b'')
+    assert observed['bootstrap_phase']==observed['bootstrap_error']=='unavailable'
+    forged={'state':'unavailable','last_marker':'fixture-validated','stderr_present':False,
+        'bootstrap_phase':phase,'bootstrap_error':error}
+    projected=closed_operation_observation('prefix',forged)
+    assert projected['bootstrap_phase']==projected['bootstrap_error']=='unavailable'
+
+
+@pytest.mark.parametrize('phase,error', [('import','binding'),('module','guard-path')])
+@pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
 @pytest.mark.parametrize('mutation', ['no-fixture', 'after-operation', 'duplicate', 'trailing', 'partial-tail',
     'unknown-phase', 'unknown-error', 'extra-field', 'zero-exit', 'bool-exit', 'stderr', 'deadline',
-    'unterminated', 'embedded-cr', 'bom', 'nonascii', 'phase-case', 'after-success', 'none-error'])
-def test_bootstrap_failure_context_refuses_wrong_order_private_bytes_partial_and_deadline(kind, mutation):
-    raw=bootstrap_error_output();code=2;err=b''
+    'unterminated', 'embedded-cr', 'bom', 'nonascii', 'phase-case', 'after-success', 'none-error',
+    'future-guard', 'guard-case', 'nul'])
+def test_bootstrap_failure_context_refuses_wrong_order_private_bytes_partial_and_deadline(kind, mutation, phase, error):
+    raw=bootstrap_error_output(phase,error);code=2;err=b''
     if mutation=='no-fixture': raw=raw.split(b'\n',1)[1]
     if mutation=='after-operation': raw=operation_output(kind,count=2)+raw.split(b'\n',1)[1]
     if mutation=='duplicate': raw+=raw.split(b'\n',1)[1]
@@ -1746,12 +1788,15 @@ def test_bootstrap_failure_context_refuses_wrong_order_private_bytes_partial_and
     if mutation=='stderr':err=b'private stderr'
     if mutation=='deadline':code=None
     if mutation=='unterminated':raw=raw[:-1]
-    if mutation=='embedded-cr':raw=raw.replace(b'import',b'im\rport')
+    if mutation=='embedded-cr':raw=raw.replace(phase.encode('ascii'),b'im\rport')
     if mutation=='bom':raw=raw.replace(b'C7B|',b'\xef\xbb\xbfC7B|')
-    if mutation=='nonascii':raw=raw.replace(b'import',b'\xff')
+    if mutation=='nonascii':raw=raw.replace(phase.encode('ascii'),b'\xff')
     if mutation=='phase-case':raw=bootstrap_error_output('IMPORT','binding')
     if mutation=='after-success':raw=operation_output(kind)+raw.split(b'\n',1)[1]
     if mutation=='none-error':raw=bootstrap_error_output('import','none')
+    if mutation=='future-guard':raw=bootstrap_error_output('module','guard-origin')
+    if mutation=='guard-case':raw=bootstrap_error_output('module','guard-Path')
+    if mutation=='nul':raw=raw[:-1]+b'\0\n'
     result=operation_observation(kind,code,raw,err)
     assert result['state']=='unavailable'
     assert result['bootstrap_phase']==result['bootstrap_error']=='unavailable'
@@ -1798,6 +1843,30 @@ def test_phase_assignments_are_only_producer_delta_and_control_catch_has_one_clo
         assert script.count(wrapper)==1
         assert script.index('C7O|fixture-validated') < script.index(wrapper)
         assert script.index(wrapper)+len(wrapper) <= script.index('C7O|before-')
+
+
+def test_module_failure_classifier_uses_only_original_short_circuit_metadata_and_safe_fallbacks():
+    import re
+    fragment=module.LEGACY_SYSTEM_MODULE
+    original=fragment.split("$C7BootstrapPhase='module'\nif (",1)[1].split(") { throw 'System module refused.' }",1)[0]
+    original_predicates=re.split(r'\s+-or\s+',original)
+    catch=operation_bootstrap_control()[len('try {\n'+fragment):]
+    classifier=catch.split("    if ($phase -ceq 'module' -and $category -ceq 'guard') {\n",1)[1]
+    classifier=classifier.split("    [Console]::Out.WriteLine",1)[0]
+    predicates=re.findall(r"(?:if|elseif) \((.*?)\) \{ \$category='(guard-[a-z]+)' \}",classifier)
+    assert [value[0] for value in predicates]==original_predicates
+    assert tuple(value[1] for value in predicates)==MODULE_GUARD_ERRORS
+    # No final else means a changed/no-longer-failing predicate keeps guard.
+    # A classifier exception retains its own ErrorRecord without replacing the
+    # original bootstrap failure. These are source checks, not a PS engine run.
+    assert "else {" not in classifier
+    assert classifier.endswith("        } catch {\n            $C7BootstrapClassificationFailure=$_\n            $category='other'\n        }\n    }\n")
+    assert catch.count('$C7BootstrapFailure=$_')==1
+    assert classifier.count('$C7BootstrapClassificationFailure=$_')==1
+    assert '$C7BootstrapFailure' not in classifier
+    assert classifier.count("$category='")==6
+    assert not any(value in classifier for value in ('WriteLine','Write-C7Checkpoint','Import-Module',
+        'GetAttributes','.Open(','.Dispose(','.Location','Get-Command','exit ','throw '))
 
 
 def test_both_operation_controls_keep_closed_bootstrap_failure_and_cleanup_without_success(monkeypatch, tmp_path):
