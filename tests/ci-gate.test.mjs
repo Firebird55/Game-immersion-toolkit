@@ -127,7 +127,7 @@ test('publication waits for native construction and rechecks all downloaded arti
   assert.match(job('publish'), /gh release upload "\$RELEASE_TAG" published-release\/\*/);
   assert.match(nativeWorkflow, /if: steps\.package\.outputs\.release_eligible == 'true'/);
   assert.match(nativeWorkflow, /DESKTOP-PROVENANCE-\$\{\{ matrix\.target \}\}\.json/);
-  for (const resource of ['node-resources', 'native-notices', 'managed-reader-resources']) {
+  for (const resource of ['node-resources', 'zzz-resources', 'native-notices', 'managed-reader-resources']) {
     assert.ok(nativeWorkflow.includes(`'output/${resource}'`));
   }
   assert.match(nativeWorkflow, /\$options \+= @\('--resources-root', \$root\)/);
@@ -137,6 +137,21 @@ test('publication waits for native construction and rechecks all downloaded arti
   assert.match(nativeWorkflow, /if \(Test-Path output\/ACCEPTED-PROVENANCE\.json\)/);
   assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
   assert.match(nativeWorkflow, /--python-archive', '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
+});
+
+test('native ZZZ collection uses bundled Node and rebuilt WASM before freezing', () => {
+  const compile = nativeWorkflow.indexOf('python scripts/build-ooz-runtime.py');
+  const collect = nativeWorkflow.indexOf('python scripts/build-zzz-toolchain.py');
+  const probe = nativeWorkflow.indexOf('python scripts/probe-native-zzz.py');
+  const freeze = nativeWorkflow.indexOf('name: Freeze the native runtime');
+  assert.ok(compile > 0 && collect > compile && probe > collect && freeze > probe);
+  assert.match(nativeWorkflow, /Resolve-Path \(Join-Path 'output\/node-resources\/toolchains\/node' \$nodeName\)/);
+  assert.match(nativeWorkflow, /--node-executable \$node --ooz-build-root output\/ooz-build/);
+  const review = nativeWorkflow.slice(nativeWorkflow.indexOf('name: Review the exact delivered dependency inputs'),
+    nativeWorkflow.indexOf('name: Accept the exact native target'));
+  assert.match(review, /Get-Content packaging\/zzz-reader\/production-inputs\.json/);
+  assert.match(review, /Join-Path 'output\/zzz-inputs' \$archive\.archive/);
+  assert.ok(nativeWorkflow.includes('output/native-zzz-probe.json'));
 });
 
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {

@@ -83,7 +83,7 @@ def source_inputs():
     roots = ['backend', 'scripts', 'packaging', 'assets/fireredvad']
     paths = [ROOT / name for name in ['requirements.txt', 'requirements.lock.txt', 'package.json', 'package-lock.json']]
     for name in roots:
-        paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and p.suffix in {'.py', '.ps1', '.mjs', '.json', '.spec', '.txt', '.onnx', '.ark', '.cs', '.csproj'}
+        paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and p.suffix in {'.py', '.ps1', '.mjs', '.cjs', '.json', '.spec', '.txt', '.onnx', '.ark', '.cs', '.csproj'}
             and not any(part in {'__pycache__', 'node_modules', 'bin', 'obj'} for part in p.relative_to(ROOT).parts)]
     return {p.relative_to(ROOT).as_posix(): digest(p) for p in sorted(paths)}
 

@@ -136,8 +136,9 @@
   "source_correspondence": {
     "ooz-wasm": {
       "revision": "ebed82851988add824e092dc4db320c8fa39aaca",
-      "basis": "Unique upstream v2.0 commit; npm source members match. Generated WASM compiler identity is not supplied by npm; no independent reproduction claim.",
-      "status": "requires-source-build-evidence"
+      "basis": "The npm source members match the upstream v2.0 commit. Production uses the separately pinned source-built generated module, never the undocumented npm generated WASM.",
+      "status": "source-built-output-required",
+      "build_policy": "packaging/zzz-reader/ooz-build.json"
     },
     "xxhash-wasm": {
       "revision": "5923f26411ed763044bed17a1fec33fee74e47a0",

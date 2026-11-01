@@ -32,6 +32,7 @@ from backend.desktop_frontend import FrontendBuild, FrontendError
 from python_supplier import archive_plan, mutable_build_file, PIN_FILES
 from macos_replay import MACHO_MAGICS, MAX_BINARY, replay as replay_macho, verify_toolchain
 from cyberpunk_review import inspect as inspect_cyberpunk
+from zzz_review import inspect as inspect_zzz
 
 CHECKS = ('python_supplier', 'exact_wheels', 'native_inputs', 'complete_notices',
           'corresponding_sources', 'frontend_licenses')
@@ -620,7 +621,8 @@ def review(args):
     validate(args.runtime_root, receipt, args.target, candidate=True)
     observed = read_json(args.observed_inputs)
     extra = ['packaging/runtime-bundle/' + PIN_FILES[args.target], 'backend/node_tools.py', 'scripts/build-node-toolchain.py',
-             'packaging/codecs/audio-runtime.json', 'packaging/game-readers/managed-components.json', 'backend/prebuilt_readers.py']
+             'packaging/codecs/audio-runtime.json', 'packaging/game-readers/managed-components.json', 'backend/prebuilt_readers.py',
+             'packaging/runtime-bundle/zzz_review.py']
     source_names = set(observed.get('source_inputs', {})) | set(extra)
     for manifest in receipt.get('native_resources', []):
         source_names.update(manifest.get('source_inputs', {}))
@@ -642,6 +644,7 @@ def review(args):
     stages += [('native_inputs', lambda: result.resources(snapshot)),
                ('native_inputs', lambda: result.helpers(snapshot)),
                ('native_inputs', lambda: inspect_cyberpunk(result, snapshot, source_matches)),
+               ('native_inputs', lambda: inspect_zzz(result, snapshot, source_matches, node=args.node)),
                ('native_inputs', result.macos_postprocessing),
                ('python_supplier', result.frozen_python),
                ('corresponding_sources', lambda: result.sources(args.source_root)),
@@ -673,6 +676,8 @@ def review(args):
         'policy_inputs': {name: digest(args.source_root / name) for name in (
             'packaging/runtime-bundle/macos_replay.py',
             'packaging/runtime-bundle/cyberpunk_review.py',
+            'packaging/runtime-bundle/zzz_review.py', 'packaging/runtime-bundle/zzz_inputs.py',
+            'packaging/zzz-reader/production-inputs.json',
             'packaging/desktop/native-notices.json', 'packaging/desktop/qt-sources.json',
             'packaging/frontend-notices/sources.json', 'packaging/frontend-notices/native-build-inputs.json',
             'scripts/frontend-native-exclusions.mjs', 'scripts/dependency-notices.mjs')},

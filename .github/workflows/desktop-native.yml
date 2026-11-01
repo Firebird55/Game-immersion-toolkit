@@ -71,6 +71,10 @@ jobs:
           backend/tests/test_macos_supplier_replay.py backend/tests/test_desktop_input_review.py
           backend/tests/test_cyberpunk_input_review.py backend/tests/test_cyberpunk_build.py
           backend/tests/test_cyberpunk_redistribution.py
+          backend/tests/test_zzz_inputs.py backend/tests/test_zzz_input_review.py
+          backend/tests/test_ooz_source_build.py backend/tests/test_native_zzz_probe.py
+          backend/tests/test_production_zzz_reader.py backend/tests/test_zzz_toolchain_build.py
+          backend/tests/test_desktop_build_environment.py
       - name: Install Linux build-runner display services
         if: runner.os == 'Linux'
         run: |
@@ -113,6 +117,20 @@ jobs:
       - run: npm run desktop:build -- --output-root output/desktop-frontend
       - name: Collect the pinned app-local grammar runtime
         run: python scripts/build-node-toolchain.py --platform '${{ matrix.node_target }}' --output output/node-resources --retain-node-archive output/native-archives/node-supplier.archive
+      - name: Build the ZZZ decompressor from retained preferred source
+        run: |
+          $nodeName = if ($IsWindows) { 'node.exe' } else { 'node' }
+          $node = (Resolve-Path (Join-Path 'output/node-resources/toolchains/node' $nodeName)).Path
+          python scripts/build-ooz-runtime.py --output output/ooz-build --work output/ooz-work --cache output/ooz-source-cache --node $node
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Collect and exercise the compiler-free ZZZ scene reader
+        run: |
+          $nodeName = if ($IsWindows) { 'node.exe' } else { 'node' }
+          $node = (Resolve-Path (Join-Path 'output/node-resources/toolchains/node' $nodeName)).Path
+          python scripts/build-zzz-toolchain.py --platform '${{ matrix.node_target }}' --output output/zzz-resources --evidence-root output/zzz-evidence --input-cache output/zzz-inputs --node-executable $node --ooz-build-root output/ooz-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/probe-native-zzz.py --zzz-resources output/zzz-resources --node-resources output/node-resources --output output/native-zzz-probe.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Retain pinned Qt sources and full notices
         run: python scripts/build-qt-resources.py --output output/qt-resources --cache output/qt-source-cache
       - name: Retain exact OCR, ASR and native library sources and notices
@@ -131,7 +149,7 @@ jobs:
       - name: Freeze the native runtime and isolated ASR child
         run: |
           $options = @('--frontend-root', 'output/desktop-frontend', '--output', 'output/native-candidate', '--wheelhouse', 'output/wheelhouse', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--nte-helper-root', 'output/reader-helper/nte')
-          foreach ($root in @('output/audio-resources', 'output/node-resources', 'output/qt-resources', 'output/native-notices', 'output/managed-reader-resources')) { $options += @('--resources-root', $root) }
+          foreach ($root in @('output/audio-resources', 'output/node-resources', 'output/zzz-resources', 'output/qt-resources', 'output/native-notices', 'output/managed-reader-resources')) { $options += @('--resources-root', $root) }
           if ($IsWindows) { $options += @('--resources-root', 'output/cyberpunk-resources') }
           python scripts/build-desktop-runtime.py @options
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -152,6 +170,10 @@ jobs:
         run: |
           $options = @('-I', 'scripts/review-desktop-inputs.py', '--runtime-root', 'output/native-candidate/runtime/GameImmersionToolkit', '--provenance', 'output/native-candidate/CANDIDATE-PROVENANCE.json', '--observed-inputs', 'output/native-candidate/OBSERVED-INPUTS.json', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--wheelhouse', 'output/wheelhouse', '--target', '${{ matrix.target }}', '--output', 'output/native-input-review.json', '--native-archive', 'output/native-archives/node-supplier.archive')
           foreach ($archive in Get-ChildItem '${{ steps.reader_sdk.outputs.evidence_root }}/nuget-feed' -Filter '*.nupkg' -File) { $options += @('--native-archive', $archive.FullName) }
+          $zzzPins = Get-Content packaging/zzz-reader/production-inputs.json -Raw | ConvertFrom-Json
+          foreach ($archive in $zzzPins.archives | Where-Object { $_.role -ne 'source' }) {
+            $options += @('--native-archive', (Join-Path 'output/zzz-inputs' $archive.archive))
+          }
           if ($IsWindows) {
             $codecs = Get-Content packaging/codecs/audio-runtime.json -Raw | ConvertFrom-Json
             $options += @('--native-archive', (Join-Path 'output/audio-source-cache' $codecs.vgmstream.windows_artifact.archive))
@@ -201,6 +223,7 @@ jobs:
             output/native-ui-probe.json
             output/native-cyberpunk-probe.json
             output/native-unreal-probe.json
+            output/native-zzz-probe.json
             output/native-input-review.json
           if-no-files-found: warn
           retention-days: 7
