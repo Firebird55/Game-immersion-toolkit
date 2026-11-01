@@ -11,7 +11,30 @@ candidate packages are not yet an accepted dependency-free release for every
 game; the source installation below remains the published path until the native
 runtime, helper, codec and redistribution checks pass.
 
-## Install on a new PC
+## Native executable installation
+
+When a release includes an accepted native installer for your platform, download
+that installer and its `SHA256SUMS` and `DESKTOP-PROVENANCE` files. Verify its
+checksum and release version before opening it. Native packages include the
+application runtimes and helpers; Python, Node.js, npm and a compiler are not
+user prerequisites. Game installations and their selected voice packs are still
+required for preparing dialogue.
+
+On Windows, open the Setup executable, choose the destination (Program Files by
+default), and independently select Start menu and Desktop shortcuts. Start
+**Game Immersion Toolkit** from the installed executable or shortcut. It opens
+the transcript in your browser and keeps a status/log window and tray menu.
+Use the tray's Open transcript, Show logs and Quit actions as needed.
+
+Linux x64 and Apple silicon macOS 14 or later use their corresponding native
+release assets. Grant the operating system's screen-capture permissions when
+requested. The [native acceptance plan](docs/desktop-native-acceptance-plan.md)
+records display-server and physical-device limitations. Native and source
+installations use different update mechanisms; follow the
+[handoff procedure](docs/native-installation-handoff.md) when replacing a source
+installation.
+
+## Source installation on a new PC
 
 1. Download the latest release ZIP and SHA256SUMS from [GitHub releases](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest). Check the ZIP's SHA-256 before extracting it to a writable folder outside your game installation.
 2. Install Python 3.12 with its Windows launcher or install manager, [Node.js 24 with npm](https://nodejs.org/en/download), and Windows Snipping Tool through Microsoft Store. [Python for Windows](https://www.python.org/downloads/windows/) includes the installation instructions. No administrator access is required for the toolkit itself.
