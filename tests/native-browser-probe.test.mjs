@@ -30,21 +30,19 @@ test('native handshake reports loading without accepting a missing reader',t=>{
   assert.equal(state.posts.at(-1).phase,'reader-timeout');
 });
 
-test('suspended animation frames remain diagnostic, never successful navigation',t=>{
+test('actual mounted layout acknowledges even when animation frames are suspended',t=>{
   const state=fixture(t,{width:800,visibility:'hidden'});observeNativeBrowserLaunch();
-  assert.equal(state.posts.at(-1).phase,'animation-frame-pending');
-  assert.equal(state.posts.at(-1).visibility,'hidden');
-  assert(!state.posts.some(x=>x.reader_ready));
-  state.frames.shift()();assert(!state.posts.some(x=>x.reader_ready));
-  state.frames.shift()();assert.equal(state.posts.at(-1).reader_ready,true);
+  assert.equal(state.posts.find(x=>x.phase==='reader-mounted').visibility,'hidden');
+  assert.equal(state.posts.at(-1).reader_ready,true);
+  assert.equal(state.frames.length,0);
 });
 
 test('replaced challenge cannot acknowledge an earlier browser stage',t=>{
-  const state=fixture(t,{width:800});observeNativeBrowserLaunch();
+  const state=fixture(t);observeNativeBrowserLaunch();
   state.location.hash=state.location.hash.replace('stage=1','stage=2');
-  state.frames.shift()();state.frames.shift()();
+  state.width=800;state.timers.shift()();
   assert(!state.posts.some(x=>x.reader_ready));
-  state.events.hashchange();state.frames.shift()();state.frames.shift()();
+  state.events.hashchange();
   assert.deepEqual(state.posts.filter(x=>x.reader_ready).map(x=>x.stage),[2]);
 });
 
@@ -57,7 +55,6 @@ test('normal and LAN readers never send native diagnostics',t=>{
 
 test('failed acknowledgement reports a fixed network or HTTP phase',async t=>{
   const state=fixture(t,{width:800});state.status=403;observeNativeBrowserLaunch();
-  state.frames.shift()();state.frames.shift()();
   await Promise.resolve();await Promise.resolve();
   assert.equal(state.posts.at(-1).phase,'ack-http-failed');
 });

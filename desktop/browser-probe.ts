@@ -25,16 +25,16 @@ export function observeNativeBrowserLaunch() {
         return;
       }
       report('reader-mounted');
-      report('animation-frame-pending');
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (location.hash !== fragment) return;
-        report('ack-requested');
-        void fetch('/api/native-browser-probe', {method: 'POST', credentials: 'omit',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({token, stage, reader_ready: true})})
-          .then(response => {if (!response.ok) report('ack-http-failed');})
-          .catch(() => report('ack-network-failed'));
-      }));
+      // This observes a mounted reader with actual layout, not a screenshot or
+      // completed paint. An occluded browser can suspend animation callbacks
+      // while the real native log window is being exercised.
+      if (location.hash !== fragment) return;
+      report('ack-requested');
+      void fetch('/api/native-browser-probe', {method: 'POST', credentials: 'omit',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({token, stage, reader_ready: true})})
+        .then(response => {if (!response.ok) report('ack-http-failed');})
+        .catch(() => report('ack-network-failed'));
     };
     ready();
   };
