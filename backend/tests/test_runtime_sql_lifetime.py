@@ -974,3 +974,36 @@ def test_retained_retry_refuses_changed_runtime_binding_before_touching_foreign_
             assert foreign._accepting
 
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('foreign_ledger', [False, True])
+def test_actual_sql_ledger_type_is_preserved_across_the_existing_grammar_constructor_hook(cohort, monkeypatch, foreign_ledger):
+    from backend.runtime_probe import _AuthoredGrammarService
+    runtime = cohort.runtime
+    actual = runtime.lexirise
+    original_type = api.LexiriseService
+    grammar = _AuthoredGrammarService(SimpleNamespace(data_root=actual.directory.parent,
+        work_root=actual.directory.parent/'owned-grammar-work'), original_type)
+    # Exactly the existing frozen grammar probe's scoped constructor binding;
+    # its returned production service still has the original class identity.
+    monkeypatch.setattr(api, 'LexiriseService', grammar.create)
+    assert isinstance(actual, original_type)
+    if foreign_ledger:
+        runtime.lexirise = SimpleNamespace(_sql_lifetime=actual._sql_lifetime)
+
+    async def run():
+        if foreign_ledger:
+            with pytest.raises(TypeError, match='actual retained stores'):
+                await runtime.quiesce_writers(timeout=2)
+            assert actual._sql_lifetime.fence is None
+            assert not runtime.request_writers._accepting
+            return
+        payload = await runtime.quiesce_writers(timeout=2)
+        record = runtime._sql_handoff
+        assert record.lexirise is actual and record.members[1].owner is actual._sql_lifetime
+        assert all(member.token is not None for member in members(record))
+        await runtime.activate_handoff(payload, writers=True)
+        assert runtime._sql_handoff is None and runtime.request_writers._accepting
+        cohort.healthy()
+
+    asyncio.run(run())

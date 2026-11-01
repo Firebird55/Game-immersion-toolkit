@@ -107,6 +107,10 @@ closed and uses private absolute-deadline freeze/check/resume operations.
 Registry locks hold no SQL/HTTP/pool work. A clean pending retry continues its
 same owner set/epoch; failed close remains poisoned and is never retried.
 No missing-owner fallback or pathname-based deduplication can manufacture success.
+Ledger identity checks use the real service class captured before a scoped
+constructor hook. The existing authored grammar probe can wrap construction
+while returning that actual service; a callable factory is not a Python type.
+Foreign objects remain refused even when they expose another owner's SQL helper.
 Each actual owner binds its retained member as the private controller before
 any freeze. Matching epoch/pending metadata cannot transfer another public
 controller's timed-out stop. Competing public freeze/resume calls refuse until

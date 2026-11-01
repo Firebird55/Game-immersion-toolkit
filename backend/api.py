@@ -56,6 +56,10 @@ from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access
 from .runtime_bundle import discover_layout, child_command
 
 
+# A scoped constructor hook can wrap creation without changing the real member
+# type. In particular, the authored grammar probe still creates this class.
+_SQL_LEDGER_TYPE = LexiriseService
+
 RUNTIME_LAYOUT = discover_layout()
 PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
 DATA_DIR = RUNTIME_LAYOUT.data_root
@@ -784,13 +788,13 @@ class Runtime:
                     or self._reading_registry is not record.registry or self.request_writers is not record.gate
                     or self.capture is not record.capture):
                 raise TypeError('Runtime SQL reservation inputs changed.')
-            if (not isinstance(self.transcript, TranscriptStore) or not isinstance(self.lexirise, LexiriseService)
+            if (not isinstance(self.transcript, TranscriptStore) or not isinstance(self.lexirise, _SQL_LEDGER_TYPE)
                     or type(self._reading_registry) is not RuntimeReadingRegistry
                     or type(self.request_writers) is not RuntimeWriterGate):
                 raise TypeError('Runtime SQL requires its actual retained stores and registry.')
             owners = (self.transcript._sql_lifetime, self.lexirise._sql_lifetime)
             if (any(type(owner) is not SqliteOperationLifetime for owner in owners)
-                    or owners[0].subject is not self.transcript or not isinstance(owners[1].subject, LexiriseService)
+                    or owners[0].subject is not self.transcript or not isinstance(owners[1].subject, _SQL_LEDGER_TYPE)
                     or owners[0] is owners[1]):
                 raise TypeError('Runtime SQL owner binding differs.')
             if record.members is None:
