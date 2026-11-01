@@ -122,3 +122,82 @@ print(json.dumps(m.diagnose(Path(sys.argv[2]),Path(sys.argv[2]),Path(sys.argv[2]
     assert result['passed'] is False
     assert result['probe'] == {'passed': False, 'phase': 'checkout-cleanliness', 'reason': 'source-checkout-dirty'}
     assert 'private' not in json.dumps(result)
+
+
+def metadata_repair_fixture(tmp_path):
+    diagnostic = module()
+    source = tmp_path / 'tag'
+    source.mkdir()
+    pkg = {'name': 'authored-tag', 'version': '0.23.0'}
+    contents = {'package.json': json.dumps(pkg, indent=2) + '\r\n',
+                'package-lock.json': json.dumps({'version': '0.23.0', 'packages': {'': pkg}}, indent=2) + '\r\n',
+                'VERSION': '0.23.0\r\n',
+                'release-version.json': json.dumps({'version': '0.23.0',
+                    'releaseCommand': 'npm run release -- --version 0.23.0'}, indent=2) + '\r\n'}
+    for name, value in contents.items():
+        (source / name).write_bytes(value.replace('\r\n', '\n').replace('\n', '\r\n').encode())
+    def git(*args):
+        return subprocess.check_output(['git', *args], cwd=source, text=True, stderr=subprocess.PIPE).strip()
+    git('init', '-q')
+    git('config', 'user.name', 'Authored CI Fixture')
+    git('config', 'user.email', 'fixture@users.noreply.github.com')
+    git('config', 'commit.gpgsign', 'false')
+    git('config', 'core.autocrlf', 'false')
+    git('add', '.')
+    git('commit', '-qm', 'Authored immutable metadata')
+    diagnostic.SOURCE = git('rev-parse', 'HEAD')
+    expected = {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+    for name in diagnostic.METADATA:
+        (source / name).write_bytes(b'changed by original preparation\n')
+    original = {'schema': 'toolkit-unreal-tag-diagnostic-v1', 'diagnostic_only': True,
+                'tag': diagnostic.TAG, 'source_commit': diagnostic.SOURCE, 'passed': False,
+                'probe': {'phase': 'checkout-cleanliness', 'reason': 'source-checkout-dirty',
+                          'changed_release_metadata': list(diagnostic.METADATA), 'other_changed': False}}
+    report = tmp_path / 'original.json'
+    report.write_text(json.dumps(original))
+    return diagnostic, source, report, original, expected, git
+
+
+def test_metadata_repair_restores_only_observed_files_and_real_preparer_preserves_clean_crlf(tmp_path):
+    diagnostic, source, report, _, expected, git = metadata_repair_fixture(tmp_path)
+    result = diagnostic.repair_metadata(source, report)
+    assert result['passed'] is True and result['checkout_clean'] is True
+    assert result['diagnostic_only'] is True and result['release_eligible'] is False
+    assert result['native_acceptance'] == 'not-established'
+    assert len(result['preparer_sha256']) == 64
+    assert git('status', '--porcelain') == ''
+    assert expected == {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+
+
+@pytest.mark.parametrize('mutation', ['other', 'passed', 'phase', 'missing-file', 'source'])
+def test_metadata_repair_refuses_other_original_results_without_touching_checkout(tmp_path, mutation):
+    diagnostic, source, report, original, _, _ = metadata_repair_fixture(tmp_path)
+    if mutation == 'other':
+        original['probe']['other_changed'] = True
+    elif mutation == 'passed':
+        original['passed'] = True
+    elif mutation == 'phase':
+        original['probe']['phase'] = 'helper-copy'
+    elif mutation == 'missing-file':
+        original['probe']['changed_release_metadata'].pop()
+    else:
+        original['source_commit'] = 'f' * 40
+    report.write_text(json.dumps(original))
+    before = {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+    result = diagnostic.repair_metadata(source, report)
+    assert result['passed'] is False and result['phase'] == 'validate-original-failure'
+    assert before == {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+
+
+@pytest.mark.parametrize('additional_change', ['untracked', 'staged'])
+def test_metadata_repair_refuses_live_changes_beyond_four_unstaged_metadata_files(tmp_path, additional_change):
+    diagnostic, source, report, _, _, git = metadata_repair_fixture(tmp_path)
+    if additional_change == 'untracked':
+        (source / 'private-path.txt').write_text('untouched')
+    else:
+        git('add', 'VERSION')
+    before = {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+    result = diagnostic.repair_metadata(source, report)
+    assert result['passed'] is False and result['phase'] == 'validate-current-checkout'
+    assert 'private-path' not in json.dumps(result)
+    assert before == {name: (source / name).read_bytes() for name in diagnostic.METADATA}
