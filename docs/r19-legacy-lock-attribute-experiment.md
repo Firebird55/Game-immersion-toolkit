@@ -962,3 +962,52 @@ still check the actual protected executable before either control. Native
 PowerShell is unavailable on this Mac. The actual base-role result, any later
 origin-binding correction, C7 mechanism, rights, Windows 11 and R19 acceptance
 remain unverified. No installer or release is authorized by this observation.
+
+## 0898 system-home observation and exact engine-module base
+
+[Run 41344420480](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41344420480),
+attempt 1, tested exact `0898c1b431b77a5e6fc69c2a80f111e933496603`.
+Windows job 124961112803 on image windows-2025-vs2026/20261030.294.1
+failed the authored contracts with 705 passed, one failed and zero skipped in
+5.22 seconds. Both actual prefix and managed-IO controls reported
+`module/guard-base-system-home` after `fixture-validated`, with unavailable,
+protocol-refused and empty stderr. Both direct child/readers finished and both
+fixtures were removed after confirmed cleanup. These values came from the
+genuine failure record, not a source-string match. The mechanism and publisher
+were skipped and provider artifacts were empty. The earlier 1b and 8449
+negative results remain unchanged.
+
+The generic [ModuleBase API description](https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.psmoduleinfo.modulebase?view=powershellsdk-7.6.0)
+describes the normal manifest-parent base. Official PowerShell's
+[engine-module override](https://github.com/PowerShell/PowerShell/blob/v6.0.0/src/System.Management.Automation/engine/Modules/ImportModuleCommand.cs#L1776)
+uses the PowerShell application base, and the
+[engine-module set](https://github.com/PowerShell/PowerShell/blob/v6.0.0/src/System.Management.Automation/engine/InitialSessionState.cs#L4857)
+includes Microsoft.PowerShell.Management. These Core-era sources support the
+relationship; they are not the runner's Windows5.1 binary/source identity.
+The two current controls provide the actual Desktop5.1 role observation.
+
+The fifth producer predicate and its classifier mirror now require ModuleBase
+to equal exactly the already validated `$systemHome`, using OrdinalIgnoreCase.
+This replaces the former manifest-parent expectation. There is no OR, alternate
+base, trimming, path-search fallback or new allowlist. The independent
+count/type/name/manifest-path guards and subsequent cmdlet/GAC/assembly/type,
+root-first filesystem/reparse and ACL checks remain unchanged. The separate
+manifest-parent role diagnostic remains available for a future refusal; it is
+not an accepted base. Neither diagnostics nor a matching base bypasses the hard
+operation-control or actual C7 mechanism criteria.
+
+Only this exact expectation and its mirrored classifier change. The original
+Enter body, companion/process-helper source pins, grant decoder, environment,
+wire/public schemas, owners, deadlines and cleanup rules remain unchanged.
+The shared fragment is now 6167 characters under the unchanged 6400 cap.
+Source quoting measurements including NUL are prefix26550, managed-IO26326 and
+legacy31054 under the unchanged 32767 limit. The previous figures above describe
+0898 and earlier source; they are not relabelled. The current source contracts
+reverse the exact predicate correction before comparing historical bytes, and
+retain the actual Windows protected-executable pre-launch assertions.
+
+Portable verification does not execute this PowerShell correction. A new
+exact-head Windows result must still establish the unchanged assembly/visible
+guards, pre-open operations and separate attribute/owner-loss mechanism. No
+root/compiler/user permission, Windows11 hardware, rights, global/physical or
+keeper-loss ownership, installer or R19 gate is closed by this source change.

@@ -598,7 +598,7 @@ $C7BootstrapPhase='module'
 if ($loaded.Count -ne 1 -or $loaded[0] -isnot [Management.Automation.PSModuleInfo] -or
     $loaded[0].Name -cne 'Microsoft.PowerShell.Management' -or
     -not [string]::Equals($loaded[0].Path,$manifest,[StringComparison]::OrdinalIgnoreCase) -or
-    -not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+    -not [string]::Equals($loaded[0].ModuleBase,$systemHome,[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
 $C7BootstrapPhase='assembly'
 $management=$loaded[0].ExportedCmdlets['Join-Path'].ImplementingType.Assembly
 $managementPath=Get-C7AssemblyPath $management 'Microsoft.PowerShell.Commands.Management'

@@ -1415,7 +1415,7 @@ def operation_bootstrap_control():
             elseif ($loaded[0] -isnot [Management.Automation.PSModuleInfo]) { $category='guard-type' }
             elseif ($loaded[0].Name -cne 'Microsoft.PowerShell.Management') { $category='guard-name' }
             elseif (-not [string]::Equals($loaded[0].Path,$manifest,[StringComparison]::OrdinalIgnoreCase)) { $category='guard-path' }
-            elseif (-not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)) { $category='guard-base' }
+            elseif (-not [string]::Equals($loaded[0].ModuleBase,$systemHome,[StringComparison]::OrdinalIgnoreCase)) { $category='guard-base' }
         } catch {
             $C7BootstrapClassificationFailure=$_
             $category='other'
@@ -1916,10 +1916,16 @@ def test_bootstrap_projection_rejects_private_untyped_or_false_success_fields(fi
     assert 'private' not in json.dumps(observed)
 
 
-def test_phase_assignments_are_only_producer_delta_and_control_catch_has_one_closed_output():
+def test_phase_assignments_and_strict_base_are_only_producer_delta_and_control_catch_has_one_closed_output():
     import hashlib,re
     fragment=module.LEGACY_SYSTEM_MODULE
     stripped=re.sub(r"^\$C7BootstrapPhase='(?:image|paths|core|import|module|assembly|visible|complete)'\n",'',fragment,flags=re.MULTILINE)
+    # Reverse only the reviewed engine-module identity correction before
+    # comparing the historical phase-free bytes. No OR/fallback can satisfy it.
+    strict='-not [string]::Equals($loaded[0].ModuleBase,$systemHome,[StringComparison]::OrdinalIgnoreCase)'
+    former='-not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)'
+    assert stripped.count(strict)==1 and former not in stripped
+    stripped=stripped.replace(strict,former,1)
     assert hashlib.sha256(stripped.encode()).hexdigest() == '0836deb4e157e212f5c83aa8477b1df026657696f69e14d2906c142c1e36950d'
     phases=re.findall(r"^\$C7BootstrapPhase='([^']+)'$",fragment,re.MULTILINE)
     assert phases==list(BOOTSTRAP_PHASES[1:])
@@ -2013,17 +2019,17 @@ def test_base_role_projection_is_exact_control_only_text_and_has_no_new_origin_o
     assert '$C7BootstrapFailure' not in role
     assert not any(value in role for value in ('WriteLine','Import-Module','Get-Command',
         'GetAttributes','.Open(','.Dispose(','.Location','GetFullPath','Trim','exit ','throw '))
-    # This is the complete prior wrapper, including original classifier and
-    # terminal. Removing only the role block must preserve its exact bytes.
+    # This is the prior role-free wrapper with the same strict expected-base
+    # correction in producer and classifier; every other byte stays fixed.
     assert hashlib.sha256(wrapper.replace(role,'',1).encode()).hexdigest()==(
-        'fcb26a0d3c73368a8a5acf33d4e970e5887bbeac58dd51c547deb1341cfbdb21')
-    assert len(module.LEGACY_SYSTEM_MODULE)==6194
+        '9cc7aa2e40370092e8555b58a6fdf24134f7fd1a21c61a74a19e56bcd87fb061')
+    assert len(module.LEGACY_SYSTEM_MODULE)==6167
     assert wrapper not in module.LEGACY_SCRIPT and role not in module.LEGACY_SCRIPT
 
 
 def test_control_only_base_role_projection_fits_original_windows_command_transport():
     image=r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
-    expected={'prefix':26694,'managed-io':26470}
+    expected={'prefix':26550,'managed-io':26326}
     for kind, units in expected.items():
         script=operation_control_script(kind,'a'*32)
         command=assert_windows_command_capacity(image,script)
@@ -2033,7 +2039,7 @@ def test_control_only_base_role_projection_fits_original_windows_command_transpo
     # either control. This conventional path is a portable text-only fixture.
     legacy=module.LEGACY_SCRIPT.replace('__PIPE__','r19-lock-attribute-'+'a'*32)
     command=assert_windows_command_capacity(image,legacy)
-    assert len(subprocess.list2cmdline(command).encode('utf-16le'))//2+1==31126
+    assert len(subprocess.list2cmdline(command).encode('utf-16le'))//2+1==31054
 
 
 @pytest.mark.parametrize('error', BASE_ROLE_ERRORS)
