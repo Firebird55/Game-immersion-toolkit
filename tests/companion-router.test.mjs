@@ -102,3 +102,41 @@ test('open readers reconnect their WebSocket to the prepared runtime',async()=>{
   }
  }
 });
+
+for(const teardown of ['destroy','end','leave-open'])test(`router drains simultaneous WebSocket readers after ${teardown}`,async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'companion-router-')),statePath=join(directory,'state.json');
+ const upstreamSockets=new Set(),readers=[];let router,logs='';
+ const backend=http.createServer((_request,response)=>response.end('upstream remains available'));
+ backend.on('upgrade',(request,socket)=>{
+  upstreamSockets.add(socket);socket.on('close',()=>upstreamSockets.delete(socket));socket.on('error',()=>{});
+  const accept=createHash('sha1').update(request.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
+  socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: '+accept+'\r\n\r\n');
+  socket.on('data',bytes=>{if((bytes[0]&15)===8)socket.end(Buffer.from([0x88,0]));});
+ });
+ try{
+  const port=await listen(backend);writeFileSync(statePath,JSON.stringify({active:{apiPort:port,frontendPort:port}}));
+  router=await startRouter({statePath,apiPort:0,frontendPort:0,onLog:chunk=>{logs=(logs+chunk).slice(-8000);}});
+  await Promise.all(Array.from({length:8},async()=>{
+   const reader=net.connect({host:'127.0.0.1',port:router.apiPort});readers.push(reader);reader.on('error',()=>{});
+   await once(reader,'connect',{signal:AbortSignal.timeout(5000)});
+   const accepted=new Promise((resolve,reject)=>{
+    let response='';const timer=setTimeout(()=>reject(Error('Owned WebSocket handshake timed out')),5000);
+    reader.on('data',chunk=>{response+=chunk.toString();if(response.includes('\r\n\r\n')){clearTimeout(timer);resolve(response);}});
+   });
+   reader.write('GET /api/ws HTTP/1.1\r\nHost: 127.0.0.1:'+router.apiPort+'\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n');
+   assert.match(await accepted,/^HTTP\/1\.1 101 /);
+  }));
+  // Both abrupt loss and TCP EOF can race the ASGI bridge's final close. Open
+  // readers must also be closed by the gateway without waiting for a reply.
+  for(const reader of readers)if(teardown!=='leave-open')reader[teardown]();
+  await router.close();
+  assert.doesNotMatch(logs,/Exception in ASGI application|Traceback|timeout graceful shutdown exceeded/);
+  assert.equal(await(await fetch('http://127.0.0.1:'+port)).text(),'upstream remains available');
+ }finally{
+  for(const reader of readers)reader.destroy();
+  try{await router?.close();}finally{
+   for(const socket of upstreamSockets)socket.destroy();backend.closeAllConnections();await close(backend);
+   assert(resolve(directory).startsWith(resolve(tmpdir())+sep+'companion-router-'));rmSync(directory,{recursive:true,force:true});
+  }
+ }
+});

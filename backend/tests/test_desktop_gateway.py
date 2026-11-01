@@ -53,6 +53,67 @@ def test_peer_disconnect_during_final_close_releases_gateway_socket(gateway, mon
     assert not instance.routes.websockets
 
 
+def test_gateway_cancellation_joins_both_relays_before_releasing_upstream(gateway, monkeypatch):
+    from backend import desktop_gateway as module
+    instance, _ = gateway
+    instance.routes.refresh()
+    monkeypatch.setattr(module, 'allowed_request', lambda *_: True)
+    monkeypatch.setattr(instance, 'trusted', lambda _: True)
+
+    async def scenario():
+        started = [asyncio.Event(), asyncio.Event()]
+        stopped = [asyncio.Event(), asyncio.Event()]
+        upstream_closed = asyncio.Event()
+
+        class Upstream:
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                started[0].set()
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    stopped[0].set()
+
+        @asynccontextmanager
+        async def connect(*_, **__):
+            try:
+                yield Upstream()
+            finally:
+                assert all(event.is_set() for event in stopped)
+                upstream_closed.set()
+
+        monkeypatch.setattr(module, 'connect', connect)
+
+        class Socket:
+            scope = {'path': '/api/ws'}
+            url = SimpleNamespace(path='/api/ws')
+
+            async def accept(self):
+                pass
+
+            async def receive(self):
+                started[1].set()
+                try:
+                    await asyncio.Event().wait()
+                finally:
+                    stopped[1].set()
+
+            async def close(self, **_):
+                raise WebSocketDisconnect(code=1006)
+
+        bridge = asyncio.create_task(instance.websocket(Socket()))
+        await asyncio.wait_for(asyncio.gather(*(event.wait() for event in started)), 1)
+        bridge.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await asyncio.wait_for(bridge, 1)
+        assert upstream_closed.is_set()
+        assert not instance.routes.websockets
+
+    asyncio.run(scenario())
+
+
 @pytest.fixture
 def gateway(tmp_path):
     state = tmp_path / 'runtime.json'
