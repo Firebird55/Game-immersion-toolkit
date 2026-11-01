@@ -43,7 +43,7 @@ shortcut transaction or live migration is authorized by this plan.
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `589362e`, 1,541 Windows contracts without skips, one warning, 118 subtests and 232.20 seconds, then native/C1/cold-slot, both bounded living-keeper cases and C3–C6 passed; seven artifacts/28 entries and 125 named immutable Git inputs independently verified | Latest complete bounded frozen checkpoint. Historical d35/0f/b598 failures remain negative. Main/managed/Node/protected-TEST image `20261021.278.1`; reference and both diagnostic-build jobs `20261030.294.1`. P2 source/contracts are included, but the new populated native case did not run. Separate C7 prefix control fails before mechanism/upload; MP3 attempt1 fails acquisition and attempt2 fails build-lame/MSB8020. No copied-target activation, keeper loss, global/dynamic writer fence, physical closure, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
+| Extracted runtime | At `020c44f`, 1,598 Windows contracts without skips, one warning, 118 subtests and 392.44 seconds, 37 actual PowerShell projector/sink cases, then C1/cold/living-keeper/C3–C6 plus the new fixed populated P2 case passed; seven artifacts/29 entries and 127 immutable Git inputs with twelve new source freeze pins independently verified | Latest complete bounded checkpoint. P2 covers one authored four-root fixture with TEST envelopes, real normal API/SQLite, separate verification clone, two cohorts/four signals/two drains/nine source checks and confirmed cleanup. The separate C7 bootstrap gate fails before mechanism/upload. No full real-library/browser/DPAPI migration, target activation, global/dynamic writer fence, physical closure, keeper loss, warm OCR/routing, exact-output rights or ordinary-user Windows 11 acceptance |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
@@ -315,7 +315,7 @@ retains all 96 historical records unchanged plus these four new results.
 Physical/global/warm, keeper-loss, complete source/rights, Windows 11 and full
 R19 gates remain open; no installer or PR #59 change follows.
 
-## Current bounded checkpoint and separate failures at 589362e
+## Bounded checkpoint and separate failures at 589362e
 
 The intervening d35 main contract failure (1,536 passed/four failed/two
 warnings/112 subtests/254.52 seconds) preceded EXE/COLLECT and all frozen
@@ -338,7 +338,7 @@ upstream archive/rebuild were rebound. Actual reference tools here were CMake
 `20261021.278.1`; reference and both diagnostic-build jobs used
 `20261030.294.1`. Earlier image/tool results remain historical.
 
-This is the latest complete bounded checkpoint. It includes the P2 producer
+This was the latest complete bounded checkpoint at that cutoff. It includes the P2 producer
 source/contracts and test-only fixture corrections; the new populated native
 case did not run. The existing C3–C6 receipts still cover their original authored
 fixtures, not complete mutable-state migration or physical/global authority.
@@ -361,6 +361,44 @@ plus seven new outcomes. C2/C3/C4, continuous keeper-loss exclusion, copied-
 target activation, physical/global/dynamic fencing, warm usable OCR/routing,
 full corresponding-source/rights, ordinary Windows 11 and full R19 remain open.
 No production activation, installer, PR #59 change or new ASR replay is implied.
+
+## Current bounded populated checkpoint at 020c44f
+
+The [020c44f checkpoint](r19-runtime-bundle.md#verified-populated-bounded-checkpoint-at-020c44f)
+supersedes 589 as the latest complete bounded result: 1,598 Windows contracts,
+no skips, one warning, 118 subtests, 392.44 seconds; 37 actual PowerShell
+projector/sink cases also passed. Seven artifacts/29 entries, 127 immutable Git
+inputs and twelve new source freeze pins bind the exact candidate. Inventory is
+1,449 files/642 directories/620,231,722 bytes, SHA-256
+`270a66a61a10d1c09359510f036752f22ce54dac3056dd0d265be69f7e294248`.
+Main/Node/protected-TEST image is `20261021.278.1`; reference/managed/both
+diagnostic-build jobs used `20261030.294.1`. C1/cold/living-keeper/C3–C6,
+473 A2/P1 records/notices and the unchanged Xiph source/rebuild remain bounded
+passes; no new ASR replay or complete native/source-rights closure follows.
+
+The new fixed P2 populated native case is now completed for one authored
+four-root fixture. Its 55-field receipt, 2,487 bytes/SHA-256
+`45ed07b6856a70db944ab8137bcb372384fac73b291dbf50a33604c25785c63f`,
+records two cohorts/four retained signals/two drains/nine source-operation
+blocks, both normal API and disposable clone readback, source/snapshot/external/
+pointer preservation, stale-barrier rejection and confirmed cleanup. Setup SQL
+tokens are not the writer proof. TEST envelopes and mocked HTTP are separate
+from real credentials/DPAPI; WAL dependency, browser/full libraries, arbitrary
+schemas, real locale continuity, physical replacement and target activation are
+not proved. P2's existing fixture row is complete; the broader E1/E2/E3 and
+C2/C3/C4 acceptance gates remain open.
+
+Separate C7 run 41316192484 failed its Windows bootstrap control before
+mechanism/upload: 267 passed/one failed/no skips/5.06 seconds, image
+`20261021.278.1`, zero artifacts. Both controls last delivered fixture-validated
+with protocol-refused and fixed CLIXML prefix; direct cleanup is confirmed.
+No private-error/bootstrap cause, operation-absence or actual mechanism result
+is inferred. The later 349-pass/two-skip phase/error-localization source work,
+approved MP3 source supplement and P4 implementation are not native results
+from 020. The [ledger](r19-frozen-checkpoint-20261031.json) retains 107 old records
+and appends this positive and separate negative. Physical/global/dynamic/warm/
+keeper-loss, exact-output rights, ordinary Windows 11, production activation and
+full R19 stay unaccepted; no installer or PR #59 change follows.
 
 The [FFmpeg/Opus source replay](r19-game-codec-replay.md) is implemented as
 a separate manual build-host experiment. The [TTS-disabled ASR source

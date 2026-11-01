@@ -15,8 +15,8 @@ game/language choices. R14 onboarding, an OCR rewrite, R20 installation and live
 data migration are outside this task. No release, tag or Pages publication is
 authorized. Engineering evidence below distinguishes source contracts,
 synthetic probes, a diagnostic executable and the accepted product candidate.
-The latest complete **bounded** frozen checkpoint is now `589362e`, described
-[below](#verified-bounded-checkpoint-at-589362e). Historical
+The latest complete **bounded** frozen checkpoint is now `020c44f`, described
+[below](#verified-populated-bounded-checkpoint-at-020c44f). Historical
 negative checkpoints remain negative; this is not full R19 acceptance.
 
 ## R02b method fixed before optimization
@@ -1562,8 +1562,8 @@ At `589362e7dc2e73da899751c042adbeb260ba5e56`,
 [run 41311314317](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311314317),
 job `124862144131`, passed **1,541 Windows contracts, no skips, one warning,
 118 subtests, 232.20 seconds**, both EXE/COLLECT trees, relocation/native/C1,
-cold slots, both bounded living-keeper cases and C3/C4/C5/C6. This supersedes
-11bf as the latest complete bounded checkpoint. The earlier d35, 0f and b598
+cold slots, both bounded living-keeper cases and C3/C4/C5/C6. This superseded
+11bf as the latest complete bounded checkpoint at that cutoff. The earlier d35, 0f and b598
 failures retain their original meanings.
 
 Root and peer independently bound seven artifacts/28 entries and **125 named
@@ -1652,6 +1652,68 @@ their raw source prefix and appends seven distinct results. Production/profile
 activation, physical/global/dynamic fencing, copied-target activation, keeper
 loss, warm OCR/routing, exact-output rights, ordinary-user Windows 11 and full
 R19 remain false/unavailable. No installer, release or PR #59 change follows.
+
+## Verified populated bounded checkpoint at 020c44f
+
+At `020c44fec8afd66de9e471fe732cb852af5a96da`,
+[run 41316180498](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316180498),
+job `124876632364`, passed **1,598 Windows contracts, no skips, one warning,
+118 subtests, 392.44 seconds**, plus **37 actual PowerShell projector/sink
+cases** before the build. Both EXE/COLLECT trees, relocation/native/C1,
+cold slots, both bounded living-keeper cases, C3–C6 and the new separate P2
+populated fixture passed. This is the latest complete bounded checkpoint;
+589 and all earlier positive and negative records remain historical.
+
+Root and peer independently bound seven provider artifacts/29 entries and
+**127 immutable Git inputs**, including twelve exact new Python/PowerShell/
+workflow/doc freeze pins. Integrated artifact **13087833846** is 1,338,889 bytes,
+SHA-256 `91bee0bd6a07d70890c727901f46d5754b810750f410f582a86eb2b5ea984e43`.
+Its fourteen entries include the new 2,487-byte P2 receipt, SHA-256
+`45ed07b6856a70db944ab8137bcb372384fac73b291dbf50a33604c25785c63f`.
+The 661,687-byte inventory binds 1,449 files/642 directories/620,231,722 bytes,
+SHA-256 `270a66a61a10d1c09359510f036752f22ce54dac3056dd0d265be69f7e294248`.
+Main/Node/protected-TEST used image `20261021.278.1`; reference/managed/both
+diagnostic-build jobs used `20261030.294.1`. These are hosted Server observations.
+
+P2's exact 55 typed fields report two genuine source cohorts, four retained
+writer signals, two strict drains and nine independent source-operation blocks.
+Four marked roots were populated through normal services before owner entry;
+SQL setup fences remain setup-only. Both actual API cohorts and disposable
+clone services passed the fixed semantic checks: four schema pins at 0, three
+current/one retained legacy transcript rows, two local grammar overrides, one
+export sentence and three references. Stopped-source bytes before resume,
+snapshot/external state and pointer were preserved; the old barrier was refused
+after generation 2. Owner exit,
+control EOF/stderr completion, reopened leases/free ports/immutable inventory
+and private-tree cleanup precede the passing receipt. The TEST envelope and
+fixed MockTransport provide no real credential or DPAPI proof. This case has
+no retained-WAL, browser, physical-replacement or target-activation claim.
+
+All 473 extension-selected A2/P1 metadata records, 57 components/113 notice
+references/104 hashes, 20 supplier texts/provenance and exact wheel notices
+were rebound. The unchanged six-entry Xiph kit/907 upstream members and
+byte-identical rebuild/decode/fault/DLL-origin results passed; actual tools were
+CMake 4.4.5/compiler 19.51.36260.0. Existing C3–C6 and normal API/language/SQL-owner/
+registry paths retain their reviewed scope; fifteen ASR inputs are unchanged
+without a new replay. P2 does not become a general production copy authority.
+
+The separate [C7 run 41316192484](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316192484),
+job `124876672717`, failed its actual Windows bootstrap control gate:
+**267 passed, one failed, no skips, 5.06 seconds**, image `20261021.278.1`.
+Prefix and managed-I/O controls both last delivered `fixture-validated`,
+reported unavailable/stderr present/`protocol-refused`/`fixed-clixml-prefix`,
+then confirmed direct child/readers cleanup and fixture removal. No actual C7
+mechanism or upload ran; artifacts zero. Neither bootstrap location/cause nor
+absence of an operation is established by these finite fields.
+
+The [ledger](r19-frozen-checkpoint-20261031.json) preserves all 107 old values
+and their raw prefix, with separate 020 positive/C7-negative rows. Current C7
+phase/error-localization source checks, owner-approved MP3 source supplement
+and P4 work have no new native acceptance here. Full real-library/browser/
+locale/DPAPI migration, global/dynamic fencing, physical closure, keeper loss,
+usable warm OCR/routing, exact-output rights and ordinary Windows 11 remain
+open. Production/profile activation, installer and full R19 stay disabled;
+PR #59 is unchanged.
 
 ## Continuation and rollback
 

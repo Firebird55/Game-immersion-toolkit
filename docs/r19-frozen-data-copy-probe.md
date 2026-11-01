@@ -150,7 +150,7 @@ records and appends these four outcomes. Physical/global/dynamic fencing,
 copied-target activation, keeper loss, warm OCR/routing, named-account repair,
 rights and ordinary-user Windows 11/full R19 acceptance remain open.
 
-## Current bounded copy checkpoint at 589362e
+## Bounded copy checkpoint at 589362e
 
 The intervening d35 main contract step failed before EXE/COLLECT and copy
 probes: 1,536 passed/four failed/two warnings/112 subtests/254.52 seconds.
@@ -163,7 +163,7 @@ At `589362e7dc2e73da899751c042adbeb260ba5e56`,
 [run 41311314317](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41311314317)
 passed 1,541 Windows contracts without skips (one warning, 118 subtests, 232.20
 seconds), both executable trees, relocation/native/C1, cold slots, both living-
-keeper cases and C3/C4/C5/C6. It is the latest complete bounded checkpoint.
+keeper cases and C3/C4/C5/C6. It was the latest complete bounded checkpoint at that cutoff.
 Seven artifacts/28 entries and 125 named immutable Git inputs were independently
 checked. Integrated artifact 13086475609 is 1,337,528 bytes, SHA-256
 `3e107aff3c5e3b971a8670d5148932c248e74a48aa7c21898aef0720d1f9f18d`.
@@ -200,6 +200,54 @@ Physical/global/dynamic writer closure, keeper loss, warm OCR/routing,
 copied-target activation, protected-store repair, full corresponding-source/
 rights, ordinary-user Windows 11 and complete R19 remain false/unavailable.
 No installer or production/profile activation is added; PR #59 remains intact.
+
+## Current populated bounded checkpoint at 020c44f
+
+At `020c44fec8afd66de9e471fe732cb852af5a96da`,
+[run 41316180498](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316180498)
+passed 1,598 Windows contracts without skips, one warning, 118 subtests in 392.44
+seconds and 37 actual PowerShell projector/sink checks, then C1/cold/both
+living-keeper/C3–C6 and the distinct populated P2 native fixture. It is the
+latest complete bounded checkpoint. Seven artifacts/29 entries and 127 exact
+Git inputs, including twelve new source freeze pins, were independently bound.
+Integrated artifact 13087833846 is 1,338,889 bytes/SHA-256
+`91bee0bd6a07d70890c727901f46d5754b810750f410f582a86eb2b5ea984e43`;
+inventory is 1,449 files/642 directories/620,231,722 bytes/SHA-256
+`270a66a61a10d1c09359510f036752f22ce54dac3056dd0d265be69f7e294248`.
+
+The new [P2 fixedcase](r19-populated-state-copy.md) receipt is 2,487 bytes,
+SHA-256 `45ed07b6856a70db944ab8137bcb372384fac73b291dbf50a33604c25785c63f`,
+with exactly 55 typed fields. One four-root normal-service fixture is populated
+before the owner; setup SQL fences never replace the retained creation objects
+and typed process barrier. Two genuine source cohorts/four retained writer
+signals/two strict drains/nine source-operation blocks precede copy/release.
+Both normal API cohorts and disposable service clones preserve three current
+and one legacy transcript rows, two grammar overrides, one export sentence and
+three references, settings/language/export semantics and TEST account state.
+Stopped-source bytes before resume, snapshot/external roots and pointer remain
+preserved; the old barrier refuses generation 2. Process/EOF/stderr/lease/port/
+inventory/private cleanup gates
+precede the passing metadata. The source and staging snapshot are not opened
+as SQLite verification databases; a separate disposable clone is used.
+
+This completes that bounded native fixture, not full live libraries, browser/
+extension/Migaku state, DPAPI/real credentials, all locales, arbitrary schemas,
+retained-WAL dependency, physical replacement or target activation. C3–C6 retain
+their separate original scopes. Main/Node/protected-TEST use hosted image
+`20261021.278.1`; reference/managed/both diagnostic-build jobs use
+`20261030.294.1`. Fifteen ASR inputs remain unchanged without replay.
+
+The separate 020 [C7 run 41316192484](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316192484)
+fails its bootstrap control gate before actual mechanism/upload
+(267 passed/one failed/no skips/5.06 seconds; zero artifacts). Both controls
+last deliver fixture-validated/protocol-refused/fixed CLIXML prefix and confirm
+direct child/readers cleanup, without private-error or bootstrap-cause evidence.
+Later C7/P4/MP3 source work is not this candidate's native result. The
+[ledger](r19-frozen-checkpoint-20261031.json) retains all 107 historical values
+and their raw prefix, appending the separate 020 positive and C7 negative.
+Physical/global/dynamic fencing, keeper loss, usable warm OCR/routing, full
+real-state repair, exact-output rights, ordinary Windows 11, production/profile
+activation and full R19 remain open; no installer or PR #59 change follows.
 
 ## Verified frozen checkpoint
 
