@@ -62,6 +62,18 @@ jobs:
         run: |
           python -c "import sys; from pathlib import Path; sys.path.insert(0, 'packaging/runtime-bundle'); from record_runtime import verify_wheel; [verify_wheel(wheel) for wheel in sorted(Path('output/wheelhouse').glob('*.whl'))]"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install Linux build-runner display services
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb trayer dbus-x11 libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-shape0
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Fail with the actual missing library before Qt aborts without a
+          # useful Python traceback. These are build-runner dependencies;
+          # PyInstaller collects the runtime's native dependency closure.
+          $plugin = python -c "from PySide6.QtCore import QLibraryInfo; print(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath) + '/platforms/libqxcb.so')"
+          $dependencies = ldd $plugin
+          $dependencies | Write-Output
+          if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'not found')) { exit 1 }
       - name: Test native lifecycle and exact supplier verification
         run: >-
           python -m pytest -q backend/tests/test_desktop_packaging.py
@@ -78,18 +90,6 @@ jobs:
           backend/tests/test_ooz_source_build.py backend/tests/test_native_zzz_probe.py
           backend/tests/test_production_zzz_reader.py backend/tests/test_zzz_toolchain_build.py
           backend/tests/test_desktop_build_environment.py
-      - name: Install Linux build-runner display services
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y xvfb trayer dbus-x11 libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-xinerama0 libxcb-shape0
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # Fail with the actual missing library before Qt aborts without a
-          # useful Python traceback. These are build-runner dependencies;
-          # PyInstaller collects the runtime's native dependency closure.
-          $plugin = python -c "from PySide6.QtCore import QLibraryInfo; print(QLibraryInfo.path(QLibraryInfo.LibraryPath.PluginsPath) + '/platforms/libqxcb.so')"
-          $dependencies = ldd $plugin
-          $dependencies | Write-Output
-          if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'not found')) { exit 1 }
       - name: Retain exact Linux system library inputs and corresponding sources
         if: runner.os == 'Linux'
         run: python scripts/build-linux-system-resources.py --output output/linux-system-resources --cache output/linux-system-cache --sync-build-host

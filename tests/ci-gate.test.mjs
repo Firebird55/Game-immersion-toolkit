@@ -156,9 +156,11 @@ test('native ZZZ collection uses bundled Node and rebuilt WASM before freezing',
 
 test('Linux system evidence is acquired before native builds and included in the frozen receipt', () => {
   const install = nativeWorkflow.indexOf('name: Install Linux build-runner display services');
+  const focused = nativeWorkflow.indexOf('name: Test native lifecycle and exact supplier verification');
   const collect = nativeWorkflow.indexOf('name: Retain exact Linux system library inputs and corresponding sources');
   const compile = nativeWorkflow.indexOf('name: Build the shared self-contained archive reader');
-  assert.ok(install > 0 && collect > install && compile > collect);
+  assert.ok(install > 0 && focused > install && collect > focused && compile > collect,
+    'Qt runtime libraries must exist before real Qt tests, and source collection must precede compilation');
   const step = nativeWorkflow.slice(collect, nativeWorkflow.indexOf('name: Probe native desktop discovery', collect));
   assert.match(step, /if: runner\.os == 'Linux'/);
   assert.match(step, /python scripts\/build-linux-system-resources\.py --output output\/linux-system-resources --cache output\/linux-system-cache --sync-build-host/);
