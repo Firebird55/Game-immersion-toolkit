@@ -78,14 +78,90 @@ function checkedConfigureContext(value){
   }
  }
 }
+const observeSchema='proxy-r19-mp3-ci-observe-failure-v2';
+const observeScope='cumulative-private-tail-signature-not-current-command-or-cause';
+const observePredicates=Object.freeze({
+  "original-source-changed": [
+    "stage-candidate",
+    "finish-native"
+  ],
+  "project-inputs-changed": [
+    "stage-candidate",
+    "finish-native"
+  ],
+  "staged-output-not-fresh": [
+    "stage-candidate"
+  ],
+  "lame-installation-changed": [
+    "stage-candidate",
+    "finish-native"
+  ],
+  "candidate-not-fresh": [
+    "stage-candidate"
+  ],
+  "installed-native-closure": [
+    "stage-candidate"
+  ],
+  "decoded-duration": [
+    "finish-native"
+  ],
+  "decoded-signal": [
+    "finish-native"
+  ],
+  "encoded-container": [
+    "finish-native"
+  ],
+  "windows-host-required": [
+    "finish-native"
+  ],
+  "selected-tools-changed": [
+    "finish-native"
+  ],
+  "candidate-set-differs": [
+    "finish-native"
+  ],
+  "project-notice-differs": [
+    "finish-native"
+  ],
+  "candidate-notice-differs": [
+    "finish-native"
+  ],
+  "foreign-native-origin": [
+    "finish-native"
+  ],
+  "codec-version-configuration": [
+    "finish-native"
+  ],
+  "malformed-input-published": [
+    "finish-native"
+  ],
+  "previous-output-replaced": [
+    "finish-native"
+  ],
+  "candidate-inputs-changed": [
+    "finish-native"
+  ],
+  "lame-probe-installation-changed": [
+    "finish-native"
+  ]
+});
+function checkedObserveContext(v){
+ keys(v,['scope','state','tail_truncated','error_family','observed_controller_signature','predicate']);
+ if(v.scope!==observeScope||typeof v.state!=='string'||!['missing','not-observed','truncated-block','unknown','conflicting','known-signature'].includes(v.state)||typeof v.tail_truncated!=='boolean')fail();
+ if(v.state==='known-signature'){
+  if(v.error_family!=='ValueError'||typeof v.predicate!=='string'||!Object.hasOwn(observePredicates,v.predicate)||typeof v.observed_controller_signature!=='string'||!observePredicates[v.predicate].includes(v.observed_controller_signature))fail();
+ }else if(v.error_family!==null||v.observed_controller_signature!==null||v.predicate!==null||(v.state==='missing'&&v.tail_truncated))fail();
+}
 export function validateFailure(value){
  dataOnly(value);keys(value,['schema','status','producer_schema','phase','controller_source_commit','draft_base_commit','details',...Object.keys(flags)]);checkedFlags(value);
- if(!['proxy-r19-mp3-ci-failure-v1',configureSchema].includes(value.schema)||value.status!=='failed'||value.draft_base_commit!==baseCommit||!(value.controller_source_commit===null||head(value.controller_source_commit)))fail();if(typeof value.phase!=='string')fail();const d=value.details;
- const configure=value.schema===configureSchema;
+ if(!['proxy-r19-mp3-ci-failure-v1',configureSchema,observeSchema].includes(value.schema)||value.status!=='failed'||value.draft_base_commit!==baseCommit||!(value.controller_source_commit===null||head(value.controller_source_commit)))fail();if(typeof value.phase!=='string')fail();const d=value.details;
+ const configure=value.schema===configureSchema,observe=value.schema===observeSchema;
  if(configure&&(value.producer_schema!=='proxy-r19-mp3-draft-failure-v1'||value.phase!=='configure-ffmpeg'||!head(value.controller_source_commit)))fail();
+ if(observe&&(value.producer_schema!=='proxy-r19-mp3-draft-failure-v1'||value.phase!=='observe-and-package'||!head(value.controller_source_commit)))fail();
  if(value.producer_schema==='proxy-r19-mp3-draft-failure-v1'){
-  keys(d,['exit_code','diagnostic_codes','diagnostic_categories','log_truncated',...(configure?['configure_observation']:[])]);if(!Number.isSafeInteger(d.exit_code)||d.exit_code===0||d.exit_code<-(2**31)||d.exit_code>=2**32||typeof d.log_truncated!=='boolean'||!/^(?:check-(?:shell|make|nasm|pkgconf)|configure-(?:opus|ffmpeg)|build-(?:opus|ffmpeg|lame)|install-(?:opus|ffmpeg|lame)|clean-ffmpeg|compile-probe|observe-and-package)$/.test(value.phase))fail();
+  keys(d,['exit_code','diagnostic_codes','diagnostic_categories','log_truncated',...(configure?['configure_observation']:[]),...(observe?['observe_observation']:[])]);if(!Number.isSafeInteger(d.exit_code)||d.exit_code===0||d.exit_code<-(2**31)||d.exit_code>=2**32||typeof d.log_truncated!=='boolean'||!/^(?:check-(?:shell|make|nasm|pkgconf)|configure-(?:opus|ffmpeg)|build-(?:opus|ffmpeg|lame)|install-(?:opus|ffmpeg|lame)|clean-ffmpeg|compile-probe|observe-and-package)$/.test(value.phase))fail();
   if(configure)checkedConfigureContext(d.configure_observation);
+  if(observe)checkedObserveContext(d.observe_observation);
   for(const [n,allowed,min]of [['diagnostic_codes',errorCodes,0],['diagnostic_categories',errorCategories,1]])if(!Array.isArray(d[n])||d[n].length<min||d[n].length>64||new Set(d[n]).size!==d[n].length||d[n].some(v=>typeof v!=='string'||!allowed.has(v)))fail();
  }else if(value.producer_schema==='proxy-r19-mp3-cli-cleanup-refusal-v1'){
   keys(d,['category']);if(value.phase!=='authored-cli-ownership'||d.category!=='cleanup-unconfirmed'||value.controller_source_commit!==null)fail();

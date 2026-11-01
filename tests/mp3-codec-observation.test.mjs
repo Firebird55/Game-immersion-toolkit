@@ -325,3 +325,188 @@ test('import-alias BSD approval and final-copy v3 reject every unknown or missin
  const mutations=[v=>delete v.project_license.import_alias_approval,v=>v.project_license.schema='proxy-r19-mp3-recipe-additional-license-v2',v=>v.project_license.import_alias_approval.future=true,v=>v.project_license.import_alias_approval.approval_proposal.sha256=zero,v=>v.project_license.import_alias_approval.prior_notice_prefix.bytes++,v=>v.project_license.import_alias_approval.approved_baselines['scripts/future.py']={bytes:1,sha256:zero},v=>v.final_four_copies.schema='proxy-r19-mp3-final-bsd-copies-v2',v=>delete v.final_four_copies.import_alias_approved_baselines,v=>v.final_four_copies.import_alias_approved_baselines['scripts/replay-mp3-codec.py'].sha256=zero,v=>v.final_four_copies.import_alias_approved_baselines['scripts/future.py']={bytes:1,sha256:zero},v=>v.candidate_files['mp3lame.lib']={bytes:1,sha256:zero}];
  for(const mutate of mutations){const value=fixture();mutate(value);assert.throws(()=>validateNative(value));}
 });
+
+// Authored traceback text only: a fully printed forgery is indistinguishable
+// from a real cumulative-log traceback and never authenticates execution/cause.
+const observeFixtureCode=String.raw`
+def authored_trace(label, signature=None, newline=b'\n'):
+ row=p.OBSERVE_PREDICATES[label];signature=signature or row[5][0]
+ outer={'stage-candidate':'stage_candidate','finish-native':'finish_native'}[signature]
+ path=str(m._DRIVER)
+ frames=[(p.OBSERVE_FRAME_RANGES['main'][0]+1,'main')]
+ if row[1]!=outer:frames.append((p.OBSERVE_FRAME_RANGES[outer][0]+1,outer))
+ frames.append((row[4],row[1]))
+ lines=[b'Traceback (most recent call last):']
+ for number,function in frames:lines.append(('  File "'+path+'", line '+str(number)+', in '+function).encode())
+ lines.append(('ValueError: '+row[0]).encode())
+ return newline.join(lines)+newline
+`;
+function observeFixture(){const v=failFixture();v.schema='proxy-r19-mp3-ci-observe-failure-v2';v.phase='observe-and-package';v.details.observe_observation={scope:'cumulative-private-tail-signature-not-current-command-or-cause',state:'known-signature',tail_truncated:false,error_family:'ValueError',observed_controller_signature:'stage-candidate',predicate:'candidate-not-fresh'};return v;}
+
+test('observe signatures cover the fixed twenty source predicates without authenticating execution',()=>{
+ const program=String.raw`import ast,hashlib
+code=m.base.recipe_bytes(m._DRIVER).replace(b'\r\n',b'\n');assert p.SHA(code)==p.OBSERVE_DRIVER_LF_SHA256
+nodes=ast.parse(code);functions={n.name:(n.lineno,n.end_lineno) for n in ast.walk(nodes) if isinstance(n,ast.FunctionDef)}
+raises={n.lineno:n.exc.args[0].value for n in ast.walk(nodes) if isinstance(n,ast.Raise) and isinstance(n.exc,ast.Call) and isinstance(n.exc.func,ast.Name) and n.exc.func.id=='ValueError' and n.exc.args and isinstance(n.exc.args[0],ast.Constant)}
+assert len(p.OBSERVE_PREDICATES)==20
+for name,bounds in p.OBSERVE_FRAME_RANGES.items():assert tuple(bounds)==functions[name]
+for label,row in p.OBSERVE_PREDICATES.items():
+ assert row[0]==raises[row[4]] and tuple(row[2:4])==functions[row[1]]
+ for signature in row[5]:
+  value=p.observe_signature(authored_trace(label,signature),False,str(m._DRIVER))
+  assert value==dict(scope=p.OBSERVE_SCOPE,state='known-signature',tail_truncated=False,error_family='ValueError',observed_controller_signature=signature,predicate=label)
+assert p.observe_signature(None,False,str(m._DRIVER))['state']=='missing'
+print('TWENTY_SOURCE_TEXT_SIGNATURES_NOT_EXECUTION')`;
+ assert.equal(pythonSource(observeFixtureCode+program).toString().trim(),'TWENTY_SOURCE_TEXT_SIGNATURES_NOT_EXECUTION');
+});
+
+test('printed source, private or unknown final errors and wrong frames cannot borrow an earlier known signature',()=>{
+ const program=String.raw`from unittest.mock import patch
+secret=b'SECRET-PRIVATE-TRACE-CANARY';known=authored_trace('candidate-not-fresh');row=p.OBSERVE_PREDICATES['candidate-not-fresh'];path=str(m._DRIVER).encode()
+unknown=known.replace(('ValueError: '+row[0]).encode(),b'ValueError: '+secret)
+cases=[('source-only',b"    raise ValueError('Candidate staging must be fresh.')\n"),('frame-only',known.split(b'\n')[1]+b'\n'),('message-only',('ValueError: '+row[0]+'\n').encode()),('wrong-path',known.replace(path,secret)),('wrong-line',known.replace(('line '+str(row[4])+',').encode(),('line '+str(row[4]+1)+',').encode())),('wrong-function',known.replace(b'in stage_candidate',b'in private_function')),('prefix',known.replace(b'ValueError: ',b'ValueError: prefix ')),('suffix',known.replace(row[0].encode(),row[0].encode()+secret)),('unknown-family',known.replace(b'ValueError:',b'TypeError:')),('unknown-final',known+unknown),('incomplete-final',known+unknown[:-1]),('duplicate-terminal',known+('ValueError: '+row[0]+'\n').encode()),('chained',known+b'\nDuring handling of the above exception, another exception occurred:\n\n'+known)]
+with patch.object(pathlib.Path,'open',side_effect=AssertionError('Trace path IO')),patch.object(pathlib.Path,'stat',side_effect=AssertionError('Trace path stat')),patch.object(pathlib.Path,'lstat',side_effect=AssertionError('Trace path lstat')):
+ for name,data in cases:
+  value=p.observe_signature(data,False,str(m._DRIVER))
+  assert value['state']!='known-signature',name
+  assert all(value[k] is None for k in ('error_family','observed_controller_signature','predicate')),name
+  public=p.serialized(value);assert secret not in public and p.SHA(secret).encode() not in public
+# A completely forged standard traceback is still only a textual signature.
+forgery=p.observe_signature(known,False,str(m._DRIVER));assert forgery['state']=='known-signature' and forgery['scope']==p.OBSERVE_SCOPE
+print('NO_EARLIER_FALLBACK_NO_TRACE_PATH_IO')`;
+ assert.equal(pythonSource(observeFixtureCode+program).toString().trim(),'NO_EARLIER_FALLBACK_NO_TRACE_PATH_IO');
+});
+
+test('one actual private tail enforces line, UTF8, block and cumulative budgets in its bounded owned child',()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-observe-bounds-')));
+ try{
+ const program=String.raw`out=pathlib.Path(sys.argv[2]);log=out/'PRIVATE-BUILD.log';known=authored_trace('candidate-not-fresh');driver=str(m._DRIVER)
+def forbidden(*a,**kw):raise AssertionError('Unrelated broad category classifier called')
+m.base.classify_failure=forbidden
+# Add indented discarded source rows before the terminal; never executable code.
+def insert(extra):return known.replace(b'\nValueError:',b'\n'+extra+b'ValueError:')
+assert p.observe_signature(insert(b'    '+b'x'*4091+b'\n'),False,driver)['state']=='known-signature'
+assert p.observe_signature(insert(b'    '+b'x'*4092+b'\n'),False,driver)['state']=='truncated-block'
+for target,state in [(32768,'known-signature'),(32769,'truncated-block')]:
+ remaining=target-len(known);parts=[]
+ while remaining>4096:parts.append(b'    '+b'x'*4091+b'\n');remaining-=4096
+ assert remaining>=5;parts.append(b'    '+b'x'*(remaining-5)+b'\n');data=insert(b''.join(parts));assert len(data)==target
+ assert p.observe_signature(data,False,driver)['state']==state
+linecount=known.count(b'\n')
+for cap,state in [(128,'known-signature'),(129,'truncated-block')]:assert p.observe_signature(insert(b'    \n'*(cap-linecount)),False,driver)['state']==state
+assert p.observe_signature(known[:-1],False,driver)['state']=='truncated-block'
+for eol in (b'\n',b'\r\n'):
+ data=authored_trace('candidate-not-fresh',newline=eol).replace(eol+b'ValueError:',eol+b'    '+('é'*20).encode()+eol+b'ValueError:')
+ assert p.observe_signature(data,False,driver)['state']=='known-signature'
+# A real bounded file read, including the source-prefix cut rule and exact cap.
+log.write_bytes(b'x'*p.CONFIGURE_LOG_LIMIT+b'\n'+known);value=p.observe_context(m,out);assert value['state']=='known-signature' and value['tail_truncated'] is True
+log.write_bytes(b'x'*(p.CONFIGURE_LOG_LIMIT-len(known)+1)+known);value=p.observe_context(m,out);assert value['state']!='known-signature' and value['tail_truncated'] is True
+log.write_bytes((b'x\n'*(p.CONFIGURE_LOG_LIMIT//2))[:p.CONFIGURE_LOG_LIMIT]);value=p.observe_context(m,out);assert value['state']=='not-observed' and value['tail_truncated'] is False
+assert not p._CONFIGURE_READERS
+print('ONE_MIB_LINEAR_AND_ALL_BOUNDARIES')`;
+ assert.equal(pythonSource(observeFixtureCode+program,[dir]).toString().trim(),'ONE_MIB_LINEAR_AND_ALL_BOUNDARIES');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('observe preflight precedes private IO and unsafe ancestor/read/close states retain real ownership',()=>{
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-observe-io-')));
+ try{
+ const program=String.raw`import copy,os
+from unittest.mock import patch
+out=pathlib.Path(sys.argv[2]);log=out/'PRIVATE-BUILD.log';failure=out/'FAILED-STAGE.json'
+raw=dict(schema='proxy-r19-mp3-draft-failure-v1',status='failed',phase='observe-and-package',source_commit='1'*40,exit_code=1,profile_manifest=p.record(m.base.recipe_bytes(m.PIN)),diagnostic_codes=[],diagnostic_categories=['unclassified-command-failure'],log_truncated=False,raw_log_published=False,**p.FLAGS)
+original=pathlib.Path.open
+calls=[]
+def denied(path,*a,**kw):
+ if path.name=='PRIVATE-BUILD.log':calls.append('log');raise AssertionError('Premature private log access')
+ return original(path,*a,**kw)
+with patch.object(pathlib.Path,'open',denied):
+ for fault in ('head','manifest','shape','two-records'):
+  bad=copy.deepcopy(raw)
+  if fault=='head':bad['source_commit']='2'*40
+  elif fault=='manifest':bad['profile_manifest']['sha256']='0'*64
+  elif fault=='shape':bad['private']='SECRET'
+  failure.write_bytes(p.serialized(bad))
+  if fault=='two-records':(out/'FAILED-CLI-OWNERSHIP.json').write_bytes(p.serialized(bad))
+  try:p.collect_failure(m,out,'1'*40)
+  except ValueError:pass
+  else:raise AssertionError('Missing preflight refusal')
+  if fault=='two-records':(out/'FAILED-CLI-OWNERSHIP.json').unlink()
+ assert not calls
+ failure.write_bytes(p.serialized(raw));recipe=m.base.recipe_bytes
+ with patch.object(m.base,'recipe_bytes',side_effect=lambda path:recipe(path)+(b'changed catalogue input' if path==m._DRIVER else b'')):
+  try:p.collect_failure(m,out,'1'*40)
+  except ValueError:pass
+  else:raise AssertionError('Unreviewed catalogue source accepted')
+ assert not calls
+failure.write_bytes(p.serialized(raw));value=p.collect_failure(m,out,'1'*40);assert value['schema']==p.OBSERVE_SCHEMA and value['details']['observe_observation']['state']=='missing'
+p.public_failure_shape(m,value,'1'*40)
+outside=out/'outside';outside.mkdir();(outside/'PRIVATE-BUILD.log').write_bytes(b'never read')
+linked=out/'linked';linked.symlink_to(outside,target_is_directory=True);leaf=linked/'PRIVATE-BUILD.log'
+orig_lstat,orig_stat=pathlib.Path.lstat,pathlib.Path.stat
+def guarded(method):
+ def run(path,*a,**kw):
+  if path==leaf:raise AssertionError('Leaf access through linked ancestor')
+  return method(path,*a,**kw)
+ return run
+with patch.object(pathlib.Path,'lstat',guarded(orig_lstat)),patch.object(pathlib.Path,'stat',guarded(orig_stat)),patch.object(pathlib.Path,'open',guarded(original)):
+ try:p.observe_context(m,linked)
+ except ValueError:pass
+ else:raise AssertionError('Linked parent accepted')
+assert p._CONFIGURE_READERS[0]['stream'] is None;p._CONFIGURE_READERS.clear()
+for mode in ('read','close-before','close-after'):
+ log.write_bytes(authored_trace('candidate-not-fresh'));error=OSError('SECRET-READ-CLOSE');objects=[]
+ class Reader:
+  def __init__(self,actual):self.actual=actual;self.closes=0
+  def fileno(self):return self.actual.fileno()
+  def seek(self,*args):return self.actual.seek(*args)
+  def read(self,n):
+   if mode=='read':raise error
+   return self.actual.read(n)
+  def close(self):
+   self.closes+=1
+   if mode=='close-before':raise error
+   self.actual.close()
+   if mode=='close-after':raise error
+ def wrap(path,*a,**kw):
+  actual=original(path,*a,**kw)
+  if path==log and a==('rb',):actual=Reader(actual);objects.append(actual)
+  return actual
+ try:
+  with patch.object(pathlib.Path,'open',wrap):
+   try:p.observe_context(m,out)
+   except ValueError:pass
+   else:raise AssertionError('Uncertain reader accepted')
+  held=p._CONFIGURE_READERS[0];reader=objects[0];assert held['stream'] is reader and held['errors'][0] is error and reader.closes==1
+  try:p.publication_values(m,{})
+  except ValueError:pass
+  else:raise AssertionError('Publication allowed with retained reader')
+ finally:
+  for reader in objects:reader.actual.close()
+  p._CONFIGURE_READERS.clear() # Separate authored fault cases, never a production retry.
+assert not (out/'output/checks/r19-mp3-published').exists()
+print('IDENTITY_FIRST_AND_STICKY_READERS')`;
+ assert.equal(pythonSource(observeFixtureCode+program,[dir]).toString().trim(),'IDENTITY_FIRST_AND_STICKY_READERS');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+test('observe v2 closed relations and public pair preserve negative gates and source/readback authority',()=>{
+ const good=observeFixture();assert.equal(validateFailure(good),good);
+ const mutations=[v=>v.phase='build-ffmpeg',v=>v.controller_source_commit=null,v=>v.producer_schema='proxy-r19-mp3-cli-cleanup-refusal-v1',v=>v.schema='proxy-r19-mp3-ci-failure-v1',v=>delete v.details.observe_observation,v=>v.details.observe_observation.private='SECRET',v=>v.details.observe_observation.scope='cause',v=>v.details.observe_observation.state='PRIVATE',v=>v.details.observe_observation.tail_truncated=0,v=>v.details.observe_observation.error_family='TypeError',v=>v.details.observe_observation.predicate='PRIVATE',v=>v.details.observe_observation.observed_controller_signature='finish-native',v=>v.details.observe_observation.predicate=null,v=>v.details.observe_observation.state='unknown',v=>v.source_delivery_approved=true,v=>Object.assign(v.details.observe_observation,{state:'missing',tail_truncated:true,error_family:null,observed_controller_signature:null,predicate:null})];
+ const bad=mutations.map(mutate=>{const v=structuredClone(good);mutate(v);assert.throws(()=>validateFailure(v));return v;});
+ const program=String.raw`values=json.loads(sys.stdin.buffer.read());p.public_failure_shape(m,values[0],'1'*40)
+for value in values[1:]:
+ try:p.public_failure_shape(m,value,'1'*40)
+ except (ValueError,TypeError):pass
+ else:raise AssertionError('Missing strict observe refusal')
+print('CLOSED_OBSERVE')`;
+ assert.equal(pythonSource(program,[],JSON.stringify([good,...bad])).toString().trim(),'CLOSED_OBSERVE');
+ const r=rig('failure'),call=r.options.python;r.options.python=(...args)=>args[2]==='failure'?canonical(good):call(...args);
+ assert.deepEqual(runObservation(r.options),{validated_pair:true,publication:'failure'});
+ assert.deepEqual(r.options.values['MP3-CI-BINDING.json'].native_receipt,{file:'MP3-FAILURE.json',...rec(canonical(good))});
+ const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-observe-pair-')));
+ try{assert.equal(pythonSource("v=json.loads(sys.stdin.buffer.read());base=pathlib.Path(sys.argv[2]);p.publish_pair(m,base,v);print(p.read_pair(m,base,v))",[dir],canonical(r.options.values)).toString().trim(),'PAIR_VERIFIED');}
+ finally{rmSync(dir,{recursive:true,force:true});}
+ const changed=rig('failure'),changedCall=changed.options.python;let reads=0;changed.options.python=(...args)=>args[2]==='failure'?canonical(good):changedCall(...args);
+ changed.options.snapshot=()=>++reads>=3?{...source(),sourceHash:'3'.repeat(64)}:source();assert.throws(()=>runObservation(changed.options));
+});

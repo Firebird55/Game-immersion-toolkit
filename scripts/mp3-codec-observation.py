@@ -24,6 +24,35 @@ CONFIGURE_FATAL = {
 }
 CONFIGURE_STATIC_NOTE = b'Note: When building a static binary, add --pkg-config-flags="--static".'
 _CONFIGURE_READERS = []  # Actual streams/errors only; never serialized or retried.
+OBSERVE_SCHEMA = 'proxy-r19-mp3-ci-observe-failure-v2'
+OBSERVE_SCOPE = 'cumulative-private-tail-signature-not-current-command-or-cause'
+OBSERVE_DRIVER_LF_SHA256 = 'ccb841c155ecd17ef67ad26a59d7621ac1c3097940ce7e050dd2cbac5b36cb89'
+OBSERVE_FRAME_RANGES = {'stage_candidate': [256, 264], 'finish_native': [677, 740], 'main': [742, 750]}
+# Fixed reviewed literals and source locations, never learned from future messages.
+OBSERVE_PREDICATES = {
+    'original-source-changed': ('Original supplier sources changed.', 'verify_sources', 221, 231, 225, ('stage-candidate', 'finish-native')),
+    'project-inputs-changed': ('Draft inputs changed after preparation.', 'verify_sources', 221, 231, 228, ('stage-candidate', 'finish-native')),
+    'staged-output-not-fresh': ('Fresh staged output required.', 'copy_regular', 233, 236, 235, ('stage-candidate',)),
+    'lame-installation-changed': ('Selected LAME header/import/library output changed.', 'verify_lame_install', 248, 254, 253, ('stage-candidate', 'finish-native')),
+    'candidate-not-fresh': ('Candidate staging must be fresh.', 'stage_candidate', 256, 264, 258, ('stage-candidate',)),
+    'installed-native-closure': ('Unexpected installed executable/DLL closure.', 'stage_candidate', 256, 264, 260, ('stage-candidate',)),
+    'decoded-duration': ('Decoded duration outside authored delay tolerance.', 'check_tone', 270, 278, 271, ('finish-native',)),
+    'decoded-signal': ('Wrong authored signal or silent output.', 'check_tone', 270, 278, 278, ('finish-native',)),
+    'encoded-container': ('Encoded MPEG audio container missing.', 'publish_encoded', 287, 299, 297, ('finish-native',)),
+    'windows-host-required': ('Actual Windows build/probe required; draft has no native pass.', 'finish_native', 677, 740, 678, ('finish-native',)),
+    'selected-tools-changed': ('Selected supplier tools changed.', 'finish_native', 677, 740, 681, ('finish-native',)),
+    'candidate-set-differs': ('Exact MP3 candidate set differs.', 'finish_native', 677, 740, 685, ('finish-native',)),
+    'project-notice-differs': ('Candidate MP3 BSD notice differs.', 'finish_native', 677, 740, 686, ('finish-native',)),
+    'candidate-notice-differs': ('Candidate notice bytes differ.', 'finish_native', 677, 740, 688, ('finish-native',)),
+    'foreign-native-origin': ('Foreign native origin.', 'finish_native', 677, 740, 698, ('finish-native',)),
+    'codec-version-configuration': ('Actual codec/version/configuration differs.', 'finish_native', 677, 740, 703, ('finish-native',)),
+    'malformed-input-published': ('Malformed input unexpectedly published.', 'finish_native', 677, 740, 720, ('finish-native',)),
+    'previous-output-replaced': ('Failure replaced previous output.', 'finish_native', 677, 740, 721, ('finish-native',)),
+    'candidate-inputs-changed': ('Native probes modified candidate inputs.', 'finish_native', 677, 740, 722, ('finish-native',)),
+    'lame-probe-installation-changed': ('Selected LAME installation changed during probes.', 'finish_native', 677, 740, 723, ('finish-native',)),
+}
+OBSERVE_FRAME = re.compile(rb'  File "([^"\r\n]+)", line ([1-9][0-9]{0,5}), in ([A-Za-z_][A-Za-z0-9_]*|<module>|<lambda>)\Z')
+OBSERVE_STATES = {'missing','not-observed','truncated-block','unknown','conflicting','known-signature'}
 CMAKE_KNOWN = {'executable': {'path': 'cmake-4.4.5-windows-x86_64/bin/cmake.exe', 'bytes': 13465672, 'sha256': '84935c0b7cb09c140de0d3b042d4e93e5fac4e6371e75bf28eae3d841f79dfb3'}, 'notices': [{'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/LICENSE.rst', 'bytes': 1526, 'sha256': 'cd944d878806fee998ef3f88ca41ec060ae198bd8ba615e284f7d8d90c25593e'}, {'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/cmsys/Copyright.txt', 'bytes': 1851, 'sha256': '0998690e8dc877e5d9d79d852f85630ba42b4061962baefc9651675ecf972082'}, {'path': 'cmake-4.4.5-windows-x86_64/doc/cmake/cmzlib/Copyright.txt', 'bytes': 1063, 'sha256': 'd5bbd7748a19e3fed6ea31242e8de9814e69a0125ae7758a7491057d5fe76f34'}], 'archive': {'filename': 'cmake-4.4.5-windows-x86_64.zip', 'root': 'cmake-4.4.5-windows-x86_64', 'bytes': 54412232, 'sha256': '326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004', 'entries': 8979, 'regular_files': 8817, 'expanded_bytes': 143317490}}
 HEX = re.compile(r'[a-f0-9]{64}\Z')
 SHA = lambda b: hashlib.sha256(b).hexdigest()
@@ -176,6 +205,94 @@ def configure_context(module, output):
     return checked_configure_context(dict(scope=CONFIGURE_SCOPE, logs=logs), module)
 
 
+def checked_observe_context(value):
+    keys(value, ('scope','state','tail_truncated','error_family','observed_controller_signature','predicate'))
+    require(type(value['scope']) is str and value['scope'] == OBSERVE_SCOPE and type(value['state']) is str and value['state'] in OBSERVE_STATES
+            and type(value['tail_truncated']) is bool)
+    optional = [value[n] for n in ('error_family','observed_controller_signature','predicate')]
+    if value['state'] == 'known-signature':
+        require(type(value['error_family']) is str and value['error_family'] == 'ValueError' and type(value['predicate']) is str
+                and value['predicate'] in OBSERVE_PREDICATES and type(value['observed_controller_signature']) is str
+                and value['observed_controller_signature'] in OBSERVE_PREDICATES[value['predicate']][5])
+    else:
+        require(all(v is None for v in optional))
+        if value['state'] == 'missing': require(value['tail_truncated'] is False)
+    return value
+
+
+def observe_signature(data, truncated, driver_path):
+    """Recognize bounded cumulative text, never authenticate execution or cause."""
+    require((data is None or type(data) is bytes and len(data) <= CONFIGURE_LOG_LIMIT)
+            and type(truncated) is bool and type(driver_path) is str)
+    value = dict(scope=OBSERVE_SCOPE, state='missing' if data is None else 'not-observed',
+                 tail_truncated=truncated, error_family=None, observed_controller_signature=None, predicate=None)
+    if data is None: return checked_observe_context(value)
+    header = b'Traceback (most recent call last):'
+    chain_lines = {b'During handling of the above exception, another exception occurred:',
+                   b'The above exception was the direct cause of the following exception:'}
+    active = False; frames = []; terminal = None; predicate = None
+    block_bytes = block_lines = 0; malformed = overflow = after_terminal = conflict = chained = False
+    for raw in data.split(b'\n')[:-1]:
+        line = raw[:-1] if raw.endswith(b'\r') else raw
+        if line == header:
+            conflict = active and terminal is None
+            active = True; frames = []; terminal = None; predicate = None
+            block_bytes = len(raw)+1; block_lines = 1
+            malformed = overflow = after_terminal = False
+            continue
+        if not active: continue
+        block_bytes += len(raw)+1; block_lines += 1
+        if len(raw)+1 > 4096 or block_bytes > 32768 or block_lines > 128:
+            overflow = True; frames = []; continue
+        if overflow: continue
+        if terminal is not None:
+            if line.strip():
+                if line in chain_lines: chained = True
+                elif line.startswith(b'ValueError: '): conflict = True
+                else: after_terminal = True
+            continue
+        match = OBSERVE_FRAME.fullmatch(line)
+        if match:
+            try: frames.append((match[1].decode('utf-8'), int(match[2]), match[3].decode('ascii')))
+            except UnicodeError: malformed = True
+        elif line.startswith(b'    ') and frames:
+            pass  # Source/caret rows are discarded, never interpreted as errors.
+        elif line.startswith(b'ValueError: '):
+            terminal = 'ValueError'
+            for label, row in OBSERVE_PREDICATES.items():
+                if line == b'ValueError: '+row[0].encode('utf-8'): predicate = label; break
+        else:
+            malformed = True
+            if line and not line.startswith(b' '): terminal = 'unknown'
+    if not active: return checked_observe_context(value)
+    if overflow or data and not data.endswith(b'\n'): value['state'] = 'truncated-block'
+    elif conflict or chained: value['state'] = 'conflicting'
+    elif malformed or after_terminal or terminal != 'ValueError' or predicate is None: value['state'] = 'unknown'
+    else:
+        row = OBSERVE_PREDICATES[predicate]
+        selected = [(line, name) for path, line, name in frames if path == driver_path]
+        def has_frame(name):
+            lower, upper = OBSERVE_FRAME_RANGES[name]
+            return any(function == name and lower <= line <= upper for line, function in selected)
+        signatures = [label for label, function in [('stage-candidate','stage_candidate'),('finish-native','finish_native')] if has_frame(function)]
+        final = frames[-1] if frames else None
+        if (has_frame('main') and len(signatures) == 1 and signatures[0] in row[5]
+                and final == (driver_path, row[4], row[1]) and row[2] <= row[4] <= row[3]):
+            value.update(state='known-signature',error_family='ValueError',observed_controller_signature=signatures[0],predicate=predicate)
+        else: value['state'] = 'conflicting' if len(signatures) > 1 else 'unknown'
+    return checked_observe_context(value)
+
+
+def observe_context(module, output):
+    require(not _CONFIGURE_READERS)
+    # Bind this finite catalogue before reading any private log. Paths parsed
+    # from a traceback never reach filesystem operations.
+    module.policy(); project_inputs(module)
+    require(SHA(module.base.recipe_bytes(module._DRIVER).replace(b'\r\n',b'\n')) == OBSERVE_DRIVER_LF_SHA256)
+    data, truncated = configure_log_tail(module, output/'PRIVATE-BUILD.log')
+    return observe_signature(data, truncated, str(module._DRIVER))
+
+
 def collect_failure(module, output, head):
     items = []
     for name in ('FAILED-STAGE.json', 'FAILED-CLI-OWNERSHIP.json'):
@@ -189,6 +306,10 @@ def collect_failure(module, output, head):
         require(type(head) is str and re.fullmatch(r'[a-f0-9]{40}', head) and raw['source_commit'] == head)
         value['details']['configure_observation'] = configure_context(module, output)
         value['schema'] = CONFIGURE_SCHEMA
+    elif raw['schema'] == 'proxy-r19-mp3-draft-failure-v1' and raw['phase'] == 'observe-and-package':
+        require(type(head) is str and re.fullmatch(r'[a-f0-9]{40}', head) and raw['source_commit'] == head)
+        value['details']['observe_observation'] = observe_context(module, output)
+        value['schema'] = OBSERVE_SCHEMA
     return value
 
 
@@ -411,7 +532,7 @@ def public_native_shape(module,value):
 
 def public_failure_shape(module,value,head):
     keys(value,('schema','status','producer_schema','phase','controller_source_commit','draft_base_commit','details',*FLAGS));checked_flags(value)
-    require(value['schema'] in ('proxy-r19-mp3-ci-failure-v1', CONFIGURE_SCHEMA) and value['status']=='failed' and value['draft_base_commit']==BASE)
+    require(value['schema'] in ('proxy-r19-mp3-ci-failure-v1', CONFIGURE_SCHEMA, OBSERVE_SCHEMA) and value['status']=='failed' and value['draft_base_commit']==BASE)
     # Rebuild only a closed private-schema object, then reuse its exact projector.
     schema=value['producer_schema'];details=value['details'];raw={'schema':schema,'status':'failed','phase':value['phase'],'source_commit':value['controller_source_commit'],**FLAGS}
     manifest=record(module.base.recipe_bytes(module.PIN))
@@ -421,6 +542,12 @@ def public_failure_shape(module,value,head):
         keys(details, ('exit_code','diagnostic_codes','diagnostic_categories','log_truncated','configure_observation'))
         checked_configure_context(details['configure_observation'], module)
         details = {n:v for n,v in details.items() if n != 'configure_observation'}
+    if value['schema'] == OBSERVE_SCHEMA:
+        require(schema == 'proxy-r19-mp3-draft-failure-v1' and value['phase'] == 'observe-and-package'
+                and type(head) is str and re.fullmatch(r'[a-f0-9]{40}', head) and value['controller_source_commit'] == head)
+        keys(details, ('exit_code','diagnostic_codes','diagnostic_categories','log_truncated','observe_observation'))
+        checked_observe_context(details['observe_observation'])
+        details = {n:v for n,v in details.items() if n != 'observe_observation'}
     if schema=='proxy-r19-mp3-draft-failure-v1':keys(details,('exit_code','diagnostic_codes','diagnostic_categories','log_truncated'));raw.update(details,profile_manifest=manifest,raw_log_published=False)
     elif schema=='proxy-r19-mp3-cli-cleanup-refusal-v1':keys(details,('category',));raw.update(details,draft_base_commit=BASE,profile_manifest=manifest,project_inputs={n:r['raw'] for n,r in project_inputs(module).items()})
     elif schema=='proxy-r19-mp3-draft-preflight-failure-v1':
@@ -431,6 +558,9 @@ def public_failure_shape(module,value,head):
     if value['schema'] == CONFIGURE_SCHEMA:
         projected['schema'] = CONFIGURE_SCHEMA
         projected['details']['configure_observation'] = value['details']['configure_observation']
+    if value['schema'] == OBSERVE_SCHEMA:
+        projected['schema'] = OBSERVE_SCHEMA
+        projected['details']['observe_observation'] = value['details']['observe_observation']
     require(serialized(projected)==serialized(value))
 
 
