@@ -4,8 +4,10 @@ Status: implemented programmatic source boundary with local SQLite/thread
 regressions; no new frozen/native runtime receipt or full mutable-root detach
 acceptance. The [completion plan](r19-completion-plan.md) and
 [R18 host contract](r18-storage-host-contract.md) retain their existing gates.
-This change builds no installer and changes no source updater, schema, settings
-mapping, account, shared component or PR #59 behavior.
+The SQL ownership changes build no installer and change no source updater,
+schema, settings mapping, account, shared component or PR #59 behavior. The
+separate frozen language-registry path correction below preserves source paths
+and supplies no additional ownership/copy authority.
 
 `TranscriptStore.freeze_connections(timeout)` closes admission to that store's
 normal SQL connection-operation scopes, waits for their transaction exit and
@@ -393,6 +395,43 @@ files is proved by these tests. Native known-scope replacement belongs with the
 next coherent populated-copy/adaptor validation unit. Physical Windows detach/
 reopen, complete mutable-root fencing, warm OCR and installed-client acceptance
 remain unverified.
+
+## Frozen language-preparation registry default
+
+`LanguagePreparation(path=None)` uses the discovered bundle `settings_root`
+for `languages.json` and its existing `languages.requests.json` companion.
+This binds the default before constructor reads and keeps the existing JSON
+format and pending-file replacement behavior. An explicit `path` bypasses
+layout discovery and remains unchanged. The existing canonical `sys.frozen`
+flag chooses validated bundle discovery; environment root variables do not
+turn source code into a bundle. Source mode directly retains its exact
+`LOCALAPPDATA` / `Proxy Transcript/languages.json` calculation, including the
+existing `.` fallback when that environment variable is absent or empty.
+Invalid bundle discovery refuses instead of reading a different host registry.
+Source does not acquire a new layout-validation gate before its legacy default:
+an empty `LOCALAPPDATA` still works even when the separate source layout resolver
+rejects a relative settings root. Tests exercise the real source resolver and
+an authored frozen manifest/root set, including missing-root and invalid-manifest
+refusal without falling back to host state.
+
+The default belongs in this service: Runtime construction, `selected_snapshot`
+and both export `prepare_source` selection-generation reconstructions create it
+without a path. The mobile-export worker reaches these defaults through
+`prepare_source`; index/language-build workers do not construct the registry.
+All these callers therefore use the same explicit frozen settings root,
+including the generation check after switching a selection away and back.
+An unselected bundle account cannot borrow a selection from the host registry.
+
+This does not move files, change game/language choices, add a JSON-operation
+fence, authorize migration or repair an unreadable named account. The existing
+host `%LOCALAPPDATA%/Programs/Proxy Transcript/accounts.dpapi` locator stays
+unchanged, as required by the [R18 host contract](r18-storage-host-contract.md).
+Local tests use real owned temporary registry/request writes, reconstruction
+and selection. An in-process mobile-export worker uses the actual selection
+and generation code with strict account/settings/asset-metadata, lock and export
+boundary mocks. Host registry/request/protected-store sentinel bytes remain
+unchanged. These are path/consumer source tests, not frozen bootstrap, real
+account/DPAPI, game extraction, mobile transfer or native installation proof.
 
 ## Validation
 
