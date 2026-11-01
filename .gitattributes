@@ -2,6 +2,8 @@
 desktop/fonts/LICENSE.txt -text whitespace=-blank-at-eol
 styles/GEIST-OFL.txt -text whitespace=-blank-at-eol
 packaging/desktop/*.sh text eol=lf
+# Shared source-cache policy hashes must match on Windows, Linux and macOS.
+packaging/codecs/audio-runtime.json text eol=lf
 # Retain the reviewed complete codec source delivery byte for byte.
 third_party/codecs/xiph-flac-1.5.0/codec-sources.zip -text
 packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt -text

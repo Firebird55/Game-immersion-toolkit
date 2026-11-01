@@ -170,6 +170,9 @@ test('Linux system evidence is acquired before native builds and included in the
 });
 
 test('audio cache retains only policy-keyed source archives before later native checks', () => {
+  const attributes = readFileSync(new URL('../.gitattributes', import.meta.url), 'utf8');
+  assert.match(attributes, /^packaging\/codecs\/audio-runtime\.json text eol=lf\r?$/m,
+    'hashFiles must observe identical policy bytes on every runner');
   const restoreAt = nativeWorkflow.indexOf('name: Restore pinned audio source archives');
   const buildAt = nativeWorkflow.indexOf('name: Build maintained audio tools from retained sources');
   const saveAt = nativeWorkflow.indexOf('name: Save verified audio source archives');
