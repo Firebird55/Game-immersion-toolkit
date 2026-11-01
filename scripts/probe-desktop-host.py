@@ -24,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 import psutil
 from backend.bundle_host import ExclusiveFileLease, HostProbeError
 from backend.runtime_payload import validate, executable_target, digest
+from backend.native_browser_probe import sanitize_browser_diagnostics
 
 
 class ProbeFailure(RuntimeError):
@@ -80,6 +81,7 @@ class FrozenHost:
         self.observed = {}
         self.service_processes = {}
         self.stdout_closed = threading.Event()
+        self.diagnostics = set()
         mode = ['--ui-probe'] if ui else ['--headless', '--no-browser']
         self.process = subprocess.Popen([str(executable), *mode, '--data-root', str(user),
             '--port', '0', '--api-port', '0'], cwd=user.parent, env=environment,
@@ -97,6 +99,15 @@ class FrozenHost:
                 match = re.search(r'\[Host\] Transcript ready at http://127\.0\.0\.1:([0-9]{1,5})\.', line)
                 if match and 1024 < int(match[1]) < 65536:
                     self.port = int(match[1])
+                for marker, code in (
+                    ('Traceback (most recent call last):', 'python-traceback'),
+                    ('Fatal Python error:', 'python-fatal-error'),
+                    ('Could not load the Qt platform plugin', 'qt-platform-plugin-error'),
+                    ('Toolkit could not start:', 'host-startup-exception'),
+                    ('HostProbeError:', 'state-path-rejected'),
+                ):
+                    if marker in line:
+                        self.diagnostics.add(code)
         finally:
             self.stdout_closed.set()
 
@@ -123,6 +134,10 @@ class FrozenHost:
                 pass
         self.observed.update(owned)
         return list(owned.values())
+
+    def public_observation(self):
+        return {'exit_code': self.process.poll(), 'ready_socket_reported': self.port is not None,
+            'log_diagnostics': sorted(self.diagnostics)}
 
     def wait(self, predicate, timeout, code, *, require_running=True):
         deadline = time.monotonic() + timeout
@@ -227,33 +242,47 @@ class FrozenHost:
 def check_ui(host, timeout):
     host.wait(lambda: host.process.poll() is not None, timeout + 60, 'frozen-ui-timeout', require_running=False)
     host.verify_stopped(30)
-    value = json.loads((host.user / 'state/native-ui-probe.json').read_text(encoding='utf-8'))
+    try:
+        value = json.loads((host.user / 'state/native-ui-probe.json').read_text(encoding='utf-8'))
+    except FileNotFoundError as error:
+        raise ProbeFailure('missing-frozen-ui-observation') from error
     if (value.get('schema') != 'toolkit-desktop-ui-observation-v1' or value.get('mode') != 'bundle'
             or value.get('status') not in {'passed', 'failed', 'unavailable'}
             or type(value.get('passed')) is not bool or not isinstance(value.get('checks'), dict)
             or any(type(item) is not bool for item in value['checks'].values())):
         raise ProbeFailure('invalid-frozen-ui-observation')
     expected_code = {'passed': 0, 'failed': 1, 'unavailable': 2}[value['status']]
-    if host.process.returncode != expected_code or value['passed'] != (value['status'] == 'passed'):
+    complete = value.get('complete', True)
+    if type(complete) is not bool or (not complete and (value['passed'] or value['status'] != 'failed')):
+        raise ProbeFailure('invalid-frozen-ui-observation')
+    if (complete and host.process.returncode != expected_code) or value['passed'] != (value['status'] == 'passed'):
         raise ProbeFailure('inconsistent-frozen-ui-result')
     allowed = {'status_window', 'log_window', 'tray_icon', 'default_browser_request',
                'browser_open', 'open_transcript_navigation',
                'tray_unavailable_window_fallback', 'show_logs_action', 'open_transcript_action',
                'quit_action', 'owned_shutdown'}
     result = {'status': value['status'], 'passed': value['passed'],
+        'observation_complete': complete,
         'checks': {key: item for key, item in value['checks'].items() if key in allowed},
         'native_tray': 'available' if value.get('native_tray') == 'available' else 'unavailable',
         'browser_navigation': 'mounted-reader-observed' if value['checks'].get('browser_open') is True else 'unverified',
         'ordinary_browser_profile': 'not-run', 'native_game_capture': 'not-run'}
     # Keep the fixed diagnostic code: dropping it turns browser/startup failures
     # into indistinguishable missing booleans. Never copy raw host diagnostics.
-    if value.get('error') in {'native-ui-timeout', 'host-startup-failed',
-            'native-display-unavailable', 'default-browser-handler-unavailable'}:
+    if value.get('phase') in {'startup', 'logs', 'browser', 'stopping'}:
+        result['observation_phase'] = value['phase']
+    if value.get('error') in {'native-ui-timeout', 'host-startup-failed', 'native-ui-incomplete',
+            'native-ui-observation-failed', 'native-display-unavailable', 'default-browser-handler-unavailable'}:
         result['error'] = value['error']
+    elif not complete:
+        result['error'] = 'native-ui-incomplete'
+    diagnostics = sanitize_browser_diagnostics(value.get('browser_diagnostics'))
+    if diagnostics:
+        result['browser_diagnostics'] = diagnostics
     return result
 
 
-def probe(runtime, provenance, output, timeout, *, ui=False):
+def probe(runtime, provenance, output, timeout, *, ui=False, prepare_ui_environment=None):
     report = {'schema': 'toolkit-desktop-native-probe-v1', 'status': 'failed', 'passed': False, 'checks': {},
         'execution': 'actual-frozen-process',
         'r19_complete': False, 'native_acceptance': 'partial-headless-lifecycle',
@@ -279,6 +308,8 @@ def probe(runtime, provenance, output, timeout, *, ui=False):
         environment = child_environment(base)
         for name in ('home', 'local', 'roaming', 'config', 'xdg-data', 'xdg-cache'):
             (base / name).mkdir(mode=0o700)
+        if ui and prepare_ui_environment is not None:
+            report.update(prepare_ui_environment(base, environment))
         preferences = user / 'state/desktop-updates/preferences.json'
         preferences.parent.mkdir(mode=0o700, parents=True)
         preferences.write_text('{"enabled":false}\n', encoding='utf-8')
@@ -332,6 +363,14 @@ def probe(runtime, provenance, output, timeout, *, ui=False):
         report['error'] = str(error) if isinstance(error, ProbeFailure) else type(error).__name__
     finally:
         if active is not None:
+            observation = getattr(active, 'public_observation', None)
+            if observation is not None:
+                try:
+                    report['host_observation'] = observation()
+                except Exception:
+                    # Observations are secondary evidence, never a reason to
+                    # skip owned-process cleanup or lose the original failure.
+                    report['observation_error'] = 'host-observation-unavailable'
             try:
                 active.cleanup()
             except Exception:
@@ -342,7 +381,7 @@ def probe(runtime, provenance, output, timeout, *, ui=False):
     return {'passed': 0, 'unavailable': 2}.get(report['status'], 1)
 
 
-def main():
+def main(*, prepare_ui_environment=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime-root', type=Path, required=True)
     parser.add_argument('--provenance', type=Path)
@@ -353,7 +392,8 @@ def main():
     if not 15 <= args.timeout <= 600:
         parser.error('Timeout must be between 15 and 600 seconds.')
     provenance = args.provenance or args.runtime_root.parent.parent / 'CANDIDATE-PROVENANCE.json'
-    return probe(args.runtime_root, provenance, args.output, args.timeout, ui=args.ui)
+    return probe(args.runtime_root, provenance, args.output, args.timeout, ui=args.ui,
+        prepare_ui_environment=prepare_ui_environment)
 
 
 if __name__ == '__main__':

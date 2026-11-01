@@ -1,7 +1,9 @@
 """Native report/privacy contracts; these unit tests do not accept a frozen app."""
 from importlib.util import module_from_spec, spec_from_file_location
 import json
+import io
 from pathlib import Path
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -114,9 +116,59 @@ def test_cleanup_failure_cannot_hide_original_probe_failure_or_report(monkeypatc
             raise probe.ProbeFailure('authored-failure')
         def cleanup(self):
             raise RuntimeError('private cleanup diagnostics')
+        def public_observation(self):
+            raise RuntimeError('private observation diagnostics')
     monkeypatch.setattr(probe, 'FrozenHost', FailedHost)
     output = tmp_path / 'result.json'
     assert probe.probe(tmp_path, provenance, output, 15) == 1
     value = json.loads(output.read_text())
     assert value['error'] == 'authored-failure' and value['cleanup_error'] == 'probe-cleanup-incomplete'
     assert value['passed'] is False and 'private cleanup diagnostics' not in capsys.readouterr().out
+    assert value['observation_error'] == 'host-observation-unavailable'
+    assert 'private observation diagnostics' not in output.read_text()
+
+
+def test_ui_missing_observation_has_a_fixed_public_failure_code(tmp_path):
+    host = SimpleNamespace(user=tmp_path, process=SimpleNamespace(returncode=0),
+        wait=lambda *_a, **_k: None, verify_stopped=lambda _timeout: None)
+    with pytest.raises(probe.ProbeFailure, match='^missing-frozen-ui-observation$'):
+        probe.check_ui(host, 15)
+
+
+def test_incomplete_ui_observation_cannot_pass_even_if_host_exits_zero(tmp_path):
+    state = tmp_path / 'state'
+    state.mkdir()
+    value = {'schema': 'toolkit-desktop-ui-observation-v1', 'mode': 'bundle',
+        'status': 'failed', 'passed': False, 'complete': False, 'phase': 'stopping',
+        'checks': {'status_window': True}, 'error': 'native-ui-timeout',
+        'browser_diagnostics': {'browser': {'1': 'waiting-reader'},
+            'http': {'document': 200, 'snapshot': 'private token'}, 'private-key': 'secret'}}
+    path = state / 'native-ui-probe.json'
+    path.write_text(json.dumps(value))
+    host = SimpleNamespace(user=tmp_path, process=SimpleNamespace(returncode=0),
+        wait=lambda *_a, **_k: None, verify_stopped=lambda _timeout: None)
+    result = probe.check_ui(host, 15)
+    assert result['status'] == 'failed' and not result['observation_complete']
+    assert result['checks']['status_window'] and result['error'] == 'native-ui-timeout'
+    assert result['observation_phase'] == 'stopping'
+    assert result['browser_diagnostics'] == {'browser': {'1': 'waiting-reader'}, 'http': {'document': 200}}
+    value.update(status='passed', passed=True)
+    path.write_text(json.dumps(value))
+    with pytest.raises(probe.ProbeFailure, match='invalid-frozen-ui-observation'):
+        probe.check_ui(host, 15)
+
+
+def test_process_log_observation_keeps_only_fixed_diagnostic_codes():
+    host = probe.FrozenHost.__new__(probe.FrozenHost)
+    host.port, host.diagnostics = None, set()
+    host.stdout_closed = threading.Event()
+    host.process = SimpleNamespace(poll=lambda: -6, stdout=io.StringIO(
+        'private account key and /private/profile\n'
+        'Traceback (most recent call last):\n'
+        'Fatal Python error: private details\n'
+        '[Host] Transcript ready at http://127.0.0.1:12345.\n'))
+    host._read()
+    assert host.stdout_closed.is_set()
+    assert host.public_observation() == {'exit_code': -6, 'ready_socket_reported': True,
+        'log_diagnostics': ['python-fatal-error', 'python-traceback']}
+    assert 'private' not in json.dumps(host.public_observation())

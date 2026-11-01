@@ -3,6 +3,8 @@ import json
 import threading
 from types import SimpleNamespace
 
+import pytest
+
 from backend.desktop_ui_probe import DesktopUiProbe
 
 
@@ -100,3 +102,55 @@ def test_stale_browser_result_is_removed_and_handler_alone_cannot_pass(tmp_path)
     code, value = finish(probe, host, tmp_path)
     assert code == 1 and not value['passed']
     assert value['browser_navigation'] == 'unverified'
+
+
+def test_initial_checkpoint_never_accepts_an_unfinished_native_run(tmp_path):
+    probe, host, _opened = fixture(tmp_path)
+    raw = (tmp_path / 'native-ui-probe.json').read_text()
+    value = json.loads(raw)
+    assert value['complete'] is False and value['passed'] is False
+    assert value['status'] == 'failed' and value['phase'] == 'startup'
+    assert value['error'] == 'native-ui-incomplete'
+    assert host.browser_probe_token not in raw and str(tmp_path) not in raw
+
+
+def test_native_quit_that_does_not_return_retains_incomplete_failure(tmp_path):
+    probe, _host, _opened = fixture(tmp_path)
+    def native_exit():
+        raise SystemExit(0)
+    probe.actions['quit'] = SimpleNamespace(trigger=native_exit)
+    with pytest.raises(SystemExit):
+        probe.stop('native-ui-timeout')
+    value = json.loads((tmp_path / 'native-ui-probe.json').read_text())
+    assert value['complete'] is False and value['passed'] is False
+    assert value['phase'] == 'stopping' and value['error'] == 'native-ui-timeout'
+    assert 'owned_shutdown' not in value['checks'] and 'quit_action' not in value['checks']
+
+
+def test_checkpoint_does_not_rewrite_unchanged_observations(monkeypatch, tmp_path):
+    probe, _host, _opened = fixture(tmp_path)
+    writes = []
+    monkeypatch.setattr('backend.desktop_ui_probe._atomic_json', lambda *_args: writes.append(True))
+    probe.checkpoint()
+    probe.checkpoint()
+    assert writes == []
+    probe.phase = 'logs'
+    probe.checkpoint()
+    assert writes == [True]
+
+
+def test_browser_diagnostics_are_checkpointed_without_granting_navigation(tmp_path):
+    probe, host, _opened = fixture(tmp_path)
+    probe.browser_result.write_text(json.dumps({'stages': [], 'diagnostics': {
+        'browser': {'1': 'animation-frame-pending', '2': host.browser_probe_token},
+        'http': {'document': 200, 'script': 200, 'snapshot': 'pending', 'private-url': 200},
+        'visibility': {'1': 'hidden'}, 'token': host.browser_probe_token,
+    }}))
+    probe.checkpoint()
+    raw = (tmp_path / 'native-ui-probe.json').read_text()
+    value = json.loads(raw)
+    assert not value['passed'] and not probe.browser_observed(1)
+    assert value['browser_diagnostics'] == {
+        'browser': {'1': 'animation-frame-pending'}, 'visibility': {'1': 'hidden'},
+        'http': {'document': 200, 'script': 200, 'snapshot': 'pending'}}
+    assert host.browser_probe_token not in raw and 'private-url' not in raw

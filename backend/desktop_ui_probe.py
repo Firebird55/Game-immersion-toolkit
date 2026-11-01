@@ -11,6 +11,7 @@ import secrets
 import time
 
 from .bundle_host import _atomic_json
+from .native_browser_probe import sanitize_browser_diagnostics
 
 
 class DesktopUiProbe:
@@ -43,6 +44,8 @@ class DesktopUiProbe:
             self.requests.append(accepted)
             return accepted
         host.open_browser = observe_open
+        self._last_observation = None
+        self.checkpoint()
 
     def browser_observed(self, stage):
         try:
@@ -57,10 +60,19 @@ class DesktopUiProbe:
     def stop(self, error=None):
         self.error = error
         self.phase = 'stopping'
+        # Native desktop termination need not return through QApplication.exec.
+        # Retain an explicitly incomplete observation before asking it to quit.
+        self.checkpoint()
         self.actions['quit'].trigger()
         self.checks['quit_action'] = self.host.stop_requested.is_set()
 
     def tick(self):
+        try:
+            self._tick()
+        finally:
+            self.checkpoint()
+
+    def _tick(self):
         if self.phase == 'stopping':
             return
         if self.host.finished.is_set() or self.host.exit_code:
@@ -107,22 +119,43 @@ class DesktopUiProbe:
             self.checks['open_transcript_navigation'] = self.browser_observed(2)
             self.stop(None if all(self.requests) else 'default-browser-handler-unavailable')
 
-    def finish(self):
-        self.checks['owned_shutdown'] = self.host.finished.is_set() and not self.host.lease.held
+    def observation(self, *, complete):
         unavailable = self.error in {'native-display-unavailable', 'default-browser-handler-unavailable'}
         required = ('status_window', 'log_window', 'show_logs_action', 'default_browser_request',
                     'browser_open', 'open_transcript_action', 'open_transcript_navigation', 'quit_action', 'owned_shutdown')
-        passed = self.error is None and all(self.checks.get(key) is True for key in required)
+        passed = complete and self.error is None and all(self.checks.get(key) is True for key in required)
         if self.tray_available and not self.checks.get('tray_icon'):
             passed = False
         value = {'schema': 'toolkit-desktop-ui-observation-v1', 'mode': self.host.layout.mode,
-            'passed': passed, 'status': 'passed' if passed else 'unavailable' if unavailable else 'failed',
-            'checks': self.checks, 'native_tray': 'available' if self.tray_available else 'unavailable',
+            'complete': complete, 'phase': self.phase, 'host_ready': self.host.ready.is_set(),
+            'browser_requests': min(len(self.requests), 2),
+            'passed': passed, 'status': 'passed' if passed else 'unavailable' if complete and unavailable else 'failed',
+            'checks': dict(self.checks), 'native_tray': 'available' if self.tray_available else 'unavailable',
             'native_display': 'observed' if self.checks.get('status_window') else 'unavailable' if self.non_native else 'unverified',
             'browser_navigation': 'mounted-reader-observed' if self.checks.get('browser_open') else 'unverified',
             'ordinary_browser_profile': 'not-run',
             'native_game_capture': 'not-run', 'r19_complete': False}
         if self.error:
             value['error'] = self.error
+        elif not complete:
+            value['error'] = 'native-ui-incomplete'
+        try:
+            browser = json.loads(self.browser_result.read_text(encoding='utf-8'))
+            diagnostics = sanitize_browser_diagnostics(browser.get('diagnostics'))
+        except (OSError, ValueError, TypeError, AttributeError):
+            diagnostics = {}
+        if diagnostics:
+            value['browser_diagnostics'] = diagnostics
+        return value
+
+    def checkpoint(self):
+        value = self.observation(complete=False)
+        if value != self._last_observation:
+            _atomic_json(self.host.layout.state_root / 'native-ui-probe.json', value)
+            self._last_observation = value
+
+    def finish(self):
+        self.checks['owned_shutdown'] = self.host.finished.is_set() and not self.host.lease.held
+        value = self.observation(complete=True)
         _atomic_json(self.host.layout.state_root / 'native-ui-probe.json', value)
-        return 0 if passed else 2 if unavailable else 1
+        return {'passed': 0, 'unavailable': 2}.get(value['status'], 1)
