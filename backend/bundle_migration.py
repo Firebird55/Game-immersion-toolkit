@@ -81,6 +81,22 @@ def _state_path(path, *, directory=None, missing=False):
     return info
 
 
+def _test_credential_family(settings_root):
+    """One bounded opaque TEST member, for both source and verification clone."""
+    credential_root = Path(settings_root)/'credentials'
+    _state_path(credential_root, directory=True)
+    with os.scandir(credential_root) as entries:
+        names = []
+        for entry in entries:
+            if names or entry.name != 'accounts.dpapi':
+                raise HostProbeError('invalid-state-binding', 'The copied TEST credential family differs.')
+            names.append(entry.name)
+    account = credential_root/'accounts.dpapi'
+    if names != ['accounts.dpapi'] or _state_path(account, directory=False).st_size > 8192:
+        raise HostProbeError('invalid-state-binding', 'The copied TEST credential family differs.')
+    return account
+
+
 @dataclass(frozen=True, repr=False)
 class SyntheticStateBindings:
     """Fixed authored role map from actual owners, never roots read from JSON.
@@ -120,7 +136,7 @@ class SyntheticStateBindings:
         return (('data', self.layout.data_root),
                 *((f'host-settings/{name}', root/name) for name in
                   ('settings.json', 'game-paths.json', 'setup.json', 'languages.json',
-                   'languages.requests.json', 'mobile-library.json', 'mobile-library')),
+                   'languages.requests.json', 'mobile-library.json', 'mobile-library', 'credentials')),
                 ('work/voice-assets', self.layout.work_root))
 
     def verify(self, source, external):
@@ -153,7 +169,7 @@ class SyntheticStateBindings:
                 or self.settings.legacy_path != layout.data_root/'settings.json'
                 or self.languages.path != layout.settings_root/'languages.json'
                 or self.installation.path != layout.settings_root/'setup.json'
-                or self.accounts.path != self.host_root.path/'Programs/Proxy Transcript/accounts.dpapi'
+                or self.accounts.path != layout.settings_root/'credentials/accounts.dpapi'
                 or self.automatic.path != self.automatic.home/'rules.json'
                 or self.settings.path == self.settings.legacy_path
                 or self.installation.settings is not self.settings
@@ -172,7 +188,7 @@ class SyntheticStateBindings:
             if path == self.export_root.path or not path.is_relative_to(self.export_root.path):
                 raise HostProbeError('unbound-external-root', 'Export and recovery roots must have an explicit external owner.')
             _state_path(path, directory=True)
-        _state_path(self.accounts.path, directory=False)
+        _test_credential_family(layout.settings_root)
         if (not self.languages.stop_event.is_set() or any(worker.is_alive() for worker in
                 (*self.languages._workers, *self.languages._monitors)) or self.languages._cleanup_failures
                 or not self.automatic.stop.is_set() or self.automatic.process is not None
@@ -506,14 +522,16 @@ def copy_and_verify_synthetic(plan: SyntheticMigrationPlan, barrier: SyntheticWr
             manifest['open_requirements'].append('Preserving repair and deliberate reconnection for unreadable named account store')
         if plan.state_bindings is not None:
             selected = plan.state_bindings
-            manifest['credentials'] = {'protection': 'opaque-host-bytes-preserved-in-place',
+            manifest['credentials'] = {'protection': 'opaque-test-family-copied-and-legacy-canaries-preserved',
                 'decryption': 'not-attempted-by-copy', 'named_profiles': 'unverified-native',
+                'copied_test_family': {'role': 'named-profiles', 'relative': 'host-settings/credentials/accounts.dpapi',
+                    'action': 'copy-with-selected-settings'},
                 'locators': [{'role': role, 'external_fixture_id': selected.host_root.fixture_id,
                     'relative': path.relative_to(selected.host_root.path).as_posix(),
                     'present': _state_path(path, directory=False, missing=True) is not None,
                     'action': 'preserve-host-locator-in-place'} for role, path in (
-                        ('named-profiles', selected.accounts.path),
-                        ('legacy-host-key', selected.accounts.path.with_name('key.dpapi')))],
+                        ('legacy-host-named-canary', selected.host_root.path/'Programs/Proxy Transcript/accounts.dpapi'),
+                        ('legacy-host-key', selected.host_root.path/'Programs/Proxy Transcript/key.dpapi'))],
                 'legacy_data_fallback': 'opaque-bytes-copied-with-data-if-present'}
         _atomic_json(manifest_path, manifest)
     # Budget every name, including hardlink aliases; destination volumes may not

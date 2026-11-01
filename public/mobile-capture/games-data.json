@@ -755,7 +755,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
-      "coverage": "All four official voice languages use implemented and tested locale formats. Chinese original conversation and ambient samples decode locally, including both Endministrator performances. English/Japanese/Korean packs are absent in the audited installation, so native playback is not claimed. Missing metadata references and missing recordings are counted separately; see the coverage report.",
+      "coverage": "All four official voice languages use implemented and tested locale formats with a built-in archive reader that needs no SDK. Chinese original conversation and ambient samples decode locally, including both Endministrator performances. English/Japanese/Korean packs are absent in the audited installation, so native playback is not claimed. Missing metadata references and missing recordings are counted separately; see the coverage report.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-27",
       "officialAudio": [

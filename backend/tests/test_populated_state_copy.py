@@ -130,9 +130,122 @@ def test_complete_actual_role_mapping_readback_and_unchanged_snapshot_external_s
     migration._verify_snapshot(snapshot, *first)
     assert (snapshot/'host-settings/settings.json').read_bytes() == fixture.settings.path.read_bytes()
     assert (snapshot/'work/voice-assets/reviewed-authored-work.json').is_file()
+    assert fixture.accounts.path == value.layout.settings_root/'credentials/accounts.dpapi'
+    assert (snapshot/'host-settings/credentials/accounts.dpapi').read_bytes() == fixture.expected['protected']
     assert not (snapshot/'host-credentials').exists()
+    assert manifest['credentials']['copied_test_family'] == {'role':'named-profiles',
+        'relative':'host-settings/credentials/accounts.dpapi','action':'copy-with-selected-settings'}
     assert manifest['credentials']['locators'][0]['present'] is True
     assert manifest['credentials']['locators'][0]['external_fixture_id'] == value.host.fixture_id
+
+
+def test_clone_reads_only_its_own_copied_test_credentials_and_preserves_legacy_canaries(populated, monkeypatch):
+    value, fixture = populated, populated.fixture
+    from backend.accounts import AccountStore
+    legacy = value.host.path/'Programs/Proxy Transcript'
+    original = fixture._readback
+    open_file = Path.open
+    forbidden = {fixture.accounts.path, legacy/'accounts.dpapi', legacy/'key.dpapi',
+        value.layout.data_root/'lexirise/key.dpapi'}
+    before = bytes_in(value.source.path), bytes_in(value.host.path)
+    opened = []
+    initialize = AccountStore.__init__
+    def account_init(owner, path=None, **options):
+        opened.append(Path(path)); return initialize(owner, path, **options)
+    def readback(snapshot):
+        def no_source_fallback(path, *args, **kwargs):
+            assert path not in forbidden, 'Clone readback reached source/legacy credential bytes.'
+            return open_file(path, *args, **kwargs)
+        with patch.object(Path, 'open', no_source_fallback): original(snapshot)
+    monkeypatch.setattr(fixture, '_readback', readback)
+    monkeypatch.setattr(AccountStore, '__init__', account_init)
+    manifest = value.copy()
+    assert manifest['activation_allowed'] is False
+    assert len(opened) == 1 and opened[0].parts[-4:] == ('clone','host-settings','credentials','accounts.dpapi')
+    assert before == (bytes_in(value.source.path), bytes_in(value.host.path))
+    assert (legacy/'accounts.dpapi').read_bytes().startswith(b'opaque authored legacy host account canary')
+    assert (legacy/'key.dpapi').read_bytes().startswith(b'opaque authored host TEST fallback')
+
+
+@pytest.mark.parametrize('change', ['missing', 'opaque-host-canary', 'other-valid-test-profile', 'linked-source'])
+def test_clone_credential_tamper_cannot_be_rescued_by_unchanged_source_or_host(populated, monkeypatch, change):
+    value, fixture = populated, populated.fixture
+    tree_copy = probe.shutil.copytree
+    source_before, host_before = bytes_in(value.source.path), bytes_in(value.host.path)
+    snapshots = []
+    def tamper(source, destination, *args, **kwargs):
+        result = tree_copy(source, destination, *args, **kwargs)
+        if Path(destination).name == 'clone':
+            snapshots.append((Path(source), bytes_in(Path(source))))
+            account = Path(destination)/'host-settings/credentials/accounts.dpapi'
+            if change == 'missing': account.unlink()
+            elif change == 'linked-source':
+                account.unlink(); account.symlink_to(fixture.accounts.path)
+            elif change == 'opaque-host-canary':
+                account.write_bytes((value.host.path/'Programs/Proxy Transcript/accounts.dpapi').read_bytes())
+            else:
+                from backend.runtime_probe import authored_test_protect
+                payload = json.loads(authored_test_protect(account.read_bytes(), decrypt=True))
+                payload['profiles'][payload['active']]['name'] = 'Different authored display name'
+                account.write_bytes(authored_test_protect(json.dumps(payload).encode()))
+        return result
+    monkeypatch.setattr(probe.shutil, 'copytree', tamper)
+    with pytest.raises((probe.DataCopyFailure, HostProbeError, FileNotFoundError)): value.copy()
+    assert fixture.failure is not None and fixture.verification_ownership
+    assert fixture.verification_ownership[-1]['root'].exists()
+    assert value.adapter.poisoned and value.adapter.generation == 1 and value.coordinator._leases_held()
+    assert source_before == bytes_in(value.source.path) and host_before == bytes_in(value.host.path)
+    assert all(before == bytes_in(path) for path, before in snapshots)
+    assert value.coordinator.pointer_path.read_bytes() == value.pointer
+
+
+@pytest.mark.parametrize('extra', ['regular-file', 'empty-directory'])
+def test_clone_extra_credential_member_refuses_before_sql_and_retains_exact_failure_and_leases(populated, monkeypatch, extra):
+    value, fixture = populated, populated.fixture
+    original_copy, connect = probe.shutil.copytree, sqlite3.connect
+    before = bytes_in(value.source.path), bytes_in(value.host.path), bytes_in(value.external.path)
+    snapshots, changed = [], []
+    def copy(source, destination, *args, **kwargs):
+        result = original_copy(source, destination, *args, **kwargs)
+        if Path(destination).name == 'clone':
+            snapshots.append((Path(source), bytes_in(Path(source))))
+            unknown = Path(destination)/'host-settings/credentials/unlisted-provider-state'
+            if extra == 'regular-file': unknown.write_bytes(b'authored unknown provider canary; never a key')
+            else: unknown.mkdir()
+            changed.append(unknown)
+        return result
+    def no_clone_sql(*args, **kwargs):
+        assert not changed, 'Unknown clone credential family reached semantic SQL readback.'
+        return connect(*args, **kwargs)
+    monkeypatch.setattr(probe.shutil, 'copytree', copy)
+    monkeypatch.setattr(sqlite3, 'connect', no_clone_sql)
+    with pytest.raises(HostProbeError) as refused: value.copy()
+    assert refused.value.code == 'invalid-state-binding' and fixture.failure is refused.value
+    assert len(changed) == 1 and changed[0].exists()
+    assert fixture.verification_ownership and fixture.verification_ownership[-1]['root'].exists()
+    assert fixture.verification_ownership[-1]['owners'] == []
+    assert value.coordinator._leases_held() and value.adapter.poisoned and value.adapter.generation == 1
+    assert len(value.adapter.cohorts) == 1
+    with pytest.raises(probe.DataCopyFailure): value.adapter.start()
+    assert len(value.adapter.cohorts) == 1 and value.adapter.generation == 1
+    assert before == (bytes_in(value.source.path), bytes_in(value.host.path), bytes_in(value.external.path))
+    assert all(previous == bytes_in(path) for path, previous in snapshots)
+    assert value.coordinator.pointer_path.read_bytes() == value.pointer
+
+
+@pytest.mark.parametrize('change', ['legacy-owner', 'unknown-member', 'linked-member', 'oversize'])
+def test_current_credential_family_refuses_old_locator_unknown_or_unbounded_bytes_before_inventory(populated, monkeypatch, change):
+    value, fixture = populated, populated.fixture
+    account = fixture.accounts.path
+    if change == 'legacy-owner': fixture.accounts.path = value.host.path/'Programs/Proxy Transcript/accounts.dpapi'
+    if change == 'unknown-member': (account.parent/'unowned-provider.json').write_bytes(b'authored unknown provider metadata')
+    if change == 'linked-member':
+        account.unlink(); account.symlink_to(value.host.path/'Programs/Proxy Transcript/accounts.dpapi')
+    if change == 'oversize': account.write_bytes(b'x'*8193)
+    original = migration._digest
+    monkeypatch.setattr(migration, '_digest', lambda path: pytest.fail('Invalid credentials reached inventory hashing')
+        if path.parent == account.parent else original(path))
+    with pytest.raises(HostProbeError): migration._source_inventory(fixture.plan())
 
 
 @pytest.mark.parametrize('changed', ['cohort-before-copy', 'fixture-before-copy', 'during-readback', 'after-return'])
@@ -710,6 +823,8 @@ def test_fixed_populated_actual_api_reads_same_owners_and_idempotent_saved_line(
     with runtime_probe.authored_populated_api(value.layout, value.api) as policy:
         with TestClient(value.api.app, base_url='http://127.0.0.1:8766') as client:
             policy.check_runtime(value.api.runtime)
+            admitted = client.post('/api/runtime/activate', json={'running':False}, headers={'X-Proxy-Transcript':'update'})
+            assert admitted.status_code == 200 and admitted.json() == {'active':True}
             state = probe._PopulatedCopyProbe.__new__(probe._PopulatedCopyProbe)
             state.state, state.external = value.fixture, value.roots['external-state']
             state.host_profile = value.roots['host-profile']
@@ -760,6 +875,10 @@ def populated_native_runner(native_populated, monkeypatch):
         def wait_services(self):
             assert self.client.get('/api/health').json() == {'status':'ok'}
             assert self.client.get('/api/runtime/ready').json()['ready'] is True
+            admitted = self.client.post('/api/runtime/activate', json={'running':False},
+                headers={'X-Proxy-Transcript':'update'})
+            assert admitted.status_code == 200 and admitted.json() == {'active':True}
+            calls.append(('actual-source-admission-asgi', self))
         @contextmanager
         def _registered_listener_scope(self):
             calls.append(('listener-double-before', self))

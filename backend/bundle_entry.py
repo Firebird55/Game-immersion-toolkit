@@ -25,12 +25,19 @@ def _prepare_frozen_standard_streams():
 def main(arguments=None):
     _prepare_frozen_standard_streams()
     args = list(sys.argv[1:] if arguments is None else arguments)
+    if not args or args[0] in {'--data-root', '--frontend-root', '--port', '--api-port',
+                               '--headless', '--no-browser', '--host-check', '--request-quit', '--ui-probe'}:
+        from backend.desktop_host import launch as desktop_main
+        return desktop_main(args)
     if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api', 'api-wal', 'api-grammar', 'api-populated', 'host'}:
         layout = discover_layout()
-        if layout.mode != 'bundle' or layout.profile != 'runtime-experiment':
-            raise RuntimeBundleError('Runtime probes require the quarantined runtime-experiment profile.')
-        asr_image = layout.executable.name.casefold() == 'proxytranscriptasr.exe'
-        if asr_image != (args[1] == 'asr'):
+        if layout.mode != 'bundle' or layout.profile not in {'runtime', 'runtime-experiment'}:
+            raise RuntimeBundleError('Runtime probes require a complete frozen runtime profile.')
+        if args[1] in {'api-wal', 'api-grammar', 'api-populated', 'host'} and layout.profile != 'runtime-experiment':
+            raise RuntimeBundleError('This fixed probe requires the separate experimental profile.')
+        asr_image = layout.executable.name.casefold() in {'gameimmersiontoolkitasr.exe', 'gameimmersiontoolkitasr'}
+        main_image = layout.executable.name in {'GameImmersionToolkit.exe', 'GameImmersionToolkit'}
+        if (not asr_image and not main_image) or asr_image != (args[1] == 'asr'):
             raise RuntimeBundleError('Probe must use its isolated runtime image.')
         # Keep the stdlib diagnostic/frontend and ASR analyses independent of
         # the main probe's native imports; experimental specs collect these
@@ -40,10 +47,19 @@ def main(arguments=None):
         return probe.main(args[1], layout)
     if args == ['--runtime-diagnose']:
         layout = discover_layout()
+        accepted = False
+        if layout.mode == 'bundle' and layout.profile == 'runtime':
+            from backend import runtime_payload
+            try:
+                receipt, _ = runtime_payload.read_installed_receipt(layout)
+                accepted = runtime_payload.validate(layout.application_root, receipt,
+                    runtime_payload.executable_target(layout.executable), installed=True)
+            except (OSError, ValueError, TypeError, KeyError, RecursionError):
+                pass
         # Public diagnostics contain logical state, never private root paths.
         print(json.dumps({'schema': layout.schema, 'mode': layout.mode, 'version': layout.version,
             'build_id': layout.build_id, 'profile': layout.profile, 'children': layout.children,
-            'r19_complete': False, 'native_acceptance': 'unavailable'}))
+            'r19_complete': False, 'native_acceptance': 'approved' if accepted else 'unavailable'}))
         return 0
     if len(args) < 3 or args[0] != '--runtime-child' or args[2] != '--' or args[1] not in CHILD_TARGETS:
         raise RuntimeBundleError('Use a fixed --runtime-child KIND -- entrypoint or --runtime-diagnose.')
@@ -58,7 +74,7 @@ def main(arguments=None):
             raise RuntimeBundleError('Windows bootstrap requires a job name and child command.')
         from backend.windows_preparation_process import _bootstrap
         return _bootstrap(child_args[0], child_args[1:])
-    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() != 'proxytranscriptasr.exe':
+    if layout.mode == 'bundle' and kind == 'asr' and layout.executable.name.casefold() not in {'gameimmersiontoolkitasr.exe', 'gameimmersiontoolkitasr'}:
         raise RuntimeBundleError('ASR requires its separate frozen executable and native library tree.')
     target_type, target = CHILD_TARGETS[kind]
     sys.argv = [target, *child_args]

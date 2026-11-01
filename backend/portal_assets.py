@@ -7,13 +7,13 @@ import re
 
 from .preparation_errors import PreparationFailure
 from .source_formats import invalid, keyvalues
-from .source_dialogue import (SourceFiles, caption_pages, captions, clean_caption,
+from .source_dialogue import (SourceFiles, localized_caption_pages, captions, clean_caption,
     decode_performance, mapping, pack_performance, reference_signature,
     resolve_sequence, sound_events, steam_language, text_table)
 from .source_scene import caption_sequences, scene_image
 
 GAME = 'portal'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'fr', 'de', 'ru', 'es-ES', 'zh-Hant')
 TEXT_LOCALES = dict(zip(
     ('en', 'fr', 'de', 'ru', 'da', 'nl', 'fi', 'it', 'ja', 'no', 'pl', 'pt-PT',
@@ -147,6 +147,7 @@ def _row(identity, texts, locale, audio, kind, status=None, pages=None):
             'chinese': texts.get('zh-Hans', ''), 'source_locale': locale,
             'source_text': texts[locale], 'texts': texts, 'audio_locale': locale,
             'audio': audio, 'voice_status': status or ('voiced' if audio else 'unavailable'),
+            'audio_scope': 'paragraph' if audio and audio.get('playback_scope') == 'full_track' else 'line',
             'dialogue_kind': kind, 'ocr_texts': pages or {key: [value] for key, value in texts.items()}}
 
 
@@ -187,8 +188,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         audio = _binding(token, sequence, voices, source_locale)
         matched.update(member for member, _time in sequence)
         kind = 'commentary' if token.startswith('#commentary') else 'ambient' if token.startswith('npc_floorturret.') else 'subtitle'
-        records.append(_row('caption:' + token, texts, source_locale, audio, kind,
-                            pages={locale: caption_pages(table[token]) for locale, table in tables.items() if token in table}))
+        pages = localized_caption_pages({locale: table[token] for locale, table in tables.items() if token in table}, source_locale)
+        for number, localized in pages:
+            identity = 'caption:' + token + (f':page:{number}' if len(pages) > 1 else '')
+            row = _row(identity, localized, source_locale, audio, kind)
+            if audio and len(pages) > 1:
+                row['audio_scope'] = 'paragraph'
+            records.append(row)
         if not sequence:
             diagnostics['unresolved_caption_bindings'] += 1
         elif len(sequence) > 1:

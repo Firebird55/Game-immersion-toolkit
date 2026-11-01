@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from .game_paths import discover_install
 from .game_assets import asset_adapter, LOCAL_GAMES
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
+from .update_workers import start_process, INDEX_BUILD_LOCK, subprocess_options, stop_process
 from .runtime_bundle import child_command, discover_layout
 
 
@@ -125,6 +125,8 @@ class LocalGameUpdateManager:
         stop_process(process)
         if self._thread:
             self._thread.join(timeout=2)
+            if self._thread.is_alive():
+                raise RuntimeError('Game update worker did not stop; runtime handoff is blocked.')
 
     def _build_candidate(self, install, directory, index_install):
         # In-process adapters remain injectable for fixture-only unit tests.
@@ -136,7 +138,7 @@ class LocalGameUpdateManager:
             output = Path(temporary) / 'index.json'
             command = child_command('game-index', ['--game', self.game,
                        '--install', str(install), '--directory', str(directory), '--output', str(output)])
-            self._process = subprocess.Popen(command, cwd=discover_layout().resource_root,
+            self._process = start_process(command, cwd=discover_layout().resource_root,
                                              stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                                              text=True, **subprocess_options())
             try:
@@ -152,4 +154,5 @@ class LocalGameUpdateManager:
                     self._process.communicate()
                 raise
             finally:
+                stop_process(self._process)
                 self._process = None

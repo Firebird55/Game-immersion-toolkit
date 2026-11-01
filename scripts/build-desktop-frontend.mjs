@@ -7,7 +7,8 @@ import {build} from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/postcss';
 import {sourceCommit} from './build-identity.mjs';
-import {dependencyNotices} from './dependency-notices.mjs';
+import {dependencyNotices, dependencyNoticeAudit, requireCompleteNotices} from './dependency-notices.mjs';
+import {browserNativeGuard, sealBrowserNativeEvidence, verifyBrowserNativeEvidence, POLICY, GUARD, EVIDENCE} from './frontend-native-exclusions.mjs';
 import {ocrAssets} from './mobile-assets.mjs';
 import {previewSources} from './mobile-publication.mjs';
 
@@ -17,7 +18,7 @@ export const MANIFEST_NAME = 'desktop-manifest.json';
 const contract = Object.freeze({frontend_origin: 'http://127.0.0.1:3000', api_base: 'http://127.0.0.1:8766', websocket_url: 'ws://127.0.0.1:8766/api/ws'});
 const sourceTrees = ['app', 'components', 'desktop', 'hooks', 'lib', 'mobile', 'styles', 'vendor/lexirise-components'];
 const sourceFiles = ['package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts', '.openai/hosting.json',
-  'LICENSE', 'THIRD_PARTY_NOTICES.md', 'scripts/build-desktop-frontend.mjs', 'scripts/build-identity.mjs', 'scripts/prepare-mobile-assets.mjs',
+  'LICENSE', 'THIRD_PARTY_NOTICES.md', POLICY, GUARD, 'scripts/build-desktop-frontend.mjs', 'scripts/build-identity.mjs', 'scripts/prepare-mobile-assets.mjs',
   'scripts/build-browser-reader.mjs', 'scripts/dependency-notices.mjs', 'scripts/mobile-assets.mjs',
   'scripts/mobile-publication.mjs', 'scripts/mobile-ocr-integrity.json', 'scripts/ocr-worker-compat.js'];
 const mimeTypes = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
@@ -89,18 +90,19 @@ function inputState(publicFiles) {
   for (const [name, bytes] of publicFiles) inputs['public/' + name] = sha256(bytes);
   const tools = {};
   const lock = JSON.parse(readInput('package-lock.json'));
-  // The existing notice generator reads installed package notices. Validate
-  // those files before reading and bind their actual bytes to build reuse.
-  for (const name of Object.keys(lock.packages).filter(name => name.startsWith('node_modules/'))) {
-    const directory = join(repository, name);
-    if (!existsSync(directory)) continue;
-    const actual = realpathSync(directory), local = relative(repository, actual);
-    if (local.startsWith('..' + sep) || isAbsolute(local)) throw Error('An installed dependency notice escapes the source installation.');
-    for (const notice of readdirSync(directory).filter(name => /^(?:licen[cs]e|notice|copying)(?:[.-].*)?$/i.test(name))) {
-      const path = join(actual, notice);
-      rejectLinks(path);
-      if (lstatSync(path).isFile()) inputs[relative(repository, path).split(sep).join('/')] = sha256(readFileSync(path));
-    }
+  // Bind every actual nested/vendor notice, declaration and pinned supplement
+  // consumed by the collector. A root-only scan misses vendored libraries and
+  // would let changed attribution reuse an old desktop build fingerprint.
+  const noticeAudit = dependencyNoticeAudit({root: repository});
+  // Exact native-only omissions are deferred until all three emitted browser
+  // build paths have supplied output-bound absence evidence. Final notices and
+  // the independent input reviewer require that evidence, never this deferral.
+  requireCompleteNotices(noticeAudit, {deferNativeBuildEvidence: true});
+  for (const path of noticeAudit.inputs) {
+    rejectLinks(path);
+    const name = relative(repository, path).split(sep).join('/');
+    if (name.startsWith('../') || isAbsolute(name)) throw Error('A dependency notice escapes the source installation.');
+    inputs[name] = sha256(readFileSync(path));
   }
   for (const name of ['vite', '@vitejs/plugin-react', '@tailwindcss/postcss', 'tailwindcss', 'react', 'react-dom']) {
     const packagePath = join(repository, 'node_modules', name, 'package.json');
@@ -132,7 +134,7 @@ export function inventoryDesktopPayload(root) {
   const files = {}, names = new Set(), directories = [];
   for (const name of walkFiles(root, name => directories.push(name))) {
     if (name === MANIFEST_NAME) continue;
-    if (!permittedPayload(name)) throw Error('Unreviewed file in the desktop payload.');
+    if (!permittedPayload(name)) throw Error('Unreviewed file in the desktop payload: ' + name);
     const folded = name.toLowerCase();
     if (names.has(folded)) throw Error('Case-aliased desktop payload names are prohibited.');
     names.add(folded);
@@ -206,22 +208,43 @@ function ensureCompatibility(state, force) {
     try {
       const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
       const files = compatibilityFiles();
-      if (receipt.input_key === key && stable(receipt.files) === stable(Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)])))) return files;
+      if (receipt.input_key === key && receipt.native_evidence && stable(receipt.files) === stable(Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)])))) return {files,evidence:receipt.native_evidence};
     } catch { /* A stale/missing canonical output is rebuilt, never accepted. */ }
   }
   runSourceBuild('node_modules/vinext/dist/cli.js', ['build']);
   const after = inputState(selectedPublic());
   if (stable(after) !== stable(state)) throw Error('Desktop source changed during the canonical compatibility build.');
   const files = compatibilityFiles();
+  const evidence=JSON.parse(readFileSync(join(repository,'output/build-cache/canonical-native-inputs.json'),'utf8'));
   mkdirSync(dirname(receiptPath), {recursive: true});
-  writeFileSync(receiptPath, stable({input_key: key, files: Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)]))}) + '\n');
-  return files;
+  writeFileSync(receiptPath, stable({input_key: key, native_evidence:evidence, files: Object.fromEntries([...files].map(([name, bytes]) => [name, sha256(bytes)]))}) + '\n');
+  return {files,evidence};
 }
 
 function dependencyInputsUnchanged(inputs) {
   return inputs && Object.entries(inputs).every(([name, digest]) => {
     try { return sha256(readInput(name)) === digest; } catch { return false; }
   });
+}
+
+async function renameBuildDirectory(from, to) {
+  // Antivirus and filesystem sync clients briefly hold new Windows assets.
+  // Keep the atomic rename and rollback semantics; never copy a partial tree.
+  for (let attempt = 0; ; attempt++) {
+    try { renameSync(from, to); return; }
+    catch (error) {
+      if (process.platform !== 'win32' || !['EPERM', 'EACCES', 'EBUSY'].includes(error.code) || attempt >= 9) throw error;
+      await new Promise(resolve => setTimeout(resolve, Math.min(1000, 100 * (attempt + 1))));
+    }
+  }
+}
+
+function removeBuildFolderMetadata(directory) {
+  // Only a dedicated ignored build directory may call this. Installed payload
+  // validation remains read-only and continues to reject unexpected files.
+  for (const name of walkFiles(directory)) {
+    if (name.split('/').at(-1).toLowerCase() === 'desktop.ini') rmSync(join(directory, name));
+  }
 }
 
 /** Build on the developer host; the emitted payload needs no JS server/runtime. */
@@ -233,11 +256,14 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
   rejectLinks(outputDirectory);
   runSourceBuild('scripts/prepare-mobile-assets.mjs');
   const fonts = validateFonts(), publicFiles = selectedPublic(), state = inputState(publicFiles);
-  const compatibility = ensureCompatibility(state, force);
+  const compatibilityResult = ensureCompatibility(state, force), compatibility=compatibilityResult.files;
   const inputKey = sha256(stable(state));
   const receiptPath = join(outputParent, 'build-cache/desktop-frontend-' + sha256(Buffer.from(local)).slice(0, 16) + '.json');
   let prior = null;
-  if (existsSync(outputDirectory)) prior = verifyDesktopOutput(outputDirectory);
+  if (existsSync(outputDirectory)) {
+    removeBuildFolderMetadata(outputDirectory);
+    prior = verifyDesktopOutput(outputDirectory);
+  }
   if (!force && prior && existsSync(receiptPath)) {
     const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
     if (receipt.input_key === inputKey && receipt.build_id === prior.build_id && dependencyInputsUnchanged(receipt.module_inputs) &&
@@ -273,9 +299,10 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
       return null;
     },
   };
+  let desktopEvidence;
   try {
     await build({root: join(repository, 'desktop'), configFile: false, publicDir: false,
-      plugins: [observeModules, react()], resolve: {alias: {'@': repository}},
+      plugins: [observeModules, react(), browserNativeGuard({root:repository,kind:'desktop',onEvidence:value=>{desktopEvidence=value;}})], resolve: {alias: {'@': repository}},
       css: {postcss: {plugins: [tailwindcss({base: repository})]}},
       define: {'process.env.NODE_ENV': '"production"'}, logLevel: 'warn',
       build: {target: 'es2022', outDir: staging, emptyOutDir: false, assetsInlineLimit: 0, sourcemap: false,
@@ -284,8 +311,19 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
     for (const [name, source] of [['PROJECT-LICENSE.txt', 'LICENSE'], ['THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'],
       ['GEIST-OFL.txt', 'desktop/fonts/LICENSE.txt'], ['FONT-PROVENANCE.json', 'desktop/fonts/PROVENANCE.json'],
       ['SHADCN-LICENSE.md', 'styles/SHADCN-LICENSE.md']]) writePayload(staging, 'notices/' + name, readInput(source));
-    writePayload(staging, 'notices/THIRD_PARTY_LICENSES.txt', Buffer.from(sourceCwd(dependencyNotices)));
+    const proofs={canonical:compatibilityResult.evidence,desktop:desktopEvidence,
+      mobile:JSON.parse(readFileSync(join(repository,'output/build-cache/browser-reader.json'),'utf8')).native_evidence};
+    const payloads=new Map(walkFiles(staging).map(name=>[name,readFileSync(join(staging,name))]));
+    for(const kind of ['canonical','desktop','mobile'])proofs[kind]=sealBrowserNativeEvidence(proofs[kind],
+      new Map([...payloads].filter(([name])=>kind==='canonical'?name.startsWith('_next/static/'):kind==='desktop'?name.startsWith('assets/'): /^mobile-capture\/companion\.(?:js|css)$/.test(name))));
+    const exclusionEvidence=verifyBrowserNativeEvidence({root:repository,payloads,proofs});
+    writePayload(staging,EVIDENCE,Buffer.from(JSON.stringify(exclusionEvidence)+'\n'));
+    writePayload(staging, 'notices/THIRD_PARTY_LICENSES.txt', Buffer.from(dependencyNotices({root:repository,frontendRoot:staging})));
     if (stable(inputState(selectedPublic())) !== stable(state) || !dependencyInputsUnchanged(moduleInputs)) throw Error('Desktop build inputs changed during compilation.');
+    // Windows shell / sync clients can decorate newly created build folders.
+    // Remove only that exact metadata filename from our owned staging tree;
+    // the inventory and installed-payload verifier still reject every extra file.
+    removeBuildFolderMetadata(staging);
     const files = inventoryDesktopPayload(staging);
     const sourceFingerprint = sha256(stable({state, module_inputs: moduleInputs}));
     const fontAssets = Object.fromEntries(Object.entries(fonts.files).map(([name, record]) => [name,
@@ -307,9 +345,9 @@ export async function buildDesktopFrontend({outputDirectory = join(repository, '
       retainedDirectory = join(outputParent, 'desktop-frontend-retained', prior.build_id + '-' + randomUUID().slice(0, 8));
       rejectLinks(retainedDirectory);
       mkdirSync(dirname(retainedDirectory), {recursive: true});
-      renameSync(outputDirectory, retainedDirectory);
+      await renameBuildDirectory(outputDirectory, retainedDirectory);
     }
-    try { renameSync(staging, outputDirectory); } catch (error) { if (retainedDirectory) renameSync(retainedDirectory, outputDirectory); throw error; }
+    try { await renameBuildDirectory(staging, outputDirectory); } catch (error) { if (retainedDirectory) await renameBuildDirectory(retainedDirectory, outputDirectory); throw error; }
     mkdirSync(dirname(receiptPath), {recursive: true});
     writeFileSync(receiptPath, stable({input_key: inputKey, build_id: manifest.build_id, module_inputs: moduleInputs}) + '\n');
     return {root: outputDirectory, manifest, reused: false, retainedDirectory};

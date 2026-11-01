@@ -4,6 +4,7 @@ These use synthetic roots and subprocess tripwires, never installed games or
 accounts. They prove integration/refusal, not native frozen tool execution.
 """
 from dataclasses import replace
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -44,6 +45,50 @@ def test_export_and_selected_snapshot_share_explicit_data_without_app_writes(tmp
     assert not layout.data_root.exists()
 
 
+@pytest.mark.parametrize('legacy_environment', [True, False])
+def test_frozen_language_selection_and_export_use_only_selected_settings_root(tmp_path, monkeypatch, legacy_environment):
+    from backend import accounts
+    from backend.language_preparation import LanguagePreparation, selected_snapshot
+    layout = fixture_layout(tmp_path, monkeypatch)
+    legacy = tmp_path / 'old-host/Proxy Transcript'
+    legacy.mkdir(parents=True)
+    previous = json.dumps({'prepared': {}, 'selected': {'synthetic': {'beyond': 'zh-Hans'}}})
+    (legacy / 'languages.json').write_text(previous, encoding='utf-8')
+    if legacy_environment:
+        monkeypatch.setenv('LOCALAPPDATA', str(legacy.parent))
+    else:
+        monkeypatch.delenv('LOCALAPPDATA', raising=False)
+    layout.application_root.mkdir(parents=True)
+    monkeypatch.chdir(layout.application_root)
+    layout.settings_root.mkdir(parents=True)
+    (layout.settings_root / 'languages.json').write_text(json.dumps({
+        'prepared': {'beyond': {'nl': {'targets': ['en']}}}, 'selected': {}}), encoding='utf-8')
+    pending = layout.settings_root / 'languages.requests.json'
+    pending.write_text(json.dumps({'synthetic': {'beyond': {'locale': 'nl', 'target': 'en'}}}), encoding='utf-8')
+    activations = []
+    manager = LanguagePreparation(None, lambda *args: activations.append(args), None)
+    manager.select('beyond', 'nl', 'synthetic', target='en')
+    assert activations == [('beyond', 'nl', 'synthetic')]
+    assert not pending.exists()
+    assert LanguagePreparation(None, None, None).selected('beyond', 'synthetic') == 'nl'
+    (layout.data_root / 'languages/beyond/nl').mkdir(parents=True)
+    monkeypatch.setattr(accounts, 'AccountStore', lambda: SimpleNamespace(status=lambda: {'active': 'synthetic'}))
+    snapshot, _, account = selected_snapshot(layout.application_root, 'beyond')
+    assert snapshot == layout.data_root / 'languages/beyond/nl/textmap.json'
+    assert account == 'synthetic'
+    assert (legacy / 'languages.json').read_text(encoding='utf-8') == previous
+    assert list(layout.application_root.iterdir()) == []
+
+
+def test_source_language_preferences_keep_existing_host_location(tmp_path, monkeypatch):
+    from backend.language_preparation import LanguagePreparation
+    monkeypatch.setenv('LOCALAPPDATA', str(tmp_path))
+    path = tmp_path / 'Proxy Transcript/languages.json'
+    path.parent.mkdir()
+    path.write_text(json.dumps({'prepared': {}, 'selected': {'legacy': {'beyond': 'nl'}}}), encoding='utf-8')
+    assert LanguagePreparation(None, None, None).selected('beyond') == 'nl'
+
+
 def test_source_consumer_roots_preserve_caller_installation(tmp_path):
     from backend.language_preparation import selected_snapshot
     from backend.mobile_export_controls import MobileExportManager
@@ -65,23 +110,22 @@ def test_source_rejects_new_root_overrides_before_splitting_export_state(tmp_pat
     assert not root.exists() and not (tmp_path / 'data-v1').exists()
 
 
-@pytest.mark.parametrize('component', ['nte-prepare', 'nte-run', 'endfield-prepare', 'endfield-run', 'ree'])
+@pytest.mark.parametrize('component', ['nte-prepare', 'nte-run', 'ree'])
 def test_frozen_reader_refuses_before_download_sdk_or_compiler(tmp_path, monkeypatch, component):
-    from backend import bundle_tools, prebuilt_readers, nte_assets, endfield_assets, ree_extractor, game_tools
+    from backend import bundle_tools, prebuilt_readers, nte_assets, nte_toolchain, ree_extractor, game_tools, runtime_bundle
     monkeypatch.setattr(bundle_tools, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
     monkeypatch.setattr(prebuilt_readers, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
+    monkeypatch.setattr(nte_toolchain, 'discover_layout', lambda: SimpleNamespace(mode='bundle'))
     def forbidden(*_args, **_kwargs):
         pytest.fail('A diagnostic bundle attempted a developer tool or download')
     monkeypatch.setattr(nte_assets, 'dotnet_sdk', forbidden)
-    monkeypatch.setattr(endfield_assets, 'dotnet_sdk', forbidden)
     monkeypatch.setattr(game_tools, 'install_archive', forbidden)
     monkeypatch.setattr(game_tools, 'download', forbidden)
     monkeypatch.setattr(nte_assets.subprocess, 'run', forbidden)
     functions = {
         'nte-prepare': lambda: nte_assets.ensure_extractor(tmp_path / 'tools'),
         'nte-run': lambda: nte_assets.run_reader(tmp_path / 'game', tmp_path / 'reader', tmp_path / 'out', 'inventory'),
-        'endfield-prepare': lambda: endfield_assets.ensure_extractor(tmp_path / 'tools'),
-        'endfield-run': lambda: endfield_assets.reader(tmp_path / 'game', tmp_path / 'reader', 'inventory', {}),
         'ree': lambda: ree_extractor.ensure_extractor(tmp_path / 'tools'),
     }
     with pytest.raises(PreparationFailure) as error:
@@ -90,10 +134,13 @@ def test_frozen_reader_refuses_before_download_sdk_or_compiler(tmp_path, monkeyp
     assert not list(tmp_path.iterdir())
 
 
-def test_diagnostic_readiness_keeps_text_only_game_distinct_from_global_audio(tmp_path, monkeypatch):
+def test_bundle_readiness_reports_actual_missing_operations_without_a_global_game_gate(tmp_path, monkeypatch):
     from backend import game_tools, media_tools
     from backend.game_paths import GAMES
-    fixture_layout(tmp_path, monkeypatch)
+    layout = fixture_layout(tmp_path, monkeypatch)
+    from backend import nte_toolchain, prebuilt_node_reader
+    monkeypatch.setattr(nte_toolchain, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(prebuilt_node_reader, 'discover_layout', lambda: layout)
     monkeypatch.setattr(media_tools.shutil, 'which', lambda *_: pytest.fail('Frozen FFmpeg fell back to PATH'))
     media_tools.ffmpeg_executable.cache_clear()
     try:
@@ -101,8 +148,11 @@ def test_diagnostic_readiness_keeps_text_only_game_distinct_from_global_audio(tm
         assert game_tools.missing_tools(tmp_path, 'halflife') == []
         assert len(GAMES) == 25
         for game in GAMES:
-            if game not in {'halflife', 'beyond', 'heavyrain'}:
-                assert game_tools.missing_tools(tmp_path, game) == ['R19 decoder/helper closure unavailable']
+            if game != 'halflife':
+                missing = game_tools.missing_tools(tmp_path, game)
+                assert 'Audio converter' in missing
+                assert ('Voice decoder' in missing) == (game not in {'beyond', 'heavyrain'})
+                assert not any('R19' in item or 'quarantine' in item for item in missing)
     finally:
         media_tools.ffmpeg_executable.cache_clear()
 

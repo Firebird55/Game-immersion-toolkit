@@ -66,6 +66,33 @@ def test_single_ocr_dropout_does_not_discard_a_pending_caption(tmp_path):
         service._executor.shutdown()
 
 
+def test_pages_sharing_one_paragraph_recording_advance_independently(tmp_path):
+    rows = []
+    for cue, source, chinese in [(4, 'Het vliegtuig vertrekt morgen.', '飞机明天出发。'),
+                                 (5, 'Wie heeft de lamp aangezet?', '谁打开了这盏灯？')]:
+        rows.append({'text_id': f'beyond:ONE:page-{cue}', 'source_locale': 'nl', 'audio_locale': 'nl',
+                     'source_text': source, 'texts': {'nl': source, 'zh-Hans': chinese},
+                     'audio': {'identity': 'same-whole-recording'}, 'audio_scope': 'paragraph'})
+    (tmp_path/'textmap.json').write_text(json.dumps({'format': 2, 'game': 'beyond', 'source_locale': 'nl',
+                                                   'records': rows}), encoding='utf-8')
+    index = MultilingualTextIndex('beyond', tmp_path)
+    index.target_locale = 'zh-Hans'
+    service, *_ = fixture_service(tmp_path, game='beyond')
+    service._schedule_line_audio = lambda *_args, **_kwargs: None
+    captured = []
+    try:
+        for stamp, text in [(0, '飛機明天出發。'), (.25, '飛機明天出發。'),
+                            (.5, '誰打開了這盞燈？'), (.75, '誰打開了這盞燈？')]:
+            hits = service._quantic_matches(index, [text], stamp, ('account', 'window', 'nl'), 2)
+            captured += service._emit_quantic_matches(hits, stamp, datetime.now(timezone.utc))
+        assert [line.text_id for line in captured] == [row['text_id'] for row in rows]
+        assert [line.source_text for line in captured] == [row['source_text'] for row in rows]
+        assert all(line.audio_scope == 'paragraph' for line in captured)
+        assert service.transcript.count() == 2
+    finally:
+        service._executor.shutdown()
+
+
 def test_long_dropout_never_confirms_a_stale_caption(tmp_path):
     index, rows = make_index(tmp_path)
     service, _, _, _ = fixture_service(tmp_path, game='beyond')

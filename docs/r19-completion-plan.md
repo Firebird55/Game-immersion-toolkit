@@ -1,6 +1,33 @@
 # R19 completion plan
 
 Status: **planned remaining work; no acceptance gate is closed by this plan**.
+
+Current PR #60 task boundary (2026-11-01): the ongoing integration with `main`
+at `eb27e74e084dde6f4b2dab0a7b486838a8bcb781` preserves its production desktop
+host, current credential layout and shared component pin. Focused source reviews
+passed; joint branch checks and native acceptance require their own evidence for
+the combined commit. Older frozen receipts do not verify that combined source.
+This task has no authorization to build an installer, publish a release
+or perform a live migration. PR #59 was merged externally with its protected
+head unchanged; this task did not change or merge it. Rights/source delivery,
+retained warm handoff and ordinary-user Windows 11 acceptance remain separate
+open gates. The broader delivery work described next does not close those gates.
+
+Current delivery scope (2026-11-01): this document preserves the historical R19
+checkpoint and its unresolved evidence, rather than describing today's product
+restrictions. The owner subsequently authorized native Windows, Linux and macOS
+delivery, installer integration, release and local installation. Follow the
+[desktop delivery plan](desktop-delivery-completion-plan.md),
+[native acceptance plan](desktop-native-acceptance-plan.md) and
+[native handoff procedure](native-installation-handoff.md) for that work.
+The production runtime profile and common reader/helper capability paths replace
+the historical disabled profile and per-game quarantine policy below. Endfield
+and selective RE archives use owned Python readers; all games use the same
+capability, preparation and missing-pack behavior except where their formats or
+capture presentations require an adapter. Historical experimental receipts do
+not establish production package acceptance: each shipped target still requires
+its exact input review and frozen-process checks.
+
 Plan baseline: 2026-10-29 at `2e10dff78fb89f48584ff4f3ddb087e12e71c3ec`;
 codec integration checkpoint updated 2026-10-30.
 The acceptance contract remains the [R18 plan](r18-runtime-inventory.md#r19-acceptance-plan),
@@ -38,7 +65,7 @@ source installation behavior. Preserve unavailable pack/format states explicitly
 PR #59 remains unchanged. No installer, release/tag, Pages publication, installed
 shortcut transaction or live migration is authorized by this plan.
 
-## Starting point
+## Historical starting point
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |

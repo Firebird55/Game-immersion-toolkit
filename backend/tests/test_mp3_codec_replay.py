@@ -14,16 +14,23 @@ ORIGINAL_CLASS_AST=['f459d9ba539a627cf6e56664c632b9d7043ef04054aa246dc1196542846
 ORIGINAL_PS_BODY={'bytes': 35219, 'sha256': 'a658db17388f85845849b6f8f0e8ccf7f4c49db23862901496bc4163463ff806'}
 ORIGINAL_C_BODY={'bytes': 1402, 'sha256': '02da88a9f90322b617e66a31b0876075769b76970b96f5221e3c317b7f463d7a'}
 ORIGINAL_FUNCTIONAL_PROFILE='ea2733d6b16b106f067cf9707228c09703650fc707dfe0247db73908952c93e3'
+# Separate current merge bindings; the original 0f/proposal records above stay historical.
+REVIEWED_MERGE_INPUTS={
+ 'backend/windows_preparation_process.py':{'bytes':26174,'sha256':'c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e'},
+ 'packaging/runtime-bundle/python-supplier.json':{'bytes':1276,'sha256':'2455b4fd7f94e66a33117beec4ffba580f9759965261aecc88d0705973652d72'},
+ 'backend/tests/test_game_codec_replay.py':{'bytes':95531,'sha256':'2738c235f582cf72643ad46a57dc6d59e77ff44d7b71d5a4d3a5975a8fb7fe56'},
+}
 class Contracts(unittest.TestCase):
- def test_baseline_ten_and_asr_fifteen_bytes_remain_exact(self):
+ def test_original_baselines_stay_historical_with_only_exact_reviewed_merge_inputs(self):
   d=BASELINE;self.assertEqual(len(d['FF_inputs']),10);self.assertEqual(len(d['ASR_inputs']),15)
+  self.assertTrue(set(REVIEWED_MERGE_INPUTS)<=d['files'].keys())
   for n,v in d['files'].items():
    with self.subTest(n=n):
-    raw=(R/n).read_bytes();self.assertIn(v,(m.record(raw),m.record(raw.replace(b'\r\n',b'\n'))))
+    raw=(R/n).read_bytes();self.assertIn(REVIEWED_MERGE_INPUTS.get(n,v),(m.record(raw),m.record(raw.replace(b'\r\n',b'\n'))))
  def test_fixed_options_keep_original_recipe_and_add_required_cli_dependencies(self):
   p=m.policy();self.assertEqual(p['audio_cli_overrides'],m.OVERRIDES)
   self.assertIn('--enable-w32threads',m.OVERRIDES);self.assertIn('--enable-avfilter',m.OVERRIDES)
-  for change in (lambda x:x['audio_cli_overrides'].append('--enable-gpl'),lambda x:x['audio_cli_overrides'].remove('--enable-w32threads'),lambda x:x['host'].update(compiler_version='0.0.0.0'),lambda x:x['sources'][2].update(version='3.100'),lambda x:x['build_recipe_license']['supplemental_approval']['approved_baselines'].update({'scripts/future.py':{'bytes':1,'sha256':'0'*64}}),lambda x:x['build_recipe_license']['supplemental_approval']['approval_proposal'].update(sha256='0'*64)):
+  for change in (lambda x:x['audio_cli_overrides'].append('--enable-gpl'),lambda x:x['audio_cli_overrides'].remove('--enable-w32threads'),lambda x:x['host'].update(compiler_version='0.0.0.0'),lambda x:x['sources'][2].update(version='3.100'),lambda x:x['build_recipe_license']['supplemental_approval']['approved_baselines'].update({'scripts/future.py':{'bytes':1,'sha256':'0'*64}}),lambda x:x['build_recipe_license']['supplemental_approval']['approval_proposal'].update(sha256='0'*64),lambda x:x['cli_child']['owned_primitive'].update(canonical_lf_sha256=BASELINE['files']['backend/windows_preparation_process.py']['sha256'])):
    bad=copy.deepcopy(p);change(bad)
    with patch.object(m.base,'recipe_json',return_value=bad),self.assertRaises(ValueError):m.policy()
  def test_ordinary_crlf_checkout_preserves_exact_canonical_helper_and_profile_binding(self):
@@ -198,8 +205,8 @@ class Grant(unittest.TestCase):
   self.assertEqual([digest(n) for n in tree.body if isinstance(n,ast.ClassDef)],ORIGINAL_CLASS_AST)
   body=(R/'scripts/build-mp3-codec-replay.ps1').read_bytes().replace(b'\r\n',b'\n');self.assertEqual(m.record(body),{'bytes':35342,'sha256':'195f7ebb732729382478660a15de94cff14b630778925629e7ccdb820110cb69'});self.assertEqual(body.count(b'/p:PlatformToolset=v145'),1);self.assertEqual(m.record(body.replace(b'/p:PlatformToolset=v145',b'/p:PlatformToolset=v180').split(b'\n',1)[1]),ORIGINAL_PS_BODY)
   self.assertEqual(m.record((R/'scripts/fixtures/mp3-codec-origin.c').read_bytes().replace(b'\r\n',b'\n').split(b'#include',1)[1]),ORIGINAL_C_BODY)
-  profile=copy.deepcopy(m.policy());profile.pop('build_recipe_license');profile.pop('scope');profile['adaptations'].pop();profile['licensing_boundary'].pop('project_orchestration');profile['cli_child']['owned_primitive'].pop('license');self.assertEqual(m.sha(m.canonical(profile)),ORIGINAL_FUNCTIONAL_PROFILE)
-  for name in m.DEPENDENCY_INPUTS+(m.base.BSD_GRANT,m.policy()['lame_variant']['patch']['path']):self.assertIn(BASELINE['files'].get(name,{'bytes':1295,'sha256':'018f5857359aee56d54fa84e0e87118d15c56b2e4e19f44389bafc6ea7d4f293'}),(m.record((R/name).read_bytes()),m.record((R/name).read_bytes().replace(b'\r\n',b'\n'))))
+  profile=copy.deepcopy(m.policy());profile.pop('build_recipe_license');profile.pop('scope');profile['adaptations'].pop();profile['licensing_boundary'].pop('project_orchestration');profile['cli_child']['owned_primitive'].pop('license');self.assertEqual(profile['cli_child']['owned_primitive']['canonical_lf_sha256'],REVIEWED_MERGE_INPUTS['backend/windows_preparation_process.py']['sha256']);profile['cli_child']['owned_primitive']['canonical_lf_sha256']=BASELINE['files']['backend/windows_preparation_process.py']['sha256'];self.assertEqual(m.sha(m.canonical(profile)),ORIGINAL_FUNCTIONAL_PROFILE)
+  for name in m.DEPENDENCY_INPUTS+(m.base.BSD_GRANT,m.policy()['lame_variant']['patch']['path']):self.assertIn(REVIEWED_MERGE_INPUTS.get(name,BASELINE['files'].get(name,{'bytes':1295,'sha256':'018f5857359aee56d54fa84e0e87118d15c56b2e4e19f44389bafc6ea7d4f293'})),(m.record((R/name).read_bytes()),m.record((R/name).read_bytes().replace(b'\r\n',b'\n'))))
  def test_final_copy_inventory_separates_raw_and_LF_without_expanding_grant(self):
   files={n:b.replace(b'\r\n',b'\n') for n,b in m.project_bytes().items()};a=m.mp3_copy_inventory(files,m.policy());win={n:b if n in (m.MP3_GRANT,m.base.BSD_GRANT,m.base.VARIANT_PATCH,m.policy()['lame_variant']['patch']['path']) else b.replace(b'\n',b'\r\n') for n,b in files.items()};b=m.mp3_copy_inventory(win,m.policy());self.assertEqual(set(a['copies']),set(m.MP3_APPROVED_BASELINES));self.assertEqual(a['approved_baselines'],m.MP3_APPROVED_BASELINES);self.assertEqual(a['supplemental_approved_baselines'],SUPPLEMENTAL_BASELINES);self.assertEqual(a['schema'],'proxy-r19-mp3-final-bsd-copies-v2')
   for n in a['copies']:

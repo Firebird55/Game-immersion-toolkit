@@ -284,9 +284,9 @@ def test_clr_directory_cb_and_metadata_bounds_are_checked(images, offset, values
 
 @pytest.fixture
 def candidate(tmp_path):
-    base = tmp_path.resolve(); root = base / 'Application 漢字'
-    content = {'ProxyTranscriptRuntime.exe': authored_pe(dll=False),
-        'asr/ProxyTranscriptAsr.exe': authored_pe(dll=False),
+    base = tmp_path.resolve(); root = base / 'Application æ¼¢å­—'
+    content = {'GameImmersionToolkit.exe': authored_pe(dll=False),
+        'asr/GameImmersionToolkitAsr.exe': authored_pe(dll=False),
         '_internal/bridge.dll': authored_pe(machine=0x14c, plus=False, flags=1),
         'asr/_internal/engine.pyd': authored_pe(), 'THIRD_PARTY/NOTICE.txt': b'authored notice'}
     for name, raw in content.items():
@@ -314,7 +314,7 @@ def test_review_uses_only_existing_inventory_and_binds_main_asr_and_managed_byte
     assert report['inventory'] == {'bytes': path.stat().st_size, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
     records = {item['path']: item for item in report['files']}
     assert records['_internal/bridge.dll']['architecture'] == 'anycpu'
-    assert records['asr/_internal/engine.pyd']['tree'] == 'asr' and records['ProxyTranscriptRuntime.exe']['tree'] == 'main'
+    assert records['asr/_internal/engine.pyd']['tree'] == 'asr' and records['GameImmersionToolkit.exe']['tree'] == 'main'
     assert report['dynamic_loading'] == report['pinvoke_compatibility'] == report['native_closure'] == 'unverified'
     assert report['status'] == 'observed-not-approved'
     assert all(report[key] is False for key in ('source_delivery_approved', 'production_execution_allowed', 'r19_complete'))
@@ -339,7 +339,7 @@ def test_x64_review_refuses_required_or_preferred_x86_without_rejecting_true_any
 def test_wrong_native_or_fixed_primary_architecture_cannot_be_hidden_by_inventory_hashes(images, candidate, change):
     root, path, value = candidate
     raw = authored_pe(machine=0x14c, plus=False, dll=False) if change == 'native-x86' else authored_pe(machine=0xaa64, dll=False) if change == 'arm64' else authored_pe() if change == 'primary-is-dll' else authored_pe(flags=1, dll=False)
-    target = root / 'ProxyTranscriptRuntime.exe'; target.write_bytes(raw)
+    target = root / 'GameImmersionToolkit.exe'; target.write_bytes(raw)
     value['files'][0].update(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest()); save(path, value)
     with pytest.raises(images.NativeImageError, match='unsupported-architecture'):
         images.review_native_images(value, path, root)
@@ -349,7 +349,7 @@ def test_wrong_native_or_fixed_primary_architecture_cannot_be_hidden_by_inventor
 def test_entire_inventory_is_validated_before_any_native_path_is_selected(images, candidate, monkeypatch, change):
     root, path, value = candidate
     if change == 'traversal': value['files'][-1]['path'] = '../PRIVATE.txt'
-    elif change == 'alias': value['files'][-1]['path'] = 'proxytranscriptruntime.EXE'
+    elif change == 'alias': value['files'][-1]['path'] = 'gameimmersiontoolkit.EXE'
     elif change == 'unknown-field': value['files'][-1]['PRIVATE'] = str(root)
     elif change == 'noninteger-size': value['files'][-1]['bytes'] = True
     elif change == 'missing-parent': value['directories'].remove('_internal')
@@ -378,7 +378,7 @@ def test_inventory_raw_bytes_duplicates_and_image_bytes_are_independently_bound(
     different = deepcopy(value); different['build_id'] = 'other'
     with pytest.raises(images.NativeImageError, match='inventory-changed'):
         images.review_native_images(different, path, root)
-    (root / 'ProxyTranscriptRuntime.exe').write_bytes(b'changed image')
+    (root / 'GameImmersionToolkit.exe').write_bytes(b'changed image')
     with pytest.raises(images.NativeImageError, match='image-changed'):
         images.review_native_images(value, path, root)
 
@@ -388,7 +388,7 @@ def test_mutation_after_actual_parse_refuses_the_whole_report(images, candidate,
     root, path, value = candidate; original = images.inspect_pe
     def inspect(raw):
         result = original(raw)
-        if change == 'image': (root / 'ProxyTranscriptRuntime.exe').write_bytes(raw[:-1] + b'X')
+        if change == 'image': (root / 'GameImmersionToolkit.exe').write_bytes(raw[:-1] + b'X')
         else: path.write_bytes(path.read_bytes() + b'\n')
         return result
     monkeypatch.setattr(images, 'inspect_pe', inspect)

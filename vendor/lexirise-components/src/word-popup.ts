@@ -6,6 +6,18 @@ export type WordTab = typeof WORD_POPUP_TABS[number];
 export type DefinitionSection = typeof WORD_POPUP_SECTIONS[number];
 export type PopupItem<T extends string> = { id: T; enabled: boolean };
 export type WordPopupSettings = { tabs: PopupItem<WordTab>[]; definition: PopupItem<DefinitionSection>[]; openOn: 'first' | 'last' };
+export const WORD_POPUP_OPEN_MODES = ['click', 'hover', 'shift-hover'] as const;
+export type WordPopupOpenMode = typeof WORD_POPUP_OPEN_MODES[number];
+type Modifiers = { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean; altKey: boolean };
+export function isShiftOnly(event: Modifiers): boolean {
+  return event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+}
+export function popupOpensOnPointerEnter(mode: WordPopupOpenMode, event: Modifiers): boolean {
+  return mode === 'hover' || mode === 'shift-hover' && isShiftOnly(event);
+}
+export function popupTogglesOnShift(mode: WordPopupOpenMode, event: Modifiers & { key: string; repeat: boolean }): boolean {
+  return mode === 'shift-hover' && event.key === 'Shift' && !event.repeat && isShiftOnly(event);
+}
 
 // Reviewed against Lexirise's public settings/lookup modules, 2026-10-11.
 // Definition stays enabled; missing items retain the website's defaults.
@@ -53,6 +65,8 @@ export function resolveInitialWordPopupTab(tabs: readonly WordTab[], settings: W
   return settings.openOn === 'last' && last && tabs.includes(last) ? last : tabs[0] ?? null;
 }
 export function popupPreferences(account: AccountSettings | null, language: string) {
+  const saved = account?.global.wordPopupOpenMode;
+  const openMode: WordPopupOpenMode = WORD_POPUP_OPEN_MODES.includes(saved as WordPopupOpenMode) ? saved as WordPopupOpenMode : 'click';
   return { layout: normalizeWordPopupSettings(account?.languageSettings[language]?.wordPopup), disabled: account?.global.disableWordPopups === true,
-    hover: account?.global.wordPopupOpenMode === 'hover' };
+    openMode, hover: openMode === 'hover' };
 }

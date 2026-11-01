@@ -83,7 +83,7 @@ def policy():
     if any(type(child.get(k)) is not type(v) or child.get(k)!=v for k,v in exact.items()):
         raise ValueError('Fixed CLI observation budget differs.')
     primitive=child.get('owned_primitive',{})
-    if primitive.get('path')!='backend/windows_preparation_process.py' or primitive.get('canonical_lf_sha256')!='24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0' or primitive.get('license_record')!={'path':'LICENSE','bytes':1492,'canonical_lf_sha256':'1d2f36f13b16b401e4bbf81e955ea185d50c6b5de281d89915e240138b7bb396'}:
+    if primitive.get('path')!='backend/windows_preparation_process.py' or primitive.get('canonical_lf_sha256')!='c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e' or primitive.get('license_record')!={'path':'LICENSE','bytes':1492,'canonical_lf_sha256':'1d2f36f13b16b401e4bbf81e955ea185d50c6b5de281d89915e240138b7bb396'}:
         raise ValueError('Exact ordinary-license owned primitive differs.')
     names=child.get('system_module_allowlist')
     if type(names) is not list or not names or len(names)>128 or any(type(n) is not str or not re.fullmatch(r'[a-z0-9_]+(?:\.[a-z0-9_]+)*\.dll',n) for n in names) or names!=sorted(set(names)):

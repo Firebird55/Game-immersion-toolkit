@@ -1151,14 +1151,20 @@ class PopulatedStateCopy:
                 # through a host fallback. All account HTTP uses MockTransport.
                 protect = authored_test_protect
                 self.protect = protect
-                self.accounts = self._own(self.owners, AccountStore, accounts_path(),
+                account_path = accounts_path()
+                if account_path != layout.settings_root/'credentials/accounts.dpapi':
+                    raise DataCopyFailure('account-fixture-unconfirmed')
+                self.accounts = self._own(self.owners, AccountStore, account_path,
                     protect=protect, transport=self.transport.transport)
                 first = self.accounts.add(POPULATED_KEY, 'Authored first profile')['id']
                 second = self.accounts.add(POPULATED_OTHER_KEY, 'Authored second profile')['id']
                 self.accounts.select(first)
                 self.expected['accounts'] = self.accounts.status()
-                host_key = self.accounts.path.with_name('key.dpapi')
-                host_key.write_bytes(b'opaque authored host TEST fallback; never decrypted')
+                legacy_host = self.host_root.path/'Programs/Proxy Transcript'
+                _guard_path(legacy_host, 'directory', missing=True)
+                legacy_host.mkdir(parents=True, exist_ok=False)
+                (legacy_host/'accounts.dpapi').write_bytes(b'opaque authored legacy host account canary; never decrypted')
+                (legacy_host/'key.dpapi').write_bytes(b'opaque authored host TEST fallback; never decrypted')
                 (layout.data_root/'lexirise').mkdir(exist_ok=True)
                 (layout.data_root/'lexirise/key.dpapi').write_bytes(b'opaque authored data TEST fallback; never decrypted')
                 legacy_settings = self._own(self.owners, SettingsStore, layout.data_root/'settings.json')
@@ -1349,7 +1355,7 @@ class PopulatedStateCopy:
             raise
 
     def _readback(self, snapshot):
-        from .accounts import AccountStore
+        from .accounts import AccountStore, accounts_path
         from .automatic_mobile_export import AutomaticMobileExports
         from .config import SettingsStore
         from .installation import InstallationService
@@ -1366,6 +1372,10 @@ class PopulatedStateCopy:
         _guard_path(clone, 'directory', missing=True)
         shutil.copytree(snapshot, clone)
         _guard_tree(clone)
+        layout = replace(self.layout, data_root=clone/'data', settings_root=clone/'host-settings',
+            work_root=clone/'work/voice-assets', cache_root=clone/'disposable-cache',
+            tool_root=clone/'tools', state_root=clone/'state', default_export_root=clone/'exports')
+        migration._test_credential_family(layout.settings_root)
         # Validate the exact owned schema before constructors can initialize or
         # migrate anything. All reads here target disposable copies only.
         for name in (*TABLE_COLUMNS, 'data/transcript.db'):
@@ -1386,9 +1396,6 @@ class PopulatedStateCopy:
                 checked['connection'].row_factory = sqlite3.Row
                 _verify_store(checked['connection'], 'data/transcript-v2.db' if name.endswith('/transcript.db') else name,
                     sorted((_row(line) for line in expected), key=lambda line: line['id']))
-        layout = replace(self.layout, data_root=clone/'data', settings_root=clone/'host-settings',
-            work_root=clone/'work/voice-assets', cache_root=clone/'disposable-cache',
-            tool_root=clone/'tools', state_root=clone/'state', default_export_root=clone/'exports')
         transport = AuthoredPopulatedTransport(writes=False)
         with authored_populated_layout(layout, self.host_root):
             own = lambda kind, *args, **kwargs: self._own(record['owners'], kind, *args, **kwargs)
@@ -1429,7 +1436,16 @@ class PopulatedStateCopy:
                 install_lookup=lambda *_: None)
             if automatic.data != self.expected['automatic']:
                 raise DataCopyFailure('authored-rows-differ')
-            account = own(AccountStore, self.accounts.path, protect=self.protect, transport=transport.transport)
+            account_path = accounts_path()
+            if account_path != migration._test_credential_family(layout.settings_root):
+                raise DataCopyFailure('account-fixture-unconfirmed')
+            with account_path.open('rb') as stream:
+                protected = stream.read(8193)
+            if protected != self.expected['protected']:
+                raise DataCopyFailure('account-fixture-unconfirmed')
+            # Open only this clone's copied TEST envelope. Source/host locators
+            # cannot rescue a missing or changed copied credential family.
+            account = own(AccountStore, account_path, protect=self.protect, transport=transport.transport)
             # Runtime generation is intentionally not persisted by AccountStore.
             if ({key:value for key,value in account.status().items() if key != 'generation'} !=
                     {key:value for key,value in self.expected['accounts'].items() if key != 'generation'}

@@ -13,7 +13,7 @@ import struct
 
 from .preparation_errors import PreparationFailure
 from .source_formats import invalid, keyvalues
-from .source_dialogue import (SourceFiles, caption_pages, captions, clean_caption,
+from .source_dialogue import (SourceFiles, caption_pages, localized_caption_pages, captions, clean_caption,
     decode_performance, pack_performance, reference_signature, resolve_sequence,
     sound_events, steam_language, text_table)
 from .source_scene import caption_sequences, scene_image
@@ -22,7 +22,7 @@ from .source_scene import caption_sequences, scene_image
 from .goldsrc_formats import entities, titles
 
 GAME = 'halflife2'
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 BASE_VOICE_LOCALES = ('en', 'fr', 'de', 'it', 'ko', 'es-ES', 'ru')
 SUPPORTED_LOCALES = (*BASE_VOICE_LOCALES, 'zh-Hans', 'zh-Hant', 'th')
 TEXT_LOCALES = dict(zip(
@@ -182,6 +182,7 @@ def _row(identity, texts, locale, audio, kind, status=None):
             'chinese': texts.get('zh-Hans', ''), 'source_locale': locale,
             'source_text': texts[locale], 'texts': texts, 'audio_locale': locale,
             'audio': audio, 'voice_status': status or ('voiced' if audio else 'unavailable'),
+            'audio_scope': 'paragraph' if audio and audio.get('playback_scope') == 'full_track' else 'line',
             'dialogue_kind': kind}
 
 
@@ -294,20 +295,18 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             if _nonverbal(raw):
                 counts['excluded_sound_effect_captions'] += 1
                 continue
-            pages = {locale: caption_pages(table[token]) for locale, table in tables.items() if token in table}
-            if not pages.get(source_locale):
+            pages = localized_caption_pages({locale: table[token] for locale, table in tables.items() if token in table}, source_locale)
+            if not pages:
                 continue
             sequence = resolve_sequence(token, events, sequences)
-            full_track = len(pages[source_locale]) > 1
+            full_track = len(pages) > 1
             audio = _binding(campaign, token, sequence, voices, source_locale, full_track)
             matched.update(member for member, _time in sequence)
             if not sequence:
                 counts['unresolved_caption_bindings'] += 1
             elif len(sequence) > 1:
                 counts['timed_composite_captions'] += 1
-            for page, text in enumerate(pages[source_locale]):
-                texts = {locale: values[page] for locale, values in pages.items()
-                         if len(values) == len(pages[source_locale])}
+            for page, texts in pages:
                 kind = _kind(token) + ('_full_track' if full_track else '')
                 identity = f'{campaign}:caption:{token}' + (f':page:{page}' if full_track else '')
                 records.append(_row(identity, texts, source_locale, audio, kind))

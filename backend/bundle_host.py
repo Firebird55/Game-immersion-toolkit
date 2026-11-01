@@ -49,7 +49,8 @@ def _atomic_json(path: Path, value: dict) -> None:
             stream.write('\n')
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(pending, path)
+        from .atomic_files import replace
+        replace(pending, path)
         if os.name != 'nt':
             descriptor = os.open(path.parent, os.O_RDONLY)
             try:
@@ -118,6 +119,14 @@ class ExclusiveFileLease:
     @property
     def held(self) -> bool:
         return self._handle is not None
+
+    def retained_descriptors(self):
+        """Guardians retain this OS lease through parent death, not a PID copy.
+
+        Values are Windows HANDLEs or POSIX descriptors, consumed on the same
+        platform by OwnedProcess before it starts any application child.
+        """
+        return ((self._handle if os.name == 'nt' else self._handle.fileno()),) if self.held else ()
 
     def acquire(self) -> None:
         if self.held:

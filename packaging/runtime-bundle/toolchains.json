@@ -1,5 +1,6 @@
 {
   "schema": "proxy-runtime-toolchains-v1",
+  "scope": "Historical R19 format and experiment audit; not current runtime capability policy. Current delivery uses resource-backed capability checks and exact target acceptance.",
   "reviewed": "2026-10-30",
   "source_baseline": "22d99059b88892f87bce0118fd5e15a556ed6459",
   "native_target": "Windows 11 25H2 x64",
@@ -18,9 +19,9 @@
     "zzz": {"adapter": "zzz_assets", "chains": ["python", "node-typescript-wasm", "vgmstream", "ffmpeg"], "blocked": ["real-reader-frozen-dispatch-and-source-rights-closure", "ooz-copyleft-closure", "private-catalog-acquisition", "actual-game-format-and-voice-export-probe"]},
     "pragmata": {"adapter": "pragmata_assets", "chains": ["ree-selective-x86", "vgmstream", "ffmpeg"], "blocked": ["modified-ree-redistribution-rights", "precompiled-helper-unapproved-for-collection", "compressed-encrypted-format-and-voice-export-probe", "wow64-framework-native-probe"]},
     "cyberpunk": {"adapter": "cyberpunk_assets", "chains": ["wolvenkit-net10-runtime", "vgmstream", "ffmpeg"], "blocked": ["gpl-source-native-closure", "net10-runtime-native-probe"]},
-    "wuwa": {"adapter": "wuthering_assets", "chains": ["fmodel-net8-self-contained", "unreal-decompression", "vgmstream", "ffmpeg"], "blocked": ["gpl-source-closure", "oodle-rights", "exact-external-dll-closure"]},
+    "wuwa": {"adapter": "wuthering_assets", "chains": ["owned-net10-cue4parse-managed", "vgmstream", "ffmpeg"], "blocked": ["final-clean-helper-resource-build", "frozen-native-acceptance", "linux-macos-native-acceptance"], "dependency_inventory": "packaging/game-readers/managed-components.json"},
     "witcher3": {"adapter": "witcher_assets", "chains": ["python-w3strings-speech-narrative", "vgmstream", "ffmpeg"], "blocked": ["codec-native-probe"]},
-    "nte": {"adapter": "nte_assets", "chains": ["nte-net10-dynamic-ueextractor", "unreal-decompression", "vgmstream", "ffmpeg"], "blocked": ["actual-ueextractor-cue4parse-game-dispatch-unapproved", "dynamic-assembly-closure", "oodle-rights", "private-metadata-acquisition", "real-locres-and-voice-export-probe"]},
+    "nte": {"adapter": "nte_assets", "chains": ["owned-net10-cue4parse-managed", "vgmstream", "ffmpeg"], "blocked": ["final-clean-helper-resource-build", "frozen-native-acceptance", "linux-macos-native-acceptance"], "dependency_inventory": "packaging/game-readers/managed-components.json"},
     "beyond": {"adapter": "beyond_assets", "chains": ["python-quantic-mp3", "ffmpeg"], "blocked": ["reservoir-preserving-mp3-native-probe"]},
     "heavyrain": {"adapter": "heavy_rain_assets", "chains": ["python-quantic-legacy-mp3", "ffmpeg"], "blocked": ["distinct-resources-gamedata-native-probe"]},
     "starrail": {"adapter": "starrail_assets", "chains": ["python-hoyo-pck", "vgmstream", "ffmpeg"], "blocked": ["private-catalog-acquisition", "original-voice-native-probe"]},

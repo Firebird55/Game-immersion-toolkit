@@ -104,6 +104,7 @@ test('gate CLI fails nonzero and persists only safe failure evidence', () => {
 
 const normalizeWorkflow = source => source.replace(/\r\n/g, '\n');
 const workflow = normalizeWorkflow(readFileSync(new URL('../.github/workflows/ci-release.yml', import.meta.url), 'utf8'));
+const nativeWorkflow = normalizeWorkflow(readFileSync(new URL('../.github/workflows/desktop-native.yml', import.meta.url), 'utf8'));
 function job(name, source = workflow) {
   const text = normalizeWorkflow(source);
   const start = text.indexOf(`\n  ${name}:\n`);
@@ -113,12 +114,122 @@ function job(name, source = workflow) {
   return end < 0 ? content : content.slice(0, end + 1);
 }
 
+test('source Python gate installs and caches the pinned packaging test dependencies', () => {
+  const check = job('check');
+  assert.match(check, /cache-dependency-path: \|\n\s+requirements\.lock\.txt\n\s+packaging\/desktop\/build-requirements\.lock\.txt/);
+  assert.match(check, /run: python -m pip install -r requirements\.lock\.txt -r packaging\/desktop\/build-requirements\.lock\.txt\n\s+if: steps\.scope\.outputs\.python == 'true'/);
+});
+
+test('publication waits for native construction and rechecks all downloaded artifacts', () => {
+  assert.match(job('publish'), /needs: \[package, native-desktop\]/);
+  assert.match(job('publish'), /pattern: tested-desktop-\*/);
+  assert.match(job('publish'), /python scripts\/assemble-desktop-release\.py --source-release release --native-root native-release/);
+  assert.match(job('publish'), /gh release upload "\$RELEASE_TAG" published-release\/\*/);
+  assert.match(nativeWorkflow, /if: steps\.package\.outputs\.release_eligible == 'true'/);
+  assert.match(nativeWorkflow, /DESKTOP-PROVENANCE-\$\{\{ matrix\.target \}\}\.json/);
+  for (const resource of ['node-resources', 'zzz-resources', 'native-notices', 'managed-reader-resources']) {
+    assert.ok(nativeWorkflow.includes(`'output/${resource}'`));
+  }
+  assert.match(nativeWorkflow, /\$options \+= @\('--resources-root', \$root\)/);
+  assert.match(nativeWorkflow, /--nte-helper-root', 'output\/reader-helper\/nte'/);
+  assert.match(nativeWorkflow, /if: steps\.review\.outputs\.approved == 'true'/);
+  assert.match(nativeWorkflow, /scripts\/accept-desktop-runtime\.py .*--input-review output\/native-input-review\.json .*--native-report output\/native-host-probe\.json --native-report output\/native-ui-probe\.json/);
+  assert.match(nativeWorkflow, /if \(Test-Path output\/ACCEPTED-PROVENANCE\.json\)/);
+  assert.match(nativeWorkflow, /prepare-desktop-python\.py.*--github-path \$env:GITHUB_PATH/);
+  assert.match(nativeWorkflow, /--python-archive', '\$\{\{ steps\.python_supplier\.outputs\.python_archive \}\}'/);
+});
+
+test('native ZZZ collection uses bundled Node and rebuilt WASM before freezing', () => {
+  const compile = nativeWorkflow.indexOf('python scripts/build-ooz-runtime.py');
+  const collect = nativeWorkflow.indexOf('python scripts/build-zzz-toolchain.py');
+  const probe = nativeWorkflow.indexOf('python scripts/probe-native-zzz.py');
+  const freeze = nativeWorkflow.indexOf('name: Freeze the native runtime');
+  assert.ok(compile > 0 && collect > compile && probe > collect && freeze > probe);
+  assert.match(nativeWorkflow, /Resolve-Path \(Join-Path 'output\/node-resources\/toolchains\/node' \$nodeName\)/);
+  assert.match(nativeWorkflow, /--node-executable \$node --ooz-build-root output\/ooz-build/);
+  const review = nativeWorkflow.slice(nativeWorkflow.indexOf('name: Review the exact delivered dependency inputs'),
+    nativeWorkflow.indexOf('name: Accept the exact native target'));
+  assert.match(review, /Get-Content packaging\/zzz-reader\/production-inputs\.json/);
+  assert.match(review, /Join-Path 'output\/zzz-inputs' \$archive\.archive/);
+  assert.ok(nativeWorkflow.includes('output/native-zzz-probe.json'));
+});
+
+test('Linux system evidence is acquired before native builds and included in the frozen receipt', () => {
+  const install = nativeWorkflow.indexOf('name: Install Linux build-runner display services');
+  const focused = nativeWorkflow.indexOf('name: Test native lifecycle and exact supplier verification');
+  const collect = nativeWorkflow.indexOf('name: Retain exact Linux system library inputs and corresponding sources');
+  const compile = nativeWorkflow.indexOf('name: Build the shared self-contained archive reader');
+  assert.ok(install > 0 && focused > install && collect > focused && compile > collect,
+    'Qt runtime libraries must exist before real Qt tests, and source collection must precede compilation');
+  const step = nativeWorkflow.slice(collect, nativeWorkflow.indexOf('name: Probe native desktop discovery', collect));
+  assert.match(step, /if: runner\.os == 'Linux'/);
+  assert.match(step, /python scripts\/build-linux-system-resources\.py --output output\/linux-system-resources --cache output\/linux-system-cache --sync-build-host/);
+  assert.match(nativeWorkflow, /if \(\$IsLinux\) \{ \$options \+= @\('--resources-root', 'output\/linux-system-resources'\) \}/);
+  assert.match(nativeWorkflow, /backend\/tests\/test_desktop_host_ui\.py/);
+  assert.match(nativeWorkflow, /backend\/tests\/test_linux_system_resources\.py/);
+});
+
+test('audio cache retains only policy-keyed source archives before later native checks', () => {
+  const attributes = readFileSync(new URL('../.gitattributes', import.meta.url), 'utf8');
+  assert.match(attributes, /^packaging\/codecs\/audio-runtime\.json text eol=lf\r?$/m,
+    'hashFiles must observe identical policy bytes on every runner');
+  const restoreAt = nativeWorkflow.indexOf('name: Restore pinned audio source archives');
+  const buildAt = nativeWorkflow.indexOf('name: Build maintained audio tools from retained sources');
+  const saveAt = nativeWorkflow.indexOf('name: Save verified audio source archives');
+  const freezeAt = nativeWorkflow.indexOf('name: Freeze the native runtime and isolated ASR child');
+  assert.ok(restoreAt > 0 && buildAt > restoreAt && saveAt > buildAt && freezeAt > saveAt);
+  const restore = nativeWorkflow.slice(restoreAt, buildAt), save = nativeWorkflow.slice(saveAt, freezeAt);
+  assert.match(restore, /uses: actions\/cache\/restore@v6/);
+  assert.match(restore, /key: audio-sources-v1-\$\{\{ hashFiles\('packaging\/codecs\/audio-runtime\.json'\) \}\}/);
+  assert.doesNotMatch(restore, /restore-keys:/);
+  assert.match(save, /uses: actions\/cache\/save@v6/);
+  assert.match(save, /steps\.audio_build\.outcome == 'success'/);
+  assert.match(save, /key: \$\{\{ steps\.audio_source_cache\.outputs\.cache-primary-key \}\}/);
+  for (const section of [restore, save]) {
+    const paths = section.match(/path: \|\n([\s\S]*?)\n          key:/)?.[1].trim().split('\n').map(line => line.trim());
+    assert.deepEqual(paths, ['output/audio-source-cache/*.tar.xz', 'output/audio-source-cache/*.tar.gz', 'output/audio-source-cache/*.tar.bz2']);
+    assert.match(section, /enableCrossOsArchive: true/);
+  }
+  const policy = JSON.parse(readFileSync(new URL('../packaging/codecs/audio-runtime.json', import.meta.url), 'utf8'));
+  for (const source of [policy.ffmpeg, policy.lame, policy.vgmstream, ...policy.vgmstream.dependency_sources])
+    assert.match(source.archive, /^[^/\\]+\.tar\.(?:xz|gz|bz2)$/);
+  assert.ok(!/\.tar\.(?:xz|gz|bz2)$/.test(policy.vgmstream.windows_artifact.archive), 'The prebuilt native ZIP must never be included in the source-only cache');
+});
+
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
   const crlf = workflow.replaceAll('\n', '\r\n');
   assert.ok(crlf.includes('\r\n  source-audit:\r\n'));
   for (const name of ['source-audit', 'check', 'browser-checks', 'required-checks', 'package', 'publish'])
     assert.equal(job(name, crlf), job(name, workflow), `${name} must retain the same job boundaries with CRLF`);
   assert.equal(normalizeWorkflow(crlf), workflow);
+});
+
+test('native targets run supplier replay and select only the pinned Cyberpunk package archives', () => {
+  for (const name of ['test_macos_supplier_replay.py', 'test_desktop_input_review.py',
+    'test_cyberpunk_input_review.py', 'test_cyberpunk_build.py', 'test_cyberpunk_redistribution.py'])
+    assert.ok(nativeWorkflow.includes(`backend/tests/${name}`), `Missing native supplier check: ${name}`);
+  const review = nativeWorkflow.slice(nativeWorkflow.indexOf('name: Review the exact delivered dependency inputs'),
+    nativeWorkflow.indexOf('name: Accept the exact native target'));
+  assert.match(review, /Get-Content packaging\/cyberpunk\/redistribution\.json -Raw \| ConvertFrom-Json/);
+  assert.match(review, /foreach \(\$package in \$cyberpunkPins\.packages\)/);
+  assert.match(review, /Join-Path 'output\/cyberpunk-source-cache\/nuget' \$package\.archive/);
+  assert.doesNotMatch(review, /Get-ChildItem output\/cyberpunk-source-cache/);
+  for (const name of ['wolvenkit.archive', 'dotnet.archive', 'source.archive', 'kraken-source.archive'])
+    assert.ok(review.includes(`'${name}'`), `Missing supplier archive: ${name}`);
+});
+
+test('exact native input review precedes UI probes without weakening target acceptance', () => {
+  const native = readFileSync(new URL('../.github/workflows/desktop-native.yml', import.meta.url), 'utf8');
+  const phases = ['Freeze the native runtime and isolated ASR child', 'Review the exact delivered dependency inputs',
+    'Exercise frozen startup, API crash recovery and owned shutdown',
+    'Observe native window, tray and mounted transcript navigation', 'Accept the exact native target'];
+  const positions = phases.map(phase => native.indexOf(`- name: ${phase}`));
+  assert.ok(positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1])));
+  const acceptance = native.slice(positions.at(-1), native.indexOf('- name: Construct the platform installer'));
+  assert.match(acceptance, /steps\.review\.outputs\.approved == 'true'/);
+  assert.match(acceptance, /--native-report output\/native-host-probe\.json --native-report output\/native-ui-probe\.json/);
+  assert.doesNotMatch(acceptance, /always\(\)|continue-on-error/);
+  assert.match(native, /backend\/tests\/test_linux_desktop_ui\.py/);
 });
 
 test('workflow separates source audit and integration checkout and always runs stable gate', () => {
@@ -153,7 +264,7 @@ test('tag and manual packages validate the extracted artifact before publishing 
   assert.match(published, /github\.repository == 'Firebird55\/Game-immersion-toolkit' && startsWith\(github\.ref, 'refs\/tags\/v'\)/);
   assert.match(workflow, /release:\n    types: \[published\]/);
   assert.match(published, /gh release upload .*--clobber/);
-  assert.match(published, /needs: package/);
+  assert.match(published, /needs: \[package, native-desktop\]/);
   assert.match(published, /name: tested-release-assets/);
   assert.doesNotMatch(published, /package-release|validate-candidate/);
   assert.match(workflow, /permissions:\n  contents: read/);
@@ -167,7 +278,7 @@ test('evidence uploads stay limited to JSON and survive failed checks', () => {
     assert.match(content, /if: \$\{\{ always\(\) && hashFiles\('output\/checks\//);
     assert.doesNotMatch(content, /path: output\/?\s*$|path: output\/checks\/?\s*$/m);
     for (const line of content.split('\n').filter(line => /^\s+(?:path: )?output\//.test(line)))
-      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json)$/);
+      assert.match(line, /output\/checks\/(?:ci\/[a-z-]+\.json|runs\/\*\.json|latest\.json|game-screenshots\/rapid\.json)$/);
   }
 });
 

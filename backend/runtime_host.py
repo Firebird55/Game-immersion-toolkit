@@ -111,7 +111,7 @@ class OwnedStandbySlot:
         if (sys.platform != 'win32' or type(layout) is not RuntimeLayout
                 or layout.mode != 'bundle' or layout.profile != 'runtime-experiment'
                 or layout.resource_root != layout.application_root/'_internal'
-                or layout.executable != layout.application_root/'ProxyTranscriptRuntime.exe'
+                or layout.executable != layout.application_root/'GameImmersionToolkit.exe'
                 or layout.children != EXPERIMENT_CHILDREN or layout.legacy_root is not None
                 or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+',layout.version)
                 or not re.fullmatch(r'[a-f0-9]{40}',layout.source_commit)
@@ -144,7 +144,7 @@ class OwnedStandbySlot:
             total += entry['bytes']
         directories = tuple(name(value) for value in inventory_directories)
         if (total > 2*1024**3 or files.get('_internal/runtime-manifest.json', (None,None))[1] != trusted_manifest_sha256
-                or 'ProxyTranscriptRuntime.exe' not in files):
+                or 'GameImmersionToolkit.exe' not in files):
             raise RuntimeBundleError('Standby inventory does not bind its executable and manifest.')
         self.layout, self.disposable, self.manifest_pin = layout, disposable, trusted_manifest_sha256
         self._files, self._directories = files, frozenset(directories)
@@ -735,7 +735,7 @@ class FrozenProbeHost:
     """Own precisely two existing frozen entrypoints and their real Windows job."""
     def __init__(self, layout):
         if (sys.platform != 'win32' or layout.mode != 'bundle' or layout.profile != 'runtime-experiment'
-                or layout.executable.name.casefold() != 'proxytranscriptruntime.exe'):
+                or layout.executable != layout.application_root/'GameImmersionToolkit.exe'):
             raise HostProbeFailure('experimental-windows-image-required')
         synthetic_roots(layout)
         developer_environment()
@@ -748,6 +748,7 @@ class FrozenProbeHost:
         self.registered_mode = False
         self.registered = {}
         self.recovery_required = False
+        self._source_admission_started = self._source_admitted = False
 
     def start(self):
         if self.tree is not None or self.closed:
@@ -971,10 +972,53 @@ class FrozenProbeHost:
         with urlopen(API + path, timeout=timeout) as response:
             return json.loads(response.read(65537))
 
+    def _admit_authored_source(self, deadline):
+        """One fixed source-fixture control; never copied-target activation.
+
+        This class starts only the mocked native/account API probe entrypoints.
+        OwnedStandbySlot has no such control and its admission stays closed.
+        """
+        if self._source_admission_started or self.recovery_required:
+            raise HostProbeFailure('registered-host-unconfirmed')
+        self._source_admission_started = True
+        try:
+            with self._listener_scope() as owned:
+                self._alive()
+                if not owned:
+                    raise HostProbeFailure('registered-host-unconfirmed')
+                remaining = deadline-time.monotonic()
+                if remaining <= 0:
+                    raise HostProbeFailure('readiness-deadline')
+                request = Request(API+'/api/runtime/activate', data=b'{"running":false}', method='POST',
+                    headers={'Content-Type': 'application/json', 'X-Proxy-Transcript': 'update'})
+                with urlopen(request, timeout=remaining) as response:
+                    raw = response.read(65537)
+                    if response.status != 200 or len(raw) > 65536:
+                        raise HostProbeFailure('registered-host-unconfirmed')
+                    # Preserve pairs so duplicate/unknown response keys cannot
+                    # turn an ambiguous response into a normal acknowledgement.
+                    value = json.loads(raw, object_pairs_hook=list)
+                    if value != [('active', True)] or value[0][1] is not True:
+                        raise HostProbeFailure('registered-host-unconfirmed')
+                self._alive()
+                if time.monotonic() >= deadline:
+                    raise HostProbeFailure('readiness-deadline')
+            # The scope's final genuine listener/creation checks must finish
+            # before callers may perform even an authored favorite/readback.
+            if time.monotonic() >= deadline:
+                raise HostProbeFailure('readiness-deadline')
+            self._source_admitted = True
+        except BaseException:
+            self.recovery_required = True
+            raise
+
     def wait_services(self, timeout=START_TIMEOUT):
         deadline = time.monotonic() + timeout
+        if self._source_admission_started:
+            raise HostProbeFailure('registered-host-unconfirmed')
         while time.monotonic() < deadline:
             self._alive()
+            ready_to_admit = False
             remaining = min(.5, max(.001, deadline-time.monotonic()))
             # Missing owned listeners during startup are observation-only.
             # Native/identity/cleanup failures must escape the HTTP retry catch.
@@ -984,15 +1028,26 @@ class FrozenProbeHost:
             try:
                 with self._listener_scope() as owned:
                     if owned:
-                        ready = self._json('/api/runtime/ready', remaining)
-                        with urlopen(FRONTEND, timeout=remaining) as response:
-                            frontend_ready = response.status == 200
-                            response.read(1)
-                        if ready.get('ready') is True and frontend_ready:
-                            self._alive()
-                            return
-            except (OSError, ValueError):
-                pass
+                        try:
+                            ready = self._json('/api/runtime/ready', remaining)
+                            with urlopen(FRONTEND, timeout=remaining) as response:
+                                frontend_ready = response.status == 200
+                                response.read(1)
+                            if ready.get('ready') is True and frontend_ready:
+                                self._alive()
+                                ready_to_admit = True
+                        except (OSError, ValueError):
+                            pass  # Only unready HTTP is a startup observation.
+            except BaseException:
+                # A scope-exit/native observer failure cannot be converted into
+                # permission to admit an apparently ready source fixture.
+                self.recovery_required = True
+                raise
+            if ready_to_admit:
+                # Activation/identity/cleanup failures are not retryable startup
+                # observations. Keep the actual source cohort and leases owned.
+                self._admit_authored_source(deadline)
+                return
             time.sleep(min(.05, max(0, deadline-time.monotonic())))
         raise HostProbeFailure('readiness-deadline')
 

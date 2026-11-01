@@ -1,4 +1,5 @@
-# Executed only after closure.py has validated the exact Windows build inputs.
+# Executed after the native builder has validated its exact installed inputs.
+# A runtime profile is a construction choice, never a release approval.
 import json
 import os
 from pathlib import Path
@@ -6,16 +7,20 @@ import sys
 
 root = Path(SPECPATH).parents[1]
 sys.path.insert(0, str(root))
+sys.path.insert(0, str(Path(SPECPATH)))
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules, copy_metadata
 from backend.runtime_bundle import CHILD_TARGETS
+from windows_runtime import select_msvc
 
 inputs = json.loads(Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']).read_text(encoding='utf-8'))
-runtime = inputs['profile'] == 'runtime-experiment'
-if inputs['profile'] == 'runtime':
-    raise SystemExit('Full runtime profile is disabled until helper/host artifacts and exact collected-file closure are implemented and reviewed.')
+runtime = inputs['profile'] in {'runtime', 'runtime-experiment'}
 resource_root = Path(os.environ['PROXY_RUNTIME_EVIDENCE_ROOT'])
+# Legacy experiment provenance has a distinct Windows-only input contract.
+legacy = inputs.get('schema', 'proxy-runtime-build-inputs-v1') == 'proxy-runtime-build-inputs-v1'
+main_name = 'GameImmersionToolkit'
+asr_name = 'GameImmersionToolkitAsr'
 native_observer = None
-if runtime:
+if runtime and legacy:
     # Read the actual existing Analysis TOCs; no second DLL collector or upload.
     sys.path.insert(0, str(Path(SPECPATH)))
     from PyInstaller.config import CONF
@@ -26,11 +31,18 @@ if runtime:
 # PE data as binaries and flattens dependencies outside site-packages, which
 # otherwise adds an unintended root FLAC.dll. Deliver only these verified files
 # as explicit DATA after Analysis; never scan them as Python-host dependencies.
-codec_native = {'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if runtime else set()
-isolated_codec_data = [(item['path'], str(resource_root / item['path']), 'DATA')
-    for item in inputs['resources'] if item['path'] in codec_native]
+isolated_paths = ({'codecs/xiph-flac/flac.exe', 'codecs/xiph-flac/FLAC.dll'} if legacy
+    else {item['path'] for item in inputs['resources']}) if runtime else set()
+# Modern resources are already closed, independently validated subprocess
+# distributions (Node, codecs and managed readers) or immutable static data.
+# Analysis must not flatten their dependencies, rewrite Mach-O install names or
+# re-sign their executables: that invalidates the nested runtime receipts and
+# can break the subprocess's own relative library lookup. Python-host libraries
+# still pass through ordinary Analysis and native post-processing below.
+isolated_resource_data = [(item['path'], str(resource_root / item['path']), 'DATA')
+    for item in inputs['resources'] if item['path'] in isolated_paths]
 data = [(str(resource_root / item['path']), str(Path(item['path']).parent))
-    for item in inputs['resources'] if item['path'] not in codec_native]
+    for item in inputs['resources'] if item['path'] not in isolated_paths]
 hidden = ['backend.desktop_frontend'] if inputs['profile'] == 'frontend-experiment' else []
 binaries = []
 
@@ -54,9 +66,24 @@ if runtime:
               if name not in {'backend.agent_transcribe', 'backend.asr_probe'}]
     hidden += [target for kind, (mode, target) in CHILD_TARGETS.items()
                if mode == 'module' and kind != 'asr']
-    for package in ('uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
-                    'cv2', 'PIL', 'windows_capture', 'pyaudiowpatch', 'Crypto',
-                    'rapidfuzz', 'opencc', 'pypinyin', 'certifi', 'oneocr'):
+    packages = ['uvicorn', 'numpy', 'scipy', 'kaldi_native_fbank', 'onnxruntime',
+                'cv2', 'PIL', 'Crypto', 'rapidfuzz', 'opencc', 'pypinyin', 'certifi',
+                'rapidocr_onnxruntime', 'pyclipper', 'shapely', 'zstandard']
+    if sys.platform == 'win32':
+        packages += ['windows_capture', 'pyaudiowpatch', 'oneocr']
+    elif sys.platform == 'linux':
+        packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
+        hidden += ['keyring.backends.SecretService', 'jaraco.classes',
+                   'jaraco.context', 'jaraco.functools', 'more_itertools']
+    elif sys.platform == 'darwin':
+        packages += ['objc', 'Quartz', 'AppKit', 'Foundation']
+        hidden += ['keyring.backends.macOS', 'jaraco.classes',
+                   'jaraco.context', 'jaraco.functools', 'more_itertools']
+    # Qt's module hooks collect the platform plugin and its native dependencies.
+    # Do not collect all of Essentials (Designer, QML, SQL, etc. are not used).
+    hidden += ['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets', 'shiboken6']
+    data += copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6')
+    for package in packages:
         package_data, package_binaries, package_hidden = package_closure(package)
         data += package_data
         binaries += package_binaries
@@ -70,17 +97,25 @@ main = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
 # image conversion/thresholding, never those models; do not relabel them as user
 # data or relax the private-tree gate to accept arbitrary `data/` directories.
 main.datas = [entry for entry in main.datas if not entry[0].replace('\\', '/').startswith('cv2/data/')]
-main.datas += isolated_codec_data
+# The desktop uses raster QWidget painting, never a QOpenGLWidget/context.
+# Qt's generic GUI hook includes an optional Mesa/LLVM OpenGL fallback even
+# though none of the selected images imports it. Keep that unused renderer out
+# of this payload instead of shipping an unrelated native dependency family.
+main.binaries = [entry for entry in main.binaries
+                 if Path(entry[0]).name.casefold() != 'opengl32sw.dll']
+if sys.platform == 'win32' and runtime:
+    main.binaries = select_msvc(main.binaries)
+main.datas += isolated_resource_data
 if native_observer:
     native_observer.observe_analysis('main', main.binaries,
         [row for row in main.datas if row[0].replace('\\', '/').startswith(('helpers/nte/', 'codecs/xiph-flac/'))])
 main_pyz = PYZ(main.pure)
 main_exe = EXE(main_pyz, main.scripts, [], exclude_binaries=True,
-    name='ProxyTranscriptRuntime', console=True, contents_directory='_internal')
+    name=main_name, console=True, contents_directory='_internal')
 if native_observer:
     native_observer.observe_generated('main', main_exe.name)
 try:
-    main_collection = COLLECT(main_exe, main.binaries, main.datas, name='ProxyTranscriptRuntime')
+    main_collection = COLLECT(main_exe, main.binaries, main.datas, name=main_name)
 except Exception as error:
     if native_observer:
         native_observer.refuse_collection(error)
@@ -95,14 +130,23 @@ if runtime:
     asr_data += copy_metadata('sherpa-onnx-core')
     asr = Analysis([str(root / 'backend/bundle_entry.py')], pathex=[str(root)],
         binaries=asr_binaries, datas=asr_data, hiddenimports=['backend.agent_transcribe', 'backend.asr_probe', *asr_hidden],
-        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture', 'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
-    native_observer.observe_analysis('asr', asr.binaries)
+        excludes=['onnxruntime', 'kaldi_native_fbank', 'oneocr', 'backend.api', 'backend.capture',
+                  'backend.desktop_host', 'backend.desktop_host_ui', 'PySide6', 'shiboken6',
+                  'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
+    if sys.platform == 'win32':
+        asr.binaries = select_msvc(asr.binaries)
+    if native_observer:
+        native_observer.observe_analysis('asr', asr.binaries)
     asr_pyz = PYZ(asr.pure)
     asr_exe = EXE(asr_pyz, asr.scripts, [], exclude_binaries=True,
-        name='ProxyTranscriptAsr', console=True, contents_directory='_internal')
-    native_observer.observe_generated('asr', asr_exe.name)
+        name=asr_name, console=True, contents_directory='_internal')
+    if native_observer:
+        native_observer.observe_generated('asr', asr_exe.name)
     try:
-        asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name='ProxyTranscriptAsr')
+        asr_collection = COLLECT(asr_exe, asr.binaries, asr.datas, name=asr_name)
     except Exception as error:
-        native_observer.refuse_collection(error)
-    native_observer.finish()
+        if native_observer:
+            native_observer.refuse_collection(error)
+        raise
+    if native_observer:
+        native_observer.finish()

@@ -87,7 +87,7 @@ def test_live_game_refresh_uses_a_separate_worker_and_keeps_old_snapshot(tmp_pat
             return None, ''
         def poll(self):
             return 0
-    monkeypatch.setattr(module.subprocess, 'Popen', Worker)
+    monkeypatch.setattr(module, 'start_process', Worker)
     thread = threading.Thread(target=updater._run)
     thread.start()
     assert entered.wait(2)

@@ -7,6 +7,7 @@ import {createReader,createReadingSession,restoreLocalSettings,ReadingOptionsDia
 import '@firebird55/lexirise-components/styles.css';
 import './companion.css';
 import {createMobileReaderContext} from './reader-context.mjs';
+import {DesktopConnection} from './desktop-connection';
 
 const $=id=>document.getElementById(id);
 const params=new URLSearchParams(location.search);
@@ -35,7 +36,7 @@ function Line({row,current=false,Reader,readerContext,mode,unlocked,chinese,engl
   {chinese&&(mode==='lexirise'&&unlocked&&Reader?<Reader key={readerContext} id={Number(row.id)||row.createdAt} text={row.sourceText??row.chinese} sourceLanguage={row.sourceLanguage??'zh'} sentenceTranslation={row.translationText??row.english} options={options} current={current} onSummary={onSummary}/>:<p className="current-chinese migaku-sentence" data-migaku-line-id={keyOf(row)} lang={row.sourceLocale??'zh-Hans'}>{row.sourceText??row.chinese}</p>)}
   {english&&!shouldHideTranslation(options.hideEnglishAt,unknownWords)&&<p className="translation" lang={row.translationLocale??'en'}>{row.translationText??row.english}</p>}
   {voiceStatus&&<p className="hint voice-status">{uiText(voiceStatus)}{row.audio&&<button onClick={()=>$('library-files').click()}>{uiText("Open voice library")}</button>}</p>}
-  <div className="line-actions"><button onClick={()=>onPlay(row)} disabled={working||!row.audio||!voiceReady}>{uiText("▶ Play voice")}</button><button aria-pressed={Boolean(row.favorite)} onClick={()=>onFavorite(row)}>{row.favorite?uiText("★ Favorited"):uiText("☆ Favorite")}</button>{mode==='lexirise'&&<button disabled={!unlocked||working} onClick={()=>onSave(row)}>{uiText("Save sentence")}</button>}</div>
+  <div className="line-actions"><button onClick={()=>onPlay(row)} disabled={working||!row.audio||!voiceReady}>{uiText(row.audioScope==='paragraph'?"▶ Play full paragraph":"▶ Play voice")}</button><button aria-pressed={Boolean(row.favorite)} onClick={()=>onFavorite(row)}>{row.favorite?uiText("★ Favorited"):uiText("☆ Favorite")}</button>{mode==='lexirise'&&<button disabled={!unlocked||working} onClick={()=>onSave(row)}>{uiText("Save sentence")}</button>}</div>
  </article>;}
 
 function App(){
@@ -127,7 +128,8 @@ function App(){
  async function saveSentence(row){await runReader(async({isCurrent})=>{
   if(!session.current)throw Error('Unlock Lexirise in Settings first.');if((row.sourceLanguage??'zh')!==(current?.sourceLanguage??'zh'))throw Error('Select this learning language before choosing a sentence deck.');const client=sessionFor(row).session,signal=vault.current.signal,credential=vault.current.credential();
   const payload={language:row.sourceLanguage??'zh',text:row.sourceText??row.chinese,mode:'sentence',translation:row.translationText??row.english,notes:[row.game,row.speakerChinese||row.speakerEnglish].filter(Boolean).join(' — '),tags:[row.game]};
-  if(row.audio){const blob=await blobFor(row);if(!isCurrent())return;const response=await fetch(gateway+'/v1/audio',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':blob.type},body:blob,cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(30000)])});if(!isCurrent())return;if(!response.ok)throw Error('Original voice upload failed. Retry saving when ready.');const uploaded=await response.json();if(!isCurrent())return;if(!/^https:\/\//.test(uploaded.publicUrl))throw Error('Audio upload was not confirmed.');payload.audioUrls=[uploaded.publicUrl];}
+  if(row.audioScope==='paragraph')payload.notes+=' — Voiced dialogue; full-paragraph recording omitted (individual subtitle timing unavailable).';
+  if(row.audio&&row.audioScope!=='paragraph'){const blob=await blobFor(row);if(!isCurrent())return;const response=await fetch(gateway+'/v1/audio',{method:'POST',headers:{Authorization:'Bearer '+credential,'Content-Type':blob.type},body:blob,cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(30000)])});if(!isCurrent())return;if(!response.ok)throw Error('Original voice upload failed. Retry saving when ready.');const uploaded=await response.json();if(!isCurrent())return;if(!/^https:\/\//.test(uploaded.publicUrl))throw Error('Audio upload was not confirmed.');payload.audioUrls=[uploaded.publicUrl];}
   const result=await client.requestAccount('POST','/v1/vocabulary',payload);if(!isCurrent())return;const id=result.item?.id??result.item?.saved_expression_id;if(!Number.isSafeInteger(id))throw Error('Sentence save was not confirmed. Retry to check.');
   if(deck){const added=await client.requestAccount('POST','/v1/decks/'+deck+'/items',{saved_expression_selection:{mode:'explicit',ids:[id]}});if(!isCurrent())return;if(!(Number(added.added_count??added.addedCount)>0))throw Error('The sentence was saved, but the deck addition was not confirmed. Check the deck before retrying.');}setNotice('Sentence saved to Lexirise'+(deck?' and added to the selected deck.':'.'));
  });}
@@ -141,7 +143,7 @@ function App(){
  $('reload-build').onclick=applyUpdate;
  return <>
   <header className="companion-header"><div><p className="eyebrow">{uiText("GAME IMMERSION TOOLKIT")}</p><h1>{uiText("Game immersion toolkit")}</h1><p className="subtitle">{uiText("Stay in the story.")}</p></div><div className={'connection-badge '+(connected?'connected':'')}><span aria-hidden="true">●</span> {uiText(connected?'Connected':'Not connected')}</div></header>
-  <nav className="companion-nav" aria-label={uiText("Companion")}>{['reader','settings'].filter(v=>role!=='sender'||v==='settings').map(v=><button key={v} aria-current={view===v?"page":undefined} onClick={()=>go(v)}>{uiText(v==='reader'?'Play':'Settings')}</button>)}</nav>
+  <nav className="companion-nav" aria-label={uiText("Companion")}>{['reader','settings'].filter(v=>role!=='sender'||v==='settings').map(v=><button key={v} aria-current={view===v?"page":undefined} onClick={()=>go(v)}>{uiText(v==='reader'?'Play':'Settings')}</button>)}<DesktopConnection /></nav>
   {error&&<div className="message error" role="alert">{error}<button onClick={()=>setError('')}>{uiText("Dismiss")}</button></div>}{notice&&<div className="message" role="status">{notice}<button onClick={()=>setNotice('')}>{uiText("Dismiss")}</button></div>}
   {update&&<div className="message" role="status">{uiText("An update is ready. Your library, favorites and calibration will stay on this device.")}<button onClick={applyUpdate} disabled={capture.captureLifecycle.active||library.libraryLifecycle.busy}>{uiText("Update when idle")}</button></div>}
   {createPortal(<div ref={readerPane} className="reader-pane" hidden={view!=='reader'||role!=='receiver'||source==='mobile'&&!rows.length} style={{'--lexirise-font-size':options.fontSize+'px','--translation-font-size':translationFontSize+'px'}}>

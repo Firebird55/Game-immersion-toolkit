@@ -1,0 +1,149 @@
+{
+  "schema": "toolkit-zzz-inputs-v1",
+  "archives": [
+    {
+      "name": "reader-source",
+      "url": "https://codeload.github.com/simon300000/zenless-voice/tar.gz/bb2b9790d2d45a5c662c36cd9f046d05893d0ef4",
+      "sha256": "3b33be60dec8703a37ecc4f6fa06cd4ed8a7ca7f311dff4900e3fc5e05fab18b",
+      "archive": "reader-source.tar.gz",
+      "revision": "bb2b9790d2d45a5c662c36cd9f046d05893d0ef4",
+      "prefix": "zenless-voice-bb2b9790d2d45a5c662c36cd9f046d05893d0ef4/",
+      "role": "source",
+      "notices": [
+        {
+          "member": "zenless-voice-bb2b9790d2d45a5c662c36cd9f046d05893d0ef4/LICENSE",
+          "sha256": "e8cdd3cbaac74e1ef97ab5ef823de23a4b13076396510802c97d57ebe1f02c91"
+        }
+      ]
+    },
+    {
+      "name": "ooz-source",
+      "url": "https://codeload.github.com/SnosMe/ooz-wasm/tar.gz/ebed82851988add824e092dc4db320c8fa39aaca",
+      "sha256": "1a2c47f3a1e7bf06f8ee08317e6881f27669acbdacf8d706ccd20565ecb3fe98",
+      "archive": "ooz-source.tar.gz",
+      "revision": "ebed82851988add824e092dc4db320c8fa39aaca",
+      "prefix": "ooz-wasm-ebed82851988add824e092dc4db320c8fa39aaca/",
+      "role": "source",
+      "notices": [
+        {
+          "member": "ooz-wasm-ebed82851988add824e092dc4db320c8fa39aaca/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "xxhash-source",
+      "url": "https://codeload.github.com/jungomi/xxhash-wasm/tar.gz/5923f26411ed763044bed17a1fec33fee74e47a0",
+      "sha256": "a96747c1221999a8705aaa3670e4ce774113176c4d077d55ae0f3df89dc6972a",
+      "archive": "xxhash-source.tar.gz",
+      "revision": "5923f26411ed763044bed17a1fec33fee74e47a0",
+      "prefix": "xxhash-wasm-5923f26411ed763044bed17a1fec33fee74e47a0/",
+      "role": "source",
+      "notices": [
+        {
+          "member": "xxhash-wasm-5923f26411ed763044bed17a1fec33fee74e47a0/LICENSE.md",
+          "sha256": "6f6b3afa109ea0d073b8e3cf0feea0aba07d357fcdebeef54dd34b3c0b3f9ac5"
+        }
+      ]
+    },
+    {
+      "name": "typescript",
+      "url": "https://registry.npmjs.org/typescript/-/typescript-5.9.3.tgz",
+      "sha256": "10e108c9cf7d5f2879053dff18515fb405abf2ccef63eaaf017d9c571687a1d3",
+      "integrity": "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==",
+      "archive": "typescript-5.9.3.tgz",
+      "version": "5.9.3",
+      "role": "build-only",
+      "files": [
+        {
+          "member": "package/lib/typescript.js",
+          "sha256": "3ae902c92cc44dace175c0e69e13a4b0899f6983c6121d76b9ab8dd5795e7675"
+        },
+        {
+          "member": "package/LICENSE.txt",
+          "sha256": "a7d00bfd54525bc694b6e32f64c7ebcf5e6b7ae3657be5cc12767bce74654a47"
+        },
+        {
+          "member": "package/ThirdPartyNoticeText.txt",
+          "sha256": "1af3c68039c57e539422da82a4faada506ce6d0ea6f90e0b699d02dbcdb7a90c"
+        },
+        {
+          "member": "package/package.json",
+          "sha256": "822ef7ca6452205657b6288b066481ecf508bfbf43455d715cf7d3ec457561e6"
+        }
+      ]
+    },
+    {
+      "name": "ooz-wasm",
+      "url": "https://registry.npmjs.org/ooz-wasm/-/ooz-wasm-2.0.0.tgz",
+      "sha256": "9d620bfee0d4ec98f304c291a49af4cd5bafaa9b6a1ef6e9248808d2467d05fe",
+      "integrity": "sha512-Ewk+Vga2m9niFGV5qT+4EKfBnFEQSQfnTdOWSlnQcpDB2OAdk7TpRHfKqxLSLhDKRjKjw9R+sGlOreWW8ABR0A==",
+      "archive": "ooz-wasm-2.0.0.tgz",
+      "version": "2.0.0",
+      "role": "runtime",
+      "files": [
+        {
+          "member": "package/package.json",
+          "sha256": "44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1"
+        },
+        {
+          "member": "package/index.js",
+          "sha256": "042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562"
+        },
+        {
+          "member": "package/build/ooz.js",
+          "sha256": "5aed30da1da505793fd1e3383db4572797bcce8a0e9e71176d1f6a5d60ec0e6c"
+        },
+        {
+          "member": "package/LICENSE",
+          "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+        }
+      ]
+    },
+    {
+      "name": "xxhash-wasm",
+      "url": "https://registry.npmjs.org/xxhash-wasm/-/xxhash-wasm-1.1.0.tgz",
+      "sha256": "cddd90f792012cd253728e11a643e15251268a7a9588851ccc51a5c8f16340ad",
+      "integrity": "sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA==",
+      "archive": "xxhash-wasm-1.1.0.tgz",
+      "version": "1.1.0",
+      "role": "runtime",
+      "files": [
+        {
+          "member": "package/package.json",
+          "sha256": "f2c48d47dbdef2f9a3e0fb1025a1394726a1028ddee21f5c38452de50d00bcf2"
+        },
+        {
+          "member": "package/esm/xxhash-wasm.js",
+          "sha256": "e3be9143c10d60a015448de1ceef383b8f2ea1fd2773a5a5c69973ed52d8325a"
+        },
+        {
+          "member": "package/LICENSE.md",
+          "sha256": "6f6b3afa109ea0d073b8e3cf0feea0aba07d357fcdebeef54dd34b3c0b3f9ac5"
+        }
+      ]
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/simon300000/zenless-voice",
+    "commit": "bb2b9790d2d45a5c662c36cd9f046d05893d0ef4",
+    "path": "galgame-perform.ts",
+    "sha256": "176491a567b6152f5031b71ea7d742dba3228462d404a6abf03c2242c6ca2731",
+    "license_path": "LICENSE",
+    "license_sha256": "e8cdd3cbaac74e1ef97ab5ef823de23a4b13076396510802c97d57ebe1f02c91",
+    "status": "exact-source-input"
+  },
+  "source_correspondence": {
+    "ooz-wasm": {
+      "revision": "ebed82851988add824e092dc4db320c8fa39aaca",
+      "basis": "The npm source members match the upstream v2.0 commit. Production uses the separately pinned source-built generated module, never the undocumented npm generated WASM.",
+      "status": "source-built-output-required",
+      "build_policy": "packaging/zzz-reader/ooz-build.json"
+    },
+    "xxhash-wasm": {
+      "revision": "5923f26411ed763044bed17a1fec33fee74e47a0",
+      "basis": "npm gitHead, exact package/source license and preferred WAT/JS sources retained; permissive unmodified supplier.",
+      "status": "source-retained"
+    }
+  }
+}

@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 
 SHA = re.compile(r'[a-f0-9]{64}')
 NAME = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,159}')
-GENERATED = {'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'}
+GENERATED = {'GameImmersionToolkit.exe', 'asr/GameImmersionToolkitAsr.exe'}
 
 
 def _require(condition):

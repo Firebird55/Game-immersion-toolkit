@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 import threading
 import time
 import wave
@@ -11,7 +12,10 @@ from pathlib import Path
 from typing import Callable
 
 import numpy as np
-import pyaudiowpatch as pyaudio
+if sys.platform == 'win32':
+    import pyaudiowpatch as pyaudio
+else:
+    pyaudio = None
 import webrtcvad
 
 from .firered_vad import FireRedVad
@@ -68,6 +72,9 @@ class AudioCaptureService:
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
+            return
+        if pyaudio is None:
+            self.message = 'Legacy loopback recording is unavailable on this platform. Original voice from game files remains available.'
             return
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self._stop.clear()

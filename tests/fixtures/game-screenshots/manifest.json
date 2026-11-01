@@ -1,0 +1,1010 @@
+{
+  "schema": 1,
+  "provenance": "User-supplied game screenshots, 2026-10-30. Still images do not establish voice availability or temporal ordering.",
+  "encoding": "Lossless WebP at original dimensions; black rectangles replace nonessential account identifiers.",
+  "cases": [
+    {
+      "id": "zzz-02",
+      "file": "zzz-02-tip.webp",
+      "attachment_number": 2,
+      "game": "zzz",
+      "presentation": "tip",
+      "dimensions": [
+        3832,
+        2145
+      ],
+      "source_sha256": "54c9e52a27d7100d9f55e1e8d26aa94d0d9c94b5b5cfb484401448962409b907",
+      "sha256": "ab39ff2f7e2aa2a3d08bc33853acb47369c139ef43e56ee2cf8cdd0a1f67db32",
+      "redactions": [
+        [
+          3372,
+          2102,
+          3832,
+          2145
+        ]
+      ],
+      "expected_captions": [
+        "Hmm... It feels like the Ether concentration around here is increasing."
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "zzz-03",
+      "file": "zzz-03-menu.webp",
+      "attachment_number": 3,
+      "game": "zzz",
+      "presentation": "menu",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "9588a7d63c0ac0ef25d71e90c881dba7a3c8ee8f719205a9e2cb8fe9d952762e",
+      "sha256": "b054fbdaa7c3aa845ff413bb6fab7bf3cd2786d122e231cd2e2a6183386b4c9f",
+      "redactions": [
+        [
+          3377,
+          2115,
+          3838,
+          2158
+        ],
+        [
+          461,
+          43,
+          806,
+          108
+        ]
+      ],
+      "expected_captions": [],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": [
+        "...New?"
+      ]
+    },
+    {
+      "id": "zzz-04",
+      "file": "zzz-04-cinematic.webp",
+      "attachment_number": 4,
+      "game": "zzz",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "367fa9919ea0c6ea9497aa790f83866b7b2199b0dd3e0ac9ab02b4eb928ef635",
+      "sha256": "87c0759354b25de8860e5983746e01b96da2731c9b871df00b5148caa1a1dc35",
+      "redactions": [
+        [
+          3377,
+          2115,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Rain, Rain! Are you okay?"
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "zzz-07",
+      "file": "zzz-07-cinematic.webp",
+      "attachment_number": 7,
+      "game": "zzz",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "be6eecb2e1dec106f27849d72d9bddcf1a9440b8a60ee081ffc8742e4de96602",
+      "sha256": "55bf39d4ec4fd850c1f74b672080df9b7f5b914fbc66f4f630364da3643cefb7",
+      "redactions": [
+        [
+          3377,
+          2115,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Looks like these are just the henchmen. The hostage must be with their leader.",
+        "Lycaon, what's this device they had on them? Looks like some kind of transmitter."
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "endfield-08",
+      "file": "endfield-08-dialogue.webp",
+      "attachment_number": 8,
+      "game": "endfield",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "6965362121a761fc2eda1db5770126733d20749d399c2c2521a8414d2badeafc",
+      "sha256": "b75ac5325c4d229db40f185b03f8daead468f9b3f815c398c794eed5b94ba370",
+      "redactions": [
+        [
+          192,
+          2093,
+          652,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "It seems like while our comms were down, the Landbreakers launched simultaneous attacks at multiple key locations throughout Valley IV... I'll have our comms team keep constant tabs on the situation."
+      ],
+      "speaker": "Qin Jiangchi",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "endfield-09",
+      "file": "endfield-09-dialogue.webp",
+      "attachment_number": 9,
+      "game": "endfield",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "5c20d96be0e97a30a248afa194a7fa9a003ff119aad6e276b613e7abdab2bf8c",
+      "sha256": "cdf122626ca725361fc86744c7406fd185ce8f6a4b3691a38f2a292d9be22f41",
+      "redactions": [
+        [
+          192,
+          2093,
+          652,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Endmin, the Automation-Core can also be a target destination for tele-protocol."
+      ],
+      "speaker": "Perlica",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "endfield-10",
+      "file": "endfield-10-dialogue.webp",
+      "attachment_number": 10,
+      "game": "endfield",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "9d552d3d1db8775ee8cfb2bb5f257523156587b17d9521362c7a8ddda709ac17",
+      "sha256": "58f56b8b824a64134606d28fdc38f28275b6c47dd5cd7fbc093e8d75c0d62e3b",
+      "redactions": [
+        [
+          192,
+          2093,
+          652,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "I also optimized the power conduction process and eliminated the overly bloated redundancy. For blight patches about fifty to several hundred square meters, this should totally work."
+      ],
+      "speaker": "Yvonne",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "pragmata-11",
+      "file": "pragmata-11-dialogue.webp",
+      "attachment_number": 11,
+      "game": "pragmata",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "e3d193b03a150b3daec4b1bbd181ba1b026b1ce305f94fcbe166f6e62e967f84",
+      "sha256": "93fad9cc62b288306435e6b7753e1429568df06999987e474ffd2ea646e02089",
+      "redactions": [],
+      "expected_captions": [
+        "Now we can go to the Comms Tower!"
+      ],
+      "speaker": "Diana",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "pragmata-12",
+      "file": "pragmata-12-dialogue.webp",
+      "attachment_number": 12,
+      "game": "pragmata",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "80a3482975dbeefcbff98620e361fdda9a01d8e961015ddaed99264274aabd17",
+      "sha256": "7a07eaf2ff59b29d463aa44597c80bd2825b46bc8c8ce3821bee1494b1003361",
+      "redactions": [],
+      "expected_captions": [
+        "How the heck did I end up in this mess?"
+      ],
+      "speaker": "Hugh",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "pragmata-13",
+      "file": "pragmata-13-dialogue.webp",
+      "attachment_number": 13,
+      "game": "pragmata",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "6f0f280ce81f478e64cb361b9a192ff931f7c2dda2de21e81d9ed697be3387c0",
+      "sha256": "264370c4765b617e61cf3b5430d68fc0fc71598040c1397bc9945c96d03cbf55",
+      "redactions": [],
+      "expected_captions": [
+        "Yo Hugh, check out that big rig! Can it really make anything...?"
+      ],
+      "speaker": "Ken",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-14",
+      "file": "nte-14-cinematic.webp",
+      "attachment_number": 14,
+      "game": "nte",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "d366a6ea7006f34da11a01cf40e2ddb5c5f96cead934ee8c0bd2a54a67f04a74",
+      "sha256": "588872e5dcb007d4f80f53b67218793013e1abacec0dada0075ba22d3691d9f7",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Dear citizens, this is the 6 PM broadcast from New Helios. According to the latest data from the Meteorological Department, our city is about to face the first extreme rainstorm warning of the year..."
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-15",
+      "file": "nte-15-dialogue.webp",
+      "attachment_number": 15,
+      "game": "nte",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "737f3b536748ff166fd06de6cb20dbf66ffa890b7dc4d313aab24f2667b6b570",
+      "sha256": "b549eedbddaa9498fc90ceb19ca092a4dbbff6692aab5dbf4bf7010e09a50963",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "How considerate of her. Chupa is a useful communication partner and can be used inside most Anomalous Realms. I heard that only a few members of BAC have permission to give it commands."
+      ],
+      "speaker": "Adler",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-16",
+      "file": "nte-16-cinematic.webp",
+      "attachment_number": 16,
+      "game": "nte",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "73510b07865027c47c844158be6c15563ff05645cc78023e8e5bda124fe9cc33",
+      "sha256": "11c7f75f622898c81cc6e0302e63a805bf76682b615ae4751feddb340e0f6fd9",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "I'm sorry! I'm sorry, Mr. Adler!"
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-17",
+      "file": "nte-17-partial.webp",
+      "attachment_number": 17,
+      "game": "nte",
+      "presentation": "partial",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "ba8511a6815fa7b78264b50b177602ae5ec28cb989d3a01cc551fff0275b50d3",
+      "sha256": "42e068fff51e8a97bd79f2e55582f8ee59cb919eff579dc46521cd28c146b1dc",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "I'll go to Eibon first. You can go get your st"
+      ],
+      "speaker": "GameRiot",
+      "voice_status": "unknown",
+      "partial": true,
+      "forbidden_captions": [],
+      "speaker_kind": "custom_player_name"
+    },
+    {
+      "id": "nte-18",
+      "file": "nte-18-dialogue.webp",
+      "attachment_number": 18,
+      "game": "nte",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "9d0a00ab3d1a8efa5e5a02cc20b83f8a5732ac31648fc66dc6774cb077dabe65",
+      "sha256": "d3711b99f127d656f2bb9a5e53fda41b34159f908da0b6c2e2d7e8a771d83da2",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "I love to get a Blizzi ice cream and munch on egg rolls while I wander around in the plaza when I'm on patrol here."
+      ],
+      "speaker": "Mint",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-19",
+      "file": "nte-19-dialogue.webp",
+      "attachment_number": 19,
+      "game": "nte",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "d1b61cec10b6f1c122c308e84a61644a6f081c7045e76c2ff2c583b9ac2e9d78",
+      "sha256": "fb07c1a074b405b86b4f4e02e3ffed75711e6e76977e3d6eeb1bc24cef753ab3",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Our director is still as rigid as ever."
+      ],
+      "speaker": "Hotori (Chupa)",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "nte-20",
+      "file": "nte-20-cinematic.webp",
+      "attachment_number": 20,
+      "game": "nte",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "ca474419a438b9e5d5a4fb0ce08543bdaa7db84683bfd9e7a888da87615af514",
+      "sha256": "bde862cf3a9ede6125f0245fe1da6d39300c9fdbb0696ba27b8ff87d409faf54",
+      "redactions": [
+        [
+          0,
+          2104,
+          499,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Eh, eh? Just because I complimented it?"
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "starrail-21",
+      "file": "starrail-21-cinematic.webp",
+      "attachment_number": 21,
+      "game": "starrail",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "0b67309d0200ce59b2090183d401588868b32dee61b5a4bece0c3bb295ceca2a",
+      "sha256": "787e9b1bdc7b9a163a3417f3b92461b0e25563f7824300d52025d34d698b2635",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Seems I came at a bad time."
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "starrail-22",
+      "file": "starrail-22-dialogue.webp",
+      "attachment_number": 22,
+      "game": "starrail",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "d5c256578e954607cb102bfa5c4fffd4794b8aa87fd3c8a57fbb838c5f639a06",
+      "sha256": "c60b7516bdf6acfac0fd12efdd48740820c59b92f99d9cdd5a49675a1ff56f73",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "*whistle* Alright, so do we need to fight the Legion?"
+      ],
+      "speaker": "Kafka",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "starrail-23",
+      "file": "starrail-23-partial.webp",
+      "attachment_number": 23,
+      "game": "starrail",
+      "presentation": "partial",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "3a5ebe39d6b678e17765a222088dc0d709bfd8fecc055ea92c2efc5ed7912db2",
+      "sha256": "1c7bbd4f00408f96200dcb9143c86fda1e72d72408aabaa76233e9f2d0e11271",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Don't be too hard on yourself. Your leg and dominant hand were injured. It was a wise decision to hide here and avoid a head-on encoun"
+      ],
+      "speaker": "Dan Heng",
+      "voice_status": "unknown",
+      "partial": true,
+      "forbidden_captions": []
+    },
+    {
+      "id": "starrail-24",
+      "file": "starrail-24-dialogue.webp",
+      "attachment_number": 24,
+      "game": "starrail",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "5fbfe13ad0a93d76ac3fc1f74688c90b23932bc81da978dc23a538bbcb39407b",
+      "sha256": "3aa2576f05a9a47f885ce0ea5975053a4308b2d76c4c7b871feb0f0a1ef4f5e9",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "I wouldn't have made a difference. My orbital cannon can deal with a whole bunch of enemies at once, but I couldn't just blow up the space station with it — Herta would NOT like that..."
+      ],
+      "speaker": "Himeko",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "starrail-25",
+      "file": "starrail-25-choices.webp",
+      "attachment_number": 25,
+      "game": "starrail",
+      "presentation": "choices",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "f055e71b60b32cb347291f93bc5ed569822361d18601d6ed28875df99bca9938",
+      "sha256": "039c59096aca779e89a867e5a7046c7c273e5223f09c5d3dc50176984aeb805c",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Right now, we might be able to handle things if it's just the Doomsday Beast. But, if the Destruction's Emanator were to appear..."
+      ],
+      "speaker": "Himeko",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": [
+        "I... can't handle...",
+        "The Destruction's Emanator?",
+        "I still feel that things won't be going as planned."
+      ]
+    },
+    {
+      "id": "starrail-26",
+      "file": "starrail-26-dialogue.webp",
+      "attachment_number": 26,
+      "game": "starrail",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "6736599148ab268479f914cf12fcf2a3feaa1bdff80a5ad2dff0d1711b31f5f1",
+      "sha256": "3a62b9be4996f92ff9d630fa294d4f494883a1040713e7d66dbd2317d8877176",
+      "redactions": [
+        [
+          0,
+          2082,
+          461,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "It has to be nearby! Let me go take a peek with my sharp eyes."
+      ],
+      "speaker": "March 7th",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "genshin-27",
+      "file": "genshin-27-cinematic.webp",
+      "attachment_number": 27,
+      "game": "genshin",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "2e0e071baf1bf1fa781ce75fc11fb743b3df84cdbd8252e94f4a500bb1df0982",
+      "sha256": "ef355e321257e4268a51366c30170844ed07bff72a095d1aab1f6e996e205ac5",
+      "redactions": [
+        [
+          3339,
+          2104,
+          3746,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "So... what you're trying to say is that you fell here"
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "genshin-28",
+      "file": "genshin-28-dialogue.webp",
+      "attachment_number": 28,
+      "game": "genshin",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "6533ac171acb1b1cb7baa329d0e885a7ea6db138153ab7d6afaf43da20ce4249",
+      "sha256": "3aba46b93826b049612a6cb21b3cb3b5f329d042d0169f67351f2a57adba6ea1",
+      "redactions": [
+        [
+          3339,
+          2104,
+          3746,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "When this happens, you need to perform some impressive feats to gain further recognition from the Guild."
+      ],
+      "speaker": "Katheryne",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": [],
+      "speaker_title": "Receptionist, Adventurers' Guild"
+    },
+    {
+      "id": "genshin-29",
+      "file": "genshin-29-dialogue.webp",
+      "attachment_number": 29,
+      "game": "genshin",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "e34ba3b36af4e705f4a7557029b88759c96153f9476e7240a2a56dc7bd2a7819",
+      "sha256": "fc1ebac8b023160572f964b3d7ecacd281302aa0a4d57009d47cd17cfa2467e4",
+      "redactions": [
+        [
+          3339,
+          2104,
+          3746,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "As for the bard however, it'd be better if you stayed in the tavern."
+      ],
+      "speaker": "Diluc",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "genshin-30",
+      "file": "genshin-30-dialogue.webp",
+      "attachment_number": 30,
+      "game": "genshin",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2157
+      ],
+      "source_sha256": "e4b047e15f59f9813d70e6b2df58ccc0623bcea9fd9e9f66c64dda96fe9735c8",
+      "sha256": "e8d057bea61731e69e4a1241940b284ee5e6e330c34fc632424d0c64af78ecb0",
+      "redactions": [
+        [
+          3339,
+          2103,
+          3746,
+          2157
+        ]
+      ],
+      "expected_captions": [
+        "We followed the path up the mountain, but suddenly, the amber... it swallowed up my brother,"
+      ],
+      "speaker": "Li Ding",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": [],
+      "speaker_title": "Treasure Hoarder"
+    },
+    {
+      "id": "wuwa-31",
+      "file": "wuwa-31-dialogue.webp",
+      "attachment_number": 31,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "8c743b9274aedcd778bfd1b4e668c2962cc3e5d3c5659c6a2b98379dd362cd95",
+      "sha256": "a2a1e6070c9557b4beedebd55e9bd15b2020dc44eea1f32d6c72e5afc991cc32",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Baizhi didn't tell us you'd have these aftereffects when you wake up."
+      ],
+      "speaker": "Chixia",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-32",
+      "file": "wuwa-32-dialogue.webp",
+      "attachment_number": 32,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "464f0223bfc03764ceb61f036f3c6400e048ee0448595a957b18d7bec28096e9",
+      "sha256": "655728a9b2ed5bab064da6e4c370230a1da89cdcc36a3a4bda22ace6c0287972",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Sentinels are present where civilizations thrive. Huanglong stands out with the highest number of currently coexisting Sentinels, because of its long history and vast land."
+      ],
+      "speaker": "Yangyang",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-33",
+      "file": "wuwa-33-dialogue.webp",
+      "attachment_number": 33,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "2132379f3bf56e6cec0a43cca40905ce90c7ad529319c0ecb6313781212e14b5",
+      "sha256": "8578e41064c95f11588a495bbe989fc23abba24800e53cbf0298da6d062a94ba",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Ahem, anyway, Yangyang was trying to shield you, and then BAM! The Tacet Discord was taken care of before I could get a good look!"
+      ],
+      "speaker": "Chixia",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-34",
+      "file": "wuwa-34-dialogue.webp",
+      "attachment_number": 34,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "56b32c7e11eeeef631d0b9ee71179f28375326af37155b81cd2650ab4b8def12",
+      "sha256": "9685a617efa715798becfa9866bd06d5887cfca23ca39c83aa67193551f3674d",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "An innocent girl, a revered leader, and a flock of simple villagers."
+      ],
+      "speaker": "Scar",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-35",
+      "file": "wuwa-35-dialogue.webp",
+      "attachment_number": 35,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "87afaef85cafa9c0799011e45928d76fd71b4629177bb8e232db51da6afde87a",
+      "sha256": "256ac0050a19ca44643aa92b1c5f0976d0a932a9d280305471c207cc49e7a57e",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "His flock obeyed, bowing their heads, pleading for better food and shelter."
+      ],
+      "speaker": "Scar",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-36",
+      "file": "wuwa-36-cinematic.webp",
+      "attachment_number": 36,
+      "game": "wuwa",
+      "presentation": "cinematic",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "fe539807c08737d279746b94498eacf4305742b651a5cf04209bd80ef72a2f43",
+      "sha256": "0a9ed46901b6353c0de5d9c14294841279b41c1b2de725d775350359d365d133",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Little lambs cowered and huddled in their village, terrified of the relentless wolf packs."
+      ],
+      "speaker": null,
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-37",
+      "file": "wuwa-37-dialogue.webp",
+      "attachment_number": 37,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "7ef9d878c485d21a41812eac553d0e336d62934991dc758b24120a01039eea87",
+      "sha256": "d3a82d25c03a1dfeedbaa75845e27551f9876347aae94c861439fe853911cf74",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Hiya! I've heard a lot about you, and now I finally get to meet you in person."
+      ],
+      "speaker": "???",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    },
+    {
+      "id": "wuwa-38",
+      "file": "wuwa-38-choices.webp",
+      "attachment_number": 38,
+      "game": "wuwa",
+      "presentation": "choices",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "9260376b15b48780a84c1ac1821f25d464270f6d9ff2ced86410b8ba80e4d9f8",
+      "sha256": "a9521ddcfea76c51de5bf4669a8726e4d4f3745b3f47d93920d01978900984b7",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "We are both born and raised in Huanglong, so we've been super looking forward to the \"Liondance Officiant\" ceremony during our wedding..."
+      ],
+      "speaker": "Linling",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": [
+        "Is there anything special about this ceremony?"
+      ]
+    },
+    {
+      "id": "wuwa-39",
+      "file": "wuwa-39-dialogue.webp",
+      "attachment_number": 39,
+      "game": "wuwa",
+      "presentation": "dialogue",
+      "dimensions": [
+        3838,
+        2158
+      ],
+      "source_sha256": "70667fba0667a6cff27317c42a940d4be54bf7906d7aad715c10e44b3d90a3f4",
+      "sha256": "0acb5913dd7695c39ff4f1460faa8014ea12e8975e60d7c4b63928b364a95f70",
+      "redactions": [
+        [
+          3339,
+          2108,
+          3838,
+          2158
+        ]
+      ],
+      "expected_captions": [
+        "Thank you, Lingyang!"
+      ],
+      "speaker": "Shuncai",
+      "voice_status": "unknown",
+      "partial": false,
+      "forbidden_captions": []
+    }
+  ]
+}

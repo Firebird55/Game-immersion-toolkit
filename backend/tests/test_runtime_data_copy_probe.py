@@ -30,9 +30,9 @@ from backend.storage import TranscriptStorePoisonedError
 @pytest.fixture
 def fixture(tmp_path, monkeypatch):
     app, private = tmp_path/'app', tmp_path/'private'
-    app.mkdir(); (app/'ProxyTranscriptRuntime.exe').write_bytes(b'authored-placeholder-not-a-native-image')
+    app.mkdir(); (app/'GameImmersionToolkit.exe').write_bytes(b'authored-placeholder-not-a-native-image')
     layout = RuntimeLayout(mode='bundle', profile='runtime-experiment', application_root=app,
-        resource_root=app/'_internal', executable=app/'ProxyTranscriptRuntime.exe', settings_root=private,
+        resource_root=app/'_internal', executable=app/'GameImmersionToolkit.exe', settings_root=private,
         data_root=private/'data-v1', cache_root=private/'cache-v1', work_root=private/'cache-v1/work',
         tool_root=private/'tools-v1', state_root=private/'host-v1', default_export_root=private/'exports',
         source_commit='a'*40, build_id='authored-data-copy-fixture', children=('frontend',))
@@ -76,7 +76,11 @@ def fixture(tmp_path, monkeypatch):
         def resume_registered(self):
             calls.append(('resume', self))
             for child in self.registered.values(): child.resumed = True
-        def wait_services(self): calls.append(('ready', self))
+        def wait_services(self):
+            calls.append(('ready', self))
+            # FakeHost models completion of the genuine host's ordinary
+            # running=False source admission, not copied-target activation.
+            calls.append(('source-fixture-admitted', self))
         @contextmanager
         def _registered_listener_scope(self):
             calls.append(('identity-before', self))
@@ -173,8 +177,9 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert value.coordinator.pointer_path.read_bytes() == value.pointer
     assert not value.coordinator._leases_held() and value.released
     calls = [name for name, _host in fixture.calls]
+    assert calls.index('ready') < calls.index('source-fixture-admitted') < calls.index('favorite-sql')
     assert calls.index('favorite-sql') < calls.index('strict-c2-double') < calls.index('retained-signal-double')
-    assert calls.count('create') == calls.count('resume') == calls.count('retained-signal-double') == 2
+    assert calls.count('create') == calls.count('resume') == calls.count('source-fixture-admitted') == calls.count('retained-signal-double') == 2
     # Metadata does not disclose authored rows, transient roots, UUIDs or PIDs.
     serialized = json.dumps(events, ensure_ascii=False)
     assert '这是' not in serialized and str(value.source.path) not in serialized
@@ -1030,7 +1035,12 @@ def test_wal_parent_link_refuses_before_leaf_metadata_or_sqlite_open(fixture, mo
     layout = value.adapter.layout
     policy = runtime_probe._AuthoredWalConnections(layout, lambda *_a, **_k: pytest.fail('Linked selection cannot open'))
     outside = value.fixture/'outside-authored'; outside.mkdir()
-    (layout.data_root/'lexirise').symlink_to(outside, target_is_directory=True)
+    try:
+        (layout.data_root/'lexirise').symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows symbolic-link privilege is unavailable')
+        raise
     original = Path.lstat
     link = layout.data_root/'lexirise'
     def guarded(path, *args, **options):

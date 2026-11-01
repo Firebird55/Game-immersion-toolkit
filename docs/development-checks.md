@@ -80,7 +80,12 @@ Use Node 24, `npm ci`, and `npm run dev:prepare` to prepare JavaScript and
 generated mobile assets. Install Playwright engines explicitly with
 `npx playwright install chromium firefox webkit` when browser checks are needed.
 For backend work create a project `.venv` using Python 3.12 and install the
-locked requirements into it. Some packages and acceptance checks need Windows.
+runtime and build-test locks with `python -m pip install -r requirements.lock.txt
+-r packaging/desktop/build-requirements.lock.txt`. Backend tests exercise the
+real pinned PyInstaller API and interpreter discovery. These build tools are
+development dependencies, not prerequisites for installed users. Browser-only
+Python scenarios need only `requirements.lock.txt`. The doctor checks the locks
+required by the selected scope. Some packages and acceptance checks need Windows.
 Development runners choose `PYTHON`, then this project's `.venv`, then PATH
 (`python` on Windows, `python3` elsewhere). An incomplete project venv is an
 error; a running companion's installed environment is never used as a fallback.
@@ -150,20 +155,20 @@ Playwright's competing signal exits so they cannot interrupt server cleanup.
 If a Windows parent has already exited, its remaining descendants cannot be
 safely identified: cleanup fails explicitly and retains the temporary runtime. Forced OS termination cannot run cleanup.
 
-## Supported targets and proposed CI changes
+## Desktop targets and native evidence
 
-Windows is the supported desktop target. Relevant macOS/WebKit checks provide
-mobile-browser evidence; physical iOS and native Windows checks remain distinct.
-**Do not add Linux product/browser verification.** Linux working incidentally
-does not make it a supported platform or justify extra test jobs.
+The owner has requested Windows, Linux and macOS desktop delivery. This supersedes
+the earlier Windows-only scope. Windows retains the existing source/native
+coverage; new Linux/macOS package construction must gain its own native evidence.
+Relevant macOS/WebKit checks provide mobile-browser evidence, while physical iOS
+and desktop capture remain distinct. A passing package build alone does not prove
+capture, audio, window discovery or desktop permissions work on that platform.
 
-The Online companion workflow currently includes Ubuntu browser checks, and
-earlier evidence includes Linux codec tests. R25 must
-remove or relocate those test jobs to Windows and, where needed, macOS/WebKit,
-preserving useful browser/codec coverage. This documentation does not claim that
-migration has happened. Linux runners used solely for static publishing are
-infrastructure, not Linux compatibility tests; do not remove publication machinery
-just because its runner is Linux.
+Keep useful browser and codec checks on their declared targets. Linux runners
+used solely for static publishing remain infrastructure evidence. Follow the
+[native acceptance plan](desktop-native-acceptance-plan.md) and
+[delivery plan](desktop-delivery-completion-plan.md) for the exact remaining
+platform, package and release gates.
 
 ## Planned test review and pruning
 

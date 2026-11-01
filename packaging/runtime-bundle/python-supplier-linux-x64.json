@@ -1,0 +1,33 @@
+{
+  "schema": "proxy-runtime-python-supplier-v1",
+  "reviewed_on": "2026-10-31",
+  "version": "3.12.16",
+  "architecture": "linux-x86_64",
+  "supplier": "astral-sh/python-build-standalone",
+  "release": "20261026",
+  "source_commit": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+  "github_release_id": 424411241,
+  "immutable_release_observed": true,
+  "archive": "cpython-3.12.16+20261026-x86_64-unknown-linux-gnu-install_only.tar.gz",
+  "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-unknown-linux-gnu-install_only.tar.gz",
+  "sha256": "6a79e922e50006b601f29e688407659da1c2b86ebcd4e9c7254cf234be8b89de",
+  "release_notes": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261026",
+  "cpython_release": "https://www.python.org/downloads/release/python-31216/",
+  "supplier_acceptance": "observed-experiment-only",
+  "redistribution_review": "pending-exact-output",
+  "target": "linux-x64",
+  "sys_platform": "linux",
+  "machine_names": [
+    "x86_64",
+    "amd64"
+  ],
+  "github_asset_id": 678575302,
+  "bytes": 67921566,
+  "executable": "bin/python3.12",
+  "required_files": [
+    "bin/python3.12",
+    "lib/libpython3.12.so.1.0",
+    "lib/python3.12/LICENSE.txt"
+  ],
+  "native_acceptance": "unavailable"
+}

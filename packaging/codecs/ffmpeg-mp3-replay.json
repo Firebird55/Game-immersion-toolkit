@@ -291,7 +291,7 @@
   "cli_child": {
     "owned_primitive": {
       "path": "backend/windows_preparation_process.py",
-      "canonical_lf_sha256": "24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0",
+      "canonical_lf_sha256": "c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e",
       "license": "ordinary project LICENSE; outside the approved four-file option",
       "license_record": {
         "path": "LICENSE",

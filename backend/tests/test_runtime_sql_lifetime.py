@@ -21,6 +21,7 @@ from backend.models import TextMatch
 from backend.reading import LexiriseReadingService
 from backend.runtime_handoff import CaptureHandoff
 from backend.runtime_readers import RuntimeReadingRegistry
+from backend.runtime_workers import RequestBarrier
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, WritersQuiescing
 from backend import sqlite_operation_lifetime
 from backend.sqlite_operation_lifetime import _SqliteCursorCloseError
@@ -39,10 +40,13 @@ def cohort(tmp_path, monkeypatch):
     value = SimpleNamespace(calls=[], readers=[], threads=[], releases=[], publication_entered=None,
         publication_release=None, update_error=None, running=True, freeze_calls=[], resume_calls=[])
     runtime = value.runtime = Runtime.__new__(Runtime)
+    runtime._request_stop = None
     runtime._sql_handoff = None
+    runtime._quiesce_task = runtime._handoff_state = None
     runtime._handoff_lock, runtime._handoff_drains = asyncio.Lock(), []
     runtime._writer_handoff, runtime._updates_started, runtime.standby = False, False, False
     runtime.request_writers = RuntimeWriterGate()
+    runtime.request_barrier = RequestBarrier()
     runtime.transcript = TranscriptStore(tmp_path/'owned-transcript.db')
     runtime.lexirise = LexiriseService(tmp_path/'owned-reading', api_key='test-key',
         accounts=SimpleNamespace(active_key=forbidden), transport=httpx.MockTransport(forbidden))
@@ -58,7 +62,8 @@ def cohort(tmp_path, monkeypatch):
     runtime._readers = registry.cached
     value.voice = QuiesceableExecutor(1)
     runtime._voice_pools = lambda: [value.voice]
-    runtime.map_task, runtime.hito = None, None
+    runtime.map_task = None
+    runtime.hito = SimpleNamespace(close=lambda: None, resume=lambda: None)
 
     def healthy():
         assert runtime.transcript.count() >= 0
@@ -70,10 +75,10 @@ def cohort(tmp_path, monkeypatch):
         healthy()
         value.calls.append(name)
 
-    runtime.mobile_exports = SimpleNamespace(quiesce=lambda: value.calls.append('exports'), resume=lambda: resumed('exports-resume'))
+    runtime.mobile_exports = SimpleNamespace(drain=lambda: value.calls.append('exports'), resume=lambda: resumed('exports-resume'))
     runtime.automatic_exports = SimpleNamespace(picker=SimpleNamespace(
-        quiesce=lambda: value.calls.append('picker'), resume=lambda: resumed('picker-resume')))
-    runtime.installation = SimpleNamespace(quiesce=lambda _timeout: value.calls.append('setup'), resume=lambda: resumed('setup-resume'))
+        drain=lambda: value.calls.append('picker'), resume=lambda: resumed('picker-resume')))
+    runtime.installation = SimpleNamespace(pause=lambda: None, quiesce=lambda _timeout: value.calls.append('setup'), resume=lambda: resumed('setup-resume'))
     runtime.languages = SimpleNamespace(close=lambda **_kwargs: value.calls.append('language-closed'))
 
     async def stop_updates(**options):
@@ -912,7 +917,8 @@ def test_native_cleanup_refusal_retains_frozen_sql_and_recovery_steps_share_one_
         assert len(set(deadlines)) == 1 and not runtime._reading_registry._accepting
         deadlines.clear()
         await runtime.activate_handoff(payload, writers=True)
-        assert len(deadlines) == 5 and len(set(deadlines)) == 1
+        # The retained outer request pause joins the same recovery deadline.
+        assert len(deadlines) == 6 and len(set(deadlines)) == 1
         assert runtime._sql_handoff is None and len(attempts) == 2
 
     asyncio.run(run())
@@ -1006,4 +1012,220 @@ def test_actual_sql_ledger_type_is_preserved_across_the_existing_grammar_constru
         assert runtime._sql_handoff is None and runtime.request_writers._accepting
         cohort.healthy()
 
+    asyncio.run(run())
+
+
+def test_outer_admission_waits_for_actual_stream_sql_pools_and_epoch_retirement(cohort, monkeypatch):
+    """Two real request layers, owned SQLite and an Event-held final metadata commit."""
+    from backend.runtime_workers import WriterBarrierMiddleware
+    from backend.runtime_writers import RuntimeWriterMiddleware
+    value, runtime = cohort, cohort.runtime
+    commit_entered, commit_release = threading.Event(), threading.Event()
+    value.releases.append(commit_release)
+    async def run():
+        requests, idle = runtime.request_barrier, runtime.request_barrier._idle
+        loop_thread = threading.get_ident()
+        for name in ('set', 'clear', 'is_set'):
+            original = getattr(idle, name)
+            def checked(*args, _original=original):
+                assert threading.get_ident() == loop_thread, 'RequestBarrier Event accessed from SQL worker'
+                return _original(*args)
+            monkeypatch.setattr(idle, name, checked)
+        original_wait = idle.wait
+        async def checked_wait():
+            assert threading.get_ident() == loop_thread
+            return await original_wait()
+        monkeypatch.setattr(idle, 'wait', checked_wait)
+        entered, release, pausing = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        outputs, handler_calls = [], []
+        async def handler(scope, receive, send):
+            handler_calls.append('handler')
+            assert await asyncio.to_thread(runtime.transcript.count) >= 0
+            await send({'type':'http.response.start', 'status':200, 'headers':[]})
+            entered.set()
+            await release.wait()
+            await send({'type':'http.response.body', 'body':b'complete'})
+        middleware = WriterBarrierMiddleware(RuntimeWriterMiddleware(handler, lambda: runtime), lambda: requests)
+        scope = {'type':'http', 'path':'/api/lines/1/reading', 'method':'GET'}
+        async def receive(): return {'type':'http.request'}
+        async def send(message): outputs.append(message)
+        streaming = asyncio.create_task(middleware(scope, receive, send))
+        await entered.wait()
+        original_pause = runtime._pause_outer_requests
+        async def pause():
+            pausing.set()
+            await original_pause()
+        monkeypatch.setattr(runtime, '_pause_outer_requests', pause)
+        stopping = asyncio.create_task(runtime.quiesce_writers(timeout=2))
+        await pausing.wait()
+        assert requests.paused and requests._active == 1 and not stopping.done()
+        assert runtime._sql_handoff is None and not runtime.request_writers._accepting
+        release.set()
+        await streaming
+        payload = await stopping
+        record = runtime._sql_handoff
+        assert record.requests is requests and record.requests_idle is idle
+        original_reopen = runtime._reading_registry._reopen_sql_creation
+        def hold_commit(readings, gate, deadline):
+            assert requests.paused and requests._active == 0 and requests._idle is idle
+            assert all(member.resumed for member in members(record))
+            original_reopen(readings, gate, deadline)
+            commit_entered.set()
+            assert commit_release.wait(3)
+        monkeypatch.setattr(runtime._reading_registry, '_reopen_sql_creation', hold_commit)
+        activating = asyncio.create_task(runtime.activate_handoff(payload, writers=True))
+        try:
+            assert await asyncio.to_thread(commit_entered.wait, 1)
+            assert requests.paused and requests._active == 0 and requests._idle is idle
+            assert runtime._sql_handoff is record and all(member.resumed for member in members(record))
+            outputs.clear()
+            await middleware(scope, receive, send)
+            assert outputs[0]['status'] == 503 and handler_calls == ['handler']
+            assert all(member.owner._controller is member for member in members(record))
+        finally:
+            commit_release.set()
+        assert await activating == {'active':True}
+        assert not requests.paused and requests._idle is idle and runtime.request_writers._accepting
+        assert runtime._sql_handoff is None and all(member.owner._controller is None for member in members(record))
+        outputs.clear()
+        await middleware(scope, receive, send)
+        assert outputs[0]['status'] == 200 and handler_calls == ['handler', 'handler']
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('changed', ['barrier', 'idle'])
+def test_sql_recovery_refuses_replaced_outer_request_owner_without_opening_either_layer(cohort, changed):
+    value, runtime = cohort, cohort.runtime
+    async def run():
+        payload = await runtime.quiesce_writers(timeout=2)
+        record = runtime._sql_handoff
+        requests, idle = record.requests, record.requests_idle
+        before = list(value.calls)
+        if changed == 'barrier': runtime.request_barrier = RequestBarrier(paused=True)
+        else: requests._idle = asyncio.Event()
+        with pytest.raises(TimeoutError, match='ownership changed'):
+            await runtime.activate_handoff(payload, writers=True)
+        assert runtime._sql_handoff is record and record.requests is requests and record.requests_idle is idle
+        assert not record.gate._accepting and requests.paused and value.calls == before
+        assert not any(member.resumed for member in members(record))
+    asyncio.run(run())
+
+
+def test_partial_activation_cannot_reuse_a_successful_cached_sql_stop(cohort):
+    value, runtime = cohort, cohort.runtime
+    async def run():
+        payload = await runtime.quiesce()
+        stopped = runtime._quiesce_task
+        assert stopped.done() and stopped.exception() is None
+        record = runtime._sql_handoff
+        failure = RuntimeError('authored update-start refusal after actual SQL resume')
+        value.update_error = failure
+        with pytest.raises(RuntimeError) as raised:
+            await runtime.activate_handoff(payload, writers=True)
+        assert raised.value is failure and record.error is failure
+        assert all(member.resumed for member in members(record))
+        # The real SQL owner is writable again, even though public admission
+        # stayed closed: the old completed drain is no longer stop authority.
+        runtime.transcript.add(TextMatch(text_id='after-resume', english='After resume',
+            chinese='恢复后的台词', source_ocr='恢复后的台词', score=100, kind='exact'), 'owned-session')
+        with pytest.raises(TimeoutError, match='Recovered SQL owners'):
+            await runtime.quiesce()
+        assert runtime._quiesce_task is not stopped and runtime._sql_handoff is record
+        assert runtime.request_barrier.paused and not runtime.request_writers._accepting
+    asyncio.run(run())
+
+
+def test_quiesce_selection_waits_for_actual_activation_instead_of_returning_old_stop(cohort, monkeypatch):
+    value, runtime = cohort, cohort.runtime
+    entered, release = threading.Event(), threading.Event()
+    value.releases.append(release)
+    original = runtime._resume_writer_pools
+    def pools(deadline):
+        original(deadline)
+        entered.set()
+        assert release.wait(3)
+    monkeypatch.setattr(runtime, '_resume_writer_pools', pools)
+    async def run():
+        payload = await runtime.quiesce()
+        old = runtime._quiesce_task
+        old_record = runtime._sql_handoff
+        activating = asyncio.create_task(runtime.activate_handoff(payload, writers=True))
+        assert await asyncio.to_thread(entered.wait, 1)
+        selecting = asyncio.create_task(runtime.quiesce())
+        await asyncio.sleep(0)  # The activation already holds the actual lock.
+        try:
+            assert runtime._handoff_lock.locked() and not selecting.done()
+            assert all(member.resumed for member in members(old_record))
+        finally:
+            release.set()
+            assert await activating == {'active':True}
+            await selecting
+        assert runtime._quiesce_task is not old and runtime._sql_handoff is not old_record
+        assert runtime.request_barrier.paused and not runtime.request_writers._accepting
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('changed', ['barrier', 'idle'])
+def test_first_stop_owner_binding_survives_pre_sql_failure_and_cannot_adopt_retry(cohort, monkeypatch, changed):
+    runtime = cohort.runtime
+    async def run():
+        requests, idle = runtime.request_barrier, runtime.request_barrier._idle
+        entered, release, selected, continue_pause = (asyncio.Event() for _ in range(4))
+        async def handler(scope, receive, send):
+            assert await asyncio.to_thread(runtime.transcript.count) >= 0
+            entered.set()
+            await release.wait()
+            await send({'type':'http.response.start','status':200,'headers':[]})
+            await send({'type':'http.response.body','body':b'owned'})
+        async def receive(): return {'type':'http.request'}
+        async def send(message): pass
+        from backend.runtime_workers import WriterBarrierMiddleware
+        from backend.runtime_writers import RuntimeWriterMiddleware
+        middleware = WriterBarrierMiddleware(RuntimeWriterMiddleware(handler, lambda: runtime), lambda: runtime.request_barrier)
+        original = runtime._pause_outer_requests
+        async def pause():
+            selected.set()
+            if changed == 'idle':
+                await continue_pause.wait()
+            await original()
+        monkeypatch.setattr(runtime, '_pause_outer_requests', pause)
+        streaming = asyncio.create_task(middleware({'type':'http','path':'/api/lines/1/reading'}, receive, send))
+        await entered.wait()
+        stopping = asyncio.create_task(runtime.quiesce())
+        await selected.wait()
+        failed_task, stop = runtime._quiesce_task, runtime._request_stop
+        assert stop.requests is requests and stop.idle is idle and runtime._sql_handoff is None
+        replacement = RequestBarrier() if changed == 'barrier' else asyncio.Event()
+        if changed == 'barrier':
+            assert requests.paused and requests._active == 1
+            runtime.request_barrier = replacement
+        else:
+            # The first selection already owns the original idle Event even
+            # before pause executes. Completion below uses the real leave().
+            requests._idle = replacement
+        release.set()
+        await streaming
+        continue_pause.set()
+        with pytest.raises(TimeoutError, match='retained paused, idle owner') as failure:
+            await stopping
+        assert requests._active == 0 and failed_task.done() and failed_task.exception() is failure.value
+        assert runtime._request_stop is stop and stop.error is failure.value and stop.failed_task is failed_task
+        drains = tuple(runtime._handoff_drains)
+        for _ in range(2):
+            with pytest.raises(TimeoutError, match='retained paused, idle owner'):
+                await runtime.quiesce()
+            assert runtime._quiesce_task is failed_task and runtime._request_stop is stop
+            assert stop.error is failure.value and stop.failed_task is failed_task
+            assert runtime._sql_handoff is None and tuple(runtime._handoff_drains) == drains
+        if changed == 'barrier':
+            # Only the same actual owner can recover. Its real request ended,
+            # so the original Event became idle without any forced completion.
+            runtime.request_barrier = requests
+            assert idle.is_set()
+            payload = await runtime.quiesce()
+            assert runtime._request_stop is stop and runtime._sql_handoff.request_stop is stop
+            assert stop.error is failure.value and stop.failed_task is failed_task
+            assert await runtime.activate_handoff(payload, writers=True) == {'active':True}
+            assert runtime._request_stop is None and runtime._sql_handoff is None
+            assert not requests.paused and runtime.request_writers._accepting
     asyncio.run(run())

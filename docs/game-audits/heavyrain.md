@@ -14,7 +14,7 @@ non-dialogue data; they are not independent subtitle totals.
 | Ordinary, branching and optional conversations | Typed scene dependency references, compact localization and locale-specific type-4091 performances | Exact authored identity, language, timing and original audio retained. Choices do not select a guessed spoken response. Branch reachability is not reconstructed. |
 | Internal thoughts | Shipped presentation-name tables identify `THOUGHTS` localization resources | 1,063 original thought performances in each audited language, inventoried separately from conversation. Names are used only for categories, never for audio binding. |
 | Thought and conversation prompts | Nonempty compact rows with text flag 2 and explicit null voice references | 1,474 English and 1,476 Dutch prompts are certified unvoiced. The opt-in capture path reads exact text without uploading or playing invented audio. Repeated short prompts may remain ambiguous. |
-| Simultaneous speakers and moving/paginated captions | Authored paragraphs, page separators and separate original performances | Existing context/paragraph matching is preserved. A page identifies its whole authored performance, not an inferred audio cut. Complete native layout coverage is not established by this audit. |
+| Simultaneous speakers and moving/paginated captions | Authored paragraphs, page separators and separate original performances | Each authored `{B}` page has its own capture row. Paragraph audio is explicit; anonymous page positions do not establish translated page alignment. Complete native layout coverage is not established by this audit. |
 | In-engine cinematics, television/radio and phone dialogue | Scene-localized dialogue and original performance references | Included when represented by the supported typed scene/localization format. Their individual scene roles are not all separately classified. |
 | Prerendered cinematics | 31 installed Bink files, including chapter transitions, endings, credits, trailers and making-of videos | Inventoried separately. No verified locale-track/cue join was established; whole movies are never substituted for a line's original voice. |
 | Letters, newspapers, notebooks and environmental text | Authored letter/readable voiceovers and corresponding thought resources are present | Voiced reading remains part of the normal bound performances. Independent prop/image text has no verified schema and is not automatically treated as silent dialogue. |
@@ -28,7 +28,7 @@ presentation has an extractable text/audio mapping.
 
 ## Update and voice safety
 
-Reader revision 2 retains explicit `voice_status` and `dialogue_kind` metadata.
+Reader revision 3 retains explicit `voice_status` and `dialogue_kind` metadata.
 Compact flag-2 rows with null references are distinguishable from undeclared or
 unresolved voice pointers. A generic null reference, a missing pack, or a failed
 audio read never certifies silence. Missing authored performances remain visible
@@ -42,6 +42,22 @@ verified subtitle/audio bindings remain usable. It cannot redirect a voice.
 The name reader bounds file size, row count, name length, schema version and
 trailing data. Existing bounded raw-deflate, pointer, timing, duplicate-bank and
 locale checks remain in place.
+
+### Subtitle boundary correction, 2026-10-31
+
+The reader previously emitted the complete paragraph after matching any authored
+`{B}` page. Revision 3 emits each page separately, including repeated pages, for
+both available and missing recordings. The original performance remains bound
+and is labeled `audio_scope: paragraph`; page timing is not inferred from page
+count, text length or the performance's timing-array length.
+
+These separators carry no shared cue identities. Multi-page translations are
+therefore omitted until cross-language alignment is established, including when
+the two locales happen to have equal page counts. One-page translations retain
+their existing resource/key binding. This is a translation-coverage limitation,
+not certification that those pages are untranslated in the game. Synthetic
+regressions cover the new behavior; the native counts below predate revision 3
+and are not counts or gameplay acceptance of the new page rows.
 
 ## Verification
 

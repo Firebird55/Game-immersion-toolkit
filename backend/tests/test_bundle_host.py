@@ -206,7 +206,9 @@ class BundleHostTests(unittest.TestCase):
     def test_guard_process_exit_releases_os_lease_but_does_not_claim_worker_crash_containment(self):
         path = self.legacy.path / 'data/companion-operation.lock'
         ready = Path(self.temporary.name) / 'guard-ready'
-        child = subprocess.Popen([sys.executable, '-c',
+        # A Windows venv executable is a redirector, not the lease owner.
+        # This stdlib-only fixture must retain the real interpreter handle.
+        child = subprocess.Popen([getattr(sys, '_base_executable', sys.executable), '-c',
                                   'import sys; from pathlib import Path; from backend.bundle_host import ExclusiveFileLease; '
                                   'lease=ExclusiveFileLease(Path(sys.argv[1])); lease.acquire(); '
                                   'Path(sys.argv[2]).write_text("held"); sys.stdin.read()', str(path), str(ready)],

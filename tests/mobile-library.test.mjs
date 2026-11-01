@@ -7,6 +7,11 @@ import {cacheBudget} from '../public/mobile-capture/storage.mjs';
 const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
 
+test('library import preserves paragraph audio scope and rejects unrecognized scope',()=>{
+ assert.equal(validateRow({...row,audioScope:'paragraph'}).audioScope,'paragraph');
+ assert.throws(()=>validateRow({...row,audioScope:'guessed-cut'}),/scope/);
+});
+
 test('new RPG libraries preserve locale text, crops and ambiguous-interjection rejection',()=>{
  for(const game of ['starrail','genshin','endfield']){
   const original={...row,textId:game+':test',sourceText:'合成されたテスト文です。',sourceLanguage:'ja',sourceLocale:'ja',translationText:'A deliberately synthetic subtitle.',translationLocale:'en',audioLocale:'ja'};

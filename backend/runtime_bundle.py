@@ -20,8 +20,11 @@ from typing import Mapping, Sequence
 SCHEMA = 'proxy-runtime-host-v1'
 MANIFEST_SCHEMA = 'proxy-runtime-bundle-v1'
 CHILD_TARGETS = {
+    'owned-process': ('module', 'backend.owned_process'),
+    'gateway': ('module', 'backend.desktop_gateway'),
     'frontend': ('module', 'backend.desktop_frontend'),
     'api': ('module', 'backend.main'),
+    'window-capture': ('module', 'backend.window_capture_worker'),
     'language': ('module', 'backend.language_worker'),
     'game-index': ('module', 'backend.game_index_worker'),
     'mobile-export': ('module', 'backend.mobile_export_worker'),
@@ -32,13 +35,15 @@ CHILD_TARGETS = {
     'story-fingerprints': ('module', 'scripts.build_story_fingerprints'),
     'capture-readiness': ('script', 'scripts/check-capture-readiness.py'),
     'account-key': ('module', 'scripts.set_lexirise_key'),
+    'native-setup': ('module', 'backend.native_setup'),
     'index-pragmata': ('module', 'scripts.index_pragmata_assets'),
     'index-voice': ('module', 'scripts.index_voice_assets'),
     'update-voice': ('module', 'scripts.update_voice_assets'),
 }
-# The extracted experiment has no live updater or credential-writing prompt.
+# The extracted experiment has no live updater. Account entry is a fixed local
+# product dialog; verification is GET-only and writes stay in protected storage.
 # ASR is accepted only by its own image, with its own native dependency tree.
-EXPERIMENT_CHILDREN = tuple(kind for kind in CHILD_TARGETS if kind not in {'toolkit-update', 'account-key'})
+EXPERIMENT_CHILDREN = tuple(kind for kind in CHILD_TARGETS if kind != 'toolkit-update')
 SOURCE_RESOURCES = frozenset({
     'package.json', 'public/mobile-capture/games-data.json',
     'assets/fireredvad/fireredvad_vad.onnx', 'assets/fireredvad/cmvn.ark',
@@ -102,10 +107,14 @@ class RuntimeLayout:
     resources: Mapping[str, str] = field(default_factory=dict, repr=False)
     children: tuple[str, ...] = ()
     profile: str = 'source'
+    storage_epoch: int = 1
+    host_protocol: int = 1
 
     def __post_init__(self):
         if self.schema != SCHEMA or self.mode not in {'source', 'bundle'}:
             raise RuntimeBundleError('Unsupported runtime layout schema or mode.')
+        if any(type(value) is not int or value < 1 for value in (self.storage_epoch, self.host_protocol)):
+            raise RuntimeBundleError('Invalid runtime storage epoch or host protocol.')
         for name in ('application_root', 'resource_root', 'executable', *_ROOT_FIELDS):
             if self.mode == 'bundle':
                 original = Path(getattr(self, name))
@@ -172,7 +181,7 @@ class RuntimeLayout:
             return [str(self.executable), '-m', target, *arguments]
         if kind not in self.children:
             raise RuntimeBundleError('This diagnostic bundle does not include child: ' + kind)
-        image = self.application_root / 'asr' / 'ProxyTranscriptAsr.exe' if kind == 'asr' else self.executable
+        image = self.application_root / 'asr' / ('GameImmersionToolkitAsr.exe' if sys.platform == 'win32' else 'GameImmersionToolkitAsr') if kind == 'asr' else self.executable
         if not image.is_file():
             raise RuntimeBundleError('Frozen child executable is missing: ' + kind)
         return [str(image), '--runtime-child', kind, '--', *arguments]
@@ -245,7 +254,12 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
         roots = {name: Path(env['PROXY_TRANSCRIPT_' + name.upper()]) for name in _ROOT_FIELDS}
     else:
         manifest = {}
-        settings = Path(env.get('LOCALAPPDATA', str(Path.home()))) / 'Proxy Transcript'
+        if 'LOCALAPPDATA' in env:
+            settings = Path(env['LOCALAPPDATA']) / 'Proxy Transcript'
+        elif sys.platform == 'darwin':
+            settings = Path.home() / 'Library/Application Support/Game Immersion Toolkit'
+        else:
+            settings = Path(env.get('XDG_DATA_HOME', Path.home() / '.local/share')) / 'game-immersion-toolkit'
         defaults = dict(data_root=legacy / 'data', settings_root=settings,
             cache_root=settings / 'cache-v1', tool_root=legacy / 'data',
             work_root=legacy / 'work/voice-assets', state_root=legacy / 'data',
@@ -264,7 +278,8 @@ def discover_layout(environ: Mapping[str, str] | None = None) -> RuntimeLayout:
         resource_root=resources, legacy_root=legacy, **roots,
         version=manifest.get('version', package.get('version', '')),
         source_commit=manifest.get('source_commit', ''), build_id=manifest.get('build_id', ''),
-        resources=files, children=tuple(children), profile=manifest.get('profile', 'source'))
+        resources=files, children=tuple(children), profile=manifest.get('profile', 'source'),
+        storage_epoch=manifest.get('storage_epoch', 1), host_protocol=manifest.get('host_protocol', 1))
 
 
 def child_command(kind: str, arguments: Sequence[str] = (), *, layout: RuntimeLayout | None = None) -> list[str]:

@@ -33,7 +33,7 @@ function Start-DataCopyOwner {
     # This fixed owner retains C1's isolated environment and host entrypoint.
     # Its local I/O policy must not inherit unbounded C1 capture tasks.
     $info=[Diagnostics.ProcessStartInfo]::new()
-    $info.FileName=Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe'
+    $info.FileName=Join-Path $RuntimeRoot 'GameImmersionToolkit.exe'
     $info.Arguments='--runtime-probe host'
     $info.UseShellExecute=$false
     $info.RedirectStandardOutput=$info.RedirectStandardError=$info.RedirectStandardInput=$true

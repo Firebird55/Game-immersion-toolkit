@@ -1,13 +1,46 @@
 import json
 
+import pytest
+
 from backend.bilingual import normalize_chinese, subtitle_candidates
 from backend.pragmata import PragmataTextIndex
 from backend.tests.test_textmaps import make_index
 
 
+@pytest.mark.parametrize('observed', ['Please wait here.', '请在这里等候。'])
+def test_shared_voice_cannot_choose_between_differently_translated_pages(tmp_path, observed):
+    from backend.local_game import LocalGameTextIndex
+    rows = [{'text_id': 'honkai3:1', 'english': 'Please wait here.', 'chinese': '请在这里等候。',
+             'audio': {'voice': 'original-paragraph'}, 'audio_scope': 'paragraph'},
+            {'text_id': 'honkai3:2', 'english': 'Please wait here.', 'chinese': '先在这里等一下。',
+             'audio': {'voice': 'original-paragraph'}, 'audio_scope': 'paragraph'}]
+    if observed == '请在这里等候。':
+        rows[1].update(english='Wait here for the courier.', chinese=observed)
+    (tmp_path/'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    assert index.ready and index.match_lines([observed]) is None
+    rows[1].update(english='An independent later page.', chinese='独立的下一页。')
+    (tmp_path/'textmap.json').write_text(json.dumps({'records': rows}), encoding='utf-8')
+    index = LocalGameTextIndex('honkai3', tmp_path)
+    assert index.match_lines([observed]).text_id == 'honkai3:1'
+    assert index.match_lines(['An independent later page.']).audio_scope == 'paragraph'
+
+
 def test_chinese_normalization_keeps_dialogue_and_latin_names():
     assert normalize_chinese("你 好，ＩＤＵＳ！") == "你好idus"
     assert normalize_chinese("你好") != normalize_chinese("再见")
+
+
+def test_mixed_chinese_scripts_keep_particles_and_real_yao_distinct():
+    from backend.bilingual import simplify_chinese
+    from backend.languages import normalize_text
+    simplified, traditional = "你为什么这么问？", "你為什麼這麼問？"
+    assert normalize_chinese(simplified) == normalize_chinese(traditional) == "你为什么这么问"
+    assert normalize_text(simplified, 'zh-Hans') == normalize_text(traditional, 'zh-Hant')
+    for text in (simplified, traditional, "幺妹拿着幺鸡。", "裡面的燈籠。"):
+        assert simplify_chinese(simplify_chinese(text)) == simplify_chinese(text)
+    assert normalize_chinese("一幺三") == "一幺三"
+    assert normalize_chinese("么") != normalize_chinese("幺")
 
 
 def test_traditional_chinese_matches_without_changing_official_text(tmp_path):

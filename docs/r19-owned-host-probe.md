@@ -21,7 +21,7 @@ installed-game coverage or production host acceptance.
 
 ## Restricted entry and actual readiness ownership
 
-`ProxyTranscriptRuntime.exe --runtime-probe host` is accepted only by the
+`GameImmersionToolkit.exe --runtime-probe host` is accepted only by the
 existing Windows main-image `runtime-experiment` profile and its existing
 build-bound private synthetic roots. It is not a new `CHILD_TARGETS` production
 entrypoint, manifest schema, installer or activation permission. The source
@@ -194,9 +194,10 @@ source behavior evidence, not Win32 or normal frozen startup acceptance.
 
 ### Closed candidate admission: source implementation, native proof pending
 
-Ordinary source startup and `--standby` retain their existing open request and
-capture-control behavior. Only the fixed experimental owner adds
-`--candidate-closed`. That option requires explicit standby, an explicit private
+The integrated desktop host uses the current production startup and updater
+from `main`. Ordinary `--standby` starts both request-admission layers closed and
+supports ordinary activation. This resumable standby is distinct from the fixed
+experimental owner's `--candidate-closed`. That option requires explicit standby, an explicit private
 port, Windows and the validated frozen experimental main image. It constructs
 one permanently closed `RuntimeWriterGate` before importing the API services,
 then passes that exact object through a process-local app/lifespan binding into
@@ -206,8 +207,11 @@ fallback, new environment permission, endpoint, ticket or owner-authorized opene
 
 The existing writer middleware permits only health and readiness HTTP paths.
 For this candidate configuration alone, that same middleware moves inside local
-access validation and outside CORS, so even a trusted preflight for another path
-returns retryable 503 before dispatch. Ordinary middleware order remains unchanged.
+access validation and outside the outer writer barrier and CORS, so even a
+trusted preflight for another path returns retryable 503 before dispatch.
+The ordinary order is local access, outer writer barrier, CORS, then runtime
+writer admission. The candidate order is local access, its pinned runtime writer
+admission, outer writer barrier, then CORS.
 Configuration also binds the original writer registration and its exact original
 runtime callback, with no positional arguments or extra keyword inputs; replacing
 the same-class record or changing its callback refuses before any configuration
@@ -232,5 +236,9 @@ no supported transition that opens it. Coherent final-copy/store rebind, retaine
 OCR warmth, stable routing, WS/chunk continuity, keeper-loss/global-writer closure,
 physical resource cleanup, recovery, source/rights eligibility and Win11 remain
 open. A private port, 503 or readiness response confers no takeover authority. No
-installer, migration, activation, capture start, ordinary updater change or PR59
-change is part of this building block.
+installer, migration, activation or capture start is part of this building block.
+The inherited production updater still uses HTTP activation and warms a different
+candidate instance after the final copy. Parent-held activation authority and a
+retained warm instance rebound to the final stores remain unverified R19 work.
+PR #59 was merged externally with its protected head unchanged; this task did
+not change or merge it.

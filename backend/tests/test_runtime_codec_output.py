@@ -27,7 +27,7 @@ def codec_output(tmp_path, monkeypatch):
     value = {'profile': 'runtime-experiment', 'source_commit': layout.source_commit,
         'build_id': 'authored-codec-scope', 'resources': resources, 'components': []}
     output = tmp_path / 'candidate'
-    target = output / 'ProxyTranscriptRuntime/_internal/codecs/xiph-flac'
+    target = output / 'GameImmersionToolkit/_internal/codecs/xiph-flac'
     shutil.copytree(home, target)
     return module, value, source, layout.resource_root, output, target
 
@@ -40,8 +40,8 @@ def test_exact_native_codec_output_is_accepted_after_existing_pe_notice_source_v
     with pytest.raises(PreparationFailure): validate_codec_output(value, source, evidence, output)
 
 
-@pytest.mark.parametrize('name', ['ProxyTranscriptRuntime/_internal/FLAC.dll',
-    'ProxyTranscriptRuntime/flac.exe', 'ProxyTranscriptAsr/_internal/FLAC.dll',
+@pytest.mark.parametrize('name', ['GameImmersionToolkit/_internal/FLAC.dll',
+    'GameImmersionToolkit/flac.exe', 'GameImmersionToolkitAsr/_internal/FLAC.dll',
     'unrelated/FlAc.DlL'])
 def test_extra_codec_basename_is_rejected_even_when_byte_identical_and_is_preserved(tmp_path, monkeypatch, name):
     _module, value, source, evidence, output, target = codec_output(tmp_path, monkeypatch)
@@ -53,7 +53,7 @@ def test_extra_codec_basename_is_rejected_even_when_byte_identical_and_is_preser
     assert extra.read_bytes() == data, 'A failing output gate must not silently delete the unwanted file'
     assert not (output / 'CANDIDATE-PROVENANCE.json').exists()
     assert not (output / 'RUNTIME-INVENTORY.json').exists()
-    assert not (output / 'ProxyTranscriptRuntime/_internal/runtime-manifest.json').exists()
+    assert not (output / 'GameImmersionToolkit/_internal/runtime-manifest.json').exists()
 
 
 @pytest.mark.parametrize('change', ['missing', 'modified', 'case-changed'])
@@ -67,8 +67,11 @@ def test_expected_codec_output_requires_exact_path_and_native_bytes(tmp_path, mo
     with pytest.raises(ClosureError): validate_codec_output(value, source, evidence, output)
 
 
-def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch):
+@pytest.mark.parametrize('modern', [False, True])
+def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch, modern):
     _module, value, _source, evidence, _output, _target = codec_output(tmp_path, monkeypatch)
+    if modern:
+        value['schema'] = 'proxy-desktop-observed-build-v1'
     repository = Path(__file__).resolve().parents[2]
     inputs = tmp_path / 'inputs.json'; inputs.write_text(json.dumps(value))
     monkeypatch.setenv('PROXY_RUNTIME_BUILD_INPUTS', str(inputs))
@@ -100,3 +103,6 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         member = 'codecs/xiph-flac/' + name
         assert actual[member] == (str(evidence / member), 'DATA')
     assert 'codecs/xiph-flac/notices/COPYING.GPL' in actual
+    if modern:
+        assert not any(rows for rows in analyses), 'Immutable resource distributions must not enter Analysis.'
+        assert set(actual) == {item['path'] for item in value['resources']}

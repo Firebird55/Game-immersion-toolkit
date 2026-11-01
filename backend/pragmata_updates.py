@@ -9,7 +9,7 @@ from typing import Callable
 
 from .pragmata import PragmataTextIndex
 from .pragmata_audio import INDEX_FORMAT, PragmataVoiceAssetService
-from .update_workers import INDEX_BUILD_LOCK, subprocess_options, stop_process
+from .update_workers import start_process, INDEX_BUILD_LOCK, subprocess_options, stop_process
 from .runtime_bundle import child_command, discover_layout
 
 
@@ -69,6 +69,8 @@ class PragmataUpdateManager:
         stop_process(self._process)
         if self._thread:
             self._thread.join(timeout=2)
+            if self._thread.is_alive():
+                raise RuntimeError('Game update worker did not stop; runtime handoff is blocked.')
 
     def request_check(self) -> bool:
         with self._lock:
@@ -122,7 +124,7 @@ class PragmataUpdateManager:
             with INDEX_BUILD_LOCK:
                 if self._stop.is_set():
                     return
-                process = subprocess.Popen(command, cwd=discover_layout().resource_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                process = start_process(command, cwd=discover_layout().resource_root, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                            text=True, **subprocess_options())
                 self._process = process
                 try:

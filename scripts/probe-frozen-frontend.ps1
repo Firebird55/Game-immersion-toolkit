@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 if (Get-Command node, npm, python, dotnet -ErrorAction SilentlyContinue) { throw 'Developer tools are still discoverable.' }
 $client = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 3000)
 try { $client.Start() } finally { $client.Stop() }
-$exe = Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe'
+$exe = Join-Path $RuntimeRoot 'GameImmersionToolkit.exe'
 $manifest = Get-Content -LiteralPath (Join-Path $RuntimeRoot '_internal/desktop/desktop-manifest.json') -Raw | ConvertFrom-Json
 $temporary = Join-Path $env:RUNNER_TEMP ('r19-frontend-probe-' + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $temporary | Out-Null

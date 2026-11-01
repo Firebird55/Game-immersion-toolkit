@@ -159,6 +159,13 @@ class TranscriptStore:
 
     @staticmethod
     def _row_to_line(row: sqlite3.Row) -> TranscriptLine:
+        context = json.loads(row['language_context'])
+        # Historic BEYOND fallback rows contained the entire recording. Do not
+        # mislabel their cached audio as one page after upgrading the reader.
+        if row['game'] == 'beyond' and row['text_id'].endswith(':complete') and row['voiced']:
+            context.setdefault('audio_scope', 'paragraph')
+        if row['voiced'] and (context.get('dialogue_kind') or '').endswith('_full_track'):
+            context['audio_scope'] = 'paragraph'
         return TranscriptLine(
             id=row["id"],
             created_at=datetime.fromisoformat(row["created_at"]),
@@ -178,7 +185,7 @@ class TranscriptStore:
             speaker_english=row["speaker_english"],
             speaker_chinese=row["speaker_chinese"],
             favorite=bool(row["favorite"]),
-            **json.loads(row['language_context']),
+            **context,
         )
 
     def add(
@@ -218,7 +225,7 @@ class TranscriptStore:
                         0,
                         json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                             'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                            'voice_status', 'dialogue_kind')}, ensure_ascii=False),
+                            'voice_status', 'dialogue_kind', 'audio_scope')}, ensure_ascii=False),
                     ),
                 )
                 row_id = statement.lastrowid
@@ -289,7 +296,7 @@ class TranscriptStore:
         while a subtitle is still visible.
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
-        if match.source_locale != 'zh-Hans':
+        if match.source_locale != 'zh-Hans' or match.audio_scope == 'paragraph':
             with self._connection_scope() as connection:
                 with self._sql_lifetime.cursor(connection) as statement:
                     duplicate = statement.execute("""SELECT 1 FROM transcript_lines
@@ -315,7 +322,8 @@ class TranscriptStore:
                 ).fetchone()
             if (
                 adjacent
-                and not (is_comic or self._row_to_line(adjacent).is_comic)
+                and not (is_comic or self._row_to_line(adjacent).is_comic
+                         or self._row_to_line(adjacent).audio_scope == 'paragraph')
                 and self._prefix_text(adjacent["english"]) == self._prefix_text(match.english)
             ):
                 return None, False
@@ -348,7 +356,7 @@ class TranscriptStore:
             for recent in recent_rows:
                 # Each official comic ID is already a complete utterance.
                 # Similar wording in another bubble is not an OCR fragment.
-                if is_comic or self._row_to_line(recent).is_comic:
+                if is_comic or self._row_to_line(recent).is_comic or self._row_to_line(recent).audio_scope == 'paragraph':
                     continue
                 recent_text = self._prefix_text(recent["english"])
                 if (
@@ -368,7 +376,8 @@ class TranscriptStore:
                 """,
                     (session_id, match.game, upgrade_cutoff.isoformat()),
                 ).fetchone()
-            if previous and not (is_comic or self._row_to_line(previous).is_comic):
+            if previous and not (is_comic or self._row_to_line(previous).is_comic
+                                 or self._row_to_line(previous).audio_scope == 'paragraph'):
                 previous_text = self._prefix_text(previous["english"])
                 complete_text = self._prefix_text(match.english)
                 is_completion = (
@@ -400,7 +409,7 @@ class TranscriptStore:
                                 match.speaker_chinese,
                                 json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                                     'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                                    'voice_status', 'dialogue_kind')}, ensure_ascii=False),
+                                    'voice_status', 'dialogue_kind', 'audio_scope')}, ensure_ascii=False),
                                 previous["id"],
                             ),
                         )

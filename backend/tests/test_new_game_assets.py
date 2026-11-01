@@ -55,6 +55,7 @@ def test_honkai_maps_catalog_hash_to_exact_chinese_event_and_original_source(tmp
     result = honkai.index_install(install, cache)
     assert len(result["records"]) == 1 and "4.7" in result["message"]
     record = result["records"][0]
+    assert record["audio_scope"] == "line"
     assert record["audio"]["event"] == nte.wwise_hash("VO_Synthetic_1")
     assert honkai.extract_voice(install, record["audio"], Path(), Path()) == wem
     cache.mkdir()
@@ -74,7 +75,7 @@ def test_honkai_never_falls_back_to_other_languages_missing_sources_or_dynamic_v
 
 
 @pytest.mark.parametrize("changes", [{"multi": True}, {"conflicting": True}])
-def test_honkai_rejects_ambiguous_dialogue_hashes_and_multi_page_voices(changes):
+def test_honkai_rejects_ambiguous_or_repeated_dialogue_hashes(changes):
     assert honkai.catalog_links(catalog(**changes)) == []
 
 
@@ -196,24 +197,68 @@ def test_missing_sdk_is_reported_without_downloading_any_nte_tool(tmp_path, monk
         nte.ensure_extractor(tmp_path)
 
 
-def test_honkai_authored_pages_identify_whole_bilingual_utterance_and_one_original_voice(tmp_path):
+def test_honkai_authored_pages_keep_exact_translation_and_one_full_original_voice(tmp_path, monkeypatch):
     data = catalog()
     data['TextMap_en.json'].append({'Hash': 2, 'Text': 'A second synthetic page.'})
     data['TextMap_cn.json'].append({'Hash': 2, 'Text': '第二段测试文本。'})
     data['DialogData.json'][0]['content'].append({'chatContent': {'hash': 2}})
+    # Localized table order is unrelated to authored page order.
+    data['TextMap_cn.json'].reverse()
+    install, cache = tmp_path / 'game', tmp_path / 'cache'
+    wem = package(install / 'BH3_Data/StreamingAssets/Audio/AUDIO_Default.pck')
+    monkeypatch.setattr(honkai, '_load_catalog', lambda _: data)
+    result = honkai.index_install(install, cache)
+    records = result['records']
+    assert len(records) == 2
+    assert [row['text_id'] for row in records] == ['honkai3:DialogData:9:1', 'honkai3:DialogData:9:2']
+    assert records[0]['audio'] == records[1]['audio']
+    cache.mkdir()
+    (cache / 'textmap.json').write_text(json.dumps(result), encoding='utf8')
+    index = LocalGameTextIndex('honkai3', cache)
+    for row, english, chinese in zip(records,
+            ['A synthetic greeting.', 'A second synthetic page.'], ['测试问候。', '第二段测试文本。']):
+        assert row['audio_scope'] == 'paragraph'
+        assert 'ocr_english' not in row and 'ocr_chinese' not in row
+        assert honkai.extract_voice(install, row['audio'], Path(), Path()) == wem
+        for page in [english, chinese]:
+            match = index.match_lines([page], exact_only=True)
+            assert match.text_id == row['text_id']
+            assert match.english == english and match.chinese == chinese
+            assert match.audio_scope == 'paragraph'
+    assert index.match_lines(['An invented second page.'], exact_only=True) is None
+
+
+def test_honkai_missing_page_translation_does_not_invent_pairing_or_hide_known_page():
+    data = catalog()
+    data['TextMap_en.json'].append({'Hash': 2, 'Text': 'A second synthetic page.'})
+    data['TextMap_cn.json'].append({'Hash': 3, 'Text': '不能按顺序配对。'})
+    data['DialogData.json'][0]['content'].append({'chatContent': {'hash': 2}})
     records = honkai.catalog_links(data)
     assert len(records) == 1
-    row = records[0]
-    assert row.pop('event') == 'VO_Synthetic_1'
-    row['audio'] = {'file': 'one-complete-authored-performance'}
-    (tmp_path / 'textmap.json').write_text(json.dumps({'records': records}), encoding='utf8')
-    index = LocalGameTextIndex('honkai3', tmp_path)
-    for page in row['ocr_english'] + row['ocr_chinese']:
-        match = index.match_lines([page], exact_only=True)
-        assert match.text_id == row['text_id']
-        assert match.english == 'A synthetic greeting. A second synthetic page.'
-        assert match.chinese == '测试问候。 第二段测试文本。'
-    assert index.match_lines(['An invented second page.'], exact_only=True) is None
+    assert records[0]['english'] == 'A synthetic greeting.'
+    assert records[0]['chinese'] == '测试问候。'
+    assert records[0]['audio_scope'] == 'paragraph'
+    assert records[0]['event'] == 'VO_Synthetic_1'
+
+
+@pytest.mark.parametrize('table,row', [
+    ('StageDialogData.json', {'DialogID': 10, 'AudioID': 'VO_Synthetic_1',
+                             'Content': {'hash': 1}, 'Name': {'hash': 2}}),
+    ('InLevelDialog.json', {'dialogID': 10, 'audioID': 'VO_Synthetic_1',
+                           'content': {'hash': 1}, 'avatarName': {'hash': 2}}),
+])
+def test_honkai_single_page_schemas_retain_speaker_and_line_scope(table, row):
+    data = catalog()
+    data['DialogData.json'] = []
+    data[table] = [row]
+    data['TextMap_en.json'].append({'Hash': 2, 'Text': 'Synthetic speaker'})
+    data['TextMap_cn.json'].append({'Hash': 2, 'Text': '测试说话者'})
+    record, = honkai.catalog_links(data)
+    assert record['text_id'] == f'honkai3:{table[:-5]}:10:1'
+    assert record['english'] == 'A synthetic greeting.' and record['chinese'] == '测试问候。'
+    assert record['speaker_english'] == 'Synthetic speaker'
+    assert record['speaker_chinese'] == '测试说话者'
+    assert record['audio_scope'] == 'line'
 
 
 def test_authored_page_shared_by_different_performances_is_ambiguous(tmp_path):

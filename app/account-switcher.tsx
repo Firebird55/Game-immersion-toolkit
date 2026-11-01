@@ -1,7 +1,9 @@
 'use client';
+import {desktopApiBase} from '../lib/desktop-endpoints';
+
 import {useInterfaceTranslation} from '../lib/interface-language';
 import {useEffect,useState} from 'react';
-const API='http://127.0.0.1:8766';
+const API=desktopApiBase();
 type Accounts={active:string;profiles:{id:string;name:string}[]};
 export function AccountSwitcher({onChanged}:{onChanged:()=>void}){
  const uiText=useInterfaceTranslation();

@@ -149,7 +149,7 @@ jobs:
       - name: Probe relocated candidate with developer PATH removed
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/ProxyTranscriptRuntime'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/GameImmersionToolkit'
           $relocated = Join-Path $env:RUNNER_TEMP 'R19 space 漢字/Runtime'
           New-Item -ItemType Directory -Path (Split-Path $relocated) -Force | Out-Null
           Copy-Item -LiteralPath $source -Destination $relocated -Recurse
@@ -169,7 +169,7 @@ jobs:
           $before = @(Get-R19RuntimeInventory $relocated) -join ','
           Push-Location $env:RUNNER_TEMP
           try {
-            $result = & (Join-Path $relocated 'ProxyTranscriptRuntime.exe') --runtime-diagnose | ConvertFrom-Json
+            $result = & (Join-Path $relocated 'GameImmersionToolkit.exe') --runtime-diagnose | ConvertFrom-Json
             $expectedChildren = if ('${{ matrix.profile }}' -eq 'frontend-experiment') { 'frontend' } else { '' }
             if ($LASTEXITCODE -ne 0 -or $result.mode -ne 'bundle' -or $result.profile -ne '${{ matrix.profile }}' -or $result.r19_complete -ne $false -or (@($result.children) -join ',') -ne $expectedChildren) { throw 'Diagnostic identity/dispatch mismatch.' }
             if ('${{ matrix.profile }}' -eq 'frontend-experiment') {
@@ -178,7 +178,7 @@ jobs:
           } finally { Pop-Location }
           $after = @(Get-R19RuntimeInventory $relocated) -join ','
           if ($before -ne $after -or (Test-Path -LiteralPath $state)) { throw 'Root resolution wrote to the immutable candidate or synthetic state.' }
-          $executableHash = (Get-FileHash -LiteralPath (Join-Path $relocated 'ProxyTranscriptRuntime.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $executableHash = (Get-FileHash -LiteralPath (Join-Path $relocated 'GameImmersionToolkit.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
           $provenanceHash = (Get-FileHash -LiteralPath output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json -Algorithm SHA256).Hash.ToLowerInvariant()
           $report = @{schema='proxy-r19-hosted-diagnostic-v1'; source_commit=$env:GITHUB_SHA; profile='${{ matrix.profile }}'; executable_sha256=$executableHash; candidate_provenance_sha256=$provenanceHash; relocated_start='pass'; developer_path='removed'; application_writes_observed=$false; r19_complete=$false; native_windows_11_acceptance='unavailable'; redistribution_review='pending-exact-output'; full_toolchains='unavailable'; browser_equivalence='separate-report'; installer='not-built'}
           $report.hidden_system_inventory_fixture = 'passed'

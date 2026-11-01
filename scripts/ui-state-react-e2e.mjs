@@ -145,6 +145,12 @@ try {
    await current.getByText('PENDING ORIGINAL AUDIO',{exact:true}).waitFor();
    await releaseSnapshot();await current.getByRole('button',{name:'Preparing original voice',exact:true}).waitFor();
    assert.equal(await current.getByText('PENDING ORIGINAL AUDIO',{exact:true}).count(),1);
+   // A slower region still reports the previous caption. Neither that status
+   // nor its delayed audio extraction may rewind the current subtitle.
+   sendEvent('capture_status',{capture});
+   sendEvent('line',{line:{...line(),audio_pending:false,has_audio:true}});
+   await page.locator('.line-list').getByText(sourceText,{exact:true}).waitFor();
+   assert.equal(await current.getByText('PENDING ORIGINAL AUDIO',{exact:true}).count(),1,'Older visibility/audio cannot rewind a confirmed subtitle');
    sendEvent('line_deleted',{line_id:3});sendEvent('capture_status',{capture});
    sendEvent('line',{line:line()});await until(()=>send.isEnabled());
    // Ordinary polling (without account/connection resets) is authoritative for

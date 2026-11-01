@@ -59,6 +59,7 @@ test('intentional CSR build is self-contained, pinned, inventoried and reused on
   assert.equal(manifest.browser_profile, 'existing-selected-profile');
   assert.equal(manifest.files['index.html'].mime, 'text/html; charset=utf-8');
   const html = readFileSync(join(outputDirectory, 'index.html'), 'utf8');
+  assert.match(html, /<meta name="toolkit-api-transport" content="same-origin"\s*\/>/);
   assert.match(html, /<div id="root"><\/div>/);
   assert.match(html, /src="\/assets\/[^"/]+\.js"/);
   assert.doesNotMatch(html, /main\.tsx|wrangler|\/node_modules\//);

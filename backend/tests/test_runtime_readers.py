@@ -440,17 +440,21 @@ def test_runtime_exact_account_language_target_and_settings_key_semantics(state)
 def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(state, monkeypatch):
     from backend.api import Runtime
     from backend.runtime_handoff import CaptureHandoff
+    from backend.runtime_workers import RequestBarrier
     from backend.runtime_writers import RuntimeWriterGate
     async def run():
         runtime = Runtime.__new__(Runtime)
+        runtime._request_stop = None
         runtime.lexirise, runtime._reading_registry = state.service, state.registry
         runtime._handoff_drains, runtime._handoff_lock = [], asyncio.Lock()
         runtime._writer_handoff, runtime.standby = False, False
         runtime._sql_handoff = None
+        runtime._quiesce_task = None
         # This fixture isolates creation/drain ordering; real SQL composition
         # is exercised by test_runtime_sql_lifetime's actual full owner cohort.
         runtime._freeze_sql_handoff = lambda payload, _deadline: payload
         runtime.request_writers = RuntimeWriterGate()
+        runtime.request_barrier = RequestBarrier()
         entered, release = event(state), event(state)
         def transport(request):
             entered.set(); assert release.wait(5)
@@ -476,12 +480,12 @@ def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(s
                 deadlines.append((name, deadline))
                 return original(deadline)
             monkeypatch.setattr(state.registry, name, observe)
-        runtime.mobile_exports = SimpleNamespace(quiesce=lambda: None)
-        runtime.automatic_exports = SimpleNamespace(picker=SimpleNamespace(quiesce=lambda: None))
-        runtime.installation = SimpleNamespace(quiesce=lambda _timeout: None)
+        runtime.mobile_exports = SimpleNamespace(drain=lambda: None)
+        runtime.automatic_exports = SimpleNamespace(picker=SimpleNamespace(drain=lambda: None))
+        runtime.installation = SimpleNamespace(pause=lambda: None, quiesce=lambda _timeout: None)
         async def stop_updates(**_): pass
         runtime.stop_updates, runtime._verify_background_stopped = stop_updates, lambda: None
-        runtime.map_task, runtime.hito = None, None
+        runtime.map_task, runtime.hito = None, SimpleNamespace(close=lambda: None)
         runtime._voice_pools = lambda: []
         async def capture_stop(_timeout): captures.append(True)
         runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True),
@@ -490,7 +494,8 @@ def test_real_strict_c2_closes_creation_before_request_drain_with_one_deadline(s
         try:
             with pytest.raises(TimeoutError): await runtime.quiesce_writers(timeout=.04)
             assert caller.thread.is_alive() and not captures and not state.readers
-            assert len(runtime._handoff_drains) == 3
+            # The genuine outer request pause is retained on the same budget.
+            assert len(runtime._handoff_drains) == 4
             release.set()
             await asyncio.to_thread(caller.thread.join, 1)
             assert not caller.thread.is_alive() and isinstance(caller.error, WritersQuiescing)

@@ -30,8 +30,9 @@ setup owners before creating the inner child marker or entering leases. The
 inner RuntimeLayout selects settings=legacy and **data=legacy/data**, so the
 coordinator's source lease and the unchanged source Enter operation both select
 the same `data/companion-operation.lock`. Other mutable roots remain below the
-legacy settings root; explicit host accounts and automatic/manual export state
-remain in their independently marked siblings. These are fixed authored roots,
+legacy settings root. Current bundle TEST accounts use
+`settings_root/credentials/accounts.dpapi`; opaque legacy host canaries and
+automatic/manual export state remain in their independently marked siblings. These are fixed authored roots,
 not discovered or operator-selected installations.
 
 The pre-owner source contender may open and close only after seeding. It is
@@ -48,7 +49,8 @@ claims continuous exclusion.
 ### Normal readback, explicit TEST boundaries
 
 The fixed API entry creates the actual normal classes at the selected paths:
-AccountStore uses the exact host-profile locator and shared strict TEST codec;
+AccountStore uses the exact selected settings-root credential locator and shared
+strict TEST codec;
 LexiriseService receives the fixed truthy fake key and finite authored
 MockTransport with remote writes disabled; AutomaticMobileExports receives
 the actual selected external home. Wrong constructor arguments, an unknown
@@ -188,6 +190,25 @@ ordinary-user Windows 11, exact-output rights, target/production activation,
 installer and R19 completion remain unavailable, pending or false. Source tests
 and a future hosted Windows Server receipt cannot close those separate gates.
 
+## Current credential-layout source integration
+
+After the main delivery integration, the bundle's real `accounts_path()` uses
+`settings_root/credentials/accounts.dpapi`. The authored source factory verifies
+that exact locator; no old/new union or replacement credential provider is used.
+The copied settings role is closed to one bounded opaque TEST account envelope.
+The same root-first, exact-name/type/no-link/8 KiB family validator runs on the
+clone before semantic SQL/service readback and again before its AccountStore.
+An extra authored provider file or directory refuses without retiring the
+verification root, releasing leases or starting another source generation.
+Legacy host account/key and data-key canaries remain separate and opaque.
+
+Fresh clone services resolve the copied envelope through the same current layout
+function. They cannot read source or host credentials to rescue a missing or
+tampered copy. Real services/ASGI, unknown-family, tamper and retained-cleanup
+contracts cover this source change. The prior 55-field native receipts retain
+their original source and credential policy; this integration has no new native,
+real-DPAPI/keyring, copied-target activation or Windows 11 result.
+
 ## Actual owners and selected roles
 
 `PopulatedStateCopy` creates a complete **fixed authored fixture**, not a tool
@@ -214,7 +235,8 @@ fences are also retained and checked against the four selected database paths.
 | Actual unscoped/scoped manual preference paths | Fixed `host-settings/mobile-library.json` and `mobile-library/` subtree |
 | Actual `layout.work_root` | Reviewed authored pending-work bytes in `work/voice-assets/` |
 | Explicit external export root | Current/previous libraries, actual captured work identity, automatic rules/work/recovery and authored installation stay in place |
-| Explicit host root and actual AccountStore locator | `Programs/Proxy Transcript/accounts.dpapi` and host-key TEST bytes stay in place; they are not relocated into the snapshot |
+| Actual AccountStore credential family | Only the opaque TEST `credentials/accounts.dpapi` is copied to `host-settings/credentials/`; unknown provider/key-store members refuse |
+| Explicit legacy host root | Separate opaque `Programs/Proxy Transcript/accounts.dpapi` and `key.dpapi` canaries stay in place; they are not the active AccountStore or snapshot credentials |
 
 The settings root itself is never recursively copied. It can contain other
 mutable roots, caches, leases or journals. The copied namespaces are target
@@ -273,7 +295,10 @@ constructors can initialize or migrate anything. Fresh normal services then
 reopen a **separate verification clone**. They compare full history/favorites,
 grammar choices/cache, export status and new-reference idempotency, settings,
 game paths, completed setup, registry/request state, manual destinations,
-automatic waiting jobs and TEST account identity. A repeated ledger send adds
+automatic waiting jobs and TEST account identity from the clone's own copied
+`host-settings/credentials/accounts.dpapi`. Missing, linked or changed clone
+credentials refuse even while the source and legacy host canaries remain valid.
+A repeated ledger send adds
 its new reference only in the clone and permits no remote write.
 
 Source and staging are never SQLite-opened for semantic verification. Snapshot

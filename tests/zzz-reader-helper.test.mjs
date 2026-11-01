@@ -58,7 +58,7 @@ test('both real extractor inputs adapt at build time and refuse changed bootstra
     const source = readFileSync(join(sourceRoot, 'scripts', name), 'utf8').replace(/\r\n/g, '\n');
     const built = immutableExtractor(name, source);
     assert.match(built, /from\s*['"]\.\/reader\.mjs['"]/);
-    assert.doesNotMatch(built, /typescript|transpileModule|galgame-perform\.(ts|mjs)|cinematic-reader\.mjs/);
+    assert.doesNotMatch(built, /typescript|transpileModule|galgame-perform\.(ts|mjs)|cinematic-reader\.mjs|compiledReader|pathToFileURL/);
     assert.throws(() => immutableExtractor(name, source.replace(/galgame-perform\.ts/g, 'changed.ts')), /changed/);
   }
 });

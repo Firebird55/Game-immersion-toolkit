@@ -5,6 +5,18 @@ scene, language, or capture layout has passed native gameplay testing. Game
 resources were read from the owner's installation. Extracted assets, dialogue,
 audio, account details and installation paths stay in ignored local evidence.
 
+Subtitle boundary review, 2026-10-31: story, comic, ongoing and cinematic readers
+retain individual authored TextMap identities. The cinematic adapter joins each
+`CS_` identity to its exact authored Wwise event; it does not concatenate a movie
+or infer page timings from timeline position. Speaker/scene context joins OCR
+rows visible in the same captured caption, not successive subtitle records.
+A synthetic index-to-match regression verifies consecutive cinematic IDs preserve
+their own source and translated text even when they reference the same recording.
+This does not prove pagination inside an indivisible TextMap string: if a game
+version dynamically subdivides such a string without an evidenced page schema,
+that boundary remains unresolved. No sentence-length or punctuation split is
+presented as game-authored pagination.
+
 ## Evidence and scope
 
 The publisher explicitly describes cutscenes and motion comics as separate
@@ -177,3 +189,8 @@ tests and 25 Python tests successfully. The supplemental pass subsequently ran
 message/choice separation, reactions and missing/ambiguous voices. Native Windows capture bounds, DPI,
 desktop/mobile layout, Firefox/Chromium and all four installed audio languages
 were not exercised by these parser checks; they remain separate acceptance work.
+
+The [2026-11-01 packaged-reader verification](../zzz-runtime-acceptance-2026-11-01.md)
+records the compiler-free production resource contract, Windows native checks
+and a private installed-file comparison preserving all observed scene/cinematic
+bindings. Other platform and final installer gates remain separate.

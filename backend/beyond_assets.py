@@ -13,7 +13,7 @@ from .languages import GAME_LOCALES, normalize_text, resolve_locale
 from .media_tools import ffmpeg_executable
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 3
+LANGUAGE_INDEX_VERSION = 4
 SUPPORTED_LOCALES = GAME_LOCALES['beyond']
 TEXT_LOCALES = dict(zip(('fr','en','de','it','es-ES','nl','pt-PT','sv','da','no','fi','ru','pl','ja','ko','zh-Hant','el','cs','hu','hr','es-419','pt-BR','tr','zh-Hans'),
                        ('FRE','ENG','GER','ITA','SPA','DUT','POR','SWE','DAN','NOR','FIN','RUS','POL','JAP','KOR','CHI','GRE','CZE','HUN','CRO','MEX','BRA','TUR','CHS')))
@@ -272,22 +272,28 @@ def _index_language(install, data_dir, source_locale, target_locales, progress):
                 source_cues = cues(paragraph)
                 numbered = [int(cue) for cue in source_cues if cue.isdigit()]
                 if 'complete' in source_cues or numbered and (set(numbered) != set(range(1, len(times)+1))):
-                    # Some shipped dub paragraphs have fewer timing pairs than
-                    # text pages. Retain their exact complete performance and
-                    # authored OCR pages instead of inventing per-page cuts.
+                    # Some dubs have different timing and text-page counts.
+                    # Authored cue IDs still join the text locales; preserve
+                    # those pages independently, with an explicitly whole-
+                    # paragraph recording instead of invented per-page cuts.
                     diagnostics['complete_performance_paragraphs'] = diagnostics.get('complete_performance_paragraphs', 0) + 1
-                    texts = {locale: ' '.join(values.values()) for locale, values in translated.items() if values}
-                    text_id = f'beyond:{key}:complete'
-                    row = {'text_id': text_id, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
-                           'source_locale': source_locale, 'source_text': ' '.join(source_cues.values()), 'texts': texts,
-                           'audio_locale': source_locale, 'voice_status': 'voiced', 'dialogue_kind': 'subtitle',
-                           'ocr_texts': {locale: list(values.values()) for locale, values in translated.items()},
-                           'audio': {'index': voice.index.name, 'identity': voice.identity, 'locale': source_locale,
-                                     'offsets': offset_table.hex()}}
-                    if text_id in seen and seen[text_id] != row:
-                        raise ValueError('Conflicting complete original performance identities')
-                    if text_id not in seen:
-                        records.append(row); seen[text_id] = row
+                    for cue, text in source_cues.items():
+                        whole = cue == 'complete'
+                        texts = ({locale: ' '.join(values.values()) for locale, values in translated.items() if values}
+                                 if whole else {locale: values[cue] for locale, values in translated.items() if cue in values})
+                        text_id = f'beyond:{key}:complete' if whole else f'beyond:{key}:page-{cue}'
+                        row = {'text_id': text_id, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
+                               'source_locale': source_locale, 'source_text': text, 'texts': texts,
+                               'audio_locale': source_locale, 'audio_scope': 'paragraph',
+                               'voice_status': 'voiced', 'dialogue_kind': 'subtitle',
+                               'audio': {'index': voice.index.name, 'identity': voice.identity, 'locale': source_locale,
+                                         'offsets': offset_table.hex()}}
+                        if whole:
+                            row['ocr_texts'] = {locale: list(values.values()) for locale, values in translated.items()}
+                        if text_id in seen and seen[text_id] != row:
+                            raise ValueError('Conflicting complete original performance identities')
+                        if text_id not in seen:
+                            records.append(row); seen[text_id] = row
                     continue
                 for cue, text in source_cues.items():
                     if cue.startswith('TC:'):
@@ -320,6 +326,7 @@ def _index_language(install, data_dir, source_locale, target_locales, progress):
     diagnostics['context_groups'] = sum(bool(row.get('member_text_ids')) for row in records)
     counts = {state: sum(row['voice_status'] == state for row in records) for state in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
     warnings = [f"{counts['unavailable']:,} subtitle records lack a verified installed original performance; these are not unvoiced dialogue.",
+                'Pages without verified individual audio timings keep their exact text and explicitly labelled whole-paragraph recording.',
                 'Chapter-scoped text-only choices are inventoried separately. Repeated short choices can remain ambiguous during OCR.',
                 'Localized textures, writing rendered only in scene images, system prompts and bonus videos do not have per-line text/audio coverage.']
     if counts['unknown']:

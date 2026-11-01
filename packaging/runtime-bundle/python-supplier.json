@@ -1,6 +1,6 @@
 {
   "schema": "proxy-runtime-python-supplier-v1",
-  "reviewed_on": "2026-10-29",
+  "reviewed_on": "2026-10-31",
   "version": "3.12.16",
   "architecture": "win-amd64",
   "supplier": "astral-sh/python-build-standalone",
@@ -15,5 +15,19 @@
   "cpython_release": "https://www.python.org/downloads/release/python-31216/",
   "supplier_acceptance": "observed-experiment-only",
   "redistribution_review": "pending-exact-output",
-  "native_windows_11_acceptance": "unavailable"
+  "native_windows_11_acceptance": "unavailable",
+  "target": "windows-x64",
+  "sys_platform": "win32",
+  "machine_names": [
+    "amd64",
+    "x86_64"
+  ],
+  "github_asset_id": 678575209,
+  "bytes": 47113364,
+  "executable": "python.exe",
+  "required_files": [
+    "python.exe",
+    "python312.dll",
+    "LICENSE.txt"
+  ]
 }

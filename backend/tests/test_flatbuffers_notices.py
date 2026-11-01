@@ -67,7 +67,7 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     from closure import validate_flatbuffers_notice_delivery, write_candidate
     validate_flatbuffers_notice_delivery(component, source, evidence)
     (source / 'package.json').write_text(json.dumps({'version': '0.0.1'}))
-    output = tmp_path / 'candidate'; (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
+    output = tmp_path / 'candidate'; (output / 'GameImmersionToolkitAsr/_internal').mkdir(parents=True)
     # This test owns notices; actual codec/provenance scope has separate disk tests.
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
@@ -75,7 +75,7 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-source-notices', 'components': [component]}, source, evidence, output)
     for row in records:
-        delivered = output / 'ProxyTranscriptRuntime/THIRD_PARTY/flatbuffers' / row['path']
+        delivered = output / 'GameImmersionToolkit/THIRD_PARTY/flatbuffers' / row['path']
         assert delivered.read_bytes() == (evidence / row['path']).read_bytes()
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     assert inventory['components'][0]['notice_sha256'] == [row['sha256'] for row in records]

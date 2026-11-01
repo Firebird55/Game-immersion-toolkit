@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 import json
 import subprocess
 import tempfile
 import threading
+import logging
 import time
 from contextlib import asynccontextmanager, contextmanager, nullcontext
 from dataclasses import dataclass, field
@@ -40,6 +42,7 @@ from .reading import LexiriseReadingService
 from .runtime_readers import RuntimeReadingRegistry
 from .sqlite_operation_lifetime import SqliteOperationLifetime
 from .runtime_handoff import CaptureHandoff
+from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
@@ -63,6 +66,7 @@ _SQL_LEDGER_TYPE = LexiriseService
 RUNTIME_LAYOUT = discover_layout()
 PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
 DATA_DIR = RUNTIME_LAYOUT.data_root
+HANDOFF_TIMEOUT_SECONDS = 30
 
 
 class ManualIngest(BaseModel):
@@ -149,12 +153,23 @@ class _RuntimeSqlMember:
 
 
 @dataclass(eq=False, repr=False)
+class _RuntimeRequestStop:
+    requests: RequestBarrier
+    idle: asyncio.Event
+    error: BaseException | None = None
+    failed_task: asyncio.Task | None = None
+
+
+@dataclass(eq=False, repr=False)
 class _RuntimeSqlHandoff:
     transcript: TranscriptStore
     lexirise: LexiriseService
     registry: RuntimeReadingRegistry
     readings: object
     gate: RuntimeWriterGate
+    requests: RequestBarrier
+    requests_idle: asyncio.Event
+    request_stop: _RuntimeRequestStop
     capture: CaptureService
     payload: CaptureHandoff
     members: tuple[_RuntimeSqlMember, ...] | None
@@ -168,6 +183,11 @@ class Runtime:
             _validate_candidate_gate(candidate_gate)
         self.request_writers = candidate_gate if candidate_gate is not None else RuntimeWriterGate()
         self._candidate_writer_gate = candidate_gate
+        self.request_barrier = RequestBarrier(paused=self.standby)
+        self._quiesce_task = self._handoff_state = None
+        self._request_stop = None
+        if self.standby:
+            self.request_writers.stop_admission()
         self._handoff_lock = asyncio.Lock()
         self._handoff_drains = []
         self._writer_handoff = False
@@ -178,7 +198,7 @@ class Runtime:
         self.repair_task = None
         self.state_version = StateVersion()
         self.hub = EventHub(lambda: self.state_version.publish(self.accounts.generation))
-        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' else
+        local_settings = (RUNTIME_LAYOUT.settings_root / 'settings.json' if RUNTIME_LAYOUT.mode == 'bundle' or sys.platform != 'win32' else
             Path(os.environ.get("LOCALAPPDATA", DATA_DIR)) / "Proxy Transcript/settings.json")
         existing_user = local_settings.is_file() or (DATA_DIR / "settings.json").is_file()
         self.settings = SettingsStore(local_settings, legacy_path=DATA_DIR / "settings.json")
@@ -194,7 +214,7 @@ class Runtime:
         self.hito = HitoTextIndex(DATA_DIR / "hito")
         self.voice_assets = VoiceAssetService(
             DATA_DIR / "voice-assets/manifest.json",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
             DATA_DIR / "voice-assets/learned-manifest.json",
         )
@@ -202,14 +222,14 @@ class Runtime:
         self._legacy_zzz_index = self.textmaps
         self.pragmata_voice_assets = PragmataVoiceAssetService(
             DATA_DIR / "pragmata",
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe",
+            None,
             DATA_DIR / "audio",
         )
         self._legacy_pragmata_voice = self.pragmata_voice_assets
         self._legacy_pragmata_index = self.pragmata
         self.game_indexes = {game: LocalGameTextIndex(game, DATA_DIR / game) for game in LOCAL_GAMES}
         self.game_voice_assets = {game: LocalVoiceAssetService(game, DATA_DIR / game,
-            DATA_DIR / "voice-assets/vgmstream/vgmstream-cli.exe", DATA_DIR / "audio") for game in self.game_indexes}
+            None, DATA_DIR / "audio") for game in self.game_indexes}
         self._legacy_game_voices = tuple(self.game_voice_assets.values())
         self._legacy_game_voice_map = dict(self.game_voice_assets)
         self._legacy_game_indexes = dict(self.game_indexes)
@@ -253,6 +273,7 @@ class Runtime:
             supported=self.reader_locales, cancellable=True,
             rebuild=lambda game, locale, targets, **options: self.build_language(game, locale, targets, force=True, **options))
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
+        self._retired_voices = set()
         self._locale_voice_lock = threading.RLock()
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
@@ -279,6 +300,17 @@ class Runtime:
             adapter, _ = asset_adapter(game)
             return getattr(adapter, 'SUPPORTED_LOCALES', ('zh-Hans',))
         return ('zh-Hans',)
+
+    def locale_index(self, game, locale):
+        from .multilingual_index import MultilingualTextIndex
+        # Publish the empty object before loading so concurrent callers share it.
+        with self._locale_voice_lock:
+            key = (game, locale)
+            index = self._locale_indexes.get(key)
+            if index is None:
+                index = self._locale_indexes[key] = MultilingualTextIndex(
+                    game, DATA_DIR / 'languages' / game / locale, autoload=False)
+        return index
 
     def build_language(self, game, locale, targets, *, force=False, job=None):
         from .game_assets import asset_adapter
@@ -362,7 +394,7 @@ class Runtime:
                     if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
-                        output.replace(path)
+                        cached.publish(candidate)
                 if hasattr(self, 'automatic_exports'):
                     self.automatic_exports.wake.set()
                 return
@@ -382,11 +414,7 @@ class Runtime:
         missing = {'ready': False, 'state': 'not_ready', 'message': 'The selected language table is unavailable; prepare or rebuild it in Languages.',
                    'source_locale': locale, 'entry_count': 0, 'audio_count': 0}
         if (path / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, path)
+            index = self.locale_index(game, locale)
             index.load()
             return index.status() if index.source_locale == locale else missing
         if locale != 'zh-Hans' or path.parent.is_dir():
@@ -407,11 +435,7 @@ class Runtime:
             return False
         directory = DATA_DIR / 'languages' / game / locale
         if (directory / 'textmap.json').is_file():
-            from .multilingual_index import MultilingualTextIndex
-            key = (game, locale)
-            index = self._locale_indexes.get(key)
-            if index is None:
-                index = self._locale_indexes[key] = MultilingualTextIndex(game, directory)
+            index = self.locale_index(game, locale)
             index.load()
             voices = self.language_voice_assets(game, locale)
             if not index.ready or index.source_locale != locale or voices is None:
@@ -459,10 +483,11 @@ class Runtime:
             key = (game, locale)
             voices = self._locale_voices.get(key)
             if voices is None:
-                decoder = DATA_DIR / 'voice-assets/vgmstream/vgmstream-cli.exe'
+                decoder = None  # Resolve the managed codec on demand, including after Setup.
                 voices = (PragmataVoiceAssetService(directory, decoder, DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools')
                           if game == 'pragmata' else LocalVoiceAssetService(game, directory, decoder,
-                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools'))
+                              DATA_DIR / 'audio', tools_dir=DATA_DIR / game / 'tools',
+                              snapshot_index=self.locale_index(game, locale)))
                 self._locale_voices[key] = voices
             voices.reload()
             return voices if voices.locale == locale else None
@@ -627,8 +652,11 @@ class Runtime:
         # for the game. Newly discovered comic mappings repair existing rows.
         loop = asyncio.get_running_loop()
         for line in self.transcript.list(limit=50):
+            if not self._updates_started or self.standby:
+                return
             ready = asyncio.Event()
-            if self.capture.repair_recorded_line(line, completed=lambda: loop.call_soon_threadsafe(ready.set)):
+            if await asyncio.to_thread(self.capture.repair_recorded_line, line,
+                                       completed=lambda: loop.call_soon_threadsafe(ready.set)):
                 try:
                     await asyncio.wait_for(ready.wait(), 45)
                 except asyncio.TimeoutError:
@@ -637,32 +665,131 @@ class Runtime:
     async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
         if hasattr(self, 'toolkit_updater'):
-            self.toolkit_updater.close()
+            await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
             await asyncio.to_thread(self.automatic_exports.close)
         await asyncio.to_thread(self.languages.close)
-        if self.repair_task:
-            self.repair_task.cancel()
-            try:
-                await self.repair_task
-            except asyncio.CancelledError:
-                pass
-            self.repair_task = None
-        if self.index_task:
-            if not drain:
-                self.index_task.cancel()
-            try:
-                if drain:
-                    await asyncio.shield(self.index_task)
-                else:
-                    await self.index_task
-            except asyncio.CancelledError:
-                if drain:
-                    raise
-            self.index_task = None
+        # Never cancel a to_thread waiter: the catalog/cache writer would keep
+        # running after its asyncio task claimed to have stopped.
+        for name in ('repair_task', 'index_task', 'map_task'):
+            task = getattr(self, name)
+            if task is not None:
+                await asyncio.shield(task)
+                setattr(self, name, None)
         await asyncio.gather(*(asyncio.to_thread(updater.close) for updater in
             [self.update_manager, self.pragmata_updater, *self.game_updaters.values()]))
         self._updates_started = False
+
+    def worker_pools(self):
+        voices = {self._legacy_zzz_voice, self._legacy_pragmata_voice,
+                  *self._legacy_game_voices, *self.game_voice_assets.values(),
+                  *self._locale_voices.values(), *self._retired_voices}
+        readers = {self.reading, *self._readers.values()}
+        return {self.capture._executor, *(v._executor for v in voices),
+                *(reader.pool for reader in readers)}
+
+    async def quiesce(self):
+        # Activation can retire a completed stop once mutable owners resume.
+        # Select under the same operation lock, never await its drain under it.
+        async with self._handoff_lock:
+            stop = self._pin_request_stop()
+            retry = (self._quiesce_task is not None and self._quiesce_task.done()
+                     and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
+            if self._quiesce_task is None or retry:
+                if self._handoff_state is None:
+                    self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
+                self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
+                self._quiesce_task.add_done_callback(lambda task: Runtime._retain_request_stop_failure(stop, task))
+            task, state = self._quiesce_task, self._handoff_state
+        await asyncio.shield(task)
+        # Capture's suppression state can advance while requests finish.
+        return self.capture.export_handoff(state.running)
+
+    async def _drain_workers(self):
+        log = logging.getLogger('toolkit.lifecycle')
+        log.info('Update: waiting for requests, setup, capture and dictionary workers to finish')
+        await self._pause_outer_requests()
+        await self.quiesce_writers(timeout=threading.TIMEOUT_MAX)
+        log.info('Update: all runtime writers stopped; ready to transfer capture')
+
+    def _check_owned_drain(self):
+        task = getattr(self, '_quiesce_task', None)
+        if task is not None:
+            if not task.done() or task.cancelled():
+                raise RuntimeError('Previous runtime work is still stopping.')
+            if task.exception() is not None:
+                raise RuntimeError('A worker could not be stopped; retry quiesce before activation.')
+
+    def activate_workers(self):
+        Runtime._require_reopenable(self)
+        self._check_owned_drain()
+        stopped = getattr(self, '_quiesce_task', None)
+        self._pin_request_stop()
+        deadline = time.monotonic()+30
+        self._check_outer_requests(self.request_barrier, self.request_barrier._idle)
+        self._prepare_recovery_requests(deadline)
+        try:
+            self._resume_sql_handoff(deadline)
+            self.resume_writers(deadline)
+            self.admit_requests(deadline)
+            self._handoff_state = None
+        finally:
+            self._retire_successful_drain(stopped)
+
+    def _retire_successful_drain(self, stopped):
+        if (stopped is not None and self._quiesce_task is stopped and stopped.done()
+                and not stopped.cancelled() and stopped.exception() is None):
+            # Only cached success is retired. Actual partial SQL owners, errors
+            # and pending/failed drain tasks retain their existing references.
+            self._quiesce_task = None
+
+    @staticmethod
+    def _retain_request_stop_failure(stop, task):
+        if not task.cancelled() and task.exception() is not None:
+            if stop.error is None:
+                stop.error = task.exception()
+            if stop.failed_task is None:
+                stop.failed_task = task
+
+    def _pin_request_stop(self):
+        stop = self._request_stop
+        if stop is None:
+            if self._quiesce_task is not None or self._sql_handoff is not None:
+                raise TimeoutError('Runtime request stop binding is missing.')
+            requests = self.request_barrier
+            if type(requests) is not RequestBarrier or type(requests._idle) is not asyncio.Event:
+                raise TypeError('Runtime request barrier ownership differs.')
+            stop = self._request_stop = _RuntimeRequestStop(requests, requests._idle)
+        self._check_request_stop(stop)
+        return stop
+
+    def _check_request_stop(self, stop):
+        if (type(stop) is not _RuntimeRequestStop or self._request_stop is not stop
+                or self.request_barrier is not stop.requests or stop.requests._idle is not stop.idle):
+            error = TimeoutError('Runtime request barrier is not the retained paused, idle owner.')
+            if type(stop) is _RuntimeRequestStop and stop.error is None:
+                stop.error = error
+            raise error
+
+    async def _pause_outer_requests(self):
+        # Only the ASGI loop touches the RequestBarrier Event/count. A worker
+        # may validate their retained identity and commit plain paused metadata.
+        stop = self._request_stop
+        self._check_request_stop(stop)
+        requests, idle = stop.requests, stop.idle
+        await requests.pause()
+        self._check_outer_requests(requests, idle)
+        if not idle.is_set():
+            raise TimeoutError('Runtime request barrier has not become idle.')
+
+    def _check_outer_requests(self, requests, idle):
+        stop = self._request_stop
+        self._check_request_stop(stop)
+        if (requests is not stop.requests or idle is not stop.idle
+                or type(requests) is not RequestBarrier or self.request_barrier is not requests
+                or type(idle) is not asyncio.Event or requests._idle is not idle
+                or requests.paused is not True or requests._active != 0):
+            raise TimeoutError('Runtime request barrier is not the retained paused, idle owner.')
 
     async def _handoff_step(self, operation, deadline, *, blocking=False):
         remaining = deadline-time.monotonic()
@@ -687,7 +814,7 @@ class Runtime:
 
     def _voice_pools(self):
         voices = set([self._legacy_zzz_voice, self._legacy_pragmata_voice, *self._legacy_game_voices,
-                      *self.game_voice_assets.values(), *self._locale_voices.values()])
+                      *self.game_voice_assets.values(), *self._locale_voices.values(), *self._retired_voices])
         return [voice._executor for voice in voices]
 
     async def _drain_map(self):
@@ -750,7 +877,9 @@ class Runtime:
 
     def _prepare_recovery_requests(self, deadline):
         record = self._sql_handoff
-        if record is not None: self._check_sql_identity(record)
+        if record is not None:
+            self._check_sql_identity(record)
+            self._check_outer_requests(record.requests, record.requests_idle)
         registry = record.registry if record is not None else self._reading_registry
         self._stop_requests_until(deadline)
         registry.stop_creation(deadline)
@@ -760,11 +889,17 @@ class Runtime:
         if (type(record) is not _RuntimeSqlHandoff or self._sql_handoff is not record
                 or self.transcript is not record.transcript or self.lexirise is not record.lexirise
                 or self._reading_registry is not record.registry or self.request_writers is not record.gate
+                or self.request_barrier is not record.requests or record.requests._idle is not record.requests_idle
+                or self._request_stop is not record.request_stop):
+            raise TimeoutError('Runtime SQL ownership changed.')
+        self._check_request_stop(record.request_stop)
+        if (record.requests is not record.request_stop.requests or record.requests_idle is not record.request_stop.idle
                 or self.capture is not record.capture):
             raise TimeoutError('Runtime SQL ownership changed.')
 
     def _check_sql_bindings(self, record, deadline):
         self._check_sql_identity(record)
+        self._check_outer_requests(record.requests, record.requests_idle)
         if (record.readings is None or self.reading is not record.readings.default
                 or record.members is None or len(record.members) != 2):
             raise TimeoutError('Runtime SQL reservation remains incomplete.')
@@ -782,14 +917,17 @@ class Runtime:
         record.registry.check_sql_set(record.readings, deadline)
 
     def _reserve_sql_handoff(self, payload, deadline):
+        stop = self._request_stop
+        self._check_request_stop(stop)
         if self._sql_handoff is None:
             # Retain actual inputs before reservation/validation can fail.
             self._sql_handoff = _RuntimeSqlHandoff(self.transcript, self.lexirise, self._reading_registry,
-                None, self.request_writers, self.capture, payload, None)
+                None, self.request_writers, stop.requests, stop.idle, stop, self.capture, payload, None)
         record = self._sql_handoff
         try:
             if (self.transcript is not record.transcript or self.lexirise is not record.lexirise
                     or self._reading_registry is not record.registry or self.request_writers is not record.gate
+                    or self.request_barrier is not record.requests or record.requests._idle is not record.requests_idle
                     or self.capture is not record.capture):
                 raise TypeError('Runtime SQL reservation inputs changed.')
             if (not isinstance(self.transcript, TranscriptStore) or not isinstance(self.lexirise, _SQL_LEDGER_TYPE)
@@ -871,6 +1009,7 @@ class Runtime:
 
     def _resume_sql_handoff(self, deadline):
         Runtime._require_reopenable(self)
+        Runtime._check_owned_drain(self)
         record = self._sql_handoff
         if record is None:
             return  # An earlier producer failure never reached SQL reservation.
@@ -893,8 +1032,8 @@ class Runtime:
             raise
 
     async def quiesce_capture_handoff(self):
-        # Preserve the source updater's existing capture-only protocol. It is
-        # explicitly not a settings/database writer-stop or store-copy proof.
+        # Internal capture-only experiment, never a store-copy proof. Public
+        # update controls use the complete writer drain for both query variants.
         async with self._handoff_lock:
             if self._writer_handoff:
                 raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
@@ -907,6 +1046,7 @@ class Runtime:
     async def quiesce_writers(self, timeout=30):
         deadline = time.monotonic()+timeout
         async with self._handoff_until(deadline):
+            self._pin_request_stop()
             self._writer_handoff = True
             if any(not task.done() for task in self._handoff_drains):
                 raise TimeoutError('A previous runtime writer drain is still running.')
@@ -919,11 +1059,15 @@ class Runtime:
                 return result
             running = self.capture.snapshot().running
             await self._handoff_step(lambda: self._reading_registry.stop_creation(deadline), deadline, blocking=True)
+            await self._handoff_step(self._pause_outer_requests, deadline)
             await self._handoff_step(lambda: self._wait_requests_until(deadline), deadline, blocking=True)
             # Do not manufacture native cleanup by cancelling a Future or
             # terminating a native setup/export process by a stored PID.
-            await self._handoff_step(self.mobile_exports.quiesce, deadline, blocking=True)
-            await self._handoff_step(self.automatic_exports.picker.quiesce, deadline, blocking=True)
+            # These production adapters own the native process tree; their drain
+            # joins monitor/finalizer threads before the bounded verification.
+            await self._handoff_step(self.mobile_exports.drain, deadline, blocking=True)
+            await self._handoff_step(self.automatic_exports.picker.drain, deadline, blocking=True)
+            await self._handoff_step(self.installation.pause, deadline, blocking=True)
             await self._handoff_step(lambda: self.installation.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
             await self._handoff_step(lambda: self.stop_updates(drain=True), deadline)
             self._verify_background_stopped()
@@ -933,14 +1077,7 @@ class Runtime:
             for pool in self._voice_pools():
                 await self._handoff_step(lambda pool=pool: pool.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
             await self._handoff_step(self.capture.drain_publications, deadline)
-            # Hito still has a separately launched grammar worker. Its native
-            # ownership/restart adapter is not proved: refuse handoff rather
-            # than claim a global writer barrier while it can publish a cache.
-            hito = self.hito
-            if hito and ((getattr(hito, '_thread', None) and hito._thread.is_alive()) or any(
-                    process and process.poll() is None for process in
-                    (getattr(hito, '_process', None), getattr(hito, '_starting_process', None)))):
-                raise TimeoutError('The Hito grammar worker is still active; supervised handoff is unavailable.')
+            await self._handoff_step(self.hito.close, deadline, blocking=True)
             payload = self.capture.export_handoff(running)
             result = await self._handoff_step(lambda: self._freeze_sql_handoff(payload, deadline), deadline, blocking=True)
             self.standby = True
@@ -957,7 +1094,9 @@ class Runtime:
         # A recovery call cannot reopen admission between two quiesce steps.
         deadline = time.monotonic()+30 if writers else None
         async with self._handoff_until(deadline):
+            stopped, resuming = getattr(self, '_quiesce_task', None), False
             try:
+                self._check_owned_drain()
                 if self._writer_handoff and not writers:
                     raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
                 if writers:
@@ -965,14 +1104,18 @@ class Runtime:
                         raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
                     record = self._sql_handoff
                     if record is not None: self._check_sql_identity(record)
+                    self._pin_request_stop()
                     capture = record.capture if record is not None else self.capture
                     await self._handoff_step(lambda: self._prepare_recovery_requests(deadline), deadline, blocking=True)
+                    await self._handoff_step(self._pause_outer_requests, deadline)
                     if record is not None: self._check_sql_identity(record)
                     if capture.native_stop_pending:
                         await self._handoff_step(capture.finish_native_stop, deadline)
+                    resuming = True  # A failing resume may already have changed an actual SQL owner.
                     await self._handoff_step(lambda: self._resume_sql_handoff(deadline), deadline, blocking=True)
                     await self._handoff_step(lambda: self._resume_writer_pools(deadline), deadline, blocking=True)
                     self._clear_handoff_drains()
+                resuming = True
                 if self.capture.snapshot().running:
                     self.standby = False
                     self.start_updates()
@@ -984,14 +1127,19 @@ class Runtime:
                     self.start_updates()
                 if writers:
                     await self._handoff_step(lambda: self.admit_requests(deadline), deadline, blocking=True)
+                self._handoff_state = None
                 return {'active': True}
             except BaseException as error:
                 if writers and self._sql_handoff is not None:
                     self._sql_member_error(self._sql_handoff, None, error)
                 raise
+            finally:
+                if resuming:
+                    Runtime._retire_successful_drain(self, stopped)
 
     def resume_writers(self, deadline=None):
         Runtime._require_reopenable(self)
+        Runtime._check_owned_drain(self)
         if any(not task.done() for task in self._handoff_drains):
             raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
         self._resume_writer_pools(deadline)
@@ -999,6 +1147,7 @@ class Runtime:
 
     def _resume_writer_pools(self, deadline=None):
         Runtime._require_reopenable(self)
+        Runtime._check_owned_drain(self)
         if self._sql_handoff is not None:
             if deadline is None: raise TimeoutError('Runtime SQL recovery requires its active deadline.')
             self._check_sql_handoff(self._sql_handoff, deadline, resumed=True)
@@ -1006,6 +1155,7 @@ class Runtime:
             self.languages.close(timeout=0)
             self._verify_background_stopped()
         self.capture.resume_workers()
+        self.hito.resume()
         for pool in self._voice_pools():
             pool.resume()
         if deadline is None:
@@ -1018,10 +1168,33 @@ class Runtime:
 
     def admit_requests(self, deadline=None):
         Runtime._require_reopenable(self)
+        Runtime._check_owned_drain(self)
         record = self._sql_handoff
         if record is None:
-            self._reading_registry.reopen_creation()
-            self.request_writers.resume()
+            requests, idle = self.request_barrier, self.request_barrier._idle
+            self._check_outer_requests(requests, idle)
+            gate = self.request_writers
+            if type(gate) is not RuntimeWriterGate:
+                raise TypeError('Runtime request gate ownership differs.')
+            deadline = time.monotonic()+30 if deadline is None else deadline
+            remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
+            if not gate._condition.acquire(timeout=remaining):
+                raise TimeoutError('Runtime admission metadata remains owned.')
+            try:
+                if time.monotonic() > deadline or gate._active or gate._accepting:
+                    raise TimeoutError('Runtime admission is not ready to reopen.')
+                gate.require_reopenable()
+                self._reading_registry.reopen_creation()
+                self._check_outer_requests(requests, idle)
+                if time.monotonic() > deadline:
+                    raise TimeoutError('Runtime admission deadline expired.')
+                # All fallible checks precede this metadata commit. Event/count
+                # remain ASGI-loop owned; the outer layer opens last.
+                gate._accepting = True
+                requests.paused = False
+                self._request_stop = None
+            finally:
+                gate._condition.release()
         else:
             if deadline is None: raise TimeoutError('Runtime SQL admission requires its active deadline.')
             self._check_sql_handoff(record, deadline, resumed=True)
@@ -1051,6 +1224,10 @@ class Runtime:
                     owner._public_epoch = next_epoch
                 self._sql_handoff = None
                 self._writer_handoff = False
+                # Event/count remain loop-owned. Publish the outer admission
+                # last, after exact SQL owners, pools and epochs have settled.
+                record.requests.paused = False
+                self._request_stop = None
             finally:
                 for lock in reversed(locks):
                     lock.release()
@@ -1196,24 +1373,12 @@ async def lifespan(_app: FastAPI, *, candidate_gate=None):
                 await runtime.warm_task
             except (Exception, asyncio.CancelledError):
                 pass
-        runtime.mobile_exports.cancel_all()
-        runtime.standby = True
-        await runtime.stop_updates()
+        await runtime.quiesce()
         await runtime.capture.close()
-        await asyncio.to_thread(runtime.hito.close)
-        runtime._legacy_zzz_voice.close()
-        runtime._legacy_pragmata_voice.close()
-        reader_deadline = time.monotonic()+30
-        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(reader_deadline),
-                                    reader_deadline, blocking=True)
-        for voices in set([*runtime._legacy_game_voices, *runtime.game_voice_assets.values(), *runtime._locale_voices.values()]):
-            voices.close()
-        if runtime.map_task and not runtime.map_task.done():
-            runtime.map_task.cancel()
-            try:
-                await runtime.map_task
-            except asyncio.CancelledError:
-                pass
+        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(time.monotonic()+30),
+            time.monotonic()+30, blocking=True)
+        for pool in runtime.worker_pools():
+            pool.shutdown(wait=True)
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
@@ -1237,13 +1402,13 @@ def closed_candidate_app(gate):
     # Use the same writer middleware/gate before CORS can answer a preflight.
     # Local access remains outermost; ordinary/source app ordering is untouched.
     ordered = app.user_middleware
-    roles = (LocalAccessMiddleware, CORSMiddleware, RuntimeWriterMiddleware)
-    if (len(ordered) < 3 or tuple(item.cls for item in ordered[:3]) != roles
+    roles = (LocalAccessMiddleware, WriterBarrierMiddleware, CORSMiddleware, RuntimeWriterMiddleware)
+    if (len(ordered) < 4 or tuple(item.cls for item in ordered[:4]) != roles
             or any(sum(item.cls is role for item in ordered) != 1 for role in roles)):
         raise RuntimeError('Closed candidate middleware ownership differs.')
-    local, cors, writers = ordered[:3]
+    local, barrier, cors, writers = ordered[:4]
     _validate_writer_middleware_binding(writers)
-    ordered[:3] = [local, writers, cors]
+    ordered[:4] = [local, writers, barrier, cors]
     configured_order = tuple(ordered)
     app.state._candidate_writer_gate = gate
 
@@ -1299,6 +1464,8 @@ app.add_middleware(
 )
 # Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
 # endpoint side effects, acceptance, or capture/status snapshots.
+app.add_middleware(WriterBarrierMiddleware,
+    barrier=lambda: getattr(globals().get('runtime'), 'request_barrier', None))
 app.add_middleware(LocalAccessMiddleware)
 
 
@@ -1342,10 +1509,13 @@ def runtime_ready(game: str | None = None) -> dict:
 async def runtime_quiesce(request: Request, x_proxy_transcript: str = Header(default=''), writers: bool = False) -> dict:
     runtime_access(request, x_proxy_transcript)
     try:
-        handoff = await runtime.quiesce_writers() if writers else await runtime.quiesce_capture_handoff()
-        return handoff.model_dump()
-    except TimeoutError as error:
-        raise HTTPException(409, str(error)) from None
+        state = await asyncio.wait_for(runtime.quiesce(), timeout=HANDOFF_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(503, 'Background work is still stopping. Retry the handoff; it has not been cancelled.')
+    except Exception:
+        logging.getLogger('toolkit.lifecycle').exception('Update handoff could not finish')
+        raise HTTPException(503, 'Could not stop every worker. The replacement has not been activated.')
+    return state.model_dump()
 
 
 @app.post('/api/runtime/activate')
@@ -1355,8 +1525,8 @@ async def runtime_activate(payload: CaptureHandoff, request: Request,
     if not runtime_ready()['ready']:
         raise HTTPException(409, 'Replacement OCR is still warming up')
     try:
-        return await runtime.activate_handoff(payload, writers=writers)
-    except TimeoutError as error:
+        return await runtime.activate_handoff(payload, writers=True)
+    except (TimeoutError, RuntimeError) as error:
         raise HTTPException(409, str(error)) from None
 
 
@@ -1404,9 +1574,17 @@ def setup_status(request: Request, game: str | None = None) -> dict:
         raise HTTPException(404, 'Unsupported game')
     accounts = getattr(runtime, 'accounts', None)
     with accounts.lock if accounts else nullcontext():
+        generation = accounts.generation if accounts else None
         exports = runtime.mobile_exports if hasattr(runtime, 'mobile_exports') else None
         status = (exports.status(game) if game and hasattr(exports, 'require_scope') else exports.status()) if exports else None
-        return {**runtime.installation.status(), 'mobile_export': status}
+    # Filesystem/native tool inspection can take time on a cold installation.
+    # It must not hold the account lock: snapshot workers and the ASGI account
+    # middleware need that lock too, so a slow setup read otherwise freezes the
+    # entire reader (and prevents its requests from draining on shutdown).
+    installation = runtime.installation.status()
+    if accounts and generation != accounts.generation:
+        raise HTTPException(409, 'Account changed while reading. Reload the current context.')
+    return {**installation, 'mobile_export': status}
 
 
 class LanguageAction(BaseModel):
@@ -1454,7 +1632,9 @@ def prepare_game_language(game: str, payload: LanguageAction, request: Request,
             result = runtime.language_inventory.cleanup(game, payload.locale, runtime.languages, busy)
             runtime.capture._scan_epoch += 1
             runtime._locale_indexes.pop((game, payload.locale), None)
-            runtime._locale_voices.pop((game, payload.locale), None)
+            voices = runtime._locale_voices.pop((game, payload.locale), None)
+            if voices is not None:
+                runtime._retired_voices.add(voices)
             return result
         if payload.action == 'remove':
             runtime.languages.remove(game, payload.locale)
@@ -2031,10 +2211,14 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)
+        # A subtitle page can be bound to a whole authored performance without
+        # verified page timings. Keep manual playback, but do not export that
+        # recording as though it were a clip of this sentence alone.
+        include_audio = line.voice_status != 'unvoiced' and line.audio_scope != 'paragraph'
         result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
-            audio=None if line.voice_status == 'unvoiced' else path, audio_source=line.audio_source)
-        return {**result, 'audio_included': line.voice_status != 'unvoiced'}
+            audio=path if include_audio else None, audio_source=line.audio_source, audio_scope=line.audio_scope)
+        return {**result, 'audio_included': include_audio}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
     except OSError:
@@ -2227,12 +2411,22 @@ def toolkit_update_check(x_proxy_transcript: str = Header(default='')):
         raise HTTPException(403, 'Use Setup on this PC to update the toolkit.')
     if runtime.standby:
         raise HTTPException(409, 'The replacement is still preparing.')
-    return {'started': runtime.toolkit_updater.request()}
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        return {'started': runtime.toolkit_updater.request()}
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
 
 
 @app.post('/api/toolkit-update/preferences')
 def toolkit_update_preferences(payload: ToolkitUpdatePreferences, x_proxy_transcript: str = Header(default='')):
     if x_proxy_transcript != 'setup':
         raise HTTPException(403, 'Use Setup on this PC to change toolkit updates.')
-    runtime.toolkit_updater.configure(payload.enabled)
+    from .desktop_control import HostControlError
+    from .runtime_bundle import RuntimeBundleError
+    try:
+        runtime.toolkit_updater.configure(payload.enabled)
+    except (HostControlError, RuntimeBundleError) as error:
+        raise HTTPException(503, str(error)) from error
     return runtime.toolkit_updater.status()

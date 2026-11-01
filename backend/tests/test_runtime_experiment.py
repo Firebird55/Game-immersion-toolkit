@@ -8,6 +8,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import marshal
 from pathlib import Path
 import sys
 import tarfile
@@ -39,7 +40,7 @@ def test_probe_refuses_wrong_profile_or_native_image_before_import(tmp_path, mon
         bundle_entry.main(['--runtime-probe', kind])
 
 
-def test_experiment_manifest_cannot_expand_to_credential_or_update_children(tmp_path, monkeypatch):
+def test_experiment_manifest_allows_fixed_account_dialog_but_cannot_expand_to_update_children(tmp_path, monkeypatch):
     layout = frozen_layout(tmp_path, children=runtime_bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
     manifest = dict(schema=runtime_bundle.MANIFEST_SCHEMA, profile=layout.profile, version=layout.version,
         source_commit=layout.source_commit, build_id=layout.build_id,
@@ -51,7 +52,8 @@ def test_experiment_manifest_cannot_expand_to_credential_or_update_children(tmp_
     path.write_text(json.dumps(manifest))
     env = layout.child_environment(environ={})
     assert runtime_bundle.discover_layout(env).children == runtime_bundle.EXPERIMENT_CHILDREN
-    for child in ('toolkit-update', 'account-key'):
+    assert 'account-key' in layout.children
+    for child in ('toolkit-update', 'unregistered-command'):
         manifest['children'] = [*layout.children, child]
         path.write_text(json.dumps(manifest))
         with pytest.raises(runtime_bundle.RuntimeBundleError, match='child inventory'):
@@ -126,7 +128,11 @@ def test_wheel_payload_tampering_is_not_accepted_by_version_metadata(tmp_path, m
     (prefix / 'owned-1.0.dist-info/RECORD').write_bytes(b'pip rewritten installed inventory')
     module.verify_wheel(wheel)
     (prefix / 'owned.py').write_bytes(b'ALTERED = True\n')
-    with pytest.raises(module.ClosureError, match='differs from archive'):
+    with pytest.raises(module.ClosureError, match=r'owned: owned\.py \(content mismatch\)') as failure:
+        module.verify_wheel(wheel)
+    assert str(prefix) not in str(failure.value)
+    (prefix / 'owned.py').unlink()
+    with pytest.raises(module.ClosureError, match=r'owned: owned\.py \(missing file\)'):
         module.verify_wheel(wheel)
 
 
@@ -138,6 +144,35 @@ def test_actual_utf8_wheel_notice_metadata_can_be_recorded_as_json(tmp_path, mon
     with zipfile.ZipFile(wheel) as package:
         value = module.wheel_metadata(package)
     assert json.loads(json.dumps({'license': value['License']})) == {'license': 'Copyright \u00e9'}
+
+
+@pytest.mark.parametrize('optimization', [0, 1, 2])
+def test_pip_recompiled_wheel_cache_requires_matching_verified_source(tmp_path, monkeypatch, optimization):
+    module = recorder(monkeypatch)
+    prefix = tmp_path / 'environment'; prefix.mkdir()
+    source = prefix / 'owned.py'
+    source.write_bytes(b'"authored module"\nassert True\nOWNED = True\n')
+    cache = Path(importlib.util.cache_from_source(str(source), optimization=optimization or ''))
+    cache.parent.mkdir()
+    cache_name = cache.relative_to(prefix).as_posix()
+    wheel = tmp_path / 'owned.whl'
+    with zipfile.ZipFile(wheel, 'w') as package:
+        package.writestr('owned-1.0.dist-info/METADATA', b'Name: owned\nVersion: 1.0\n')
+        package.writestr('owned.py', source.read_bytes())
+        package.writestr(cache_name, b'supplier cache from another build location')
+    metadata_path = prefix / 'owned-1.0.dist-info/METADATA'
+    metadata_path.parent.mkdir(); metadata_path.write_bytes(b'Name: owned\nVersion: 1.0\n')
+    monkeypatch.setattr(sys, 'prefix', str(prefix))
+    monkeypatch.setattr(module.metadata, 'distribution', lambda _: SimpleNamespace(locate_file=lambda name: prefix / name))
+    header = importlib.util.MAGIC_NUMBER + bytes(12)
+    cache.write_bytes(header + marshal.dumps(compile(source.read_bytes(), str(source), 'exec', optimize=optimization)))
+    module.verify_wheel(wheel)
+    cache.write_bytes(header + marshal.dumps(compile('OWNED = False', str(source), 'exec', optimize=optimization)))
+    with pytest.raises(module.ClosureError, match='content mismatch'):
+        module.verify_wheel(wheel)
+    source.unlink()
+    with zipfile.ZipFile(wheel) as package:
+        assert not module.verified_recompiled_cache(package, cache_name, cache, SimpleNamespace(locate_file=lambda name: prefix / name))
 
 
 def test_collected_tree_rejects_empty_private_directories(tmp_path, monkeypatch):
@@ -154,6 +189,8 @@ def test_runtime_collection_binds_owned_bridge_to_current_sources_not_only_recei
     # Reader dispatch tests bind nested/outer files, but did not bind the
     # packaging collector to the actual source files of this runtime commit.
     from backend.tests.test_prebuilt_readers import helper_fixture, save, digest
+    from backend import prebuilt_readers
+    monkeypatch.setattr(prebuilt_readers, 'host_platform', lambda: 'win-x64')
     module = recorder(monkeypatch)
     layout, home, manifest = helper_fixture(tmp_path, 'nte')
     source = tmp_path / 'source'

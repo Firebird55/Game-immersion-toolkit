@@ -1,6 +1,6 @@
 # Game immersion toolkit release runbook
 
-Install Node 24; npm ci; npm run check. Install Python 3.12 dependencies with python -m pip install -r requirements.lock.txt. CI runs on Windows without live games or native OCR.
+Install Node 24; npm ci; npm run check. Install Python 3.12 development and packaging-test dependencies with `python -m pip install -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt`. These build tools are not installed-user prerequisites. CI runs on Windows without live games or native OCR.
 The shared package in vendor is pinned by version and sourceCommit. Edit shared source in the sibling lexirise-shared-components repository, publish there, then run npm run shared:update -- --version <version> --all from that repository.
 GitHub-hosted Actions only, never Argo or cluster dependencies.
 
@@ -13,6 +13,15 @@ Download using gh release download <tag> --repo Firebird55/Game-immersion-toolki
 Verify each SHA256SUMS entry and PROVENANCE sourceCommit against the release tag before installation.
 
 ## Installation and updates
+
+Accepted native assets are the executable installation path described in
+[INSTALL.md](INSTALL.md#native-executable-installation). Verify each target's
+`DESKTOP-PROVENANCE` and checksums, and require its release eligibility before
+delivery. Native users do not install the source-development prerequisites.
+Initial source-to-native replacement follows the
+[native handoff](docs/native-installation-handoff.md); source update scripts
+cannot install a native payload. The ZIP/setup instructions below describe the
+retained source distribution.
 Extract the distribution ZIP to a new folder. For a running installation, run the new release's `scripts/update-companion.ps1 -SourceRoot <new-release-folder> -Root <current-companion-folder>`; keep playing while preparation runs. For a fresh installation run scripts/setup.ps1. Setup uses npm ci and locked Python dependencies; release ZIPs reuse their prebuilt frontend. It prepares tools only for selected local games; node_modules from the old ZIP is never required. Windows Snipping Tool supplies native OCR files during user setup, not CI. Preserve the old data directory (databases/game indexes/audio) and local DPAPI key; never delete them. Per-PC capture settings remain in LOCALAPPDATA/Proxy Transcript/settings.json. Existing game lines remain Chinese. Use the capture preview to calibrate unusual layouts. Each supported game keeps independent capture calibration; retired Hito settings and existing history are preserved.
 For guided setup, double-click Install.cmd instead. Its optional game-folder popup saves validated locations in LOCALAPPDATA/Proxy Transcript/game-paths.json, separately from capture settings/keys. Choose Game Folders.cmd or in-app Setup can reopen it later. Setup validates folders, prepares missing tools, checks voice packs/OCR, configures optional reading accounts and refreshes indexes after launcher updates without restarting. See INSTALL.md and the included CONTRIBUTING.md/AGENTS.md before agent work. Game assets are read from the user's own installation, never redistributed.
 Use Reload from Lexirise to read account preferences. Only Save to Lexirise writes remote settings; legacy local display preferences are not automatically uploaded.

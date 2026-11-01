@@ -10,8 +10,9 @@ import struct
 from . import detroit_format as fmt
 from .languages import resolve_locale
 from .preparation_errors import PreparationFailure
+from .subtitle_pages import aligned_texts, keyed_pages
 
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 SUPPORTED_LOCALES = ('en', 'fr', 'it', 'de', 'es-ES', 'ar', 'ja', 'pl', 'pt-PT', 'pt-BR', 'es-419', 'ru')
 TEXT_LOCALES = dict(zip(
     ('fr', 'en', 'de', 'it', 'es-ES', 'nl', 'pt-PT', 'sv', 'da', 'no', 'fi', 'ru', 'pl',
@@ -19,6 +20,7 @@ TEXT_LOCALES = dict(zip(
     ('FRE', 'ENG', 'GER', 'ITA', 'SPA', 'DUT', 'POR', 'SWE', 'DAN', 'NOR', 'FIN', 'RUS', 'POL',
      'JPN', 'KOR', 'CHI', 'GRE', 'CZE', 'HUN', 'MEX', 'BRA', 'TUR', 'ARA', 'SCH')))
 INDEX_NAME = 'BigFile_PC.idx'
+CUE_MARKER = re.compile(r'\{\*(\d+(?:-\d+)?|TC:\d+\|\d+)\}')
 
 
 def archive_sources(install):
@@ -42,20 +44,7 @@ def clean_text(text):
 
 
 def cues(text):
-    matches = list(re.finditer(r'\{\*(\d+(?:-\d+)?|TC:\d+\|\d+)\}', text))
-    if not matches:
-        value = clean_text(text)
-        return {'complete': value} if value else {}
-    result = {}
-    for index, match in enumerate(matches):
-        value = clean_text(text[match.end():matches[index+1].start() if index+1 < len(matches) else len(text)])
-        if value:
-            if match[1] in result:
-                # Shipped translations occasionally repeat a cue marker.
-                # They can identify only the complete original performance.
-                return {'complete': clean_text(text)}
-            result[match[1]] = value
-    return result
+    return {page.identity: page.text for page in keyed_pages(text, CUE_MARKER, clean_text)}
 
 
 def ocr_pages(text):
@@ -155,32 +144,29 @@ def _index_language(install, data_dir, source_locale, target_locales, progress):
                 if status == 'unknown':
                     diagnostics['excluded_system_or_unclassified_text'] += 1
                     continue
-                parts = {'complete': clean_text(paragraph)}
-                texts_by_locale = {locale: {'complete': clean_text(text)} for locale, text in translated.items() if clean_text(text)}
                 audio, timings = None, {}
             else:
                 voice, sound, metadata = performance
                 status, kind = 'voiced', 'ambient' if '_PBY_' in key or '_TV_' in key else 'subtitle'
-                parts = cues(paragraph)
-                texts_by_locale = {locale: cues(text) for locale, text in translated.items() if text}
-                timings = {cue: cue_times(cue, metadata['times'], metadata['duration']) for cue in parts}
                 audio = {'index': INDEX_NAME, 'localization': entry.identity, 'key': key,
                          'performance': voice.identity, 'identity': sound.identity, 'locale': source_locale}
-                if not parts or any(pair is None for pair in timings.values()):
+            pages = keyed_pages(paragraph, CUE_MARKER, clean_text)
+            localized_pages = {locale: keyed_pages(text, CUE_MARKER, clean_text) for locale, text in translated.items() if text}
+            if audio:
+                timings = {page.identity: cue_times(page.alignment_key, metadata['times'], metadata['duration'])
+                           if page.alignment_key else None for page in pages}
+                if any(pair is None for pair in timings.values()):
                     diagnostics['complete_performance_records'] += 1
-                    parts = {'complete': clean_text(paragraph)}
-                    texts_by_locale = {locale: {'complete': clean_text(text)} for locale, text in translated.items() if clean_text(text)}
-                    timings = {}
-            for cue, text in parts.items():
-                texts = {locale: values[cue] for locale, values in texts_by_locale.items() if cue in values}
+            for page in pages:
+                cue, text = page.identity, page.text
+                texts = aligned_texts(page, source_locale, localized_pages)
                 binding = dict(audio) if audio else None
-                if binding and cue in timings:
+                if binding and timings.get(cue) is not None:
                     binding.update(zip(('start_ms', 'end_ms'), timings[cue]))
                 row = {'text_id': f'detroit:{entry.identity}:{key}:{cue}', 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
                        'source_locale': source_locale, 'source_text': text, 'texts': texts,
-                       'audio_locale': source_locale, 'audio': binding, 'voice_status': status, 'dialogue_kind': kind}
-                if binding and not timings:
-                    row['ocr_texts'] = {locale: ocr_pages(value) for locale, value in translated.items() if value}
+                       'audio_locale': source_locale, 'audio': binding, 'voice_status': status, 'dialogue_kind': kind,
+                       'audio_scope': 'paragraph' if binding and timings.get(cue) is None else 'line'}
                 previous = seen.get(row['text_id'])
                 # Some legacy tables reuse a paragraph key with different
                 # text; retain its resource identity and OCR ambiguity.
@@ -198,7 +184,7 @@ def _index_language(install, data_dir, source_locale, target_locales, progress):
     warnings = [f"{counts['unavailable']:,} narrative records have no verified installed original performance; they are not classified as unvoiced.",
                 'Choices, thought/action prompts, investigation clues and magazine/news text use full-frame capture with the unvoiced option.',
                 'Scene writing stored only in textures, bonus-video soundtracks and speech with no authored subtitle are not per-line text/audio coverage.',
-                'Repeated short wording can remain ambiguous; complete original performances are used when individual cue timings cannot be established.']
+                'Authored pages stay separate even when timing is unresolved. Paragraph audio is labeled explicitly; repeated cue markers do not establish translated page alignment or an audio cut.']
     if not counts['voiced']:
         warnings.insert(0, f'Install or verify the official {source_locale} voice files through Steam; text-only records remain available.')
     return {'format': 2, 'game': 'detroit', 'source_locale': source_locale, 'install': str(install),

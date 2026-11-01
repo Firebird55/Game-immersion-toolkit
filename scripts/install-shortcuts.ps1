@@ -39,7 +39,7 @@ if ($needsBuild) {
 Set-Content -LiteralPath $projectPointer -Value $projectRoot -Encoding UTF8
 
 $startMenuDir = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-$startShortcut = Join-Path $startMenuDir 'Proxy Transcript.lnk'
+$startShortcut = Join-Path $startMenuDir 'Game Immersion Toolkit.lnk'
 
 New-Item -ItemType Directory -Path $startMenuDir -Force | Out-Null
 
@@ -50,7 +50,7 @@ function New-ProxyShortcut([string]$path) {
     $shortcut.Arguments = ''
     $shortcut.WorkingDirectory = $projectRoot
     $shortcut.IconLocation = "$icon,0"
-    $shortcut.Description = 'Start the Proxy Transcript companion in Chrome'
+    $shortcut.Description = 'Start Game Immersion Toolkit'
     $shortcut.Save()
 }
 

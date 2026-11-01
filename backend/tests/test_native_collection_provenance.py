@@ -74,7 +74,7 @@ def toy(tmp_path, monkeypatch):
     allowed_native_payloads = {python_dll.read_bytes(), members['owned/one.dll'], members['owned/two.dll'],
         *(('authored '+item['path']).encode() for item in resources),
         b'authored generated main', b'authored generated asr',
-        b'authored generated ProxyTranscriptRuntime', b'authored generated ProxyTranscriptAsr'}
+        b'authored generated GameImmersionToolkit', b'authored generated GameImmersionToolkitAsr'}
     native_image_stub_calls = []
     def authored_byte_only_native_images_not_tested(actual_value, actual_output, inventory):
         # This fixture owns non-PE strings only. The independent parser and
@@ -83,7 +83,7 @@ def toy(tmp_path, monkeypatch):
         selected = [item for item in inventory['files'] if Path(item['path']).suffix.lower() in {'.dll', '.pyd', '.exe'}]
         assert selected
         for item in selected:
-            raw = (actual_output/'ProxyTranscriptRuntime'/item['path']).read_bytes()
+            raw = (actual_output/'GameImmersionToolkit'/item['path']).read_bytes()
             assert raw in allowed_native_payloads and not raw.startswith(b'MZ')
             assert item['bytes'] == len(raw) and item['sha256'] == checksum(raw)
         state = {'schema': 'authored-byte-only-native-images-not-tested', 'status': 'not-tested',
@@ -111,11 +111,11 @@ def observe_and_copy(toy, *, finish=True):
     observer.observe_analysis('main', main, explicit)
     observer.observe_analysis('asr', asr)
     for process, rows in (('main', main+explicit), ('asr', asr)):
-        folder = toy.output / ('ProxyTranscriptAsr' if process == 'asr' else 'ProxyTranscriptRuntime')
+        folder = toy.output / ('GameImmersionToolkitAsr' if process == 'asr' else 'GameImmersionToolkit')
         for destination, origin, _kind in rows:
             target = folder/'_internal'/destination; target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(origin, target)
-        name = 'ProxyTranscriptAsr.exe' if process == 'asr' else 'ProxyTranscriptRuntime.exe'
+        name = 'GameImmersionToolkitAsr.exe' if process == 'asr' else 'GameImmersionToolkit.exe'
         generated = toy.build/name; generated.write_bytes(('authored generated ' + process).encode())
         observer.observe_generated(process, generated)
         shutil.copyfile(generated, folder/name)
@@ -159,8 +159,8 @@ def test_actual_sources_ambiguity_generated_and_final_inventory_are_bound_withou
         'provider': 'GetSystemDirectoryW', 'system_member': 'authored-system.dll'}
     assert rows['_internal/helpers/nte/owned-helper.dll']['processing'] == 'explicit-native-resource'
     assert rows['_internal/codecs/xiph-flac/FLAC.dll']['source']['resolved_inputs'][0]['kind'] == 'resource'
-    assert rows['ProxyTranscriptRuntime.exe']['source']['role'] == 'generated-processing-observed'
-    assert rows['asr/ProxyTranscriptAsr.exe']['source']['internals_provenance'] == 'unverified'
+    assert rows['GameImmersionToolkit.exe']['source']['role'] == 'generated-processing-observed'
+    assert rows['asr/GameImmersionToolkitAsr.exe']['source']['internals_provenance'] == 'unverified'
     assert report['rights_review'] == 'pending-exact-output' and report['native_closure'] == 'unverified'
     assert report['native_windows_11_acceptance'] == 'unavailable'
     for gate in ('source_delivery_approved', 'production_execution_allowed', 'r19_complete'):
@@ -195,18 +195,18 @@ def test_source_refusal_is_fixed_private_and_never_writes_a_passing_record(toy, 
 def test_finalization_refuses_tamper_missing_sources_and_unexplained_transformations(toy, change):
     observe_and_copy(toy)
     from closure import inventory_output, validate_native_collection
-    (toy.output/'ProxyTranscriptAsr').rename(toy.output/'ProxyTranscriptRuntime/asr')
+    (toy.output/'GameImmersionToolkitAsr').rename(toy.output/'GameImmersionToolkit/asr')
     snapshot = toy.output/toy.module.NATIVE_SOURCE_INPUTS
     value = json.loads(snapshot.read_bytes())
-    if change == 'output': (toy.output/'ProxyTranscriptRuntime/_internal/renamed.dll').write_bytes(b'unexplained processed bytes')
+    if change == 'output': (toy.output/'GameImmersionToolkit/_internal/renamed.dll').write_bytes(b'unexplained processed bytes')
     if change == 'missing-record': value['records'].pop(0)
     if change == 'source-fields': value['records'][0]['source']['private-extra-field'] = 'secret-marker'
     if change == 'source-bytes': toy.one.write_bytes(b'changed after snapshot')
     if change == 'input-manifest': toy.manifest.write_text(json.dumps({**toy.value, 'private-extra-field': 'secret-marker'}))
-    if change == 'unlisted-native': (toy.output/'ProxyTranscriptRuntime/_internal/unlisted.dll').write_bytes(b'unlisted native bytes')
+    if change == 'unlisted-native': (toy.output/'GameImmersionToolkit/_internal/unlisted.dll').write_bytes(b'unlisted native bytes')
     if change == 'duplicate-json': snapshot.write_text('{"schema":"private-marker",' + snapshot.read_text()[1:])
     else: snapshot.write_text(json.dumps(value))
-    files = inventory_output(toy.output/'ProxyTranscriptRuntime'); original = deepcopy(files)
+    files = inventory_output(toy.output/'GameImmersionToolkit'); original = deepcopy(files)
     with pytest.raises(toy.module.NativeCollectionError) as error:
         validate_native_collection(toy.value, toy.evidence, toy.output, files, toy.manifest)
     assert files == original
@@ -407,6 +407,10 @@ def test_real_spec_uses_both_actual_analysis_objects_and_keeps_collector_errors_
         assert len(analyses) == 2
         snapshot = json.loads((toy.output/toy.module.NATIVE_SOURCE_INPUTS).read_bytes())
         by_path = {r['path']: r for r in snapshot['records']}
+        assert by_path['GameImmersionToolkit.exe']['process'] == 'main'
+        assert by_path['asr/GameImmersionToolkitAsr.exe']['process'] == 'asr'
+        assert (toy.output/'GameImmersionToolkit/GameImmersionToolkit.exe').is_file()
+        assert (toy.output/'GameImmersionToolkitAsr/GameImmersionToolkitAsr.exe').is_file()
         assert by_path['_internal/owned.dll']['process'] == 'main'
         assert by_path['asr/_internal/owned/two.dll']['process'] == 'asr'
         assert by_path['_internal/helpers/nte/owned-helper.dll']['processing'] == 'explicit-native-resource'
@@ -678,3 +682,29 @@ def test_failure_projector_does_not_attribute_analysis_census_to_another_phase(t
     report = failed(toy)
     assert report['phase'] == 'generated'
     assert report['analysis_diagnostic'] == {'schema': toy.module.NATIVE_DIAGNOSTIC_SCHEMA, 'status': 'unavailable'}
+
+
+def test_current_desktop_schema_keeps_native_names_and_does_not_use_legacy_windows_observer(toy, monkeypatch):
+    repository = Path(__file__).resolve().parents[2]
+    toy.manifest.write_text(json.dumps({'schema': 'proxy-desktop-observed-build-v1',
+        'profile': 'runtime-experiment', 'resources': []}))
+    monkeypatch.setenv('PROXY_RUNTIME_BUILD_INPUTS', str(toy.manifest))
+    monkeypatch.setenv('PROXY_RUNTIME_EVIDENCE_ROOT', str(toy.evidence))
+    hooks = SimpleNamespace(collect_data_files=lambda *_a, **_k: [], collect_dynamic_libs=lambda *_a, **_k: [],
+        collect_submodules=lambda *_a, **_k: [], copy_metadata=lambda *_a, **_k: [])
+    monkeypatch.setitem(sys.modules, 'PyInstaller.utils.hooks', hooks)
+    def forbidden(*_a, **_k):
+        pytest.fail('Current desktop inputs must use their own target-bound native review')
+    monkeypatch.setattr(toy.module, 'NativeCollectionObservation', forbidden)
+    analyses, names = [], []
+    def analysis(*_a, **kwargs):
+        analyses.append(kwargs)
+        return SimpleNamespace(pure=[], scripts=[], binaries=[], datas=[])
+    runpy.run_path(str(repository/'packaging/runtime-bundle/runtime.spec'), init_globals={
+        'SPECPATH': str(repository/'packaging/runtime-bundle'), 'DISTPATH': str(toy.output),
+        'Analysis': analysis, 'PYZ': lambda *_a: None,
+        'EXE': lambda *_a, name, **_k: SimpleNamespace(name=name),
+        'COLLECT': lambda *_a, name, **_k: names.append(name)})
+    assert names == ['GameImmersionToolkit', 'GameImmersionToolkitAsr']
+    assert len(analyses) == 2 and 'PySide6' in analyses[1]['excludes']
+    assert not (toy.output/toy.module.NATIVE_SOURCE_INPUTS).exists()

@@ -161,17 +161,19 @@ export function immutableExtractor(name, original) {
   };
   let source = original;
   if (name === 'extract_voice_links.mjs') {
-    source = replace(source, "import { pathToFileURL } from 'node:url';\nimport ts from 'typescript';\n", '');
-    const start = "const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');";
-    const end = "  await import(pathToFileURL(join(toolDir, 'galgame-perform.mjs')).href);";
+    source = replace(source, "import { pathToFileURL } from 'node:url';\n", '');
+    source = replace(source, ", compiledReader] = process.argv.slice(2);", "] = process.argv.slice(2);");
+    const start = "const readerPath = compiledReader ? resolve(compiledReader) : join(toolDir, 'galgame-perform.mjs');";
+    const end = "  await import(pathToFileURL(readerPath).href);";
     const begin = source.indexOf(start), finish = source.indexOf(end);
-    if (begin < 0 || finish < begin || source.indexOf(start, begin + 1) !== -1 || source.indexOf(end, finish + 1) !== -1) throw Error('The voice extractor bootstrap changed.');
+    if (begin < 0 || finish < begin || source.indexOf(start, begin + 1) !== -1 || source.indexOf(end, finish + 1) !== -1
+        || !source.slice(begin, finish).includes("const source = await readFile(join(toolDir, 'galgame-perform.ts'), 'utf8');")) throw Error('The voice extractor bootstrap changed.');
     source = source.slice(0, begin) + "import { galGameLinksFromBlocks, unpackMhyFile, xxHash64 } from './reader.mjs';" + source.slice(finish + end.length);
   } else if (name === 'extract_cinematic_links.mjs') {
     source = replace(source, "import{pathToFileURL}from'node:url';", '');
-    source = replace(source, "import ts from'typescript';", '');
-    source = replace(source, "const source=await readFile(join(tools,'galgame-perform.ts'),'utf8');", "const source=await readFile(new URL('./reader.mjs',import.meta.url),'utf8');");
-    const bootstrap = "const readerPath=join(tools,'cinematic-reader.mjs');\nawait writeFile(readerPath,ts.transpileModule(source+'\\nexport {unpackMhyFile};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);\nconst{unpackMhyFile}=await import(pathToFileURL(readerPath).href);";
+    source = replace(source, "const[gameArgument,toolsArgument,compiledReader]=process.argv.slice(2);", "const[gameArgument,toolsArgument]=process.argv.slice(2);");
+    source = replace(source, "const source=await readFile(compiledReader?resolve(compiledReader):join(tools,'galgame-perform.ts'),'utf8');", "const source=await readFile(new URL('./reader.mjs',import.meta.url),'utf8');");
+    const bootstrap = "const readerPath=compiledReader?resolve(compiledReader):join(tools,'cinematic-reader.mjs');\nif(!compiledReader){\n const{default:ts}=await import('typescript');\n await writeFile(readerPath,ts.transpileModule(source+'\\nexport {unpackMhyFile};',{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText);\n}\nconst{unpackMhyFile}=await import(pathToFileURL(readerPath).href);";
     source = replace(source, bootstrap, "import{unpackMhyFile}from'./reader.mjs';");
   } else throw Error('Unknown extractor adaptation.');
   if (/typescript|transpileModule|galgame-perform\.(?:ts|mjs)|cinematic-reader\.mjs|pathToFileURL/.test(source)) throw Error('The extractor still contains runtime compilation.');

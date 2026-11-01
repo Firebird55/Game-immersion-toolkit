@@ -60,8 +60,19 @@ The key/name check verifies an existing dependency; it never guesses a recording
 from a similar filename. Extraction rechecks the complete chain. Timed cue
 identities, numeric cue ranges and explicit millisecond timecodes are preserved.
 Repeated markers, missing cue timings and subtitle holds outside the recording
-use the complete verified performance with authored OCR pages. They never create
-an invented cut. Translation joins use the same resource/key/cue identities.
+retain separate source pages with explicitly labeled paragraph audio. They never
+create an invented cut. Translation joins use unique resource/key/cue identities;
+repeated markers do not establish page-level translation alignment.
+
+### Subtitle boundary correction, 2026-10-31
+
+Reader revision 2 no longer collapses all pages when even one timing is invalid.
+Valid cue timings still produce their original excerpts; unresolved cues retain
+the whole verified recording with `audio_scope: paragraph`. Repeated marker
+occurrences and any unmarked prefix have separate source rows without fabricated
+cross-language alignment. Missing recordings preserve the same source boundaries
+and remain unavailable. Synthetic tests verify these paths; the earlier native
+counts below predate this correction and are not new gameplay acceptance.
 
 ## Presentations and capture coverage
 

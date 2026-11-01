@@ -1,8 +1,8 @@
-"""Explicit prototype gate: never build/download unreviewed tools in a bundle.
+"""Guard the remaining development-only executable acquisition operations.
 
-The source adapter keeps its existing separately acquired tools. R19 has no
-accepted helper/native closure yet, so a frozen game action reports unavailable
-before it can invoke npm, a compiler, SDK, NuGet or an arbitrary PATH binary.
+Packaged capabilities are resolved by their immutable-resource adapters. This
+guard is only for a source compiler/downloader with no packaged implementation.
+It does not disable unrelated readers or the common audio runtime.
 """
 from .runtime_bundle import discover_layout
 from .preparation_errors import PreparationFailure
@@ -11,5 +11,6 @@ from .preparation_errors import PreparationFailure
 def require_source_toolchain(component: str) -> None:
     if discover_layout().mode == 'bundle':
         raise PreparationFailure('bundle_toolchain_unavailable',
-            f'This R19 diagnostic candidate has no reviewed {component} toolchain. '
-            'Keep using the source runtime; a compiler or separate download does not close this bundle gate.')
+            f'This installation does not include the {component} runtime. '
+            'Install a complete toolkit package for this platform, then retry. '
+            'No developer compiler or executable download was started.')

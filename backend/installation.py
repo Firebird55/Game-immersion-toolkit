@@ -4,19 +4,47 @@ from __future__ import annotations
 from .runtime_paths import data_root as runtime_data_root
 from .runtime_bundle import child_command, discover_layout, resource_path
 import json
+import logging
 import os
 from pathlib import Path
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 import threading
+from .owned_process import OwnedProcess
 import time
 
 from .game_paths import GAMES, GAME_NAMES, configured_install, discover_install, load_paths
 from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 from .steam_games import STEAM_GAMES
+from .preparation_errors import PreparationFailure, public_failure
+from . import runtime_payload
+
+RUNTIME_STATUS_REFRESH_SECONDS = 5.0
+
+
+def _runtime_inventory_stamp(root: Path) -> tuple:
+    """Invalidate the display cache on file changes without hashing GBs each poll.
+
+    This is only a setup-status cache. Packaging and activation still perform
+    their own full verification. Never follow a directory link while scanning.
+    """
+    runtime_payload.no_links(root)
+    pending, entries = [root], []
+    while pending:
+        directory = pending.pop()
+        for path in sorted(directory.iterdir()):
+            info = path.lstat()
+            linked = stat.S_ISLNK(info.st_mode) or bool(getattr(info, 'st_file_attributes', 0) & 0x400)
+            entries.append((path.relative_to(root).as_posix(), info.st_mode, info.st_size,
+                            info.st_mtime_ns, info.st_ctime_ns, info.st_dev, info.st_ino,
+                            getattr(info, 'st_file_attributes', 0), os.readlink(path) if path.is_symlink() else ''))
+            if stat.S_ISDIR(info.st_mode) and not linked:
+                pending.append(path)
+    return tuple(entries)
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -39,7 +67,7 @@ VOICE_HINTS = {
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
     "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
-    "endfield": "Install the matching voice pack and Microsoft .NET 10 SDK, then prepare tools and the selected language.",
+    "endfield": "Install the matching voice pack, then prepare tools and the selected language.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
@@ -48,7 +76,7 @@ VOICE_HINTS = {
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
-    "nte": "Download the selected study language's original voice pack, then prepare its authored dialogue and cinematic bindings in Languages.",
+    "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
 }
 
 
@@ -92,14 +120,21 @@ class InstallationService:
         self.game_state, self.refresh_game = game_state, refresh
         self.account_configured, self.install_lookup = account_configured, install_lookup
         layout = discover_layout()
-        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' else
+        self.path = (layout.settings_root / 'setup.json' if layout.mode == 'bundle' or sys.platform != 'win32' else
                      Path(os.environ.get("LOCALAPPDATA", runtime_data_root(root))) / "Proxy Transcript/setup.json")
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
+        self._runtime_thread: threading.Thread | None = None
+        self._runtime_verified_key = None
+        self._runtime_verified = False
+        self._runtime_verified_inventory = None
+        self._runtime_next_check = 0.0
+        self._runtime_help = ''
         self._native: dict[str, subprocess.Popen] = {}
+        self._native_owners = {}
         self._native_threads = set()
-        self._quiescing = False
+        self._paused = False
         self.completed = existing_user
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
@@ -128,27 +163,23 @@ class InstallationService:
             except OSError:
                 voice = "not_checked"
             voice_hint = VOICE_HINTS[game]
-            if layout.mode == 'bundle' and game == 'endfield':
-                voice_hint = "Install the selected voice pack in the game. This experimental bundle's Endfield reader is awaiting verification; keep using your existing toolkit installation."
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
                           "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
         ocr = Path.home() / ".config/oneocr"
+        from .ocr_engine import portable_models_available
+        from .desktop_capabilities import capture_capability
         requirements = [
-            {"id": "windows", "title": "Windows", "ready": sys.platform == "win32",
-             "help": "Desktop game capture requires Windows. The mobile capture test is a separate browser page."},
-            {"id": "ocr", "title": "Subtitle OCR", "ready": all((ocr / name).is_file() for name in
+            capture_capability(),
+            {"id": "ocr", "title": "Subtitle OCR", "ready": portable_models_available() or all((ocr / name).is_file() for name in
               ("oneocr.dll", "oneocr.onemodel", "onnxruntime.dll")),
-             "help": "Install or update Windows Snipping Tool, then re-run Install.cmd to repair OCR."},
+             "help": "Offline OCR is included. Repair the toolkit installation if its model files are missing."},
             {"id": "audio", "title": "Audio conversion", "ready": bool(ffmpeg_executable()),
-             "help": "Re-run Install.cmd to repair the local audio dependencies."},
+             "help": "Repair the toolkit installation if the bundled audio converter is missing."},
         ]
         if layout.mode == 'bundle':
-            requirements[1]['help'] = "Install or update Windows Snipping Tool. OCR file preparation and native capture verification remain unavailable in this experimental bundle."
-            requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
-            requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
-                'help': "This experimental runtime is awaiting Windows capture, game-tool and distribution review. Keep using your existing installation."})
+            requirements.append(self._runtime_acceptance(layout))
         else:
             requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
                 "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
@@ -167,6 +198,64 @@ class InstallationService:
                 "version": json.loads(resource_path('package.json').read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
 
+    def _runtime_acceptance(self, layout) -> dict:
+        result = {'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
+                  'help': 'This candidate is awaiting native capture, game-tool and distribution review.'}
+        if layout.profile != 'runtime':
+            return result
+        identity = tuple((name, getattr(layout, name)) for name in
+                         ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol'))
+        key = (str(layout.application_root), str(layout.executable), identity)
+        # Setup polling must not read a large receipt or walk the installed
+        # payload on the ASGI event loop. This short-lived display cache is not
+        # the independent full verification required for activation or release.
+        with self._lock:
+            if key == self._runtime_verified_key and time.monotonic() < self._runtime_next_check:
+                return {**result, 'ready': self._runtime_verified, 'help': self._runtime_help}
+            result['help'] = 'Checking the installed runtime against its approved release inventory.'
+            if not self._paused and not (self._runtime_thread and self._runtime_thread.is_alive()):
+                self._runtime_thread = threading.Thread(target=self._verify_runtime,
+                    args=(layout, key), daemon=True, name='setup-runtime-verification')
+                self._runtime_thread.start()
+        return result
+
+    def _verify_runtime(self, layout, key):
+        verified = False
+        inventory_key = None
+        help_text = 'Installed runtime verification failed. Repair the toolkit installation.'
+        try:
+            receipt, receipt_digest = runtime_payload.read_installed_receipt(layout)
+            # Production release approval is independent of the R19 experiment.
+            # A candidate's profile alone cannot approve its actual inventory.
+            if runtime_payload.release_eligible(receipt):
+                stamp = _runtime_inventory_stamp(layout.application_root)
+                inventory_key = (key, receipt_digest, stamp)
+                with self._lock:
+                    unchanged = inventory_key == self._runtime_verified_inventory
+                    prior_verified = self._runtime_verified
+                verified = prior_verified if unchanged else runtime_payload.validate(layout.application_root, receipt,
+                    runtime_payload.executable_target(layout.executable), installed=True)
+                # Check both receipt and tree again. A replacement occurring
+                # between the first receipt read and scan cannot publish ready.
+                if (_runtime_inventory_stamp(layout.application_root) != stamp
+                        or runtime_payload.read_installed_receipt(layout)[1] != receipt_digest):
+                    verified = False
+                    inventory_key = None
+                if verified:
+                    help_text = 'Installed runtime matches its approved release inventory.'
+            else:
+                help_text = 'This candidate is awaiting native capture, game-tool and distribution review.'
+        except (OSError, ValueError, TypeError, KeyError, RecursionError):
+            logging.getLogger(__name__).warning('Installed runtime inventory verification failed.')
+            help_text = 'Installed runtime verification is unavailable. Repair the toolkit installation.'
+        finally:
+            with self._lock:
+                self._runtime_verified_key = key
+                self._runtime_verified = verified
+                self._runtime_verified_inventory = inventory_key
+                self._runtime_help = help_text
+                self._runtime_next_check = time.monotonic() + RUNTIME_STATUS_REFRESH_SECONDS
+
     def complete(self, auto_start: bool) -> None:
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -183,7 +272,7 @@ class InstallationService:
         if install and self.root.resolve().is_relative_to(install.resolve()):
             raise ValueError("Move the toolkit to a folder outside the game installation before preparing tools")
         with self._lock:
-            if self._quiescing:
+            if self._paused:
                 return False
             if self._tool_thread and self._tool_thread.is_alive():
                 return False
@@ -201,53 +290,76 @@ class InstallationService:
             prepare_tools(self.root, game, progress)
             missing = missing_tools(self.root, game)
             if missing:
-                raise ValueError("Tools are incomplete")
+                raise PreparationFailure('tools_incomplete',
+                    'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')
             with self._lock:
                 self._jobs[game] = {"state": "ready", "message": "Tools ready; checking game data", "progress": 100}
             if self.install_lookup(game):
                 self.refresh_game(game)
-        except Exception:
+        except Exception as error:
+            logging.getLogger(__name__).exception('Tool preparation failed for %s', game)
+            failure = public_failure(error)
             with self._lock:
-                message = ("This experimental bundle's game tools are unavailable. Keep using your existing installation until those tools are verified."
-                    if discover_layout().mode == 'bundle' else
-                    "Preparation failed. Check your connection and retry. Re-run Install.cmd if dependencies are missing.")
-                self._jobs[game] = {"state": "error", "message": message, "progress": 100}
+                self._jobs[game] = {"state": "error", "message": failure['message'],
+                                    "code": failure['code'], "progress": 100}
 
     def launch_native(self, kind: str) -> bool:
         if kind not in {"folders", "lexirise", "checks"}:
             raise ValueError("Unsupported setup action")
-        if sys.platform != "win32":
-            raise ValueError("Native setup dialogs require Windows")
         with self._lock:
-            if self._quiescing:
+            if self._paused:
                 return False
             if any(process.poll() is None for process in self._native.values()):
                 return False
             before = load_paths()
             layout = discover_layout()
             source = layout.resource_root
-            if kind == "folders":
-                args = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
-                        str(resource_path('scripts/select-game-folders.ps1'))]
-                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            elif kind == "lexirise":
-                # The hidden-input prompt owns its console. No key is sent to the browser or command line.
-                args = child_command('account-key', ['--account'])
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+            if kind == 'lexirise':
+                # A password field on the host owns the credential. No key is
+                # sent to the browser, command line or process environment.
+                args = child_command('account-key', ['--account', '--gui'])
             else:
-                args = child_command('capture-readiness', ['--pause'])
-                flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
+                args = child_command('native-setup', [kind])
             environment = {'env': layout.child_environment()} if layout.mode == 'bundle' else {}
-            process = subprocess.Popen(args, cwd=source, creationflags=flags, **environment)
+            owner = OwnedProcess(args, cwd=source, stdin=None, stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL, **environment)
+            process = owner.process
+            self._native_owners[kind] = owner
             self._native[kind] = process
-            worker = threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True)
-            self._native_threads.add(worker)
-            worker.start()
+            monitor = threading.Thread(target=self._native_finished, args=(kind, process, before), daemon=True)
+            self._native_threads.add(monitor)
+            monitor.start()
             return True
+
+    def pause(self):
+        with self._lock:
+            self._paused = True
+            owners = list(self._native_owners.values())
+            threads = [self._tool_thread, *self._native_threads]
+        for owner in owners:
+            owner.stop()
+        for thread in threads:
+            if thread is not None:
+                thread.join(timeout=30)
+                if thread.is_alive():
+                    raise RuntimeError('Game setup is still finishing; runtime handoff is blocked.')
+
+    def resume(self):
+        with self._lock:
+            if self._tool_thread and self._tool_thread.is_alive():
+                raise RuntimeError('Game setup has not finished stopping.')
+            if self._runtime_thread and self._runtime_thread.is_alive():
+                raise RuntimeError('Runtime verification has not finished stopping.')
+            if any(thread.is_alive() for thread in self._native_threads):
+                raise RuntimeError('Setup dialogs have not finished stopping.')
+            self._paused = False
 
     def _native_finished(self, kind, process, before):
         try:
             process.wait()
+            owner = self._native_owners[kind]
+            owner.stop()
+            owner.close_streams()
             if kind == "folders":
                 after = load_paths()
                 for game in GAMES:
@@ -258,26 +370,18 @@ class InstallationService:
                 self._native_threads.discard(threading.current_thread())
 
     def quiesce(self, timeout=5):
-        """Wait for setup writers, including native-completion callbacks.
-
-        These dialogs/tools do not yet have a supervising Job Object. Do not
-        kill a process by stored PID to manufacture a successful handoff.
-        A still-open dialog or tool causes a bounded refusal instead.
-        """
+        """Bounded wait for setup writers and their actual completion callbacks."""
         deadline = time.monotonic() + max(0, timeout)
         with self._lock:
-            self._quiescing = True
-            workers = [*self._native_threads, *([self._tool_thread] if self._tool_thread else [])]
+            self._paused = True
+            workers = [*self._native_threads,
+                       *(thread for thread in (self._tool_thread, self._runtime_thread) if thread)]
         for worker in workers:
             if worker is not threading.current_thread():
                 worker.join(timeout=max(0, deadline-time.monotonic()))
         with self._lock:
             if any(worker.is_alive() for worker in workers) or any(p.poll() is None for p in self._native.values()):
-                raise TimeoutError('Setup tools or a native dialog have not finished; runtime handoff is unavailable.')
-
-    def resume(self):
-        with self._lock:
-            self._quiescing = False
+                raise TimeoutError('Setup tools, runtime verification or a native dialog have not finished; runtime handoff is unavailable.')
 
     def report(self) -> dict:
         value = self.status()

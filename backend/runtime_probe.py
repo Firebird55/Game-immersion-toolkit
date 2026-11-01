@@ -77,7 +77,7 @@ def populated_roots(layout):
 class _AuthoredPopulatedAPI:
     """Strict factories return real owners; account and remote effects are TEST only."""
     def __init__(self, layout, service):
-        from .accounts import AccountStore
+        from .accounts import AccountStore, accounts_path
         from .automatic_mobile_export import AutomaticMobileExports
         from .lexirise import LexiriseService
         from .runtime_data_copy_probe import _guard_path
@@ -90,7 +90,9 @@ class _AuthoredPopulatedAPI:
         self.owners = []
         self.account = self.ledger = self.automatic = self.runtime = None
         self.failure = None
-        self.account_path = self.roots['host-profile'].path/'Programs/Proxy Transcript/accounts.dpapi'
+        self.account_path = layout.settings_root/'credentials/accounts.dpapi'
+        if accounts_path() != self.account_path:
+            raise RuntimeBundleError('Authored populated credential layout differs.')
         self.account_bytes = self._read_account_bytes()
         first, second = (hashlib.sha256(value).hexdigest()[:24] for value in (b'r19-one', b'r19-two'))
         expected = {'active':first, 'profiles':{
@@ -167,7 +169,8 @@ class _AuthoredPopulatedAPI:
         from .reading import LexiriseReadingService
         layout = self.layout
         checks = {'runtime': runtime is self.runtime and runtime.standby,
-            'accounts': runtime.accounts is self.account, 'ledger': runtime.lexirise is self.ledger,
+            'accounts': runtime.accounts is self.account and runtime.accounts.path == self.account_path,
+            'ledger': runtime.lexirise is self.ledger,
             'automatic': runtime.automatic_exports is self.automatic,
             'transcript': type(runtime.transcript) is TranscriptStore and runtime.transcript.path == layout.data_root/'transcript-v2.db',
             'reading': type(runtime.reading) is LexiriseReadingService and runtime.reading.path == layout.data_root/'lexirise/reading-cache-v2.db',

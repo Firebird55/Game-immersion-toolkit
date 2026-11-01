@@ -28,7 +28,7 @@ foreach ($selection in @(
 
 function Start-PopulatedOwner {
     $info=[Diagnostics.ProcessStartInfo]::new()
-    $info.FileName=Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe'
+    $info.FileName=Join-Path $RuntimeRoot 'GameImmersionToolkit.exe'
     $info.Arguments='--runtime-probe host'
     $info.UseShellExecute=$false
     $info.RedirectStandardOutput=$info.RedirectStandardError=$info.RedirectStandardInput=$true
@@ -367,8 +367,8 @@ if ($proof.schema -cne 'proxy-runtime-candidate-v1' -or $proof.profile -cne 'run
 Assert-SlotInventory $RuntimeRoot $proof
 $null=Assert-PopulatedSink $Output
 $legacySourceHash=(Get-FileHash -LiteralPath $slotSourceOperation -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($legacySourceHash -cnotin @('c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef',
-    'f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e')) {
+if ($legacySourceHash -cnotin @('c3735131417eb01d93e5fb19138f64997bf771a0b4d5f913d7b4f08aef0f350f',
+    '9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056')) {
     throw 'Need the exact reviewed LF or CRLF legacy source operation.'
 }
 $temporary=Join-Path ([IO.Path]::GetTempPath()) ('r19-p2-'+[guid]::NewGuid().ToString('N'))

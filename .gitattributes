@@ -1,6 +1,9 @@
 # Keep the pinned upstream font notice byte-exact, including its original spaces.
 desktop/fonts/LICENSE.txt -text whitespace=-blank-at-eol
-styles/GEIST-OFL.txt -text
+styles/GEIST-OFL.txt -text whitespace=-blank-at-eol
+packaging/desktop/*.sh text eol=lf
+# Shared source-cache policy hashes must match on Windows, Linux and macOS.
+packaging/codecs/audio-runtime.json text eol=lf
 # Retain the reviewed complete codec source delivery byte for byte.
 third_party/codecs/xiph-flac-1.5.0/codec-sources.zip -text
 packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt -text
@@ -22,5 +25,6 @@ packaging/asr/CMAKE-MODULE-PATCH-NOTICE.txt -text
 # Keep the owner-approved scoped additional BSD notice byte-exact.
 packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt -text
 
-packaging/codecs/patches/lame-4.0-mpg123-prelink-guard.patch -text
+# Its upstream XML context retains CRLF while the patch metadata uses LF.
+packaging/codecs/patches/lame-4.0-mpg123-prelink-guard.patch -text whitespace=cr-at-eol
 packaging/codecs/MP3-BUILD-RECIPES-LICENSE.txt -text

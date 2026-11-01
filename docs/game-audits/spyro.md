@@ -65,9 +65,21 @@ existing [vgmstream Wwise decoder](https://github.com/vgmstream/vgmstream/blob/m
 
 Separate `tfbSubtitleDataTableRow` tables contain cinematic DataTable references,
 row names, split indexes and scene timeline times. All 640 installed references
-resolve to their dialogue rows. Localized `{N}` pages become OCR alternatives
-for the complete utterance. Scene timeline times are **not** offsets into each
-individual voice file; playback preserves the complete original utterance.
+resolve to their dialogue rows. Localized `{N}` pages remain separate capture
+rows. Scene timeline times are **not** offsets into each individual voice file;
+playback preserves the complete original utterance with explicit paragraph scope.
+
+### Subtitle boundary correction, 2026-10-31
+
+Reader revision 2 preserves every authored `{N}` page, including repeats, instead
+of letting a page match emit the complete utterance. It applies to all three
+games and to missing recordings as well as playable events. One-page translations
+retain their exact localization identity. Multi-page translations are omitted:
+the current adapter does not establish a cross-language page mapping from the
+cinematic `SplitIndex` references, and equal locale page counts are not sufficient
+evidence. It does not fabricate audio cuts from scene timeline times. Synthetic
+fixtures cover all supported locales, repeated pages and missing audio; native
+inventory counts below predate the new page rows and are not new gameplay proof.
 
 ## Native inventory and coverage
 

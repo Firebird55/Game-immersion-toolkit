@@ -234,7 +234,7 @@ def validate_codec_output(value, source, evidence, output):
     from record_runtime import verified_codec
     from backend.prebuilt_readers import _no_links
     codec = verified_codec(evidence, value.get('resources', []), value['source_commit'], source)
-    expected = {'ProxyTranscriptRuntime/_internal/codecs/xiph-flac/' + name: codec.manifest['files'][name]
+    expected = {'GameImmersionToolkit/_internal/codecs/xiph-flac/' + name: codec.manifest['files'][name]
         for name in ('flac.exe', 'FLAC.dll')}
     actual = set()
     for path in output.rglob('*'):
@@ -332,7 +332,7 @@ def validate_native_collection(value, evidence, output, files, input_manifest):
             expected_identity = {key: observed[name][key] for key in ('bytes', 'sha256')}
             if {key: entry[key] for key in expected_identity} != expected_identity:
                 raise NativeCollectionError('unexpected-transformation')
-            if native_file_identity(output / 'ProxyTranscriptRuntime' / name) != expected_identity:
+            if native_file_identity(output / 'GameImmersionToolkit' / name) != expected_identity:
                 raise NativeCollectionError('output-mismatch')
         return {'schema': 'proxy-r19-native-collection-v1', **headers, **native_pending(),
             'input_snapshot': {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()},
@@ -402,7 +402,7 @@ def validate_native_images(value, output, inventory):
         if any(inventory.get(key) != item for key, item in headers.items()):
             raise NativeImageError('invalid-inventory')
         output = native_path(output, directory=True)
-        report = review_native_images(inventory, output / 'RUNTIME-INVENTORY.json', output / 'ProxyTranscriptRuntime')
+        report = review_native_images(inventory, output / 'RUNTIME-INVENTORY.json', output / 'GameImmersionToolkit')
         if any(report.get(key) != item for key, item in headers.items()):
             raise NativeImageError('invalid-inventory')
         write_native_json(output, 'NATIVE-IMAGES.json', report)
@@ -436,12 +436,12 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
     manifest = {'schema': MANIFEST_SCHEMA, 'profile': value['profile'], 'version': package['version'],
         'source_commit': value['source_commit'], 'build_id': value['build_id'], 'resources': resources,
         'children': list(EXPERIMENT_CHILDREN) if value['profile'] == 'runtime-experiment' else list(CHILD_TARGETS) if runtime else ['frontend'] if value['profile'] == 'frontend-experiment' else [], 'r19_complete': False}
-    internal = output / 'ProxyTranscriptRuntime' / '_internal'
+    internal = output / 'GameImmersionToolkit' / '_internal'
     internal.mkdir(parents=True, exist_ok=True)
     (internal / 'runtime-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
     if runtime:
-        asr = output / 'ProxyTranscriptAsr'
-        target = output / 'ProxyTranscriptRuntime/asr'
+        asr = output / 'GameImmersionToolkitAsr'
+        target = output / 'GameImmersionToolkit/asr'
         if target.exists():
             raise ClosureError('ASR target already exists; use a fresh output directory.')
         asr.rename(target)
@@ -450,7 +450,7 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
     # Full notices are copied from reviewed evidence, not inferred from package
     # labels. This folder is still quarantined until exact output review.
     import shutil
-    notices = output / 'ProxyTranscriptRuntime/THIRD_PARTY'
+    notices = output / 'GameImmersionToolkit/THIRD_PARTY'
     for component in value['components']:
         home = notices / normalized(component['name'])
         home.mkdir(parents=True, exist_ok=True)
@@ -459,7 +459,7 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
             target = home / notice['path']
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(path, target)
-    files = inventory_output(output / 'ProxyTranscriptRuntime')
+    files = inventory_output(output / 'GameImmersionToolkit')
     native_collection = None
     if value['profile'] == 'runtime-experiment':
         native_collection = validate_native_collection(value, evidence, output, files, input_manifest)
@@ -467,8 +467,8 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
     if value['profile'] == 'runtime-experiment':
         from native_ownership import native_input_ownership
         ownership = native_input_ownership(value['components'], value.get('resources', []), files)
-    directories = sorted(path.relative_to(output / 'ProxyTranscriptRuntime').as_posix()
-        for path in (output / 'ProxyTranscriptRuntime').rglob('*') if path.is_dir())
+    directories = sorted(path.relative_to(output / 'GameImmersionToolkit').as_posix()
+        for path in (output / 'GameImmersionToolkit').rglob('*') if path.is_dir())
     proof = {'schema': 'proxy-runtime-candidate-v1', 'repository': 'Firebird55/Game-immersion-toolkit',
         'source_commit': value['source_commit'], 'version': package['version'], 'build_id': value['build_id'],
         'profile': value['profile'], 'r19_complete': False, 'redistribution_review': 'pending-exact-output',

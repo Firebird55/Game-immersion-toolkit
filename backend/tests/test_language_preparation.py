@@ -109,7 +109,7 @@ def bundle_language_roots(tmp_path, monkeypatch):
     monkeypatch.setattr(httpx, 'AsyncClient', forbidden)
     root = tmp_path.resolve()
     layout = RuntimeLayout(mode='bundle', application_root=root/'app', resource_root=root/'app/_internal',
-        executable=root/'app/ProxyTranscript.exe', legacy_root=None, data_root=root/'mutable/data-v1',
+        executable=root/'app/GameImmersionToolkit.exe', legacy_root=None, data_root=root/'mutable/data-v1',
         settings_root=root/'mutable/settings', cache_root=root/'mutable/cache-v1', tool_root=root/'mutable/tools-v1',
         work_root=root/'mutable/cache-v1/work', state_root=root/'mutable/host-v1', default_export_root=root/'exports')
     monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
@@ -125,8 +125,9 @@ def bundle_language_roots(tmp_path, monkeypatch):
         'selection_generations': {'owned': {'halflife': 17}}}), encoding='utf-8')
     host_languages.with_suffix('.requests.json').write_text(json.dumps({
         'host-only': {'beyond': {'locale': 'nl', 'target': 'en'}}}), encoding='utf-8')
+    # Isolate the protected-store locator as well as account construction.
+    monkeypatch.setattr(accounts, 'credential_directory', lambda: host/'Programs/Proxy Transcript')
     host_accounts = accounts.accounts_path()
-    assert host_accounts == host/'Programs/Proxy Transcript/accounts.dpapi'
     host_accounts.parent.mkdir(parents=True)
     host_accounts.write_bytes(b'authored protected-store locator sentinel; no credential')
     before = {path: path.read_bytes() for path in (host_languages, host_languages.with_suffix('.requests.json'), host_accounts)}
@@ -224,10 +225,11 @@ def test_unselected_bundle_account_cannot_borrow_host_language_selection(bundle_
 
 
 @pytest.mark.parametrize('local_appdata', ['configured', 'missing', 'empty'])
-def test_source_default_language_path_keeps_localappdata_and_dot_fallback(bundle_language_roots, monkeypatch, local_appdata):
+def test_windows_source_default_language_path_keeps_localappdata_and_dot_fallback(bundle_language_roots, monkeypatch, local_appdata):
     from pathlib import Path
     from backend import language_preparation, runtime_bundle
     roots = bundle_language_roots
+    monkeypatch.setattr('sys.platform', 'win32')
     monkeypatch.setattr('sys.frozen', False, raising=False)
     monkeypatch.setattr(language_preparation, 'discover_layout', runtime_bundle.discover_layout)
     if local_appdata == 'missing': monkeypatch.delenv('LOCALAPPDATA')
@@ -246,6 +248,23 @@ def test_source_default_language_path_keeps_localappdata_and_dot_fallback(bundle
     assert expected.is_file()
     assert LanguagePreparation(None, None, None).selected('zzz') == 'zh-Hans'
     assert not roots.layout.settings_root.exists()
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+def test_macos_source_language_default_uses_selected_platform_root_without_legacy_dot_fallback(bundle_language_roots, monkeypatch):
+    from backend import language_preparation
+    roots = bundle_language_roots
+    monkeypatch.setattr('sys.frozen', False, raising=False)
+    monkeypatch.setattr('sys.platform', 'darwin')
+    monkeypatch.setenv('LOCALAPPDATA', '')
+    observed = []
+    def selected():
+        observed.append(roots.layout)
+        return roots.layout
+    monkeypatch.setattr(language_preparation, 'discover_layout', selected)
+    manager = LanguagePreparation(None, None, None)
+    assert manager.path == roots.layout.settings_root/'languages.json'
+    assert observed == [roots.layout] and not manager.path.exists()
     assert all(path.read_bytes() == raw for path, raw in roots.before.items())
 
 
@@ -289,7 +308,7 @@ def test_selected_snapshot_and_export_worker_reconstruct_bundle_defaults_without
     import json
     from types import SimpleNamespace
     from backend import accounts, game_assets, language_preparation, lexirise, lexirise_settings
-    from backend import export_lock, game_paths, mobile_export_worker
+    from backend import export_lock, game_paths, media_tools, mobile_export_worker
     roots = bundle_language_roots
     manager = LanguagePreparation(None, lambda *_: None, None)
     manager.data = {'prepared': {'halflife': {locale: {'targets': ['zh-Hans']} for locale in ('en', 'zh-Hans')}},
@@ -321,6 +340,7 @@ def test_selected_snapshot_and_export_worker_reconstruct_bundle_defaults_without
     monkeypatch.setattr(lexirise, 'LexiriseService', client)
     monkeypatch.setattr(lexirise_settings, 'account_settings', preferences)
     monkeypatch.setattr(game_assets, 'asset_adapter', lambda game: (SimpleNamespace(fingerprint=lambda _: 'authored-index'), None))
+    monkeypatch.setattr(media_tools, 'vgmstream_executable', lambda _root: None)
     locks, exported = [], []
     monkeypatch.setattr(game_paths, 'settings_path', lambda: roots.layout.settings_root/'game-paths.json')
     monkeypatch.setattr(export_lock, 'ExportLock', lambda path: SimpleNamespace(
@@ -430,6 +450,8 @@ def test_local_targets_survive_activation_history_account_switch_and_refresh(tmp
     runtime.account_preferences = lambda: settings
     runtime.lexirise = SimpleNamespace(status=lambda: {'configured': True})
     runtime.capture = SimpleNamespace(_scan_epoch=0)
+    import threading
+    runtime._locale_voice_lock = threading.RLock()
     runtime._locale_indexes, runtime._active_locales = {}, {}
     runtime.game_indexes, runtime.game_voice_assets = {}, {}
     runtime.language_voice_assets = lambda *_: object()

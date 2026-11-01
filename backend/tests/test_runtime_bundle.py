@@ -7,6 +7,7 @@ they do not establish actual Windows bootloader/DLL/Job Object acceptance.
 from dataclasses import replace
 import hashlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
@@ -19,13 +20,22 @@ from backend import bundle_entry
 from backend import runtime_bundle as bundle
 
 
+@pytest.mark.parametrize('args', [[], ['--ui-probe', '--port', '0'], ['--host-check']])
+def test_frozen_default_and_ui_probe_reach_the_same_production_host_entrypoint(monkeypatch, args):
+    from backend import desktop_host
+    calls = []
+    monkeypatch.setattr(desktop_host, 'launch', lambda args: calls.append(args) or 0)
+    assert bundle_entry.main(args) == 0
+    assert calls == [args]
+
+
 def frozen_layout(tmp_path, *, children=(), resources=None, profile='diagnostic'):
     root = tmp_path.resolve()
     app = root / 'Application 空格'
     app.mkdir()
     internal = app / '_internal'
     internal.mkdir()
-    executable = app / 'ProxyTranscriptRuntime.exe'
+    executable = app / 'GameImmersionToolkit.exe'
     executable.touch()
     private = root / 'private'
     return bundle.RuntimeLayout(mode='bundle', application_root=app, resource_root=internal,
@@ -35,21 +45,77 @@ def frozen_layout(tmp_path, *, children=(), resources=None, profile='diagnostic'
         resources=resources or {}, version='0.22.0', source_commit='a' * 40, build_id='synthetic', profile=profile)
 
 
-@pytest.mark.parametrize('arguments', [[], ['--standby'], ['--standby', '--port', '18767']])
-def test_ordinary_main_keeps_import_string_and_source_standby_behavior(monkeypatch, arguments):
+@pytest.fixture
+def main_lifecycle(monkeypatch):
     from backend import main
-    calls = []
+    calls, servers = [], []
+    state = SimpleNamespace(fail_serve=False)
+    class Listener:
+        closed = 0
+        def setsockopt(self, *args): calls.append(('exclusive', args))
+        def bind(self, address):
+            self.address = address
+            calls.append(('bind', address))
+        def listen(self, backlog): calls.append(('listen', backlog))
+        def getsockname(self): return (self.address[0], self.address[1] or 24567)
+        def close(self): self.closed += 1; calls.append(('close',))
+    listener = Listener()
+    def configure(target, **options):
+        config = SimpleNamespace(target=target, options=options)
+        calls.append(('config', config))
+        return config
+    class Server:
+        started = False
+        should_exit = False
+        def __init__(self, config): self.config = config; servers.append(self)
+        async def serve(self, *, sockets):
+            assert sockets == [listener]
+            calls.append(('serve',))
+            if state.fail_serve: raise RuntimeError('authored serve refusal')
+            self.started = True
+            await main.asyncio.sleep(0)
+    class Thread:
+        def __init__(self, *, target, daemon): self.target = target; assert daemon
+        def start(self): calls.append(('stdin-reader',)); self.target()
+    monkeypatch.setattr(main, 'uvicorn', SimpleNamespace(Config=configure, Server=Server))
+    monkeypatch.setattr(main, 'socket', SimpleNamespace(AF_INET=2, SOCK_STREAM=1,
+        SOL_SOCKET=1, SO_EXCLUSIVEADDRUSE=9, socket=lambda *_: listener))
+    monkeypatch.setattr(main, 'threading', SimpleNamespace(Thread=Thread))
+    monkeypatch.setattr(main.sys, 'stdin', io.StringIO(''))
     monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
-    monkeypatch.setattr(main.sys, 'argv', ['api', *arguments])
-    monkeypatch.setattr(main.uvicorn, 'run', lambda target, **options: calls.append((target, options)))
-    main.main()
-    assert calls == [('backend.api:app', dict(host='127.0.0.1', port=18767 if '--port' in arguments else 8766,
-                                            log_level='info', reload=False))]
-    assert main.os.environ.get('PROXY_TRANSCRIPT_STANDBY') == ('1' if '--standby' in arguments else None)
+    return SimpleNamespace(main=main, listener=listener, calls=calls, servers=servers, state=state)
+
+
+@pytest.mark.parametrize('arguments,port', [([], 8766), (['--standby'], 8766),
+    (['--standby', '--port', '18767'], 18767), (['--port', '0', '--shutdown-stdin'], 0)])
+def test_ordinary_main_keeps_owned_socket_readiness_and_source_standby(main_lifecycle, monkeypatch, capsys, arguments, port):
+    value = main_lifecycle
+    monkeypatch.setattr(value.main.sys, 'argv', ['api', *arguments])
+    value.main.main()
+    config = next(call[1] for call in value.calls if call[0] == 'config')
+    assert config.target == 'backend.api:app'
+    assert config.options == dict(host='127.0.0.1', port=port, log_level='info', reload=False, access_log=False)
+    assert ('bind', ('127.0.0.1', port)) in value.calls and ('listen', 128) in value.calls
+    assert value.calls.index(('exclusive', (1, 9, 1))) < value.calls.index(('bind', ('127.0.0.1', port)))
+    assert json.loads(capsys.readouterr().out) == {'ready': True, 'port': port or 24567}
+    assert value.listener.closed == 1
+    assert value.main.os.environ.get('PROXY_TRANSCRIPT_STANDBY') == ('1' if '--standby' in arguments else None)
+    assert value.servers[0].should_exit is ('--shutdown-stdin' in arguments)
+    assert (('stdin-reader',) in value.calls) is ('--shutdown-stdin' in arguments)
+
+
+def test_main_serve_failure_keeps_original_error_and_closes_owned_listener_once(main_lifecycle, monkeypatch, capsys):
+    value = main_lifecycle
+    value.state.fail_serve = True
+    monkeypatch.setattr(value.main.sys, 'argv', ['api', '--port', '0'])
+    with pytest.raises(RuntimeError, match='authored serve refusal'): value.main.main()
+    assert value.listener.closed == 1
+    assert capsys.readouterr().out == ''
 
 
 @pytest.mark.parametrize('failure', ['source', 'not-windows', 'no-standby', 'no-port', 'public-port',
-    'frontend-port', 'privileged-port', 'invalid-port', 'diagnostic', 'production', 'asr', 'child-subset', 'resources'])
+    'frontend-port', 'privileged-port', 'invalid-port', 'diagnostic', 'production', 'asr', 'child-subset', 'resources',
+    'old-image', 'foreign-image', 'legacy-root'])
 def test_closed_candidate_cli_refuses_unsupported_startup_before_api_configuration(tmp_path, monkeypatch, failure):
     from backend import main
     layout = frozen_layout(tmp_path, children=bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
@@ -62,13 +128,16 @@ def test_closed_candidate_cli_refuses_unsupported_startup_before_api_configurati
         if failure == case: arguments[-1] = port
     if failure == 'diagnostic': layout = replace(layout, profile='diagnostic')
     if failure == 'production': layout = replace(layout, profile='runtime')
-    if failure == 'asr': layout = replace(layout, executable=layout.application_root/'ProxyTranscriptAsr.exe')
+    if failure == 'asr': layout = replace(layout, executable=layout.application_root/'GameImmersionToolkitAsr.exe')
+    if failure == 'old-image': layout = replace(layout, executable=layout.application_root/'ProxyTranscriptRuntime.exe')
+    if failure == 'foreign-image': layout = replace(layout, executable=layout.application_root/'elsewhere/GameImmersionToolkit.exe')
+    if failure == 'legacy-root': layout = replace(layout, legacy_root=layout.application_root.parent/'legacy')
     if failure == 'child-subset': layout = replace(layout, children=('api',))
     if failure == 'resources': layout = replace(layout, resource_root=layout.application_root/'other')
     monkeypatch.setattr(bundle, 'discover_layout', lambda: layout)
     monkeypatch.setattr(main.sys, 'argv', arguments)
     monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
-    monkeypatch.setattr(main.uvicorn, 'run', lambda *_args, **_options: pytest.fail('An invalid candidate started Uvicorn'))
+    monkeypatch.setattr(main.uvicorn, 'Config', lambda *_args, **_options: pytest.fail('An invalid candidate configured Uvicorn'))
     # Guard rejection precedes even importing/configuring the API target.
     monkeypatch.setitem(sys.modules, 'backend.api', SimpleNamespace(
         closed_candidate_app=lambda *_: pytest.fail('An invalid candidate configured the API')))
@@ -76,7 +145,7 @@ def test_closed_candidate_cli_refuses_unsupported_startup_before_api_configurati
     assert 'PROXY_TRANSCRIPT_STANDBY' not in main.os.environ
 
 
-def test_closed_candidate_cli_passes_exact_closed_gate_to_process_local_app(tmp_path, monkeypatch):
+def test_closed_candidate_cli_passes_exact_closed_gate_to_process_local_app(tmp_path, monkeypatch, main_lifecycle, capsys):
     from backend import main
     from backend.runtime_writers import RuntimeWriterGate, WritersQuiescing
     layout = frozen_layout(tmp_path, children=bundle.EXPERIMENT_CHILDREN, profile='runtime-experiment')
@@ -85,7 +154,7 @@ def test_closed_candidate_cli_passes_exact_closed_gate_to_process_local_app(tmp_
     monkeypatch.setattr(main.sys, 'argv', ['api', '--candidate-closed', '--standby', '--port', '18767'])
     monkeypatch.setattr(bundle, 'discover_layout', lambda: layout)
     monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
-    gates, calls, target = [], [], object()
+    gates, target = [], object()
     def configure(gate):
         assert type(gate) is RuntimeWriterGate and gate.closed_candidate
         assert main.os.environ['PROXY_TRANSCRIPT_STANDBY'] == '1'
@@ -94,9 +163,12 @@ def test_closed_candidate_cli_passes_exact_closed_gate_to_process_local_app(tmp_
         gates.append(gate)
         return target
     monkeypatch.setitem(sys.modules, 'backend.api', SimpleNamespace(closed_candidate_app=configure))
-    monkeypatch.setattr(main.uvicorn, 'run', lambda value, **options: calls.append((value, options)))
     main.main()
-    assert len(gates) == 1 and calls == [(target, dict(host='127.0.0.1', port=18767, log_level='info', reload=False))]
+    config = next(call[1] for call in main_lifecycle.calls if call[0] == 'config')
+    assert len(gates) == 1 and config.target is target
+    assert config.options == dict(host='127.0.0.1', port=18767, log_level='info', reload=False, access_log=False)
+    assert json.loads(capsys.readouterr().out) == {'ready': True, 'port': 18767}
+    assert main_lifecycle.listener.closed == 1
 
 
 def test_source_roots_ignore_cwd_and_keep_legacy_data(tmp_path, monkeypatch):
@@ -146,7 +218,12 @@ def test_frozen_resources_require_allowlist_bytes_and_containment(tmp_path):
     path.unlink()
     outside = tmp_path / 'outside.json'
     outside.write_bytes(content)
-    path.symlink_to(outside)
+    try:
+        path.symlink_to(outside)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows symbolic-link privilege is unavailable')
+        raise
     with pytest.raises(bundle.RuntimeBundleError, match='outside'):
         layout.resource('synthetic.json')
 
@@ -168,7 +245,12 @@ def test_frozen_root_selection_rejects_raw_symlink_and_repository_ancestry(tmp_p
     target = tmp_path.resolve() / 'outside'
     target.mkdir()
     linked = tmp_path.resolve() / 'linked'
-    linked.symlink_to(target, target_is_directory=True)
+    try:
+        linked.symlink_to(target, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows symbolic-link privilege is unavailable')
+        raise
     with pytest.raises(bundle.RuntimeBundleError, match='links or reparse'):
         replace(layout, data_root=linked / 'not-created')
     repo = tmp_path.resolve() / 'repository'
@@ -206,14 +288,31 @@ def test_fixed_api_probe_dispatch_keeps_experimental_main_image_gate(tmp_path, m
         main=lambda probe_kind, current: calls.append((name, probe_kind, current)) or 17))
     assert bundle_entry.main(['--runtime-probe', kind]) == 17
     assert calls == [('backend.runtime_probe', kind, layout)]
-    for forbidden in (replace(layout, profile='runtime'), replace(layout, profile='diagnostic'),
-                      replace(layout, executable=layout.application_root/'ProxyTranscriptAsr.exe')):
+    if kind == 'api':
+        current = replace(layout, profile='runtime')
+        monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: current)
+        assert bundle_entry.main(['--runtime-probe', kind]) == 17
+    forbidden_profiles = ['diagnostic'] if kind == 'api' else ['diagnostic', 'runtime']
+    for forbidden in [*(replace(layout, profile=profile) for profile in forbidden_profiles),
+                      replace(layout, executable=layout.application_root/'GameImmersionToolkitAsr.exe')]:
         monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: forbidden)
         with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(['--runtime-probe', kind])
-    assert len(calls) == 1 and 'api-wal' not in bundle_entry.CHILD_TARGETS and 'api-grammar' not in bundle_entry.CHILD_TARGETS
+    assert len(calls) == (2 if kind == 'api' else 1)
+    assert 'api-wal' not in bundle_entry.CHILD_TARGETS and 'api-grammar' not in bundle_entry.CHILD_TARGETS
     assert 'api-populated' not in bundle_entry.CHILD_TARGETS
     for arguments in (['--runtime-probe', 'api-wal-extra'], ['--runtime-probe', kind, 'extra']):
         with pytest.raises(bundle.RuntimeBundleError): bundle_entry.main(arguments)
+
+
+@pytest.mark.parametrize('image', ['ProxyTranscriptRuntime.exe', 'ProxyTranscriptAsr.exe', 'unreviewed.exe'])
+def test_fixed_probe_rejects_old_or_unknown_images_before_import(tmp_path, monkeypatch, image):
+    layout = frozen_layout(tmp_path, profile='runtime-experiment')
+    layout = replace(layout, executable=layout.application_root/image)
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(bundle_entry, 'import_module', lambda *_: pytest.fail('Unbound image imported a native probe'))
+    for kind in ('native', 'api', 'api-populated', 'host', 'asr'):
+        with pytest.raises(bundle.RuntimeBundleError, match='isolated runtime image'):
+            bundle_entry.main(['--runtime-probe', kind])
 
 
 def test_fixed_wal_probe_requires_exact_supplier_before_api_start(tmp_path, monkeypatch):
@@ -237,7 +336,9 @@ def test_fixed_wal_probe_requires_exact_supplier_before_api_start(tmp_path, monk
     assert supplier['version'] == '3.12.16'
 
 
-def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):
+@pytest.mark.parametrize('platform,image', [('win32', 'GameImmersionToolkitAsr.exe'), ('darwin', 'GameImmersionToolkitAsr')])
+def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path, monkeypatch, platform, image):
+    monkeypatch.setattr(bundle.sys, 'platform', platform)
     layout = frozen_layout(tmp_path, children=('language', 'asr'), profile='runtime')
     args = ['--output', str(tmp_path / 'private 中文/out.json'), '--value=$(untouched)']
     assert layout.child_command('language', args) == [str(layout.executable), '--runtime-child', 'language', '--', *args]
@@ -249,12 +350,55 @@ def test_children_use_fixed_dispatch_and_keep_arguments_opaque(tmp_path):
         layout.child_command('language', '--unsafe-string')
     with pytest.raises(bundle.RuntimeBundleError, match='missing'):
         layout.child_command('asr', [])
-    helper = layout.application_root / 'asr/ProxyTranscriptAsr.exe'
+    helper = layout.application_root / 'asr' / image
     helper.parent.mkdir()
     helper.touch()
     assert layout.child_command('asr', [])[0] == str(helper)
     source = bundle.discover_layout({})
     assert source.child_command('language', args)[1:3] == ['-m', 'backend.language_worker']
+
+
+@pytest.mark.parametrize('image', ['GameImmersionToolkitAsr.exe', 'GameImmersionToolkitAsr'])
+def test_renamed_asr_image_dispatches_but_main_image_cannot_load_asr(tmp_path, monkeypatch, image):
+    # Command construction alone missed the stale name in the frozen entrypoint.
+    layout = frozen_layout(tmp_path, children=('asr',), profile='runtime')
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    calls = []
+    monkeypatch.setattr(bundle_entry.runpy, 'run_module', lambda *a, **kw: calls.append((a, kw)))
+    monkeypatch.setattr(sys, 'argv', [])
+    with pytest.raises(bundle.RuntimeBundleError, match='separate frozen executable'):
+        bundle_entry.main(['--runtime-child', 'asr', '--', '--help'])
+    assert not calls
+    layout = replace(layout, executable=layout.application_root / 'asr' / image)
+    assert bundle_entry.main(['--runtime-child', 'asr', '--', '--help']) == 0
+    assert calls == [((bundle.CHILD_TARGETS['asr'][1],), {'run_name': '__main__', 'alter_sys': True})]
+    assert sys.argv == [bundle.CHILD_TARGETS['asr'][1], '--help']
+
+
+@pytest.mark.parametrize('profile', ['runtime', 'runtime-experiment', 'diagnostic'])
+def test_asr_probe_dispatch_preserves_profile_and_image_isolation(tmp_path, monkeypatch, profile):
+    from types import SimpleNamespace
+    layout = frozen_layout(tmp_path, profile=profile)
+    layout = replace(layout, executable=layout.application_root / 'asr/GameImmersionToolkitAsr.exe')
+    monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
+    calls = []
+    def probe_import(name):
+        calls.append(name)
+        return SimpleNamespace(main=lambda kind, selected: (kind, selected))
+    monkeypatch.setattr(bundle_entry, 'import_module', probe_import)
+    if profile == 'diagnostic':
+        with pytest.raises(bundle.RuntimeBundleError, match='complete frozen runtime'):
+            bundle_entry.main(['--runtime-probe', 'asr'])
+        assert not calls
+        return
+    assert bundle_entry.main(['--runtime-probe', 'asr']) == ('asr', layout)
+    assert calls == ['backend.asr_probe']
+    with pytest.raises(bundle.RuntimeBundleError, match='isolated runtime image'):
+        bundle_entry.main(['--runtime-probe', 'native'])
+    layout = replace(layout, executable=layout.application_root / 'GameImmersionToolkit.exe')
+    with pytest.raises(bundle.RuntimeBundleError, match='isolated runtime image'):
+        bundle_entry.main(['--runtime-probe', 'asr'])
+    assert calls == ['backend.asr_probe']
 
 
 def test_child_environment_is_copied_and_asr_removes_app_dll_path(tmp_path):
@@ -394,7 +538,7 @@ def test_bootstrap_joins_job_before_spawn_and_failed_join_never_spawns(monkeypat
 def test_frozen_windows_command_uses_real_image_and_never_py_file(monkeypatch):
     import backend.windows_preparation_process as preparation
     from types import SimpleNamespace
-    image = r'C:\Owned App\ProxyTranscriptRuntime.exe'
+    image = r'C:\Owned App\GameImmersionToolkit.exe'
     def get_image(_module, output, _size):
         output.value = image
         return len(image)

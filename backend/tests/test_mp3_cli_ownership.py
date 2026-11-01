@@ -286,8 +286,8 @@ class Win32Doubles(unittest.TestCase):
   self.k.WriteFile.action=lambda *a:0
   with self.assertRaises(OSError):pipe.write(b'owned')
   self.k.error=232;self.assertEqual(pipe.write(b'owned'),0);pipe.close()
- def test_exact_dependency_source_is_unchanged_but_new_ordinary_license_input(self):
-  raw=(O/'backend/windows_preparation_process.py').read_bytes();self.assertEqual(m.record(raw.replace(b'\r\n',b'\n')),{'bytes':25651,'sha256':'24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0'});self.assertEqual(m.record(raw.replace(b'\r\n',b'\n'))['sha256'],m.policy()['cli_child']['owned_primitive']['canonical_lf_sha256']);core=m.owned_primitive();self.assertTrue(callable(core.WindowsPreparationProcess));self.assertEqual(m.license_boundary()['ordinary_dependency_inputs'],['backend/windows_preparation_process.py']);self.assertEqual(len(m.project_names()),17);self.assertEqual(m.project_names().count('LICENSE'),1);self.assertEqual(len(m.source_kit_names(m.policy())),26)
+ def test_exact_current_dependency_is_rebound_without_borrowing_the_mp3_grant(self):
+  raw=(O/'backend/windows_preparation_process.py').read_bytes();self.assertEqual(m.record(raw.replace(b'\r\n',b'\n')),{'bytes':26174,'sha256':'c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e'});self.assertEqual(m.record(raw.replace(b'\r\n',b'\n'))['sha256'],m.policy()['cli_child']['owned_primitive']['canonical_lf_sha256']);core=m.owned_primitive();self.assertTrue(callable(core.WindowsPreparationProcess));self.assertEqual(m.license_boundary()['ordinary_dependency_inputs'],['backend/windows_preparation_process.py']);self.assertNotIn('backend/windows_preparation_process.py',m.MP3_APPROVED_BASELINES);self.assertEqual(len(m.project_names()),17);self.assertEqual(m.project_names().count('LICENSE'),1);self.assertEqual(len(m.source_kit_names(m.policy())),26)
 
 def load(path):
  spec=importlib.util.spec_from_file_location('mp3_bootstrap_owned',path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module

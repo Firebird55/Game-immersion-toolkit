@@ -24,10 +24,10 @@ SCHEMA = 'proxy-r19-legacy-lock-attribute-mechanism-v5'
 CONTENT = b'owned R19 legacy lock attribute fixture\n'
 MARKER = '.r19-lock-attribute-fixture.json'
 SOURCE = ROOT / 'scripts/companion-runtime.ps1'
-SOURCE_HASHES = frozenset({'c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef',
-    'f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e'})
-HELPER_HASHES = frozenset({'24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0',
-    '841c9bc072434c931a081cd1b69019d3c65e1cd04a3bdc49d836fcb7b5be5d9e'})
+SOURCE_HASHES = frozenset({'c3735131417eb01d93e5fb19138f64997bf771a0b4d5f913d7b4f08aef0f350f',
+    '9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056'})
+HELPER_HASHES = frozenset({'c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e',
+    '53136e53af4b96a8a1fd3192f07c8a8c79f287ebac307156a90814af7ff03119'})
 LIMIT = 4096
 PHASES = ('fixture', 'legacy-baseline', 'lease-start', 'arm', 'live-clear', 'rearm',
     'owner-loss', 'post-loss', 'test-restore', 'restored', 'cleanup', 'complete')

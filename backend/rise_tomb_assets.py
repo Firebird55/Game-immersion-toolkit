@@ -15,7 +15,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .tiger_archive import TigerSet, TigerEntry, fingerprint as archive_fingerprint, name_hash32
 
-LANGUAGE_INDEX_VERSION = 1
+LANGUAGE_INDEX_VERSION = 2
 GAME = 'riseofthetombraider'
 # Authored language IDs, not launcher ordinals. Separate Chinese recordings are
 # retained. Arabic and Latin American Spanish are also present in official DLC.
@@ -144,10 +144,9 @@ def is_mul(data):
 
 
 def read_mul(data: bytes, *, audio=False):
-    """Read bounded packets; retain full performances and authored OCR pages.
+    """Read bounded packets and preserve their authored subtitle frames.
 
-    A subtitle frame can be only one page of a longer utterance. The adapter
-    groups the complete stream and never guesses cuts from text duration tags.
+    Page cuts use the stream frame clock, never text duration/style tags.
     """
     if not is_mul(data) or len(data) < 8192:
         raise _invalid()
@@ -276,34 +275,27 @@ def _selected(entries, archives):
 
 
 def _subtitle_groups(stream, locales, source_locale):
-    """Cut only at shared authored frame boundaries, never translation order.
+    """Keep each source page, translating only identical authored intervals.
 
-    Individual languages can paginate the same performance at different times.
-    Their shared frame boundaries delimit safe bilingual performance groups;
-    unmatched pages remain together until the next boundary shared by every
-    available requested language. MUL cinematic frames are authored at 30 Hz.
+    Different locale pagination must not combine source pages into a paragraph.
+    MUL frames are authored at 30 Hz. Pages outside the audio duration remain
+    readable with paragraph audio, instead of acquiring an invented cut.
     """
-    frames = {locale: {page['frame'] for page in stream['pages'] if page['texts'].get(locale)}
-              for locale in locales}
-    available = [values for values in frames.values() if values]
-    shared = set.intersection(*available) if available else set()
     duration = stream['duration_ms']
-    boundaries = sorted({0, *(frame for frame in shared if 0 < frame * 1000 // 30 < duration)})
-    for index, start in enumerate(boundaries):
-        end = boundaries[index + 1] if index + 1 < len(boundaries) else None
-        pages = {}
-        for locale in locales:
-            values = []
-            for page in stream['pages']:
-                if page['frame'] < start or end is not None and page['frame'] >= end:
-                    continue
-                value = page['texts'].get(locale)
-                if value and (not values or values[-1] != value):
-                    values.append(value)
-            if values:
-                pages[locale] = values
-        if source_locale in pages:
-            yield start, end * 1000 // 30 if end is not None else duration, pages, len(boundaries) > 1
+    localized = {}
+    for locale in locales:
+        frames = {}
+        for page in stream['pages']:
+            if value := page['texts'].get(locale):
+                frames.setdefault(page['frame'], []).append(value)
+        ordered = sorted(frames)
+        localized[locale] = {(start, ordered[index + 1] if index + 1 < len(ordered) else None):
+                             ' '.join(frames[start]) for index, start in enumerate(ordered)}
+    for interval, text in localized.get(source_locale, {}).items():
+        start, end = interval
+        end_ms = end * 1000 // 30 if end is not None else duration
+        pages = {locale: [values[interval]] for locale, values in localized.items() if interval in values}
+        yield start, end_ms, pages, 0 <= start * 1000 // 30 < end_ms <= duration
 
 
 def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None):
@@ -355,9 +347,9 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                 'chinese': texts.get('zh-Hans', ''), 'source_locale': source_locale,
                 'source_text': texts[source_locale], 'texts': texts, 'audio_locale': source_locale,
                 'audio': reference, 'voice_status': state,
+                'audio_scope': 'paragraph' if reference and not timed else 'line',
                 'dialogue_kind': 'cinematic' if stream['has_animation'] or stream['channels'] > 1 else 'dialogue',
-                'ocr_texts': pages,
-                'ocr_english': pages.get('en') or None, 'ocr_chinese': pages.get('zh-Hans') or None})
+                })
     # UI/readable localization has no authored voice/silence relationship in
     # this format. Inventory it honestly instead of labelling absent audio mute.
     tables = {}
@@ -380,7 +372,7 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
                                  game_files_changed=True, previous_snapshot_retained=True)
     mapped = sum(record['audio'] is not None for record in records)
     missing = [target for target, locale in targets.items() if not any(locale in row['texts'] for row in records)]
-    warnings = ['Audio cuts use shared authored subtitle-frame boundaries. Languages with different page timings remain grouped until the next shared boundary; translations are never paired by ordinal position.',
+    warnings = ['Source subtitle pages stay separate. Translations require the same authored frame interval; differing pagination is not merged or paired by position. Pages beyond the recording retain explicitly labeled paragraph audio.',
         'Localization-only UI/readables remain unknown; missing recordings never establish silence.',
         'Dialogue includes installed DLC streams, but filenames do not establish individual radio/document/bark categories.']
     if counts['multichannel_streams']:

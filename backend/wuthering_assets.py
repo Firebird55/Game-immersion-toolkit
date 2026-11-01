@@ -6,28 +6,23 @@ hashes, filename guesses, audio recordings, or game modifications are used.
 """
 from __future__ import annotations
 
-import gzip
 import hashlib
-import io
 import os
 from bisect import bisect_left
 from contextlib import closing
 import json
 import re
-import shutil
 import sqlite3
 import struct
 import subprocess
+import tempfile
 import urllib.request
-import zipfile
 from functools import lru_cache
 from pathlib import Path
 
 from .textmaps import display_text
 from .preparation_errors import PreparationFailure
 
-EXTRACTOR_URL = "https://github.com/Herselfta/FModelCLI/releases/download/v1.0.2/FModelCLI.exe"
-EXTRACTOR_SHA256 = "86426493c63f0af2ccf6d1d8b498a737723069f6c25a573a46e94d1a3f26e835"
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
 LANGUAGE_INDEX_VERSION = 3
@@ -48,49 +43,11 @@ def _download(url: str) -> bytes:
         return response.read()
 
 
-def _verified_file(path: Path, data: bytes, digest: str) -> None:
-    if hashlib.sha256(data).hexdigest() != digest:
-        raise ValueError("Game extractor download checksum mismatch")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".part")
-    temporary.write_bytes(data)
-    temporary.replace(path)
-
-
-def _matches_digest(path: Path, digest: str) -> bool:
-    if not path.is_file():
-        return False
-    with path.open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest() == digest
-
-
-def ensure_unreal_decompression(dependencies: Path) -> None:
-    dependencies.mkdir(parents=True, exist_ok=True)
-    # Populate pinned decompression dependencies before the CLI runs. It would
-    # otherwise acquire its own dependencies, including a moving audio release.
-    oodle = dependencies / "oodle-data-shared.dll"
-    oodle_digest = "8f6c0d487573b5a7ea8548407cbf96f5cd833fe7138769914961b6697d74b3b3"
-    if not _matches_digest(oodle, oodle_digest):
-        archive = _download("https://github.com/WorkingRobot/OodleUE/releases/download/2026-01-25-1223/clang-cl-x64-release.zip")
-        with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
-            _verified_file(oodle, bundle.read("bin/oodle-data-shared.dll"), oodle_digest)
-    zlib = dependencies / "zlib-ng2.dll"
-    zlib_digest = "454be2f3d10f804ace577198401431db5e95d0286b59589bc28a40085388e7c2"
-    if not _matches_digest(zlib, zlib_digest):
-        compressed = _download("https://github.com/NotOfficer/Zlib-ng.NET/releases/download/1.0.0/zlib-ng2.dll.gz")
-        _verified_file(zlib, gzip.decompress(compressed), zlib_digest)
-
-
-def ensure_extractor(directory: Path, decoder: Path) -> Path:
-    executable = directory / "FModelCLI.exe"
-    if not _matches_digest(executable, EXTRACTOR_SHA256):
-        _verified_file(executable, _download(EXTRACTOR_URL), EXTRACTOR_SHA256)
-    dependencies = directory / ".data"
-    ensure_unreal_decompression(dependencies)
-    if not decoder.is_file():
-        raise FileNotFoundError("Original voice decoder is missing; run setup again")
-    shutil.copyfile(decoder, dependencies / "vgmstream-cli.exe")
-    return executable
+def ensure_extractor(directory: Path, decoder: Path | None) -> Path:
+    # Both games use the same owned, bounded CUE4Parse helper. The packaged
+    # path resolves app-local runtime resources without an SDK or downloader.
+    from .nte_assets import ensure_extractor as ensure_unreal_reader
+    return ensure_unreal_reader(directory)
 
 
 def _official_archive(root: Path, path: Path) -> bool:
@@ -161,22 +118,85 @@ def _archive_metadata(install: Path, stamp: str) -> tuple[str, ...]:
     return tuple(sorted(selected))
 
 
+def _reader_command(install, executable, destination, mode, layout):
+    if layout.mode == 'bundle':
+        from .nte_toolchain import command
+        invocation, environment, working = command(install, destination, mode, layout=layout)
+        if str(executable) != invocation[0]:
+            raise ValueError('The selected archive reader differs from the bundled executable')
+        return invocation, environment, working
+    from .nte_assets import dotnet_sdk
+    sdk = dotnet_sdk()
+    if sdk is None or not executable.is_file():
+        raise ValueError('Prepare Unreal archive tools in Setup before indexing')
+    working = executable.parent / 'upstream'
+    return [str(sdk), str(executable), mode, str(install), str(working), str(destination)], None, working
+
+
+def _validate_filter(value: str, listing: bool) -> str:
+    if listing and value == 'WwiseExternalSource/':
+        return EXTERNAL_ROOT
+    if not isinstance(value, str) or len(value) > 512 or '..' in value or not re.fullmatch(r'[A-Za-z0-9_./-]+', value):
+        raise ValueError('Unsupported Unreal archive selection')
+    if value.startswith(EXTERNAL_ROOT):
+        clip = value[len(EXTERNAL_ROOT):]
+        if len(clip) > 3 and '/' not in clip and re.match(r'(en|zh|ja|ko)_', clip):
+            return value
+    if not listing:
+        if value in {'ConfigDB/' + name for name in ('db_plot_audio.db', *NARRATIVE_TABLES)}:
+            return 'Client/Content/Aki/' + value
+        if value in {'ConfigDB/' + locale + '/lang_multi_text' for locale in TEXT_LOCALES.values()}:
+            return 'Client/Content/Aki/' + value
+    raise ValueError('Unsupported Unreal archive selection')
+
+
 def run_extractor(install: Path, executable: Path, destination: Path | None, filter_text: str) -> list[str]:
+    from .runtime_bundle import discover_layout
+    from .prebuilt_readers import _no_links
+    layout = discover_layout()
+    listing = destination is None
+    # Resolve the real bundled capability before creating output or obtaining
+    # private metadata. An unrelated installed helper is not sufficient.
+    if layout.mode == 'bundle':
+        from .nte_toolchain import resolve
+        resolve(layout=layout)
+    prefix = _validate_filter(filter_text, listing)
+    install, executable = Path(install).resolve(), Path(executable).resolve()
     for root in (install / "Client/Content/Paks", install / "Client/Saved/Resources"):
         if root.is_dir() and any(not _official_archive(root, path) for path in root.rglob("*.pak")):
             raise ValueError("Wuthering Waves indexing requires official archives; unsupported mod archives were found")
-    metadata = _archive_metadata(install, fingerprint(install))
-    arguments = [str(destination), filter_text] if destination else ["--list", filter_text]
-    try:
-        result = subprocess.run([str(executable), str(install), ";".join(metadata), *arguments],
-            capture_output=True, timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except (OSError, subprocess.SubprocessError):
-        # Never expose subprocess arguments, which contain archive metadata.
-        raise RuntimeError("Wuthering Waves extractor could not complete") from None
-    output = result.stdout.decode("utf-8", errors="replace")
-    if result.returncode or "[Fail]" in output or "[Error]" in output:
-        raise RuntimeError("Wuthering Waves extraction failed; check the installed archives")
-    return [line[7:].strip() for line in output.splitlines() if line.startswith("[File] ")]
+    layout.work_root.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='unreal-read-', dir=layout.work_root) as temporary:
+        output = Path(temporary) if listing else Path(destination).resolve()
+        _no_links(output)
+        if output == install or output.is_relative_to(install) or install.is_relative_to(output):
+            raise ValueError('Reader outputs must stay outside the game installation')
+        invocation, environment, working = _reader_command(install, executable, output,
+            'wuwa-list' if listing else 'wuwa-extract', layout)
+        metadata = _archive_metadata(install, fingerprint(install))
+        if not 1 <= len(metadata) <= 512 or any(not re.fullmatch(r'0x[0-9a-fA-F]{64}', key) for key in metadata):
+            raise ValueError('Installed archive version needs updated public extraction metadata')
+        try:
+            result = subprocess.run(invocation, input=json.dumps({'archive_metadata': metadata, 'filter': filter_text}).encode(),
+                capture_output=True, timeout=600, cwd=working, env=environment,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        except (OSError, subprocess.SubprocessError):
+            raise RuntimeError("Wuthering Waves extractor could not complete") from None
+        if result.returncode:
+            raise RuntimeError("Wuthering Waves extraction failed; check the installed archives")
+        manifest = output / 'files.json'
+        _no_links(manifest)
+        if not manifest.is_file() or manifest.stat().st_size > 256 * 1024 * 1024:
+            raise ValueError('Unreal archive reader output is incomplete')
+        files = json.loads(manifest.read_text(encoding='utf-8-sig'))
+        if not isinstance(files, list) or len(files) > (2_000_000 if listing else 256) or any(
+            not isinstance(name, str) or not name.casefold().startswith(prefix.casefold()) or
+            (prefix.lower().endswith(('.wem', '.db')) and name.casefold() != prefix.casefold()) or
+            (prefix.startswith(EXTERNAL_ROOT) and '/' in name[len(EXTERNAL_ROOT):]) or
+            '\\' in name or ':' in name or any(part in {'', '.', '..'} for part in name.split('/')) or
+            not name.lower().endswith('.wem' if prefix.startswith(EXTERNAL_ROOT) else '.db') for name in files):
+            raise ValueError('Unreal archive reader returned an unexpected selection')
+        return files
 
 
 def _field(blob: bytes, slot: int) -> int | None:
@@ -352,7 +372,7 @@ def _prepare_text_tables(install, executable, cache, locales, progress):
                           and bool(_rows(path, 'SELECT 1 FROM MultiText WHERE RedirectDbIndex > 0 LIMIT 1')))
         if needs_read:
             progress('Reading selected Wuthering localization tables')
-            # Substring selects both the base table and its authored shard.
+            # The bounded locale prefix selects the base and authored shard.
             run_extractor(install, executable, cache, 'ConfigDB/' + TEXT_LOCALES[locale] + '/lang_multi_text')
     for relative in ('db_plot_audio.db', *NARRATIVE_TABLES):
         if not (db_root / relative).is_file():
@@ -363,8 +383,9 @@ def _prepare_text_tables(install, executable, cache, locales, progress):
 
 
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
+    from .media_tools import vgmstream_executable
     stamp = fingerprint(install)
-    decoder = data_dir.parent / "voice-assets/vgmstream/vgmstream-cli.exe"
+    decoder = vgmstream_executable(data_dir.parent.parent)
     executable = ensure_extractor(data_dir / "tools", decoder)
     cache = data_dir / "index-cache" / stamp[:16]
     _prepare_text_tables(install, executable, cache, {'en', 'zh-Hans'}, progress)
@@ -435,10 +456,11 @@ def build_language_records(db_root: Path, files: list[str], source_locale: str, 
 
 def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
     from .languages import resolve_locale
+    from .media_tools import vgmstream_executable
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Wuthering study/audio locale')
     stamp = fingerprint(install)
-    executable = ensure_extractor(data_dir / 'tools', data_dir.parent / 'voice-assets/vgmstream/vgmstream-cli.exe')
+    executable = ensure_extractor(data_dir / 'tools', vgmstream_executable(data_dir.parent.parent))
     cache = data_dir / 'index-cache' / stamp[:16]
     cache.mkdir(parents=True, exist_ok=True)
     targets = {value: resolve_locale(value, TEXT_LOCALES) for value in target_locales}
@@ -479,6 +501,8 @@ def _validate_voice(audio):
 
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
     depot = _validate_voice(audio)
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
     run_extractor(install, executable, destination, depot)
     path = (destination / depot).resolve()
     if not path.is_relative_to(destination.resolve()) or not path.is_file():
@@ -498,7 +522,12 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
     depots = [_validate_voice(audio) for audio in audios]
     if len({VOICE_LOCALES[audio.get('locale', 'zh-Hans')][0] for audio in audios}) != 1:
         raise ValueError('Original voice batch crosses study/audio locales')
-    inventory_path = executable.parent.parent / 'index-cache' / fingerprint(install)[:16] / 'complete.json'
+    from .runtime_bundle import discover_layout
+    layout = discover_layout()
+    data = layout.data_root / 'wuwa' if layout.mode == 'bundle' else Path(executable).parent.parent
+    from .nte_toolchain import voice_executable
+    executable = voice_executable(executable)
+    inventory_path = data / 'index-cache' / fingerprint(install)[:16] / 'complete.json'
     try:
         stat = inventory_path.stat()
         inventory = _voice_inventory(inventory_path, stat.st_size, stat.st_mtime_ns)
@@ -506,14 +535,14 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
         inventory = ()
     locations = {}
     def extract(group, number):
-        # The pinned reader supports substring filters. Use a shared prefix only
+        # The owned reader supports bounded prefixes. Use a shared prefix only
         # when the indexed inventory proves it selects exactly requested WEMs.
         prefix = os.path.commonprefix(group)
         low = bisect_left(inventory, prefix.casefold())
         high = bisect_left(inventory, prefix.casefold() + '\uffff')
         wanted = {p.casefold() for p in group}
         bounded = inventory and len(prefix) > len(EXTERNAL_ROOT + 'zh_') and set(inventory[low:high]) == wanted
-        if len(group) > 1 and not bounded:
+        if len(group) > 256 or len(group) > 1 and not bounded:
             middle = len(group) // 2
             extract(group[:middle], number + 'a'); extract(group[middle:], number + 'b')
             return

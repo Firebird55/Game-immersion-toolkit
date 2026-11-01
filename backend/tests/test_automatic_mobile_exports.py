@@ -3,6 +3,7 @@ import copy
 import threading
 import time
 import json
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
@@ -22,7 +23,7 @@ def fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(auto, 'probe', lambda *_: 'present')
     from backend import media_tools
     monkeypatch.setattr(media_tools, 'ffmpeg_executable', lambda: 'mock-ffmpeg')
-    decoder = tmp_path / 'data/voice-assets/vgmstream/vgmstream-cli.exe'
+    decoder = tmp_path / 'data/voice-assets/vgmstream' / ('vgmstream-cli.exe' if sys.platform == 'win32' else 'vgmstream-cli')
     decoder.parent.mkdir(parents=True)
     decoder.write_bytes(b'mock')
     manager = auto.AutomaticMobileExports(tmp_path, home=tmp_path / 'local', install_lookup=lambda _: install)
@@ -43,7 +44,14 @@ def fixture(tmp_path, monkeypatch):
             if state['change']:
                 state['stamp'] += '-changed'
         def poll(self): return self.returncode
-    monkeypatch.setattr(auto.subprocess, 'Popen', Process)
+    class Owned:
+        def __init__(self, command, **kwargs):
+            self.process = Process(command, **kwargs)
+        def stop(self):
+            return self.process.returncode
+        def close_streams(self):
+            pass
+    monkeypatch.setattr(auto, 'OwnedProcess', Owned)
     def run():
         manager.reconcile()
         manager.observed = {key: (stamp, -1000) for key, (stamp, _) in manager.observed.items()}

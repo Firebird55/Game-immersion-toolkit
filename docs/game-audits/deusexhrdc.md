@@ -1,5 +1,11 @@
 # Deus Ex: Human Revolution — Director's Cut
 
+Subtitle boundary correction, 2026-10-31: reader revision 2 attaches page
+translations only through unique matching authored start/end intervals within
+the same caption resource. Equal counts and repeated timestamps cannot choose a
+translation. Ordinary and cinematic pages remain independent, while invalid
+recording timing retains the explicitly labeled complete original recording.
+
 Reviewed 2026-10-28. This report covers the Windows Director's Cut, Steam
 application **238010**, identified by `DXHRDC.exe` and `BIGFILE.000`.
 The original Human Revolution and The Missing Link standalone editions are

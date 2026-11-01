@@ -155,6 +155,27 @@ def test_native_pipeline_keeps_caption_bindings_and_text_only_report(installed, 
     assert assets.probe_voice_pack(installed, 'en') == 'present'
 
 
+def test_delayed_caption_pages_keep_individual_translations_and_original_recording(installed, tmp_path):
+    from backend.source_formats import VpkArchive
+    path = installed / 'portal/portal_pak_dir.vpk'
+    archive = VpkArchive(path)
+    files = {name: archive.read(name) for name in archive.entries}
+    for native, text in [('english', 'First visible page.<delay:2>Later visible page.'),
+                         ('french', 'Première page.<delay:2>Page suivante.'),
+                         ('german', 'Erste Seite.<delay:4>Spätere Seite.')]:
+        rows = {'dialogue.combined': text}
+        files[f'resource/closecaption_{native}.txt'] = localization(native, rows)
+        files[f'resource/closecaption_{native}.dat'] = compiled(rows)
+    write_vpk(path, files)
+    result = assets.index_language(installed, tmp_path, 'en', ['fr', 'de'])
+    rows = [row for row in result['records'] if 'dialogue.combined:page:' in row['text_id']]
+    assert [row['source_text'] for row in rows] == ['First visible page.', 'Later visible page.']
+    assert [row['texts']['fr'] for row in rows] == ['Première page.', 'Page suivante.']
+    assert all('de' not in row['texts'] and row['audio_scope'] == 'paragraph' for row in rows)
+    assert rows[0]['audio'] == rows[1]['audio']
+    assert unpack_performance(assets.extract_voice(installed, rows[0]['audio'], None, tmp_path)) == [pcm(11), pcm(22)]
+
+
 @pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
 def test_all_six_voice_locales_use_own_pack_without_english_fallback(installed, tmp_path, locale):
     native = assets.TEXT_LOCALES[locale]

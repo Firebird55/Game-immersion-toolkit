@@ -86,12 +86,14 @@ def test_installed_language_pack_changes_fingerprint_and_mods_are_excluded(tmp_p
 def test_extractor_errors_never_include_archive_metadata(tmp_path, monkeypatch):
     import backend.wuthering_assets as module
     import subprocess
-    monkeypatch.setattr(module, "_archive_metadata", lambda *_: ("private-placeholder",))
+    key = '0x' + 'a' * 64
+    monkeypatch.setattr(module, "_archive_metadata", lambda *_: (key,))
+    monkeypatch.setattr(module, '_reader_command', lambda *_: (['tool'], None, tmp_path))
     def fail(*args, **kwargs):
         raise subprocess.CalledProcessError(1, ["tool", "private-placeholder"])
     monkeypatch.setattr(module.subprocess, "run", fail)
     with pytest.raises(RuntimeError, match="could not complete") as error:
-        run_extractor(tmp_path, Path("tool"), None, "ConfigDB")
+        run_extractor(tmp_path / 'game', Path("tool"), None, "WwiseExternalSource/")
     assert "private-placeholder" not in str(error.value)
 
 
@@ -101,15 +103,19 @@ def test_official_downloaded_video_archives_are_allowed_but_custom_paks_are_reje
     video = tmp_path / "Client/Saved/Resources/Video/hd/Paks/101_1/Video_101_1-HD-WindowsNoEditor.pak"
     video.parent.mkdir(parents=True)
     video.write_bytes(b"official video fixture")
-    monkeypatch.setattr(module, "_archive_metadata", lambda *_: ("placeholder",))
-    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout=b""))
+    monkeypatch.setattr(module, "_archive_metadata", lambda *_: ('0x' + 'a' * 64,))
+    def command(_install, _executable, destination, *_):
+        (destination / 'files.json').write_text('[]')
+        return ['tool'], None, tmp_path
+    monkeypatch.setattr(module, '_reader_command', command)
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0))
     assert archive_sources(tmp_path) == [video]
-    assert run_extractor(tmp_path, Path("tool"), None, "ConfigDB") == []
+    assert run_extractor(tmp_path, Path("tool"), None, "WwiseExternalSource/") == []
     custom = video.parent / "Video_999_9-HD-WindowsNoEditor.pak"
     custom.write_bytes(b"unknown")
     assert custom not in archive_sources(tmp_path)
     with pytest.raises(ValueError, match="unsupported mod archives"):
-        run_extractor(tmp_path, Path("tool"), None, "ConfigDB")
+        run_extractor(tmp_path, Path("tool"), None, "WwiseExternalSource/")
 
 
 def test_small_empty_official_patch_does_not_block_valid_language_archives(tmp_path, monkeypatch):

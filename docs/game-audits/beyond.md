@@ -47,7 +47,7 @@ never translated or aligned by row position.
 
 ## Update behavior
 
-The reader revision is 3. Unknown archive/localization layouts produce
+The reader revision is 4. Unknown archive/localization layouts produce
 `unsupported_game_format` with instructions to finish game updates, verify files
 and update the toolkit. Files changing during preparation produce
 `game_files_changed`; the publication path keeps the previous complete table.
@@ -97,6 +97,38 @@ machine, compared with 262.58 and 269.12 seconds for the previous reader in this
 run. The comparison used warm local files and is not a general speed guarantee.
 Private files, raw text, comparison assertions and timings remain under ignored
 `output/checks/beyond-audit/`.
+
+### Subtitle-page correction, 2026-10-31
+
+A live-session report exposed two separate matching problems. Mixed traditional
+and simplified Chinese normalization changed an already simplified particle into
+a different character; the shared normalizer now preserves it while converting
+traditional OCR. Short captions can therefore use the exact-match path without
+lowering ambiguity or confidence thresholds.
+
+Some Dutch performances have fewer timing entries than authored subtitle pages,
+or numbered pages that start later than the first audio cue. Revision 3 combined
+these pages into one transcript identity, displaying the full paragraph and
+suppressing later pages as duplicates. Revision 4 keeps each numbered page and
+joins translations by its exact authored cue ID. Missing translated pages remain
+missing instead of borrowing a neighboring page. A paragraph with no authored
+page markers retains its complete text.
+
+These pages keep the verified full recording with `audio_scope: paragraph`.
+They do not receive guessed start/end timestamps. The shared transcript model,
+stored history and matching path retain this distinction; old complete BEYOND
+recordings also receive the paragraph label when read. Identical full recordings
+are encoded once and reused with independent history-file lifetimes. Explicit
+playback is labelled as a paragraph, and sentence export omits that recording.
+
+The focused format, matching, capture-sequence, storage and voice checks passed
+(111 checks). A separate read-only Dutch preparation produced 8,067 records,
+including 2,655 independent fallback pages; every page retained the identical
+original recording binding from its former complete-paragraph entry. Preparation
+took 143 seconds with warm local files. This result does not establish new timing
+anchors, physical gameplay acceptance or coverage of every chapter. The active
+session was not restarted or modified during this verification; private evidence
+remains under ignored `output/live-beyond-20261031/`.
 
 See [existing capture evidence](../beyond-support.md) for the earlier annotated
 English opening replay and its explicit untested chapter/branch list. This audit

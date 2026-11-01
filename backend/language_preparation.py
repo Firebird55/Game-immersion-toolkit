@@ -33,8 +33,10 @@ def selected_snapshot(root: Path, game: str):
 class LanguagePreparation:
     def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None, cancellable=False):
         if path is None:
-            path = (discover_layout().settings_root / 'languages.json' if bool(getattr(sys, 'frozen', False)) else
-                    Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json')
+            if bool(getattr(sys, 'frozen', False)) or sys.platform != 'win32':
+                path = discover_layout().settings_root / 'languages.json'
+            else:
+                path = Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'
         self.path = path
         self.build, self.activate, self.state = build, activate, state
         self.rebuild = rebuild or build

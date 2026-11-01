@@ -68,6 +68,7 @@ def test_startup_with_prepared_zzz_uses_multilingual_index_without_legacy_reload
         start_updates=lambda: calls.append('updates'), settings=SimpleNamespace(get=lambda: SimpleNamespace(auto_start=False)),
         installation=SimpleNamespace(completed=True), capture=SimpleNamespace(warmup=warmup, close=stop),
         mobile_exports=SimpleNamespace(cancel_all=lambda: None), stop_updates=stop,
+        quiesce=stop, worker_pools=lambda: [],
         hito=SimpleNamespace(close=lambda: None), _legacy_zzz_voice=SimpleNamespace(close=lambda: None),
         _legacy_pragmata_voice=SimpleNamespace(close=lambda: None), _readers={},
         _legacy_game_voices=[], game_voice_assets={}, _locale_voices={}, map_task=None)

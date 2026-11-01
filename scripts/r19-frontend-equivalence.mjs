@@ -344,8 +344,9 @@ async function exercisePage(page, state, label, output) {
 }
 
 async function probeBuiltResources(page, manifest) {
+  await page.locator('.desktop-sharing > summary').click();
   const [popup] = await Promise.all([page.waitForEvent('popup', {timeout: 10000}),
-    page.getByRole('link', {name: 'Share transcript to another device', exact: true}).click()]);
+    page.getByRole('link', {name: 'More connection options', exact: true}).click()]);
   const mobileErrors = []; popup.on('pageerror', error => mobileErrors.push(error.message));
   try {
     await popup.getByRole('heading', {name: 'Game immersion toolkit', exact: true}).waitFor();

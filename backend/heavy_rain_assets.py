@@ -12,8 +12,9 @@ from .languages import GAME_LOCALES, resolve_locale
 from .media_tools import ffmpeg_executable
 from .quantic_audio import decode_blocks
 from .preparation_errors import PreparationFailure
+from .subtitle_pages import aligned_texts, anonymous_pages
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = GAME_LOCALES['heavyrain']
 TEXT_LOCALES = dict(zip(('fr', 'en', 'de', 'it', 'es-ES', 'nl', 'pt-PT', 'sv', 'da', 'no', 'fi', 'ru', 'pl', 'ja', 'ko', 'zh-Hant', 'zh-Hans'),
                        ('FRA', 'ENG', 'GER', 'ITA', 'SPA', 'HOL', 'POR', 'SWE', 'DAN', 'NOR', 'FIN', 'RUS', 'POL', 'JAP', 'KOR', 'CHI', 'SCH')))
@@ -37,8 +38,11 @@ def fingerprint(install):
 
 def pages(text):
     # These are authored page separators, not inferred sentence boundaries.
-    return [value for part in text.split('{B}')
-            if (value := re.sub(r'\s+', ' ', part.replace('{S}', '')).strip())]
+    return [page.text for page in subtitle_pages(text)]
+
+
+def subtitle_pages(text):
+    return anonymous_pages(text, '{B}', lambda part: re.sub(r'\s+', ' ', part.replace('{S}', '')).strip())
 
 
 def _voice_bytes(entries):
@@ -145,22 +149,27 @@ def _index_language(install, source_locale, target_locales, progress):
     for localization_id, tables in localizations.items():
         source = tables.get(code, {})
         for key, text in source.get('texts', {}).items():
-            source_pages = pages(text)
+            source_pages = subtitle_pages(text)
             reference = source.get('bindings', {}).get(key)
             if not source_pages:
                 continue
-            anchors = {locale: values for locale in selected
-                       if (values := pages(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, '')))}
-            texts = {locale: ' '.join(values) for locale, values in anchors.items()}
+            localized_pages = {locale: subtitle_pages(tables.get(TEXT_LOCALES[locale], {}).get('texts', {}).get(key, ''))
+                               for locale in selected}
             silent = (source.get('text_flags', {}).get(key) == 2
                       and source.get('binding_states', {}).get(key) == 'none')
-            row = {'text_id': f'heavyrain:{localization_id}:{key:08x}',
-                'source_locale': source_locale, 'source_text': ' '.join(source_pages),
-                'audio_locale': source_locale, 'texts': texts, 'ocr_texts': anchors,
-                'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''), 'audio': None,
-                'dialogue_kind': 'choice' if silent else 'thought' if '_THOUGHTS_' in names.get(localization_id, '') else 'conversation',
-                'voice_status': 'unvoiced' if silent else 'unavailable' if reference or source.get('binding_states', {}).get(key) == 'unresolved' else 'unknown'}
-            records.append(row)
+            rows = []
+            for page in source_pages:
+                texts = aligned_texts(page, source_locale, localized_pages)
+                row = {'text_id': f'heavyrain:{localization_id}:{key:08x}' + (':' + page.identity if page.identity != 'complete' else ''),
+                    'source_locale': source_locale, 'source_text': page.text,
+                    'audio_locale': source_locale, 'texts': texts,
+                    'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''), 'audio': None,
+                    'dialogue_kind': 'choice' if silent else 'thought' if '_THOUGHTS_' in names.get(localization_id, '') else 'conversation',
+                    'voice_status': 'unvoiced' if silent else 'unavailable' if reference or source.get('binding_states', {}).get(key) == 'unresolved' else 'unknown'}
+                rows.append(row)
+            records.extend(rows)
+            if any(page.alignment_key is None for page in source_pages):
+                diagnostics['paragraphs_with_anonymous_pages'] = diagnostics.get('paragraphs_with_anonymous_pages', 0) + 1
             if not reference or reference[0] != 4091:
                 continue
             identity = reference[1]
@@ -180,9 +189,11 @@ def _index_language(install, source_locale, target_locales, progress):
                 parsed[identity] = (offset_id, offset_table, start, end)
             offset_id, offset_table, start, end = parsed[identity]
             voice = voices[identity][-1]
-            row.update(voice_status='voiced', audio={'index': voice.index.relative_to(install).as_posix(), 'identity': identity,
-                          'locale': source_locale, 'language_id': language_id, 'offset_id': offset_id,
-                          'offsets': offset_table.hex(), 'start_ms': start, 'end_ms': end})
+            for row in rows:
+                row.update(voice_status='voiced', audio_scope='paragraph' if '{B}' in text else 'line',
+                           audio={'index': voice.index.relative_to(install).as_posix(), 'identity': identity,
+                                  'locale': source_locale, 'language_id': language_id, 'offset_id': offset_id,
+                                  'offsets': offset_table.hex(), 'start_ms': start, 'end_ms': end})
     if not records:
         raise ValueError(f'No official {source_locale} HEAVY RAIN dialogue is installed')
     if fingerprint(install) != stamp:
@@ -190,6 +201,7 @@ def _index_language(install, source_locale, target_locales, progress):
     voiced = sum(row['voice_status'] == 'voiced' for row in records)
     unvoiced = sum(row['voice_status'] == 'unvoiced' for row in records)
     warnings = ['Choices and thought prompts are text-only labels; their spoken responses are separate original performances.',
+                'Authored subtitle pages stay separate. Anonymous page separators do not establish translated page alignment or per-page audio cuts; these pages retain paragraph audio and omit unaligned translations.',
                 'Books, newspapers and other image-only props have no verified independent text/voice schema. Global menus and chapter labels are excluded.',
                 'Standalone Bink movies have not been joined to locale-specific subtitle cues; in-engine authored dialogue is indexed.']
     missing = sum(row['voice_status'] == 'unavailable' for row in records)

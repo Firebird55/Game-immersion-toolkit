@@ -22,7 +22,7 @@ class ScopedMobileExports:
         self.root, self.accounts, self.languages = Path(root), accounts, languages
         self.lock = threading.RLock()
         self.managers, self.last_games = {}, {}
-        self._quiescing = False
+        self._paused = False
 
     def context(self, game=None):
         status = self.accounts.status()
@@ -43,6 +43,8 @@ class ScopedMobileExports:
 
     def _manager(self, game=None):
         with self.accounts.lock, self.lock:
+            if self._paused:
+                raise RuntimeError('Mobile exports are paused for the runtime update.')
             account, locale, game, signature, token = self.context(game)
             self.last_games[account] = game
             for old in self.managers.values():
@@ -90,7 +92,7 @@ class ScopedMobileExports:
 
     def start(self, game, include_audio=True, destination_folder=None):
         with self.accounts.lock, self.lock:
-            if self._quiescing:
+            if self._paused:
                 return False
             manager, _, locale = self._manager(game)
             if locale == 'unconfigured':
@@ -103,22 +105,16 @@ class ScopedMobileExports:
 
     def browse(self, folder=None, *, game=None):
         with self.accounts.lock, self.lock:
-            if self._quiescing:
+            if self._paused:
                 return False
             manager, _, _ = self._manager(game)
             return manager.browse(folder)
 
     def quiesce(self):
         with self.accounts.lock, self.lock:
-            self._quiescing = True
+            self._paused = True
             for manager in self.managers.values():
                 manager.quiesce()
-
-    def resume(self):
-        with self.accounts.lock, self.lock:
-            for manager in self.managers.values():
-                manager.resume()
-            self._quiescing = False
 
     def close_picker(self, game=None):
         return self._manager(game)[0].close_picker()
@@ -131,3 +127,20 @@ class ScopedMobileExports:
             for manager in self.managers.values():
                 manager.cancel()
                 manager.close_picker()
+
+    def drain(self):
+        with self.lock:
+            self._paused = True
+            managers = list(self.managers.values())
+        # Join outside account/manager locks: completion callbacks need them.
+        for manager in managers:
+            manager.drain()
+
+    def resume(self):
+        with self.lock:
+            for manager in self.managers.values():
+                if manager._thread and manager._thread.is_alive():
+                    raise RuntimeError('A mobile export is still stopping.')
+            for manager in self.managers.values():
+                manager.resume()
+            self._paused = False

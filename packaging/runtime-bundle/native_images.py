@@ -322,7 +322,7 @@ def review_native_images(inventory: dict, inventory_path: Path, application_root
         selected = [item for item in observed['files'] if Path(item['path']).suffix.lower() in {'.exe', '.dll', '.pyd'}]
         _require(2 <= len(selected) <= MAX_NATIVE_FILES, 'invalid-inventory')
         _require(sum(item['bytes'] for item in selected) <= MAX_TOTAL_NATIVE_BYTES, 'image-limit')
-        _require({'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'} <= {item['path'] for item in selected}, 'invalid-inventory')
+        _require({'GameImmersionToolkit.exe', 'asr/GameImmersionToolkitAsr.exe'} <= {item['path'] for item in selected}, 'invalid-inventory')
         records = []
         for ordinal, entry in enumerate(sorted(selected, key=lambda item: item['path']), 1):
             try:
@@ -338,7 +338,7 @@ def review_native_images(inventory: dict, inventory_path: Path, application_root
                 _require(len(data) == entry['bytes'] and hashlib.sha256(data).hexdigest() == entry['sha256'], 'image-changed')
                 image = inspect_pe(data)
                 _require(image['architecture'] in {'x64', 'anycpu'}, 'unsupported-architecture')
-                if entry['path'] in {'ProxyTranscriptRuntime.exe', 'asr/ProxyTranscriptAsr.exe'}:
+                if entry['path'] in {'GameImmersionToolkit.exe', 'asr/GameImmersionToolkitAsr.exe'}:
                     _require(image['implementation'] == 'native' and image['architecture'] == 'x64'
                         and image['image_kind'] == 'executable', 'unsupported-architecture')
                 _require(native_file_identity(path) == expected, 'image-changed')
@@ -346,7 +346,7 @@ def review_native_images(inventory: dict, inventory_path: Path, application_root
                 del data
             except NativeImageError as error:
                 name = entry['path']
-                role = 'runtime-primary' if name == 'ProxyTranscriptRuntime.exe' else 'asr-primary' if name == 'asr/ProxyTranscriptAsr.exe' else 'helper' if name.startswith(('_internal/helpers/', 'asr/_internal/helpers/')) else 'other-native'
+                role = 'runtime-primary' if name == 'GameImmersionToolkit.exe' else 'asr-primary' if name == 'asr/GameImmersionToolkitAsr.exe' else 'helper' if name.startswith(('_internal/helpers/', 'asr/_internal/helpers/')) else 'other-native'
                 error.selected = {'ordinal': ordinal, 'count': len(selected),
                     'tree': 'asr' if name.startswith('asr/') else 'main', 'role': role}
                 raise

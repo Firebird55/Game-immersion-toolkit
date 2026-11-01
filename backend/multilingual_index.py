@@ -10,7 +10,7 @@ from rapidfuzz import fuzz, process
 
 from .languages import audio_locale, normalize_text, resolve_locale, study_language
 from .models import TextMatch
-from .local_game import dialogue_voice_status, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
+from .local_game import dialogue_voice_status, dialogue_audio_scope, dialogue_capture_channels, DEFAULT_CAPTURE_CHANNELS
 from .textmaps import display_text
 
 
@@ -28,7 +28,7 @@ def candidates(lines):
 
 
 class MultilingualTextIndex:
-    def __init__(self, game: str, directory: Path):
+    def __init__(self, game: str, directory: Path, *, autoload=True):
         self.game, self.path = game, directory / 'textmap.json'
         self.ready = False
         self.player_voice = 'unconfigured'
@@ -38,6 +38,7 @@ class MultilingualTextIndex:
         self.entry_count = self.audio_count = 0
         self.message, self.state = 'Prepare this game language in Setup', 'not_ready'
         self.lock = threading.RLock()
+        self._load_lock = threading.RLock()
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
@@ -46,9 +47,31 @@ class MultilingualTextIndex:
         self.dialogue_coverage = {}
         self._signature = None
         self.snapshot_metadata = {}
-        self.load()
+        if autoload:
+            self.load()
+
+    def publish(self, candidate):
+        """Activate the already validated generation without parsing it again."""
+        with self._load_lock, self.lock:
+            candidate.path.replace(self.path)
+            settings = {'game', 'path', 'lock', '_load_lock', 'player_voice',
+                        'target_locale', 'capture_unvoiced'}
+            self.__dict__.update({key: value for key, value in candidate.__dict__.items()
+                                  if key not in settings})
+
+    def voice_snapshot(self, signature):
+        with self.lock:
+            if self.ready and self._signature == signature:
+                return {**self.snapshot_metadata, 'records': self._records}
+        return None
 
     def load(self):
+        # Several status/capture/preparation threads can observe one replacement.
+        # Only one owns JSON decoding and lookup construction for that generation.
+        with self._load_lock:
+            return self._load_snapshot()
+
+    def _load_snapshot(self):
         try:
             info = self.path.stat()
             signature = (info.st_size, info.st_mtime_ns)
@@ -72,6 +95,9 @@ class MultilingualTextIndex:
                 if row.get('audio_locale') != audio_locale(locale, self.game):
                     raise ValueError('Original voice locale does not match study text')
                 row['voice_status'] = dialogue_voice_status(row.get('audio'), row.get('voice_status'))
+                row.setdefault('audio_scope', 'paragraph' if self.game == 'beyond'
+                               and row['text_id'].endswith(':complete') and row.get('audio') else 'line')
+                row['audio_scope'] = dialogue_audio_scope(row.get('audio'), row['audio_scope'])
                 voice_counts[row['voice_status']] += 1
                 category = row.get('dialogue_kind') or 'uncategorized'
                 if not isinstance(category, str):
@@ -120,8 +146,7 @@ class MultilingualTextIndex:
                 text_only = capabilities.get('voiced') is False and capabilities.get('unvoiced') is True
                 self.state = 'ready' if self.audio_count else 'unvoiced_only' if text_only else 'missing_voice'
                 self.message = payload.get('message', f'{self.entry_count:,} official lines; {self.audio_count:,} original voices')
-                self.snapshot_metadata = {key: payload.get(key) for key in
-                    ('format', 'game', 'source_locale', 'install', 'fingerprint', 'reader_revision', 'targets_requested', 'capture_capabilities')}
+                self.snapshot_metadata = {key: value for key, value in payload.items() if key != 'records'}
                 self._signature = signature
             return True
         except (OSError, ValueError, KeyError, TypeError) as error:
@@ -197,7 +222,8 @@ class MultilingualTextIndex:
                     # official translations. Audio=None is not one shared identity.
                     def identity(row):
                         return (json.dumps(row.get('audio'), sort_keys=True), row['source_text'],
-                                json.dumps(row['texts'], sort_keys=True) if row['voice_status'] == 'unvoiced' else '')
+                                json.dumps(row['texts'], sort_keys=True)
+                                if row['voice_status'] == 'unvoiced' or row['audio_scope'] == 'paragraph' else '')
                     identities = {identity(r) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
@@ -214,7 +240,8 @@ class MultilingualTextIndex:
                         source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
                         translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
                         speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
-                        voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind')))
+                        voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
+                        audio_scope=row['audio_scope']))
         if multiple:
             # Retain independent visible speakers, but never turn a wrapped
             # caption's fragment into another performance. The same ambiguity

@@ -91,7 +91,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     records = module.collect_python_notices(evidence, source, pin)
     (source / 'package.json').write_text(json.dumps({'version': '0.0.1'}))
     output = tmp_path / 'candidate'
-    (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
+    (output / 'GameImmersionToolkitAsr/_internal').mkdir(parents=True)
     component = {'name': 'cpython', 'version': pin['version'], 'source': pin['url'],
         'architecture': 'win-amd64', 'license_expression': 'retained notices; review pending',
         'artifact': {'sha256': pin['sha256']}, 'licenses': records}
@@ -108,7 +108,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     for record in records:
         name = 'THIRD_PARTY/cpython/' + record['path']
         assert files[name]['sha256'] == record['sha256'] and files[name]['bytes'] == record['bytes']
-        assert (output / 'ProxyTranscriptRuntime' / name).read_bytes() == (evidence / record['path']).read_bytes()
+        assert (output / 'GameImmersionToolkit' / name).read_bytes() == (evidence / record['path']).read_bytes()
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
     assert inventory['native_windows_11_acceptance'] == 'unavailable' and inventory['r19_complete'] is False
     assert not (output / 'NATIVE-IMAGES.json').exists(), 'Notice-only fixtures cannot produce PE/CLR evidence'
@@ -171,14 +171,14 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     component['licenses'].append(notice)
     source = tmp_path / 'source'; source.mkdir()
     (source / 'package.json').write_text(json.dumps({'version': '0.0.1'}))
-    output = tmp_path / 'candidate'; (output / 'ProxyTranscriptAsr/_internal').mkdir(parents=True)
+    output = tmp_path / 'candidate'; (output / 'GameImmersionToolkitAsr/_internal').mkdir(parents=True)
     from closure import write_candidate
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-onnx', 'components': [component]}, source, evidence, output)
-    target = output / 'ProxyTranscriptRuntime/THIRD_PARTY/onnxruntime' / notice['path']
+    target = output / 'GameImmersionToolkit/THIRD_PARTY/onnxruntime' / notice['path']
     assert target.read_bytes() == data
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     assert inventory['components'][0]['notice_sha256'] == [hashlib.sha256(data).hexdigest()]

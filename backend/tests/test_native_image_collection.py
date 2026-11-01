@@ -2,6 +2,8 @@
 import hashlib
 import importlib
 import json
+import os
+import time
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -11,6 +13,18 @@ import pytest
 from backend.tests.test_native_images import authored_pe, candidate
 
 
+def fixture_rename(source, target):
+    # Defender/indexers can briefly hold a freshly authored PE fixture. Retry
+    # only Windows sharing/access races; missing/foreign targets still fail.
+    for attempt in range(20):
+        try:
+            return source.rename(target)
+        except OSError as error:
+            if os.name != 'nt' or getattr(error, 'winerror', None) not in {5, 32} or attempt == 19:
+                raise
+            time.sleep(0.05)
+
+
 @pytest.fixture
 def collection(candidate, monkeypatch):
     root, path, inventory = candidate
@@ -18,8 +32,8 @@ def collection(candidate, monkeypatch):
     closure = importlib.import_module('closure')
     images = importlib.import_module('native_images')
     output = root.parent / 'quarantine'; output.mkdir()
-    target = output / 'ProxyTranscriptRuntime'; root.rename(target)
-    manifest = output / 'RUNTIME-INVENTORY.json'; path.rename(manifest)
+    target = output / 'GameImmersionToolkit'; fixture_rename(root, target)
+    manifest = output / 'RUNTIME-INVENTORY.json'; fixture_rename(path, manifest)
     value = {key: inventory[key] for key in ('profile', 'source_commit', 'build_id')}
     value.update(components=[], resources=[])
     return SimpleNamespace(root=target, manifest=manifest, inventory=inventory, output=output,
@@ -67,12 +81,12 @@ def test_real_parser_observation_is_bound_to_written_inventory_outside_applicati
 def test_write_candidate_mandatorily_runs_real_image_review_after_inventory_and_asr_relocation(collection, monkeypatch):
     case = collection
     case.manifest.unlink()
-    (case.root / 'asr').rename(case.output / 'ProxyTranscriptAsr')
+    (case.root / 'asr').rename(case.output / 'GameImmersionToolkitAsr')
     source = case.output.parent / 'source'; source.mkdir()
     (source / 'package.json').write_text('{"version":"0.0.1"}')
     evidence = case.output.parent / 'evidence'; evidence.mkdir()
     def codec_not_tested(_value, _source, _evidence, output):
-        assert not (output / 'ProxyTranscriptRuntime/_internal/codecs').exists()
+        assert not (output / 'GameImmersionToolkit/_internal/codecs').exists()
     def source_provenance_not_tested(_value, _evidence, _output, files, _manifest):
         assert any(Path(row['path']).suffix == '.exe' for row in files)
         return {'schema': 'authored-p1-source-stub-v1', 'status': 'source-provenance-not-tested',
@@ -82,7 +96,7 @@ def test_write_candidate_mandatorily_runs_real_image_review_after_inventory_and_
     actual = case.images.inspect_pe; calls = []
     def inspect(raw):
         assert case.manifest.is_file(), 'The existing final inventory must be written first'
-        assert (case.root / 'asr/ProxyTranscriptAsr.exe').is_file(), 'Use the existing relocated ASR tree'
+        assert (case.root / 'asr/GameImmersionToolkitAsr.exe').is_file(), 'Use the existing relocated ASR tree'
         result = actual(raw); calls.append(result['implementation']); return result
     monkeypatch.setattr(case.images, 'inspect_pe', inspect)
     case.closure.write_candidate(case.value, source, evidence, case.output)
@@ -99,7 +113,7 @@ def test_write_candidate_mandatorily_runs_real_image_review_after_inventory_and_
 def test_bad_image_refuses_with_fixed_metadata_and_no_success_sidecar(collection, kind, code):
     case = collection
     raw = authored_pe(machine=0x14c, plus=False, dll=False) if kind == 'x86' else b'PRIVATE native contents C:\\PRIVATE\\data'.ljust(128, b'X')
-    target = case.root / 'ProxyTranscriptRuntime.exe'; target.write_bytes(raw)
+    target = case.root / 'GameImmersionToolkit.exe'; target.write_bytes(raw)
     case.inventory['files'][0].update(bytes=len(raw), sha256=hashlib.sha256(raw).hexdigest()); save(case)
     with pytest.raises(case.closure.ClosureError, match=code) as error:
         case.closure.validate_native_images(case.value, case.output, case.inventory)
@@ -108,8 +122,8 @@ def test_bad_image_refuses_with_fixed_metadata_and_no_success_sidecar(collection
 
 
 @pytest.mark.parametrize('target,tree,role,ordinal,count', [
-    ('ProxyTranscriptRuntime.exe', 'main', 'runtime-primary', 1, 4),
-    ('asr/ProxyTranscriptAsr.exe', 'asr', 'asr-primary', 3, 4),
+    ('GameImmersionToolkit.exe', 'main', 'runtime-primary', 1, 4),
+    ('asr/GameImmersionToolkitAsr.exe', 'asr', 'asr-primary', 3, 4),
     ('asr/_internal/engine.pyd', 'asr', 'other-native', 4, 4),
     ('_internal/helpers/nte/ToolkitReader.dll', 'main', 'helper', 3, 5),
 ])

@@ -11,7 +11,11 @@ from opencc import OpenCC
 from .textmaps import display_text, normalize_english
 
 HAN_RE = re.compile(r"[\u3400-\u9fff\U00020000-\U0003134f]")
-_SIMPLIFIED = OpenCC("tw2s")
+# Lookup receives both simplified official text and traditional OCR. tw2s
+# reverses Taiwan-specific variants first, interpreting the already simplified
+# particle 么 as the traditional variant of 幺. That makes 什么 and 什麼
+# different keys. t2s accepts both scripts without rewriting genuine 幺.
+_SIMPLIFIED = OpenCC("t2s")
 
 
 def contains_han(value: str) -> bool:

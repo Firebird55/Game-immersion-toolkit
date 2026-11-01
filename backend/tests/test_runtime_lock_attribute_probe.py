@@ -3,6 +3,7 @@ import base64
 import copy
 import ctypes
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,55 @@ import pytest
 
 from backend import runtime_lock_attribute_probe as module
 
+
+
+def test_current_source_rebind_admits_only_reviewed_checkout_variants_and_exact_operation():
+    # The whole source changed only in its router; this fixed mechanism still
+    # invokes the exact original operation definition, never the new router.
+    source = module.SOURCE.read_bytes().replace(b'\r\n', b'\n')
+    assert module.SOURCE_HASHES == frozenset({
+        'c3735131417eb01d93e5fb19138f64997bf771a0b4d5f913d7b4f08aef0f350f',
+        '9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056'})
+    assert {hashlib.sha256(source).hexdigest(), hashlib.sha256(source.replace(b'\n', b'\r\n')).hexdigest()} == module.SOURCE_HASHES
+    declaration = b'function Enter-CompanionOperation'
+    assert source.count(declaration) == 1
+    start = source.index(declaration)
+    end = source.index(b'\nfunction ', start)
+    assert hashlib.sha256(source[start:end]).hexdigest() == 'bb8315f2cce15d5e1b3c561556c64ee772ed915cde9acb11e14f12694bbd51e0'
+    helper = (module.ROOT/'backend/windows_preparation_process.py').read_bytes().replace(b'\r\n', b'\n')
+    assert module.HELPER_HASHES == frozenset({
+        'c71f83072fc60aa1efd78a960a6e7b5793b041b030fbac392c50c3b04519718e',
+        '53136e53af4b96a8a1fd3192f07c8a8c79f287ebac307156a90814af7ff03119'})
+    assert {hashlib.sha256(helper).hexdigest(), hashlib.sha256(helper.replace(b'\n', b'\r\n')).hexdigest()} == module.HELPER_HASHES
+    assert 'c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef' not in module.SOURCE_HASHES
+    assert '24a6995cc1d4d9260a9afe3049fbdf5d927cfddcfd405095ebcd49674e7234d0' not in module.HELPER_HASHES
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Windows PowerShell source AST parser unavailable locally')
+def test_current_operation_powershell_ast_extent_matches_the_reviewed_definition():
+    source = str(module.SOURCE).replace("'", "''")
+    script = r"""$ErrorActionPreference='Stop'
+$tokens=$null; $errors=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile('__SOURCE__',[ref]$tokens,[ref]$errors)
+$defs=@($ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Enter-CompanionOperation'},$true))
+if ($errors -or $defs.Count -ne 1) { exit 2 }
+$text=$defs[0].Extent.Text.Replace("`r`n","`n")
+$sha=[Security.Cryptography.SHA256]::Create()
+try { $hash=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($text)))).Replace('-','').ToLowerInvariant() }
+finally { $sha.Dispose() }
+if ($hash -cne '1db508d342287f3be154fa97a4018db9d3802331bd0306a2fc50b288255208af') { exit 3 }
+[Console]::WriteLine('C7AST|reviewed-definition')
+""".replace('__SOURCE__', source)
+    try:
+        result = subprocess.run([module.Windows().powershell(), '-NoProfile', '-NonInteractive', '-EncodedCommand',
+            base64.b64encode(script.encode('utf-16le')).decode('ascii')],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=False)
+    except (OSError, subprocess.SubprocessError):
+        pytest.fail('Fixed source AST check could not finish.', pytrace=False)
+    status_ok = result.returncode == 0
+    envelope_ok = result.stdout == b'C7AST|reviewed-definition\r\n' and result.stderr == b''
+    assert status_ok, 'Fixed source AST check refused the operation definition.'
+    assert envelope_ok, 'Fixed source AST check returned an unexpected envelope.'
 
 def snapshot(attributes=128, times=None):
     return {'identity': [7, 'a' * 32], 'attributes': attributes, 'times': times or [10, 20, 30, 40]}
@@ -225,7 +275,18 @@ def test_public_receipt_copies_nested_booleans_and_keeps_all_acceptance_gates_cl
 
 
 @pytest.fixture
-def authored(monkeypatch, tmp_path):
+def authored_source(monkeypatch, tmp_path):
+    """Pin isolated behavior-test bytes, never repin the historical experiment."""
+    source = tmp_path / 'authored-source.ps1'
+    content = b'# Authored fixture; no production PowerShell execution.\n'
+    source.write_bytes(content)
+    monkeypatch.setattr(module, 'SOURCE', source)
+    monkeypatch.setattr(module, 'SOURCE_HASHES', frozenset({hashlib.sha256(content).hexdigest()}))
+    return source
+
+
+@pytest.fixture
+def authored(monkeypatch, tmp_path, authored_source):
     """Behavior double: no Windows attribute/open/process call is executed."""
     monkeypatch.setattr(module.tempfile, 'gettempdir', lambda: str(tmp_path.resolve()))
     class API:
@@ -299,7 +360,7 @@ def test_unsupported_host_refuses_before_creating_a_fixture(monkeypatch):
     assert not result['observed']
 
 
-def test_nonlocal_or_non_ntfs_temp_refuses_before_any_fixture_write(monkeypatch):
+def test_nonlocal_or_non_ntfs_temp_refuses_before_any_fixture_write(monkeypatch, authored_source):
     def refuse(_root): raise module.Refused('fixture-refused')
     monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(ntfs=refuse))
     monkeypatch.setattr(module.tempfile, 'mkdtemp', lambda **_: pytest.fail('No unsupported-volume fixture write.'))
@@ -307,16 +368,36 @@ def test_nonlocal_or_non_ntfs_temp_refuses_before_any_fixture_write(monkeypatch)
     assert result['status'] == 'failed' and result['failure'] == 'fixture-refused'
 
 
-def test_fixture_marker_is_bounded_and_ancestor_link_refused_before_marker_read(tmp_path, monkeypatch):
+def test_unpinned_source_refuses_before_any_fixture_write(tmp_path, monkeypatch):
+    source = tmp_path / 'unreviewed-source.ps1'
+    source.write_bytes(b'# Deliberately outside the historical reviewed source hashes.\n')
+    monkeypatch.setattr(module, 'SOURCE', source)
+    monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(
+        ntfs=lambda _: pytest.fail('Unpinned source must fail before volume inspection.')))
+    monkeypatch.setattr(module.tempfile, 'mkdtemp', lambda **_: pytest.fail('No unpinned-source fixture write.'))
+    result = module.experiment()
+    assert result['status'] == 'failed' and result['failure'] == 'source-changed'
+    assert not result['observed'] and result['legacy_source_sha256'] is None
+    assert result['production_allowed'] is result['r19_complete'] is False
+
+
+@pytest.mark.parametrize('kind', ['oversized', 'symlink'])
+def test_fixture_marker_is_bounded_and_link_refused_before_marker_read(tmp_path, monkeypatch, kind):
     monkeypatch.setattr(module.tempfile, 'gettempdir', lambda: str(tmp_path.resolve()))
     root = tmp_path / 'r19-lock-attribute-authored'
     root.mkdir(); (root / 'data').mkdir()
     (root / 'data/companion-operation.lock').write_bytes(module.CONTENT)
     marker = root / module.MARKER
-    marker.write_bytes(b'x' * (module.LIMIT + 1))
-    with pytest.raises(module.Refused): module.fixture(root, 'a' * 32)
-    outside = tmp_path / 'outside'; outside.mkdir()
-    marker.unlink(); marker.symlink_to(outside / 'never-read')
+    if kind == 'oversized':
+        marker.write_bytes(b'x' * (module.LIMIT + 1))
+    else:
+        outside = tmp_path / 'outside'; outside.mkdir()
+        try:
+            marker.symlink_to(outside / 'never-read')
+        except OSError as error:
+            if getattr(error, 'winerror', None) == 1314:
+                pytest.skip('Windows symbolic-link privilege is unavailable')
+            raise
     with pytest.raises(module.Refused): module.fixture(root, 'a' * 32)
 
 

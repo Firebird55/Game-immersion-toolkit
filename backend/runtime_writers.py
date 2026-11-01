@@ -32,6 +32,7 @@ class QuiesceableExecutor(Executor):
         self._lock = threading.RLock()
         self._pool = ThreadPoolExecutor(**self._options)
         self._accepting = True
+        self._closed = False
         self._drained = self._drain_error = self._drain_thread = None
 
     def submit(self, function, /, *args, **kwargs):
@@ -43,8 +44,13 @@ class QuiesceableExecutor(Executor):
     def shutdown(self, wait=True, *, cancel_futures=False):
         with self._lock:
             self._accepting = False
+            self._closed = True
             pool = self._pool
         pool.shutdown(wait=wait, cancel_futures=cancel_futures)
+
+    def drain(self):
+        """Wait for actual workers/callbacks; cancelling a caller does not stop them."""
+        self.quiesce(None)
 
     def quiesce(self, timeout):
         with self._lock:
@@ -64,13 +70,15 @@ class QuiesceableExecutor(Executor):
                 self._drain_thread = threading.Thread(target=drain, name='runtime-worker-drain', daemon=True)
                 self._drain_thread.start()
             event = self._drained
-        if not event.wait(max(0, timeout)):
+        if not event.wait(None if timeout is None else min(threading.TIMEOUT_MAX, max(0, timeout))):
             raise TimeoutError('Runtime worker/callback cleanup has not finished.')
         if self._drain_error is not None:
             raise TimeoutError('Runtime worker cleanup could not be confirmed.') from self._drain_error
 
     def resume(self):
         with self._lock:
+            if self._closed:
+                raise RuntimeError('This runtime worker has been permanently closed.')
             if self._drained is None:
                 return
             if not self._drained.is_set() or self._drain_error is not None:
@@ -134,7 +142,7 @@ class RuntimeWriterGate:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError('Active runtime requests have not finished; handoff is unavailable.')
-                self._condition.wait(remaining)
+                self._condition.wait(min(threading.TIMEOUT_MAX, remaining))
 
     def resume(self):
         with self._condition:

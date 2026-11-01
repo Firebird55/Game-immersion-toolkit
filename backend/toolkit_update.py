@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 import zipfile
 
 from .runtime_bundle import RuntimeBundleError, discover_layout
+from . import desktop_control
 
 REPOSITORY = 'Firebird55/Game-immersion-toolkit'
 API = 'https://api.github.com/repos/' + REPOSITORY
@@ -190,7 +191,23 @@ class ToolkitUpdater:
         self.process = None
         self.lock = threading.Lock()
 
+    @property
+    def host_managed(self):
+        return os.environ.get('PROXY_TRANSCRIPT_HOST_MANAGED') == '1'
+
     def status(self):
+        if self.host_managed:
+            try:
+                status = desktop_control.host_status(layout=self.layout)
+                # The private control capability and implementation details must
+                # never be relayed to browsers, including paired LAN readers.
+                value = {key: status[key] for key in ('state', 'message', 'available_version',
+                    'enabled', 'updated_at', 'stage', 'supported') if key in status}
+                value['installed_version'] = self.current
+                return value
+            except desktop_control.HostControlError as error:
+                return {'state': 'error', 'message': str(error), 'installed_version': self.current,
+                    'enabled': False, 'supported': False}
         if self.layout.mode == 'bundle':
             return {'state': 'unavailable', 'message': 'Frozen updates require a verified supervising host; the current candidate is retained.',
                 'installed_version': self.current, 'enabled': False}
@@ -207,6 +224,9 @@ class ToolkitUpdater:
         return value
 
     def configure(self, enabled):
+        if self.host_managed:
+            desktop_control.configure_updates(enabled, layout=self.layout)
+            return
         if self.layout.mode == 'bundle':
             raise RuntimeBundleError('Automatic frozen updates are unavailable until supervised takeover is verified.')
         home = self.root / 'data/toolkit-updates'
@@ -218,6 +238,8 @@ class ToolkitUpdater:
             self.request()
 
     def request(self):
+        if self.host_managed:
+            return desktop_control.request_update(layout=self.layout).get('started') is True
         if self.layout.mode == 'bundle':
             return False
         with self.lock:
@@ -236,6 +258,10 @@ class ToolkitUpdater:
             return True
 
     def start(self):
+        # The launcher outlives API replacements and owns both the schedule and
+        # the transaction. Starting another monitor here duplicates that work.
+        if self.host_managed:
+            return
         if self.thread and self.thread.is_alive():
             return
         self.stop.clear()
@@ -254,6 +280,8 @@ class ToolkitUpdater:
         self.stop.set()
         if self.thread:
             self.thread.join(timeout=2)
+            if self.thread.is_alive():
+                raise RuntimeError('Toolkit update monitor is still stopping; handoff is blocked.')
 
 
 if __name__ == '__main__':

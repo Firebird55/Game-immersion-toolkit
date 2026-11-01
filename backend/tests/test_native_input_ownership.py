@@ -28,7 +28,7 @@ def report(monkeypatch, components, resources, files):
 def test_output_path_and_filename_do_not_override_exact_input_bytes(monkeypatch):
     checksum = 'b' * 64
     files = [row('_internal/renamed.dll', checksum), row('asr/_internal/renamed.dll', checksum),
-        row('_internal/Library.dll', 'c' * 64), row('ProxyTranscriptRuntime.exe', 'd' * 64)]
+        row('_internal/Library.dll', 'c' * 64), row('GameImmersionToolkit.exe', 'd' * 64)]
     result = report(monkeypatch, [component('owned', checksum)], [], files)
     assert result['counts'] == {'exact': 2, 'ambiguous': 0, 'unmatched': 1, 'generated': 1}
     for entry in result['files']:

@@ -29,6 +29,14 @@ def dialogue_voice_status(audio, status=None):
     return status
 
 
+def dialogue_audio_scope(audio, scope=None):
+    if scope not in {None, 'line', 'paragraph'}:
+        raise ValueError('Invalid original voice scope')
+    # Older adapters already preserve complete-performance metadata. Honor it
+    # consistently for every game, even before its index is rebuilt.
+    return 'paragraph' if audio and audio.get('playback_scope') == 'full_track' else scope or 'line'
+
+
 DEFAULT_CAPTURE_CHANNELS = frozenset(('dialogue', 'tip', 'cinematic', 'gameplay'))
 
 
@@ -50,14 +58,15 @@ class LocalDialogue:
     speaker_english: str | None = None
     speaker_chinese: str | None = None
     player_voice: str | None = None
-    # Authored pages can identify one complete performance. Playback and study
-    # text always use the complete utterance, never a guessed per-page cut.
+    # Extra OCR anchors may identify a resource; display text stays scoped to
+    # its authored page and whole recordings are explicitly marked below.
     ocr_english: list[str] | None = None
     ocr_chinese: list[str] | None = None
     source_locale: str | None = None
     source_text: str | None = None
     texts: dict[str, str] | None = None
     audio_locale: str | None = None
+    audio_scope: str = 'line'
     channels: list[str] | None = None
     ocr_texts: dict[str, list[str]] | None = None
     member_text_ids: list[str] | None = None
@@ -70,6 +79,7 @@ class LocalDialogue:
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
+        object.__setattr__(self, 'audio_scope', dialogue_audio_scope(self.audio, self.audio_scope))
         if self.dialogue_kind is not None and (not isinstance(self.dialogue_kind, str) or not self.dialogue_kind.strip()):
             raise ValueError('Invalid dialogue category')
         object.__setattr__(self, 'voice_status', status)
@@ -189,9 +199,10 @@ class LocalGameTextIndex:
                         choice, score, _ = hits[0]
                         records = self._records[choice]
                 records = [r for r in records if not r.player_voice or r.player_voice == self.player_voice]
-                # Repeated text can resolve to different performances. Accept
-                # only a unique voice, rather than taking the first file.
-                voices = {json.dumps(r.audio, sort_keys=True) for r in records}
+                # A shared recording may cover several independently translated
+                # pages. The voice alone cannot disambiguate those pages.
+                voices = {(json.dumps(r.audio, sort_keys=True), r.english, r.chinese)
+                          for r in records}
                 if len(voices) != 1:
                     continue
                 record = records[0]
@@ -199,7 +210,8 @@ class LocalGameTextIndex:
                     english=display_text(record.english), chinese=display_text(record.chinese),
                     source_ocr=source, score=float(score), kind="exact" if score == 100 else "fuzzy",
                     speaker_english=record.speaker_english, speaker_chinese=record.speaker_chinese,
-                    voice_status=record.voice_status, dialogue_kind=record.dialogue_kind))
+                    voice_status=record.voice_status, dialogue_kind=record.dialogue_kind,
+                    audio_scope=record.audio_scope))
         if not matches:
             return None
         best = max(matches, key=lambda m: (m.score, len(normalize_subtitle(m.source_ocr))))

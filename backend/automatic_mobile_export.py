@@ -16,7 +16,8 @@ from .export_lock import ExportLock, ExportLockCleanupError
 from .game_paths import settings_path, discover_install
 from .game_assets import asset_adapter
 from .languages import GAME_LOCALES, LOCALE_NAMES
-from .mobile_export_controls import MobileExportManager, stop_export_process
+from .mobile_export_controls import MobileExportManager
+from .owned_process import OwnedProcess
 from .mobile_library import digest, file_digest
 from .mobile_export_layout import file_title, work_folder, catalog_name, export_folder_name
 from .voice_pack_probe import probe, LABELS
@@ -105,6 +106,7 @@ class AutomaticMobileExports:
         self.wake = threading.Event()
         self.configuration_error = ''
         self.thread = self.process = None
+        self._owned_process = None
         self.observed = {}
         self.owner = ExportLock(self.home / 'owner.lock')
         self.picker = MobileExportManager(root, scope=('automatic-destination', 'local'))
@@ -215,6 +217,10 @@ class AutomaticMobileExports:
                 raise RuntimeError('Automatic export has not stopped; runtime handoff cancelled.')
         if self.process and self.process.poll() is None:
             raise RuntimeError('Automatic export process cleanup is incomplete; runtime handoff cancelled.')
+        if self._owned_process:
+            self._owned_process.stop()
+            self._owned_process.close_streams()
+            self._owned_process = None
         self.picker.close_picker()
         self.owner.require_released()
 
@@ -294,8 +300,8 @@ class AutomaticMobileExports:
         if observed != identity or time.monotonic() - since < 30:
             self._set(game, locale, state='waiting', message='Waiting for stable game files.')
             return
-        from .media_tools import ffmpeg_executable
-        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and not (runtime_data_root(self.root) / 'voice-assets/vgmstream/vgmstream-cli.exe').is_file():
+        from .media_tools import ffmpeg_executable, vgmstream_executable
+        if not ffmpeg_executable() or game not in ('beyond', 'heavyrain') and vgmstream_executable(self.root) is None:
             self._set(game, locale, state='waiting', message='Prepare game voice tools in Setup. Tools will be checked again automatically.')
             return
         if shutil.disk_usage(self.home).free < max(512 * 1024**2, job.get('estimatedBytes', 0) * 2):
@@ -317,14 +323,16 @@ class AutomaticMobileExports:
         command = child_command('mobile-export', ['--root', str(self.root), '--game', game,
                    '--output', str(output), '--source-locale', locale, '--translation-locale', translation,
                    '--automatic-install', str(install)])
-        from .update_workers import INDEX_BUILD_LOCK, subprocess_options
+        from .update_workers import INDEX_BUILD_LOCK
         while not INDEX_BUILD_LOCK.acquire(timeout=.5):
             guard()
         log = output.parent / 'progress.jsonl'
         try:
             with log.open('w', encoding='utf-8') as stream:
-                self.process = subprocess.Popen(command, cwd=discover_layout().resource_root, stdout=stream, stderr=subprocess.DEVNULL,
-                    **subprocess_options(), start_new_session=os.name != 'nt')
+                layout = discover_layout()
+                self._owned_process = OwnedProcess(command, cwd=layout.resource_root, stdout=stream,
+                    stderr=subprocess.DEVNULL, env=layout.child_environment('mobile-export'))
+                self.process = self._owned_process.process
                 offset = 0
                 while self.process.poll() is None:
                     guard()
@@ -387,8 +395,10 @@ class AutomaticMobileExports:
             self._set(game, locale, state='waiting', message='Export interrupted; verified work is retained for resuming.')
         finally:
             try:
-                if self.process and self.process.poll() is None:
-                    stop_export_process(self.process)
+                if self._owned_process:
+                    self._owned_process.stop()
+                    self._owned_process.close_streams()
+                    self._owned_process = None
             finally:
                 if self.process is None or self.process.poll() is not None:
                     self.process = None

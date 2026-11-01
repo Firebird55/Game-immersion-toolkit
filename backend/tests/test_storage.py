@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
 from contextlib import closing
 import sqlite3
 import threading
@@ -544,6 +545,50 @@ def test_transcript_round_trip(tmp_path) -> None:
     assert store.count() == 1
     assert store.count("session-a") == 1
     assert store.count("session-b") == 0
+
+
+@pytest.mark.parametrize('source_locale', ['nl', 'zh-Hans'])
+def test_paragraph_pages_remain_separate_and_keep_audio_scope_after_reopen(tmp_path, source_locale):
+    store = TranscriptStore(tmp_path/'transcript.db')
+    match = TextMatch(game='beyond', text_id='beyond:TEST:page-1', english='Please wait here.', chinese='请在这里等候。',
+                      source_ocr='请在这里等候。', score=100, kind='exact', source_locale=source_locale,
+                      source_text='First authored page.', audio_scope='paragraph', voice_status='voiced')
+    first, upgraded = store.add_or_upgrade_recent(match, 'session')
+    assert first and not upgraded
+    second_match = match.model_copy(update={'text_id': 'beyond:TEST:page-2',
+        'english': 'Please wait here. The courier will arrive tomorrow.', 'source_text': 'Second authored page.'})
+    second, upgraded = store.add_or_upgrade_recent(second_match, 'session')
+    assert second and not upgraded and second.id != first.id
+    assert store.add_or_upgrade_recent(second_match, 'session') == (None, False)
+    assert all(line.audio_scope == 'paragraph' for line in TranscriptStore(store.path).list())
+    assert store.count() == 2
+
+
+def test_old_complete_recording_in_history_retains_its_whole_paragraph_label(tmp_path):
+    store = TranscriptStore(tmp_path/'transcript.db')
+    match = TextMatch(game='beyond', text_id='beyond:TEST:complete', english='A complete recording.', chinese='',
+                      source_ocr='A complete recording.', score=100, kind='exact')
+    created = store.add(match, 'session')
+    store.update_audio(created.id, 'synthetic-original.mp3', voiced=True)
+    with store._connection_scope() as connection:
+        with store._sql_lifetime.cursor(connection) as statement:
+            context = json.loads(statement.execute('SELECT language_context FROM transcript_lines WHERE id=?', (created.id,)).fetchone()[0])
+        context.pop('audio_scope')
+        with store._sql_lifetime.cursor(connection) as statement:
+            statement.execute('UPDATE transcript_lines SET language_context=? WHERE id=?', (json.dumps(context), created.id))
+    restored = TranscriptStore(store.path).get(created.id)
+    assert restored.audio_scope == 'paragraph' and restored.has_audio
+
+
+@pytest.mark.parametrize('game,kind', [('deathstranding', 'cinematic_full_track'),
+                                    ('mgsvtpp', 'cassette_tape_full_track'),
+                                    ('portal', 'song_full_track')])
+def test_legacy_authored_full_track_history_has_shared_paragraph_label(tmp_path, game, kind):
+    store = TranscriptStore(tmp_path/'transcript.db')
+    created = store.add(TextMatch(game=game, text_id=game+':page', english='A visible page.', chinese='',
+        source_ocr='A visible page.', score=100, kind='exact', dialogue_kind=kind), 'session')
+    store.update_audio(created.id, 'synthetic-original.mp3', voiced=True)
+    assert TranscriptStore(store.path).get(created.id).audio_scope == 'paragraph'
 
 
 def test_game_histories_are_partitioned(tmp_path) -> None:

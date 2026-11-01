@@ -94,7 +94,10 @@ def test_common_data_markers_are_fixed_typed_states_without_private_output(modul
     common_markers().replace(b'x64=True', b'x64=1'), common_markers().replace(b';rooted=True', b';rooted=True;private=secret'),
     b'private prefix ' + common_markers(), common_markers().replace(b'\n', b'\r'),
     common_markers().replace(b'\n', b'\x00\n'), b'\xff' + common_markers(), b'x' * 32769,
-    common_markers().replace(b'\n', '\u2028'.encode())])
+    common_markers().replace(b'\n', '\u2028'.encode())], ids=[
+    'empty', 'missing-markers', 'duplicate-markers', 'unknown-runtime',
+    'nonboolean-x64', 'extra-field', 'prefixed-marker', 'bare-cr',
+    'embedded-null', 'invalid-utf8', 'over-output-limit', 'unicode-line-separator'])
 def test_common_data_rejects_missing_ambiguous_raw_or_overbound_markers(module, raw):
     with pytest.raises(module.CommonDataProbeError) as error:
         module.common_data_markers(0, raw)
@@ -587,7 +590,13 @@ def test_system_windows_directory_query_requires_windows_x64_before_api_access(m
     r'\\?\C:\Windows', r'\\.\C:\Windows', r'C:/Windows', 'C:\\Windows\\', r'C:\\Windows',
     r'C:\.\Windows', r'C:\child\..\Windows', r'C:\Windows.', r'C:\Windows ', r'C:\Windows:stream',
     r'C:\NUL', r'C:\COM¹.txt', r'C:\LPT9', 'C:\\bad\x00name', 'C:\\bad\nname', 'C:\\bad\ud800',
-    'C:\\' + 'x' * 32765])
+    'C:\\' + 'x' * 32765], ids=[
+    'none', 'empty', 'relative', 'drive-relative', 'root-relative', 'unc',
+    'extended-prefix', 'device-prefix', 'forward-slash', 'trailing-separator',
+    'duplicate-separator', 'dot-component', 'parent-component', 'trailing-dot',
+    'trailing-space', 'alternate-stream', 'reserved-nul', 'reserved-com',
+    'reserved-lpt', 'embedded-null', 'embedded-newline', 'unpaired-surrogate',
+    'over-path-limit'])
 def test_system_windows_directory_raw_layout_refuses_before_metadata(module, monkeypatch, value):
     monkeypatch.setattr(module, 'diagnostic_file_info', lambda *_: pytest.fail('noncanonical Windows path reached metadata'))
     with pytest.raises(ValueError): module.system_windows_directory(value)

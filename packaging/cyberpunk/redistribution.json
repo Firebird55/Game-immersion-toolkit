@@ -1,0 +1,3046 @@
+{
+  "compiler_runtime_files": {
+    "COPYING.MinGW-w64-runtime.txt": "ecff91ddb5799c8b79a4bdb576921b9c3e2989783fd1944527e8eb9b41a5ff5f",
+    "src/libchkstk.S": "23130e615000925d6ecdc705cec5f1ba1cfb85d48f072b779b44707699a76070",
+    "src/libmemory.c": "ee192058db05a4c937c7e71d3aced4830384f0dbd1f1033faba8b33473581237"
+  },
+  "compiler_runtime_terms": [
+    {
+      "archive": "e44b7eee4a0004255405ca55c0068793f721bcfcf290e0c4ab8a4d676eb153e0.txt",
+      "sha256": "9d6b43ce4d8de0c878bf16b54d8e7a10d9bd42b75178153e3af6a815bdc90f74",
+      "url": "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-16.2.0/COPYING.RUNTIME"
+    },
+    {
+      "archive": "6bedacf5e253347c2837e75d4ff2031739d4d0f44a2fb42bc754a7a6a23fb5bf.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "url": "https://raw.githubusercontent.com/gcc-mirror/gcc/releases/gcc-16.2.0/COPYING3"
+    }
+  ],
+  "packages": [
+    {
+      "archive": "communitytoolkit.mvvm.8.4.0.nupkg",
+      "members": [
+        {
+          "member": "lib/net8.0/CommunityToolkit.Mvvm.dll",
+          "path": "toolchains/cyberpunk/reader/CommunityToolkit.Mvvm.dll",
+          "sha256": "7d7eb5c066cfe883b439b1200bf5dcb387b1e5319dd2edbdaa9e23adfe416452"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "(c) .NET Foundation and Contributors. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/CommunityToolkit/dotnet"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "638b41dad30dffabb123a39aa38eabc7e3721371",
+            "type": "git",
+            "url": "https://github.com/CommunityToolkit/dotnet"
+          },
+          "text": null
+        }
+      },
+      "name": "CommunityToolkit.Mvvm",
+      "notices": [
+        {
+          "member": "License.md",
+          "sha256": "651997ef19dbb9ecb8dd660dbc86444a65af21f18cfe08daa69bf201cd5cfdfc"
+        },
+        {
+          "member": "ThirdPartyNotices.txt",
+          "sha256": "7774f8b0ab66bfb47ec154ce24a2d6d574febc44a74d940b8a037d1c56756163"
+        }
+      ],
+      "nuspec": {
+        "member": "CommunityToolkit.Mvvm.nuspec",
+        "sha256": "01c3f845ea8ba4879fd33af4c7d803bf44cbf14c3df8e0b0658d6a9f37318fc4"
+      },
+      "sha256": "6b40f9e74abe7dfade53d67e9103ddcc960f35a8f55238323e87cbcd4834d992",
+      "sha512": "5e9705a1ad58b19f0b3ce956ac40226337402a7b17d067fbb5fd987e9ecee2a100c2d76f15537932b18618599599023542257fe67df32b193dc2b30542b2c30b",
+      "url": "https://api.nuget.org/v3-flatcontainer/communitytoolkit.mvvm/8.4.0/communitytoolkit.mvvm.8.4.0.nupkg",
+      "version": "8.4.0"
+    },
+    {
+      "archive": "dynamicdata.9.1.1.nupkg",
+      "members": [
+        {
+          "member": "lib/net8.0/DynamicData.dll",
+          "path": "toolchains/cyberpunk/reader/DynamicData.dll",
+          "sha256": "02606f6a7553721dd11b19663269585e92edf5f2f5a72261a274ea324addc36d"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Roland Pheasant"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) Roland Pheasant 2011-2025"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "http://dynamic-data.org/"
+        },
+        "repository": {
+          "attributes": {
+            "branch": "refs/heads/main",
+            "commit": "9420bf4a54335f1685f5eaf6814f3132938da114",
+            "type": "git",
+            "url": "https://github.com/reactiveui/DynamicData"
+          },
+          "text": null
+        }
+      },
+      "name": "DynamicData",
+      "notices": [
+        {
+          "member": "LICENSE/LICENSE",
+          "sha256": "88dd54b77277ded126c167e6d0be4d63c3b8614b52c52d55ea2812d95c646bb3"
+        }
+      ],
+      "nuspec": {
+        "member": "DynamicData.nuspec",
+        "sha256": "0c64fbf743e322e57f3a9ff4c5a07d0a5ca97972d07f419f1536e433c449d6cc"
+      },
+      "sha256": "54111ec32cd22a6924480ddc3871559bab30d75af8bd26e633298335fe65d41a",
+      "sha512": "a056720b5c8380f7ad4ea822bd1f46d99e243bc355d06e0db5f53263b794de66d6f33dab709264d5dd9b80d2dfc47f085d6bd2d18ec13ad64188dc986e8ee215",
+      "url": "https://api.nuget.org/v3-flatcontainer/dynamicdata/9.1.1/dynamicdata.9.1.1.nupkg",
+      "version": "9.1.1"
+    },
+    {
+      "archive": "k4os.compression.lz4.1.3.8.nupkg",
+      "extra_terms": [
+        {
+          "archive": "e40b11b2f9c29ba23cf589ac766b430ac40701d33634e528e9c539f99116ec67.txt",
+          "sha256": "d15d99c8dc6b0ec22174c0e563a95bc40f9363ca7f9d9d793bb5c5a8e8d0af71",
+          "url": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Compression.LZ4/f5a25b7d72e2e41550fe20662597169ff11c3b60/orig/lib/LICENSE"
+        }
+      ],
+      "full_terms": {
+        "archive": "9d577268e1b4ab212ad5b6314339c45534db30788491f84a3de1a3637045ce29.txt",
+        "sha256": "ef5a021fc2ae3658f4ad8d2526c87fb2cf394285f47abfb784cf73a27ffd9522",
+        "url": "https://raw.githubusercontent.com/MiloszKrajewski/K4os.Compression.LZ4/f5a25b7d72e2e41550fe20662597169ff11c3b60/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net6.0/K4os.Compression.LZ4.dll",
+          "path": "toolchains/cyberpunk/reader/K4os.Compression.LZ4.dll",
+          "sha256": "e282aadc2353b864fe95cd5fb525a1a093d99a30a5bf2530b7ab831d56179816"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Milosz Krajewski"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Milosz Krajewski"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4/blob/master/LICENSE?raw=true"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4"
+        },
+        "repository": {
+          "attributes": {
+            "url": "https://github.com/MiloszKrajewski/K4os.Compression.LZ4"
+          },
+          "text": null
+        }
+      },
+      "name": "K4os.Compression.LZ4",
+      "notices": [],
+      "nuspec": {
+        "member": "K4os.Compression.LZ4.nuspec",
+        "sha256": "8d71ea7ef627f0d3db76d528411cfb4d126dabc2fe4f7e93713068bb40d5c8df"
+      },
+      "sha256": "3a64f72703b8aa99190cbed7aa216a642cb1c928fae2cf6dfa65dc3754fe2320",
+      "sha512": "df879a0ccb6165bb6ab5cc9b3b5757a6ab4851ba66cd48137a095cccaf3050c97c60f8f9d76d7070edd88840c0a8f92dfb029bcfaa6b8a05c6f98ded5d9c8ed5",
+      "url": "https://api.nuget.org/v3-flatcontainer/k4os.compression.lz4/1.3.8/k4os.compression.lz4.1.3.8.nupkg",
+      "version": "1.3.8"
+    },
+    {
+      "archive": "microsoft.clearscript.core.7.4.5.nupkg",
+      "members": [
+        {
+          "member": "lib/net5.0/ClearScript.Core.dll",
+          "path": "toolchains/cyberpunk/reader/ClearScript.Core.dll",
+          "sha256": "839adfaa05a8f57bf1ba6fbffbe56b7a8e588b639e94677c2b630936bddab723"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "file"
+          },
+          "text": "License.txt"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://aka.ms/deprecateLicenseUrl"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "http://github.com/Microsoft/ClearScript"
+        }
+      },
+      "name": "Microsoft.ClearScript.Core",
+      "notices": [
+        {
+          "member": "License.txt",
+          "sha256": "064c49e68051c5bead5f8034605a8ee765e660beec37fc9a615c564ce44d0c18"
+        },
+        {
+          "member": "licenses/ClearScript/License.txt",
+          "sha256": "a734a2c5448efde8c3b155b8d8f3be74ae9dc370a88a235c95289fd677ad5aeb"
+        },
+        {
+          "member": "licenses/V8/LICENSE",
+          "sha256": "81680185f0cb339021e3b73714499264de72f33b17cfdb0c14f400de6d95cf0e"
+        },
+        {
+          "member": "licenses/V8/LICENSE.v8",
+          "sha256": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca"
+        },
+        {
+          "member": "licenses/V8/LICENSE.fdlibm",
+          "sha256": "e7115e18444dae09d17f361ddc365fb1d342640fe500796209c63f7c80dfae10"
+        },
+        {
+          "member": "licenses/V8/LICENSE.strongtalk",
+          "sha256": "6a585a9f466654abc8fc0829d56b1bc987e3a073d31faa03bba37d33640a23cd"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.ClearScript.Core.nuspec",
+        "sha256": "302e96aa47af691fd7a0cd286842169a999a6be039940b00977a0fc292425367"
+      },
+      "sha256": "eb044bbfe7dba36485f62ad0f01c26511ec9710025c849350e8bfeb5e49763e1",
+      "sha512": "3159f313dd2b2de5b18f0f1a0fcf0095c570a8f0c20364aeae8b68a8a3e83d6c336a650d576ae0b469dbaa68b0e47840bc5ade48e3016a8e677a77eb58e7855b",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.clearscript.core/7.4.5/microsoft.clearscript.core.7.4.5.nupkg",
+      "version": "7.4.5"
+    },
+    {
+      "archive": "microsoft.clearscript.v8.7.4.5.nupkg",
+      "members": [
+        {
+          "member": "lib/net5.0/ClearScript.V8.dll",
+          "path": "toolchains/cyberpunk/reader/ClearScript.V8.dll",
+          "sha256": "d589dc227365284c4f1b00cf028b06e5c7c06f43085eb8eff10518fe9f029757"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "file"
+          },
+          "text": "License.txt"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://aka.ms/deprecateLicenseUrl"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "http://github.com/Microsoft/ClearScript"
+        }
+      },
+      "name": "Microsoft.ClearScript.V8",
+      "notices": [
+        {
+          "member": "License.txt",
+          "sha256": "064c49e68051c5bead5f8034605a8ee765e660beec37fc9a615c564ce44d0c18"
+        },
+        {
+          "member": "licenses/ClearScript/License.txt",
+          "sha256": "a734a2c5448efde8c3b155b8d8f3be74ae9dc370a88a235c95289fd677ad5aeb"
+        },
+        {
+          "member": "licenses/V8/LICENSE",
+          "sha256": "81680185f0cb339021e3b73714499264de72f33b17cfdb0c14f400de6d95cf0e"
+        },
+        {
+          "member": "licenses/V8/LICENSE.v8",
+          "sha256": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca"
+        },
+        {
+          "member": "licenses/V8/LICENSE.fdlibm",
+          "sha256": "e7115e18444dae09d17f361ddc365fb1d342640fe500796209c63f7c80dfae10"
+        },
+        {
+          "member": "licenses/V8/LICENSE.strongtalk",
+          "sha256": "6a585a9f466654abc8fc0829d56b1bc987e3a073d31faa03bba37d33640a23cd"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.ClearScript.V8.nuspec",
+        "sha256": "0cc1fda944531d85fdbee0484326de2156b1976ded6f570ab7a9f461872fa7fb"
+      },
+      "sha256": "3179759f5445eb3f7921ba57992180c2b68ff04a6f3e58b5eb248519f73f6716",
+      "sha512": "88f78dfdcfa51da8315db3673bedabda883523eca0e60839a044c8f21462bdc644ecb52323155b0c2726a316ebc0458142a30f663034c2d2cf82d58c5282f7e6",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.clearscript.v8/7.4.5/microsoft.clearscript.v8.7.4.5.nupkg",
+      "version": "7.4.5"
+    },
+    {
+      "archive": "microsoft.clearscript.v8.icudata.7.4.5.nupkg",
+      "members": [
+        {
+          "member": "lib/netstandard1.0/ClearScript.V8.ICUData.dll",
+          "path": "toolchains/cyberpunk/reader/ClearScript.V8.ICUData.dll",
+          "sha256": "0e908c1c261c251cbe9c49c4849e42e9d705f8643508b74e46140d66eed0f64e"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "file"
+          },
+          "text": "License.txt"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://aka.ms/deprecateLicenseUrl"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "http://github.com/Microsoft/ClearScript"
+        }
+      },
+      "name": "Microsoft.ClearScript.V8.ICUData",
+      "notices": [
+        {
+          "member": "License.txt",
+          "sha256": "064c49e68051c5bead5f8034605a8ee765e660beec37fc9a615c564ce44d0c18"
+        },
+        {
+          "member": "licenses/ClearScript/License.txt",
+          "sha256": "a734a2c5448efde8c3b155b8d8f3be74ae9dc370a88a235c95289fd677ad5aeb"
+        },
+        {
+          "member": "licenses/V8/LICENSE",
+          "sha256": "81680185f0cb339021e3b73714499264de72f33b17cfdb0c14f400de6d95cf0e"
+        },
+        {
+          "member": "licenses/V8/LICENSE.v8",
+          "sha256": "4af93c12062c58058378de2397dc1c92bbff9ddfb1d583a01c84127557ce97ca"
+        },
+        {
+          "member": "licenses/V8/LICENSE.fdlibm",
+          "sha256": "e7115e18444dae09d17f361ddc365fb1d342640fe500796209c63f7c80dfae10"
+        },
+        {
+          "member": "licenses/V8/LICENSE.strongtalk",
+          "sha256": "6a585a9f466654abc8fc0829d56b1bc987e3a073d31faa03bba37d33640a23cd"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.ClearScript.V8.ICUData.nuspec",
+        "sha256": "c1491946b0cb9bf606333b09823bd39db052ca177f1b3958bd213f086782d574"
+      },
+      "sha256": "e786db8952685c3ade3c84991ee11c39ac7e920c9a21fb4bebce1bb77120632f",
+      "sha512": "74ae917031124100b6fe5854d99a45c40969181211bf22f9609584d22f3ae904d0b8b9254f21bb020aaefe1ee447fe46f9ccf3d8e1c2e7c5b6ff2c02f18c9900",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.clearscript.v8.icudata/7.4.5/microsoft.clearscript.v8.icudata.7.4.5.nupkg",
+      "version": "7.4.5"
+    },
+    {
+      "archive": "microsoft.extensions.caching.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Caching.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Caching.Abstractions.dll",
+          "sha256": "6427eaf50ea686f996e565f062181109207117d3d34c941bcb9e67fb5a375a9b"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Caching.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Caching.Abstractions.nuspec",
+        "sha256": "7a41a69f0576de0202f4565e41aa7d019ad8c7f6a06f47dce168dd5b39ac3f6e"
+      },
+      "sha256": "7d21f33b43a01fe6d2baaeefc4c85ef20c35ec2c76a2e30b7a7f48b0900e0fb7",
+      "sha512": "a8d1f4e447a91978edd7652a61be31b09b59340595cb42ac57b29d3353c316820b262d9756b4a91162a310029e5f15b29d2a53d82f867bb055df6641d3ea03f4",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.abstractions/9.0.2/microsoft.extensions.caching.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.caching.memory.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Caching.Memory.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Caching.Memory.dll",
+          "sha256": "6eaeb66e5b1968d7d9b34ae13e533f20c808db7a3e25e3993ddedef581c18f80"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Caching.Memory",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Caching.Memory.nuspec",
+        "sha256": "4739f323206a537695571dafa0cbd26c4233cf54f335f29421e7be5204fe08a8"
+      },
+      "sha256": "401a87f96aa726bce32c57a47aef32086c910517e23143e285f84b8be5ad9bbc",
+      "sha512": "c2507f7275469c9234b8a6257dd05d3ba90ab8fb5d84bf683afcede0b70489f0cf7be6d683e76b797be82d970f64b1ea1f5fb4517b8f7d4093d4fb3dc2123ea9",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.caching.memory/9.0.2/microsoft.extensions.caching.memory.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.dll",
+          "sha256": "2950d7ccca5aeedd86140332e80fbbaf3793a0abb153cd078264dc5db59e5b9e"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.nuspec",
+        "sha256": "28a30af48994d00a46a4441c180185096a688b7b63bb597199bc84d1eb22c460"
+      },
+      "sha256": "01435a2e1613707524a8a1a148bed082b89f57d2648ca84d4385acf14b598653",
+      "sha512": "cb2c7e4ef0d35a4a1f2e86e23c51c7711c9bb00075711c3b1b5e17ab67c2db16ff7ab1ff852245fcfaa005348070d5976fda661e2a67ae53f06dcba512ce7a00",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration/9.0.2/microsoft.extensions.configuration.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.Abstractions.dll",
+          "sha256": "43f985474d7502ac7e5625789c646a329c7aa8fcde7ca69961503f6755667168"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.Abstractions.nuspec",
+        "sha256": "b9e7026778f44f5de947c25b5f0a908bef37943c91ef2cd8e7d8142b25c57fa5"
+      },
+      "sha256": "89c46d7db8b49c345460312bb4a631d33e80d605a8e7176cc2c48cea8e28cf17",
+      "sha512": "b53b6898c556f478f991bf425f2cc8566ee821afce513d1b90e785ae02df3774970d20a1c646d5adfc6e4d68397607d52554d25dc4638dff20e9c01e1ba9d584",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.abstractions/9.0.2/microsoft.extensions.configuration.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.binder.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.Binder.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.Binder.dll",
+          "sha256": "92c24a2e803547df6704b58a778546ed4638614fb6e585d0f75d26ae577fd370"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.Binder",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.Binder.nuspec",
+        "sha256": "0093533141f6476fb50a2ca9fe6409bf4de7a746dccdf811f95044c66f9175cb"
+      },
+      "sha256": "9585947ef4a7a69f4ce0de3021f16732507ef0aefd83db946b5357b209f1b349",
+      "sha512": "5a81f52e988217097663e6dacc9d27d7c2a3bef26c21580a6eaa747d1ef380e63287030151758d9befa683cc28b2acf960f7b4886db2e224b0ea77206c637068",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.binder/9.0.2/microsoft.extensions.configuration.binder.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.commandline.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.CommandLine.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.CommandLine.dll",
+          "sha256": "75f81c0e3e69f1b6fd3798cf338f0026bf41829fbabf3bb74714a61a33ec1749"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.CommandLine",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.CommandLine.nuspec",
+        "sha256": "9591023bd1e86673e6e6e3d8f0ef73e05889ca245d3b476f70f0806150ac7376"
+      },
+      "sha256": "aac1308803bf9f6fa4f10f3f01fb6a75296fbd0583c7b58a6fef5594ff0dbb1c",
+      "sha512": "cf2b3e0329256556fd9f9dd1294b7c53ee0f5b156032368ba8083925765f7345adc23ece76dcfd58038ebcc726d916a676ec6d2dc0b6471eff242e492bafe8f6",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.commandline/9.0.2/microsoft.extensions.configuration.commandline.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.environmentvariables.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.EnvironmentVariables.dll",
+          "sha256": "432678796f0dbc894083476d95dccd8354a829d8b548a09174bdc50a119d3e33"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.EnvironmentVariables",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.EnvironmentVariables.nuspec",
+        "sha256": "867e87f4c6aef6cc5ce8b26a5a6569a4c9f86babf9e6dad425e8810c74409984"
+      },
+      "sha256": "5e049dbfcfb3876bd79a13fe6b7d7ff98fa634bc10c0b7e57c2884b437a679ad",
+      "sha512": "60682255af485a91d357b02854ae5d5e3c4c7adaf92285f4fdb08576b9a799d562da68c5def8f0e8fc536d5f854f75cf8e3798c84c7a8f2440b015e5018f4b7d",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.environmentvariables/9.0.2/microsoft.extensions.configuration.environmentvariables.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.fileextensions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.FileExtensions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.FileExtensions.dll",
+          "sha256": "c918f69bdd611b65b0e9913f1b29d6bb7a19d2b61328fecc126b615bb270adce"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.FileExtensions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.FileExtensions.nuspec",
+        "sha256": "9b60a40924b13167a2dee5f68541c4c8cca3a8a63f0c7f8d155fa4ad326fa2d8"
+      },
+      "sha256": "79e65bc1fda5715ef89a35ed397f2ad0cc6f3f8433118c875ebd441854bfa2b5",
+      "sha512": "4fbc25e8a5c2d7cb83dd2e654801199ff5c8fb3cdfaf7ea140ad4e971d554624618c3d03aa35a11062ef060125ae61a84b7675c5c2b5054a3acef9747c68128c",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.fileextensions/9.0.2/microsoft.extensions.configuration.fileextensions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.json.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.Json.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.Json.dll",
+          "sha256": "0f57958cd9bf4a4faef4ea6b8d806d8925263d01976106109f02170c98975317"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.Json",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.Json.nuspec",
+        "sha256": "e16a7c820452348cccf52fc65385acaca5705f5c3fe6187ca0dec5226081b127"
+      },
+      "sha256": "eff7b0ca3874817bbbf7c7d8709c4e0a475a00f233ac9f2b7ae4f3ab3f77209d",
+      "sha512": "5275db63645edefeda1d690d44ad104559db0cd6430a116ed2980611ad06190aeac1495e9b7a813f4a1dda3f17ff38611239e2b00b5ae847d598434da8d45a2c",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.json/9.0.2/microsoft.extensions.configuration.json.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.configuration.usersecrets.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Configuration.UserSecrets.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Configuration.UserSecrets.dll",
+          "sha256": "873f005f8ca6c8a86cd5797b3d237fa947e2bc4ac67681a771ba87c0669776eb"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Configuration.UserSecrets",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Configuration.UserSecrets.nuspec",
+        "sha256": "de8d093841d5bb411d6c3f1aa1c30e99eefce2f95ea5df633e8c8334734b8c95"
+      },
+      "sha256": "d0e980427f2022a4cf378b343647227578af8eae4bb041a2355c66a77ab11a8a",
+      "sha512": "c732166c2f41a7cccc55c11aaad38883e8fc33b6e8992b919b410214942be702526617cf37244c9b9d200a78650333a68c54f855256af2da5ea2c9ed3162ebe5",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.configuration.usersecrets/9.0.2/microsoft.extensions.configuration.usersecrets.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.dependencyinjection.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.DependencyInjection.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.DependencyInjection.dll",
+          "sha256": "db058dbc63bc3c13cf9720655f0ba7c02919833d64fc259a9550b00ba5566519"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.DependencyInjection",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.DependencyInjection.nuspec",
+        "sha256": "2e27baf2e5ef6bec6f0998f637b73b021b121c5c65ccfce472a067495abc7709"
+      },
+      "sha256": "8cd4158f65e8ef0cd574d0eedbb6cb6d809550e17cc8356b16d0b7719f4eb17a",
+      "sha512": "2beeba3ee1962ebb359ed7342bda5e8e92da3cc32899de0def42531bf4b8c9cab8664edae7432861cb6c8316a22cb08f83b735e0472ee5a737ce2d2312b31982",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.dependencyinjection/9.0.2/microsoft.extensions.dependencyinjection.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.dependencyinjection.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.DependencyInjection.Abstractions.dll",
+          "sha256": "a334744648d9a8cbac5cf158ffbb3060cbdff0846d96b95f36c346610afa8f28"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.DependencyInjection.Abstractions.nuspec",
+        "sha256": "9debc538a6c852dd0ae8bcb03835453994393417112b3c20c92f4a43a59256a2"
+      },
+      "sha256": "5a84cb830fce957860379e12ce2a746699deee2fd84d7c19d592c23dc1d5e903",
+      "sha512": "7c5decbab569a4fcb4a8bfb8ab9267b985ac18557d0ad2d3ba6dc65a42f0a63dfec20197aa4b1e31ae3724c07a8b003b9f297e6bc5adc30e653e3dbad1782fcf",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.dependencyinjection.abstractions/9.0.2/microsoft.extensions.dependencyinjection.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.dependencymodel.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.DependencyModel.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.DependencyModel.dll",
+          "sha256": "657a06e84111586e636058fdd821607006e00fd62f76961ac478f47d414fc343"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.DependencyModel",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.DependencyModel.nuspec",
+        "sha256": "96220d10a22276923f6d712a91f2e524bc911c8240b2aa8bed8ad19d579432ee"
+      },
+      "sha256": "2aa474cab362ed2f2b0e37b84588d3102f7c5c6d2b06b78ee3090718ee8b964b",
+      "sha512": "d56af38515209b659bfd7d2b6fa64014c86c876f81137553defea032004d0d99e18c6a74eea0d8e5631c85382d0b95f64d58e0dc273eae5b47d5dce02e781fb1",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.dependencymodel/9.0.2/microsoft.extensions.dependencymodel.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.diagnostics.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Diagnostics.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Diagnostics.dll",
+          "sha256": "2a883e6d79f0a52e04fafacf9ccf789bef519988922419104c146790d966026a"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Diagnostics",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Diagnostics.nuspec",
+        "sha256": "78b72c847fb7fb7242c543510640c2b7950519f20f8a75a1799f2ea01a515e7a"
+      },
+      "sha256": "2264d9e8f67228476ad57bea613e433ebe9c1b40524ebb2b3bbad30eecb6f5f7",
+      "sha512": "7a66984100b26a5dd17685b35d8de17466f480bcb8cd2fc84d1992905159b36927be06e88ecd04f212d326e44c6c15ddf8fa6e14487fa1553e3088796ab3c26a",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.diagnostics/9.0.2/microsoft.extensions.diagnostics.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.diagnostics.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Diagnostics.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Diagnostics.Abstractions.dll",
+          "sha256": "57e1b63020d5c572d507d858785728d2b642c5c09f564aa87c4ce8633752285a"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Diagnostics.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Diagnostics.Abstractions.nuspec",
+        "sha256": "c94e353314a72096ed594eb9d55fa0de6117d02d03a1bb7015b4bd631667b2fc"
+      },
+      "sha256": "25327c2c25b769850ef3a38f817450b61b434d432290e7c82c4c6078e17c097e",
+      "sha512": "f751ed6a3d57993037f9cf1523915107905e84ffce3fde5ff43827af4aad0a2fb9622c7503fa51427cdfc6a603bf77d92565b5068986b916b18d8077f9ae0594",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.diagnostics.abstractions/9.0.2/microsoft.extensions.diagnostics.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.fileproviders.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.FileProviders.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.FileProviders.Abstractions.dll",
+          "sha256": "4e98fe245bc96d6af41ef184b23d4bf375d2fb2ec573446ce5a7111934f4e7f1"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.FileProviders.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.FileProviders.Abstractions.nuspec",
+        "sha256": "f2028dbb1c262c4f1c8ddfbafc1da3e9f1d8e4b82f916c792b505590dfcef4ea"
+      },
+      "sha256": "46656c84c0965b5fd113f5a4f00793e2beae67e5c5bb00c563377160a4a6e38d",
+      "sha512": "e03760272887547cb747367139029aec869a3103bf99e8dbb959e27cbcd4d65fd646765dfe1943b9ea771a662e076967fabbd9c57d03c38266c0478d8b57d063",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.fileproviders.abstractions/9.0.2/microsoft.extensions.fileproviders.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.fileproviders.physical.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.FileProviders.Physical.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.FileProviders.Physical.dll",
+          "sha256": "ddd47ee4a17f2fe029afe5f9d0ea7b2cc51e12195ce0074d2e2571e9115336b2"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.FileProviders.Physical",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.FileProviders.Physical.nuspec",
+        "sha256": "f14713eec81498c217a34c48ad126442532e1553d0fd6a7dbf8b050de998c6e1"
+      },
+      "sha256": "bd006054b5bcd77c0e9c9d7ef78dc0ac35917a893aa748c097b7e1c2fc85b4bf",
+      "sha512": "e3d9a2b2ed73f45d71d999d3b545fce802c241790d0f93cfbaad296babaa65489a51f3706bfc1c1991d7eeacbc3ddce27ab300f6f9434df4b2cf0183dbf622ae",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.fileproviders.physical/9.0.2/microsoft.extensions.fileproviders.physical.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.filesystemglobbing.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.FileSystemGlobbing.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.FileSystemGlobbing.dll",
+          "sha256": "33c39092f8eba5c3837cedc9fb890276439f6b7ac5ede62016bf85154c7dd874"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.FileSystemGlobbing",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.FileSystemGlobbing.nuspec",
+        "sha256": "3137bda9999a44626188b2813b8d9f32b645fdb4c9f0133974b4b150ff47f050"
+      },
+      "sha256": "a07e97f12423aa2e50d872d120b714afd88faa70b52b2e66e466d8602282c5a8",
+      "sha512": "21a27ff597ffbce268bf68cda3ea62cd765205387a982ee64e5d5be36249a438a7d84561aef2dec27c7f096c2cf9a3bbd7c3268b7675b9e6f6f6936db84c53e3",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.filesystemglobbing/9.0.2/microsoft.extensions.filesystemglobbing.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.hosting.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Hosting.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Hosting.dll",
+          "sha256": "9faaf387d72de7ec71db6a5a0a38de18a2f9a8c2d4d0f3d1d465d834c57a2e8f"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Hosting",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Hosting.nuspec",
+        "sha256": "8664db170b0b340c9be11ee86de00f66bf73c302cb9649300a378b31eae972f8"
+      },
+      "sha256": "788f5c91aad15f45025fe981b0405876f1d9ae637ce9b5f24d1bdb1f8814f493",
+      "sha512": "4aaca827a5dde167873df84a57ed7b020438b443a2a18fc301d40a011f0211aecc88fb185d69c471922c276bfa37cc28bb141dec69d91fae1153a3114e16c3ca",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.hosting/9.0.2/microsoft.extensions.hosting.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.hosting.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Hosting.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Hosting.Abstractions.dll",
+          "sha256": "fcd607916b59f30d591e7717eb5a8dcb86593cb1ff46beeddb90971c85805d61"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Hosting.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Hosting.Abstractions.nuspec",
+        "sha256": "84008f1a487a488ed000b0c9694086508ace64287d872102c83766ef07a86a60"
+      },
+      "sha256": "3d409a9b883983ce2a22a7cf03db1504d54f036eab585abb8ecf671c5dd62d97",
+      "sha512": "336534579162b9d048f0e5a024d63c5112a81e1d5d03eb7e6d19458475abd4217f6f6e71d8640eb57cdb16231d6eb2da0f7b5cbcc502a0f27939926b0cb2a415",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.hosting.abstractions/9.0.2/microsoft.extensions.hosting.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.dll",
+          "sha256": "2722edc3bfcb005d4b0ad8f2e792eae8ddada3c22d4478a8165ded767b2f3ae1"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.nuspec",
+        "sha256": "4b3352ccde819b58c968a3df4906fa394fcce186080bdc7359b9a463e130ccca"
+      },
+      "sha256": "bcf09be19a22c1951218920e85888bc1c64b9ec774659867cba290913f3c9c8d",
+      "sha512": "031c72a9ecaf3f3cb8a987c1ef25d2fdc8fe1e27d00b78cfcd883a348af8aa0ba1031cf9b5cc148160edfb1060f65feee06d68cc3a2415210d767b34fc451747",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging/9.0.2/microsoft.extensions.logging.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.abstractions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.Abstractions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.Abstractions.dll",
+          "sha256": "7edd050cd7f5fb33fea070ef017ba8e1bf29665f1746735efd51068ad19f8df9"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.Abstractions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.Abstractions.nuspec",
+        "sha256": "4fa5502b1622e669a593de8f8c985331cde1eaa9fb80418bf4ad97590021e4b0"
+      },
+      "sha256": "982c5eb9cfb7ed76346e6651fb3e29d61ad951d4d9120f8545cb3f9ba7404035",
+      "sha512": "33a9d77bcf8c3194470e07eb42218c1e5800f8afb70f99241e46cf52e418b15d6417b0f1d21dd0e8d05eabc7e093eaf8d222e88ab90f72150702d1ac7aff4f3c",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.abstractions/9.0.2/microsoft.extensions.logging.abstractions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.configuration.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.Configuration.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.Configuration.dll",
+          "sha256": "e34b90cb3a4f71f1a35ce65ab9d293603c761553ab9594b4683c8a452c4bc433"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.Configuration",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.Configuration.nuspec",
+        "sha256": "dc4779f11dfec67eae1ca4093ac5213ef8372255756f1422cba7e6fe600280b8"
+      },
+      "sha256": "49e350f2eb36719f316c9c7c4caef19b7231411f7911a9d27cc621aaf3f6a565",
+      "sha512": "521f7b2a74757b49a2f7e68881a9914430312ea3d414ddbc1cc2779a4e885cbfc5c14160ee77974afb20cfb83f413e48eca73256fe3b865842d51d13bc8de43c",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.configuration/9.0.2/microsoft.extensions.logging.configuration.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.console.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.Console.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.Console.dll",
+          "sha256": "8cd42431ba6e638b703f21220f4f6d76cf24cc8b3d0d58d90e6847cd49f2f15c"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.Console",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.Console.nuspec",
+        "sha256": "b898f10609d8b14eda3f4536d0f3240542a8bf57f59ec16f1c1b7648099d0606"
+      },
+      "sha256": "c83df4956ddac78247999f50229d5bd042eb5e2c3290fe4a1c5fdf7891b07b21",
+      "sha512": "354efe9ea55cb586b7998d7896df48e29963a91b705edb801b1767299bfe18ba343ff000d6dbadc22308c4b767eaf26d4f7dd479889cc96170362ce373d88664",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.console/9.0.2/microsoft.extensions.logging.console.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.debug.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.Debug.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.Debug.dll",
+          "sha256": "064ce5886c5c7a909cad3841fc5db5fa084df930aefa807d4e3f1590c3b2022a"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.Debug",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.Debug.nuspec",
+        "sha256": "c5ce3b0bba2787ae9d9623fe30758fe8f8ed3f47523236b785dd31a84abecbfb"
+      },
+      "sha256": "d163fd8c54ec6d7088858c7fd8814bebd9afdbe2b72ddec2e10bf0634d22383d",
+      "sha512": "8a138e52a751f993ecee24669cd2f45638497a178118e410fbb6095516aca03449078b94de061bc1eb5e602beb7624cdaa2a1087a7be29f9a4ec2e8f59129092",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.debug/9.0.2/microsoft.extensions.logging.debug.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.eventlog.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.EventLog.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.EventLog.dll",
+          "sha256": "ef0fa37d1ac46698c6aac9bd57c99820ae64d449010aa522455a66be17bb0cba"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.EventLog",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.EventLog.nuspec",
+        "sha256": "f855786aaab332cb2ccaee138155aef0bc18802f507e81c0dc157bc9e855a2c1"
+      },
+      "sha256": "7b8abf67ac4bab61f3422288ee7a5a8321197647d47be15b233dd383e84f1fd8",
+      "sha512": "656424ca0a3165a04290395c743e82aa9bea404805170bafb2dbcc6a4e6417cc51f2afa878b86a9476dadcdfd75ea915f73d9e4e6daba4a3d026c4e2f66a85b6",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.eventlog/9.0.2/microsoft.extensions.logging.eventlog.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.logging.eventsource.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Logging.EventSource.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Logging.EventSource.dll",
+          "sha256": "3c486d6065b31ff0f6ab833058fe258301ce67890fcc59c39c07f08f78b9cd5f"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Logging.EventSource",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Logging.EventSource.nuspec",
+        "sha256": "1dd5317af7781e58dc67936862b52f3e84aa6ebc4a317a88865e8f9c86dc07c2"
+      },
+      "sha256": "5bbca276594d38ac53be0214aa3277879e4f00847f5d111f6ee1fef135210f4a",
+      "sha512": "2e36f277a201f1e280e6a8241bd6c85143c49cd392234fe07fb6c03613f77e3ab9c94a44d725d534c0affd8df89c7052bea69e7871d02e48dcfa56ac4b4af258",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.logging.eventsource/9.0.2/microsoft.extensions.logging.eventsource.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.options.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Options.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Options.dll",
+          "sha256": "c1d4db7523d3160c1d0ae9c07a0dae04cd220557bbae932a1a3968aa2e8fe049"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Options",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Options.nuspec",
+        "sha256": "55daf092f143d73ec9261c836dd4c4d88cf4cc96dd6e383ce32a80104f704996"
+      },
+      "sha256": "cb68d97dc5b1fc7e92c7bc24940db8f2bea43e3666cd34cb1b15bc671af334b3",
+      "sha512": "759e02c984870db8e460a5ace5d8fa998f2cfb3e4cd51c76f2bea656a678bbf6c25fde0c7b5a98c6f75d5d4f068824ecaebf50410695a1cf865f40a6cb695c95",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.options/9.0.2/microsoft.extensions.options.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.options.configurationextensions.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Options.ConfigurationExtensions.dll",
+          "sha256": "e1a9e9e16f516577a39dfb4a476226a38cc46be4189f5b7c19ca6df95e59f018"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Options.ConfigurationExtensions",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Options.ConfigurationExtensions.nuspec",
+        "sha256": "44bffae61d08f7367b72b69ac148d2120a0290c3eb244d9794ad96e90c71b51c"
+      },
+      "sha256": "c4e60b4655c323880c12843e27eb1004d453d913c336b482664a1beea062575d",
+      "sha512": "430d6335100be28b23130f1aef44f75186d2dc0702de8b7b578ac391a8e7595526eef96449e10fa7a4585fe239b2bceb67c8d68657113f3d8b8366cc52f02624",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.options.configurationextensions/9.0.2/microsoft.extensions.options.configurationextensions.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "microsoft.extensions.primitives.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/Microsoft.Extensions.Primitives.dll",
+          "path": "toolchains/cyberpunk/reader/Microsoft.Extensions.Primitives.dll",
+          "sha256": "de0089641154caf0fd4dd1048787c639a0e63c897bdeec0d8832e291c7ff658e"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "Microsoft.Extensions.Primitives",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "Microsoft.Extensions.Primitives.nuspec",
+        "sha256": "fadee3e50eb1407ce1f168deef4769cb2459a5ea011edcaad94209c4f3be57a8"
+      },
+      "sha256": "cf2fd834c698e3ba3ac8dbf65ae622009123b68385f2395682c587a977929b8b",
+      "sha512": "752b91748314f7d7e97c7e724eb0e4ebd8c9e5b7f7ad94a5958c6ee4a3bf66ec4ab28343f8d993190001197fff6d20e721707d4efa154756f8fcfc6dc8141f87",
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.extensions.primitives/9.0.2/microsoft.extensions.primitives.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "newtonsoft.json.13.0.1.nupkg",
+      "members": [
+        {
+          "member": "lib/netstandard2.0/Newtonsoft.Json.dll",
+          "path": "toolchains/cyberpunk/reader/Newtonsoft.Json.dll",
+          "sha256": "72cf291d4bab0edd08a9b07c6173e1e7ad1abb7ab727fd7044bf6305d7515661"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "James Newton-King"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright \u00a9 James Newton-King 2008"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://www.newtonsoft.com/json"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "ae9fe44e1323e91bcbd185ca1a14099fba7c021f",
+            "type": "git",
+            "url": "https://github.com/JamesNK/Newtonsoft.Json"
+          },
+          "text": null
+        }
+      },
+      "name": "Newtonsoft.Json",
+      "notices": [
+        {
+          "member": "LICENSE.md",
+          "sha256": "b98a397897ff55f76cddc380041507a95a896b2946e0188703bf0496793d6516"
+        }
+      ],
+      "nuspec": {
+        "member": "Newtonsoft.Json.nuspec",
+        "sha256": "4ffea71f07d70dff4c57529871f8fc377bf85e62e93b24f1ae5409ff73570c5e"
+      },
+      "sha256": "2b6b52556e27e1b7913f33eedeb95568110c746bd64afff74357f1683878323a",
+      "sha512": "83731b662eaf05379a23f8446ef47bbc111349dd4358b7bd8b51383fe9cf637e2fe62f78cea52a0d7bdd582dc6fbbb5837d4a7b1d53dcf37a0ae7473e21ee7b1",
+      "url": "https://api.nuget.org/v3-flatcontainer/newtonsoft.json/13.0.1/newtonsoft.json.13.0.1.nupkg",
+      "version": "13.0.1"
+    },
+    {
+      "archive": "nvorbis.0.10.4.nupkg",
+      "members": [
+        {
+          "member": "lib/netstandard2.0/NVorbis.dll",
+          "path": "toolchains/cyberpunk/reader/NVorbis.dll",
+          "sha256": "55e7477deeb341058d5543515ed371575a415d8edcf9d0e933a41ca2dee54ad4"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Andrew Ward"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright \u00a9 Andrew Ward 2021"
+        },
+        "license": {
+          "attributes": {
+            "type": "file"
+          },
+          "text": "LICENSE"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://aka.ms/deprecateLicenseUrl"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/NVorbis/NVorbis"
+        },
+        "repository": {
+          "attributes": {
+            "type": "git",
+            "url": "https://github.com/NVorbis/NVorbis"
+          },
+          "text": null
+        }
+      },
+      "name": "NVorbis",
+      "notices": [
+        {
+          "member": "LICENSE",
+          "sha256": "08e4ea5ffe20037cea0f34a424fee6722898cee7f85cd23cbf2b72847c2c36f8"
+        }
+      ],
+      "nuspec": {
+        "member": "NVorbis.nuspec",
+        "sha256": "f75d0146fe26e5cb87e3aeba986218c1bc9a37c5c5a33bacc26a2d895891c370"
+      },
+      "sha256": "e99a2e00959a3607ba0c59cb1c3af7e6e7f8bece8a7f5d913e9e1a86e11e8e50",
+      "sha512": "56f0db6d6c0a26a0903df4a34ef4a46e24f665421dfec0a319f214a849563cdef576afe4f6da41217a851afd1c5299e14784ace0ebc51ceb08543d248f7072e9",
+      "url": "https://api.nuget.org/v3-flatcontainer/nvorbis/0.10.4/nvorbis.0.10.4.nupkg",
+      "version": "0.10.4"
+    },
+    {
+      "archive": "semver.3.0.0.nupkg",
+      "full_terms": {
+        "archive": "8aba9a27931dfdaf188400bd022d78cdb1bc12ee52d0d519e5434ed82cfd468c.txt",
+        "sha256": "0ff0e5a7fc4019445349de62cf4a7e62d72963eb1758efaf17372d9e7df137a3",
+        "url": "https://raw.githubusercontent.com/WalkerCodeRanger/semver/801ae3651f0d12580a5e828cfb371b6be9d49069/License.txt"
+      },
+      "members": [
+        {
+          "member": "lib/net5.0/Semver.dll",
+          "path": "toolchains/cyberpunk/reader/Semver.dll",
+          "sha256": "a99edcb96efce3d6ff019c667e132d81d879f5a92bc9337591e0b7309d7f493f"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Jeff Walker, Max Hauser"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright \u00a9 2013-2024 Jeff Walker, Max Hauser"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/WalkerCodeRanger/semver"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "801ae3651f0d12580a5e828cfb371b6be9d49069",
+            "type": "git",
+            "url": "https://github.com/WalkerCodeRanger/semver"
+          },
+          "text": null
+        }
+      },
+      "name": "Semver",
+      "notices": [],
+      "nuspec": {
+        "member": "Semver.nuspec",
+        "sha256": "73b31a26d038bd2c829579a97a4a5f51a1e543ed6e9d6e38461d52ae99deb4c2"
+      },
+      "sha256": "9d7e646b6ec663aa73f52ef71fab0b4900ab9c0cb223dc4355dcebb65329e014",
+      "sha512": "5f96cb1287dca1c8f288a64c68aaff637294cb54f00fc4fbe777bc934911a37fbaed120aa98d7fa36b5304fac2aa3ef81bc98e5d427dcfdf4de6b9fe5570ab70",
+      "url": "https://api.nuget.org/v3-flatcontainer/semver/3.0.0/semver.3.0.0.nupkg",
+      "version": "3.0.0"
+    },
+    {
+      "archive": "serilog.4.2.0.nupkg",
+      "full_terms": {
+        "archive": "7e47c4dc9153c1512fd7a5d2f3a8ce4c397dacc4b43c32d2147c6377982d77fb.txt",
+        "sha256": "73ba74dfaa520b49a401b5d21459a8523a146f3b7518a833eea5efa85130bf68",
+        "url": "https://raw.githubusercontent.com/serilog/serilog/c00e17fdeb615d36c062569f7342f72c9ece4aa7/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net9.0/Serilog.dll",
+          "path": "toolchains/cyberpunk/reader/Serilog.dll",
+          "sha256": "ba73b4bf7c8ef54303ad3ce540ac61855e0cd0d8396ad622059d43ccdea1c854"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Serilog Contributors"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright \u00a9 Serilog Contributors"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "Apache-2.0"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/Apache-2.0"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://serilog.net/"
+        },
+        "repository": {
+          "attributes": {
+            "branch": "refs/heads/main",
+            "commit": "c00e17fdeb615d36c062569f7342f72c9ece4aa7",
+            "type": "git",
+            "url": "https://github.com/serilog/serilog"
+          },
+          "text": null
+        }
+      },
+      "name": "Serilog",
+      "notices": [],
+      "nuspec": {
+        "member": "Serilog.nuspec",
+        "sha256": "d781cbb7d6576213163253db191ffa003e4daf888fe7a09a0167a637e0ca37b9"
+      },
+      "sha256": "edfdc4a42b046c3c5782cba1138df4295235e29ee80d4b82b70469382aad9dbb",
+      "sha512": "e6e3335a3019d18420018672c4ccdc9b293364785f24222ac5598fa80e6be592826b142ab29881f8d1a1a8a3f5016584c014aa4cf99deaaf4350a7ba3cb7897d",
+      "url": "https://api.nuget.org/v3-flatcontainer/serilog/4.2.0/serilog.4.2.0.nupkg",
+      "version": "4.2.0"
+    },
+    {
+      "archive": "sharpgltf.core.1.0.3.nupkg",
+      "full_terms": {
+        "archive": "2f5c15db1e52ee21bb9b56d0b55c2ea7c5339f95884d8068b73ccd56b06d1555.txt",
+        "sha256": "5e720094b3423cc2c1aef53325f2b99145d45155e36b81adb9063d18a552e469",
+        "url": "https://raw.githubusercontent.com/vpenades/SharpGLTF/2803c34b2c2f2d7c2034e6633700c46447876a0f/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net8.0/SharpGLTF.Core.dll",
+          "path": "toolchains/cyberpunk/reader/SharpGLTF.Core.dll",
+          "sha256": "5bb3fe117f1787be46240a6a461bfd26cc97507c673a31b4b9d3ea888a1a46c0"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Vicente Penades"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) 2024 Vicente Penades"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/vpenades/SharpGLTF"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "2803c34b2c2f2d7c2034e6633700c46447876a0f",
+            "type": "git",
+            "url": "https://github.com/vpenades/SharpGLTF"
+          },
+          "text": null
+        }
+      },
+      "name": "SharpGLTF.Core",
+      "notices": [],
+      "nuspec": {
+        "member": "SharpGLTF.Core.nuspec",
+        "sha256": "29607867d5dfeeacf00fe27926a7c2c2b15b1f0b8fb000b73d666217c0c413bb"
+      },
+      "sha256": "b288ad8142af46646c742d186899ddea06ec5b1d922ee4fc83b0e6f4c771ec1a",
+      "sha512": "ab763f7ed1c1821554a73294a8a827f8c280777152900055e5791753766a62f3ab57fdca95f11114982b967bba3093de8d1578f06950762af883a215cec1d6ba",
+      "url": "https://api.nuget.org/v3-flatcontainer/sharpgltf.core/1.0.3/sharpgltf.core.1.0.3.nupkg",
+      "version": "1.0.3"
+    },
+    {
+      "archive": "sharpgltf.runtime.1.0.3.nupkg",
+      "full_terms": {
+        "archive": "2f5c15db1e52ee21bb9b56d0b55c2ea7c5339f95884d8068b73ccd56b06d1555.txt",
+        "sha256": "5e720094b3423cc2c1aef53325f2b99145d45155e36b81adb9063d18a552e469",
+        "url": "https://raw.githubusercontent.com/vpenades/SharpGLTF/2803c34b2c2f2d7c2034e6633700c46447876a0f/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net8.0/SharpGLTF.Runtime.dll",
+          "path": "toolchains/cyberpunk/reader/SharpGLTF.Runtime.dll",
+          "sha256": "12a4be1feed2155b1402f5ffb11af3e019e010e863229b5e58a973094ea21ff2"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Vicente Penades"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) 2024 Vicente Penades"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/vpenades/SharpGLTF"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "2803c34b2c2f2d7c2034e6633700c46447876a0f",
+            "type": "git",
+            "url": "https://github.com/vpenades/SharpGLTF"
+          },
+          "text": null
+        }
+      },
+      "name": "SharpGLTF.Runtime",
+      "notices": [],
+      "nuspec": {
+        "member": "SharpGLTF.Runtime.nuspec",
+        "sha256": "bcdc48c97fab71f7623e733180e8b280d78c268b68b7bba5452bc1da4160afd5"
+      },
+      "sha256": "f246af9525e0119558289ba6327e70bfc2a2d701c23b6c273aa4239a4ed674bb",
+      "sha512": "d4d829227c192771ffaaea2715f81f54a8008f14c0f189a02a5dc5d7dad551580f2032d58900f6f8358ea35d3dc55199c38d162844c05f3885ad8c2a7ded8d43",
+      "url": "https://api.nuget.org/v3-flatcontainer/sharpgltf.runtime/1.0.3/sharpgltf.runtime.1.0.3.nupkg",
+      "version": "1.0.3"
+    },
+    {
+      "archive": "sharpgltf.toolkit.1.0.3.nupkg",
+      "full_terms": {
+        "archive": "2f5c15db1e52ee21bb9b56d0b55c2ea7c5339f95884d8068b73ccd56b06d1555.txt",
+        "sha256": "5e720094b3423cc2c1aef53325f2b99145d45155e36b81adb9063d18a552e469",
+        "url": "https://raw.githubusercontent.com/vpenades/SharpGLTF/2803c34b2c2f2d7c2034e6633700c46447876a0f/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net8.0/SharpGLTF.Toolkit.dll",
+          "path": "toolchains/cyberpunk/reader/SharpGLTF.Toolkit.dll",
+          "sha256": "9b5d7448dd4582cff3ef4abe31d0098de0c66071d4fff9a9a5fbfda853c9159e"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Vicente Penades"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) 2024 Vicente Penades"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/vpenades/SharpGLTF"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "2803c34b2c2f2d7c2034e6633700c46447876a0f",
+            "type": "git",
+            "url": "https://github.com/vpenades/SharpGLTF"
+          },
+          "text": null
+        }
+      },
+      "name": "SharpGLTF.Toolkit",
+      "notices": [],
+      "nuspec": {
+        "member": "SharpGLTF.Toolkit.nuspec",
+        "sha256": "3298d8c539a078b16fdce7fbeb2902027003ac940d347608f8aec7d7d76d597d"
+      },
+      "sha256": "29a048a3f61c989029df9deaa5d0ec089283347ee9744b65ce9aba7cf6e01e8e",
+      "sha512": "9faa7aeb06e39f5275fc38aa5e096cb60ba8da7f0bbf87ec6e1dd32193ac93d35c0fc01988be797e7e256827509f1376cdc97c463bf6d0c7c7136f8ee6c1be8d",
+      "url": "https://api.nuget.org/v3-flatcontainer/sharpgltf.toolkit/1.0.3/sharpgltf.toolkit.1.0.3.nupkg",
+      "version": "1.0.3"
+    },
+    {
+      "archive": "system.commandline.2.0.0-beta4.22272.1.nupkg",
+      "full_terms": {
+        "archive": "11a45b097aa926536cf4b663b846e0d53f23a0cdfe0065a498f6099724466e62.txt",
+        "sha256": "58fd5ebf25d75b5bb5f4cd407a9fef3befd3641e1af90a1d0716618e6430fc19",
+        "url": "https://raw.githubusercontent.com/dotnet/command-line-api/209b724a3c843253d3071e8348c353b297b0b8b5/LICENSE.md"
+      },
+      "members": [
+        {
+          "member": "lib/net6.0/System.CommandLine.dll",
+          "path": "toolchains/cyberpunk/reader/System.CommandLine.dll",
+          "sha256": "2158cfc2c484ebdec95fd9959c7eecaebe44657e1e1dee5abb78fc971276829f"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/dotnet/command-line-api"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "209b724a3c843253d3071e8348c353b297b0b8b5",
+            "type": "git",
+            "url": "https://github.com/dotnet/command-line-api"
+          },
+          "text": null
+        }
+      },
+      "name": "System.CommandLine",
+      "notices": [],
+      "nuspec": {
+        "member": "System.CommandLine.nuspec",
+        "sha256": "1af8ac9da46db8d6a09f37ae89d00179aca651a087d5b5c759c896a25f5c724f"
+      },
+      "sha256": "cd23be0989cc1fc75e0470c8f431e108f8fbf427b718ecc70b21f5fd3887c5c7",
+      "sha512": "979a7e66ba29e17bc5bec42e926ed15362e23ae403e498c955e09dffc4d3baa14777a06f95e25d591fc9757a0eaa18deb9e4662a1ca1663fa300f509a4a0383c",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.commandline/2.0.0-beta4.22272.1/system.commandline.2.0.0-beta4.22272.1.nupkg",
+      "version": "2.0.0-beta4.22272.1"
+    },
+    {
+      "archive": "system.commandline.hosting.0.4.0-alpha.22272.1.nupkg",
+      "full_terms": {
+        "archive": "11a45b097aa926536cf4b663b846e0d53f23a0cdfe0065a498f6099724466e62.txt",
+        "sha256": "58fd5ebf25d75b5bb5f4cd407a9fef3befd3641e1af90a1d0716618e6430fc19",
+        "url": "https://raw.githubusercontent.com/dotnet/command-line-api/209b724a3c843253d3071e8348c353b297b0b8b5/LICENSE.md"
+      },
+      "members": [
+        {
+          "member": "lib/netstandard2.1/System.CommandLine.Hosting.dll",
+          "path": "toolchains/cyberpunk/reader/System.CommandLine.Hosting.dll",
+          "sha256": "35010041aca57e018fb17cb2509d5a91d8f704c1fec8810016f6ff01b94fb460"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/dotnet/command-line-api"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "209b724a3c843253d3071e8348c353b297b0b8b5",
+            "type": "git",
+            "url": "https://github.com/dotnet/command-line-api"
+          },
+          "text": null
+        }
+      },
+      "name": "System.CommandLine.Hosting",
+      "notices": [],
+      "nuspec": {
+        "member": "System.CommandLine.Hosting.nuspec",
+        "sha256": "e51486ae215f5d46c5f4843ee47a0179e9f9bec2b976cf89cc5d18b2855829ab"
+      },
+      "sha256": "b66cd953e14175aa3c269daff8af871df73d417a4606be446385fcf9d34f71e6",
+      "sha512": "7a807e46e9a0fba6c808e6567e23faaec45584279d803a39deddbb9eca981abb89d43041c501cacf716a2b5b23f84953bbe5d3b105a614676aeff968a47ff3bb",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.commandline.hosting/0.4.0-alpha.22272.1/system.commandline.hosting.0.4.0-alpha.22272.1.nupkg",
+      "version": "0.4.0-alpha.22272.1"
+    },
+    {
+      "archive": "system.commandline.namingconventionbinder.2.0.0-beta4.22272.1.nupkg",
+      "full_terms": {
+        "archive": "11a45b097aa926536cf4b663b846e0d53f23a0cdfe0065a498f6099724466e62.txt",
+        "sha256": "58fd5ebf25d75b5bb5f4cd407a9fef3befd3641e1af90a1d0716618e6430fc19",
+        "url": "https://raw.githubusercontent.com/dotnet/command-line-api/209b724a3c843253d3071e8348c353b297b0b8b5/LICENSE.md"
+      },
+      "members": [
+        {
+          "member": "lib/netstandard2.0/System.CommandLine.NamingConventionBinder.dll",
+          "path": "toolchains/cyberpunk/reader/System.CommandLine.NamingConventionBinder.dll",
+          "sha256": "04069e8d5f3ecb66a17d579c6bcea26372ceb9b6dee7bcd8bdf5d315ba394732"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/dotnet/command-line-api"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "209b724a3c843253d3071e8348c353b297b0b8b5",
+            "type": "git",
+            "url": "https://github.com/dotnet/command-line-api"
+          },
+          "text": null
+        }
+      },
+      "name": "System.CommandLine.NamingConventionBinder",
+      "notices": [],
+      "nuspec": {
+        "member": "System.CommandLine.NamingConventionBinder.nuspec",
+        "sha256": "d3015fdd4d978afba8ad62af38d06a79ad373321280222b61bc1571468055a3b"
+      },
+      "sha256": "15fcece755e216b6925f579f4113b523288dada2208bc68e764451cc24fa0c1e",
+      "sha512": "e6903055f8dacbd756c06320a91b2ee202b404f437cb5877c791781fe742c0ec226d61866ff4a0498a1d734c9ab930791e31073530a415a2b8931ebac15b67a6",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.commandline.namingconventionbinder/2.0.0-beta4.22272.1/system.commandline.namingconventionbinder.2.0.0-beta4.22272.1.nupkg",
+      "version": "2.0.0-beta4.22272.1"
+    },
+    {
+      "archive": "system.diagnostics.eventlog.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "runtimes/win/lib/net9.0/System.Diagnostics.EventLog.Messages.dll",
+          "path": "toolchains/cyberpunk/reader/System.Diagnostics.EventLog.Messages.dll",
+          "sha256": "dfb89838975892ce84d906bf350e0dca0310d39a65b1ea02d8ad6cf1ce6ce566"
+        },
+        {
+          "member": "runtimes/win/lib/net9.0/System.Diagnostics.EventLog.dll",
+          "path": "toolchains/cyberpunk/reader/System.Diagnostics.EventLog.dll",
+          "sha256": "0b8d2074cb018f0cbb9333028665c4a69a39cbfc5aa1d636f3f0fb214fdf7bec"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "System.Diagnostics.EventLog",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "System.Diagnostics.EventLog.nuspec",
+        "sha256": "f2fad3a10961201e09ad5e81aba2538ec9db1bf4abe8669ea5b91610e3479311"
+      },
+      "sha256": "2288906c7f13a3d52acd8809cd8a456ee89157728653ce72e1c70f4f2b6d3ffc",
+      "sha512": "6386c53e71e73770efd0ab3a21a312e7eee4d1fe5b4db325b2df16805441d77724bbbfd5115271f968b548eab9aaacd0e76e92f61113e5be545d65753a1d0e7f",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.diagnostics.eventlog/9.0.2/system.diagnostics.eventlog.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "system.reactive.6.0.1.nupkg",
+      "full_terms": {
+        "archive": "e0dcea8d261d79f8b3ca475e69b49b0314e55055259dc52996000ad6cf5c7027.txt",
+        "sha256": "cfc21f5e8bd655ae997eec916138b707b1d290b83272c02a95c9f821b8c87310",
+        "url": "https://raw.githubusercontent.com/dotnet/reactive/1cfc6465d1c9c6144d5b4e6420240f2767c8f85c/LICENSE"
+      },
+      "members": [
+        {
+          "member": "lib/net6.0/System.Reactive.dll",
+          "path": "toolchains/cyberpunk/reader/System.Reactive.dll",
+          "sha256": "626b01d9a0a19edaf345f2fb1cbf549d4f8cb725c06ea7898133f0bcd65449c3"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": ".NET Foundation and Contributors"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) .NET Foundation and Contributors."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/dotnet/reactive"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "1cfc6465d1c9c6144d5b4e6420240f2767c8f85c",
+            "type": "git",
+            "url": "https://github.com/dotnet/reactive"
+          },
+          "text": null
+        }
+      },
+      "name": "System.Reactive",
+      "notices": [],
+      "nuspec": {
+        "member": "System.Reactive.nuspec",
+        "sha256": "d0d2296432328dfee2e3455ee69bdedc646a11b520fe51847bfd042f46e27653"
+      },
+      "sha256": "2e8e5432aa7c0ec6d5494c5ad94a42951d46a18cea410712c647f216a07f7784",
+      "sha512": "5b7af637b4a167f66a29cb96f3339bc8bb1f1cd279b5cb5ff9579d8a56e8e6747c6231580a83e8c905999e82586c01fde00f2f4f3826cb0c11d2933a074977f4",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.reactive/6.0.1/system.reactive.6.0.1.nupkg",
+      "version": "6.0.1"
+    },
+    {
+      "archive": "system.reflection.metadataloadcontext.9.0.2.nupkg",
+      "members": [
+        {
+          "member": "lib/net9.0/System.Reflection.MetadataLoadContext.dll",
+          "path": "toolchains/cyberpunk/reader/System.Reflection.MetadataLoadContext.dll",
+          "sha256": "ad34ecae521da95e4bcac48f6d9c4d73fa58aa80b06481a783653c8acde5eda9"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Microsoft"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "\u00a9 Microsoft Corporation. All rights reserved."
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://dot.net/"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "80aa709f5d919c6814726788dc6dabe23e79e672",
+            "type": "git",
+            "url": "https://github.com/dotnet/runtime"
+          },
+          "text": null
+        }
+      },
+      "name": "System.Reflection.MetadataLoadContext",
+      "notices": [
+        {
+          "member": "LICENSE.TXT",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+        },
+        {
+          "member": "THIRD-PARTY-NOTICES.TXT",
+          "sha256": "40686c6447a7d5b5d3693068e4571b5f483d7ed335aeee773ef662440de4c5d5"
+        }
+      ],
+      "nuspec": {
+        "member": "System.Reflection.MetadataLoadContext.nuspec",
+        "sha256": "b368d85dfae28c62d1a4b775fbf9913ecb75e5ffaee85b918dc095859fa5fc22"
+      },
+      "sha256": "b96be47b097f4e97cacc582e38e7bf12f52246821a8e10c850537a7a0064c82f",
+      "sha512": "87bd279e5db77535fdc6bc31032a6c3b9ba222dc79fdd5c67d7f1a22e2e0dd9b1c98062dc76c432f5b73525f2b20b3dd49b6224fbb0f6e55c6ca61fee99148ef",
+      "url": "https://api.nuget.org/v3-flatcontainer/system.reflection.metadataloadcontext/9.0.2/system.reflection.metadataloadcontext.9.0.2.nupkg",
+      "version": "9.0.2"
+    },
+    {
+      "archive": "yamldotnet.16.3.0.nupkg",
+      "full_terms": {
+        "archive": "4ea689045e83e391af4747c1414f5da62cd62ad3a325b70157260fc27ae6d8d2.txt",
+        "sha256": "daea8b7f1b2bab48ea12ad50b0ce91634669d99d7dd0cb64aed8dffeeef69ed3",
+        "url": "https://raw.githubusercontent.com/aaubry/YamlDotNet/ae480660f4fb26f3eb0b41c1d1fcf21c0e9d9e73/LICENSE.txt"
+      },
+      "members": [
+        {
+          "member": "lib/net8.0/YamlDotNet.dll",
+          "path": "toolchains/cyberpunk/reader/YamlDotNet.dll",
+          "sha256": "86f873f682c619a0c24e263dcdd15fe027104666641c92f503516671d61edda6"
+        }
+      ],
+      "metadata": {
+        "authors": {
+          "attributes": {},
+          "text": "Antoine Aubry"
+        },
+        "copyright": {
+          "attributes": {},
+          "text": "Copyright (c) Antoine Aubry and contributors"
+        },
+        "license": {
+          "attributes": {
+            "type": "expression"
+          },
+          "text": "MIT"
+        },
+        "licenseUrl": {
+          "attributes": {},
+          "text": "https://licenses.nuget.org/MIT"
+        },
+        "projectUrl": {
+          "attributes": {},
+          "text": "https://github.com/aaubry/YamlDotNet/wiki"
+        },
+        "repository": {
+          "attributes": {
+            "commit": "ae480660f4fb26f3eb0b41c1d1fcf21c0e9d9e73",
+            "type": "git",
+            "url": "https://github.com/aaubry/YamlDotNet"
+          },
+          "text": null
+        }
+      },
+      "name": "YamlDotNet",
+      "notices": [],
+      "nuspec": {
+        "member": "YamlDotNet.nuspec",
+        "sha256": "f1573d3b0c83844d8ed3ae016240cb18cd3674b8f5d82b40fcccbe49ff97774e"
+      },
+      "sha256": "e068bcc1243c46c8bfdfe2f27a026bfff03cde7c67d9f37c2cdd70bd24a9dfd4",
+      "sha512": "f102fb418c3afe5ec0cc5d0336b9ac6517af6f30603ab5f925a7b3622544c419bb935d1e55901147fff5a113874e55491534d5553411fb4ea198e6550c0421df",
+      "url": "https://api.nuget.org/v3-flatcontainer/yamldotnet/16.3.0/yamldotnet.16.3.0.nupkg",
+      "version": "16.3.0"
+    }
+  ],
+  "reviewed_at": "2026-10-31",
+  "schema": "toolkit-cyberpunk-redistribution-pins-v1"
+}

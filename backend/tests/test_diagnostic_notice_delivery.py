@@ -47,9 +47,9 @@ def test_british_licence_is_bound_and_delivered_without_copying_raw_sbom(tmp_pat
     from closure import write_candidate
     output = tmp_path / 'candidate'
     write_candidate(value, source, evidence, output)
-    delivered = output / 'ProxyTranscriptRuntime/THIRD_PARTY/windows-capture' / component['licenses'][0]['path']
+    delivered = output / 'GameImmersionToolkit/THIRD_PARTY/windows-capture' / component['licenses'][0]['path']
     assert delivered.read_bytes() == notice
-    assert not list((output / 'ProxyTranscriptRuntime').rglob('*.cyclonedx.json'))
+    assert not list((output / 'GameImmersionToolkit').rglob('*.cyclonedx.json'))
     proof = json.loads((output / 'CANDIDATE-PROVENANCE.json').read_bytes())
     assert proof['redistribution_review'] == 'pending-exact-output'
     assert proof['native_acceptance'] == 'unavailable' and proof['r19_complete'] is False

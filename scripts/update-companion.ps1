@@ -172,7 +172,15 @@ try {
     for($attempt=0;$attempt -lt 40;$attempt++){
         try{
             $response=Invoke-WebRequest ('http://127.0.0.1:'+$ApiPort+'/api/health') -UseBasicParsing -TimeoutSec 2
-            if($response.Headers['X-Proxy-Transcript-Router'] -and (Test-CompanionEndpoint ('http://127.0.0.1:'+$FrontendPort+'/'))){$routed=$true;break}
+            $frontend=Invoke-WebRequest ('http://127.0.0.1:'+$FrontendPort+'/') -UseBasicParsing -TimeoutSec 2
+            # A watching gateway acknowledges the exact route used for each
+            # response. Health alone could still belong to the old slot. Legacy
+            # Node routers refresh synchronously and do not send this header.
+            $apiRoute=$response.Headers['X-Proxy-Transcript-Upstream-Port']
+            $frontendRoute=$frontend.Headers['X-Proxy-Transcript-Upstream-Port']
+            if($response.Headers['X-Proxy-Transcript-Router'] -and
+                (-not $apiRoute -or [string]$apiRoute -eq [string]$candidate.apiPort) -and
+                (-not $apiRoute -or [string]$frontendRoute -eq [string]$candidate.frontendPort)){$routed=$true;break}
         }catch{}
         Start-Sleep -Milliseconds 250
     }

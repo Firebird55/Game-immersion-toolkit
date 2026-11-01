@@ -261,18 +261,30 @@ def _links(root, directory, revision, progress):
     from .prebuilt_node_reader import require_zzz_reader
     from .runtime_bundle import discover_layout
     from .runtime_paths import voice_work_root
-    require_zzz_reader()
-    # The standalone source reader still accepts a legacy project/data/zzz
-    # directory. Frozen execution cannot reach this compatibility bridge.
-    project = (discover_layout().legacy_project_root if os.environ.get('PROXY_TRANSCRIPT_PROJECT_ROOT')
-               else directory.parent.parent)
-    tools = voice_work_root(project)
-    reader = tools / 'galgame-perform.ts'
-    if not reader.is_file() or not shutil.which('node'):
-        raise ValueError('Install the ZZZ scene tools in Setup before preparing a language.')
-    game_tools.refresh_zzz_metadata(project, revision=revision)
-    code = Path(__file__).resolve().parents[1]
-    signature = hashlib.sha256(b''.join([fingerprint(root).encode(), reader.read_bytes(),
+    packaged = require_zzz_reader()
+    layout = discover_layout()
+    if packaged:
+        tools = layout.work_root / 'zzz-scenes'
+        tools.mkdir(parents=True, exist_ok=True)
+        # Validate mutable paths before downloading even inert game metadata.
+        packaged.command('dialogue', game_data=root, work=tools)
+        game_tools.refresh_zzz_metadata(layout.application_root, revision=revision, directory=tools)
+        code = packaged.root
+        reader_bytes = packaged.identity.encode()
+        environment = packaged.environment()
+    else:
+        # Keep the legacy project/data/zzz contract for source installations.
+        project = (layout.legacy_project_root if os.environ.get('PROXY_TRANSCRIPT_PROJECT_ROOT')
+                   else directory.parent.parent)
+        tools = voice_work_root(project)
+        reader = tools / 'galgame-perform.ts'
+        if not reader.is_file() or not shutil.which('node'):
+            raise ValueError('Install the ZZZ scene tools in Setup before preparing a language.')
+        game_tools.refresh_zzz_metadata(project, revision=revision)
+        code = Path(__file__).resolve().parents[1]
+        reader_bytes = reader.read_bytes()
+        environment = None
+    signature = hashlib.sha256(b''.join([fingerprint(root).encode(), reader_bytes,
         *((code / 'scripts' / name).read_bytes() for name in ('extract_voice_links.mjs', 'extract_cinematic_links.mjs',
             'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs')),
         *( (tools / name).read_bytes() for name in game_tools.METADATA_FILES)])).hexdigest()
@@ -287,16 +299,20 @@ def _links(root, directory, revision, progress):
         for category in ('dialogue', 'comic'):
             progress('Reading installed ZZZ ' + category + ' subtitle/voice bindings')
             name = 'language-links-' + category + '.json'
-            result = subprocess.run(['node', str(code / 'scripts/extract_voice_links.mjs'), str(root), str(tools), category, name],
-                cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            command = (packaged.command(category, game_data=root, work=tools) if packaged else
+                       ['node', str(code / 'scripts/extract_voice_links.mjs'), str(root), str(tools), category, name])
+            result = subprocess.run(command, env=environment,
+                cwd=tools, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             if result.returncode:
                 raise PreparationFailure('zzz_scene_catalog', 'ZZZ subtitle/voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
             links.extend({**link, 'channels': ['cinematic'] if category == 'comic' else link.get('channels', ['dialogue', 'cinematic'])}
                          for link in json.loads((tools / name).read_text(encoding='utf-8')))
             diagnostics.append(json.loads((tools / (name + '.diagnostics.json')).read_text(encoding='utf-8')))
         progress('Reading installed ZZZ cinematic timelines and their original voice events')
-        result = subprocess.run(['node', str(code / 'scripts/extract_cinematic_links.mjs'), str(root), str(tools)],
-            cwd=code, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        command = (packaged.command('cinematic', game_data=root, work=tools) if packaged else
+                   ['node', str(code / 'scripts/extract_cinematic_links.mjs'), str(root), str(tools)])
+        result = subprocess.run(command, env=environment,
+            cwd=tools, capture_output=True, timeout=1200, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode:
             raise PreparationFailure('zzz_cinematic_catalog', 'ZZZ cinematic voice links could not be read from the installed resource catalog. Update the toolkit and verify game files in the launcher, then retry preparation.')
         old = {'signature': signature, 'links': links, 'diagnostics': diagnostics,
@@ -377,6 +393,11 @@ def _validate_audio(install, audio):
     if entry.offset < 28 or not 0 < entry.size <= 64 * 1024 * 1024 or entry.offset + entry.size > stat.st_size:
         raise ValueError('Invalid ZZZ original voice bounds.')
     return entry
+
+
+def validate_voice_source(install, audio):
+    """A game update does not invalidate offsets in an unchanged voice package."""
+    return _validate_audio(install, audio)
 
 
 def extract_voice(install, audio, _executable, _destination):

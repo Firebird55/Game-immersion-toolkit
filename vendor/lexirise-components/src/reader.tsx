@@ -7,8 +7,9 @@ import { Popover } from '@base-ui/react/popover';
 import { Bookmark, Play, Volume2, X } from 'lucide-react';
 import { countUnknownWords, restoreTranslationLimit, type ReadingSummary, type TranslationLimit } from './translation-visibility.js';
 import { appliesToWord, unknownWordGrammar, grammarUrl, type GrammarRule } from './grammar-rules.js';
-import { popupPreferences, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab, type WordTab, type DefinitionSection } from './word-popup.js';
+import { popupPreferences, popupOpensOnPointerEnter, popupTogglesOnShift, orderWordPopupTabs, orderWordPopupDefinitionSections, resolveInitialWordPopupTab, type WordTab, type DefinitionSection } from './word-popup.js';
 import type { AccountSettings } from './account.js';
+import { readingWrapRanges } from './reading-layout.js';
 
 export type ReadingScope = 'unknown' | 'all' | 'off';
 export type ReadingOptions = {
@@ -141,6 +142,31 @@ function shortGloss(meaning: string) {
   const first = meaning.split(/[,;]/, 1)[0].trim();
   return first.length > 32 ? `${first.slice(0, 29)}…` : first;
 }
+type ReadingPart = { start: number; end: number; node: React.ReactNode };
+function groupReadingParts(text: string, parts: ReadingPart[]) {
+  const ranges = readingWrapRanges(text, parts.filter(part => typeof part.node !== 'string'));
+  type Group = { key: string; children: React.ReactNode[] };
+  const groups = new Map<number, Group>();
+  const result: (ReadingPart | Group)[] = [];
+  for (const part of parts) {
+    const cuts = typeof part.node === 'string'
+      ? [...new Set([part.start, ...ranges.flatMap(range => [range.start, range.end]).filter(at => at > part.start && at < part.end), part.end])].sort((a,b) => a-b)
+      : [part.start, part.end];
+    for (let i = 0; i < cuts.length - 1; i++) {
+      const start = cuts[i], end = cuts[i+1];
+      const range = ranges.find(range => range.start <= start && range.end >= end);
+      const node = typeof part.node === 'string' ? text.slice(start, end) : part.node;
+      if (!range) { result.push({ start, end, node }); continue; }
+      if (!groups.has(range.start)) {
+        const group = { key: `word-${range.start}`, children: [] as React.ReactNode[] };
+        groups.set(range.start, group); result.push(group);
+      }
+      groups.get(range.start)!.children.push(node);
+    }
+  }
+  return result.map(part => 'children' in part
+    ? <span className="reading-word" key={part.key}>{part.children}</span> : part.node);
+}
 const WORD_LEVELS = [
   { value: 1, short: 'T', label: 'Tracked' },
   { value: 2, short: 'L', label: 'Learning' },
@@ -160,23 +186,26 @@ function speakChinese(text: string) {
 }
 
 function ExampleChinese({ text, tokens, options }: { text: string; tokens: Token[]; options: ReadingOptions }) {
-  const parts: React.ReactNode[] = [];
+  const parts: ReadingPart[] = [];
   let cursor = 0;
   for (const [index, token] of tokens.entries()) {
     if (token.start < cursor || token.end > text.length) continue;
-    if (token.start > cursor) parts.push(text.slice(cursor, token.start));
+    if (token.start > cursor) parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
     const word = text.slice(token.start, token.end);
     const unknown = token.proficiency < 4;
-    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+    const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+    parts.push({ start: token.start, end: token.end, node: <span key={`${token.start}-${index}`} className={`reading-token${meaning ? ' has-meaning' : ''}`}>
+      <span className="reading-above">
       {enabled(options.pinyin, unknown) && token.pinyin && <span className="reading-pinyin">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && token.zhuyin && <span className="reading-zhuyin">{token.zhuyin}</span>}
+      </span>
       <span className="reading-hanzi" style={enabled(options.toneColors, unknown) ? toneStyle(token.tones || [], word, options.palette) : undefined}>{word}</span>
-      {enabled(options.meanings, unknown) && token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
-    </span>);
+      {meaning && <span className="reading-meaning" title={token.meaning}>{shortGloss(token.meaning)}</span>}
+    </span> });
     cursor = token.end;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return <div className="word-example-chinese" lang={language} dir={capability.direction}>{parts}</div>;
+  if (cursor < text.length) parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
+  return <div className="word-example-chinese" lang={language} dir={capability.direction}>{groupReadingParts(text, parts)}</div>;
 }
 
 function pronunciationTone(reading: string): number {
@@ -211,7 +240,7 @@ function DefinitionComponents({ character, hint, strokeCount, components, option
   </section>;
 }
 
-function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation }: {
+function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyboard, grammar, analysisPending, onGrammarChange, onGrammarRetry, onClose, onProficiency, onRetry, preferences, sentenceTranslation, onPointerEnter, onPointerLeave }: {
   id: number; text: string; token: Token; lookup?: Lookup; lookupError: boolean;
   anchor: HTMLElement; keyboard: boolean;
   options: ReadingOptions; onClose: () => void; onProficiency: (level: number) => void; onRetry: () => void;
@@ -219,6 +248,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
   onGrammarChange: (rule: { slug: string; proficiency: number; localOverride: boolean }) => void;
   onGrammarRetry: () => void;
   preferences: ReturnType<typeof usePopupPreferences>; sentenceTranslation?: string;
+  onPointerEnter?: () => void; onPointerLeave?: () => void;
 }) {
  const uiText=useInterfaceTranslation();
   const available: WordTab[] = ['definition', 'context', 'translation', ...(capability.characters ? ['components' as const] : []), 'examples', 'similar', ...(lookup?.topWords?.length ? ['words' as const] : []), ...(token.savedExpressionId ? ['notes' as const] : []), ...(capability.grammar ? ['grammar' as const] : [])];
@@ -384,7 +414,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
     <Popover.Positioner anchor={anchor} side="bottom" sideOffset={8} align="start" positionMethod="fixed"
       collisionPadding={12} collisionAvoidance={{ side: 'flip', align: 'shift', fallbackAxisSide: 'none' }}
       className="word-sheet-positioner">
-    <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false}>
+    <Popover.Popup className="word-sheet" initialFocus={keyboard} finalFocus={keyboard ? () => anchor : false} onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
       <Popover.Close className="word-sheet-close" aria-label={uiText("Close word lookup")}><X size={17} /></Popover.Close>
       <div className="word-sheet-top">
         <div className="word-sheet-identity">
@@ -444,7 +474,7 @@ function WordSheet({ id, text, token, lookup, lookupError, options, anchor, keyb
                 {savingGrammar === rule.slug ? 'Saving…' : rule.proficiency >= 4 ? 'Mark unknown' : 'Mark known'}</button></div>
           </article>)}
           {grammarSaveError && <p className="word-sheet-error" role="alert">{grammarSaveError}</p>}
-          <small className="word-grammar-note">{uiText("Status changes are saved on this browser. Lexirise's API currently provides read-only grammar states; use the rule links to read more or update them on Lexirise.")}</small>
+          <small className="word-grammar-note">{uiText("These status changes are saved locally. Use the rule links to read more or change your grammar status on Lexirise.")}</small>
         </div>}
         {!lookup && !lookupError && (tab === 'definition' || (tab === 'components' && token.word.length === 1)) &&
           <p>{token.meaning || 'Looking up word details…'}<small className="word-loading-note">{uiText("Loading dictionary details…")}</small></p>}
@@ -566,6 +596,8 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   const preferences = usePopupPreferences();
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelHover = () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); hoverTimer.current = null; };
+  const hoveredWord = useRef<{ index: number; target: HTMLElement } | null>(null);
+  const hoverOpened = useRef(false);
   useEffect(() => () => cancelHover(), []);
   const [reading, setReading] = useState<Reading | null>(cachedReading(id, text));
   const [open, setOpen] = useState<number | null>(null);
@@ -574,8 +606,27 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   const [lookup, setLookup] = useState<{ index: number; value?: Lookup; error?: boolean } | null>(null);
   const [lookupAttempt, setLookupAttempt] = useState(0);
   const [error, setError] = useState(false);
+  const leavePopup = () => {
+    cancelHover();
+    if (preferences.openMode === 'shift-hover' && hoverOpened.current) hoverTimer.current = setTimeout(() => setOpen(null), 100);
+  };
   const refreshReading = useRef<(() => Promise<void>) | null>(null);
   useEffect(() => { if (preferences.disabled) { cancelHover(); setOpen(null); } }, [preferences.disabled]);
+  useEffect(() => {
+    const shift = (event: KeyboardEvent) => {
+      if (preferences.disabled || !hoveredWord.current || !popupTogglesOnShift(preferences.openMode, event)) return;
+      // composedPath also sees inputs inside a consumer's Shadow DOM.
+      if (event.composedPath().some(node => node instanceof HTMLElement && (node.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(node.tagName)))) return;
+      cancelHover();
+      const { index, target } = hoveredWord.current;
+      if (!target.isConnected) return;
+      hoverOpened.current = true;
+      notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false);
+      setOpen(previous => previous === index ? null : index);
+    };
+    window.addEventListener('keydown', shift, true);
+    return () => { window.removeEventListener('keydown', shift, true); cancelHover(); };
+  }, [preferences.openMode, preferences.disabled, id, text]);
   useEffect(() => {
     const dismiss = (event: Event) => {
       const path = event.composedPath();
@@ -583,7 +634,7 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
       setOpen(null);
     };
     const otherWord = (event: Event) => { if ((event as CustomEvent).detail !== id) setOpen(null); };
-    const escape = (event: KeyboardEvent) => { if(event.key === 'Escape') setOpen(null); };
+    const escape = (event: KeyboardEvent) => { if(event.key === 'Escape') { cancelHover(); setOpen(null); } };
     window.addEventListener('click', dismiss, true);
     window.addEventListener('lexirise-open-word', otherWord);
     window.addEventListener('keydown', escape, true);
@@ -598,6 +649,7 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
     let refreshCount = 0;
     const refreshDelays = [800, 1200, 1800, 2600, 3800, 5600, 8000, 12000, 16000, 20000];
     setOpen(null);
+    cancelHover(); hoveredWord.current = null;
     const saved = cachedReading(id, text);
     setReading(saved);
     async function refresh() {
@@ -657,39 +709,48 @@ const ReadingText = memo(function ReadingText({ id, text, options, current = fal
   }
 
   if (!reading || reading.text !== text) return <p className={current ? 'current-chinese' : undefined} lang={language} dir={capability.direction} title={error ? 'Lexirise analysis unavailable' : 'Analyzing with Lexirise'}>{text}{error && <button className="reading-retry" type="button" onClick={() => void refreshReading.current?.()}>Retry Lexirise</button>}</p>;
-  const parts: React.ReactNode[] = [];
+  const parts: ReadingPart[] = [];
   let cursor = 0;
   for (const [index, token] of reading.tokens.entries()) {
     if (token.start < cursor || token.end > text.length) continue;
-    if (token.start > cursor) parts.push(text.slice(cursor, token.start));
+    if (token.start > cursor) parts.push({ start: cursor, end: token.start, node: text.slice(cursor, token.start) });
     const unknown = token.proficiency < 4;
     const wordText = text.slice(token.start, token.end);
     const colorStyle = enabled(options.toneColors, unknown)
       ? toneStyle(token.tones || [], wordText, options.palette) : undefined;
     const toneMarks = token.tones?.map(value => TONE_MARKS[value] || '').filter(Boolean).join(' ');
-    parts.push(<span key={`${token.start}-${index}`} className="reading-token">
+    const meaning = enabled(options.meanings, unknown) && !!token.meaning;
+    parts.push({ start: token.start, end: token.end, node: <span key={`${token.start}-${index}`} className={`reading-token${meaning ? ' has-meaning' : ''}`}>
+      <span className="reading-above" aria-hidden="true">
       {enabled(options.toneMarks, unknown) && !!toneMarks && <span className="reading-tone-marks" aria-hidden="true">{toneMarks}</span>}
       {enabled(options.pinyin, unknown) && !!token.pinyin && <span className="reading-pinyin" aria-hidden="true">{token.pinyin}</span>}
       {enabled(options.zhuyin, unknown) && !!token.zhuyin && <span className="reading-zhuyin" aria-hidden="true">{token.zhuyin}</span>}
+      </span>
       <span className="reading-hanzi" role="button" tabIndex={0}
         aria-haspopup={preferences.disabled ? undefined : 'dialog'} aria-expanded={open === index}
-        onPointerEnter={event => { if (!preferences.hover || preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches) return; cancelHover(); const target = event.currentTarget; hoverTimer.current = setTimeout(() => { notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, 180); }}
-        onPointerLeave={cancelHover}
-        onClick={event => { cancelHover(); if (preferences.disabled) return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
-        onKeyDown={event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) { cancelHover(); event.preventDefault(); event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
+        onPointerEnter={event => {
+          if (preferences.disabled || event.pointerType !== 'mouse' || !window.matchMedia('(hover: hover)').matches) return;
+          cancelHover(); const target = event.currentTarget; hoveredWord.current = { index, target };
+          if (event.buttons || !popupOpensOnPointerEnter(preferences.openMode, event)) return;
+          hoverTimer.current = setTimeout(() => { hoverOpened.current = true; notify('lexirise-open-word', id); setAnchor(target); setKeyboard(false); setOpen(index); }, preferences.openMode === 'shift-hover' ? 0 : 180);
+        }}
+        onPointerLeave={() => { hoveredWord.current = null; leavePopup(); }}
+        onClick={event => { cancelHover(); hoverOpened.current = false; if (preferences.disabled) return; event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(false); setOpen(open === index ? null : index); }}
+        onKeyDown={event => { if (!preferences.disabled && (event.key === 'Enter' || event.key === ' ')) { cancelHover(); hoverOpened.current = false; event.preventDefault(); event.stopPropagation(); notify('lexirise-open-word', id); setAnchor(event.currentTarget); setKeyboard(true); setOpen(open === index ? null : index); } }}
         style={colorStyle} title={token.meaning || 'Tap for word details'}>{wordText}</span>
-      {enabled(options.meanings, unknown) && !!token.meaning && <span className="reading-meaning">{shortGloss(token.meaning)}</span>}
-    </span>);
+      {meaning && <span className="reading-meaning" aria-hidden="true" title={token.meaning}>{shortGloss(token.meaning)}</span>}
+    </span> });
     cursor = token.end;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (cursor < text.length) parts.push({ start: cursor, end: text.length, node: text.slice(cursor) });
   const selected = open === null ? null : reading.tokens[open];
-  return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang={language} dir={capability.direction}>{parts}</p>
+  return <><p className={`reading-text ${current ? 'current-chinese' : ''}`} lang={language} dir={capability.direction}>{groupReadingParts(text, parts)}</p>
     {selected && anchor && !preferences.disabled && <WordSheet key={`${id}:${selected.start}`} id={id} text={text} token={selected} options={options} anchor={anchor} keyboard={keyboard} preferences={preferences} sentenceTranslation={sentenceTranslation}
       grammar={reading.grammar || []} analysisPending={!!reading.analysisPending} onGrammarChange={onGrammarChange}
       onGrammarRetry={() => void refreshReading.current?.()}
       lookup={lookup?.index === open ? lookup.value : undefined} lookupError={lookup?.index === open && !!lookup.error}
       onClose={() => setOpen(null)} onProficiency={onProficiency}
+      onPointerEnter={cancelHover} onPointerLeave={leavePopup}
       onRetry={() => { setLookup(null); setLookupAttempt(value => value + 1); }} />}</>;
 });
 

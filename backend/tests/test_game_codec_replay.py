@@ -407,14 +407,14 @@ printf 'authored library bytes' >"$output"
 cat "$output" >"$R19_TEST_EFFECT"
 printf 'LIB : fatal error LNK1104: private-object --private-argv\\n'
 exit "$R19_TEST_EXIT"
-''')
+''', newline='\n')
         dump = tools / 'dumpbin.exe'
-        dump.write_text("#!/bin/sh\nprintf '1 public symbols\\n  1 owned_export\\n   Summary\\n'\n")
+        dump.write_text("#!/bin/sh\nprintf '1 public symbols\\n  1 owned_export\\n   Summary\\n'\n", newline='\n')
         library.chmod(0o755); dump.chmod(0o755)
         for role in replay.MAKEDEF_ROLES:
             version = self.root / ('lib' + role) / ('lib' + role + '.ver')
-            version.parent.mkdir(); version.write_text('VERSION {\n    global: owned_export;\n    local: *;\n};\n')
-        (self.root / 'owned.rsp').write_text('authored-object.o\n')
+            version.parent.mkdir(); version.write_text('VERSION {\n    global: owned_export;\n    local: *;\n};\n', newline='\n')
+        (self.root / 'owned.rsp').write_text('authored-object.o\n', newline='\n')
         private = self.root / 'PRIVATE-MAKEDEF'; private.mkdir()
         environment = dict(os.environ)
         for name in ('AR', 'NM', 'LDFLAGS', 'EXTERN_PREFIX', 'ENV', 'BASH_ENV'):
@@ -468,9 +468,13 @@ printf '%s %s\\n' "$original_status" "$variant_status"
         _, instrumented, private, environment = self.makedef_shell_fixture()
         from concurrent.futures import ThreadPoolExecutor
         def invoke(role, env):
-            return subprocess.run([shutil.which('sh'), str(instrumented),
-                'lib' + role + '/lib' + role + '.ver', '@owned.rsp'],
-                cwd=self.root, env=env, capture_output=True, timeout=10)
+            # MSYS expands a native process's @response-file argv before sh
+            # starts. Construct the exact authored argv inside the shell so
+            # the makedef response-file path itself is exercised on Windows.
+            selected = dict(env, R19_TEST_VERSION_SCRIPT='lib' + role + '/lib' + role + '.ver')
+            return subprocess.run([shutil.which('sh'), '-c',
+                'set -- "$R19_TEST_VERSION_SCRIPT" "@owned.rsp"; . "$R19_TEST_INSTRUMENTED"'],
+                cwd=self.root, env=selected, capture_output=True, timeout=10)
         with ThreadPoolExecutor(max_workers=2) as pool:
             jobs = []
             for role in replay.MAKEDEF_ROLES:
@@ -481,6 +485,7 @@ printf '%s %s\\n' "$original_status" "$variant_status"
         for role in replay.MAKEDEF_ROLES:
             self.assertEqual((private / role / 'branch-state').read_bytes(), b'empty\n')
             self.assertIn(b'LNK1104', (private / role / 'stdout.log').read_bytes())
+            self.assertIn('@owned.rsp', (self.root / (role + '.args')).read_text().splitlines())
         shutil.rmtree(private / 'avutil')
         with ThreadPoolExecutor(max_workers=2) as pool:
             jobs = [pool.submit(invoke, 'avutil', environment) for _ in range(2)]
@@ -899,7 +904,9 @@ printf '%s %s\\n' "$original_status" "$variant_status"
         log = self.root / 'private.log'
         for diagnostic, categories in cases:
             with self.subTest(categories=categories):
-                log.write_text(diagnostic + 'private source/model text, argv and target remain private\n')
+                # Keep the authored LF/CRLF sequence exact on every host;
+                # write_text would turn an explicit CRLF into CRCRLF on Windows.
+                log.write_bytes((diagnostic + 'private source/model text, argv and target remain private\n').encode())
                 report = replay.failure(self.root, 'build-ffmpeg', 2, log, 0)
                 self.assertEqual(report['diagnostic_codes'], [])
                 self.assertEqual(report['diagnostic_categories'], categories)

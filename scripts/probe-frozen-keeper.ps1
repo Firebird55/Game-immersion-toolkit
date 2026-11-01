@@ -181,7 +181,7 @@ try {
         $roots=Get-KeeperCaseRoots $temporary $case
         New-Item -ItemType Directory -Path $roots.PROXY_TRANSCRIPT_STATE_ROOT -Force | Out-Null
         @{build_id=$proof.build_id;synthetic=$true} | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $roots.PROXY_TRANSCRIPT_STATE_ROOT 'synthetic-probe.json') -Encoding utf8NoBOM
-        $process=Start-Owned (Join-Path $RuntimeRoot 'ProxyTranscriptRuntime.exe') '--runtime-probe host' $case
+        $process=Start-Owned (Join-Path $RuntimeRoot 'GameImmersionToolkit.exe') '--runtime-probe host' $case
         $script:nextLine=$tasks[$process.Id][0]
         Read-KeeperEvent 'roots-ready' 0
         $fixture=Join-Path $roots.PROXY_TRANSCRIPT_WORK_ROOT 'keeper-fixture'

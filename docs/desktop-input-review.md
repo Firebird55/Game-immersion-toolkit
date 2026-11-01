@@ -1,0 +1,117 @@
+# Exact desktop input review
+
+`scripts/review-desktop-inputs.py` inspects an immutable candidate and produces
+the input report consumed by `scripts/accept-desktop-runtime.py`. It does not
+edit the payload, download dependencies, accept an approval flag, or perform
+native execution acceptance. Run it using the prepared build interpreter after
+the desktop bundle has been built:
+
+```text
+python -I scripts/review-desktop-inputs.py --runtime-root output/candidate/runtime/GameImmersionToolkit --provenance output/candidate/CANDIDATE-PROVENANCE.json --observed-inputs output/candidate/OBSERVED-INPUTS.json --python-archive output/cache/pinned-python.tar.gz --wheelhouse output/wheels --target windows-x64 --output output/input-review.json
+```
+
+Use the corresponding `linux-x64` or `macos-arm64` target on those hosts. Supply
+each additional supplier archive with `--native-archive path`: for example the
+pinned Node archive, Windows vgmstream ZIP and the owned reader's .NET runtime
+NuGet packages. SHA-256, SHA-512 or NuGet base64 SHA-512 identities must occur in
+the exact source snapshot. An arbitrary adjacent archive cannot establish a
+binary's origin. `--source-root` identifies the checkout containing the review
+policy, Git history and prepared locked frontend dependencies. `--node` selects
+that build host's Node executable; neither option is a user prerequisite.
+
+When the Windows Cyberpunk reader is included, also supply its exact WolvenKit,
+.NET and upstream source archives, and the component NuGet archives from the
+build cache. The reviewer checks each selected binary, package declaration and
+full notice against the actual pinned archive member. It independently repeats
+the known source selection to compare the delivered WolvenKit source ZIP,
+including its GPL terms and project declarations. The owned wrapper and Kraken
+outputs must match their separate pinned hashes, with their exact source,
+portability patch, compiler runtime terms and rebuild recipes retained. This
+does not execute game readers or compile supplier code during review.
+
+The output must be new and outside the candidate. Exit 0 means the six input
+checks passed, 2 means the report contains concrete blockers, and 1 means the
+candidate/evidence could not be inspected. The report binds the source commit,
+build ID, target, provenance hash and exact file/directory inventory. It includes
+the review script hash, observed-input hash and native binary origins, without
+host profile paths. Preserve this report with the native probe reports.
+
+The checks verify:
+
+- The actual pinned Python archive, recorded installed supplier files, build
+  executable and selected frozen Python library.
+- The target's source-controlled dependency locks and actual wheel archive
+  hashes, metadata and complete RECORD contents. Nested vendored metadata is
+  distinct from the enclosing wheel's own RECORD.
+- Every native resource receipt against delivered bytes; matching supplier
+  members or explicitly identified owned source builds. The Windows prebuilt
+  vgmstream DLLs must match their supplier ZIP; an adjacent FFmpeg build recipe
+  cannot approve them. Owned reader source and closed runtime receipts are
+  checked separately from its unmodified managed dependency supplier.
+- Full wheel notices, including `LICENCE`, declared copyright/author files,
+  and pinned source-only notices. A short metadata license name is insufficient
+  when its full terms are absent. A supplier's express MIT declaration may be
+  resolved by separately attributed standard permission/warranty terms; this
+  does not invent a copyright holder or claim an absent supplier LICENSE file.
+- Actual retained sources and notices for the known Qt, GEOS, OCR, ASR and
+  codec dependencies. Default Sherpa TTS dependencies retain their full GPL
+  source/license texts. GPL presence itself is not a failed check. Source
+  archives alone do not prove unknown supplier patches; the optional Qt Mesa
+  renderer needs that correspondence if selected in the payload.
+- The actual frontend notice text against the complete locked production
+  dependency closure, nested notices, exact supplements and font license.
+  Absent optional incompatible packages and absent development packages are
+  explicitly identified. An absent optional descendant is excluded only when
+  every resolved parent is excluded; unexplained omissions still fail. License
+  text in a build folder does not count unless
+  retained in the delivered frontend.
+
+Qt wheels without an embedded primary grant defer that check to the exact
+version-matched PySide/Shiboken source collection. Missing source archives,
+changed versions or missing full source notices still fail review. Frontend
+notice comparison retains original CRLF/LF bytes when reading the delivered
+file; newline conversion cannot turn a present supplier notice into an omission,
+and truncated notice text remains rejected.
+
+The exact locked `@img/sharp-libvips-*` native image-optimizer packages are a
+separate build-input case: their npm archives omit full native-library notices,
+and the supplier's Apache license covers its scripts rather than its linked
+libraries. They are not approved by substituting that script license. The
+canonical client, desktop reader and mobile companion builds reject these
+packages in their observed module graphs and reject native binary assets. The
+delivered `notices/FRONTEND-BUILD-INPUTS.json` binds each build's output hashes,
+observed modules, exact package pins, lock and guard source. The input reviewer
+independently checks those identities and every shipped output from all three
+paths, including copied assets. Only then may the notice audit exclude these
+unshipped native packages. Missing, stale or partial evidence retains the
+ordinary notice failure; adding a native module or renamed binary asset fails
+the build. This is evidence of absence from this browser payload, not permission
+to redistribute the image libraries in another package.
+
+These checks establish the stated evidence, not a legal certification or an
+independent reproduction of compiled outputs. On macOS the reviewer reproduces
+PyInstaller's architecture selection, library-path rewrite and ad-hoc signing
+from actual inspected supplier members in a fresh temporary cache. It first
+checks the executing build-tool source against the inspected pinned wheels,
+then requires exact equality of all resulting bytes, including signatures.
+It does not strip signatures or normalize arbitrary executable changes. The
+report binds each successful replay to its supplier hash and delivered hash.
+This replay requires the macOS build host and its Apple packaging tools; those
+are never prerequisites on the user's machine. The separate native test uses
+an authored compiled library and runs only on macOS.
+
+Other native post-processing still needs an explicit verification adapter if
+the output does not match an inspected supplier member. An unmapped native
+file remains a named blocker. New toolchain correspondence adapters must inspect
+their actual source/notice bytes; they cannot inherit another toolchain's approval.
+
+Windows MSVC selection is explicit in `packaging/runtime-bundle/windows_runtime.py`.
+PyInstaller's host-discovered `msvcp140.dll` is replaced in both process trees by
+the locked PySide6 wheel's RECORD-verified copy. An isolated empty-PATH Windows
+probe loaded those exact bytes and exercised actual Qt raster painting and the
+Sherpa native recognizer configuration. This is source-process compatibility
+evidence; the subsequent frozen UI and ASR probes remain necessary.
+
+The separate native reports still need to prove the installed target's startup,
+browser navigation, status window, tray, crash recovery and shutdown. The accepted
+receipt may mark a target distributable while the broader R19 plan remains open.

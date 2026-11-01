@@ -3,6 +3,39 @@ from backend.windows import WindowInfo, find_game_window
 import pytest
 
 
+def test_monitor_lookup_preserves_large_handles_and_negative_physical_coordinates(monkeypatch):
+    from types import SimpleNamespace
+    from backend import windows
+    import ctypes
+    window_handle, monitor_handle = 0x1_12345678, 0x2_12345678
+    def find(hwnd, flags):
+        assert hwnd == window_handle and flags == 0
+        return monitor_handle
+    def info(handle, pointer):
+        assert handle == monitor_handle
+        value = pointer._obj
+        assert value.cbSize == ctypes.sizeof(windows._MonitorInfoEx)
+        value.rcMonitor.left, value.rcMonitor.top = -3840, -240
+        value.rcMonitor.right, value.rcMonitor.bottom = 0, 1920
+        value.szDevice = 'Secondary display'
+        return True
+    monkeypatch.setattr(windows, 'user32', SimpleNamespace(MonitorFromWindow=find, GetMonitorInfoW=info), raising=False)
+    assert windows.monitor_for_window(window_handle) == windows.MonitorInfo('Secondary display', (-3840, -240, 3840, 2160))
+    monkeypatch.setattr(windows.user32, 'MonitorFromWindow', lambda *_: 0)
+    assert windows.monitor_for_window(window_handle) is None
+
+
+def test_windows_native_handles_have_pointer_sized_signatures():
+    import sys
+    if sys.platform != 'win32':
+        pytest.skip('Windows ABI verification requires Windows')
+    import ctypes
+    from backend import windows
+    assert ctypes.sizeof(windows.kernel32.OpenProcess.restype) == ctypes.sizeof(ctypes.c_void_p)
+    assert ctypes.sizeof(windows.user32.MonitorFromWindow.restype) == ctypes.sizeof(ctypes.c_void_p)
+    assert ctypes.sizeof(windows.user32.GetClientRect.argtypes[0]) == ctypes.sizeof(ctypes.c_void_p)
+
+
 def test_title_match_cannot_capture_browser_when_game_executable_is_configured(monkeypatch):
     browser = WindowInfo(1, "Zenless Zone Zero notes", "chrome.exe", (0, 0, 100, 100))
     monkeypatch.setattr("backend.windows.list_visible_windows", lambda: [browser])

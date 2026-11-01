@@ -5,6 +5,7 @@ import threading
 
 import pytest
 
+from backend.runtime_workers import RequestBarrier
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 
 
@@ -70,6 +71,65 @@ def test_done_future_callback_must_finish_before_resume_or_drain_proof():
     finally:
         work_release.set(); callback_release.set()
         pool.shutdown()
+
+
+def test_unbounded_drain_waits_for_actual_done_callback_completion():
+    work_release, callback_entered, callback_release = threading.Event(), threading.Event(), threading.Event()
+    draining, finished = threading.Event(), threading.Event()
+    errors = []
+    pool = QuiesceableExecutor(1)
+    def drain():
+        draining.set()
+        try:
+            pool.drain()
+        except BaseException as error:
+            errors.append(error)
+        finally:
+            finished.set()
+    waiter = threading.Thread(target=drain)
+    try:
+        future = pool.submit(lambda: work_release.wait(3))
+        def callback(_):
+            callback_entered.set()
+            assert callback_release.wait(3)
+        future.add_done_callback(callback)
+        work_release.set()
+        assert callback_entered.wait(1) and future.done()
+        waiter.start()
+        assert draining.wait(1)
+        assert not finished.wait(.02)
+        with pytest.raises(WritersQuiescing): pool.submit(lambda: None)
+        with pytest.raises(TimeoutError): pool.resume()
+        callback_release.set()
+        assert finished.wait(1) and not errors
+        pool.resume()
+        assert pool.submit(lambda: 'resumed').result(timeout=1) == 'resumed'
+    finally:
+        work_release.set(); callback_release.set()
+        if waiter.ident is not None:
+            waiter.join(3)
+        pool.shutdown()
+
+
+def test_shutdown_cannot_be_reversed_after_retired_worker_finishes():
+    entered, release = threading.Event(), threading.Event()
+    pool = QuiesceableExecutor(1)
+    def native_work():
+        entered.set()
+        assert release.wait(3)
+    try:
+        future = pool.submit(native_work)
+        assert entered.wait(1)
+        pool.shutdown(wait=False, cancel_futures=True)
+        with pytest.raises(RuntimeError, match='permanently closed'): pool.resume()
+        with pytest.raises(TimeoutError): pool.quiesce(.01)
+        release.set()
+        pool.quiesce(1)
+        assert future.result(timeout=1) is None
+        with pytest.raises(RuntimeError, match='permanently closed'): pool.resume()
+        with pytest.raises(WritersQuiescing): pool.submit(lambda: None)
+    finally:
+        release.set(); pool.shutdown()
 
 
 def test_request_scope_includes_stream_completion_and_blocks_cache_writing_gets():
@@ -139,12 +199,23 @@ def test_retired_ocr_thread_is_retained_until_quiesce_and_recovery_finish(tmp_pa
     assert entered.wait(1)
     retired.shutdown(wait=False, cancel_futures=True)
     capture._retired_executors.append(retired)
-    try:
-        with pytest.raises(TimeoutError): asyncio.run(capture.quiesce(.02))
-        with pytest.raises(TimeoutError): capture.resume_workers()
-        release.set(); retired.quiesce(1)
+    async def run():
+        try:
+            with pytest.raises(TimeoutError): await capture.quiesce(.02)
+            # The timed-out waiter leaves the real stop task and retired native
+            # worker owned on this same application event loop.
+            assert capture._stop_task is not None and not capture._stop_task.done()
+            assert retired in capture._retired_executors
+            with pytest.raises(TimeoutError): capture.resume_workers()
+        finally:
+            release.set()
+            await capture.stop()
         capture.resume_workers()
+        assert not capture._retired_executors
+        with pytest.raises(WritersQuiescing): retired.submit(lambda: None)
         assert capture._executor.submit(lambda: 'new native work').result(timeout=1) == 'new native work'
+    try:
+        asyncio.run(run())
     finally:
         release.set(); retired.shutdown(); capture._executor.shutdown()
 
@@ -179,6 +250,7 @@ def test_setup_process_exit_does_not_precede_its_write_callback(tmp_path, monkey
         settings=SettingsStore(tmp_path/'settings.json'), game_state=lambda _: {},
         refresh=refresh, account_configured=lambda: False, install_lookup=lambda _: None)
     process = SimpleNamespace(wait=lambda: 0, poll=lambda: 0)
+    service._native_owners['folders'] = SimpleNamespace(stop=lambda: None, close_streams=lambda: None)
     monkeypatch.setattr(installation, 'load_paths', lambda: {'zzz': 'authored-folder'})
     worker = threading.Thread(target=service._native_finished, args=('folders', process, {}))
     service._native_threads.add(worker); service._native['folders'] = process
@@ -219,8 +291,11 @@ def test_activation_serializes_with_the_complete_quiesce_operation():
     from backend.runtime_handoff import CaptureHandoff
     async def run():
         runtime = Runtime.__new__(Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff = asyncio.Lock(), True
         runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
         runtime._prepare_recovery_requests = lambda _deadline: None  # Serialization-only adapter.
         calls = []
         runtime._resume_writer_pools = lambda _deadline: calls.append('resume')
@@ -271,19 +346,22 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
         calls.append('native-stop')
         if failing[0]:
             raise TimeoutError('Synthetic background cleanup is incomplete')
-    control = SimpleNamespace(stop=stop_native)
-    capture._background_capture._control = control
+    worker = SimpleNamespace(close=stop_native)
+    capture._background_capture._worker = worker
     monkeypatch.setattr(capture, 'start', lambda: calls.append('capture-start'))
     async def run():
         capture._update_snapshot(running=True)
         capture._task = asyncio.create_task(asyncio.sleep(100))
         with pytest.raises(TimeoutError): await capture.quiesce(.2)
         assert capture._task is None and not capture.snapshot().running
-        assert capture.native_stop_pending and capture._background_capture._control is control
+        assert capture.native_stop_pending and capture._background_capture._worker is worker
         with pytest.raises(TimeoutError): capture.resume_workers()
         runtime = api.Runtime.__new__(api.Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff, runtime._handoff_drains = asyncio.Lock(), True, []
         runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
         runtime._prepare_recovery_requests = lambda _deadline: None  # Native-stop-only adapter.
         runtime.capture = capture
         def resume():
@@ -295,10 +373,10 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
         payload = CaptureHandoff(running=True)
         with pytest.raises(TimeoutError): await runtime.activate_handoff(payload, writers=True)
         assert calls == ['native-stop', 'native-stop']
-        assert capture._background_capture._control is control and runtime._writer_handoff
+        assert capture._background_capture._worker is worker and runtime._writer_handoff
         failing[0] = False
         assert await runtime.activate_handoff(payload, writers=True) == {'active': True}
-        assert capture._background_capture._control is None and not capture.native_stop_pending
+        assert capture._background_capture._worker is None and not capture.native_stop_pending
         assert calls == ['native-stop', 'native-stop', 'native-stop', 'resume', 'capture-start', 'updates', 'admit']
     try:
         asyncio.run(run())
@@ -307,22 +385,20 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
 
 
 @pytest.mark.parametrize('strict', [False, True])
-def test_index_drain_is_explicit_without_changing_source_cancellation(strict):
+def test_index_drain_keeps_actual_writer_owned_for_both_stop_protocols(strict):
     from backend.api import Runtime
     async def run():
         release = asyncio.Event()
         index = asyncio.create_task(release.wait())
         idle = SimpleNamespace(close=lambda: None)
         runtime = SimpleNamespace(_updates_started=True, languages=idle, repair_task=None,
-            index_task=index, update_manager=idle, pragmata_updater=idle, game_updaters={})
+            index_task=index, map_task=None, update_manager=idle, pragmata_updater=idle, game_updaters={})
         stopping = asyncio.create_task(Runtime.stop_updates(runtime, drain=strict))
         await asyncio.sleep(.01)
         try:
-            if strict:
-                assert not stopping.done() and not index.cancelled()
-            else:
-                await stopping
-                assert index.cancelled()
+            # The source protocol must not cancel a to_thread waiter either:
+            # its actual catalog/cache writer can outlive that cancellation.
+            assert not stopping.done() and not index.cancelled()
         finally:
             release.set()
             await stopping
