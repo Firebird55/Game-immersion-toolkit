@@ -10,7 +10,10 @@ import hashlib
 from pathlib import Path
 import re
 
-from .endfield_vfs import Parameters
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .endfield_vfs import Parameters
 from .preparation_errors import PreparationFailure
 
 REVISION = '48c40a5e6a931b08223384077b74b41b484a540f'
@@ -33,6 +36,9 @@ def _one(pattern, text):
 
 
 def _parse(documents: dict[str, bytes]) -> Parameters:
+    # Readiness only hashes small data documents. Native archive processing
+    # dependencies are needed when the reader actually parses those documents.
+    from .endfield_vfs import Parameters
     keys, blocks, crypto = (documents[name].decode('utf-8-sig') for name in SOURCES)
     key = base64.b64decode(_one(r'ChaCha20Key\s*=\s*Convert\.FromBase64String\("([A-Za-z0-9+/=]+)"\)', keys), validate=True)
     protocol = int(_one(r'\bVfsProtoVersion\s*=\s*(\d+)\s*;', keys))

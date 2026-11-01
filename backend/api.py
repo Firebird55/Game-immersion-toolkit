@@ -1067,9 +1067,17 @@ def setup_status(request: Request, game: str | None = None) -> dict:
         raise HTTPException(404, 'Unsupported game')
     accounts = getattr(runtime, 'accounts', None)
     with accounts.lock if accounts else nullcontext():
+        generation = accounts.generation if accounts else None
         exports = runtime.mobile_exports if hasattr(runtime, 'mobile_exports') else None
         status = (exports.status(game) if game and hasattr(exports, 'require_scope') else exports.status()) if exports else None
-        return {**runtime.installation.status(), 'mobile_export': status}
+    # Filesystem/native tool inspection can take time on a cold installation.
+    # It must not hold the account lock: snapshot workers and the ASGI account
+    # middleware need that lock too, so a slow setup read otherwise freezes the
+    # entire reader (and prevents its requests from draining on shutdown).
+    installation = runtime.installation.status()
+    if accounts and generation != accounts.generation:
+        raise HTTPException(409, 'Account changed while reading. Reload the current context.')
+    return {**installation, 'mobile_export': status}
 
 
 class LanguageAction(BaseModel):
