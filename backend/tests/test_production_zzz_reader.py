@@ -20,7 +20,8 @@ def fixture(tmp_path, monkeypatch, target='win-x64'):
     root = layout.resource_root / reader.ZZZ_PREFIX
     files = {'upstream/galgame-perform.ts': b'authored source', 'upstream/galgame-perform.mjs': b'authored compiled reader',
              'upstream/LICENSE': b'authored terms', 'inputs.json': b'{}', 'BUILD-RECIPE.json': b'{}',
-             'TOOLKIT-LICENSE': b'authored terms', **{'scripts/' + name: b'authored script' for name in reader.ZZZ_SCRIPTS},
+             'TOOLKIT-LICENSE': b'authored terms', 'sources/ooz-build/ooz-build.json': b'{}',
+             **{'scripts/' + name: b'authored script' for name in reader.ZZZ_SCRIPTS},
              **{'dependencies/' + name: b'authored dependency' for name in reader.ZZZ_DEPENDENCIES}}
     monkeypatch.setattr(game_tools, 'READER_SHA', digest(files['upstream/galgame-perform.ts']))
     monkeypatch.setattr(reader, 'ZZZ_DEPENDENCIES', {name: digest(b'authored dependency') for name in reader.ZZZ_DEPENDENCIES})
@@ -40,6 +41,7 @@ def fixture(tmp_path, monkeypatch, target='win-x64'):
     value = {'schema': reader.ZZZ_SCHEMA, 'platform': target, 'source_commit': layout.source_commit, 'source_dirty': False,
              'upstream_revision': game_tools.READER_REVISION, 'upstream_sha256': game_tools.READER_SHA,
              'inputs_sha256': digest(files['inputs.json']),
+             'ooz_build_sha256': digest(files['sources/ooz-build/ooz-build.json']),
              'files': {name: {'bytes': len(data), 'sha256': digest(data)} for name, data in files.items()}}
     return layout, root, value
 

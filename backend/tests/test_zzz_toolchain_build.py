@@ -45,10 +45,10 @@ def test_build_rejects_ambient_or_replaced_node_before_acquisition(tmp_path, mon
     binary.write_bytes(b'replaced')
     monkeypatch.setattr(builder.zzz_inputs, 'acquire_inputs', lambda *_a, **_k: pytest.fail('No acquisition'))
     with pytest.raises(ValueError, match='already collected'):
-        builder.build(tmp_path / 'output', tmp_path / 'evidence', 'win-x64', binary)
+        builder.build(tmp_path / 'output', tmp_path / 'evidence', 'win-x64', binary, tmp_path / 'ooz')
     assert not (tmp_path / 'output').exists() and not (tmp_path / 'evidence').exists()
 
 
 def test_build_keeps_immutable_output_separate_from_evidence(tmp_path):
     with pytest.raises(ValueError, match='separate folders'):
-        builder.build(tmp_path / 'output', tmp_path / 'output/evidence', 'win-x64', tmp_path / 'node')
+        builder.build(tmp_path / 'output', tmp_path / 'output/evidence', 'win-x64', tmp_path / 'node', tmp_path / 'ooz')

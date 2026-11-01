@@ -178,7 +178,8 @@ ZZZ_SCRIPTS = ('extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-
 ZZZ_DEPENDENCIES = {
     'ooz/package.json': '44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1',
     'ooz/index.js': '042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562',
-    'ooz/build/ooz.js': '5aed30da1da505793fd1e3383db4572797bcce8a0e9e71176d1f6a5d60ec0e6c',
+    # Owned Emscripten 6.0.13 build from the retained GPL preferred source.
+    'ooz/build/ooz.js': 'b49c334cb0ecfeb632ae3696744eef794200b953218e69066f11b216e9c9bf83',
     'ooz/LICENSE': '3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986',
     'xxhash/package.json': 'f2c48d47dbdef2f9a3e0fb1025a1394726a1028ddee21f5c38452de50d00bcf2',
     'xxhash/esm/xxhash-wasm.js': 'e3be9143c10d60a015448de1ceef383b8f2ea1fd2773a5a5c69973ed52d8325a',
@@ -248,7 +249,7 @@ def production_zzz_reader(*, layout=None) -> ZzzReader:
             raise ValueError('Incompatible reader identity')
         files = value['files']
         required = {'upstream/galgame-perform.ts', 'upstream/galgame-perform.mjs', 'upstream/LICENSE',
-                    'inputs.json', 'BUILD-RECIPE.json', 'TOOLKIT-LICENSE',
+                    'inputs.json', 'BUILD-RECIPE.json', 'TOOLKIT-LICENSE', 'sources/ooz-build/ooz-build.json',
                     *('scripts/' + name for name in ZZZ_SCRIPTS),
                     *('dependencies/' + name for name in ZZZ_DEPENDENCIES)}
         if not isinstance(files, dict) or not required.issubset(files):
@@ -290,6 +291,8 @@ def production_zzz_reader(*, layout=None) -> ZzzReader:
             raise ValueError('Supplier reader bytes differ')
         if value.get('inputs_sha256') != files['inputs.json']['sha256']:
             raise ValueError('Supplier inputs identity differs')
+        if value.get('ooz_build_sha256') != files['sources/ooz-build/ooz-build.json']['sha256']:
+            raise ValueError('Source-built decoder receipt identity differs')
         node_manifest = resource('toolchains/node/runtime.json')
         if node_manifest.stat().st_size > 16384:
             raise ValueError('Oversized Node manifest')
