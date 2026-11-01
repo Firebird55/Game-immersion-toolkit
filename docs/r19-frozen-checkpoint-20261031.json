@@ -12715,5 +12715,454 @@
     "native_windows_11_acceptance": "unavailable",
     "installer": "not-built",
     "raw_private_logs_saved": false
+  },
+  "verified_runtime_scoped_artifacts_82f3619": {
+    "source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+    "run": 41347649246,
+    "job": 124970837534,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41347649246",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "selected_contracts": {
+      "passed": 1826,
+      "skipped": 0,
+      "warnings": 1,
+      "subtests": 126,
+      "seconds": 366.15
+    },
+    "artifacts": [
+      {
+        "id": 13100476785,
+        "name": "r19-integrated-runtime-metadata",
+        "bytes": 1367945,
+        "sha256": "13d09c051dc2a743244ae139b39e138dcfed061fa190fa6ed0dd1bb9a86ade44",
+        "expired": false,
+        "source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+        "run": 41347649246
+      },
+      {
+        "id": 13100185940,
+        "name": "r19-reference-codec-source-and-metadata",
+        "bytes": 1095192,
+        "sha256": "fca693dd669fbc6eb0923ee6a1767d96c825c523f3731634b0b32c34d0967cb4",
+        "expired": false,
+        "source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+        "run": 41347649246
+      }
+    ],
+    "archive_regular_entries": {
+      "integrated": 14,
+      "reference_source_and_metadata": 5
+    },
+    "inventory": {
+      "identity": {
+        "bytes": 740519,
+        "sha256": "3c727a69fa7769697816194f42b7671ab7555b1ae9c2771d5479ba8884ff727a"
+      },
+      "files": 1635,
+      "directories": 722,
+      "bytes": 701306723,
+      "components": 66,
+      "notice_references": 124,
+      "distinct_notice_hashes": 114
+    },
+    "native_input_ownership": {
+      "records": 525,
+      "exact": 516,
+      "ambiguous": 7,
+      "generated": 2,
+      "unmatched": 0,
+      "scope": "declared byte-identical supplier inputs; transformed/compiled-in/dynamic-loading/rights closure remains unverified"
+    },
+    "C1_cases": [
+      {
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "case": "stop",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_windows_console_helpers": 2,
+        "canonical_ports": "released"
+      },
+      {
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "case": "exit-frontend",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_windows_console_helpers": 2,
+        "canonical_ports": "released"
+      },
+      {
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "case": "parent-crash",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_windows_console_helpers": 2,
+        "canonical_ports": "released"
+      },
+      {
+        "retained_children": 6,
+        "retained_runtime_images": 4,
+        "api_external_side_effects": "mocked",
+        "case": "unprepared-index",
+        "status": "passed",
+        "native_owned_process_tree": "real",
+        "child_exit": "retained-handles-signaled",
+        "retained_windows_console_helpers": 2,
+        "canonical_ports": "released"
+      },
+      {
+        "status": "passed",
+        "case": "foreign-ready-listeners",
+        "readiness": "refused",
+        "outside_job_services": "retained-fixture-still-live"
+      }
+    ],
+    "bounded_receipts": {
+      "checks/r19-frozen-data-copy-grammar.json": {
+        "identity": {
+          "bytes": 2022,
+          "sha256": "2decb37d834ca4e05b05d2ede3ed8902ce975d7f2220146b39805b86b0a14d56"
+        },
+        "field_count": 46,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": 2,
+        "source_blocks": 10,
+        "scope": "authored-populated-local-grammar-copy-with-living-coordinator",
+        "status": "passed"
+      },
+      "checks/r19-frozen-data-copy-resume.json": {
+        "identity": {
+          "bytes": 1883,
+          "sha256": "c9adfe03a15af925eb905ae0a1f2eb95e1cffbdecc530ea2259cda28e8487e71"
+        },
+        "field_count": 44,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": 2,
+        "source_blocks": 10,
+        "scope": "authored-transcript-interrupted-copy-resume-with-living-coordinator",
+        "status": "passed"
+      },
+      "checks/r19-frozen-data-copy-wal.json": {
+        "identity": {
+          "bytes": 1994,
+          "sha256": "2b87a1a1e599af9b8057fbab289cd3ee7b68e6f9cd6c7c6d23334667856f0662"
+        },
+        "field_count": 46,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": 2,
+        "source_blocks": 10,
+        "scope": "authored-transcript-retained-wal-copy-with-living-coordinator",
+        "status": "passed"
+      },
+      "checks/r19-frozen-data-copy.json": {
+        "identity": {
+          "bytes": 1592,
+          "sha256": "dc6256ec757f35296f2c9d124aaa3b27046f38d85f1db61cebb5793d9a857fd7"
+        },
+        "field_count": 38,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": 2,
+        "source_blocks": 9,
+        "scope": "authored-transcript-copy-with-living-coordinator",
+        "status": "passed"
+      },
+      "checks/r19-frozen-keeper.json": {
+        "identity": {
+          "bytes": 2384,
+          "sha256": "fdecce424552ceb2a0ffc95471f1b8e4bc348a5598b258bb0ae4053dc13c9840"
+        },
+        "field_count": 32,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": null,
+        "source_blocks": 4,
+        "scope": "authored-guardian-loss-with-living-frozen-keeper",
+        "status": "passed"
+      },
+      "checks/r19-frozen-populated-state-copy.json": {
+        "identity": {
+          "bytes": 2487,
+          "sha256": "8d2276fb6156349ebbf7b22e4c9d3ad109f62248b4343742a88fef34104fdadb"
+        },
+        "field_count": 55,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": 2,
+        "source_blocks": 9,
+        "scope": "authored-mapped-populated-copy-with-living-coordinator",
+        "status": "passed"
+      },
+      "checks/r19-guarded-slots.json": {
+        "identity": {
+          "bytes": 1554,
+          "sha256": "719d2fdbf1792e7a9c66925e9d137393b88f52c29745f056fba8b246494ba0e0"
+        },
+        "field_count": 28,
+        "semantic_contract_equal_to_prior_bounded_case_with_only_identity_rebound": true,
+        "source_cohorts": null,
+        "source_blocks": 29,
+        "scope": "authored-cold-slot-lifecycle",
+        "status": "passed"
+      }
+    },
+    "P2_current": {
+      "field_count": 55,
+      "source_cohorts": 2,
+      "retained_writer_signals": 4,
+      "strict_drains": 2,
+      "source_operation_blocked_observations": 9,
+      "cohort_limit": "two runtime cohorts of the same authored fixture, not two different source commits; no P4"
+    },
+    "standalone_and_integrated_FLAC": "source kit is exact durable Git GPL kit; separate build/rebuild and integrated decode/origin receipts checked",
+    "available_named_immutable_Git_pins": 53,
+    "actual_project_source_input_map": "not recorded by the existing builder; cannot replay a full project build-source map",
+    "actual_BUILD_INPUTS": {
+      "bytes": 2864030,
+      "sha256": "3391cd6e01aef432a97176baa9b6e65d4b085a17e829fa47b7bc8dfe33bad068"
+    },
+    "historical_pin_limit": "Earlier127/128 reviewer-selected Git pins are not an actual recorded project-source map; no retrospective source-closure upgrade",
+    "native_binary_downloads_or_execution": false,
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "rights_approval": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "failed_MP3_observe_package_82f3619": {
+    "source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+    "run": 41347707711,
+    "job": 124971020206,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41347707711",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1"
+    },
+    "artifact_id": 13099869725,
+    "archive": {
+      "bytes": 2774,
+      "sha256": "bba99f04f701d46eec1cd350def1337c9f8eb2d4afcbaa469ec9818bd032efc5"
+    },
+    "entries": {
+      "MP3-FAILURE.json": {
+        "bytes": 595,
+        "sha256": "40cd3089e30ba77724eefb66723681b102bb496748553cede4e7bed210dca006"
+      },
+      "MP3-CI-BINDING.json": {
+        "bytes": 5029,
+        "sha256": "88297062c294c5bb12c63c432fd37e87e0f88ee2091dd85d6df27af0216ce39b"
+      }
+    },
+    "failure": {
+      "controller_source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+      "details": {
+        "diagnostic_categories": [
+          "unclassified-command-failure"
+        ],
+        "diagnostic_codes": [],
+        "exit_code": 1,
+        "log_truncated": false
+      },
+      "draft_base_commit": "0f9353137bdc8c57adbe275b4d245a6a1f136796",
+      "installer": "not-built",
+      "native_windows_11_acceptance": "unavailable",
+      "phase": "observe-and-package",
+      "producer_schema": "proxy-r19-mp3-draft-failure-v1",
+      "production_execution_allowed": false,
+      "r19_complete": false,
+      "runtime_collection_allowed": false,
+      "schema": "proxy-r19-mp3-ci-failure-v1",
+      "source_delivery_approved": false,
+      "status": "failed"
+    },
+    "immutable_Git_input_bindings": 17,
+    "same_recipe_inputs_as_commit": "974c49d758614d621f183db3722a6ee9a7fe6b39",
+    "runner_raw_cohort_sha256": "c670bcd72a249503aba3f49964af656f3c38463b8317f739261356723f50337e",
+    "runner_canonical_LF_cohort_sha256": "c73d68e6da5152cc2dab0b238383ed803fcf0b03559c9d747d02bbdbccdc5bf7",
+    "whole_source_hash": "received in binding, not independently reconstructed from17-input subset",
+    "actual_child_cause": "unknown; phase labels both stage-candidate and finish; public job exposes no traceback",
+    "alias_install_encode_decode_or_origins": "no success receipt supplied; no positive inference from the outer failure phase",
+    "next_scope": "ordinary observer diagnostic only; no functional recipe repair or additional rights grant",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "rights_approval": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "failed_C7_validation_boundary_82f3619": {
+    "source_commit": "82f36191eb02e78771d4b5e9633e4b28f725a8eb",
+    "run": 41347688491,
+    "job": 124970966562,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41347688491",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261030.294.1"
+    },
+    "selected_contracts": {
+      "passed": 706,
+      "skipped": 0,
+      "seconds": 5.14
+    },
+    "mechanism_wrapper": "Fixed native mechanism validation failed; no raw output retained.",
+    "wrapper_exit": 2,
+    "publication": "skipped",
+    "artifacts": [],
+    "actual_child_receipt_or_full_terminal_cause": "unknown",
+    "independent_source_defect": "Producer permits currentc373/9c052 hashes; publisher still admits disjoint historicalc0cb/f946 hashes. Exact actual predicate refuses both current variants.",
+    "source_repair": "e05ae02969392dbec3bd42c1732acf9144f541a0 replaces only the two publisher values; no union or weakened criteria",
+    "actual_controls": "successful authored contract step; closed failing control records are not exposed on this path",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "rights_approval": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
+  },
+  "verified_C7_zero_writer_mechanism_e05ae02": {
+    "source_commit": "e05ae02969392dbec3bd42c1732acf9144f541a0",
+    "run": 41349579372,
+    "job": 124976685201,
+    "run_attempt": 1,
+    "run_url": "https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41349579372",
+    "hosted_image": {
+      "name": "windows-2025-vs2026",
+      "version": "20261021.278.1",
+      "source": "root transient fixed Runner Image setup-group projection; raw log discarded"
+    },
+    "artifact_id": 13100543137,
+    "archive": {
+      "bytes": 904,
+      "sha256": "468499147876e2b37bb166114d3f0dd2c5238c18bf976fc685c7f6efe1893846"
+    },
+    "entry": {
+      "name": "r19-legacy-lock-attribute.json",
+      "bytes": 2297,
+      "sha256": "92df6ca78ffe63a289819ae0b3faf01204d0256adbad4629899867e9c160a89a"
+    },
+    "actual_binding": {
+      "schema": "proxy-r19-legacy-lock-attribute-ci-binding-v1",
+      "source_commit": "e05ae02969392dbec3bd42c1732acf9144f541a0",
+      "source_before_sha256": "df6336071954ac652d52768f955ad0cb80820d7198b35a3e2729157c9e1df7bb",
+      "source_after_sha256": "df6336071954ac652d52768f955ad0cb80820d7198b35a3e2729157c9e1df7bb",
+      "source_clean": true,
+      "build_host_python": "3.12.10",
+      "mechanism": {
+        "baseline_checkpoint": {
+          "child_state": "not-signaled",
+          "parent_step": "cleanup",
+          "script_step": "operationresult"
+        },
+        "candidate_data_writers": 0,
+        "cleanup": "owned-handles-closed-fixture-retained",
+        "failure": "none",
+        "grant_conversion_failure": null,
+        "keeper_loss_acceptance": false,
+        "legacy_source_sha256": "9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056",
+        "native_windows_11_acceptance": "unavailable",
+        "observed": [
+          "writable-open",
+          "exclusive-held",
+          "arm",
+          "live-clear",
+          "rearm",
+          "genuine-owner-signaled-and-closed",
+          "post-loss-readonly-refused",
+          "restored-open"
+        ],
+        "phase": "complete",
+        "production_allowed": false,
+        "r19_complete": false,
+        "rights_approval": false,
+        "schema": "proxy-r19-legacy-lock-attribute-mechanism-v5",
+        "scope": "authored-local-ntfs-no-writers-mechanism",
+        "status": "mechanism-observed",
+        "timestamp_equalities": {
+          "arm": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          },
+          "live-clear": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          },
+          "post-loss": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          },
+          "rearm": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          },
+          "restored": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          },
+          "test-restore": {
+            "access_equal": true,
+            "change_equal": false,
+            "creation_equal": true,
+            "write_equal": true
+          }
+        }
+      }
+    },
+    "actual_inline_publisher": "replayed and accepted against immutablee05 source",
+    "timestamp_limit": "CreationTime/AccessTime/WriteTime equal in6rows; ChangeTime unequal in all6, never generic timestamp preservation",
+    "fixture_limit": "zero candidate data writers; owned handles closed, fixture intentionally retained",
+    "source_map_limit": "aggregate before/after hash and clean flag only; no actual per-file Windows source map",
+    "comparison_limit": "host image differs from82negative, so no claim that publisher correction alone caused the native outcome",
+    "source_delivery_approved": false,
+    "runtime_collection_allowed": false,
+    "production_execution_allowed": false,
+    "rights_approval": false,
+    "r19_complete": false,
+    "global_writer_fence": false,
+    "physical_resource_closure": false,
+    "keeper_loss_acceptance": false,
+    "warm_routing": false,
+    "native_windows_11_acceptance": "unavailable",
+    "installer": "not-built",
+    "raw_private_logs_saved": false
   }
 }

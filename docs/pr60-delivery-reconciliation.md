@@ -65,3 +65,23 @@ The strict C7 guard correction is separately committed as `989b033`. Neither
 source change upgrades rights, ordinary-user Windows11, global/physical writer
 closure, keeper loss, usable warm routing or complete R19 acceptance. No
 installer, release, live migration, tag or PR #59 action follows.
+
+The subsequent `82f3619` runtime build and selected C1/cold/living-keeper/C3–C6/
+current-P2 probes passed. Downloaded metadata binds 1,635 files, 66 components
+and 525 declared native ownership records, with all final gates closed. Review
+found that BUILD-INPUTS never recorded a project-source map. The current 53 and
+historical 127/128 named Git reviews do not supply that actual map; an additive
+recording follow-up must state its limited observation level and cannot repair
+historical runs. The two current P2 cohorts are runtime cohorts of one authored
+fixture, not distinct source commits or warm replacement.
+
+Commit `e05ae02` corrects only C7's disjoint historical publication hashes. Its
+local core/build/docs/audit checks pass with a stable source fingerprint; the
+19 delegated browser and three unavailable Windows scenarios leave the report
+incomplete. The new C7 run meets its bounded zero-writer NTFS mechanism criteria:
+creation/access/write timestamps stay equal, ChangeTime changes, handles close
+and the test fixture remains retained. A different hosted image prevents a sole-
+cause attribution to the publisher correction. This is no global/physical/
+keeper-loss or ordinary-user Windows11 acceptance. The separate MP3 run fails
+at observe/package with an unknown actual child cause; diagnostic work does not
+expand the exact BSD grants or authorize runtime collection.

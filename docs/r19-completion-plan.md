@@ -5,10 +5,11 @@ Status: **planned remaining work; no acceptance gate is closed by this plan**.
 Current PR #60 task boundary (2026-11-01): the ongoing integration with `main`
 at `0ec5f5f74a19a9de4fbc119ba3f5a283f01674ce` preserves its production desktop
 host, current credential layout and shared component pin. Focused source reviews
-passed. At combined commit `0898c1b`, the stable local branch check passed its
-core, build, documentation and public audit; its status remains incomplete for
-19 delegated browser scenarios and three unavailable Windows checks. Later source
-repairs require a new combined check. Older frozen receipts do not verify them.
+passed. At `e05ae02`, stable local checks passed the core, build, documentation
+and public audit: 355 Node tests and 5,356 Python tests, with their documented
+platform skips. The report remains incomplete for 19 delegated browser scenarios
+and three unavailable Windows checks. Later source follow-ups require their own
+combined check. Older frozen receipts do not verify them.
 This task has no authorization to build an installer, publish a release
 or perform a live migration. PR #59 was merged externally with its protected
 head unchanged; this task did not change or merge it. Rights/source delivery,
@@ -69,6 +70,39 @@ shortcut transaction or live migration is authorized by this plan.
 
 ## Historical starting point
 
+The `82f3619` integrated Windows run subsequently passed 1,826 selected contracts
+without skips and all selected extracted-runtime, C1, cold-slot, living-keeper,
+C3–C6 and current-P2 probes. Its two downloaded archives contain 14 and five
+regular entries. The inventory has 1,635 files and 66 components; the 525 native
+ownership records include 516 exact, seven ambiguous and two generated entries.
+These are bounded artifact results, with final acceptance flags still closed.
+P2 retains precisely its authored 55-field fixture and two runtime cohorts; it
+does not establish two different source commits, parent-held activation or a
+usable warm replacement.
+
+Critical review found that the existing builder records supplier/resource
+inputs but no project-source input map. The current 53 named Git review pins,
+and the earlier 127/128 named pins, are not an actual recorded map of all
+project build sources. A new recording slice must observe actual Analysis
+origins and state its file-stability and bytecode limitations; it cannot repair historical
+runs retrospectively. No complete source-to-bytecode or toolchain claim follows.
+
+The separate `82f3619` MP3 attempt remains negative at `observe-and-package`,
+exit 1, without a specific diagnostic or exposed child exception. Its 17 recipe
+inputs match the approved alias revision, but this supplies no standalone
+alias-install, encode/decode or DLL-origin success receipt. A cumulative textual
+diagnostic is a separate ordinary-observer follow-up, not a recipe fix or cause.
+
+The `e05ae02` C7 run satisfies the narrow authored zero-writer NTFS mechanism
+criteria. Eight observations and six timestamp rows are verified. Creation,
+access and write timestamps stayed equal; ChangeTime changed in every row.
+Handles closed and the test fixture was intentionally retained. Its hosted image
+differs from the preceding failed run, so the publisher source correction is not
+claimed as the sole cause of the native outcome. Global/physical writer closure,
+keeper loss, rights and ordinary Windows 11 acceptance remain open. New entries
+in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json) preserve every
+previous value and these precise limits.
+
 The subsequent `0898c1b` Windows attempt passed 1,810 selected contracts and built
 the isolated executable trees, then refused the relocated native probe at the
 binary capture-worker entrypoint. Its actual child exit code is not exposed.
@@ -88,7 +122,7 @@ reflected stand-ins; private Endfield/PRAGMATA receipts supply no replayable
 private build cohort or redistribution approval. These bounded results and the
 new runtime/C7 negatives are appended separately to the
 [checkpoint ledger](r19-frozen-checkpoint-20261031.json), preserving all older
-values. The latest complete bounded frozen checkpoint remains `8449d81`.
+values. Those observations do not change the historical `8449d81` receipts.
 
 The combined `1b4366f` attempt is a subsequent negative checkpoint, recorded
 separately in the [checkpoint ledger](r19-frozen-checkpoint-20261031.json).
@@ -102,23 +136,24 @@ compiler-probe codes do not identify a causal linker failure. Two downloaded
 private-reader metadata receipts passed their bounded review without supplying
 a replayable private build cohort or collection/rights approval.
 
-The corresponding source/fixture repairs and closed diagnostics need a new
-exact-head Windows run. The source fix for [native-reader observation](r19-native-unreal-probe.md)
+The later runs above supply bounded confirmation for the repaired source and
+fixtures; they do not close the remaining acceptance gates. The source fix for
+[native-reader observation](r19-native-unreal-probe.md)
 retains actual resources and the first failure when cleanup is uncertain.
 The newer `main` also supplies release-metadata and tag-diagnostic changes;
-their integration must preserve the existing consumer interface. The latest
-complete bounded frozen checkpoint remains `8449d81`. Ordinary-user Windows 11
-hardware is still unavailable; no installer or new acceptance follows.
+their committed integration preserves the existing consumer interface. The
+`8449d81` receipts retain their historical scope. Ordinary-user Windows 11
+hardware is still unavailable; no installer or final acceptance follows.
 
 | Area | Established evidence | Remaining boundary |
 | --- | --- | --- |
 | Source candidate | Full Windows source/browser/package run at `e8a76d4`: 2,138 Python tests, one skip and 62 subtests; all five browser groups and extracted source-ZIP validation passed on the first attempt; all twelve downloaded sums/provenance checked | This is the source-style ZIP, not acceptance of the frozen runtime; the earlier `a079232`/`c18d07a` source failures remain recorded |
-| Extracted runtime | At `8449d81`, 1,628 Windows contracts without skips, one warning, 118 subtests and 386.98 seconds, 37 actual PowerShell sink cases, then all selected C1/cold/living-keeper/C3–C6/P2 fixtures passed; seven artifacts/29 entries, 127 core Git inputs plus one owner doc (128 read) independently verified | Latest complete bounded checkpoint. P2 retains its one authored four-root TEST/API/clone fixture and closed gates. Normal standby owner is source-only, with no native ordinary-owner/admission/warm case. Separate C7 shared module guard and MP3 configure-ffmpeg failure remain negative. No complete real libraries/browser/DPAPI continuity, target activation, global/dynamic fence, physical closure, keeper loss, usable warm OCR/routing, exact-output rights or ordinary Windows 11 acceptance |
+| Extracted runtime | At `82f3619`, 1,826 Windows contracts without skips, one warning and 126 subtests, then all selected C1/cold/living-keeper/C3–C6/current-P2 cases passed; two archives/19 entries independently checked. Earlier `8449d81` receipts and 127+1 named Git reviews remain historical | Project-source input map was not recorded; named Git pins do not fill that gap. P2 remains one authored four-root TEST/API/clone fixture with closed gates. No native parent-held admission/warm case, full browser/DPAPI continuity, target activation, global/dynamic fence, physical closure, keeper loss, usable warm OCR/routing, exact-output rights or ordinary Windows11 acceptance. Separate MP3 observe/package failure remains unresolved |
 | Static frontend | Chromium/Firefox comparison, authored persistent stores, worker/WASM OCR, retained chunks and frozen serving passed | Ordinary selected browser profile/extensions and update continuity need candidate evidence |
 | NTE | Owned self-contained bridge collected; exact runtime identity and actual bridge protocol with authored reflected assemblies passed | Actual UEExtractor/CUE4Parse/Oodle, real locres/voice formats and combined rights remain open |
 | Endfield / PRAGMATA | Actual prebuilt readers passed bounded private probes: Endfield empty/malformed input; selective x86 REE authored uncompressed PAK selection/rejection | Separate blocked manifests; neither reader is collected or approved for distribution/game use |
 | ZZZ | App-local Node/worker/WASM authored probe passed; actual reader transpilation/private preparation exists | Actual extractor/codec operation, corresponding source, custom terms and metadata rights remain open |
-| Host/data recovery | Guarded cold slots, living-keeper and `f43cec7` plain/interrupted-resumed/retained-WAL/one populated local grammar receipts verify bounded retained-process/continuous-lease behavior with actual source-entry contenders; protected-TEST probes also exist | No production global writer barrier, keeper-loss lifetime, interrupted-WAL, warm supervising updater or full populated-data/settings/browser/credential/schema continuity proof. C7 v1/v2/v3 provide no bounded legacy-open/attribute result; `31ee4c9` keeper cleanup remains unconfirmed |
+| Host/data recovery | Current guarded cold slots, living-keeper, plain/interrupted-resumed/retained-WAL/local-grammar/current-P2 fixtures verify their bounded retained-process/lease behavior. C7 at `e05ae02` meets its zero-writer NTFS criteria with eight observations and explicit ChangeTime changes | No production global writer barrier, keeper-loss lifetime, interrupted-WAL, warm supervising updater or full populated-data/settings/browser/credential/schema continuity proof. C7 supplies neither data-writer nor generic timestamp-preservation acceptance. Earlier C7 negatives and `31ee4c9` unconfirmed keeper cleanup remain unchanged |
 | Unvoiced export | Actual source and `acc68be` frozen authored Half-Life index/language/mobile-export workers and the portable mobile parser pass for English and Simplified Chinese, with missing-pack rejection and previous-export preservation | Ordinary-user/installed-pack acceptance remains pending; no original speech binding is added |
 | Source original PCM | Source and bounded frozen authored Portal VPK/VCCD/event and selected English/French pack bindings pass actual index/language workers and in-process extraction/PCM validation; truncated PCM preserves prior output | Voiced mobile export still requires the unavailable general MP3 conversion path: bundle FFmpeg is disabled, the voice service requires decoder readiness and the transfer format requires MP3. Xiph FLAC and the quarantined FFmpeg DLL replay do not provide that encoder. MP3/composite/Bink decoding and installed-game/native coverage also remain pending |
 
