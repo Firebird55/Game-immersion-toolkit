@@ -20,7 +20,7 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = 'proxy-r19-legacy-lock-attribute-mechanism-v4'
+SCHEMA = 'proxy-r19-legacy-lock-attribute-mechanism-v5'
 CONTENT = b'owned R19 legacy lock attribute fixture\n'
 MARKER = '.r19-lock-attribute-fixture.json'
 SOURCE = ROOT / 'scripts/companion-runtime.ps1'
@@ -46,18 +46,6 @@ PARENT_STEPS = ('not-started', 'create-pipe', 'create-owned-process', 'resume-ow
 SCRIPT_STEPS = ('not-started', 'connected', 'grantread', 'grantparsed', 'grantvalidated',
     'sourceopened', 'hashbound', 'definitionbound', 'operationentered', 'operationresult')
 CHILD_STATES = ('not-created', 'signaled', 'not-signaled', 'unavailable')
-CONVERSION_LINES = ('null', 'empty', 'nonempty')
-CONVERSION_FAMILIES = ('command-not-found', 'parameter-binding', 'cmdlet-invocation',
-    'type-initialization', 'argument-null', 'argument', 'unknown')
-CONVERSION_ENDS = ('complete', 'truncated', 'unknown')
-CONVERSION_CATEGORIES = ('NotSpecified', 'OpenError', 'CloseError', 'DeviceError',
-    'DeadlockDetected', 'InvalidArgument', 'InvalidData', 'InvalidOperation', 'InvalidResult',
-    'InvalidType', 'MetadataError', 'NotImplemented', 'NotInstalled', 'ObjectNotFound',
-    'OperationStopped', 'OperationTimeout', 'SyntaxError', 'ParserError', 'PermissionDenied',
-    'ResourceBusy', 'ResourceExists', 'ResourceUnavailable', 'ReadError', 'WriteError',
-    'FromStdErr', 'SecurityError', 'ProtocolError', 'ConnectionError', 'AuthenticationError',
-    'LimitsExceeded', 'QuotaExceeded', 'NotEnabled', 'unknown')
-
 # Windows PowerShell constructs standard module/cache paths from these OS/user
 # runtime variables. Do not inherit developer or caller-supplied module paths.
 LEGACY_ENV_NAMES = frozenset({'systemroot', 'windir', 'temp', 'tmp', 'systemdrive',
@@ -69,22 +57,33 @@ def legacy_environment(parent):
     return {key: value for key, value in parent.items() if key.casefold() in LEGACY_ENV_NAMES}
 
 
-def conversion_failure(value):
-    if (type(value) is not dict or set(value) != {'line', 'exceptions', 'chain_end', 'category'}
-            or type(value['line']) is not str or value['line'] not in CONVERSION_LINES
-            or type(value['chain_end']) is not str or value['chain_end'] not in CONVERSION_ENDS
-            or type(value['category']) is not str or value['category'] not in CONVERSION_CATEGORIES
-            or type(value['exceptions']) is not list or len(value['exceptions']) > 8
-            or any(type(item) is not str or item not in CONVERSION_FAMILIES for item in value['exceptions'])
-            or (not value['exceptions'] and value['chain_end'] != 'unknown')
-            or (value['chain_end'] == 'truncated' and len(value['exceptions']) != 8)):
-        raise Refused('protocol-refused')
-    return {'line': value['line'], 'exceptions': list(value['exceptions']),
-        'chain_end': value['chain_end'], 'category': value['category']}
-
-
 def checkpoint():
     return {'parent_step': 'not-started', 'script_step': 'not-started', 'child_state': 'not-created'}
+
+
+def legacy_grant_bytes(value):
+    """One private frame; never accept caller-supplied wire bytes or extra fields."""
+    if type(value) is not dict or set(value) != {'root', 'source', 'sha256'}:
+        raise Refused('protocol-refused')
+    fields = []
+    for name in ('root', 'source', 'sha256'):
+        item = value[name]
+        if (type(item) is not str or not item or len(item) > 3072 or item.startswith('\ufeff')
+                or any(character in item for character in ('\0', '\r', '\n'))):
+            raise Refused('protocol-refused')
+        try:
+            raw = item.encode('utf-8', errors='strict')
+        except UnicodeError:
+            raise Refused('protocol-refused') from None
+        if len(raw) > 3072:
+            raise Refused('protocol-refused')
+        fields.append(base64.b64encode(raw))
+    if not re.fullmatch('[0-9a-f]{64}', value['sha256']):
+        raise Refused('protocol-refused')
+    frame = b'C7G5|' + b'|'.join(fields) + b'\n'
+    if len(frame) > LIMIT:
+        raise Refused('protocol-refused')
+    return frame
 
 
 class Refused(Exception):
@@ -323,7 +322,13 @@ class Pipe:
 
     def send(self, value, deadline):
         data = json.dumps(value, ensure_ascii=True, separators=(',', ':')).encode('ascii') + b'\n'
-        if len(data) > LIMIT:
+        self._send_bytes(data, deadline)
+
+    def send_legacy_grant(self, value, deadline):
+        self._send_bytes(legacy_grant_bytes(value), deadline)
+
+    def _send_bytes(self, data, deadline):
+        if type(data) is not bytes or not data or len(data) > LIMIT:
             raise Refused('protocol-refused')
         sent = 0
         while sent < len(data) and time.monotonic() < deadline:
@@ -472,56 +477,54 @@ def child_main(name):
     return 2
 
 
-CONVERSION_PROJECTOR = r'''
-    function Write-C7ConversionFailure($Record,$Line) {
-        $lineState='nonempty'
-        if ($null -eq $Line) { $lineState='null' }
-        elseif ($Line -isnot [string]) { throw 'Conversion context differs.' }
-        elseif ($Line -ceq '') { $lineState='empty' }
-        $families=@(); $chainEnd='unknown'
-        try {
-            $node=$Record.Exception
-            for ($index=0; $index -lt 8 -and $null -ne $node; $index++) {
-                if ($node -isnot [Exception]) { break }
-                $family='unknown'
-                if ($node -is [Management.Automation.CommandNotFoundException]) { $family='command-not-found' }
-                elseif ($node -is [Management.Automation.ParameterBindingException]) { $family='parameter-binding' }
-                elseif ($node -is [Management.Automation.CmdletInvocationException]) { $family='cmdlet-invocation' }
-                elseif ($node -is [TypeInitializationException]) { $family='type-initialization' }
-                elseif ($node -is [ArgumentNullException]) { $family='argument-null' }
-                elseif ($node -is [ArgumentException]) { $family='argument' }
-                $families+=('"'+$family+'"')
-                $next=$node.InnerException
-                if ($null -eq $next) { $chainEnd='complete'; break }
-                if ($index -eq 7) { $chainEnd='truncated'; break }
-                $node=$next
+LEGACY_GRANT_DECODER = r'''
+    function Read-C7GrantLine([IO.TextReader]$InputReader) {
+        $buffer=[char[]]::new(4095)
+        $used=0
+        for ($index=0; $index -lt 4096; $index++) {
+            $next=$InputReader.Read()
+            if ($next -eq 10) { return [string]::new($buffer,0,$used) }
+            if ($next -lt 0 -or $next -gt 127 -or $next -eq 0 -or $next -eq 13 -or $used -ge 4095) {
+                throw 'Grant differs.'
             }
-        } catch { }
-        $category='unknown'
-        try {
-            $names=@('NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected',
-                'InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType',
-                'MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped',
-                'OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy',
-                'ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr',
-                'SecurityError','ProtocolError','ConnectionError','AuthenticationError',
-                'LimitsExceeded','QuotaExceeded','NotEnabled')
-            $observedCategory=$Record.CategoryInfo.Category
-            if ($observedCategory -is [Management.Automation.ErrorCategory]) {
-                $number=[int]$observedCategory
-                if ($number -ge 0 -and $number -lt 32) { $category=$names[$number] }
-            }
-        } catch { }
-        $writer.WriteLine('{"kind":"grant-conversion-failure","line":"'+$lineState+'","exceptions":['+
-            ($families -join ',')+'],"chain_end":"'+$chainEnd+'","category":"'+$category+'"}')
+            $buffer[$used]=[char]$next
+            $used++
+        }
+        throw 'Grant differs.'
     }
-'''
-CONVERSION_CALL = r'''
-    try { $grant=$line|ConvertFrom-Json }
-    catch {
-        $conversionError=$_
-        try { Write-C7ConversionFailure $conversionError $line } catch { }
-        throw
+    function Convert-C7Grant([string]$Line) {
+        if ($null -eq $Line -or $Line.Length -gt 4095) { throw 'Grant differs.' }
+        $parts=$Line.Split([char[]]@('|'),[StringSplitOptions]::None)
+        if ($parts.Length -ne 4 -or -not [string]::Equals($parts[0],'C7G5',[StringComparison]::Ordinal)) {
+            throw 'Grant differs.'
+        }
+        $values=[string[]]::new(3)
+        $utf8=[Text.UTF8Encoding]::new($false,$true)
+        for ($index=0; $index -lt 3; $index++) {
+            $token=$parts[$index+1]
+            if ([string]::IsNullOrEmpty($token)) { throw 'Grant differs.' }
+            $bytes=[Convert]::FromBase64String($token)
+            if ($bytes.Length -eq 0 -or $bytes.Length -gt 3072 -or
+                -not [string]::Equals($token,[Convert]::ToBase64String($bytes),[StringComparison]::Ordinal)) {
+                throw 'Grant differs.'
+            }
+            if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+                throw 'Grant differs.'
+            }
+            $text=$utf8.GetString($bytes)
+            if ($text.IndexOf([char]0) -ge 0 -or $text.IndexOf([char]13) -ge 0 -or $text.IndexOf([char]10) -ge 0) {
+                throw 'Grant differs.'
+            }
+            $values[$index]=$text
+        }
+        if ($values[2].Length -ne 64) { throw 'Grant differs.' }
+        for ($index=0; $index -lt 64; $index++) {
+            $digit=[int][char]$values[2][$index]
+            if (-not (($digit -ge 48 -and $digit -le 57) -or ($digit -ge 97 -and $digit -le 102))) {
+                throw 'Grant differs.'
+            }
+        }
+        return [pscustomobject]@{root=$values[0];source=$values[1];sha256=$values[2]}
     }
 '''
 
@@ -537,11 +540,12 @@ try {
     function Write-C7Checkpoint([string]$Stage) {
         $writer.WriteLine('{"kind":"checkpoint","stage":"'+$Stage+'"}')
     }
-''' + CONVERSION_PROJECTOR + r'''
+''' + LEGACY_GRANT_DECODER + r'''
     Write-C7Checkpoint 'connected'
-    $line=$reader.ReadLine()
+    $line=Read-C7GrantLine $reader
     Write-C7Checkpoint 'grantread'
-''' + CONVERSION_CALL + r'''
+    $grant=Convert-C7Grant $line
+
     Write-C7Checkpoint 'grantparsed'
     $names=@($grant.PSObject.Properties.Name)
     if ($names.Count -ne 3 -or $names -cnotcontains 'root' -or $names -cnotcontains 'sha256' -or $names -cnotcontains 'source' -or
@@ -588,11 +592,10 @@ try {
 
 
 class Attempt:
-    def __init__(self, api, command, cwd, *, checkpoint_value=None, conversion_failure_value=None):
+    def __init__(self, api, command, cwd, *, checkpoint_value=None):
         self.api, self.pipe, self.owner, self.child = api, None, None, None
         self.closed = self.poisoned = False
         self.checkpoint, self.checkpoint_locked = checkpoint_value, False
-        self.conversion_failure_value = conversion_failure_value
         try:
             self.step('create-pipe')
             self.pipe = Pipe(api)
@@ -639,18 +642,10 @@ class Attempt:
         deadline = time.monotonic() + 10  # Shared by grant, all progress and terminal/EOF.
         try:
             self.step('send-grant')
-            self.pipe.send(value, deadline)
+            self.pipe.send_legacy_grant(value, deadline)
             for name in SCRIPT_STEPS[1:-1]:
                 self.step('receive-script-progress')
                 frame = self.pipe.receive(deadline)
-                if name == 'grantparsed' and type(frame) is dict and frame.get('kind') == 'grant-conversion-failure':
-                    if set(frame) != {'kind', 'line', 'exceptions', 'chain_end', 'category'}:
-                        raise Refused('protocol-refused')
-                    candidate = conversion_failure({k: v for k, v in frame.items() if k != 'kind'})
-                    self.pipe.finish(deadline)
-                    if self.conversion_failure_value is not None:
-                        self.conversion_failure_value[0] = candidate
-                    raise Refused('protocol-refused')
                 if frame != {'kind': 'checkpoint', 'stage': name}:
                     raise Refused('protocol-refused')
                 if self.checkpoint is not None:
@@ -693,14 +688,13 @@ class Attempt:
         self.closed, self.poisoned = True, False
 
 
-def legacy(api, root, expected_source, expected, *, checkpoint_value=None, conversion_failure_value=None):
+def legacy(api, root, expected_source, expected, *, checkpoint_value=None):
     source_bytes(SOURCE, SOURCE_HASHES)
     executable = api.powershell()
     def command(name):
         script = LEGACY_SCRIPT.replace('__PIPE__', name)
         return [executable, '-NoProfile', '-NonInteractive', '-EncodedCommand', base64.b64encode(script.encode('utf-16le')).decode('ascii')]
-    attempt = Attempt(api, command, root, checkpoint_value=checkpoint_value,
-        conversion_failure_value=conversion_failure_value)
+    attempt = Attempt(api, command, root, checkpoint_value=checkpoint_value)
     try:
         observed = attempt.script_exchange({'root': str(root), 'source': str(SOURCE), 'sha256': expected_source})
         if observed != {'state': expected}:
@@ -730,7 +724,7 @@ def public_receipt(value):
     if type(value) is not dict or set(value) != set(template):
         raise Refused('protocol-refused')
     flexible = {'status', 'phase', 'failure', 'observed', 'timestamp_equalities', 'cleanup',
-        'legacy_source_sha256', 'baseline_checkpoint', 'grant_conversion_failure'}
+        'legacy_source_sha256', 'baseline_checkpoint'}
     for key in set(template) - flexible:
         if type(value[key]) is not type(template[key]) or value[key] != template[key]:
             raise Refused('protocol-refused')
@@ -755,14 +749,6 @@ def public_receipt(value):
             or any(type(progress[key]) is not str or progress[key] not in allowed for key, allowed in
                 (('parent_step', PARENT_STEPS), ('script_step', SCRIPT_STEPS), ('child_state', CHILD_STATES)))):
         raise Refused('protocol-refused')
-    if value['grant_conversion_failure'] is not None:
-        conversion_failure(value['grant_conversion_failure'])
-        if (value['status'] != 'failed' or value['phase'] != 'legacy-baseline'
-                or progress['parent_step'] != 'receive-script-progress' or progress['script_step'] != 'grantread'
-                or value['observed'] or value['timestamp_equalities'] or value['legacy_source_sha256'] is None
-                or value['failure'] not in {'protocol-refused', 'owned-cleanup-unconfirmed'}
-                or value['cleanup'] != 'unconfirmed-fixture-retained'):
-            raise Refused('protocol-refused')
     if value['status'] == 'mechanism-observed' and (value['phase'] != 'complete' or value['failure'] != 'none'
             or tuple(value['observed']) != OBSERVATIONS or set(value['timestamp_equalities']) != set(TIME_STATES)
             or value['cleanup'] != 'owned-handles-closed-fixture-retained' or value['legacy_source_sha256'] is None
@@ -773,7 +759,6 @@ def public_receipt(value):
 
 def experiment():
     result, attempt, restore, api = receipt(), None, None, None
-    baseline_failure = [None]  # Private baseline-only result, never an admission callback.
     try:
         api = Windows()
         digest = source_bytes(SOURCE, SOURCE_HASHES)
@@ -790,8 +775,7 @@ def experiment():
         path.write_bytes(CONTENT)
         fixture(root, nonce); api.ntfs(root)
         result['phase'] = 'legacy-baseline'
-        legacy(api, root, digest, 'open', checkpoint_value=result['baseline_checkpoint'],
-            conversion_failure_value=baseline_failure)
+        legacy(api, root, digest, 'open', checkpoint_value=result['baseline_checkpoint'])
         result['observed'].append('writable-open')
         result['phase'] = 'lease-start'
         attempt = Attempt(api, lambda name: [api.image(), '-I', '-B', str(Path(__file__).resolve()), '--owned-lease', name], root)
@@ -850,7 +834,6 @@ def experiment():
                 uncertain = True
         if uncertain:
             result.update(status='failed', failure='owned-cleanup-unconfirmed', cleanup='unconfirmed-fixture-retained')
-    result['grant_conversion_failure'] = baseline_failure[0]
     return public_receipt(result)
 
 

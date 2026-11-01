@@ -42,7 +42,8 @@ the actual lease owner suspended directly into its retained Job. The retained
 creation object resumes once and is the only authority used for termination and
 signaling. No PID, copied handle or file journal is adopted. Each private local
 named pipe has one first-instance server, rejects remote clients and has a
-bounded 4 KiB ASCII JSON frame. Its client PID is only compared with the PID
+bounded 4 KiB frame. Lease grants and child responses use fixed JSON; the v5
+legacy grant uses canonical C7G5 framing described below. Its client PID is only compared with the PID
 queried from the genuine creation handle. It is not a process-ownership grant.
 The lease child's pipe uses explicit nonblocking mode; there is no inherited
 stdio, reader thread, raw log or arbitrary child command.
@@ -91,7 +92,7 @@ ChangeTime changes can be observed as false. They are not hidden or presented
 as exact timestamp preservation. No private path, file ID, raw time, private
 content hash, exception, environment, command or stack is serialized.
 
-The public schema is `proxy-r19-legacy-lock-attribute-mechanism-v4`, scope
+The public schema is `proxy-r19-legacy-lock-attribute-mechanism-v5`, scope
 `authored-local-ntfs-no-writers-mechanism`. It revalidates exact keys, fixed
 ordered observations, enum values, booleans and the known public legacy-source
 hash. Its only successful status is `mechanism-observed`. The final gates stay
@@ -108,7 +109,7 @@ retained creation handle before close. No closed handle, PID lookup or exit code
 supplies it. Query failure is unavailable context; it cannot grant or revoke
 the existing process cleanup or mechanism acceptance requirements.
 
-Version 3 retains those exact three keys. The same PowerShell child now sends
+Historical version 3 retained those exact three keys. Its PowerShell child sent
 fixed ordered progress: connected, grantread, grantparsed, grantvalidated,
 sourceopened, hashbound, definitionbound and operationentered. The existing
 single ReadLine call returns before grantread; its result enters the same
@@ -130,7 +131,86 @@ is retained. Terminal completion requires the peer to close without trailing
 bytes within that deadline. There is no new runtime, process, raw output,
 environment variable, source-function change, pipe-mode change or fallback.
 
-### Version 4: failure-only conversion context
+### Version 5: canonical grant, native pending
+
+Version 5 changes the authored parent-to-legacy grant harness. It does not
+change the pinned legacy `Enter-CompanionOperation` bytes, source/hash/AST
+checks, ReadWrite/FileShare.None operation, NTFS fixture, attribute/file identity,
+private times, genuine owner-loss sequence or cleanup requirements. It is not
+evidence of a ConvertFrom-Json cause or a weaker R18 criterion. Historical
+v1–v4 receipts and the exact `11bf` source/tests keep their identities; none can
+be admitted or relabeled as v5.
+
+Only the legacy grant changes from JSON to one canonical ASCII frame:
+
+```text
+C7G5|base64(UTF8(root))|base64(UTF8(source))|base64(UTF8(sha256))\n
+```
+
+The parent accepts exactly those three nonempty string fields in fixed order,
+not caller-supplied wire bytes. Strict UTF-8, a complete-frame 4096-byte cap,
+per-field 3072-byte cap, no leading BOM, NUL or decoded CR/LF, and exactly
+64 lowercase hexadecimal digest characters are required. The child consumes
+at most 4096 characters including LF with a fixed TextReader buffer. Missing
+LF, EOF, CR, NUL or overflow refuses before source-file access.
+
+The child uses only its authored functions and .NET built-ins. Base64 decoding
+must reproduce the original token through ordinal re-encoding; decoding alone
+is insufficient because FromBase64String tolerates whitespace. Strict UTF-8
+and an explicit leading-BOM check preserve exact Unicode strings without
+normalization or fallback. The fixed PSCustomObject then enters the same
+three-name/string-type checks, source read/hash, exact AST selection and actual
+legacy operation. No grant JSON parser, module import, cmdlet, authored class,
+new environment trial or fallback is involved. The Python lease child's
+root/nonce JSON and all fixed child-response JSON remain unchanged.
+
+This framing is not authentication or encryption. The same private pipe,
+genuine creation handle/Job and client binding remain the authority. There is
+one existing ten-second grant/progress/result/response-EOF deadline and the same
+byte IO, nonblocking flags and cleanup. The sender creates exactly one frame.
+The duplex byte pipe does **not** establish that no future unsolicited parent
+bytes can follow its LF. The child never treats later bytes as another grant;
+there is no new tail/EOF claim in the parent-to-child direction. Response EOF
+and trailing-response rejection remain hard and unchanged.
+
+`grant_conversion_failure` remains in the v5 envelope only as a strictly null
+field. Non-null v4 exception context is rejected unconditionally. All public
+observation, preservation, source and cleanup requirements stay hard; there are
+no new success fields or diagnostic substitutes for actual mechanism results.
+
+The active Windows preflight now runs the exact .NET reader/decoder under both
+the inherited snapshot and the same fifteen-name Attempt map, in two fresh
+protected legacy PowerShell children. It checks authored ASCII/Unicode round
+trips, every negative vector, the exact 4096-byte boundary, missing terminator
+and over-limit refusal. Its StringReader tail case explicitly leaves future
+bytes unread, preserving the transport limitation above. Both environments must
+pass, with no stderr and confirmed direct child/readers cleanup, before the
+mechanism can run. The existing 8192-byte-per-stream capture and wait/cleanup
+limits remain. These controls do not prove named-pipe, Job, attribute or owner
+loss acceptance; that still requires the full actual v5 mechanism run.
+
+| Earlier coverage | v5 disposition |
+| --- | --- |
+| Win32 ABI, file/attribute/identity/time, actual operation/owner-loss ordering, source guards, checkpoint/deadline/EOF and cleanup refusals | Keep; no acceptance relaxation. |
+| Generic parent capture/thread-start/read/close/timeout/retention cases | Keep with the new closed codec result. |
+| v4 JSON conversion context/catalog and diagnostic writer/rethrow engine cases | Retire to exact historical Git `11bf` and the private review snapshot; the v5 decoder has no such catch/projector. Replace with canonical codec/type/limit/null-only-envelope tests and owned primary/cleanup-error preservation. |
+| v4 JSON literal pair, progress markers, system-search and StringWriter controls | Replace in active preflight with the exact v5 decoder's strict two-environment positive/negative test. Preserve every prior negative as historical evidence, without changing its expectations or adding a skip. |
+
+The keep/replace decision changes an obsolete harness dependency, not a failed
+legacy-operation test. A codec failure still fails preflight; a mechanism
+failure still fails the experiment. There is no substitution of another
+control's success. The old unresolved cause stays unresolved.
+
+The API contracts are documented for
+[FromBase64String](https://learn.microsoft.com/en-us/dotnet/api/system.convert.frombase64string?view=netframework-4.8.1),
+[ToBase64String](https://learn.microsoft.com/en-us/dotnet/api/system.convert.tobase64string?view=netframework-4.8.1),
+[strict UTF8Encoding](https://learn.microsoft.com/en-us/dotnet/api/system.text.utf8encoding.-ctor?view=netframework-4.8.1)
+and [ordinal string equality](https://learn.microsoft.com/en-us/dotnet/api/system.string.equals?view=netframework-4.8.1).
+Their availability does not establish the next host's outcome. Actual v5
+execution remains pending; physical/global/copy/warm, keeper-loss, ordinary-user
+Windows 11, rights and R19 gates stay open. No installer is built.
+
+### Historical version 4: failure-only conversion context
 
 Version 4 retains those checkpoints and adds only the nullable top-level
 `grant_conversion_failure` field. Its default is null. A catch surrounds the
@@ -315,7 +395,14 @@ cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
 
 ### Separate paired real-cmdlet control and bounded parent observation
 
-#### Literal phase and writer comparison, native pending
+#### Historical v4 literal phase and writer comparison
+
+The subsequent `11bf` v4 run delivered before-conversion for the original
+authored-class and StringWriter Attempt controls and all three system-search
+controls, with wait-deadline/no-stderr and confirmed direct cleanup. Both
+inherited writer variants parsed without stderr. This establishes delivered
+test progress, not a cmdlet/module cause or actual C7 mechanism acceptance.
+The v5 codec does not reinterpret this negative.
 
 At `b598`, run `41292608812` / job `124806810969` on image
 `20261030.294.1` passed 223 contracts and failed the paired control in
@@ -325,7 +412,7 @@ The fifteen-name Attempt and all three system-search controls reported
 and readers finished. No mechanism or artifact followed. This does not prove
 a path/module cause, or that a filtered child reached the conversion call.
 
-The next test-only source adds three exact ASCII stdout markers: script-entry,
+That v4 test-only source added three exact ASCII stdout markers: script-entry,
 before-conversion and after-conversion. Direct managed Console writes and
 flushes emit them; no logging cmdlet, serializer or authored marker class is
 added. Script-entry is the first executable statement. Before-conversion follows
@@ -372,9 +459,8 @@ producer, actual legacy script, schema v4 and environment policy are unchanged.
 If the class and .NET variants differ at the delivered markers, that narrows a
 test-construction or execution boundary under these supplied maps. It does not
 identify the actual C7 cause. Missing script-entry still leaves startup, parsing,
-type resolution and host/capture behavior unresolved. The new native measurements
-remain pending; keeper-loss, physical/global, rights, Windows 11 and R19 gates
-remain open.
+type resolution and host/capture behavior unresolved. Those v4 measurements remain negative. Keeper-loss, physical/global, rights,
+Windows 11 and R19 gates remain open.
 
 #### Historical Windows-runtime environment and system-search controls
 
@@ -513,22 +599,22 @@ The producer, public mechanism schema/publisher, environment policy and deadline
 remain unchanged. The initial native refusal above remains intact; rights,
 ordinary-user Windows 11, keeper-loss and R19 gates remain open.
 
+## Current source validation
+
 The cheap portable [authored tests](../backend/tests/test_runtime_lock_attribute_probe.py)
-cover frame/type/overflow refusal, exact transition preservation, ABI widths,
-sticky cleanup, creation-handle/client comparison, zero-writer ordering and
-retention on failure, plus closed conversion-frame admission and rejection.
-They do not exercise real Windows READONLY, PowerShell, file sharing, pipe or
-process behavior. Two separate Windows-only authored engine tests use the exact
-projector/catch fragments with synthetic ErrorRecords and a successful or
-throwing writer, alongside the ordinary bare-rethrow baseline. Their bounded
-child requires exception, category, identifier and finally preservation within
-each variant; wrapper identity remains diagnostic. Private messages stay
-excluded; host errors, excess output or timeouts fail. They perform no C7
-fixture, legacy operation, Win32
-API or shared-helper call. They are explicitly skipped on other hosts and
-establish no lock-attribute, cleanup/recovery or ordinary-user acceptance.
-Run the selected tests with
+cover canonical sender fields and UTF-8, malformed complete frames, fragmented
+writes and one deadline, strict null-only v5 context and historical-schema
+rejection. The preserved cases cover ABI widths, file/attribute/identity/time
+preservation, zero-writer state ordering, creation-handle observation, strict
+response checkpoints/EOF, once-close and sticky cleanup. Generic actual parent
+capture fault cases retain uncertain process/reader objects without raw output.
+
+One Windows-only preflight case exercises the exact v5 .NET codec using authored
+StringReader inputs in both actual environment sets. It performs no C7 fixture,
+source file, native file API or legacy operation. It is explicitly skipped on
+other hosts and cannot substitute for the actual mechanism. The old v4 engine
+and literal-control tests remain historical, not active v5 gates. Run
 `python -B -m pytest --noconftest -q backend/tests/test_runtime_lock_attribute_probe.py`
-and run documentation checks. Existing shared process-helper tests remain their
-own evidence. No installer, old ZIP edit, global writer admission, real data
-copy, owner-aware update, preserving recovery or Windows11 acceptance follows.
+and documentation checks. Shared process-helper evidence remains separate.
+No installer, old ZIP edit, global writer admission, real data copy, owner-aware
+update, preserving recovery or Windows 11 acceptance follows.

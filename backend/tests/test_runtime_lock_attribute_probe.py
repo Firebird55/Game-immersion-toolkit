@@ -1,10 +1,11 @@
 """Authored boundary fixtures only; these never establish Windows behavior."""
+import base64
 import copy
 import ctypes
 import io
 import json
 import os
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 import subprocess
 import sys
 import threading
@@ -251,7 +252,7 @@ def authored(monkeypatch, tmp_path):
         def close(self):
             if not self.closed:
                 api.lease, self.closed = False, True; api.events.append('owned-lease-stop')
-    def legacy(_api, root, source, expected, *, checkpoint_value=None, conversion_failure_value=None):
+    def legacy(_api, root, source, expected, *, checkpoint_value=None):
         api.events.append(expected)
         if expected == 'open': assert not api.lease and not api.read_handles and not api.armed
         elif expected == 'readonly-refused': assert not api.lease and not api.read_handles and api.armed
@@ -277,10 +278,9 @@ def test_authored_state_sequence_never_releases_old_open_during_normal_clear_or_
 
 def test_post_loss_refusal_mismatch_retains_readonly_and_never_clears_for_convenience(authored, monkeypatch, tmp_path):
     previous = module.legacy
-    def refuse(api, root, source, expected, *, checkpoint_value=None, conversion_failure_value=None):
+    def refuse(api, root, source, expected, *, checkpoint_value=None):
         if expected == 'readonly-refused': raise module.Refused('legacy-outcome-differed')
-        return previous(api, root, source, expected, checkpoint_value=checkpoint_value,
-            conversion_failure_value=conversion_failure_value)
+        return previous(api, root, source, expected, checkpoint_value=checkpoint_value)
     monkeypatch.setattr(module, 'legacy', refuse)
     result = module.experiment()
     assert result['status'] == 'failed' and result['failure'] == 'legacy-outcome-differed'
@@ -326,7 +326,7 @@ def progress_attempt(frames=None):
                 *({'kind': 'checkpoint', 'stage': name} for name in module.SCRIPT_STEPS[1:-1]),
                 {'state': 'open'}])
             self.deadlines = []
-        def send(self, value, deadline): self.deadlines.append(deadline)
+        def send_legacy_grant(self, value, deadline): self.deadlines.append(deadline)
         def receive(self, deadline):
             self.deadlines.append(deadline)
             if not self.frames: raise module.Refused('protocol-refused')
@@ -338,7 +338,6 @@ def progress_attempt(frames=None):
             if self.frames: raise module.Refused('protocol-refused')
     attempt = module.Attempt.__new__(module.Attempt)
     attempt.pipe, attempt.checkpoint, attempt.checkpoint_locked = Wire(), module.checkpoint(), False
-    attempt.conversion_failure_value = [None]
     return attempt
 
 
@@ -393,420 +392,7 @@ def test_grant_return_checkpoints_never_imply_shape_validation_or_operation(stag
     assert 'private-grant' not in json.dumps(public)
 
 
-def conversion_frame(**changes):
-    value = {'kind': 'grant-conversion-failure', 'line': 'nonempty',
-        'exceptions': ['cmdlet-invocation', 'argument'], 'chain_end': 'complete',
-        'category': 'InvalidArgument'}
-    value.update(changes)
-    return value
-
-
-def conversion_attempt(frame=None, trailing=()):
-    return progress_attempt([{'kind': 'checkpoint', 'stage': 'connected'},
-        {'kind': 'checkpoint', 'stage': 'grantread'}, frame if frame is not None else conversion_frame(), *trailing])
-
-
-def conversion_receipt(payload=None):
-    value = module.receipt()
-    value.update(phase='legacy-baseline', failure='protocol-refused',
-        legacy_source_sha256=next(iter(module.SOURCE_HASHES)),
-        baseline_checkpoint={'parent_step': 'receive-script-progress', 'script_step': 'grantread',
-            'child_state': 'unavailable'},
-        grant_conversion_failure=payload or {k: v for k, v in conversion_frame().items() if k != 'kind'})
-    return value
-
-
-def test_conversion_failure_is_committed_only_after_eof_and_still_refuses_under_one_deadline(monkeypatch):
-    monkeypatch.setattr(module.time, 'monotonic', lambda: 100.)
-    attempt = conversion_attempt()
-    finish = attempt.pipe.finish
-    def complete(deadline):
-        assert attempt.conversion_failure_value == [None]
-        finish(deadline)
-    attempt.pipe.finish = complete
-    with pytest.raises(module.Refused, match='protocol-refused'): attempt.script_exchange({})
-    expected = {k: v for k, v in conversion_frame().items() if k != 'kind'}
-    assert attempt.conversion_failure_value == [expected]
-    assert set(attempt.pipe.deadlines) == {110.}
-    assert attempt.checkpoint_locked and attempt.checkpoint['script_step'] == 'grantread'
-    assert attempt.checkpoint['parent_step'] == 'receive-script-progress'
-    assert module.public_receipt(conversion_receipt(expected))['grant_conversion_failure'] == expected
-
-
-@pytest.mark.parametrize('fault', ['duplicate', 'trailing-progress', 'trailing-terminal', 'unconfirmed-eof'])
-def test_conversion_failure_incomplete_termination_keeps_public_default_null(fault, monkeypatch):
-    trailing = [conversion_frame()] if fault == 'duplicate' else [
-        {'kind': 'checkpoint', 'stage': 'grantparsed'}] if fault == 'trailing-progress' else [
-        {'state': 'open'}] if fault == 'trailing-terminal' else []
-    attempt = conversion_attempt(trailing=trailing)
-    if fault == 'unconfirmed-eof':
-        def refuse(deadline): raise module.Refused('protocol-refused')
-        monkeypatch.setattr(attempt.pipe, 'finish', refuse)
-    with pytest.raises(module.Refused): attempt.script_exchange({})
-    assert attempt.conversion_failure_value == [None]
-    assert attempt.checkpoint_locked and attempt.checkpoint['script_step'] == 'grantread'
-
-
-def test_conversion_failure_eof_uses_actual_pipe_deadline_without_extending_exchange(monkeypatch):
-    clock = [0.]
-    monkeypatch.setattr(module.time, 'monotonic', lambda: clock[0])
-    monkeypatch.setattr(module.time, 'sleep', lambda value: clock.__setitem__(0, clock[0]+value))
-    attempt = conversion_attempt()
-    attempt.pipe.buffer = bytearray()
-    attempt.pipe.handle = SimpleNamespace(value=1)
-    attempt.pipe.api = SimpleNamespace(k=SimpleNamespace(PeekNamedPipe=lambda *_: True))
-    monkeypatch.setattr(attempt.pipe, 'finish', lambda deadline: module.Pipe.finish(attempt.pipe, deadline))
-    with pytest.raises(module.Refused): attempt.script_exchange({})
-    assert 10 <= clock[0] < 10.02 and set(attempt.pipe.deadlines) == {10.}
-    assert attempt.conversion_failure_value == [None] and attempt.checkpoint_locked
-    assert attempt.checkpoint['script_step'] == 'grantread'
-
-
-@pytest.mark.parametrize('before', [[], ['connected'], ['connected', 'grantread', 'grantparsed'],
-    ['connected', 'grantread', 'grantparsed', 'grantvalidated', 'sourceopened']])
-def test_conversion_failure_is_not_admitted_at_other_progress_boundaries(before):
-    attempt = progress_attempt([*({'kind': 'checkpoint', 'stage': name} for name in before), conversion_frame()])
-    with pytest.raises(module.Refused): attempt.script_exchange({})
-    assert attempt.conversion_failure_value == [None]
-    assert attempt.checkpoint['script_step'] == (before[-1] if before else 'not-started')
-
-
-def test_later_contender_without_baseline_holder_cannot_publish_conversion_context():
-    attempt = conversion_attempt(); attempt.conversion_failure_value = None
-    with pytest.raises(module.Refused): attempt.script_exchange({})
-    assert attempt.conversion_failure_value is None
-
-
-@pytest.mark.parametrize('changes', [
-    {'line': None}, {'line': 'private-line'}, {'exceptions': None}, {'exceptions': ()},
-    {'exceptions': [True]}, {'exceptions': ['private-type']}, {'exceptions': ['argument'] * 9},
-    {'exceptions': []}, {'exceptions': ['argument'] * 7, 'chain_end': 'truncated'},
-    {'chain_end': None}, {'chain_end': 'private-end'}, {'category': 5}, {'category': 'private-category'},
-    {'raw': 'private-path'},
-])
-def test_conversion_payload_refuses_unknown_or_inconsistent_data_before_eof(changes):
-    attempt = conversion_attempt(conversion_frame(**changes))
-    attempt.pipe.finish = lambda *_: pytest.fail('Invalid context cannot reach EOF admission')
-    with pytest.raises(module.Refused): attempt.script_exchange({})
-    assert attempt.conversion_failure_value == [None]
-    assert 'private-' not in json.dumps(attempt.checkpoint)
-
-
-def test_conversion_unknown_complete_and_truncated_are_bounded_distinct_states():
-    for line in ('null', 'empty', 'nonempty'):
-        for category in module.CONVERSION_CATEGORIES:
-            value = {k: v for k, v in conversion_frame(line=line, category=category).items() if k != 'kind'}
-            assert module.conversion_failure(value) == value
-    for families, ending in (([], 'unknown'), (list(module.CONVERSION_FAMILIES), 'complete'),
-            (['unknown'] * 8, 'truncated'), (['unknown'] * 8, 'unknown')):
-        value = {k: v for k, v in conversion_frame(exceptions=families, chain_end=ending).items() if k != 'kind'}
-        assert module.conversion_failure(value) == value
-    maximum = conversion_frame(exceptions=['type-initialization'] * 8,
-        chain_end='truncated', category='ResourceUnavailable')
-    wire = lambda value: (json.dumps(value, separators=(',', ':')) + '\n').encode('ascii')
-    assert len(wire(maximum)) == 302
-    assert sum(len(wire(frame)) for frame in ({'kind': 'checkpoint', 'stage': 'connected'},
-        {'kind': 'checkpoint', 'stage': 'grantread'}, maximum)) == 386 < module.LIMIT
-
-
-@pytest.mark.parametrize(('key', 'value'), [('phase', 'post-loss'),
-    ('observed', ['writable-open']), ('timestamp_equalities', {'arm': dict.fromkeys(
-        ('creation_equal', 'access_equal', 'write_equal', 'change_equal'), True)}),
-    ('legacy_source_sha256', None), ('failure', 'unexpected-failure'),
-    ('cleanup', 'owned-handles-closed-fixture-retained'),
-    ('baseline_checkpoint', {'parent_step': 'receive-result', 'script_step': 'grantread', 'child_state': 'unavailable'}),
-    ('baseline_checkpoint', {'parent_step': 'receive-script-progress', 'script_step': 'grantparsed', 'child_state': 'unavailable'})])
-def test_public_conversion_context_requires_failed_baseline_grantread_relation(key, value):
-    result = conversion_receipt(); result[key] = value
-    with pytest.raises(module.Refused): module.public_receipt(result)
-
-
-def test_otherwise_complete_positive_mechanism_requires_no_conversion_failure():
-    value = successful_receipt()
-    assert module.public_receipt(value)['grant_conversion_failure'] is None
-    value['grant_conversion_failure'] = conversion_receipt()['grant_conversion_failure']
-    with pytest.raises(module.Refused): module.public_receipt(value)
-
-
-def test_confirmed_conversion_context_does_not_override_cleanup_uncertainty(authored, monkeypatch):
-    calls = []
-    payload = {k: v for k, v in conversion_frame().items() if k != 'kind'}
-    def baseline(_api, _root, _source, _expected, *, checkpoint_value=None, conversion_failure_value=None):
-        checkpoint_value.update(parent_step='receive-script-progress', script_step='grantread', child_state='unavailable')
-        conversion_failure_value[0] = payload
-        calls.append('baseline-refused')
-        raise module.Refused('owned-cleanup-unconfirmed')
-    monkeypatch.setattr(module, 'legacy', baseline)
-    result = module.experiment()
-    assert calls == ['baseline-refused'] and 'owned-lease-start' not in authored.events
-    assert result['failure'] == 'owned-cleanup-unconfirmed' and result['status'] == 'failed'
-    assert result['grant_conversion_failure'] == payload
-    assert result['cleanup'] == 'unconfirmed-fixture-retained' and result['observed'] == []
-
-
-@pytest.mark.parametrize('cleanup_fails', [False, True])
-def test_legacy_conversion_refusal_still_runs_owned_finally_once(monkeypatch, tmp_path, cleanup_fails):
-    primary, cleanup = module.Refused('protocol-refused'), module.Refused('owned-cleanup-unconfirmed')
-    calls, holder = [], [None]
-    payload = {k: v for k, v in conversion_frame().items() if k != 'kind'}
-    class Attempt:
-        def __init__(self, *args, checkpoint_value=None, conversion_failure_value=None):
-            assert conversion_failure_value is holder
-            self.checkpoint_locked = False
-        def script_exchange(self, value):
-            holder[0] = payload
-            raise primary
-        def close(self):
-            calls.append('close')
-            if cleanup_fails: raise cleanup
-    monkeypatch.setattr(module, 'Attempt', Attempt)
-    monkeypatch.setattr(module, 'source_bytes', lambda *_: next(iter(module.SOURCE_HASHES)))
-    api = SimpleNamespace(powershell=lambda: 'authored-program')
-    with pytest.raises(module.Refused) as caught:
-        module.legacy(api, tmp_path, 'authored-digest', 'open',
-            checkpoint_value=module.checkpoint(), conversion_failure_value=holder)
-    assert caught.value is (cleanup if cleanup_fails else primary)
-    assert calls == ['close'] and holder == [payload]
-
-
-def authored_engine_failure_context(code, stderr):
-    labels = {0: 'zero-exit', 31: 'no-finally-or-caught', 33: 'exception-identity'}
-    return {'exit': labels.get(code, 'unknown') if type(code) is int else 'unknown',
-        'stderr_present': bool(stderr)}
-
-
-@pytest.mark.parametrize(('code', 'label'), [(0, 'zero-exit'), (31, 'no-finally-or-caught'),
-    (32, 'unknown'), (33, 'exception-identity'), (-1, 'unknown'), (123456, 'unknown'),
-    (None, 'unknown'), (False, 'unknown'), ('private-exit-value', 'unknown')])
-def test_authored_engine_failure_context_never_echoes_private_or_unknown_process_data(code, label):
-    for stderr, present in ((b'', False), (b'private-stderr-path-message-trace', True)):
-        value = authored_engine_failure_context(code, stderr)
-        assert value == {'exit': label, 'stderr_present': present}
-        assert 'private-' not in json.dumps(value)
-
-
-def authored_rethrow_comparison(output, *, success=False, writer_fails=True):
-    def unique(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value: raise ValueError('Duplicate authored observation key')
-            value[key] = item
-        return value
-    try:
-        if type(output) is not bytes or type(success) is not bool or type(writer_fails) is not bool:
-            return 'unavailable'
-        lines = output.splitlines()
-        if len(lines) != (1 if not success else 2 if writer_fails else 3): return 'unavailable'
-        frame = json.loads(lines[0], object_pairs_hook=unique)
-        keys = ('record_equal', 'exception_equal', 'category_equal', 'identifier_equal', 'finally_observed')
-        if (type(frame) is not dict or set(frame) != {'kind', 'baseline', 'instrumented'}
-                or type(frame['kind']) is not str or frame['kind'] != 'authored-rethrow-comparison'):
-            return 'unavailable'
-        for variant in ('baseline', 'instrumented'):
-            item = frame[variant]
-            if type(item) is not dict or set(item) != set(keys) or any(type(item[key]) is not bool for key in keys):
-                return 'unavailable'
-        if success:
-            if lines[1] != b'owned-catch-ok': return 'unavailable'
-            if not writer_fails and json.loads(lines[2], object_pairs_hook=unique) != conversion_frame(exceptions=['argument']):
-                return 'unavailable'
-        return {variant: {key: frame[variant][key] for key in keys} for variant in ('baseline', 'instrumented')}
-    except (ValueError, UnicodeError, TypeError):
-        return 'unavailable'
-
-
-def authored_comparison_frame():
-    values = dict.fromkeys(('record_equal', 'exception_equal', 'category_equal', 'identifier_equal', 'finally_observed'), True)
-    values['record_equal'] = False
-    return {'kind': 'authored-rethrow-comparison', 'baseline': dict(values), 'instrumented': dict(values)}
-
-
-def authored_rethrow_preserved(comparison):
-    # Only the existing strict frame parser supplies this value. Wrapper identity
-    # remains an observation; these four preservation predicates are per variant.
-    if type(comparison) is not dict or set(comparison) != {'baseline', 'instrumented'}:
-        return False
-    fields = ('exception_equal', 'category_equal', 'identifier_equal', 'finally_observed')
-    return all(type(comparison[variant]) is dict and all(comparison[variant].get(key) is True for key in fields)
-        for variant in ('baseline', 'instrumented'))
-
-
-@pytest.mark.parametrize('variant', ['baseline', 'instrumented'])
-@pytest.mark.parametrize('field', ['exception_equal', 'category_equal', 'identifier_equal', 'finally_observed'])
-def test_authored_rethrow_preservation_refuses_each_false_field_within_each_variant(variant, field):
-    frame = authored_comparison_frame(); frame[variant][field] = False
-    comparison = authored_rethrow_comparison(json.dumps(frame).encode('ascii'))
-    assert comparison != 'unavailable' and not authored_rethrow_preserved(comparison)
-
-
-@pytest.mark.parametrize('baseline_wrapper', [False, True])
-@pytest.mark.parametrize('instrumented_wrapper', [False, True])
-def test_authored_rethrow_preservation_accepts_either_wrapper_observation(baseline_wrapper, instrumented_wrapper):
-    frame = authored_comparison_frame()
-    frame['baseline']['record_equal'] = baseline_wrapper
-    frame['instrumented']['record_equal'] = instrumented_wrapper
-    comparison = authored_rethrow_comparison(json.dumps(frame).encode('ascii'))
-    assert authored_rethrow_preserved(comparison)
-
-
-def test_authored_rethrow_comparison_keeps_only_complete_typed_boolean_variants():
-    frame = authored_comparison_frame()
-    frame['instrumented']['category_equal'] = False
-    raw = json.dumps(frame).encode('ascii')
-    expected = {key: frame[key] for key in ('baseline', 'instrumented')}
-    assert authored_rethrow_comparison(raw) == expected
-    assert authored_rethrow_comparison(raw+b'\nowned-catch-ok\n', success=True) == expected
-    tail = json.dumps(conversion_frame(exceptions=['argument'])).encode('ascii')
-    assert authored_rethrow_comparison(raw+b'\nowned-catch-ok\n'+tail+b'\n', success=True, writer_fails=False) == expected
-
-
-@pytest.mark.parametrize('mutation', ['absent', 'partial', 'duplicate-frame', 'duplicate-kind',
-    'duplicate-nested', 'extra-key', 'missing-variant', 'missing-bool', 'numeric-bool',
-    'private-value', 'private-kind', 'extra-variant', 'unknown-tail'])
-def test_authored_rethrow_comparison_refuses_malformed_or_private_data_without_echo(mutation):
-    frame = authored_comparison_frame()
-    if mutation == 'extra-key': frame['raw'] = 'private-path-message'
-    if mutation == 'missing-variant': frame.pop('baseline')
-    if mutation == 'missing-bool': frame['instrumented'].pop('exception_equal')
-    if mutation == 'numeric-bool': frame['baseline']['record_equal'] = 0
-    if mutation == 'private-value': frame['baseline']['record_equal'] = 'private-id'
-    if mutation == 'private-kind': frame['kind'] = 'private-type'
-    if mutation == 'extra-variant': frame['private-variant'] = frame['baseline']
-    raw = json.dumps(frame, separators=(',', ':')).encode('ascii')
-    if mutation == 'absent': raw = b''
-    if mutation == 'partial': raw = raw[:-1]
-    if mutation == 'duplicate-frame': raw += b'\n'+raw
-    if mutation == 'duplicate-kind': raw = raw.replace(b'{"kind":', b'{"kind":"private-type","kind":', 1)
-    if mutation == 'duplicate-nested': raw = raw.replace(b'"record_equal":false', b'"record_equal":false,"record_equal":true', 1)
-    if mutation == 'unknown-tail': raw += b'\nprivate-stdout-stderr-trace'
-    assert authored_rethrow_comparison(raw) == 'unavailable'
-    assert not authored_rethrow_preserved(authored_rethrow_comparison(raw))
-
-
-@pytest.mark.skipif(sys.platform != 'win32', reason='Authored Windows PowerShell engine semantics unavailable locally')
-@pytest.mark.parametrize('writer_fails', [False, True])
-def test_authored_powershell_preserves_original_error_context_when_diagnostic_writer_fails(writer_fails):
-    # Exact producer fragments; no C7 fixture, legacy source, OS APIs or process helper.
-    root = os.environ.get('SystemRoot')
-    if not root or not Path(root).is_absolute(): pytest.fail('Authored engine host unavailable')
-    executable = Path(root) / 'System32/WindowsPowerShell/v1.0/powershell.exe'
-    if not executable.is_file(): pytest.fail('Authored engine host unavailable')
-    prefix = r'''
-$ErrorActionPreference='Stop'
-$line='authored-private-line'
-function ConvertFrom-Json { throw $script:original }
-'''
-    fresh_error = r'''
-$script:original=[Management.Automation.ErrorRecord]::new(
-    [ArgumentException]::new('authored-private-error'),'authored-private-id',
-    [Management.Automation.ErrorCategory]::InvalidArgument,$null)
-'''
-    baseline = r'''
-$baselineInner=$null; $baselineCaught=$null; $baselineFinally=$false
-try {
-    try { $grant=$line|ConvertFrom-Json }
-    catch {
-        $baselineInner=$_
-        try { } catch { }
-        throw
-    }
-} catch { $baselineCaught=$_ } finally { $baselineFinally=$true }
-$baselinePresent=($null -ne $baselineInner -and $null -ne $baselineCaught)
-$baselineRecordEqual=($baselinePresent -and [Object]::ReferenceEquals($baselineCaught,$baselineInner))
-$baselineExceptionEqual=($baselinePresent -and [Object]::ReferenceEquals($baselineCaught.Exception,$baselineInner.Exception))
-$baselineCategoryEqual=($baselinePresent -and $baselineCaught.CategoryInfo.Category -eq $baselineInner.CategoryInfo.Category)
-$baselineIdentifierEqual=($baselinePresent -and $baselineCaught.FullyQualifiedErrorId -ceq $baselineInner.FullyQualifiedErrorId)
-$baselineFinallyObserved=[bool]$baselineFinally
-'''
-    instrumented = r'''
-class C7AuthoredWriter {
-    [bool]$Fail
-    [string]$Frame=''
-    [void]WriteLine([string]$value) {
-        if ($this.Fail) { throw [InvalidOperationException]::new('authored-private-writer') }
-        $this.Frame=$value
-    }
-}
-$writer=[C7AuthoredWriter]::new()
-$writer.Fail=__FAIL__
-$caught=$null; $conversionError=$null; $finallyObserved=$false
-'''.replace('__FAIL__', '$true' if writer_fails else '$false')
-    script = prefix + fresh_error + baseline + instrumented + fresh_error + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
-} catch { $caught=$_ } finally { $finallyObserved=$true }
-$instrumentedPresent=($null -ne $conversionError -and $null -ne $caught)
-$instrumentedRecordEqual=($instrumentedPresent -and [Object]::ReferenceEquals($caught,$conversionError))
-$instrumentedExceptionEqual=($instrumentedPresent -and [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception))
-$instrumentedCategoryEqual=($instrumentedPresent -and $caught.CategoryInfo.Category -eq $conversionError.CategoryInfo.Category)
-$instrumentedIdentifierEqual=($instrumentedPresent -and $caught.FullyQualifiedErrorId -ceq $conversionError.FullyQualifiedErrorId)
-$instrumentedFinallyObserved=[bool]$finallyObserved
-function Get-C7AuthoredComparison([bool]$RecordEqual,[bool]$ExceptionEqual,[bool]$CategoryEqual,[bool]$IdentifierEqual,[bool]$FinallyObserved) {
-    return '{"record_equal":'+$RecordEqual.ToString().ToLowerInvariant()+
-        ',"exception_equal":'+$ExceptionEqual.ToString().ToLowerInvariant()+
-        ',"category_equal":'+$CategoryEqual.ToString().ToLowerInvariant()+
-        ',"identifier_equal":'+$IdentifierEqual.ToString().ToLowerInvariant()+
-        ',"finally_observed":'+$FinallyObserved.ToString().ToLowerInvariant()+'}'
-}
-[Console]::Out.WriteLine('{"kind":"authored-rethrow-comparison","baseline":'+
-    (Get-C7AuthoredComparison $baselineRecordEqual $baselineExceptionEqual $baselineCategoryEqual $baselineIdentifierEqual $baselineFinallyObserved)+
-    ',"instrumented":'+(Get-C7AuthoredComparison $instrumentedRecordEqual $instrumentedExceptionEqual $instrumentedCategoryEqual $instrumentedIdentifierEqual $instrumentedFinallyObserved)+'}')
-if (-not $finallyObserved -or $null -eq $caught) { exit 31 }
-if (-not [Object]::ReferenceEquals($caught.Exception,$conversionError.Exception)) { exit 33 }
-[Console]::Out.WriteLine('owned-catch-ok')
-if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
-'''
-    import base64
-    unavailable = False
-    try:
-        process = subprocess.Popen([str(executable), '-NoLogo', '-NoProfile', '-NonInteractive',
-            '-EncodedCommand', base64.b64encode(script.encode('utf-16le')).decode('ascii')],
-            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            creationflags=subprocess.CREATE_NO_WINDOW)
-    except OSError:
-        unavailable = True
-    if unavailable: pytest.fail('Authored engine process could not start')
-    captured, failed = {}, []
-    def read(name, stream):
-        try:
-            captured[name] = stream.read(8193)
-            if len(captured[name]) > 8192: process.kill()
-        except BaseException: failed.append(True)
-        finally:
-            try: stream.close()
-            except BaseException: failed.append(True)
-    readers = [threading.Thread(target=read, args=(name, stream), daemon=True)
-        for name, stream in (('out', process.stdout), ('err', process.stderr))]
-    for reader in readers: reader.start()
-    try:
-        code = process.wait(timeout=10)
-    except BaseException:
-        failed.append(True); code = None
-        for operation in (process.kill, lambda: process.wait(timeout=5)):
-            try: operation()
-            except BaseException: failed.append(True)
-    finally:
-        for reader in readers: reader.join(timeout=1)
-    if failed or any(reader.is_alive() for reader in readers) or any(len(v) > 8192 for v in captured.values()):
-        pytest.fail('Authored engine output boundary failed')
-    comparison = authored_rethrow_comparison(captured.get('out', b''), success=code == 0, writer_fails=writer_fails)
-    if code != 0 or captured.get('err'):
-        context = authored_engine_failure_context(code, captured.get('err', b''))
-        context['rethrow_comparison'] = comparison
-        pytest.fail('Authored engine original-error/finally contract failed: ' + json.dumps(
-            context, sort_keys=True, separators=(',', ':')))
-    if comparison == 'unavailable': pytest.fail('Authored engine rethrow comparison unavailable')
-    if not authored_rethrow_preserved(comparison):
-        pytest.fail('Authored engine error-context preservation failed: ' + json.dumps(comparison, sort_keys=True, separators=(',', ':')))
-    lines = captured.get('out', b'').splitlines()[1:]
-    if not lines or lines[0] != b'owned-catch-ok' or len(lines) != (1 if writer_fails else 2):
-        pytest.fail('Authored engine acknowledgement differs')
-    if not writer_fails:
-        try: value = json.loads(lines[1])
-        except ValueError: pytest.fail('Authored engine context is malformed')
-        assert value == conversion_frame(exceptions=['argument'])
-    if b'authored-private-' in captured.get('out', b''): pytest.fail('Authored context exposed private data')
-
-
-_UNCONFIRMED_REAL_CONTROLS = []  # Private process/pipe/thread records, never PID adoption/retry.
+_UNCONFIRMED_CODEC_CONTROLS = []  # Private process/pipe/thread records, never PID adoption/retry.
 
 
 def closed_real_control_boundary(value):
@@ -824,205 +410,14 @@ def closed_real_control_boundary(value):
     return dict(value)
 
 
-def closed_real_conversion_observation(value):
-    fallback = {'state': 'unavailable', 'context': None, 'stderr_present': False}
-    if type(value) is not dict:
-        return fallback
-    if type(value.get('stderr_present')) is bool:
-        fallback['stderr_present'] = value['stderr_present']
-    if (set(value) != {'state', 'context', 'stderr_present'} or type(value['state']) is not str
-            or value['state'] not in {'parsed', 'shape-refused', 'conversion-refused', 'unavailable'}
-            or type(value['stderr_present']) is not bool):
-        return fallback
-    context = None
-    if value['context'] is not None:
-        if value['state'] != 'conversion-refused': return fallback
-        try: context = module.conversion_failure(value['context'])
-        except module.Refused: return fallback
-    return {'state': value['state'], 'context': context, 'stderr_present': value['stderr_present']}
-
-
-def real_conversion_observation(code, output, stderr):
-    fallback = {'state': 'unavailable', 'context': None, 'stderr_present': bool(stderr)}
-    def unique(pairs):
-        value = {}
-        for key, item in pairs:
-            if key in value: raise ValueError('Duplicate authored control key')
-            value[key] = item
-        return value
-    try:
-        if (type(code) is not int or code not in (0, 2) or type(output) is not bytes
-                or type(stderr) is not bytes or len(output) > 8192 or len(stderr) > 8192):
-            return fallback
-        lines = output.splitlines()
-        if not 1 <= len(lines) <= 2: return fallback
-        frame = json.loads(lines[0], object_pairs_hook=unique)
-        if (type(frame) is not dict or set(frame) != {'kind', 'state'}
-                or frame['kind'] != 'authored-real-conversion-control'
-                or type(frame['state']) is not str
-                or frame['state'] not in {'parsed', 'shape-refused', 'conversion-refused'}
-                or code != (0 if frame['state'] == 'parsed' else 2)):
-            return fallback
-        context = None
-        if len(lines) == 2:
-            if frame['state'] != 'conversion-refused': return fallback
-            failure = json.loads(lines[1], object_pairs_hook=unique)
-            if (type(failure) is not dict or set(failure) != {'kind', 'line', 'exceptions', 'chain_end', 'category'}
-                    or failure['kind'] != 'grant-conversion-failure'):
-                return fallback
-            context = module.conversion_failure({k: v for k, v in failure.items() if k != 'kind'})
-        return closed_real_conversion_observation({'state': frame['state'], 'context': context,
-            'stderr_present': bool(stderr)})
-    except (ValueError, UnicodeError, TypeError, module.Refused):
-        return fallback
-
-
-CONTROL_PROGRESS_STAGES = ('script-entry', 'before-conversion', 'after-conversion')
-CONTROL_PROGRESS_LINES = tuple(
-    ('{"kind":"authored-real-conversion-progress","stage":"'+stage+'"}').encode('ascii')
-    for stage in CONTROL_PROGRESS_STAGES)
-CONTROL_TERMINAL_LINES = {
-    state: ('{"kind":"authored-real-conversion-control","state":"'+state+'"}').encode('ascii')
-    for state in ('parsed', 'shape-refused', 'conversion-refused')}
-
-
-def closed_real_control_progress(value):
-    fallback = {'last_delivered': 'not-observed', 'protocol': 'not-observed'}
-    if (type(value) is not dict or set(value) != {'last_delivered', 'protocol'}
-            or type(value['last_delivered']) is not str
-            or value['last_delivered'] not in ('not-observed', *CONTROL_PROGRESS_STAGES)
-            or type(value['protocol']) is not str
-            or value['protocol'] not in {'not-observed', 'ordered-prefix', 'malformed'}
-            or value['protocol'] == 'not-observed' and value['last_delivered'] != 'not-observed'
-            or value['protocol'] == 'ordered-prefix' and value['last_delivered'] == 'not-observed'):
-        return fallback
-    return dict(value)
-
-
-def marked_real_conversion_observation(code, output, stderr):
-    """Only exact delivered marker lines; no progress may substitute for a result."""
-    unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': bool(stderr)}
-    progress = closed_real_control_progress(None)
-    if type(output) is not bytes or len(output) > 8192:
-        progress['protocol'] = 'malformed'
-        return unavailable, progress
-    if not output:
-        return unavailable, progress
-    pieces = output.split(b'\n')
-    partial = bool(pieces[-1])
-    complete = [line[:-1] if line.endswith(b'\r') else line for line in pieces[:-1]]
-    count = 0
-    while count < len(CONTROL_PROGRESS_LINES) and count < len(complete):
-        if complete[count] != CONTROL_PROGRESS_LINES[count]:
-            break
-        progress.update(last_delivered=CONTROL_PROGRESS_STAGES[count], protocol='ordered-prefix')
-        count += 1
-    remaining = complete[count:]
-    if partial or remaining and (count < 2 or len(remaining) > 2
-            or remaining[0] not in CONTROL_TERMINAL_LINES.values()
-            or count == 2 and remaining[0] != CONTROL_TERMINAL_LINES['conversion-refused']
-            or any(line in CONTROL_PROGRESS_LINES for line in remaining[1:])):
-        progress['protocol'] = 'malformed'
-        return unavailable, progress
-    if not remaining:
-        return unavailable, progress
-    observed = real_conversion_observation(code, b'\n'.join(pieces[count:]), stderr)
-    if observed['state'] == 'unavailable' and type(code) is int and code in (0, 2):
-        progress['protocol'] = 'malformed'
-    return observed, progress
-
-
-@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
-@pytest.mark.parametrize('count', range(4))
-def test_delivered_marker_prefix_without_terminal_never_establishes_parsing_success(ending, count):
-    raw = ending.join(CONTROL_PROGRESS_LINES[:count])+(ending if count else b'')
-    for code in (0, None, -9):
-        observed, progress = marked_real_conversion_observation(code, raw, b'')
-        assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
-        assert progress == {'last_delivered': CONTROL_PROGRESS_STAGES[count-1] if count else 'not-observed',
-            'protocol': 'ordered-prefix' if count else 'not-observed'}
-
-
-@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
-def test_ordered_complete_markers_preserve_original_terminal_and_conversion_context(ending):
-    success = ending.join((*CONTROL_PROGRESS_LINES, CONTROL_TERMINAL_LINES['parsed'], b''))
-    observed, progress = marked_real_conversion_observation(0, success, b'')
-    assert observed == {'state': 'parsed', 'context': None, 'stderr_present': False}
-    assert progress == {'last_delivered': 'after-conversion', 'protocol': 'ordered-prefix'}
-    failure = conversion_frame()
-    refused = ending.join((*CONTROL_PROGRESS_LINES[:2], CONTROL_TERMINAL_LINES['conversion-refused'],
-        json.dumps(failure).encode('ascii'), b''))
-    observed, progress = marked_real_conversion_observation(2, refused, b'')
-    assert observed == {'state': 'conversion-refused',
-        'context': {key: value for key, value in failure.items() if key != 'kind'}, 'stderr_present': False}
-    assert progress == {'last_delivered': 'before-conversion', 'protocol': 'ordered-prefix'}
-    assert marked_real_conversion_observation(0, success, b'private-stderr')[0]['stderr_present'] is True
-
-
-@pytest.mark.parametrize('count', range(4))
-@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
-def test_partial_next_marker_or_terminal_retains_only_complete_delivered_prefix(count, ending):
-    prefix = ending.join(CONTROL_PROGRESS_LINES[:count])+(ending if count else b'')
-    next_line = CONTROL_PROGRESS_LINES[count] if count < 3 else CONTROL_TERMINAL_LINES['parsed']
-    # Even a syntactically complete JSON object without the delivery delimiter
-    # is incomplete stdout; a successful process code cannot promote it.
-    observed, progress = marked_real_conversion_observation(0, prefix+next_line, b'')
-    assert observed['state'] == 'unavailable'
-    assert progress == {'last_delivered': CONTROL_PROGRESS_STAGES[count-1] if count else 'not-observed',
-        'protocol': 'malformed'}
-
-
-@pytest.mark.parametrize('mutation', ['reordered', 'duplicate', 'missing-first', 'unknown-stage',
-    'extra-key', 'numeric-stage', 'duplicate-key', 'marker-whitespace', 'private-noise',
-    'unknown-tail', 'trailing-marker', 'duplicate-terminal', 'duplicate-failure', 'bare-cr', 'over-cap'])
-def test_malformed_marker_streams_cannot_hide_noise_or_bypass_original_hard_gate(mutation):
-    lines = [*CONTROL_PROGRESS_LINES, CONTROL_TERMINAL_LINES['parsed']]
-    if mutation == 'reordered': lines[1], lines[2] = lines[2], lines[1]
-    if mutation == 'duplicate': lines.insert(1, lines[0])
-    if mutation == 'missing-first': lines.pop(0)
-    if mutation == 'unknown-stage': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"private-stage"}'
-    if mutation == 'extra-key': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"before-conversion","raw":"private-path"}'
-    if mutation == 'numeric-stage': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":4}'
-    if mutation == 'duplicate-key': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"before-conversion","stage":"after-conversion"}'
-    if mutation == 'marker-whitespace': lines[1] = b' '+lines[1]
-    if mutation == 'private-noise': lines.insert(1, b'private-path-error-text')
-    if mutation == 'unknown-tail': lines.append(b'private-unknown-tail')
-    if mutation == 'trailing-marker': lines.append(CONTROL_PROGRESS_LINES[-1])
-    if mutation == 'duplicate-terminal': lines.append(CONTROL_TERMINAL_LINES['parsed'])
-    if mutation == 'duplicate-failure':
-        lines = [*CONTROL_PROGRESS_LINES[:2], CONTROL_TERMINAL_LINES['conversion-refused'],
-            json.dumps(conversion_frame()).encode('ascii'), json.dumps(conversion_frame()).encode('ascii')]
-    raw = b'\n'.join((*lines, b''))
-    if mutation == 'bare-cr': raw = b'\r'.join((*lines, b''))
-    if mutation == 'over-cap': raw += b'private-'+b'x'*8192
-    observed, progress = marked_real_conversion_observation(2 if mutation == 'duplicate-failure' else 0, raw, b'')
-    assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
-    assert progress['protocol'] == 'malformed'
-    assert progress['last_delivered'] in ('not-observed', *CONTROL_PROGRESS_STAGES)
-    assert 'private' not in json.dumps((observed, progress))
-
-
-@pytest.mark.parametrize('value', [None, {}, 'private-progress',
-    {'last_delivered': 'private-stage', 'protocol': 'ordered-prefix'},
-    {'last_delivered': 'after-conversion', 'protocol': 'private-status'},
-    {'last_delivered': 'after-conversion', 'protocol': 'not-observed'},
-    {'last_delivered': 'not-observed', 'protocol': 'ordered-prefix'},
-    {'last_delivered': 'after-conversion', 'protocol': 'ordered-prefix', 'raw': 'private-path'}])
-def test_progress_projection_is_closed_and_never_echoes_private_or_inconsistent_metadata(value):
-    assert closed_real_control_progress(value) == {'last_delivered': 'not-observed', 'protocol': 'not-observed'}
-
-
-def run_real_conversion_control(executable, script, environment, *, diagnostic=None, progress=None):
+def run_grant_codec_control(executable, script, environment, *, diagnostic=None):
     import base64
-    unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    unavailable = {'state': 'unavailable', 'stderr_present': False}
     boundary = {'refusal': 'none', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
     def publish_boundary():
         if diagnostic is not None:
             diagnostic.clear()
             diagnostic.update(closed_real_control_boundary(boundary))
-    if progress is not None:
-        progress.clear()
-        progress.update(closed_real_control_progress(None))
     try:
         process = subprocess.Popen([executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
             base64.b64encode(script.encode('utf-16le')).decode('ascii')],
@@ -1094,7 +489,7 @@ def run_real_conversion_control(executable, script, environment, *, diagnostic=N
                 except BaseException: uncertain.append(True)
             # An unconfirmed start may already be running. Never race or retry its close.
     if not exited or uncertain:
-        _UNCONFIRMED_REAL_CONTROLS.append({'process': process, 'readers': readers})
+        _UNCONFIRMED_CODEC_CONTROLS.append({'process': process, 'readers': readers})
         boundary['refusal'] = 'cleanup-unconfirmed'
     else:
         boundary['cleanup'] = 'child-exit-and-readers-finished'
@@ -1102,209 +497,15 @@ def run_real_conversion_control(executable, script, environment, *, diagnostic=N
         raw = captured['err']
         boundary['stderr_prefix'] = ('empty' if not raw else
             'fixed-clixml-prefix' if raw.startswith(b'#< CLIXML') else 'other')
-    if progress is not None:
-        marked, delivered = marked_real_conversion_observation(
-            code, captured.get('out', b''), captured.get('err', b''))
-        progress.clear()
-        progress.update(closed_real_control_progress(delivered))
     if failed or uncertain or not exited or any(len(value) > 8192 for value in captured.values()):
         if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
         publish_boundary()
         unavailable['stderr_present'] = bool(captured.get('err'))
         return unavailable
-    observed = (real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
-        if progress is None else marked)
+    observed = grant_codec_observation(code, captured.get('out', b''), captured.get('err', b''))
     if observed['state'] == 'unavailable': boundary['refusal'] = 'protocol-refused'
     publish_boundary()
     return observed
-
-
-def test_timeout_progress_keeps_only_delivered_marker_without_new_capture_or_wait_budget(monkeypatch):
-    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
-    calls, processes = [], []
-    partial = b'\n'.join((*CONTROL_PROGRESS_LINES[:2], CONTROL_PROGRESS_LINES[2][:-4]))
-    class Process:
-        def __init__(self, *_args, **_options):
-            self.stdout, self.stderr = io.BytesIO(partial), io.BytesIO(b'')
-            processes.append(self)
-        def wait(self, timeout):
-            calls.append(('wait', timeout))
-            if timeout == 10: raise subprocess.TimeoutExpired('authored-child', timeout)
-            assert timeout == 5
-            return -9
-        def kill(self): calls.append(('kill',))
-    monkeypatch.setattr(subprocess, 'Popen', Process)
-    progress, boundary = {}, {}
-    count = len(_UNCONFIRMED_REAL_CONTROLS)
-    observed = run_real_conversion_control('authored-program', 'authored-source', {},
-        diagnostic=boundary, progress=progress)
-    assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
-    assert progress == {'last_delivered': 'before-conversion', 'protocol': 'malformed'}
-    assert boundary == {'refusal': 'wait-deadline', 'stderr_prefix': 'empty',
-        'cleanup': 'child-exit-and-readers-finished'}
-    assert calls == [('wait', 10), ('kill',), ('wait', 5)]
-    assert len(processes) == 1 and processes[0].stdout.closed and processes[0].stderr.closed
-    assert len(_UNCONFIRMED_REAL_CONTROLS) == count
-
-
-def real_conversion_pair(parent_environment, run):
-    # Collect both fresh children before the caller may assert a joint outcome.
-    inherited_environment = dict(parent_environment)
-    attempt_environment = module.legacy_environment(inherited_environment)
-    result = {}
-    for variant, environment in (('inherited', inherited_environment), ('attempt', attempt_environment)):
-        try: observed = run(environment)
-        except Exception: observed = None
-        result[variant] = closed_real_conversion_observation(observed)
-    return result
-
-
-def real_conversion_system_environments(parent_environment, executable):
-    # The caller obtains this exact image from Windows.powershell(), not PATH.
-    # These three fresh controls do not change the actual Attempt environment.
-    if executable is None:
-        return {}
-    image = PureWindowsPath(executable)
-    if (not image.is_absolute() or len(image.drive) != 2 or '..' in image.parts
-            or tuple(part.casefold() for part in image.parts[-3:]) !=
-                ('windowspowershell', 'v1.0', 'powershell.exe')
-            or image.parents[2].name.casefold() != 'system32'):
-        raise ValueError('Protected Windows PowerShell system search inputs unavailable.')
-    folder, system = image.parent, image.parents[2]
-    values = {
-        'system-path': {'PATH': ';'.join((str(system), str(folder)))},
-        'system-modules': {'PSModulePath': str(folder / 'Modules')},
-    }
-    values['system-path-and-modules'] = {**values['system-path'], **values['system-modules']}
-    baseline = module.legacy_environment(parent_environment)
-    return {name: {**baseline, **overrides} for name, overrides in values.items()}
-
-
-def test_system_search_controls_use_only_protected_image_paths_and_independent_filtered_snapshots():
-    parent = {'SystemRoot': 'authored-system', 'TEMP': 'authored-temp',
-        'PATH': 'private-tools', 'PSModulePath': 'private-modules', 'PRIVATE_KEY': 'private-value'}
-    original = dict(parent)
-    controls = real_conversion_system_environments(parent,
-        r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe')
-    baseline = {'SystemRoot': 'authored-system', 'TEMP': 'authored-temp'}
-    paths = {'PATH': r'S:\Windows\System32;S:\Windows\System32\WindowsPowerShell\v1.0'}
-    modules = {'PSModulePath': r'S:\Windows\System32\WindowsPowerShell\v1.0\Modules'}
-    assert controls == {'system-path': {**baseline, **paths},
-        'system-modules': {**baseline, **modules}, 'system-path-and-modules': {**baseline, **paths, **modules}}
-    assert parent == original and 'private-' not in json.dumps(controls)
-    controls['system-path']['TEMP'] = 'changed-authored-value'
-    assert controls['system-modules']['TEMP'] == controls['system-path-and-modules']['TEMP'] == parent['TEMP']
-
-
-@pytest.mark.parametrize('executable', ['powershell.exe', r'S:\tools\pwsh.exe',
-    r'S:\Windows\System32\..\System32\WindowsPowerShell\v1.0\powershell.exe'])
-def test_system_search_controls_refuse_noncanonical_image_shapes_without_exposing_input(executable):
-    with pytest.raises(ValueError, match='^Protected Windows PowerShell system search inputs unavailable\\.$'):
-        real_conversion_system_environments({}, executable)
-    assert real_conversion_system_environments({}, None) == {}
-
-
-@pytest.mark.parametrize('refusal', ['none', 'attempt', 'attempt-stderr', 'extra-cleanup', 'writer-cleanup', 'writer-runner'])
-def test_seven_control_decision_preserves_actual_pair_and_refuses_uncertain_extra_cleanup(monkeypatch, refusal):
-    image = r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
-    monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(powershell=lambda: image))
-    monkeypatch.setattr(sys.modules[__name__], 'os', SimpleNamespace(environ={
-        'SystemRoot': 'authored-system', 'PRIVATE_KEY': 'private-parent-value'}))
-    calls, scripts = [], []
-    def run(executable, script, environment, *, diagnostic, progress):
-        assert executable == image
-        calls.append(dict(environment))
-        scripts.append(script)
-        if refusal == 'writer-runner' and len(calls) == 6:
-            raise OSError('private-new-writer-refusal')
-        diagnostic.update(refusal='none', stderr_prefix='empty', cleanup='child-exit-and-readers-finished')
-        progress.update(last_delivered='after-conversion', protocol='ordered-prefix')
-        if (refusal == 'extra-cleanup' and len(calls) == 5
-                or refusal == 'writer-cleanup' and len(calls) == 7):
-            diagnostic['cleanup'] = 'unconfirmed'
-        state = ('unavailable' if len(calls) > 2 and refusal not in {'attempt', 'attempt-stderr'}
-            or refusal == 'attempt' and len(calls) == 2 else 'parsed')
-        return {'state': state, 'context': None,
-            'stderr_present': refusal == 'attempt-stderr' and len(calls) == 2}
-    monkeypatch.setattr(sys.modules[__name__], 'run_real_conversion_control', run)
-    if refusal == 'none':
-        test_authored_real_conversion_under_inherited_and_attempt_environment()
-    else:
-        with pytest.raises(pytest.fail.Exception) as failed:
-            test_authored_real_conversion_under_inherited_and_attempt_environment()
-        assert 'private-' not in str(failed.value) and image not in str(failed.value)
-    assert len(calls) == 7
-    assert all(script is scripts[0] for script in scripts[:5])
-    assert scripts[5] is scripts[6] and scripts[5] != scripts[0]
-    assert calls[5] == calls[0] and calls[6] == calls[1]
-    assert 'PRIVATE_KEY' in calls[0] and 'PRIVATE_KEY' in calls[5]
-    assert all('PRIVATE_KEY' not in calls[index] for index in (1, 2, 3, 4, 6))
-
-
-def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mutating_parent():
-    parent = {'SystemRoot': 'authored-root', 'WINDIR': 'authored-windows', 'TEMP': 'authored-temp',
-        'tMp': 'authored-tmp', 'LOCALAPPDATA': 'authored-cache', 'ProgramFiles': 'authored-programs',
-        'PRIVATE_PROFILE': 'private-path'}
-    original = dict(parent); calls = []
-    def run(environment):
-        calls.append(environment)
-        if len(calls) == 1: raise OSError('private-startup-error')
-        return {'state': 'parsed', 'context': None, 'stderr_present': False}
-    result = real_conversion_pair(parent, run)
-    assert len(calls) == 2 and calls[0] == original and calls[0] is not parent
-    assert calls[1] == {k: original[k] for k in ('SystemRoot', 'WINDIR', 'TEMP', 'tMp', 'LOCALAPPDATA', 'ProgramFiles')}
-    assert parent == original
-    assert result['inherited'] == {'state': 'unavailable', 'context': None, 'stderr_present': False}
-    assert result['attempt']['state'] == 'parsed' and 'private-' not in json.dumps(result)
-
-
-@pytest.mark.parametrize(('state', 'code'), [('parsed', 0), ('shape-refused', 2), ('conversion-refused', 2)])
-def test_real_conversion_control_accepts_only_matching_typed_terminal_states(state, code):
-    raw = json.dumps({'kind': 'authored-real-conversion-control', 'state': state}).encode('ascii')
-    assert real_conversion_observation(code, raw, b'') == {'state': state, 'context': None, 'stderr_present': False}
-    assert real_conversion_observation(2 if code == 0 else 0, raw, b'')['state'] == 'unavailable'
-
-
-def test_real_conversion_control_keeps_only_existing_bounded_failure_context():
-    first = json.dumps({'kind': 'authored-real-conversion-control', 'state': 'conversion-refused'}).encode('ascii')
-    failure = conversion_frame(exceptions=['unknown'] * 8, chain_end='truncated', category='unknown')
-    result = real_conversion_observation(2, first+b'\n'+json.dumps(failure).encode('ascii'), b'private-stderr')
-    assert result == {'state': 'conversion-refused',
-        'context': {k: v for k, v in failure.items() if k != 'kind'}, 'stderr_present': True}
-    assert 'private-' not in json.dumps(result)
-
-
-@pytest.mark.parametrize('mutation', ['absent', 'partial', 'duplicate-frame', 'duplicate-key', 'extra-key',
-    'private-state', 'private-context', 'unknown-kind', 'private-tail', 'numeric-state', 'wrong-code',
-    'extra-context', 'too-deep', 'oversized'])
-def test_real_conversion_control_refuses_malformed_or_private_output_without_echo(mutation):
-    frame = {'kind': 'authored-real-conversion-control', 'state': 'conversion-refused'}
-    code, failure = 2, conversion_frame()
-    if mutation == 'extra-key': frame['raw'] = 'private-path'
-    if mutation == 'private-state': frame['state'] = 'private-command'
-    if mutation == 'unknown-kind': frame['kind'] = 'private-type'
-    if mutation == 'numeric-state': frame['state'] = 1
-    if mutation == 'wrong-code': code = 123456
-    if mutation == 'private-context': failure['exceptions'] = ['private-error']
-    if mutation == 'extra-context': failure['raw'] = 'private-message'
-    if mutation == 'too-deep': failure['exceptions'] = ['argument'] * 9
-    raw = json.dumps(frame, separators=(',', ':')).encode('ascii')
-    if mutation in {'private-context', 'extra-context', 'too-deep'}: raw += b'\n'+json.dumps(failure).encode('ascii')
-    if mutation == 'absent': raw = b''
-    if mutation == 'partial': raw = raw[:-1]
-    if mutation == 'duplicate-frame': raw += b'\n'+raw
-    if mutation == 'duplicate-key': raw = raw.replace(b'"state":', b'"state":"private-command","state":', 1)
-    if mutation == 'private-tail': raw += b'\nprivate-stdout'
-    if mutation == 'oversized': raw = b'private-output' * 1000
-    result = real_conversion_observation(code, raw, b'private-stderr')
-    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': True}
-
-
-def test_real_conversion_pair_reprojects_runner_failures_before_any_public_diagnostic():
-    result = real_conversion_pair({}, lambda _: {'state': 'private-path', 'context': 'private-value',
-        'stderr_present': True, 'raw': 'private-error'})
-    assert set(result) == {'inherited', 'attempt'}
-    assert all(value == {'state': 'unavailable', 'context': None, 'stderr_present': True} for value in result.values())
 
 
 def test_legacy_environment_keeps_only_standard_windows_runtime_values_without_mutating_parent():
@@ -1348,9 +549,9 @@ def test_actual_owned_attempt_passes_the_filtered_windows_runtime_snapshot_befor
 
 @pytest.mark.parametrize('fault', ['start-first', 'start-second', 'stream-close', 'timeout',
     'kill', 'cleanup-wait', 'read', 'read-budget'])
-def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(monkeypatch, fault):
+def test_grant_codec_runner_bounds_faults_and_retains_uncertain_ownership(monkeypatch, fault):
     retained, processes, calls = [], [], []
-    monkeypatch.setitem(globals(), '_UNCONFIRMED_REAL_CONTROLS', retained)
+    monkeypatch.setitem(globals(), '_UNCONFIRMED_CODEC_CONTROLS', retained)
     monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
     class Output(io.BytesIO):
         def __init__(self, raw, name):
@@ -1366,7 +567,7 @@ def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(mo
     class Process:
         def __init__(self, command, **options):
             self.stdout = Output(b'x' * 8193 if fault == 'read-budget' else json.dumps(
-                {'kind': 'authored-real-conversion-control', 'state': 'parsed'}).encode('ascii'), 'out')
+                {'kind': 'authored-c7g5-codec', 'positive': True, 'negative': True, 'reader': True}).encode('ascii'), 'out')
             self.stderr = Output(b'', 'err'); self.waits = 0
             processes.append(self)
         def wait(self, timeout):
@@ -1389,8 +590,8 @@ def test_real_conversion_runner_bounds_faults_and_retains_uncertain_ownership(mo
             return value
         monkeypatch.setattr(threading, 'Thread', thread)
     diagnostic = {}
-    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
-    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    result = run_grant_codec_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
+    assert result == {'state': 'unavailable', 'stderr_present': False}
     assert len(processes) == 1
     if fault in {'start-first', 'start-second', 'stream-close', 'kill', 'cleanup-wait'}:
         assert retained and retained[0]['process'] is processes[0]
@@ -1433,7 +634,7 @@ def test_real_control_parent_boundary_observes_prefix_without_classifying_or_acc
     monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
     class Process:
         def __init__(self, *_args, **_kwargs):
-            self.stdout = io.BytesIO(b'{"kind":"authored-real-conversion-control","state":"parsed"}')
+            self.stdout = io.BytesIO(b'{"kind":"authored-c7g5-codec","positive":true,"negative":true,"reader":true}')
             self.stderr = io.BytesIO(stderr)
         def wait(self, timeout):
             assert timeout == 10
@@ -1441,12 +642,12 @@ def test_real_control_parent_boundary_observes_prefix_without_classifying_or_acc
         def kill(self): pytest.fail('A completed authored child must not be killed.')
     monkeypatch.setattr(subprocess, 'Popen', Process)
     diagnostic = {}
-    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
+    result = run_grant_codec_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
     assert diagnostic == {'refusal': 'none', 'stderr_prefix': prefix, 'cleanup': 'child-exit-and-readers-finished'}
-    assert result == {'state': 'parsed', 'context': None, 'stderr_present': bool(stderr)}
+    assert result == {'state': 'passed', 'stderr_present': bool(stderr)}
     # The unchanged paired acceptance still refuses any stderr bytes. A prefix
     # observation cannot classify messages or change that predicate.
-    assert (result == {'state': 'parsed', 'context': None, 'stderr_present': False}) == (not stderr)
+    assert (result == {'state': 'passed', 'stderr_present': False}) == (not stderr)
     assert 'private-' not in json.dumps(diagnostic)
 
 
@@ -1455,106 +656,16 @@ def test_real_control_spawn_refusal_has_only_fixed_parent_metadata(monkeypatch):
     def refuse(*_args, **_kwargs): raise OSError('private-program-and-path')
     monkeypatch.setattr(subprocess, 'Popen', refuse)
     diagnostic = {}
-    result = run_real_conversion_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
-    assert result == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    result = run_grant_codec_control('authored-program', 'authored-source', {}, diagnostic=diagnostic)
+    assert result == {'state': 'unavailable', 'stderr_present': False}
     assert diagnostic == {'refusal': 'spawn-refused', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
     assert 'private-' not in json.dumps(diagnostic)
 
 
-def real_conversion_literal_script(writer_kind):
-    if writer_kind not in {'authored-class', 'string-writer'}:
-        raise ValueError('Authored literal writer control unavailable.')
-    markers = tuple("[Console]::Out.WriteLine('"+line.decode('ascii')+
-        "')\n[Console]::Out.Flush()\n" for line in CONTROL_PROGRESS_LINES)
-    preferences = r'''
-$ErrorActionPreference='Stop'
-$ProgressPreference='SilentlyContinue'
-'''
-    writer = r'''
-class C7LiteralWriter {
-    [string]$Frame=''
-    [void]WriteLine([string]$value) { $this.Frame=$value }
-}
-$writer=[C7LiteralWriter]::new()
-''' if writer_kind == 'authored-class' else '$writer=[IO.StringWriter]::new()\n'
-    body = r'''
-$line='{"owned":true}'
-$state='conversion-refused'
-''' + module.CONVERSION_PROJECTOR + markers[1] + '\ntry {\n' + module.CONVERSION_CALL + markers[2] + r'''
-    $names=@($grant.PSObject.Properties.Name)
-    if ($names.Count -eq 1 -and $names -ccontains 'owned' -and $grant.owned -is [bool] -and $grant.owned -eq $true) {
-        $state='parsed'
-    } else { $state='shape-refused' }
-} catch { $state='conversion-refused' }
-[Console]::Out.WriteLine('{"kind":"authored-real-conversion-control","state":"'+$state+'"}')
-'''
-    body += ("if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }\n"
-        if writer_kind == 'authored-class' else '[Console]::Out.Write($writer.ToString())\n')
-    body += r'''
-if ($state -ceq 'parsed') { exit 0 } else { exit 2 }
-'''
-    if writer_kind == 'string-writer':
-        body = 'try {\n'+body+'\n} finally { $writer.Dispose() }\n'
-    return markers[0]+preferences+writer+body
-
-
-@pytest.mark.skipif(sys.platform != 'win32', reason='Authored real Windows PowerShell cmdlet control unavailable locally')
-def test_authored_real_conversion_under_inherited_and_attempt_environment():
-    # No C7 fixture or grant: exact protected executable, literal input only.
-    try: executable = module.Windows().powershell()
-    except Exception: executable = None
-    script = real_conversion_literal_script('authored-class')
-    boundaries, delivered = {}, {}
-    def run(environment):
-        variant = ('inherited', 'attempt')[len(boundaries)]
-        diagnostic = boundaries[variant] = {}
-        progress = delivered[variant] = {}
-        if executable is None:
-            diagnostic.update(closed_real_control_boundary(None))
-            return None
-        return run_real_conversion_control(executable, script, environment, diagnostic=diagnostic, progress=progress)
-    parent_environment = dict(os.environ)
-    observed = real_conversion_pair(parent_environment, run)
-    system_controls = {}
-    for name, environment in real_conversion_system_environments(parent_environment, executable).items():
-        diagnostic, progress = {}, {}
-        try:
-            value = run_real_conversion_control(executable, script, environment, diagnostic=diagnostic, progress=progress)
-        except Exception:
-            value = None
-        system_controls[name] = {'observation': closed_real_conversion_observation(value),
-            'boundary': closed_real_control_boundary(diagnostic), 'progress': closed_real_control_progress(progress)}
-    writer_script = real_conversion_literal_script('string-writer')
-    writer_boundaries, writer_delivered = {}, {}
-    def run_writer(environment):
-        variant = ('inherited', 'attempt')[len(writer_boundaries)]
-        diagnostic, progress = {}, {}
-        writer_boundaries[variant], writer_delivered[variant] = diagnostic, progress
-        if executable is None:
-            return None
-        return run_real_conversion_control(executable, writer_script, environment,
-            diagnostic=diagnostic, progress=progress)
-    writer_observations = real_conversion_pair(parent_environment, run_writer)
-    writer_controls = {variant: {'observation': value,
-        'boundary': closed_real_control_boundary(writer_boundaries.get(variant)),
-        'progress': closed_real_control_progress(writer_delivered.get(variant))}
-        for variant, value in writer_observations.items()}
-    expected = {'state': 'parsed', 'context': None, 'stderr_present': False}
-    if (any(value != expected for value in observed.values()) or any(
-            value['boundary']['cleanup'] != 'child-exit-and-readers-finished'
-            for value in (*system_controls.values(), *writer_controls.values()))):
-        closed = {key: closed_real_control_boundary(boundaries.get(key)) for key in ('inherited', 'attempt')}
-        progress = {key: closed_real_control_progress(delivered.get(key)) for key in ('inherited', 'attempt')}
-        pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':'))
-            + '; parent boundaries: ' + json.dumps(closed, sort_keys=True, separators=(',', ':'))
-            + '; literal progress: ' + json.dumps(progress, sort_keys=True, separators=(',', ':'))
-            + '; system search controls: ' + json.dumps(system_controls, sort_keys=True, separators=(',', ':'))
-            + '; StringWriter controls: ' + json.dumps(writer_controls, sort_keys=True, separators=(',', ':')))
-
-
-def test_changed_wire_does_not_relabel_historical_v2_receipts():
+@pytest.mark.parametrize('version', [1, 2, 3, 4])
+def test_v5_cannot_relabel_any_historical_receipt(version):
     value = module.receipt()
-    value['schema'] = 'proxy-r19-legacy-lock-attribute-mechanism-v2'
+    value['schema'] = 'proxy-r19-legacy-lock-attribute-mechanism-v'+str(version)
     with pytest.raises(module.Refused): module.public_receipt(value)
 
 
@@ -1701,3 +812,350 @@ def test_baseline_start_boundaries_are_recorded_before_failure_and_survive_clean
     assert value['parent_step'] == expected and value['script_step'] == 'not-started'
     assert value['child_state'] == ('signaled' if failure in {'resume', 'bind'} else 'not-created')
     assert 'private' not in json.dumps(value)
+
+def grant_value(**changes):
+    value = {'root': r'S:\r19-authored\owned', 'source': r'S:\r19-authored\companion-runtime.ps1', 'sha256': 'a'*64}
+    value.update(changes)
+    return value
+
+
+def reference_grant_frame(frame):
+    """Complete sender-frame reference, not proof of pipe EOF after its LF."""
+    if type(frame) is not bytes or not 1 <= len(frame) <= 4096 or not frame.endswith(b'\n') or frame.count(b'\n') != 1 or b'\r' in frame:
+        raise ValueError('Authored frame refused.')
+    parts = frame[:-1].split(b'|')
+    if len(parts) != 4 or parts[0] != b'C7G5': raise ValueError('Authored frame refused.')
+    values = []
+    for token in parts[1:]:
+        raw = base64.b64decode(token, validate=True)
+        if not raw or len(raw) > 3072 or base64.b64encode(raw) != token or raw.startswith(b'\xef\xbb\xbf'):
+            raise ValueError('Authored frame refused.')
+        text = raw.decode('utf-8', errors='strict')
+        if any(character in text for character in ('\0', '\r', '\n')): raise ValueError('Authored frame refused.')
+        values.append(text)
+    if len(values[2]) != 64 or any(character not in '0123456789abcdef' for character in values[2]):
+        raise ValueError('Authored frame refused.')
+    return dict(zip(('root', 'source', 'sha256'), values))
+
+
+def bad_grant_frames():
+    ordinary = module.legacy_grant_bytes(grant_value())
+    parts = ordinary[:-1].split(b'|')
+    def replace(index, value):
+        values = list(parts); values[index] = value
+        return b'|'.join(values)+b'\n'
+    return {
+        'version': ordinary.replace(b'C7G5', b'C7G4', 1),
+        'extra-field': ordinary[:-1]+b'|eA==\n',
+        'missing-field': b'|'.join(parts[:-1])+b'\n',
+        'empty-field': replace(1, b''),
+        'whitespace': replace(1, parts[1]+b' '),
+        'bad-padding': replace(1, b'eA==='),
+        'pad-bits': replace(1, b'eB=='),
+        'bad-alphabet': replace(1, b'???='),
+        'invalid-utf8': replace(1, base64.b64encode(b'\xff')),
+        'bom': replace(1, base64.b64encode(b'\xef\xbb\xbfx')),
+        'nul': replace(1, base64.b64encode(b'x\0y')),
+        'decoded-cr': replace(1, base64.b64encode(b'x\ry')),
+        'decoded-lf': replace(1, base64.b64encode(b'x\ny')),
+        'upper-digest': replace(3, base64.b64encode(b'A'*64)),
+        'short-digest': replace(3, base64.b64encode(b'a'*63)),
+        'nonhex-digest': replace(3, base64.b64encode(b'g'*64)),
+        'crlf': ordinary[:-1]+b'\r\n',
+        'no-terminator': ordinary[:-1],
+        'wire-nul': ordinary.replace(b'C7G5', b'C7\x005', 1),
+        'wire-nonascii': ordinary.replace(b'C7G5', b'C7\xff5', 1),
+    }
+
+
+@pytest.mark.parametrize('value', [grant_value(), grant_value(root=r'S:\r19-authored\中文 ; $literal',
+    source="S:\\r19-authored\\源 'quote'.ps1"), grant_value(root='x'*1497, source='y'*1503)])
+def test_canonical_sender_preserves_exact_three_utf8_values_and_wire_boundary(value):
+    frame = module.legacy_grant_bytes(value)
+    assert reference_grant_frame(frame) == value
+    assert frame.startswith(b'C7G5|') and len(frame) <= 4096
+    assert len(frame[:-1].split(b'|')) == 4 and frame.count(b'\n') == 1
+    if len(value['root']) == 1497: assert len(frame) == 4096
+
+
+@pytest.mark.parametrize('field', ['root', 'source', 'sha256'])
+@pytest.mark.parametrize('invalid', [None, False, 1, '', 'private\0value', 'private\rvalue',
+    'private\nvalue', '\ufeffprivate-value', '\ud800', 'x'*3073])
+def test_canonical_sender_refuses_untyped_empty_control_invalid_utf8_or_oversized_fields(field, invalid):
+    with pytest.raises(module.Refused) as error: module.legacy_grant_bytes(grant_value(**{field: invalid}))
+    assert str(error.value) == 'protocol-refused' and 'private' not in str(error.value)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'extra', 'raw-bytes', 'wrong-dict', 'upper-digest', 'nonhex', 'total-cap'])
+def test_canonical_sender_cannot_accept_raw_wire_extra_fields_or_noncanonical_digest(mutation):
+    value = grant_value()
+    if mutation == 'missing': value.pop('source')
+    if mutation == 'extra': value['private-key'] = 'private-value'
+    if mutation == 'raw-bytes': value = b'C7G5|private-wire\n'
+    if mutation == 'wrong-dict': value = [('root', 'private-value')]
+    if mutation == 'upper-digest': value['sha256'] = 'A'*64
+    if mutation == 'nonhex': value['sha256'] = 'g'*64
+    if mutation == 'total-cap': value.update(root='x'*1498, source='y'*1503)
+    with pytest.raises(module.Refused) as error: module.legacy_grant_bytes(value)
+    assert error.value.code == 'protocol-refused'
+
+
+@pytest.mark.parametrize('name', tuple(bad_grant_frames()))
+def test_complete_frame_reference_rejects_noncanonical_inputs_used_by_native_decoder_cases(name):
+    with pytest.raises((ValueError, UnicodeError)): reference_grant_frame(bad_grant_frames()[name])
+
+
+def test_complete_sender_frame_has_no_second_record_and_does_not_claim_future_pipe_eof():
+    frame = module.legacy_grant_bytes(grant_value())
+    with pytest.raises(ValueError): reference_grant_frame(frame+b'private-extra-line\n')
+    assert reference_grant_frame(frame) == grant_value()
+    # The exact native reader consumes one bounded line, not the future pipe.
+    # Its StringReader preflight separately verifies that tail remains unread.
+
+
+def test_legacy_sender_uses_canonical_bytes_and_original_nonblocking_write_loop_deadline(monkeypatch):
+    now, writes = [0.], []
+    def write(_handle, data, size, count, _overlapped):
+        writes.append(bytes(data.raw[:min(size, 3)])); count._obj.value = min(size, 3)
+        return 1
+    pipe = module.Pipe.__new__(module.Pipe)
+    pipe.handle = SimpleNamespace(value=8)
+    pipe.api = SimpleNamespace(k=SimpleNamespace(WriteFile=write))
+    monkeypatch.setattr(module, 'time', SimpleNamespace(monotonic=lambda: now[0], sleep=lambda _seconds: None))
+    pipe.send_legacy_grant(grant_value(), 1)
+    assert b''.join(writes) == module.legacy_grant_bytes(grant_value())
+    writes.clear(); now[0] = 1
+    with pytest.raises(module.Refused): pipe.send_legacy_grant(grant_value(), 1)
+    assert writes == []
+    pipe.send = lambda *_: pytest.fail('Legacy grant cannot route through JSON send.')
+    now[0] = 0; pipe.send_legacy_grant(grant_value(), 1)
+
+
+@pytest.mark.parametrize('fault', ['refused-write', 'invalid-count', 'zero-until-deadline'])
+def test_canonical_send_faults_cannot_ignore_count_or_restart_the_original_deadline(monkeypatch, fault):
+    now, calls = [0.], []
+    def write(_handle, _data, size, count, _overlapped):
+        calls.append(size)
+        count._obj.value = size+1 if fault == 'invalid-count' else 0
+        return 0 if fault == 'refused-write' else 1
+    pipe = module.Pipe.__new__(module.Pipe)
+    pipe.handle = SimpleNamespace(value=8)
+    pipe.api = SimpleNamespace(k=SimpleNamespace(WriteFile=write))
+    monkeypatch.setattr(module, 'time', SimpleNamespace(monotonic=lambda: now[0],
+        sleep=lambda _seconds: now.__setitem__(0, now[0]+.6)))
+    with pytest.raises(module.Refused) as error: pipe.send_legacy_grant(grant_value(), 1)
+    assert error.value.code == 'protocol-refused'
+    assert len(calls) == (2 if fault == 'zero-until-deadline' else 1)
+
+
+@pytest.mark.parametrize('payload', [{}, False, 'private-context', {'line': 'nonempty', 'exceptions': ['argument']}])
+def test_v5_conversion_diagnostic_is_strictly_null_for_every_receipt(payload):
+    value = module.receipt(); value['grant_conversion_failure'] = payload
+    with pytest.raises(module.Refused): module.public_receipt(value)
+    value = successful_receipt(); value['grant_conversion_failure'] = payload
+    with pytest.raises(module.Refused): module.public_receipt(value)
+
+
+@pytest.mark.parametrize('stages', [['connected'], ['connected', 'grantread'],
+    ['connected', 'grantread', 'grantparsed']])
+def test_v5_rejects_historical_conversion_frame_without_adopting_it_as_progress(stages):
+    old_frame = {'kind': 'grant-conversion-failure', 'line': 'nonempty',
+        'exceptions': ['argument'], 'chain_end': 'complete', 'category': 'InvalidArgument'}
+    attempt = progress_attempt([*({'kind': 'checkpoint', 'stage': stage} for stage in stages), old_frame])
+    attempt.pipe.finish = lambda *_: pytest.fail('Unknown v4 frame cannot reach terminal EOF admission.')
+    with pytest.raises(module.Refused): attempt.script_exchange(grant_value())
+    assert attempt.checkpoint_locked and attempt.checkpoint['script_step'] == stages[-1]
+    assert module.receipt()['grant_conversion_failure'] is None
+
+
+@pytest.mark.parametrize('cleanup_fails', [False, True])
+def test_legacy_grant_refusal_preserves_primary_or_cleanup_error_and_closes_owned_attempt_once(monkeypatch, tmp_path, cleanup_fails):
+    primary, cleanup = module.Refused('protocol-refused'), module.Refused('owned-cleanup-unconfirmed')
+    calls = []
+    class Attempt:
+        def __init__(self, *args, checkpoint_value=None): self.checkpoint_locked = False
+        def script_exchange(self, value):
+            assert set(value) == {'root', 'source', 'sha256'}
+            raise primary
+        def close(self):
+            calls.append('close')
+            if cleanup_fails: raise cleanup
+    monkeypatch.setattr(module, 'Attempt', Attempt)
+    monkeypatch.setattr(module, 'source_bytes', lambda *_: next(iter(module.SOURCE_HASHES)))
+    with pytest.raises(module.Refused) as error:
+        module.legacy(SimpleNamespace(powershell=lambda: 'authored-program'), tmp_path,
+            next(iter(module.SOURCE_HASHES)), 'open', checkpoint_value=module.checkpoint())
+    assert error.value is (cleanup if cleanup_fails else primary) and calls == ['close']
+
+
+def closed_grant_codec_observation(value):
+    fallback = {'state': 'unavailable', 'stderr_present': False}
+    if type(value) is not dict:
+        return fallback
+    if type(value.get('stderr_present')) is bool:
+        fallback['stderr_present'] = value['stderr_present']
+    if (set(value) != {'state', 'stderr_present'} or type(value['state']) is not str
+            or value['state'] not in {'passed', 'failed', 'unavailable'}
+            or type(value['stderr_present']) is not bool):
+        return fallback
+    return dict(value)
+
+
+def grant_codec_observation(code, output, stderr):
+    unavailable = {'state': 'unavailable', 'stderr_present': bool(stderr)}
+    try:
+        if type(code) is not int or code not in (0, 2) or type(output) is not bytes or len(output) > 8192 or type(stderr) is not bytes or len(stderr) > 8192:
+            return unavailable
+        def unique(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value: raise ValueError('Authored codec frame differs.')
+                value[key] = item
+            return value
+        lines = output.splitlines()
+        if len(lines) != 1: return unavailable
+        value = json.loads(lines[0], object_pairs_hook=unique)
+        if (type(value) is not dict or set(value) != {'kind', 'positive', 'negative', 'reader'}
+                or value['kind'] != 'authored-c7g5-codec'
+                or any(type(value[key]) is not bool for key in ('positive', 'negative', 'reader'))):
+            return unavailable
+        good = all(value[key] for key in ('positive', 'negative', 'reader'))
+        if code != (0 if good else 2): return unavailable
+        return {'state': 'passed' if good else 'failed', 'stderr_present': bool(stderr)}
+    except (ValueError, UnicodeError, TypeError):
+        return unavailable
+
+
+@pytest.mark.parametrize('mutation', ['absent', 'partial', 'duplicate-key', 'extra-key', 'private-kind', 'numeric-bool', 'multiple', 'wrong-exit', 'oversized'])
+def test_codec_preflight_observation_refuses_malformed_private_or_inconsistent_frames(mutation):
+    frame = {'kind': 'authored-c7g5-codec', 'positive': True, 'negative': True, 'reader': True};code = 0
+    if mutation == 'extra-key': frame['private-path'] = 'private-value'
+    if mutation == 'private-kind': frame['kind'] = 'private-type'
+    if mutation == 'numeric-bool': frame['reader'] = 1
+    raw = json.dumps(frame).encode('ascii')
+    if mutation == 'absent': raw = b''
+    if mutation == 'partial': raw = raw[:-1]
+    if mutation == 'duplicate-key': raw = raw.replace(b'"reader": true', b'"reader": true,"reader":false')
+    if mutation == 'multiple': raw += b'\n'+raw
+    if mutation == 'wrong-exit': code = 2
+    if mutation == 'oversized': raw += b' '*8192
+    result = grant_codec_observation(code, raw, b'private-stderr')
+    assert result == {'state': 'unavailable', 'stderr_present': True}
+    assert 'private' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('field', ['positive', 'negative', 'reader'])
+def test_every_failed_native_codec_axis_requires_failed_exit_and_cannot_pass(field):
+    value = {'kind': 'authored-c7g5-codec', 'positive': True, 'negative': True, 'reader': True}
+    value[field] = False
+    raw = json.dumps(value).encode('ascii')
+    assert grant_codec_observation(2, raw, b'') == {'state': 'failed', 'stderr_present': False}
+    assert grant_codec_observation(0, raw, b'')['state'] == 'unavailable'
+
+
+@pytest.mark.parametrize('refusal', ['none', 'inherited', 'attempt', 'cleanup', 'private-runner'])
+def test_v5_native_pair_measures_both_exact_maps_before_hard_decision_and_closed_diagnostic(monkeypatch, refusal):
+    image = r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    parent = {'SystemRoot': 'authored-root', 'TEMP': 'authored-temp', 'PATH': 'private-tools'}
+    monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(powershell=lambda: image))
+    monkeypatch.setitem(globals(), 'os', SimpleNamespace(environ=parent))
+    calls = []
+    def run(executable, script, environment, *, diagnostic):
+        assert executable == image
+        calls.append(dict(environment))
+        diagnostic.update(refusal='none', stderr_prefix='empty', cleanup='child-exit-and-readers-finished')
+        if refusal == 'cleanup' and len(calls) == 2: diagnostic['cleanup'] = 'unconfirmed'
+        if refusal == 'private-runner': return {'state': 'private-state', 'stderr_present': True, 'raw': 'private-value'}
+        failed = refusal == ('inherited' if len(calls) == 1 else 'attempt')
+        return {'state': 'failed' if failed else 'passed', 'stderr_present': False}
+    monkeypatch.setitem(globals(), 'run_grant_codec_control', run)
+    if refusal == 'none': test_actual_c7g5_decoder_under_inherited_and_exact_attempt_environment()
+    else:
+        with pytest.raises(pytest.fail.Exception) as failed:
+            test_actual_c7g5_decoder_under_inherited_and_exact_attempt_environment()
+        assert 'private-' not in str(failed.value) and image not in str(failed.value)
+    assert calls == [parent, module.legacy_environment(parent)]
+    assert parent['PATH'] == 'private-tools'
+
+
+def grant_codec_script():
+    positive = module.legacy_grant_bytes(grant_value())
+    unicode_value = grant_value(root=r'S:\r19-authored\中文 ; $literal', source="S:\\r19-authored\\源 'quote'.ps1")
+    unicode_frame = module.legacy_grant_bytes(unicode_value)
+    def b64(raw): return base64.b64encode(raw).decode('ascii')
+    # Fixed short authored vectors; no private path/source/grant is included.
+    positives = ','.join("'"+b64(frame)+"'" for frame in (positive, unicode_frame))
+    negatives = ','.join("'"+b64(frame)+"'" for frame in bad_grant_frames().values())
+    roots = ','.join("'"+b64(value['root'].encode('utf-8'))+"'" for value in (grant_value(), unicode_value))
+    sources = ','.join("'"+b64(value['source'].encode('utf-8'))+"'" for value in (grant_value(), unicode_value))
+    sha_token = b64(b'a'*64)
+    return "$ErrorActionPreference='Stop'\n$ProgressPreference='SilentlyContinue'\n" + module.LEGACY_GRANT_DECODER + r'''
+$positive=$true; $negative=$true; $readerGood=$true
+$utf8=[Text.UTF8Encoding]::new($false,$true)
+$frames=@(__POSITIVES__); $roots=@(__ROOTS__); $sources=@(__SOURCES__)
+for ($index=0; $index -lt 2; $index++) {
+    $codecReader=[IO.StringReader]::new([Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($frames[$index])))
+    try {
+        $value=Convert-C7Grant (Read-C7GrantLine $codecReader)
+        $expectedRoot=$utf8.GetString([Convert]::FromBase64String($roots[$index]))
+        $expectedSource=$utf8.GetString([Convert]::FromBase64String($sources[$index]))
+        $names=@($value.PSObject.Properties.Name)
+        if ($names.Count -ne 3 -or $names -cnotcontains 'root' -or $names -cnotcontains 'source' -or
+            $names -cnotcontains 'sha256' -or $value.root -isnot [string] -or $value.source -isnot [string] -or
+            $value.sha256 -isnot [string] -or -not [string]::Equals($value.root,$expectedRoot,[StringComparison]::Ordinal) -or
+            -not [string]::Equals($value.source,$expectedSource,[StringComparison]::Ordinal) -or
+            -not [string]::Equals($value.sha256,('a'*64),[StringComparison]::Ordinal)) { $positive=$false }
+    } catch { $positive=$false } finally { $codecReader.Dispose() }
+}
+$bad=@(__NEGATIVES__)
+$refused=0
+foreach ($encoded in $bad) {
+    $codecReader=[IO.StringReader]::new([Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($encoded)))
+    try { $value=Convert-C7Grant (Read-C7GrantLine $codecReader); $negative=$false }
+    catch { $refused++ } finally { $codecReader.Dispose() }
+}
+if ($bad.Count -ne __NEGATIVE_COUNT__ -or $refused -ne __NEGATIVE_COUNT__) { $negative=$false }
+$boundary='C7G5|'+('eHh4'*499)+'|'+('eXl5'*501)+'|__SHA__'+[char]10
+$codecReader=[IO.StringReader]::new($boundary)
+try {
+    $value=Convert-C7Grant (Read-C7GrantLine $codecReader)
+    if ($boundary.Length -ne 4096 -or $value.root -cne ('x'*1497) -or $value.source -cne ('y'*1503)) { $readerGood=$false }
+} catch { $readerGood=$false } finally { $codecReader.Dispose() }
+$codecReader=[IO.StringReader]::new($boundary.Substring(0,4095)+'x'+[char]10)
+try { $value=Convert-C7Grant (Read-C7GrantLine $codecReader); $readerGood=$false }
+catch { } finally { $codecReader.Dispose() }
+$codecReader=[IO.StringReader]::new([Text.Encoding]::ASCII.GetString([Convert]::FromBase64String($frames[0]))+'tail')
+try {
+    $value=Convert-C7Grant (Read-C7GrantLine $codecReader)
+    if ($codecReader.Read() -ne 116) { $readerGood=$false }
+} catch { $readerGood=$false } finally { $codecReader.Dispose() }
+[Console]::Out.WriteLine('{"kind":"authored-c7g5-codec","positive":'+$positive.ToString().ToLowerInvariant()+
+    ',"negative":'+$negative.ToString().ToLowerInvariant()+',"reader":'+$readerGood.ToString().ToLowerInvariant()+'}')
+if ($positive -and $negative -and $readerGood) { exit 0 } else { exit 2 }
+'''.replace('__POSITIVES__', positives).replace('__NEGATIVES__', negatives).replace('__NEGATIVE_COUNT__', str(len(bad_grant_frames()))).replace('__ROOTS__', roots).replace('__SOURCES__', sources).replace('__SHA__', sha_token)
+
+
+def measure_grant_codec_pair(parent, run):
+    snapshot = dict(parent)
+    result = {}
+    for name, environment in (('inherited', snapshot), ('attempt', module.legacy_environment(snapshot))):
+        boundary = {}
+        try: value = run(environment, boundary)
+        except Exception: value = {'state': 'unavailable', 'stderr_present': False}
+        result[name] = {'observation': closed_grant_codec_observation(value),
+            'boundary': closed_real_control_boundary(boundary)}
+    return result
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Exact v5 .NET grant decoder unavailable locally')
+def test_actual_c7g5_decoder_under_inherited_and_exact_attempt_environment():
+    try: executable = module.Windows().powershell()
+    except Exception: executable = None
+    script = grant_codec_script()
+    def run(environment, boundary):
+        if executable is None: return {'state': 'unavailable', 'stderr_present': False}
+        return run_grant_codec_control(executable, script, environment, diagnostic=boundary)
+    results = measure_grant_codec_pair(dict(os.environ), run)
+    if any(value['observation'] != {'state': 'passed', 'stderr_present': False}
+            or value['boundary']['cleanup'] != 'child-exit-and-readers-finished' for value in results.values()):
+        pytest.fail('Authored C7G5 codec controls refused: '+json.dumps(results,sort_keys=True,separators=(',',':')))
