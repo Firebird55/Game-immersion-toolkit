@@ -114,6 +114,12 @@ function job(name, source = workflow) {
   return end < 0 ? content : content.slice(0, end + 1);
 }
 
+test('source Python gate installs and caches the pinned packaging test dependencies', () => {
+  const check = job('check');
+  assert.match(check, /cache-dependency-path: \|\n\s+requirements\.lock\.txt\n\s+packaging\/desktop\/build-requirements\.lock\.txt/);
+  assert.match(check, /run: python -m pip install -r requirements\.lock\.txt -r packaging\/desktop\/build-requirements\.lock\.txt\n\s+if: steps\.scope\.outputs\.python == 'true'/);
+});
+
 test('publication waits for native construction and rechecks all downloaded artifacts', () => {
   assert.match(job('publish'), /needs: \[package, native-desktop\]/);
   assert.match(job('publish'), /pattern: tested-desktop-\*/);

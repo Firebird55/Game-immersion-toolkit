@@ -1,6 +1,6 @@
 # Game immersion toolkit release runbook
 
-Install Node 24; npm ci; npm run check. Install Python 3.12 dependencies with python -m pip install -r requirements.lock.txt. CI runs on Windows without live games or native OCR.
+Install Node 24; npm ci; npm run check. Install Python 3.12 development and packaging-test dependencies with `python -m pip install -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt`. These build tools are not installed-user prerequisites. CI runs on Windows without live games or native OCR.
 The shared package in vendor is pinned by version and sourceCommit. Edit shared source in the sibling lexirise-shared-components repository, publish there, then run npm run shared:update -- --version <version> --all from that repository.
 GitHub-hosted Actions only, never Argo or cluster dependencies.
 

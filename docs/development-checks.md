@@ -80,7 +80,12 @@ Use Node 24, `npm ci`, and `npm run dev:prepare` to prepare JavaScript and
 generated mobile assets. Install Playwright engines explicitly with
 `npx playwright install chromium firefox webkit` when browser checks are needed.
 For backend work create a project `.venv` using Python 3.12 and install the
-locked requirements into it. Some packages and acceptance checks need Windows.
+runtime and build-test locks with `python -m pip install -r requirements.lock.txt
+-r packaging/desktop/build-requirements.lock.txt`. Backend tests exercise the
+real pinned PyInstaller API and interpreter discovery. These build tools are
+development dependencies, not prerequisites for installed users. Browser-only
+Python scenarios need only `requirements.lock.txt`. The doctor checks the locks
+required by the selected scope. Some packages and acceptance checks need Windows.
 Development runners choose `PYTHON`, then this project's `.venv`, then PATH
 (`python` on Windows, `python3` elsewhere). An incomplete project venv is an
 error; a running companion's installed environment is never used as a fallback.
