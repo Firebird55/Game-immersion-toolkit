@@ -4,6 +4,10 @@ This record supersedes pending construction observations in the earlier delivery
 plans. It separates accepted target packages from final release and installation.
 The historical R19 plan retains its broader, unfinished acceptance rows.
 
+The first tag attempt was stopped by the Windows source-integrity gate. The
+[metadata investigation](native-release-metadata-2026-11-01.md) records the exact
+cause and the required patch-release verification; 0.23.0 remains unpublished.
+
 ## Exact target evidence
 
 | Source | Target | Hosted result |
