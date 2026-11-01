@@ -176,6 +176,20 @@ page origin. Focused tests cover separate custom-port hosts, secure WebSockets
 and absence of the standalone marker. Native execution of this correction is
 still required; the failed candidate is not accepted for release.
 
+The combined PR #60 snapshot at `6d3f36e` was exercised by
+[candidate run 41254052837](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41254052837)
+and [PR run 41254057501](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41254057501).
+Publication audits passed. Application checks recorded 4,108 passes before
+Windows fixture/parameter-ID and missing build-test dependency failures; the
+browser groups consequently did not run. Those failures have focused fixes,
+but require the next combined hosted run. Windows frozen lifecycle checks passed;
+the visible UI still lacked mounted-reader navigation evidence. Linux/macOS
+stopped while collecting vgmstream's usage guide after compilation: the pinned
+archive stores it at `doc/USAGE.md`. The corrected collection was checked against
+that exact source archive. None of these three native targets is yet accepted.
+Native UI reports now retain fixed failure codes without exposing raw logs,
+paths, tokens or account diagnostics.
+
 Primary references: [PyInstaller operating model](https://pyinstaller.org/en/stable/operating-mode.html),
 [Qt licensing](https://doc.qt.io/qt-6/licensing.html),
 [PySide licenses](https://doc.qt.io/qtforpython-6/licenses.html),

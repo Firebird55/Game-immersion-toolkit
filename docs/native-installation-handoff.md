@@ -34,6 +34,13 @@ root before treating the cache as reusable. Runtime helpers come from the
 verified native payload; old source `.venv`, `node_modules`, downloaded helper
 executables and build intermediates are not installation inputs.
 
+When the owner explicitly chooses a fresh history, omit transcript, favorite,
+export and reading-cache databases from the transfer and let the native app
+create empty stores. This does not authorize resetting settings, calibration,
+language selections or protected credentials. Record that choice in the private
+handoff inventory; history preservation is then excluded from the acceptance
+check below. The untouched old installation can still serve as rollback.
+
 ## Transition
 
 1. Install the verified native payload with its final launch option disabled
