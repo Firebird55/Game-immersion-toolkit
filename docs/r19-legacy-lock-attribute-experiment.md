@@ -744,7 +744,7 @@ ACL, exact OS-module-byte provenance or sandbox claim. Import-Module executes
 that trusted OS manifest; post-import checks cannot sandbox an untrusted one or
 prove the engine never consults its own internal metadata caches.
 
-The readable shared fragment is capped at 6,000 ASCII characters. Portable
+The readable shared fragment is capped at 6,400 ASCII characters. Portable
 contracts check the actual legacy command builder and both control commands
 using Windows quoting and UTF-16 code units, including the terminating NUL,
 against 32,767 units. The Windows controls repeat the check with the actual
@@ -757,11 +757,77 @@ All original Enter bytes, source hash/AST checks, grant decoder, ordered progres
 operation result/classification, native ABI/attributes/identity/times,
 retained-creation owner-loss sequence and cleanup predicates remain unchanged.
 Portable tests and source-preservation comparisons establish only these source
-properties. The two shared-bootstrap controls and original actual mechanism
-remain **native pending**. A later successful bootstrapped observation would
+properties. At that source checkpoint the shared-bootstrap controls and actual
+mechanism were **native pending**; the 020 result below records the controls
+refusing before the mechanism. A later successful bootstrapped observation would
 belong to this candidate, not relabel the raw 589 attempt or prove its cause.
 Production, keeper-loss and rights approvals remain false; ordinary-user Windows
 11 remains unavailable. R18 and R19 completion remain unestablished.
+
+## 020 bootstrap refusal and closed phase-only localization
+
+Exact `020c44fec8afd66de9e471fe732cb852af5a96da`
+[run 41316192484](https://github.com/matthias-van-der-galien/Game-immersion-toolkit/actions/runs/41316192484),
+job 124876672717, image `20261021.278.1`, passed 267 Windows contracts and failed
+one, with zero skips in 5.06 seconds. Both shared-bootstrap controls retained
+only `fixture-validated`, with protocol refusal, stderr present and fixed CLIXML
+prefix metadata. Both direct children/readers finished and both fixtures were
+removed after confirmed cleanup. The actual mechanism was skipped and zero
+artifacts were uploaded. This establishes no bootstrap stage or cause; in
+particular it is not evidence for an autoload, parameter-binding or GAC cause.
+The raw 589 result and this 020 negative keep their separate identities.
+
+The new source candidate adds only one finite private `C7BootstrapPhase` variable
+to the identical shared module fragment, immediately before image, paths, core,
+import, module, assembly and visible checks, then complete. It adds no IO,
+stdout, imports, trust paths, environment, conditions, retries or deadline to
+that fragment. Removing these assignments recovers the entire reviewed 020
+bootstrap byte-for-byte. The actual legacy script ignores the variable and
+retains its original exception, named-pipe exchange, source/Enter criteria and
+cleanup behavior. There is no public mechanism checkpoint or schema change.
+
+Only the two existing operation controls wrap precisely that shared fragment in
+try/catch, after private fixture validation and before the original operation
+body. The original ErrorRecord is retained privately; no message, stack, path,
+type name or arbitrary value is serialized. A caught error emits exactly one
+fixed ASCII terminal line and exits 2:
+
+```text
+C7B|<finite phase>|<finite error category>
+```
+
+Phase is checked against the fixed eight stage names; unavailable is the fixed
+fallback if the variable cannot supply one. Error is guard for the known fixed
+bootstrap guard refusal, close for its known once-close refusal, binding for a
+ParameterBindingException within at most four exception objects, or other.
+These are coarse private-error families, not cause diagnoses or permission to
+weaken a guard. Actual CurrentProcess close error/object retention is preserved;
+the control catch never retries Dispose or replaces the original retained
+ErrorRecord. Fixture, parsing, startup or later operation failures are outside
+this narrowly caught fragment and cannot produce a fabricated bootstrap stage.
+
+The test-only operation observer gains exactly two finite fields:
+`bootstrap_phase` and `bootstrap_error`. It admits a C7B context only after the
+single complete `fixture-validated` line, as the sole complete terminal record,
+with exit 2 and no stderr. Unknown, duplicated, out-of-order, BOM/non-ASCII,
+extra-field, trailing or incomplete records cannot supply context. A deadline
+or uncertain runner cleanup supplies no accepted bootstrap context even if a
+complete error line was captured. Unavailable means no such context was
+admitted; it does not mean an operation did not occur. Full success still
+requires every unchanged ordered operation marker, exit 0, complete/none
+bootstrap fields, empty stderr and confirmed runner/fixture cleanup. An error
+context never supplies an operation or mechanism success.
+
+The fragment remains below 6,400 ASCII characters and all complete encoded
+commands remain checked against the same 32,767 UTF-16-unit Windows limit,
+including the actual protected image, quoting and terminating NUL. No file or
+wire fallback, extra child or diagnostic variant is added. Portable contracts
+cover every finite error context and malformed/deadline/privacy negatives,
+plus preservation of the actual legacy script, Enter source, helper, schema,
+15-name environment, deadlines and original operation/cleanup predicates.
+The revised controls and actual mechanism remain **native pending**. No module
+repair, historical failure cause or production/rights/Win11/R18/R19 acceptance
+follows from portable checks or the earlier negative observations.
 
 ## Current source validation
 

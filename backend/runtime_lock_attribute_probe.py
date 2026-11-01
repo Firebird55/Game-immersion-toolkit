@@ -531,6 +531,7 @@ LEGACY_GRANT_DECODER = r'''
 
 # Fixed OS module prerequisite; never a path-search or lock implementation fallback.
 LEGACY_SYSTEM_MODULE = r'''
+$C7BootstrapPhase='image'
 $C7ModuleOwners=[Collections.Generic.List[object]]::new()
 $C7ModuleErrors=[Collections.Generic.List[object]]::new()
 function Assert-C7SystemPath([string]$Path,[bool]$Directory) {
@@ -572,10 +573,12 @@ finally {
 }
 if (-not [string]::Equals($PSHOME,$systemHome,[StringComparison]::OrdinalIgnoreCase) -or
     -not [string]::Equals($image,[IO.Path]::Combine($systemHome,'powershell.exe'),[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+$C7BootstrapPhase='paths'
 Assert-C7SystemPath $image $false
 $manifest=[IO.Path]::Combine($systemHome,'Modules\Microsoft.PowerShell.Management\Microsoft.PowerShell.Management.psd1')
 Assert-C7SystemPath $manifest $false
 if ([IO.FileInfo]::new($manifest).Length -gt 131072) { throw 'System module refused.' }
+$C7BootstrapPhase='core'
 $sma=[Management.Automation.PSObject].Assembly
 $smaPath=Get-C7AssemblyPath $sma 'System.Management.Automation'
 $gac=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($smaPath)))
@@ -589,17 +592,21 @@ foreach ($pair in @(@($import,'ImportModuleCommand'),@($get,'GetCommandCommand')
         $pair[0].ImplementingType.FullName -cne ('Microsoft.PowerShell.Commands.'+$pair[1]) -or
         -not [object]::ReferenceEquals($pair[0].ImplementingType.Assembly,$sma)) { throw 'System module refused.' }
 }
+$C7BootstrapPhase='import'
 $loaded=@(& $import -Name $manifest -PassThru -Scope Local -NoClobber -Cmdlet Join-Path,New-Item -Function @() -Alias @() -Variable @() -ErrorAction Stop)
+$C7BootstrapPhase='module'
 if ($loaded.Count -ne 1 -or $loaded[0] -isnot [Management.Automation.PSModuleInfo] -or
     $loaded[0].Name -cne 'Microsoft.PowerShell.Management' -or
     -not [string]::Equals($loaded[0].Path,$manifest,[StringComparison]::OrdinalIgnoreCase) -or
     -not [string]::Equals($loaded[0].ModuleBase,[IO.Path]::GetDirectoryName($manifest),[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+$C7BootstrapPhase='assembly'
 $management=$loaded[0].ExportedCmdlets['Join-Path'].ImplementingType.Assembly
 $managementPath=Get-C7AssemblyPath $management 'Microsoft.PowerShell.Commands.Management'
 $managementGac=[IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($managementPath)))
 $token=[BitConverter]::ToString($sma.GetName().GetPublicKeyToken())
 if ([string]::IsNullOrEmpty($token) -or $token -cne [BitConverter]::ToString($management.GetName().GetPublicKeyToken()) -or
     -not [string]::Equals($gac,$managementGac,[StringComparison]::OrdinalIgnoreCase)) { throw 'System module refused.' }
+$C7BootstrapPhase='visible'
 foreach ($pair in @(@('Join-Path','JoinPathCommand'),@('New-Item','NewItemCommand'),@('Out-Null','OutNullCommand'))) {
     $visible=@(& $get -Name $pair[0] -ListImported -All -CommandType Alias,Function,Filter,Cmdlet -ErrorAction Stop)
     $assembly=$management
@@ -610,6 +617,7 @@ foreach ($pair in @(@('Join-Path','JoinPathCommand'),@('New-Item','NewItemComman
         $visible[0].ImplementingType.FullName -cne ('Microsoft.PowerShell.Commands.'+$pair[1]) -or
         -not [object]::ReferenceEquals($visible[0].ImplementingType.Assembly,$assembly)) { throw 'System module refused.' }
 }
+$C7BootstrapPhase='complete'
 '''
 
 

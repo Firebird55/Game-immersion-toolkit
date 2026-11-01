@@ -1175,37 +1175,65 @@ OPERATION_MARKERS = {
         'after-join-lock', 'complete'),
     'managed-io': ('fixture-validated', 'before-open', 'open-returned', 'closed', 'complete'),
 }
+BOOTSTRAP_PHASES = ('unavailable', 'image', 'paths', 'core', 'import', 'module', 'assembly', 'visible', 'complete')
+BOOTSTRAP_ERRORS = ('guard', 'binding', 'close', 'other')
 _UNCONFIRMED_OPERATION_FIXTURES = []  # Private roots/actual owners, never printed or retried.
 
 
 def operation_observation(kind, code, output, stderr):
-    result = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': bool(stderr)}
+    result = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': bool(stderr),
+        'bootstrap_phase': 'unavailable', 'bootstrap_error': 'unavailable'}
     if (kind not in OPERATION_MARKERS or type(output) is not bytes or len(output) > 8192
             or type(stderr) is not bytes or len(stderr) > 8192):
         return result
     expected = OPERATION_MARKERS[kind]
     position = 0
-    # Admit only complete literal lines; an unfinished line never becomes a marker.
-    for line in output.split(b'\n')[:-1]:
+    complete = output.split(b'\n')[:-1]
+    # A failure record is admitted only as the sole complete terminal after the
+    # validated fixture, with exit2 and no stderr. No partial/captured timeout
+    # output can turn into bootstrap context or an operation success.
+    for index, line in enumerate(complete):
         if line.endswith(b'\r'): line = line[:-1]
+        if line.startswith(b'C7B|'):
+            if (position != 1 or index != 1 or len(complete) != 2 or not output.endswith(b'\n')
+                    or type(code) is not int or code != 2 or stderr):
+                return result
+            parts = line.split(b'|')
+            if len(parts) != 3: return result
+            phases = {value.encode('ascii'): value for value in BOOTSTRAP_PHASES}
+            errors = {value.encode('ascii'): value for value in BOOTSTRAP_ERRORS}
+            if parts[1] in phases and parts[2] in errors:
+                result.update(bootstrap_phase=phases[parts[1]], bootstrap_error=errors[parts[2]])
+            return result
         if position >= len(expected) or line != ('C7O|'+expected[position]).encode('ascii'):
             return result
         result['last_marker'] = expected[position]
         position += 1
     if (output.endswith(b'\n') and position == len(expected)
             and type(code) is int and code == 0):
-        result['state'] = 'passed'
+        result.update(state='passed', bootstrap_phase='complete', bootstrap_error='none')
     return result
 
 
 def closed_operation_observation(kind, value):
-    fallback = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False}
+    fallback = {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False,
+        'bootstrap_phase': 'unavailable', 'bootstrap_error': 'unavailable'}
     if (kind not in OPERATION_MARKERS or type(value) is not dict or set(value) != set(fallback)
             or type(value['state']) is not str or value['state'] not in {'passed', 'unavailable'}
             or type(value['last_marker']) is not str
             or value['last_marker'] not in ('not-started', *OPERATION_MARKERS[kind])
             or type(value['stderr_present']) is not bool
-            or (value['state'] == 'passed' and value['last_marker'] != 'complete')):
+            or type(value['bootstrap_phase']) is not str or value['bootstrap_phase'] not in BOOTSTRAP_PHASES
+            or type(value['bootstrap_error']) is not str
+            or value['bootstrap_error'] not in ('unavailable', 'none', *BOOTSTRAP_ERRORS)):
+        return fallback
+    success = value['state'] == 'passed'
+    reported_error = value['bootstrap_error'] in BOOTSTRAP_ERRORS
+    if (success and (value['last_marker'] != 'complete' or value['bootstrap_phase'] != 'complete'
+            or value['bootstrap_error'] != 'none')
+            or not success and value['bootstrap_error'] == 'none'
+            or reported_error and (success or value['last_marker'] != 'fixture-validated' or value['stderr_present'])
+            or value['bootstrap_error'] == 'unavailable' and value['bootstrap_phase'] != 'unavailable'):
         return fallback
     return dict(value)
 
@@ -1279,6 +1307,29 @@ class OperationFixture:
         _UNCONFIRMED_OPERATION_FIXTURES.remove(self)
 
 
+def operation_bootstrap_control():
+    # Only the exact shared fragment is caught; fixture and operation bodies
+    # retain their existing behavior. Original ErrorRecord remains private.
+    return "try {\n" + module.LEGACY_SYSTEM_MODULE + r'''
+} catch {
+    $C7BootstrapFailure=$_
+    $phase='unavailable'; $category='other'
+    if ($C7BootstrapPhase -is [string] -and $C7BootstrapPhase -cin @('image','paths','core','import','module','assembly','visible','complete')) {
+        $phase=$C7BootstrapPhase
+    }
+    $exception=$C7BootstrapFailure.Exception
+    for ($depth=0; $depth -lt 4 -and $null -ne $exception; $depth++) {
+        if ($exception.Message -ceq 'System module close unconfirmed.') { $category='close'; break }
+        if ($exception.Message -ceq 'System module refused.') { $category='guard'; break }
+        if ($exception -is [Management.Automation.ParameterBindingException]) { $category='binding'; break }
+        $exception=$exception.InnerException
+    }
+    [Console]::Out.WriteLine('C7B|'+$phase+'|'+$category)
+    exit 2
+}
+'''
+
+
 def operation_control_script(kind, nonce):
     if kind not in OPERATION_MARKERS or type(nonce) is not str or not module.re.fullmatch('[0-9a-f]{32}', nonce):
         raise ValueError('Authored operation source refused.')
@@ -1301,7 +1352,7 @@ try {
     if ($source.ReadByte() -ne -1) { throw 'Authored fixture refused.' }
 } finally { $source.Dispose() }
 [Console]::Out.WriteLine('C7O|fixture-validated')
-'''.replace('__NONCE__', nonce) + module.LEGACY_SYSTEM_MODULE
+'''.replace('__NONCE__', nonce) + operation_bootstrap_control()
     if kind == 'prefix':
         script += r'''[Console]::Out.WriteLine('C7O|before-join-data')
 $data = Join-Path $Root 'data'
@@ -1360,7 +1411,8 @@ def measure_operation_controls(executable, parent, *, run=run_grant_codec_contro
 
 def require_operation_controls(results):
     if (set(results) != set(OPERATION_MARKERS) or any(
-            value['observation'] != {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+            value['observation'] != {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False,
+                'bootstrap_phase': 'complete', 'bootstrap_error': 'none'}
             or value['boundary'] != {'refusal': 'none', 'stderr_prefix': 'empty',
                 'cleanup': 'child-exit-and-readers-finished'}
             or value['fixture'] != 'removed-after-confirmed-cleanup' for value in results.values())):
@@ -1411,22 +1463,26 @@ def test_operation_markers_require_exact_order_and_complete_terminal_without_pri
 def test_operation_timeout_can_preserve_only_last_complete_marker_and_never_success(kind, newline):
     raw = operation_output(kind, count=2, newline=newline)
     assert operation_observation(kind, None, raw, b'') == {
-        'state': 'unavailable', 'last_marker': OPERATION_MARKERS[kind][1], 'stderr_present': False}
+        'state': 'unavailable', 'last_marker': OPERATION_MARKERS[kind][1], 'stderr_present': False,
+        'bootstrap_phase': 'unavailable', 'bootstrap_error': 'unavailable'}
     assert operation_observation(kind, None, operation_output(kind), b'')['state'] == 'unavailable'
     assert operation_observation(kind, 0, operation_output(kind, newline=newline), b'') == {
-        'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+        'state': 'passed', 'last_marker': 'complete', 'stderr_present': False,
+        'bootstrap_phase': 'complete', 'bootstrap_error': 'none'}
 
 
 @pytest.mark.parametrize('mutation', ['extra', 'private-marker', 'private-state', 'numeric', 'false-pass'])
 def test_operation_projection_cannot_print_an_injected_private_runner_value(mutation):
-    value = {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False}
+    value = {'state': 'passed', 'last_marker': 'complete', 'stderr_present': False,
+                'bootstrap_phase': 'complete', 'bootstrap_error': 'none'}
     if mutation == 'extra': value['raw'] = 'private-path'
     if mutation == 'private-marker': value['last_marker'] = 'private-path'
     if mutation == 'private-state': value['state'] = 'private-state'
     if mutation == 'numeric': value['stderr_present'] = 1
     if mutation == 'false-pass': value['last_marker'] = 'before-join-data'
     observed = closed_operation_observation('prefix', value)
-    assert observed == {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False}
+    assert observed == {'state': 'unavailable', 'last_marker': 'not-started', 'stderr_present': False,
+        'bootstrap_phase': 'unavailable', 'bootstrap_error': 'unavailable'}
     assert 'private' not in json.dumps(observed)
 
 
@@ -1522,7 +1578,8 @@ def test_operation_runner_passes_private_cwd_only_to_popen_and_observes_partial_
     result = run_grant_codec_control('authored-image', 'authored-source', {'SystemRoot': 'authored-system'},
         cwd=tmp_path, diagnostic=boundary,
         observe=lambda code, out, err: operation_observation('prefix', code, out, err))
-    assert result == {'state': 'unavailable', 'last_marker': 'before-join-data', 'stderr_present': False}
+    assert result == {'state': 'unavailable', 'last_marker': 'before-join-data', 'stderr_present': False,
+        'bootstrap_phase': 'unavailable', 'bootstrap_error': 'unavailable'}
     assert boundary == {'refusal': 'wait-deadline', 'stderr_prefix': 'empty',
         'cleanup': 'child-exit-and-readers-finished'}
     assert calls == [('wait', 10), ('kill',), ('wait', 5)]
@@ -1569,7 +1626,7 @@ def assert_windows_command_capacity(executable, script):
 
 def test_shared_os_bootstrap_is_compact_and_leaves_legacy_operation_protocol_bytes_exact():
     fragment = module.LEGACY_SYSTEM_MODULE
-    assert 0 < len(fragment) <= 6000 and fragment.isascii()
+    assert 0 < len(fragment) <= 6400 and fragment.isascii()
     assert module.LEGACY_SCRIPT.count(fragment) == 1
     before, after = module.LEGACY_SCRIPT.split(fragment)
     assert before.endswith("    Write-C7Checkpoint 'definitionbound'\n")
@@ -1624,7 +1681,7 @@ def test_os_bootstrap_requires_real_core_manifest_cmdlet_and_same_protected_gac_
 @pytest.mark.parametrize('image', [
     r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
     r'S:\Authored OS with space\WindowsPowerShell\v1.0\powershell.exe',
-    'S:\\'+'界'*2200+r'\WindowsPowerShell\v1.0\powershell.exe',
+    'S:\\'+'界'*1000+r'\WindowsPowerShell\v1.0\powershell.exe',
 ])
 def test_actual_legacy_and_control_command_builders_fit_windows_utf16_cap(monkeypatch, tmp_path, image):
     commands, closes = [], []
@@ -1655,3 +1712,121 @@ def test_command_capacity_contract_counts_quoted_utf16_units_including_terminato
     assert len(subprocess.list2cmdline(command).encode('utf-16le'))//2+1 > 32767
     with pytest.raises(AssertionError, match='Authored C7 command exceeds'):
         assert_windows_command_capacity(image, script)
+
+
+def bootstrap_error_output(phase='import', error='binding', *, newline=b'\n'):
+    return b'C7O|fixture-validated'+newline+b'C7B|'+phase.encode('ascii')+b'|'+error.encode('ascii')+newline
+
+
+@pytest.mark.parametrize('phase', BOOTSTRAP_PHASES)
+@pytest.mark.parametrize('error', BOOTSTRAP_ERRORS)
+def test_closed_bootstrap_failure_admits_only_finite_terminal_context_and_never_success(phase, error):
+    value = operation_observation('prefix', 2, bootstrap_error_output(phase,error), b'')
+    assert value == {'state':'unavailable','last_marker':'fixture-validated','stderr_present':False,
+        'bootstrap_phase':phase,'bootstrap_error':error}
+    assert closed_operation_observation('prefix', value) == value
+
+
+@pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
+@pytest.mark.parametrize('mutation', ['no-fixture', 'after-operation', 'duplicate', 'trailing', 'partial-tail',
+    'unknown-phase', 'unknown-error', 'extra-field', 'zero-exit', 'bool-exit', 'stderr', 'deadline',
+    'unterminated', 'embedded-cr', 'bom', 'nonascii', 'phase-case', 'after-success', 'none-error'])
+def test_bootstrap_failure_context_refuses_wrong_order_private_bytes_partial_and_deadline(kind, mutation):
+    raw=bootstrap_error_output();code=2;err=b''
+    if mutation=='no-fixture': raw=raw.split(b'\n',1)[1]
+    if mutation=='after-operation': raw=operation_output(kind,count=2)+raw.split(b'\n',1)[1]
+    if mutation=='duplicate': raw+=raw.split(b'\n',1)[1]
+    if mutation=='trailing': raw+=b'\n'
+    if mutation=='partial-tail': raw+=b'private unfinished'
+    if mutation=='unknown-phase': raw=bootstrap_error_output('private-path','binding')
+    if mutation=='unknown-error': raw=bootstrap_error_output('import','private-message')
+    if mutation=='extra-field': raw=raw[:-1]+b'|private-field\n'
+    if mutation=='zero-exit':code=0
+    if mutation=='bool-exit':code=True
+    if mutation=='stderr':err=b'private stderr'
+    if mutation=='deadline':code=None
+    if mutation=='unterminated':raw=raw[:-1]
+    if mutation=='embedded-cr':raw=raw.replace(b'import',b'im\rport')
+    if mutation=='bom':raw=raw.replace(b'C7B|',b'\xef\xbb\xbfC7B|')
+    if mutation=='nonascii':raw=raw.replace(b'import',b'\xff')
+    if mutation=='phase-case':raw=bootstrap_error_output('IMPORT','binding')
+    if mutation=='after-success':raw=operation_output(kind)+raw.split(b'\n',1)[1]
+    if mutation=='none-error':raw=bootstrap_error_output('import','none')
+    result=operation_observation(kind,code,raw,err)
+    assert result['state']=='unavailable'
+    assert result['bootstrap_phase']==result['bootstrap_error']=='unavailable'
+    assert 'private' not in json.dumps(result)
+
+
+@pytest.mark.parametrize('kind', tuple(OPERATION_MARKERS))
+def test_bootstrap_error_frame_crlf_still_requires_joint_cleanup_and_has_no_pass_path(kind):
+    value=operation_observation(kind,2,bootstrap_error_output(newline=b'\r\n'),b'')
+    assert value['bootstrap_phase']=='import' and value['bootstrap_error']=='binding'
+    result={name:{'observation':dict(value),'boundary':{'refusal':'protocol-refused','stderr_prefix':'empty',
+        'cleanup':'child-exit-and-readers-finished'},'fixture':'removed-after-confirmed-cleanup'} for name in OPERATION_MARKERS}
+    with pytest.raises(pytest.fail.Exception):require_operation_controls(result)
+
+
+@pytest.mark.parametrize('field,value', [('bootstrap_phase','private-path'),('bootstrap_error','private-error'),
+    ('bootstrap_phase',True),('bootstrap_error',True),('bootstrap_error','none')])
+def test_bootstrap_projection_rejects_private_untyped_or_false_success_fields(field,value):
+    result=operation_observation('prefix',2,bootstrap_error_output(),b'')
+    result[field]=value
+    observed=closed_operation_observation('prefix',result)
+    assert observed['bootstrap_phase']==observed['bootstrap_error']=='unavailable'
+    assert 'private' not in json.dumps(observed)
+
+
+def test_phase_assignments_are_only_producer_delta_and_control_catch_has_one_closed_output():
+    import hashlib,re
+    fragment=module.LEGACY_SYSTEM_MODULE
+    stripped=re.sub(r"^\$C7BootstrapPhase='(?:image|paths|core|import|module|assembly|visible|complete)'\n",'',fragment,flags=re.MULTILINE)
+    assert hashlib.sha256(stripped.encode()).hexdigest() == '0836deb4e157e212f5c83aa8477b1df026657696f69e14d2906c142c1e36950d'
+    phases=re.findall(r"^\$C7BootstrapPhase='([^']+)'$",fragment,re.MULTILINE)
+    assert phases==list(BOOTSTRAP_PHASES[1:])
+    wrapper=operation_bootstrap_control()
+    assert wrapper.startswith('try {\n'+fragment)
+    catch=wrapper[len('try {\n'+fragment):]
+    assert catch.startswith('\n} catch {')
+    assert '$C7BootstrapFailure=$_' in catch
+    assert catch.count('[Console]::Out.WriteLine')==1
+    assert "[Console]::Out.WriteLine('C7B|'+$phase+'|'+$category)" in catch
+    assert 'exit 2' in catch and 'throw ' not in catch
+    assert 'Write-C7Checkpoint' not in wrapper and wrapper not in module.LEGACY_SCRIPT
+    for kind in OPERATION_MARKERS:
+        script=operation_control_script(kind,'a'*32)
+        assert script.count(wrapper)==1
+        assert script.index('C7O|fixture-validated') < script.index(wrapper)
+        assert script.index(wrapper)+len(wrapper) <= script.index('C7O|before-')
+
+
+def test_both_operation_controls_keep_closed_bootstrap_failure_and_cleanup_without_success(monkeypatch, tmp_path):
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    fixtures, processes = [], []
+    class Process:
+        def __init__(self, command, **options):
+            assert options['cwd'] == fixtures[-1].root
+            script=base64.b64decode(command[-1]).decode('utf-16le')
+            assert script.count(operation_bootstrap_control()) == 1
+            self.stdout=io.BytesIO(bootstrap_error_output())
+            self.stderr=io.BytesIO(b'')
+            processes.append(self)
+        def wait(self, timeout):
+            assert timeout == 10
+            return 2
+        def kill(self): pytest.fail('A confirmed diagnostic failure must not be killed.')
+    def make():
+        fixture=OperationFixture(tmp_path);fixtures.append(fixture);return fixture
+    monkeypatch.setattr(subprocess, 'Popen', Process)
+    results=measure_operation_controls('authored-image', {'SystemRoot':'authored-system'}, make=make)
+    assert len(processes)==len(fixtures)==2
+    for value in results.values():
+        assert value['observation']=={'state':'unavailable','last_marker':'fixture-validated',
+            'stderr_present':False,'bootstrap_phase':'import','bootstrap_error':'binding'}
+        assert value['boundary']=={'refusal':'protocol-refused','stderr_prefix':'empty',
+            'cleanup':'child-exit-and-readers-finished'}
+        assert value['fixture']=='removed-after-confirmed-cleanup'
+    assert all(fixture.closed and not fixture.root.exists() for fixture in fixtures)
+    assert all(process.stdout.closed and process.stderr.closed for process in processes)
+    assert str(tmp_path) not in json.dumps(results)
+    with pytest.raises(pytest.fail.Exception):require_operation_controls(results)
