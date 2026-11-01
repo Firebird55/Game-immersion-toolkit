@@ -305,7 +305,7 @@ def test_slot_adapter_bound_retention_limit_and_frozen_cli_gate_remain_closed(tm
     with pytest.raises(FrontendError, match='Too many'):
         DesktopFrontendServer.from_experimental_slots(*current, retired_slots=(current,) * 17)
     args = SimpleNamespace(root=None, retained_root=[current[0].resource_root / 'desktop'])
-    with pytest.raises(FrontendError, match='reviewed update supervisor'):
+    with pytest.raises(FrontendError, match='desktop update supervisor'):
         frontend_root(args, current[0])
 
 
