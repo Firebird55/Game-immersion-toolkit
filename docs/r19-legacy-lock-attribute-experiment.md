@@ -315,7 +315,68 @@ cause remains unknown. Earlier eaa/37/973 and f43 negatives keep their meaning.
 
 ### Separate paired real-cmdlet control and bounded parent observation
 
-#### Windows-runtime environment candidate and system-search controls
+#### Literal phase and writer comparison, native pending
+
+At `b598`, run `41292608812` / job `124806810969` on image
+`20261030.294.1` passed 223 contracts and failed the paired control in
+44.43 seconds, with no skips. Inherited parsed with null context and no stderr.
+The fifteen-name Attempt and all three system-search controls reported
+`wait-deadline`, unavailable/null-context/no-stderr. All five direct children
+and readers finished. No mechanism or artifact followed. This does not prove
+a path/module cause, or that a filtered child reached the conversion call.
+
+The next test-only source adds three exact ASCII stdout markers: script-entry,
+before-conversion and after-conversion. Direct managed Console writes and
+flushes emit them; no logging cmdlet, serializer or authored marker class is
+added. Script-entry is the first executable statement. Before-conversion follows
+writer construction, literal initialization and the unchanged projector function
+definition. After-conversion is emitted only after the unchanged conversion
+fragment returns, before its existing shape check. Marker delivery does not
+establish a cause, and absence does not prove that a statement never executed.
+
+The existing five fresh controls keep their order. Two further fresh literal
+controls use .NET StringWriter, first with the same inherited snapshot and then
+with the exact Attempt map. There are at most seven child invocations, without
+retry or a StringWriter search-path matrix. The original inherited and Attempt
+controls still must both return parsed/null-context/no-stderr; no diagnostic
+control can replace that gate. With the protected host available, all seven are
+collected before the joint decision,
+and every diagnostic child also requires confirmed direct-child/reader cleanup.
+
+Both writer variants use the same protected executable, fixed input, preferences,
+producer conversion/projector fragments and shape/exit checks. StringWriter
+replaces the authored class only in its two additional controls. Its existing
+buffer is emitted with managed Console.Write after the terminal line, avoiding
+an extra newline or parser, and its owned instance is disposed in finally.
+Microsoft documents [StringWriter](https://learn.microsoft.com/en-us/dotnet/api/system.io.stringwriter?view=netframework-4.8.1)
+as an in-memory TextWriter backed by StringBuilder. This is an authored writer
+comparison, not a substitute for the actual C7 named-pipe StreamWriter.
+
+The separate closed progress projection has exactly `last_delivered` and
+`protocol`. Last-delivered is not-observed, script-entry, before-conversion or
+after-conversion; protocol is not-observed, ordered-prefix or malformed. Only
+complete LF/CRLF marker lines in the exact order are admitted, at most three.
+A partial, duplicate, unknown or reordered record cannot be skipped to admit
+a later marker. Partial stdout preserves only the last delivered complete marker
+and always keeps the parsing result unavailable. A parsed terminal requires all
+three markers; an ordinary conversion-refused terminal can follow the first two.
+The existing closed terminal/failure decoder still validates the remaining
+records, exit code and context. Neither progress nor a timeout becomes success.
+
+Each child's original 8192-byte-per-stream cap includes these markers. Its
+ten-second wait, existing cleanup wait/reader joins and private uncertainty
+retention stay unchanged. No extra stdout read, timeout extension, raw output,
+path, environment value, error/type/identifier text or hash is published. The
+producer, actual legacy script, schema v4 and environment policy are unchanged.
+
+If the class and .NET variants differ at the delivered markers, that narrows a
+test-construction or execution boundary under these supplied maps. It does not
+identify the actual C7 cause. Missing script-entry still leaves startup, parsing,
+type resolution and host/capture behavior unresolved. The new native measurements
+remain pending; keeper-loss, physical/global, rights, Windows 11 and R19 gates
+remain open.
+
+#### Historical Windows-runtime environment and system-search controls
 
 At `0f93531`, separate run `41254860334` on image `20261021.278.1` passed
 216 authored contracts and failed the paired control (15.32 seconds, no skips).
@@ -325,7 +386,7 @@ the fifteen-name Attempt reported `unavailable`, null context, no stderr and
 were skipped, with no artifact. The earlier four-name negatives remain intact;
 this result does not identify a missing variable or an actual-mechanism cause.
 
-The later test-only diagnostic adds three fresh literal-input children after
+That test-only diagnostic added three fresh literal-input children after
 collecting the original pair: filtered environment plus a fixed system PATH,
 plus a fixed PowerShell module path, and plus both. Paths are derived only from
 the protected legacy PowerShell image obtained through GetSystemDirectoryW:
@@ -343,7 +404,7 @@ are collected before that joint decision. Additional children must have
 confirmed direct-child/reader cleanup before the test can pass. Only closed
 observation/parent labels are included on refusal; environment values, program
 paths, raw stderr and exception text are never added to the diagnostic.
-Native measurements of these added controls remain pending. They grant no
+Their later `b598` measurements are negative as recorded above. They grant no
 keeper-loss, physical/global, rights, Windows 11 or R19 acceptance.
 
 At `a2e1fb6`, run `41250877798` passed 214 contracts and failed the paired case

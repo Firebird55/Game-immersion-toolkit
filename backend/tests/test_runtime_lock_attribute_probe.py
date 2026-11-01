@@ -877,7 +877,142 @@ def real_conversion_observation(code, output, stderr):
         return fallback
 
 
-def run_real_conversion_control(executable, script, environment, *, diagnostic=None):
+CONTROL_PROGRESS_STAGES = ('script-entry', 'before-conversion', 'after-conversion')
+CONTROL_PROGRESS_LINES = tuple(
+    ('{"kind":"authored-real-conversion-progress","stage":"'+stage+'"}').encode('ascii')
+    for stage in CONTROL_PROGRESS_STAGES)
+CONTROL_TERMINAL_LINES = {
+    state: ('{"kind":"authored-real-conversion-control","state":"'+state+'"}').encode('ascii')
+    for state in ('parsed', 'shape-refused', 'conversion-refused')}
+
+
+def closed_real_control_progress(value):
+    fallback = {'last_delivered': 'not-observed', 'protocol': 'not-observed'}
+    if (type(value) is not dict or set(value) != {'last_delivered', 'protocol'}
+            or type(value['last_delivered']) is not str
+            or value['last_delivered'] not in ('not-observed', *CONTROL_PROGRESS_STAGES)
+            or type(value['protocol']) is not str
+            or value['protocol'] not in {'not-observed', 'ordered-prefix', 'malformed'}
+            or value['protocol'] == 'not-observed' and value['last_delivered'] != 'not-observed'
+            or value['protocol'] == 'ordered-prefix' and value['last_delivered'] == 'not-observed'):
+        return fallback
+    return dict(value)
+
+
+def marked_real_conversion_observation(code, output, stderr):
+    """Only exact delivered marker lines; no progress may substitute for a result."""
+    unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': bool(stderr)}
+    progress = closed_real_control_progress(None)
+    if type(output) is not bytes or len(output) > 8192:
+        progress['protocol'] = 'malformed'
+        return unavailable, progress
+    if not output:
+        return unavailable, progress
+    pieces = output.split(b'\n')
+    partial = bool(pieces[-1])
+    complete = [line[:-1] if line.endswith(b'\r') else line for line in pieces[:-1]]
+    count = 0
+    while count < len(CONTROL_PROGRESS_LINES) and count < len(complete):
+        if complete[count] != CONTROL_PROGRESS_LINES[count]:
+            break
+        progress.update(last_delivered=CONTROL_PROGRESS_STAGES[count], protocol='ordered-prefix')
+        count += 1
+    remaining = complete[count:]
+    if partial or remaining and (count < 2 or len(remaining) > 2
+            or remaining[0] not in CONTROL_TERMINAL_LINES.values()
+            or count == 2 and remaining[0] != CONTROL_TERMINAL_LINES['conversion-refused']
+            or any(line in CONTROL_PROGRESS_LINES for line in remaining[1:])):
+        progress['protocol'] = 'malformed'
+        return unavailable, progress
+    if not remaining:
+        return unavailable, progress
+    observed = real_conversion_observation(code, b'\n'.join(pieces[count:]), stderr)
+    if observed['state'] == 'unavailable' and type(code) is int and code in (0, 2):
+        progress['protocol'] = 'malformed'
+    return observed, progress
+
+
+@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
+@pytest.mark.parametrize('count', range(4))
+def test_delivered_marker_prefix_without_terminal_never_establishes_parsing_success(ending, count):
+    raw = ending.join(CONTROL_PROGRESS_LINES[:count])+(ending if count else b'')
+    for code in (0, None, -9):
+        observed, progress = marked_real_conversion_observation(code, raw, b'')
+        assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+        assert progress == {'last_delivered': CONTROL_PROGRESS_STAGES[count-1] if count else 'not-observed',
+            'protocol': 'ordered-prefix' if count else 'not-observed'}
+
+
+@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
+def test_ordered_complete_markers_preserve_original_terminal_and_conversion_context(ending):
+    success = ending.join((*CONTROL_PROGRESS_LINES, CONTROL_TERMINAL_LINES['parsed'], b''))
+    observed, progress = marked_real_conversion_observation(0, success, b'')
+    assert observed == {'state': 'parsed', 'context': None, 'stderr_present': False}
+    assert progress == {'last_delivered': 'after-conversion', 'protocol': 'ordered-prefix'}
+    failure = conversion_frame()
+    refused = ending.join((*CONTROL_PROGRESS_LINES[:2], CONTROL_TERMINAL_LINES['conversion-refused'],
+        json.dumps(failure).encode('ascii'), b''))
+    observed, progress = marked_real_conversion_observation(2, refused, b'')
+    assert observed == {'state': 'conversion-refused',
+        'context': {key: value for key, value in failure.items() if key != 'kind'}, 'stderr_present': False}
+    assert progress == {'last_delivered': 'before-conversion', 'protocol': 'ordered-prefix'}
+    assert marked_real_conversion_observation(0, success, b'private-stderr')[0]['stderr_present'] is True
+
+
+@pytest.mark.parametrize('count', range(4))
+@pytest.mark.parametrize('ending', [b'\n', b'\r\n'])
+def test_partial_next_marker_or_terminal_retains_only_complete_delivered_prefix(count, ending):
+    prefix = ending.join(CONTROL_PROGRESS_LINES[:count])+(ending if count else b'')
+    next_line = CONTROL_PROGRESS_LINES[count] if count < 3 else CONTROL_TERMINAL_LINES['parsed']
+    # Even a syntactically complete JSON object without the delivery delimiter
+    # is incomplete stdout; a successful process code cannot promote it.
+    observed, progress = marked_real_conversion_observation(0, prefix+next_line, b'')
+    assert observed['state'] == 'unavailable'
+    assert progress == {'last_delivered': CONTROL_PROGRESS_STAGES[count-1] if count else 'not-observed',
+        'protocol': 'malformed'}
+
+
+@pytest.mark.parametrize('mutation', ['reordered', 'duplicate', 'missing-first', 'unknown-stage',
+    'extra-key', 'numeric-stage', 'duplicate-key', 'marker-whitespace', 'private-noise',
+    'unknown-tail', 'trailing-marker', 'duplicate-terminal', 'duplicate-failure', 'bare-cr', 'over-cap'])
+def test_malformed_marker_streams_cannot_hide_noise_or_bypass_original_hard_gate(mutation):
+    lines = [*CONTROL_PROGRESS_LINES, CONTROL_TERMINAL_LINES['parsed']]
+    if mutation == 'reordered': lines[1], lines[2] = lines[2], lines[1]
+    if mutation == 'duplicate': lines.insert(1, lines[0])
+    if mutation == 'missing-first': lines.pop(0)
+    if mutation == 'unknown-stage': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"private-stage"}'
+    if mutation == 'extra-key': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"before-conversion","raw":"private-path"}'
+    if mutation == 'numeric-stage': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":4}'
+    if mutation == 'duplicate-key': lines[1] = b'{"kind":"authored-real-conversion-progress","stage":"before-conversion","stage":"after-conversion"}'
+    if mutation == 'marker-whitespace': lines[1] = b' '+lines[1]
+    if mutation == 'private-noise': lines.insert(1, b'private-path-error-text')
+    if mutation == 'unknown-tail': lines.append(b'private-unknown-tail')
+    if mutation == 'trailing-marker': lines.append(CONTROL_PROGRESS_LINES[-1])
+    if mutation == 'duplicate-terminal': lines.append(CONTROL_TERMINAL_LINES['parsed'])
+    if mutation == 'duplicate-failure':
+        lines = [*CONTROL_PROGRESS_LINES[:2], CONTROL_TERMINAL_LINES['conversion-refused'],
+            json.dumps(conversion_frame()).encode('ascii'), json.dumps(conversion_frame()).encode('ascii')]
+    raw = b'\n'.join((*lines, b''))
+    if mutation == 'bare-cr': raw = b'\r'.join((*lines, b''))
+    if mutation == 'over-cap': raw += b'private-'+b'x'*8192
+    observed, progress = marked_real_conversion_observation(2 if mutation == 'duplicate-failure' else 0, raw, b'')
+    assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    assert progress['protocol'] == 'malformed'
+    assert progress['last_delivered'] in ('not-observed', *CONTROL_PROGRESS_STAGES)
+    assert 'private' not in json.dumps((observed, progress))
+
+
+@pytest.mark.parametrize('value', [None, {}, 'private-progress',
+    {'last_delivered': 'private-stage', 'protocol': 'ordered-prefix'},
+    {'last_delivered': 'after-conversion', 'protocol': 'private-status'},
+    {'last_delivered': 'after-conversion', 'protocol': 'not-observed'},
+    {'last_delivered': 'not-observed', 'protocol': 'ordered-prefix'},
+    {'last_delivered': 'after-conversion', 'protocol': 'ordered-prefix', 'raw': 'private-path'}])
+def test_progress_projection_is_closed_and_never_echoes_private_or_inconsistent_metadata(value):
+    assert closed_real_control_progress(value) == {'last_delivered': 'not-observed', 'protocol': 'not-observed'}
+
+
+def run_real_conversion_control(executable, script, environment, *, diagnostic=None, progress=None):
     import base64
     unavailable = {'state': 'unavailable', 'context': None, 'stderr_present': False}
     boundary = {'refusal': 'none', 'stderr_prefix': 'unavailable', 'cleanup': 'unconfirmed'}
@@ -885,6 +1020,9 @@ def run_real_conversion_control(executable, script, environment, *, diagnostic=N
         if diagnostic is not None:
             diagnostic.clear()
             diagnostic.update(closed_real_control_boundary(boundary))
+    if progress is not None:
+        progress.clear()
+        progress.update(closed_real_control_progress(None))
     try:
         process = subprocess.Popen([executable, '-NoProfile', '-NonInteractive', '-EncodedCommand',
             base64.b64encode(script.encode('utf-16le')).decode('ascii')],
@@ -964,15 +1102,49 @@ def run_real_conversion_control(executable, script, environment, *, diagnostic=N
         raw = captured['err']
         boundary['stderr_prefix'] = ('empty' if not raw else
             'fixed-clixml-prefix' if raw.startswith(b'#< CLIXML') else 'other')
+    if progress is not None:
+        marked, delivered = marked_real_conversion_observation(
+            code, captured.get('out', b''), captured.get('err', b''))
+        progress.clear()
+        progress.update(closed_real_control_progress(delivered))
     if failed or uncertain or not exited or any(len(value) > 8192 for value in captured.values()):
         if boundary['refusal'] == 'none': boundary['refusal'] = 'capture-refused'
         publish_boundary()
         unavailable['stderr_present'] = bool(captured.get('err'))
         return unavailable
-    observed = real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
+    observed = (real_conversion_observation(code, captured.get('out', b''), captured.get('err', b''))
+        if progress is None else marked)
     if observed['state'] == 'unavailable': boundary['refusal'] = 'protocol-refused'
     publish_boundary()
     return observed
+
+
+def test_timeout_progress_keeps_only_delivered_marker_without_new_capture_or_wait_budget(monkeypatch):
+    monkeypatch.setattr(subprocess, 'CREATE_NO_WINDOW', 0, raising=False)
+    calls, processes = [], []
+    partial = b'\n'.join((*CONTROL_PROGRESS_LINES[:2], CONTROL_PROGRESS_LINES[2][:-4]))
+    class Process:
+        def __init__(self, *_args, **_options):
+            self.stdout, self.stderr = io.BytesIO(partial), io.BytesIO(b'')
+            processes.append(self)
+        def wait(self, timeout):
+            calls.append(('wait', timeout))
+            if timeout == 10: raise subprocess.TimeoutExpired('authored-child', timeout)
+            assert timeout == 5
+            return -9
+        def kill(self): calls.append(('kill',))
+    monkeypatch.setattr(subprocess, 'Popen', Process)
+    progress, boundary = {}, {}
+    count = len(_UNCONFIRMED_REAL_CONTROLS)
+    observed = run_real_conversion_control('authored-program', 'authored-source', {},
+        diagnostic=boundary, progress=progress)
+    assert observed == {'state': 'unavailable', 'context': None, 'stderr_present': False}
+    assert progress == {'last_delivered': 'before-conversion', 'protocol': 'malformed'}
+    assert boundary == {'refusal': 'wait-deadline', 'stderr_prefix': 'empty',
+        'cleanup': 'child-exit-and-readers-finished'}
+    assert calls == [('wait', 10), ('kill',), ('wait', 5)]
+    assert len(processes) == 1 and processes[0].stdout.closed and processes[0].stderr.closed
+    assert len(_UNCONFIRMED_REAL_CONTROLS) == count
 
 
 def real_conversion_pair(parent_environment, run):
@@ -1032,21 +1204,28 @@ def test_system_search_controls_refuse_noncanonical_image_shapes_without_exposin
     assert real_conversion_system_environments({}, None) == {}
 
 
-@pytest.mark.parametrize('refusal', ['none', 'attempt', 'extra-cleanup'])
-def test_five_control_decision_preserves_actual_pair_and_refuses_uncertain_extra_cleanup(monkeypatch, refusal):
+@pytest.mark.parametrize('refusal', ['none', 'attempt', 'attempt-stderr', 'extra-cleanup', 'writer-cleanup', 'writer-runner'])
+def test_seven_control_decision_preserves_actual_pair_and_refuses_uncertain_extra_cleanup(monkeypatch, refusal):
     image = r'S:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
     monkeypatch.setattr(module, 'Windows', lambda: SimpleNamespace(powershell=lambda: image))
     monkeypatch.setattr(sys.modules[__name__], 'os', SimpleNamespace(environ={
         'SystemRoot': 'authored-system', 'PRIVATE_KEY': 'private-parent-value'}))
-    calls = []
-    def run(executable, script, environment, *, diagnostic):
+    calls, scripts = [], []
+    def run(executable, script, environment, *, diagnostic, progress):
         assert executable == image
         calls.append(dict(environment))
+        scripts.append(script)
+        if refusal == 'writer-runner' and len(calls) == 6:
+            raise OSError('private-new-writer-refusal')
         diagnostic.update(refusal='none', stderr_prefix='empty', cleanup='child-exit-and-readers-finished')
-        if refusal == 'extra-cleanup' and len(calls) == 5:
+        progress.update(last_delivered='after-conversion', protocol='ordered-prefix')
+        if (refusal == 'extra-cleanup' and len(calls) == 5
+                or refusal == 'writer-cleanup' and len(calls) == 7):
             diagnostic['cleanup'] = 'unconfirmed'
-        state = 'unavailable' if len(calls) > 2 or refusal == 'attempt' and len(calls) == 2 else 'parsed'
-        return {'state': state, 'context': None, 'stderr_present': False}
+        state = ('unavailable' if len(calls) > 2 and refusal not in {'attempt', 'attempt-stderr'}
+            or refusal == 'attempt' and len(calls) == 2 else 'parsed')
+        return {'state': state, 'context': None,
+            'stderr_present': refusal == 'attempt-stderr' and len(calls) == 2}
     monkeypatch.setattr(sys.modules[__name__], 'run_real_conversion_control', run)
     if refusal == 'none':
         test_authored_real_conversion_under_inherited_and_attempt_environment()
@@ -1054,8 +1233,12 @@ def test_five_control_decision_preserves_actual_pair_and_refuses_uncertain_extra
         with pytest.raises(pytest.fail.Exception) as failed:
             test_authored_real_conversion_under_inherited_and_attempt_environment()
         assert 'private-' not in str(failed.value) and image not in str(failed.value)
-    assert len(calls) == 5
-    assert 'PRIVATE_KEY' in calls[0] and all('PRIVATE_KEY' not in value for value in calls[1:])
+    assert len(calls) == 7
+    assert all(script is scripts[0] for script in scripts[:5])
+    assert scripts[5] is scripts[6] and scripts[5] != scripts[0]
+    assert calls[5] == calls[0] and calls[6] == calls[1]
+    assert 'PRIVATE_KEY' in calls[0] and 'PRIVATE_KEY' in calls[5]
+    assert all('PRIVATE_KEY' not in calls[index] for index in (1, 2, 3, 4, 6))
 
 
 def test_real_conversion_pair_measures_both_sets_before_joint_refusal_without_mutating_parent():
@@ -1278,58 +1461,95 @@ def test_real_control_spawn_refusal_has_only_fixed_parent_metadata(monkeypatch):
     assert 'private-' not in json.dumps(diagnostic)
 
 
-@pytest.mark.skipif(sys.platform != 'win32', reason='Authored real Windows PowerShell cmdlet control unavailable locally')
-def test_authored_real_conversion_under_inherited_and_attempt_environment():
-    # No C7 fixture or grant: exact protected executable, literal input only.
-    try: executable = module.Windows().powershell()
-    except Exception: executable = None
-    script = r'''
+def real_conversion_literal_script(writer_kind):
+    if writer_kind not in {'authored-class', 'string-writer'}:
+        raise ValueError('Authored literal writer control unavailable.')
+    markers = tuple("[Console]::Out.WriteLine('"+line.decode('ascii')+
+        "')\n[Console]::Out.Flush()\n" for line in CONTROL_PROGRESS_LINES)
+    preferences = r'''
 $ErrorActionPreference='Stop'
 $ProgressPreference='SilentlyContinue'
+'''
+    writer = r'''
 class C7LiteralWriter {
     [string]$Frame=''
     [void]WriteLine([string]$value) { $this.Frame=$value }
 }
 $writer=[C7LiteralWriter]::new()
+''' if writer_kind == 'authored-class' else '$writer=[IO.StringWriter]::new()\n'
+    body = r'''
 $line='{"owned":true}'
 $state='conversion-refused'
-''' + module.CONVERSION_PROJECTOR + '\ntry {\n' + module.CONVERSION_CALL + r'''
+''' + module.CONVERSION_PROJECTOR + markers[1] + '\ntry {\n' + module.CONVERSION_CALL + markers[2] + r'''
     $names=@($grant.PSObject.Properties.Name)
     if ($names.Count -eq 1 -and $names -ccontains 'owned' -and $grant.owned -is [bool] -and $grant.owned -eq $true) {
         $state='parsed'
     } else { $state='shape-refused' }
 } catch { $state='conversion-refused' }
 [Console]::Out.WriteLine('{"kind":"authored-real-conversion-control","state":"'+$state+'"}')
-if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }
+'''
+    body += ("if ($writer.Frame -cne '') { [Console]::Out.WriteLine($writer.Frame) }\n"
+        if writer_kind == 'authored-class' else '[Console]::Out.Write($writer.ToString())\n')
+    body += r'''
 if ($state -ceq 'parsed') { exit 0 } else { exit 2 }
 '''
-    boundaries = {}
+    if writer_kind == 'string-writer':
+        body = 'try {\n'+body+'\n} finally { $writer.Dispose() }\n'
+    return markers[0]+preferences+writer+body
+
+
+@pytest.mark.skipif(sys.platform != 'win32', reason='Authored real Windows PowerShell cmdlet control unavailable locally')
+def test_authored_real_conversion_under_inherited_and_attempt_environment():
+    # No C7 fixture or grant: exact protected executable, literal input only.
+    try: executable = module.Windows().powershell()
+    except Exception: executable = None
+    script = real_conversion_literal_script('authored-class')
+    boundaries, delivered = {}, {}
     def run(environment):
         variant = ('inherited', 'attempt')[len(boundaries)]
         diagnostic = boundaries[variant] = {}
+        progress = delivered[variant] = {}
         if executable is None:
             diagnostic.update(closed_real_control_boundary(None))
             return None
-        return run_real_conversion_control(executable, script, environment, diagnostic=diagnostic)
+        return run_real_conversion_control(executable, script, environment, diagnostic=diagnostic, progress=progress)
     parent_environment = dict(os.environ)
     observed = real_conversion_pair(parent_environment, run)
     system_controls = {}
     for name, environment in real_conversion_system_environments(parent_environment, executable).items():
-        diagnostic = {}
+        diagnostic, progress = {}, {}
         try:
-            value = run_real_conversion_control(executable, script, environment, diagnostic=diagnostic)
+            value = run_real_conversion_control(executable, script, environment, diagnostic=diagnostic, progress=progress)
         except Exception:
             value = None
         system_controls[name] = {'observation': closed_real_conversion_observation(value),
-            'boundary': closed_real_control_boundary(diagnostic)}
+            'boundary': closed_real_control_boundary(diagnostic), 'progress': closed_real_control_progress(progress)}
+    writer_script = real_conversion_literal_script('string-writer')
+    writer_boundaries, writer_delivered = {}, {}
+    def run_writer(environment):
+        variant = ('inherited', 'attempt')[len(writer_boundaries)]
+        diagnostic, progress = {}, {}
+        writer_boundaries[variant], writer_delivered[variant] = diagnostic, progress
+        if executable is None:
+            return None
+        return run_real_conversion_control(executable, writer_script, environment,
+            diagnostic=diagnostic, progress=progress)
+    writer_observations = real_conversion_pair(parent_environment, run_writer)
+    writer_controls = {variant: {'observation': value,
+        'boundary': closed_real_control_boundary(writer_boundaries.get(variant)),
+        'progress': closed_real_control_progress(writer_delivered.get(variant))}
+        for variant, value in writer_observations.items()}
     expected = {'state': 'parsed', 'context': None, 'stderr_present': False}
     if (any(value != expected for value in observed.values()) or any(
             value['boundary']['cleanup'] != 'child-exit-and-readers-finished'
-            for value in system_controls.values())):
+            for value in (*system_controls.values(), *writer_controls.values()))):
         closed = {key: closed_real_control_boundary(boundaries.get(key)) for key in ('inherited', 'attempt')}
+        progress = {key: closed_real_control_progress(delivered.get(key)) for key in ('inherited', 'attempt')}
         pytest.fail('Authored real conversion controls refused: ' + json.dumps(observed, sort_keys=True, separators=(',', ':'))
             + '; parent boundaries: ' + json.dumps(closed, sort_keys=True, separators=(',', ':'))
-            + '; system search controls: ' + json.dumps(system_controls, sort_keys=True, separators=(',', ':')))
+            + '; literal progress: ' + json.dumps(progress, sort_keys=True, separators=(',', ':'))
+            + '; system search controls: ' + json.dumps(system_controls, sort_keys=True, separators=(',', ':'))
+            + '; StringWriter controls: ' + json.dumps(writer_controls, sort_keys=True, separators=(',', ':')))
 
 
 def test_changed_wire_does_not_relabel_historical_v2_receipts():
