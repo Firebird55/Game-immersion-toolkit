@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
+from contextlib import contextmanager
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -37,17 +38,107 @@ class HostError(RuntimeError):
     pass
 
 
+_BROWSER_ENVIRONMENT_KEYS = ('PATH', 'LD_LIBRARY_PATH', 'DYLD_LIBRARY_PATH',
+                            'QT_PLUGIN_PATH', 'QML2_IMPORT_PATH', 'QML_IMPORT_PATH')
+_BROWSER_LAUNCH_LOCK = threading.RLock()
+
+
+def _browser_environment():
+    """Keep installed browser libraries separate from the frozen runtime.
+
+    PyInstaller 6.22.3 documents external-program sanitization in
+    common-issues-and-pitfalls.html#launching-external-programs-from-the-frozen-application.
+    The PySide6 runtime hook also adds bundle-local Qt/plugin search paths.
+    """
+    if not getattr(sys, 'frozen', False):
+        return None
+    root = Path(sys._MEIPASS).resolve()
+    environment = dict(os.environ)
+    if sys.platform not in {'darwin', 'win32'}:
+        if 'LD_LIBRARY_PATH_ORIG' in environment:
+            environment['LD_LIBRARY_PATH'] = environment['LD_LIBRARY_PATH_ORIG']
+        else:
+            environment.pop('LD_LIBRARY_PATH', None)
+    for name in _BROWSER_ENVIRONMENT_KEYS:
+        if name not in environment:
+            continue
+        retained = []
+        for entry in environment[name].split(os.pathsep):
+            try:
+                bundled = bool(entry) and Path(entry).resolve().is_relative_to(root)
+            except (OSError, ValueError):
+                bundled = False
+            if not bundled:
+                retained.append(entry)
+        if retained:
+            environment[name] = os.pathsep.join(retained)
+        else:
+            environment.pop(name, None)
+    return environment
+
+
+@contextmanager
+def _windows_browser_environment(environment):
+    # ShellExecute (used by os.startfile/webbrowser) cannot receive an env map.
+    # Serialize our launch attempts and restore the exact observed DLL directory
+    # and changed environment entries, including when the handler raises.
+    import ctypes
+    from ctypes import wintypes
+    with _BROWSER_LAUNCH_LOCK:
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.GetDllDirectoryW.argtypes, kernel.GetDllDirectoryW.restype = [wintypes.DWORD, wintypes.LPWSTR], wintypes.DWORD
+        kernel.SetDllDirectoryW.argtypes, kernel.SetDllDirectoryW.restype = [wintypes.LPCWSTR], wintypes.BOOL
+        ctypes.set_last_error(0)
+        size = kernel.GetDllDirectoryW(0, None)
+        if not size and ctypes.get_last_error():
+            raise ctypes.WinError(ctypes.get_last_error())
+        previous_directory = None
+        if size:
+            buffer = ctypes.create_unicode_buffer(size)
+            ctypes.set_last_error(0)
+            copied = kernel.GetDllDirectoryW(size, buffer)
+            if copied >= size or (not copied and ctypes.get_last_error()):
+                raise OSError('Could not retain the current DLL search directory.')
+            previous_directory = buffer.value
+        previous = {name: os.environ.get(name) for name in _BROWSER_ENVIRONMENT_KEYS}
+        try:
+            # An empty observation cannot distinguish SetDllDirectory(NULL)
+            # from SetDllDirectory(""). Neither exposes bundled DLLs; leave that
+            # state untouched instead of guessing how to restore it.
+            if previous_directory and not kernel.SetDllDirectoryW(None):
+                raise ctypes.WinError(ctypes.get_last_error())
+            for name in _BROWSER_ENVIRONMENT_KEYS:
+                if name in environment:
+                    os.environ[name] = environment[name]
+                else:
+                    os.environ.pop(name, None)
+            yield
+        finally:
+            for name, value in previous.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+            if previous_directory and not kernel.SetDllDirectoryW(previous_directory):
+                raise ctypes.WinError(ctypes.get_last_error())
+
+
 def open_desktop_browser(url):
     """Ask the desktop to open a URL without lending it the host's log pipes."""
+    environment = _browser_environment()
     if sys.platform == 'win32':
+        if environment is not None:
+            with _windows_browser_environment(environment):
+                return webbrowser.open(url)
         return webbrowser.open(url)
-    opener = '/usr/bin/open' if sys.platform == 'darwin' else shutil.which('xdg-open')
+    opener = '/usr/bin/open' if sys.platform == 'darwin' else shutil.which('xdg-open', **({'path': environment.get('PATH', os.defpath)} if environment is not None else {}))
     if not opener:
         return False
     try:
         process = subprocess.Popen([opener, url], stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            close_fds=True, start_new_session=True)
+            close_fds=True, start_new_session=True,
+            **({'env': environment} if environment is not None else {}))
         try:
             return process.wait(timeout=3) == 0
         except subprocess.TimeoutExpired:
