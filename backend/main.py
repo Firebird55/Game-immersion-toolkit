@@ -29,9 +29,25 @@ def main() -> None:
     parser.add_argument('--port', type=int)
     parser.add_argument('--standby', action='store_true')
     parser.add_argument('--candidate-closed', action='store_true')
+    parser.add_argument('--parent-control-stdin', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--shutdown-stdin', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
     gate = None
+    parent = None
+    saved_stdout = None
+    if args.parent_control_stdin:
+        if (getattr(sys, 'frozen', False) or args.candidate_closed or not args.standby
+                or not args.shutdown_stdin or args.port is None
+                or (args.port != 0 and (not 1024 < args.port < 65536 or args.port in (3000, 8766)))):
+            parser.error('Parent control requires source standby, shutdown input and an explicit private port.')
+        from .runtime_writers import ParentControlBinding, RuntimeWriterGate
+        # Retain actual wrappers as well as their binary endpoints: replacing
+        # sys.stdout must not let its wrapper destructor close the control pipe.
+        parent = ParentControlBinding.__new__(ParentControlBinding)
+        ParentControlBinding.__init__(parent, sys.stdin.buffer, sys.stdout.buffer, stream_owners=(sys.stdin, sys.stdout))
+        gate = RuntimeWriterGate(parent_control=parent)
+        parent.bind_input()
+        saved_stdout, sys.stdout = sys.stdout, sys.stderr
     if args.candidate_closed:
         _candidate_layout(args.port, args.standby)
         # Construct the exact closed gate before importing any API services.
@@ -39,42 +55,59 @@ def main() -> None:
         gate = RuntimeWriterGate(closed_candidate=True)
     if args.standby:
         os.environ['PROXY_TRANSCRIPT_STANDBY'] = '1'
-    target = 'backend.api:app'
-    if gate is not None:
-        from .api import closed_candidate_app
-        target = closed_candidate_app(gate)
-    port = 8766 if args.port is None else args.port
-    config = uvicorn.Config(
-        target,
-        host="127.0.0.1",
-        port=port,
-        log_level="info",
-        reload=False,
-        access_log=False,
-    )
-    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
-        listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
     try:
-        listener.bind(('127.0.0.1', port))
-        listener.listen(128)
-        server = uvicorn.Server(config)
-        async def serve():
-            if args.shutdown_stdin:
-                loop = asyncio.get_running_loop()
-                def stop_on_input():
-                    sys.stdin.readline()
-                    loop.call_soon_threadsafe(setattr, server, 'should_exit', True)
-                threading.Thread(target=stop_on_input, daemon=True).start()
-            serving = asyncio.create_task(server.serve(sockets=[listener]))
-            while not server.started and not serving.done():
-                await asyncio.sleep(.02)
-            if server.started:
-                print(json.dumps({'ready': True, 'port': listener.getsockname()[1]}), flush=True)
-            await serving
-        asyncio.run(serve())
+        target = 'backend.api:app'
+        if parent is not None:
+            from .api import parent_control_app
+            target = parent_control_app(parent)
+        elif gate is not None:
+            from .api import closed_candidate_app
+            target = closed_candidate_app(gate)
+        port = 8766 if args.port is None else args.port
+        config = uvicorn.Config(
+            target,
+            host="127.0.0.1",
+            port=port,
+            log_level="info",
+            reload=False,
+            access_log=False,
+        )
+        listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
+            listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        try:
+            listener.bind(('127.0.0.1', port))
+            listener.listen(128)
+            server = uvicorn.Server(config)
+            async def serve():
+                if args.shutdown_stdin and parent is None:
+                    loop = asyncio.get_running_loop()
+                    def stop_on_input():
+                        sys.stdin.readline()
+                        loop.call_soon_threadsafe(setattr, server, 'should_exit', True)
+                    threading.Thread(target=stop_on_input, daemon=True).start()
+                serving = asyncio.create_task(server.serve(sockets=[listener]))
+                while not server.started and not serving.done():
+                    await asyncio.sleep(.02)
+                if server.started:
+                    if parent is None:
+                        print(json.dumps({'ready': True, 'port': listener.getsockname()[1]}), flush=True)
+                    else:
+                        from .api import _parent_activate_idle
+                        parent.start(listener.getsockname()[1],
+                            lambda grant: _parent_activate_idle(parent, grant),
+                            lambda: setattr(server, 'should_exit', True))
+                try:
+                    await serving
+                finally:
+                    if parent is not None:
+                        await asyncio.to_thread(parent.finish_io, 1.0)
+            asyncio.run(serve())
+        finally:
+            listener.close()
     finally:
-        listener.close()
+        if saved_stdout is not None:
+            sys.stdout = saved_stdout
 
 
 if __name__ == "__main__":
