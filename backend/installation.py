@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -20,6 +21,28 @@ from .game_tools import missing_tools, prepare_tools
 from .media_tools import ffmpeg_executable
 from .steam_games import STEAM_GAMES
 from .preparation_errors import PreparationFailure, public_failure
+from . import runtime_payload
+
+
+def _runtime_inventory_stamp(root: Path) -> tuple:
+    """Invalidate the display cache on file changes without hashing GBs each poll.
+
+    This is only a setup-status cache. Packaging and activation still perform
+    their own full verification. Never follow a directory link while scanning.
+    """
+    runtime_payload.no_links(root)
+    pending, entries = [root], []
+    while pending:
+        directory = pending.pop()
+        for path in sorted(directory.iterdir()):
+            info = path.lstat()
+            linked = stat.S_ISLNK(info.st_mode) or bool(getattr(info, 'st_file_attributes', 0) & 0x400)
+            entries.append((path.relative_to(root).as_posix(), info.st_mode, info.st_size,
+                            info.st_mtime_ns, info.st_ctime_ns, info.st_dev, info.st_ino,
+                            getattr(info, 'st_file_attributes', 0), os.readlink(path) if path.is_symlink() else ''))
+            if stat.S_ISDIR(info.st_mode) and not linked:
+                pending.append(path)
+    return tuple(entries)
 
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
@@ -100,6 +123,9 @@ class InstallationService:
         self._lock = threading.RLock()
         self._jobs: dict[str, dict] = {}
         self._tool_thread: threading.Thread | None = None
+        self._runtime_thread: threading.Thread | None = None
+        self._runtime_verified_key = None
+        self._runtime_verified = False
         self._native: dict[str, subprocess.Popen] = {}
         self._native_owners = {}
         self._native_threads = set()
@@ -148,10 +174,7 @@ class InstallationService:
              "help": "Repair the toolkit installation if the bundled audio converter is missing."},
         ]
         if layout.mode == 'bundle':
-            requirements[1]['help'] = "Offline OCR is included. This experimental bundle still needs native capture verification."
-            requirements[2]['help'] = "Audio conversion is unavailable until this bundle's codec and game-tool verification is complete. Keep using your existing toolkit installation."
-            requirements.append({'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
-                'help': "This candidate is awaiting native capture, game-tool and distribution review."})
+            requirements.append(self._runtime_acceptance(layout))
         else:
             requirements.append({"id": "node", "title": "Node.js", "ready": bool(shutil.which("node")),
                 "help": "Install Node.js 24 with npm, then re-run Install.cmd."})
@@ -169,6 +192,51 @@ class InstallationService:
                 "auto_start": self.settings.get().auto_start if self.completed else False,
                 "version": json.loads(resource_path('package.json').read_text(encoding="utf-8"))["version"],
                 "capture_check": capture_check}
+
+    def _runtime_acceptance(self, layout) -> dict:
+        result = {'id': 'runtime-acceptance', 'title': 'Runtime verification', 'ready': False,
+                  'help': 'This candidate is awaiting native capture, game-tool and distribution review.'}
+        if layout.profile != 'runtime':
+            return result
+        try:
+            receipt, receipt_digest = runtime_payload.read_installed_receipt(layout)
+            # The production release gate is independent of the older R19
+            # experiment. Its incomplete milestones cannot demote a release,
+            # and a candidate's profile alone cannot approve one.
+            if not runtime_payload.release_eligible(receipt):
+                return result
+            identity = tuple((name, getattr(layout, name)) for name in
+                             ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol'))
+            key = (str(layout.application_root), str(layout.executable), identity,
+                   receipt_digest, _runtime_inventory_stamp(layout.application_root))
+        except (OSError, ValueError, TypeError, RecursionError):
+            return {**result, 'help': 'Installed runtime verification is unavailable. Repair the toolkit installation.'}
+        with self._lock:
+            if key == self._runtime_verified_key:
+                return {**result, 'ready': self._runtime_verified, 'help': (
+                    'Installed runtime matches its approved release inventory.' if self._runtime_verified else
+                    'Installed runtime verification failed. Repair the toolkit installation.')}
+            result['help'] = 'Checking the installed runtime against its approved release inventory.'
+            if not self._paused and not (self._runtime_thread and self._runtime_thread.is_alive()):
+                self._runtime_thread = threading.Thread(target=self._verify_runtime,
+                    args=(layout, receipt, key), daemon=True, name='setup-runtime-verification')
+                self._runtime_thread.start()
+        return result
+
+    def _verify_runtime(self, layout, receipt, key):
+        verified = False
+        try:
+            verified = runtime_payload.validate(layout.application_root, receipt,
+                runtime_payload.executable_target(layout.executable), installed=True)
+            # A changed tree during verification is never published as ready.
+            if _runtime_inventory_stamp(layout.application_root) != key[-1]:
+                verified = False
+        except (OSError, ValueError, TypeError, KeyError, RecursionError):
+            logging.getLogger(__name__).warning('Installed runtime inventory verification failed.')
+        finally:
+            with self._lock:
+                self._runtime_verified_key = key
+                self._runtime_verified = verified
 
     def complete(self, auto_start: bool) -> None:
         with self._lock:
@@ -262,6 +330,8 @@ class InstallationService:
         with self._lock:
             if self._tool_thread and self._tool_thread.is_alive():
                 raise RuntimeError('Game setup has not finished stopping.')
+            if self._runtime_thread and self._runtime_thread.is_alive():
+                raise RuntimeError('Runtime verification has not finished stopping.')
             if any(thread.is_alive() for thread in self._native_threads):
                 raise RuntimeError('Setup dialogs have not finished stopping.')
             self._paused = False
@@ -286,13 +356,14 @@ class InstallationService:
         deadline = time.monotonic() + max(0, timeout)
         with self._lock:
             self._paused = True
-            workers = [*self._native_threads, *([self._tool_thread] if self._tool_thread else [])]
+            workers = [*self._native_threads,
+                       *(thread for thread in (self._tool_thread, self._runtime_thread) if thread)]
         for worker in workers:
             if worker is not threading.current_thread():
                 worker.join(timeout=max(0, deadline-time.monotonic()))
         with self._lock:
             if any(worker.is_alive() for worker in workers) or any(p.poll() is None for p in self._native.values()):
-                raise TimeoutError('Setup tools or a native dialog have not finished; runtime handoff is unavailable.')
+                raise TimeoutError('Setup tools, runtime verification or a native dialog have not finished; runtime handoff is unavailable.')
 
     def report(self) -> dict:
         value = self.status()

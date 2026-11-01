@@ -15,6 +15,37 @@ class PackageError(ValueError):
     pass
 
 
+def release_eligible(receipt):
+    """Production acceptance is separate from historical R19 milestones."""
+    return (receipt.get('profile') == 'runtime' and receipt.get('release_eligible') is True
+        and receipt.get('redistribution_review') == 'approved' and receipt.get('native_acceptance') == 'approved')
+
+
+def read_installed_receipt(layout):
+    """Read and bind installed provenance; callers still validate payload bytes.
+
+    This stdlib-only preflight starts no application services or native imports.
+    A receipt is display evidence, not authority to activate an update slot.
+    """
+    if layout.mode != 'bundle':
+        raise PackageError('Installed provenance requires a frozen runtime.')
+    path = layout.application_root / 'PROVENANCE.json'
+    no_links(path)
+    with path.open('rb') as stream:
+        raw = stream.read(8 * 1024 * 1024 + 1)
+    if len(raw) > 8 * 1024 * 1024:
+        raise PackageError('Runtime receipt exceeds its limit.')
+    receipt = json.loads(raw)
+    if not isinstance(receipt, dict):
+        raise PackageError('Invalid runtime receipt.')
+    for name in ('source_commit', 'version', 'build_id', 'profile', 'storage_epoch', 'host_protocol'):
+        if receipt.get(name) != getattr(layout, name):
+            raise PackageError('Runtime receipt identity mismatch.')
+    if layout.resource_root != layout.application_root / '_internal':
+        raise PackageError('Unexpected runtime resource root.')
+    return receipt, hashlib.sha256(raw).hexdigest()
+
+
 def digest(path):
     with Path(path).open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -53,8 +84,7 @@ def validate(root, receipt, target, *, candidate=False, installed=False):
         raise PackageError('Installer needs an exact numeric version.')
     if not re.fullmatch(r'[a-f0-9]{40}', str(receipt.get('source_commit', ''))):
         raise PackageError('Installer needs an exact source commit.')
-    eligible = (receipt.get('profile') == 'runtime' and receipt.get('release_eligible') is True
-        and receipt.get('redistribution_review') == 'approved' and receipt.get('native_acceptance') == 'approved')
+    eligible = release_eligible(receipt)
     if not candidate and not eligible:
         raise PackageError('Release packaging requires exact target input, redistribution and native acceptance. Use --candidate for construction tests.')
     expected = {}

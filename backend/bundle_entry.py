@@ -46,10 +46,19 @@ def main(arguments=None):
         return probe.main(args[1], layout)
     if args == ['--runtime-diagnose']:
         layout = discover_layout()
+        accepted = False
+        if layout.mode == 'bundle' and layout.profile == 'runtime':
+            from backend import runtime_payload
+            try:
+                receipt, _ = runtime_payload.read_installed_receipt(layout)
+                accepted = runtime_payload.validate(layout.application_root, receipt,
+                    runtime_payload.executable_target(layout.executable), installed=True)
+            except (OSError, ValueError, TypeError, KeyError, RecursionError):
+                pass
         # Public diagnostics contain logical state, never private root paths.
         print(json.dumps({'schema': layout.schema, 'mode': layout.mode, 'version': layout.version,
             'build_id': layout.build_id, 'profile': layout.profile, 'children': layout.children,
-            'r19_complete': False, 'native_acceptance': 'unavailable'}))
+            'r19_complete': False, 'native_acceptance': 'approved' if accepted else 'unavailable'}))
         return 0
     if len(args) < 3 or args[0] != '--runtime-child' or args[2] != '--' or args[1] not in CHILD_TARGETS:
         raise RuntimeBundleError('Use a fixed --runtime-child KIND -- entrypoint or --runtime-diagnose.')
