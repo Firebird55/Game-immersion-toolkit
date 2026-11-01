@@ -19,7 +19,7 @@ from backend.runtime_payload import PackageError, TARGETS, digest, validate
 INPUT_CHECKS = frozenset({'python_supplier', 'exact_wheels', 'native_inputs',
     'complete_notices', 'corresponding_sources', 'frontend_licenses'})
 NATIVE_CHECKS = frozenset({'host_check', 'frontend_gateway', 'api_crash_recovery',
-    'owned_shutdown', 'browser_open', 'status_window', 'tray_icon'})
+    'owned_shutdown', 'browser_open', 'status_window', 'tray_icon', 'preparation_control_pipe'})
 REPORT_SCHEMAS = {'toolkit-desktop-native-probe-v1', 'toolkit-desktop-ui-probe-v1'}
 
 

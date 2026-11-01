@@ -10,12 +10,31 @@ import sys
 import threading
 
 
-def main() -> None:
+def start_stdin_shutdown(callback, *, ready=None):
+    """Keep the API control reader identical in service and native probes."""
+    def stop_on_input():
+        if ready is not None:
+            ready.set()
+        sys.stdin.readline()
+        callback()
+    reader = threading.Thread(target=stop_on_input, daemon=True)
+    reader.start()
+    return reader
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8766)
     parser.add_argument('--standby', action='store_true')
     parser.add_argument('--shutdown-stdin', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--preparation-probe', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.preparation_probe:
+        if not args.shutdown_stdin:
+            parser.error('The preparation probe requires its owned control input.')
+        from .preparation_probe import run
+        from .runtime_bundle import discover_layout
+        return run(discover_layout(), start_stdin_shutdown)
     if args.standby:
         os.environ['PROXY_TRANSCRIPT_STANDBY'] = '1'
     config = uvicorn.Config(
@@ -36,10 +55,7 @@ def main() -> None:
         async def serve():
             if args.shutdown_stdin:
                 loop = asyncio.get_running_loop()
-                def stop_on_input():
-                    sys.stdin.readline()
-                    loop.call_soon_threadsafe(setattr, server, 'should_exit', True)
-                threading.Thread(target=stop_on_input, daemon=True).start()
+                start_stdin_shutdown(lambda: loop.call_soon_threadsafe(setattr, server, 'should_exit', True))
             serving = asyncio.create_task(server.serve(sockets=[listener]))
             while not server.started and not serving.done():
                 await asyncio.sleep(.02)
@@ -52,4 +68,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

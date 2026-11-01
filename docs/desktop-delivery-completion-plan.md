@@ -170,7 +170,22 @@ tracks fixed service entrypoints and their descendants, leaving the user's
 browser outside cleanup authority.
 
 The frozen-host probe covers startup, stable-origin API crash recovery, owned
-shutdown and host-crash cleanup. The separate visible-UI probe observes status,
+shutdown and host-crash cleanup. It also requires a frozen preparation check:
+the fixed API entrypoint starts its normal shutdown-control reader, runs the
+shared `PreparationJob` with a diagnostic child, verifies the preparation tree
+drained while the control reader remained active, then acknowledges shutdown.
+This uses synthetic roots without initializing game or account services.
+
+The installed 0.23.1 Windows build exposed a missing test boundary: preparation
+inherited the API's actively read control pipe and blocked before its bootstrap
+could join the owned job. An isolated test reproduced that timeout even when
+the authored child never read stdin. Preparation now defaults to empty stdin;
+explicit caller-provided input remains supported. The source regression passes,
+and an isolated installed-executable comparison confirmed the input-handle
+trigger. The new frozen check must pass on the replacement artifact before its
+target can be accepted; the previous host-only checks did not prove this path.
+
+The separate visible-UI probe observes status,
 logs and tray availability. Browser navigation requires an acknowledgement from
 the mounted transcript after both startup and the tray's Open action. Merely
 requesting the browser handler does not pass. Final hosted results remain pending.

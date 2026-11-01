@@ -49,7 +49,7 @@ def test_target_acceptance_preserves_bytes_and_incomplete_r19(tmp_path):
     assert json.loads(provenance.read_text())['native_acceptance'] == 'unavailable'
 
 
-@pytest.mark.parametrize('mutation', ['receipt', 'target', 'source', 'build', 'unavailable', 'headless-only', 'simulated', 'sources', 'inventory', 'extra-file'])
+@pytest.mark.parametrize('mutation', ['receipt', 'target', 'source', 'build', 'unavailable', 'headless-only', 'missing-preparation', 'simulated', 'sources', 'inventory', 'extra-file'])
 def test_partial_or_stale_evidence_cannot_promote(tmp_path, mutation):
     root, provenance, review_path, native_path = authored_evidence(tmp_path)
     native, review = json.loads(native_path.read_text()), json.loads(review_path.read_text())
@@ -65,6 +65,8 @@ def test_partial_or_stale_evidence_cannot_promote(tmp_path, mutation):
         native['checks']['tray_icon'] = 'unavailable'
     elif mutation == 'headless-only':
         del native['checks']['browser_open']
+    elif mutation == 'missing-preparation':
+        del native['checks']['preparation_control_pipe']
     elif mutation == 'simulated':
         native['execution'] = 'mocked-process'
     elif mutation == 'sources':
