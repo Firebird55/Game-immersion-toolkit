@@ -66,8 +66,10 @@ jobs:
         run: >-
           python -m pytest -q backend/tests/test_desktop_packaging.py
           backend/tests/test_desktop_host.py backend/tests/test_owned_process.py
+          backend/tests/test_desktop_host_ui.py
           backend/tests/test_desktop_browser_environment.py
           backend/tests/test_linux_desktop_ui.py
+          backend/tests/test_linux_system_resources.py
           backend/tests/test_desktop_release.py backend/tests/test_native_capture_probe.py
           backend/tests/test_macos_supplier_replay.py backend/tests/test_desktop_input_review.py
           backend/tests/test_cyberpunk_input_review.py backend/tests/test_cyberpunk_build.py
@@ -88,6 +90,9 @@ jobs:
           $dependencies = ldd $plugin
           $dependencies | Write-Output
           if ($LASTEXITCODE -ne 0 -or ($dependencies -match 'not found')) { exit 1 }
+      - name: Retain exact Linux system library inputs and corresponding sources
+        if: runner.os == 'Linux'
+        run: python scripts/build-linux-system-resources.py --output output/linux-system-resources --cache output/linux-system-cache --sync-build-host
       - name: Probe native desktop discovery and capture
         run: |
           if ($IsLinux) { xvfb-run -a python scripts/probe-native-desktop-capture.py --output output/native-capture-probe.json }
@@ -152,6 +157,7 @@ jobs:
           $options = @('--frontend-root', 'output/desktop-frontend', '--output', 'output/native-candidate', '--wheelhouse', 'output/wheelhouse', '--python-archive', '${{ steps.python_supplier.outputs.python_archive }}', '--nte-helper-root', 'output/reader-helper/nte')
           foreach ($root in @('output/audio-resources', 'output/node-resources', 'output/zzz-resources', 'output/qt-resources', 'output/native-notices', 'output/managed-reader-resources')) { $options += @('--resources-root', $root) }
           if ($IsWindows) { $options += @('--resources-root', 'output/cyberpunk-resources') }
+          if ($IsLinux) { $options += @('--resources-root', 'output/linux-system-resources') }
           python scripts/build-desktop-runtime.py @options
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Review the exact delivered dependency inputs

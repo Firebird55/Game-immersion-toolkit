@@ -154,6 +154,19 @@ test('native ZZZ collection uses bundled Node and rebuilt WASM before freezing',
   assert.ok(nativeWorkflow.includes('output/native-zzz-probe.json'));
 });
 
+test('Linux system evidence is acquired before native builds and included in the frozen receipt', () => {
+  const install = nativeWorkflow.indexOf('name: Install Linux build-runner display services');
+  const collect = nativeWorkflow.indexOf('name: Retain exact Linux system library inputs and corresponding sources');
+  const compile = nativeWorkflow.indexOf('name: Build the shared self-contained archive reader');
+  assert.ok(install > 0 && collect > install && compile > collect);
+  const step = nativeWorkflow.slice(collect, nativeWorkflow.indexOf('name: Probe native desktop discovery', collect));
+  assert.match(step, /if: runner\.os == 'Linux'/);
+  assert.match(step, /python scripts\/build-linux-system-resources\.py --output output\/linux-system-resources --cache output\/linux-system-cache --sync-build-host/);
+  assert.match(nativeWorkflow, /if \(\$IsLinux\) \{ \$options \+= @\('--resources-root', 'output\/linux-system-resources'\) \}/);
+  assert.match(nativeWorkflow, /backend\/tests\/test_desktop_host_ui\.py/);
+  assert.match(nativeWorkflow, /backend\/tests\/test_linux_system_resources\.py/);
+});
+
 test('workflow extraction accepts actual LF and Windows CRLF checkout text', () => {
   const crlf = workflow.replaceAll('\n', '\r\n');
   assert.ok(crlf.includes('\r\n  source-audit:\r\n'));
