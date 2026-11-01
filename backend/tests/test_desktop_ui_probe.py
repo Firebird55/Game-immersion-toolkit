@@ -213,3 +213,16 @@ def test_qt_quit_preserves_final_observation_after_actual_owned_shutdown(tmp_pat
     assert value['complete'] and value['passed'] and value['checks']['owned_shutdown']
     probe.tick()
     assert json.loads(path.read_text()) == value
+
+
+def test_final_observation_is_written_once_across_qt_cleanup_paths(monkeypatch, tmp_path):
+    probe, host, _opened = fixture(tmp_path)
+    host.finished.set()
+    host.lease.held = False
+    writes = []
+    monkeypatch.setattr('backend.desktop_ui_probe._atomic_json', lambda _path, value: writes.append(value))
+    assert probe.finish() == 1  # No UI/browser observations: never acceptance.
+    probe.about_to_quit()
+    assert probe.finish() == 1
+    probe.checkpoint()
+    assert len(writes) == 1 and writes[0]['complete'] and not writes[0]['passed']

@@ -64,7 +64,10 @@ def run_ui(host, *, probe=False):
 
     class LogWindow(QWidget):
         def closeEvent(self, event):
-            if tray.isVisible() and not host.finished.is_set():
+            if host.finished.is_set() and not host.lease.held:
+                request_quit()
+                event.accept()
+            elif tray.isVisible() and not host.finished.is_set():
                 self.hide()
                 event.ignore()
             else:
@@ -107,9 +110,10 @@ def run_ui(host, *, probe=False):
         host.stop_requested.set()
         quit_button.setEnabled(False)
         status.setText('Stopping and saving…')
-        show_logs()
-        if host.finished.is_set():
-            application.quit()
+        if not host.finished.is_set() or host.lease.held:
+            show_logs()
+        # Complete on the next refresh, after the action's observers have
+        # returned and the service owner has released its installation lease.
 
     quit_button.clicked.connect(request_quit)
     menu = QMenu()
@@ -154,7 +158,13 @@ def run_ui(host, *, probe=False):
         if host.finished.is_set():
             tray.hide()
             if quit_pending or (host.stop_requested.is_set() and host.exit_code == 0):
-                application.quit()
+                if not host.lease.held:
+                    # Retain ownership evidence before asking the native event
+                    # loop to terminate. Some platforms do not return through
+                    # exec(), and aboutToQuit alone is not a reliable finalizer.
+                    if observer is not None:
+                        observer.finish()
+                    application.quit()
             elif host.exit_code:
                 show_logs()
                 quit_button.setText('Close')

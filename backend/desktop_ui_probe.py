@@ -46,6 +46,7 @@ class DesktopUiProbe:
         host.open_browser = observe_open
         self._last_observation = None
         self._finished = False
+        self._result = None
         self.checkpoint()
 
     def browser_observed(self, stage):
@@ -171,8 +172,11 @@ class DesktopUiProbe:
             self.checkpoint()
 
     def finish(self):
+        if self._finished:
+            return self._result
         self.checks['owned_shutdown'] = self.host.finished.is_set() and not self.host.lease.held
         value = self.observation(complete=True)
         _atomic_json(self.host.layout.state_root / 'native-ui-probe.json', value)
+        self._result = {'passed': 0, 'unavailable': 2}.get(value['status'], 1)
         self._finished = True
-        return {'passed': 0, 'unavailable': 2}.get(value['status'], 1)
+        return self._result
