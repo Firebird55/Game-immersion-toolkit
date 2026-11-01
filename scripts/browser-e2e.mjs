@@ -75,6 +75,12 @@ try{
  for(const[pw,ph,zoom]of sizes){
  if(name==='webkit'&&!([390,320,768,568].includes(pw)))continue;
  const width=Math.floor(pw/zoom),height=Math.floor(ph/zoom),context=await browser.newContext({viewport:{width,height},deviceScaleFactor:zoom}),page=await context.newPage(),writes=[],localWrites=[];
+ // Finish each settings flow through its explicit close action and wait for
+ // unmount before opening another panel. Native controls may consume Escape.
+ const dismissSettings=async dialog=>{
+  await dialog.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
+  await dialog.waitFor({state:'hidden'});
+ };
  includeComic=false;includeZzzStudy=false;settings.zzz_proxy_voice='unconfigured';
  for(const[game]of newRpgs){settings[game+'_region']={left:.10,top:.70,width:.80,height:.28};settings[game+'_player_voice']='unconfigured';}
  fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
@@ -170,9 +176,9 @@ try{
  assert.equal(writes.length,0,'Reading edits never write account settings');
  if(name==='chromium'&&width===1920&&zoom===1)await dialog.screenshot({path:`${preview.output}/shared-reading-options.png`});
  b=await dialog.boundingBox();assert(b&&b.x>=0&&b.y>=0&&b.x+b.width<=width+1&&b.y+b.height<=height+1,name+' toolkit settings fits '+JSON.stringify(b));
- await page.keyboard.press('Escape');await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('button',{name:'Study languages, dictionaries and account preferences',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
+ await dismissSettings(dialog);await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('button',{name:'Study languages, dictionaries and account preferences',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
  await page.getByLabel('Edit account language').selectOption('ja');assert.equal(await page.locator('.reading-text').first().getAttribute('lang'),'zh','Editing Japanese account settings never reinterprets Chinese transcript');
- assert.equal(writes.length,0);await page.keyboard.press('Escape');
+ assert.equal(writes.length,0);await dismissSettings(page.getByRole('dialog',{name:'Lexirise account preferences',exact:true}));
  if(pw===1920&&zoom===1){
   await page.getByRole('button',{name:'Account settings',exact:true}).click();await page.getByRole('button',{name:'Study languages, dictionaries and account preferences',exact:true}).click();await page.getByLabel('Edit account language').waitFor();
   await page.getByLabel('Edit account language').selectOption('zh');
@@ -183,7 +189,7 @@ try{
   await presets.selectOption(palette);assert.equal(writes.length,0,'Palette selection does not write account settings');
   await page.getByRole('button',{name:'Save to Lexirise',exact:true}).click();await page.getByText('Saved to Lexirise.',{exact:true}).waitFor();
   assert.deepEqual(writes.pop(),{languageSettings:{zh:{toneColorPreset:palette}}},'Explicit save sends only the requested account palette');
-  await page.keyboard.press('Escape');
+  await dismissSettings(page.getByRole('dialog',{name:'Lexirise account preferences',exact:true}));
  }
  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' toolkit layout has no horizontal overflow at '+width);
  if(process.argv.includes('--reading-settings')){console.log(name+': reading settings '+width+'x'+height+' passed');await context.close();continue;}
