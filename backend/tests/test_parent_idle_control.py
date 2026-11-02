@@ -340,9 +340,8 @@ def test_service_uses_real_binary_pipes_and_confirms_threads_before_stream_close
         if not stderr_stream.closed: stderr_stream.close()
 
 
-def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, monkeypatch):
-    # Child-task cancellation is covered elsewhere. This catches the parent's
-    # earlier write wait ignoring Stop before it ever waits for an acknowledgement.
+@pytest.fixture
+def delayed_parent_service(pipes, monkeypatch):
     entered, release = threading.Event(), threading.Event()
     stderr_read, stderr_write = os.pipe()
     stderr_stream = io.FileIO(stderr_read, 'rb')
@@ -361,10 +360,10 @@ def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, monke
             self.process = SimpleNamespace(stdin=DelayedInput(), stdout=pipes.parent_read, stderr=stderr_stream)
 
         def stop(self, **kwargs):
-            pytest.fail('An unresolved write must not trigger process cleanup')
+            pytest.fail('An unresolved control wait must not trigger process cleanup')
 
         def close_streams(self):
-            pytest.fail('An unresolved write must not close its streams')
+            pytest.fail('An unresolved control wait must not close its streams')
 
     monkeypatch.setattr(host, 'OwnedProcess', AuthoredOwner)
     service = host.Service.__new__(host.Service)
@@ -372,23 +371,7 @@ def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, monke
         host.Service.__init__(service, 'Owned API', ['authored-only'], cwd='.', env={},
             log=SimpleNamespace(write=lambda *a, **k: None), parent_control=True)
         assert entered.wait(1)
-        operation = service._parent_writes[0]
-        stopping = threading.Event()
-        stopping.set()
-        with pytest.raises(host.HostError, match='completion is unknown') as caught:
-            service.wait_ready(stopping, .2)
-        assert service._parent_errors[0] is caught.value
-        assert not operation['written'].is_set()
-        assert service.threads[0].is_alive() and not pipes.parent_write.closed
-        for attempt in (service.stop, lambda: service.wait_ready(stopping, .2)):
-            with pytest.raises(host.HostError) as refused:
-                attempt()
-            assert refused.value.__cause__ is caught.value
-        assert service._parent_writes == [operation]
-        release.set()
-        assert operation['written'].wait(1)
-        assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
-        assert service._parent_phase == 'failed'  # Late IO cannot revive authority.
+        yield SimpleNamespace(service=service, release=release)
     finally:
         # Only these known authored endpoints are released, never a live service.
         release.set()
@@ -397,8 +380,70 @@ def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, monke
         os.close(stderr_write)
         for worker in service.threads:
             worker.join(2)
-            assert not worker.is_alive()
         stderr_stream.close()
+        assert all(not worker.is_alive() for worker in service.threads)
+
+
+def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, delayed_parent_service):
+    # Child-task cancellation is covered elsewhere. This catches the parent's
+    # earlier write wait ignoring Stop before it ever waits for an acknowledgement.
+    service, release = delayed_parent_service.service, delayed_parent_service.release
+    operation = service._parent_writes[0]
+    stopping = threading.Event()
+    stopping.set()
+    with pytest.raises(host.HostError, match='completion is unknown') as caught:
+        service.wait_ready(stopping, .2)
+    assert service._parent_errors[0] is caught.value
+    assert not operation['written'].is_set()
+    assert service.threads[0].is_alive() and not pipes.parent_write.closed
+    for attempt in (service.stop, lambda: service.wait_ready(stopping, .2)):
+        with pytest.raises(host.HostError) as refused:
+            attempt()
+        assert refused.value.__cause__ is caught.value
+    assert service._parent_writes == [operation]
+    release.set()
+    assert operation['written'].wait(1)
+    assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
+    assert service._parent_phase == 'failed'  # Late IO cannot revive authority.
+
+
+@pytest.mark.parametrize('failure', ['stop', 'io-error', 'deadline'])
+def test_parent_ack_cannot_override_failure_during_wait(pipes, delayed_parent_service, monkeypatch, failure):
+    # The write-stop case cannot exercise a stop/fault arriving during Queue.get.
+    # Use real protocol IO; inject only that scheduling boundary deterministically.
+    service = delayed_parent_service.service
+    delayed_parent_service.release.set()
+    assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
+    writers.write_parent_frame(pipes.output, b'TPC1|1|BOUND|18767\n')
+    stopping = threading.Event()
+    error = OSError('authored-concurrent-io-failure')
+    clock = [0.]
+    monkeypatch.setattr(host, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    take_ack = service._parent_ack.get
+
+    def racing_ack(**kwargs):
+        result = take_ack(**kwargs)
+        if failure == 'stop':
+            stopping.set()
+        elif failure == 'io-error':
+            service._fail_parent(error)
+        else:
+            clock[0] = 2.
+        return result
+
+    monkeypatch.setattr(service._parent_ack, 'get', racing_ack)
+    with pytest.raises(TimeoutError if failure == 'deadline' else host.HostError) as refused:
+        service.wait_ready(stopping, 1)
+    original = error if failure == 'io-error' else refused.value
+    assert service._parent_errors[0] is original
+    if failure == 'io-error':
+        assert refused.value.__cause__ is error
+    assert service._parent_phase == 'failed'
+    assert not pipes.parent_write.closed
+    with pytest.raises(host.HostError) as retry:
+        service.activate_idle(threading.Event(), 1)
+    assert retry.value.__cause__ is original
+    assert len(service._parent_writes) == 1
 
 
 def test_foreign_task_is_refused_while_designated_task_then_actual_sql_workers_finish_once(tmp_path, monkeypatch, pipes):

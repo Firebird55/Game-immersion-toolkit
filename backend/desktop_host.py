@@ -390,6 +390,17 @@ class Service:
                 phase, port = self._parent_ack.get(timeout=min(.05, remaining))
             except queue.Empty:
                 continue
+            # Queue.get can yield while Stop or an IO failure is recorded.
+            # Its acknowledgement cannot override that unknown completion.
+            self._require_parent()
+            if stopping.is_set():
+                error = HostError('Parent service wait was stopped; completion is unknown.')
+                self._fail_parent(error)
+                raise error
+            if time.monotonic() >= deadline:
+                error = TimeoutError('Parent service acknowledgement missed its deadline.')
+                self._fail_parent(error)
+                raise error
             if phase != expected or not self._parent_writes[-1]['written'].is_set():
                 error = HostError('Parent acknowledgement sequence is unconfirmed.')
                 self._fail_parent(error)

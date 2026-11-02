@@ -127,3 +127,10 @@ one late completed write without authority revival. The process owner is an
 authored adapter; this does not prove OS process termination or Windows pipe
 behavior. Ordinary updater integration and all previously open boundaries above
 remain unchanged.
+
+Self-review also found that receiving an acknowledgement could bypass a stop or
+IO failure recorded while the parent was blocked in its acknowledgement queue.
+The wait now rechecks IO health, Stop and the absolute deadline after the queue
+returns and before accepting the acknowledgement. The same pipe fixture covers
+these three boundaries with a controlled queue-return schedule and clock. This
+is source-level refusal evidence, not a native scheduling or cleanup proof.
