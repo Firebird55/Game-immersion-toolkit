@@ -87,6 +87,30 @@ def test_same_project_origin_merges_main_asr_script_and_pure_roles(source_toy):
     assert report['compiled_code_identity']=='unverified' and report['r19_complete'] is False
 
 
+@pytest.mark.parametrize('change', ['omit-origin', 'omit-controls', 'roles', 'excluded-count', 'missing-observation'])
+def test_publication_readback_requires_the_actual_analysis_selection_even_with_recomputed_hashes(source_toy, change):
+    """Per-file baseline checks alone accepted a smaller, self-consistent public map."""
+    t = source_toy
+    report = complete(t)
+    assert t.m.check_project_sources(t.value, t.source, t.evidence, t.output, t.manifest) == report
+    if change == 'omit-origin':
+        report['records'] = [row for row in report['records'] if row['path'] != 'backend/entry.py']
+    elif change == 'omit-controls':
+        report['records'] = [row for row in report['records'] if row['path'] == 'backend/entry.py']
+    elif change == 'roles':
+        next(row for row in report['records'] if row['path'] == 'backend/entry.py')['roles'] = ['main-pure']
+    elif change == 'excluded-count':
+        report['excluded_origin_counts']['supplier'] += 1
+    else:
+        (t.evidence / t.m.SOURCE_OBSERVATION).unlink()
+    selected = {row['path']: {key: row[key] for key in ('raw', 'canonical_lf')} for row in report['records']}
+    report['source_before_sha256'] = report['source_after_sha256'] = hashlib.sha256(t.m.source_canonical(selected)).hexdigest()
+    report['records_sha256'] = hashlib.sha256(t.m.source_canonical(report['records'])).hexdigest()
+    (t.output / t.m.SOURCE_PUBLIC).write_text(json.dumps(report), encoding='utf-8')
+    with pytest.raises(t.m.SourceInputError):
+        t.m.check_project_sources(t.value, t.source, t.evidence, t.output, t.manifest)
+
+
 def test_conflicting_origin_for_same_toc_name_is_refused(source_toy):
     t=source_toy;o=observer(t)
     with pytest.raises(t.m.SourceInputError,match='invalid-identity'):

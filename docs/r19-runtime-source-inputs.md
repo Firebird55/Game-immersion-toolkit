@@ -83,6 +83,13 @@ The workflow performs another strict current-source/readback check and requires
 its fixed validated marker before the explicit source report artifact path can
 be uploaded. No wildcard or full private BUILD-INPUTS upload is added.
 
+Publication readback also binds the exact source selection, Analysis roles and
+exclusion counts to the private observer output. Recomputing public hashes cannot
+omit an observed origin or relabel its roles. Mandatory build controls and the
+readiness resource are required independently of those hashes. Synthetic
+regressions cover truncated selections, changed roles/counts and a missing
+private observation; the native build remains separate evidence.
+
 These are actual selected **origin files stable at observed boundaries**.
 Analysis can obtain a compiled code object or use a cache before those TOCs are
 available. Stable endpoint reads cannot exclude a change-and-restore race or

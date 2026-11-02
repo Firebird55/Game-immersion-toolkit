@@ -486,6 +486,11 @@ def validate_source_report(value):
     names = [row['path'] for row in records]
     if names != sorted(set(names)) or len({n.casefold() for n in names}) != len(names):
         raise SourceInputError('invalid-identity')
+    roles = {row['path']: row['roles'] for row in records}
+    if (not SOURCE_CONTROLS <= set(names)
+            or any('build-control' not in roles[name] for name in SOURCE_CONTROLS)
+            or 'runtime-script-resource' not in roles.get('scripts/check-capture-readiness.py', [])):
+        raise SourceInputError('invalid-identity')
     if sum(row['raw']['bytes'] for row in records) > SOURCE_TOTAL:
         raise SourceInputError('limit-exceeded')
     selected = {row['path']: {k: row[k] for k in ('raw', 'canonical_lf')} for row in records}
@@ -566,7 +571,17 @@ def check_project_sources(value, source, evidence, output, input_manifest):
             or report['private_baseline'] != source_file_identity(evidence / SOURCE_BASELINE)):
         raise SourceInputError('invalid-identity')
     baseline = source_json(evidence / SOURCE_BASELINE)
-    if type(baseline) is not dict:
+    observation = source_json(evidence / SOURCE_OBSERVATION)
+    required = {'schema', *headers, 'input_manifest', 'private_baseline', 'analyses', 'records', 'excluded_origin_counts'}
+    if (type(baseline) is not dict or type(observation) is not dict or set(observation) != required
+            or observation['schema'] != 'proxy-r19-project-source-observation-v1'
+            or any(observation[k] != v or baseline.get(k) != v for k, v in headers.items())
+            or baseline.get('source_clean_before') is not True
+            or baseline.get('input_manifest') != report['input_manifest']
+            or any(source_canonical(observation[key]) != source_canonical(report[key])
+                for key in ('input_manifest', 'private_baseline', 'analyses', 'records', 'excluded_origin_counts'))):
+        # Self-consistent public hashes cannot replace the map actually emitted
+        # by Analysis. Retain every recorded origin, role and exclusion count.
         raise SourceInputError('invalid-identity')
     validate_source_baseline_files(baseline.get('files'))
     tracked = set(source_tracked(source))
