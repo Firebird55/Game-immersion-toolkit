@@ -109,3 +109,21 @@ owner can keep the source experiment and its installation lease held; it is not
 an automatic recovery feature. OCR warmth, stable routing/chunks/profile, final
 copy B, keeper loss, real Windows11 hardware, rights/source delivery and full R19
 remain open. There is no installer or PR59 change.
+
+## Local pending-write stop boundary (2026-11-02)
+
+The parent's readiness/activation wait now observes its stop Event while the
+retained control write is still pending, as well as while awaiting the child
+acknowledgement. It records an unknown-completion failure immediately rather
+than waiting out the write deadline. This stops only the waiter: the actual
+write operation, IO threads and streams remain retained, with no resend,
+concurrent close or inferred process exit. Late write completion cannot restore
+binding authority. The existing conservative refusal after an IO fault remains.
+
+The focused regression uses the actual Service IO threads and anonymous binary
+pipes, with an authored Event delaying the input write. It verifies failure
+before write completion, original-error retention, refusal of retry/cleanup and
+one late completed write without authority revival. The process owner is an
+authored adapter; this does not prove OS process termination or Windows pipe
+behavior. Ordinary updater integration and all previously open boundaries above
+remain unchanged.

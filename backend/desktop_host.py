@@ -366,6 +366,10 @@ class Service:
         written = self._parent_writes[-1]['written']
         while not written.is_set():
             self._require_parent()
+            if stopping.is_set():
+                error = HostError('Parent service wait was stopped; completion is unknown.')
+                self._fail_parent(error)
+                raise error
             if deadline-time.monotonic() <= 0:
                 error = TimeoutError('Parent control write completion remains owned.')
                 self._fail_parent(error)

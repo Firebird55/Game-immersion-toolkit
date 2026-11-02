@@ -340,6 +340,67 @@ def test_service_uses_real_binary_pipes_and_confirms_threads_before_stream_close
         if not stderr_stream.closed: stderr_stream.close()
 
 
+def test_parent_stop_request_during_pending_write_retains_actual_io(pipes, monkeypatch):
+    # Child-task cancellation is covered elsewhere. This catches the parent's
+    # earlier write wait ignoring Stop before it ever waits for an acknowledgement.
+    entered, release = threading.Event(), threading.Event()
+    stderr_read, stderr_write = os.pipe()
+    stderr_stream = io.FileIO(stderr_read, 'rb')
+
+    class DelayedInput:
+        def write(self, data):
+            entered.set()
+            assert release.wait(2)
+            return pipes.parent_write.write(data)
+
+        def flush(self):
+            pipes.parent_write.flush()
+
+    class AuthoredOwner:
+        def __init__(self, *args, **kwargs):
+            self.process = SimpleNamespace(stdin=DelayedInput(), stdout=pipes.parent_read, stderr=stderr_stream)
+
+        def stop(self, **kwargs):
+            pytest.fail('An unresolved write must not trigger process cleanup')
+
+        def close_streams(self):
+            pytest.fail('An unresolved write must not close its streams')
+
+    monkeypatch.setattr(host, 'OwnedProcess', AuthoredOwner)
+    service = host.Service.__new__(host.Service)
+    try:
+        host.Service.__init__(service, 'Owned API', ['authored-only'], cwd='.', env={},
+            log=SimpleNamespace(write=lambda *a, **k: None), parent_control=True)
+        assert entered.wait(1)
+        operation = service._parent_writes[0]
+        stopping = threading.Event()
+        stopping.set()
+        with pytest.raises(host.HostError, match='completion is unknown') as caught:
+            service.wait_ready(stopping, .2)
+        assert service._parent_errors[0] is caught.value
+        assert not operation['written'].is_set()
+        assert service.threads[0].is_alive() and not pipes.parent_write.closed
+        for attempt in (service.stop, lambda: service.wait_ready(stopping, .2)):
+            with pytest.raises(host.HostError) as refused:
+                attempt()
+            assert refused.value.__cause__ is caught.value
+        assert service._parent_writes == [operation]
+        release.set()
+        assert operation['written'].wait(1)
+        assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
+        assert service._parent_phase == 'failed'  # Late IO cannot revive authority.
+    finally:
+        # Only these known authored endpoints are released, never a live service.
+        release.set()
+        service._parent_queue.put_nowait(None)
+        pipes.output.close()
+        os.close(stderr_write)
+        for worker in service.threads:
+            worker.join(2)
+            assert not worker.is_alive()
+        stderr_stream.close()
+
+
 def test_foreign_task_is_refused_while_designated_task_then_actual_sql_workers_finish_once(tmp_path, monkeypatch, pipes):
     from backend.tests.test_runtime_sql_lifetime import cohort
     generator = cohort.__wrapped__(tmp_path, monkeypatch)
