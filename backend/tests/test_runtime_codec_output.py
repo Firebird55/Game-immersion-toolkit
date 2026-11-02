@@ -86,7 +86,10 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         def observe_analysis(self, *_args): pass
         def observe_generated(self, *_args): pass
         def finish(self): pass
-    monkeypatch.setitem(sys.modules, 'record_runtime', SimpleNamespace(NativeCollectionObservation=Observer))
+    # Codec DATA placement excludes both native and project-source observation;
+    # the latter has actual spec-path positive/refusal tests of its own.
+    monkeypatch.setitem(sys.modules, 'record_runtime', SimpleNamespace(
+        NativeCollectionObservation=Observer, ProjectSourceObservation=Observer))
     monkeypatch.setitem(sys.modules, 'PyInstaller.config', SimpleNamespace(CONF={'workpath': str(tmp_path)}))
     analyses = []
     def analysis(_scripts, *, datas, binaries, **_kwargs):
