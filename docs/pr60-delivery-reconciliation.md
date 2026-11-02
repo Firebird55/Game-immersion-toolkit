@@ -111,3 +111,19 @@ The source observer remains experimental and requires new exact-head hosted
 build evidence. Earlier runtime, C7 and MP3 observations retain their original
 source and limitations. Combined-source check results must be recorded for the
 new head; this merge alone closes no R19 acceptance row.
+
+Local integrated-source validation used `check:changed --base upstream/main`
+with browser jobs delegated. Report `c7263194-b647-446f-8562-c6cd25db1830` binds
+base `24c87b5`, merge HEAD `669ee2c` plus the staged source-readback/fixture fixes,
+and identical before/after source hash
+`fe6d447a884a087f889ad438eac5c241d3a0b0b466574b3869f66970bf0b488d`.
+Typecheck, 360 Node tests (one skip), 5,454 Python tests (58 platform/fixture
+skips, 397 subtests), frontend build, documentation and public audit passed.
+The report remains **incomplete**: nineteen browser scenarios are delegated and
+three Windows lifecycle/setup/update checks are unavailable on this host.
+The first unrestricted full run exposed five supplier/PE/codec fixtures that
+lacked the newly required project-source adapter. They now explicitly exclude
+source-map acceptance while retaining their original assertions; the actual
+source-required spec and finalization paths have independent positive/refusal
+coverage. No production gate, skip or deadline was relaxed. Exact-head hosted
+PR checks and experimental native evidence remain separate requirements.
