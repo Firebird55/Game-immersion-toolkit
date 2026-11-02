@@ -99,9 +99,11 @@ CORS permits the production Pages origin and is not authentication.
 
 ## Checks and evidence
 
-Run `npm run lexirise:watch` and review settings, lookup UI, API/AI references and
-language capabilities before recording a new shared baseline. Then run shared
-consumer checks, `npm run mobile:check`, `npm run check` and `npm run audit:public`.
+Public Lexirise compatibility reviews and `npm run lexirise:watch` are optional
+and run only when explicitly requested; see
+[the runbook](../RELEASE.md#optional-lexirise-compatibility-diagnostic).
+Run shared consumer checks, `npm run mobile:check`, `npm run check` and
+`npm run audit:public` for implementation changes.
 `scripts/companion-e2e.mjs` checks the ordinary UI, vault, transcript-only pairing,
 pagination, updates/deduplication, reconnect, local favorites and stop in supported
 Playwright engines. The retained capture/library/update suites exercise modules
