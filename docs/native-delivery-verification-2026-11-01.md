@@ -15,11 +15,11 @@ cause and the required patch-release verification; 0.23.0 remains unpublished.
 | `eb15802` | Windows x64 | Input review, frozen lifecycle, mounted browser, tray and owned shutdown accepted in [run 41313203096](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41313203096). |
 | `11141a7` | Linux x64 and macOS arm64 | Both targets accepted in [run 41318552161](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41318552161), with all six input checks true and no blockers. Windows stopped on source-download transport before freezing. |
 | `efdcf85` | Linux x64 | Accepted again in [run 41321715135](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41321715135): exact input review, eight frozen checks and actual status/log windows, tray, both mounted-browser acknowledgements and owned shutdown. The target receipt has `candidate: false`, `release_eligible: true` and `native_acceptance: approved`. |
+| `0ec5f5f` (`v0.23.1`) | Windows x64, Linux x64 and macOS arm64 | All final browser, native and publication gates passed in [run 41340575864](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/41340575864). The [release](https://github.com/Firebird55/Game-immersion-toolkit/releases/tag/v0.23.1) is published. |
 
-These are separate source identities. They do not substitute for the final
-combined-head PR gate or the tag's release checks. Downloaded small metadata
-archives were checksum verified; full installer download and installation remain
-later delivery steps.
+These are separate source identities. Earlier candidates do not substitute for
+the final tag's checks. All 24 release assets were downloaded; the 23 checksummed
+payloads and all three platform provenance records were independently verified.
 
 ## Completed construction corrections
 
@@ -42,16 +42,22 @@ a browser-opener command alone does not pass. macOS final reports are written
 before owned Qt shutdown. Windows gateway socket-reset cleanup closes and
 detaches the connection without suppressing unrelated errors.
 
-## Final delivery still required
+## Installed delivery and preparation follow-up
 
-- Pass the final combined-head required PR checks and all three native targets.
-  Recovery fixtures must include every gateway module; cross-platform source
-  cache keys must use the same canonical policy bytes.
-- Merge the verified head into the current main, release through the documented
-  command, and verify tag-built downloads, checksums and provenance together.
-- Install the verified executable and perform the authorized source-to-native
-  [handoff](native-installation-handoff.md). Fresh local history is authorized;
-  settings, calibration, language choices and opaque protected credentials remain.
+The verified 0.23.1 Windows installer completed the authorized source-to-native
+[handoff](native-installation-handoff.md). Installed executable identity and both
+shortcut choices were checked. The native application started with retained
+settings, calibration and protected profiles; browser opening and local/LAN
+serving were observed. Physical-device acceptance remains separate.
+
+Installed use exposed a preparation child inheriting the API's actively read
+shutdown input pipe, blocking frozen Python startup. A real Windows reproduction
+failed before the fix and passed with independent empty input. The shared fix and
+a mandatory frozen preparation/control-pipe probe are committed for
+[0.23.2](releases/0.23.2.md); that release's frozen acceptance is still pending.
+A separately prepared, fingerprint-validated Beyond Dutch catalogue restored
+capture after confirmed host shutdown, with the learning/translation selection
+preserved. This temporary local recovery does not replace the permanent update.
 
 Packages are unsigned. Intel macOS, physical iOS/Android devices, Wayland capture,
 every gameplay presentation and absent voice packs are not established by these

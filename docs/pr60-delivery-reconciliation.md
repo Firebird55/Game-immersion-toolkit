@@ -85,3 +85,29 @@ cause attribution to the publisher correction. This is no global/physical/
 keeper-loss or ordinary-user Windows11 acceptance. The separate MP3 run fails
 at observe/package with an unknown actual child cause; diagnostic work does not
 expand the exact BSD grants or authorize runtime collection.
+
+## Current-main integration (2026-11-02)
+
+The integration branch retains the later R19 history through `85c3793`, records
+its previously uncommitted experimental source observer separately, and merges
+production main `24c87b53240fab4d0268280e8b6f523a76d8ab5b` (0.23.2 plus the
+optional compatibility-review policy). The original development worktree and
+its uncommitted files are preserved independently.
+
+The API entrypoint composes ordinary startup, the frozen preparation probe,
+permanently closed experimental candidates and source-only parent control.
+The preparation probe refuses mixed control modes before any service or input
+binding. Ordinary shutdown keeps main's shared control reader; parent mode owns
+only its binary reader and restores its retained stdout wrapper on failure.
+Focused CLI regressions cover the actual dispatch and cleanup paths in addition
+to the existing protocol tests. Preparation still defaults to empty child stdin;
+the gateway shutdown repair and its isolated fixtures remain intact.
+
+Later SQL cursor ownership, coordinated request/SQL resume, cancellation-safe
+preview/ingest and uncertain export-lock cleanup remain separately reviewable
+commits. Parent-held idle activation remains a source-only experimental path;
+this integration does not add it to the ordinary updater or enable it frozen.
+The source observer remains experimental and requires new exact-head hosted
+build evidence. Earlier runtime, C7 and MP3 observations retain their original
+source and limitations. Combined-source check results must be recorded for the
+new head; this merge alone closes no R19 acceptance row.

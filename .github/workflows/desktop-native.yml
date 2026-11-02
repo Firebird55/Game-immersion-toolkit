@@ -90,6 +90,8 @@ jobs:
           backend/tests/test_ooz_source_build.py backend/tests/test_native_zzz_probe.py
           backend/tests/test_production_zzz_reader.py backend/tests/test_zzz_toolchain_build.py
           backend/tests/test_desktop_build_environment.py
+          backend/tests/test_preparation_process_tree.py backend/tests/test_preparation_probe.py
+          backend/tests/test_desktop_native_probe.py backend/tests/test_desktop_acceptance.py
       - name: Retain exact Linux system library inputs and corresponding sources
         if: runner.os == 'Linux'
         run: python scripts/build-linux-system-resources.py --output output/linux-system-resources --cache output/linux-system-cache --sync-build-host

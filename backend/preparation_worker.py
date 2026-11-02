@@ -60,6 +60,10 @@ class PreparationJob:
     def run(self, command, *, cwd, timeout, progress_path=None, **options):
         """Keep ownership until the extraction process has exited and been reaped."""
         self.checkpoint()
+        # Preparation has no interactive input. Inheriting the API's shutdown
+        # pipe while its reader is active can block Windows interpreter startup
+        # before the bootstrap joins its job. Preserve deliberate caller input.
+        options.setdefault('stdin', subprocess.DEVNULL)
         # The Windows bootstrap joins its owned job before spawning extraction.
         # POSIX workers retain their own session/process group.
         tree = WindowsPreparationProcess() if os.name == 'nt' else None

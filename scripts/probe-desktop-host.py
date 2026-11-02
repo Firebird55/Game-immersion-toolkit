@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import queue
 import re
 import subprocess
 import sys
@@ -25,6 +26,7 @@ import psutil
 from backend.bundle_host import ExclusiveFileLease, HostProbeError
 from backend.runtime_payload import validate, executable_target, digest
 from backend.native_browser_probe import sanitize_browser_diagnostics
+from backend.owned_process import OwnedProcess
 
 
 class ProbeFailure(RuntimeError):
@@ -72,6 +74,66 @@ def child_environment(base):
     environment['PATH'] = (os.pathsep.join((str(Path(os.environ['SystemRoot']) / 'System32'),
         os.environ['SystemRoot'])) if os.name == 'nt' else '/usr/bin:/bin')
     return environment
+
+
+def check_preparation(executable, base, environment, timeout):
+    """Run the real frozen API launcher with a retained, actively read pipe."""
+    environment = dict(environment, PYINSTALLER_RESET_ENVIRONMENT='1',
+        PROXY_TRANSCRIPT_LAYOUT_SCHEMA='proxy-runtime-host-v1')
+    for name in ('data', 'settings', 'cache', 'tool', 'work', 'state', 'default_export'):
+        environment['PROXY_TRANSCRIPT_' + name.upper() + '_ROOT'] = str(base / name)
+    environment.pop('PROXY_TRANSCRIPT_PROJECT_ROOT', None)
+    observations = queue.Queue()
+    owner = None
+    reader = None
+    with tempfile.TemporaryFile() as errors:
+        try:
+            owner = OwnedProcess([str(executable), '--runtime-child', 'api', '--',
+                '--preparation-probe', '--shutdown-stdin'], cwd=base, env=environment,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, text=True)
+            process = owner.process
+            def read_observations():
+                try:
+                    for _ in range(3):
+                        line = process.stdout.readline(4097)
+                        if not line or len(line) > 4096:
+                            break
+                        observations.put(json.loads(line))
+                except (OSError, ValueError):
+                    pass
+                finally:
+                    observations.put(None)
+            reader = threading.Thread(target=read_observations, daemon=True)
+            reader.start()
+            def observe(stage, expected, deadline):
+                try:
+                    value = observations.get(timeout=deadline)
+                except queue.Empty as error:
+                    raise ProbeFailure('frozen-preparation-timeout') from error
+                if (isinstance(value, dict) and value.get('schema') == 'toolkit-frozen-preparation-probe-v1'
+                        and value.get('stage') == 'failed' and value.get('phase') in
+                        {'layout', 'control-reader', 'preparation', 'control-shutdown'}):
+                    raise ProbeFailure('frozen-preparation-' + value['phase'] + '-failed')
+                if (not isinstance(value, dict) or value.get('schema') != 'toolkit-frozen-preparation-probe-v1'
+                        or value.get('mode') != 'bundle' or value.get('stage') != stage
+                        or value.get('checks') != expected
+                        or any(item is not True for item in value['checks'].values())):
+                    raise ProbeFailure('frozen-preparation-observation-failed')
+            observe('prepared', {'preparation_completed': True, 'parent_control_retained': True,
+                'preparation_tree_drained': True}, min(timeout, 90))
+            process.stdin.write('shutdown\n')
+            process.stdin.flush()
+            observe('complete', {'control_shutdown': True}, 25)
+            if process.wait(timeout=20) != 0:
+                raise ProbeFailure('frozen-preparation-exited')
+        finally:
+            if owner is not None:
+                owner.stop(timeout=15)
+                if reader is not None:
+                    reader.join(timeout=3)
+                    if reader.is_alive():
+                        raise ProbeFailure('frozen-preparation-log-pipe-retained')
+                owner.close_streams()
 
 
 class FrozenHost:
@@ -329,6 +391,8 @@ def probe(runtime, provenance, output, timeout, *, ui=False, prepare_ui_environm
             report['checks'].update(result.pop('checks'))
             report.update(result)
         else:
+            check_preparation(executable, base, environment, timeout)
+            report['checks']['preparation_control_pipe'] = True
             active = FrozenHost(executable, user, environment)
             active.wait(lambda: active.port is not None, timeout, 'frozen-startup-timeout')
             if json.loads(active.get('/api/health'))['status'] != 'ok' or b'<html' not in active.get('/').lower():

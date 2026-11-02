@@ -10,6 +10,18 @@ import sys
 import threading
 
 
+def start_stdin_shutdown(callback, *, ready=None):
+    """Keep the API control reader identical in service and native probes."""
+    def stop_on_input():
+        if ready is not None:
+            ready.set()
+        sys.stdin.readline()
+        callback()
+    reader = threading.Thread(target=stop_on_input, daemon=True)
+    reader.start()
+    return reader
+
+
 def _candidate_layout(port, standby):
     from .runtime_bundle import discover_layout, EXPERIMENT_CHILDREN, RuntimeBundleError, RuntimeLayout
     if (not getattr(sys, 'frozen', False) or sys.platform != 'win32' or not standby
@@ -24,14 +36,21 @@ def _candidate_layout(port, standby):
     return layout
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int)
     parser.add_argument('--standby', action='store_true')
     parser.add_argument('--candidate-closed', action='store_true')
     parser.add_argument('--parent-control-stdin', action='store_true', help=argparse.SUPPRESS)
     parser.add_argument('--shutdown-stdin', action='store_true', help=argparse.SUPPRESS)
+    parser.add_argument('--preparation-probe', action='store_true', help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.preparation_probe:
+        if not args.shutdown_stdin or args.candidate_closed or args.parent_control_stdin:
+            parser.error('The preparation probe requires exclusive owned shutdown input.')
+        from .preparation_probe import run
+        from .runtime_bundle import discover_layout
+        return run(discover_layout(), start_stdin_shutdown)
     gate = None
     parent = None
     saved_stdout = None
@@ -82,22 +101,19 @@ def main() -> None:
             async def serve():
                 if args.shutdown_stdin and parent is None:
                     loop = asyncio.get_running_loop()
-                    def stop_on_input():
-                        sys.stdin.readline()
-                        loop.call_soon_threadsafe(setattr, server, 'should_exit', True)
-                    threading.Thread(target=stop_on_input, daemon=True).start()
+                    start_stdin_shutdown(lambda: loop.call_soon_threadsafe(setattr, server, 'should_exit', True))
                 serving = asyncio.create_task(server.serve(sockets=[listener]))
-                while not server.started and not serving.done():
-                    await asyncio.sleep(.02)
-                if server.started:
-                    if parent is None:
-                        print(json.dumps({'ready': True, 'port': listener.getsockname()[1]}), flush=True)
-                    else:
-                        from .api import _parent_activate_idle
-                        parent.start(listener.getsockname()[1],
-                            lambda grant: _parent_activate_idle(parent, grant),
-                            lambda: setattr(server, 'should_exit', True))
                 try:
+                    while not server.started and not serving.done():
+                        await asyncio.sleep(.02)
+                    if server.started:
+                        if parent is None:
+                            print(json.dumps({'ready': True, 'port': listener.getsockname()[1]}), flush=True)
+                        else:
+                            from .api import _parent_activate_idle
+                            parent.start(listener.getsockname()[1],
+                                lambda grant: _parent_activate_idle(parent, grant),
+                                lambda: setattr(server, 'should_exit', True))
                     await serving
                 finally:
                     if parent is not None:
@@ -111,4 +127,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

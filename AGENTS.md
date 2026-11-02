@@ -8,7 +8,7 @@ Shared component source belongs to Lexirise-shared-components. Never edit `vendo
 
 Real account verification is read-only. Test all account writes with mocks. Store credentials only in host protected storage, never workflow secrets. Preserve toolkit Chinese transcripts, its independent Migaku mode, and userscript storage keys.
 
-Run `npm run lexirise:watch` for public upstream changes. Exit 2 means inspect settings, lookup UI, AI/API docs and language capabilities, not permission to alter accounts. Record the baseline only after compatibility review.
+Public Lexirise compatibility reviews are no longer required for routine development or releases (owner instruction, 2026-11-02). Do not run `npm run lexirise:watch` or repeat the public review unless explicitly requested. The watcher remains available as an optional diagnostic; it does not authorize account writes or automatic baseline updates.
 
 Test desktop/mobile, Shadow DOM, Firefox/Chromium, zoom and Windows DPI/capture bounds as applicable. Run `npm run audit:public` before publication. Release through `npm run release -- --version <semver>`; monitor GitHub-hosted Actions and verify downloaded checksums and provenance. Delivery must not depend on Argo or a cluster.
 

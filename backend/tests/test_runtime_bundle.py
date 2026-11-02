@@ -113,6 +113,63 @@ def test_main_serve_failure_keeps_original_error_and_closes_owned_listener_once(
     assert capsys.readouterr().out == ''
 
 
+@pytest.mark.parametrize('failure', [None, 'bind-input', 'listener-bind', 'start', 'serve'])
+def test_parent_entrypoint_keeps_binary_input_exclusive_and_restores_owned_outputs(main_lifecycle, monkeypatch, failure):
+    """Protocol-unit tests do not exercise CLI dispatch or its competing stdin reader."""
+    from backend import runtime_writers
+    value = main_lifecycle
+    events, parents = [], []
+    stdin, stdout = SimpleNamespace(buffer=io.BytesIO()), SimpleNamespace(buffer=io.BytesIO())
+    target = object()
+
+    class Parent:
+        def __init__(self, reader, writer, *, stream_owners):
+            assert reader is stdin.buffer and writer is stdout.buffer
+            assert stream_owners == (stdin, stdout)
+            self.gate = None
+            parents.append(self)
+        def bind_input(self):
+            events.append('bind-input')
+            if failure == 'bind-input':
+                raise RuntimeError('authored bind-input refusal')
+        def start(self, port, activate, shutdown):
+            events.append('start')
+            assert port == 24567 and self.gate is not None
+            if failure == 'start':
+                raise RuntimeError('authored start refusal')
+            shutdown()
+        def finish_io(self, timeout):
+            assert timeout == 1.0
+            events.append('finish')
+
+    monkeypatch.setattr(runtime_writers, 'ParentControlBinding', Parent)
+    monkeypatch.setattr(value.main.sys, 'stdin', stdin)
+    monkeypatch.setattr(value.main.sys, 'stdout', stdout)
+    monkeypatch.setattr(value.main.sys, 'frozen', False, raising=False)
+    monkeypatch.setattr(value.main.sys, 'argv', ['api', '--standby', '--port', '0',
+        '--shutdown-stdin', '--parent-control-stdin'])
+    monkeypatch.setattr(value.main, 'start_stdin_shutdown', lambda *_a, **_kw: pytest.fail('Competing text reader'))
+    monkeypatch.setitem(sys.modules, 'backend.api', SimpleNamespace(
+        parent_control_app=lambda parent: target if parent is parents[0] else pytest.fail('Wrong parent'),
+        _parent_activate_idle=lambda *_: pytest.fail('No activation command was sent')))
+    value.state.fail_serve = failure == 'serve'
+    if failure == 'listener-bind':
+        def bind(_address):
+            raise RuntimeError('authored listener-bind refusal')
+        monkeypatch.setattr(value.listener, 'bind', bind)
+    if failure:
+        with pytest.raises(RuntimeError, match='authored .*refusal'):
+            value.main.main()
+    else:
+        value.main.main()
+    assert value.main.sys.stdout is stdout
+    assert stdin.buffer.getvalue() == stdout.buffer.getvalue() == b''
+    assert value.listener.closed == (0 if failure == 'bind-input' else 1)
+    assert ('finish' in events) is (failure not in {'bind-input', 'listener-bind'})
+    if failure != 'bind-input':
+        assert next(call[1] for call in value.calls if call[0] == 'config').target is target
+
+
 @pytest.mark.parametrize('failure', ['source', 'not-windows', 'no-standby', 'no-port', 'public-port',
     'frontend-port', 'privileged-port', 'invalid-port', 'diagnostic', 'production', 'asr', 'child-subset', 'resources',
     'old-image', 'foreign-image', 'legacy-root'])

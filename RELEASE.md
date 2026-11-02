@@ -33,9 +33,14 @@ the host. Resolve translation targets per learning language, never from the
 global setting when a per-language effective target exists. See
 docs/languages-and-accounts.md for setup and storage behavior.
 
-## Compatibility watch for agents
-npm run lexirise:watch reads public API/AI docs and website bundles, without a key. Exit 2 flags changes for review; .watch/report.md and .json summarize endpoint changes and settings/lookup/language review areas.
-It does not silently update code or account settings. Follow AGENTS.md, update the shared source and baseline after review, synchronize both apps and run Firefox/Chromium/mobile/zoom and capture regression checks.
+## Optional Lexirise compatibility diagnostic
+Public Lexirise compatibility reviews and `npm run lexirise:watch` are not routine
+development or release requirements. Run them only when explicitly requested,
+per the owner's 2026-11-02 instruction in AGENTS.md.
+The optional watcher reads public API/AI docs and website bundles without a key;
+exit 2 reports changes in `.watch/report.md` and `.json`. It does not authorize
+account writes or automatic baseline updates. Normal affected checks and shared
+component synchronization requirements still apply to implementation changes.
 
 ## Rollback
 Download and install a prior release using the same steps. Keep user data, local preferences and keys. Do not rewrite tags. For dependency rollback, import the prior shared release using shared:update, then publish new consumer versions.

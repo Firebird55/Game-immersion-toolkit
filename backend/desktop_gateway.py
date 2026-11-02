@@ -37,6 +37,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from .local_access import COMPANION_ORIGINS
 from .gateway_loop import new_gateway_loop
+from .gateway_websocket import GatewayWebSocketProtocol
 
 LOG = logging.getLogger(__name__)
 COOKIE = 'toolkit_device'
@@ -447,7 +448,8 @@ def main():
                     self.shutdown_expired = True
                     raise
 
-        server = DrainingServer(uvicorn.Config(gateway.app, proxy_headers=False, access_log=False,
+        server = DrainingServer(uvicorn.Config(gateway.app, ws=GatewayWebSocketProtocol,
+                                              proxy_headers=False, access_log=False,
                                               timeout_graceful_shutdown=args.shutdown_timeout, log_level='info'))
         async def run():
             if args.shutdown_stdin:

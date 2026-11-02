@@ -8,8 +8,10 @@ replace the public site. A failed check keeps the prior deployment live.
 1. Work on a `codex/` branch. Edit the React shell in `mobile/` and lifecycle
    modules in `public/mobile-capture/`. Run `node scripts/prepare-mobile-assets.mjs`
    to bundle the reader, then `npm run mobile:dev` to serve the local allowlist.
-2. Run the compatibility watch, shared consumer checks, `npm run mobile:check`,
+2. Run shared consumer checks, `npm run mobile:check`,
    `npm run check` and `npm run audit:public`. Commit each verified logical change.
+   Public Lexirise compatibility reviews are optional and run only when explicitly
+   requested; see [the runbook](../RELEASE.md#optional-lexirise-compatibility-diagnostic).
 3. Push the branch and inspect the **Online companion** review artifact and checks.
 4. Deploy any gateway change first using `npm run gateway:deploy`; verify health,
    CORS, authorization failure handling and mocked account operations.
