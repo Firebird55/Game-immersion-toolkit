@@ -27,6 +27,16 @@ def checksum(raw):
 def toy(tmp_path, monkeypatch):
     module = recorder(monkeypatch)
     monkeypatch.setitem(sys.modules, 'record_runtime', module)
+    # These old fixtures own non-PE supplier strings and native TOCs only.
+    # Their fake Analyses have no source graph/baseline. The separate actual
+    # source-required pipeline is exercised in test_runtime_source_inputs.py.
+    class SourceMapNotTested:
+        def __init__(self, *_args): pass
+        def observe_analysis(self, *_args): pass
+        def finish(self): return {'schema': 'authored-source-map-not-tested'}
+    monkeypatch.setattr(module, 'ProjectSourceObservation', SourceMapNotTested)
+    monkeypatch.setattr(module, 'finalize_project_sources',
+        lambda *_args: {'schema': 'authored-source-map-not-tested'})
     base = tmp_path.resolve()
     evidence = base / 'evidence'; evidence.mkdir()
     prefix = base / 'private-interpreter'; prefix.mkdir()

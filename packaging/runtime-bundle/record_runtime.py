@@ -15,6 +15,8 @@ import re
 import stat
 import sys
 import tarfile
+import subprocess
+import uuid
 import zipfile
 from types import CodeType
 
@@ -29,6 +31,559 @@ RESOURCES = (
     'scripts/check-capture-readiness.py', 'scripts/select-game-folders.ps1',
     'scripts/select-export-folder.ps1', 'scripts/endfield-reader-sources.json',
 )
+
+# Project source observations are deliberately separate from native provenance.
+# These are fixed source controls/targets, not a catalog grown from TOC paths.
+SOURCE_SCHEMA = 'proxy-r19-runtime-source-inputs-v1'
+SOURCE_BASELINE = 'PROJECT-SOURCE-BASELINE.private.json'
+SOURCE_OBSERVATION = 'PROJECT-SOURCE-OBSERVATION.private.json'
+SOURCE_PUBLIC = 'RUNTIME-SOURCE-INPUTS.json'
+SOURCE_TARGETS = {
+    'agent-fingerprints': ('module', 'scripts.build_agent_fingerprints'),
+    'story-fingerprints': ('module', 'scripts.build_story_fingerprints'),
+    'capture-readiness': ('script', 'scripts/check-capture-readiness.py'),
+    'account-key': ('module', 'scripts.set_lexirise_key'),
+    'index-pragmata': ('module', 'scripts.index_pragmata_assets'),
+    'index-voice': ('module', 'scripts.index_voice_assets'),
+    'update-voice': ('module', 'scripts.update_voice_assets'),
+}
+SOURCE_WORKERS = frozenset({'scripts/__init__.py', 'scripts/check-capture-readiness.py',
+    *(value[1].replace('.', '/') + '.py' for value in SOURCE_TARGETS.values() if value[0] == 'module')})
+SOURCE_CONTROLS = frozenset({'scripts/build-runtime-bundle.ps1', 'scripts/check-evidence.mjs',
+    'packaging/runtime-bundle/runtime.spec', 'packaging/runtime-bundle/record_runtime.py',
+    'packaging/runtime-bundle/record_diagnostic.py', 'packaging/runtime-bundle/closure.py',
+    'packaging/runtime-bundle/build_environment.py', 'packaging/runtime-bundle/native_ownership.py',
+    'packaging/runtime-bundle/native_images.py', 'packaging/runtime-bundle/python_supplier.py',
+    'packaging/runtime-bundle/windows_runtime.py', 'packaging/runtime-bundle/hooks/hook-webrtcvad.py'})
+SOURCE_ROLES = frozenset({'main-pure', 'main-script', 'asr-pure', 'asr-script',
+    'build-control', 'runtime-script-resource'})
+SOURCE_LIMIT, SOURCE_TOTAL, SOURCE_FILES, SOURCE_ROWS = 2 * 1024**2, 32 * 1024**2, 1024, 20000
+SOURCE_COVERAGE = ('project origin files stable at observed boundaries; compiled bytecode, generated code, '
+    'suppliers, frontend source-to-assets and OS/toolchain closure are not established')
+SOURCE_FAILURES = frozenset({'invalid-identity', 'unsafe-source', 'unmapped-origin', 'source-changed',
+    'source-unavailable', 'limit-exceeded', 'cleanup-unconfirmed', 'observation-failed'})
+_SOURCE_HELD = []  # Actual uncertain streams/errors only; never public or retry authority.
+
+
+class SourceInputError(ClosureError):
+    def __init__(self, code):
+        self.code = code if code in SOURCE_FAILURES else 'observation-failed'
+        super().__init__('Project source observation refused: ' + self.code + '.')
+
+
+def source_canonical(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
+
+
+def source_name(name):
+    from native_ownership import _relative
+    try:
+        result = _relative(name)
+        if type(name) is not str or len(name) > 512 or any(ord(c) == 127 for c in name):
+            raise ValueError()
+        return result
+    except Exception:
+        raise SourceInputError('unsafe-source') from None
+
+
+def source_eligible(name):
+    source_name(name)
+    return name in SOURCE_WORKERS or name in SOURCE_CONTROLS or (name.startswith('backend/')
+        and name.endswith('.py') and not {'tests', 'test', '__pycache__', 'data', 'work', 'output',
+            'diagnostics', '.venv', '.git'} & set(Path(name).parts))
+
+
+def source_read(path, *, limit=SOURCE_LIMIT):
+    """Root-first bounded ordinary file read, retaining uncertainty on close."""
+    stream = None
+    error = None
+    try:
+        path = native_path(path)
+        stream = path.open('rb')
+        before = os.fstat(stream.fileno())
+        if before.st_nlink != 1 or before.st_size > limit:
+            raise SourceInputError('limit-exceeded')
+        raw = stream.read(limit + 1)
+        after = os.fstat(stream.fileno())
+        current = native_path(path).stat()
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns)
+        if (len(raw) != before.st_size or len(raw) > limit or identity(before) != identity(after)
+                or identity(before) != identity(current)):
+            raise SourceInputError('source-changed')
+    except BaseException as caught:
+        error = caught
+    if stream is not None:
+        try:
+            stream.close()
+        except BaseException as close_error:
+            _SOURCE_HELD.append((stream, error, close_error))
+            raise SourceInputError('cleanup-unconfirmed') from None
+    if error is not None:
+        _SOURCE_HELD.append((None, error))
+        raise SourceInputError(error.code if type(error) is SourceInputError else 'source-unavailable') from None
+    return raw
+
+
+def source_text_identity(path, *, limit=SOURCE_LIMIT):
+    raw = source_read(path, limit=limit)
+    lf = raw.replace(b'\r\n', b'\n')
+    try:
+        lf.decode('utf-8', errors='strict')
+        if b'\0' in lf or b'\r' in lf:
+            raise ValueError()
+    except (UnicodeError, ValueError):
+        raise SourceInputError('source-unavailable') from None
+    return {'raw': {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()},
+        'canonical_lf': {'bytes': len(lf), 'sha256': hashlib.sha256(lf).hexdigest()}}
+
+
+def source_json(path, *, limit=2 * 1024**2):
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise SourceInputError('invalid-identity')
+            result[key] = value
+        return result
+    try:
+        return json.loads(source_read(path, limit=limit), object_pairs_hook=unique)
+    except SourceInputError:
+        raise
+    except Exception:
+        raise SourceInputError('invalid-identity') from None
+
+
+def source_file_identity(path, *, limit=2 * 1024**2):
+    raw = source_read(path, limit=limit)
+    return {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+
+
+def source_write(root, name, value, *, limit=512 * 1024):
+    """Close private bytes before no-overwrite publication; no cleanup retry."""
+    source_name(name)
+    root = native_path(root, directory=True)
+    destination = root / name
+    temporary = root / ('.' + name + '.' + uuid.uuid4().hex + '.private')
+    raw = (json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + '\n').encode('utf-8')
+    if len(raw) > limit:
+        raise SourceInputError('limit-exceeded')
+    stream = None
+    try:
+        native_path(destination, missing=True)
+        stream = temporary.open('xb')
+        if stream.write(raw) != len(raw):
+            raise SourceInputError('source-unavailable')
+        stream.flush()
+        os.fsync(stream.fileno())
+        stream.close()
+    except BaseException as error:
+        _SOURCE_HELD.append((stream, error, temporary))
+        raise SourceInputError('cleanup-unconfirmed') from None
+    try:
+        os.link(temporary, destination)  # Exclusive publication on every host.
+        temporary.unlink()  # Only our own closed private sibling, never a stale destination.
+        if source_read(destination, limit=limit) != raw:
+            raise SourceInputError('source-changed')
+    except BaseException as error:
+        _SOURCE_HELD.append((stream, error, temporary, destination))
+        raise SourceInputError('observation-failed') from None
+
+
+def source_snapshot(source, expected):
+    """Reuse the existing flags/attributes checks before claiming a clean source."""
+    native_path(source, directory=True)
+    native_path(source / 'scripts/check-evidence.mjs')
+    script = """import {execFileSync} from 'node:child_process';
+import {hasHiddenIndexEntries,hasGitSourceTransformAttributes} from './scripts/check-evidence.mjs';
+let value={head:null,clean:false,sourceStatus:'unavailable',sourceIssue:null};
+try {
+  if(hasHiddenIndexEntries()) value.sourceIssue='hidden-index-entries';
+  else if(hasGitSourceTransformAttributes()) value.sourceIssue='git-source-transforms';
+  else {
+    value.head=execFileSync('git',['rev-parse','--verify','HEAD'],{encoding:'utf8',maxBuffer:128}).trim();
+    value.clean=execFileSync('git',['status','--porcelain=v1','--untracked-files=all'],{encoding:'utf8',maxBuffer:1048576}).length===0;
+    if(value.clean)value.sourceStatus='available';
+  }
+} catch {}
+process.stdout.write(JSON.stringify(value));"""
+    try:
+        result = subprocess.run(['node', '--input-type=module', '-e', script], cwd=source,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        if result.returncode != 0 or result.stderr or len(result.stdout) > 1024:
+            raise ValueError()
+        value = json.loads(result.stdout)
+        return validate_source_snapshot(value, expected)
+    except BaseException as error:
+        _SOURCE_HELD.append((None, error))
+        raise SourceInputError('source-unavailable') from None
+
+
+def validate_source_snapshot(value, expected):
+    if (type(value) is not dict or set(value) != {'head', 'clean', 'sourceStatus', 'sourceIssue'}
+            or value['head'] != expected or value['sourceStatus'] != 'available'
+            or value['sourceIssue'] is not None or value['clean'] is not True):
+        raise SourceInputError('source-unavailable')
+    return value
+
+
+def source_headers(value):
+    if (type(value) is not dict or any(type(value.get(k)) is not str
+            for k in ('source_commit', 'build_id', 'profile'))):
+        raise SourceInputError('invalid-identity')
+    headers = native_headers(value)
+    if headers['profile'] != 'runtime-experiment':
+        raise SourceInputError('invalid-identity')
+    return headers
+
+
+def source_tracked(source):
+    try:
+        result = subprocess.run(['git', 'ls-files', '--cached', '-z'], cwd=source,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=20)
+        if result.returncode or result.stderr or len(result.stdout) > 4 * 1024**2:
+            raise ValueError()
+        names = result.stdout.decode('utf-8').split('\0')
+        if names.pop() != '' or len(names) != len(set(n.casefold() for n in names)):
+            raise ValueError()
+        for name in names:
+            source_name(name)
+        return names
+    except BaseException as error:
+        _SOURCE_HELD.append((None, error))
+        raise SourceInputError('source-unavailable') from None
+
+
+def begin_project_sources(value, source, evidence, input_manifest):
+    from backend.runtime_bundle import CHILD_TARGETS
+    headers = source_headers(value)
+    source, evidence = native_path(source, directory=True), native_path(evidence, directory=True)
+    source_snapshot(source, headers['source_commit'])
+    actual = {key: item for key, item in CHILD_TARGETS.items() if item[1].startswith('scripts')}
+    if actual != SOURCE_TARGETS:
+        raise SourceInputError('invalid-identity')
+    names = sorted(name for name in source_tracked(source) if source_eligible(name))
+    if not SOURCE_WORKERS | SOURCE_CONTROLS <= set(names) or len(names) > SOURCE_FILES:
+        raise SourceInputError('invalid-identity')
+    files, used = {}, 0
+    for name in names:
+        files[name] = source_text_identity(source / name, limit=min(SOURCE_LIMIT, SOURCE_TOTAL-used))
+        used += files[name]['raw']['bytes']
+    source_snapshot(source, headers['source_commit'])
+    baseline = {'schema': 'proxy-r19-project-source-baseline-v1', **headers,
+        'source_clean_before': True, 'input_manifest': source_file_identity(input_manifest, limit=64 * 1024**2), 'files': files}
+    source_write(evidence, SOURCE_BASELINE, baseline, limit=2 * 1024**2)
+    return baseline
+
+
+class ProjectSourceObservation:
+    """Actual selected origin files only; never code-cache or native authority."""
+    def __init__(self, value, source, evidence, input_manifest):
+        self.headers = source_headers(value)
+        self.source = native_path(source, directory=True)
+        self.evidence = native_path(evidence, directory=True)
+        self.manifest = native_path(input_manifest)
+        self.baseline = source_json(self.evidence / SOURCE_BASELINE)
+        self.baseline_identity = source_file_identity(self.evidence / SOURCE_BASELINE)
+        if (type(self.baseline) is not dict
+                or set(self.baseline) != {'schema', *self.headers, 'source_clean_before', 'input_manifest', 'files'}
+                or self.baseline['schema'] != 'proxy-r19-project-source-baseline-v1'
+                or any(self.baseline.get(k) != v for k, v in self.headers.items())
+                or self.baseline['source_clean_before'] is not True
+                or self.baseline['input_manifest'] != source_file_identity(self.manifest, limit=64 * 1024**2)):
+            raise SourceInputError('invalid-identity')
+        files = validate_source_baseline_files(self.baseline['files'])
+        self.records, self.analyses, self.rows, self.seen = {}, {}, 0, set()
+        self._phase, self._reads = 'controls', {}
+        self._origins = {}
+        self.excluded = dict(supplier=0, builtin=0, namespace_generated=0)
+        self.supplier = set()
+        from native_ownership import _relative
+        for component in value['components']:
+            prefix = Path(sys.base_prefix if normalized(component['name']) == 'cpython' else sys.prefix)
+            for item in component['installed_files']:
+                self.supplier.add(os.path.normcase(str(prefix / _relative(item['path']))))
+        for name in SOURCE_CONTROLS:
+            self._project(name, 'build-control')
+        resource = next((r for r in value['resources'] if r['path'] == 'scripts/check-capture-readiness.py'), None)
+        if resource is None or files['scripts/check-capture-readiness.py']['raw']['sha256'] != resource['sha256']:
+            raise SourceInputError('invalid-identity')
+        self._project('scripts/check-capture-readiness.py', 'runtime-script-resource')
+
+    def _project(self, name, role):
+        if name not in self.baseline['files'] or not source_eligible(name):
+            raise SourceInputError('unmapped-origin')
+        key = self._phase, name
+        if key not in self._reads:
+            self._reads[key] = source_text_identity(self.source / name)
+        identity = self._reads[key]
+        if identity != self.baseline['files'][name]:
+            raise SourceInputError('source-changed')
+        record = self.records.setdefault(name, {'path': name, 'roles': [], **identity})
+        if role not in record['roles']:
+            record['roles'].append(role); record['roles'].sort()
+
+    def observe_analysis(self, process, analysis):
+        if process not in {'main', 'asr'} or process in self.analyses:
+            raise SourceInputError('invalid-identity')
+        self._phase = process
+        from PyInstaller.lib.modulegraph.modulegraph import NamespacePackage, BuiltinModule
+        snapshots = []
+        for label, rows in [('pure', analysis.pure), ('script', analysis.scripts)]:
+            if not isinstance(rows, (list, tuple)) or len(rows) > SOURCE_ROWS:
+                raise SourceInputError('limit-exceeded')
+            if any(not isinstance(row, (tuple, list)) or len(row) != 3 for row in rows):
+                raise SourceInputError('invalid-identity')
+            current = tuple(tuple(row) for row in rows)
+            snapshots.append((label, rows, current))
+            for row in current:
+                self.rows += 1
+                if self.rows > SOURCE_ROWS or len(row) != 3:
+                    raise SourceInputError('limit-exceeded')
+                name, origin, kind = row
+                if (type(name) is not str or not 1 <= len(name) <= 512
+                        or any(ord(c) < 32 or ord(c) == 127 for c in name)
+                        or type(kind) is not str or kind not in {'PYMODULE', 'PYMODULE-1', 'PYMODULE-2', 'PYSOURCE', 'PYSOURCE-1', 'PYSOURCE-2', 'BUILTIN'}
+                        or (origin is not None and type(origin) is not str)):
+                    raise SourceInputError('unmapped-origin')
+                if (label == 'pure' and kind.startswith('PYSOURCE')) or (label == 'script' and kind.startswith('PYMODULE')):
+                    raise SourceInputError('invalid-identity')
+                key = process, label, name, origin, kind
+                origin_key = process, label, name
+                if origin_key in self._origins and self._origins[origin_key] != (origin, kind):
+                    raise SourceInputError('invalid-identity')
+                self._origins[origin_key] = origin, kind
+                if key in self.seen:
+                    continue
+                self.seen.add(key)
+                if origin in (None, '', '-'):
+                    node = analysis.graph.find_node(name)
+                    if (label == 'pure' and origin == '-' and kind.startswith('PYMODULE')
+                            and type(node) is NamespacePackage and node.identifier == name
+                            and node.filename == '-' and node.code is None):
+                        self.excluded['namespace_generated'] += 1
+                    elif (kind == 'BUILTIN' and type(node) is BuiltinModule
+                            and node.identifier == name and node.filename is None and node.code is None):
+                        self.excluded['builtin'] += 1
+                    else:
+                        raise SourceInputError('unmapped-origin')
+                    continue
+                if type(origin) is not str:
+                    raise SourceInputError('unsafe-source')
+                path = Path(origin)
+                if not path.is_absolute() or '..' in path.parts or any(ord(c) < 32 or ord(c) == 127 for c in origin):
+                    raise SourceInputError('unsafe-source')
+                if os.path.normcase(str(path)) in self.supplier:
+                    self.excluded['supplier'] += 1
+                    continue
+                if self.source not in path.parents:
+                    raise SourceInputError('unmapped-origin')
+                relative = path.relative_to(self.source).as_posix()
+                if not relative.endswith('.py'):
+                    raise SourceInputError('unmapped-origin')
+                self._project(relative, process + '-' + label)
+        self.analyses[process] = (analysis, analysis.graph, snapshots)
+
+    def finish(self):
+        if set(self.analyses) != {'main', 'asr'}:
+            raise SourceInputError('invalid-identity')
+        for analysis, graph, snapshots in self.analyses.values():
+            if analysis.graph is not graph:
+                raise SourceInputError('source-changed')
+            for label, rows, before in snapshots:
+                if getattr(analysis, label if label == 'pure' else 'scripts') is not rows or tuple(tuple(row) for row in rows) != before:
+                    raise SourceInputError('source-changed')
+        records = [self.records[name] for name in sorted(self.records)]
+        observation = {'schema': 'proxy-r19-project-source-observation-v1', **self.headers,
+            'input_manifest': self.baseline['input_manifest'], 'private_baseline': self.baseline_identity,
+            'analyses': {'main': 'observed', 'asr': 'observed'},
+            'records': records, 'excluded_origin_counts': self.excluded}
+        source_write(self.evidence, SOURCE_OBSERVATION, observation)
+        return observation
+
+
+def source_identity(value):
+    if type(value) is not dict or set(value) != {'bytes', 'sha256'}:
+        raise SourceInputError('invalid-identity')
+    if (type(value['bytes']) is not int or not 0 <= value['bytes'] <= SOURCE_LIMIT
+            or type(value['sha256']) is not str or not re.fullmatch('[0-9a-f]{64}', value['sha256'])):
+        raise SourceInputError('invalid-identity')
+    return value
+
+
+def validate_source_baseline_files(files):
+    if (type(files) is not dict or not 1 <= len(files) <= SOURCE_FILES
+            or not SOURCE_WORKERS | SOURCE_CONTROLS <= set(files)
+            or any(type(name) is not str for name in files)
+            or len({name.casefold() for name in files}) != len(files)):
+        raise SourceInputError('invalid-identity')
+    for name, item in files.items():
+        if not source_eligible(name) or type(item) is not dict or set(item) != {'raw', 'canonical_lf'}:
+            raise SourceInputError('invalid-identity')
+        source_identity(item['raw']); source_identity(item['canonical_lf'])
+        if item['canonical_lf']['bytes'] > item['raw']['bytes']:
+            raise SourceInputError('invalid-identity')
+    if sum(x['raw']['bytes'] for x in files.values()) > SOURCE_TOTAL:
+        raise SourceInputError('limit-exceeded')
+    return files
+
+
+def source_record(value):
+    if type(value) is not dict or set(value) != {'path', 'roles', 'raw', 'canonical_lf'}:
+        raise SourceInputError('invalid-identity')
+    if not source_eligible(value['path']):
+        raise SourceInputError('unsafe-source')
+    roles = value['roles']
+    if (type(roles) is not list or not roles or any(type(x) is not str or x not in SOURCE_ROLES for x in roles)
+            or roles != sorted(set(roles))):
+        raise SourceInputError('invalid-identity')
+    if (('build-control' in roles and value['path'] not in SOURCE_CONTROLS)
+            or ('runtime-script-resource' in roles and value['path'] != 'scripts/check-capture-readiness.py')
+            or (set(roles) - {'build-control', 'runtime-script-resource'} and not value['path'].endswith('.py'))):
+        raise SourceInputError('invalid-identity')
+    source_identity(value['raw']); source_identity(value['canonical_lf'])
+    if value['canonical_lf']['bytes'] > value['raw']['bytes']:
+        raise SourceInputError('invalid-identity')
+    return value
+
+
+def validate_source_report(value):
+    fixed = {'schema': SOURCE_SCHEMA, 'profile': 'runtime-experiment',
+        'scope': 'observed-project-origin-files-and-fixed-build-controls',
+        'coverage': SOURCE_COVERAGE, 'compiled_code_identity': 'unverified',
+        'supplier_input_closure': 'separate-component-evidence', 'OS_prerequisites': 'unbound',
+        'source_delivery_approved': False, 'runtime_collection_allowed': False,
+        'production_execution_allowed': False, 'rights_approval': False,
+        'native_windows_11_acceptance': 'unavailable', 'r19_complete': False, 'installer': 'not-built'}
+    flexible = {'source_commit', 'build_id', 'status', 'stage', 'failure_code', 'input_manifest',
+        'private_baseline', 'source_clean_before', 'source_clean_after', 'analyses',
+        'source_before_sha256', 'source_after_sha256', 'records_sha256', 'records', 'excluded_origin_counts'}
+    if type(value) is not dict or set(value) != set(fixed) | flexible:
+        raise SourceInputError('invalid-identity')
+    if any(type(value[k]) is not type(v) or value[k] != v for k, v in fixed.items()):
+        raise SourceInputError('invalid-identity')
+    source_headers(value)
+    for key in ('input_manifest', 'private_baseline'):
+        item = value[key]
+        if (type(item) is not dict or set(item) != {'bytes', 'sha256'} or type(item['bytes']) is not int
+                or not 0 < item['bytes'] <= 64 * 1024**2 or type(item['sha256']) is not str
+                or not re.fullmatch('[0-9a-f]{64}', item['sha256'])):
+            raise SourceInputError('invalid-identity')
+    counts = value['excluded_origin_counts']
+    if (type(counts) is not dict or set(counts) != {'supplier', 'builtin', 'namespace_generated'}
+            or any(type(x) is not int or not 0 <= x <= SOURCE_ROWS for x in counts.values())
+            or sum(counts.values()) > SOURCE_ROWS):
+        raise SourceInputError('invalid-identity')
+    if (value['status'] != 'observed-not-approved' or value['stage'] != 'finalize'
+            or value['failure_code'] != 'none' or value['source_clean_before'] is not True
+            or value['source_clean_after'] is not True
+            or type(value['analyses']) is not dict or value['analyses'] != {'main': 'observed', 'asr': 'observed'}):
+        raise SourceInputError('invalid-identity')
+    records = value['records']
+    if type(records) is not list or not 1 <= len(records) <= SOURCE_FILES:
+        raise SourceInputError('invalid-identity')
+    for row in records:
+        source_record(row)
+    names = [row['path'] for row in records]
+    if names != sorted(set(names)) or len({n.casefold() for n in names}) != len(names):
+        raise SourceInputError('invalid-identity')
+    if sum(row['raw']['bytes'] for row in records) > SOURCE_TOTAL:
+        raise SourceInputError('limit-exceeded')
+    selected = {row['path']: {k: row[k] for k in ('raw', 'canonical_lf')} for row in records}
+    checksum = hashlib.sha256(source_canonical(selected)).hexdigest()
+    if (value['source_before_sha256'] != checksum or value['source_after_sha256'] != checksum
+            or value['records_sha256'] != hashlib.sha256(source_canonical(records)).hexdigest()):
+        raise SourceInputError('invalid-identity')
+    return value
+
+
+def finalize_project_sources(value, source, evidence, output, input_manifest):
+    headers = source_headers(value)
+    source, evidence = native_path(source, directory=True), native_path(evidence, directory=True)
+    source_snapshot(source, headers['source_commit'])
+    baseline = source_json(evidence / SOURCE_BASELINE)
+    observation = source_json(evidence / SOURCE_OBSERVATION)
+    required = {'schema', *headers, 'input_manifest', 'private_baseline', 'analyses', 'records', 'excluded_origin_counts'}
+    if (type(baseline) is not dict or type(observation) is not dict or set(observation) != required
+            or observation['schema'] != 'proxy-r19-project-source-observation-v1'
+            or any(observation[k] != v for k, v in headers.items())
+            or observation['private_baseline'] != source_file_identity(evidence / SOURCE_BASELINE)
+            or observation['input_manifest'] != source_file_identity(input_manifest, limit=64 * 1024**2)
+            or baseline.get('input_manifest') != observation['input_manifest']
+            or any(baseline.get(k) != v for k, v in headers.items())
+            or baseline.get('source_clean_before') is not True):
+        raise SourceInputError('invalid-identity')
+    records = observation['records']
+    validate_source_baseline_files(baseline.get('files'))
+    tracked = set(source_tracked(source))
+    if type(records) is not list or not 1 <= len(records) <= SOURCE_FILES:
+        raise SourceInputError('invalid-identity')
+    selected = {}
+    for row in records:
+        source_record(row)
+        name = row['path']
+        if name not in tracked:
+            raise SourceInputError('unmapped-origin')
+        before = baseline['files'].get(name)
+        expected = {k: row[k] for k in ('raw', 'canonical_lf')}
+        if source_canonical(before) != source_canonical(expected) or source_text_identity(source / name) != expected:
+            raise SourceInputError('source-changed')
+        selected[name] = expected
+    if not SOURCE_CONTROLS <= set(selected) or any('build-control' not in row['roles'] for row in records if row['path'] in SOURCE_CONTROLS):
+        raise SourceInputError('invalid-identity')
+    native = source_json(output / NATIVE_SOURCE_FINAL)
+    if native.get('build_inputs') != observation['input_manifest'] or any(native.get(k) != v for k, v in headers.items()):
+        raise SourceInputError('invalid-identity')
+    checksum = hashlib.sha256(source_canonical(selected)).hexdigest()
+    report = {'schema': SOURCE_SCHEMA, **headers,
+        'scope': 'observed-project-origin-files-and-fixed-build-controls', 'status': 'observed-not-approved',
+        'stage': 'finalize', 'failure_code': 'none', 'input_manifest': observation['input_manifest'],
+        'private_baseline': observation['private_baseline'], 'source_clean_before': True,
+        'source_clean_after': True, 'analyses': observation['analyses'],
+        'source_before_sha256': checksum, 'source_after_sha256': checksum,
+        'records_sha256': hashlib.sha256(source_canonical(records)).hexdigest(), 'records': records,
+        'excluded_origin_counts': observation['excluded_origin_counts'], 'coverage': SOURCE_COVERAGE,
+        'compiled_code_identity': 'unverified', 'supplier_input_closure': 'separate-component-evidence',
+        'OS_prerequisites': 'unbound', 'source_delivery_approved': False, 'runtime_collection_allowed': False,
+        'production_execution_allowed': False, 'rights_approval': False,
+        'native_windows_11_acceptance': 'unavailable', 'r19_complete': False, 'installer': 'not-built'}
+    validate_source_report(report)
+    source_snapshot(source, headers['source_commit'])
+    source_write(output, SOURCE_PUBLIC, report)
+    if source_json(output / SOURCE_PUBLIC, limit=512 * 1024) != report:
+        raise SourceInputError('source-changed')
+    return report
+
+
+def check_project_sources(value, source, evidence, output, input_manifest):
+    """Required pre-publication readback, never input recovery or activation."""
+    headers = source_headers(value)
+    source_snapshot(source, headers['source_commit'])
+    public = output / SOURCE_PUBLIC
+    before = source_file_identity(public, limit=512 * 1024)
+    report = validate_source_report(source_json(public, limit=512 * 1024))
+    if (any(report[k] != v for k, v in headers.items())
+            or report['input_manifest'] != source_file_identity(input_manifest, limit=64 * 1024**2)
+            or report['private_baseline'] != source_file_identity(evidence / SOURCE_BASELINE)):
+        raise SourceInputError('invalid-identity')
+    baseline = source_json(evidence / SOURCE_BASELINE)
+    if type(baseline) is not dict:
+        raise SourceInputError('invalid-identity')
+    validate_source_baseline_files(baseline.get('files'))
+    tracked = set(source_tracked(source))
+    for row in report['records']:
+        if row['path'] not in tracked:
+            raise SourceInputError('unmapped-origin')
+        expected = {k: row[k] for k in ('raw', 'canonical_lf')}
+        if (source_canonical(baseline['files'].get(row['path'])) != source_canonical(expected)
+                or source_text_identity(source / row['path']) != expected):
+            raise SourceInputError('source-changed')
+    native = source_json(output / NATIVE_SOURCE_FINAL)
+    if native.get('build_inputs') != report['input_manifest'] or any(native.get(k) != v for k, v in headers.items()):
+        raise SourceInputError('invalid-identity')
+    source_snapshot(source, headers['source_commit'])
+    if source_file_identity(public, limit=512 * 1024) != before:
+        raise SourceInputError('source-changed')
+    return report
 
 
 def verified_nte(evidence, resources, commit, source):

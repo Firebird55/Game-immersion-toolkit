@@ -532,18 +532,31 @@ def write_candidate(value, source, evidence, output, *, input_manifest=None):
             native_failure(value, output, 'finalize', error)
             raise NativeCollectionError('observation-failed') from None
         validate_native_images(value, output, inventory)
+        from record_runtime import finalize_project_sources
+        finalize_project_sources(value, source, evidence, output, input_manifest)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=('preflight', 'finalize'))
+    parser.add_argument('action', choices=('preflight', 'finalize', 'source-check'))
     parser.add_argument('--inputs', type=Path, required=True)
     parser.add_argument('--evidence', type=Path, required=True)
     parser.add_argument('--source', type=Path, default=ROOT)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     try:
+        if args.action == 'source-check':
+            if args.output is None:
+                raise ClosureError('Source readback requires an output directory.')
+            from record_runtime import check_project_sources, source_json
+            check_project_sources(source_json(args.inputs.absolute(), limit=64 * 1024**2),
+                args.source.absolute(), args.evidence.absolute(), args.output.absolute(), args.inputs.absolute())
+            print('R19_SOURCE_INPUTS_VALIDATED')
+            return 0
         value = validate_inputs(json.loads(args.inputs.read_text(encoding='utf-8')), args.source.resolve(), args.evidence.resolve())
+        if args.action == 'preflight' and value['profile'] == 'runtime-experiment':
+            from record_runtime import begin_project_sources
+            begin_project_sources(value, args.source.resolve(), args.evidence.resolve(), args.inputs.absolute())
         if args.action == 'finalize':
             if args.output is None:
                 raise ClosureError('Finalization requires an output directory.')

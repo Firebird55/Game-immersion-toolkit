@@ -20,11 +20,15 @@ legacy = inputs.get('schema', 'proxy-runtime-build-inputs-v1') == 'proxy-runtime
 main_name = 'GameImmersionToolkit'
 asr_name = 'GameImmersionToolkitAsr'
 native_observer = None
+project_source_observer = None
 if runtime and legacy:
     # Read the actual existing Analysis TOCs; no second DLL collector or upload.
     sys.path.insert(0, str(Path(SPECPATH)))
     from PyInstaller.config import CONF
-    from record_runtime import NativeCollectionObservation
+    from record_runtime import NativeCollectionObservation, ProjectSourceObservation
+    if inputs['profile'] == 'runtime-experiment':
+        project_source_observer = ProjectSourceObservation(inputs, root, resource_root,
+            Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']))
     native_observer = NativeCollectionObservation(inputs, resource_root, Path(DISTPATH),
         Path(CONF['workpath']), Path(os.environ['PROXY_RUNTIME_BUILD_INPUTS']))
 # This standalone subprocess owns its sibling DLL closure. Analysis reclassifies
@@ -106,6 +110,8 @@ main.binaries = [entry for entry in main.binaries
 if sys.platform == 'win32' and runtime:
     main.binaries = select_msvc(main.binaries)
 main.datas += isolated_resource_data
+if project_source_observer:
+    project_source_observer.observe_analysis('main', main)
 if native_observer:
     native_observer.observe_analysis('main', main.binaries,
         [row for row in main.datas if row[0].replace('\\', '/').startswith(('helpers/nte/', 'codecs/xiph-flac/'))])
@@ -135,6 +141,8 @@ if runtime:
                   'pytest', 'cv2', 'scipy', 'pip', 'setuptools'])
     if sys.platform == 'win32':
         asr.binaries = select_msvc(asr.binaries)
+    if project_source_observer:
+        project_source_observer.observe_analysis('asr', asr)
     if native_observer:
         native_observer.observe_analysis('asr', asr.binaries)
     asr_pyz = PYZ(asr.pure)
@@ -150,3 +158,5 @@ if runtime:
         raise
     if native_observer:
         native_observer.finish()
+    if project_source_observer:
+        project_source_observer.finish()
