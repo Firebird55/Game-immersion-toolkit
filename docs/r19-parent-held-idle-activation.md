@@ -193,3 +193,11 @@ scenario uses anonymous pipes, Events, the existing Runtime methods and authored
 producer adapters, with no default Runtime, account, browser or game service.
 Windows inheritance, guardian/lease lifetime, retained-SQL activation, ordinary
 updater integration and all other R19 acceptance gaps remain open.
+
+The same EOF scenario also covers a worker that fails after control loss, rather
+than completing successfully. It checks the exact worker exception in both the
+retained record and waiter, with EOF still first and the worker exception second
+in the binding's errors. Worker result observation precedes the post-completion
+grant check, so retirement does not replace the actual worker failure. Both
+outcomes retain standby and closed admission and emit only REFUSED; the failure
+case adds no runtime behavior or broader acceptance claim.

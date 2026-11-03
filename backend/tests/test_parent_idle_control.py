@@ -130,7 +130,8 @@ def test_one_real_pipe_command_retains_actual_task_and_only_final_idle_admission
     asyncio.run(scenario())
 
 
-def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(pipes, monkeypatch):
+@pytest.mark.parametrize('worker_fails', [False, True], ids=['late-success', 'late-failure'])
+def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(pipes, monkeypatch, worker_fails):
     # Existing EOF follows ACTIVE; the admission-lock test injects poison.
     # Neither covers real EOF while an actual pool-resume Thread is still live.
     async def scenario():
@@ -142,6 +143,7 @@ def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(p
         entered, release = threading.Event(), threading.Event()
         stopped = asyncio.Event()
         pool_calls, imports, frames = [], [], []
+        worker_error = OSError('authored-late-pool-failure') if worker_fails else None
         frame_written = threading.Event()
         write_frame = writers.write_parent_frame
 
@@ -157,6 +159,8 @@ def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(p
             pool_calls.append(threading.current_thread())
             entered.set()
             assert release.wait(3)
+            if worker_error is not None:
+                raise worker_error
 
         value.capture.resume_workers = held_pool_resume
         value.capture.import_handoff = imports.append
@@ -193,8 +197,13 @@ def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(p
             assert await asyncio.to_thread(writers.read_parent_frame, pipes.parent_read) == b'TPC1|2|REFUSED|activation\n'
             assert binding.task is task and binding.grant is grant and binding._pools_step is record
             assert record.complete and not record.active and not record.thread.is_alive()
-            assert record.waiter.done() and not record.waiter.cancelled() and record.error is None
+            assert record.waiter.done() and not record.waiter.cancelled()
+            assert record.error is worker_error and record.waiter.exception() is worker_error
             assert binding.errors[0] is original and pool_calls == [record.thread]
+            if worker_error is not None:
+                # The completion check must observe the actual worker exception
+                # before checking the now-retired grant, preserving both causes.
+                assert binding.errors == [original, worker_error]
             assert not imports and value.standby and not value._updates_started
             assert binding._admit_step is None and not binding.active and not binding.spent
             assert value.request_barrier.paused and not gate._accepting
