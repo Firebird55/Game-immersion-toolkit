@@ -134,3 +134,27 @@ The wait now rechecks IO health, Stop and the absolute deadline after the queue
 returns and before accepting the acknowledgement. The same pipe fixture covers
 these three boundaries with a controlled queue-return schedule and clock. This
 is source-level refusal evidence, not a native scheduling or cleanup proof.
+
+## Unacknowledged host activation (2026-11-03)
+
+Existing service-level write/queue failures, lease identity checks and ordinary
+failed-cleanup tests did not combine an absent activation acknowledgement with
+host shutdown and a late reply. One source scenario now exercises the actual
+Service and DesktopHost activation/shutdown methods using anonymous pipes,
+retained IO threads and an exclusive lease on a temporary authored root. The
+actual activation frame is read without replying; an empty acknowledgement wait
+then advances a controlled clock past the unchanged 30-second host budget.
+
+Repeated host shutdown retains the same service, lease and actual handle; a
+second lease cannot acquire the lock. The source scenario checks that late ACTIVE
+is refused, the original timeout remains first, activation retry sends no command
+and no IO stream is closed. It also exposed an ordinary `_start` path that could
+construct a replacement over a retained parent-controlled service. Both ordinary
+and parent starts now refuse that replacement before child construction. Other
+ordinary service starts retain their existing behavior.
+
+The child process owner is an authored adapter; no application service, account,
+native worker or browser starts. The clock and late-reply schedule are controlled,
+and POSIX locking is only an analogue of Windows exclusion. This is not native
+process-exit, guardian-inheritance or full host-run/update-transaction acceptance.
+It closes no previously open R19 gate and adds no automatic recovery behavior.

@@ -593,6 +593,8 @@ class DesktopHost:
         kind = kind or kinds[name]
         if type(parent_control) is not bool:
             raise TypeError('Parent mode must be a boolean.')
+        if getattr(self.services.get(name), '_parent_control', False):
+            raise HostError('Parent service ownership must end before replacement.')
         if parent_control and (kind != 'api' or not standby or layout.mode != 'source'
                 or self.service_factory is not Service or name in self.services or not self.lease.held):
             raise HostError('Parent mode requires one leased source standby API.')

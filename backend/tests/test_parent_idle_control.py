@@ -3,6 +3,7 @@ import asyncio
 import copy
 import io
 import os
+import queue
 import threading
 import time
 from types import SimpleNamespace
@@ -444,6 +445,84 @@ def test_parent_ack_cannot_override_failure_during_wait(pipes, delayed_parent_se
         service.activate_idle(threading.Event(), 1)
     assert retry.value.__cause__ is original
     assert len(service._parent_writes) == 1
+
+
+def test_host_retains_unacknowledged_activation_and_refuses_replacement(
+        pipes, delayed_parent_service, tmp_path, monkeypatch):
+    # Service-only queue races and BadService shutdown do not cover the real
+    # activation wait followed by host cleanup, lease exclusion and a late ACK.
+    from backend.tests.test_desktop_host import layout
+    service = delayed_parent_service.service
+    delayed_parent_service.release.set()
+    assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
+    writers.write_parent_frame(pipes.output, b'TPC1|1|BOUND|18767\n')
+    service.wait_ready(threading.Event(), 1)
+    value = host.DesktopHost(layout(tmp_path), browser=False)
+    value.log = SimpleNamespace(write=lambda *a, **k: None)
+    value.lease.acquire()  # No listener, default data root or account service.
+    lease, handle = value.lease, value.lease._handle
+    service._parent_lease, service._parent_lease_handle = lease, handle
+    value.services['API'], value.ports['API'] = service, 18767
+    contender = host.ExclusiveFileLease(lease.path)
+    clock = [0.]
+    monkeypatch.setattr(host, 'time', SimpleNamespace(monotonic=lambda: clock[0]))
+    take_ack = service._parent_ack.get
+    record_error = service._fail_parent
+    late_processed = threading.Event()
+
+    def no_ack(*, timeout):
+        assert service._parent_writes[-1]['written'].wait(1)
+        assert writers.read_parent_frame(pipes.input) == b'TPC1|2|ACTIVATE-IDLE\n'
+        try:
+            return take_ack(timeout=timeout)
+        except queue.Empty:
+            clock[0] = 31.  # Expire the actual host's 30-second wait after empty IO.
+            raise
+
+    def late_error(error):
+        record_error(error)
+        late_processed.set()
+
+    def forbidden_constructor(*args, **kwargs):
+        pytest.fail('A retained parent service must not be overwritten by a new service')
+
+    try:
+        monkeypatch.setattr(service._parent_ack, 'get', no_ack)
+        with pytest.raises(TimeoutError, match='acknowledgement is still pending') as timed_out:
+            value._activate_parent_idle('API')
+        original = timed_out.value
+        assert service._parent_errors == [original]
+        assert all(worker.is_alive() for worker in service.threads)
+        for _ in range(2):
+            value._shutdown()
+            assert value.services == {'API': service}
+            assert value.lease is lease and lease._handle is handle and lease.held
+            assert not value.finished.is_set() and not value.ready.is_set()
+            assert value.exit_code == 1 and value.status.startswith('Recovery required')
+            with pytest.raises(host.HostProbeError) as busy:
+                contender.acquire()
+            assert busy.value.code == 'operation-busy'
+        monkeypatch.setattr(service, '_fail_parent', late_error)
+        writers.write_parent_frame(pipes.output, b'TPC1|2|ACTIVE\n')
+        assert late_processed.wait(1)
+        assert service._parent_errors[0] is original and service._parent_phase == 'failed'
+        assert service._parent_ack.empty()
+        with pytest.raises(host.HostError) as retry:
+            value._activate_parent_idle('API')
+        assert retry.value.__cause__ is original
+        # Fail fast on construction so a missing guard cannot hang the test.
+        monkeypatch.setattr(host.Service, '__init__', forbidden_constructor)
+        for parent_mode in (True, False):
+            with pytest.raises(host.HostError):
+                value._start('API', standby=True, parent_control=parent_mode)
+        assert value.services == {'API': service} and len(service._parent_writes) == 2
+        assert not pipes.parent_write.closed and not pipes.parent_read.closed
+        assert lease._handle is handle and lease.held
+    finally:
+        # The fixture owns only authored endpoints and IO threads, no live child.
+        # Release the known test lease explicitly; production cleanup stayed refused.
+        contender.close()
+        lease.close()
 
 
 def test_foreign_task_is_refused_while_designated_task_then_actual_sql_workers_finish_once(tmp_path, monkeypatch, pipes):
