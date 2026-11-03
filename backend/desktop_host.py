@@ -620,6 +620,7 @@ class DesktopHost:
         self.log.write('Starting ' + name.lower() + '.')
         if parent_control:
             service = Service.__new__(Service)
+            service._parent_control = True  # Guard even failures before __init__.
             self.services[name] = service  # Before fallible service/native construction.
             service._parent_lease = self.lease
             service._parent_lease_handle = self.lease._handle

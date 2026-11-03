@@ -158,3 +158,12 @@ native worker or browser starts. The clock and late-reply schedule are controlle
 and POSIX locking is only an analogue of Windows exclusion. This is not native
 process-exit, guardian-inheritance or full host-run/update-transaction acceptance.
 It closes no previously open R19 gate and adds no automatic recovery behavior.
+
+The replacement guard also covers failure while evaluating constructor arguments:
+the host marks a parent Service before registering it, rather than waiting for
+`Service.__init__`. A child-command failure therefore retains the same partial
+service and lease and refuses both kinds of replacement start before reevaluating
+the command. An authored command-builder failure checks this pre-constructor
+boundary without creating any child or native process resource. The pipe tests
+also bound initial-write completion and reject repeated reads after the injected
+deadline, so those regressions fail without blocking on a second absent frame.

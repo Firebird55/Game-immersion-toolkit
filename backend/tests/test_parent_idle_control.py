@@ -414,6 +414,7 @@ def test_parent_ack_cannot_override_failure_during_wait(pipes, delayed_parent_se
     # Use real protocol IO; inject only that scheduling boundary deterministically.
     service = delayed_parent_service.service
     delayed_parent_service.release.set()
+    assert service._parent_writes[0]['written'].wait(1)
     assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
     writers.write_parent_frame(pipes.output, b'TPC1|1|BOUND|18767\n')
     stopping = threading.Event()
@@ -454,6 +455,7 @@ def test_host_retains_unacknowledged_activation_and_refuses_replacement(
     from backend.tests.test_desktop_host import layout
     service = delayed_parent_service.service
     delayed_parent_service.release.set()
+    assert service._parent_writes[0]['written'].wait(1)
     assert writers.read_parent_frame(pipes.input) == b'TPC1|1|BIND\n'
     writers.write_parent_frame(pipes.output, b'TPC1|1|BOUND|18767\n')
     service.wait_ready(threading.Event(), 1)
@@ -471,6 +473,7 @@ def test_host_retains_unacknowledged_activation_and_refuses_replacement(
     late_processed = threading.Event()
 
     def no_ack(*, timeout):
+        assert clock[0] == 0., 'Wait repeated after the activation deadline'
         assert service._parent_writes[-1]['written'].wait(1)
         assert writers.read_parent_frame(pipes.input) == b'TPC1|2|ACTIVATE-IDLE\n'
         try:
@@ -523,6 +526,43 @@ def test_host_retains_unacknowledged_activation_and_refuses_replacement(
         # Release the known test lease explicitly; production cleanup stayed refused.
         contender.close()
         lease.close()
+
+
+def test_parent_start_argument_failure_retains_owner_before_service_initialization(tmp_path, monkeypatch):
+    # A child-command failure happens after host registration but before the
+    # Service constructor; the fully initialized timeout case cannot cover it.
+    from backend.tests.test_desktop_host import layout
+    value = host.DesktopHost(layout(tmp_path), browser=False)
+    value.log = SimpleNamespace(write=lambda *a, **k: None)
+    value.lease.acquire()
+    handle = value.lease._handle
+    original = OSError('authored-child-command-failure')
+
+    def failed_command(*args, **kwargs):
+        raise original
+
+    def forbidden_constructor(*args, **kwargs):
+        pytest.fail('A partially initialized parent service must remain retained')
+
+    monkeypatch.setattr(type(value.layout), 'child_command', failed_command)
+    monkeypatch.setattr(host.Service, '__init__', forbidden_constructor)
+    try:
+        with pytest.raises(OSError) as failed:
+            value._start('API', standby=True, parent_control=True)
+        assert failed.value is original
+        retained = value.services['API']
+        assert type(retained) is host.Service and retained._parent_lease is value.lease
+        assert retained._parent_lease_handle is handle
+        for parent_mode in (True, False):
+            with pytest.raises(host.HostError):
+                value._start('API', standby=True, parent_control=parent_mode)
+        value._shutdown()
+        assert value.services == {'API': retained}
+        assert value.lease.held and value.lease._handle is handle
+        assert not value.finished.is_set() and value.exit_code == 1
+    finally:
+        # No constructor or OS child ran; only the known authored lease exists.
+        value.lease.close()
 
 
 def test_foreign_task_is_refused_while_designated_task_then_actual_sql_workers_finish_once(tmp_path, monkeypatch, pipes):
