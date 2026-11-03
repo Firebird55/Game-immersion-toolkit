@@ -167,3 +167,29 @@ the command. An authored command-builder failure checks this pre-constructor
 boundary without creating any child or native process resource. The pipe tests
 also bound initial-write completion and reject repeated reads after the injected
 deadline, so those regressions fail without blocking on a second absent frame.
+
+## Control EOF during pool resume (2026-11-03)
+
+The existing EOF scenario closed the parent pipe after ACTIVE; the admission-lock
+scenario injected retirement at final metadata commit. Neither covered actual
+pipe EOF while the retained pool-resume worker was still running. One additional
+source scenario now holds that actual worker Thread in an authored capture-pool
+adapter, closes the parent's input write endpoint and awaits the shutdown signal.
+It verifies closed request admission, refusal of a second activation, and retention
+of the same pending activation Task, worker Thread, waiter and operation record.
+
+The scenario exposed continuation after late pool completion: capture handoff
+could be imported and standby cleared before the later grant check refused.
+After observing actual pool Thread exit and its result, activation now rechecks
+the same parent grant before continuing to capture import, background startup
+or final admission. The test verifies that EOF remains the original error,
+late completion produces only REFUSED, standby stays set, no capture import or
+admission worker starts, and the original worker finishes without cancellation.
+A bounded output-completion observation precedes each pipe read.
+
+The already entered pool-resume method is allowed to finish; this is not rollback
+of its pool changes, global producer termination or native process cleanup. The
+scenario uses anonymous pipes, Events, the existing Runtime methods and authored
+producer adapters, with no default Runtime, account, browser or game service.
+Windows inheritance, guardian/lease lifetime, retained-SQL activation, ordinary
+updater integration and all other R19 acceptance gaps remain open.

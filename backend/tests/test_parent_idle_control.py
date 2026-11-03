@@ -130,6 +130,90 @@ def test_one_real_pipe_command_retains_actual_task_and_only_final_idle_admission
     asyncio.run(scenario())
 
 
+def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(pipes, monkeypatch):
+    # Existing EOF follows ACTIVE; the admission-lock test injects poison.
+    # Neither covers real EOF while an actual pool-resume Thread is still live.
+    async def scenario():
+        binding = writers.ParentControlBinding(pipes.input, pipes.output)
+        gate = writers.RuntimeWriterGate(parent_control=binding)
+        pipes.parent_write.write(b'TPC1|1|BIND\n')
+        binding.bind_input()
+        value = initial_runtime(binding, pipes.directory)
+        entered, release = threading.Event(), threading.Event()
+        stopped = asyncio.Event()
+        pool_calls, imports, frames = [], [], []
+        frame_written = threading.Event()
+        write_frame = writers.write_parent_frame
+
+        def observed_output(stream, frame):
+            write_frame(stream, frame)
+            if stream is pipes.output:
+                frames.append(frame)
+                frame_written.set()  # Read only after actual bounded output completed.
+
+        monkeypatch.setattr(writers, 'write_parent_frame', observed_output)
+
+        def held_pool_resume():
+            pool_calls.append(threading.current_thread())
+            entered.set()
+            assert release.wait(3)
+
+        value.capture.resume_workers = held_pool_resume
+        value.capture.import_handoff = imports.append
+        async def activate(grant):
+            await value.activate_handoff(api.CaptureHandoff(running=False), writers=True, parent_grant=grant)
+        binding.start(18767, activate, stopped.set)
+        try:
+            assert await asyncio.to_thread(frame_written.wait, 1)
+            assert await asyncio.to_thread(writers.read_parent_frame, pipes.parent_read) == b'TPC1|1|BOUND|18767\n'
+            frame_written.clear()
+            pipes.parent_write.write(b'TPC1|2|ACTIVATE-IDLE\n')
+            assert await asyncio.to_thread(entered.wait, 1)
+            task, grant, record = binding.task, binding.grant, binding._pools_step
+            assert record.waiter in value._handoff_drains
+            pipes.parent_write.close()  # Actual EOF while the worker owns effects.
+            await asyncio.wait_for(stopped.wait(), 1)
+            original = binding.errors[0]
+            assert isinstance(original, writers.WritersQuiescing) and binding.retired
+            assert binding.task is task and not task.done() and not task.cancelled()
+            assert record.thread.is_alive() and record.active and not record.complete
+            assert not record.waiter.done() and not record.waiter.cancelled()
+            assert value.standby and value.request_barrier.paused and not gate._accepting
+            for operation in (gate.capture_ticket, gate.enter,
+                              lambda: binding.require_grant(grant, value)):
+                with pytest.raises(writers.WritersQuiescing):
+                    operation()
+            with pytest.raises(writers.WritersQuiescing):
+                await value.activate_handoff(api.CaptureHandoff(running=False), writers=True, parent_grant=grant)
+            assert binding.task is task and binding._pools_step is record
+            assert pool_calls == [record.thread] and not imports
+            release.set()
+            await asyncio.wait_for(asyncio.shield(task), 2)
+            assert await asyncio.to_thread(frame_written.wait, 1)
+            assert await asyncio.to_thread(writers.read_parent_frame, pipes.parent_read) == b'TPC1|2|REFUSED|activation\n'
+            assert binding.task is task and binding.grant is grant and binding._pools_step is record
+            assert record.complete and not record.active and not record.thread.is_alive()
+            assert record.waiter.done() and not record.waiter.cancelled() and record.error is None
+            assert binding.errors[0] is original and pool_calls == [record.thread]
+            assert not imports and value.standby and not value._updates_started
+            assert binding._admit_step is None and not binding.active and not binding.spent
+            assert value.request_barrier.paused and not gate._accepting
+            with pytest.raises(writers.WritersQuiescing):
+                gate.capture_ticket()
+        finally:
+            release.set()
+            if not pipes.parent_write.closed:
+                pipes.parent_write.close()
+            if binding.task is not None:
+                await asyncio.wait_for(asyncio.shield(binding.task), 2)
+            await asyncio.wait_for(stopped.wait(), 1)
+            await asyncio.to_thread(binding.finish_io, 1)
+            assert frames == [b'TPC1|1|BOUND|18767\n', b'TPC1|2|REFUSED|activation\n']
+            if binding._pools_step is not None:
+                assert not binding._pools_step.thread.is_alive()
+    asyncio.run(scenario())
+
+
 def test_real_retained_sql_cohort_cannot_mint_initial_grant(tmp_path, monkeypatch, pipes):
     from backend.tests.test_runtime_sql_lifetime import cohort
     generator = cohort.__wrapped__(tmp_path, monkeypatch)

@@ -1304,7 +1304,12 @@ class Runtime:
         done, _ = await asyncio.wait({record.waiter}, timeout=max(0, deadline-time.monotonic()))
         if not done:
             raise TimeoutError('Actual parent operation remains owned.')
-        return record.waiter.result()
+        result = record.waiter.result()
+        if role == 'pools':
+            # Actual worker completion does not restore a retired parent's
+            # authority to import capture state or leave standby.
+            parent.require_grant(grant, self)
+        return result
 
     def _require_parent_transition(self, grant, *, business=False, role=None, step=None):
         parent = getattr(self, '_parent_control', None)
