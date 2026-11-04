@@ -306,7 +306,8 @@ def test_connected_phone_cannot_replace_account_keys_or_change_runtime_ownership
     instance, calls = gateway
     with client_for(instance) as client:
         assert client.post('/api/connection/pair', json={'code': instance.pairing.invitation()}, headers={'Origin': BASE}).status_code == 200
-        for path in ['/api/runtime/quiesce', '/api/runtime%2Factivate', '/api/lexirise/key', '/api/lexirise/accounts/select']:
+        for path in ['/api/runtime/quiesce', '/api/runtime%2Factivate', '/api/lexirise/key',
+                     '/api/lexirise/accounts', '/api/lexirise/accounts/select']:
             assert client.post(path, headers={'Origin': BASE, 'X-Proxy-Transcript': 'update'}).status_code == 403
         assert client.post('/api/capture/stop', headers={'Origin': 'https://evil.example'}).status_code == 403
         assert client.post('/api/capture/stop').status_code == 403

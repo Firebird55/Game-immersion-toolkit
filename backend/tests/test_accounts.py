@@ -54,6 +54,38 @@ def test_failed_identity_never_replaces_a_working_profile(tmp_path):
     assert store.path.read_bytes() == before
 
 
+def test_inline_registration_protects_key_and_only_notifies_after_save(tmp_path, monkeypatch):
+    from backend import api
+    store, calls = profile_store(tmp_path)
+    events = []
+    async def broadcast(event):
+        events.append(event)
+    monkeypatch.setattr(api, 'runtime', SimpleNamespace(accounts=store, hub=SimpleNamespace(broadcast=broadcast)),
+                        raising=False)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8766')
+    path = '/api/lexirise/accounts'
+    key = 'lx_second_fixture_credential_only'
+    body = {'key': key, 'name': 'My account'}
+    headers = {'Origin': 'http://localhost:3000', 'X-Proxy-Transcript': 'lexirise'}
+    assert client.post(path, json=body).status_code == 403
+    assert client.post(path, json=body, headers={**headers, 'Origin': 'https://example.test'}).status_code == 403
+    for invalid in [{**body, 'extra': key}, {'key': [key]}, {**body, 'name': key}]:
+        response = client.post(path, json=invalid, headers=headers)
+        assert response.status_code == 400 and key not in response.text
+    assert calls == [] and events == [] and not store.path.exists()
+
+    response = client.post(path, json=body, headers=headers)
+    assert response.status_code == 200 and key not in response.text
+    status = response.json()
+    assert status['profiles'] == [{'id': status['active'], 'name': 'My account'}]
+    assert store.active_key() == key and key.encode() not in store.path.read_bytes()
+    assert calls == [('GET', '/v1/me')]
+    assert events == [{'type': 'account_changed', 'account': status['active']}]
+    store.transport = httpx.MockTransport(lambda _: httpx.Response(401))
+    response = client.post(path, json={'key': 'lx_first_fixture_credential_only'}, headers=headers)
+    assert response.status_code == 400 and store.status() == status and len(events) == 1
+
+
 def test_each_learning_language_resolves_its_own_target_and_never_falls_back_to_english(tmp_path):
     settings = {'languages': ['nl', 'de'], 'global': {'effectiveTranslationLanguage': 'en'},
                 'languageSettings': {'nl': {'effectiveTranslationLanguage': 'zh-hans'},

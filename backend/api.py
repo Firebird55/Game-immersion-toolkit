@@ -17,7 +17,8 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException, Query, Header, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, SecretStr, ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from .voice_assets import VoiceAssetService
 from .capture import CaptureService
@@ -1452,20 +1453,50 @@ class AccountSelection(BaseModel):
     id: str = Field(min_length=1, max_length=80)
 
 
+class AccountRegistration(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    key: SecretStr
+    name: str = Field(default='', max_length=80)
+
+
+def account_write_access(request: Request, header: str) -> None:
+    setup_access(request)
+    if header != 'lexirise':
+        raise HTTPException(403, 'Use the companion account selector.')
+
+
+async def account_changed(result: dict) -> dict:
+    if hasattr(runtime, 'mobile_exports') and hasattr(runtime.mobile_exports, 'cancel_all'):
+        runtime.mobile_exports.cancel_all()
+    if hasattr(runtime, 'capture'):
+        runtime.capture._scan_epoch += 1
+    await runtime.hub.broadcast({'type': 'account_changed', 'account': result['active']})
+    return result
+
+
+@app.post('/api/lexirise/accounts')
+async def lexirise_add_account(request: Request, x_proxy_transcript: str = Header(default='')) -> dict:
+    account_write_access(request, x_proxy_transcript)
+    # FastAPI's default validation response can echo submitted input, including secrets.
+    try:
+        payload = AccountRegistration.model_validate_json(await request.body())
+    except ValidationError:
+        raise HTTPException(400, 'Enter a valid Lexirise API key and an optional account label.') from None
+    try:
+        await run_in_threadpool(runtime.accounts.add, payload.key.get_secret_value(), payload.name)
+        return await account_changed(runtime.accounts.status())
+    except LexiriseError as error:
+        raise HTTPException(400, str(error)) from None
+    except OSError:
+        raise HTTPException(503, 'Could not save the account. Check access to local credential storage.') from None
+
+
 @app.post('/api/lexirise/accounts/select')
 async def lexirise_select_account(payload: AccountSelection, request: Request,
                                   x_proxy_transcript: str = Header(default='')) -> dict:
-    setup_access(request)
-    if x_proxy_transcript != 'lexirise':
-        raise HTTPException(403, 'Use the companion account selector.')
+    account_write_access(request, x_proxy_transcript)
     try:
-        result = runtime.accounts.select(payload.id)
-        if hasattr(runtime, 'mobile_exports') and hasattr(runtime.mobile_exports, 'cancel_all'):
-            runtime.mobile_exports.cancel_all()
-        if hasattr(runtime, 'capture'):
-            runtime.capture._scan_epoch += 1
-        await runtime.hub.broadcast({'type': 'account_changed', 'account': result['active']})
-        return result
+        return await account_changed(runtime.accounts.select(payload.id))
     except LexiriseError as error:
         raise HTTPException(400, str(error)) from None
 
