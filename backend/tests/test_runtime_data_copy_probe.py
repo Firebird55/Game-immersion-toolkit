@@ -30,9 +30,9 @@ from backend.storage import TranscriptStorePoisonedError
 @pytest.fixture
 def fixture(tmp_path, monkeypatch):
     app, private = tmp_path/'app', tmp_path/'private'
-    app.mkdir(); (app/'ProxyTranscriptRuntime.exe').write_bytes(b'authored-placeholder-not-a-native-image')
+    app.mkdir(); (app/'GameImmersionToolkit.exe').write_bytes(b'authored-placeholder-not-a-native-image')
     layout = RuntimeLayout(mode='bundle', profile='runtime-experiment', application_root=app,
-        resource_root=app/'_internal', executable=app/'ProxyTranscriptRuntime.exe', settings_root=private,
+        resource_root=app/'_internal', executable=app/'GameImmersionToolkit.exe', settings_root=private,
         data_root=private/'data-v1', cache_root=private/'cache-v1', work_root=private/'cache-v1/work',
         tool_root=private/'tools-v1', state_root=private/'host-v1', default_export_root=private/'exports',
         source_commit='a'*40, build_id='authored-data-copy-fixture', children=('frontend',))
@@ -76,7 +76,11 @@ def fixture(tmp_path, monkeypatch):
         def resume_registered(self):
             calls.append(('resume', self))
             for child in self.registered.values(): child.resumed = True
-        def wait_services(self): calls.append(('ready', self))
+        def wait_services(self):
+            calls.append(('ready', self))
+            # FakeHost models completion of the genuine host's ordinary
+            # running=False source admission, not copied-target activation.
+            calls.append(('source-fixture-admitted', self))
         @contextmanager
         def _registered_listener_scope(self):
             calls.append(('identity-before', self))
@@ -173,8 +177,9 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert value.coordinator.pointer_path.read_bytes() == value.pointer
     assert not value.coordinator._leases_held() and value.released
     calls = [name for name, _host in fixture.calls]
+    assert calls.index('ready') < calls.index('source-fixture-admitted') < calls.index('favorite-sql')
     assert calls.index('favorite-sql') < calls.index('strict-c2-double') < calls.index('retained-signal-double')
-    assert calls.count('create') == calls.count('resume') == calls.count('retained-signal-double') == 2
+    assert calls.count('create') == calls.count('resume') == calls.count('source-fixture-admitted') == calls.count('retained-signal-double') == 2
     # Metadata does not disclose authored rows, transient roots, UUIDs or PIDs.
     serialized = json.dumps(events, ensure_ascii=False)
     assert '这是' not in serialized and str(value.source.path) not in serialized
@@ -182,6 +187,29 @@ def test_actual_sql_copy_and_chinese_context_with_fresh_cohort_order(fixture, ca
     assert all(event['r19_complete'] is False and event['target_activation'] is False for event in events)
     assert all(event['schema'] == probe.SCHEMA and event['case'] == probe.CASE for event in events)
     assert not ({'scope', 'copy_attempts', 'authored_interruptions', 'partial_revalidations'} & set(events[-1]))
+
+
+@pytest.mark.parametrize('options', [{'populated_probe':value} for value in (None, 0, 1, 'true', [], {})]+
+    [{'populated_probe':True}, {'populated_checkpoint':lambda *_:None},
+     {'populated_probe':True,'populated_checkpoint':lambda *_:None,'grammar_probe':True,'grammar_checkpoint':lambda *_:None},
+     {'populated_probe':True,'populated_checkpoint':lambda *_:None,'wal_probe':True}])
+def test_populated_adapter_choice_cannot_create_authority_from_flags_or_arbitrary_callback(fixture, options):
+    with pytest.raises(probe.DataCopyFailure):
+        probe._FrozenAuthoredDataRuntime(fixture.layout, 'authored', lambda _:None, **options)
+    assert fixture.calls == []
+
+
+def test_populated_fixed_api_rejects_already_imported_service_before_launch(fixture, monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, 'backend.api', object())
+    with pytest.raises(RuntimeError, match='not isolated'):
+        runtime_probe.populated_api(fixture.layout)
+
+
+def test_populated_programmatic_unit_is_not_an_added_frozen_case(fixture):
+    with pytest.raises(probe.DataCopyFailure) as refused:
+        fixture.make('authored-populated-state-copy')
+    assert refused.value.code == 'control-invalid'
 
 
 def test_populated_grammar_uses_real_setter_copy_and_fresh_source_readback(fixture, monkeypatch, capsys):

@@ -4,6 +4,7 @@ import itertools
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from backend.audio import AudioCaptureService
@@ -30,8 +31,12 @@ class AudioReconnectTests(unittest.TestCase):
                     return fresh
                 return stale
 
+            # This reconnect contract uses authored devices on every host;
+            # non-Windows source runtimes intentionally have no WASAPI module.
+            audio_driver = SimpleNamespace(PyAudio=Mock(side_effect=new_audio),
+                paFloat32=object(), paContinue=object(), paAbort=object())
             try:
-                with patch("backend.audio.pyaudio.PyAudio", side_effect=new_audio), \
+                with patch("backend.audio.pyaudio", audio_driver), \
                      patch("backend.audio.time.monotonic", side_effect=itertools.count()), \
                      patch.object(service._stop, "wait", return_value=False):
                     service._run()

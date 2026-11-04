@@ -22,7 +22,16 @@ def ledger_state(tmp_path, monkeypatch):
         pytest.fail('Owned SQL tests must not reach credential fallback or real account transport.')
     monkeypatch.setattr(lexirise, '_protect', forbidden)
     monkeypatch.setattr(lexirise, 'os', SimpleNamespace(environ=SimpleNamespace(get=forbidden), name='nt'))
+    class ObservedCursor(sqlite3.Cursor):
+        def close(self):
+            self.close_calls += 1
+            return super().close()
     class Observed(sqlite3.Connection):
+        def cursor(self):
+            cursor = super().cursor(factory=ObservedCursor)
+            cursor.close_calls = 0
+            self.cursors.append(cursor)
+            return cursor
         def __exit__(self, *args):
             try: return super().__exit__(*args)
             except BaseException as error:
@@ -41,6 +50,7 @@ def ledger_state(tmp_path, monkeypatch):
         state.calls.append((database, options.copy()))
         connection = raw(database, timeout=10, factory=Observed, check_same_thread=False)
         connection.close_calls, connection.closed_cleanly = 0, False
+        connection.cursors = []
         connection.close_error = state.close_error
         connection.close_entered = connection.close_release = None
         state.opened.append(connection)

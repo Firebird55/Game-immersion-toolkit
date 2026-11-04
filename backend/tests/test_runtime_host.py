@@ -1,11 +1,15 @@
 """Scoped behavior fixtures; real extracted Job/handle cases run on Windows."""
 import io
+from dataclasses import replace
+import hashlib
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -15,13 +19,400 @@ from backend.runtime_bundle import RuntimeLayout
 
 
 @pytest.fixture
+def normal_slot(tmp_path, monkeypatch):
+    """Authored immutable bytes + genuine HTTP; Win32 creations are typed doubles."""
+    from backend.tests.test_desktop_frontend import immutable_slot
+    from backend.bundle_host import create_synthetic_root
+    from backend.desktop_frontend import DesktopFrontendServer
+    from backend.windows_preparation_process import _SuspendedChild
+    layout, pin = immutable_slot(tmp_path,'owned-normal')
+    layout.executable.write_bytes(b'authored placeholder; not a native runtime')
+    disposable = create_synthetic_root(tmp_path/'disposable-normal')
+    root = disposable.path
+    layout = replace(layout, settings_root=root/'settings',data_root=root/'data',cache_root=root/'cache',
+        work_root=root/'cache/work',tool_root=root/'tools',state_root=root/'state',default_export_root=root/'exports')
+    state = SimpleNamespace(ready=True,create_failure=None,post_create_failure=False,alias=False,
+        stop_errors={},close_errors={},job_close_error=None,observer_close_error=None,foreign=False,
+        unknown=False,unknown_transient=False,exit_after_http=False,remap_after_http=False,delay_body=False,
+        requested=threading.Event(),release=threading.Event(),calls=[])
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version='HTTP/1.1'
+        def log_message(self,*_args): pass
+        def do_GET(self):
+            assert self.path == '/api/runtime/ready'
+            payload=json.dumps({'ready':state.ready,'standby':True}).encode()
+            self.send_response(200);self.send_header('Content-Length',str(len(payload)))
+            self.send_header('Content-Type','application/json');self.end_headers()
+            state.requested.set()
+            if state.delay_body: state.release.wait(3)
+            try:self.wfile.write(payload)
+            except (BrokenPipeError,ConnectionResetError):pass
+            if state.exit_after_http:state.tree.created_children[0].exited=True
+            if state.remap_after_http:state.foreign=True
+    api=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    frontend=DesktopFrontendServer(layout.resource_root/'desktop',0)
+    threads=[threading.Thread(target=server.serve_forever,daemon=True) for server in (api,frontend)]
+    for thread in threads:thread.start()
+    files=[{'path':path.relative_to(layout.application_root).as_posix(),'bytes':path.stat().st_size,
+            'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+           for path in layout.application_root.rglob('*') if path.is_file()]
+    directories=[path.relative_to(layout.application_root).as_posix()
+                 for path in layout.application_root.rglob('*') if path.is_dir()]
+    class Child(_SuspendedChild):
+        def __init__(self,owner,role):
+            super().__init__(owner);self.role,self.pid,self.handle=role,101+len(owner.created_children),object()
+            self.created,self._admitted=True,True
+        @property
+        def process_handle(self):
+            if self.closed:raise OSError('Authored closed creation handle')
+            return self.handle
+        def resume_once(self):
+            assert not self.resumed and not self.closed
+            state.calls.append(('resume',self.role));self.resumed=True
+        def stop_and_wait(self,deadline):
+            state.calls.append(('stop',self.role,deadline))
+            if self.role in state.stop_errors:raise state.stop_errors[self.role]
+            if time.monotonic()>=deadline:raise TimeoutError('Authored absolute cleanup deadline')
+            self.exited=True
+        def close_after_exit(self):
+            if self.closed:return
+            assert self.exited
+            state.calls.append(('close-child',self.role))
+            if self.role in state.close_errors:raise state.close_errors[self.role]
+            self.closed=True
+    class Kernel:
+        def OpenProcess(self,_access,_inherit,pid):
+            state.calls.append(('observe',pid))
+            return SimpleNamespace(target=next((child for child in state.tree.created_children if child.pid==pid),None))
+        def IsProcessInJob(self,observer,_job,result):
+            result._obj.value=observer.target is not None;return True
+        def WaitForSingleObject(self,handle,_timeout):
+            target=handle.target if isinstance(handle,SimpleNamespace) else next(
+                (child for child in state.tree.created_children if child.handle is handle),None)
+            return 0 if target is not None and target.exited else 258
+        def CloseHandle(self,handle):
+            state.calls.append(('close-observer',handle))
+            return state.observer_close_error is None
+    class Tree:
+        def __init__(self):
+            self.kernel,self.handle,self._lifecycle,self.created_children=Kernel(),object(),threading.RLock(),[]
+            self._admission_closed=False;state.tree=self
+        def create_suspended(self,command,**options):
+            role=command[2]
+            child=Child(self,role);self.created_children.append(child)
+            state.calls.append(('create',role,command,options))
+            if state.create_failure is not None and role=='api':
+                if not state.post_create_failure:child.created=False;child.closed=True
+                raise state.create_failure
+            if state.alias and role=='api':child.handle=self.created_children[0].handle
+            return child
+        def _process_ids(self,deadline):
+            if time.monotonic()>=deadline:raise TimeoutError('Authored absolute census deadline')
+            active=[child.pid for child in self.created_children if child.created and not child.exited]
+            return active+([999] if state.unknown and (active or not state.unknown_transient) else [])
+        def close(self):
+            state.calls.append(('close-job',))
+            if state.job_close_error is not None:raise state.job_close_error
+            assert all(child.closed for child in self.created_children)
+            self.handle=None
+    monkeypatch.setattr(runtime_host,'WindowsPreparationProcess',Tree)
+    monkeypatch.setattr(runtime_host,'sys',SimpleNamespace(platform='win32'))
+    monkeypatch.setattr(runtime_host,'_standby_system_environment',lambda:{'SystemRoot':'AUTHORED_OS','PATH':'AUTHORED_OS'})
+    monkeypatch.setattr(runtime_host,'same_process_object',lambda first,second:
+        (first.target.handle if isinstance(first,SimpleNamespace) and first.target is not None else first) is second)
+    def listeners(ports):
+        assert set(ports)=={api.server_port,frontend.server_port}
+        return {api.server_port:{999 if state.foreign else 102},frontend.server_port:{101}}
+    monkeypatch.setattr(runtime_host,'listener_processes',listeners)
+    def make(**options):
+        arguments=dict(disposable=disposable,inventory_files=files,inventory_directories=directories,
+            trusted_manifest_sha256=pin,api_port=api.server_port,frontend_port=frontend.server_port)
+        arguments.update(options)
+        return runtime_host.OwnedStandbySlot(layout,**arguments)
+    yield SimpleNamespace(make=make,layout=layout,root=disposable,state=state,api=api,frontend=frontend,
+        files=files,directories=directories,pin=pin,child_type=Child)
+    state.release.set()
+    for server in (api,frontend):server.shutdown();server.server_close()
+    for thread in threads:thread.join(2);assert not thread.is_alive()
+
+
+def test_normal_standby_owns_fixed_real_commands_before_resume_and_actual_http_identity(normal_slot,monkeypatch):
+    value=normal_slot;monkeypatch.setenv('LEXIRISE_API_KEY','authored-parent-key-must-not-be-inherited')
+    owner=value.make();assert owner.start(timeout=2) is owner and owner.ready
+    calls=value.state.calls;creates=[call for call in calls if call[0]=='create']
+    assert len(creates)==2 and calls.index(creates[1])<next(i for i,call in enumerate(calls) if call[0]=='resume')
+    assert creates[0][2]==value.layout.child_command('frontend',['--port',str(value.frontend.server_port)])
+    assert creates[1][2]==value.layout.child_command('api',['--port',str(value.api.server_port),'--standby','--candidate-closed'])
+    assert all('--runtime-probe' not in call[2] for call in creates)
+    for _,_,_,options in creates:
+        assert options['detached_console'] is True
+        assert options['env']['LOCALAPPDATA']==str(value.root.path/'host-profile')
+        assert options['env']['TEMP']==str(value.root.path/'host-temp')
+        assert not {'LEXIRISE_API_KEY','PYTHONPATH','HTTP_PROXY'} & set(options['env'])
+    children=tuple(owner.children.values());tree=owner.tree
+    owner.close(timeout=2)
+    assert owner.closed and owner.cleanup_confirmed and not owner.recovery_required and not owner.errors
+    assert owner.tree is tree and all(child.closed and child.exited for child in children)
+    assert not owner.scratch.exists()
+    count=len(calls);owner.close();assert len(calls)==count
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start()
+
+
+def test_normal_standby_waits_for_both_owned_listeners_without_treating_startup_progress_as_http_change(normal_slot,monkeypatch):
+    value=normal_slot;owner=value.make();observations=[]
+    def listeners(ports):
+        observations.append(value.state.requested.is_set())
+        if len(observations)==1:return {value.frontend.server_port:{101}}
+        return {value.api.server_port:{102},value.frontend.server_port:{101}}
+    monkeypatch.setattr(runtime_host,'listener_processes',listeners)
+    owner.start(timeout=2)
+    assert owner.ready and observations==[False,False,False,True]
+    assert not owner.errors and not owner.recovery_required
+    owner.close(timeout=2)
+    assert owner.closed and owner.cleanup_confirmed
+
+
+def test_normal_standby_missing_listener_interval_still_refuses_new_foreign_binding_before_http(normal_slot,monkeypatch):
+    value=normal_slot;owner=value.make();observations=[]
+    def listeners(ports):
+        observations.append(tuple(ports))
+        if len(observations)==1:return {value.frontend.server_port:{101}}
+        return {value.api.server_port:{999},value.frontend.server_port:{101}}
+    monkeypatch.setattr(runtime_host,'listener_processes',listeners)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert len(observations)==2 and not value.state.requested.is_set()
+    assert owner.recovery_required and not owner.ready
+    assert all(call[1] in {'api','frontend'} for call in value.state.calls if call[0]=='stop')
+
+
+def test_normal_standby_retains_actual_job_before_partial_constructor_close_poison_without_retry(normal_slot,monkeypatch):
+    from backend import windows_preparation_process as process
+    value=normal_slot;owner=value.make();handle=object();calls=[]
+    set_error,close_error=OSError('Authored Job configuration failure'),OSError('Authored Job constructor close failure')
+    errors=iter((set_error,close_error))
+    class Kernel:
+        def CreateJobObjectW(self,*_args):calls.append('create-job');return handle
+        def SetInformationJobObject(self,*_args):calls.append('set-info');return False
+        def CloseHandle(self,actual):
+            assert actual is handle
+            calls.append('close-job');return False
+    monkeypatch.setattr(process,'_kernel',lambda:Kernel())
+    monkeypatch.setattr(process.ctypes,'get_last_error',lambda:6,raising=False)
+    monkeypatch.setattr(process.ctypes,'WinError',lambda _code:next(errors),raising=False)
+    monkeypatch.setattr(runtime_host,'WindowsPreparationProcess',process.WindowsPreparationProcess)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    tree=owner.tree
+    assert type(tree) is process.WindowsPreparationProcess and tree._handle is handle
+    assert tree._ownership_unconfirmed and not owner._tree_constructed
+    assert any(current is close_error for _,current in owner.errors) and close_error.__context__ is set_error
+    assert owner.recovery_required and not owner.cleanup_confirmed and not owner.closed
+    assert calls==['create-job','set-info','close-job']
+    with pytest.raises(OSError):_=tree.handle
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert calls==['create-job','set-info','close-job']
+
+
+@pytest.mark.parametrize('after',[False,True])
+def test_normal_standby_keeps_and_cleans_actual_second_creation_record_on_failure(normal_slot,after):
+    value=normal_slot;error=OSError('Authored creation failure')
+    value.state.create_failure,value.state.post_create_failure=error,after
+    owner=value.make()
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert owner.recovery_required and any(current is error for _,current in owner.errors)
+    assert len(owner.children)==2 and all(child.closed for child in owner.children.values())
+    assert not any(call[0]=='resume' for call in value.state.calls)
+    assert owner.scratch.exists() and owner.cleanup_confirmed and not owner.closed
+    count=len(value.state.calls)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close()
+    assert len(value.state.calls)==count
+
+
+@pytest.mark.parametrize('fault',['foreign-listener','aliased-creation','unknown-member'])
+def test_normal_standby_refuses_observation_as_creation_authority_and_never_kills_unknown(normal_slot,fault):
+    value=normal_slot
+    setattr(value.state,{'foreign-listener':'foreign','aliased-creation':'alias','unknown-member':'unknown'}[fault],True)
+    owner=value.make()
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert owner.recovery_required and not owner.ready and not owner.closed
+    assert not value.state.requested.is_set()
+    assert all(call[1] in {'api','frontend'} for call in value.state.calls if call[0]=='stop')
+    if fault!='foreign-listener':assert owner.tree.handle is not None and not owner.cleanup_confirmed
+    if fault=='aliased-creation':assert not any(call[0] in {'stop','close-child'} for call in value.state.calls)
+
+
+def test_normal_standby_cleanup_errors_are_independent_sticky_and_never_retried(normal_slot):
+    value=normal_slot;owner=value.make();owner.start(timeout=2)
+    stop_error,close_error=OSError('Authored frontend stop failure'),OSError('Authored API handle close failure')
+    value.state.stop_errors['frontend']=stop_error;value.state.close_errors['api']=close_error
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert {id(error) for _,error in owner.errors}>={id(stop_error),id(close_error)}
+    assert [call[1] for call in value.state.calls if call[0]=='stop']==['frontend','api']
+    assert owner.tree.handle is not None and owner.scratch.exists() and not owner.cleanup_confirmed
+    calls=len(value.state.calls)
+    for _ in range(2):
+        with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert len(value.state.calls)==calls
+
+
+def test_normal_standby_absolute_deadline_covers_real_http_and_failed_cleanup_without_reset(normal_slot):
+    value=normal_slot;owner=value.make();value.state.delay_body=True
+    errors=[]
+    def start():
+        try:owner.start(timeout=.2)
+        except BaseException as error:errors.append(error)
+    thread=threading.Thread(target=start);begin=time.monotonic();thread.start()
+    assert value.state.requested.wait(1)
+    thread.join(1)
+    assert not thread.is_alive() and time.monotonic()-begin<1
+    assert errors and isinstance(errors[0],runtime_host.OwnedStandbySlotError)
+    assert owner.recovery_required and not owner.ready and owner.tree.handle is not None
+    deadlines=[call[2] for call in value.state.calls if call[0]=='stop']
+    assert len(deadlines)==2 and deadlines[0]==deadlines[1] and deadlines[0]<=begin+.3
+
+
+@pytest.mark.parametrize('options',[{'api_port':True},{'api_port':0},{'api_port':3000},
+    {'frontend_port':8766},{'trusted_manifest_sha256':'invalid'},{'inventory_files':[]},
+    {'inventory_directories':['../outside']}])
+def test_normal_standby_refuses_unbounded_or_self_authorizing_inputs_before_creation(normal_slot,options):
+    with pytest.raises(RuntimeError):normal_slot.make(**options)
+    assert normal_slot.state.calls==[]
+
+
+@pytest.mark.parametrize('change', ['old-image', 'foreign-image', 'old-inventory'])
+def test_normal_standby_refuses_legacy_or_unbound_current_image(normal_slot, change):
+    value = normal_slot
+    if change == 'old-image':
+        value.layout.executable.rename(value.layout.application_root/'ProxyTranscriptRuntime.exe')
+    elif change == 'foreign-image':
+        value.layout.executable.unlink()
+        foreign = value.layout.application_root/'foreign'
+        foreign.mkdir()
+        (foreign/'GameImmersionToolkit.exe').write_bytes(b'authored foreign placeholder')
+    else:
+        for entry in value.files:
+            if entry['path'] == 'GameImmersionToolkit.exe': entry['path'] = 'ProxyTranscriptRuntime.exe'
+    if change == 'old-inventory':
+        with pytest.raises(RuntimeError, match='bind its executable'): value.make()
+    else:
+        owner = value.make()
+        with pytest.raises(runtime_host.OwnedStandbySlotError): owner.start(timeout=2)
+    assert value.state.calls == []
+
+
+@pytest.mark.parametrize('fault',['extra','changed','missing','alias'])
+def test_normal_standby_checks_complete_inventory_before_any_native_creation(normal_slot,fault):
+    value=normal_slot
+    if fault=='alias':
+        value.files.append({**value.files[0],'path':value.files[0]['path'].upper()})
+        with pytest.raises(RuntimeError):value.make()
+    else:
+        owner=value.make()
+        if fault=='extra':(value.layout.application_root/'unlisted.txt').write_bytes(b'owned unexpected bytes')
+        elif fault=='changed':value.layout.executable.write_bytes(b'changed authored executable')
+        else:value.layout.executable.unlink()
+        with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+        assert owner.tree is None and owner.recovery_required
+    assert value.state.calls==[]
+
+
+def test_normal_standby_root_first_link_refusal_never_reads_descendant_metadata(normal_slot,monkeypatch):
+    value=normal_slot;owner=value.make()
+    link=value.layout.resource_root/'desktop'
+    held=link.parent.parent.parent/'held-authored-desktop'
+    link.rename(held);link.symlink_to(held,target_is_directory=True)
+    calls=[];original_lstat,original_open=Path.lstat,Path.open
+    def lstat(path,*args,**kwargs):
+        if link in path.parents:calls.append('descendant-lstat')
+        return original_lstat(path,*args,**kwargs)
+    def opened(path,*args,**kwargs):
+        if link in path.parents:calls.append('descendant-open')
+        return original_open(path,*args,**kwargs)
+    monkeypatch.setattr(Path,'lstat',lstat);monkeypatch.setattr(Path,'open',opened)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert calls==[] and value.state.calls==[]
+
+
+@pytest.mark.parametrize('field',['exit_after_http','remap_after_http'])
+def test_normal_standby_real_http_success_cannot_outlive_its_creation_or_listener(normal_slot,field):
+    value=normal_slot;setattr(value.state,field,True);owner=value.make()
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert value.state.requested.is_set() and owner.recovery_required and not owner.ready
+    assert owner.errors and not owner.closed
+
+
+def test_normal_standby_failed_observer_close_is_retained_and_no_raw_handle_is_reused(normal_slot,monkeypatch):
+    value=normal_slot;value.state.observer_close_error=OSError('Authored observer close failure')
+    monkeypatch.setattr(runtime_host.ctypes,'get_last_error',lambda:6,raising=False)
+    owner=value.make()
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert owner.unconfirmed_observers and any(getattr(error,'winerror',None)==6 for _,error in owner.errors)
+    assert owner.tree.handle is not None and not owner.cleanup_confirmed
+    count=len(value.state.calls)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close()
+    assert len(value.state.calls)==count
+
+
+def test_normal_standby_job_close_failure_retains_exact_owner_and_original_error_without_retry(normal_slot):
+    value=normal_slot;owner=value.make();owner.start(timeout=2)
+    error=OSError('Authored Job close failure');value.state.job_close_error=error;tree=owner.tree;handle=tree.handle
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert owner.tree is tree and tree.handle is handle and any(current is error for _,current in owner.errors)
+    assert sum(call[0]=='close-job' for call in value.state.calls)==1
+    traceback=error.__traceback__
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert sum(call[0]=='close-job' for call in value.state.calls)==1
+    assert error.__traceback__ is traceback
+
+
+def test_normal_standby_control_lock_deadline_poison_is_sticky_without_late_creation(normal_slot):
+    value=normal_slot;owner=value.make();errors=[];finished=threading.Event()
+    def worker():
+        try:owner.start(timeout=.05)
+        except BaseException as error:errors.append(error)
+        finally:finished.set()
+    owner._operation.acquire()
+    thread=threading.Thread(target=worker);thread.start()
+    try:assert finished.wait(.5)
+    finally:owner._operation.release();thread.join(1)
+    assert errors and isinstance(errors[0],runtime_host.OwnedStandbySlotError)
+    assert owner.recovery_required and not owner.ready and owner.tree is None
+    assert any(stage=='control-lock' and isinstance(error,TimeoutError) for stage,error in owner.errors)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.start(timeout=2)
+    assert value.state.calls==[]
+
+
+def test_normal_standby_private_scratch_cleanup_failure_is_not_complete_or_retried(normal_slot,monkeypatch):
+    value=normal_slot;owner=value.make();owner.start(timeout=2)
+    error=OSError('Authored scratch cleanup failure');attempts=[]
+    def failed(path):attempts.append(path);raise error
+    monkeypatch.setattr(runtime_host.shutil,'rmtree',failed)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert attempts==[owner.scratch] and owner.scratch.exists()
+    assert not owner.cleanup_confirmed and not owner.closed and owner.recovery_required
+    assert any(current is error for _,current in owner.errors)
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close()
+    assert attempts==[owner.scratch]
+
+
+def test_normal_standby_observes_unknown_member_before_parent_stop_cannot_hide_its_exit(normal_slot):
+    value=normal_slot;owner=value.make();owner.start(timeout=2)
+    value.state.unknown=value.state.unknown_transient=True
+    with pytest.raises(runtime_host.OwnedStandbySlotError):owner.close(timeout=2)
+    assert all(child.closed and child.exited for child in owner.children.values())
+    assert owner.tree.handle is not None and not owner.cleanup_confirmed
+    assert not any(call[0]=='close-job' for call in value.state.calls)
+    assert owner._membership_unconfirmed and owner.recovery_required
+
+
+@pytest.fixture
 def layout(tmp_path, monkeypatch):
     app, private = tmp_path/'app', tmp_path/'private'
-    app.mkdir(); (app/'ProxyTranscriptRuntime.exe').write_bytes(b'authored-image-placeholder')
+    app.mkdir(); (app/'GameImmersionToolkit.exe').write_bytes(b'authored-image-placeholder')
     state = private/'host-v1'; state.mkdir(parents=True)
     (state/'synthetic-probe.json').write_text(json.dumps({'build_id': 'host-fixture', 'synthetic': True}))
     value = RuntimeLayout(mode='bundle', profile='runtime-experiment', application_root=app,
-        resource_root=app/'_internal', executable=app/'ProxyTranscriptRuntime.exe', data_root=private/'data-v1',
+        resource_root=app/'_internal', executable=app/'GameImmersionToolkit.exe', data_root=private/'data-v1',
         settings_root=private, cache_root=private/'cache-v1', tool_root=private/'tools-v1',
         work_root=private/'cache-v1/work', state_root=state, default_export_root=private/'exports',
         build_id='host-fixture', source_commit='a'*40, children=('frontend', 'api', 'windows-bootstrap'))
@@ -190,6 +581,17 @@ def test_existing_private_roots_and_experimental_image_are_required(layout, monk
         runtime_host.FrozenProbeHost(layout)
 
 
+@pytest.mark.parametrize('change', ['old-image', 'foreign-image', 'runtime-profile'])
+def test_frozen_probe_refuses_unbound_image_or_production_profile_before_roots(layout, monkeypatch, change):
+    if change == 'old-image': layout = replace(layout, executable=layout.application_root/'ProxyTranscriptRuntime.exe')
+    if change == 'foreign-image': layout = replace(layout, executable=layout.application_root.parent/'foreign/GameImmersionToolkit.exe')
+    if change == 'runtime-profile': layout = replace(layout, profile='runtime')
+    monkeypatch.setattr(runtime_host, 'synthetic_roots', lambda *_: pytest.fail('Unbound layout reached fixture reads'))
+    monkeypatch.setattr(runtime_host, 'developer_environment', lambda: pytest.fail('Unbound layout inspected developer environment'))
+    with pytest.raises(runtime_host.HostProbeFailure, match='experimental-windows-image-required'):
+        runtime_host.FrozenProbeHost(layout)
+
+
 def test_frozen_entry_uses_fixed_host_probe_without_new_child_target(layout, monkeypatch):
     modules = []
     monkeypatch.setattr(bundle_entry, 'discover_layout', lambda: layout)
@@ -310,6 +712,53 @@ def test_registered_wal_choice_changes_only_the_fixed_api_probe(registered, layo
     assert calls[-3:] == [('stop', 101), ('stop', 102), 'job-close']
 
 
+def test_registered_populated_choice_binds_only_api_to_fixed_owned_test_host(registered, layout):
+    from backend.bundle_host import create_synthetic_root
+    host, calls, _ = registered
+    source = create_synthetic_root(layout.work_root/'p2-native/legacy')
+    roots = {name:create_synthetic_root(source.path.parent/name, installation_id=source.installation_id)
+        for name in ('private-target', 'external-state', 'host-profile')}
+    root = source.path
+    host.layout = replace(layout, settings_root=root, data_root=root/'data', cache_root=root/'cache-v1',
+        work_root=root/'cache-v1/work', tool_root=root/'tools-v1', state_root=root/'probe-state', default_export_root=root/'exports')
+    host.start_registered(detached_console=True, populated_probe=True)
+    creation = [call for call in calls if call[0] == 'create']
+    assert creation[0][2] == host.layout.child_command('frontend', ['--port','3000'])
+    assert creation[1][2] == [str(layout.executable),'--runtime-probe','api-populated']
+    assert creation[1][3]['env']['LOCALAPPDATA'] == str(roots['host-profile'].path)
+    assert creation[0][3]['env'].get('LOCALAPPDATA') != str(roots['host-profile'].path)
+    assert all(call[3]['detached_console'] is True for call in creation)
+    assert not any(call[0] == 'resume' for call in calls)
+    host.resume_registered(); host.close()
+
+
+@pytest.mark.parametrize('selection', [{'populated_probe':value} for value in (None, 0, 1, 'true', [], {})]+
+    [{'populated_probe':True}, {'populated_probe':True,'detached_console':True,'grammar_probe':True},
+     {'populated_probe':True,'detached_console':True,'wal_probe':True}])
+def test_populated_policy_refuses_ambiguous_or_non_detached_choices_before_creation(registered, selection):
+    host, calls, _ = registered
+    with pytest.raises(runtime_host.HostProbeFailure): host.start_registered(**selection)
+    assert calls == [] and host.tree is None
+
+
+def test_populated_role_roots_are_validated_before_creating_any_native_object(registered):
+    host, calls, _ = registered
+    with pytest.raises(RuntimeError): host.start_registered(detached_console=True, populated_probe=True)
+    assert calls == [] and host.tree is None
+
+
+def test_fixed_populated_case_dispatch_has_no_new_general_child_target(layout, monkeypatch):
+    from backend import runtime_data_copy_probe
+    calls = []
+    monkeypatch.setattr(runtime_host.sys, 'stdin', io.StringIO('authored-populated-state-copy-v1\n'))
+    monkeypatch.setattr(runtime_data_copy_probe, 'run_populated', lambda current, stream:calls.append((current, stream)) or 19)
+    assert runtime_host.main('host', layout) == 19 and calls[0][0] is layout
+    assert 'api-populated' not in bundle_entry.CHILD_TARGETS
+    monkeypatch.setattr(runtime_host.sys, 'stdin', io.StringIO('authored-populated-state-copy-v1 arbitrary\n'))
+    with pytest.raises(runtime_host.HostProbeFailure): runtime_host.main('host', layout)
+    assert len(calls) == 1
+
+
 def test_registered_grammar_choice_changes_only_the_fixed_api_probe(registered, layout):
     host, calls, _ = registered
     host.start_registered(detached_console=True, grammar_probe=True)
@@ -370,11 +819,11 @@ def test_registered_http_result_cannot_outlive_listener_identity(registered, mon
     assert host.recovery_required
 
 
-def test_registered_startup_missing_then_owned_listeners_reach_http_only_inside_complete_stable_scope(registered, monkeypatch):
+def test_registered_startup_missing_then_owned_listeners_admit_only_after_completed_ready_scope(registered, monkeypatch):
     host, _, _ = registered
     host.start_registered(); host.resume_registered()
     full = {3000: {101}, 8766: {102}}
-    sequence = iter([{}, {3000: {101}}, full, full, full])
+    sequence = iter([{}, {3000: {101}}, full, full, full, full, full])
     observations, http, scopes = [], [], []
     def listeners():
         value = next(sequence, full); observations.append(value); return value
@@ -383,26 +832,210 @@ def test_registered_startup_missing_then_owned_listeners_reach_http_only_inside_
     from contextlib import contextmanager
     @contextmanager
     def scoped():
-        scopes.append(True)
+        scopes.append('enter')
         with original() as ready:
             assert ready
             yield ready
+        scopes.append('leave')
     monkeypatch.setattr(host, '_registered_listener_scope', scoped)
     def api(*_args):
-        assert scopes == [True] and len(observations) == 4 and observations[-1] == full
+        assert scopes == ['enter'] and len(observations) == 4
         http.append('api'); return {'ready': True}
     class Response:
         status = 200
-        def __enter__(self):
-            assert scopes == [True] and len(observations) == 4
-            http.append('frontend'); return self
+        def __init__(self, body): self.body = body
+        def __enter__(self): return self
         def __exit__(self, *_): pass
-        def read(self, _): return b'x'
+        def read(self, _): return self.body
+    def open_url(request, *, timeout):
+        assert 0 < timeout <= 1
+        if isinstance(request, runtime_host.Request):
+            assert scopes == ['enter', 'leave', 'enter'] and len(observations) == 6
+            assert request.full_url == runtime_host.API+'/api/runtime/activate'
+            assert request.get_method() == 'POST' and request.data == b'{"running":false}'
+            assert request.get_header('Content-type') == 'application/json'
+            assert request.get_header('X-proxy-transcript') == 'update'
+            http.append('activate'); return Response(b'{"active":true}')
+        assert scopes == ['enter'] and len(observations) == 4
+        http.append('frontend'); return Response(b'x')
     monkeypatch.setattr(host, '_json', api)
-    monkeypatch.setattr(runtime_host, 'urlopen', lambda *_a, **_k: Response())
+    monkeypatch.setattr(runtime_host, 'urlopen', open_url)
     host.wait_services(timeout=1)
-    assert observations == [{}, {3000: {101}}, full, full, full]
-    assert http == ['api', 'frontend'] and not host.recovery_required
+    assert observations == [{}, {3000: {101}}, full, full, full, full, full]
+    assert http == ['api', 'frontend', 'activate'] and scopes == ['enter', 'leave', 'enter', 'leave']
+    assert host._source_admitted and not host.recovery_required
+    host.close()
+
+
+def test_ready_scope_native_close_failure_prevents_source_control_and_retains_the_owner(registered, monkeypatch):
+    host, calls, _ = registered
+    host.start_registered(); host.resume_registered()
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: {3000:{101}, 8766:{102}})
+    monkeypatch.setattr(host, '_json', lambda *_: {'ready': True})
+    state = {'after_frontend':False, 'failed_closes':0}
+    error = OSError('authored ready observer close outcome unknown')
+    close = host.tree.kernel.CloseHandle
+    def close_observer(handle):
+        if state['after_frontend']:
+            state['failed_closes'] += 1
+            raise error
+        return close(handle)
+    monkeypatch.setattr(host.tree.kernel, 'CloseHandle', close_observer)
+    class Response:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, _): state['after_frontend'] = True; return b'x'
+    def open_url(request, **_options):
+        assert not isinstance(request, runtime_host.Request), 'Unconfirmed readiness reached activation.'
+        return Response()
+    monkeypatch.setattr(runtime_host, 'urlopen', open_url)
+    with pytest.raises(OSError) as caught: host.wait_services(timeout=1)
+    assert caught.value is error and state['failed_closes'] == 1
+    assert host.recovery_required and not host._source_admission_started and not host._source_admitted
+    with pytest.raises(runtime_host.HostProbeFailure): host.close()
+    assert host.tree is not None and not host.closed
+    assert not any(isinstance(call, tuple) and call[0] == 'stop' for call in calls)
+
+
+@pytest.mark.parametrize('fault', ['status', 'false', 'numeric', 'extra', 'duplicate', 'array',
+    'oversize', 'invalid-json', 'transport', 'listener-change', 'child-exit', 'late'])
+def test_authored_source_admission_failure_is_sticky_and_never_reports_ready_or_retries(registered, monkeypatch, fault):
+    host, calls, _ = registered
+    host.start_registered(); host.resume_registered()
+    full, changed = {3000: {101}, 8766: {102}}, {3000: {999}, 8766: {102}}
+    state, control = {'owners': full}, []
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: state['owners'])
+    monkeypatch.setattr(host, '_json', lambda *_: {'ready': True})
+    bodies = {'false': b'{"active":false}', 'numeric': b'{"active":1}', 'extra': b'{"active":true,"extra":false}',
+        'duplicate': b'{"active":false,"active":true}', 'array': b'[["active",true]]',
+        'oversize': b'x'*65537, 'invalid-json': b'not-json'}
+    class Response:
+        status = 200
+        def __init__(self, body): self.body = body
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+        def read(self, limit):
+            assert limit in (1, 65537)
+            if limit == 65537:
+                if fault == 'listener-change': state['owners'] = changed
+                if fault == 'child-exit': host._alive = lambda: (_ for _ in ()).throw(runtime_host.HostProbeFailure('registered-writer-not-live'))
+                if fault == 'late': time.sleep(.03)
+            return self.body[:limit]
+    def open_url(request, *, timeout):
+        if not isinstance(request, runtime_host.Request): return Response(b'x')
+        control.append(request)
+        assert 0 < timeout <= 1 and request.data == b'{"running":false}'
+        if fault == 'transport': raise OSError('authored source control unavailable')
+        response = Response(bodies.get(fault, b'{"active":true}'))
+        if fault == 'status': response.status = 503
+        return response
+    monkeypatch.setattr(runtime_host, 'urlopen', open_url)
+    with pytest.raises((runtime_host.HostProbeFailure, OSError, ValueError)):
+        host.wait_services(timeout=.02 if fault == 'late' else 1)
+    assert len(control) == 1 and host._source_admission_started and not host._source_admitted
+    assert host.recovery_required and host.tree is not None and not host.closed
+    count = len(control)
+    with pytest.raises(runtime_host.HostProbeFailure): host.wait_services(timeout=1)
+    with pytest.raises(runtime_host.HostProbeFailure): host.close()
+    assert len(control) == count and not any(isinstance(call, tuple) and call[0] == 'stop' for call in calls)
+
+
+def test_authored_source_control_observes_real_http_response_before_accepting_source_admission(registered, monkeypatch):
+    host, _, _ = registered
+    host.start_registered(); host.resume_registered()
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: {3000:{101}, 8766:{102}})
+    requests = []
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_): pass
+        def reply(self, body):
+            self.send_response(200); self.send_header('Content-Length', str(len(body))); self.end_headers(); self.wfile.write(body)
+        def do_GET(self): self.reply(b'{"ready":true}' if self.path == '/api/runtime/ready' else b'frontend')
+        def do_POST(self):
+            requests.append((self.path, self.headers.get('X-Proxy-Transcript'), self.headers.get('Content-Type'),
+                self.rfile.read(int(self.headers['Content-Length']))))
+            self.reply(b'{"active":true,"unexpected":false}')
+    server = ThreadingHTTPServer(('127.0.0.1',0), Handler)
+    worker = threading.Thread(target=server.serve_forever, daemon=True); worker.start()
+    origin = 'http://127.0.0.1:'+str(server.server_port)
+    monkeypatch.setattr(runtime_host, 'API', origin); monkeypatch.setattr(runtime_host, 'FRONTEND', origin+'/frontend')
+    try:
+        with pytest.raises(runtime_host.HostProbeFailure, match='registered-host-unconfirmed'): host.wait_services(timeout=2)
+        assert requests == [('/api/runtime/activate','update','application/json',b'{"running":false}')]
+        assert host.recovery_required and not host._source_admitted and not host.closed
+    finally:
+        server.shutdown(); server.server_close(); worker.join(2)
+        assert not worker.is_alive()
+
+
+def test_actual_asgi_control_keeps_both_gates_closed_until_fixed_running_false_source_admission(registered, monkeypatch, tmp_path):
+    # Actual production control handler and Runtime lifecycle/gate methods;
+    # empty reading registry and native-pool doubles, no Runtime constructor,
+    # account path, remote transport, capture device or SQL store is opened.
+    import asyncio
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from backend import api
+    from backend.runtime_readers import RuntimeReadingRegistry
+    from backend.runtime_workers import RequestBarrier, WriterBarrierMiddleware
+    from backend.runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware
+    current = api.Runtime.__new__(api.Runtime)
+    current.request_writers = RuntimeWriterGate(); current.request_writers.stop_admission()
+    current.request_barrier = RequestBarrier(paused=True)
+    current._reading_registry = RuntimeReadingRegistry(tmp_path/'unused-reading')
+    current._handoff_lock = asyncio.Lock()
+    current._sql_handoff = current._quiesce_task = current._handoff_state = None
+    current._request_stop = None
+    current._handoff_drains = []; current._writer_handoff = False; current._updates_started = False
+    effects = []
+    current.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=False), native_stop_pending=False,
+        import_handoff=lambda payload: effects.append(('handoff', payload.running)),
+        resume_workers=lambda: None, start=lambda: pytest.fail('Authored source activation started capture'))
+    current.languages = SimpleNamespace(close=lambda **_: None)
+    current.hito = SimpleNamespace(resume=lambda: None)
+    current._voice_pools = lambda: []
+    current.installation = current.mobile_exports = SimpleNamespace(resume=lambda: None)
+    current.automatic_exports = SimpleNamespace(picker=SimpleNamespace(resume=lambda: None))
+    current.toolkit_updater = current.update_manager = current.pragmata_updater = SimpleNamespace()
+    current.game_updaters = {}; current.start_updates = lambda: effects.append('mocked-updates')
+    current.textmaps = SimpleNamespace(ready=True); current.pragmata = None; current.game_indexes = {}
+    current.warm_task = None; current.standby = True
+    monkeypatch.setattr(api, 'runtime', current, raising=False)
+    app = FastAPI()
+    app.add_api_route('/api/runtime/ready', api.runtime_ready, methods=['GET'])
+    app.add_api_route('/api/runtime/activate', api.runtime_activate, methods=['POST'])
+    @app.get('/api/authored-write')
+    def write(): effects.append('authored-write'); return {'written':True}
+    app.add_middleware(RuntimeWriterMiddleware, current_runtime=lambda: current)
+    app.add_middleware(WriterBarrierMiddleware, barrier=lambda: current.request_barrier)
+    host, _, _ = registered
+    host.start_registered(); host.resume_registered()
+    monkeypatch.setattr(runtime_host, 'listener_processes', lambda: {3000:{101}, 8766:{102}})
+    with TestClient(app, base_url=runtime_host.API) as client:
+        assert client.get('/api/authored-write').status_code == 503 and effects == []
+        assert client.post('/api/runtime/activate', json={'running':False}).status_code == 403
+        assert current.request_barrier.paused and not current.request_writers._accepting
+        controls = []
+        class Response:
+            def __init__(self, status, body): self.status, self.body = status, body
+            def __enter__(self): return self
+            def __exit__(self, *_): pass
+            def read(self, count): return self.body[:count]
+        def open_url(request, *, timeout):
+            if isinstance(request, runtime_host.Request):
+                controls.append(request)
+                assert request.data == b'{"running":false}'
+                reply = client.request(request.get_method(), '/api/runtime/activate', content=request.data,
+                    headers=dict(request.header_items()))
+                return Response(reply.status_code, reply.content)
+            if request == runtime_host.FRONTEND: return Response(200, b'frontend')
+            reply = client.get('/api/runtime/ready'); return Response(reply.status_code, reply.content)
+        monkeypatch.setattr(runtime_host, 'urlopen', open_url)
+        host.wait_services(timeout=2)
+        assert len(controls) == 1 and host._source_admitted and not current.standby
+        assert not current.request_barrier.paused and current.request_writers._accepting
+        assert effects == [('handoff', False), 'mocked-updates']
+        assert client.get('/api/authored-write').status_code == 200 and effects[-1] == 'authored-write'
     host.close()
 
 
@@ -770,7 +1403,7 @@ def test_guardian_census_is_bounded_observation_with_checked_snapshot_close(monk
 def guardian_observers(monkeypatch):
     """Fake read-only native calls; never process admission or Windows proof."""
     calls, held = [], []
-    runtime = r'C:\authored-runtime\ProxyTranscriptRuntime.exe'
+    runtime = r'C:\authored-runtime\GameImmersionToolkit.exe'
     class Kernel:
         mode = None
         queried = False
@@ -829,7 +1462,7 @@ def test_guardian_diagnostics_classify_only_exact_images_and_keep_lineage_unprov
     kernel.tokens[101] = object(); kernel.values[901] = (101, 1100, kernel.tokens[101])
     kernel.paths.update({103: r'C:\Windows\System32\conhost.exe', 104: r'C:\authored-cwd\conhost.exe',
         105: r'C:\Windows\System32\other.exe', 106: r'\\?\C:\Windows\System32\conhost.exe',
-        107: r'C:\other-runtime\ProxyTranscriptRuntime.exe'})
+        107: r'C:\other-runtime\GameImmersionToolkit.exe'})
     kernel.stamps[103] = 900  # A stale parent-ID relation remains only an observation.
     value = runtime_host.observe_guardian_candidates(guardian, runtime, set(range(101, 108)), held, (901,))
     assert value['state'] == 'observed' and value['lineage'] == 'census-not-authority'
@@ -968,7 +1601,7 @@ if (-not $definition) { throw 'Missing fixed host observer classifier.' }
 $roleDefinition = $ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HostObserverRole'}, $true)
 if (-not $roleDefinition) { throw 'Missing fixed host observer role classifier.' }
 . ([scriptblock]::Create($roleDefinition.Extent.Text))
-$expected = 'C:\authored-runtime\ProxyTranscriptRuntime.exe'
+$expected = 'C:\authored-runtime\GameImmersionToolkit.exe'
 $owner = [pscustomobject]@{StartTime=[DateTime]'2020-01-01T00:00:00Z'}
 function New-Observer([string]$Image=$expected, [bool]$Exited=$false, [int]$Offset=1) {
     return [pscustomobject]@{HasExited=$Exited; StartTime=$owner.StartTime.AddSeconds($Offset); MainModule=[pscustomobject]@{FileName=$Image}}
@@ -993,8 +1626,8 @@ Assert-Category (New-Observer -Exited $true) 'process-exited'
 Assert-Category (New-Observer -Offset -1) 'process-predates-owner'
 Assert-Category (New-Observer -Image '') 'image-unavailable'
 Assert-Category (New-Observer -Image 'C:\Windows\System32\conhost.exe') 'windows-console-host-image'
-Assert-Category (New-Observer -Image 'C:\other-runtime\ProxyTranscriptRuntime.exe') 'runtime-image-other-path'
-Assert-Category (New-Observer -Image '\\?\C:\authored-runtime\ProxyTranscriptRuntime.exe') 'runtime-image-prefix-spelling-mismatch'
+Assert-Category (New-Observer -Image 'C:\other-runtime\GameImmersionToolkit.exe') 'runtime-image-other-path'
+Assert-Category (New-Observer -Image '\\?\C:\authored-runtime\GameImmersionToolkit.exe') 'runtime-image-prefix-spelling-mismatch'
 Assert-Category (New-Observer -Image 'C:\secret-user\private-program.exe') 'unexpected-image'
 $unreadable = New-Observer
 $unreadable | Add-Member -MemberType ScriptProperty -Name HasExited -Value {throw 'PRIVATE fixture state failure'} -Force

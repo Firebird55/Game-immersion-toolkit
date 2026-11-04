@@ -13,6 +13,7 @@ from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import logging
+import math
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
@@ -31,6 +32,7 @@ import webbrowser
 
 from .bundle_host import ExclusiveFileLease, HostProbeError, _atomic_json, _reject_links
 from .owned_process import OwnedProcess
+from .runtime_writers import read_parent_frame, write_parent_frame
 from .runtime_bundle import RuntimeBundleError, discover_layout
 
 
@@ -221,8 +223,14 @@ class HostLog:
 
 
 class Service:
-    def __init__(self, name, command, *, cwd, env, log, retained_fds=()):
+    def __init__(self, name, command, *, cwd, env, log, retained_fds=(), parent_control=False):
         self.name, self.log = name, log
+        self._parent_control = parent_control
+        if type(parent_control) is not bool:
+            raise TypeError('Parent service mode must be a boolean.')
+        if parent_control:
+            self._init_parent(command, cwd=cwd, env=env, retained_fds=retained_fds)
+            return
         self.ready = queue.Queue(maxsize=1)
         self.started = time.monotonic()
         self.owner = OwnedProcess(command, cwd=cwd, env=env, text=True,
@@ -251,6 +259,8 @@ class Service:
             pass
 
     def wait_ready(self, stopping, timeout=120):
+        if self._parent_control:
+            return self._parent_wait(stopping, timeout, 'bound')
         deadline = time.monotonic() + timeout
         notice = time.monotonic() + 10
         while time.monotonic() < deadline and not stopping.is_set():
@@ -265,12 +275,163 @@ class Service:
         raise HostError(f'{self.name} did not become ready within {timeout:g} seconds.')
 
     def stop(self):
+        if self._parent_control:
+            return self._parent_stop()
         self.owner.stop(timeout=10)
         for thread in self.threads:
             thread.join(timeout=2)
             if thread.is_alive():
                 raise HostError(f'{self.name} log pipe did not close after shutdown.')
         self.owner.close_streams()
+
+    def _fail_parent(self, error):
+        self._parent_errors.append(error)
+        self._parent_phase = 'failed'
+
+    def _require_parent(self):
+        if self._parent_errors or not self._parent_constructed:
+            raise HostError('Parent service IO or construction is unconfirmed.') from (
+                self._parent_errors[0] if self._parent_errors else None)
+
+    def _init_parent(self, command, *, cwd, env, retained_fds):
+        self._parent_errors = []
+        self._parent_constructed = self._parent_stopping = False
+        self._parent_phase = 'binding'
+        self._parent_writes = []
+        self._parent_ack = queue.Queue(maxsize=1)
+        self._parent_queue = queue.Queue(maxsize=2)
+        self.threads = []
+        self.owner = OwnedProcess.__new__(OwnedProcess)
+        try:
+            OwnedProcess.__init__(self.owner, command, cwd=cwd, env=env, text=False,
+                independent_session=True, retained_fds=retained_fds, parent_control=True)
+            def write():
+                try:
+                    while True:
+                        operation = self._parent_queue.get()
+                        if operation is None:
+                            return
+                        write_parent_frame(self.owner.process.stdin, operation['frame'])
+                        operation['written'].set()
+                except BaseException as error:
+                    self._fail_parent(error)
+
+            def read():
+                try:
+                    while True:
+                        frame = read_parent_frame(self.owner.process.stdout)
+                        if frame is None and self._parent_stopping:
+                            return
+                        if self._parent_phase == 'binding' and frame is not None:
+                            match = re.fullmatch(rb'TPC1\|1\|BOUND\|([1-9][0-9]{3,4})\n', frame)
+                            if match and 1024 < int(match[1]) < 65536 and int(match[1]) not in (3000, 8766):
+                                self._parent_ack.put_nowait(('bound', int(match[1])))
+                                continue
+                        elif self._parent_phase == 'activating' and frame == b'TPC1|2|ACTIVE\n':
+                            self._parent_ack.put_nowait(('active', None))
+                            continue
+                        raise HostError('Parent service control acknowledgement refused.')
+                except BaseException as error:
+                    self._fail_parent(error)
+
+            def stderr():
+                try:
+                    while self.owner.process.stderr.read(4096):
+                        pass  # Bounded discard: stderr never becomes control data.
+                except BaseException as error:
+                    self._fail_parent(error)
+
+            self.threads = [threading.Thread(target=target, name=self.name+'-'+role, daemon=True)
+                for target, role in ((write, 'input'), (read, 'control'), (stderr, 'stderr'))]
+            self.owner._parent_io_threads = tuple(self.threads)
+            for thread in self.threads:
+                thread.start()
+            self._parent_constructed = True
+            self._parent_send(b'TPC1|1|BIND\n')
+        except BaseException as error:
+            self._fail_parent(error)
+            raise
+
+    def _parent_send(self, frame):
+        self._require_parent()
+        operation = {'frame': frame, 'written': threading.Event()}
+        self._parent_writes.append(operation)  # Actual operation retained before enqueue.
+        self._parent_queue.put_nowait(operation)
+
+    def _parent_wait(self, stopping, timeout, expected):
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
+            raise ValueError('Parent wait requires a finite nonnegative budget.')
+        self._require_parent()
+        deadline = time.monotonic()+timeout
+        written = self._parent_writes[-1]['written']
+        while not written.is_set():
+            self._require_parent()
+            if stopping.is_set():
+                error = HostError('Parent service wait was stopped; completion is unknown.')
+                self._fail_parent(error)
+                raise error
+            if deadline-time.monotonic() <= 0:
+                error = TimeoutError('Parent control write completion remains owned.')
+                self._fail_parent(error)
+                raise error
+            written.wait(min(.05, max(0, deadline-time.monotonic())))
+        while True:
+            self._require_parent()
+            if stopping.is_set():
+                error = HostError('Parent service wait was stopped; completion is unknown.')
+                self._fail_parent(error)
+                raise error
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:
+                error = TimeoutError('Parent service acknowledgement is still pending.')
+                self._fail_parent(error)
+                raise error
+            try:
+                phase, port = self._parent_ack.get(timeout=min(.05, remaining))
+            except queue.Empty:
+                continue
+            # Queue.get can yield while Stop or an IO failure is recorded.
+            # Its acknowledgement cannot override that unknown completion.
+            self._require_parent()
+            if stopping.is_set():
+                error = HostError('Parent service wait was stopped; completion is unknown.')
+                self._fail_parent(error)
+                raise error
+            if time.monotonic() >= deadline:
+                error = TimeoutError('Parent service acknowledgement missed its deadline.')
+                self._fail_parent(error)
+                raise error
+            if phase != expected or not self._parent_writes[-1]['written'].is_set():
+                error = HostError('Parent acknowledgement sequence is unconfirmed.')
+                self._fail_parent(error)
+                raise error
+            self._parent_phase = phase
+            return {'ready': True, 'port': port} if phase == 'bound' else {'active': True}
+
+    def activate_idle(self, stopping, timeout=30):
+        self._require_parent()
+        if self._parent_phase != 'bound':
+            raise HostError('Only one initial parent activation is allowed.')
+        self._parent_phase = 'activating'
+        self._parent_send(b'TPC1|2|ACTIVATE-IDLE\n')
+        return self._parent_wait(stopping, timeout, 'active')
+
+    def _parent_stop(self):
+        self._require_parent()
+        self._parent_stopping = True
+        deadline = time.monotonic()+10
+        try:
+            self.owner.stop(timeout=max(0, deadline-time.monotonic()))
+            self._parent_queue.put_nowait(None)
+            for thread in self.threads:
+                thread.join(max(0, deadline-time.monotonic()))
+                if thread.is_alive():
+                    raise TimeoutError('Actual parent control IO is still owned.')
+            self._require_parent()
+            self.owner.close_streams()
+        except BaseException as error:
+            self._fail_parent(error)
+            raise
 
 
 def request_json(port, path, *, payload=None, timeout=5, headers=None):
@@ -426,13 +587,22 @@ class DesktopHost:
             raise
         return True
 
-    def _start(self, name, *, layout=None, kind=None, standby=False, retained_roots=None):
+    def _start(self, name, *, layout=None, kind=None, standby=False, retained_roots=None, parent_control=False):
         layout = layout or self.layout
         kinds = {'API': 'api', 'Frontend': 'frontend', 'Gateway': 'gateway'}
         kind = kind or kinds[name]
+        if type(parent_control) is not bool:
+            raise TypeError('Parent mode must be a boolean.')
+        if getattr(self.services.get(name), '_parent_control', False):
+            raise HostError('Parent service ownership must end before replacement.')
+        if parent_control and (kind != 'api' or not standby or layout.mode != 'source'
+                or self.service_factory is not Service or name in self.services or not self.lease.held):
+            raise HostError('Parent mode requires one leased source standby API.')
         arguments = {'api': ['--port', '0', '--shutdown-stdin'], 'frontend': ['--port', '0'],
             'gateway': ['--state', str(self.route_path), '--api-port', str(self.api_port),
                         '--frontend-port', str(self.port), '--shutdown-stdin']}[kind]
+        if parent_control:
+            arguments += ['--standby', '--parent-control-stdin']
         if kind == 'frontend' and layout.mode == 'source':
             arguments += ['--root', str(self.frontend_root)]
         if kind == 'frontend':
@@ -448,10 +618,20 @@ class DesktopHost:
         if standby:
             env['PROXY_TRANSCRIPT_STANDBY'] = '1'
         self.log.write('Starting ' + name.lower() + '.')
-        service = self.service_factory(name, layout.child_command(kind, arguments),
-            cwd=layout.application_root, env=env, log=self.log,
-            retained_fds=self.lease.retained_descriptors())
-        self.services[name] = service
+        if parent_control:
+            service = Service.__new__(Service)
+            service._parent_control = True  # Guard even failures before __init__.
+            self.services[name] = service  # Before fallible service/native construction.
+            service._parent_lease = self.lease
+            service._parent_lease_handle = self.lease._handle
+            Service.__init__(service, name, layout.child_command(kind, arguments),
+                cwd=layout.application_root, env=env, log=self.log,
+                retained_fds=self.lease.retained_descriptors(), parent_control=True)
+        else:
+            service = self.service_factory(name, layout.child_command(kind, arguments),
+                cwd=layout.application_root, env=env, log=self.log,
+                retained_fds=self.lease.retained_descriptors())
+            self.services[name] = service
         ready = service.wait_ready(self.stop_requested)
         if name == 'Gateway':
             self.api_port, self.port = ready['apiPort'], ready['frontendPort']
@@ -461,6 +641,20 @@ class DesktopHost:
                 raise HostError(name + ' reported an invalid private port.')
             self.ports[name] = port
         self.log.write(name + ' is ready.')
+
+    def _activate_parent_idle(self, name):
+        service = self.services[name]
+        lease, handle = self.lease, self.lease._handle
+        if (type(service) is not Service or not service._parent_control
+                or service._parent_lease is not lease or not lease.held
+                or service._parent_lease_handle is not handle):
+            raise HostError('Parent service installation ownership changed.')
+        result = service.activate_idle(self.stop_requested)
+        if (self.services.get(name) is not service or self.lease is not lease
+                or service._parent_lease is not lease or not lease.held
+                or lease._handle is not handle or service._parent_lease_handle is not handle):
+            raise HostError('Parent service changed during activation.')
+        return result
 
     def _publish(self):
         _atomic_json(self.route_path, {'schema': 'toolkit-desktop-route-v1', 'active': {
@@ -738,7 +932,8 @@ class DesktopHost:
         self.ready.clear()
         self.log.write('Stopping transcript services and waiting for saved work.')
         api = self.services.get('API')
-        if api and api.owner.poll() is None and 'API' in self.ports:
+        if (api and not getattr(api, '_parent_control', False)
+                and api.owner.poll() is None and 'API' in self.ports):
             try:
                 request_json(self.ports['API'], '/api/runtime/quiesce', payload={}, timeout=32,
                              headers={'X-Proxy-Transcript': 'update'})

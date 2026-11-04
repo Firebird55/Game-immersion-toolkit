@@ -1,17 +1,22 @@
 import hashlib
 import io
 import json
+from types import SimpleNamespace
 import zipfile
 
 import pytest
 
 from backend import game_tools as tools
+from backend import media_tools
 
 
-def test_node_reader_dependencies_belong_to_active_code_not_preserved_data(tmp_path, monkeypatch):
+@pytest.mark.parametrize('platform', ['win32', 'linux', 'darwin'])
+def test_node_reader_dependencies_belong_to_active_code_not_preserved_data(tmp_path, monkeypatch, platform):
     source, root = tmp_path / 'active-code', tmp_path / 'preserved-install'
     monkeypatch.setattr(tools, 'CODE_ROOT', source)
-    paths = [root / 'data/voice-assets/vgmstream/vgmstream-cli.exe',
+    monkeypatch.setattr(media_tools, 'sys', SimpleNamespace(platform=platform))
+    decoder = root / 'data/voice-assets/vgmstream' / ('vgmstream-cli.exe' if platform == 'win32' else 'vgmstream-cli')
+    paths = [decoder,
              root / 'work/voice-assets/galgame-perform.ts',
              *(root / 'work/voice-assets' / name for name in tools.METADATA_FILES),
              *(source / 'node_modules' / name / 'package.json' for name in ('ooz-wasm', 'xxhash-wasm'))]
@@ -19,6 +24,12 @@ def test_node_reader_dependencies_belong_to_active_code_not_preserved_data(tmp_p
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text('fixture', encoding='utf-8')
     assert tools.missing_tools(root, 'zzz') == []
+    assert media_tools.vgmstream_executable(root) == decoder
+    decoder.unlink()
+    foreign = decoder.with_name('vgmstream-cli' if platform == 'win32' else 'vgmstream-cli.exe')
+    foreign.write_text('wrong-platform fixture', encoding='utf-8')
+    assert tools.missing_tools(root, 'zzz') == ['Voice decoder']
+    decoder.write_text('fixture', encoding='utf-8')
     stale = root / 'node_modules/ooz-wasm/package.json'
     stale.parent.mkdir(parents=True)
     stale.write_text('old version', encoding='utf-8')

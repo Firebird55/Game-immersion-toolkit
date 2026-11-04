@@ -20,7 +20,16 @@ def operation_connections(tmp_path, monkeypatch):
     raw = sqlite3.connect
     state = SimpleNamespace(opened=[], close_error=None, transaction_errors=[],
                             close_entered=None, close_release=None, threaded=False)
+    class ObservedCursor(sqlite3.Cursor):
+        def close(self):
+            self.close_calls += 1
+            return super().close()
     class Observed(sqlite3.Connection):
+        def cursor(self):
+            cursor = super().cursor(factory=ObservedCursor)
+            cursor.close_calls = 0
+            self.cursors.append(cursor)
+            return cursor
         def __exit__(self, *args):
             try: return super().__exit__(*args)
             except BaseException as error:
@@ -41,6 +50,7 @@ def operation_connections(tmp_path, monkeypatch):
             options['check_same_thread'] = False
         connection = raw(*args, factory=Observed, **options)
         connection.close_calls, connection.closed_cleanly = 0, False
+        connection.cursors = []
         state.opened.append(connection)
         return connection
     monkeypatch.setattr(sqlite3, 'connect', connect)
@@ -84,6 +94,7 @@ def test_real_operation_connections_close_once_on_reads_writes_and_early_returns
     assert not store._connection_failures
     for connection in state.opened:
         assert connection.close_calls == 1 and connection.closed_cleanly
+        assert all(cursor.close_calls == 1 for cursor in connection.cursors)
         with pytest.raises(sqlite3.ProgrammingError, match='closed'): connection.execute('SELECT 1')
 
 
@@ -559,10 +570,12 @@ def test_old_complete_recording_in_history_retains_its_whole_paragraph_label(tmp
                       source_ocr='A complete recording.', score=100, kind='exact')
     created = store.add(match, 'session')
     store.update_audio(created.id, 'synthetic-original.mp3', voiced=True)
-    with store._connect() as connection:
-        context = json.loads(connection.execute('SELECT language_context FROM transcript_lines WHERE id=?', (created.id,)).fetchone()[0])
+    with store._connection_scope() as connection:
+        with store._sql_lifetime.cursor(connection) as statement:
+            context = json.loads(statement.execute('SELECT language_context FROM transcript_lines WHERE id=?', (created.id,)).fetchone()[0])
         context.pop('audio_scope')
-        connection.execute('UPDATE transcript_lines SET language_context=? WHERE id=?', (json.dumps(context), created.id))
+        with store._sql_lifetime.cursor(connection) as statement:
+            statement.execute('UPDATE transcript_lines SET language_context=? WHERE id=?', (json.dumps(context), created.id))
     restored = TranscriptStore(store.path).get(created.id)
     assert restored.audio_scope == 'paragraph' and restored.has_audio
 

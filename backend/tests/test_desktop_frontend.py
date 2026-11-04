@@ -193,7 +193,7 @@ def immutable_slot(tmp_path, name, extra=None, *, omit=()):
     (resources / 'runtime-manifest.json').write_bytes(raw)
     private = tmp_path / ('private-' + name)
     layout = RuntimeLayout(mode='bundle', application_root=application, resource_root=resources,
-        executable=application / 'ProxyTranscriptRuntime.exe',
+        executable=application / 'GameImmersionToolkit.exe',
         settings_root=private, data_root=private / 'data-v1', cache_root=private / 'cache-v1',
         work_root=private / 'cache-v1/work', tool_root=private / 'tools-v1',
         state_root=private / 'host-v1', default_export_root=private / 'exports',

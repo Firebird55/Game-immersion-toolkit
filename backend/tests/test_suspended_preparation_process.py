@@ -7,10 +7,66 @@ import subprocess
 import sys
 import threading
 import time
+from types import SimpleNamespace
 
 import pytest
 
 from backend import windows_preparation_process as module
+
+
+@pytest.mark.parametrize('visible,show', [(False, False), (True, False), (False, True), (True, True)])
+def test_bootstrap_preserves_private_streams_unless_console_is_explicitly_requested(monkeypatch, visible, show):
+    events = []
+    kernel = SimpleNamespace(
+        OpenJobObjectW=lambda *_: 101,
+        GetCurrentProcess=lambda: 202,
+        AssignProcessToJobObject=lambda *_: events.append('assigned') or True,
+        CloseHandle=lambda *_: events.append('assignment-handle-closed') or True,
+        SetDllDirectoryW=lambda value: events.append(('dll-search', value)) or True,
+    )
+    monkeypatch.setattr(module, '_kernel', lambda: kernel)
+    monkeypatch.setattr(module.subprocess, 'CREATE_NO_WINDOW', 0x08000000, raising=False)
+    monkeypatch.setattr(module.subprocess, 'CREATE_NEW_CONSOLE', 0x10, raising=False)
+    monkeypatch.setattr(module.subprocess, 'STARTF_USESHOWWINDOW', 1, raising=False)
+    monkeypatch.setattr(module.subprocess, 'STARTUPINFO', lambda: SimpleNamespace(dwFlags=0), raising=False)
+    for name, enabled in [('PROXY_TRANSCRIPT_CHILD_CONSOLE', visible), ('PROXY_TRANSCRIPT_CHILD_SHOW_WINDOW', show)]:
+        monkeypatch.setenv(name, '1' if enabled else '0')
+    def call(command, **options):
+        assert events == ['assigned', 'assignment-handle-closed', ('dll-search', None)]
+        assert command == ['authored-tool', '--authored-operation']
+        for name in ('stdin', 'stdout', 'stderr'):
+            assert options[name] is (None if visible else getattr(module.sys, name))
+        assert options['creationflags'] == (0x10 if visible else 0x08000000)
+        if show:
+            assert options['startupinfo'].dwFlags == 1 and options['startupinfo'].wShowWindow == 1
+        else:
+            assert options['startupinfo'] is None
+        assert 'PROXY_TRANSCRIPT_CHILD_CONSOLE' not in os.environ
+        assert 'PROXY_TRANSCRIPT_CHILD_SHOW_WINDOW' not in os.environ
+        return 17
+    monkeypatch.setattr(module.subprocess, 'call', call)
+    assert module._bootstrap('authored-job', ['authored-tool', '--authored-operation']) == 17
+
+
+def test_bootstrap_failed_job_assignment_never_starts_a_child(monkeypatch):
+    events = []
+    kernel = SimpleNamespace(
+        OpenJobObjectW=lambda *_: 101,
+        GetCurrentProcess=lambda: 202,
+        AssignProcessToJobObject=lambda *_: False,
+        CloseHandle=lambda *_: events.append('assignment-handle-closed') or True,
+        SetDllDirectoryW=lambda value: events.append(('dll-search', value)) or True,
+    )
+    def check(value):
+        if not value:
+            raise OSError('Authored assignment refusal')
+        return value
+    monkeypatch.setattr(module, '_kernel', lambda: kernel)
+    monkeypatch.setattr(module, '_check', check)
+    monkeypatch.setattr(module.subprocess, 'call', lambda *_a, **_k: pytest.fail('Failed assignment cannot spawn'))
+    with pytest.raises(OSError, match='Authored assignment refusal'):
+        module._bootstrap('authored-job', ['must-not-start'])
+    assert events[0] == 'assignment-handle-closed'
 
 
 class Kernel:

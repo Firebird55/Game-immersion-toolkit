@@ -77,6 +77,9 @@ try {
     if($identity.runtime_version -ne '10.0.14' -or $identity.runtime_origin -ne 'app-local' -or $identity.corelib_sha256 -ne $manifest.files.'System.Private.CoreLib.dll'.sha256 -or $identity.game_execution_approved -ne $false){throw 'NTE app-local runtime identity differs.'}
     $request=Request
     Require-Code (Invoke-Bridge @('inventory',$install,$tools,(Join-Path $temporary 'bad-marker')) ($request | ConvertTo-Json -Compress)) 1
+    $malformedWitness=Join-Path $install 'owned-initialize-rejected.txt'
+    if(-not (Test-Path -LiteralPath $malformedWitness -PathType Leaf) -or [IO.File]::ReadAllText($malformedWitness) -cne 'owned-malformed-json-rejected'){throw 'Malformed fixture did not reach the reflected provider initialization.'}
+    Remove-Item -LiteralPath $malformedWitness
     [IO.File]::WriteAllText((Join-Path $install 'owned-fixture.json'),'{'+'"schema":"proxy-owned-nte-fixture-v1","localization_version":3}')
     $before=@{}; foreach($root in @($application,$tools,$install)){$before[$root]=Snapshot $root;Get-ChildItem -LiteralPath $root -File -Recurse | ForEach-Object {$_.IsReadOnly=$true}}
     $inventory=Join-Path $temporary 'inventory'

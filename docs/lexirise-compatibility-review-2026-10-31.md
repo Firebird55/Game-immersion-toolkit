@@ -115,3 +115,35 @@ left unchanged; a repeated hash alert for this reviewed deployment does not
 imply an unreviewed behavior change. Later public deployments still require a
 new comparison. The [shared typography report](shared-reader-typography-2026-10-31.md)
 records 1.0.14's separate release and consumer validation.
+
+## Public contract refresh on 2026-11-01
+
+The watch at `2026-11-01T18:00:24.301Z` reports changed documentation and website
+hashes, with no added or removed endpoint strings. A fresh unauthenticated
+fetch retained the API reference, AI-readable index and all 42 current homepage
+chunks in ignored `output/checks/r19-lexirise-public-review-20261101`. The
+normalized reference hash is now
+`0343471dcf48808abddbe7c85cc61159edcb87777aa3f71614646bb9c41a2c02`;
+the AI-readable index remains byte-identical to the earlier review.
+
+The current [settings reference](https://lexirise.app/api-reference#get-settings)
+was checked against shared 1.0.14's account patch whitelist and the toolkit's
+settings transport. Explicit field differences, per-language merges, null
+resets and separation of effective read-only fields remain compatible. The
+documented analysis offsets, pending morphology/translation states, context
+request and JSON transports match the current client adapters. All 43 extracted
+endpoint strings match the shared baseline.
+
+Static parsing of the current public language module, without executing that
+module, matches all 31 study languages, 26 translation/interface languages and
+the reading, grammar, tone-color and TTS availability flags for each study
+language. The current popup normalization retains nine tab identifiers, four
+definition sections, first/last opening, the required Definition fallback and
+hover/click/Shift-hover modes. Its pointer close delay remains 100 ms. This is
+a review of current public contracts, not a complete byte comparison with the
+previous deployment, whose original chunks are not present in this checkout.
+
+No incompatibility was found in those reviewed contracts. No vendor source,
+watch baseline, account or key was changed. The hash alert remains explicit;
+this source review supplies no new browser, Shadow DOM, physical-device or
+authenticated-account acceptance.

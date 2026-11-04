@@ -12,7 +12,7 @@ import threading
 import time
 import zipfile
 
-from .export_lock import ExportLock
+from .export_lock import ExportLock, ExportLockCleanupError
 from .game_paths import settings_path, discover_install
 from .game_assets import asset_adapter
 from .languages import GAME_LOCALES, LOCALE_NAMES
@@ -200,8 +200,10 @@ class AutomaticMobileExports:
         return self.status(game)
 
     def start(self):
+        self.owner.require_healthy()
         if self.thread and self.thread.is_alive():
             return
+        self.owner.require_released()
         self.stop.clear()
         self.thread = threading.Thread(target=self._loop, daemon=True, name='automatic-mobile-export')
         self.thread.start()
@@ -220,26 +222,32 @@ class AutomaticMobileExports:
             self._owned_process.close_streams()
             self._owned_process = None
         self.picker.close_picker()
+        self.owner.require_released()
 
     def _loop(self):
-        while not self.stop.is_set() and not self.owner.acquire():
-            self.stop.wait(2)
-        if self.stop.is_set():
-            self.owner.close()
-            return
         try:
-            # A previous companion may have finished before ownership transferred.
-            if self.configuration_error:
+            while not self.stop.is_set() and not self.owner.acquire():
+                self.stop.wait(2)
+            if self.stop.is_set():
+                self.owner.close()
                 return
-            if self.path.exists():
-                with self.lock:
-                    self.data = json.loads(self.path.read_text(encoding='utf-8'))
-            while not self.stop.is_set():
-                self.reconcile()
-                self.wake.wait(30)
-                self.wake.clear()
-        finally:
-            self.owner.close()
+            try:
+                # A previous companion may have finished before ownership transferred.
+                if self.configuration_error:
+                    return
+                if self.path.exists():
+                    with self.lock:
+                        self.data = json.loads(self.path.read_text(encoding='utf-8'))
+                while not self.stop.is_set():
+                    self.reconcile()
+                    self.wake.wait(30)
+                    self.wake.clear()
+            finally:
+                self.owner.close()
+        except ExportLockCleanupError:
+            # The exact stream/errors remain in owner; thread exit alone is
+            # insufficient. close/start must still refuse through that owner.
+            self.stop.set()
 
     def _set(self, game, locale, **status):
         with self.lock:

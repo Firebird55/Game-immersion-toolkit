@@ -26,6 +26,24 @@ def test_api_probe_requires_owned_shutdown_input(monkeypatch):
     assert error.value.code == 2
 
 
+@pytest.mark.parametrize('mode', ['--candidate-closed', '--parent-control-stdin'])
+def test_probe_rejects_other_control_modes_before_binding_or_service_effects(monkeypatch, mode):
+    """Each mode has its own stdin owner; protocol tests cannot catch CLI bypasses."""
+    from backend import runtime_bundle, runtime_writers
+    def forbidden(*_a, **_kw):
+        pytest.fail('Mixed mode reached a service or control binding')
+    monkeypatch.setattr(main.sys, 'argv', ['api', '--preparation-probe', '--shutdown-stdin', mode])
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', forbidden)
+    monkeypatch.setattr(runtime_writers.ParentControlBinding, 'bind_input', forbidden)
+    monkeypatch.setattr(main.uvicorn, 'Config', forbidden)
+    monkeypatch.setattr(main.socket, 'socket', forbidden)
+    monkeypatch.delenv('PROXY_TRANSCRIPT_STANDBY', raising=False)
+    with pytest.raises(SystemExit) as error:
+        main.main()
+    assert error.value.code == 2
+    assert 'PROXY_TRANSCRIPT_STANDBY' not in main.os.environ
+
+
 @pytest.mark.parametrize('failure', [None, 'source', 'closed-input', 'child', 'exception'])
 def test_probe_requires_frozen_job_and_independent_control_handshake(monkeypatch, tmp_path, failure):
     emitted, jobs, callbacks = [], [], []

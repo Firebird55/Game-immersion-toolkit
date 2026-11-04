@@ -1,5 +1,6 @@
 """Exact public notice delivery; no binary execution or redistribution approval."""
 import hashlib
+import importlib
 import json
 from pathlib import Path
 import shutil
@@ -25,6 +26,13 @@ def notice_only_images(_value, _output, inventory):
     assert not any(Path(row['path']).suffix.lower() in {'.exe', '.dll', '.pyd'} for row in inventory['files'])
     return {'schema': 'authored-notice-only-images-stub-v1', 'status': 'native-images-not-tested',
         'production_execution_allowed': False, 'r19_complete': False}
+
+
+def notice_only_project_sources(monkeypatch):
+    # Supplier notice fixtures do not contain project Analysis inputs. Real
+    # source observation/refusal is covered in test_runtime_source_inputs.
+    monkeypatch.setattr(importlib.import_module('record_runtime'), 'finalize_project_sources',
+        lambda *_: {'status': 'source-map-not-tested'})
 
 
 def inputs(tmp_path, monkeypatch):
@@ -102,6 +110,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
+    notice_only_project_sources(monkeypatch)
     write_candidate(value, source, evidence, output)
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     files = {row['path']: row for row in inventory['files']}
@@ -112,6 +121,7 @@ def test_finalized_experiment_delivers_original_texts_and_pins_their_output_hash
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
     assert inventory['native_windows_11_acceptance'] == 'unavailable' and inventory['r19_complete'] is False
     assert not (output / 'NATIVE-IMAGES.json').exists(), 'Notice-only fixtures cannot produce PE/CLR evidence'
+    assert not (output / module.SOURCE_PUBLIC).exists()
 
 
 @pytest.mark.parametrize('profile', ['runtime-experiment', 'runtime'])
@@ -176,6 +186,7 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
+    notice_only_project_sources(monkeypatch)
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-onnx', 'components': [component]}, source, evidence, output)
     target = output / 'GameImmersionToolkit/THIRD_PARTY/onnxruntime' / notice['path']
@@ -183,6 +194,7 @@ def test_onnx_notice_binds_wheel_installed_and_final_third_party_bytes(tmp_path,
     inventory = json.loads((output / 'RUNTIME-INVENTORY.json').read_bytes())
     assert inventory['components'][0]['notice_sha256'] == [hashlib.sha256(data).hexdigest()]
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
+    assert not (output / module.SOURCE_PUBLIC).exists()
 
 
 @pytest.mark.parametrize('failure', ['wheel-bytes', 'installed-bytes', 'installed-record', 'missing-notice'])

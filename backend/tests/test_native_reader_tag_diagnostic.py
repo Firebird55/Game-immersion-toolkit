@@ -201,3 +201,79 @@ def test_metadata_repair_refuses_live_changes_beyond_four_unstaged_metadata_file
     assert result['passed'] is False and result['phase'] == 'validate-current-checkout'
     assert 'private-path' not in json.dumps(result)
     assert before == {name: (source / name).read_bytes() for name in diagnostic.METADATA}
+
+
+def test_actual_reporter_holder_and_original_error_survive_return_gc_and_second_load(tmp_path):
+    source=tmp_path/'holder-tag';backend=source/'backend';backend.mkdir(parents=True)
+    stubs={'__init__.py':'', 'nte_toolchain.py':'', 'node_tools.py':"def host_platform(): return 'win-x64'\n",
+        'owned_process.py':"class OwnedProcess:\n def __init__(self,*a,**kw): raise AssertionError('No native process permitted')\n",
+        'prebuilt_readers.py':"RUNTIME='10.0.14'\ndef _no_links(*a): pass\ndef _source_names(*a): pass\ndef prebuilt_reader(*a,**kw): pass\ndef reader_environment(*a,**kw): pass\n",
+        'runtime_bundle.py':"class RuntimeLayout: pass\ndef relative_resource(value): return value\n"}
+    for name,text in stubs.items():(backend/name).write_text(text)
+    reporter=ROOT/'scripts/probe-native-unreal.py'
+    result=isolated(IMPORT+'''
+import gc,weakref,shutil
+source=Path(sys.argv[2]);reporter=Path(sys.argv[3]);records=[]
+original_load=m.load_reporter
+class FakeOwner:
+    ended=False
+    def finish(self): self.ended=True
+class BodyError(OSError): pass
+def load(source,reporter):
+    loaded=original_load(source,reporter)
+    def layout(*args,observation):
+        loaded.phase(observation,'runtime-identity');observation.at('runtime-identity','runtime-identity')
+        owner=FakeOwner();error=BodyError('PRIVATE-CANARY')
+        observation.owners.append(owner);observation.cleanup={'state':'unconfirmed','step':'stop'}
+        observation.failed(error,'unknown')
+        records.append((weakref.ref(loaded),weakref.ref(observation),weakref.ref(owner),weakref.ref(error),loaded.__name__))
+        raise error
+    loaded._layout=layout
+    return loaded
+m.load_reporter=load
+m.subprocess.check_output=lambda *a,**kw:m.SOURCE+'\\n'
+reports=[]
+for _ in range(2):
+    reports.append(m.diagnose(source,source,source,reporter=reporter))
+    gc.collect()
+    for module_ref,holder_ref,owner_ref,error_ref,name in records:
+        assert module_ref() is not None and sys.modules[name] is module_ref()
+        held=holder_ref();assert held is not None and held.owners==[owner_ref()]
+        assert held.errors[0] is error_ref() and held.fixture.is_dir() and not owner_ref().ended
+        del held
+assert len(records)==2 and records[0][4]!=records[1][4] and records[0][0]() is not records[1][0]()
+for report in reports:
+    assert report['diagnostic_only'] is True and report['release_eligible'] is False
+    assert report['native_acceptance']=='not-established' and report['passed'] is False
+    assert set(report['probe'])=={'schema','platform','passed','error','phase','reason'}
+    assert (report['probe']['phase'],report['probe']['reason'])==('runtime-identity','filesystem-error')
+    assert 'PRIVATE' not in json.dumps(report)
+# Only these authored fake owners are explicitly ended before cache cleanup.
+for module_ref,holder_ref,owner_ref,error_ref,name in records:
+    held=holder_ref();owner_ref().finish();assert owner_ref().ended
+    held.owners.clear();shutil.rmtree(held.fixture)
+    loaded=module_ref();loaded._RETAINED_FAILURES.clear();assert sys.modules[name] is loaded
+    del sys.modules[name]
+print(json.dumps({'holder_and_original_error_retained':True,'second_load_keeps_first':True,
+    'tag_backend_only':True,'diagnostic_only':True,'native_processes':False}))
+''',source,reporter)
+    assert result==dict(holder_and_original_error_retained=True,second_load_keeps_first=True,
+        tag_backend_only=True,diagnostic_only=True,native_processes=False)
+
+
+def test_reporter_import_name_collision_refuses_without_overwriting_first_module(tmp_path):
+    source,reporter=authored_checkout(tmp_path)
+    result=isolated(IMPORT+'''
+from types import SimpleNamespace
+m.uuid.uuid4=lambda:SimpleNamespace(hex='a'*32)
+source=Path(sys.argv[2]);reporter=Path(sys.argv[3])
+first=m.load_reporter(source,reporter);name=first.__name__
+try:m.load_reporter(source,reporter)
+except ValueError:pass
+else:raise AssertionError('Unknown first module was replaced')
+assert sys.modules[name] is first
+# Authored reporter has no resource owner; its fixture is at a known end.
+del sys.modules[name]
+print(json.dumps({'collision_refused':True,'first_module_preserved':True}))
+''',source,reporter)
+    assert result==dict(collision_refused=True,first_module_preserved=True)

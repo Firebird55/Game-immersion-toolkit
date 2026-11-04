@@ -5,7 +5,26 @@ import threading
 
 import pytest
 
+from backend.runtime_workers import RequestBarrier
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
+
+
+def test_closed_candidate_gate_cannot_issue_tickets_enter_or_reopen_after_stop():
+    gate = RuntimeWriterGate(closed_candidate=True)
+    ordinary = RuntimeWriterGate()
+    old_ticket = ordinary.capture_ticket()
+    for _ in range(2):
+        gate.stop_admission()
+        gate.wait_drained(0)
+        for operation in (gate.capture_ticket, gate.enter, lambda: gate.enter(old_ticket), gate.resume):
+            with pytest.raises(WritersQuiescing): operation()
+    assert gate.closed_candidate and not gate._accepting and gate._active == 0
+    with pytest.raises(AttributeError): gate.closed_candidate = False
+    for invalid in (None, 0, 1, 'true'):
+        with pytest.raises(TypeError): RuntimeWriterGate(closed_candidate=invalid)
+    ordinary.enter(old_ticket); ordinary.leave()
+    ordinary.stop_admission(); ordinary.resume()
+    ordinary.enter(); ordinary.leave()
 
 
 def test_admission_tickets_bind_gate_and_epoch_and_retire_across_resume():
@@ -272,13 +291,18 @@ def test_activation_serializes_with_the_complete_quiesce_operation():
     from backend.runtime_handoff import CaptureHandoff
     async def run():
         runtime = Runtime.__new__(Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff = asyncio.Lock(), True
+        runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Serialization-only adapter.
         calls = []
-        runtime.resume_writers = lambda: calls.append('resume')
+        runtime._resume_writer_pools = lambda _deadline: calls.append('resume')
         runtime._handoff_drains = []
         runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), native_stop_pending=False)
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         await runtime._handoff_lock.acquire()
         activating = asyncio.create_task(runtime.activate_handoff(CaptureHandoff(running=True), writers=True))
         await asyncio.sleep(0)
@@ -333,14 +357,19 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
         assert capture.native_stop_pending and capture._background_capture._worker is worker
         with pytest.raises(TimeoutError): capture.resume_workers()
         runtime = api.Runtime.__new__(api.Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff, runtime._handoff_drains = asyncio.Lock(), True, []
+        runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Native-stop-only adapter.
         runtime.capture = capture
         def resume():
             calls.append('resume')
             capture.resume_workers()
-        runtime.resume_writers = resume
+        runtime._resume_writer_pools = lambda _deadline: resume()
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         payload = CaptureHandoff(running=True)
         with pytest.raises(TimeoutError): await runtime.activate_handoff(payload, writers=True)
         assert calls == ['native-stop', 'native-stop']

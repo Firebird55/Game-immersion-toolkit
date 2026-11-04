@@ -7,7 +7,9 @@ from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
+import re
 import struct
+import xml.etree.ElementTree as ET
 
 import pytest
 
@@ -291,6 +293,51 @@ def test_helper_target_pins_match_exact_build_inputs():
         assert target['sdk_sha512'] == specification['sdk']['sha512']
         assert target['packages'] == {p['name']: p['sha512_base64'] for p in specification['packages']}
         assert all(p['version'] == readers.RUNTIME for p in specification['packages'])
+
+
+def test_authored_nte_types_belong_to_the_assembly_used_by_the_current_reflection_contract():
+    # A source contract only: Windows still has to compile these stand-ins and
+    # run the actual bridge. The former provider lived in UEExtractor instead.
+    root = Path(__file__).resolve().parents[2]
+    production = (root / 'scripts/game-readers/NteReader.cs').read_text()
+    fixture_root = root / 'packaging/game-readers/fixtures'
+    cue = (fixture_root / 'CueFixture.cs').read_text()
+    wrapper = (fixture_root / 'UnrealFixture.cs').read_text()
+    provider_name = re.search(r'private readonly (\w+) _provider\b', wrapper).group(1)
+    assert f'public sealed class {provider_name} : IDisposable' in cue
+    assert f'class {provider_name}' not in wrapper
+    project = ET.parse(fixture_root / 'CueFixture.csproj').getroot()
+    assert project.findtext('./PropertyGroup/AssemblyName') == 'CUE4Parse'
+    assert [row.attrib['Include'] for row in project.findall('./ItemGroup/Compile')] == ['CueFixture.cs']
+    for qualified in re.findall(r'cue.GetType\("([\w.]+)", true\)', production):
+        namespace, name = qualified.rsplit('.', 1)
+        assert f'namespace {namespace}' in cue
+        assert re.search(rf'public (?:sealed class|enum) {re.escape(name)}\b', cue)
+    constructors = re.findall(rf'public {provider_name}\(([^)]*)\)', cue)
+    assert len(constructors) == 1
+    assert [parameter.strip().rsplit(' ', 1)[0] for parameter in constructors[0].split(',')] == [
+        'string', 'SearchOption', 'CUE4Parse.UE4.Versions.VersionContainer', 'StringComparer']
+    for method in re.findall(r'providerType.GetMethod\("(\w+)"\)', production):
+        assert re.search(rf'public void {re.escape(method)}\(', cue)
+    assert 'public void SubmitKey(Guid guid, FixtureKey key)' in cue
+    assert 'public FixtureKey(string value)' in cue
+    assert 'public Guid EncryptionKeyGuid { get; }' in cue
+    assert 'public List<FixtureVfs> UnloadedVfs { get; }' in cue
+
+
+def test_malformed_authored_nte_marker_requires_initialization_witness_before_immutable_snapshot():
+    root = Path(__file__).resolve().parents[2]
+    cue = (root / 'packaging/game-readers/fixtures/CueFixture.cs').read_text()
+    probe = (root / 'scripts/probe-nte-bridge.ps1').read_text()
+    witness = re.search(r'catch \(JsonException\)\s*\{.*?File.WriteAllText\(Path.Combine\(install, "([^"]+)"\), "([^"]+)"\);\s*throw;', cue, re.S)
+    assert witness, 'The marker witness must require the actual initialization JSON failure'
+    name, value = witness.groups()
+    malformed_call = probe.index("(Join-Path $temporary 'bad-marker')")
+    witness_check = probe.index(f"[IO.File]::ReadAllText($malformedWitness) -cne '{value}'")
+    witness_removed = probe.index('Remove-Item -LiteralPath $malformedWitness')
+    immutable_snapshot = probe.index('$before=@{};')
+    assert f"$malformedWitness=Join-Path $install '{name}'" in probe
+    assert malformed_call < witness_check < witness_removed < immutable_snapshot
 
 
 @pytest.mark.parametrize('platform', ['linux-x64', 'darwin-arm64'])

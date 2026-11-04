@@ -1,5 +1,6 @@
 """Exact notice/payload delivery using authored package bytes, not rights approval."""
 import hashlib
+import importlib
 import json
 from pathlib import Path
 import shutil
@@ -72,6 +73,10 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     monkeypatch.setattr(sys.modules['closure'], 'validate_codec_output', lambda *_: None)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_collection', notice_only_provenance)
     monkeypatch.setattr(sys.modules['closure'], 'validate_native_images', notice_only_images)
+    # This partial supplier fixture has no project Analysis source map. The
+    # required real source pipeline is exercised in test_runtime_source_inputs.
+    monkeypatch.setattr(importlib.import_module('record_runtime'), 'finalize_project_sources',
+        lambda *_: {'status': 'source-map-not-tested'})
     write_candidate({'profile': 'runtime-experiment', 'source_commit': 'a' * 40,
         'build_id': 'authored-source-notices', 'components': [component]}, source, evidence, output)
     for row in records:
@@ -82,6 +87,7 @@ def test_source_notice_binds_all_observed_payloads_and_reaches_central_notices(t
     assert inventory['components'][0]['rights_review'] == 'pending-exact-output'
     assert inventory['r19_complete'] is False and inventory['native_windows_11_acceptance'] == 'unavailable'
     assert not (output / 'NATIVE-IMAGES.json').exists(), 'Notice-only fixtures cannot produce PE/CLR evidence'
+    assert not (output / module.SOURCE_PUBLIC).exists()
     assert component['review_status'] == 'observed-experiment' and component['native_closure'] == 'unverified'
     with pytest.raises(FileExistsError): module.collect_flatbuffers_notices(evidence, source, component)
 

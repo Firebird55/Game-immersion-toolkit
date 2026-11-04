@@ -9,6 +9,7 @@ import importlib.util
 import io
 import json
 import marshal
+import os
 from pathlib import Path
 import sys
 import tarfile
@@ -21,6 +22,42 @@ from backend import bundle_entry, runtime_bundle, runtime_probe
 from backend.tests.test_runtime_bundle import frozen_layout
 
 
+@pytest.mark.parametrize('kind,substitute_status,substitute_output,accepted', [
+    ('window-capture', None, None, True), ('window-capture', 0, None, False),
+    ('window-capture', 1, None, False), ('language', None, None, False),
+    ('window-capture', 2, 'stdout', False), ('window-capture', 2, 'stderr', False),
+])
+def test_entrypoint_probe_requires_capture_argument_refusal_and_keeps_other_cli_success(
+        tmp_path, monkeypatch, kind, substitute_status, substitute_output, accepted):
+    # This real source subprocess exercises the binary worker's argument check,
+    # which the frozen --help sweep previously mistook for an argparse CLI.
+    # Native construction is forbidden; this is no capture/hardware proof.
+    code = """import sys
+from backend import window_capture_worker as target
+def forbidden(*args, **kwargs):
+    raise AssertionError('An argument probe opened native capture')
+target.NativeCapture = forbidden
+sys.platform = 'win32'
+raise SystemExit(target.main(['--help']))
+""" if substitute_status is None else f'raise SystemExit({substitute_status})'
+    if substitute_output:
+        code = f"import sys; print('Authored dispatcher refusal', file=sys.{substitute_output}); " + code
+    calls = []
+    def command(selected, arguments):
+        calls.append((selected, arguments))
+        return [sys.executable, '-c', code]
+    env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[2]))
+    layout = SimpleNamespace(work_root=tmp_path, child_command=command,
+                             child_environment=lambda _: env)
+    monkeypatch.setattr(runtime_probe, 'EXPERIMENT_CHILDREN', (kind,))
+    if accepted:
+        assert runtime_probe.worker_entrypoints(layout) == [kind]
+    else:
+        with pytest.raises(runtime_bundle.RuntimeBundleError, match='Frozen synthetic worker failed: ' + kind):
+            runtime_probe.worker_entrypoints(layout)
+    assert calls == [(kind, ['--help'])]
+
+
 def recorder(monkeypatch):
     path = Path(runtime_bundle.__file__).resolve().parents[1] / 'packaging/runtime-bundle/record_runtime.py'
     monkeypatch.syspath_prepend(str(path.parent))
@@ -28,6 +65,106 @@ def recorder(monkeypatch):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.parametrize('host', ['darwin', 'linux', 'win32'])
+def test_runtime_lock_selects_current_windows_entries_without_host_marker_defaults(monkeypatch, host):
+    recorder(monkeypatch)
+    from closure import windows_runtime_requirements, normalized
+    from packaging.requirements import Requirement
+    import packaging.markers
+    monkeypatch.setattr(sys, 'platform', host)
+    monkeypatch.setattr(packaging.markers, 'default_environment',
+        lambda: pytest.fail('A Windows lock review must not borrow the review host environment'))
+    lock = Path(__file__).resolve().parents[2] / 'requirements.lock.txt'
+    unconditional = {}
+    for line in lock.read_text().splitlines():
+        if line.strip() and not line.startswith('#') and ';' not in line:
+            item = Requirement(line)
+            unconditional[normalized(item.name)] = next(iter(item.specifier)).version
+    selected = windows_runtime_requirements(lock)
+    assert {name: version for name, version in selected.items() if name in unconditional} == unconditional
+    assert set(selected) - set(unconditional) == {'windows-capture', 'oneocr', 'pyaudiowpatch'}
+    assert selected['windows-capture'] == '2.0.1' and selected['oneocr'] == '1.0.12'
+    assert selected['pyaudiowpatch'] == '0.2.12.9'
+
+
+@pytest.mark.parametrize('line', [
+    "owned==1.0; sys_platform == 'freebsd'",
+    "owned==1.0; sys_platform == 'Windows'",
+    "owned==1.0; platform_system == 'Windows'",
+    "owned==1.0; platform_release == 'unobserved'",
+    "owned==1.0; python_version == '3.12'",
+    "owned==1.0; sys_platform == 'win32' and os_name == 'nt'",
+    "owned==1.0; sys_platform == 'win32' or sys_platform == 'darwin'",
+    'owned>=1.0', 'owned===1.0', 'owned==1.*', 'owned[extra]==1.0',
+    'owned @ https://example.test/owned.whl', 'owned==1.0,!=1.1', 'not a requirement',
+])
+def test_runtime_lock_refuses_unreviewed_target_policy_or_nonexact_pins(tmp_path, monkeypatch, line):
+    module = recorder(monkeypatch)
+    from closure import windows_runtime_requirements
+    lock = tmp_path / 'requirements.lock.txt'; lock.write_text(line + '\n')
+    with pytest.raises(module.ClosureError, match='Unsupported|exact version'):
+        windows_runtime_requirements(lock)
+
+
+@pytest.mark.parametrize('second', ["owned_fixture==1.0", "owned_fixture==2.0; sys_platform != 'linux'"])
+def test_runtime_lock_refuses_duplicate_selected_names_even_when_versions_match(tmp_path, monkeypatch, second):
+    module = recorder(monkeypatch)
+    from closure import windows_runtime_requirements
+    lock = tmp_path / 'requirements.lock.txt'
+    lock.write_text('owned-fixture==1.0\n' + second + '\n')
+    with pytest.raises(module.ClosureError, match='Duplicate selected'):
+        windows_runtime_requirements(lock)
+
+
+@pytest.mark.parametrize('fault,reason', [
+    (None, None), ('missing-windows', 'windows-capture'), ('wrong-windows-version', 'windows-capture'),
+    ('missing-unconditional', 'owned-required'), ('wrong-unconditional-version', 'owned-required'),
+    ('windows-artifact', 'checksum'), ('windows-installed-files', 'installed build files'),
+    ('windows-notice', 'license/notice'), ('python-architecture', 'CPython 3.12 Windows x64'),
+])
+def test_offhost_runtime_input_gate_keeps_selected_windows_evidence_and_later_gates(tmp_path, monkeypatch, fault, reason):
+    module = recorder(monkeypatch)
+    import closure
+    source = tmp_path / 'source'; source.mkdir()
+    evidence = tmp_path / 'evidence'; evidence.mkdir()
+    (source / 'requirements.lock.txt').write_text(
+        "owned-required==1.0\nwindows-capture==2.0.1; sys_platform == 'win32'\n"
+        "python-xlib==0.33; sys_platform == 'linux'\npyobjc-core==13.0; sys_platform == 'darwin'\n")
+    components = []
+    for name in ('cpython', 'pyinstaller', 'pyinstaller-hooks-contrib', 'altgraph', 'packaging',
+                 'pefile', 'pywin32-ctypes', 'setuptools', 'flatbuffers', 'owned-required', 'windows-capture'):
+        path = evidence / (name + '.authored'); path.write_bytes(b'authored non-native input')
+        entry = {'path': path.name, 'sha256': module.digest(path)}
+        components.append({'name': name, 'version': {'cpython': '3.12.16', 'windows-capture': '2.0.1'}.get(name, '1.0'),
+            'architecture': 'win-amd64', 'source': 'https://example.test/authored-fixture',
+            'license_expression': 'authored test only; no rights evidence',
+            'review_status': 'observed-experiment', 'native_closure': 'unverified',
+            'artifact': entry, 'licenses': [entry], 'installed_files': [entry]})
+    windows = components[-1]
+    if fault == 'missing-windows': components.remove(windows)
+    elif fault == 'wrong-windows-version': windows['version'] = '2.0.0'
+    elif fault == 'missing-unconditional': components.pop(-2)
+    elif fault == 'wrong-unconditional-version': components[-2]['version'] = '2.0'
+    elif fault == 'windows-artifact': (evidence / windows['artifact']['path']).write_bytes(b'changed')
+    elif fault == 'windows-installed-files': windows['installed_files'] = []
+    elif fault == 'windows-notice': windows['licenses'] = []
+    elif fault == 'python-architecture': components[0]['architecture'] = 'any'
+    value = {'schema': 'proxy-runtime-build-inputs-v1', 'profile': 'runtime-experiment',
+        'source_commit': 'a' * 40, 'build_id': 'authored-marker-only', 'components': components}
+    # This fixture isolates marker selection. Supplier notice delivery has its
+    # own exact-byte tests; no frontend/native/helper acceptance is manufactured.
+    monkeypatch.setattr(closure, 'validate_python_notice_delivery', lambda *_: None)
+    monkeypatch.setattr(closure, 'validate_flatbuffers_notice_delivery', lambda *_: None)
+    class LaterFrontendGate(Exception):
+        pass
+    def still_requires_frontend(*_):
+        raise LaterFrontendGate()
+    monkeypatch.setattr('backend.desktop_frontend.FrontendBuild', still_requires_frontend)
+    expected = module.ClosureError if fault else LaterFrontendGate
+    with pytest.raises(expected, match=reason):
+        closure.validate_inputs(value, source, evidence, check_host=False)
 
 
 @pytest.mark.parametrize('profile,kind', [('diagnostic', 'native'), ('frontend-experiment', 'api'),
