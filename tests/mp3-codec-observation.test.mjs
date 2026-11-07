@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {readFileSync,readdirSync,realpathSync,mkdtempSync,rmSync,existsSync,writeFileSync,symlinkSync,mkdirSync} from 'node:fs';
 import {tmpdir} from 'node:os';
-import {join,resolve} from 'node:path';
+import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {resolvePython} from '../scripts/python-runtime.mjs';
 import {canonical,validateNative,validateFailure,runObservation,projectNames,flags,baseCommit,root} from '../scripts/run-mp3-codec-observation.mjs';
 const sha=b=>createHash('sha256').update(b).digest('hex'), rec=b=>({bytes:b.length,sha256:sha(b)}), zero='0'.repeat(64), h='1'.repeat(40), sourceHash='2'.repeat(64);
 const pin=JSON.parse(readFileSync(join(root,'packaging/codecs/ffmpeg-mp3-replay.json')));
@@ -34,7 +35,12 @@ function rig(mode='success'){
  const options={mode,cwd:root,platform:'win32',environment:{GITHUB_SHA:h,GITHUB_RUN_ID:'41234567890',GITHUB_RUN_ATTEMPT:'1'},snapshot:source,git:(_cwd,args)=>args[0]==='status'?'':args[0]==='rev-parse'?h:readFileSync(join(root,args[2].slice(41))),python:(_env,_cwd,command,args,input)=>{seen.push(command);if(command==='snapshot')return canonical({schema:'proxy-r19-mp3-project-inputs-v1',project_inputs:native.project_inputs});if(command==='read-start')return canonical(state);if(command==='observe')return canonical(native);if(command==='failure')return canonical(failFixture());if(command==='save-start')return Buffer.from('START_WRITTEN');if(command==='publish'){options.values=JSON.parse(input);return Buffer.from('PAIR_WRITTEN');}if(command==='read-pair'){assert.deepEqual(JSON.parse(input),options.values);return Buffer.from('PAIR_VERIFIED');}throw Error('unexpected fixed command');}};
  return {options,seen,native,state};
 }
-const python=process.env.R19_MP3_PYTHON||resolve(root,process.platform==='win32'?'.venv/Scripts/python.exe':'.venv/bin/python');
+const python=process.env.R19_MP3_PYTHON||resolvePython({root}).command;
+function makeLinkedDirectory(directory, targetName, linkName) {
+ const target=join(directory,targetName);
+ mkdirSync(target);
+ symlinkSync(target,join(directory,linkName),process.platform==='win32'?'junction':'dir');
+}
 function pythonSource(body,args=[],input){return execFileSync(python,['-I','-B','-c',`import importlib.util,json,pathlib,sys\nroot=pathlib.Path(sys.argv[1])\ns=importlib.util.spec_from_file_location('publisher',root/'scripts/mp3-codec-observation.py');p=importlib.util.module_from_spec(s);s.loader.exec_module(p)\nm=p.load_controller(root)\n${body}`,root,...args],{input,maxBuffer:1024*1024,timeout:15000});}
 
 test('closed native projection retains actual four-operation metadata, source copies and false gates',()=>{const value=fixture();assert.equal(validateNative(value),value);assert.equal(Object.keys(value.project_inputs).length,17);assert.equal(Object.keys(value.source_review_files).length,26);assert.equal(value.cli_child_origins.length,4);assert.equal(value.source_commit,null);});
@@ -46,7 +52,7 @@ test('dirty/head/sourceHash/raw-LF mismatch refuses and emits no validated pair'
 test('postpublication source change or byte-readback failure never grants workflow upload',()=>{const changed=rig();let reads=0;changed.options.snapshot=()=>{reads++;return reads>=3?{...source(),sourceHash:'3'.repeat(64)}:source();};assert.throws(()=>runObservation(changed.options));const readback=rig();const call=readback.options.python;readback.options.python=(...args)=>args[2]==='read-pair'?Buffer.from('PRIVATE-corrupt'):call(...args);assert.throws(()=>runObservation(readback.options));});
 test('a completed source change during the final actual pair readback refuses upload authority',()=>{const r=rig();let completed=false;const call=r.options.python;r.options.python=(...args)=>{const result=call(...args);if(args[2]==='read-pair')completed=true;return result;};r.options.snapshot=()=>completed?{...source(),sourceHash:'3'.repeat(64)}:source();assert.throws(()=>runObservation(r.options));assert.equal(completed,true);assert.deepEqual(r.seen.slice(-2),['publish','read-pair']);});
 test('source-bound negative metadata remains a failure observation, not a native pass',()=>{const r=rig('failure');assert.deepEqual(runObservation(r.options),{validated_pair:true,publication:'failure'});assert.equal(r.options.values['MP3-CI-BINDING.json'].status,'source-bound-failed-observation');assert.ok(!r.options.values['MP3-DRAFT-RECEIPT.json']);});
-test('actual Python fixed sink refuses linked ancestors/stale leaves and verifies both published files',()=>{for(const mode of ['valid','linked','stale','extra','tamper']){const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-publisher-')));try{const r=rig();runObservation(r.options);const values=r.options.values;if(mode==='linked'){mkdirSync(join(dir,'outside'));symlinkSync(join(dir,'outside'),join(dir,'output'),'dir');}if(mode==='stale'){mkdirSync(join(dir,'output/checks/r19-mp3-published'),{recursive:true});writeFileSync(join(dir,'output/checks/r19-mp3-published/MP3-CI-BINDING.json'),'old');}if(mode==='extra'){mkdirSync(join(dir,'output/checks/r19-mp3-published'),{recursive:true});writeFileSync(join(dir,'output/checks/r19-mp3-published/PRIVATE-extra'),'owned');}const program=`base=pathlib.Path(sys.argv[2]);v=json.loads(sys.stdin.buffer.read())\ntry:\n p.publish_pair(m,base,v)\n if sys.argv[3]=='tamper':
+test('actual Python fixed sink refuses linked ancestors/stale leaves and verifies both published files',()=>{for(const mode of ['valid','linked','stale','extra','tamper']){const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-publisher-')));try{const r=rig();runObservation(r.options);const values=r.options.values;if(mode==='linked'){makeLinkedDirectory(dir,'outside','output');}if(mode==='stale'){mkdirSync(join(dir,'output/checks/r19-mp3-published'),{recursive:true});writeFileSync(join(dir,'output/checks/r19-mp3-published/MP3-CI-BINDING.json'),'old');}if(mode==='extra'){mkdirSync(join(dir,'output/checks/r19-mp3-published'),{recursive:true});writeFileSync(join(dir,'output/checks/r19-mp3-published/PRIVATE-extra'),'owned');}const program=`base=pathlib.Path(sys.argv[2]);v=json.loads(sys.stdin.buffer.read())\ntry:\n p.publish_pair(m,base,v)\n if sys.argv[3]=='tamper':
   target=base/'output/checks/r19-mp3-published/MP3-CI-BINDING.json';raw=target.read_bytes();target.write_bytes(b'X'+raw[1:])\n p.read_pair(m,base,v)\n print('VALID')\nexcept (ValueError,OSError):print('REFUSED')`;const result=pythonSource(program,[dir,mode],canonical(values)).toString().trim();assert.equal(result,mode==='valid'?'VALID':'REFUSED');if(mode==='linked')assert.deepEqual(readdirSync(join(dir,'outside')),[]);if(mode==='stale')assert.ok(!existsSync(join(dir,'output/checks/r19-mp3-published/MP3-DRAFT-RECEIPT.json')));}finally{rmSync(dir,{recursive:true,force:true});}}});
 
 test('actual Python projector compares the complete producer/context, discards known private inventories, and refuses unknown fields',()=>{
@@ -230,9 +236,10 @@ print('BOUNDED')`;
 test('root-first private log guards reject actual linked parents before descendant stat, lstat or open',()=>{
  const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-configure-')));
  try{
+ makeLinkedDirectory(dir,'outside','ffmpeg-build');
  const program=String.raw`import os
-out=pathlib.Path(sys.argv[2]);outside=out/'outside';outside.mkdir();(outside/'ffbuild').mkdir();(outside/'ffbuild/config.log').write_bytes(b'SECRET\n')
-linked=out/'ffmpeg-build';linked.symlink_to(outside,target_is_directory=True)
+out=pathlib.Path(sys.argv[2]);outside=out/'outside';(outside/'ffbuild').mkdir();(outside/'ffbuild/config.log').write_bytes(b'SECRET\n')
+linked=out/'ffmpeg-build'
 originals={n:getattr(pathlib.Path,n) for n in ('stat','lstat','open')};calls=[]
 def guard(name):
  def action(path,*a,**kw):
@@ -246,7 +253,9 @@ else:raise AssertionError('link accepted')
 assert calls==[] and len(p._CONFIGURE_READERS)==1 and p._CONFIGURE_READERS[0]['stream'] is None
 p._CONFIGURE_READERS.clear()  # Independent authored hardlink refusal, not a retry of that reader.
 for name,original in originals.items():setattr(pathlib.Path,name,original)
-linked.unlink();linked.mkdir();(linked/'ffbuild').mkdir();leaf=linked/'ffbuild/config.log';os.link(outside/'ffbuild/config.log',leaf)
+if os.name=='nt':linked.rmdir()  # Windows directory junction
+else:linked.unlink()
+linked.mkdir();(linked/'ffbuild').mkdir();leaf=linked/'ffbuild/config.log';os.link(outside/'ffbuild/config.log',leaf)
 try:p.configure_context(m,out)
 except ValueError:pass
 else:raise AssertionError('hardlink accepted')
@@ -311,7 +320,8 @@ print('RETAINED_PRIVATE_ONLY')`;
 test('actual failure CLI returns only the fixed refusal when a private log ancestor is unsafe',()=>{
  const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-configure-cli-')));
  try{
- const setup=String.raw`out=pathlib.Path(sys.argv[2]);outside=out/'SECRET-OUTSIDE';outside.mkdir();(out/'ffmpeg-build').symlink_to(outside,target_is_directory=True)
+ makeLinkedDirectory(dir,'SECRET-OUTSIDE','ffmpeg-build');
+ const setup=String.raw`out=pathlib.Path(sys.argv[2])
 raw=dict(schema='proxy-r19-mp3-draft-failure-v1',status='failed',phase='configure-ffmpeg',source_commit='1'*40,exit_code=1,profile_manifest=p.record(m.base.recipe_bytes(m.PIN)),diagnostic_codes=[],diagnostic_categories=['unclassified-command-failure'],log_truncated=False,raw_log_published=False,**p.FLAGS)
 (out/'FAILED-STAGE.json').write_bytes(p.serialized(raw))`;
  pythonSource(setup,[dir]);let refused=false;
@@ -411,6 +421,7 @@ print('ONE_MIB_LINEAR_AND_ALL_BOUNDARIES')`;
 test('observe preflight precedes private IO and unsafe ancestor/read/close states retain real ownership',()=>{
  const dir=realpathSync(mkdtempSync(join(tmpdir(),'mp3-observe-io-')));
  try{
+ makeLinkedDirectory(dir,'outside','linked');
  const program=String.raw`import copy,os
 from unittest.mock import patch
 out=pathlib.Path(sys.argv[2]);log=out/'PRIVATE-BUILD.log';failure=out/'FAILED-STAGE.json'
@@ -441,8 +452,8 @@ with patch.object(pathlib.Path,'open',denied):
  assert not calls
 failure.write_bytes(p.serialized(raw));value=p.collect_failure(m,out,'1'*40);assert value['schema']==p.OBSERVE_SCHEMA and value['details']['observe_observation']['state']=='missing'
 p.public_failure_shape(m,value,'1'*40)
-outside=out/'outside';outside.mkdir();(outside/'PRIVATE-BUILD.log').write_bytes(b'never read')
-linked=out/'linked';linked.symlink_to(outside,target_is_directory=True);leaf=linked/'PRIVATE-BUILD.log'
+outside=out/'outside';(outside/'PRIVATE-BUILD.log').write_bytes(b'never read')
+linked=out/'linked';leaf=linked/'PRIVATE-BUILD.log'
 orig_lstat,orig_stat=pathlib.Path.lstat,pathlib.Path.stat
 def guarded(method):
  def run(path,*a,**kw):
