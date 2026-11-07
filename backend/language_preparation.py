@@ -4,12 +4,10 @@ from __future__ import annotations
 from .runtime_paths import data_root as runtime_data_root
 from .runtime_bundle import discover_layout
 import json
-import os
 from pathlib import Path
 import threading
 import time
 import subprocess
-import sys
 from datetime import datetime, timezone
 
 from .languages import GAME_LOCALES, LOCALE_NAMES, study_language
@@ -32,12 +30,7 @@ def selected_snapshot(root: Path, game: str):
 
 class LanguagePreparation:
     def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None, cancellable=False):
-        if path is None:
-            if bool(getattr(sys, 'frozen', False)) or sys.platform != 'win32':
-                path = discover_layout().settings_root / 'languages.json'
-            else:
-                path = Path(os.environ.get('LOCALAPPDATA', '.')) / 'Proxy Transcript/languages.json'
-        self.path = path
+        self.path = path if path is not None else discover_layout().settings_root / 'languages.json'
         self.build, self.activate, self.state = build, activate, state
         self.rebuild = rebuild or build
         self.cancellable = cancellable

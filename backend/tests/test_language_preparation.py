@@ -224,31 +224,42 @@ def test_unselected_bundle_account_cannot_borrow_host_language_selection(bundle_
     assert all(path.read_bytes() == raw for path, raw in roots.before.items())
 
 
-@pytest.mark.parametrize('local_appdata', ['configured', 'missing', 'empty'])
-def test_windows_source_default_language_path_keeps_localappdata_and_dot_fallback(bundle_language_roots, monkeypatch, local_appdata):
-    from pathlib import Path
-    from backend import language_preparation, runtime_bundle
-    roots = bundle_language_roots
+@pytest.mark.parametrize('local_appdata', ['configured', 'missing'])
+def test_windows_source_upgrade_keeps_saved_language_after_working_directory_changes(tmp_path, monkeypatch, local_appdata):
+    import json
     monkeypatch.setattr('sys.platform', 'win32')
     monkeypatch.setattr('sys.frozen', False, raising=False)
-    monkeypatch.setattr(language_preparation, 'discover_layout', runtime_bundle.discover_layout)
-    if local_appdata == 'missing': monkeypatch.delenv('LOCALAPPDATA')
-    else: monkeypatch.setenv('LOCALAPPDATA', str(roots.cwd/'source-host') if local_appdata == 'configured' else '')
-    expected = (roots.cwd/'source-host' if local_appdata == 'configured' else Path('.'))/'Proxy Transcript/languages.json'
-    if local_appdata == 'empty':
-        # Real source-layout validation rejects this relative settings root.
-        # The legacy service default must still work without that new gate.
-        with pytest.raises(runtime_bundle.RuntimeBundleError): runtime_bundle.discover_layout()
+    if local_appdata == 'configured':
+        monkeypatch.setenv('LOCALAPPDATA', str(tmp_path/'local'))
+        settings = tmp_path/'local'/'Proxy Transcript'
     else:
-        assert runtime_bundle.discover_layout().mode == 'source'
-    manager = LanguagePreparation(lambda *_: None, lambda *_: None, lambda *_: {'ready': True})
-    assert manager.path == expected
-    manager.request('zzz', 'zh-Hans', 'en', 'legacy')
-    finish(manager)
-    assert expected.is_file()
-    assert LanguagePreparation(None, None, None).selected('zzz') == 'zh-Hans'
-    assert not roots.layout.settings_root.exists()
-    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+        monkeypatch.delenv('LOCALAPPDATA', raising=False)
+        monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path/'xdg'))
+        settings = tmp_path/'xdg'/'game-immersion-toolkit'
+
+    settings.mkdir(parents=True)
+    (settings/'languages.json').write_text(json.dumps({
+        'prepared': {'halflife': {'en': {'targets': ['fr']}}},
+        'selected': {'owned': {'halflife': 'en'}},
+    }), encoding='utf-8')
+    launch = tmp_path/'new-launch-directory'
+    launch.mkdir()
+    monkeypatch.chdir(launch)
+
+    manager = LanguagePreparation(None, None, None)
+    assert manager.selected('halflife', 'owned') == 'en'
+    assert manager.path == settings/'languages.json'
+
+
+def test_windows_source_invalid_settings_root_cannot_redirect_language_state_to_working_directory(tmp_path, monkeypatch):
+    from backend.runtime_bundle import RuntimeBundleError
+
+    monkeypatch.setattr('sys.platform', 'win32')
+    monkeypatch.setattr('sys.frozen', False, raising=False)
+    monkeypatch.setenv('LOCALAPPDATA', '')
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(RuntimeBundleError, match='settings_root must be an absolute path'):
+        LanguagePreparation(None, None, None)
 
 
 def test_macos_source_language_default_uses_selected_platform_root_without_legacy_dot_fallback(bundle_language_roots, monkeypatch):
