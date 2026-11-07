@@ -176,6 +176,11 @@ class _RuntimeSqlHandoff:
     members: tuple[_RuntimeSqlMember, ...] | None
     error: BaseException | None = None
 
+    def require_freezable(self):
+        if self.members is not None and self.readings is not None:
+            if any(member.resumed for member in (*self.members, *self.readings.members)):
+                raise TimeoutError('Recovered SQL owners cannot reuse an old freeze transition.')
+
 
 class Runtime:
     def __init__(self, *, candidate_gate=None, parent_control=None) -> None:
@@ -707,6 +712,10 @@ class Runtime:
             retry = (self._quiesce_task is not None and self._quiesce_task.done()
                      and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
             if self._quiesce_task is None or retry:
+                # A refused stop must leave an in-progress activation recoverable.
+                # Only install a new drain task when it can actually start.
+                if self._sql_handoff is not None:
+                    self._require_new_drain()
                 if self._handoff_state is None:
                     self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
                 self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
@@ -1012,10 +1021,15 @@ class Runtime:
             self._sql_member_error(record, None, error)
             raise
 
+    def _require_new_drain(self):
+        if any(not task.done() for task in self._handoff_drains):
+            raise TimeoutError('A previous runtime writer drain is still running.')
+        if self._sql_handoff is not None:
+            self._sql_handoff.require_freezable()
+
     def _freeze_sql_handoff(self, payload, deadline):
         record = self._reserve_sql_handoff(payload, deadline)
-        if any(member.resumed for member in (*record.members, *record.readings.members)):
-            raise TimeoutError('Recovered SQL owners cannot reuse an old freeze transition.')
+        record.require_freezable()
         self._complete_sql_freeze(record, deadline)
         return record.payload
 
@@ -1061,8 +1075,7 @@ class Runtime:
         async with self._handoff_until(deadline):
             self._pin_request_stop()
             self._writer_handoff = True
-            if any(not task.done() for task in self._handoff_drains):
-                raise TimeoutError('A previous runtime writer drain is still running.')
+            self._require_new_drain()
             self._clear_handoff_drains()
             await self._handoff_step(lambda: self._stop_requests_until(deadline), deadline, blocking=True)
             if self._sql_handoff is not None:
