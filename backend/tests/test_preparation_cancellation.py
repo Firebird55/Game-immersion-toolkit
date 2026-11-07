@@ -358,15 +358,18 @@ def test_failed_quiesce_blocks_rollback_until_every_worker_is_joined(tmp_path, m
     resumed, resume_release = threading.Event(), threading.Event()
     audio_restarts, activated, capture_events = [], [], []
     runtime = api.Runtime.__new__(api.Runtime)
+    runtime._request_stop = None
     runtime.standby = False
     runtime._updates_started = True
     runtime._quiesce_task = runtime._handoff_state = None
     runtime.request_barrier = RequestBarrier()
     from backend.runtime_writers import RuntimeWriterGate
     runtime.request_writers = RuntimeWriterGate()
+    runtime._sql_handoff = None
+    runtime._freeze_sql_handoff = lambda payload, deadline: payload  # This fixture tests producer ownership.
     runtime._handoff_lock, runtime._handoff_drains, runtime._writer_handoff = asyncio.Lock(), [], False
     runtime._reading_registry = SimpleNamespace(stop_creation=lambda _: None, quiesce_owned=lambda _: None,
-        resume_pools=lambda: None, reopen_creation=lambda: None)
+        resume_pools=lambda _deadline=None: None, reopen_creation=lambda: None)
     runtime._voice_pools = lambda: []
     runtime.automatic_exports = SimpleNamespace(close=lambda: None, start=lambda: None,
         picker=SimpleNamespace(drain=lambda: None, resume=lambda: None))

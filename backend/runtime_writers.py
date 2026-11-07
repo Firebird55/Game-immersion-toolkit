@@ -70,7 +70,7 @@ class QuiesceableExecutor(Executor):
                 self._drain_thread = threading.Thread(target=drain, name='runtime-worker-drain', daemon=True)
                 self._drain_thread.start()
             event = self._drained
-        if not event.wait(None if timeout is None else max(0, timeout)):
+        if not event.wait(None if timeout is None else min(threading.TIMEOUT_MAX, max(0, timeout))):
             raise TimeoutError('Runtime worker/callback cleanup has not finished.')
         if self._drain_error is not None:
             raise TimeoutError('Runtime worker cleanup could not be confirmed.') from self._drain_error
@@ -129,7 +129,7 @@ class RuntimeWriterGate:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise TimeoutError('Active runtime requests have not finished; handoff is unavailable.')
-                self._condition.wait(remaining)
+                self._condition.wait(min(threading.TIMEOUT_MAX, remaining))
 
     def resume(self):
         with self._condition:

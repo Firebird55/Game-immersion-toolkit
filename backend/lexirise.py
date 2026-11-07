@@ -108,12 +108,18 @@ class LexiriseService:
             poisoned_error=LexiriseLedgerPoisonedError, fence_type=LexiriseConnectionFence,
             label='Lexirise ledger connection')
         with self._connect() as db:
-            db.execute("PRAGMA journal_mode=WAL")
-            db.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
-            db.execute("CREATE TABLE IF NOT EXISTS export_refs (ref TEXT PRIMARY KEY, export_key TEXT NOT NULL)")
-            db.execute("CREATE TABLE IF NOT EXISTS scoped_exports (scope TEXT, key TEXT, state TEXT NOT NULL, PRIMARY KEY(scope,key))")
-            db.execute("CREATE TABLE IF NOT EXISTS scoped_export_refs (scope TEXT, ref TEXT, export_key TEXT NOT NULL, PRIMARY KEY(scope,ref))")
-            db.execute("CREATE TABLE IF NOT EXISTS game_decks (scope TEXT, game TEXT, deck_id INTEGER, title TEXT, PRIMARY KEY(scope,game))")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("PRAGMA journal_mode=WAL")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS exports (key TEXT PRIMARY KEY, state TEXT NOT NULL)")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS export_refs (ref TEXT PRIMARY KEY, export_key TEXT NOT NULL)")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS scoped_exports (scope TEXT, key TEXT, state TEXT NOT NULL, PRIMARY KEY(scope,key))")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS scoped_export_refs (scope TEXT, ref TEXT, export_key TEXT NOT NULL, PRIMARY KEY(scope,ref))")
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("CREATE TABLE IF NOT EXISTS game_decks (scope TEXT, game TEXT, deck_id INTEGER, title TEXT, PRIMARY KEY(scope,game))")
 
     @contextmanager
     def _connect(self):
@@ -150,7 +156,8 @@ class LexiriseService:
             configured = False
         scope = self._scope() if configured else ''
         with self._connect() as db:
-            rows = db.execute("SELECT ref,state FROM scoped_export_refs r JOIN scoped_exports e ON r.scope=e.scope AND r.export_key=e.key WHERE r.scope=?", (scope,)).fetchall()
+            with self._sql_lifetime.cursor(db) as statement:
+                rows = statement.execute("SELECT ref,state FROM scoped_export_refs r JOIN scoped_exports e ON r.scope=e.scope AND r.export_key=e.key WHERE r.scope=?", (scope,)).fetchall()
         decks = self._decks() if configured else {}
         return {"configured": configured, "decks": {game: {"id": value[0], "title": value[1]} for game, value in decks.items()},
                 "sent": {ref: json.loads(state)["deck_id"] for ref, state in rows if json.loads(state).get("complete")}}
@@ -180,7 +187,8 @@ class LexiriseService:
 
     def _decks(self) -> dict:
         with self._connect() as db:
-            rows = db.execute("SELECT game,deck_id,title FROM game_decks WHERE scope=?", (self._scope(),)).fetchall()
+            with self._sql_lifetime.cursor(db) as statement:
+                rows = statement.execute("SELECT game,deck_id,title FROM game_decks WHERE scope=?", (self._scope(),)).fetchall()
         return {game: (deck_id, title) for game, deck_id, title in rows}
 
     def _client(self):
@@ -221,7 +229,8 @@ class LexiriseService:
             if not self._owned(deck, account):
                 raise LexiriseError("Choose your own sentence snapshot deck for the selected study language.")
             title = deck.get("title") or GAME_TITLES[game]
-            db.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (self._scope(),game,deck_id,title))
+            with self._sql_lifetime.cursor(db) as statement:
+                statement.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (self._scope(),game,deck_id,title))
             return {"id":deck_id,"title":title}
 
     def ensure_game_decks(self) -> dict:
@@ -237,7 +246,8 @@ class LexiriseService:
             available = self._request(client, "GET", "/v1/decks", params={"language": self.source_language}).get("decks", [])
             result = {}
             for game, title in GAME_TITLES.items():
-                saved = db.execute("SELECT deck_id FROM game_decks WHERE scope=? AND game=?", (scope, game)).fetchone()
+                with self._sql_lifetime.cursor(db) as statement:
+                    saved = statement.execute("SELECT deck_id FROM game_decks WHERE scope=? AND game=?", (scope, game)).fetchone()
                 candidates = [d for d in available if d.get("title") == title
                               and d.get("unit_type") == "sentence" and d.get("deck_type") == "snapshot"
                               and (d.get("language") or d.get("lang")) == self.source_language
@@ -254,7 +264,8 @@ class LexiriseService:
                 deck_id = chosen.get("id")
                 if not isinstance(deck_id, int) or isinstance(deck_id, bool):
                     raise LexiriseError("Lexirise did not confirm the new deck ID.")
-                db.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (scope, game, deck_id, title))
+                with self._sql_lifetime.cursor(db) as statement:
+                    statement.execute("INSERT OR REPLACE INTO game_decks VALUES (?,?,?,?)", (scope, game, deck_id, title))
                 db.commit()
                 result[game] = {"id": deck_id, "title": title}
             return result
@@ -308,9 +319,11 @@ class LexiriseService:
 
     def _save(self, db, key, ref, state):
         scope = self._scope()
-        db.execute("INSERT INTO scoped_exports VALUES (?,?,?) ON CONFLICT(scope,key) DO UPDATE SET state=excluded.state",
-                   (scope, key, json.dumps(state)))
-        db.execute("INSERT INTO scoped_export_refs VALUES (?,?,?) ON CONFLICT(scope,ref) DO UPDATE SET export_key=excluded.export_key", (scope, ref, key))
+        with self._sql_lifetime.cursor(db) as statement:
+            statement.execute("INSERT INTO scoped_exports VALUES (?,?,?) ON CONFLICT(scope,key) DO UPDATE SET state=excluded.state",
+                       (scope, key, json.dumps(state)))
+        with self._sql_lifetime.cursor(db) as statement:
+            statement.execute("INSERT INTO scoped_export_refs VALUES (?,?,?) ON CONFLICT(scope,ref) DO UPDATE SET export_key=excluded.export_key", (scope, ref, key))
         db.commit()
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
@@ -332,7 +345,8 @@ class LexiriseService:
         deck_id, game_title = decks[game]
         key = hashlib.sha256(f"{deck_id}\0{chinese}".encode()).hexdigest()
         with self._connect() as db:
-            row = db.execute("SELECT state FROM scoped_exports WHERE scope=? AND key=?", (self._scope(),key)).fetchone()
+            with self._sql_lifetime.cursor(db) as statement:
+                row = statement.execute("SELECT state FROM scoped_exports WHERE scope=? AND key=?", (self._scope(),key)).fetchone()
             state = json.loads(row[0]) if row else {"deck_id": deck_id}
             if state.get("complete"):
                 self._save(db, key, ref, state)
@@ -352,7 +366,8 @@ class LexiriseService:
                     raise LexiriseError("This destination is not owned by the current account. Select your own deck.")
                 # Legacy ledger stays intact. Adopt completion only after read-only
                 # ownership AND membership checks, never reuse legacy upload URLs.
-                legacy = db.execute("SELECT state FROM exports WHERE key=?", (key,)).fetchone()
+                with self._sql_lifetime.cursor(db) as statement:
+                    legacy = statement.execute("SELECT state FROM exports WHERE key=?", (key,)).fetchone()
                 old = json.loads(legacy[0]) if legacy else {}
                 if old.get("complete") and old.get("vocabulary_id") and self._deck_contains(client, deck_id, old["vocabulary_id"], chinese):
                     self._save(db, key, ref, old)
