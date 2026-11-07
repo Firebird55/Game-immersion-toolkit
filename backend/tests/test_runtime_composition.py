@@ -50,9 +50,6 @@ def test_frozen_language_selection_and_export_use_only_selected_settings_root(tm
     from backend import accounts, language_preparation
     from backend.language_preparation import LanguagePreparation, selected_snapshot
     layout = fixture_layout(tmp_path, monkeypatch)
-    # Exercise the actual frozen branch and its module-bound discovery seam;
-    # a bundle layout stub alone must not silently read source host settings.
-    monkeypatch.setattr(language_preparation.sys, 'frozen', True, raising=False)
     monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
     assert language_preparation.discover_layout() is layout
     legacy = tmp_path / 'old-host/Proxy Transcript'

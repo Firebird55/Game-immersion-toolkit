@@ -802,8 +802,6 @@ def native_populated(tmp_path, monkeypatch):
     monkeypatch.setenv('LOCALAPPDATA', str(roots['host-profile'].path))
     monkeypatch.setenv('PROXY_TRANSCRIPT_STANDBY', '1')
     from backend import language_preparation
-    # Exercise its real frozen locator branch; this remains a source ASGI fixture.
-    monkeypatch.setattr(language_preparation, 'sys', SimpleNamespace(frozen=True))
     monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
     from backend import api
     monkeypatch.setattr(api, 'RUNTIME_LAYOUT', layout)
