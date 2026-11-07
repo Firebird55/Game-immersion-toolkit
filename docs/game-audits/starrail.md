@@ -98,6 +98,19 @@ this correction.
 [MultiVoice IDs](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/TalkSentenceMultiVoice.json)
 · [Authored source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/VoiceConfig.json)
 
+The same revision contains 985 `PlayMultiVoiceTalk` calls across 64,281
+non-layout `Config/Level` JSON files. Every call supplies only the sentence
+ID. These calls cover 952 of the 995 ambiguous sentences. Another 30 appear
+as ordinary dialogue or choice references. The remaining 13 had no explicit
+sentence reference in the examined level files. None of the alternatives for
+these 995 have `IsPlayerInvolved`. In one mission both outcomes of a mission
+predicate call the same MultiVoice sentence. In another, two random branches
+play distinct, named voices for earlier lines before reaching the same shared
+sentence. Exact playback of an ambiguous subtitle requires the selected
+runtime voice ID or another explicit binding.
+[Mission predicate](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/Config/Level/Mission/5011901/Act/Act501190102.json)
+· [Branched sequence](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/Config/Level/Mission/4340180/Act/Act434018013.json)
+
 The real-data pass used integrity-checked cached Chinese/English Main and
 ordinary textmaps at the same immutable revision and read all installed locale
 PCK external tables. Every resulting Chinese/English record passed the shared
@@ -141,12 +154,15 @@ validation. Metadata/network failures propagate to preparation, which preserves
 the previous completed index. A rate-limited upstream is not proof of missing
 installed dialogue.
 
-The current shared install fingerprint includes audio-package metadata,
-`BinaryVersion.bytes` and `config.ini`. It does not independently fingerprint
-all persistent design-data manifests or poll the remote metadata revision.
-A text-only hotfix that changes none of those inputs can therefore require an
-explicit refresh. Stronger revision detection and version-paired local subtitle
-extraction remain follow-up work.
+The install fingerprint covers PCK and DesignData file metadata,
+`BinaryVersion.bytes` and `config.ini`. It also hashes the small release
+markers for DesignData, asset bundles, audio and video in the base and
+persistent directories. A local text hotfix that replaces `M_DesignV.bytes`
+at the same size and timestamp now triggers a rebuild. Online-only updates
+still require remote revision polling and version-paired subtitle acquisition
+in #84. The 4.6 publisher manifest lists the marker names and the installed
+4.6.0 client contains the corresponding base and persistent design markers.
+[Official Global 4.6 file manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20260918/4.6.0/5ojqcjYEliu4/manifest_edb916e5a1ca140c_65fc23eec5dce74324cada65dc595341)
 
 Future additions should traverse authored script references, resolve event/media
 relations and add independently annotated replay cases for the corresponding

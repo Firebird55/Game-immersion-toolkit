@@ -15,6 +15,14 @@ TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CHS', 'zh-Hant': 'CHT', 'ja': 'JP', 'ko'
 VOICE_NAMES = {'en': 'English(US)', 'zh-Hans': 'Chinese(PRC)', 'zh-Hant': 'Chinese(PRC)',
                'ja': 'Japanese', 'ko': 'Korean'}
 DATA_FOLDERS = {'genshin': ('GenshinImpact_Data', 'YuanShen_Data'), 'starrail': ('StarRail_Data',)}
+RELEASE_MARKERS = {
+    'genshin': ('AssetBundles/data_revision', 'AssetBundles/res_revision', 'AssetBundles/silence_revision',
+                'data_versions_persist', 'res_versions_persist', 'data_versions_streaming',
+                'res_versions_streaming', 'silence_versions_streaming'),
+    'starrail': ('DesignData/Windows/M_DesignV.bytes', 'DesignData/Windows/M_Design_ArchiveV.bytes',
+                 'Asb/Windows/M_AsbV.bytes', 'Asb/Windows/M_BlockV.bytes',
+                 'Audio/AudioPackage/Windows/M_AudioV.bytes', 'Video/Windows/M_VideoV.bytes'),
+}
 
 
 def voice_namespace(game, locale):
@@ -51,6 +59,7 @@ def archive_sources(install, game):
 def fingerprint(install, game):
     root = game_data(install, game)
     files = archive_sources(install, game)
+    markers = set()
     # Text-only hotfixes can leave every voice package unchanged. Include the
     # authored data and patch manifests, but never logs, accounts or telemetry.
     metadata = ('BinaryVersion.bytes', 'ClientConfig.bytes', 'InstallVersion.bin',
@@ -59,14 +68,24 @@ def fingerprint(install, game):
                 'svc_catalog')
     for layer in ('StreamingAssets', 'Persistent', 'StreamingAssets/Persistent'):
         directory = root / layer
+        markers.update(directory / name for name in RELEASE_MARKERS[game] if (directory / name).is_file())
         files += [directory / name for name in metadata if (directory / name).is_file()]
         design = directory / 'DesignData'
         if design.is_dir():
             files += [p for p in design.rglob('*') if p.is_file()]
     if (install / 'config.ini').is_file():
         files.append(install / 'config.ini')
-    return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
-        for p in sorted(set(files))).encode()).hexdigest()
+    parts = []
+    for path in sorted(set(files) | markers):
+        stat = path.stat()
+        identity = f'{path.relative_to(install)}:{stat.st_size}:{stat.st_mtime_ns}'
+        # Launchers can preserve timestamps when replacing equal-sized markers.
+        # Hash the release manifests, keeping large audio/design assets stat-only.
+        if path in markers and path.resolve().is_relative_to(root.resolve()):
+            with path.open('rb') as stream:
+                identity += ':' + hashlib.file_digest(stream, 'sha256').hexdigest()
+        parts.append(identity)
+    return hashlib.sha256('\n'.join(parts).encode()).hexdigest()
 
 
 def inventory(install, game, locale):

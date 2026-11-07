@@ -45,6 +45,13 @@ unrecognized voice schema produces `unsupported_game_format` with a refresh/upda
 instruction. Unknown version provenance blocks text-only readable imports.
 The common fingerprint includes text/config manifests and authored design data
 where present, so voice-package stability alone is insufficient to reuse an index.
+The installed-file check hashes the three `AssetBundles/*_revision` markers,
+the base text/resource manifests and the persistent `data_versions_persist`
+and `res_versions_persist` indexes. A replacement with the same size and
+timestamp now invalidates the prepared index. Remote-only changes still
+require the regional online updater in #83.
+[Global 7.2 base manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/msj5r4DqSLOw/manifest_92303edbe132c634_2b4ef596e7440779759717433d1c86d9)
+· [Persistent index paths](https://github.com/CollapseLauncher/Collapse/blob/7d975a8ffec73c6790af5194655dbc3ce85fef67/CollapseLauncher/Classes/RepairManagement/Genshin/Fetch.Persistent.cs#L76-L109)
 
 Voice paths must match an installed locale's hashed external entry. Missing
 packages and ambiguous performances are retained as unavailable, not silently
