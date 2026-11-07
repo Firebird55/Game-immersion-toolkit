@@ -205,15 +205,21 @@ class AutomaticMobileExports:
             return
         self.owner.require_released()
         self.stop.clear()
-        self.thread = threading.Thread(target=self._loop, daemon=True, name='automatic-mobile-export')
-        self.thread.start()
+        thread = self.thread = threading.Thread(target=self._loop, daemon=True, name='automatic-mobile-export')
+        try:
+            thread.start()
+        except RuntimeError:
+            if self.thread is thread and thread.ident is None:
+                self.thread = None
+            raise
 
     def close(self):
         self.stop.set()
         self.wake.set()
-        if self.thread:
-            self.thread.join(timeout=30)
-            if self.thread.is_alive():
+        thread = self.thread
+        if thread:
+            thread.join(timeout=30)
+            if thread.is_alive():
                 raise RuntimeError('Automatic export has not stopped; runtime handoff cancelled.')
         if self.process and self.process.poll() is None:
             raise RuntimeError('Automatic export process cleanup is incomplete; runtime handoff cancelled.')

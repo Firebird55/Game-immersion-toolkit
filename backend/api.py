@@ -206,6 +206,7 @@ class Runtime:
         self._writer_handoff = False
         self._sql_handoff = None
         self._updates_started = False
+        self._pending_update_starts = []
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
@@ -648,15 +649,18 @@ class Runtime:
     def start_updates(self, *, parent_grant=None) -> None:
         Runtime._require_parent_transition(self, parent_grant, business=True, role='updates')
         Runtime._require_reopenable(self)
-        if self._updates_started:
-            return
-        self._updates_started = True
-        self.languages.start()
-        if hasattr(self, 'toolkit_updater'):
-            self.toolkit_updater.start()
-        if hasattr(self, 'automatic_exports'):
-            self.automatic_exports.start()
-        self.start_audio_repair()
+        if not self._updates_started:
+            starts = [self.languages.start]
+            if hasattr(self, 'toolkit_updater'):
+                starts.append(self.toolkit_updater.start)
+            if hasattr(self, 'automatic_exports'):
+                starts.append(self.automatic_exports.start)
+            starts.append(self.start_audio_repair)
+            self._pending_update_starts = starts
+            self._updates_started = True  # A partial start can already own live workers.
+        while self._pending_update_starts:
+            self._pending_update_starts[0]()
+            self._pending_update_starts.pop(0)  # A failed start stays pending for retry.
 
     def start_audio_repair(self) -> None:
         if self.standby or not self._updates_started or (self.repair_task and not self.repair_task.done()):
@@ -680,6 +684,7 @@ class Runtime:
 
     async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
+        self._pending_update_starts = []
         if hasattr(self, 'toolkit_updater'):
             await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
@@ -1497,29 +1502,40 @@ async def lifespan(_app: FastAPI, *, candidate_gate=None, parent_control=None):
             raise RuntimeError('Closed candidate Runtime gate binding changed.')
     else:
         runtime = Runtime()
-    if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
-            and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
-        runtime.start_map_prepare()
-    if runtime.standby:
-        runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
-    else:
-        runtime.start_updates()
-    if not runtime.standby and runtime.settings.get().auto_start and runtime.installation.completed:
-        runtime.capture.start()
+    try:
+        if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
+                and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
+            runtime.start_map_prepare()
+        if runtime.standby:
+            runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
+        else:
+            runtime.start_updates()
+        if not runtime.standby and runtime.settings.get().auto_start and runtime.installation.completed:
+            runtime.capture.start()
+    except BaseException as startup_error:
+        try:
+            await _shutdown_runtime(runtime)
+        except BaseException as cleanup_error:
+            raise startup_error from cleanup_error
+        raise
     try:
         yield
     finally:
-        if runtime.warm_task:
-            try:
-                await runtime.warm_task
-            except (Exception, asyncio.CancelledError):
-                pass
-        await runtime.quiesce()
-        await runtime.capture.close()
-        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(time.monotonic()+30),
-            time.monotonic()+30, blocking=True)
-        for pool in runtime.worker_pools():
-            pool.shutdown(wait=True)
+        await _shutdown_runtime(runtime)
+
+
+async def _shutdown_runtime(current):
+    if current.warm_task:
+        try:
+            await current.warm_task
+        except (Exception, asyncio.CancelledError):
+            pass
+    await current.quiesce()
+    await current.capture.close()
+    await current._handoff_step(lambda: current._reading_registry.shutdown(time.monotonic()+30),
+        time.monotonic()+30, blocking=True)
+    for pool in current.worker_pools():
+        pool.shutdown(wait=True)
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
