@@ -15,6 +15,7 @@ try{
    let automatic={enabled:false,paused:false,destination:'',languages:{},jobs:{},locales:[{locale:'ja',name:'Japanese',voice_label:'Not detected — install this voice language in the game/launcher'},{locale:'en',name:'English',voice_label:'Installed'}],translations:['en','fr'],browseActive:false,browsedDestination:'',browseMessage:''};
    let active='first',prepared=false,releaseOld,releaseExport,exportMode='success',configured=true,deckMode='normal',releaseDeck;
    const sent={first:{},second:{},legacy:{}}; const unexpected=[];
+   const profiles=[{id:'first',name:'First account'}];
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
    let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false;
@@ -48,8 +49,15 @@ try{
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[game],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,mobile_export:{state:'idle'},free_gb:10});
     if(path==='/api/setup/games/zzz/automatic-mobile-export'){if(request.method()==='POST'){if(body.action==='save')automatic={...automatic,enabled:body.enabled,destination:body.destination,languages:body.languages};if(body.action==='pause'||body.action==='resume')automatic.paused=body.action==='pause';}return respond(automatic);}
     if(path==='/api/lexirise')return respond({configured,account:active,sent:sent[active],decks:{}});
-    if(path==='/api/lexirise/accounts')return respond({active,profiles:[{id:'first',name:'First account'},{id:'second',name:'Second account'}]});
-    if(path==='/api/lexirise/accounts/select'){active=body.id;generation++;return respond({active});}
+    if(path==='/api/lexirise/accounts'){
+     if(request.method()==='POST'){
+      assert.equal(request.headers()['x-proxy-transcript'],'lexirise');
+      if(body.key!=='lx_second_fixture_credential_only')return respond({detail:'Enter a valid Lexirise API key.'},400);
+      active='second';generation++;profiles.push({id:active,name:body.name});
+     }
+     return respond({active,profiles});
+    }
+    if(path==='/api/lexirise/accounts/select'){active=body.id;generation++;return respond({active,profiles});}
     if(path==='/api/lexirise/settings'){
      // ReadingText also loads unscoped preferences during startup. Hold only
      // the game picker's account-scoped read, regardless of request ordering.
@@ -142,8 +150,26 @@ try{
    assert(accountGeometry.fits&&accountGeometry.width<=Math.min(width,700),'Account controls remain compact and fit the viewport');
    assert(accountGeometry.gap>=0&&accountGeometry.gap<90,'Account fields follow the heading without an empty wizard row');
    await panel.screenshot({path:`${preview.output}/account-${name}-${width}.png`});
-   await panel.getByLabel('Active Lexirise account').selectOption('second');
-   await panel.getByText('Selected account loaded.',{exact:true}).waitFor();
+   const addAccount=panel.getByRole('button',{name:'Add account securely'});
+   const keyField=panel.getByLabel('Lexirise API key',{exact:true});
+   await addAccount.click();
+   assert.equal(await keyField.getAttribute('type'),'password');
+   await keyField.fill('discarded fixture');
+   await panel.getByRole('button',{name:'Cancel',exact:true}).click();
+   await addAccount.click();
+   assert.equal(await keyField.inputValue(),'');
+   await keyField.fill('invalid fixture');
+   await panel.getByRole('button',{name:'Verify and save'}).click();
+   await panel.getByText('Enter a valid Lexirise API key.',{exact:true}).waitFor();
+   assert.equal(await keyField.inputValue(),'');
+   await keyField.fill('lx_second_fixture_credential_only');
+   await panel.getByLabel('Account label (optional)').fill('Second account');
+   await keyField.press('Enter');
+   await panel.getByText('Account saved and selected.',{exact:true}).waitFor();
+   assert.equal(await keyField.count(),0);
+   assert.equal(await panel.getByLabel('Active Lexirise account').inputValue(),'second');
+   await addAccount.click();
+   assert.equal(await keyField.inputValue(),'');
    await panel.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
    await page.locator('.current-line .reading-hanzi').click();
    await page.locator('.word-sheet-body').getByText('SECOND ACCOUNT ONLY',{exact:true}).waitFor();

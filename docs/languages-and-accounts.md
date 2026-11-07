@@ -20,10 +20,11 @@ Activation and history retain that target instead of using the account's global
 translation preference.
 
 Open **Account settings → Lexirise accounts on this PC** to choose a saved
-account. **Add account securely** opens a local hidden-input prompt. The key is
-verified with the read-only identity endpoint and protected with Windows DPAPI.
-The browser receives profile labels and opaque identifiers, never credentials.
-The existing local credential remains available.
+account. On the desktop PC, choose **Add account securely**, paste the key in
+the masked **Lexirise API key** field and optionally enter an account label.
+**Verify and save** checks the account identity, saves the key in the desktop
+user's protected storage and selects the account. The form closes after saving.
+Reopening it shows an empty key field. The existing local credential remains available.
 
 Each learning language uses its own Lexirise `effectiveTranslationLanguage`.
 The global effective translation language is used only when that language has

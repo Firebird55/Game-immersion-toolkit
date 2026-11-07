@@ -160,9 +160,10 @@ project can keep different DPAPI keys on different PCs. Existing installations
 can still read `data/lexirise/key.dpapi`. The export ledger in `data/lexirise`
 is excluded from Git and is not served to Chrome. Other hosts can supply
 `LEXIRISE_API_KEY` to the backend environment. To replace a Windows key, call
-`save_api_key` from `backend.lexirise` with the local AppData directory; there
-is intentionally no browser endpoint exposing or replacing credentials. API
-contract: https://lexirise.app/api-reference.
+`save_api_key` from `backend.lexirise` with the local AppData directory. For a
+named account, use **Add account securely** in [account settings](languages-and-accounts.md).
+The desktop companion returns only the profile list and selection after saving.
+See the [Lexirise API reference](https://lexirise.app/api-reference) for the account API.
 
 ## Automatic updates
 

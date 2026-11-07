@@ -112,6 +112,9 @@ button, input { font: inherit; }
 .toolkit-account-dialog legend { padding: 0 6px; font-size: 13px; }
 .toolkit-account-dialog button:not(.account-close) { height: auto; min-height: 40px; white-space: normal; overflow-wrap: anywhere; }
 .toolkit-account-dialog select { max-width: 100%; }
+.account-selection { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.account-entry { display: grid; gap: 12px; margin-top: 12px; }
+.account-entry label { display: grid; gap: 4px; }
 .toolkit-account-dialog details summary { padding-bottom: 12px; cursor: pointer; }
 .toolkit-account-dialog .account-preferences { align-self: flex-start; text-align: left; }
 .game-start-card { display: grid; gap: 12px; padding: 18px; background: #151c23; border: 1px solid #c7ff3840; border-radius: 12px; }

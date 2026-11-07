@@ -1,4 +1,4 @@
-"""Host-protected account profiles; credentials never pass through the browser."""
+"""Host-protected account profiles with credential-free status responses."""
 from __future__ import annotations
 
 import copy
@@ -61,8 +61,11 @@ class AccountStore:
 
     def add(self, key: str, name: str = '', *, select: bool = True) -> dict:
         key = key.strip()
-        if not key.startswith('lx_') or not 20 <= len(key) <= 512:
-            raise LexiriseError('Enter a valid Lexirise API key in the local hidden-input prompt.')
+        if (not key.startswith('lx_') or not 20 <= len(key) <= 512
+                or not key.isascii() or not key.isprintable() or ' ' in key):
+            raise LexiriseError('Enter a valid Lexirise API key.')
+        if key in name:
+            raise LexiriseError('Choose an account label that does not contain the API key.')
         # Verify identity before persisting a profile. Registration never edits
         # account settings, creates decks or performs dictionary operations.
         with httpx.Client(base_url=API_BASE, headers={'Authorization': f'Bearer {key}'},

@@ -37,12 +37,11 @@ importing or turning a missing recording into confirmed unvoiced dialogue.
 
 ## Local setup and accounts
 
-Game-folder selection, account entry and capture checks use bundled Qt dialogs
-on each platform. Account keys are entered in a native password field. Verification
-only reads the account identity (`GET /v1/me`); saving a local account does not
-change remote settings, decks or vocabulary. Keys are never put in the browser,
-command arguments or process environment by these dialogs. Canceling a folder
-selection leaves the saved game locations unchanged.
+On the desktop PC, **Account settings → Add account securely** accepts a key in
+a masked field. The local backend verifies the identity with `GET /v1/me` and
+saves the selected account in protected storage. The form clears the key on
+submission and closes after saving. Setup also offers bundled native dialogs
+for account entry, game-folder selection and capture checks.
 
 Windows retains its existing DPAPI credential format. macOS uses Keychain and
 Linux uses the desktop Secret Service through explicitly selected bundled
