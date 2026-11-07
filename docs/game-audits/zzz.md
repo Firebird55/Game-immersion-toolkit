@@ -1,5 +1,60 @@
 # Zenless Zone Zero dialogue audit
 
+## November 8, 2026 · Publisher sources and subtitle variants
+
+The released Global Windows 3.3.0 branch serves the game TextMaps directly.
+Follow the HoYoPlay branch into its Sophon game manifest and read
+`StreamingAssets/data_version`. For this release, the 25 listed
+`Blocks/Data` files contained the 13 base locale tables. The check downloaded
+those files from the publisher and verified the manifest, chunks and assembled
+files against their MD5s. In each Unity bundle, the TextAsset name equals the
+decimal xxHash64 of the lowercase table name. The FlatBuffer stores the authored
+key and text. This also located the source objects for Perform, OngoingTips,
+Tips, Message and Subtitle configuration. Their object names alone do not
+decode the bindings. [HoYoPlay release branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=U5hbdsT9W7)
+· [Audited publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+· [TextMap schema reference](https://github.com/Hiro420/ZZZ_TextMap/tree/499541c07d73216b4a3cd3ae1720a81597c17e6d/ZZZ_TextMap/Defs)
+
+The base contained 439,660 English keys and 450,561 Simplified Chinese keys.
+Of 224,387 distinct subtitle IDs from the audited scene, comic and cinematic
+readers, 220,442 had both languages and 216,719 had text in all 13 locales.
+The denominator includes choices and silent lines. It excludes presentations
+outside those readers. The three checked chapter 240 lines were absent from
+the older English 3.2 chapter inventory. For each, the game-authored scene
+binding identified a complete WEM fetched from the publisher in Mandarin,
+English, Japanese and Korean. All three had translations in 12 base locales.
+The Japanese text for all three was in the installed 3.3 override table.
+Across this chapter's GalGame IDs, the bilingual count rose from 1,744 in
+the launcher base to 1,846 after applying the installed design update.
+[Publisher chapter announcement](https://zenless.hoyoverse.com/m/en-us/news/166963)
+· [3.2 text comparison](https://github.com/malu-no996/ZenlessData/tree/1277ebca4b8a7a6c3bcbaac6d5708dc9f4a55f23/TextMap)
+
+For 1,509 distinct voiced GalGame references in the chapter 240 scene extraction,
+the check computed exact external-media identities for the tested source paths.
+Across all 313 publisher base voice indexes, 1,476 matched in Mandarin, 765 in
+English, 195 in Japanese and 1,474 in Korean. Only 49 matched in all four base
+indexes. Three of those were downloaded in full in every dub. The later
+installed indexes matched 1,477 per installed language (Mandarin, English and
+Japanese). These are directory joins. An unmatched path can reflect another
+binding or a subsequent update. The audit did not have the later Korean pack.
+
+The inspected launcher base had data revision `19316624`. The installed
+Global revision `19916124` contained 13 base and 13 overwrite tables. An
+older Global 3.2 hotfix manifest and its block were independently retrieved
+from the publisher. Current Global 3.3 hotfix discovery from an empty device
+remains open. The normal preparation path still requires an installation
+and compatible scene metadata. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
+· [Public release revision history](https://zzz.gachabase.net/changelog/release)
+
+The 3.3 English base contains 2,355 gender-tagged entries with text outside
+the tags and 200 entries with repeated male tags. The corresponding Simplified
+Chinese counts are 2,627 and 198. The prepared and legacy readers now preserve
+the surrounding words, resolve every inline group and align translations by
+the authored M/F labels. Missing voice packs retain the two distinct performance
+identities. Local design and silence manifest changes invalidate language
+preparation even when audio stays identical. The legacy update status reports
+an unavailable upstream and retains the last verified revision for retry.
+
 Audit date: 2026-10-27. This is a format and coverage audit, not a claim that every
 scene, language, or capture layout has passed native gameplay testing. Game
 resources were read from the owner's installation. Extracted assets, dialogue,

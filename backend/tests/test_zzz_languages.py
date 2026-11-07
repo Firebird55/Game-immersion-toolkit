@@ -107,6 +107,19 @@ def test_uninstalled_pack_and_mixed_language_batch_never_borrow(tmp_path):
         assets.extract_voices(tmp_path, [{'locale': 'en'}, {'locale': 'ja'}], Path('unused'), tmp_path)
 
 
+def test_missing_pack_preserves_each_authored_proxy_and_shared_caption_words():
+    identity = 'GalGame_Synthetic'
+    tables = {'en': {identity: 'Open the gate.'}, 'fr': {identity: 'Ouvre la porte.'}}
+    source = 'VO_GalGame/{F#First}{M#Second}'
+    links = [{'text_id': identity, 'source': source}]
+    rows = assets.build_records(tables, 'en', set(tables), links, [], {}, {}, None)
+    assert [(row['player_voice'], row['voice_status']) for row in rows] == [
+        ('male', 'unavailable'), ('female', 'unavailable')]
+    tables['en'][identity] = 'Give {F#her}{M#him} the key.'
+    assert [row['source_text'] for row in assets.build_records(
+        tables, 'en', set(tables), links, [], {}, {}, None)] == ['Give him the key.', 'Give her the key.']
+
+
 @pytest.mark.parametrize('schema', assets.ONGOING_SCHEMAS)
 def test_authored_ongoing_fields_preserve_proxy_roles_across_supported_schemas(schema):
     text, male, female = schema

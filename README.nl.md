@@ -21,7 +21,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 
 | Game | Leertalen | Vertaaltalen |
 | :--- | :--- | :--- |
-| [Zenless Zone Zero](docs/languages/nl.md#zzz) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 12 |
+| [Zenless Zone Zero](docs/languages/nl.md#zzz) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 13 |
 | [Wuthering Waves](docs/languages/nl.md#wuwa) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 10 |
 | [Neverness to Everness](docs/languages/nl.md#nte) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 9 |
 | [PRAGMATA](docs/languages/nl.md#pragmata) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Spaans (Latijns-Amerika) · Portugees (Brazilië) · Russisch · Chinees (vereenvoudigd) · Japans · Koreaans | 14 |

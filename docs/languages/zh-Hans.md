@@ -11,7 +11,7 @@
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [覆盖范围说明](../zzz-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -27,6 +27,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 | 韩语 | ✓ | ✓ | ✓ | 已实现读取器 |
 | 法语 | — | — | ✓ | 已实现读取器 |
 | 德语 | — | — | ✓ | 已实现读取器 |
+| 欧洲西班牙语 | — | — | ✓ | 已实现读取器 |
 | 拉丁美洲西班牙语 | — | — | — | 不可用 |
 | 巴西葡萄牙语 | — | — | ✓ | 已实现读取器 |
 | 俄语 | — | — | ✓ | 已实现读取器 |

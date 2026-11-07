@@ -11,7 +11,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Zenless Zone Zero
 
-[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Coverage notes](../zzz-languages.md)
+[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [Coverage notes](../zzz-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -27,6 +27,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 | Korean | ✓ | ✓ | ✓ | Reader implemented |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
 | Latin American Spanish | — | — | — | Unavailable |
 | Brazilian Portuguese | — | — | ✓ | Reader implemented |
 | Russian | — | — | ✓ | Reader implemented |

@@ -21,7 +21,7 @@
 
 | 游戏 | 学习语言 | 翻译语言 |
 | :--- | :--- | :--- |
-| [Zenless Zone Zero](docs/languages/zh-Hans.md#zzz) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 12 |
+| [Zenless Zone Zero](docs/languages/zh-Hans.md#zzz) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 13 |
 | [Wuthering Waves](docs/languages/zh-Hans.md#wuwa) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 10 |
 | [Neverness to Everness](docs/languages/zh-Hans.md#nte) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 9 |
 | [PRAGMATA](docs/languages/zh-Hans.md#pragmata) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 拉丁美洲西班牙语 · 巴西葡萄牙语 · 俄语 · 简体中文 · 日语 · 韩语 | 14 |

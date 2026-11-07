@@ -15,6 +15,13 @@ names are read from the pack rather than assumed from another game's language
 codes. Persistent patches take precedence over base packages. Ambiguous sources,
 unsupported schemas and changed files cannot supply a guessed performance.
 
+The prepared reader preserves the full caption when a sentence contains several
+Wise/Belle wording changes. The Global PC release includes an ES subtitle table.
+The publisher lists Spanish (Spain) for its Steam edition. The separately labeled
+Latin American Spanish option on Epic has no independently verified table.
+See the [publisher's Steam language list](https://store.steampowered.com/app/4162040/)
+and the [source and update audit](game-audits/zzz.md).
+
 Free-roam and tip dialogue follow the authored configuration's text ID and
 default/alternative voice fields. Both supported field schemas retain the
 explicit Belle/Wise roles. Unknown schemas fail preparation instead of silently

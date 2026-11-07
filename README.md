@@ -21,7 +21,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 
 | Game | Learning languages | Translation languages |
 | :--- | :--- | :--- |
-| [Zenless Zone Zero](docs/languages/en.md#zzz) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 12 |
+| [Zenless Zone Zero](docs/languages/en.md#zzz) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 13 |
 | [Wuthering Waves](docs/languages/en.md#wuwa) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 10 |
 | [Neverness to Everness](docs/languages/en.md#nte) | English · Simplified Chinese · Traditional Chinese · Japanese · Korean | 9 |
 | [PRAGMATA](docs/languages/en.md#pragmata) | English · French · Italian · German · European Spanish · Latin American Spanish · Brazilian Portuguese · Russian · Simplified Chinese · Japanese · Korean | 14 |

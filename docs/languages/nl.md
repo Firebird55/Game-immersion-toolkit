@@ -11,7 +11,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Zenless Zone Zero
 
-[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Dekkingsnotities](../zzz-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [Dekkingsnotities](../zzz-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -27,6 +27,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 | Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
 | Frans | — | — | ✓ | Reader geïmplementeerd |
 | Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
 | Spaans (Latijns-Amerika) | — | — | — | Niet beschikbaar |
 | Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
 | Russisch | — | — | ✓ | Reader geïmplementeerd |

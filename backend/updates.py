@@ -195,13 +195,15 @@ class BackgroundUpdateManager:
         from scripts.update_voice_assets import inventory
         installed_signature = hashlib.sha256(json.dumps(inventory(installed, []), sort_keys=True).encode()).hexdigest()
         self._set("checking", "Checking upstream metadata", 5)
-        commit: str | None = None
-        metadata_changed = False
-        metadata_message = "Upstream metadata check skipped"
         try:
             commit, metadata_changed, metadata_message = self._update_metadata_repository()
         except Exception as error:
-            metadata_message = f"Upstream check unavailable ({error}); using cached data"
+            if not self.textmaps.ready and all(self.textmaps.file_path(name).is_file() for name in self.textmaps.urls):
+                self.textmaps.load()
+            self.last_checked = datetime.now(timezone.utc).astimezone().isoformat()
+            self._set("retrying", "Online game metadata is unavailable. Cached dialogue stays available until the next check.",
+                      100, str(error))
+            return
 
         if self._stop.is_set():
             return
