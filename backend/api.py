@@ -1151,7 +1151,22 @@ class Runtime:
                         await Runtime._parent_worker_until(self, parent_grant, deadline, 'pools')
                     self._clear_handoff_drains()
                 resuming = True
-                if self.capture.snapshot().running:
+                if parent is not None:
+                    capture = self.capture
+                    if capture.snapshot().running or payload.running:
+                        raise WritersQuiescing('Parent activation requires idle capture.')
+                    parent.require_grant(parent_grant, self)
+                    prepared = capture.prepare_handoff(payload)
+                    # EOF may retire the grant during the transcript read. Only
+                    # publish the staged metadata while retirement is excluded.
+                    with parent._lock:
+                        parent.require_grant(parent_grant, self)
+                        if capture is not self.capture or capture is not parent.initial[0]:
+                            raise WritersQuiescing('Parent activation capture changed.')
+                        capture.apply_prepared_handoff(prepared)
+                        self.standby = False
+                    self.start_updates(parent_grant=parent_grant)
+                elif self.capture.snapshot().running:
                     self.standby = False
                     self.start_updates(**Runtime._parent_kwargs(self, parent_grant))
                 else:

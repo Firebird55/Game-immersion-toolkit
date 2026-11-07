@@ -38,7 +38,7 @@ def initial_runtime(binding, directory):
     value._writer_handoff, value._updates_started, value.standby = False, False, True
     value._reading_registry = api.RuntimeReadingRegistry(directory)
     value.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=False), native_stop_pending=False,
-        resume_workers=lambda: None, import_handoff=lambda payload: None,
+        resume_workers=lambda: None, prepare_handoff=lambda payload: payload, apply_prepared_handoff=lambda state: None,
         start=lambda: pytest.fail('Idle activation started native capture'))
     value.hito = SimpleNamespace(resume=lambda: None)
     value._voice_pools = lambda: []
@@ -163,7 +163,7 @@ def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(p
                 raise worker_error
 
         value.capture.resume_workers = held_pool_resume
-        value.capture.import_handoff = imports.append
+        value.capture.apply_prepared_handoff = imports.append
         async def activate(grant):
             await value.activate_handoff(api.CaptureHandoff(running=False), writers=True, parent_grant=grant)
         binding.start(18767, activate, stopped.set)
@@ -220,6 +220,65 @@ def test_pipe_eof_during_pool_resume_retains_worker_and_blocks_late_activation(p
             assert frames == [b'TPC1|1|BOUND|18767\n', b'TPC1|2|REFUSED|activation\n']
             if binding._pools_step is not None:
                 assert not binding._pools_step.thread.is_alive()
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize('when', ['snapshot', 'transcript-read'])
+def test_pipe_eof_before_capture_commit_keeps_idle_state(pipes, monkeypatch, when):
+    # EOF can arrive after the pool worker completes but before capture metadata is published.
+    async def scenario():
+        binding = writers.ParentControlBinding(pipes.input, pipes.output)
+        gate = writers.RuntimeWriterGate(parent_control=binding)
+        pipes.parent_write.write(b'TPC1|1|BIND\n')
+        binding.bind_input()
+        value = initial_runtime(binding, pipes.directory)
+        capture = value.capture
+        capture.session_id = 'initial'
+        capture._last_emitted_at, capture._last_emitted_key_by_channel = {}, {}
+        capture._cinematic_seen_ids, capture._cinematic_panel_text = set(), ''
+        stopped, retired = asyncio.Event(), threading.Event()
+        original_poison = binding.poison
+
+        def observe_retirement(error):
+            original_poison(error)
+            retired.set()
+
+        monkeypatch.setattr(binding, 'poison', observe_retirement)
+
+        def close_parent():
+            pipes.parent_write.close()
+            assert retired.wait(2)  # Reader must be able to retire during capture/SQL preparation.
+
+        def snapshot():
+            if when == 'snapshot' and binding._pools_step is not None and binding._pools_step.complete:
+                close_parent()
+            return SimpleNamespace(running=False)
+
+        def read_transcript(*, limit):
+            assert limit == 50
+            if when == 'transcript-read':
+                close_parent()
+            return []
+
+        capture.snapshot = snapshot
+        capture.transcript = SimpleNamespace(list=read_transcript)
+        capture.prepare_handoff = api.CaptureService.prepare_handoff.__get__(capture)
+        capture.apply_prepared_handoff = api.CaptureService.apply_prepared_handoff.__get__(capture)
+        payload = api.CaptureHandoff(running=False, session_id='replacement', cinematic_panel_text='changed')
+        binding.start(18767, lambda grant: value.activate_handoff(payload, writers=True, parent_grant=grant),
+                      stopped.set)
+        try:
+            assert await asyncio.to_thread(writers.read_parent_frame, pipes.parent_read) == b'TPC1|1|BOUND|18767\n'
+            pipes.parent_write.write(b'TPC1|2|ACTIVATE-IDLE\n')
+            await asyncio.wait_for(stopped.wait(), 3)
+            await asyncio.wait_for(asyncio.shield(binding.task), 2)
+            assert binding.retired and value.standby and not value._updates_started
+            assert capture.session_id == 'initial' and capture._cinematic_panel_text == ''
+            assert not gate._accepting and binding._admit_step is None
+        finally:
+            if not pipes.parent_write.closed:
+                pipes.parent_write.close()
+            await asyncio.to_thread(binding.finish_io, 2)
     asyncio.run(scenario())
 
 
@@ -673,6 +732,8 @@ def test_foreign_task_is_refused_while_designated_task_then_actual_sql_workers_f
         assert type(value.request_barrier) is api.RequestBarrier
         value.standby = value.request_barrier.paused = True
         actual.running = False
+        value.capture.prepare_handoff = lambda payload: payload
+        value.capture.apply_prepared_handoff = value.capture.import_handoff
         old_updates = value.start_updates
         value.start_updates = lambda **options: old_updates()
         binding.pin_initial()
