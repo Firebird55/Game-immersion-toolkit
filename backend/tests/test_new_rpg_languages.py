@@ -70,7 +70,7 @@ def test_current_genshin_schema_and_reminders_share_only_the_authored_locale_for
     reminders = genshin.reminder_hashes([{'id': 3510001, 'HNDLKHJFLNF': 777, 'hasAudio': True}])
     links = genshin.dialogue_links(voice_maps, {'3510001': '123'}, 'zh-Hant', reminders)
     assert {(row['id'], row['hash']) for row in links} == {('3510001', '123'), ('reminder-3510001', '777')}
-    assert all(row['source'].startswith('Chinese(PRC)\\') for row in links)
+    assert all(row['source'].startswith('Chinese\\') for row in links)
 
 
 def test_endfield_radio_and_narration_use_their_explicit_text_and_voice_references():

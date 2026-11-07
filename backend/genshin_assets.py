@@ -8,7 +8,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -151,7 +151,7 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                     if (isinstance(path, str) and path.casefold().endswith('.wem')
                             and not path.startswith(('\\', '/')) and ':' not in path
                             and '..' not in re.split(r'[/\\]', path)):
-                        values[(kind, identity)].add(common.VOICE_NAMES[locale] + '\\' + path)
+                        values[(kind, identity)].add(common.voice_namespace('genshin', locale) + '\\' + path)
                     else:
                         _warn(warnings, 'Some Genshin voice sources could not be resolved safely.')
             if not recognized and voice:

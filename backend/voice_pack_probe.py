@@ -57,10 +57,11 @@ def _probe(game, install, locale):
         elif game in ('genshin', 'starrail'):
             from . import hoyo_dialogue as common
             root = common.game_data(install, game)
-            namespace = common.voice_namespace(game, locale).casefold()
+            namespaces = {name.casefold() for name in common.voice_namespaces(game, locale)}
             paths = (p for layer in ('StreamingAssets', 'Persistent') for folder in
                      ('AudioAssets', 'Audio/AudioPackage/Windows', 'Audio/GeneratedSoundBanks/Windows')
-                     for p in bounded_files(root / layer / folder, '*.pck') if namespace in {part.casefold() for part in p.parts})
+                     for p in bounded_files(root / layer / folder, '*.pck')
+                     if not namespaces.isdisjoint(part.casefold() for part in p.relative_to(root / layer / folder).parts[:-1]))
         elif game == 'cyberpunk':
             paths = (p for p in adapter.archive_sources(install) if p.name.removeprefix('ep1_') == 'lang_' + adapter.TEXT_LOCALES[locale] + '_voice.archive')
         elif game == 'witcher3':

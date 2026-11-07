@@ -3,7 +3,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 3
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -70,10 +70,26 @@ def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue',
 
 def sentence_links(sentences, voices, locale, multi_voices=()):
     voices = {row['VoiceID']: row for row in voices}
-    multiple = {row.get('TalkSentenceID') for row in multi_voices if row.get('VoiceIDList')}
-    return [link for row in sentences for link in _voice_links(
-        row.get('TalkSentenceID'), _hash(row.get('TalkSentenceText')), row.get('VoiceID'), voices, locale,
-        multiple=row.get('TalkSentenceID') in multiple)]
+    alternatives = {}
+    for row in multi_voices:
+        candidates = row.get('VoiceIDList')
+        if candidates:
+            if not isinstance(candidates, list) or not all(type(v) is int and v > 0 for v in candidates):
+                raise PreparationFailure('unsupported_game_format', 'Unsupported Star Rail multi-voice IDs. Refresh after updating the reader.')
+            alternatives.setdefault(row.get('TalkSentenceID'), set()).update(candidates)
+    links = []
+    for row in sentences:
+        identity, primary = row.get('TalkSentenceID'), row.get('VoiceID')
+        candidates = alternatives.get(identity)
+        if candidates and primary:
+            candidates = candidates | {primary}
+        # A singleton names the only authored performance. More than one
+        # remains ambiguous, including a primary that conflicts with the list.
+        ambiguous = bool(candidates and len(candidates) > 1)
+        voice_id = next(iter(candidates)) if candidates and not ambiguous else primary
+        links.extend(_voice_links(identity, _hash(row.get('TalkSentenceText')),
+                                  voice_id, voices, locale, multiple=ambiguous))
+    return links
 
 
 def message_links(messages, overrides=(), *, prefix='message'):

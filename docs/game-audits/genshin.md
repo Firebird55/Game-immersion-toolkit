@@ -39,7 +39,7 @@ warnings rather than silently implying completeness.
 
 ## Update and voice safety
 
-`LANGUAGE_INDEX_VERSION` is 2. The adapter checks the metadata release title
+`LANGUAGE_INDEX_VERSION` is 3. The adapter checks the metadata release title
 against the installed launcher configuration. A known version mismatch or wholly
 unrecognized voice schema produces `unsupported_game_format` with a refresh/update
 instruction. Unknown version provenance blocks text-only readable imports.
@@ -52,6 +52,26 @@ unvoiced. Multiple performances are accepted only as one distinct male/female
 pair; two same-gender candidates cannot produce duplicate IDs. Traversing or
 absolute source paths are rejected. No audio is synthesized and no missing text
 is translated or transcribed from sound.
+
+The November 8, 2026 source check verified that Genshin's Mandarin packages
+and Wwise paths use `Chinese` for both Simplified and Traditional Chinese.
+Two Paimon lines matched the published 4.8 Mandarin index, one in `1001.pck`
+and one in `External21.pck`. The alternative `Chinese(PRC)` hash matched
+neither. The reader now probes and hashes the Genshin namespace and preserves
+previously bound local recordings that use the older toolkit spelling. The
+official server supplied the Mandarin evidence. The installed 7.1 client in
+the original audit contained the English pack.
+[Publisher 4.8 Mandarin file index](https://autopatchcn.yuanshen.com/client_app/download/pc_zip/20240705190726_7q0dq7IxqQEpugte/ScatteredFiles/Audio_Chinese_pkg_version)
+
+In the 7.2 extraction, 4,545 reminder rows explicitly signal audio. Of those,
+4,127 name a WEM through a recognized voice trigger. The other 418 remain
+unavailable. One has a routing lookup without a source file, two share a
+number with a different trigger type, and 415 have no matching trigger in the
+reviewed metadata. The checked 7.1, 6.7 and 4.5 voice snapshots supplied no
+additional exact paths for those IDs. Missing reminders still require a
+different authored binding or historical source.
+[Reminder flags](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/ExcelBinOutput/ReminderExcelConfigData.json)
+· [Voice trigger lookup](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Voice/Lut/Lut.json)
 
 Readable downloads are immutable-revision archives parsed in memory. The parser
 rejects traversal, links, foreign directories, duplicate identities and excessive

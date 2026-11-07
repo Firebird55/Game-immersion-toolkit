@@ -1,6 +1,7 @@
 # Honkai: Star Rail dialogue audit
 
-Audit date: 2026-10-27. Installed client: 4.6.0. Adapter schema version: 2.
+Initial audit on October 27, 2026 with installed client 4.6.0 and adapter
+schema 2. The November 8 multi-voice check below used adapter schema 3.
 This is an inventory of dialogue presentations and their current parser support,
 not a claim that every screen has passed OCR replay.
 
@@ -46,7 +47,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Optional NPC conversations, object interaction, inspections and legacy daily content | `DialogueNPC` has 1,725 script references; `DialogueProp` has 378. Their sentence-table content can now survive without audio. | References were inventoried, not exhaustively traversed. Selection conditions and historical/removed content are not resolved against an account. |
 | Ambient NPC speech and proximity barks | Authored `NPC_*` voice types retain exact audio and are labelled ambient. | Overhead bubbles, simultaneous speakers and capture crops need separate image replay. |
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
-| Multi-performance sentences | `TalkSentenceMultiVoice` contains 1,044 rows; 1,009 refer to present sentences, including 1,006 without a primary `VoiceID`. Text is retained as audio unavailable. | Selection semantics must be established before choosing or combining performances. List order is not a binding rule. |
+| Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
 | Pre-rendered movies | Installed USM containers and `CutSceneConfig` establish separate cinematic assets. | `CutSceneConfig` has 41 rows and caption-path fields, but this audit does not establish exhaustive movie-caption coverage or extraction. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
@@ -85,6 +86,17 @@ state. Missing localized text remains absent rather than falling back to another
 language.
 
 ## Validation results
+
+On November 8, 2026 each of the 14 singleton MultiVoice IDs resolved to an
+original WEM in every installed 4.6.0 dub (56 file bindings). Three complete
+WEMs per locale were read and checked for RIFF headers. Across the full
+1,044-row MultiVoice table, all alternatives were present in all four archive
+indexes for 1,040 IDs. Multiple variants under one sentence still require
+evidence of which performance played. Another 35 IDs in the table have no
+matching TalkSentence row in this snapshot. The October totals below predate
+this correction.
+[MultiVoice IDs](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/TalkSentenceMultiVoice.json)
+· [Authored source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/VoiceConfig.json)
 
 The real-data pass used integrity-checked cached Chinese/English Main and
 ordinary textmaps at the same immutable revision and read all installed locale
