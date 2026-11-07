@@ -1113,22 +1113,31 @@ def test_sql_recovery_refuses_replaced_outer_request_owner_without_opening_eithe
 
 def test_refused_stop_after_partial_activation_preserves_the_activation_retry(cohort):
     value, runtime = cohort, cohort.runtime
+    del runtime.start_updates  # Exercise Runtime's actual producer startup and retry.
+    starts = []
+    failure = RuntimeError('authored export-start refusal after actual SQL resume')
+    def start_exports():
+        starts.append('exports')
+        if starts.count('exports') == 1:
+            raise failure
+    runtime.languages.start = lambda: starts.append('languages')
+    runtime.toolkit_updater = SimpleNamespace(start=lambda: starts.append('toolkit'))
+    runtime.automatic_exports.start = start_exports
+    runtime.start_audio_repair = lambda: starts.append('repair')
     async def run():
         payload = await runtime.quiesce()
         stopped = runtime._quiesce_task
         assert stopped.done() and stopped.exception() is None
         record = runtime._sql_handoff
-        failure = RuntimeError('authored update-start refusal after actual SQL resume')
-        value.update_error = failure
         with pytest.raises(RuntimeError) as raised:
             await runtime.activate_handoff(payload, writers=True)
         assert raised.value is failure and record.error is failure
+        assert starts == ['languages', 'toolkit', 'exports']
         assert all(member.resumed for member in members(record))
         # The real SQL owner is writable again, even though public admission
         # stayed closed: the old completed drain is no longer stop authority.
         runtime.transcript.add(TextMatch(text_id='after-resume', english='After resume',
             chinese='恢复后的台词', source_ocr='恢复后的台词', score=100, kind='exact'), 'owned-session')
-        value.update_error = None
         with pytest.raises(TimeoutError, match='Recovered SQL owners'):
             await runtime.quiesce()
         assert runtime._quiesce_task is not stopped and runtime._sql_handoff is record
@@ -1136,6 +1145,7 @@ def test_refused_stop_after_partial_activation_preserves_the_activation_retry(co
         with pytest.raises(WritersQuiescing):
             runtime.request_writers.capture_ticket()
         assert await runtime.activate_handoff(payload, writers=True) == {'active': True}
+        assert starts == ['languages', 'toolkit', 'exports', 'exports', 'repair']
         assert not runtime.request_barrier.paused and runtime._reading_registry._accepting
         assert runtime.request_writers.capture_ticket() and runtime._sql_handoff is None
     asyncio.run(run())
