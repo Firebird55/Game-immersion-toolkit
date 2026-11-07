@@ -4,8 +4,10 @@ Status: implemented programmatic source boundary with local SQLite/thread
 regressions; no new frozen/native runtime receipt or full mutable-root detach
 acceptance. The [completion plan](r19-completion-plan.md) and
 [R18 host contract](r18-storage-host-contract.md) retain their existing gates.
-This change builds no installer and changes no source updater, schema, settings
-mapping, account, shared component or PR #59 behavior.
+The SQL ownership changes build no installer and change no source updater,
+schema, settings mapping, account, shared component or PR #59 behavior. The
+separate frozen language-registry path correction below preserves source paths
+and supplies no additional ownership/copy authority.
 
 `TranscriptStore.freeze_connections(timeout)` closes admission to that store's
 normal SQL connection-operation scopes, waits for their transaction exit and
@@ -13,8 +15,9 @@ actual `Connection.close()` return, then returns a typed
 `TranscriptConnectionFence`. The existing request admission mechanism is reused
 at this underlying store boundary; capture/publication/speaker callers do not
 need to arrive through an HTTP request to be counted. Ordinary behavior is
-unchanged while the new programmatic API is unused. There is no HTTP/CLI control
-path or production caller for it.
+unchanged outside the explicit strict writer protocol. The existing
+`writers=true` Runtime handoff now composes these programmatic APIs as described
+below; no dedicated per-store HTTP/CLI control or serialized SQL token is added.
 
 The token binds the exact issuing store, issued token object and local admission
 epoch. `fence.check(store)` refuses a different store, a manually constructed
@@ -63,7 +66,9 @@ reopening or retrying close. These are private cleanup errors, not a retryable
 remote `LexiriseError`; their objects/tracebacks/credentials are never serialized.
 
 Ledger reads and public return values materialize SQL rows/dictionaries rather
-than returning SQL cursors. HTTP `_items` pagination is separate from SQL cursor
+than returning SQL cursors. Its explicit statement scopes close SELECT cursors
+before HTTP work and close write cursors before the existing intermediate
+commits. HTTP `_items` pagination is separate from SQL cursor
 lifetime. The SQL fence does not cover an entire send with several SQL scopes,
 work queued before `_lock`, HTTP-only settings/deck requests, key selection or
 file/client lifetimes outside its SQL scopes. It supplies no queue-retirement
@@ -123,16 +128,64 @@ its pending-word finally block still runs. Pool replacement cannot clear poison.
 Most reading HTTP, settings/key work and intervals between SQL scopes are
 outside SQL admission. A valid SQL token can coexist with unfinished HTTP;
 its later SQL refuses while frozen. Queued outer work has no retirement ticket
-and can seek fresh SQL admission after a valid resume. A future aggregate
-boundary must stop producers and reader creation, drain pools/callbacks before
-closing SQL admission, and reopen SQL before admitting resumed producers.
-This slice adds no aggregate control path or Runtime/API caller.
+and can seek fresh SQL admission after a valid resume. The concrete Runtime
+composition below stops known producers/creation and drains pools/callbacks
+before closing SQL admission. A future all-file aggregate boundary remains
+separate; this adds no copy/activation token or new control route.
 
-Runtime's default and dynamically cached readers still need a separately
-reviewed creation/retention boundary. Concurrent same-key reader construction
-can replace a cached entry; the current reader dictionary does not establish a
-complete live-owner inventory. That prerequisite and settings/file resources
-remain outside this implementation.
+Runtime's default and dynamically cached readers use the separate
+[reading creation and pool owner](#runtime-reading-creation-and-pool-ownership)
+described below. Its retained records replace the earlier cache-only inventory
+and coalesce concurrent same-key construction. Per-reader SQL admission remains
+distinct from pool lifetime. The strict Runtime sequence now retains/composes
+that exact SQL-owner set; settings/file resources are not covered.
+
+## Owned statement cursors
+
+Normal SQL sites in TranscriptStore, the Lexirise ledger and Reading now use the
+existing lifetime helper's narrow `cursor(connection)` context. It obtains and
+owns the actual cursor **before** execute, fetch or iteration can fail, and
+closes it exactly once after its statement result is consumed. Known cursor
+close finishes before transaction exit and connection close; operation admission
+remains active through all cleanup and failed-object publication. There is no
+connection proxy, replacement factory, successful cursor registry or enumeration
+of arbitrary Python/SQLite objects.
+
+SQL, schema, parameters, materialized results and connection arguments stay the
+same. Transcript insertion copies the cursor's lastrowid scalar before closing
+that cursor, then performs its existing SELECT. Multirow queries and grammar
+comprehensions are consumed inside their cursor scope. Reading reads still use
+no connection transaction enter/exit, commit or rollback. No cursor scope is
+extended across an existing ledger HTTP request merely to hold its resources.
+The raw `_connect` hook, exact C5 constructor interception and intermediate
+ledger commits remain intact.
+
+A failed cursor close creates a fixed-text private `_SqliteCursorCloseError`
+retaining the actual owner, connection, cursor and original body/close errors.
+The owner records it before operation leave. Its existing configured poison
+wrapper refuses later SQL/freeze/resume without another connection or cursor;
+even an attempt at another owned cursor on that still-open connection refuses.
+Unknown cleanup remains poisoned even if an independent lock happens to be
+available. Actual failed cursor/connection objects are not replaced or retried.
+
+When body, cursor close, transaction exit and connection close fail together,
+the original body, actual transaction error and actual connection-close error
+retain their existing connection-failure fields and identities. The cursor
+failure retains its actual cursor-close error and any actual transaction error.
+Only the exact cursor-failure object issued and retained by this owner, with
+this actual owner/connection binding, may be unwrapped to its original body for
+that bookkeeping. Matching class, fields, message or equality is insufficient.
+The actual escaped exception is kept distinct from its original body so a
+rollback/commit error is not mistaken for that body. Falsey exceptions remain
+errors; selection uses explicit None/identity checks.
+
+If cursor creation raises before handing over an object, the helper does not
+invent ownership of an unseen cursor. The connection still follows its existing
+transaction/close path. Body/transaction errors propagate unchanged when both
+known cursor and connection close succeed. These private cleanup failures are
+not remote retry instructions and are never serialized. Their exception graphs
+and failed objects remain process-local ownership, not an external recovery or
+physical-resource certificate.
 
 ## Timeout and failure handling
 
@@ -158,27 +211,32 @@ drain. Existing close failures keep their actual connection and original body,
 transaction and close exceptions; subsequent calls raise fresh poison wrappers
 without retrying that close or reopening the store. A zero active-call count
 alone cannot create or resume a fence after failed close. The implementation
-does not keep a registry of successful connections or inspect GC/weakrefs.
+does not keep a registry of successful connections/cursors or inspect GC/weakrefs.
 
 ## Exact proof limit
 
 Each token certifies that the issuing owner's **admitted connection-operation
 scopes have drained** and their close calls returned without a recorded failure.
-It does not certify physical SQLite/OS handle closure. CPython uses
-`sqlite3_close_v2`; a retained unfinished cursor/statement can keep SQLite
-resources alive after a successful close return. See the
+Ordinary service statements additionally close their known explicitly owned
+cursors within those scopes. The token still does not certify physical SQLite/
+OS handle closure. CPython uses `sqlite3_close_v2`; an unfinished cursor created
+through a raw/private bypass can keep SQLite resources alive after a successful
+connection close return. See the
 [SQLite close contract](https://www.sqlite.org/c3ref/close.html),
 [CPython 3.12 connection implementation](https://raw.githubusercontent.com/python/cpython/v3.12.13/Modules/_sqlite/connection.c)
 and [cursor implementation](https://raw.githubusercontent.com/python/cpython/v3.12.13/Modules/_sqlite/cursor.c).
-No GC, cursor registry, pointer inspection or rename success is substituted for
+No GC, successful-resource registry, pointer inspection or rename success is substituted for
 that missing resource-lifetime boundary.
 
 Ordinary TranscriptStore methods return materialized rows/models/scalars,
 consume multirow queries, and do not expose a cursor. Its private connection
 factory/scope is not a containment boundary against arbitrary Python code.
-Exception tracebacks or an explicitly retained private cursor can retain
-resources; explicit cursor/resource lifetime remains a separate prerequisite
-before physical store detach. A method with multiple connection scopes may be
+An owned cursor is already explicitly closed even if its Python reference or
+body traceback remains retained. Raw/private `connection.execute/cursor` clients
+can bypass that statement mechanism; their tracebacks or escaped cursors remain
+outside the known-cursor claim. Future blob/backup or other resource types need
+explicit lifetime rather than inheriting a cursor guarantee. Physical Windows
+store detach remains separately unverified. A method with multiple connection scopes may be
 between them when freeze succeeds; its next scope is refused. The fence does
 not certify that every outer public method invocation has returned. The same
 private-cursor/traceback limitation applies to Lexirise SQL scopes, pins and
@@ -247,13 +305,133 @@ retry failed SQL close, replace the failed key or reset the registry. Retention
 depends on the living Runtime/raised failure; this supplies no external startup-
 failure or process-death lifetime guarantee.
 
-This owner covers creation/return through Runtime and those readers' actual
-worker/callback pools. It does not count an escaped reader's arbitrary direct
-SQL/HTTP work, freeze its SQL owner, close every physical SQLite cursor/resource,
-or mint a `RuntimeDataFence` or `WriterStopProof`. Independent readers, global
+This creation/pool boundary alone does not count an escaped reader's arbitrary
+direct SQL/HTTP work, close every physical SQLite resource or mint a
+`RuntimeDataFence` or `WriterStopProof`. The separate SQL composition below
+counts admitted SQL scopes of every retained reader. Independent readers, global
 dynamic writers, keeper death, mutable-root detach and warm routing remain
 separate requirements. Existing C5 constructor interception retains exactly its
 three actual store opens, with no successful-connection registry or new SQL.
+
+## Concrete Runtime SQL composition
+
+The existing strict `quiesce_writers` path first closes request and reader
+creation admission, drains requests and the existing export/setup/update/map/
+reading/capture/voice producers, settles final publication coroutines, and
+preserves the existing live-Hito refusal. Only then does its retained blocking
+SQL step reserve the actual TranscriptStore/lifetime, the single Lexirise
+root/pin owner and all retained default/cached ready Reading owners. A partial
+constructor remains a refusal; the cache view or database pathname cannot
+replace the registry's actual records. Different readers at the same pathname
+remain different SQL owners. Root/pins share one owner.
+
+Runtime installs a private actual-object handoff record before reservation can
+fail. Registry metadata retains its exact record/member set and stopped epoch.
+Each owner's expected epoch is captured before the first freeze, and the owner
+binds its actual retained Runtime/registry member as the private controller under
+its serialization lock. An integer epoch or matching closed/pending metadata
+does not grant control: a different public controller's pending timeout is a
+refusal. Every member is reserved before the first freeze. Each returned
+canonical token is stored immediately, bound to its actual owner/subject and
+reserved epoch. Ordinary strict response data remains the existing CaptureHandoff: these
+private records never become wire data, a RuntimeDataFence or copy permission.
+
+One monotonic deadline starts before Runtime lifecycle-lock acquisition and
+covers request admission/drain metadata, registry/owner locks and the complete
+strict SQL phase. Request metadata stop and bounded polling run in retained
+blocking handoff steps, so a condition-lock holder cannot block the event loop
+or obtain a new budget before the first producer drain. SQL freeze/check/resume
+use private absolute-deadline helper primitives; public per-store timeout and
+zero-poll semantics remain intact outside a retained Runtime controller. During
+that reservation, competing public freeze/resume calls refuse. An opaque public
+entry epoch also retires a public call queued before reservation, even if that
+call acquires serialization after final Runtime admission. No Runtime call uses
+an unbounded token check.
+Registry locks protect only metadata: SQL, HTTP and pool work run outside them.
+
+Failure issues no aggregate success. Partial tokens, actual objects, original
+errors and actual tasks stay owned while request/creation admission is closed.
+A failure before the initial metadata stop can leave admission unchanged; it
+has not performed quiescence, and explicit recovery first closes/drains that
+boundary. A clean pending SQL retry continues the same retained cohort/epoch,
+without rerunning producers or rotating a retained registry SQL epoch. It can
+observe an operation which actually finished; it never retries failed close.
+SQL owners which have not reached freeze, or which partially resumed, need not
+all have closed admission on a failed attempt. No copy/barrier claim follows.
+
+Recovery closes/drains request and creation admission before native-stop/SQL
+recovery. It completes pending freezes, then checks every canonical token before
+resuming any SQL owner. Successful member resumes are recorded immediately and
+never resubmitted after a later member/activation failure. Every resumed owner
+must match its actual old issued token, its expected old epoch plus one, clean
+failures and accepting admission. The helper keeps only the latest actual
+resumed-token identity checkpoint, not a token history or connection registry.
+Neither a matching fabricated token nor a newly observed epoch is adopted.
+If an operation changed the owner and then failed before returning its result,
+that unknown progress remains unavailable here rather than reconstructed from
+the owner's current fence/metadata. This also applies to a lost reservation
+result: its already-bound controller is not silently adopted on retry.
+
+All SQL recovery finishes before producer pools, capture/update activation and
+final reader/HTTP admission. Producer pool recovery also remains an actual
+retained blocking step. A later activation failure keeps the SQL progress record
+so retry checks post-resume ownership instead of submitting stale tokens again.
+The actual controller binding stays retained through final admission. Runtime
+acquires all owner serialization locks with the same deadline before acquiring
+registry/request metadata. It then checks the canonical post-resume state with
+a locked helper which never reacquires the non-reentrant serialization lock.
+All fallible checks and lock acquisition finish before reader/request admission
+opens; controller/record retirement afterward only installs already-prepared
+metadata while those owner locks stay held. This prevents a competing public
+freeze between the last owner check and final admission. No SQL, HTTP or pool
+work runs under the registry lock. A failed final lock acquire preserves every
+controller and closed request/creation admission. Existing capture-only source
+handoff/activation does not opt in.
+
+This composes only the known SQL owners and existing producer ordering. It does
+not settle settings/account/language files, external export-volume work or all
+dynamic/native resources. No actual Windows os.replace/rename of .db/WAL/SHM
+files is proved by these tests. Native known-scope replacement belongs with the
+next coherent populated-copy/adaptor validation unit. Physical Windows detach/
+reopen, complete mutable-root fencing, warm OCR and installed-client acceptance
+remain unverified.
+
+## Frozen language-preparation registry default
+
+`LanguagePreparation(path=None)` uses the discovered bundle `settings_root`
+for `languages.json` and its existing `languages.requests.json` companion.
+This binds the default before constructor reads and keeps the existing JSON
+format and pending-file replacement behavior. An explicit `path` bypasses
+layout discovery and remains unchanged. The existing canonical `sys.frozen`
+flag chooses validated bundle discovery; environment root variables do not
+turn source code into a bundle. Source mode directly retains its exact
+`LOCALAPPDATA` / `Proxy Transcript/languages.json` calculation, including the
+existing `.` fallback when that environment variable is absent or empty.
+Invalid bundle discovery refuses instead of reading a different host registry.
+Source does not acquire a new layout-validation gate before its legacy default:
+an empty `LOCALAPPDATA` still works even when the separate source layout resolver
+rejects a relative settings root. Tests exercise the real source resolver and
+an authored frozen manifest/root set, including missing-root and invalid-manifest
+refusal without falling back to host state.
+
+The default belongs in this service: Runtime construction, `selected_snapshot`
+and both export `prepare_source` selection-generation reconstructions create it
+without a path. The mobile-export worker reaches these defaults through
+`prepare_source`; index/language-build workers do not construct the registry.
+All these callers therefore use the same explicit frozen settings root,
+including the generation check after switching a selection away and back.
+An unselected bundle account cannot borrow a selection from the host registry.
+
+This does not move files, change game/language choices, add a JSON-operation
+fence, authorize migration or repair an unreadable named account. The existing
+host `%LOCALAPPDATA%/Programs/Proxy Transcript/accounts.dpapi` locator stays
+unchanged, as required by the [R18 host contract](r18-storage-host-contract.md).
+Local tests use real owned temporary registry/request writes, reconstruction
+and selection. An in-process mobile-export worker uses the actual selection
+and generation code with strict account/settings/asset-metadata, lock and export
+boundary mocks. Host registry/request/protected-store sentinel bytes remain
+unchanged. These are path/consumer source tests, not frozen bootstrap, real
+account/DPAPI, game extraction, mobile transfer or native installation proof.
 
 ## Validation
 
@@ -268,6 +446,8 @@ live, with no token and admission still closed.
 An actual SQLite negative case retains an unfinished private cursor and shows
 that a valid token can coexist with an independent exclusive-lock refusal;
 fixture disposal is not used as product resource-release evidence.
+That raw-private negative remains alongside the new positive owned-statement
+case; it is not evidence of an ordinary public API race.
 The existing Chinese/Hito/body/transaction/early-return tests remain applicable.
 The [Lexirise lifetime tests](../backend/tests/test_lexirise_lifetime.py) exercise
 real deferred transaction and close faults, original exception retention,
@@ -297,4 +477,41 @@ cached worker/callback shutdown. Existing handoff, cancellation and update-start
 fixtures explicitly provide this producer; production has no missing-registry
 fallback. A cancelled handoff test keeps the actual creation thread and drain
 task owned. Source tests also preserve the exact three-store C5 factory boundary.
+The [owned statement tests](../backend/tests/test_sqlite_operation_resources.py)
+retain actual cursors and body tracebacks while independently checking local
+SQLite locks, and hold cursor-close calls on Events before connection close.
+They exercise execute failure before a result is handed over, failure before
+cursor-factory handover, actual deferred commit and denied rollback, both cleanup
+faults together, falsey exceptions and repeated poison without close retry.
+A same-class/equal-fields imitation error is deliberately equal to an issued
+failure but cannot authorize body-error unwrapping. Root/pin poison is shared;
+Reading read contexts remain nontransactional. Strict mock HTTP checks that
+ledger cursors close before network work and intermediate commits remain.
+Failed fixture disposal happens only after assertions and is not product
+cleanup/retry evidence. Native Windows physical release remains unverified.
+The [Runtime SQL tests](../backend/tests/test_runtime_sql_lifetime.py) use actual
+temporary stores, root/pins, default/multiple readers and reader/voice pools.
+Event-controlled producers exercise final SQL bookkeeping, a still-owned SQL
+scope, late metadata contention, a retired constructor and cancelled handoff
+waiters. Tests cover partial freeze/resume, lost transition results, final
+activation retry, canonical/foreign tokens, unexpected post-resume epochs,
+omitted members/defaults, poison/no close retry and a fresh second cohort.
+The partial-freeze retry case waits for the real last owner's admission stop
+while its SQLite scope and retained handoff task remain live, then uses a
+test-only module-local helper clock to expire the received absolute deadline.
+The shared time module and asyncio clock remain real. It does not
+infer that phase from a short whole-Runtime timeout; separate metadata/lifecycle
+tests cover the total timeout budget. Production deadlines are unchanged; this
+controlled source test adds no native or measured default-30-second evidence.
+Controller regressions cover a different public timed-out stop, a lost actual
+reservation result, an already-queued public call delayed through Runtime
+activation, and a concurrent public freeze at the final admission boundary.
+Holding a final owner serialization lock through the deadline leaves all
+controllers retained and request/creation admission closed without a lock leak.
+An actual request-gate condition holder keeps its lock through the caller's
+deadline while the event loop stays responsive. The native-cleanup test uses
+an explicit adapter, not a native call, and checks one shared recovery deadline.
+Earlier producer-only fixtures explicitly adapt the new boundary rather than
+giving production a missing-owner fallback. Real credentials/transport/default
+Runtime roots remain forbidden in the actual SQL cohort.
 These are local source regressions, not native Windows or full R19 acceptance.

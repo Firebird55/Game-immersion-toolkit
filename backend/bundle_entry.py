@@ -29,14 +29,15 @@ def main(arguments=None):
                                '--headless', '--no-browser', '--host-check', '--request-quit', '--ui-probe'}:
         from backend.desktop_host import launch as desktop_main
         return desktop_main(args)
-    if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api', 'api-wal', 'api-grammar', 'host'}:
+    if len(args) == 2 and args[0] == '--runtime-probe' and args[1] in {'native', 'asr', 'api', 'api-wal', 'api-grammar', 'api-populated', 'host'}:
         layout = discover_layout()
         if layout.mode != 'bundle' or layout.profile not in {'runtime', 'runtime-experiment'}:
             raise RuntimeBundleError('Runtime probes require a complete frozen runtime profile.')
-        if args[1] in {'api-wal', 'api-grammar', 'host'} and layout.profile != 'runtime-experiment':
+        if args[1] in {'api-wal', 'api-grammar', 'api-populated', 'host'} and layout.profile != 'runtime-experiment':
             raise RuntimeBundleError('This fixed probe requires the separate experimental profile.')
         asr_image = layout.executable.name.casefold() in {'gameimmersiontoolkitasr.exe', 'gameimmersiontoolkitasr'}
-        if asr_image != (args[1] == 'asr'):
+        main_image = layout.executable.name in {'GameImmersionToolkit.exe', 'GameImmersionToolkit'}
+        if (not asr_image and not main_image) or asr_image != (args[1] == 'asr'):
             raise RuntimeBundleError('Probe must use its isolated runtime image.')
         # Keep the stdlib diagnostic/frontend and ASR analyses independent of
         # the main probe's native imports; experimental specs collect these

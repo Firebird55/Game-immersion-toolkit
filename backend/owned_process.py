@@ -8,6 +8,7 @@ reconstruct ownership from a PID file or from a route record.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 from pathlib import Path
 import select
@@ -21,7 +22,15 @@ import time
 class OwnedProcess:
     def __init__(self, command, *, cwd=None, env=None, stdin=subprocess.PIPE,
                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=False, visible_console=False,
-                 show_window=False, independent_session=False, retained_fds=()):
+                 show_window=False, independent_session=False, retained_fds=(), parent_control=False):
+        if type(parent_control) is not bool:
+            raise TypeError('Parent control mode must be a boolean.')
+        self._parent_control = parent_control
+        self._parent_errors = []
+        self._parent_io_threads = ()
+        self._parent_stopped = False
+        self._parent_closed = []
+        self._parent_constructed = False
         self.tree = None
         self._guardian = False
         self._control = None
@@ -29,7 +38,7 @@ class OwnedProcess:
         self.process = None
         try:
             options = dict(cwd=cwd, env=env, stdin=stdin, stdout=stdout, stderr=stderr,
-                           text=text, bufsize=1 if text else -1)
+                           text=text, bufsize=0 if parent_control else 1 if text else -1)
             if text:
                 options.update(encoding='utf-8', errors='replace')
             if os.name == 'nt' and (independent_session or retained_fds):
@@ -39,7 +48,11 @@ class OwnedProcess:
                 import ctypes
                 import msvcrt
                 from .windows_preparation_process import _kernel, _check, WindowsPreparationProcess
-                self.tree = WindowsPreparationProcess()
+                if parent_control:
+                    self.tree = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
+                    WindowsPreparationProcess.__init__(self.tree)
+                else:
+                    self.tree = WindowsPreparationProcess()
                 image = ctypes.create_unicode_buffer(32768)
                 if _check(_kernel().GetModuleFileNameW(None, image, len(image))) >= len(image):
                     raise OSError('Windows guardian image path was truncated.')
@@ -54,7 +67,7 @@ class OwnedProcess:
                     for handle in handles:
                         os.set_handle_inheritable(handle, True)
                     extra = [part for handle in retained_fds for part in ('--retain-handle', str(handle))]
-                    self.process = subprocess.Popen([*bootstrap, '--windows-parent-handle', str(read_handle),
+                    self.process = self._parent_spawn([*bootstrap, '--windows-parent-handle', str(read_handle),
                         '--guardian-job', self.tree.name, *extra, '--', *command],
                         creationflags=subprocess.CREATE_NO_WINDOW, startupinfo=startup, close_fds=True, **options)
                     self._guardian = True
@@ -67,8 +80,12 @@ class OwnedProcess:
                 options['env'] = {**(os.environ if env is None else env),
                     'PROXY_TRANSCRIPT_CHILD_CONSOLE': '1' if visible_console else '0',
                     'PROXY_TRANSCRIPT_CHILD_SHOW_WINDOW': '1' if show_window else '0'}
-                self.tree = WindowsPreparationProcess()
-                self.process = subprocess.Popen(self.tree.command(command),
+                if parent_control:
+                    self.tree = WindowsPreparationProcess.__new__(WindowsPreparationProcess)
+                    WindowsPreparationProcess.__init__(self.tree)
+                else:
+                    self.tree = WindowsPreparationProcess()
+                self.process = self._parent_spawn(self.tree.command(command),
                     creationflags=subprocess.CREATE_NO_WINDOW, **options)
             else:
                 read_fd, self._control = os.pipe()
@@ -84,12 +101,16 @@ class OwnedProcess:
                     nested = not independent_session and inherited == str(os.getsid(0))
                     retained = tuple(int(fd) for fd in retained_fds)
                     extra = [part for fd in retained for part in ('--retain-fd', str(fd))]
-                    self.process = subprocess.Popen([*bootstrap, '--parent-fd', str(read_fd), *extra, '--', *command],
+                    self.process = self._parent_spawn([*bootstrap, '--parent-fd', str(read_fd), *extra, '--', *command],
                         pass_fds=(read_fd, *retained), start_new_session=not nested,
                         **({'process_group': 0} if nested else {}), **options)
                 finally:
                     os.close(read_fd)
-        except BaseException:
+            self._parent_constructed = True
+        except BaseException as error:
+            if parent_control:
+                self._parent_errors.append(error)
+                raise
             if self.tree:
                 self.tree.close()
             if self._control is not None:
@@ -97,7 +118,52 @@ class OwnedProcess:
                 self._control = None
             raise
 
+    def _parent_spawn(self, *args, **kwargs):
+        if not self._parent_control:
+            return subprocess.Popen(*args, **kwargs)
+        self.process = subprocess.Popen.__new__(subprocess.Popen)
+        subprocess.Popen.__init__(self.process, *args, **kwargs)
+        return self.process
+
+    def _parent_healthy(self):
+        if self._parent_errors or not self._parent_constructed:
+            raise RuntimeError('Parent process ownership or cleanup is unconfirmed.') from (
+                self._parent_errors[0] if self._parent_errors else None)
+
+    def _parent_stop(self, timeout):
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
+            raise ValueError('Parent stop requires a finite nonnegative budget.')
+        self._parent_healthy()
+        deadline = time.monotonic() + timeout
+        if not self._lock.acquire(timeout=max(0, deadline-time.monotonic())):
+            raise TimeoutError('Parent stop is still owned.')
+        try:
+            self._parent_healthy()
+            if self._parent_stopped:
+                return self.process.returncode
+            # Close the separate watchdog liveness endpoint first. Never close
+            # an input stream concurrently with an unresolved control writer.
+            if self._control is not None:
+                os.close(self._control)
+                self._control = None
+            self.process.wait(timeout=max(0, deadline-time.monotonic()))
+            if self.tree is not None:
+                self.tree.terminate(timeout=max(0, deadline-time.monotonic()))
+                self.tree.close()
+                self.tree = None
+            if self.process.returncode == 125 or self.process.returncode < 0:
+                raise RuntimeError('Parent owned process cleanup is unconfirmed.')
+            self._parent_stopped = True
+            return self.process.returncode
+        except BaseException as error:
+            self._parent_errors.append(error)
+            raise
+        finally:
+            self._lock.release()
+
     def poll(self):
+        if self._parent_control:
+            self._parent_healthy()
         return self.process.poll()
 
     def stop(self, timeout=10):
@@ -106,6 +172,8 @@ class OwnedProcess:
         A timeout retains the ownership object and raises. Callers must not
         start a replacement, release their instance lease or claim a drain.
         """
+        if self._parent_control:
+            return self._parent_stop(timeout)
         with self._lock:
             deadline = time.monotonic() + timeout
             process = self.process
@@ -145,6 +213,20 @@ class OwnedProcess:
             return process.returncode
 
     def close_streams(self):
+        if self._parent_control:
+            self._parent_healthy()
+            if not self._parent_stopped or any(t.is_alive() for t in self._parent_io_threads):
+                raise RuntimeError('Parent IO attempts have not finished; streams remain owned.')
+            for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+                if stream is None or any(stream is seen for seen in self._parent_closed):
+                    continue
+                self._parent_closed.append(stream)
+                try:
+                    stream.close()
+                except BaseException as error:
+                    self._parent_errors.append(error)
+                    raise
+            return
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             if stream is not None and not stream.closed:
                 stream.close()

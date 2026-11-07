@@ -14,7 +14,7 @@ on:
       source_replay:
         description: Run one separate quarantined R19 experiment only
         type: choice
-        options: [none, ffmpeg-opus, sherpa-asr, msvc-redist-census, legacy-lock-attribute]
+        options: [none, ffmpeg-opus, ffmpeg-mp3, sherpa-asr, msvc-redist-census, legacy-lock-attribute]
         default: none
       observer_contract_only:
         description: Run only PowerShell observer and guardian contracts (no runtime build)
@@ -41,7 +41,7 @@ jobs:
           R19_CODEC_ONLY: ${{ inputs.codec_source_only && 'true' || 'false' }}
         run: |
           set -euo pipefail
-          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|sherpa-asr|msvc-redist-census|legacy-lock-attribute) ;; *) exit 1 ;; esac
+          case "$R19_SOURCE_REPLAY" in none|ffmpeg-opus|ffmpeg-mp3|sherpa-asr|msvc-redist-census|legacy-lock-attribute) ;; *) exit 1 ;; esac
           selected=0
           if [[ "$R19_SOURCE_REPLAY" != none ]]; then selected=$((selected+1)); fi
           if [[ "$R19_OBSERVER_ONLY" == true ]]; then selected=$((selected+1)); fi
@@ -54,6 +54,10 @@ jobs:
     needs: validate-selection
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-opus' }}
     uses: ./.github/workflows/r19-game-codec-replay.yml
+  mp3-codec-source-observation:
+    needs: validate-selection
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'ffmpeg-mp3' }}
+    uses: ./.github/workflows/r19-mp3-codec-replay.yml
   asr-source-replay:
     needs: validate-selection
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.source_replay == 'sherpa-asr' }}
@@ -202,13 +206,13 @@ jobs:
             const after = captureSourceSnapshot();
             if (after.sourceStatus !== 'available' || before.head !== after.head || before.sourceHash !== after.sourceHash || !clean() || child.error || child.signal || ![0,2].includes(child.status)) refuse();
             let value; try {value=JSON.parse(child.stdout);} catch {refuse();}
-            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v4',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
+            const fixed={schema:'proxy-r19-legacy-lock-attribute-mechanism-v5',scope:'authored-local-ntfs-no-writers-mechanism',candidate_data_writers:0,production_allowed:false,keeper_loss_acceptance:false,rights_approval:false,native_windows_11_acceptance:'unavailable',r19_complete:false};
             const keys=[...Object.keys(fixed),'status','phase','failure','legacy_source_sha256','observed','timestamp_equalities','cleanup','baseline_checkpoint','grant_conversion_failure'].sort();
             if (!value || typeof value !== 'object' || Array.isArray(value) || JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(keys)) refuse();
             for (const [key,expected] of Object.entries(fixed)) if (value[key] !== expected) refuse();
             const phases=['fixture','legacy-baseline','lease-start','arm','live-clear','rearm','owner-loss','post-loss','test-restore','restored','cleanup','complete'];
             const failures=['none','unsupported-host','fixture-refused','native-call-failed','protocol-refused','source-changed','preservation-refused','legacy-outcome-differed','owned-cleanup-unconfirmed','unexpected-failure'];
-            const hashes=['c0cb1b456c029e8cb843501ffaf17cf2b054bdfecad8e788dd35d9a85ae2d3ef','f9469ccb51c99b814a615e66eb9b337e8b1ba8598a0fd794dbe420c8be4c8e9e'];
+            const hashes=['c3735131417eb01d93e5fb19138f64997bf771a0b4d5f913d7b4f08aef0f350f','9c05279ddeea90b7a2fb4cd7f917ad44ca798e98b693276ea5455ff547350056'];
             const observations=['writable-open','exclusive-held','arm','live-clear','rearm','genuine-owner-signaled-and-closed','post-loss-readonly-refused','restored-open'];
             const times=['arm','live-clear','rearm','post-loss','test-restore','restored'];
             const fields=['access_equal','change_equal','creation_equal','write_equal'];
@@ -223,17 +227,9 @@ jobs:
             for (const [key,allowed] of Object.entries(checkpointValues)) if (typeof checkpoint[key] !== 'string' || !allowed.includes(checkpoint[key])) refuse();
             const passed=value.status === 'mechanism-observed';
             if (child.status !== (passed ? 0 : 2)) refuse();
-            const conversion=value.grant_conversion_failure;
-            if (conversion !== null) {
-              const conversionKeys=['category','chain_end','exceptions','line'];
-              const families=['command-not-found','parameter-binding','cmdlet-invocation','type-initialization','argument-null','argument','unknown'];
-              const categories=['NotSpecified','OpenError','CloseError','DeviceError','DeadlockDetected','InvalidArgument','InvalidData','InvalidOperation','InvalidResult','InvalidType','MetadataError','NotImplemented','NotInstalled','ObjectNotFound','OperationStopped','OperationTimeout','SyntaxError','ParserError','PermissionDenied','ResourceBusy','ResourceExists','ResourceUnavailable','ReadError','WriteError','FromStdErr','SecurityError','ProtocolError','ConnectionError','AuthenticationError','LimitsExceeded','QuotaExceeded','NotEnabled','unknown'];
-              if (!conversion || typeof conversion !== 'object' || Array.isArray(conversion) || JSON.stringify(Object.keys(conversion).sort()) !== JSON.stringify(conversionKeys)) refuse();
-              if (!['null','empty','nonempty'].includes(conversion.line) || !['complete','truncated','unknown'].includes(conversion.chain_end) || !categories.includes(conversion.category)) refuse();
-              if (!Array.isArray(conversion.exceptions) || conversion.exceptions.length > 8 || conversion.exceptions.some(item=>typeof item !== 'string' || !families.includes(item))) refuse();
-              if ((conversion.chain_end === 'complete' && conversion.exceptions.length === 0) || (conversion.chain_end === 'truncated' && conversion.exceptions.length !== 8)) refuse();
-              if (passed || value.phase !== 'legacy-baseline' || checkpoint.parent_step !== 'receive-script-progress' || checkpoint.script_step !== 'grantread' || value.observed.length !== 0 || Object.keys(equalities).length !== 0 || !hashes.includes(value.legacy_source_sha256) || !['protocol-refused','owned-cleanup-unconfirmed'].includes(value.failure) || value.cleanup !== 'unconfirmed-fixture-retained') refuse();
-            }
+            // V5 has no JSON grant conversion. Historical v4 contexts cannot
+            // be relabelled as evidence from the canonical-frame producer.
+            if (value.grant_conversion_failure !== null) refuse();
             if (passed && (value.phase !== 'complete' || value.failure !== 'none' || value.cleanup !== 'owned-handles-closed-fixture-retained' || !hashes.includes(value.legacy_source_sha256) || value.observed.length !== observations.length || Object.keys(equalities).length !== times.length || Object.values(equalities).some(item=>!item.creation_equal || !item.write_equal))) refuse();
             const binding={schema:'proxy-r19-legacy-lock-attribute-ci-binding-v1',source_commit:before.head,source_before_sha256:before.sourceHash,source_after_sha256:after.sourceHash,source_clean:true,build_host_python:'3.12.10',mechanism:value};
             for (const directory of ['output','output/checks']) {
@@ -384,6 +380,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Provisioned dependency closure is inconsistent.' }
           "PYTHON=$python" >> $env:GITHUB_ENV
           "R19_EVIDENCE=$evidence" >> $env:GITHUB_ENV
+      - name: Check the populated-state projector and exclusive metadata sink
+        # Authored parser/file-sink checks only; no runtime or lease is started.
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/test-populated-state-harness.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Populated-state control or publication contracts failed.' }
       - name: Build static frontend and run affected contracts
         shell: pwsh
         run: |
@@ -394,6 +396,7 @@ jobs:
           node --test tests/companion-router.test.mjs tests/source-delivery-publication.test.mjs
           if ($LASTEXITCODE -ne 0) { throw 'Router ownership/source delivery boundaries failed.' }
           $contracts = @(
+            'runtime_source_inputs',
             'runtime_bundle', 'runtime_composition', 'runtime_experiment', 'desktop_frontend',
             'prebuilt_readers', 'prebuilt_node_reader', 'blocked_game_helpers', 'prebuilt_codecs',
             'native_collection_provenance', 'native_images', 'native_image_collection', 'runtime_build_environment',
@@ -406,7 +409,9 @@ jobs:
             'diagnostic_notice_delivery', 'flatbuffers_notices', 'guarded_slot_probe',
             'bundle_host', 'bundle_migration', 'runtime_data_copy_probe', 'storage',
             'hito_storage', 'lexirise_lifetime', 'reading_lifetime',
-            'runtime_readers', 'game_update_schedule'
+            'runtime_readers', 'game_update_schedule', 'threaded_http_producers',
+            'sqlite_operation_resources', 'runtime_sql_lifetime', 'populated_state_copy',
+            'mp3_codec_replay', 'mp3_cli_ownership'
           ) | ForEach-Object { "backend/tests/test_$_.py" }
           & $env:PYTHON -B -m pytest -q @contracts
           if ($LASTEXITCODE -ne 0) { throw 'Affected frozen boundaries failed.' }
@@ -525,6 +530,22 @@ jobs:
           path: output/checks/r19-frozen-data-copy-grammar.json
           if-no-files-found: ignore
           retention-days: 7
+      - name: Copy populated authored state between two genuine frozen source cohorts
+        # A living coordinator owns both leases. TEST accounts and a fixed mock
+        # transport supply no DPAPI, activation, keeper-loss or Windows 11 proof.
+        timeout-minutes: 10
+        shell: pwsh
+        run: |
+          $relocated = Join-Path $env:RUNNER_TEMP 'R19 integrated space 漢字/Runtime'
+          ./scripts/probe-frozen-populated-state.ps1 -RuntimeRoot $relocated -Provenance (Join-Path $env:GITHUB_WORKSPACE 'output/runtime-bundle/quarantine/CANDIDATE-PROVENANCE.json') -Output (Join-Path $env:GITHUB_WORKSPACE 'output/checks/r19-frozen-populated-state-copy.json')
+      - name: Retain only sanitized populated-state failure observations
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-frozen-populated-state-copy-failure-observations
+          path: output/checks/r19-frozen-populated-state-copy.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Retain only sanitized native collection refusal
         if: ${{ failure() }}
         uses: actions/upload-artifact@v7
@@ -555,10 +576,19 @@ jobs:
             output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
           if-no-files-found: error
           retention-days: 7
+      - name: Validate required project-source evidence before publication
+        id: project_source
+        if: ${{ !cancelled() && steps.extracted_runtime_probes.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-integrated-inputs.json'
+          $result = @(& $env:PYTHON -B packaging/runtime-bundle/closure.py source-check --inputs $inputs --evidence $env:R19_EVIDENCE --output output/runtime-bundle/quarantine)
+          if ($LASTEXITCODE -ne 0 -or $result.Count -ne 1 -or $result[0] -cne 'R19_SOURCE_INPUTS_VALIDATED') { throw 'Required project-source observation is unavailable.' }
+          'validated=true' >> $env:GITHUB_OUTPUT
       - name: Upload public source kit and sanitized metadata only
         # Preserve completed earlier observations if keeper or copy fails.
         # Artifact presence never upgrades the workflow or a failed receipt.
-        if: ${{ !cancelled() && steps.extracted_runtime_probes.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.extracted_runtime_probes.outcome == 'success' && steps.project_source.outputs.validated == 'true' }}
         uses: actions/upload-artifact@v7
         with:
           name: r19-integrated-runtime-metadata
@@ -571,11 +601,13 @@ jobs:
             output/checks/r19-frozen-data-copy-resume.json
             output/checks/r19-frozen-data-copy-wal.json
             output/checks/r19-frozen-data-copy-grammar.json
+            output/checks/r19-frozen-populated-state-copy.json
             output/runtime-bundle/build-check.json
             output/runtime-bundle/quarantine/RUNTIME-INVENTORY.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION-INPUTS.json
             output/runtime-bundle/quarantine/NATIVE-COLLECTION.json
             output/runtime-bundle/quarantine/NATIVE-IMAGES.json
+            output/runtime-bundle/quarantine/RUNTIME-SOURCE-INPUTS.json
             output/reference-codec/codec-sources.zip
           if-no-files-found: error
           retention-days: 7

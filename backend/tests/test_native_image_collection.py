@@ -93,6 +93,12 @@ def test_write_candidate_mandatorily_runs_real_image_review_after_inventory_and_
             'production_execution_allowed': False, 'r19_complete': False}
     monkeypatch.setattr(case.closure, 'validate_codec_output', codec_not_tested)
     monkeypatch.setattr(case.closure, 'validate_native_collection', source_provenance_not_tested)
+    # This fixture owns actual PE parsing, not the separate project-origin map.
+    # The mandatory source pipeline/refusals are exercised with Analysis inputs
+    # in test_runtime_source_inputs; this stub emits no source acceptance file.
+    recorder = importlib.import_module('record_runtime')
+    monkeypatch.setattr(recorder, 'finalize_project_sources',
+        lambda *_: {'status': 'source-map-not-tested'})
     actual = case.images.inspect_pe; calls = []
     def inspect(raw):
         assert case.manifest.is_file(), 'The existing final inventory must be written first'
@@ -107,6 +113,7 @@ def test_write_candidate_mandatorily_runs_real_image_review_after_inventory_and_
     inventory = json.loads(case.manifest.read_bytes())
     assert all(set(row) == {'path', 'bytes', 'sha256'} for row in inventory['files'])
     assert not any('NATIVE-IMAGES' in row['path'] for row in inventory['files'])
+    assert not (case.output / recorder.SOURCE_PUBLIC).exists()
 
 
 @pytest.mark.parametrize('kind,code', [('x86', 'unsupported-architecture'), ('malformed', 'malformed-pe')])

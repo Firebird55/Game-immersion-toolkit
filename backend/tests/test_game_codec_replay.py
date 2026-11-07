@@ -179,7 +179,9 @@ class ReplayTrustTests(unittest.TestCase):
         self.project = self.root / 'project'; self.project.mkdir()
         for name in replay.PROJECT_INPUTS:
             path = self.project / name; path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('authored project fixture')
+            # The scoped grant identifies actual project copies, never invented
+            # fixture contents. Native/source archives below remain authored.
+            path.write_bytes((ROOT / name).read_bytes())
 
     def fixture(self, extra=None, source_bytes=b'authored source', notice=b'original authored notice'):
         archive = self.inputs / 'owned.tar.xz'
@@ -190,11 +192,14 @@ class ReplayTrustTests(unittest.TestCase):
         options = b'# Original authored options\n--disable-everything\n--enable-libopus\n'
         (self.inputs / 'vgmstream-ffmpeg_options.txt').write_bytes(options)
         pin = {'sources': [{'component': 'owned', 'root': 'owned-1', 'filename': archive.name,
+                           'bytes': archive.stat().st_size,
                            'sha256': replay.digest(archive.read_bytes())}],
             'original_recipes': [{'filename': 'vgmstream-ffmpeg_options.txt', 'path': 'options',
+                                  'bytes': len(options),
                                   'download': 'https://example.invalid/original', 'sha256': replay.digest(options)}],
             'notices': [{'component': 'owned', 'path': 'COPYING', 'sha256': replay.digest(b'original authored notice')}],
-            'build_tools': [], 'adaptations': ['authored fixture only'], 'licensing_boundary': {'approved': False}}
+            'build_tools': [], 'adaptations': ['authored fixture only'], 'licensing_boundary': {'approved': False},
+            'project_recipe_license': json.loads(json.dumps(replay.PROJECT_LICENSE))}
         return pin
 
     def prepare(self, pin, output):
@@ -605,6 +610,113 @@ printf '%s %s\\n' "$original_status" "$variant_status"
         with patch.object(replay, 'policy', return_value=pin): replay.verify_sources(output)
         (output / 'upstream/owned-1/own.c').write_bytes(b'changed')
         with patch.object(replay, 'policy', return_value=pin), self.assertRaisesRegex(ValueError, 'changed the original'):
+            replay.verify_sources(output)
+
+    def test_effective_grant_and_exact_six_final_copies_are_delivered_without_new_approval(self):
+        pin = self.fixture(); output = self.root / 'licensed'; self.prepare(pin, output)
+        kit = output / 'source-review'
+        self.assertEqual((kit / 'project-orchestration' / replay.BSD_GRANT).read_bytes(),
+                         (ROOT / replay.BSD_GRANT).read_bytes())
+        covered = json.loads((kit / replay.BSD_COPIES).read_text())
+        self.assertEqual(set(covered['copies']), set(replay.BSD_BASELINES))
+        self.assertEqual(len(covered['copies']), 6)
+        self.assertEqual(covered['project_recipe_license'], replay.PROJECT_LICENSE)
+        for name, row in covered['copies'].items():
+            raw = (kit / 'project-orchestration' / name).read_bytes()
+            self.assertEqual(row['sha256'], replay.digest(raw))
+            self.assertEqual(row['canonical_lf_sha256'], replay.digest(raw.replace(b'\r\n', b'\n')))
+            self.assertEqual(row['approved_baseline_lf_sha256'], replay.BSD_BASELINES[name])
+        for name in ('LICENSE', 'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py'):
+            self.assertNotIn(name, covered['copies']); self.assertIn(name, covered['excluded_project_inputs'])
+        self.assertNotIn(replay.BSD_GRANT, covered['copies'])
+        for key in ('source_delivery_approved', 'runtime_collection_allowed', 'production_execution_allowed', 'r19_complete'):
+            self.assertIs(covered[key], False)
+        self.assertEqual(len(replay.PROJECT_INPUTS), 10)
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
+            replay.verify_sources(output)
+
+    def test_final_copy_identity_changes_without_a_circular_notice_pin_and_accepts_checkout_crlf(self):
+        pin = self.fixture(); notice = (self.project / replay.BSD_GRANT).read_bytes()
+        for name in replay.BSD_BASELINES:
+            if name != replay.VARIANT_PATCH:
+                path = self.project / name
+                path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
+        driver = self.project / 'scripts/replay-game-codec.py'
+        driver.write_bytes(driver.read_bytes() + b'\r\n# Authored recipient delivery-wiring fixture.\r\n')
+        output = self.root / 'crlf'; self.prepare(pin, output)
+        value = json.loads((output / 'source-review' / replay.BSD_COPIES).read_text())
+        row = value['copies']['scripts/replay-game-codec.py']
+        self.assertEqual(row['canonical_lf_sha256'], replay.digest(driver.read_bytes().replace(b'\r\n', b'\n')))
+        self.assertNotEqual(row['canonical_lf_sha256'], row['approved_baseline_lf_sha256'])
+        self.assertEqual((output / 'source-review/project-orchestration' / replay.BSD_GRANT).read_bytes(), notice)
+        self.assertNotIn(replay.BSD_COPIES, replay.PROJECT_INPUTS)
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project):
+            replay.verify_sources(output)
+
+    def test_missing_changed_or_expanded_grant_refuses_before_preparing_output(self):
+        for case in ('missing', 'notice-bytes', 'scope', 'float-byte-count', 'shared-helper', 'bare-cr'):
+            with self.subTest(case=case):
+                pin = self.fixture(); changed = None
+                if case == 'scope': pin['project_recipe_license']['scope'] += ';private-extra-file'
+                elif case == 'float-byte-count':
+                    pin['project_recipe_license']['grant']['bytes'] = float(pin['project_recipe_license']['grant']['bytes'])
+                else:
+                    changed = self.project / (replay.BSD_GRANT if case in {'missing', 'notice-bytes'} else
+                        'scripts/pinned-build-cmake.py' if case == 'shared-helper' else 'scripts/replay-game-codec.py')
+                    original = changed.read_bytes()
+                    if case == 'missing': changed.unlink()
+                    else: changed.write_bytes(original + (b'\r' if case == 'bare-cr' else b'changed'))
+                output = self.root / case
+                try:
+                    with self.assertRaises(ValueError): self.prepare(pin, output)
+                    self.assertFalse(output.exists())
+                finally:
+                    if changed is not None: changed.write_bytes(original)
+
+    def test_project_grant_inventory_recipe_and_boundary_tamper_are_never_accepted(self):
+        pin = self.fixture(); output = self.root / 'tamper'; self.prepare(pin, output)
+        kit = output / 'source-review'
+        for name in (replay.BSD_COPIES, 'project-orchestration/' + replay.BSD_GRANT,
+                     'project-orchestration/scripts/replay-game-codec.py', 'BOUNDARY.json'):
+            path = kit / name; original = path.read_bytes(); path.write_bytes(original + b'changed')
+            try:
+                with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+                    replay.verify_sources(output)
+            finally: path.write_bytes(original)
+        inventory = kit / replay.BSD_COPIES; original = inventory.read_bytes()
+        value = json.loads(original); value['copies']['backend/codec_fixture.py'] = dict(next(iter(value['copies'].values())))
+        inventory.write_text(json.dumps(value))
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+            replay.verify_sources(output)
+        value = json.loads(original); value['source_delivery_approved'] = 0
+        inventory.write_text(json.dumps(value))
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+            replay.verify_sources(output)
+        inventory.write_bytes(b'{"copies":"private-first-duplicate",' + original.lstrip()[1:])
+        with patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+            replay.verify_sources(output)
+
+    def test_unknown_delivery_member_refuses_before_its_metadata_or_content(self):
+        pin = self.fixture(); output = self.root / 'unknown'; self.prepare(pin, output)
+        unknown = output / 'source-review/project-orchestration/private-extra'
+        unknown.write_bytes(b'private input must not be inspected')
+        original_lstat, original_open = Path.lstat, Path.open
+        def lstat(path, *args, **kwargs):
+            if path == unknown: raise AssertionError('Unknown metadata was inspected.')
+            return original_lstat(path, *args, **kwargs)
+        def opened(path, *args, **kwargs):
+            if path == unknown: raise AssertionError('Unknown content was inspected.')
+            return original_open(path, *args, **kwargs)
+        with patch.object(Path, 'lstat', lstat), patch.object(Path, 'open', opened), patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
+            replay.verify_sources(output)
+
+    def test_delivered_project_ancestor_link_refuses_before_descendant_access(self):
+        pin = self.fixture(); output = self.root / 'linked'; self.prepare(pin, output)
+        parent = output / 'source-review/project-orchestration/packaging/codecs'
+        retained = self.root / 'retained-codecs'; parent.rename(retained)
+        try: parent.symlink_to(retained, target_is_directory=True)
+        except (OSError, NotImplementedError): self.skipTest('Authored directory symlink unavailable on this host')
+        with self.forbid_link_descendant_access(parent), patch.object(replay, 'policy', return_value=pin), patch.object(replay, 'ROOT', self.project), self.assertRaises(ValueError):
             replay.verify_sources(output)
 
     def test_changed_input_notice_or_existing_output_never_overwritten(self):

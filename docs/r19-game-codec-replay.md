@@ -126,8 +126,9 @@ ephemeral build host. The workflow uploads only:
   native imports, candidate-relative DLL origins and bounded authored probes.
 - `source-review.zip`: complete pinned source archives, unmodified original
   recipes/notices, both original and diagnostic `makedef` scripts, the exact
-  patch and its variant notice, and project orchestration with its existing
-  LICENSE and an explicit unapproved-source boundary. A passing receipt is
+  patch and its variant notice, project orchestration with its existing
+  LICENSE, the scoped additional BSD notice and final six-copy inventory, and
+  an explicit unapproved-source boundary. A passing receipt is
   written only after this archive has closed successfully.
 
 The helper and shared CMake policy are included as project recipe inputs; the
@@ -262,11 +263,67 @@ observation; this run built or executed no codec. Existing compiler/CMake/SDK
 pins and runtime, rights, source-delivery and Windows 11 gates are unchanged.
 
 The source review kit is not approved corresponding-source delivery or a durable
-source service. Original upstream inputs retain their own terms. New project
-orchestration remains under the existing project LICENSE; the scoped Xiph FLAC
-grant does not apply and is unchanged. File-level notices, static Opus/CRT
-incorporation, recipe-license compatibility, complete durable source delivery,
-maintenance and actual required game-codec parity still require review.
+source service. Original upstream inputs retain their own terms. The existing
+project LICENSE remains an alternative for the six original portions covered
+by the additional BSD route below, and continues to govern other project inputs.
+The scoped Xiph FLAC grant is unchanged. File-level notices, static Opus/CRT
+incorporation, the actual consumer's source/relinking obligations, complete
+durable source delivery, maintenance and game-codec parity still require review.
+
+## Owner-approved additional recipe license, 2026-10-31
+
+The rights holder explicitly approved the limited additional BSD-3-Clause route
+for the six baseline files and their necessary notice/source-delivery wiring.
+The complete effective [grant](../packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt)
+identifies those baseline hashes, retains all standard BSD conditions and the
+disclaimer, and excludes other project content and upstream portions. It grants
+no additional patent rights beyond the standard terms. The original ISC notice
+and original/modified makedef copies remain intact. LICENSE itself, the authored
+C probe and `backend/codec_fixture.py` receive no additional grant. Neither the
+historical `02c6380` driver nor its old source kit is retroactively relicensed.
+
+The [input policy](../packaging/codecs/ffmpeg-opus-replay.json) and replay driver
+pin the complete static notice. It is the tenth project recipe input. Preparation
+copies those exact project inputs and generates a separate
+`source-review/PROJECT-BSD-COPIES.json` with exactly six final copy identities,
+both raw and canonical LF hashes, their approved baseline hashes and explicit
+exclusions. Only ordinary LF/CRLF normalization is allowed. The notice and the
+generated inventory are evidence of this scope, not two more BSD code files.
+The inventory is generated after copying; neither the static grant nor the input
+policy embeds the final driver hash. This avoids a circular pin dependency.
+
+`PROJECT-INPUTS.json` separately binds all ten raw prepared project copies.
+Source verification requires the closed expected source-kit layout, exact grant,
+six-copy inventory, all project copies, original inputs and boundary metadata.
+Missing/changed/extra copies, duplicate metadata, expanded scope and linked paths
+refuse; unknown entries are rejected before inspecting their metadata/content.
+The source correspondence binds the delivered license inventory. The diagnostic
+patch and build configuration are unchanged; no runtime codec has been adopted.
+
+The PowerShell build driver, shared CMake helper/policy and diagnostic patch are
+byte-identical to their approved baseline copies in this integration. The shared
+CMake code may receive the additional option wherever that identical copy is
+used, without relicensing the rest of ASR. Its payload and all fifteen ASR recipe
+input bytes remain unchanged, so this notice integration causes no new ASR
+prepare or native replay. New native FFmpeg build/probe evidence must name the
+new ten-input cohort; the previous successful artifacts remain historical.
+
+One subsequent local source-only preparation used the five already verified
+original inputs and these ten final project copies. Independent source/notice/
+six-copy and closed-layout verification passed. The twenty-entry review archive
+is 22,582,897 bytes, SHA256
+`cea77b3d355eb0ad12ebccc4d0b72949d46eb90e66d784afc26a13da203ca0e0`;
+its separate six-copy inventory is 3,393 bytes, SHA256
+`98e64d8f4545bb2265403e5c11d581239b387a8350fcc2cac37a8d699e28f369`.
+This is local source-correspondence evidence, with no compiler/native execution
+or new ASR preparation. The archive is not a published binary/source pair or
+complete corresponding-source/relinking approval. Final durable cohosting and
+new exact-cohort Windows build evidence remain open.
+
+This closes the scoped project recipe decision only. Complete corresponding
+source/relinking, third-party rights, binary/source cohosting and servicing remain
+separate reviews. Runtime collection, production and source-delivery approval,
+ordinary-user Windows11 acceptance and R19 completion remain false/unavailable.
 
 A successful hosted run proves this dependency-subset experiment only. Runtime
 collection, production execution, source-delivery approval and R19 completion

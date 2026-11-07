@@ -1,0 +1,91 @@
+Additional BSD-3-Clause option for six FFmpeg build-recipe inputs
+
+Effective owner-approved additional license, 2026-10-31.
+Firebird55, acting as the authorized rights holder for the covered original
+project content, expressly approved the limited route described in proposal
+SHA-256 cd2233ca8a99ee0f98a972011363a666b9a3104d89df03c618609faabce60d5d.
+This is the effective notice implementing that decision, not a proposal.
+
+Only the original project-owned content that Firebird55 is authorized to
+license in the six file versions identified below, including the bounded
+necessary notice/source-delivery integration within those same six files for
+this R19 task, is additionally available under the complete standard
+BSD-3-Clause terms below. This notice makes no assertion that Firebird55 owns
+every contributor's or third party's work.
+
+Identification baseline: six files and canonical LF SHA-256:
+
+1. packaging/codecs/ffmpeg-opus-replay.json
+   cfd88379f29883eb42a8a0eb74e16c4c4960a9058daa47a127f7f92a4bcd0a81
+2. scripts/replay-game-codec.py
+   fe681a8f66ae5b26292dd706cb4742d6329c3f515b8faa26b7654241cb8b457a
+3. scripts/build-game-codec-replay.ps1
+   0e128a3aa60d52d065f2e7a3f594886e578f2a3f7f7eaafed1346b34c189971b
+4. scripts/pinned-build-cmake.py
+   2e57ff0270f3d97fda1cee9ffe05ef43a9b23c466b1903544957a8a96b190464
+5. packaging/build-tools/cmake-4.4.5-windows-x64.json
+   b65df3fa12af3f05ec0e87a793b1c8fd4f930b5f41d2473559c5f681f2a07ffa
+6. packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch
+   5306d015bbb01949b7f09c753a5a23cd5abae4816e889f536ba27b8ac139419c
+
+
+The approved bounded integration includes only notice-copy/binding logic,
+source-kit inclusion/verification and necessary license/provenance metadata
+within these SAME six files during this R19 task. Final delivered copies and
+hashes are recorded in the separate generated PROJECT-BSD-COPIES.json. That
+inventory identifies the covered final versions; it does not grant a license
+to another code file or authorize unrelated functionality or future content.
+This static notice does not embed the final inventory or final driver hash.
+Ordinary copies differing only in LF versus CRLF line endings are in scope.
+
+Recipients choosing this additional option may use, modify and redistribute
+covered content and their derivative copies under the standard BSD terms,
+without a restriction to FFmpeg, this project, a platform, a source kit or
+private/commercial use. Outside the bounded notice/source-delivery integration,
+new content in later upstream revisions is not silently added to this grant.
+That does not restrict recipients' BSD rights in their own modifications.
+
+The existing Firebird55 Attribution License remains an alternative for the
+covered original project content. Its additional visible-credit/link condition
+does not apply to a recipient choosing this BSD option for that content.
+The standard copyright notice, conditions and disclaimer below still apply.
+
+Original ISC-licensed makedef context, copyright and permission notices remain
+intact. This notice does not replace or relicense Derek Buitenhuis's notice or
+other upstream portions. FFmpeg, Opus, vgmstream, CMake, MSVC/SDK/CRT and other
+third-party code/notices retain their own terms. There is no additional express
+patent grant beyond standard BSD-3-Clause, or approval/waiver/expansion of any
+third-party patent terms or unresolved patent questions.
+
+Excluded: LICENSE itself; scripts/fixtures/game-codec-replay.c;
+backend/codec_fixture.py; all other ASR/runtime/frontend/project code; and
+third-party archives/recipes. This notice and generated inventory are scope
+and delivery evidence, not extra BSD-licensed project code files. The identical
+covered shared CMake helper may be used wherever that copy is used without
+relicensing the rest of the ASR recipe. The separate three-file Xiph FLAC grant
+and its source kit remain unchanged.
+
+The historical 02c6380 replay driver is excluded. Its canonical LF SHA-256 is
+b8b14bb01cf0db1d7fd5291eadc71b96f493c957d264307b033b164711b850a8;
+its historical Windows SHA-256 is
+5d0aee3d0f2f2c91cb3200ae7c9206816e0af8aecd7734cc6fac7af60c715dc0.
+No old artifact/source kit is relicensed, rewritten or approved by this notice.
+
+This additional project license establishes no ownership of upstream code,
+no approval of complete corresponding-source delivery/relinking or binary/
+runtime distribution, and no Windows, R19, PR #59, installer or release decision.
+Those reviews and execution gates remain separate.
+
+STANDARD BSD-3-CLAUSE TERMS
+
+Copyright (c) 2026 Firebird55
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.

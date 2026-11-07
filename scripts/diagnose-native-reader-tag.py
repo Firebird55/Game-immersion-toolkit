@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 TAG = 'v0.23.0'
@@ -48,8 +49,14 @@ def load_reporter(source, reporter):
     sys.path.insert(0, str(source))
     importlib.import_module('backend')
     check_backend_origins(source)
-    specification = importlib.util.spec_from_file_location('external_native_reader_reporter', reporter)
+    specification = importlib.util.spec_from_file_location('external_native_reader_reporter_' + uuid.uuid4().hex, reporter)
     module = importlib.util.module_from_spec(specification)
+    # The actual reporter may retain a failed process/fixture. Anchor this exact
+    # module before execution; a second load must not replace its unknown owner.
+    # This import-cache key is private and is never ownership authority/output.
+    if specification.name in sys.modules:
+        raise ValueError('reporter-import-name-collision')
+    sys.modules[specification.name] = module
     specification.loader.exec_module(module)
     check_backend_origins(source)
     module.ROOT = source

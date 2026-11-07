@@ -92,6 +92,299 @@ def finish(manager):
     assert not manager._workers
 
 
+@pytest.fixture
+def bundle_language_roots(tmp_path, monkeypatch):
+    import json
+    from types import SimpleNamespace
+    import httpx
+    from backend import accounts, language_preparation, lexirise, runtime_paths
+    from backend.runtime_bundle import RuntimeLayout
+
+    def forbidden(*_args, **_options):
+        pytest.fail('Language path tests must not use accounts, DPAPI, network or native resources.')
+
+    monkeypatch.setattr(accounts, 'AccountStore', forbidden)
+    monkeypatch.setattr(lexirise, '_protect', forbidden)
+    monkeypatch.setattr(httpx, 'Client', forbidden)
+    monkeypatch.setattr(httpx, 'AsyncClient', forbidden)
+    root = tmp_path.resolve()
+    layout = RuntimeLayout(mode='bundle', application_root=root/'app', resource_root=root/'app/_internal',
+        executable=root/'app/GameImmersionToolkit.exe', legacy_root=None, data_root=root/'mutable/data-v1',
+        settings_root=root/'mutable/settings', cache_root=root/'mutable/cache-v1', tool_root=root/'mutable/tools-v1',
+        work_root=root/'mutable/cache-v1/work', state_root=root/'mutable/host-v1', default_export_root=root/'exports')
+    monkeypatch.setattr(language_preparation, 'discover_layout', lambda: layout)
+    monkeypatch.setattr(runtime_paths, 'discover_layout', lambda: layout)
+    monkeypatch.setattr('sys.frozen', True, raising=False)
+    host = root/'host-profile'
+    monkeypatch.setenv('LOCALAPPDATA', str(host))
+    cwd = root/'unrelated-cwd'; cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    host_languages = host/'Proxy Transcript/languages.json'
+    host_languages.parent.mkdir(parents=True)
+    host_languages.write_text(json.dumps({'prepared': {}, 'selected': {'owned': {'halflife': 'zh-Hans'}},
+        'selection_generations': {'owned': {'halflife': 17}}}), encoding='utf-8')
+    host_languages.with_suffix('.requests.json').write_text(json.dumps({
+        'host-only': {'beyond': {'locale': 'nl', 'target': 'en'}}}), encoding='utf-8')
+    # Isolate the protected-store locator as well as account construction.
+    monkeypatch.setattr(accounts, 'credential_directory', lambda: host/'Programs/Proxy Transcript')
+    host_accounts = accounts.accounts_path()
+    host_accounts.parent.mkdir(parents=True)
+    host_accounts.write_bytes(b'authored protected-store locator sentinel; no credential')
+    before = {path: path.read_bytes() for path in (host_languages, host_languages.with_suffix('.requests.json'), host_accounts)}
+    return SimpleNamespace(layout=layout, host=host, cwd=cwd, accounts=host_accounts, before=before,
+        forbidden=forbidden)
+
+
+def test_bundle_default_language_registry_and_requests_survive_restart_and_select(bundle_language_roots):
+    import json
+    roots = bundle_language_roots
+    failures, calls = [True], []
+
+    def build(*args):
+        calls.append(args)
+        if failures[0]: raise ValueError('Authored incomplete language build.')
+
+    def create():
+        return LanguagePreparation(build, lambda *_: None, lambda *_: {'ready': True, 'audio_count': 3},
+            supported=lambda _: ('en',))
+
+    manager = create()
+    assert manager.path == roots.layout.settings_root/'languages.json'
+    assert manager.request('halflife', 'en', 'zh-Hans', 'owned')
+    finish(manager)
+    requests = manager.path.with_suffix('.requests.json')
+    assert json.loads(requests.read_text(encoding='utf-8')) == {
+        'owned': {'halflife': {'locale': 'en', 'target': 'zh-Hans'}}}
+    assert manager.selected('halflife', 'owned') is None
+    reloaded = create()
+    assert reloaded.entries() == [('halflife', 'en', ('zh-Hans',))]
+    failures[0] = False
+    reloaded.refresh_prepared()
+    finish(reloaded)
+    assert not requests.exists()
+    assert reloaded.selected('halflife', 'owned') == 'en'
+    prepared = reloaded.prepared('halflife', 'en')
+    failures[0] = True
+    assert reloaded.request('halflife', 'en', 'fr', 'waiting-owner')
+    finish(reloaded)
+    pending = requests.read_bytes()
+    selected = create()
+    selected.select('halflife', 'en', 'owned', target='zh-Hans')
+    assert selected.prepared('halflife', 'en') == prepared
+    assert selected.selected_target('halflife', 'en', 'owned') == 'zh-Hans'
+    assert selected.selected('halflife', 'waiting-owner') is None
+    assert selected.selection_generation('halflife', 'owned') == 1
+    assert requests.read_bytes() == pending
+    assert create().entries() == [('halflife', 'en', ('zh-Hans', 'fr'))]
+    assert len(calls) == 3
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+    assert not roots.layout.application_root.exists() and not (roots.cwd/'Proxy Transcript').exists()
+
+
+def test_explicit_language_path_never_discovers_or_relocates_a_layout(bundle_language_roots, monkeypatch):
+    from pathlib import Path
+    from backend import language_preparation
+    roots = bundle_language_roots
+    monkeypatch.setattr(language_preparation, 'discover_layout', roots.forbidden)
+    chosen = Path('explicit-language-registry.json')
+    manager = LanguagePreparation(lambda *_: None, lambda *_: None, lambda *_: {'ready': True}, path=chosen)
+    assert manager.path is chosen
+    assert manager.request('zzz', 'zh-Hans', 'en', 'owned')
+    finish(manager)
+    reloaded = LanguagePreparation(None, None, None, path=chosen)
+    assert reloaded.path is chosen and reloaded.selected('zzz', 'owned') == 'zh-Hans'
+    assert not roots.layout.settings_root.exists()
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+def test_invalid_bundle_layout_never_falls_back_to_host_language_state(bundle_language_roots, monkeypatch):
+    from backend import language_preparation
+    from backend.runtime_bundle import RuntimeBundleError
+    roots = bundle_language_roots
+    failure = RuntimeBundleError('Authored missing frozen roots.')
+
+    def invalid(): raise failure
+
+    monkeypatch.setattr(language_preparation, 'discover_layout', invalid)
+    with pytest.raises(RuntimeBundleError) as refused: LanguagePreparation(None, None, None)
+    assert refused.value is failure and not roots.layout.settings_root.exists()
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+def test_unselected_bundle_account_cannot_borrow_host_language_selection(bundle_language_roots, monkeypatch):
+    from types import SimpleNamespace
+    from backend import accounts, language_preparation
+    roots = bundle_language_roots
+    (roots.layout.data_root/'languages/halflife').mkdir(parents=True)
+    monkeypatch.setattr(accounts, 'AccountStore', lambda: SimpleNamespace(
+        path=roots.accounts, status=lambda: {'active': 'owned'}))
+    with pytest.raises(ValueError, match='Select a prepared learning language'):
+        language_preparation.selected_snapshot(roots.layout.application_root, 'halflife')
+    assert not roots.layout.settings_root.exists()
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+@pytest.mark.parametrize('local_appdata', ['configured', 'missing'])
+def test_windows_source_upgrade_keeps_saved_language_after_working_directory_changes(tmp_path, monkeypatch, local_appdata):
+    import json
+    monkeypatch.setattr('sys.platform', 'win32')
+    monkeypatch.setattr('sys.frozen', False, raising=False)
+    if local_appdata == 'configured':
+        monkeypatch.setenv('LOCALAPPDATA', str(tmp_path/'local'))
+        settings = tmp_path/'local'/'Proxy Transcript'
+    else:
+        monkeypatch.delenv('LOCALAPPDATA', raising=False)
+        monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path/'xdg'))
+        settings = tmp_path/'xdg'/'game-immersion-toolkit'
+
+    settings.mkdir(parents=True)
+    (settings/'languages.json').write_text(json.dumps({
+        'prepared': {'halflife': {'en': {'targets': ['fr']}}},
+        'selected': {'owned': {'halflife': 'en'}},
+    }), encoding='utf-8')
+    launch = tmp_path/'new-launch-directory'
+    launch.mkdir()
+    monkeypatch.chdir(launch)
+
+    manager = LanguagePreparation(None, None, None)
+    assert manager.selected('halflife', 'owned') == 'en'
+    assert manager.path == settings/'languages.json'
+
+
+def test_windows_source_invalid_settings_root_cannot_redirect_language_state_to_working_directory(tmp_path, monkeypatch):
+    from backend.runtime_bundle import RuntimeBundleError
+
+    monkeypatch.setattr('sys.platform', 'win32')
+    monkeypatch.setattr('sys.frozen', False, raising=False)
+    monkeypatch.setenv('LOCALAPPDATA', '')
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(RuntimeBundleError, match='settings_root must be an absolute path'):
+        LanguagePreparation(None, None, None)
+
+
+def test_macos_source_language_default_uses_selected_platform_root_without_legacy_dot_fallback(bundle_language_roots, monkeypatch):
+    from backend import language_preparation
+    roots = bundle_language_roots
+    monkeypatch.setattr('sys.frozen', False, raising=False)
+    monkeypatch.setattr('sys.platform', 'darwin')
+    monkeypatch.setenv('LOCALAPPDATA', '')
+    observed = []
+    def selected():
+        observed.append(roots.layout)
+        return roots.layout
+    monkeypatch.setattr(language_preparation, 'discover_layout', selected)
+    manager = LanguagePreparation(None, None, None)
+    assert manager.path == roots.layout.settings_root/'languages.json'
+    assert observed == [roots.layout] and not manager.path.exists()
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+def test_real_frozen_language_discovery_validates_manifest_and_roots_without_source_fallback(bundle_language_roots, monkeypatch):
+    import json
+    from pathlib import Path
+    from backend import language_preparation, runtime_bundle, runtime_paths
+    roots = bundle_language_roots
+    layout = roots.layout
+    layout.resource_root.mkdir(parents=True)
+    manifest = layout.resource_root/'runtime-manifest.json'
+    manifest.write_text(json.dumps({'schema': runtime_bundle.MANIFEST_SCHEMA, 'profile': 'diagnostic',
+        'version': '0.22.0', 'source_commit': 'a'*40, 'build_id': 'authored-language-path',
+        'children': [], 'resources': {}}), encoding='utf-8')
+    original = manifest.read_bytes()
+    monkeypatch.setattr('sys._MEIPASS', str(layout.resource_root), raising=False)
+    monkeypatch.setattr('sys.executable', str(layout.executable))
+    for name, value in layout.child_environment(environ={}).items(): monkeypatch.setenv(name, value)
+    monkeypatch.setattr(language_preparation, 'discover_layout', runtime_bundle.discover_layout)
+    monkeypatch.setattr(runtime_paths, 'discover_layout', runtime_bundle.discover_layout)
+    actual = runtime_bundle.discover_layout()
+    assert actual.mode == 'bundle' and actual.settings_root == layout.settings_root
+    manager = LanguagePreparation(lambda *_: None, lambda *_: None, lambda *_: {'ready': True})
+    manager.request('zzz', 'zh-Hans', 'en', 'owned')
+    finish(manager)
+    assert manager.path == layout.settings_root/'languages.json'
+    assert LanguagePreparation(None, None, None).selected('zzz', 'owned') == 'zh-Hans'
+    with monkeypatch.context() as missing:
+        missing.delenv('PROXY_TRANSCRIPT_SETTINGS_ROOT')
+        with pytest.raises(runtime_bundle.RuntimeBundleError): LanguagePreparation(None, None, None)
+    assert manifest.read_bytes() == original
+    manifest.write_text('{}', encoding='utf-8')
+    with pytest.raises(runtime_bundle.RuntimeBundleError): LanguagePreparation(None, None, None)
+    explicit = Path('explicit-with-invalid-frozen-layout.json')
+    assert LanguagePreparation(None, None, None, path=explicit).path is explicit
+    assert not explicit.exists() and all(path.read_bytes() == raw for path, raw in roots.before.items())
+
+
+def test_selected_snapshot_and_export_worker_reconstruct_bundle_defaults_without_host_account_move(bundle_language_roots, monkeypatch, capsys):
+    import hashlib
+    import json
+    from types import SimpleNamespace
+    from backend import accounts, game_assets, language_preparation, lexirise, lexirise_settings
+    from backend import export_lock, game_paths, media_tools, mobile_export_worker
+    roots = bundle_language_roots
+    manager = LanguagePreparation(None, lambda *_: None, None)
+    manager.data = {'prepared': {'halflife': {locale: {'targets': ['zh-Hans']} for locale in ('en', 'zh-Hans')}},
+        'selected': {'owned': {'halflife': 'en'}}, 'selection_generations': {'owned': {'halflife': 4}},
+        'requested': {'waiting-owner': {'beyond': {'locale': 'nl', 'target': 'en'}}}}
+    manager._save()
+    pending = manager.path.with_suffix('.requests.json').read_bytes()
+    source = roots.layout.data_root/'languages/halflife/en/textmap.json'
+    source.parent.mkdir(parents=True)
+    source.write_text(json.dumps({'format': 2, 'game': 'halflife', 'source_locale': 'en',
+        'targets_requested': ['zh-Hans'], 'install': str(roots.cwd/'absent-authored-install'), 'fingerprint': 'authored-index',
+        'capture_capabilities': {'voiced': False, 'unvoiced': True}, 'records': [{
+            'text_id': 'halflife:owned:message', 'english': 'Owned message', 'chinese': '合成消息',
+            'source_locale': 'en', 'source_text': 'Owned message', 'audio_locale': 'en',
+            'texts': {'en': 'Owned message', 'zh-Hans': '合成消息'}, 'audio': None,
+            'voice_status': 'unvoiced', 'dialogue_kind': 'screen_message'}]}), encoding='utf-8')
+    protected = SimpleNamespace(path=roots.accounts, status=lambda: {'active': 'owned'})
+    monkeypatch.setattr(accounts, 'AccountStore', lambda: protected)
+    assert language_preparation.selected_snapshot(roots.layout.application_root, 'halflife') == (source, protected, 'owned')
+
+    def client(directory, *, accounts):
+        assert directory == roots.layout.data_root/'lexirise' and accounts is protected
+        return SimpleNamespace(pin=lambda language: SimpleNamespace(language=language))
+
+    def preferences(client):
+        assert client.language == 'en'
+        return {'global': {'effectiveTranslationLanguage': 'zh-Hans'}, 'languageSettings': {}}
+
+    monkeypatch.setattr(lexirise, 'LexiriseService', client)
+    monkeypatch.setattr(lexirise_settings, 'account_settings', preferences)
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda game: (SimpleNamespace(fingerprint=lambda _: 'authored-index'), None))
+    monkeypatch.setattr(media_tools, 'vgmstream_executable', lambda _root: None)
+    locks, exported = [], []
+    monkeypatch.setattr(game_paths, 'settings_path', lambda: roots.layout.settings_root/'game-paths.json')
+    monkeypatch.setattr(export_lock, 'ExportLock', lambda path: SimpleNamespace(
+        acquire=lambda: locks.append(('acquire', path)) or True, close=lambda: locks.append(('close', path))))
+
+    def export(game, records, output, *, check, **options):
+        assert game == 'halflife' and records[0]['sourceLocale'] == 'en' and records[0]['translationText'] == '合成消息'
+        assert options['include_audio'] is False and output == roots.layout.default_export_root
+        check.force()
+        manager.select('halflife', 'zh-Hans', 'owned')
+        with pytest.raises(ValueError, match='changed'): check.force()
+        manager.select('halflife', 'en', 'owned')
+        # Same snapshot pathname after switching away/back still retires the
+        # worker: both default generation reconstructions read bundle settings.
+        with pytest.raises(ValueError, match='changed'): check.force()
+        exported.append(True)
+
+    monkeypatch.setattr(mobile_export_worker, 'export_library', export)
+    monkeypatch.setattr('sys.argv', ['mobile-export', '--root', str(roots.layout.application_root),
+        '--game', 'halflife', '--output', str(roots.layout.default_export_root), '--catalog-only',
+        '--source-locale', 'en', '--account-signature', hashlib.sha256(roots.accounts.read_bytes()).hexdigest()])
+    assert mobile_export_worker.main() == 0 and exported == [True]
+    assert [action for action, _ in locks] == ['acquire', 'close']
+    assert all(path == roots.layout.settings_root/'mobile-export.lock' for _, path in locks)
+    assert LanguagePreparation(None, None, None).selection_generation('halflife', 'owned') == 6
+    assert manager.path.with_suffix('.requests.json').read_bytes() == pending
+    assert accounts.accounts_path() == roots.accounts
+    assert all(path.read_bytes() == raw for path, raw in roots.before.items())
+    assert not roots.layout.application_root.exists() and not (roots.cwd/'Proxy Transcript').exists()
+    frames = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert frames and all(frame['state'] == 'exporting' for frame in frames)
+
+
 def test_structured_format_error_survives_job_status_and_malformed_retry_is_ignored(tmp_path):
     import json
     from backend.preparation_errors import PreparationFailure

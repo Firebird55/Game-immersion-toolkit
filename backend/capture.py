@@ -74,6 +74,15 @@ class _ScanOutcome:
     emitted_lines: list[TranscriptLine] | None = None
 
 
+@dataclass(slots=True)
+class _PreparedCaptureHandoff:
+    session_id: str
+    last_emitted_at: dict[str, float]
+    last_emitted_key_by_channel: dict[str, str]
+    cinematic_seen_ids: set[str]
+    cinematic_panel_text: str
+
+
 class CaptureService:
     def __init__(
         self,
@@ -225,22 +234,34 @@ class CaptureService:
             cinematic_panel_text=self._cinematic_panel_text)
 
     def import_handoff(self, state: CaptureHandoff) -> None:
-        if state.session_id:
-            self.session_id = state.session_id
+        self.apply_prepared_handoff(self.prepare_handoff(state))
+
+    def prepare_handoff(self, state: CaptureHandoff) -> _PreparedCaptureHandoff:
+        # Stage the transcript read and all allocation before publishing capture state.
+        session_id = state.session_id or self.session_id
+        last_emitted_at = self._last_emitted_at.copy()
+        last_emitted_key_by_channel = self._last_emitted_key_by_channel.copy()
         # This also covers migration from versions without a handoff endpoint.
         now = time.monotonic()
         for line in self.transcript.list(limit=50):
-            if line.session_id != self.session_id:
+            if line.session_id != session_id:
                 continue
             key = f"{line.text_id}\0{line.english}"
             created = line.created_at if line.created_at.tzinfo else line.created_at.replace(tzinfo=timezone.utc)
             age = max(0, (datetime.now(timezone.utc) - created).total_seconds())
             if age < 60:
-                self._last_emitted_at[key] = now - age
-            self._last_emitted_key_by_channel.setdefault(line.channel, f"{line.channel}\0{key}")
-        self._last_emitted_at.update(state.last_emitted_at)
-        self._last_emitted_key_by_channel.update(state.last_emitted_key_by_channel)
-        self._cinematic_seen_ids = set(state.cinematic_seen_ids)
+                last_emitted_at[key] = now - age
+            last_emitted_key_by_channel.setdefault(line.channel, f"{line.channel}\0{key}")
+        last_emitted_at.update(state.last_emitted_at)
+        last_emitted_key_by_channel.update(state.last_emitted_key_by_channel)
+        return _PreparedCaptureHandoff(session_id, last_emitted_at, last_emitted_key_by_channel,
+                                       set(state.cinematic_seen_ids), state.cinematic_panel_text)
+
+    def apply_prepared_handoff(self, state: _PreparedCaptureHandoff) -> None:
+        self.session_id = state.session_id
+        self._last_emitted_at = state.last_emitted_at
+        self._last_emitted_key_by_channel = state.last_emitted_key_by_channel
+        self._cinematic_seen_ids = state.cinematic_seen_ids
         self._cinematic_panel_text = state.cinematic_panel_text
 
     @property

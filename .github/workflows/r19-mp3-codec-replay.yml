@@ -1,0 +1,114 @@
+name: R19 quarantined MP3 source observation
+on:
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: r19-mp3-source-observation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mp3-source-observation:
+    # Isolated build-host evidence, never runtime or Windows11 acceptance.
+    runs-on: windows-2025
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Observe source prerequisites and audit before input preparation
+        shell: pwsh
+        run: |
+          git remote add upstream https://github.com/Firebird55/Game-immersion-toolkit.git
+          if ($LASTEXITCODE -ne 0) { throw 'Actual target remote unavailable.' }
+          git fetch upstream main
+          if ($LASTEXITCODE -ne 0) { throw 'Actual PR target unavailable.' }
+          npm run dev:doctor -- --base upstream/main
+          if ($LASTEXITCODE -notin @(0, 2)) { throw 'Invalid MP3 preflight.' }
+          npm run audit:public
+          if ($LASTEXITCODE -ne 0) { throw 'Public source audit failed.' }
+      - uses: actions/setup-python@v7
+        id: mp3-python
+        with:
+          # Declared build observer, distinct from the runtime CPython supplier.
+          python-version: '3.12.10'
+      - name: Run authored contracts before source or tool acquisition
+        shell: pwsh
+        env:
+          R19_MP3_PYTHON: ${{ steps.mp3-python.outputs.python-path }}
+        run: |
+          & $env:R19_MP3_PYTHON -I -B -m unittest discover -s backend/tests -p 'test_mp3_*.py' -q
+          if ($LASTEXITCODE -ne 0) { throw 'Portable MP3 contracts failed.' }
+          node --test tests/mp3-codec-observation.test.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'MP3 publication contracts failed.' }
+          $oldAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd 'scripts/build-game-codec-replay.ps1'), [ref]$null, [ref]$null)
+          $newAst = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $pwd 'scripts/build-mp3-codec-replay.ps1'), [ref]$null, [ref]$null)
+          foreach ($name in @('Remove-ReplayProcessEnvironment','Get-ReplayExecutables','Get-NumericToolObservation','Get-CompilerEnvironment','Get-CompilerSearchObservation','Write-CompilerSearchFailure','Assert-ReviewedHostImage')) {
+            $a = @($oldAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name }, $true))
+            $b = @($newAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name }, $true))
+            if ($a.Count -ne 1 -or $b.Count -ne 1) { throw 'Exact authored bootstrap function missing.' }
+            $newText = $b[0].Extent.Text.Replace('ffmpeg-mp3-replay.json','ffmpeg-opus-replay.json').Replace('proxy-r19-mp3-codec-replay-toolchain-preflight-failure-v2','proxy-r19-game-codec-replay-toolchain-preflight-failure-v2').Replace("`r`n","`n")
+            if ($a[0].Extent.Text.Replace("`r`n","`n") -cne $newText) { throw 'Authored bootstrap behavior changed.' }
+          }
+          & $env:R19_MP3_PYTHON -I -B backend/tests/test_game_codec_replay.py ReplayTrustTests.test_host_image_policy_requires_explicit_versions_without_rolling_or_wildcard_fallback ReplayTrustTests.test_compiler_activation_handles_spaced_batch_paths_and_never_exports_failed_or_foreign_values ReplayTrustTests.test_search_path_failure_is_bounded_source_bound_and_strips_arbitrary_paths_and_exceptions ReplayTrustTests.test_process_environment_deletion_removes_empty_and_nonempty_keys_before_inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Actual Windows authored bootstrap contracts failed.' }
+      - name: Capture the current clean source and seventeen actual input copies
+        id: capture
+        shell: pwsh
+        env:
+          R19_MP3_PYTHON: ${{ steps.mp3-python.outputs.python-path }}
+        run: |
+          node scripts/run-mp3-codec-observation.mjs capture
+          if ($LASTEXITCODE -ne 0) { throw 'Current MP3 source binding unavailable.' }
+      - name: Acquire exact public source and isolated build tools
+        shell: pwsh
+        env:
+          R19_MP3_PYTHON: ${{ steps.mp3-python.outputs.python-path }}
+        run: |
+          $inputs = Join-Path $env:RUNNER_TEMP 'r19-mp3-inputs'
+          & $env:R19_MP3_PYTHON -I -B scripts/replay-mp3-codec.py acquire --input-root $inputs
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned MP3 input acquisition failed.' }
+          "R19_MP3_INPUTS=$inputs" >> $env:GITHUB_ENV
+          $env:R19_MP3_ARCHIVE = Join-Path $inputs 'lame-4.0.tar.gz'
+          & $env:R19_MP3_PYTHON -I -B backend/tests/test_mp3_codec_replay.py Contracts.test_real_lame_guard_patch_changes_only_the_two_original_conditions
+          if ($LASTEXITCODE -ne 0) { throw 'Exact upstream preimage/patch check failed.' }
+          $cmakeInputs = Join-Path $env:RUNNER_TEMP 'r19-mp3-cmake-inputs'
+          & $env:R19_MP3_PYTHON -I -B scripts/pinned-build-cmake.py acquire --input-root $cmakeInputs
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned CMake acquisition failed.' }
+          & $env:R19_MP3_PYTHON -I -B scripts/pinned-build-cmake.py prepare --archive (Join-Path $cmakeInputs 'cmake-4.4.5-windows-x86_64.zip') --output 'C:/r19-build-tools/cmake-4.4.5'
+          if ($LASTEXITCODE -ne 0) { throw 'Isolated CMake verification failed.' }
+      - name: Build and observe only the distinct private MP3 identity
+        id: build
+        shell: pwsh
+        env:
+          R19_MP3_PYTHON: ${{ steps.mp3-python.outputs.python-path }}
+        run: |
+          ./scripts/build-mp3-codec-replay.ps1 -InputRoot $env:R19_MP3_INPUTS -CMakeRoot 'C:/r19-build-tools/cmake-4.4.5' -Python $env:R19_MP3_PYTHON
+      - name: Validate a closed public projection and current source binding
+        id: publish
+        if: ${{ always() && !cancelled() && steps.capture.outcome == 'success' }}
+        shell: pwsh
+        env:
+          R19_MP3_PYTHON: ${{ steps.mp3-python.outputs.python-path }}
+          R19_MP3_BUILD_OUTCOME: ${{ steps.build.outcome }}
+        run: |
+          $mode = if ($env:R19_MP3_BUILD_OUTCOME -ceq 'success') { 'success' } else { 'failure' }
+          node scripts/run-mp3-codec-observation.mjs $mode
+          if ($LASTEXITCODE -ne 0) { throw 'Closed source-bound MP3 metadata unavailable.' }
+      - name: Upload only validated sanitized metadata
+        if: ${{ !cancelled() && steps.publish.outputs.validated_pair == 'true' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: r19-mp3-codec-${{ steps.publish.outputs.publication }}-metadata
+          # Exactly two exist. No original private receipt, native payload,
+          # audio, progress, log, tool archive or unapproved source ZIP.
+          path: |
+            output/checks/r19-mp3-published/MP3-DRAFT-RECEIPT.json
+            output/checks/r19-mp3-published/MP3-FAILURE.json
+            output/checks/r19-mp3-published/MP3-CI-BINDING.json
+          if-no-files-found: error
+          retention-days: 7

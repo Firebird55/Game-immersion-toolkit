@@ -1,8 +1,8 @@
 """Quarantined FFmpeg/Opus build experiment, never runtime supplier authority.
 
-Original project orchestration stays under LICENSE. The additional grant for
-three Xiph FLAC kit inputs does not apply here. Original dependency recipes and
-notices are retained separately, without a source-delivery approval claim.
+Six identified original project portions have a scoped additional BSD option;
+other project inputs stay under LICENSE. Xiph's separate grant is unchanged.
+Dependency notices and complete source/relinking approval remain separate.
 """
 import argparse
 import hashlib
@@ -29,7 +29,24 @@ PROJECT_INPUTS = ('packaging/codecs/ffmpeg-opus-replay.json',
     'scripts/replay-game-codec.py', 'scripts/build-game-codec-replay.ps1',
     'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py', 'LICENSE',
     'scripts/pinned-build-cmake.py', 'packaging/build-tools/cmake-4.4.5-windows-x64.json',
-    'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch')
+    'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch',
+    'packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt')
+BSD_GRANT = 'packaging/codecs/FFMPEG-BUILD-RECIPES-LICENSE.txt'
+BSD_COPIES = 'PROJECT-BSD-COPIES.json'
+BSD_BASELINES = {
+    'packaging/codecs/ffmpeg-opus-replay.json': 'cfd88379f29883eb42a8a0eb74e16c4c4960a9058daa47a127f7f92a4bcd0a81',
+    'scripts/replay-game-codec.py': 'fe681a8f66ae5b26292dd706cb4742d6329c3f515b8faa26b7654241cb8b457a',
+    'scripts/build-game-codec-replay.ps1': '0e128a3aa60d52d065f2e7a3f594886e578f2a3f7f7eaafed1346b34c189971b',
+    'scripts/pinned-build-cmake.py': '2e57ff0270f3d97fda1cee9ffe05ef43a9b23c466b1903544957a8a96b190464',
+    'packaging/build-tools/cmake-4.4.5-windows-x64.json': 'b65df3fa12af3f05ec0e87a793b1c8fd4f930b5f41d2473559c5f681f2a07ffa',
+    'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch': '5306d015bbb01949b7f09c753a5a23cd5abae4816e889f536ba27b8ac139419c'}
+PROJECT_LICENSE = {
+    'schema': 'proxy-r19-ffmpeg-recipe-additional-license-v1', 'identifier': 'BSD-3-Clause',
+    'scope': 'six-authorized-original-project-portions-and-bounded-notice-source-delivery-integration',
+    'approved_on': '2026-10-31',
+    'approval_proposal_sha256': 'cd2233ca8a99ee0f98a972011363a666b9a3104d89df03c618609faabce60d5d',
+    'grant': {'path': BSD_GRANT, 'bytes': 5993,
+              'sha256': 'eb89bd307353f5e14b392e7b3b1307e31681d7258bba8b8777965a4362e5bd07'}}
 MAKEDEF_ROLES = ('avcodec', 'avformat', 'avutil', 'swresample')
 VARIANT_PATCH = 'packaging/codecs/patches/ffmpeg-9.0.2-makedef-private-stdout.patch'
 PUBLIC_FFMPEG_GENERATED = ('.config', 'config.fate', 'config.mak', 'config.sh')
@@ -109,6 +126,116 @@ def regular_file(path):
     if info is None or not stat.S_ISREG(info.st_mode):
         raise ValueError('Experiment input is not a regular file.')
     return info
+
+
+def recipe_bytes(path):
+    regular_file(path)
+    with path.open('rb') as stream: data = stream.read(2 * 1024 * 1024 + 1)
+    if len(data) > 2 * 1024 * 1024:
+        raise ValueError('Project recipe exceeds its fixed bound.')
+    return data
+
+
+def recipe_json(path):
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result: raise ValueError('Duplicate project delivery field.')
+            result[key] = value
+        return result
+    try:
+        return json.loads(recipe_bytes(path), object_pairs_hook=unique)
+    except (ValueError, UnicodeError, RecursionError):
+        raise ValueError('Malformed project delivery metadata.') from None
+
+
+def same_recipe_json(value, expected):
+    # Python equality would conflate False/0 and integer/float byte counts.
+    def canonical(item):
+        return json.dumps(item, sort_keys=True, separators=(',', ':'), allow_nan=False)
+    return canonical(value) == canonical(expected)
+
+
+def check_named_tree(root, names):
+    """Refuse unknown names before their metadata/content; never walk a link."""
+    info = no_links(root)
+    if info is None or not stat.S_ISDIR(info.st_mode):
+        raise ValueError('Project delivery directory is unavailable.')
+    directories = {str(parent) for name in names for parent in PurePosixPath(name).parents
+                   if str(parent) != '.'}
+    pending, seen = [root], set()
+    while pending:
+        directory = pending.pop()
+        entries = list(itertools.islice(directory.iterdir(), len(names) + len(directories) + 1))
+        for path in entries:
+            relative = path.relative_to(root).as_posix()
+            if relative in names:
+                regular_file(path); seen.add(relative)
+            elif relative in directories:
+                info = no_links(path)
+                if info is None or not stat.S_ISDIR(info.st_mode):
+                    raise ValueError('Project delivery directory differs.')
+                pending.append(path)
+            else:
+                raise ValueError('Unexpected project delivery entry.')
+    if seen != set(names): raise ValueError('Project delivery entries are missing.')
+
+
+def bsd_copy_inventory(files, pin):
+    if not same_recipe_json(pin.get('project_recipe_license'), PROJECT_LICENSE):
+        raise ValueError('The exact scoped project license is unavailable.')
+    grant = PROJECT_LICENSE['grant']; raw = files[BSD_GRANT]
+    if len(raw) != grant['bytes'] or digest(raw) != grant['sha256']:
+        raise ValueError('The complete scoped BSD notice differs.')
+    copies = {}
+    for name, baseline in BSD_BASELINES.items():
+        data = files[name]; canonical = data.replace(b'\r\n', b'\n')
+        try: canonical.decode('utf-8')
+        except UnicodeError: raise ValueError('Project recipe is not UTF-8 text.') from None
+        if b'\r' in canonical or b'\0' in canonical:
+            raise ValueError('Project recipes require ordinary LF or CRLF text.')
+        # Only these two files need the approved delivery-wiring edits.
+        if name not in {'packaging/codecs/ffmpeg-opus-replay.json', 'scripts/replay-game-codec.py'} and digest(canonical) != baseline:
+            raise ValueError('An unchanged scoped project input differs from its baseline.')
+        copies[name] = {'bytes': len(data), 'sha256': digest(data),
+            'canonical_lf_bytes': len(canonical), 'canonical_lf_sha256': digest(canonical),
+            'approved_baseline_lf_sha256': baseline}
+    return {'schema': 'proxy-r19-ffmpeg-bsd-recipe-copies-v1',
+        'scope': 'six-authorized-original-project-portions-only; evidence-not-a-scope-expansion',
+        'project_recipe_license': PROJECT_LICENSE, 'copies': copies,
+        'excluded_project_inputs': ['LICENSE', 'scripts/fixtures/game-codec-replay.c', 'backend/codec_fixture.py'],
+        'source_delivery_approved': False, 'runtime_collection_allowed': False,
+        'production_execution_allowed': False, 'r19_complete': False}
+
+
+def source_boundary(pin):
+    return {'scope': 'source-review-only; not approved corresponding source',
+        'licensing_boundary': pin['licensing_boundary'], 'adaptations': pin['adaptations'],
+        'project_recipe_license': pin['project_recipe_license'],
+        'source_delivery_approved': False, 'runtime_collection_allowed': False}
+
+
+def verify_recipe_delivery(root, pin):
+    kit = root / 'source-review'
+    originals = [record['filename'] for record in inputs(pin, tools=False)]
+    if len(originals) != len(set(originals)) or any(safe_member(name) != name or '/' in name for name in originals):
+        raise ValueError('Project source input names differ.')
+    names = {'original-inputs/' + name for name in originals} | {
+        'project-orchestration/' + name for name in PROJECT_INPUTS} | {BSD_COPIES, 'BOUNDARY.json'}
+    if variant_definition(pin):
+        names |= {'DIAGNOSTIC-VARIANT.json', 'diagnostic-variant/ORIGINAL-makedef', 'diagnostic-variant/MODIFIED-makedef'}
+    check_named_tree(kit, names)
+    files = {name: recipe_bytes(ROOT / name) for name in PROJECT_INPUTS}
+    expected = {name: {'bytes': len(raw), 'sha256': digest(raw)} for name, raw in files.items()}
+    if not same_recipe_json(recipe_json(root / 'PROJECT-INPUTS.json'), expected):
+        raise ValueError('Project inputs changed after source preparation.')
+    for name, data in files.items():
+        if recipe_bytes(kit / 'project-orchestration' / name) != data:
+            raise ValueError('A delivered project recipe differs.')
+    if not same_recipe_json(recipe_json(kit / BSD_COPIES), bsd_copy_inventory(files, pin)):
+        raise ValueError('The final six-copy license inventory differs.')
+    if not same_recipe_json(recipe_json(kit / 'BOUNDARY.json'), source_boundary(pin)):
+        raise ValueError('The source delivery boundary differs.')
 
 
 def inventory(root):
@@ -428,6 +555,8 @@ def prepare(input_root, output, *, include_tools=True):
     no_links(input_root); no_links(output)
     if output.exists():
         raise ValueError('A fresh quarantine root is required; existing work is preserved.')
+    project_files = {name: recipe_bytes(ROOT / name) for name in PROJECT_INPUTS}
+    license_inventory = bsd_copy_inventory(project_files, pin)
     # Validate every source, recipe and tool hash before creating output.
     for record in inputs(pin, tools=include_tools):
         path = input_root / record['filename']; no_links(path)
@@ -452,7 +581,10 @@ def prepare(input_root, output, *, include_tools=True):
         shutil.copyfile(input_root / record['filename'], kit / 'original-inputs' / record['filename'])
     for name in PROJECT_INPUTS:
         target = kit / 'project-orchestration' / name
-        target.parent.mkdir(parents=True, exist_ok=True); shutil.copyfile(ROOT / name, target)
+        target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(project_files[name])
+    write_json(output / 'PROJECT-INPUTS.json', {name: {'bytes': len(raw), 'sha256': digest(raw)}
+        for name, raw in project_files.items()})
+    write_json(kit / BSD_COPIES, license_inventory)
     source = output / 'upstream'; source.mkdir()
     for record in pin['sources']:
         with tarfile.open(input_root / record['filename']) as tar:
@@ -474,9 +606,8 @@ def prepare(input_root, output, *, include_tools=True):
         (output / 'PRIVATE-MAKEDEF').mkdir()
     write_json(output / 'PREPARED-SOURCE.json', inventory(source))
     write_json(output / 'ORIGINAL-OPTIONS.json', options)
-    write_json(kit / 'BOUNDARY.json', {'scope': 'source-review-only; not approved corresponding source',
-        'licensing_boundary': pin['licensing_boundary'], 'adaptations': pin['adaptations'],
-        'source_delivery_approved': False, 'runtime_collection_allowed': False})
+    write_json(kit / 'BOUNDARY.json', source_boundary(pin))
+    verify_recipe_delivery(output, pin)
 
 
 def pe_imports(raw):
@@ -524,14 +655,16 @@ def pe_imports(raw):
 
 
 def verify_sources(root):
+    root = Path(root).absolute(); no_links(root); pin = policy()
+    verify_recipe_delivery(root, pin)
+    for record in inputs(pin, tools=False):
+        bound_bytes(root / 'source-review/original-inputs' / record['filename'], record)
     no_links(root / 'PREPARED-SOURCE.json')
     current = inventory(root / 'upstream')
     if current != json.loads((root / 'PREPARED-SOURCE.json').read_text()):
         raise ValueError('Build changed the original verified sources.')
-    pin = policy(); variant = variant_definition(pin)
+    variant = variant_definition(pin)
     if variant:
-        for record in inputs(pin, tools=False):
-            bound_bytes(root / 'source-review/original-inputs' / record['filename'], record)
         no_links(root / 'ORIGINAL-SOURCE.json')
         before = json.loads((root / 'ORIGINAL-SOURCE.json').read_text())
         if tree_identity(before) != variant['original_tree'] or tree_identity(current) != variant['modified_tree']:
@@ -649,9 +782,6 @@ def finish(root, cmake_root):
     spec = importlib.util.spec_from_file_location('pinned_build_cmake', ROOT / 'scripts/pinned-build-cmake.py')
     cmake_helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(cmake_helper)
     cmake_supplier = cmake_helper.verify(cmake_root)
-    for name in PROJECT_INPUTS:
-        if (ROOT / name).read_bytes() != (root / 'source-review/project-orchestration' / name).read_bytes():
-            raise ValueError('Project orchestration changed after source preparation.')
     tools = json.loads((root / 'BUILD-TOOLS.json').read_text())
     after = json.loads((root / 'BUILD-TOOLS-AFTER.json').read_text())
     if tools != after: raise ValueError('Controlled build tools changed during the experiment.')
@@ -715,6 +845,7 @@ def finish(root, cmake_root):
         'diagnostic_variant': variant_receipt(pin),
         'cmake_supplier': cmake_supplier,
         'source_review_files': inventory(root / 'source-review'),
+        'project_recipe_licenses': recipe_json(root / 'source-review' / BSD_COPIES),
         'installed_files': inventory(root / 'out'), 'build_tools': tools,
         'ffmpeg_generated': public_generated_configuration(root),
         'opus_cache_sha256': digest((root / 'opus-build/CMakeCache.txt').read_bytes()),
@@ -736,6 +867,7 @@ def finish(root, cmake_root):
         'source_delivery_approved': False, 'native_windows_11_acceptance': 'unavailable',
         'installer': 'not-built', 'r19_complete': False}
     # Source-only review package, explicitly not approved distribution source.
+    verify_sources(root)
     with zipfile.ZipFile(root / 'source-review.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
         for path in sorted((root / 'source-review').rglob('*')):
             if path.is_file():

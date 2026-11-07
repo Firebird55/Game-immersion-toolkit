@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .runtime_paths import data_root as runtime_data_root
+from .runtime_bundle import discover_layout
 import json
 from pathlib import Path
 import threading
@@ -29,7 +30,6 @@ def selected_snapshot(root: Path, game: str):
 
 class LanguagePreparation:
     def __init__(self, build, activate, state, *, path: Path | None = None, supported=None, rebuild=None, cancellable=False):
-        from .runtime_bundle import discover_layout
         self.path = path if path is not None else discover_layout().settings_root / 'languages.json'
         self.build, self.activate, self.state = build, activate, state
         self.rebuild = rebuild or build
