@@ -50,6 +50,93 @@ def test_startup_starts_account_independent_mobile_rules_once():
     assert calls == ['languages', 'exports', 'repair']
 
 
+@pytest.mark.parametrize('failed_thread', ['prepared-language-updates', 'toolkit-release-updates', 'automatic-mobile-export'])
+def test_stop_after_partial_update_start_allows_a_clean_restart(tmp_path, monkeypatch, failed_thread):
+    from backend.automatic_mobile_export import AutomaticMobileExports
+    from backend.language_preparation import LanguagePreparation
+    from backend.toolkit_update import ToolkitUpdater
+
+    monkeypatch.delenv('PROXY_TRANSCRIPT_HOST_MANAGED', raising=False)
+    runtime = Runtime.__new__(Runtime)
+    runtime._updates_started = False
+    runtime.languages = LanguagePreparation(None, None, None, path=tmp_path/'languages.json')
+    runtime.toolkit_updater = ToolkitUpdater(tmp_path)
+    runtime.toolkit_updater.status = lambda: {'enabled': False}
+    runtime.automatic_exports = AutomaticMobileExports(tmp_path, home=tmp_path/'exports')
+    runtime.repair_task = runtime.map_task = runtime.index_task = None
+    runtime.update_manager = runtime.pragmata_updater = SimpleNamespace(close=lambda: None)
+    runtime.game_updaters = {}
+    repairs = []
+    runtime.start_audio_repair = lambda: repairs.append(True)
+    start = threading.Thread.start
+
+    def fail_start(thread):
+        if thread.name == failed_thread:
+            # These two owners publish before startup returns. A concurrent
+            # close must refuse while the published Thread is still unstarted.
+            owner = {'toolkit-release-updates': runtime.toolkit_updater,
+                     'automatic-mobile-export': runtime.automatic_exports}.get(thread.name)
+            if owner is not None:
+                with pytest.raises(RuntimeError, match='before it is started'):
+                    owner.close()
+            raise RuntimeError('authored thread startup failure')
+        start(thread)
+
+    def threads():
+        return [thread for thread in (runtime.languages.monitor, runtime.toolkit_updater.thread,
+                runtime.automatic_exports.thread) if thread is not None]
+
+    try:
+        with monkeypatch.context() as fault:
+            fault.setattr(threading.Thread, 'start', fail_start)
+            with pytest.raises(RuntimeError, match='authored thread startup failure'):
+                runtime.start_updates()
+        first = threads()
+        asyncio.run(runtime.stop_updates())
+        assert not any(thread.is_alive() for thread in first) and not repairs
+        runtime.start_updates()
+        assert len(threads()) == 3 and all(thread.is_alive() for thread in threads())
+        assert repairs == [True]
+    finally:
+        asyncio.run(runtime.stop_updates())
+
+
+@pytest.mark.parametrize('cleanup_fails', [False, True])
+def test_initial_producer_failure_shuts_down_constructed_runtime(monkeypatch, cleanup_fails):
+    from backend import api
+
+    calls = []
+    startup_error = RuntimeError('authoritative startup failure')
+    cleanup_error = TimeoutError('worker cleanup incomplete')
+    def start_updates():
+        calls.append('start')
+        raise startup_error
+    async def quiesce():
+        calls.append('quiesce')
+        if cleanup_fails:
+            raise cleanup_error
+    async def close_capture():
+        calls.append('capture')
+    async def step(operation, deadline, *, blocking):
+        operation()
+    runtime = SimpleNamespace(capture_language_ready=lambda game: False, standby=False, warm_task=None,
+        start_updates=start_updates, quiesce=quiesce, capture=SimpleNamespace(close=close_capture),
+        _handoff_step=step, _reading_registry=SimpleNamespace(shutdown=lambda deadline: calls.append('readers')),
+        worker_pools=lambda: [SimpleNamespace(shutdown=lambda wait: calls.append('pool'))])
+    monkeypatch.setattr(api, 'Runtime', lambda: runtime)
+    monkeypatch.setattr(api, 'runtime', runtime, raising=False)
+    async def run():
+        async with api.lifespan(api.app):
+            pytest.fail('Startup must not admit requests after a producer failed.')
+    with pytest.raises(RuntimeError) as failed:
+        asyncio.run(run())
+    assert failed.value is startup_error
+    if cleanup_fails:
+        assert failed.value.__cause__ is cleanup_error and calls == ['start', 'quiesce']
+    else:
+        assert calls == ['start', 'quiesce', 'capture', 'readers', 'pool']
+
+
 @pytest.mark.parametrize('standby', [False, True])
 def test_startup_with_prepared_zzz_uses_multilingual_index_without_legacy_reload(tmp_path, monkeypatch, standby):
     from backend import api

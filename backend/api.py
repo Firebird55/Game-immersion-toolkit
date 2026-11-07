@@ -10,6 +10,7 @@ import threading
 import logging
 import time
 from contextlib import asynccontextmanager, contextmanager, nullcontext
+from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import TimeoutExpired
 from typing import Literal
@@ -40,6 +41,7 @@ from .toolkit_update import ToolkitUpdater
 from .lexirise import LexiriseService, LexiriseError, REQUEST_KEY
 from .reading import LexiriseReadingService
 from .runtime_readers import RuntimeReadingRegistry
+from .sqlite_operation_lifetime import SqliteOperationLifetime
 from .runtime_handoff import CaptureHandoff
 from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
@@ -57,6 +59,10 @@ from .game_paths import GAMES, configured_install, clear_install, discover_insta
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 from .runtime_bundle import discover_layout, child_command
 
+
+# A scoped constructor hook can wrap creation without changing the real member
+# type. In particular, the authored grammar probe still creates this class.
+_SQL_LEDGER_TYPE = LexiriseService
 
 RUNTIME_LAYOUT = discover_layout()
 PROJECT_ROOT = RUNTIME_LAYOUT.legacy_root or RUNTIME_LAYOUT.application_root
@@ -135,19 +141,62 @@ class EventHub:
                     self.clients.discard(client)
 
 
+@dataclass(eq=False, repr=False)
+class _RuntimeSqlMember:
+    subject: object
+    owner: SqliteOperationLifetime
+    epoch: int | None = None
+    token: object = None
+    resumed: bool = False
+    error: BaseException | None = None
+    retirement_epoch: object = field(default_factory=object)
+    reserved: bool = False
+
+
+@dataclass(eq=False, repr=False)
+class _RuntimeRequestStop:
+    requests: RequestBarrier
+    idle: asyncio.Event
+    error: BaseException | None = None
+    failed_task: asyncio.Task | None = None
+
+
+@dataclass(eq=False, repr=False)
+class _RuntimeSqlHandoff:
+    transcript: TranscriptStore
+    lexirise: LexiriseService
+    registry: RuntimeReadingRegistry
+    readings: object
+    gate: RuntimeWriterGate
+    requests: RequestBarrier
+    requests_idle: asyncio.Event
+    request_stop: _RuntimeRequestStop
+    capture: CaptureService
+    payload: CaptureHandoff
+    members: tuple[_RuntimeSqlMember, ...] | None
+    error: BaseException | None = None
+
+    def require_freezable(self):
+        if self.members is not None and self.readings is not None:
+            if any(member.resumed for member in (*self.members, *self.readings.members)):
+                raise TimeoutError('Recovered SQL owners cannot reuse an old freeze transition.')
+
+
 class Runtime:
     def __init__(self) -> None:
         self.standby = os.environ.get('PROXY_TRANSCRIPT_STANDBY') == '1'
-        self.request_barrier = RequestBarrier(paused=self.standby)
-        self._quiesce_task = None
-        self._handoff_state = None
         self.request_writers = RuntimeWriterGate()
+        self.request_barrier = RequestBarrier(paused=self.standby)
+        self._quiesce_task = self._handoff_state = None
+        self._request_stop = None
+        if self.standby:
+            self.request_writers.stop_admission()
         self._handoff_lock = asyncio.Lock()
         self._handoff_drains = []
         self._writer_handoff = False
-        if self.standby:
-            self.request_writers.stop_admission()
+        self._sql_handoff = None
         self._updates_started = False
+        self._pending_update_starts = []
         self.toolkit_updater = ToolkitUpdater(PROJECT_ROOT)
         self.warm_task = None
         self.repair_task = None
@@ -586,15 +635,18 @@ class Runtime:
         return self.hito.refresh()
 
     def start_updates(self) -> None:
-        if self._updates_started:
-            return
-        self._updates_started = True
-        self.languages.start()
-        if hasattr(self, 'toolkit_updater'):
-            self.toolkit_updater.start()
-        if hasattr(self, 'automatic_exports'):
-            self.automatic_exports.start()
-        self.start_audio_repair()
+        if not self._updates_started:
+            starts = [self.languages.start]
+            if hasattr(self, 'toolkit_updater'):
+                starts.append(self.toolkit_updater.start)
+            if hasattr(self, 'automatic_exports'):
+                starts.append(self.automatic_exports.start)
+            starts.append(self.start_audio_repair)
+            self._pending_update_starts = starts
+            self._updates_started = True  # A partial start can already own live workers.
+        while self._pending_update_starts:
+            self._pending_update_starts[0]()
+            self._pending_update_starts.pop(0)  # A failed start stays pending for retry.
 
     def start_audio_repair(self) -> None:
         if self.standby or not self._updates_started or (self.repair_task and not self.repair_task.done()):
@@ -618,6 +670,7 @@ class Runtime:
 
     async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
+        self._pending_update_starts = []
         if hasattr(self, 'toolkit_updater'):
             await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
@@ -643,20 +696,30 @@ class Runtime:
                 *(reader.pool for reader in readers)}
 
     async def quiesce(self):
-        retry = (self._quiesce_task is not None and self._quiesce_task.done()
-                 and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
-        if self._quiesce_task is None or retry:
-            if self._handoff_state is None:
-                self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
-            self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
-        await asyncio.shield(self._quiesce_task)
+        # Activation can retire a completed stop once mutable owners resume.
+        # Select under the same operation lock, never await its drain under it.
+        async with self._handoff_lock:
+            stop = self._pin_request_stop()
+            retry = (self._quiesce_task is not None and self._quiesce_task.done()
+                     and not self._quiesce_task.cancelled() and self._quiesce_task.exception() is not None)
+            if self._quiesce_task is None or retry:
+                # A refused stop must leave an in-progress activation recoverable.
+                # Only install a new drain task when it can actually start.
+                if self._sql_handoff is not None:
+                    self._require_new_drain()
+                if self._handoff_state is None:
+                    self._handoff_state = self.capture.export_handoff(self.capture.snapshot().running)
+                self._quiesce_task = asyncio.create_task(self._drain_workers(), name='runtime-handoff-drain')
+                self._quiesce_task.add_done_callback(lambda task: Runtime._retain_request_stop_failure(stop, task))
+            task, state = self._quiesce_task, self._handoff_state
+        await asyncio.shield(task)
         # Capture's suppression state can advance while requests finish.
-        return self.capture.export_handoff(self._handoff_state.running)
+        return self.capture.export_handoff(state.running)
 
     async def _drain_workers(self):
         log = logging.getLogger('toolkit.lifecycle')
         log.info('Update: waiting for requests, setup, capture and dictionary workers to finish')
-        await self.request_barrier.pause()
+        await self._pause_outer_requests()
         await self.quiesce_writers(timeout=threading.TIMEOUT_MAX)
         log.info('Update: all runtime writers stopped; ready to transfer capture')
 
@@ -670,9 +733,73 @@ class Runtime:
 
     def activate_workers(self):
         self._check_owned_drain()
-        self.resume_writers()
-        self.admit_requests()
-        self._quiesce_task = self._handoff_state = None
+        stopped = getattr(self, '_quiesce_task', None)
+        self._pin_request_stop()
+        deadline = time.monotonic()+30
+        self._check_outer_requests(self.request_barrier, self.request_barrier._idle)
+        self._prepare_recovery_requests(deadline)
+        try:
+            self._resume_sql_handoff(deadline)
+            self.resume_writers(deadline)
+            self.admit_requests(deadline)
+            self._handoff_state = None
+        finally:
+            self._retire_successful_drain(stopped)
+
+    def _retire_successful_drain(self, stopped):
+        if (stopped is not None and self._quiesce_task is stopped and stopped.done()
+                and not stopped.cancelled() and stopped.exception() is None):
+            # Only cached success is retired. Actual partial SQL owners, errors
+            # and pending/failed drain tasks retain their existing references.
+            self._quiesce_task = None
+
+    @staticmethod
+    def _retain_request_stop_failure(stop, task):
+        if not task.cancelled() and task.exception() is not None:
+            if stop.error is None:
+                stop.error = task.exception()
+            if stop.failed_task is None:
+                stop.failed_task = task
+
+    def _pin_request_stop(self):
+        stop = self._request_stop
+        if stop is None:
+            if self._quiesce_task is not None or self._sql_handoff is not None:
+                raise TimeoutError('Runtime request stop binding is missing.')
+            requests = self.request_barrier
+            if type(requests) is not RequestBarrier or type(requests._idle) is not asyncio.Event:
+                raise TypeError('Runtime request barrier ownership differs.')
+            stop = self._request_stop = _RuntimeRequestStop(requests, requests._idle)
+        self._check_request_stop(stop)
+        return stop
+
+    def _check_request_stop(self, stop):
+        if (type(stop) is not _RuntimeRequestStop or self._request_stop is not stop
+                or self.request_barrier is not stop.requests or stop.requests._idle is not stop.idle):
+            error = TimeoutError('Runtime request barrier is not the retained paused, idle owner.')
+            if type(stop) is _RuntimeRequestStop and stop.error is None:
+                stop.error = error
+            raise error
+
+    async def _pause_outer_requests(self):
+        # Only the ASGI loop touches the RequestBarrier Event/count. A worker
+        # may validate their retained identity and commit plain paused metadata.
+        stop = self._request_stop
+        self._check_request_stop(stop)
+        requests, idle = stop.requests, stop.idle
+        await requests.pause()
+        self._check_outer_requests(requests, idle)
+        if not idle.is_set():
+            raise TimeoutError('Runtime request barrier has not become idle.')
+
+    def _check_outer_requests(self, requests, idle):
+        stop = self._request_stop
+        self._check_request_stop(stop)
+        if (requests is not stop.requests or idle is not stop.idle
+                or type(requests) is not RequestBarrier or self.request_barrier is not requests
+                or type(idle) is not asyncio.Event or requests._idle is not idle
+                or requests.paused is not True or requests._active != 0):
+            raise TimeoutError('Runtime request barrier is not the retained paused, idle owner.')
 
     async def _handoff_step(self, operation, deadline, *, blocking=False):
         remaining = deadline-time.monotonic()
@@ -704,9 +831,223 @@ class Runtime:
         if self.map_task:
             await asyncio.shield(self.map_task)
 
+    @asynccontextmanager
+    async def _handoff_until(self, deadline):
+        if deadline is None:
+            async with self._handoff_lock:
+                yield
+            return
+        remaining = deadline-time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('Runtime handoff deadline expired.')
+        async with asyncio.timeout(remaining):
+            await self._handoff_lock.acquire()
+        try:
+            if time.monotonic() > deadline:
+                raise TimeoutError('Runtime handoff deadline expired.')
+            yield
+        finally:
+            self._handoff_lock.release()
+
+    def _stop_requests_until(self, deadline):
+        record = self._sql_handoff
+        if record is not None: self._check_sql_identity(record)
+        gate = record.gate if record is not None else self.request_writers
+        if type(gate) is not RuntimeWriterGate:
+            raise TypeError('Runtime request gate ownership differs.')
+        remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
+        if not gate._condition.acquire(timeout=remaining):
+            raise TimeoutError('Runtime request admission metadata is still owned.')
+        try:
+            if time.monotonic() > deadline:
+                raise TimeoutError('Runtime request stop deadline expired.')
+            gate.stop_admission()
+        finally:
+            gate._condition.release()
+
+    def _wait_requests_until(self, deadline):
+        gate = self.request_writers
+        if type(gate) is not RuntimeWriterGate:
+            raise TypeError('Runtime request gate ownership differs.')
+        while True:
+            remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
+            if not gate._condition.acquire(timeout=remaining):
+                raise TimeoutError('Runtime request drain metadata is still owned.')
+            try:
+                if time.monotonic() > deadline or gate._accepting:
+                    raise TimeoutError('Runtime request drain deadline or admission changed.')
+                if not gate._active:
+                    return
+            finally:
+                gate._condition.release()
+            remaining = deadline-time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('Runtime requests have not finished.')
+            time.sleep(min(.01, remaining))
+
+    def _prepare_recovery_requests(self, deadline):
+        record = self._sql_handoff
+        if record is not None:
+            self._check_sql_identity(record)
+            self._check_outer_requests(record.requests, record.requests_idle)
+        registry = record.registry if record is not None else self._reading_registry
+        self._stop_requests_until(deadline)
+        registry.stop_creation(deadline)
+        self._wait_requests_until(deadline)
+
+    def _check_sql_identity(self, record):
+        if (type(record) is not _RuntimeSqlHandoff or self._sql_handoff is not record
+                or self.transcript is not record.transcript or self.lexirise is not record.lexirise
+                or self._reading_registry is not record.registry or self.request_writers is not record.gate
+                or self.request_barrier is not record.requests or record.requests._idle is not record.requests_idle
+                or self._request_stop is not record.request_stop):
+            raise TimeoutError('Runtime SQL ownership changed.')
+        self._check_request_stop(record.request_stop)
+        if (record.requests is not record.request_stop.requests or record.requests_idle is not record.request_stop.idle
+                or self.capture is not record.capture):
+            raise TimeoutError('Runtime SQL ownership changed.')
+
+    def _check_sql_bindings(self, record, deadline):
+        self._check_sql_identity(record)
+        self._check_outer_requests(record.requests, record.requests_idle)
+        if (record.readings is None or self.reading is not record.readings.default
+                or record.members is None or len(record.members) != 2):
+            raise TimeoutError('Runtime SQL reservation remains incomplete.')
+        for member, owner in zip(record.members, (self.transcript._sql_lifetime, self.lexirise._sql_lifetime)):
+            if type(member) is not _RuntimeSqlMember or member.owner is not owner or owner.subject is not member.subject:
+                raise TimeoutError('Runtime SQL member changed.')
+        remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
+        if not record.gate._condition.acquire(timeout=remaining):
+            raise TimeoutError('Runtime SQL request admission metadata is still owned.')
+        try:
+            if time.monotonic() > deadline or record.gate._accepting or record.gate._active:
+                raise TimeoutError('Runtime SQL requires drained, closed request admission.')
+        finally:
+            record.gate._condition.release()
+        record.registry.check_sql_set(record.readings, deadline)
+
+    def _reserve_sql_handoff(self, payload, deadline):
+        stop = self._request_stop
+        self._check_request_stop(stop)
+        if self._sql_handoff is None:
+            # Retain actual inputs before reservation/validation can fail.
+            self._sql_handoff = _RuntimeSqlHandoff(self.transcript, self.lexirise, self._reading_registry,
+                None, self.request_writers, stop.requests, stop.idle, stop, self.capture, payload, None)
+        record = self._sql_handoff
+        try:
+            if (self.transcript is not record.transcript or self.lexirise is not record.lexirise
+                    or self._reading_registry is not record.registry or self.request_writers is not record.gate
+                    or self.request_barrier is not record.requests or record.requests._idle is not record.requests_idle
+                    or self.capture is not record.capture):
+                raise TypeError('Runtime SQL reservation inputs changed.')
+            if (not isinstance(self.transcript, TranscriptStore) or not isinstance(self.lexirise, _SQL_LEDGER_TYPE)
+                    or type(self._reading_registry) is not RuntimeReadingRegistry
+                    or type(self.request_writers) is not RuntimeWriterGate):
+                raise TypeError('Runtime SQL requires its actual retained stores and registry.')
+            owners = (self.transcript._sql_lifetime, self.lexirise._sql_lifetime)
+            if (any(type(owner) is not SqliteOperationLifetime for owner in owners)
+                    or owners[0].subject is not self.transcript or not isinstance(owners[1].subject, _SQL_LEDGER_TYPE)
+                    or owners[0] is owners[1]):
+                raise TypeError('Runtime SQL owner binding differs.')
+            if record.members is None:
+                record.members = tuple(_RuntimeSqlMember(owner.subject, owner, epoch=owner.epoch) for owner in owners)
+            if record.readings is None:
+                record.readings = self._reading_registry.reserve_sql_owned(deadline)
+            self._check_sql_bindings(record, deadline)
+        except BaseException as error:
+            self._sql_member_error(record, None, error)
+            raise
+        return record
+
+    @staticmethod
+    def _sql_member_error(record, member, error):
+        if member is not None and member.error is None: member.error = error
+        if record.error is None: record.error = error
+
+    def _check_sql_handoff(self, record, deadline, *, resumed=False):
+        self._check_sql_bindings(record, deadline)
+        for member in record.members:
+            if (not member.reserved or member.token is None or type(member.token) is not member.owner._fence_type
+                    or member.token._epoch != member.epoch
+                    or resumed and not member.resumed):
+                raise TimeoutError('Runtime SQL transition remains incomplete.')
+            if member.resumed:
+                member.owner._check_resumed_until(member.token, deadline, member)
+            else:
+                member.owner._check_until(member.token, deadline, member)
+        record.registry.check_sql_owned(record.readings, deadline, resumed=resumed)
+
+    def _complete_sql_freeze(self, record, deadline):
+        self._check_sql_bindings(record, deadline)
+        try:
+            # Bind every actual owner to this retained member before any freeze.
+            for member in record.members:
+                if not member.reserved:
+                    try:
+                        if member.owner._reserve_until(member, deadline) is not member:
+                            raise ValueError('Runtime SQL controller result differs.')
+                        member.reserved = True
+                    except BaseException as error:
+                        self._sql_member_error(record, member, error)
+                        raise
+                else:
+                    member.owner._check_control_until(member, member.epoch, deadline)
+            record.registry.reserve_sql_epochs(record.readings, deadline)
+            for member in record.members:
+                try:
+                    if member.resumed:
+                        member.owner._check_resumed_until(member.token, deadline, member)
+                    elif member.token is None:
+                        member.token = member.owner._freeze_until(deadline, member.epoch, member)
+                    else:
+                        member.owner._check_until(member.token, deadline, member)
+                except BaseException as error:
+                    self._sql_member_error(record, member, error)
+                    raise
+            record.registry.freeze_sql_owned(record.readings, deadline)
+            self._check_sql_handoff(record, deadline)
+        except BaseException as error:
+            self._sql_member_error(record, None, error)
+            raise
+
+    def _require_new_drain(self):
+        if any(not task.done() for task in self._handoff_drains):
+            raise TimeoutError('A previous runtime writer drain is still running.')
+        if self._sql_handoff is not None:
+            self._sql_handoff.require_freezable()
+
+    def _freeze_sql_handoff(self, payload, deadline):
+        record = self._reserve_sql_handoff(payload, deadline)
+        record.require_freezable()
+        self._complete_sql_freeze(record, deadline)
+        return record.payload
+
+    def _resume_sql_handoff(self, deadline):
+        Runtime._check_owned_drain(self)
+        record = self._sql_handoff
+        if record is None:
+            return  # An earlier producer failure never reached SQL reservation.
+        try:
+            record = self._reserve_sql_handoff(record.payload, deadline)
+            self._complete_sql_freeze(record, deadline)
+            self._check_sql_handoff(record, deadline)  # Validate every token before any owner reopens.
+            for member in record.members:
+                if not member.resumed:
+                    try:
+                        member.owner._resume_until(member.token, deadline, member)
+                        member.resumed = True
+                    except BaseException as error:
+                        self._sql_member_error(record, member, error)
+                        raise
+            record.registry.resume_sql_owned(record.readings, deadline)
+            self._check_sql_handoff(record, deadline, resumed=True)
+        except BaseException as error:
+            self._sql_member_error(record, None, error)
+            raise
+
     async def quiesce_capture_handoff(self):
-        # Preserve the source updater's existing capture-only protocol. It is
-        # explicitly not a settings/database writer-stop or store-copy proof.
+        # Internal capture-only experiment, never a store-copy proof. Public
+        # update controls use the complete writer drain for both query variants.
         async with self._handoff_lock:
             if self._writer_handoff:
                 raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
@@ -717,16 +1058,22 @@ class Runtime:
             return self.capture.export_handoff(running)
 
     async def quiesce_writers(self, timeout=30):
-        async with self._handoff_lock:
+        deadline = time.monotonic()+timeout
+        async with self._handoff_until(deadline):
+            self._pin_request_stop()
             self._writer_handoff = True
-            self.request_writers.stop_admission()
-            if any(not task.done() for task in self._handoff_drains):
-                raise TimeoutError('A previous runtime writer drain is still running.')
+            self._require_new_drain()
             self._clear_handoff_drains()
-            deadline = time.monotonic()+timeout
+            await self._handoff_step(lambda: self._stop_requests_until(deadline), deadline, blocking=True)
+            if self._sql_handoff is not None:
+                payload = self._sql_handoff.payload
+                result = await self._handoff_step(lambda: self._freeze_sql_handoff(payload, deadline), deadline, blocking=True)
+                self.standby = True
+                return result
             running = self.capture.snapshot().running
             await self._handoff_step(lambda: self._reading_registry.stop_creation(deadline), deadline, blocking=True)
-            await self._handoff_step(lambda: self.request_writers.wait_drained(max(0, deadline-time.monotonic())), deadline, blocking=True)
+            await self._handoff_step(self._pause_outer_requests, deadline)
+            await self._handoff_step(lambda: self._wait_requests_until(deadline), deadline, blocking=True)
             # Do not manufacture native cleanup by cancelling a Future or
             # terminating a native setup/export process by a stored PID.
             # These production adapters own the native process tree; their drain
@@ -744,8 +1091,10 @@ class Runtime:
                 await self._handoff_step(lambda pool=pool: pool.quiesce(max(0, deadline-time.monotonic())), deadline, blocking=True)
             await self._handoff_step(self.capture.drain_publications, deadline)
             await self._handoff_step(self.hito.close, deadline, blocking=True)
+            payload = self.capture.export_handoff(running)
+            result = await self._handoff_step(lambda: self._freeze_sql_handoff(payload, deadline), deadline, blocking=True)
             self.standby = True
-            return self.capture.export_handoff(running)
+            return result
 
     def _clear_handoff_drains(self):
         for task in self._handoff_drains:
@@ -755,34 +1104,63 @@ class Runtime:
 
     async def activate_handoff(self, payload, *, writers=False):
         # A recovery call cannot reopen admission between two quiesce steps.
-        async with self._handoff_lock:
-            self._check_owned_drain()
-            if self._writer_handoff and not writers:
-                raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
-            if writers:
-                if any(not task.done() for task in self._handoff_drains):
-                    raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
-                if self.capture.native_stop_pending:
-                    await self._handoff_step(self.capture.finish_native_stop, time.monotonic()+30)
-                self.resume_writers()
-            if self.capture.snapshot().running:
-                self.standby = False
-                self.start_updates()
-            else:
-                self.capture.import_handoff(payload)
-                self.standby = False
-                if payload.running:
-                    self.capture.start()
-                self.start_updates()
-            if writers:
-                self.admit_requests()
-                self._writer_handoff = False
-            self._quiesce_task = self._handoff_state = None
-            return {'active': True}
+        deadline = time.monotonic()+30 if writers else None
+        async with self._handoff_until(deadline):
+            stopped, resuming = getattr(self, '_quiesce_task', None), False
+            try:
+                self._check_owned_drain()
+                if self._writer_handoff and not writers:
+                    raise TimeoutError('Strict writer recovery requires the explicit writers protocol.')
+                if writers:
+                    if any(not task.done() for task in self._handoff_drains):
+                        raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+                    record = self._sql_handoff
+                    if record is not None: self._check_sql_identity(record)
+                    self._pin_request_stop()
+                    capture = record.capture if record is not None else self.capture
+                    await self._handoff_step(lambda: self._prepare_recovery_requests(deadline), deadline, blocking=True)
+                    await self._handoff_step(self._pause_outer_requests, deadline)
+                    if record is not None: self._check_sql_identity(record)
+                    if capture.native_stop_pending:
+                        await self._handoff_step(capture.finish_native_stop, deadline)
+                    resuming = True  # A failing resume may already have changed an actual SQL owner.
+                    await self._handoff_step(lambda: self._resume_sql_handoff(deadline), deadline, blocking=True)
+                    await self._handoff_step(lambda: self._resume_writer_pools(deadline), deadline, blocking=True)
+                    self._clear_handoff_drains()
+                resuming = True
+                if self.capture.snapshot().running:
+                    self.standby = False
+                    self.start_updates()
+                else:
+                    self.capture.import_handoff(payload)
+                    self.standby = False
+                    if payload.running:
+                        self.capture.start()
+                    self.start_updates()
+                if writers:
+                    await self._handoff_step(lambda: self.admit_requests(deadline), deadline, blocking=True)
+                self._handoff_state = None
+                return {'active': True}
+            except BaseException as error:
+                if writers and self._sql_handoff is not None:
+                    self._sql_member_error(self._sql_handoff, None, error)
+                raise
+            finally:
+                if resuming:
+                    Runtime._retire_successful_drain(self, stopped)
 
-    def resume_writers(self):
+    def resume_writers(self, deadline=None):
+        Runtime._check_owned_drain(self)
         if any(not task.done() for task in self._handoff_drains):
             raise TimeoutError('Runtime writer cleanup is still running; retry recovery.')
+        self._resume_writer_pools(deadline)
+        self._clear_handoff_drains()
+
+    def _resume_writer_pools(self, deadline=None):
+        Runtime._check_owned_drain(self)
+        if self._sql_handoff is not None:
+            if deadline is None: raise TimeoutError('Runtime SQL recovery requires its active deadline.')
+            self._check_sql_handoff(self._sql_handoff, deadline, resumed=True)
         if self._handoff_drains and not self._updates_started:
             self.languages.close(timeout=0)
             self._verify_background_stopped()
@@ -790,16 +1168,80 @@ class Runtime:
         self.hito.resume()
         for pool in self._voice_pools():
             pool.resume()
-        self._reading_registry.resume_pools()
+        if deadline is None:
+            self._reading_registry.resume_pools()
+        else:
+            self._reading_registry.resume_pools(deadline)
         self.installation.resume()
         self.mobile_exports.resume()
         self.automatic_exports.picker.resume()
-        self._clear_handoff_drains()
 
-    def admit_requests(self):
-        self._reading_registry.reopen_creation()
-        self.request_writers.resume()
-        self.request_barrier.resume()
+    def admit_requests(self, deadline=None):
+        Runtime._check_owned_drain(self)
+        record = self._sql_handoff
+        if record is None:
+            requests, idle = self.request_barrier, self.request_barrier._idle
+            self._check_outer_requests(requests, idle)
+            gate = self.request_writers
+            if type(gate) is not RuntimeWriterGate:
+                raise TypeError('Runtime request gate ownership differs.')
+            deadline = time.monotonic()+30 if deadline is None else deadline
+            remaining = min(threading.TIMEOUT_MAX, max(0.0, deadline-time.monotonic()))
+            if not gate._condition.acquire(timeout=remaining):
+                raise TimeoutError('Runtime admission metadata remains owned.')
+            try:
+                if time.monotonic() > deadline or gate._active or gate._accepting:
+                    raise TimeoutError('Runtime admission is not ready to reopen.')
+                self._reading_registry.reopen_creation()
+                self._check_outer_requests(requests, idle)
+                if time.monotonic() > deadline:
+                    raise TimeoutError('Runtime admission deadline expired.')
+                # All fallible checks precede this metadata commit. Event/count
+                # remain ASGI-loop owned; the outer layer opens last.
+                gate._accepting = True
+                requests.paused = False
+                self._request_stop = None
+            finally:
+                gate._condition.release()
+        else:
+            if deadline is None: raise TimeoutError('Runtime SQL admission requires its active deadline.')
+            self._check_sql_handoff(record, deadline, resumed=True)
+            runtime_members, reading_members = record.members, record.readings.members
+            actual_members = (*runtime_members, *reading_members)
+            retirements = tuple((member.owner, member.retirement_epoch) for member in actual_members)
+            locks = []
+            try:
+                # Reservations reject competing controllers throughout this
+                # bounded acquisition. No registry lock is held over owners.
+                for member in actual_members:
+                    member.owner._acquire(member.owner.serialization, deadline)
+                    locks.append(member.owner.serialization)
+                self._check_sql_bindings(record, deadline)
+                if record.members is not runtime_members or record.readings.members is not reading_members:
+                    raise TimeoutError('Runtime SQL admission member identity changed.')
+                for member in actual_members:
+                    if not member.resumed or type(member.retirement_epoch) is not object:
+                        raise TimeoutError('Runtime SQL controller is not ready to retire.')
+                    member.owner._check_resumed_locked_until(member.token, member, deadline)
+                record.registry._reopen_sql_creation(record.readings, record.gate, deadline)
+                # All fallible checks/acquires are above the admission commit.
+                # Retirement below only installs already prepared metadata.
+                for owner, next_epoch in retirements:
+                    owner._controller = None
+                    owner._control_epoch = None
+                    owner._public_epoch = next_epoch
+                self._sql_handoff = None
+                self._writer_handoff = False
+                # Event/count remain loop-owned. Publish the outer admission
+                # last, after exact SQL owners, pools and epochs have settled.
+                record.requests.paused = False
+                self._request_stop = None
+            finally:
+                for lock in reversed(locks):
+                    lock.release()
+            return
+        self._sql_handoff = None
+        self._writer_handoff = False
 
     async def on_line(self, line: TranscriptLine) -> None:
         # Capture/audio threads can queue this coroutine before a favorite,
@@ -897,29 +1339,40 @@ runtime: Runtime
 async def lifespan(_app: FastAPI):
     global runtime
     runtime = Runtime()
-    if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
-            and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
-        runtime.start_map_prepare()
-    if runtime.standby:
-        runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
-    else:
-        runtime.start_updates()
-    if not runtime.standby and runtime.settings.get().auto_start and runtime.installation.completed:
-        runtime.capture.start()
+    try:
+        if (runtime.capture_language_ready('zzz') and runtime.textmaps is runtime._legacy_zzz_index
+                and runtime._legacy_zzz_index.file_path("zh_base").is_file()):
+            runtime.start_map_prepare()
+        if runtime.standby:
+            runtime.warm_task = asyncio.create_task(runtime.capture.warmup(), name='prepare-replacement-ocr')
+        else:
+            runtime.start_updates()
+        if not runtime.standby and runtime.settings.get().auto_start and runtime.installation.completed:
+            runtime.capture.start()
+    except BaseException as startup_error:
+        try:
+            await _shutdown_runtime(runtime)
+        except BaseException as cleanup_error:
+            raise startup_error from cleanup_error
+        raise
     try:
         yield
     finally:
-        if runtime.warm_task:
-            try:
-                await runtime.warm_task
-            except (Exception, asyncio.CancelledError):
-                pass
-        await runtime.quiesce()
-        await runtime.capture.close()
-        await runtime._handoff_step(lambda: runtime._reading_registry.shutdown(time.monotonic()+30),
-            time.monotonic()+30, blocking=True)
-        for pool in runtime.worker_pools():
-            pool.shutdown(wait=True)
+        await _shutdown_runtime(runtime)
+
+
+async def _shutdown_runtime(current):
+    if current.warm_task:
+        try:
+            await current.warm_task
+        except (Exception, asyncio.CancelledError):
+            pass
+    await current.quiesce()
+    await current.capture.close()
+    await current._handoff_step(lambda: current._reading_registry.shutdown(time.monotonic()+30),
+        time.monotonic()+30, blocking=True)
+    for pool in current.worker_pools():
+        pool.shutdown(wait=True)
 
 
 app = FastAPI(title="Proxy Transcript API", version="0.1.0", lifespan=lifespan)
@@ -1769,15 +2222,31 @@ async def capture_preview(
     height: float | None = Query(default=None, gt=0, le=1),
     picture_area: Literal["window", "16:9"] | None = Query(default=None),
 ) -> Response:
+    current = runtime
     values = (left, top, width, height)
     if all(value is not None for value in values):
         try:
             region = CaptureRegion(left=left, top=top, width=width, height=height)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        preview = await asyncio.to_thread(runtime.capture.preview_for_region, region, picture_area)
+        gate, preview_for_region = current.request_writers, current.capture.preview_for_region
+        try:
+            ticket = gate.capture_ticket()
+
+            def preview_region():
+                gate.enter(ticket)
+                try:
+                    return preview_for_region(region, picture_area)
+                finally:
+                    gate.leave()
+
+            preview = await asyncio.to_thread(preview_region)
+        except WritersQuiescing:
+            raise HTTPException(status_code=503,
+                detail='Runtime handoff is stopping writers. Retry after activation or recovery.',
+                headers={'Retry-After': '1'}) from None
     else:
-        preview = runtime.capture.preview_bytes()
+        preview = current.capture.preview_bytes()
     if not preview:
         raise HTTPException(status_code=404, detail="No capture preview is available yet")
     return Response(
@@ -1815,17 +2284,31 @@ def check_updates() -> dict[str, object]:
 
 @app.post("/api/ingest", response_model=TranscriptLine)
 async def manual_ingest(payload: ManualIngest) -> TranscriptLine:
-    if not runtime.textmaps.ready:
+    current = runtime
+    index = current.textmaps
+    if not index.ready:
         raise HTTPException(status_code=409, detail="TextMaps are not ready")
-    match = await asyncio.to_thread(
-        runtime.textmaps.match_text,
-        payload.text,
-        runtime.settings.get().fuzzy_threshold,
-    )
+    gate, match_text = current.request_writers, index.match_text
+    text, threshold = payload.text, current.settings.get().fuzzy_threshold
+    try:
+        ticket = gate.capture_ticket()
+
+        def match_ingest():
+            gate.enter(ticket)
+            try:
+                return match_text(text, threshold)
+            finally:
+                gate.leave()
+
+        match = await asyncio.to_thread(match_ingest)
+    except WritersQuiescing:
+        raise HTTPException(status_code=503,
+            detail='Runtime handoff is stopping writers. Retry after activation or recovery.',
+            headers={'Retry-After': '1'}) from None
     if match is None:
         raise HTTPException(status_code=404, detail="No bilingual TextMap match found")
-    line = runtime.transcript.add(match, runtime.capture.session_id)
-    await runtime.on_line(line)
+    line = current.transcript.add(match, current.capture.session_id)
+    await current.on_line(line)
     return line
 
 

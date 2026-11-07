@@ -302,7 +302,12 @@ class LanguagePreparation:
                         self._monitors.discard(threading.current_thread())
             self.monitor = threading.Thread(target=run, daemon=True, name='prepared-language-updates')
             self._monitors.add(self.monitor)
-            self.monitor.start()
+            try:
+                self.monitor.start()
+            except RuntimeError:
+                if self.monitor.ident is None:
+                    self._monitors.discard(self.monitor)  # Thread.start failed before launching it.
+                raise
 
     def close(self, timeout=5):
         deadline = time.monotonic() + timeout

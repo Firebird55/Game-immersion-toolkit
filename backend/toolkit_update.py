@@ -273,14 +273,20 @@ class ToolkitUpdater:
                 if self.status()['enabled']:
                     self.request()
                 self.stop.wait(6 * 3600)
-        self.thread = threading.Thread(target=monitor, daemon=True, name='toolkit-release-updates')
-        self.thread.start()
+        thread = self.thread = threading.Thread(target=monitor, daemon=True, name='toolkit-release-updates')
+        try:
+            thread.start()
+        except RuntimeError:
+            if self.thread is thread and thread.ident is None:
+                self.thread = None
+            raise
 
     def close(self):
         self.stop.set()
-        if self.thread:
-            self.thread.join(timeout=2)
-            if self.thread.is_alive():
+        thread = self.thread
+        if thread:
+            thread.join(timeout=2)
+            if thread.is_alive():
                 raise RuntimeError('Toolkit update monitor is still stopping; handoff is blocked.')
 
 

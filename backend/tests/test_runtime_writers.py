@@ -5,6 +5,7 @@ import threading
 
 import pytest
 
+from backend.runtime_workers import RequestBarrier
 from backend.runtime_writers import QuiesceableExecutor, RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing
 
 
@@ -272,13 +273,18 @@ def test_activation_serializes_with_the_complete_quiesce_operation():
     from backend.runtime_handoff import CaptureHandoff
     async def run():
         runtime = Runtime.__new__(Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff = asyncio.Lock(), True
+        runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Serialization-only adapter.
         calls = []
-        runtime.resume_writers = lambda: calls.append('resume')
+        runtime._resume_writer_pools = lambda _deadline: calls.append('resume')
         runtime._handoff_drains = []
         runtime.capture = SimpleNamespace(snapshot=lambda: SimpleNamespace(running=True), native_stop_pending=False)
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         await runtime._handoff_lock.acquire()
         activating = asyncio.create_task(runtime.activate_handoff(CaptureHandoff(running=True), writers=True))
         await asyncio.sleep(0)
@@ -333,14 +339,19 @@ def test_failed_native_cleanup_retains_ownership_and_blocks_strict_activation(tm
         assert capture.native_stop_pending and capture._background_capture._worker is worker
         with pytest.raises(TimeoutError): capture.resume_workers()
         runtime = api.Runtime.__new__(api.Runtime)
+        runtime._request_stop = None
         runtime._handoff_lock, runtime._writer_handoff, runtime._handoff_drains = asyncio.Lock(), True, []
+        runtime._sql_handoff = None
+        runtime._quiesce_task = None
+        runtime.request_barrier = RequestBarrier(paused=True)
+        runtime._prepare_recovery_requests = lambda _deadline: None  # Native-stop-only adapter.
         runtime.capture = capture
         def resume():
             calls.append('resume')
             capture.resume_workers()
-        runtime.resume_writers = resume
+        runtime._resume_writer_pools = lambda _deadline: resume()
         runtime.start_updates = lambda: calls.append('updates')
-        runtime.admit_requests = lambda: calls.append('admit')
+        runtime.admit_requests = lambda _deadline: calls.append('admit')
         payload = CaptureHandoff(running=True)
         with pytest.raises(TimeoutError): await runtime.activate_handoff(payload, writers=True)
         assert calls == ['native-stop', 'native-stop']
