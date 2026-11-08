@@ -22,10 +22,15 @@ SOURCES = {
 
 
 class DialogueCatalog:
-    def __init__(self, game, directory):
+    def __init__(self, game, directory, *, revision=None):
         self.host, self.repository, branch = SOURCES[game]
         self.directory = Path(directory) / 'dialogue-catalog'
-        if self.host == 'gitlab':
+        if revision is not None:
+            if self.host != 'github':
+                raise ValueError('Pinned catalog initialization requires a GitHub snapshot.')
+            self.revision = revision
+            self.revision_title = ''
+        elif self.host == 'gitlab':
             api = f'https://gitlab.com/api/v4/projects/{quote(self.repository, safe="")}/repository'
             self.api = api
             metadata = json.loads(download(api + '/branches/' + branch))

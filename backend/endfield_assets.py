@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -34,6 +34,9 @@ def archive_sources(install):
 
 
 def fingerprint(install):
+    if install is None:
+        from .endfield_online import RELEASE, TEXT_REVISION
+        return f'{RELEASE}:{TEXT_REVISION}'
     return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
         for p in archive_sources(install)).encode()).hexdigest()
 
@@ -334,10 +337,13 @@ def narrative_dialogues(catalog, warnings):
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
+    from . import endfield_online
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Endfield study/audio language.')
     stamp = fingerprint(install)
-    catalog = DialogueCatalog('endfield', data_dir)
+    online = install is None
+    catalog = (DialogueCatalog('endfield', data_dir, revision=endfield_online.TEXT_REVISION)
+               if online else DialogueCatalog('endfield', data_dir))
     try:
         tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, prefix='TableCfg/I18nTextTable_')
     except ValueError:
@@ -347,9 +353,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         _unsupported()
     paths = audio_paths(audio_dialog)
     audio_ids = audio_id_paths(audio_dialog)
-    progress('Reading installed Endfield original voice packages')
+    progress('Reading publisher voice package indexes' if online else 'Reading installed Endfield original voice packages')
     inventory = []
-    for layer in ('StreamingAssets', 'Persistent'):
+    for layer in (() if online else ('StreamingAssets', 'Persistent')):
         if (streaming_assets(install, layer) / 'VFS').is_dir():
             values = json.loads(reader(install, data_dir / 'tools/EndfieldReader.dll', 'inventory',
                                        {'language': VOICE_LOCALES[source_locale], 'layer': layer}))
@@ -362,7 +368,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 for row in values):
                 _unsupported()
             inventory.extend({**row, 'layer': layer} for row in values)
-    entries = {}
+    entries = endfield_online.voice_entries(data_dir / 'tools', source_locale) if online else {}
     # Initial, selected locale and hotfix are explicit successive layers.
     for layer, block in dict.fromkeys((entry['layer'], entry['block']) for entry in inventory):
         current, ambiguous = {}, set()
@@ -380,6 +386,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     dialogs.update(narrative_dialogues(catalog, warnings))
     coverage = {name: 0 for name in ('voiced', 'unvoiced', 'unknown', 'missing_source_metadata', 'missing_locale_recording')}
     rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage)
+    films = endfield_online.film_records(catalog, tables, source_locale)
+    rows.extend(films)
+    coverage['voiced'] += len(films)
     if fingerprint(install) != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
@@ -389,7 +398,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     count = sum(bool(row['audio']) for row in rows)
     unknown = sum(row['voice_status'] == 'unknown' for row in rows)
     selected_block = {'chinese': 101, 'english': 102, 'japanese': 103, 'korean': 104}[VOICE_LOCALES[source_locale]]
-    if not any(row['block'] == selected_block for row in inventory):
+    if not online and not any(row['block'] == selected_block for row in inventory):
         warnings.append('The selected Endfield voice package was not found in the installed audio inventory. '
                         'Install it through the game language settings and refresh game data.')
     if coverage['missing_source_metadata']:
@@ -398,17 +407,20 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         'installing a voice package cannot repair missing metadata. Refresh toolkit/game metadata when available.')
     if coverage['missing_locale_recording']:
         warnings.append(f'{coverage["missing_locale_recording"]:,} known Endfield voice paths have no recording in the '
-                        f'installed {source_locale} audio. Some recordings exist only in particular locales; '
+                        f'selected {source_locale} audio. Some recordings exist only in particular locales; '
                         'these lines remain unavailable and another language is never substituted.')
     if unknown:
         warnings.append(f'{unknown:,} Endfield narrative lines have unverified voice status and are excluded from silent capture.')
-    warnings.append('Endfield coverage is partial: cinematic/video soundtracks and image-only comics or storyboard panels '
-                    'do not have verified per-line bindings. Rich-content images are excluded. '
+    warnings.append(f'{len(films)} verified publisher film captions are available for the selected revision. '
+                    'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
+    if online:
+        warnings.append(f'Using the verified Endfield publisher snapshot {endfield_online.RELEASE}. '
+                        'Original audio downloads on demand. Later resource revisions need a matching reader profile.')
     available = {code for row in rows for code in row['texts']}
-    return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': str(install),
+    return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': None if online else str(install),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
-        'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage,
+        'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 
@@ -418,6 +430,9 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, executable, _destination):
+    if 'publisher' in audio:
+        from .endfield_online import extract
+        return extract(audio, executable.parent)
     locale = audio['locale']
     if locale not in SUPPORTED_LOCALES or not audio['source'].startswith('voice/' + VOICE_LOCALES[locale] + '/'):
         raise ValueError('Endfield original voice crosses locales.')

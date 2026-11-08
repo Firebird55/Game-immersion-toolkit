@@ -8,7 +8,7 @@ from pathlib import Path
 from .game_assets import asset_adapter
 
 LABELS = {'present': 'Installed', 'missing': 'Not detected — install this voice language in the game/launcher',
-          'incomplete': 'Incomplete', 'unknown': 'Unable to verify'}
+          'incomplete': 'Incomplete', 'unknown': 'Unable to verify', 'publisher': 'Available from publisher'}
 
 _cache = {}
 _lock = threading.Lock()
@@ -42,7 +42,7 @@ def probe(game, install, locale):
 
 def _probe(game, install, locale):
     if not install:
-        return 'missing'
+        return 'publisher' if game == 'endfield' else 'missing'
     install = Path(install)
     try:
         adapter, _ = asset_adapter(game)

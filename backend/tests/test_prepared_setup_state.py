@@ -110,6 +110,33 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     value.build_language(game, 'nl', ('en',))
 
 
+def test_endfield_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch):
+    from pathlib import Path
+    from backend import endfield_assets
+    value = runtime(tmp_path, locale=None)
+    value.setup_install = lambda _game: None
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    commands = []
+    def run(command, **options):
+        commands.append(command)
+        assert '--publisher' in command and '--install' not in command
+        payload = {'format': 2, 'game': 'endfield', 'install': None, 'source_locale': 'ja',
+                   'fingerprint': endfield_assets.fingerprint(None), 'targets_requested': ['en'],
+                   'reader_revision': endfield_assets.LANGUAGE_INDEX_VERSION,
+                   'records': [{'text_id': 'endfield:film:owned:caption', 'source_locale': 'ja',
+                                'source_text': 'テスト用の字幕です', 'texts': {'ja': 'テスト用の字幕です', 'en': 'Test caption'},
+                                'audio_locale': 'ja', 'audio': {'publisher': 'owned'}, 'channels': ['cinematic']}]}
+        Path(command[command.index('--output') + 1]).write_text(json.dumps(payload))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    value.build_language('endfield', 'ja', ('en',))
+    value.build_language('endfield', 'ja', ('en',))
+    assert len(commands) == 1
+    assert value.locale_index('endfield', 'ja').ready
+    with pytest.raises(ValueError, match='installed game folder'):
+        value.build_language('genshin', 'ja', ('en',))
+
+
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):
     from pathlib import Path
     from backend import game_assets

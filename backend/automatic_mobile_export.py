@@ -284,7 +284,7 @@ class AutomaticMobileExports:
 
     def _job(self, game, locale, translation, rule):
         install = self.install_lookup(game)
-        if not install or not Path(rule['destination']).is_dir():
+        if (not install and game != 'endfield') or not Path(rule['destination']).is_dir():
             raise FileNotFoundError()
         pack = probe(game, install, locale)
         if pack in ('missing', 'incomplete'):
@@ -326,9 +326,10 @@ class AutomaticMobileExports:
                     raise InterruptedError()
         guard()
         self._set(game, locale, state='preparing', attempt=identity, message='Preparing mobile library in local working storage.')
+        source_args = ['--automatic-install', str(install)] if install else ['--automatic-publisher']
         command = child_command('mobile-export', ['--root', str(self.root), '--game', game,
                    '--output', str(output), '--source-locale', locale, '--translation-locale', translation,
-                   '--automatic-install', str(install)])
+                   *source_args])
         from .update_workers import INDEX_BUILD_LOCK
         while not INDEX_BUILD_LOCK.acquire(timeout=.5):
             guard()

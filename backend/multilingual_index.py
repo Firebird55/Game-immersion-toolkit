@@ -297,12 +297,14 @@ class MultilingualTextIndex:
         """
         from .steam_games import STEAM_GAMES
         spec = STEAM_GAMES.get(self.game)
-        if not spec or not spec.floating_dialogue:
+        if self.game != 'endfield' and (not spec or not spec.floating_dialogue):
             return []
         with self.lock:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
             result = []
             for hit in hits:
+                if self.game == 'endfield' and not hit.text_id.startswith('endfield:film:'):
+                    continue
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum

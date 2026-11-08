@@ -98,9 +98,11 @@ class LocalVoiceAssetService(VoiceDecoder):
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             paragraphs = {r['text_id'] for r in payload['records'] if r.get('audio') and (
                 r.get('audio_scope') == 'paragraph' or self.game == 'beyond' and r['text_id'].endswith(':complete'))}
-            install = Path(payload["install"])
+            online = self.game == 'endfield' and payload['install'] is None
+            install = None if online else Path(payload["install"])
             stamp = payload["fingerprint"]
-            ready = bool(entries and install.is_dir() and (self.game in {'beyond', 'heavyrain'} or self.decoder_available()) and ffmpeg_executable())
+            source_available = self._adapter.fingerprint(None) == stamp if online else install.is_dir()
+            ready = bool(entries and source_available and (self.game in {'beyond', 'heavyrain'} or self.decoder_available()) and ffmpeg_executable())
             with self._lock:
                 self.locale = locale
                 self._entries, self._install, self._fingerprint = entries, install, stamp
@@ -120,7 +122,8 @@ class LocalVoiceAssetService(VoiceDecoder):
 
     def _validate_sources(self, install, stamp, audios):
         if install is None:
-            raise ValueError('Original voice installation is unavailable')
+            if self.game != 'endfield' or not all(audio.get('publisher') for audio in audios):
+                raise ValueError('Original voice installation is unavailable')
         validate = getattr(self._adapter, 'validate_voice_source', None)
         if validate is not None:
             # Adapters may prove the referenced packages unchanged independently

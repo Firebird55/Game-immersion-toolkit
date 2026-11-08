@@ -453,7 +453,8 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 from .nte_assets import ensure_extractor
                 ensure_extractor(directory / 'tools' if source_path else data / game / 'tools')
             service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
-            source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
+            source_install = None if game == 'endfield' and payload['install'] is None else Path(payload['install'])
+            source_check = lambda: service._adapter.fingerprint(source_install) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
             # Other adapters retain their verified performance coverage gates.

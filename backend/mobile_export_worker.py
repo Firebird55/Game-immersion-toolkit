@@ -16,8 +16,12 @@ def main():
     parser.add_argument('--account-signature')
     parser.add_argument('--source-locale')
     parser.add_argument('--translation-locale')
-    parser.add_argument('--automatic-install', type=Path)
+    source_args = parser.add_mutually_exclusive_group()
+    source_args.add_argument('--automatic-install', type=Path)
+    source_args.add_argument('--automatic-publisher', action='store_true')
     args = parser.parse_args()
+    if args.automatic_publisher and args.game != 'endfield':
+        parser.error('Publisher export is available for Endfield.')
     last = [0.0]
 
     def progress(value):
@@ -36,7 +40,7 @@ def main():
             progress({'state': 'preparing', 'message': 'Waiting for the current mobile export to finish'})
             time.sleep(.5)
         source = None
-        if args.automatic_install:
+        if args.automatic_install or args.automatic_publisher:
             from .game_assets import asset_adapter
             from .language_worker import build
             from .automatic_mobile_export import atomic_json

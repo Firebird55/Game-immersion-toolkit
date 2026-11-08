@@ -861,7 +861,8 @@ class CaptureService:
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
         spec = STEAM_GAMES.get(game)
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if spec and spec.floating_dialogue else None
+        has_film_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_film_cues', 0)
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or (spec and spec.floating_dialogue) else None
         voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
