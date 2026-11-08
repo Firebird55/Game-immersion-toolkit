@@ -15,6 +15,14 @@ from pathlib import Path
 DUBS = {'cn': 'chinese', 'en': 'english', 'jp': 'japanese', 'ko': 'korean'}
 
 
+def localized_playable(playables, identity, film, dub):
+    # Both suffixes occur on playables referenced by the Korean config slot.
+    suffixes = ('ko', 'kr') if dub == 'ko' else (dub,)
+    matches = [track for suffix in suffixes
+               for track in playables.get((identity, film.lower() + '_others_au_' + suffix), ())]
+    return matches[0] if len(matches) == 1 else None
+
+
 def track_clips(objects, root):
     captions, speech = [], []
     for pointer in root['m_Tracks']:
@@ -64,11 +72,10 @@ def unity_clocks(directory):
         for number, dub in enumerate(DUBS):
             if number not in refs:
                 continue
-            key = refs[number]['m_PathID'], film.lower() + '_others_au_' + dub
-            candidates = playables.get(key, [])
-            if len(candidates) != 1 or candidates[0] is None:
+            track = localized_playable(playables, refs[number]['m_PathID'], film, dub)
+            if track is None:
                 continue
-            captions, speech = candidates[0]
+            captions, speech = track
             for text, start, end in captions:
                 matches = [(event, origin) for event, origin, stop in speech if origin <= start < end <= stop]
                 if len(matches) != 1:

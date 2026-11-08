@@ -106,49 +106,45 @@ unavailable pending scene-level evidence. [Dialogue text schema](https://github.
 
 The Global 1.6.4 film configuration supplies a default playable and a map
 of localized subtitle tracks. Following the configured Unity object IDs and
-the matching film/locale playable names joined 223 tracks across a census of
-80 film configurations and 244 playable roots. These tracks contained 1,630
-timed caption occurrences and 299 distinct subtitle IDs. In 1,567 occurrences
-the text ID existed in TextTable, the cue lay entirely inside one speech event,
-and the corresponding locale bank declared that Wwise event. This identified
-293 distinct film/caption pairs in all four dubs. Following the event graphs
-through the four published speech-bank packages also resolved a single
-zero-delay media ID in the corresponding stream package for all 293. They
-span 35 films and 168 distinct subtitle IDs. Some protagonist versions of
-a film share subtitle IDs. The media-directory totals were 394 film/caption
-pairs in Mandarin, 415 in English, 413 in Japanese and 331 in Korean.
+the matching film/locale playable names joined 238 tracks across 80 film
+configurations and 244 playable roots. These tracks contained 1,718 timed
+caption occurrences. Fifteen Korean configuration pointers use the playable
+suffix `_others_au_kr`; the rest of the matched Korean roots use
+`_others_au_ko`. Accepting both names for the configured Korean object
+resolved 65 additional Korean intervals against the Korean speech packages.
+The Korean `cs_video_e0m2_6` opening caption exports 7.450–13.217 seconds
+from its recording. The MP3 correlated 0.99928 with the original interval.
 
-For the 293 four-dub pairs the audit retrieved and decoded 140 complete
-publisher WEM soundtracks (256,280,463 bytes). It converted each subtitle's
-start and end to sample offsets relative to the speech track. **269 pairs
-in 35 films** have a unique, nonoverlapping caption interval containing
-nonzero PCM within the recording in all four dubs. Their 153 distinct
-subtitle IDs have nonempty text in each of the 14 localization tables.
-Of the other 24 pairs, 23 have a repeated or overlapping cue in at least
-one dub. For the other pair, the Korean subtitle in `m_cs_video_e3m5_4`
-ends at 74.407 seconds and its sole speech recording ends at 74.400 seconds.
-The 48 kHz recording has 3,571,200 frames. The interval from 72.559 seconds
-to the final sample contains signal. The importer uses the intersection
-of the localized caption and its recording, adding this pair in Korean.
-The exported 1.841-second Korean MP3 correlated 0.99806 with the decoded
-original interval. These are file and timing checks. Speech identity by ear and live screen capture have
-not been verified for every interval.
+The audit found 1,636 distinct film/caption/dub combinations with text and
+a localized event linked to a single zero-delay recording. There were 394
+Mandarin, 415 English, 413 Japanese and 414 Korean candidates. Of these,
+373 film/caption pairs in 48 films (216 subtitle IDs) had media in every dub.
+The importer then verified each caption's time against its own decoded audio.
+For example, the Korean subtitle in `m_cs_video_e3m5_4` ends at 74.407 seconds
+and its sole speech recording ends at 74.400 seconds. The 48 kHz recording
+has 3,571,200 frames. The exported 1.841-second Korean MP3 covers the final
+recorded interval and correlated 0.99806 with the decoded original.
 
-Applying the same checks independently to each dub yielded 429 distinct
-film/caption pairs in 49 films, using 251 distinct subtitle IDs. All 251
-IDs have text in the 14 localization tables. Of the 429 pairs, 270 passed
-in all four dubs and 159 passed in one to three. Each study language
-includes only its own verified intervals. A repeat or overlap in one dub
-does not invalidate a uniquely timed recording in another. Across the mapped
-film/caption pairs, 63 localized intervals remain excluded for repeated or
-overlapping captions: six Mandarin, 27 English, 14 Japanese and 16 Korean.
+In total, 429 distinct film/caption pairs in 49 films passed in at least one
+dub. Their 251 subtitle IDs have text in all 14 localization tables. The
+325 pairs available in all four dubs cover 46 films and 185 subtitle IDs.
+The other 104 pairs passed in one to three dubs. Across the mapped candidates,
+73 interval assignments overlap another caption and eight repeat the same
+subtitle ID at different times. These 81 assignments remain unresolved.
 
-| Original voice | Films with accepted intervals | Timed film/caption pairs |
-| --- | ---: | ---: |
-| Mandarin | 49 | 388 |
-| English | 48 | 388 |
-| Japanese | 46 | 399 |
-| Korean | 35 | 315 |
+| Original voice | Films with accepted intervals | Verified film/caption pairs | Overlapping | Repeated |
+| --- | ---: | ---: | ---: | ---: |
+| Mandarin | 49 | 388 | 4 | 2 |
+| English | 48 | 388 | 25 | 2 |
+| Japanese | 46 | 399 | 12 | 2 |
+| Korean | 48 | 380 | 32 | 2 |
+
+The 80 film configurations also include tracks without a matching subtitle
+and voice. In both versions of `cs_video_e9m3_2` the English subtitle begins
+after the identified speech event ends. The eleven Mandarin caption IDs for
+`fmv_e0m1_1` have no matching entry in the reviewed TextTable. Neither case
+can supply a verified translated recording. A film with no accepted interval
+can still contain speech.
 
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event
@@ -171,10 +167,10 @@ A film's speech recording must match its SHA-256 digest before entering the
 private cache. Each caption uses its own dub-specific interval.
 
 With no game folder, the language worker produced 25,965 voiced records in English,
-25,976 in Japanese, 25,893 in Korean and 25,964 for each Chinese script. Each
+25,976 in Japanese, 25,958 in Korean and 25,964 for each Chinese script. Each
 count includes the verified film cues available in that dub. The playback service exported a conversation and
-a timed MP3 for each of the five study selections. All 1,490 cinematic
-intervals passed bounds and nonzero PCM checks against 173 distinct localized
+a timed MP3 for each of the five study selections. All 1,555 cinematic
+intervals passed bounds and nonzero PCM checks against 184 distinct localized
 speech recordings retrieved through the publisher adapter. A sample MP3 in each dub matched the original
 PCM interval with normalized correlation above 0.998. Cinematic OCR uses
 full-frame, exact text matching and the configured Endministrator performance.
@@ -250,7 +246,7 @@ claim is made.
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
 | Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
-| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 429 distinct film/caption pairs. Of these, 270 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
+| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 429 distinct film/caption pairs. Of these, 325 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
 Reading references provide a second coverage check: ReadingPopUpTable resolves

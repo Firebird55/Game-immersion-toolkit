@@ -7,7 +7,7 @@ import pytest
 from backend import endfield_online as online
 from backend.endfield_vfs import Parameters
 from backend.voice_assets import voice_hash
-from scripts.import_endfield_timelines import DUBS, import_clocks, track_clips
+from scripts.import_endfield_timelines import DUBS, import_clocks, localized_playable, track_clips
 
 
 def test_verified_publisher_ranges_and_cached_cinematic(tmp_path, monkeypatch):
@@ -77,6 +77,15 @@ def test_unity_tracks_preserve_source_clock_and_skip_muted_or_foreign_objects():
     assert track_clips(objects, root) == ([('owned', 12.5, 14.5)], [('au_vo_owned', .25, 30.25)])
     track['m_Clips'][1]['m_TimeScale'] = 2
     assert track_clips(objects, root) is None
+
+
+def test_korean_config_slot_and_film_pointer_must_both_select_one_playable():
+    tracks = {(7, 'scene_others_au_kr'): ['Korean'], (8, 'scene_others_au_en'): ['English']}
+    assert localized_playable(tracks, 7, 'Scene', 'ko') == 'Korean'
+    assert localized_playable(tracks, 7, 'Scene', 'en') is None
+    assert localized_playable(tracks, 8, 'Scene', 'ko') is None
+    tracks[7, 'scene_others_au_ko'] = ['conflicting Korean']
+    assert localized_playable(tracks, 7, 'Scene', 'ko') is None
 
 
 def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
