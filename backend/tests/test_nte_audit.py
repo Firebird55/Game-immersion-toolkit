@@ -1,5 +1,6 @@
 """Synthetic update and presentation regressions; no installed assets are needed."""
 import json
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,6 +10,29 @@ from backend import nte_assets as assets, nte_cinematics
 from backend.multilingual_index import MultilingualTextIndex
 from backend.preparation_errors import PreparationFailure
 from backend.tests.test_new_game_assets import bank
+
+
+def test_table_schema_outage_keeps_last_index_and_reuses_verified_cached_schema(tmp_path, monkeypatch):
+    previous = tmp_path / 'complete.json'
+    previous.write_bytes(b'last verified index')
+    cache, work = tmp_path / 'cache', tmp_path / 'work'
+    cache.mkdir()
+    work.mkdir()
+    schema = b'synthetic type schema'
+    checksum = hashlib.sha256(schema).hexdigest()
+    monkeypatch.setattr(assets, 'TABLE_SCHEMA_SHA256', checksum)
+
+    def unavailable(*args, **kwargs):
+        raise OSError('unavailable')
+
+    monkeypatch.setattr(assets, 'download', unavailable)
+    with pytest.raises(PreparationFailure) as failure:
+        assets._stage_table_schema(cache, work)
+    assert failure.value.code == 'game_metadata_unavailable'
+    assert previous.read_bytes() == b'last verified index' and not (work / 'dialogue.usmap').exists()
+    (cache / (checksum + '.usmap')).write_bytes(schema)
+    assets._stage_table_schema(cache, work)
+    assert (work / 'dialogue.usmap').read_bytes() == schema
 
 
 def cache(path, rows, events=()):

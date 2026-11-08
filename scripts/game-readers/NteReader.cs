@@ -4,6 +4,7 @@ using System.Collections;
 using System.Reflection;
 using System.Text.Json;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 internal static class NteReader
 {
@@ -144,6 +145,8 @@ internal static class NteReader
                     File.WriteAllText(Path.Combine(destination, "localization.json"), JsonSerializer.Serialize(all));
                     File.WriteAllText(Path.Combine(destination, "reader-format.json"), JsonSerializer.Serialize(new { localizationVersions }));
                     var keys = all.Values.SelectMany(rows => rows).Select(row => "Play_Vo_" + row.key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    if (request.RootElement.TryGetProperty("read_dialogue_tables", out var readTables) && readTables.GetBoolean())
+                        ReadNteDialogueTables(provider, cue, names, destination, keys);
                     if (request.RootElement.TryGetProperty("cinema_events", out var cinemaEvents))
                     {
                         if (cinemaEvents.GetArrayLength() > 2000) throw new InvalidDataException();
@@ -182,6 +185,127 @@ internal static class NteReader
         }
         catch (UnsupportedGameFormatException) { Console.SetOut(output); Console.WriteLine("Unsupported NTE localization format; update the toolkit reader"); return 3; }
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
+    }
+    static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
+        HashSet<string> voiceEvents)
+    {
+        var profile = Path.Combine(destination, "dialogue.usmap");
+        if (new FileInfo(profile).Length > 8 * 1024 * 1024 ||
+            !Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(profile))).Equals(
+                "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58", StringComparison.OrdinalIgnoreCase))
+            throw new UnsupportedGameFormatException();
+        var type = cue.GetType("CUE4Parse.MappingsProvider.Usmap.FileUsmapTypeMappingsProvider", true)!;
+        provider.GetType().GetProperty("MappingsContainer")!.SetValue(provider, Activator.CreateInstance(type, [profile, StringComparer.Ordinal]));
+        var index = Property(provider, "Files");
+        var load = provider.GetType().GetMethods().Single(m => m.Name == "LoadPackage" &&
+            m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType.Name == "GameFile");
+        var converter = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "Newtonsoft.Json")
+            .GetType("Newtonsoft.Json.JsonConvert", true)!.GetMethod("SerializeObject", [typeof(object)])!;
+        object Export(string name)
+        {
+            var file = index.GetType().GetProperty("Item")!.GetValue(index, [name])!;
+            var package = load.Invoke(provider, [file])!;
+            var slot = (int)package.GetType().GetMethod("GetExportIndex")!.Invoke(package,
+                [Path.GetFileNameWithoutExtension(name), StringComparison.Ordinal])!;
+            if (slot < 0) throw new UnsupportedGameFormatException();
+            return Property(((Array)Property(package, "ExportsLazy")).GetValue(slot)!, "Value");
+        }
+        IEnumerable<(string, JsonElement)> Rows(string name)
+        {
+            var table = Export(name);
+            if (table.GetType().Name != "UDataTable") throw new UnsupportedGameFormatException();
+            var rows = (IDictionary)Property(table, "RowMap");
+            if (rows.Count > 100_000) throw new UnsupportedGameFormatException();
+            foreach (DictionaryEntry row in rows)
+            {
+                var key = row.Key.ToString()!;
+                if (key.Length is 0 or > 512) throw new UnsupportedGameFormatException();
+                var json = (string)converter.Invoke(null, [row.Value])!;
+                using var record = JsonDocument.Parse(json);
+                yield return (key, record.RootElement);
+            }
+        }
+        var aliases = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var tables = files.Where(n => n.StartsWith("HT/Content/DataTable/", StringComparison.Ordinal) &&
+            Regex.IsMatch(Path.GetFileName(n), @"^(DialogSoundTable|BubbleVoiceMsgTable)(_[A-Za-z0-9_]+)?\.uasset$")).Order().ToArray();
+        if (tables.Length > 128 || !tables.Contains("HT/Content/DataTable/DialogSoundTable.uasset")) throw new UnsupportedGameFormatException();
+        foreach (var name in tables)
+        {
+            foreach (var (identity, record) in Rows(name))
+            {
+                var key = identity.ToLowerInvariant();
+                if (aliases.Count > 250_000 || !record.TryGetProperty("DialogSoundEvent", out var sound) ||
+                    !sound.TryGetProperty("AssetPathName", out var path) || path.ValueKind != JsonValueKind.String)
+                    throw new UnsupportedGameFormatException();
+                var asset = path.GetString()!;
+                var match = Regex.Match(asset, @"^/Game/WwiseAudio/Events/(?:[\w/-]+/)?(Play_Vo_[A-Za-z0-9_]+)\.\1$",
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                // An unsupported sound or conflicting table must block the conventional name fallback.
+                var value = match.Success ? match.Groups[1].Value.ToLowerInvariant() : asset.Length == 0 ? "" : "?";
+                if (!aliases.TryGetValue(key, out var choices)) aliases[key] = choices = new(StringComparer.Ordinal);
+                choices.Add(value);
+                if (match.Success) voiceEvents.Add(match.Groups[1].Value);
+            }
+        }
+        File.WriteAllText(Path.Combine(destination, "dialogue-events.json"), JsonSerializer.Serialize(aliases));
+        ReadNteSequences(files, Rows, Export, voiceEvents, destination);
+    }
+
+    static void ReadNteSequences(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,
+        Func<string, object> export, HashSet<string> voiceEvents, string destination)
+    {
+        const string folder = "HT/Content/DataTable/";
+        var events = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var name in new[] {"DT_StorySequenceData", "DT_StorySequenceData_World"})
+        {
+            if (!files.Contains(folder + name + ".uasset")) continue;
+            foreach (var (_, row) in rows(folder + name + ".uasset"))
+            foreach (var info in row.GetProperty("SequenceInfo").EnumerateArray())
+            {
+                if (info.ValueKind != JsonValueKind.Object) throw new UnsupportedGameFormatException();
+                if (!info.TryGetProperty("CaptionsID", out var id)) continue;
+                var group = id.GetString()!;
+                if (string.IsNullOrEmpty(group) || group == "None") continue;
+                var settings = info.GetProperty("Settings");
+                var path = info.GetProperty("VoiceSource").GetProperty("AssetPathName").GetString()!;
+                var match = Regex.Match(path, @"^/Game/WwiseAudio/Events/CG/[\w/-]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1$");
+                var regularClock = settings.GetProperty("PlayRate").GetDouble() == 1 &&
+                    settings.GetProperty("StartTime").GetDouble() == 0 && !settings.GetProperty("bRandomStartTime").GetBoolean();
+                if (!events.TryGetValue(group, out var names)) events[group] = names = new(StringComparer.Ordinal);
+                names.Add(regularClock && match.Success ? match.Groups[1].Value : "");
+                if (regularClock && match.Success) voiceEvents.Add(match.Groups[1].Value);
+            }
+        }
+        const string captionsFile = folder + "DT_VoiceCaptionDataTable.uasset";
+        if (!files.Contains(captionsFile)) return;
+        var strings = new Dictionary<string, object>();
+        var groups = new Dictionary<string, List<object>>();
+        foreach (var (group, row) in rows(captionsFile))
+        {
+            if (!events.TryGetValue(group, out var names) || names.Count != 1 || names.Contains("")) continue;
+            groups[group] = new List<object>();
+            foreach (var cue in row.GetProperty("Captions").EnumerateArray())
+            {
+                var text = cue.GetProperty("Text");
+                var key = text.TryGetProperty("Key", out var textKey) ? textKey.GetString() : null;
+                var owner = text.TryGetProperty("TableId", out var tableRef) ? tableRef.GetString() : null;
+                var match = Regex.Match(owner ?? "", @"^/Game/(Text/(?:[A-Za-z0-9_]+/)*(ST_[A-Za-z0-9_]+))\.\2$");
+                string? ns = null;
+                var assetPath = "HT/Content/" + match.Groups[1].Value + ".uasset";
+                if (!string.IsNullOrEmpty(key) && match.Success && files.Contains(assetPath))
+                {
+                    if (!strings.TryGetValue(assetPath, out var stringTable))
+                        strings[assetPath] = stringTable = Property(export(assetPath), "StringTable");
+                    var entries = (IDictionary)stringTable.GetType().GetField("KeysToEntries")!.GetValue(stringTable)!;
+                    if (entries.Contains(key)) ns = (string)stringTable.GetType().GetField("TableNamespace")!.GetValue(stringTable)!;
+                }
+                // Keep even unowned cue intervals so an overlapping line cannot be exported as clean speech.
+                groups[group].Add(new { ns, key, start_ms = cue.GetProperty("StartTime").GetInt32(),
+                    end_ms = cue.GetProperty("EndTime").GetInt32(), starts = cue.GetProperty("CultureStartTimes").Clone(),
+                    ends = cue.GetProperty("CultureEndTimes").Clone() });
+            }
+        }
+        File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
     }
     static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys)
     {
