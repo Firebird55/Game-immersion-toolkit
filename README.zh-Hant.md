@@ -51,6 +51,17 @@
 
 無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。安裝所選原版配音，準備資料表，並選擇官方翻譯。缺少的檔案或翻譯仍會顯示為無法使用。
 
+## 文字、配音與上游專案
+
+| 遊戲 | 原版配音發布管道 |
+| :--- | :--- |
+| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
+| Arknights: Endfield | GRYPHLINE |
+| Wuthering Waves | Kuro Games |
+| Neverness to Everness | Perfect World Games |
+
+[各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md)
+
 ## 選擇使用方式
 
 | | |

@@ -51,6 +51,17 @@ Follow official game dialogue, replay original voices, and learn with reading to
 
 You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Install your chosen original voice, prepare its table, and choose an official translation. Missing assets or translations remain unavailable.
 
+## Text, voices and upstream projects
+
+| Game | Original audio distribution |
+| :--- | :--- |
+| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
+| Arknights: Endfield | GRYPHLINE |
+| Wuthering Waves | Kuro Games |
+| Neverness to Everness | Perfect World Games |
+
+[Text sources, reader credits and coverage by game](docs/live-service-sources.md)
+
 ## Choose how to play
 
 | | |

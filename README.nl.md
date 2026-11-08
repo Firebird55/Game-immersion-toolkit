@@ -51,6 +51,17 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 
 Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Installeer de gekozen originele stem, bereid de tabel voor en kies een officiële vertaling. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
 
+## Tekst, stemmen en bronprojecten
+
+| Game | Distributie van originele stemmen |
+| :--- | :--- |
+| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
+| Arknights: Endfield | GRYPHLINE |
+| Wuthering Waves | Kuro Games |
+| Neverness to Everness | Perfect World Games |
+
+[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md)
+
 ## Kies hoe je speelt
 
 | | |
