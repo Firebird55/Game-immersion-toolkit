@@ -102,6 +102,18 @@ the four locale manifests and their chunks.
 · [2.8 distribution record](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/2.8.0.json)
 · [Historical launcher records](https://github.com/kuaichu/game-cdn-archive/tree/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e)
 
+The same 14 historical Windows builds are available on the Global CDN. For
+each build and dub, the audit compared the Global and mainland inventories by
+package path inside StreamingAssets, byte length and publisher MD5. All
+**8,256 PCK entries across 56 release/language combinations** matched in both
+directions. For Sophon releases the build, version tag and game manifest were
+checked against the archived Global release and each voice manifest was
+verified against the checksum from the publisher. This gives a Global source
+for the 39,020 additional IDs recovered from historical editions below.
+[Global release records](https://github.com/umaichanuwu/meta/blob/9019bb94f6dccb62bd11be734599644ed20e73b3/hoyodata.json)
+· [Global 3.1 Mandarin package index](https://autopatchhk.yuanshen.com/client_app/download/pc_zip/20220917165430_NyMmj1Ta9KlZKgCZ/ScatteredFiles/Audio_Chinese_pkg_version)
+· [Global 6.2 Japanese voice manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/b1yX8g30suHF/manifest_e6602b44c4d9a827_01aedf0468eb7ff42026a26d195e6447)
+
 The comparison starts with 188,882 distinct 7.2 Dialog IDs with an
 unambiguous text hash, English and Simplified Chinese text, and at least one
 recognized authored Dialog WEM path. Of these, 36,120 occur in timed-event
@@ -132,8 +144,20 @@ in any single dub, and 69 had at least one dub. For a playback check, the
 publisher's 3.1 files supplied all four complete WEMs for Dialog `400790201`
 in the event quest *Bonds of Melody*. The Mandarin, English, Japanese and
 Korean recordings decoded to non-silent PCM lasting 4.544, 5.759, 7.560 and
-5.575 seconds respectively. [Authored quest](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Quest/40079.json)
+5.575 seconds respectively. A second download from the Global 3.1 server
+decoded to the same durations and had identical SHA-256 digests for all four
+original WEMs. [Authored quest](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Quest/40079.json)
 · [Audited 3.1 distribution](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/3.1.0.json)
+
+The 13 incomplete event IDs were also checked in the releases that carried
+their events. One ID in quest 40010 (1.6) and five in quest 40040 (2.4) had
+Mandarin, English and Korean media in those releases. The authored Japanese
+paths were absent. For seven IDs in quests 40177–40179 (5.5), the 7.2 paths
+were absent from all four original release indexes. An alternative authored
+binding or in-version update is still needed to resolve those performances.
+[Quest 40040](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Quest/40040.json)
+· [Global 2.4 Japanese package index](https://autopatchhk.yuanshen.com/client_app/download/pc_zip/20211225051318_JHACtHpvJ2yRaZH0/ScatteredFiles/Audio_Japanese_pkg_version)
+· [Global 5.5 Japanese package index](https://autopatchhk.yuanshen.com/client_app/download/pc_zip/20250314110016_HcIQuDGRmsbByeAE/ScatteredFiles/Audio_Japanese_pkg_version)
 
 The 3.8 indexes independently confirm 8,782 IDs missing from 7.2, including
 7,206 event IDs. All also occur in 4.8. These are package-index matches for
