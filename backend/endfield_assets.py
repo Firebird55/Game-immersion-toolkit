@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 3
+LANGUAGE_INDEX_VERSION = 4
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -63,7 +63,9 @@ def _audio_source(value):
     if 'path' not in value or not isinstance(value['path'], str):
         _unsupported()
     path = value['path'].replace('\\', '/')
-    if not path or value.get('isPlaceholder'):
+    # AudioDialog also contains extensionless Wwise event names. Only an
+    # authored external-media filename can select a recording by path hash.
+    if not path.lower().endswith('.wem') or value.get('isPlaceholder'):
         return None
     if path.startswith('/') or ':' in path or any(part in {'', '.', '..'} for part in path.split('/')):
         return None
@@ -91,32 +93,58 @@ def audio_id_paths(audio_dialog):
     return {identity: path for identity, row in _mapping(audio_dialog).items() if (path := _audio_source(row))}
 
 
+def _performances(row, paths, audio_ids, texts):
+    override = row.get('audioOverride', '')
+    source = audio_ids.get(row['audio_id']) if 'audio_id' in row else paths.get(override)
+    variants = {}
+    if ('audio_id' not in row and override and not source
+            and row.get('dialogue_kind', 'conversation') in {'conversation', 'radio'}):
+        female, male = paths.get(override + '_f'), paths.get(override + '_m')
+        if female and male and Path(female).parent == Path(male).parent:
+            variants = {'female': female, 'male': male}
+
+    localized = {}
+    for code, value in texts.items():
+        if '{F}' in value or '{M}' in value:
+            if not value.startswith('{F}') or value.count('{F}') != 1 or value.count('{M}') != 1:
+                _unsupported()
+            female_text, male_text = value[3:].split('{M}')
+            localized[code] = {'female': female_text.strip(), 'male': male_text.strip()}
+    if not localized and not variants:
+        yield None, source, texts
+        return
+    for gender in ('female', 'male'):
+        lines = {code: localized[code][gender] if code in localized else value for code, value in texts.items()}
+        yield gender, variants.get(gender, source), {code: line for code, line in lines.items() if line}
+
+
 def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None):
     result = []
     for identity, row in dialogs.items():
         if row.get('dialogue_kind') == 'readable' and any('<image' in table.get(str(row['dialogText']['id']), '').lower()
                                                        for table in tables.values()):
             continue
-        source = ((audio_ids or {}).get(row['audio_id']) if 'audio_id' in row
-                  else paths.get(row.get('audioOverride', '')))
-        source = ('voice/' + VOICE_LOCALES[locale] + '/' + source.replace('\\', '/').lower()) if source else None
         texts = {code: display_text(table.get(str(row.get('dialogText', {}).get('id')), ''))
                  for code, table in tables.items()}
         texts = {code: value for code, value in texts.items() if value}
-        if not texts.get(locale):
-            continue
-        audio = entries.get(f'{voice_hash(source):016x}') if source else None
-        voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent') or 'audio_id' in row
-                        else row.get('voice_status', 'unknown'))
-        if coverage is not None:
-            reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
-            coverage[reason] = coverage.get(reason, 0) + 1
-        result.append({'text_id': 'endfield:' + identity, 'source_locale': locale, 'source_text': texts[locale],
-            'texts': texts, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
-            'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
-            'player_voice': {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
-            'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
-            'channels': row.get('channels', ['dialogue'])})
+        for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
+            if not lines.get(locale):
+                continue
+            source = 'voice/' + VOICE_LOCALES[locale] + '/' + path.replace('\\', '/').lower() if path else None
+            audio = entries.get(f'{voice_hash(source):016x}') if source else None
+            voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent') or 'audio_id' in row
+                            else row.get('voice_status', 'unknown'))
+            if coverage is not None:
+                reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
+                coverage[reason] = coverage.get(reason, 0) + 1
+            result.append({'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
+                'member_text_ids': ['endfield:' + identity] if gender else None,
+                'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
+                'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
+                'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
+                'player_voice': gender or {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
+                'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
+                'channels': row.get('channels', ['dialogue'])})
     return result
 
 
@@ -212,6 +240,21 @@ def narrative_dialogues(catalog, warnings):
     ):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, channel, status)
+
+    # DialogSkipPopUp displays the authored summary as text when a player
+    # skips a scene. Several scenes may reference the same summary identity.
+    summary_ids = _table(catalog, 'DialogSummaryMapTable', warnings).values()
+    summaries = _table(catalog, 'DialogSummaryTable', warnings)
+    if any(not isinstance(identity, str) for identity in summary_ids):
+        _unsupported()
+    missing_summaries = 0
+    for identity in dict.fromkeys(summary_ids):
+        if identity in summaries:
+            add(f'DialogSummaryTable:{identity}', summaries[identity], 'story_summary', 'dialogue')
+        elif identity:
+            missing_summaries += 1
+    if missing_summaries:
+        warnings.append(f'Endfield scenes reference {missing_summaries:,} missing story summary IDs.')
 
     for identity, row in _table(catalog, 'AIBarkText', warnings).items():
         key = f'AIBarkText:{identity}'

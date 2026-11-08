@@ -6,6 +6,13 @@ Pair any study language with any of the game's **14 official text locales**
 (70 study/translation combinations). The
 [language matrix](languages/en.md#endfield) lists every supported combination.
 
+For dialogue with separate Endministrator performances, set the player voice to
+match your game. The reader selects the corresponding recording and renders
+gender-specific translations when the game supplies them. Scene summaries shown
+when skipping dialogue use the existing unvoiced-text capture option. The
+[publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
+records the 1,179 paired lines, remaining voice gaps and cinematic coverage.
+
 ## Voice language support and verification
 
 The publisher's current [Steam language table](https://store.steampowered.com/app/4732690/Arknights_Endfield/)

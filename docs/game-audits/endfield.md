@@ -1,5 +1,135 @@
 # Arknights: Endfield presentation audit
 
+## Publisher resources and story coverage, November 8, 2026
+
+The Global Windows 1.6.4 updater returned resource revision `11529267-11`. Follow
+the released regional launcher into `get_latest_resources`, then the main and
+initial resource URLs. Their `index_main.json` and `index_initial.json` identify
+the VFS group indexes and chunk checksums. The audit checked the selected group
+indexes against their published MD5 values and read only the listed byte ranges.
+The normal toolkit still uses the community text feed and installed voice
+packages. [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
+· [Inspected resource list](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
+· [Resource index archive](https://github.com/daydreamer-json/ak-endfield-api-archive)
+
+Group 18 supplied the original SparkBuffer `TableCfg` tables. Each of the 14
+localization tables contained 167,266 keys. All 2,341,724 values, including
+empty strings and UI strings, matched the pinned EndfieldData extraction.
+The text locales are English, Simplified and Traditional Chinese, Japanese,
+Korean, French, German, Italian, Latin American Spanish, Brazilian Portuguese,
+Russian, Thai, Vietnamese and Indonesian. The authored dialogue, radio,
+narration, summary and AudioDialog tables compared below also matched the
+extraction. The direct publisher data can verify each future snapshot.
+[Pinned extracted tables](https://github.com/rmxlinux/EndfieldData/tree/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg)
+· [Reviewed SparkBuffer format](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/AnimeStudio.Endfield/Processors/SparkBuffer.cs)
+
+### Dialogue and voice
+
+Of 34,194 AudioDialog IDs, 32,371 name a WEM. For all 129,484 file/language
+combinations, a positive authored duration exactly matched presence of the
+locale-specific full-path hash in the publisher's external-media indexes.
+32,321 files were indexed in all four dubs. The 50 partial files account for 19
+missing Mandarin, 35 English, 42 Japanese and 37 Korean recordings. These
+counts are index checks. Complete files for the opening line and both
+Endministrator performances in a 1.6 mission were previously retrieved from
+both regional publishers. [AudioDialog](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/AudioDialog.json)
+· [Regional sample evidence](https://github.com/Firebird55/Game-immersion-toolkit/issues/86)
+
+The other 1,823 rows all have `voType=2`, an extensionless event name and
+zero durations in every dub. 1,056 names start with `chr_` and 767 with
+`eny_`. ResponsiveDialog references 1,326 as combat responses. 1,333 match
+Wwise event objects in the inspected publisher banks, with overlap between
+these two counts. None is a direct override in conversation, radio, narration,
+operator profile or AIBarkText. The reader excludes event names from its WEM
+lookup. Their isolated media and any spoken content remain unresolved.
+[Combat-response table](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/ResponsiveDialog.json)
+
+The reader now joins exact `_f.wem` and `_m.wem` pairs under a dialogue or
+radio override when both authored filenames resolve to the same directory.
+It selects the corresponding text from `{F}…{M}…` where a translation has
+two forms. Other locales can supply one shared wording. The 1,179 paired
+lines below each had both recordings in every dub. The production record
+builder reproduced all 1,179 for each of the five study locales. Dub selection,
+text identity and missing-recording states remain separate for each performance.
+[Mission with both Endministrator performances](https://warfarin.wiki/en/missions/c37m3)
+· [Radio source table](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/RadioTable.json)
+
+| Authored rows | Total | Direct WEM, four dubs | Paired performances, four dubs | Direct WEM, partial dubs | Nonempty override without a WEM | Blank override |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Conversations | 24,581 | 14,615 | 893 | 4 | 8,911 | 158 |
+| Radio | 5,714 | 4,537 | 286 | 0 | 885 | 6 |
+| Narration | 273 | 2 | 0 | 0 | 244 | 27 |
+
+The 8,911 unmatched conversation overrides comprise 8,655 `au_dlg`, 165
+`au_sim`, two `au_sr` and 89 literal `0` values. All 89 have an empty actor
+ID. All 885 unmatched radio overrides use `au_radio`. Two of those rows
+separately trigger identified Wwise signal effects. All 244 narration
+overrides use `au_black` and have a TextTable entry. None of these unmatched
+overrides has a corresponding AudioDialog ID, a file stem in any of the four
+publisher lip-sync indexes, or a matching event ID among the 25,105 inspected
+Wwise events. These rows have no published per-row silence or recording-duration
+field in the inspected narrative tables. Their voice classification remains
+unavailable pending scene-level evidence. [Dialogue text schema](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/DialogTextTable.json)
+· [Narration bindings](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/TextVoIdTable.json)
+
+### Scenes, summaries and films
+
+- The scene registry lists 3,106 scenes. 526 reference 533 distinct timelines.
+  The publisher's group 19 contains 566 mission definitions and 566 companion
+  metadata files. Explicit mission fields link 198 missions to 552 registry
+  scenes, 169 missions to 380 radio groups and 130 missions to 134 SNS groups.
+  Of the 380 linked radio groups, 291 have every referenced line indexed in all
+  four dubs. The other 89 contain at least one unresolved line. Missions can
+  also trigger scenes indirectly through level scripts and timeline actions.
+  The remaining 2,554 registry scenes have no direct dialogue field in this
+  mission census. A count of complete chapters requires those indirect links
+  and the scene-to-line bindings. [Scene registry](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/GameplayConfig/DialogIdTable.json)
+  · [Mission definitions](https://github.com/rmxlinux/EndfieldData/tree/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/MissionRuntimeAsset)
+- The game's skip dialog displays a scene-linked summary in a text widget.
+  1,274 summary references led to 1,270 existing entries. Two had no localized
+  text, leaving 1,268 summaries with English and Chinese. The toolkit captures
+  linked, localized summaries through the existing unvoiced-text option. Four
+  missing table entries remain visible as a preparation warning. The audit
+  excluded the 66 additional table entries without a scene-map link.
+  [Scene-to-summary table](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/DialogSummaryMapTable.json)
+  · [Summary widget](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/UI/Panels/DialogSkipPopUp/DialogSkipPopUpCtrl.lua)
+- Publisher group 13 lists 710 USM containers, including 113 narrative
+  cutscenes and 10 remote-communication videos. The CRID stream directory of
+  each of these 123 narrative files contains exactly one video stream
+  (`@SFV`, channel 0). All 123 therefore require an external binding for
+  caption timing or voice. The game UI binds its timeline subtitle panels and
+  video nodes separately. The 562 guide and 25 UI videos were outside the
+  narrative header audit. [Timeline controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/UI/Panels/DialogTimeline/DialogTimelineCtrl.lua)
+
+### External cinematic voices
+
+The Global 1.6.4 film configuration supplies a default playable and a map
+of localized subtitle tracks. Following the configured Unity object IDs and
+the matching film/locale playable names joined 223 tracks across a census of
+80 film configurations and 244 playable roots. These tracks contained 1,630
+timed caption occurrences and 299 distinct subtitle IDs. In 1,567 occurrences
+the text ID existed in TextTable, the cue lay entirely inside one speech event,
+and the corresponding locale bank declared that Wwise event. This identified
+293 distinct film/caption pairs in all four dubs. Following the event graphs
+through the four published speech-bank packages also resolved a single
+zero-delay media ID in the corresponding stream package for all 293. They
+span 35 films and 168 distinct subtitle IDs. Some protagonist versions of
+a film share subtitle IDs. The media-directory totals were 394 film/caption
+pairs in Mandarin, 415 in English, 413 in Japanese and 331 in Korean.
+
+For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
+Music, sound effects and speech had separate tracks. Its speech event
+`au_vo_csv_e7m4_2_f` starts at 0.050 seconds. Following its bank graph
+in each language produced one zero-delay WEM. The four complete WEMs
+retrieved from the publisher decoded to 134.2036 seconds each.
+For example, cue `cutscene_e7m4_2_07` starts/ends at 23.033/25.133 seconds
+in Mandarin, 22.866/25.866 in English, 23.150/25.233 in Japanese and
+22.850/25.017 in Korean. Each selected interval contained decoded audio after
+subtracting the speech track's 0.050-second start. The toolkit's normal
+Endfield reader still needs a cinematic timeline importer. [Publisher release resources](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
+
+## Earlier installed-client audit
+
 2026-10-30 runtime addendum: the normal VFS/PCK path now uses the built-in Python
 reader without SDK compilation. The authored-language join reproduces the
 coverage counts below; initial/hotfix clips match the legacy bridge exactly.
@@ -154,7 +284,8 @@ ignored and are not published.
 
 ## Update resilience and validation
 
-Language index version is 3. Additive metadata fields are tolerated. Changed
+The October audit used language index version 3. The paired performances and
+story summaries above use version 4. Additive metadata fields are tolerated. Changed
 required table shapes, missing core conversation data, malformed inventory
 structures and changed localization structures return `unsupported_game_format`
 with an actionable toolkit-update message. Missing optional categories produce
