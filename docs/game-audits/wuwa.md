@@ -13,8 +13,10 @@ performance can be identified. [Kuro's Global update manifest](https://cdn-aws-h
 Of 1,313 timed movie caption rows, 311 shared an identifier with PlotAudio.
 The other 1,002 comprise 19 cues from four scenes with a dedicated voice
 event, 528 with a full soundtrack, 431 with another scene event and 24 with
-no such event. A scene event alone does not select a particular dubbed line.
-The 19 dedicated-event cues still need verified start and end points in the
+no such event. The 19 are in `M0234` (12), `C3jiyanfight` (3), `LYSZW` (2)
+and `C0004` (2). All 19 have zero duration in the separate English, Japanese
+and Korean timing fields. A scene event alone does not select a particular
+dubbed line. These cues still need verified start and end points in the
 corresponding voice recording. The existing shared creature recordings also
 remain separate from localized speech. [Publisher movie inventory](https://cdn-aws-hw-mc.aki-game.net/prod/client/TkSftmDssRx6BIKZBudzeoOHTnxjoL43/Windows/3.7.0/Video/VideoManifest_hd.json)
 · [Caption and event tables](https://github.com/Arikatsu/WutheringWaves_Data/tree/9218d612ad815e398e064e577e42aaf878899968/BinData/cgVedio)

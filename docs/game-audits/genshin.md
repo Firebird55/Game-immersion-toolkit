@@ -86,6 +86,63 @@ file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
 
+## Historical quest and event audio
+
+On November 8, 2026, the source audit compared the Global 7.2 Windows base
+voice packs with 14 earlier mainland-China Windows releases. Each supplied
+Mandarin, English, Japanese and Korean. The audit checked all four 7.2 Sophon
+voice-manifest checksums and read the external Wwise directories from 178 PCKs
+per dub. The historical checks used bounded requests to publisher packages
+where individual files were available. For later releases, they followed the
+archived branch and version through the publisher's Sophon build service to
+the four locale manifests and their chunks.
+[Global launcher branches](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8)
+· [4.8 publisher package index](https://autopatchcn.yuanshen.com/client_app/download/pc_zip/20240705190726_7q0dq7IxqQEpugte/ScatteredFiles/Audio_Chinese_pkg_version)
+· [3.8 distribution record](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/3.8.0.json)
+· [2.8 distribution record](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/2.8.0.json)
+· [Historical launcher records](https://github.com/kuaichu/game-cdn-archive/tree/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e)
+
+The comparison starts with 188,882 distinct 7.2 Dialog IDs with an
+unambiguous text hash, English and Simplified Chinese text, and at least one
+recognized authored Dialog WEM path. Of these, 36,120 occur in timed-event
+quests via the quest's explicit `type: EQ`, its talk ID and the Talk record's
+dialogue IDs. Each hit requires **every authored path in all four dubs of the
+same release**. The rows count IDs once across releases, in the order shown.
+[7.2 Talk records](https://github.com/DimbreathBot/AnimeGameData/tree/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Talk)
+· [Quest assignments](https://github.com/DimbreathBot/AnimeGameData/tree/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Quest)
+· [Authored voice paths](https://github.com/DimbreathBot/AnimeGameData/tree/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Voice)
+
+| Windows release | Additional IDs with all four dubs | Of those, timed-event IDs |
+| --- | ---: | ---: |
+| 7.2 Global base | 149,737 | 6,241 |
+| 4.8 mainland China | 16,520 | 12,574 |
+| 3.8 mainland China | 0 | 0 |
+| 2.8 mainland China | 11,889 | 9,112 |
+| 1.6 mainland China | 0 | 0 |
+| 5.8 mainland China | 6,628 | 5,288 |
+| 6.4, 6.7 and 7.1 mainland China | 0 | 0 |
+| 3.1 mainland China | 1,432 | 717 |
+| 6.2 mainland China | 2,551 | 2,175 |
+| 6.1, 6.0, 5.5 and 2.4 mainland China | 0 | 0 |
+| **Present in at least one of the 15 releases** | **188,757** | **36,107** |
+| **Still missing or incomplete** | **125** | **13** |
+
+Of the remaining 125 IDs, 56 lacked a complete set of their authored paths
+in any single dub, and 69 had at least one dub. For a playback check, the
+publisher's 3.1 files supplied all four complete WEMs for Dialog `400790201`
+in the event quest *Bonds of Melody*. The Mandarin, English, Japanese and
+Korean recordings decoded to non-silent PCM lasting 4.544, 5.759, 7.560 and
+5.575 seconds respectively. [Authored quest](https://github.com/DimbreathBot/AnimeGameData/blob/d7f2135c7eb0052e842e0f187f4e5bb88c304737/BinOutput/Quest/40079.json)
+· [Audited 3.1 distribution](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/3.1.0.json)
+
+The 3.8 indexes independently confirm 8,782 IDs missing from 7.2, including
+7,206 event IDs. All also occur in 4.8. These are package-index matches for
+the 7.2 metadata corpus. Lines removed from that metadata, historical script
+changes, unnamed WEMs, movie cues, and regional 7.2 hotfixes require separate
+evidence. A package hit establishes a source candidate for each dub. Historical
+download, revision selection and per-take playback are still outside the
+installed-pack adapter.
+
 ## Verification
 
 Synthetic regressions cover schema drift, global fallback precedence, conflicts,
