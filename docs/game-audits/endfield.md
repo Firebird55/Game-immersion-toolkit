@@ -117,6 +117,17 @@ span 35 films and 168 distinct subtitle IDs. Some protagonist versions of
 a film share subtitle IDs. The media-directory totals were 394 film/caption
 pairs in Mandarin, 415 in English, 413 in Japanese and 331 in Korean.
 
+For the 293 four-dub pairs the audit retrieved and decoded 140 complete
+publisher WEM soundtracks (256,280,463 bytes). It converted each subtitle's
+start and end to sample offsets relative to the speech track. **269 pairs
+in 35 films** have a unique, nonoverlapping caption interval containing
+nonzero PCM within the recording in all four dubs. Their 153 distinct
+subtitle IDs have nonempty text in each of the 14 localization tables.
+Of the other 24 pairs, 23 have a repeated or overlapping cue in at least
+one dub. One more failed the bounded nonzero-audio check. These are file
+and timing checks. Speech identity by ear and live screen capture have
+not been verified for every interval.
+
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event
 `au_vo_csv_e7m4_2_f` starts at 0.050 seconds. Following its bank graph
