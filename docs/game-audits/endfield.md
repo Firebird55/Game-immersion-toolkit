@@ -209,7 +209,7 @@ claim is made.
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
 | Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
-| Pre-rendered cinematics, movies, media cards | Local Video/IV groups, CinematicCtrl FMV handling and SNSContentVideo | Inventoried, but no verified per-line timing/audio join. Whole movies are never substituted for a line. |
+| Pre-rendered cinematics, movies, media cards | Local Video/IV groups, CinematicCtrl FMV handling and SNSContentVideo. Global 1.6.4 adds localized FMV timelines and speech-bank bindings. | The [external cinematic voice audit](#external-cinematic-voices) verified separate audio intervals for 269 film/caption pairs across four dubs. Desktop preparation still needs to import these timelines. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
 Reading references provide a second coverage check: ReadingPopUpTable resolves
