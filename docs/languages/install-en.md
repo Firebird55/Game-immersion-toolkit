@@ -23,6 +23,8 @@ The language manager shows actual table sizes. Shared audio/tools are counted on
 
 In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. On iPhone, select each newly updated cloud ZIP once. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
 
+Arknights: Endfield can prepare Global 1.6.4 dialogue and cinematic voices directly from GRYPHLINE. Leave the game folder empty and prepare your language in Setup.
+
 ## Troubleshooting
 
 - Missing voice pack: install the matching spoken language through the game launcher, then prepare again.

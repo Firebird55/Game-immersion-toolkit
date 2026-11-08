@@ -7,8 +7,9 @@ the released regional launcher into `get_latest_resources`, then the main and
 initial resource URLs. Their `index_main.json` and `index_initial.json` identify
 the VFS group indexes and chunk checksums. The audit checked the selected group
 indexes against their published MD5 values and read only the listed byte ranges.
-The normal toolkit still uses the community text feed and installed voice
-packages. [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
+The toolkit uses the matching community text snapshot and obtains original
+recordings from installed packages or the pinned Global publisher release.
+[Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
 · [Inspected resource list](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
 · [Resource index archive](https://github.com/daydreamer-json/ak-endfield-api-archive)
 
@@ -128,6 +129,20 @@ one dub. One more failed the bounded nonzero-audio check. These are file
 and timing checks. Speech identity by ear and live screen capture have
 not been verified for every interval.
 
+Applying the same checks independently to each dub yielded 429 distinct
+film/caption pairs in 49 films, using 251 distinct subtitle IDs. All 251
+IDs have text in the 14 localization tables. Of the 429 pairs, 269 passed
+in all four dubs and 160 passed in one to three. Each study language
+includes only its own verified intervals. A repeat or overlap in one dub
+does not invalidate a uniquely timed recording in another.
+
+| Original voice | Films with accepted intervals | Timed film/caption pairs |
+| --- | ---: | ---: |
+| Mandarin | 49 | 388 |
+| English | 48 | 388 |
+| Japanese | 46 | 399 |
+| Korean | 35 | 314 |
+
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event
 `au_vo_csv_e7m4_2_f` starts at 0.050 seconds. Following its bank graph
@@ -136,8 +151,28 @@ retrieved from the publisher decoded to 134.2036 seconds each.
 For example, cue `cutscene_e7m4_2_07` starts/ends at 23.033/25.133 seconds
 in Mandarin, 22.866/25.866 in English, 23.150/25.233 in Japanese and
 22.850/25.017 in Korean. Each selected interval contained decoded audio after
-subtracting the speech track's 0.050-second start. The toolkit's normal
-Endfield reader still needs a cinematic timeline importer. [Publisher release resources](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
+subtracting the speech track's 0.050-second start. [Publisher release resources](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
+
+### Desktop playback without an installation
+
+The timeline importer reproduced the shipped 429 film/caption pairs from the serialized
+Unity assets. The release profile contains package coordinates, digests,
+identifiers and millisecond intervals. The selected text comes from the matching
+revision of the localization tables. Normal preparation fetches three verified
+package headers for the chosen dub. Playback reads the exact WEM by HTTP range.
+A film's speech recording must match its SHA-256 digest before entering the
+private cache. Each caption uses its own dub-specific interval.
+
+With no game folder, the language worker produced 25,965 voiced records in English,
+25,976 in Japanese, 25,892 in Korean and 25,964 for each Chinese script. Each
+count includes the verified film cues available in that dub. The playback service exported a conversation and
+a timed MP3 for each of the five study selections. All 1,489 cinematic
+intervals passed bounds and nonzero PCM checks against 173 distinct localized
+speech recordings retrieved
+through the publisher adapter. A sample MP3 in each dub matched the original
+PCM interval with normalized correlation above 0.998. Cinematic OCR uses
+full-frame, exact text matching and the configured Endministrator performance.
+Live screen capture during each film has not been verified.
 
 ## Earlier installed-client audit
 
@@ -209,7 +244,7 @@ claim is made.
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
 | Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
-| Pre-rendered cinematics, movies, media cards | Local Video/IV groups, CinematicCtrl FMV handling and SNSContentVideo. Global 1.6.4 adds localized FMV timelines and speech-bank bindings. | The [external cinematic voice audit](#external-cinematic-voices) verified separate audio intervals for 269 film/caption pairs across four dubs. Desktop preparation still needs to import these timelines. |
+| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 429 distinct film/caption pairs. Of these, 269 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
 Reading references provide a second coverage check: ReadingPopUpTable resolves

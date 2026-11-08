@@ -324,20 +324,20 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[官方語言清單](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [涵蓋範圍說明](../endfield-languages.md)
+[官方語言清單](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-08 · [涵蓋範圍說明](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
+Both Chinese scripts share Mandarin voices. Global 1.6.4 recordings and timed film captions can be prepared without a game installation.
 
 <details>
 <summary>語言詳細資訊</summary>
 
 | 語言 | 原版配音 | 學習 | 翻譯 | 依據 |
 | :--- | :---: | :---: | :---: | :--- |
-| 英文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 英文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
 | 簡體中文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
 | 繁體中文 | 共用華語配音 | ✓ | ✓ | 已在本機解碼原始配音 |
-| 日文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
-| 韓文 | ✓ | ✓ | ✓ | 格式已測試；未在本機驗證配音包 |
+| 日文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
+| 韓文 | ✓ | ✓ | ✓ | 已在本機解碼原始配音 |
 | 法文 | — | — | ✓ | 已實作讀取器 |
 | 德文 | — | — | ✓ | 已實作讀取器 |
 | 義大利文 | — | — | ✓ | 已實作讀取器 |

@@ -23,6 +23,8 @@ De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden 
 
 In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Selecteer op iPhone elke bijgewerkte cloud-ZIP eenmaal. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
 
+Arknights: Endfield kan dialogen en filmstemmen uit Global 1.6.4 rechtstreeks bij GRYPHLINE ophalen. Laat de gamemap leeg en bereid je taal voor in Instellingen.
+
 ## Problemen oplossen
 
 - Stempakket ontbreekt: installeer de juiste gesproken taal via de gamelauncher en bereid deze opnieuw voor.

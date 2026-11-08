@@ -6,6 +6,15 @@ Pair any study language with any of the game's **14 official text locales**
 (70 study/translation combinations). The
 [language matrix](languages/en.md#endfield) lists every supported combination.
 
+**A game installation is optional.** Without a game folder, choose **Setup →
+Games → Arknights: Endfield → Install game tools**, then prepare your study and
+translation languages in **Languages**. The Windows companion indexes the
+verified Global 1.6.4 text snapshot and downloads original recordings directly
+from GRYPHLINE on demand. The first download needs internet access. A cached
+film recording can be used offline for its other captions in the same dub.
+The verified film captions cover 388 Mandarin intervals, 388 English, 399 Japanese
+and 314 Korean. Both Chinese study selections use the same 388 Mandarin intervals.
+
 For dialogue with separate Endministrator performances, set the player voice to
 match your game. The reader selects the corresponding recording and renders
 gender-specific translations when the game supplies them. Scene summaries shown
@@ -25,29 +34,23 @@ All four voice formats are implemented and selectable regardless of which packs
 are installed. The same exact source-path/hash binding and VFS reader handle
 each namespace; initial and hotfix packages are included for every selection.
 
-| Study selection | Voice package / VFS group | Implementation evidence | Playback verified on this host |
+| Study selection | Voice package / VFS group | Installation-free playback | Installed game playback at the earlier audit |
 | --- | --- | --- | --- |
-| English (`en`) | `english` / AudioEnglish | Authored schema, locale-specific hashes, extraction routing and missing-pack preparation regressions | No; English package absent in the audited install |
-| Simplified Chinese (`zh-Hans`) | `chinese` / AudioChinese | Same contract plus installed package/index proof | Yes; production conversation and combat-bark clips decoded to non-silent audio |
-| Traditional Chinese (`zh-Hant`) | `chinese` / AudioChinese | Installed Traditional Chinese text table and synthetic script/audio pairing regressions | Shared Mandarin decoder verified through Simplified Chinese; this text selection was not separately played in game |
-| Japanese (`ja`) | `japanese` / AudioJapanese | Authored schema, locale-specific hashes, extraction routing and missing-pack preparation regressions | No; Japanese package absent in the audited install |
-| Korean (`ko`) | `korean` / AudioKorean | Authored schema, locale-specific hashes, extraction routing and missing-pack preparation regressions | No; Korean package absent in the audited install |
+| English (`en`) | `english` / AudioEnglish | Global conversation and timed film MP3 verified | English pack absent |
+| Simplified Chinese (`zh-Hans`) | `chinese` / AudioChinese | Global conversation and timed film MP3 verified | Conversation and combat bark decoded |
+| Traditional Chinese (`zh-Hant`) | `chinese` / AudioChinese | Both MP3s verified with Traditional Chinese text and Mandarin voice | Shares Mandarin recordings |
+| Japanese (`ja`) | `japanese` / AudioJapanese | Global conversation and timed film MP3 verified | Japanese pack absent |
+| Korean (`ko`) | `korean` / AudioKorean | Global conversation and timed film MP3 verified | Korean pack absent |
 
-For absent packs, compatibility is inferred from the installed common schema and
-the reader's explicit per-language format, with synthetic per-locale validation.
-It is not a claim that those unavailable packages were natively decoded. Missing
-packs remain a preparation warning with an installation action, not an
-unsupported-language error. See the [Endfield audit](game-audits/endfield.md)
-for dated evidence and remaining presentation gaps.
+All four publisher dubs were decoded using the desktop playback service. The
+installed reader reports missing packs separately. See the
+[Endfield audit](game-audits/endfield.md) for presentation gaps and revision scope.
 
 ## Setup
 
-Select the installed client folder containing **Endfield.exe and Endfield_Data/StreamingAssets/VFS** in **Setup → Games**.
-Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
-nested game client has been downloaded. Steam and conventional Epic/HoYoPlay
-library locations are discovered automatically. Game folders are read-only.
-
-Install the chosen original voice through the game's own language settings.
+To use installed packages, select the client folder containing **Endfield.exe and
+Endfield_Data/StreamingAssets/VFS** in **Setup → Games** and install the chosen
+voice through the game's language settings. The toolkit reads the folder without modifying it.
 Prepare only the study language and translation you want. Missing official text
 or audio stays unavailable; another language is never silently substituted.
 
@@ -84,6 +87,9 @@ and reproducible replay instructions are in
 After the official launcher finishes a patch or voice download, choose
 **Refresh game data**. Automatic checks revisit prepared locales about every
 two minutes. A failed build leaves the previous complete table available.
+Installation-free preparation uses the audited Global resource revision
+`11529267-11`. Support for a later publisher revision requires new validated
+package indexes, text and film clocks.
 
 History, favorites, original playback, explicit game-deck export, Lexirise
 reading and independent Migaku mode use the existing language-aware workflow.

@@ -60,6 +60,8 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Wuthering Waves | Kuro Games |
 | Neverness to Everness | Perfect World Games |
 
+Arknights: Endfield can prepare Global 1.6.4 dialogue and cinematic voices directly from GRYPHLINE. Leave the game folder empty and prepare your language in Setup.
+
 [Text sources, reader credits and coverage by game](docs/live-service-sources.md)
 
 ## Choose how to play

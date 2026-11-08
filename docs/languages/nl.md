@@ -324,20 +324,20 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Dekkingsnotities](../endfield-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-08 · [Dekkingsnotities](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
+Both Chinese scripts share Mandarin voices. Global 1.6.4 recordings and timed film captions can be prepared without a game installation.
 
 <details>
 <summary>Taaldetails</summary>
 
 | Taal | Originele stem | Leren | Vertaling | Onderbouwing |
 | :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Audio lokaal gedecodeerd |
-| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
-| Koreaans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Koreaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Frans | — | — | ✓ | Reader geïmplementeerd |
 | Duits | — | — | ✓ | Reader geïmplementeerd |
 | Italiaans | — | — | ✓ | Reader geïmplementeerd |

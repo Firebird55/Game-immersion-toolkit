@@ -60,6 +60,8 @@
 | Wuthering Waves | Kuro Games |
 | Neverness to Everness | Perfect World Games |
 
+《明日方舟：終末地》可直接從 GRYPHLINE 取得全球版 1.6.4 的對話與過場語音。遊戲資料夾留空，在設定中準備所選語言。
+
 [各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md)
 
 ## 選擇使用方式

@@ -324,20 +324,20 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-08 · [Coverage notes](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
+Both Chinese scripts share Mandarin voices. Global 1.6.4 recordings and timed film captions can be prepared without a game installation.
 
 <details>
 <summary>Language details</summary>
 
 | Language | Original voice | Learning | Translation | Evidence |
 | :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
 | Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
 | Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Audio decoded locally |
-| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
-| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | ✓ | ✓ | ✓ | Audio decoded locally |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |
