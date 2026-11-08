@@ -323,6 +323,8 @@ def test_authored_nte_types_belong_to_the_assembly_used_by_the_current_reflectio
     assert 'public FixtureKey(string value)' in cue
     assert 'public Guid EncryptionKeyGuid { get; }' in cue
     assert 'public List<FixtureVfs> UnloadedVfs { get; }' in cue
+    assert 'public FileUsmapTypeMappingsProvider(string path, StringComparer comparer)' in cue
+    assert 'FileUsmapTypeMappingsProvider? MappingsContainer { get; set; }' in cue
 
 
 def test_malformed_authored_nte_marker_requires_initialization_witness_before_immutable_snapshot():
