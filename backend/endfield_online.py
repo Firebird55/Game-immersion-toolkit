@@ -90,8 +90,11 @@ def voice_entries(tools, locale):
 
 def _film_audio(film, caption, locale):
     dub = DUBS.index(LANGUAGES[locale])
-    media, _digest = profile.FILMS[film][dub]
+    recording = profile.FILMS[film][dub]
     start, end = profile.CUES[film, caption][2 * dub:2 * dub + 2]
+    if recording is None or start is None or end is None:
+        _invalid()
+    media, _digest = recording
     return {'publisher': RELEASE, 'film': film, 'caption': caption,
             'file_id': f'{media:016x}', 'locale': audio_locale(locale), 'start_ms': start, 'end_ms': end}
 
@@ -101,7 +104,10 @@ def film_records(catalog, tables, locale):
         return []
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
-    for film, caption in profile.CUES:
+    dub = DUBS.index(LANGUAGES[locale])
+    for (film, caption), clocks in profile.CUES.items():
+        if clocks[2 * dub] is None:
+            continue
         key = str(refs[caption]['id'])
         texts = {code: display_text(values[key]) for code, values in tables.items()}
         if not all(texts.values()):

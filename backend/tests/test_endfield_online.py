@@ -7,7 +7,7 @@ import pytest
 from backend import endfield_online as online
 from backend.endfield_vfs import Parameters
 from backend.voice_assets import voice_hash
-from scripts.import_endfield_timelines import track_clips
+from scripts.import_endfield_timelines import DUBS, import_clocks, track_clips
 
 
 def test_verified_publisher_ranges_and_cached_cinematic(tmp_path, monkeypatch):
@@ -77,3 +77,31 @@ def test_unity_tracks_preserve_source_clock_and_skip_muted_or_foreign_objects():
     assert track_clips(objects, root) == ([('owned', 12.5, 14.5)], [('au_vo_owned', .25, 30.25)])
     track['m_Clips'][1]['m_TimeScale'] = 2
     assert track_clips(objects, root) is None
+
+
+def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
+    key = ('opening', 'caption')
+    row = {'film': key[0], 'caption': key[1], 'locales': {
+        'jp': (1.5, 2, 'au_vo_opening', .25, True)}}
+    pcm = {dub: [[key] if dub == 'jp' else []] for dub in DUBS}
+    packages = {dub: ([], {}) for dub in DUBS}
+    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_opening')
+    _, films, cues = import_clocks([row], packages, pcm)
+    monkeypatch.setattr(online.profile, 'FILMS', films)
+    monkeypatch.setattr(online.profile, 'CUES', cues)
+
+    class Catalog:
+        revision = online.TEXT_REVISION
+
+        def file(self, _):
+            return {'caption': {'id': 7}}
+
+    tables = {'en': {'7': 'English fixture'}, 'ja': {'7': 'Japanese fixture'}}
+    assert online.film_records(Catalog(), tables, 'en') == []
+    [record] = online.film_records(Catalog(), tables, 'ja')
+    assert record['audio']['start_ms'] == 1250 and record['audio']['end_ms'] == 1750
+    with pytest.raises(ValueError):
+        online.extract({**record['audio'], 'locale': 'en'}, None)
+    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_unrelated')
+    with pytest.raises(ValueError, match='event'):
+        import_clocks([row], packages, pcm)

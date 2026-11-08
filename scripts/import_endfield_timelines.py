@@ -81,28 +81,33 @@ def unity_clocks(directory):
 
 
 def import_clocks(clocks, packages, pcm):
-    accepted = set.intersection(*(set(map(tuple, pcm[dub][0])) for dub in DUBS))
-    films, cues, events = {}, {}, {}
+    verified = {dub: set(map(tuple, pcm[dub][0])) for dub in DUBS}
+    accepted = set.union(*verified.values())
+    films, cues = {}, {}
     for row in clocks:
-        film, caption = row['film'], row['caption']
-        if (film, caption) not in accepted:
+        key = film, caption = row['film'], row['caption']
+        if key not in accepted:
             continue
+        if key in cues:
+            raise ValueError('Duplicate film caption')
         times = []
-        voices = []
-        for dub in DUBS:
+        voices = films.setdefault(film, [None] * len(DUBS))
+        for number, dub in enumerate(DUBS):
+            if key not in verified[dub]:
+                times.extend((None, None))
+                continue
             start, end, event, origin, unique = row['locales'][dub]
             if not unique or not 0 <= origin <= start < end or not event.lower().startswith('au_vo_'):
                 raise ValueError('Ambiguous or invalid localized film clock')
-            if events.setdefault((film, dub), event) != event:
-                raise ValueError('Film requires more than one speech recording')
-            voices.append(tuple(packages[dub][1][film]))
+            media, digest, bank_event = packages[dub][1][film]
+            if bank_event != event:
+                raise ValueError('Film speech event differs from the verified recording')
+            voices[number] = media, digest
             times.extend((round((start - origin) * 1000), round((end - origin) * 1000)))
-        films[film] = tuple(voices)
-        if (film, caption) in cues:
-            raise ValueError('Duplicate film caption')
-        cues[film, caption] = tuple(times)
+        cues[key] = tuple(times)
     if set(cues) != accepted or not cues:
         raise ValueError('Incomplete timeline evidence')
+    films = {film: tuple(voices) for film, voices in films.items()}
     packs = {name: tuple(tuple(pack) for pack in packages[dub][0]) for dub, name in DUBS.items()}
     return packs, films, cues
 
