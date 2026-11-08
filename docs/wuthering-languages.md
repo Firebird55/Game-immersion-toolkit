@@ -12,6 +12,10 @@ resources, unresolved filename parameters and another dub's files cannot be
 relabeled as a selected voice. Missing voice packs remain visible as missing;
 mixed-language extraction batches are rejected before the extractor runs.
 
+Floating 2D and 3D captions use authored text IDs. A voice is available when
+the ID resolves to its localized PlotAudio performance. Update detection
+includes optional SD, HD and UHD film packages. [Film and floating-caption coverage](game-audits/wuwa.md)
+
 The translation target follows that learning language's effective Lexirise
 settings. Official translations must align through the same dialogue ID.
 Missing, empty and unsupported translation tables produce an unavailable

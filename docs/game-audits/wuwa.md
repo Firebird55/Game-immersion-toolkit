@@ -1,5 +1,24 @@
 # Wuthering Waves dialogue audit
 
+## November 8, 2026 · Floating dialogue and film voices
+
+The Global 3.7 floating subtitle database contained 46 distinct caption IDs
+from its 2D and 3D tables. All had English and Simplified Chinese text.
+Four IDs joined PlotAudio's exact localized sources, representing five
+performances. The reader now indexes both tables and recognizes the
+publisher's optional UHD movie packages during update detection.
+Other named 3D sound cues retain an unresolved voice state until a localized
+performance can be identified. [Kuro's Global update manifest](https://cdn-aws-hw-mc.aki-game.net/prod/client/TkSftmDssRx6BIKZBudzeoOHTnxjoL43/Windows/config.json)
+
+Of 1,313 timed movie caption rows, 311 shared an identifier with PlotAudio.
+The other 1,002 comprise 19 cues from four scenes with a dedicated voice
+event, 528 with a full soundtrack, 431 with another scene event and 24 with
+no such event. A scene event alone does not select a particular dubbed line.
+The 19 dedicated-event cues still need verified start and end points in the
+corresponding voice recording. The existing shared creature recordings also
+remain separate from localized speech. [Publisher movie inventory](https://cdn-aws-hw-mc.aki-game.net/prod/client/TkSftmDssRx6BIKZBudzeoOHTnxjoL43/Windows/3.7.0/Video/VideoManifest_hd.json)
+· [Caption and event tables](https://github.com/Arikatsu/WutheringWaves_Data/tree/9218d612ad815e398e064e577e42aaf878899968/BinData/cgVedio)
+
 Audit date: 2026-10-27. Installed resource version: 3.7.0. Adapter schema
 version: 3. This inventories authored content and parser boundaries; it does
 not certify every gameplay scene or capture presentation.

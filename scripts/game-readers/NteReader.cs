@@ -247,7 +247,7 @@ internal static class NteReader
             return filter;
         }
         if (list) throw new ArgumentException();
-        if (new[] {"db_plot_audio.db", "db_flowState.db", "db_cgVedio.db", "db_infodisplay.db"}
+        if (new[] {"db_plot_audio.db", "db_flowState.db", "db_cgVedio.db", "db_infodisplay.db", "db_FloatingSubtitle.db"}
             .Any(name => filter == "ConfigDB/" + name)) return WuwaRoot + filter;
         var parts = filter.Split('/');
         if (parts.Length == 3 && parts[0] == "ConfigDB" && parts[2] == "lang_multi_text" &&

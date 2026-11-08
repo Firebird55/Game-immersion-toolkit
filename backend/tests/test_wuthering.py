@@ -97,10 +97,12 @@ def test_extractor_errors_never_include_archive_metadata(tmp_path, monkeypatch):
     assert "private-placeholder" not in str(error.value)
 
 
-def test_official_downloaded_video_archives_are_allowed_but_custom_paks_are_rejected(tmp_path, monkeypatch):
+@pytest.mark.parametrize('quality', ['sd', 'hd', 'uhd'])
+def test_official_downloaded_video_archives_are_allowed_but_custom_paks_are_rejected(tmp_path, monkeypatch, quality):
     import backend.wuthering_assets as module
     from types import SimpleNamespace
-    video = tmp_path / "Client/Saved/Resources/Video/hd/Paks/101_1/Video_101_1-HD-WindowsNoEditor.pak"
+    folder = tmp_path / 'Client/Saved/Resources/Video' / quality / 'Paks/101_1'
+    video = folder / f'Video_101_1-{quality.upper()}-WindowsNoEditor.pak'
     video.parent.mkdir(parents=True)
     video.write_bytes(b"official video fixture")
     monkeypatch.setattr(module, "_archive_metadata", lambda *_: ('0x' + 'a' * 64,))
@@ -111,7 +113,7 @@ def test_official_downloaded_video_archives_are_allowed_but_custom_paks_are_reje
     monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(returncode=0))
     assert archive_sources(tmp_path) == [video]
     assert run_extractor(tmp_path, Path("tool"), None, "WwiseExternalSource/") == []
-    custom = video.parent / "Video_999_9-HD-WindowsNoEditor.pak"
+    custom = video.parent / f'Video_999_9-{quality.upper()}-WindowsNoEditor.pak'
     custom.write_bytes(b"unknown")
     assert custom not in archive_sources(tmp_path)
     with pytest.raises(ValueError, match="unsupported mod archives"):
