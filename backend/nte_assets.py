@@ -156,10 +156,17 @@ def _archive_metadata(install: Path, stamp: str) -> str:
                 return value
         except Exception:
             pass
-    payload = json.loads(download(METADATA_URL))
+    try:
+        payload = json.loads(download(METADATA_URL))
+    except (OSError, ValueError) as error:
+        raise PreparationFailure('game_metadata_unavailable',
+            'The NTE archive metadata provider is unavailable. Retry when it is reachable. Existing prepared data is retained.') from error
+    if not isinstance(payload, dict) or not isinstance(payload.get('body'), str):
+        raise PreparationFailure('game_metadata_unavailable', 'The NTE archive metadata provider returned an unsupported response. A compatible source is required for this game build.')
     values = list(dict.fromkeys(re.findall(r"0x[0-9a-fA-F]{64}", payload.get("body", ""))))
     if len(values) != 1:
-        raise ValueError("NTE archive version needs updated reader metadata")
+        raise PreparationFailure('game_metadata_unavailable',
+            'The NTE archive metadata provider has no unambiguous entry for this game build. Fresh preparation needs a compatible metadata source. Existing prepared data is retained.')
     return values[0]
 
 

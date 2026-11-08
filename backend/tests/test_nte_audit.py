@@ -35,6 +35,15 @@ def test_table_schema_outage_keeps_last_index_and_reuses_verified_cached_schema(
     assert (work / 'dialogue.usmap').read_bytes() == schema
 
 
+@pytest.mark.parametrize('payload', [b'{"body":"entry withdrawn"}', b'{"body":null}', b'invalid'])
+def test_withdrawn_archive_source_has_a_distinct_preparation_error(tmp_path, monkeypatch, payload):
+    monkeypatch.setattr(assets, '_metadata_path', lambda *_: tmp_path / 'missing')
+    monkeypatch.setattr(assets, 'download', lambda *_: payload)
+    with pytest.raises(PreparationFailure) as failure:
+        assets._archive_metadata(tmp_path, 'test-build')
+    assert failure.value.code == 'game_metadata_unavailable'
+
+
 def cache(path, rows, events=()):
     path.mkdir(parents=True, exist_ok=True)
     (path / 'banks').mkdir()
