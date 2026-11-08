@@ -85,7 +85,7 @@ def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
         'jp': (1.5, 2, 'au_vo_opening', .25, True)}}
     pcm = {dub: [[key] if dub == 'jp' else []] for dub in DUBS}
     packages = {dub: ([], {}) for dub in DUBS}
-    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_opening')
+    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_opening', 1743 * 48, 48000)
     _, films, cues = import_clocks([row], packages, pcm)
     monkeypatch.setattr(online.profile, 'FILMS', films)
     monkeypatch.setattr(online.profile, 'CUES', cues)
@@ -99,9 +99,12 @@ def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
     tables = {'en': {'7': 'English fixture'}, 'ja': {'7': 'Japanese fixture'}}
     assert online.film_records(Catalog(), tables, 'en') == []
     [record] = online.film_records(Catalog(), tables, 'ja')
-    assert record['audio']['start_ms'] == 1250 and record['audio']['end_ms'] == 1750
+    assert record['audio']['start_ms'] == 1250 and record['audio']['end_ms'] == 1743
     with pytest.raises(ValueError):
         online.extract({**record['audio'], 'locale': 'en'}, None)
-    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_unrelated')
+    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_unrelated', 48000, 48000)
     with pytest.raises(ValueError, match='event'):
+        import_clocks([row], packages, pcm)
+    packages['jp'][1]['opening'] = (123, 'digest', 'au_vo_opening', 48000, 48000)
+    with pytest.raises(ValueError, match='no interval'):
         import_clocks([row], packages, pcm)

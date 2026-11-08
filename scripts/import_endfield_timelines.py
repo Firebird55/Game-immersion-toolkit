@@ -73,7 +73,8 @@ def unity_clocks(directory):
                 matches = [(event, origin) for event, origin, stop in speech if origin <= start < end <= stop]
                 if len(matches) != 1:
                     continue
-                unique = (sum(other == text for other, _, _ in captions) == 1
+                unique = (sum(a < end and start < b for _, a, b in speech) == 1
+                          and sum(other == text for other, _, _ in captions) == 1
                           and sum(a < end and start < b for _, a, b in captions) == 1)
                 event, origin = matches[0]
                 cues[film, text][dub] = start, end, event, origin, unique
@@ -99,11 +100,19 @@ def import_clocks(clocks, packages, pcm):
             start, end, event, origin, unique = row['locales'][dub]
             if not unique or not 0 <= origin <= start < end or not event.lower().startswith('au_vo_'):
                 raise ValueError('Ambiguous or invalid localized film clock')
-            media, digest, bank_event = packages[dub][1][film]
+            media, digest, bank_event, frames, rate = packages[dub][1][film]
             if bank_event != event:
                 raise ValueError('Film speech event differs from the verified recording')
+            if frames <= 0 or rate <= 0:
+                raise ValueError('Invalid decoded recording length')
+            start_ms = round((start - origin) * 1000)
+            # A subtitle can remain visible after the last sample of its sole
+            # speech event. Preserve all recorded speech up to that boundary.
+            end_ms = min(round((end - origin) * 1000), frames * 1000 // rate)
+            if start_ms >= end_ms:
+                raise ValueError('Film cue has no interval inside the recording')
             voices[number] = media, digest
-            times.extend((round((start - origin) * 1000), round((end - origin) * 1000)))
+            times.extend((start_ms, end_ms))
         cues[key] = tuple(times)
     if set(cues) != accepted or not cues:
         raise ValueError('Incomplete timeline evidence')
