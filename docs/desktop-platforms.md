@@ -4,6 +4,38 @@ The desktop host, transcript browser and LAN reader share one implementation.
 Native discovery supplies the game window and display coordinates; game readers
 continue using the same capture, locale, text and original-voice services.
 
+## Game integration scope
+
+The maintained Windows game integrations are listed in the language matrix. Six
+live-service games are also targets for independent online preparation and
+original playback on Linux, macOS and Android. Every other game integration
+is Windows only, including Cyberpunk 2077 and Death Stranding. The generated
+matrix and desktop Setup read the same list and per-game Windows preparation
+status. [Game capability data](../public/mobile-capture/games-data.json) · [Language matrix](languages/en.md) · [Current publisher sources](live-service-sources.md)
+
+<!-- generated game host roles -->
+
+| Toolkit host | Independent preparation | Original playback | Game and capture device | Transcript reader |
+| --- | --- | --- | --- | --- |
+| Windows | Installed readers and the per-game publisher Setup routes listed in the language matrix. | Matched voices from the selected PC edition or its verified publisher release. | Local PC game window or monitor. | Local reader or desktop-hosted browser reader on another device. |
+| Linux and Steam Deck | Pending per-game native acceptance for the six targets. | Pending per-game native acceptance. | Visible-window X11 adapter. Wayland support is pending. Proton requires edition and capture checks. | A browser can connect to a desktop host. |
+| macOS | Pending per-game native acceptance for the six targets. | Pending per-game native acceptance. | Visible-window CoreGraphics adapter with screen-recording permission. Native and compatibility-layer game editions require separate checks. | A browser can connect to a desktop host. |
+| Android | Planned shared-core app. Installable app and device acceptance are pending. | Independent playback on the device awaits acceptance. | Planned receiver for an explicitly started iPhone/iPad screen share. Capturing an Android game needs separate acceptance. | A browser can read a desktop transcript. The independent Android transcript host is planned. |
+| iOS and iPadOS | Standalone toolkit processing is unsupported. | The desktop-connected reader can play matched audio from the host. | Game device and explicit screen sender for the planned Android receiver. | Desktop-connected transcript panel. |
+
+<!-- end generated game host roles -->
+
+Release and device evidence for the six games stays with their tickets.
+[Genshin Impact](https://github.com/Firebird55/Game-immersion-toolkit/issues/83) · [Honkai: Star Rail](https://github.com/Firebird55/Game-immersion-toolkit/issues/84) · [Zenless Zone Zero](https://github.com/Firebird55/Game-immersion-toolkit/issues/85) · [Arknights: Endfield](https://github.com/Firebird55/Game-immersion-toolkit/issues/86) · [Wuthering Waves](https://github.com/Firebird55/Game-immersion-toolkit/issues/87) · [Neverness to Everness](https://github.com/Firebird55/Game-immersion-toolkit/issues/88)
+
+The Cyberpunk and Death Stranding tickets preserve historical reader-portability
+work under the Windows-only game policy. The Steam Deck, edition compatibility,
+representative capture and capability matrix tickets track separate acceptance
+questions. Android development and the retained iOS roles belong to the
+shared-core mobile work. [Cyberpunk #71](https://github.com/Firebird55/Game-immersion-toolkit/issues/71) · [Death Stranding #72](https://github.com/Firebird55/Game-immersion-toolkit/issues/72) · [Steam Deck #75](https://github.com/Firebird55/Game-immersion-toolkit/issues/75) · [Game editions #76](https://github.com/Firebird55/Game-immersion-toolkit/issues/76) · [Capture and language packs #77](https://github.com/Firebird55/Game-immersion-toolkit/issues/77) · [Capability matrix #78](https://github.com/Firebird55/Game-immersion-toolkit/issues/78) · [Android and iOS #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81)
+
+## Desktop capture implementations
+
 | Platform | Capture implementation | Current limits |
 | --- | --- | --- |
 | Windows | Physical client bounds, per-monitor DPI, foreground capture and isolated Windows Graphics Capture for covered windows | Final frozen candidate and Windows 11 hardware acceptance remain required |

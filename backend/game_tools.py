@@ -118,12 +118,12 @@ def refresh_zzz_metadata(root: Path, *, revision=None, directory: Path | None = 
     return digest, changed
 
 
-def missing_tools(root: Path, game: str) -> list[str]:
+def missing_tools(root: Path, game: str, publisher: bool = False) -> list[str]:
     if game == "hito" or game in STEAM_GAMES and not STEAM_GAMES[game].voiced_capture:
         return []
     from .runtime_bundle import discover_layout
     if discover_layout().mode == 'bundle':
-        return [*_bundle_runtime_missing(root, game), *_metadata_missing(root, game)]
+        return [*_bundle_runtime_missing(root, game, publisher), *_metadata_missing(root, game)]
     if game in {"beyond", "heavyrain"}:
         return []
     from .media_tools import vgmstream_executable
@@ -131,7 +131,10 @@ def missing_tools(root: Path, game: str) -> list[str]:
     required = []
     if game == "zzz":
         required += [("ZZZ scene reader", voice_work_root(root) / "galgame-perform.ts")]
-        required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
+        if not publisher:
+            required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
+        else:
+            required.append(("ZZZ reader compiler for source checkouts", CODE_ROOT / "node_modules/typescript/package.json"))
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "cyberpunk":
         from .cyberpunk_toolchain import resolve
@@ -140,7 +143,14 @@ def missing_tools(root: Path, game: str) -> list[str]:
             resolve(runtime_data_root(root) / 'cyberpunk/tools')
         except PreparationFailure:
             missing.append('REDengine archive extractor and app-local runtime')
-    if game in {"nte", "wuwa"}:
+    if game == "wuwa" and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        from .preparation_errors import PreparationFailure
+        try:
+            _ooz_runtime()
+        except PreparationFailure:
+            missing.append('Wuthering package decoder (Node.js and the locked ooz-wasm dependency)')
+    if game == "nte" or game == "wuwa" and not publisher:
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
             required.append((".NET 10 SDK", runtime_data_root(root) / game / "tools/missing-sdk"))
@@ -161,7 +171,7 @@ def _metadata_missing(root: Path, game: str) -> list[str]:
     return []
 
 
-def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
+def _bundle_runtime_missing(root: Path, game: str, publisher: bool = False) -> list[str]:
     """Report missing operations, without disabling unrelated working readers."""
     from .media_tools import ffmpeg_executable, vgmstream_executable
     from .preparation_errors import PreparationFailure
@@ -169,9 +179,12 @@ def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
     if game not in {'beyond', 'heavyrain'} and not vgmstream_executable(root):
         missing.append('Voice decoder')
     reader, label = None, None
-    if game in {'nte', 'wuwa'}:
+    if game == 'nte' or game == 'wuwa' and not publisher:
         from .nte_toolchain import resolve
         reader, label = resolve, 'Unreal archive reader and managed dependencies'
+    elif game == 'wuwa' and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        reader, label = _ooz_runtime, 'Wuthering package decoder'
     elif game == 'zzz':
         from .prebuilt_node_reader import require_zzz_reader
         reader, label = require_zzz_reader, 'Scene and voice graph reader'
@@ -186,7 +199,7 @@ def _bundle_runtime_missing(root: Path, game: str) -> list[str]:
     return missing
 
 
-def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None:
+def prepare_tools(root: Path, game: str, progress=lambda _message: None, publisher: bool = False) -> None:
     from .game_paths import GAMES
     if game not in GAMES:
         raise ValueError("Unsupported game")
@@ -196,7 +209,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     if discover_layout().mode == 'bundle':
         from .preparation_errors import PreparationFailure
         progress('Checking bundled reader and audio capabilities')
-        missing = _bundle_runtime_missing(root, game)
+        missing = _bundle_runtime_missing(root, game, publisher)
         if missing:
             raise PreparationFailure('bundle_toolchain_unavailable',
                 'This installation is missing: ' + ', '.join(missing) +
@@ -218,7 +231,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
     install_archive(VGM_URL, VGM_SHA, decoder, ("vgmstream-cli.exe", "COPYING"))
     if game == "zzz":
         directory = voice_work_root(root)
-        progress("Preparing the ZZZ scene reader and metadata")
+        progress("Preparing the ZZZ reader")
         source = download(READER_BASE + "galgame-perform.ts")
         if _digest(source) != READER_SHA:
             raise ValueError("ZZZ reader checksum mismatch")
@@ -228,7 +241,8 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         _atomic_file(directory / "galgame-perform.ts", source)
         _atomic_file(directory / "ZENLESS-VOICE-LICENSE.txt", license_text)
         shutil.copytree(decoder, directory / "vgmstream", dirs_exist_ok=True)
-        refresh_zzz_metadata(root)
+        if not publisher:
+            refresh_zzz_metadata(root)
     elif game == "endfield":
         from .endfield_assets import ensure_extractor
         progress("Preparing the verified Endfield VFS voice reader")
@@ -241,7 +255,11 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None) -> None
         from .cyberpunk_assets import ensure_wolvenkit
         progress("Preparing the verified Cyberpunk extractor")
         ensure_wolvenkit(runtime_data_root(root) / "cyberpunk/tools")
-    elif game == "wuwa":
+    elif game == "wuwa" and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        progress("Checking the Wuthering publisher package decoder")
+        _ooz_runtime()
+    elif game == "wuwa" and not publisher:
         from .wuthering_assets import ensure_extractor
         from .media_tools import vgmstream_executable
         progress("Preparing the verified Wuthering Waves extractor")

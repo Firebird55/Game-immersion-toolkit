@@ -27,11 +27,17 @@ try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  await page.getByRole('heading',{name:'BEYOND: Two Souls',exact:true}).waitFor();
  assert.equal(await page.inputValue('#guide-study'),'nl');assert.equal(await page.inputValue('#guide-target'),'zh-Hans');
  assert.match(await page.locator('.tag').textContent(),/Dutch → Simplified Chinese: Supported with installed assets/);
+ await page.getByText(data.platformScope.windowsOnly,{exact:true}).waitFor();
  await page.waitForFunction(async()=>Boolean((await navigator.serviceWorker.getRegistration())?.active&&navigator.serviceWorker.controller));
  // Public promises across every advertised source/target combination, not sampled languages.
  const claims=await page.evaluate(async()=>{const source=[...performance.getEntriesByType('resource')].find(e=>/games-data\./.test(e.name)).name;return await(await fetch(source)).json();});assert.deepEqual(claims,data);
  for(const game of data.games){await page.selectOption('#guide-game',game.id);await page.selectOption('#guide-study','all');await page.selectOption('#guide-target','all');assert.equal(await page.locator('.game-card').count(),1);await page.getByText('Compare every language',{exact:true}).click();const table=page.locator('tbody');for(const code of game.study)assert(await table.getByRole('rowheader',{name:data.languages[code],exact:true}).count());}
  for(const game of ['beyond','heavyrain']){await page.selectOption('#guide-game',game);await page.selectOption('#guide-study','nl');await page.selectOption('#guide-target','zh-Hant');assert.match(await page.locator('.tag').textContent(),/Supported with installed assets/);}
+ await page.selectOption('#guide-game','wuwa');await page.selectOption('#guide-study','en');await page.selectOption('#guide-target','ja');
+ await page.getByText(data.platformScope.liveServiceTarget+' '+data.platformScope.windowsPreparation[data.platformScope.targets.wuwa].label,{exact:true}).waitFor();
+ assert.match(await page.locator('.tag').textContent(),/Supported with Windows publisher Setup or installed assets/);
+ await page.selectOption('#guide-game','zzz');
+ assert.match(await page.locator('.tag').textContent(),/Publisher Setup for recorded phone messages only/);
  await page.selectOption('#guide-game','heavyrain');await page.selectOption('#guide-target','pt-BR');assert.match(await page.locator('.game-card .warning').first().textContent(),/No official toolkit translation/);
  await page.selectOption('#guide-game','zzz');await page.selectOption('#guide-study','ja');await page.selectOption('#guide-target','es-419');assert.match(await page.locator('.game-card .warning').first().textContent(),/Translation locale unverified/);
  await page.selectOption('#guide-game','nte');await page.selectOption('#guide-target','fr');assert.match(await page.locator('.game-card .warning').first().textContent(),/Expected with installed assets/);

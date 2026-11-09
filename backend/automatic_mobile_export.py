@@ -14,7 +14,7 @@ import zipfile
 
 from .export_lock import ExportLock, ExportLockCleanupError
 from .game_paths import settings_path, discover_install
-from .game_assets import PUBLISHER_GAMES, asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter, preparation_fingerprint
 from .languages import GAME_LOCALES, LOCALE_NAMES
 from .mobile_export_controls import MobileExportManager
 from .owned_process import OwnedProcess
@@ -291,7 +291,10 @@ class AutomaticMobileExports:
             self._set(game, locale, state='waiting', message=LABELS[pack])
             return
         adapter, _ = asset_adapter(game)
-        stamp = adapter.fingerprint(install)
+        key = digest([game, locale, translation])[:24]
+        output = self.home / 'work' / key / 'exports'
+        tools = work_folder(output) / 'source' / 'tools'
+        stamp = preparation_fingerprint(adapter, install, tools)
         identity = digest([stamp, adapter.LANGUAGE_INDEX_VERSION, locale, translation, rule['destination']])
         job = rule.get('jobs', {}).get(locale, {})
         name = f"{file_title(game)} - {LOCALE_NAMES[locale]} - {LOCALE_NAMES.get(translation, translation)} translation - Mobile Library.zip".replace(' — ', ' - ')
@@ -316,8 +319,6 @@ class AutomaticMobileExports:
         if shutil.disk_usage(rule['destination']).free < (job.get('bytes') or job.get('estimatedBytes', 0)) + 16 * 1024**2:
             self._set(game, locale, state='waiting', message='Waiting for enough free space in the export folder.')
             return
-        key = digest([game, locale, translation])[:24]
-        output = self.home / 'work' / key / 'exports'
         output.mkdir(parents=True, exist_ok=True)
         def guard():
             with self.lock:
@@ -364,7 +365,7 @@ class AutomaticMobileExports:
                                   message='A required file is still unavailable despite passing storage checks. Finish downloads or check the drive, then Retry.' if failures >= 2 else
                                   'Storage or a required local file is unavailable. Reconnect the drive, finish downloads or free space; prerequisites will be checked again.')
                         return
-                    if adapter.fingerprint(install) != stamp:
+                    if preparation_fingerprint(adapter, install, tools) != stamp:
                         self.observed.pop((game, locale), None)
                         self._set(game, locale, state='waiting', message='Game changed during export; waiting for the newest files.')
                     else:
@@ -383,7 +384,7 @@ class AutomaticMobileExports:
             def publish_guard(force=False):
                 guard()
                 if force or time.monotonic() - checked[0] >= 5:
-                    if adapter.fingerprint(install) != stamp:
+                    if preparation_fingerprint(adapter, install, tools) != stamp:
                         raise InterruptedError()
                     checked[0] = time.monotonic()
             publish_guard.force = lambda: publish_guard(True)

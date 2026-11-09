@@ -1,5 +1,66 @@
 # Wuthering Waves dialogue audit
 
+## Global publisher updates and selective voice acquisition · November 9, 2026
+
+From an empty private cache the source command followed the active 3.7.1 launcher to its base PAK, read the exact KuroPublicConfig entry by HTTP range, and selected the resource route declared inside it. The current core is 3.7.19. English, Mandarin and Japanese use 3.7.6 for voice overrides, and Korean uses 3.7.7. Each independently versioned core, voice and video index must match the digest in its publisher configuration. The SD, HD and UHD indexes each list 231 movie packages. The 1,549 receipt entries include base PAKs, resource and voice packages, movie packages and signature files. [Kuro Global launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json)
+
+The same manifest reader verified 32 changed core entries between 3.7.17 and 3.7.18 and four between 3.7.18 and 3.7.19. The Korean 3.7.6 to 3.7.7 update changed two dub entries. The release command uses the bootstrap path in the current game package for later releases.
+
+Replaying those publisher-listed revisions with the desktop table and audio
+readers found four changed English/Simplified Chinese text records from
+3.7.17 to 3.7.19. Their audio references were unchanged. Comparing all 46,336
+Korean WEM paths across dub revisions 3.7.6 and 3.7.7 found the same paths.
+The original `ko_vo_Side_FSCHPOI_11_13.wem` changed under its existing
+name from 35,465 to 32,613 bytes. Both versions decoded to nonzero PCM at
+48 kHz, lasting 8.500 and 7.885 seconds. Cached tables can be reused when
+their containing package and entry are unchanged. Cached recordings retain
+their release and spoken language.
+
+The ordinary desktop refresh was also run against two previously prepared
+language snapshots seeded from those published revisions. Without a forced
+rebuild it activated the four text changes for English and the replaced
+recording for Korean. Both versions of the Korean line remained playable
+from the local cache after network access was disabled for that check.
+Repeating the refresh on the current release reused the existing snapshot.
+
+For an authored PlotAudio filename, the source command selects the chosen language's exact WwiseExternalSource path in the override, then consults the base if needed. It verifies the directory and the stored entry hash under the Kuro v12 layout. For partially encrypted WEMs that hash covers the encrypted prefix. Range responses must match the declared offsets and object size. The WEM framing and release pointers are checked before the selected output is saved. Two story filenames from the earlier PlotAudio audit were downloaded and decoded in all four dubs. For `vo_Main_Mengzhou_3_7_14_28` the English, Japanese, Korean and Mandarin durations were 9.678, 9.844, 9.409 and 8.675 seconds. [Regional source command](../../scripts/live_game_sources.py)
+
+```text
+python scripts/live_game_sources.py wuwa-global --cache private-cache --output wuwa.json --dub en --voice vo_Main_Mengzhou_3_7_14_28 --save line.wem
+```
+
+Windows Setup can prepare the current Global release with the game folder empty. Select the study language and translation in Games & Languages. The toolkit reads the publisher's story and localization tables, binds lines to exact paths in the chosen dub and retrieves the WEM for playback or a private library export. A prepared language is checked again when the launcher or resource manifests change. Each audio reference belongs to the same publisher snapshot as its text. Installed games still use their local archives.
+
+A clean Windows language worker prepared 132,435 English rows with Simplified Chinese translations requested. It classified 46,461 as voiced, 20,074 as unvoiced, 2,119 as unavailable and 63,781 as unknown. Two short lines with translations decoded to non-silent MP3s through desktop playback. The private mobile library exporter produced byte-identical MP3s for those lines and included both translations. The sample covered about 1.83 and 0.91 seconds of speech.
+
+All five study selections were prepared from released files with English and
+Simplified Chinese requested as translations. Each selected an original WEM.
+Counts include protagonist variants when the game supplies two performances.
+
+| Study language | Prepared records | Records with an exact original voice |
+| --- | ---: | ---: |
+| English | 132,435 | 46,461 |
+| Japanese | 132,504 | 46,518 |
+| Korean | 132,302 | 46,281 |
+| Simplified Chinese | 134,065 | 46,293 |
+| Traditional Chinese | 133,198 | 46,280 |
+
+The current four effective dub inventories include 185,918 external WEM paths.
+Of these, 11,627 use Oodle compression, including 288 split across multiple
+blocks. Fourteen real recordings covering the observed block counts and raw
+storage decoded to PCM. The four-block English original was 204,483 bytes
+and decoded to 2,533,115 frames at 48 kHz. The toolkit verifies the stored
+entry, reads the game's block boundaries and uses its existing ooz-wasm
+decoder for Oodle blocks. These inventories include sounds outside the
+matched story records above.
+
+The same 14 publisher samples produced byte-identical WEMs and decoded
+PCM using the unchanged Node and ooz-wasm tools from the published Windows
+v0.23.2 runtime. That check used cached package bytes, disabled network access
+and an empty system PATH.
+
+Conditional gender/choice selection, shared nonlocalized audio and per-caption film slicing still require their authored bindings. The reader uses the published Kuro catalogue format from mornye-tools, PAK format evidence from CUE4Parse and compatible archive parameters from wuwa-keys. [Catalogue format](https://github.com/Yumeo0/mornye-tools/blob/4591ef24949688ec9835bf910a204d6bbc4b339c/src-tauri/crates/game-client/src/discovery.rs) · [PAK entry layout](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs) · [Archive format provider](https://github.com/yarik0chka/wuwa-keys)
+
 ## November 8, 2026 · Floating dialogue and film voices
 
 The Global 3.7 floating subtitle database contained 46 distinct caption IDs

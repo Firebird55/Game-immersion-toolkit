@@ -2,7 +2,7 @@
 from importlib import import_module
 from .steam_games import STEAM_GAMES
 
-PUBLISHER_GAMES = frozenset({"endfield", "genshin", "starrail"})
+PUBLISHER_GAMES = frozenset({"endfield", "genshin", "starrail", "wuwa", "zzz"})
 
 LOCAL_GAMES = {"starrail": "Honkai: Star Rail", "genshin": "Genshin Impact", "endfield": "Arknights: Endfield", "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
                "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}
@@ -25,3 +25,9 @@ def asset_adapter(game):
         raise ValueError("Unsupported local original-voice adapter")
     module, executable = _ADAPTERS[game]
     return import_module("." + module, __package__), executable
+
+
+def preparation_fingerprint(adapter, install, tools):
+    if install is None and hasattr(adapter, 'publisher_fingerprint'):
+        return adapter.publisher_fingerprint(tools)
+    return adapter.fingerprint(install)

@@ -1,5 +1,24 @@
 # Third-party notices
 
+## Live-service dialogue sources
+
+Reviewed November 9, 2026. Each game's publisher supplies the original recordings
+and translations. Game data and prepared language libraries stay private.
+Source and tool licenses apply to the respective software. The per-game inventory
+records the regional release, source checks and coverage limits. [Source inventory](docs/live-service-sources.md) · [Game credits and source roles](README.md#text-voices-and-upstream-projects)
+
+| Upstream | Terms and use |
+| --- | --- |
+| Dimbreath's AnimeGameData, TurnBasedGameData and ZenlessData, rmxlinux/EndfieldData, Waifus-Grace/NTE_Assets, 555me/NTEData, Arikatsu/WutheringWaves_Data | These mirrors expose game-derived tables. The toolkit reads selected records for local preparation or an independent comparison. A redistribution license for the publisher's text or recordings was not verified from these mirrors. |
+| simon300000/zenless-voice, Hiro420/ZZZ_TextMap, EIHRTeam/EndfieldStudio, Tobiichi-Origuchi/nte_patcher | The scene reader and these format references declare MIT. Keep the applicable upstream notices with any distributed code. [Zenless scene reader](https://github.com/simon300000/zenless-voice/blob/bb2b9790d2d45a5c662c36cd9f046d05893d0ef4/LICENSE) · [Zenless TextMap](https://github.com/Hiro420/ZZZ_TextMap) · [EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) · [NTE Patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) |
+| yarik0chka/wuwa-keys, Yumeo0/mornye-tools, 555me/NTE-usmap, kuaichu/game-cdn-archive | Private preparation and source checks use the relevant archive parameters, type schema, catalogue format or historical release references. GitHub did not identify a repository-wide SPDX license for these projects at review. [wuwa-keys](https://github.com/yarik0chka/wuwa-keys) · [mornye-tools](https://github.com/Yumeo0/mornye-tools) · [NTE-usmap](https://github.com/555me/NTE-usmap) · [game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) |
+| BlueHeisenberg/SCSKiller | The repository declares GPL-3.0. NTE preparation checks whether its public metadata source supplies a compatible entry for the selected archive. [SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) |
+| SolicenTEAM/UEExtractor, FabianFG/CUE4Parse | The installed Unreal readers use UEExtractor (MIT) and CUE4Parse (Apache-2.0). The component inventory records the pinned assemblies, transitive notices and checksums. [Managed component inventory](packaging/game-readers/managed-components.json) |
+| vgmstream, FFmpeg | Original-audio decoding and conversion follow the included component notices. vgmstream lists its component terms in COPYING. FFmpeg's terms depend on the build configuration. [vgmstream COPYING](https://github.com/vgmstream/vgmstream/blob/master/COPYING) · [FFmpeg licensing](https://ffmpeg.org/legal.html) · [Desktop runtime inventory](docs/r18-runtime-components.md) |
+
+The Hugging Face Zenless voice dataset was an optional historical comparison.
+Desktop voice retrieval uses the publisher's original game packages. [Dataset card](https://huggingface.co/datasets/simon3000/zenless-voice)
+
 ## Portable desktop access
 
 Native desktop construction uses pinned python-xlib 0.33 on Linux
@@ -82,7 +101,7 @@ without the extra visible-credit/link condition on that route. The general
 project license and third-party terms remain unchanged; see the
 [scoped grant](packaging/codecs/FLAC-BUILD-RECIPES-LICENSE.txt) and
 [rights and maintenance review](docs/r19-xiph-distribution-review.md).
-- The ZZZ scene adapters use the pinned GalScript reader from simon300000/zenless-voice (MIT, copyright 2024 simon3000). Source setup retains its full license in the local tool cache; desktop bundles retain the original source, precompiled reader, full license and exact source archive. ooz-wasm is GPL-3.0-or-later and is rebuilt from preferred source with the pinned Emscripten toolchain; xxhash-wasm is MIT. Their complete terms, preferred sources and rebuild recipe are retained in the immutable ZZZ resources. See [the exact reader inputs and source-build contract](packaging/zzz-reader/README.md). These components are not relabeled as original toolkit code, and no game catalog or recording is bundled.
+- The ZZZ scene adapters use the pinned GalScript reader from simon300000/zenless-voice (MIT, copyright 2024 simon3000). Source setup retains its full license in the local tool cache; desktop bundles retain the original source, precompiled reader, full license and exact source archive. ooz-wasm is GPL-3.0-or-later and is rebuilt from preferred source with the pinned Emscripten toolchain; xxhash-wasm is MIT. The Wuthering publisher reader reuses the same ooz-wasm decoder for Oodle-compressed PAK entries. The complete terms, preferred sources and rebuild recipe are retained in the immutable ZZZ resources. See [the exact reader inputs and source-build contract](packaging/zzz-reader/README.md). These components are not relabeled as original toolkit code, and no game catalog or recording is bundled.
 - vgmstream is downloaded from its official r2117 Windows x64 release with full COPYING and dependency notices retained. The REE unpacker is downloaded separately from Ekey/REE.PAK.Tool; its upstream terms apply, and the project license grants no redistribution rights over that tool. Tool downloads are checksum verified and excluded from source/installer bundles.
 - Game scripts, subtitle catalogs, audio, recordings and extracted archives belong to their respective publishers and remain user-local. The project license grants no rights over game content.
 - Mobile OCR: pinned Tesseract.js/Tesseract.js-core 7.0.0 (Apache-2.0) and naptha/tessdata English, Simplified Chinese and Traditional Chinese models (Apache-2.0), obtained through pinned @tesseract.js-data packages. The generated Pages allowlist includes the runtime's distribution notices, Apache license, model provenance and checksums. Model weights retain the upstream license independently of the npm wrapper's MIT metadata. Authored browser test captions and generated tone/video fixtures contain no game content and are covered by LICENSE.

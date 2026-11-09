@@ -4,7 +4,7 @@
 [English](../../README.md) · [Nederlands](../../README.nl.md) · [简体中文](../../README.zh-Hans.md) · [繁體中文](../../README.zh-Hant.md)
 
 1. Download een release, pak deze uit en start **Install.cmd**.
-2. Open **Instellingen → Games en talen**. Kies je geïnstalleerde game, leertaal en vertaling; bereid de geselecteerde tabel voor.
+2. Open **Instellingen → Games en talen**. Kies je game, leertaal en vertaling; bereid de geselecteerde tabel voor.
 3. Start je game met ondertiteling. Controleer **Ondertitels vastleggen** en lees of beluister de dialoog.
 
 [Downloaden voor Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest) · [Taalondersteuningsmatrix](nl.md)
@@ -13,17 +13,28 @@
 
 **Windows-opname:** Leg ondertitels vast en lees lokaal. Gamebestanden en accountsleutels blijven op je pc.
 
-**Telefoon met gekoppelde pc:** Deel het Windows-transcript met je telefoon. Een mobiele catalogusexport is niet nodig; houd de pc aan.
+**Reader gekoppeld aan de desktop:** Lees het desktoptranscript en speel gekoppelde stemmen af op een telefoon of tablet, ook op iPhone of iPad. Houd de desktop aan.
 
-**Zelfstandige mobiele OCR:** Open je eigen catalogus- en stem-ZIP’s. Download alleen de benodigde OCR-talen; daarna mag de pc uit. Browseropname en achtergrondgebruik hangen af van je apparaat.
+**Android-app (gepland):** Android gaat lokaal OCR uitvoeren, dialogen herkennen en de originele stem afspelen. De app met de gedeelde toolkitcode en het delen van een iPhone- of iPad-scherm moeten nog op apparaten worden getest.
 
 ## Opslag begrijpen
 
 De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden eenmaal geteld. Gamearchieven en externe exports staan apart; onbekende groottes zijn geen nul. Een tabel verwijderen wist lokale taalkeuzes, maar bewaart geschiedenis, favorieten, gamebestanden en sleutels. Bereid de tabel opnieuw voor om stemmen terug te vinden.
 
-In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Selecteer op iPhone elke bijgewerkte cloud-ZIP eenmaal. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
+In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
 
-Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.
+Laat de gamemap leeg in de Windows-instellingen voor de Chinese vastelandversie van Genshin Impact, de reguliere Global-stempakketten van Star Rail, de Global-verhaalstemmen van Endfield of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap de ingesproken telefoonberichten uit de Global-launcher op. Voor andere dialogen zijn geïnstalleerde gamebestanden nodig.
+
+| Game | Windows-instellingen |
+| :--- | :--- |
+| Genshin Impact | Uitgeversbestanden voor de Chinese vastelandversie van de launcher |
+| Honkai: Star Rail | Reguliere Global-stempakketten van de uitgever |
+| Zenless Zone Zero | In de instellingen kun je ingesproken telefoonberichten uit de Global-launcher ophalen. Voor andere dialogen zijn de geïnstalleerde bestanden nodig. |
+| Arknights: Endfield | Global-verhaalstemmen van de uitgever |
+| Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
+| Neverness to Everness | In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd. |
+
+Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows. [Toolkitplatforms en gameapparaten](../desktop-platforms.md)
 
 ## Problemen oplossen
 

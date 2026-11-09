@@ -1,5 +1,31 @@
 # Genshin Impact narrative audit
 
+## Character profile and combat performances, November 9, 2026
+
+Normal preparation joins the profile's avatar ID, Fetter voice trigger and
+subtitle hash to the actor's configured voice switch. The avatar's numeric
+`combatConfigHash` also resolves newly numbered configuration files. Original
+media comes from the selected publisher dub. Separate male and female takes
+use each source's gender field. Across 11,869 Fetter GUID/file pairs shared by
+7.1 and 7.2 the named and obfuscated actor fields agreed. The corresponding
+gender fields agreed for all 32 pairs with an explicit gender.
+[Character configuration](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Avatar)
+· [Profile text and triggers](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/FettersExcelConfigData.json)
+
+| Publisher release | Distinct Fetter rows | Rows with original audio |
+| --- | ---: | --- |
+| Mainland 7.1.0 | 9,183 | 9,182 English |
+| Mainland 7.2.0 | 9,330 | 9,329 English, all 9,330 in Japanese, Korean and Mandarin |
+
+The same reader resolved all 147 newly added character entries. A profile
+performance and a combat performance for Valeriy decoded in each dub. The
+English samples lasted 24.505 and 1.120 seconds. The selected English
+packages lacked Kachina's source for Fetter 100024. Her three other dubs
+contained the source. The normal English desktop worker exported Valeriy's
+two samples and Venti's two protagonist takes, then reproduced the four MP3s
+offline using a fresh output directory. Independent AnimatorEvent, WeatherMonologue, JoinTeam,
+Costume and Gacha triggers still need their own text and media evidence.
+
 ## Installation-free launcher release, November 9, 2026
 
 Without a game folder the Windows language worker follows the released mainland
@@ -44,7 +70,7 @@ installed locale package.
 | Optional NPC, gadget, furniture and hangout interactions | 16,927 Npc, 1,473 NpcOther, 1,485 Gadget, 1,287 Coop and associated group configurations | Supported Talk content is included regardless of whether it has audio. Group/routing configuration alone is not dialogue. Missing voice metadata stays unknown. |
 | Events | 2,107 Activity Talk files, 105 ActivityGroup files, many dedicated event Excel tables | Supported event Talk content is indexed. Event-specific UI formats and expired/removed assets do not acquire coverage merely because ordinary event Talk works. |
 | Ambient dialogue and reminders | 18,541 ReminderExcel rows; 1,798 BubbleTalkData rows; global dialogue fallback | Supported reminders use their own Medium-first text hash space and dialogue/tip/gameplay channels. `hasAudio: true` with missing audio is unavailable; omitted flags remain unknown. The separate BubbleTalk schema is inventoried but not mapped. |
-| Character/profile and combat voices | 9,183 FettersExcel rows; voice triggers include Fetter, AnimatorEvent, WeatherMonologue, JoinTeam, Costume and Gacha | Not fully indexed. Fetter trigger arguments repeat across characters and need an exact character join. Filename or speaker guesses are not substitutes. Combat sounds without authored subtitles cannot be turned into transcript text. |
+| Character/profile and combat voices | 9,183 FettersExcel rows on 7.1; voice triggers include Fetter, AnimatorEvent, WeatherMonologue, JoinTeam, Costume and Gacha | The November 9 profile audit above covers the Fetter trigger and actor join on two releases. Other trigger families and combat sounds without authored subtitles remain open. |
 | Card-game dialogue and tutorials | 1,256 GCGTalkDetail rows with parallel content/voice arrays | Nonzero voice IDs are paired with the original array position, including gaps. Conflicting IDs are excluded. Zero-voice slots and emoji-only messages remain outside this import. |
 | Choices and black-screen narration | 23,483 global forced-choice rows; explicit black-screen role types | Retained and tagged by authored modality. A player role, blank audio filename or missing voice does not establish silence. Exact voice bindings still take precedence. |
 | Storyboards, comics and cinematic dialogue | 242 Storyboard Talk files, 159 StoryboardGroup files and 37 Cutscene Talk files | Supported Talk rows are retained; explicit storyboard/narration types receive cinematic channel coverage. No claim of complete comic layout or sequence recognition. |

@@ -2,6 +2,16 @@
 
 ## Global publisher playback, November 9, 2026
 
+Before selecting a translation snapshot, Setup follows all four SRMI revision
+markers to their respective DesignV, AsbV, LuaV and AudioV indexes. Each
+marker carries the size and MD5 of its index. Setup checks its complete path,
+size and MD5 against the same publisher build. This works on the 4.4.0 and
+4.5.0 mainland releases and both independently discovered 4.6.0 releases.
+The 4.6.0 regions share revision numbers, while the DesignV and LuaV index
+contents differ. The Global launcher AudioV contains 131 base bank and sound
+effect entries. The two optional Japanese chapter packages and the second
+Korean chapter package still require a source matching the in-game manifest.
+
 The desktop worker prepared all five study choices with an empty toolkit cache
 and no game path. The Global 4.6 regular packages produced 90,630 English, 91,966 Japanese, 92,052
 Korean and 92,057 Mandarin voiced records in each Chinese script. The service

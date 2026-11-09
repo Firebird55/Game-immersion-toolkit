@@ -1,5 +1,17 @@
 // Product copy shared by the desktop and browser interfaces.
 export default {
+ "Windows Setup": ["Windows-instellingen","Windows 设置","Windows 設定"],
+ "Supported with Windows publisher Setup or installed assets": ["Ondersteund via de uitgever in de Windows-instellingen of met geïnstalleerde gamebestanden","可从 Windows 设置读取发行商资源，也可使用已安装的游戏文件","可在 Windows 設定中讀取發行商資源，也可使用已安裝的遊戲檔案"],
+ "Windows game integration only": ["Game-integratie alleen op Windows","仅支持 Windows 游戏集成","僅支援 Windows 遊戲整合"],
+ "Windows game integration. Independent preparation and playback on Linux, macOS and Android await per-game verification.": ["Game-integratie op Windows. Zelfstandige voorbereiding en weergave op Linux, macOS en Android moeten nog per game worden geverifieerd.","支持 Windows 游戏集成。在 Linux、macOS 和 Android 上独立准备数据及播放配音仍需逐款验证。","支援 Windows 遊戲整合。在 Linux、macOS 和 Android 上獨立準備資料及播放配音仍須逐款驗證。"],
+ "Publisher Setup for the mainland China launcher release": ["Uitgeversbestanden voor de Chinese vastelandversie van de launcher","可从发行商准备中国大陆启动器版本","可從發行商準備中國大陸啟動器版本"],
+ "Publisher Setup for regular Global launcher voice packs": ["Reguliere Global-stempakketten van de uitgever","可从发行商准备全球版启动器常规配音包","可從發行商準備全球版啟動器常規配音包"],
+ "Publisher Setup for Global narrative voices": ["Global-verhaalstemmen van de uitgever","可从发行商准备全球版剧情配音","可從發行商準備全球版劇情配音"],
+ "Publisher Setup for Global dialogue and original voices": ["Global-dialogen en originele stemmen van de uitgever","可从发行商准备全球版台词与原版配音","可從發行商準備全球版台詞與原版配音"],
+ "Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files.": ["In de instellingen kun je ingesproken telefoonberichten uit de Global-launcher ophalen. Voor andere dialogen zijn de geïnstalleerde bestanden nodig.","设置可从发行商获取全球版启动器中的有声手机消息。其他对话需要已安装的游戏文件。","設定可從發行商取得全球版啟動器中的有聲手機訊息。其他對話需要已安裝的遊戲檔案。"],
+ "Publisher Setup for recorded phone messages only. Other dialogue uses installed files.": ["Alleen ingesproken telefoonberichten kun je bij de uitgever ophalen. Andere dialogen gebruiken de geïnstalleerde bestanden.","设置仅可从发行商获取有声手机消息。其他对话使用已安装的游戏文件。","設定僅可從發行商取得有聲手機訊息。其他對話使用已安裝的遊戲檔案。"],
+ "Installed game in Setup. Separate Global and mainland publisher file checks.": ["In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd.","设置中需要已安装的游戏。可分别核对全球版和中国大陆版的发行商文件。","設定中需要已安裝的遊戲。可分別核對全球版和中國大陸版的發行商檔案。"],
+ "Toolkit hosts and game devices": ["Toolkitplatforms en gameapparaten","工具运行平台与游戏设备","工具執行平台與遊戲裝置"],
  "Game screen source":["Bron van het gamescherm","游戏画面来源","遊戲畫面來源"],
  "VDO.Ninja native iPhone / iPad":["VDO.Ninja native iPhone / iPad","VDO.Ninja 原生 iPhone / iPad","VDO.Ninja 原生 iPhone / iPad"],
  "Private VDO.Ninja viewer link":["Privé VDO.Ninja-kijklink","私密 VDO.Ninja 观看链接","私人 VDO.Ninja 觀看連結"],

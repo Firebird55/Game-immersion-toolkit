@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {startPreview} from './e2e-preview.mjs';
 import {readFileSync} from 'node:fs';
+import catalog from '../public/mobile-capture/games-data.json' with {type:'json'};
 import {chromium,firefox} from 'playwright';
 const preview=await startPreview('setup');
 let browser;
@@ -14,7 +15,7 @@ try{
    const exportScope=game=>'fixture-'+game+'-'+exportRevision;
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
-   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',starrail:'Honkai: Star Rail',genshin:'Genshin Impact',endfield:'Arknights: Endfield',cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:id==='endfield'?'publisher':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='endfield'?['Endfield format metadata']:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
+   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',starrail:'Honkai: Star Rail',genshin:'Genshin Impact',endfield:'Arknights: Endfield',cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:['endfield','wuwa'].includes(id)?'publisher':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='wuwa'?[]:id==='endfield'?['Endfield format metadata']:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
    games.find(g=>g.id==='nte').catalog_message='Catalog update unavailable or incompatible; using the last complete catalog.';
    games.find(g=>g.id==='nte').catalog_warning=true;
    games.find(g=>g.id==='cyberpunk').expansion_message='Phantom Liberty needs its Mandarin voice archive. Install the Simplified Chinese language pack through your game launcher, then refresh.';
@@ -121,15 +122,18 @@ try{
     assert(writes.filter(w=>w.path.endsWith('/mobile-export/preview')).some(w=>w.headers['x-proxy-transcript-export-scope']===exportScope('zzz')));
    }
    assert.equal(await dialog.getByLabel('Game to configure',{exact:true}).locator('option[value=hito]').count(),0);
-   for(const game of ['starrail','genshin','endfield']){
+   for(const game of ['starrail','genshin','endfield','wuwa']){
     await dialog.getByLabel('Game to configure',{exact:true}).selectOption(game);
+    const platform=catalog.platformScope;
+    await dialog.getByText(platform.liveServiceTarget+' '+platform.windowsPreparation[platform.targets[game]].label,{exact:true}).waitFor();
     assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');
-    assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).isEnabled(),game==='endfield');
-    if(game==='endfield'){
+    if(game==='wuwa')assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).count(),0);
+    else assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).isEnabled(),game==='endfield');
+    if(game==='endfield'||game==='wuwa'){
      await dialog.getByText('Available from publisher',{exact:true}).waitFor();
      await dialog.getByText('Optional',{exact:true}).waitFor();
     }
-    assert(await dialog.getByRole('button',{name:'Refresh game data',exact:true}).isDisabled());
+    assert.equal(await dialog.getByRole('button',{name:'Refresh game data',exact:true}).isEnabled(),game==='wuwa');
    }
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'F:/Games/ZZZ');
@@ -140,6 +144,7 @@ try{
     await dialog.getByText(games.find(g=>g.id===game).catalog_message,{exact:true}).waitFor();
    }
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('cyberpunk');
+   await dialog.getByText(catalog.platformScope.windowsOnly,{exact:true}).waitFor();
    await dialog.getByText(games.find(g=>g.id==='cyberpunk').expansion_message,{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);

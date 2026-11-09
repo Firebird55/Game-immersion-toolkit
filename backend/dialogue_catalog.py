@@ -18,6 +18,7 @@ SOURCES = {
     'genshin': ('gitlab', 'Dimbreath/animegamedata2', 'main'),
     'starrail': ('gitlab', 'Dimbreath/turnbasedgamedata', 'main'),
     'endfield': ('github', 'rmxlinux/EndfieldData', 'main'),
+    'nte-cn': ('github', '555me/NTEData', 'main'),
 }
 
 
@@ -70,20 +71,23 @@ class DialogueCatalog:
         _atomic_file(receipt, hashlib.sha256(data).hexdigest().encode())
         return data
 
-    def file(self, relative, *, optional=False):
-        from urllib.error import HTTPError
+    def raw_file(self, relative):
         if self.host == 'gitlab':
             url = f'https://gitlab.com/{self.repository}/-/raw/{self.revision}/{relative}'
         else:
             url = f'https://raw.githubusercontent.com/{self.repository}/{self.revision}/{relative}'
+        return self._bytes(relative, url)
+
+    def file(self, relative, *, optional=False):
+        from urllib.error import HTTPError
         try:
-            return json.loads(self._bytes(relative, url))
+            return json.loads(self.raw_file(relative))
         except HTTPError as error:
             if optional and error.code == 404:
                 return {}
             raise
 
-    def directory_json(self, relative):
+    def directory_json(self, relative, *, with_names=False):
         if self.host != 'gitlab':
             raise ValueError('Directory snapshots are supported only for fixed GitLab catalogs.')
         name = relative.replace('/', '-') + '.tar.gz'
@@ -101,7 +105,12 @@ class DialogueCatalog:
                 if item.size > 128 * 1024 * 1024 or total > 512 * 1024 * 1024:
                     raise ValueError('Dialogue catalog expands beyond its size limit.')
                 # Parse in memory; never extract upstream file paths to the host.
-                yield json.load(archive.extractfile(item))
+                value = json.load(archive.extractfile(item))
+                if with_names:
+                    member = PurePosixPath(*path.parts[1:]).relative_to(relative)
+                    yield member.as_posix(), value
+                else:
+                    yield value
 
     def directory_text(self, relative, suffix='.txt'):
         """Read bounded UTF-8 assets without extracting untrusted archive paths."""

@@ -1,6 +1,7 @@
 import hashlib
 import io
 import struct
+import wave
 
 import pytest
 
@@ -8,6 +9,41 @@ from backend import endfield_online as online
 from backend.endfield_vfs import Parameters
 from backend.voice_assets import voice_hash
 from scripts.import_endfield_timelines import DUBS, import_clocks, localized_playable, track_clips
+from scripts.endfield_film_activity import activity
+
+
+def test_film_activity_uses_each_channel_and_keeps_recording_time(tmp_path):
+    path = tmp_path / 'voice.wav'
+    audio = []
+    for ms in range(1600):
+        value = 640 if 910 <= ms < 1000 or 1190 <= ms < 1270 or 1550 <= ms < 1580 else 0
+        audio.extend((value, -value))
+    with wave.open(str(path), 'wb') as wav:
+        wav.setparams((2, 2, 1000, 0, 'NONE', 'not compressed'))
+        wav.writeframes(struct.pack(f'<{len(audio)}h', *audio))
+    assert activity(path) == [[910, 1270]]
+    assert activity(path, start_ms=1200, end_ms=1400) == [[1200, 1270]]
+    with pytest.raises(ValueError):
+        activity(path, start_ms=1601)
+
+
+@pytest.mark.parametrize('locale', ['zh-Hans', 'en', 'ja', 'ko'])
+def test_separate_in_engine_scene_uses_dub_clock_and_same_performance_predecessor(locale):
+    class Catalog:
+        revision = 'current'
+        def verified_films(self, _dub):
+            return set(online.profile.SCENE_FILMS)
+        def file(self, _path):
+            return {'cutscene_e0m0_5_01': {'id': 1}, 'cutscene_e0m0_5_02': {'id': 2}}
+
+    rows = online.film_records(Catalog(), {locale: {'1': 'First fixture.', '2': 'Second fixture.'}}, locale)
+    assert len(rows) == 4
+    for gender in ('female', 'male'):
+        first, second = sorted((r for r in rows if r['player_voice'] == gender), key=lambda r: r['text_id'])
+        assert first['previous_text_id'] is None and second['previous_text_id'] == first['text_id']
+        assert first['audio']['file_id'] == second['audio']['file_id']
+        assert first['audio']['start_ms'] < first['audio']['end_ms'] <= second['audio']['start_ms']
+    assert len({r['audio']['file_id'] for r in rows}) == 2
 
 
 def test_verified_publisher_ranges_and_cached_cinematic(tmp_path, monkeypatch):

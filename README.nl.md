@@ -14,7 +14,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 ## Begin in drie stappen
 
 1. Download een release, pak deze uit en start **Install.cmd**.
-2. Open **Instellingen → Games en talen**. Kies je geïnstalleerde game, leertaal en vertaling; bereid de geselecteerde tabel voor.
+2. Open **Instellingen → Games en talen**. Kies je game, leertaal en vertaling; bereid de geselecteerde tabel voor.
 3. Start je game met ondertiteling. Controleer **Ondertitels vastleggen** en lees of beluister de dialoog.
 
 ## Games en taalondersteuning
@@ -49,28 +49,34 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Installeer de gekozen originele stem, bereid de tabel voor en kies een officiële vertaling. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
+Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Kies in de instellingen de originele stem en een officiële vertaling. Gebruik je geïnstalleerde gamebestanden, installeer dan eerst het gekozen stempakket. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
 
 ## Tekst, stemmen en bronprojecten
 
-| Game | Distributie van originele stemmen |
-| :--- | :--- |
-| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
-| Arknights: Endfield | GRYPHLINE |
-| Wuthering Waves | Kuro Games |
-| Neverness to Everness | Perfect World Games |
+| Game | Distributie van originele stemmen | Bronproject en rol | Windows-instellingen |
+| :--- | :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (benodigde vertalingen en koppelingen tussen dialoog en stem) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (optionele index van oude releases) | Uitgeversbestanden voor de Chinese vastelandversie van de launcher |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (benodigde vertalingen, regel-ID’s en stemtabellen) | Reguliere Global-stempakketten van de uitgever |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (benodigde vertalingen en scènetabellen voor een geïnstalleerde game) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (benodigde scènelezer) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (optionele referentie voor het TextMap-schema) | In de instellingen kun je ingesproken telefoonberichten uit de Global-launcher ophalen. Voor andere dialogen zijn de geïnstalleerde bestanden nodig. |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (benodigde metadata voor stemarchieven) | Global-verhaalstemmen van de uitgever |
+| Wuthering Waves | Kuro Games | [SnosMe/ooz-wasm](https://github.com/SnosMe/ooz-wasm) (nodig voor gecomprimeerde audio in de uitgeverspakketten) · [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (benodigde formaatinformatie voor de uitgeverscatalogus) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) | Global-dialogen en originele stemmen van de uitgever |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie) · [555me/NTEData](https://github.com/555me/NTEData) (Chinese tekst voor de vastelandversie, nodig voor de regionale tekstexport) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (benodigd typeschema voor geïnstalleerde bestanden) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (benodigde metadata voor compatibele lokale archieven) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (nodig voor controle van de Global-updater) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (nodig voor controle van de Chinese vastelandupdater) | In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd. |
 
-Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.
+Readers voor Unreal-archieven ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoderen en converteren ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md)
+Laat de gamemap leeg in de Windows-instellingen voor de Chinese vastelandversie van Genshin Impact, de reguliere Global-stempakketten van Star Rail, de Global-verhaalstemmen van Endfield of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap de ingesproken telefoonberichten uit de Global-launcher op. Voor andere dialogen zijn geïnstalleerde gamebestanden nodig.
+
+Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.
+
+[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md) · [Toolkitplatforms en gameapparaten](docs/desktop-platforms.md) · [Licenties en vermeldingen](THIRD_PARTY_NOTICES.md)
 
 ## Kies hoe je speelt
 
 | | |
 | :--- | :--- |
 | **Windows-opname** | Leg ondertitels vast en lees lokaal. Gamebestanden en accountsleutels blijven op je pc. |
-| **Telefoon met gekoppelde pc** | Deel het Windows-transcript met je telefoon. Een mobiele catalogusexport is niet nodig; houd de pc aan. |
-| **Zelfstandige mobiele OCR** | Open je eigen catalogus- en stem-ZIP’s. Download alleen de benodigde OCR-talen; daarna mag de pc uit. Browseropname en achtergrondgebruik hangen af van je apparaat. |
+| **Reader gekoppeld aan de desktop** | Lees het desktoptranscript en speel gekoppelde stemmen af op een telefoon of tablet, ook op iPhone of iPad. Houd de desktop aan. |
+| **Android-app (gepland)** | Android gaat lokaal OCR uitvoeren, dialogen herkennen en de originele stem afspelen. De app met de gedeelde toolkitcode en het delen van een iPhone- of iPad-scherm moeten nog op apparaten worden getest. |
 
 Lexirise is optioneel. Migaku werkt zelfstandig waar de browserextensie wordt ondersteund. Bestaande Chinese transcripten behouden hun taal.
 

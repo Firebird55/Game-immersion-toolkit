@@ -55,11 +55,11 @@ FOLDER_HINTS = {
     "endfield": "The Global publisher supplies Endfield audio online. Optionally choose the folder containing Endfield.exe to use installed packages.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
     "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",
-    "zzz": "Choose the game folder containing ZenlessZoneZero_Data, or the Data folder itself.",
+    "zzz": "Leave the folder empty for recorded phone messages from the Global PC launcher release. For other dialogue, choose the installed folder containing ZenlessZoneZero_Data or the Data folder itself.",
     "pragmata": "Choose the folder containing PRAGMATA.exe and re_chunk_*.pak archives.",
     "hito": "Choose the folder containing resources/app.asar.",
     "cyberpunk": "Choose the installation root containing bin/x64 and archive/pc/content.",
-    "wuwa": "Choose the installation root containing Client, or the Client folder itself.",
+    "wuwa": "Leave the folder empty to use Kuro Games' Global Windows release, or choose the installed Client folder.",
     "witcher3": "Choose the installation root containing bin and content.",
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
@@ -71,11 +71,11 @@ VOICE_HINTS = {
     "endfield": "Prepare tools and the selected language. Without a game folder, the toolkit fetches original Global recordings on demand.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
-    "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
+    "zzz": "Global publisher phone messages use the selected original voice. For installed dialogue, install the matching voice pack through the launcher and prepare the language.",
     "pragmata": "The selected study language's original voices are verified from installed PAKs during language preparation.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
-    "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
+    "wuwa": "Choose your language to fetch its original voices from the Global publisher. For an installed game, install the matching voice pack.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
     "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
 }
@@ -167,7 +167,7 @@ class InstallationService:
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game, voice == 'publisher'), **state})
         ocr = Path.home() / ".config/oneocr"
         from .ocr_engine import portable_models_available
         from .desktop_capabilities import capture_capability
@@ -288,8 +288,9 @@ class InstallationService:
             with self._lock:
                 self._jobs[game] = {"state": "preparing", "message": message, "progress": 50}
         try:
-            prepare_tools(self.root, game, progress)
-            missing = missing_tools(self.root, game)
+            publisher = game in PUBLISHER_GAMES and not self.install_lookup(game)
+            prepare_tools(self.root, game, progress, publisher)
+            missing = missing_tools(self.root, game, publisher)
             if missing:
                 raise PreparationFailure('tools_incomplete',
                     'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')

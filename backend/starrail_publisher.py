@@ -71,6 +71,26 @@ def revision_marker(raw):
     return revision
 
 
+def release_revisions(directory, files):
+    revisions = []
+    for suffix in MARKERS:
+        prefix, marker_name = ('StarRail_Data/StreamingAssets/' + suffix).rsplit('/', 1)
+        marker = files[prefix + '/' + marker_name]
+        if marker.size != 66:
+            raise ValueError('Unsupported Star Rail publisher revision marker.')
+        raw = marker.read(directory, 0, marker.size)
+        revisions.append(revision_marker(raw))
+        # SRMI stores the index MD5 as four little-endian words. The actual
+        # index is a separately checksummed file in the same launcher build.
+        digest = ''.join(f'{word:08x}' for word in struct.unpack_from('<4I', raw, 28))
+        size, = struct.unpack_from('<Q', raw, 44)
+        index_name = marker_name.removeprefix('M_').removesuffix('.bytes') + '_' + digest + '.bytes'
+        index = files.get(prefix + '/' + index_name)
+        if not size or index is None or (index.digest, index.size) != (digest, size):
+            raise ValueError('The Star Rail resource index does not match its publisher revision marker.')
+    return tuple(revisions)
+
+
 def release_title(stamp, version, revisions):
     design, assets, lua, audio = revisions
     if stamp == VERIFIED_46 and version == '4.6.0' and revisions == (16566615, 16566615, 16566587, 16566615):
@@ -84,14 +104,8 @@ def prepare(data_dir):
     build = sophon.release(CHANNEL)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
-    files = sophon.manifest(directory, CHANNEL, tuple(build['manifests']['game']), MARKERS)
-    revisions = []
-    for suffix in MARKERS:
-        marker = files['StarRail_Data/StreamingAssets/' + suffix]
-        if marker.size != 66:
-            raise ValueError('Unsupported Star Rail publisher revision marker.')
-        revisions.append(revision_marker(marker.read(directory, 0, marker.size)))
-    title = release_title(stamp, build['version'], tuple(revisions))
+    files = sophon.manifest(directory, CHANNEL, tuple(build['manifests']['game']), ('.bytes',))
+    title = release_title(stamp, build['version'], release_revisions(directory, files))
     catalog = DialogueCatalog('starrail', data_dir, revision=matching_release_commit('starrail', title))
     catalog.revision_title = title
     _atomic_file(directory / 'releases' / stamp, raw)

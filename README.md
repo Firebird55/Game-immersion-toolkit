@@ -14,7 +14,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 ## Start in three steps
 
 1. Download a release, extract it, and run **Install.cmd**.
-2. Open **Settings → Games & Languages**. Choose your installed game, learning language and translation; prepare the selected table.
+2. Open **Settings → Games & Languages**. Choose your game, learning language and translation; prepare the selected table.
 3. Start your game with subtitles. Check **Capture**, then read and replay dialogue.
 
 ## Games & language support
@@ -49,28 +49,34 @@ Follow official game dialogue, replay original voices, and learn with reading to
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Install your chosen original voice, prepare its table, and choose an official translation. Missing assets or translations remain unavailable.
+You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Choose the original voice and an official translation in Setup. For games prepared from installed files, install the selected voice pack first. Missing assets or translations remain unavailable.
 
 ## Text, voices and upstream projects
 
-| Game | Original audio distribution |
-| :--- | :--- |
-| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
-| Arknights: Endfield | GRYPHLINE |
-| Wuthering Waves | Kuro Games |
-| Neverness to Everness | Perfect World Games |
+| Game | Original audio distribution | Upstream project and role | Windows Setup |
+| :--- | :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (required translations and dialogue-to-voice IDs) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (optional historical release index) | Publisher Setup for the mainland China launcher release |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (required translations, sentence IDs and voice tables) | Publisher Setup for regular Global launcher voice packs |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (required translations and scene tables for installed games) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (required scene reader) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (optional TextMap schema reference) | Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files. |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (required localization and story tables for installed games) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (required voice archive metadata) | Publisher Setup for Global narrative voices |
+| Wuthering Waves | Kuro Games | [SnosMe/ooz-wasm](https://github.com/SnosMe/ooz-wasm) (required for compressed publisher audio entries) · [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (required publisher catalogue format) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (required game archive metadata) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optional table comparison) | Publisher Setup for Global dialogue and original voices |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (required movie tables, with a pinned fallback revision) · [555me/NTEData](https://github.com/555me/NTEData) (Chinese text for the mainland release, required by the regional export command) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (required installed type schema) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (required compatible installed archive metadata) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (required for Global updater checks) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (required for mainland updater checks) | Installed game in Setup. Separate Global and mainland publisher file checks. |
 
-Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. Endfield film clips require verified timelines. Star Rail uses regular Global HoYoPlay voice packages. Choose your language in Setup.
+Unreal archive readers ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoding and conversion ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-[Text sources, reader credits and coverage by game](docs/live-service-sources.md)
+Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares recorded phone messages from the Global launcher base. Other dialogue requires installed files.
+
+These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.
+
+[Text sources, reader credits and coverage by game](docs/live-service-sources.md) · [Toolkit hosts and game devices](docs/desktop-platforms.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Choose how to play
 
 | | |
 | :--- | :--- |
 | **Windows capture** | Capture game subtitles and read locally. Game files and account keys stay on your PC. |
-| **Phone with paired PC** | Share the Windows transcript to your phone. No mobile catalog export is required; keep the PC running. |
-| **Independent mobile OCR** | Open one private Mobile Library ZIP, connect the native VDO.Ninja screen broadcast, and tap Start playing. The PC can be off. Keep the receiving page visible. |
+| **Desktop-connected reader** | Read the desktop transcript and play matched voices on a phone or tablet, including iPhone and iPad. Keep the desktop running. |
+| **Android app (planned)** | Android will run OCR, match dialogue and play the original voice locally. The shared-core app and iPhone/iPad screen-sender route still need device verification. |
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.
 

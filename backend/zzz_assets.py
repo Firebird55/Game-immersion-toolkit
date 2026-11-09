@@ -168,6 +168,16 @@ def fingerprint(install):
     return hashlib.sha256((_scene_fingerprint(root) + design_revision_fingerprint(root)).encode()).hexdigest()
 
 
+def publisher_fingerprint(_tools):
+    from .zzz_publisher import fingerprint
+    return fingerprint()
+
+
+def publisher_snapshot_available(tools, stamp):
+    from .hoyo_publisher_voice import snapshot_available
+    return snapshot_available(tools, stamp, 'zzz')
+
+
 def localized_inventory(root, locale):
     namespace_names, entries = set(), {}
     for layer in ('StreamingAssets', 'Persistent'):
@@ -339,6 +349,9 @@ def _links(root, directory, revision, progress):
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported ZZZ study/audio language.')
+    if install is None:
+        from .zzz_publisher import build_language
+        return build_language(data_dir, source_locale, target_locales, progress)
     root, stamp = game_data(install), fingerprint(install)
     targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
     selected = {source_locale, *(locale for locale in targets.values() if locale)}
@@ -415,6 +428,9 @@ def validate_voice_source(install, audio):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None:
+        from .hoyo_publisher_voice import extract
+        return extract(audio, _executable, 'zzz')
     entry = _validate_audio(install, audio)
     data = entry.read()
     _validate_audio(install, audio)

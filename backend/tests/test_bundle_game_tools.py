@@ -70,7 +70,7 @@ def test_verified_zzz_reader_uses_same_packaged_readiness_without_npm(tmp_path, 
 
 
 def test_missing_reader_does_not_disable_other_games_or_start_executable_downloads(tmp_path, monkeypatch):
-    from backend import prebuilt_node_reader, nte_toolchain, cyberpunk_toolchain
+    from backend import prebuilt_node_reader, nte_toolchain, cyberpunk_toolchain, wuthering_release_pak
     layout = included_runtime(tmp_path, monkeypatch)
     def absent():
         raise PreparationFailure('bundle_toolchain_unavailable', 'Missing reader resources')
@@ -86,6 +86,13 @@ def test_missing_reader_does_not_disable_other_games_or_start_executable_downloa
         assert 'SDK' not in str(caught.value) and 'source runtime' not in str(caught.value)
     assert game_tools.missing_tools(layout.application_root, 'genshin') == []
     game_tools.prepare_tools(layout.application_root, 'genshin')
+    monkeypatch.setattr(wuthering_release_pak, '_ooz_runtime', absent)
+    assert game_tools.missing_tools(layout.application_root, 'wuwa', publisher=True) == ['Wuthering package decoder']
+    with pytest.raises(PreparationFailure, match='Wuthering package decoder'):
+        game_tools.prepare_tools(layout.application_root, 'wuwa', publisher=True)
+    monkeypatch.setattr(wuthering_release_pak, '_ooz_runtime', lambda: (layout.resource_root / 'node', layout.resource_root / 'ooz'))
+    assert game_tools.missing_tools(layout.application_root, 'wuwa', publisher=True) == []
+    game_tools.prepare_tools(layout.application_root, 'wuwa', publisher=True)
 
 
 def test_private_format_metadata_is_separate_from_missing_native_runtime(tmp_path, monkeypatch):

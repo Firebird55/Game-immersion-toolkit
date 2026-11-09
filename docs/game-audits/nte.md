@@ -1,5 +1,30 @@
 # Neverness to Everness audit
 
+## Released file acquisition across regions · November 9, 2026
+
+The source command now follows each regional branch, decodes the updater resource list and checks its plaintext MD5 against the active launcher. It records independent files and the exact byte ranges of files stored inside aggregate packages. Global PC_140 1.4.11 listed 552 files and mainland PC_150 1.5.4 listed 366. Both included 77 PAK files. The updater format references are pinned by commit and SHA-256. The Global and mainland distributions use different public updater parameters. [Global launcher](https://ntecdn1.perfectworld.com/clientRes/publish_PC/Version/Windows/config.xml) · [Mainland launcher](https://yhcdn1.wmupd.com/clientRes/publish_PC/Version/Windows/config.xml) · [Global patcher integration](https://github.com/Tobiichi-Origuchi/nte_patcher/blob/1135247b3a21ac72304b8bd9f5aa548994f7a8ef/tests/test_integration.rs) · [Mainland downloader reference](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/scripts/nte_downloader.py)
+
+Two empty-cache checks retrieved the same game path from different regional package objects. The Global member was 22,423 bytes, the mainland member 23,485 bytes. Each matched its own publisher checksum. The regional source command can save a selected file without installing or downloading a full game. The archive contents still require compatible game archive metadata and verified localization and Wwise bindings before normal Setup can play a sentence. [Source command](../../scripts/live_game_sources.py)
+
+Direct range reads of all 20 game-content PAK footers and 22 IoStore headers in **each region** established the same layout. Every PAK uses version 12 and marks its index encrypted, including the two small patch samples. Twelve IoStore containers per region mark their content encrypted. Each of the other ten holds one chunk. The two `global.utoc` files point to UE5 `ScriptObjects`; the eight optional-language UTOCs point to `ContainerHeader` chunks with 64-byte companion UCAS files. The public container headers therefore do not supply localized sentences or Wwise media. [PAK footer](https://github.com/trumank/repak/blob/355b5f62f51959c7cc6dd5a51708646ef483065d/repak/src/footer.rs#L22-L32) · [IoStore flags](https://github.com/FabianFG/CUE4Parse/blob/613a67310ebc058f4f5cf207b1fe96c10d7af882/CUE4Parse/UE4/IO/Objects/FIoStoreTocHeader.cs#L24-L33) · [UE5 chunk identifiers](https://github.com/FabianFG/CUE4Parse/blob/613a67310ebc058f4f5cf207b1fe96c10d7af882/CUE4Parse/UE4/IO/Objects/FIoChunkId.cs#L34-L49)
+
+Track headers in all eleven loose Global MP4s and five mainland MP4s yielded no subtitle tracks. The five mainland movies and eight Global movies contained video only. The only loose Global movies with an audio track were the three studio/game logos. This check concerns the `.mp4` entries in the Windows releases; the `.hpw` runtime files and separately referenced story audio still need their own verification. [Global release list](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.11/ResList.bin.zip) · [Mainland release list](https://yhcdn1.wmupd.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
+
+```text
+python scripts/live_game_sources.py nte-global --cache private-cache --output nte.json --resource Client/WindowsNoEditor/HT/Content/PatchPaks/pakchunk2-Windows_0_P.pak --save selected.pak
+```
+
+### Mainland Chinese text without an installation
+
+`scripts/nte_regional_text.py` follows the mainland launcher's release pointer and checks the exact MD5 of the text source's `ResList.xml` against the publisher's `listHash`. It pins the source commit before reading the localization export and checks the active release again before writing the output. If the mirror has moved ahead, the command checks recent release-manifest commits for a unique match. When the mirror has no matching export, retry after it updates. The JSON keeps the namespace and key of each text, including keys reused by different tables. [Mainland launcher](https://yhcdn1.wmupd.com/clientRes/publish_PC/Version/Windows/config.xml) · [Regional text command](../../scripts/nte_regional_text.py)
+
+```text
+python scripts/nte_regional_text.py --cache private-cache --output mainland-text.json
+python scripts/nte_regional_text.py --cache private-cache --output blackbird.json --namespace ST_Main_BlackBird --key BBlackbird01_NPC1064_007
+```
+
+The November 9 check matched mainland 1.5.4, logic build 594078. Its 84,805-byte manifest had MD5 `95588bbea8dfbefa15aea48bf2549032`. Global 1.4.11 declared `24053e7ac1f850cab87b84a16e13657b`. The matching mainland export contains 121,753 Simplified Chinese strings across 195 namespaces, including UI. All 2,438 entries in its Blackbird StringTable agree with the corresponding localized strings, and 1,599 of their keys have explicit event declarations in `DialogSoundTable`. These declarations identify events; the corresponding mainland localized banks and WEMs still need verification. This source publishes Chinese text only. [Matched source commit](https://github.com/555me/NTEData/tree/fe531251f0c618796bf989cbc08dbdbf63055d76) · [Blackbird StringTable](https://github.com/555me/NTEData/blob/fe531251f0c618796bf989cbc08dbdbf63055d76/Text/Dialogue/ST_Main_BlackBird.json) · [Event declarations](https://github.com/555me/NTEData/blob/fe531251f0c618796bf989cbc08dbdbf63055d76/DataTable/DialogSoundTable.json)
+
 ## November 8, 2026 · Localized performances and sequence timing
 
 The cooked Global dialogue and bubble sound tables contain explicit aliases

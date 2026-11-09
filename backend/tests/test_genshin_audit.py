@@ -92,6 +92,29 @@ def test_card_voice_ids_keep_original_array_positions_and_exclude_conflicts():
     assert len(warnings) == 2
 
 
+def test_profile_voice_requires_the_actor_and_one_authored_take():
+    profiles = [{'avatarId': 7, 'fetterId': 100, 'voiceFile': '35', 'voiceFileTextTextMapHash': 20}]
+    avatars = [{'id': 7, 'iconName': 'UI_AvatarIcon_Fixture'}]
+    configs = [('ConfigAvatar_Fixture.json', {'audio': {'voiceSwitch': {'text': 'Switch_Cast'}}})]
+    for sources in ({('35', 'switch_other'): {('shared', 'a')}}, {('35', 'switch_cast'): {('shared', 'a'), ('shared', 'b')}},
+                    {('35', 'switch_cast'): {('shared', 'a'), ('shared', None)}}):
+        row, = game.profile_links(profiles, avatars, configs, sources)
+        assert row['source'] is None and row['voice_status'] == 'unavailable'
+    sources = {('35', 'switch_cast'): {('shared', 'verified.wem')}}
+    avatars[0]['combatConfigHash'] = 9876
+    renamed = [('9876.json', configs[0][1])]
+    assert game.profile_links(profiles, avatars, renamed, sources)[0]['source'] == 'verified.wem'
+    changed = [('9876.json', {'audio': {'voiceSwitch': {'text': 'Switch_Different'}}})]
+    assert game.profile_links(profiles, avatars, configs + changed, sources)[0]['source'] is None
+    branches = game.profile_links(profiles, avatars, renamed, {('35', 'switch_cast'): {('female', 'a'), ('male', 'b')}})
+    source_by_gender = {link['player_voice']: link['source'] for link in branches}
+    assert source_by_gender == {'male': 'b', 'female': 'a'}
+    texts = {'en': {'20': '#Hi {M#brother}{F#sister}.'}, 'zh-Hans': {'20': '欢迎。'}}
+    records = game.profile_records(branches, texts, 'en', {})
+    assert [(row['player_voice'], row['source_text'], row['chinese']) for row in records] == [
+        ('female', 'Hi sister.', '欢迎。'), ('male', 'Hi brother.', '欢迎。')]
+
+
 def test_missing_voice_does_not_mean_unvoiced_and_explicit_silent_reminder_does():
     reminders = [{'id': 1, 'HNDLKHJFLNF': 10, 'hasAudio': False},
                  {'id': 2, 'HNDLKHJFLNF': 20},
@@ -136,12 +159,21 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
                 'TextMap/TextMap_MediumEN.json': {'10': 'Reminder text.'},
                 'ExcelBinOutput/DialogExcelConfigData.json': [{'GFLDJMJKIKE': 2, 'talkContentTextMapHash': 20}],
                 'ExcelBinOutput/ReminderExcelConfigData.json': [{'id': 3, 'HNDLKHJFLNF': 10, 'hasAudio': True}],
+                'ExcelBinOutput/FettersExcelConfigData.json': [{'avatarId': 20, 'fetterId': 41, 'type': 2,
+                    'voiceFile': '17', 'voiceFileTextTextMapHash': 20}],
+                'ExcelBinOutput/AvatarExcelConfigData.json': [{'id': 20, 'iconName': 'UI_AvatarIcon_Fixture'}],
                 'ExcelBinOutput/GCGTalkDetailExcelConfigData.json': [],
                 'ExcelBinOutput/GCGTutorialTextExcelConfigData.json': []}[path]
 
-        def directory_json(self, path):
+        def directory_json(self, path, *, with_names=False):
+            if path.endswith('Avatar'):
+                assert with_names
+                return [('ConfigAvatar_Fixture.json', {'audio': {'voiceSwitch': {'text': 'Switch_Original'}}})]
+            fetter = voice(17, 'VO\\sample.wem', 'Fetter')
+            fetter['sourceNames'][0]['avatarName'] = 'Switch_original'
+            fetter['sourceNames'].append({'sourceFileName': 'VO\\wrong_actor.wem', 'avatarName': 'Switch_other'})
             return ([{'dialogList': [{'id': 1, 'talkContentTextMapHash': 10}]}] if path.endswith('Talk') else
-                    [{'a': voice(1, 'VO\\sample.wem'), 'b': voice(3, 'VO\\missing.wem', 'DungeonReminder')}])
+                    [{'a': voice(1, 'VO\\sample.wem'), 'b': voice(3, 'VO\\missing.wem', 'DungeonReminder'), 'c': fetter}])
 
     monkeypatch.setattr(game, 'DialogueCatalog', Catalog)
     snapshot = game.index_language(tmp_path, tmp_path / 'private-data', 'en', ())
@@ -152,6 +184,9 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
     assert rows['genshin:reminder-3']['source_text'] == 'Reminder text.'
     assert rows['genshin:reminder-3']['voice_status'] == 'unavailable'
     assert 'tip' in rows['genshin:reminder-3']['channels']
+    profile = rows['genshin:fetter-20-41']
+    assert (profile['source_text'], profile['voice_status'], profile['audio']['source']) == ('Global optional line.', 'voiced', source)
+    assert profile['dialogue_kind'] == 'combat_voice' and 'gameplay' in profile['channels']
     assert snapshot['coverage_warnings']
     assert all(str(tmp_path) not in warning for warning in snapshot['coverage_warnings'])
     assert 'community metadata' in snapshot['message']

@@ -110,12 +110,15 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     value.build_language(game, 'nl', ('en',))
 
 
-@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail"])
+@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail", "wuwa", "zzz"])
 def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch, game):
     from pathlib import Path
     from backend.game_assets import asset_adapter
     adapter, _ = asset_adapter(game)
-    monkeypatch.setattr(adapter, 'fingerprint', lambda _: 'owned-publisher-release')
+    def fingerprint(source):
+        assert source == (tmp_path / game / 'tools' if game in ('wuwa', 'zzz') else None)
+        return 'owned-publisher-release'
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', fingerprint)
     value = runtime(tmp_path, locale=None)
     value.setup_install = lambda _game: None
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
@@ -124,7 +127,7 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
         commands.append(command)
         assert '--publisher' in command and '--install' not in command
         payload = {'format': 2, 'game': game, 'install': None, 'source_locale': 'ja',
-                   'fingerprint': adapter.fingerprint(None), 'targets_requested': ['en'],
+                   'fingerprint': 'owned-publisher-release', 'targets_requested': ['en'],
                    'reader_revision': adapter.LANGUAGE_INDEX_VERSION,
                    'records': [{'text_id': f'{game}:owned:caption', 'source_locale': 'ja',
                                 'source_text': 'テスト用の字幕です', 'texts': {'ja': 'テスト用の字幕です', 'en': 'Test caption'},
@@ -136,8 +139,17 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     value.build_language(game, 'ja', ('en',))
     assert len(commands) == 1
     assert value.locale_index(game, 'ja').ready
+    from urllib.error import URLError
+    from backend.preparation_errors import PreparationFailure
+    def offline(_source):
+        raise URLError('offline')
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', offline)
+    with pytest.raises(PreparationFailure) as caught:
+        value.build_language(game, 'ja', ('en',))
+    assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained
+    assert value.locale_index(game, 'ja').ready and len(commands) == 1
     with pytest.raises(ValueError, match='installed game folder'):
-        value.build_language('wuwa', 'ja', ('en',))
+        value.build_language('nte', 'ja', ('en',))
 
 
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):

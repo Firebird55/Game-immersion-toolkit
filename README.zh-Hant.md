@@ -14,7 +14,7 @@
 ## 三步開始
 
 1. 下載發行版，解壓縮後執行 **Install.cmd**。
-2. 開啟 **設定 → 遊戲與語言**。選擇已安裝的遊戲、學習語言和翻譯語言，再準備所選資料表。
+2. 開啟 **設定 → 遊戲與語言**。選擇遊戲、學習語言和翻譯語言，再準備所選資料表。
 3. 啟動遊戲並開啟字幕。檢查 **字幕擷取**，即可閱讀和重播對話。
 
 ## 遊戲與語言支援
@@ -49,28 +49,34 @@
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。安裝所選原版配音，準備資料表，並選擇官方翻譯。缺少的檔案或翻譯仍會顯示為無法使用。
+無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。在設定中選擇原版配音和官方譯文。若從已安裝的遊戲檔案準備資料，請先安裝所選語音包。缺少的檔案或翻譯仍會顯示為無法使用。
 
 ## 文字、配音與上游專案
 
-| 遊戲 | 原版配音發布管道 |
-| :--- | :--- |
-| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
-| Arknights: Endfield | GRYPHLINE |
-| Wuthering Waves | Kuro Games |
-| Neverness to Everness | Perfect World Games |
+| 遊戲 | 原版配音發布管道 | 上游專案及用途 | Windows 設定 |
+| :--- | :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (可選用的歷史版本索引) | 可從發行商準備中國大陸啟動器版本 |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) | 可從發行商準備全球版啟動器常規配音包 |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (可選用的 TextMap 格式參考) | 設定可從發行商取得全球版啟動器中的有聲手機訊息。其他對話需要已安裝的遊戲檔案。 |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) | 可從發行商準備全球版劇情配音 |
+| Wuthering Waves | Kuro Games | [SnosMe/ooz-wasm](https://github.com/SnosMe/ooz-wasm) (讀取發行商壓縮配音項目所需) · [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (讀取發行商目錄所需的格式資訊) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) | 可從發行商準備全球版台詞與原版配音 |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (必要的影片表，需要時使用固定版本) · [555me/NTEData](https://github.com/555me/NTEData) (中國大陸版文字匯出所需的中文在地化資料) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (已安裝資源所需的型別表) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (讀取本機資源包所需的相容中繼資料) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (核對全球版更新程式所需) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (核對中國大陸版更新程式所需) | 設定中需要已安裝的遊戲。可分別核對全球版和中國大陸版的發行商檔案。 |
 
-將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。終末地的過場片段需要經過核實的時間軸。《崩壞：星穹鐵道》使用 HoYoPlay 全球版的常規語音包。
+Unreal 資源讀取器 ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). 音訊解碼與轉換 ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-[各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md)
+在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版啟動器基礎包取得有聲手機訊息。其他對話需要已安裝的遊戲檔案。
+
+這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。
+
+[各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md) · [工具執行平台與遊戲裝置](docs/desktop-platforms.md) · [第三方授權與聲明](THIRD_PARTY_NOTICES.md)
 
 ## 選擇使用方式
 
 | | |
 | :--- | :--- |
 | **Windows 擷取** | 擷取遊戲字幕並在本機閱讀。遊戲檔案和帳戶金鑰保留在電腦上。 |
-| **手機配對電腦** | 將 Windows 文字分享至手機。無需匯出行動版目錄；電腦需要保持執行。 |
-| **獨立行動版 OCR** | 開啟你的私人目錄和配音 ZIP。僅下載需要的 OCR 語言，之後電腦可以關閉。瀏覽器擷取和背景執行能力取決於裝置。 |
+| **連接桌面端的閱讀器** | 在手機或平板（包括 iPhone 和 iPad）上閱讀桌面端產生的台詞記錄並播放對應的配音。桌面端須保持執行。 |
+| **Android 應用程式（規劃中）** | Android 將在本機執行 OCR、比對台詞並播放原版配音。採用共用核心的應用程式以及從 iPhone 或 iPad 傳送遊戲畫面的流程仍須實機驗證。 |
 
 Lexirise 為選用服務。支援瀏覽器擴充功能的環境中，Migaku 可獨立執行。現有中文文字維持原語言。
 

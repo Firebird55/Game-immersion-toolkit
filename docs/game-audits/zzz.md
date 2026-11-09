@@ -42,11 +42,56 @@ in English, 6.556 s in Japanese, 4.700 s in Korean and 5.195 s in Mandarin.
 The same command for `Main_GalGame_Chapter240_124000005_001` returned four
 original recordings and 12 translated strings from the same build.
 
+The publisher command also reads the original Message and OngoingTips
+FlatBuffers directly. For these two presentations it downloads the design
+tables and selected voice package ranges. Scene blocks are unnecessary.
+Use `--kind message` for a phone recording. Use `--kind ongoing` and
+`--protagonist belle` or `--protagonist wise` for a conditional performance.
+The optional `--channel zzz-cn` selects the independent mainland launcher;
+the default remains Global.
+
+```text
+python scripts/probe-zzz-publisher.py Message_100403 --kind message --cache private-cache --output message
+python scripts/probe-zzz-publisher.py Main_OngoingLevel_Chapter180_111801006_01 --kind ongoing --protagonist wise --cache private-cache --output wise
+```
+
+The 3.3.0 message table named nine recorded message bodies. All nine resolved
+in each dub, and all 36 original WEMs decoded with nonzero PCM. The example
+message yielded 13 translations. Its English Global and mainland recordings were byte
+identical. The ongoing sample yielded separate original recordings for Belle
+and Wise in all four dubs. Their English recordings decoded to 5.345 and
+5.731 seconds. The same command followed an archived mainland 3.2.0 launcher
+announcement to the publisher and retrieved the English message and Wise
+performances. That release stores the design index in the older supported
+gzip resource catalog. Publisher scene receipts also classify unmatched reference
+paths. On Global 3.3 the 333 absent paths comprised 144 Bubble, 21 BubbleStory,
+142 Chat, three ChatPlus and 23 GalGame paths. Whether these scenes run in a
+different content layer remains open.
+
 The command requires a unique authored scene source and a unique matching file
 in the selected dub. It supports direct source paths and the evidenced GalGame
-speaker directories. Conditional voices, comic panels and cinematic events
-require their own bindings. Automatic desktop and phone setup from the publisher,
-and acquisition of in-version Global overrides, remain open.
+and ongoing speaker directories. Additional conditional scene voices, comic panels and cinematic events
+require their own bindings. Windows Setup with no game folder reads the Global
+launcher's message configuration and the selected base and overwrite TextMaps.
+It prepares only phone message bodies with a unique authored source and an exact
+original recording in the selected language. Replies, other presentations, later
+in-version Global overrides and independent phone preparation remain outside this route.
+
+The Windows language worker prepared the Global 3.3.0 base from an empty
+game-data cache without a game folder or any reads from an installation. The smoke test used the rebuilt
+production reader, its hash-verified app-local Node executable and source-built
+ooz decoder. The helper ran with an empty executable search path. All five
+study selections yielded nine unique recorded bodies and 15 display rows because
+some translations distinguish the two protagonists. Every display row had all
+13 text locales, an unambiguous source and a recording in the selected dub.
+
+The desktop playback service produced 75 MP3s, one for each display row in
+each selection. All decoded to nonzero PCM. The 36 distinct source recordings
+span four dubs. The two Chinese script selections share Mandarin. Measured
+durations were 3.805–15.536 seconds in English, 3.922–22.840 in Japanese,
+3.398–16.050 in Korean and 3.164–15.957 in Mandarin. A separate two-release
+fixture changed the package contents under the same filename and verified
+both the refreshed recording and playback from the earlier snapshot.
 
 ## November 8, 2026 · Publisher sources and subtitle variants
 
@@ -90,7 +135,7 @@ The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
 from the publisher. Current Global 3.3 hotfix discovery from an empty device
-remains open. The normal preparation path still requires an installation
+remains open. Normal preparation of presentations beyond recorded phone messages still requires an installation
 and compatible scene metadata. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
 · [Public release revision history](https://zzz.gachabase.net/changelog/release)
 

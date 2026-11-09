@@ -16,18 +16,23 @@ else {
  function element(tag,text,className){const node=document.createElement(tag);if(text)node.textContent=t(text);if(className)node.className=className;return node;}
  function link(text,href){const node=element('a',text);node.href=href;return node;}
  function list(title,codes){const p=element('p',null,'language-list');p.append(element('strong',title),document.createTextNode(codes.map(label).join(' · ')));return p;}
- function status(game,source,target){
+ function status(game,source,target,preparation){
   if(!game.study.includes(source))return 'No toolkit learning-language support';
   if(game.unverified[target])return 'Translation locale unverified';
   if(!game.targets.includes(target))return 'No official toolkit translation';
   if(game.expectedTargets?.includes(target))return 'Expected with installed assets';
-  return source===target?'Same-language reading':game.textOnly?'Supported text-only pair':'Supported with installed assets';
+  if(source===target)return 'Same-language reading';
+  if(game.textOnly)return 'Supported text-only pair';
+  if(preparation?.pairLabel)return preparation.pairLabel;
+  return preparation?.withoutInstall?'Supported with Windows publisher Setup or installed assets':'Supported with installed assets';
  }
  function card(game,source,target){
   const article=element('article',null,'game-card');article.id=game.id;article.append(element('h3',game.name));
   const meta=element('p',null,'game-meta');meta.append(link('Official language listing',game.source),' · ',link('Setup & tested coverage','https://github.com/Firebird55/Game-immersion-toolkit/blob/main/docs/'+game.guide));article.append(meta);
+  const scope=data.platformScope, local=scope.windowsPreparation[scope.targets[game.id]];
+  article.append(element('p',local ? t(scope.liveServiceTarget)+' '+t(local.label) : scope.windowsOnly));
   const selected=source!=='all'||target!=='all';
-  if(selected){const state=source!=='all'&&target!=='all'?status(game,source,target):'Choose both languages to check a pair';article.append(element('p',`${source==='all'?t('Any learning language'):label(source)} → ${target==='all'?t('Any translation'):label(target)}: ${t(state)}`,state.includes('Supported')?'tag':'warning'));}
+  if(selected){const state=source!=='all'&&target!=='all'?status(game,source,target,local):'Choose both languages to check a pair';article.append(element('p',`${source==='all'?t('Any learning language'):label(source)} → ${target==='all'?t('Any translation'):label(target)}: ${t(state)}`,state.includes('Supported')||state===local?.pairLabel?'tag':'warning'));}
   article.append(list(game.textOnly?'Learning text (text-only)':'Learning text + matching original voice',game.study),list('Supported official translation targets',game.targets),element('p',t('Expected support uses the same reader format; it does not require an export of every language.')));
   if(Object.keys(game.unverified).length){const p=element('p',null,'warning');p.append(element('strong','Storefront-listed, toolkit unverified'),document.createTextNode(Object.keys(game.unverified).map(label).join(' · ')));article.append(p);for(const [locale,note]of Object.entries(game.unverified))if(target===locale||target==='all')article.append(element('p',label(locale)+': '+note,'muted'));}
   const details=element('details'),summary=element('summary','Compare every language');details.append(summary);

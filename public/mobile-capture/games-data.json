@@ -2,6 +2,58 @@
   "format": 1,
   "readerRelease": "0.22.0",
   "checkedAt": "2026-10-28",
+  "platformScope": {
+    "windowsOnly": "Windows game integration only",
+    "liveServiceTarget": "Windows game integration. Independent preparation and playback on Linux, macOS and Android await per-game verification.",
+    "hosts": {
+      "Windows": {
+        "preparation": "Installed readers and the per-game publisher Setup routes listed in the language matrix.",
+        "playback": "Matched voices from the selected PC edition or its verified publisher release.",
+        "gameCapture": "Local PC game window or monitor.",
+        "reader": "Local reader or desktop-hosted browser reader on another device."
+      },
+      "Linux and Steam Deck": {
+        "preparation": "Pending per-game native acceptance for the six targets.",
+        "playback": "Pending per-game native acceptance.",
+        "gameCapture": "Visible-window X11 adapter. Wayland support is pending. Proton requires edition and capture checks.",
+        "reader": "A browser can connect to a desktop host."
+      },
+      "macOS": {
+        "preparation": "Pending per-game native acceptance for the six targets.",
+        "playback": "Pending per-game native acceptance.",
+        "gameCapture": "Visible-window CoreGraphics adapter with screen-recording permission. Native and compatibility-layer game editions require separate checks.",
+        "reader": "A browser can connect to a desktop host."
+      },
+      "Android": {
+        "preparation": "Planned shared-core app. Installable app and device acceptance are pending.",
+        "playback": "Independent playback on the device awaits acceptance.",
+        "gameCapture": "Planned receiver for an explicitly started iPhone/iPad screen share. Capturing an Android game needs separate acceptance.",
+        "reader": "A browser can read a desktop transcript. The independent Android transcript host is planned."
+      },
+      "iOS and iPadOS": {
+        "preparation": "Standalone toolkit processing is unsupported.",
+        "playback": "The desktop-connected reader can play matched audio from the host.",
+        "gameCapture": "Game device and explicit screen sender for the planned Android receiver.",
+        "reader": "Desktop-connected transcript panel."
+      }
+    },
+    "targets": {
+      "genshin": "mainlandLauncher",
+      "starrail": "regularGlobal",
+      "zzz": "globalRecordedMessages",
+      "endfield": "globalNarrative",
+      "wuwa": "globalDialogue",
+      "nte": "installedWithRegionalAudit"
+    },
+    "windowsPreparation": {
+      "mainlandLauncher": { "withoutInstall": true, "label": "Publisher Setup for the mainland China launcher release" },
+      "regularGlobal": { "withoutInstall": true, "label": "Publisher Setup for regular Global launcher voice packs" },
+      "globalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global narrative voices" },
+      "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
+      "globalRecordedMessages": { "withoutInstall": true, "label": "Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files.", "pairLabel": "Publisher Setup for recorded phone messages only. Other dialogue uses installed files." },
+      "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
+    }
+  },
   "languages": {
     "en": "English",
     "zh-Hans": "Simplified Chinese",
@@ -89,9 +141,9 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Three new 3.3 story lines have exact publisher recordings in all four dubs. All 13 base text locales were read directly. Those three Japanese subtitles arrived through a later design update. Korean native playback and full gameplay coverage remain open.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
-      "reviewedAt": "2026-11-08"
+      "coverage": "Windows publisher Setup covers recorded phone messages in the Global PC launcher base. Three sampled 3.3 story lines have original recordings in all four dubs, but their Japanese subtitles required a later design update. Other presentations use installed files.",
+      "supportPolicy": "Prepare recorded phone messages from the Global launcher release, or select an installed game and voice pack for other dialogue.",
+      "reviewedAt": "2026-11-09"
     },
     {
       "id": "wuwa",
@@ -137,10 +189,10 @@
         "pt-BR"
       ],
       "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.",
-      "coverage": "English and Mandarin original voice samples were decoded. Japanese and Korean native playback is untested. Synthetic OCR covers all five study locales. Mobile footage is sampled; some resized movie/story captions still miss. Full chapter and branch coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
-      "reviewedAt": "2026-10-25"
+      "notes": "Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.",
+      "coverage": "Original Global publisher recordings were decoded in all four dubs. Windows desktop playback and private library export were verified with two English lines. Cinematic speech timing, some ambient and conditional bindings, and full chapter coverage remain incomplete.",
+      "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Empty or unavailable translations are reported separately.",
+      "reviewedAt": "2026-11-09"
     },
     {
       "id": "nte",

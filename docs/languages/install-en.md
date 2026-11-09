@@ -4,7 +4,7 @@
 [English](../../README.md) · [Nederlands](../../README.nl.md) · [简体中文](../../README.zh-Hans.md) · [繁體中文](../../README.zh-Hant.md)
 
 1. Download a release, extract it, and run **Install.cmd**.
-2. Open **Settings → Games & Languages**. Choose your installed game, learning language and translation; prepare the selected table.
+2. Open **Settings → Games & Languages**. Choose your game, learning language and translation; prepare the selected table.
 3. Start your game with subtitles. Check **Capture**, then read and replay dialogue.
 
 [Download for Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest) · [Language support matrix](en.md)
@@ -13,17 +13,28 @@
 
 **Windows capture:** Capture game subtitles and read locally. Game files and account keys stay on your PC.
 
-**Phone with paired PC:** Share the Windows transcript to your phone. No mobile catalog export is required; keep the PC running.
+**Desktop-connected reader:** Read the desktop transcript and play matched voices on a phone or tablet, including iPhone and iPad. Keep the desktop running.
 
-**Independent mobile OCR:** Open one private Mobile Library ZIP, connect the native VDO.Ninja screen broadcast, and tap Start playing. The PC can be off. Keep the receiving page visible.
+**Android app (planned):** Android will run OCR, match dialogue and play the original voice locally. The shared-core app and iPhone/iPad screen-sender route still need device verification.
 
 ## Understand storage
 
 The language manager shows actual table sizes. Shared audio/tools are counted once. Game archives and external exports are reported separately; unknown sizes are not shown as zero. Removing a table clears local language selections, but keeps history, favorites, game files and credentials. Prepare the table again to restore original-voice lookup.
 
-In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. On iPhone, select each newly updated cloud ZIP once. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
+In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
 
-Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. Endfield film clips require verified timelines. Star Rail uses regular Global HoYoPlay voice packages. Choose your language in Setup.
+Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares recorded phone messages from the Global launcher base. Other dialogue requires installed files.
+
+| Game | Windows Setup |
+| :--- | :--- |
+| Genshin Impact | Publisher Setup for the mainland China launcher release |
+| Honkai: Star Rail | Publisher Setup for regular Global launcher voice packs |
+| Zenless Zone Zero | Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files. |
+| Arknights: Endfield | Publisher Setup for Global narrative voices |
+| Wuthering Waves | Publisher Setup for Global dialogue and original voices |
+| Neverness to Everness | Installed game in Setup. Separate Global and mainland publisher file checks. |
+
+These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only. [Toolkit hosts and game devices](../desktop-platforms.md)
 
 ## Troubleshooting
 

@@ -5,13 +5,15 @@
 
 ✓ = 已实现读取支持；◇ = 根据相同语言格式预计可用；— = 不可用。语言支持不代表已玩遍所有章节或已映射每句对话。
 
-无需逐一导出所有语言包。读取器复用游戏原有标识符和语言格式。安装所选原版配音，准备数据表，并选择官方翻译。缺失的文件或翻译仍会显示为不可用。
+无需逐一导出所有语言包。读取器复用游戏原有标识符和语言格式。在设置中选择原版配音和官方翻译。若从已安装的游戏文件准备数据，请先安装所选语音包。缺失的文件或翻译仍会显示为不可用。
 
 <a id="zzz"></a>
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-09 · [覆盖范围说明](../zzz-languages.md)
+
+设置可从发行商获取全球版启动器中的有声手机消息。其他对话需要已安装的游戏文件。
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -41,9 +43,11 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [覆盖范围说明](../wuthering-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [覆盖范围说明](../wuthering-languages.md)
 
-Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
+可从发行商准备全球版台词与原版配音
+
+Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
 
 <details>
 <summary>语言详情</summary>
@@ -69,6 +73,8 @@ Both Chinese scripts share Mandarin voices. Rover performances remain separate. 
 
 [官方语言列表](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [覆盖范围说明](../nte-languages.md)
 
+设置中需要已安装的游戏。可分别核对全球版和中国大陆版的发行商文件。
+
 Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
 
 <details>
@@ -93,6 +99,8 @@ Both Chinese scripts share Mandarin voices. Empty localization resources and amb
 ## PRAGMATA
 
 [官方语言列表](https://store.steampowered.com/app/3357650/PRAGMATA/) · 2026-10-25 · [覆盖范围说明](../pragmata-languages.md)
+
+仅支持 Windows 游戏集成
 
 Eleven original dubs; Arabic, Polish and Traditional Chinese are additional translation targets. The Steam demo offers fewer voices than the full game.
 
@@ -123,6 +131,8 @@ Eleven original dubs; Arabic, Polish and Traditional Chinese are additional tran
 ## Cyberpunk 2077
 
 [官方语言列表](https://store.steampowered.com/app/1091500/Cyberpunk_2077/) · 2026-10-25 · [覆盖范围说明](../cyberpunk-languages.md)
+
+仅支持 Windows 游戏集成
 
 Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Phantom Liberty requires its own installed assets; a base-game line cannot replace missing DLC dialogue.
 
@@ -159,6 +169,8 @@ Stock subtitles and supported dual-language mods remain supported, including wra
 
 [官方语言列表](https://store.steampowered.com/app/292030/The_Witcher_3_Wild_Hunt/) · 2026-10-25 · [覆盖范围说明](../witcher-languages.md)
 
+仅支持 Windows 游戏集成
+
 Stock subtitles and supported dual-language mods remain supported, including wrapped layouts and pairs sharing a writing system. Expansions require their own installed language assets.
 
 <details>
@@ -192,6 +204,8 @@ Stock subtitles and supported dual-language mods remain supported, including wra
 ## BEYOND: Two Souls
 
 [官方语言列表](https://store.steampowered.com/app/960990/Beyond_Two_Souls/) · 2026-10-25 · [覆盖范围说明](../beyond-support.md)
+
+仅支持 Windows 游戏集成
 
 Twelve original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Chinese subtitles can identify prepared Dutch study text and its original Dutch performance.
 
@@ -232,6 +246,8 @@ Twelve original dubs, including Dutch. Chinese is a translation target, without 
 
 [官方语言列表](https://store.steampowered.com/app/960910/Heavy_Rain/) · 2026-10-25 · [覆盖范围说明](../heavy-rain-support.md)
 
+仅支持 Windows 游戏集成
+
 Ten original dubs, including Dutch. Chinese is a translation target, without a Chinese dub. Portuguese uses the Portugal locale; there is no Brazilian Portuguese or Latin American Spanish pack in this list.
 
 <details>
@@ -265,6 +281,8 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
 
+可从发行商准备全球版启动器常规配音包
+
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
 <details>
@@ -293,6 +311,8 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 ## Genshin Impact
 
 [官方语言列表](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [覆盖范围说明](../genshin-languages.md)
+
+可从发行商准备中国大陆启动器版本
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
@@ -326,6 +346,8 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [官方语言列表](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [覆盖范围说明](../endfield-languages.md)
 
+可从发行商准备全球版剧情配音
+
 Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 
 <details>
@@ -355,6 +377,8 @@ Both Chinese scripts share Mandarin voices. Released Global narrative tables and
 ## Rise of the Tomb Raider
 
 [官方语言列表](https://store.steampowered.com/app/391220/?l=english) · 2026-10-27 · [覆盖范围说明](../rise-tomb-raider-languages.md)
+
+仅支持 Windows 游戏集成
 
 All twelve Steam full-audio languages plus evidenced Latin American Spanish and Arabic DLC formats. Dutch is text-only. Arabic base-game voice coverage is not claimed; regional/DLC packs may be partial. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language. Local non-English playback evidence comes from installed DLC; base-language packs other than English were absent.
 
@@ -387,6 +411,8 @@ All twelve Steam full-audio languages plus evidenced Latin American Spanish and 
 
 [官方语言列表](https://store.steampowered.com/app/750920/?l=english) · 2026-10-27 · [覆盖范围说明](../shadow-tomb-raider-languages.md)
 
+仅支持 Windows 游戏集成
+
 All eleven global Steam full-audio languages plus Japanese and Latin American Spanish evidenced by official regional manifests. Korean is text-only. Some packs require the corresponding regional edition. Simplified and Traditional Chinese use separate pack identities. Missing packs never fall back to another spoken language.
 
 <details>
@@ -417,6 +443,8 @@ All eleven global Steam full-audio languages plus Japanese and Latin American Sp
 
 [官方语言列表](https://store.steampowered.com/app/996580/Spyro_Reignited_Trilogy/) · 2026-10-28 · [覆盖范围说明](../game-audits/spyro.md)
 
+仅支持 Windows 游戏集成
+
 All 14 official PC languages use authored localized text and Wwise voice events. Norwegian uses native nb text and no audio identifiers. One Arabic voice event is unavailable in the inspected installation.
 
 <details>
@@ -446,6 +474,8 @@ All 14 official PC languages use authored localized text and Wwise voice events.
 ## Detroit: Become Human
 
 [官方语言列表](https://store.steampowered.com/app/1222140/Detroit_Become_Human/) · 2026-10-28 · [覆盖范围说明](../game-audits/detroit.md)
+
+仅支持 Windows 游戏集成
 
 All 12 official voice languages and 24 official text locales use exact authored localization, FlowDialog and sound dependencies. Each installed voice locale has a verified original decode sample.
 
@@ -487,6 +517,8 @@ All 12 official voice languages and 24 official text locales use exact authored 
 
 [官方语言列表](https://store.steampowered.com/app/1190460/DEATH_STRANDING/) · 2026-10-28 · [覆盖范围说明](../game-audits/deathstranding.md)
 
+仅支持 Windows 游戏集成
+
 Original PC edition only; all twelve official voice locales and twenty text locales. Ordinary and cinematic original samples decoded in every installed voice language. The reader uses the game-owned Oodle library and the verified voice decoder.
 
 <details>
@@ -522,6 +554,8 @@ Original PC edition only; all twelve official voice locales and twenty text loca
 ## Portal
 
 [官方语言列表](https://store.steampowered.com/app/400/Portal/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal.md)
+
+仅支持 Windows 游戏集成
 
 Six official voice locales and 27 text locales. English originals decoded locally; the other voice packs use format-tested locale mounts and never borrow English recordings.
 
@@ -566,6 +600,8 @@ Six official voice locales and 27 text locales. English originals decoded locall
 
 [官方语言列表](https://store.steampowered.com/app/70/HalfLife/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife.md)
 
+仅支持 Windows 游戏集成
+
 Limited support: authored text messages only. Original Half-Life has no official spoken subtitle track. Eight official language mount schemas are inventoried; spoken dialogue capture is not implemented.
 
 <details>
@@ -589,6 +625,8 @@ Limited support: authored text messages only. Original Half-Life has no official
 ## A Plague Tale: Innocence
 
 [官方语言列表](https://store.steampowered.com/app/752590/A_Plague_Tale_Innocence/) · 2026-10-28 · [覆盖范围说明](../game-audits/plaguetaleinnocence.md)
+
+仅支持 Windows 游戏集成
 
 All three official originals and fourteen text locales. English, French and German installed cinematic and ambient recordings decoded with the verified voice decoder.
 
@@ -620,6 +658,8 @@ All three official originals and fourteen text locales. English, French and Germ
 
 [官方语言列表](https://store.steampowered.com/app/311340/METAL_GEAR_SOLID_V_GROUND_ZEROES/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvgz.md)
 
+仅支持 Windows 游戏集成
+
 English and Japanese voice editions and eight official text locales use the original Ground Zeroes archive schema. English original field, radio, tape and cinematic audio decoded locally; Japanese remains format-tested absent-pack support.
 
 <details>
@@ -644,6 +684,8 @@ English and Japanese voice editions and eight official text locales use the orig
 
 [官方语言列表](https://store.steampowered.com/app/287700/METAL_GEAR_SOLID_V_THE_PHANTOM_PAIN/) · 2026-10-28 · [覆盖范围说明](../game-audits/mgsvtpp.md)
 
+仅支持 Windows 游戏集成
+
 English and Japanese voice schemas and all eight official text locales are implemented. English installed recordings were decoded; the Japanese voice edition was absent and remains format-tested support.
 
 <details>
@@ -667,6 +709,8 @@ English and Japanese voice schemas and all eight official text locales are imple
 ## Portal 2
 
 [官方语言列表](https://store.steampowered.com/app/620/Portal_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/portal2.md)
+
+仅支持 Windows 游戏集成
 
 Five official original voice locales and 27 text locales. English installed dialogue, commentary, movie and song audio decoded. Four absent voice packs remain implemented by isolated native locale schemas, without English fallback.
 
@@ -711,6 +755,8 @@ Five official original voice locales and 27 text locales. English installed dial
 
 [官方语言列表](https://store.steampowered.com/app/220/HalfLife_2/) · 2026-10-28 · [覆盖范围说明](../game-audits/halflife2.md)
 
+仅支持 Windows 游戏集成
+
 Half-Life 2 and its bundled Episode One and Episode Two use separate campaign namespaces. Base game: seven original voice locales; Episode One additionally supports official regional Simplified Chinese, Traditional Chinese and Thai; Episode Two has five originals. Regional languages are not represented as base-game dubs. All 27 text locale schemas are implemented.
 
 <details>
@@ -754,6 +800,8 @@ Half-Life 2 and its bundled Episode One and Episode Two use separate campaign na
 
 [官方语言列表](https://store.steampowered.com/app/1687950/Persona_5_Royal/) · 2026-10-28 · [覆盖范围说明](../game-audits/persona5royal.md)
 
+仅支持 Windows 游戏集成
+
 English and Japanese original voices use exact CRI event cues. Nine official text locale schemas are implemented; only English text was installed. Japanese and other text packs remain actionable setup requirements when absent.
 
 <details>
@@ -778,6 +826,8 @@ English and Japanese original voices use exact CRI event cues. Nine official tex
 ## Deus Ex: Human Revolution - Director's Cut
 
 [官方语言列表](https://store.steampowered.com/app/238010/Deus_Ex_Human_Revolution__Directors_Cut/) · 2026-10-28 · [覆盖范围说明](../game-audits/deusexhrdc.md)
+
+仅支持 Windows 游戏集成
 
 All five official original voice and text locales. Native BIGFILE, CDRM, DRM and FMOD/CRI schemas retain exact language identities. Original dialogue and cinematic samples were decoded in each installed language.
 

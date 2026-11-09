@@ -174,7 +174,7 @@ def prebuilt_node_reader(kind: str, *, layout=None) -> PrebuiltNodeReader:
 ZZZ_PREFIX = 'toolchains/zzz/'
 ZZZ_SCHEMA = 'toolkit-zzz-reader-v1'
 ZZZ_SCRIPTS = ('extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-catalog.mjs',
-               'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs')
+               'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs', 'zzz-publisher-dialogue.mjs')
 ZZZ_DEPENDENCIES = {
     'ooz/package.json': '44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1',
     'ooz/index.js': '042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562',
@@ -198,6 +198,19 @@ class ZzzReader:
     root: Path
     identity: str
     work_root: Path
+
+    def publisher_messages_command(self, work):
+        work = Path(work)
+        if (not work.is_absolute() or work != work.resolve() or not work.is_dir() or work == self.work_root
+                or not _within(work, self.work_root) or _within(work, self.root)):
+            raise _failure('ZZZ publisher preparation requires a private work directory.')
+        _no_links(work)
+        for path in work.iterdir():
+            _no_links(path)
+            if not path.is_file() or not re.fullmatch(r'(?:design-\d+\.blk|messages-input\.json)', path.name):
+                raise _failure('Unexpected input in the ZZZ publisher reader work directory.')
+        return [str(self.executable), str(self.root / 'scripts/zzz-publisher-dialogue.mjs'),
+                'messages', str(work), str(self.root / 'upstream/galgame-perform.mjs')]
 
     def command(self, mode, *, game_data, work):
         """Only owned scene operations, reading a game and writing private work."""

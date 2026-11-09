@@ -2,6 +2,63 @@
 
 ## Installation-free publisher updates, November 9, 2026
 
+The [inventory of the 28 unresolved films](endfield-film-configs-1.6.4.csv) distinguishes a
+movie's screen time from each spoken interval. Of the 28 movie configurations
+without a verified sentence interval, 25 have no authored caption (one is
+null). The other three contain 11, 14 and 21 Chinese subtitle clocks. The
+[46 historical intervals](endfield-legacy-film-clocks-1.6.4.csv) match the
+2023 technical test. None of their keys occurs in any of the 14 current
+translations. Eighteen of the 28 have a matching video. Ten have a directly
+resolvable whole voice track and two more have a voice track in their caller.
+
+The Global `VideoData.asset` lists 106 video names and durations, including
+seven of the older `fmv_` identities. Its durations for `fmv_e0m1_1`,
+`fmv_e0m1_3` and `fmv_e0m1_4` are 89.300, 145.000 and 148.960 seconds.
+All 46 caption intervals fit those durations. The Technical Test table links
+each caption ID to Chinese source text. Its five separate localization files
+are empty. A fresh byte-range check of the 18 matching Global USMs read the
+first 4 KiB of each container. Each CRID directory lists a single `@SFV`
+video stream on channel zero. Sentence audio and subtitle timing for these
+movies require an external source.
+[Archived Technical Test subtitles](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg/SubtitleTable.json)
+· [Archived localization files](https://github.com/lsy-404/EndfieldGameData/tree/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg)
+· [Global publisher resources](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
+
+Publisher group 19 contains 5,561 level scripts and 28 string-pool shards.
+Resolving the 277,949 pool entries exposed eight movie names in the first
+constant argument of the same serialized action (`0x0372`, 14 members).
+Three names match a single configuration exactly. Five are shared base names
+of the female and male movie configurations. The inventory gives each script
+ID, argument and byte offset. For example, script `2100060031` contains
+`cs_video_dlg_e1m2_1` at offset 107. These fields establish a game reference.
+They contain no dialogue timecodes. The separate Unity actor-track callers
+and their movie windows appear in the same inventory.
+
+Two current strings bearing the movie name `cs_video_e0m0_3` actually play
+in the in-engine scene `cutscene_e0m0_5`. Both hero variants use the following
+localized subtitle intervals, in seconds from the start of their respective
+performance. The original sound was checked for each of the 16 combinations.
+
+| Dub | First sentence | Second sentence |
+| --- | ---: | ---: |
+| Mandarin | 11.900–13.817 | 14.883–16.767 |
+| English | 12.000–14.233 | 14.233–17.050 |
+| Japanese | 11.667–14.367 | 14.367–17.050 |
+| Korean | 12.050–14.400 | 14.400–17.067 |
+
+The publisher clocks describe how long the text is shown. Within those
+windows, the English PCM crosses the activity threshold at 12.040–14.230 s
+for the first line in both performances. For the second line it crosses at
+14.253–16.263 s (female) and 14.243–16.513 s (male). These are acoustic
+measurements on the identified lines. A quiet consonant or reverb can move a
+threshold boundary relative to the words.
+
+These bring verified localized intervals to 1,629, comprising 1,613 movie
+intervals across 52 of 80 configurations and 16 in-engine intervals. Setup
+and MP3 export were exercised for all five study languages, including both
+Chinese scripts. Revalidation also selected the two scenes and their original
+audio on the earlier Global 1.6.4 resource revision `11343132-9`.
+
 Setup follows the released Global Windows launcher version and both resource
 indexes. It reads original SparkBuffer localization and narrative tables from
 group 18 and resolves the authored voice in the initial, selected-dub and hotfix
@@ -29,6 +86,15 @@ and 200 original speech files also matched. English preparation retained all
 404 film intervals on the earlier revision. When a required asset changes,
 the toolkit omits the affected film until its new timing or voice binding can
 be verified. Other dialogue still follows the current release's own tables.
+
+For the two in-engine scenes, the desktop reader checks the active subtitle
+configuration, director prefabs, master timeline, regional subtitle track,
+audio track, Wwise event and recording. A repacked bank can pass if its event
+still selects the verified recording. Reading newly authored or retimed
+subtitle clips requires decoding the Endfield bundle wrapper and Unity
+serialized objects in the distributed runtime. The current timeline importer
+reads these objects during an audit. Setup omits a changed clock until its
+caption, regional recording and interval have been verified.
 
 ## Publisher resources and story coverage, November 8, 2026
 
@@ -141,6 +207,8 @@ For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
 Mandarin. Playback of that candidate at a specific in-game occurrence depends
 on controller state. A separate empty-cache check downloaded the original
 English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
+
+[Playback checks for the thirteen unresolved rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
 
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
 use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and
@@ -283,6 +351,46 @@ from both Global 1.5.3 and 1.6.4 in English. It also follows the
 `hotfix_<language>_bNN.pck` shards in the older release. A new event name
 requires its current authored identity. Subtitle capture still requires
 an independently verified clock for the individual line.
+
+### Measurements of the 44 whole-event performances
+
+For the nine direct movie events and two parent events, the audit measured
+all four dubs from the separately downloaded voice recordings. The 44 rows
+give the original WEM checksum, duration and every detected activity region
+in recording-relative milliseconds. They cover 546 regions, including 145
+English regions. This measures signal level. Assigning a subtitle or speaker
+requires additional evidence. [Recording activity table](endfield-film-recording-activity-1.6.4.csv)
+
+- The two Liino variants use the same song event. The English game edit has
+  one sustained region at 3.230–90.840 s. The publisher also released the song
+  in English, Japanese, Mandarin and Korean. [English EP](https://www.youtube.com/watch?v=B8bFWp5TkUw)
+  · [Japanese EP](https://www.youtube.com/watch?v=uDbAt39Sb7E)
+  · [Mandarin EP](https://www.youtube.com/watch?v=rnd3MwKvFY4)
+  · [Korean EP](https://www.youtube.com/watch?v=QfLBLqgLsz8)
+- For `e12m5_4` the English female track contains a single region at
+  26.770–27.330 s and the male track at 26.770–27.160 s. An independent
+  audio-event classifier tagged both as a sigh. Other short regions in
+  `e2m8_2` and `e6m1_1` received breath, gasp and speech labels.
+  The reviewed game tables provide no caption ID for a sentence in these
+  films. These classifications are machine observations. [Audio tagging model](https://github.com/k2-fsa/sherpa/blob/master/docs/source/onnx/audio-tagging/pretrained_models.rst)
+- In `e12m5_3` the English signal at 75.850–77.650 s (female) and
+  75.850–77.320 s (male) was classified as speech. Running recognition on the
+  isolated regional clips gave inconsistent results across dubs. The current
+  TextTable has no matching film-caption IDs. Both English intervals remain
+  available for listening in the whole event, with the wording unresolved.
+- For the English `e0m0_3` parent events, each recording has seven regions.
+  Four start inside the 0.000–59.750 s movie window and three start after it.
+  A parent recording can contribute audible material beyond the end of its
+  movie. Matching those later sounds to an on-screen movie sentence requires
+  a separate source.
+
+To reproduce a row, fetch its event with `endfield_film_voice.py`, compare the
+reported SHA-256, decode it with `vgmstream-cli -o event.wav event.wem` and
+run `python scripts/endfield_film_activity.py event.wav`. The measure uses the
+loudest channel's RMS per 10 ms window at −48 dBFS. It joins gaps of up to
+250 ms and keeps regions of at least 70 ms. The optional `--start-ms` and
+`--end-ms` restrict the measurement to an authored subtitle window.
+[Activity reader](../../scripts/endfield_film_activity.py)
 
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event

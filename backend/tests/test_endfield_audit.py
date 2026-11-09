@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend import endfield_assets as endfield
+from backend.local_game import LocalDialogue
 from backend.preparation_errors import PreparationFailure
 from backend.voice_assets import voice_hash
 
@@ -64,23 +65,35 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
                        'NpcInfoTable': {'actor': {'voActor': 'performer'}},
                        'EmotionVoiceConfig': {'7': {'interjectionList': ['short_reaction']}}})
     tables = {'en': {'1': 'Synthetic sentence.'}}
+    generated = endfield.dialogue_records(endfield.radio_dialogues(catalog), {}, tables, 'en', {})
+    assert LocalDialogue(**generated[0]).dialogue_kind == 'radio'
     def record(paths, entries):
-        return endfield.dialogue_records(endfield.radio_dialogues(catalog), paths, tables, 'en', entries)[0]
+        return endfield.dialogue_records(endfield.radio_dialogues(catalog), paths, tables, 'en', entries, radio_details=True)[0]
     first = record({}, {})
     assert first['radio_group'] == 'sequence' and first['radio_sentence'] == 'unresolved_override'
     assert first['radio_reaction_configured'] and first['audio'] is None
+    assert first['radio_reaction_status'] == 'no_matching_voice_metadata'
     name = 'au_dlg_commvo_performer_short_reaction'
     reaction = 'voice/english/reaction.wem'
     key = f'{voice_hash(reaction):016x}'
+    assert record({name: 'reaction.wem'}, {})['radio_reaction_status'] == 'missing_selected_dub_media'
     candidate = record({name: 'reaction.wem'}, {key: {'file_id': key}})
     assert candidate['audio'] is None and candidate['radio_reaction_candidates'] == {name: reaction}
     assert candidate['radio_voice_actor'] == 'performer'
+    assert candidate['radio_reaction_status'] == 'candidates_in_dub'
+    catalog.values['NpcInfoTable']['actor']['voActor'] = 'None'
+    line['audioEvent'] = 'radio_noise'
+    unmapped = record({}, {})
+    assert unmapped['radio_reaction_status'] == 'no_mapped_performer'
+    assert unmapped['radio_audio_event'] == 'radio_noise' and unmapped['voice_status'] == 'unavailable'
     catalog.values['EmotionVoiceConfig']['7'] = {'interjection': '', 'interjectionList': []}
     assert record({}, {})['radio_reaction_configured'] is False
+    assert record({}, {})['radio_reaction_status'] == 'no_configured_interjection'
     line['emotionType'] = 0
     assert record({}, {})['radio_reaction_configured'] is False
     catalog.values['EmotionVoiceConfig'] = {}
     assert record({}, {})['radio_reaction_configured'] is None
+    assert record({}, {})['radio_reaction_status'] == 'configuration_unknown'
     paths = {'spoken': 'scene/spoken.wem'}
     assert record(paths, {})['radio_sentence'] == 'missing_locale_media'
     key = f'{voice_hash("voice/english/scene/spoken.wem"):016x}'
@@ -108,11 +121,42 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert not args[4].exists()
     result = cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
     assert args[4].read_bytes() == b'reaction' and result['rows'][0]['status'] == 'no_override'
+    assert result['rows'][0]['reaction_status'] == 'candidates_in_dub'
     args[4].write_bytes(b'previous')
     monkeypatch.setattr(cli.publisher, 'discover', lambda: ('newer', b''))
     with pytest.raises(ValueError, match='changed'):
         cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
     assert args[4].read_bytes() == b'previous'
+
+
+def test_conversation_reuses_current_actor_reaction_without_predecessor(tmp_path, monkeypatch):
+    from scripts import endfield_radio as cli
+    line = {'dialogText': ref(1), 'actorNameId': 'speaker', 'emotionType': 4, 'audioOverride': 'missing'}
+    catalog = Catalog({'DialogTextTable': {'first': line, 'other': {**line, 'dialogText': ref(2)}},
+                       'I18nTextTable_EN': {'1': 'First sentence.', '2': 'Another sentence.'},
+                       'NpcInfoTable': {'speaker': {'voActor': 'actor'}},
+                       'EmotionVoiceConfig': {'4': {'interjection': 'neutral_04'}},
+                       'AudioDialog': {'1': {'path': 'story/au_dlg_commvo_actor_neutral_04.wem'}}})
+    catalog.stamp = 'release'
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda _: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda: (catalog.stamp, b''))
+    key = voice_hash('voice/english/story/au_dlg_commvo_actor_neutral_04.wem')
+    monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
+    monkeypatch.setattr(cli.publisher, 'media', lambda cache, stamp, dub, identity: b'reaction' if identity == key else None)
+    destination = tmp_path / 'reaction.wem'
+    name = 'au_dlg_commvo_actor_neutral_04'
+    for identity in ('first', 'other'):
+        args = (tmp_path, 'en', [], 'endfield:' + identity, destination, [])
+        row = cli.run(*args, reaction=name)['rows'][0]
+        assert row['kind'] == 'conversation' and row['status'] == 'unresolved_override'
+        assert row['exported_reaction'] == name and row['reaction_candidates'] == [name]
+        assert 'file_id' not in row and destination.read_bytes() == b'reaction'
+        with pytest.raises(ValueError, match='no verified sentence'):
+            cli.run(*args)
+    catalog.values['NpcInfoTable'].clear()
+    with pytest.raises(ValueError, match='absent'):
+        cli.run(*args, reaction=name)
+    assert destination.read_bytes() == b'reaction'
 
 
 def test_narrative_tables_keep_text_media_and_voice_messages_distinct():
