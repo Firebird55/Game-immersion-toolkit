@@ -281,6 +281,22 @@ def _voice_package(tools, stamp, info):
     return pak.Package(*info, tools, _voice_parameters(stamp))
 
 
+def _table(tools, info, position, name, params):
+    # Reuse a table across independent game/dub revisions only when its
+    # containing package, encoded entry and full path still agree.
+    entry = hashlib.sha256(f'{info[2]}/{position}/{name}'.encode()).digest()
+    path = tools / 'wuwa-publisher' / 'tables' / entry.hex()
+    if path.is_file() and path.stat().st_size <= pak.MEMBER_LIMIT + 32:
+        cached = path.read_bytes()
+        data = cached[32:]
+        if data.startswith(b'SQLite format 3\0') and hashlib.sha256(entry + data).digest() == cached[:32]:
+            return data
+    data = pak.Package(*info, tools, params).extract(position)
+    pak.check(data.startswith(b'SQLite format 3\0'))
+    _atomic_file(path, hashlib.sha256(entry + data).digest() + data)
+    return data
+
+
 def _read_tables(tools, snapshot, params, locales, destination):
     from . import wuthering_assets as assets
     root = 'Client/Content/Aki/ConfigDB/'
@@ -300,8 +316,7 @@ def _read_tables(tools, snapshot, params, locales, destination):
         name, (info, position) = item
         if position < 0:
             return
-        data = pak.Package(*info, tools, params).extract(position)
-        pak.check(data.startswith(b'SQLite format 3\0'))
+        data = _table(tools, info, position, name, params)
         _atomic_file(destination / name[len(root):], data)
     with ThreadPoolExecutor(max_workers=3) as pool:
         list(pool.map(read, selected.items()))

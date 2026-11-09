@@ -165,3 +165,22 @@ def test_online_wuthering_tombstone_masks_base_and_duplicate_paths_fail_closed(m
     info['en/BaseFiles/second.pak'] = ('also_base', 630, 'c')
     with pytest.raises(ValueError, match='same layer'):
         live._voice_locations(tmp_path, 'duplicate', 'en')
+
+
+def test_online_wuthering_tables_reuse_immutable_member_and_repair_damaged_cache(tmp_path, monkeypatch):
+    payload = b'SQLite format 3\0example'
+    reads = []
+    class Package:
+        def __init__(self, _url, _size, digest, *_):
+            self.digest = digest
+        def extract(self, position):
+            reads.append((self.digest, position))
+            return payload
+    monkeypatch.setattr(pak, 'Package', Package)
+    def load(digest):
+        return live._table(tmp_path, ('cdn', 600, digest), 10, 'ConfigDB/en/lang_multi_text.db', ())
+    assert load('a') == load('a') == payload
+    entry, = (tmp_path / 'wuwa-publisher' / 'tables').iterdir()
+    entry.write_bytes(entry.read_bytes()[:-1])
+    assert load('a') == load('b') == payload
+    assert reads == [('a', 10), ('a', 10), ('b', 10)]

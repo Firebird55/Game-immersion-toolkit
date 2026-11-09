@@ -6,6 +6,16 @@ From an empty private cache the source command followed the active 3.7.1 launche
 
 The same manifest reader verified 32 changed core entries between 3.7.17 and 3.7.18 and four between 3.7.18 and 3.7.19. The Korean 3.7.6 to 3.7.7 update changed two dub entries. The release command uses the bootstrap path in the current game package for later releases.
 
+Replaying those publisher-listed revisions with the desktop table and audio
+readers found four changed English/Simplified Chinese text records from
+3.7.17 to 3.7.19. Their audio references were unchanged. Comparing all 46,336
+Korean WEM paths across dub revisions 3.7.6 and 3.7.7 found the same paths.
+The original `ko_vo_Side_FSCHPOI_11_13.wem` changed under its existing
+name from 35,465 to 32,613 bytes. Both versions decoded to nonzero PCM at
+48 kHz, lasting 8.500 and 7.885 seconds. Cached tables can be reused when
+their containing package and entry are unchanged. Cached recordings retain
+their release and spoken language.
+
 For an authored PlotAudio filename, the source command selects the chosen language's exact WwiseExternalSource path in the override, then consults the base if needed. It verifies the directory and the stored entry hash under the Kuro v12 layout. For partially encrypted WEMs that hash covers the encrypted prefix. Range responses must match the declared offsets and object size. The WEM framing and release pointers are checked before the selected output is saved. Two story filenames from the earlier PlotAudio audit were downloaded and decoded in all four dubs. For `vo_Main_Mengzhou_3_7_14_28` the English, Japanese, Korean and Mandarin durations were 9.678, 9.844, 9.409 and 8.675 seconds. [Regional source command](../../scripts/live_game_sources.py)
 
 ```text
