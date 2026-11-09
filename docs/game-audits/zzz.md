@@ -78,7 +78,7 @@ original recording in the selected language. Replies, other presentations, later
 in-version Global overrides and independent phone preparation remain outside this route.
 
 The Windows language worker prepared the Global 3.3.0 base from an empty
-game-data cache, with no game installed. The smoke test used the rebuilt
+game-data cache without a game folder or any reads from an installation. The smoke test used the rebuilt
 production reader, its hash-verified app-local Node executable and source-built
 ooz decoder. The helper ran with an empty executable search path. All five
 study selections yielded nine unique recorded bodies and 15 display rows because
