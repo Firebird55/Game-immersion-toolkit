@@ -14,7 +14,7 @@
 ## 三步開始
 
 1. 下載發行版，解壓縮後執行 **Install.cmd**。
-2. 開啟 **設定 → 遊戲與語言**。選擇已安裝的遊戲、學習語言和翻譯語言，再準備所選資料表。
+2. 開啟 **設定 → 遊戲與語言**。選擇遊戲、學習語言和翻譯語言，再準備所選資料表。
 3. 啟動遊戲並開啟字幕。檢查 **字幕擷取**，即可閱讀和重播對話。
 
 ## 遊戲與語言支援
@@ -53,24 +53,30 @@
 
 ## 文字、配音與上游專案
 
-| 遊戲 | 原版配音發布管道 |
-| :--- | :--- |
-| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
-| Arknights: Endfield | GRYPHLINE |
-| Wuthering Waves | Kuro Games |
-| Neverness to Everness | Perfect World Games |
+| 遊戲 | 原版配音發布管道 | 上游專案及用途 |
+| :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) |
+| Wuthering Waves | Kuro Games | [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (必要的影片表，需要時使用固定版本) |
+
+Unreal 資源讀取器 ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). 音訊解碼與轉換 ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
 將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。終末地的過場片段需要經過核實的時間軸。《崩壞：星穹鐵道》使用 HoYoPlay 全球版的常規語音包。
 
-[各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md)
+這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。
+
+[各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md) · [第三方授權與聲明](THIRD_PARTY_NOTICES.md)
 
 ## 選擇使用方式
 
 | | |
 | :--- | :--- |
 | **Windows 擷取** | 擷取遊戲字幕並在本機閱讀。遊戲檔案和帳戶金鑰保留在電腦上。 |
-| **手機配對電腦** | 將 Windows 文字分享至手機。無需匯出行動版目錄；電腦需要保持執行。 |
-| **獨立行動版 OCR** | 開啟你的私人目錄和配音 ZIP。僅下載需要的 OCR 語言，之後電腦可以關閉。瀏覽器擷取和背景執行能力取決於裝置。 |
+| **連接桌面端的閱讀器** | 在手機或平板（包括 iPhone 和 iPad）上閱讀桌面端產生的台詞記錄並播放對應的配音。桌面端須保持執行。 |
+| **Android 應用程式（規劃中）** | Android 將在本機執行 OCR、比對台詞並播放原版配音。採用共用核心的應用程式以及從 iPhone 或 iPad 傳送遊戲畫面的流程仍須實機驗證。 |
 
 Lexirise 為選用服務。支援瀏覽器擴充功能的環境中，Migaku 可獨立執行。現有中文文字維持原語言。
 

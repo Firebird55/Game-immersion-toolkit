@@ -14,7 +14,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 ## Begin in drie stappen
 
 1. Download een release, pak deze uit en start **Install.cmd**.
-2. Open **Instellingen → Games en talen**. Kies je geïnstalleerde game, leertaal en vertaling; bereid de geselecteerde tabel voor.
+2. Open **Instellingen → Games en talen**. Kies je game, leertaal en vertaling; bereid de geselecteerde tabel voor.
 3. Start je game met ondertiteling. Controleer **Ondertitels vastleggen** en lees of beluister de dialoog.
 
 ## Games en taalondersteuning
@@ -53,24 +53,30 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Tekst, stemmen en bronprojecten
 
-| Game | Distributie van originele stemmen |
-| :--- | :--- |
-| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
-| Arknights: Endfield | GRYPHLINE |
-| Wuthering Waves | Kuro Games |
-| Neverness to Everness | Perfect World Games |
+| Game | Distributie van originele stemmen | Bronproject en rol |
+| :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (benodigde vertalingen en koppelingen tussen dialoog en stem) |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (benodigde vertalingen, regel-ID’s en stemtabellen) |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (benodigde vertalingen en scènetabellen voor een geïnstalleerde game) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (benodigde scènelezer) |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (benodigde metadata voor stemarchieven) |
+| Wuthering Waves | Kuro Games | [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie) |
+
+Readers voor Unreal-archieven ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoderen en converteren ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
 Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.
 
-[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md)
+Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.
+
+[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md) · [Licenties en vermeldingen](THIRD_PARTY_NOTICES.md)
 
 ## Kies hoe je speelt
 
 | | |
 | :--- | :--- |
 | **Windows-opname** | Leg ondertitels vast en lees lokaal. Gamebestanden en accountsleutels blijven op je pc. |
-| **Telefoon met gekoppelde pc** | Deel het Windows-transcript met je telefoon. Een mobiele catalogusexport is niet nodig; houd de pc aan. |
-| **Zelfstandige mobiele OCR** | Open je eigen catalogus- en stem-ZIP’s. Download alleen de benodigde OCR-talen; daarna mag de pc uit. Browseropname en achtergrondgebruik hangen af van je apparaat. |
+| **Reader gekoppeld aan de desktop** | Lees het desktoptranscript en speel gekoppelde stemmen af op een telefoon of tablet, ook op iPhone of iPad. Houd de desktop aan. |
+| **Android-app (gepland)** | Android gaat lokaal OCR uitvoeren, dialogen herkennen en de originele stem afspelen. De app met de gedeelde toolkitcode en het delen van een iPhone- of iPad-scherm moeten nog op apparaten worden getest. |
 
 Lexirise is optioneel. Migaku werkt zelfstandig waar de browserextensie wordt ondersteund. Bestaande Chinese transcripten behouden hun taal.
 
