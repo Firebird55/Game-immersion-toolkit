@@ -37,6 +37,9 @@ def archive_sources(install):
 
 
 def fingerprint(install):
+    if install is None:
+        from .genshin_publisher import fingerprint as publisher_fingerprint
+        return publisher_fingerprint()
     return common.fingerprint(install, 'genshin')
 
 
@@ -317,11 +320,17 @@ def _complete_links(links, tables, authored, reminder_rows):
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Genshin study/audio language.')
-    stamp = fingerprint(install)
-    catalog = DialogueCatalog('genshin', data_dir)
     warnings = []
-    version_matches = _metadata_version(install, catalog, warnings)
-    progress('Reading Genshin metadata and validating original installed voice bindings')
+    if install is None:
+        from . import genshin_publisher
+        stamp, catalog, version = genshin_publisher.prepare(data_dir)
+        version_matches = True
+        _warn(warnings, f'Using the mainland China Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
+    else:
+        stamp = fingerprint(install)
+        catalog = DialogueCatalog('genshin', data_dir)
+        version_matches = _metadata_version(install, catalog, warnings)
+    progress('Reading Genshin metadata and validating original voice bindings')
     tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, medium=True)
     dialog_rows = _table(catalog, 'DialogExcelConfigData', warnings)
     annotations = {}
@@ -341,7 +350,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     for link in links:
         if annotation := annotations.get(link['id'].split(':', 1)[0]):
             link.update(annotation)
-    entries = common.inventory(install, 'genshin', source_locale)
+    entries = (common.inventory(install, 'genshin', source_locale) if install is not None
+               else genshin_publisher.inventory(data_dir, stamp, source_locale))
     # Reminders use a distinct hash namespace. In this modality Medium takes
     # priority; ordinary dialogue keeps the full TextMap's canonical values.
     reminder_tables = {}
@@ -370,9 +380,22 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     _warn(warnings, 'Genshin coverage is partial: profile and combat voices, messages, and movie subtitle timing are not fully indexed.')
     result = common.snapshot('genshin', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     count = sum(bool(row['audio']) for row in rows)
-    result['message'] = f'{len(rows):,} {source_locale} lines from versioned community metadata; {count:,} verified installed voices'
+    source = 'installed' if install is not None else 'publisher'
+    result['message'] = f'{len(rows):,} {source_locale} lines from versioned community metadata; {count:,} verified {source} voices'
+    if install is None and (not count or not genshin_publisher.current(stamp)):
+        raise ValueError('The Genshin release changed or its voice data is incomplete. Retry preparation.')
     result['coverage_warnings'] = warnings
     return result
+
+
+def publisher_snapshot_available(tools, stamp):
+    if not isinstance(stamp, str) or not re.fullmatch('sophon-[0-9a-f]{64}', stamp):
+        return False
+    path = tools / 'sophon' / 'releases' / stamp
+    if not path.is_file() or path.stat().st_size > 64 * 1024:
+        return False
+    import hashlib
+    return stamp == 'sophon-' + hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def index_install(install, data_dir, progress=lambda _message: None):
@@ -380,4 +403,7 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None:
+        from .genshin_publisher import extract
+        return extract(audio, _executable)
     return common.extract_voice(install, 'genshin', audio)

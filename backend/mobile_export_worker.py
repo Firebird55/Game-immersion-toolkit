@@ -4,6 +4,7 @@ import json
 import time
 from pathlib import Path
 
+from .game_assets import PUBLISHER_GAMES
 from .mobile_library import export_library, prepare_source, encoded, export_workers
 
 
@@ -20,8 +21,8 @@ def main():
     source_args.add_argument('--automatic-install', type=Path)
     source_args.add_argument('--automatic-publisher', action='store_true')
     args = parser.parse_args()
-    if args.automatic_publisher and args.game != 'endfield':
-        parser.error('Publisher export is available for Endfield.')
+    if args.automatic_publisher and args.game not in PUBLISHER_GAMES:
+        parser.error('Publisher export is unavailable for this game.')
     last = [0.0]
 
     def progress(value):

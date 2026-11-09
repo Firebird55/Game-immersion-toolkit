@@ -34,7 +34,7 @@ from .pragmata_updates import PragmataUpdateManager
 from .local_game import LocalGameTextIndex
 from .local_voice import LocalVoiceAssetService
 from .local_game_updates import LocalGameUpdateManager
-from .game_assets import LOCAL_GAMES
+from .game_assets import LOCAL_GAMES, PUBLISHER_GAMES
 from .speakers import SpeakerResolver
 from .updates import BackgroundUpdateManager
 from .toolkit_update import ToolkitUpdater
@@ -337,7 +337,7 @@ class Runtime:
             adapter, _ = asset_adapter(game)
             if hasattr(adapter, 'index_language'):
                 install = self.setup_install(game)
-                if install is None and game != 'endfield':
+                if install is None and game not in PUBLISHER_GAMES:
                     raise ValueError('Choose the installed game folder before preparing its language.')
                 directory = DATA_DIR / 'languages' / game / locale
                 directory.mkdir(parents=True, exist_ok=True)
@@ -408,7 +408,8 @@ class Runtime:
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
-                    if not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp:
+                    if (not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp
+                            or install is None and candidate.snapshot_metadata.get('fingerprint') != stamp):
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
                         cached.publish(candidate)
@@ -2031,7 +2032,7 @@ def setup_refresh(game: str, payload: SetupAction, request: Request,
     setup_access(request, x_proxy_transcript, write=True)
     if game not in GAMES:
         raise HTTPException(404, "Unsupported game")
-    if game != 'endfield' and not runtime.setup_install(game):
+    if game not in PUBLISHER_GAMES and not runtime.setup_install(game):
         raise HTTPException(400, "Choose an installed game folder first")
     from .game_tools import missing_tools
     if missing_tools(PROJECT_ROOT, game):

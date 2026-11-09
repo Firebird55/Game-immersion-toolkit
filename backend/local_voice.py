@@ -15,7 +15,7 @@ from pathlib import Path
 from .runtime_writers import QuiesceableExecutor
 from .media_tools import ffmpeg_executable
 from .voice_decoder import VoiceDecoder
-from .game_assets import asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter
 
 
 def _source_suffix(data: bytes, audio=None, game=None) -> str:
@@ -98,10 +98,13 @@ class LocalVoiceAssetService(VoiceDecoder):
             entries = {r["text_id"]: r["audio"] for r in payload["records"] if r.get("audio")}
             paragraphs = {r['text_id'] for r in payload['records'] if r.get('audio') and (
                 r.get('audio_scope') == 'paragraph' or self.game == 'beyond' and r['text_id'].endswith(':complete'))}
-            online = self.game == 'endfield' and payload['install'] is None
+            online = self.game in PUBLISHER_GAMES and payload['install'] is None
             install = None if online else Path(payload["install"])
             stamp = payload["fingerprint"]
-            source_available = self._adapter.fingerprint(None) == stamp if online else install.is_dir()
+            if online and hasattr(self._adapter, 'publisher_snapshot_available'):
+                source_available = self._adapter.publisher_snapshot_available(self.tools_dir, stamp)
+            else:
+                source_available = self._adapter.fingerprint(None) == stamp if online else install.is_dir()
             ready = bool(entries and source_available and (self.game in {'beyond', 'heavyrain'} or self.decoder_available()) and ffmpeg_executable())
             with self._lock:
                 self.locale = locale
@@ -122,8 +125,12 @@ class LocalVoiceAssetService(VoiceDecoder):
 
     def _validate_sources(self, install, stamp, audios):
         if install is None:
-            if self.game != 'endfield' or not all(audio.get('publisher') for audio in audios):
+            if self.game not in PUBLISHER_GAMES or not all(audio.get('publisher') for audio in audios):
                 raise ValueError('Original voice installation is unavailable')
+            if hasattr(self._adapter, 'publisher_snapshot_available'):
+                if not all(audio['publisher'] == stamp for audio in audios):
+                    raise ValueError('Original voice belongs to another publisher release.')
+                return
         validate = getattr(self._adapter, 'validate_voice_source', None)
         if validate is not None:
             # Adapters may prove the referenced packages unchanged independently

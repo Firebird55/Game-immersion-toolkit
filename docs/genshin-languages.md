@@ -8,12 +8,14 @@ Pair any study language with any of the game's **15 official text locales**
 
 ## Setup
 
-Select the installed client folder containing **GenshinImpact.exe and GenshinImpact_Data (or YuanShen.exe and YuanShen_Data)** in **Setup → Games**.
+Leave the game folder empty to prepare the mainland China PC launcher release directly from HoYoPlay. Setup reads its three revision markers, finds the matching translation snapshot and checks the selected voice package indexes. Playback downloads the original audio chunks for the requested line. The two Chinese study selections share a Mandarin pack. In-game hotfixes and removed event recordings have independent coverage.
+
+For an installed game, select the client folder containing **GenshinImpact.exe and GenshinImpact_Data (or YuanShen.exe and YuanShen_Data)** in **Setup → Games**.
 Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
 nested game client has been downloaded. Steam and conventional Epic/HoYoPlay
 library locations are discovered automatically. Game folders are read-only.
 
-Install the chosen original voice through the game's own language settings.
+When using an installed client, install the chosen original voice through the game's own language settings.
 Prepare only the study language and translation you want. Missing official text
 or audio stays unavailable; another language is never silently substituted.
 
@@ -22,7 +24,7 @@ or audio stays unavailable; another language is never silently substituted.
 The reader follows **authored Talk dialogue ID → TextMap hash → Dialog voice trigger and source path** from the
 [game-data catalog](https://gitlab.com/Dimbreath/animegamedata2). One immutable catalog revision supplies the selected
 subtitle and translation tables. Only an exact authored source hash can bind an
-installed original voice. Conflicting sources are skipped.
+publisher or installed original voice. Conflicting sources are skipped.
 
 Genshin merges the ordinary and Medium subtitle hash spaces, including the split Russian and Thai tables. It reads authored Talk, DungeonReminder and Voice configuration, including the current obfuscated field layouts. Dialogue and reminder identities remain separate.
 

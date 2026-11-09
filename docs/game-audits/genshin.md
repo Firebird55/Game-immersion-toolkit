@@ -1,5 +1,26 @@
 # Genshin Impact narrative audit
 
+## Installation-free launcher release, November 9, 2026
+
+Without a game folder the Windows language worker follows the released mainland
+HoYoPlay branch into its Sophon build. It reads the Windows resource, silence and
+data revision markers from the game manifest and selects the immutable CNRELWin
+extraction matching all three. For 7.2.0 the matching markers were 49008628,
+48722240 and 49008628. Two later 7.2 text snapshots already described hotfixes.
+The worker verifies the decompressed checksums of manifests and audio chunks,
+uses each localized PCK's own bounds, and fetches the original WEM for the
+selected authored path. Existing prepared recordings keep their immutable
+build identity. The updater can adopt another launcher build when the same
+formats and matching text snapshot are available.
+[Mainland released branch](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1)
+· [Matching text revision](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
+
+The Global and mainland manifests had matching file checksums for all 178
+localized PCKs in each of the four dubs. The text comes from the mainland
+catalog. Independent Global hotfixes and historical performances still have the
+separate coverage described below.
+
+
 Audited 2026-10-27 against an installed Windows 7.1.0 client and its English
 voice pack. No account, game files, settings or live companion data were changed.
 The read-only inventory found 1,985 asset BLKs, 275 USM movies and 310 audio PCKs.

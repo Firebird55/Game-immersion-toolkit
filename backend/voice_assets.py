@@ -55,19 +55,25 @@ def read_external_table(package: Path) -> list[VoiceEntry]:
     """Read the small PCK table, never the complete audio package."""
     size = package.stat().st_size
     with package.open("rb") as stream:
-        header = stream.read(28)
-        if len(header) < 28 or header[:4] != b"AKPK":
-            raise ValueError("Not a Wwise PCK")
-        header_size, flag, languages, banks, sounds, externals = struct.unpack_from("<6I", header, 4)
-        if flag != 1 or not 16 <= header_size <= min(size, 32 * 1024 * 1024):
-            raise ValueError("Unsupported PCK header")
-        if languages + banks + sounds + 16 >= header_size:
-            return []
-        offset = 28 + languages + banks + sounds
-        if not 4 <= externals <= 32 * 1024 * 1024 or offset + externals > min(size, header_size + 8):
-            raise ValueError("Invalid external table bounds")
-        stream.seek(offset)
-        table = stream.read(externals)
+        def read(offset, length):
+            stream.seek(offset)
+            return stream.read(length)
+        return external_table(package, size, read)
+
+
+def external_table(package, size, read):
+    header = read(0, 28)
+    if len(header) < 28 or header[:4] != b"AKPK":
+        raise ValueError("Not a Wwise PCK")
+    header_size, flag, languages, banks, sounds, externals = struct.unpack_from("<6I", header, 4)
+    if flag != 1 or not 16 <= header_size <= min(size, 32 * 1024 * 1024):
+        raise ValueError("Unsupported PCK header")
+    if languages + banks + sounds + 16 >= header_size:
+        return []
+    offset = 28 + languages + banks + sounds
+    if not 4 <= externals <= 32 * 1024 * 1024 or offset + externals > min(size, header_size + 8):
+        raise ValueError("Invalid external table bounds")
+    table = read(offset, externals)
     if len(table) != externals:
         raise ValueError("Truncated external table")
     count = struct.unpack_from("<I", table)[0]

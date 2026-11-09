@@ -14,7 +14,7 @@ import zipfile
 
 from .export_lock import ExportLock, ExportLockCleanupError
 from .game_paths import settings_path, discover_install
-from .game_assets import asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter
 from .languages import GAME_LOCALES, LOCALE_NAMES
 from .mobile_export_controls import MobileExportManager
 from .owned_process import OwnedProcess
@@ -284,7 +284,7 @@ class AutomaticMobileExports:
 
     def _job(self, game, locale, translation, rule):
         install = self.install_lookup(game)
-        if (not install and game != 'endfield') or not Path(rule['destination']).is_dir():
+        if (not install and game not in PUBLISHER_GAMES) or not Path(rule['destination']).is_dir():
             raise FileNotFoundError()
         pack = probe(game, install, locale)
         if pack in ('missing', 'incomplete'):

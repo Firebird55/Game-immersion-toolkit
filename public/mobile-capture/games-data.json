@@ -633,7 +633,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.",
-      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. Prepare the selected language from an installed client or the mainland China HoYoPlay PC release. Publisher setup matches text and resource revisions and fetches selected original recordings on demand. In-game hotfixes and removed event audio have separate coverage.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [
@@ -697,7 +697,7 @@
         "es-419": "Epic lists Latin American Spanish as well as Spain Spanish; no distinct reader locale mapping is established."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.",
-      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. Prepare the selected language from an installed client or the mainland China HoYoPlay PC release. Publisher setup matches text and resource revisions and fetches selected original recordings on demand. In-game hotfixes and removed event audio have separate coverage.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [

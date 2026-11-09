@@ -5,7 +5,7 @@ import re
 import time
 import threading
 from pathlib import Path
-from .game_assets import asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter
 
 LABELS = {'present': 'Installed', 'missing': 'Not detected — install this voice language in the game/launcher',
           'incomplete': 'Incomplete', 'unknown': 'Unable to verify', 'publisher': 'Available from publisher'}
@@ -42,7 +42,7 @@ def probe(game, install, locale):
 
 def _probe(game, install, locale):
     if not install:
-        return 'publisher' if game == 'endfield' else 'missing'
+        return 'publisher' if game in PUBLISHER_GAMES else 'missing'
     install = Path(install)
     try:
         adapter, _ = asset_adapter(game)

@@ -117,6 +117,8 @@ def audio_binding(source, entries, locale):
     entry = entries.get(identity)
     if entry is None:
         return None
+    if isinstance(entry, dict) and entry.get('publisher'):
+        return {**entry, 'source': source, 'file_id': f'{identity:016x}', 'locale': audio_locale(locale)}
     stat = entry.package.stat()
     return {'source': source, 'file_id': f'{identity:016x}', 'package': str(entry.package),
             'offset': entry.offset, 'size': entry.size, 'package_size': stat.st_size,
@@ -146,12 +148,12 @@ def records(game, links, tables, locale, entries):
 
 def snapshot(game, install, stamp, catalog, rows, source_locale, targets, mapping):
     from .languages import resolve_locale
-    if not rows or fingerprint(install, game) != stamp:
+    if not rows or install is not None and fingerprint(install, game) != stamp:
         raise ValueError('Subtitle data is incomplete or game files changed; previous table retained.')
     available = {code for row in rows for code in row['texts']}
     missing = [code for code in targets if resolve_locale(code, mapping) not in available]
     count = sum(bool(row['audio']) for row in rows)
-    return {'format': 2, 'game': game, 'source_locale': source_locale, 'install': str(install),
+    return {'format': 2, 'game': game, 'source_locale': source_locale, 'install': str(install) if install else None,
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'records': rows,
         'missing_translation_locales': missing,
         'message': f'{len(rows):,} official {source_locale} lines; {count:,} original voices' +

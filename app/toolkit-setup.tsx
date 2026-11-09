@@ -53,7 +53,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   const refreshSequence = useRef(0);
   const exportStatus = data?.mobile_export?.selectedGame && data.mobile_export.selectedGame !== game ? undefined : data?.mobile_export;
   const current = data?.games.find(item => item.id === game);
-  const sourceAvailable = !!current?.detected_path || game === 'endfield';
+  const sourceAvailable = !!current?.detected_path || current?.voice_state === 'publisher';
   const job = data?.jobs[game];
   const preparing = Object.values(data?.jobs ?? {}).some(item => item.state === 'preparing');
   const nativeBusy = Object.values(data?.native ?? {}).some(Boolean) || !!data?.mobile_export?.browseActive;
@@ -150,7 +150,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
             <section className="toolkit-game-card" aria-label={uiText("Installed game readiness")}>
               <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>{uiText("Game files")}</h3><p>{uiText("Your installed files supply the subtitles and voices.")}</p></div></div>
               <div className="toolkit-readiness-grid">
-                <div><span>{uiText("Installation")}</span><strong className={sourceAvailable ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : game === "endfield" ? uiText("Optional") : uiText("Choose folder")}</strong></div>
+                <div><span>{uiText("Installation")}</span><strong className={sourceAvailable ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : current.voice_state === "publisher" ? uiText("Optional") : uiText("Choose folder")}</strong></div>
                 <div><span>{uiText("Original voices")}</span><strong className={['present','publisher'].includes(current.voice_state) || game === 'hito' ? "is-ready" : "needs-setup"}>{uiText(game === 'hito' ? 'Text only' : VOICE_STATUS[current.voice_state] ?? 'Not checked')}</strong></div>
                 <div><span>{uiText("Bilingual catalog")}</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : uiText("Not indexed")}</strong></div>
               </div>
