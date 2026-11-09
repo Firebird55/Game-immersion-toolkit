@@ -1,5 +1,51 @@
 # Zenless Zone Zero dialogue audit
 
+## November 9, 2026 · Dialogue from one Global launcher release
+
+The publisher's 3.3.0 base (revision 19316624) contains the Perform scene
+references, their resource catalog, subtitle tables and original Wwise packages.
+The Perform table named 31,069 dialogue scene paths. The resource catalog
+resolved 30,736 paths across 18 blocks. The 48,849,768 bytes of selected
+scene bundles contained 221,699 dialogue records, including 59,316 with an
+authored voice reference. Of the 221,561 distinct subtitle IDs, 217,629 had
+both English and Simplified Chinese, and 213,899 had text in all 13 locales.
+These figures cover conversations, choices, ambient lines and narration
+in the resolved dialogue scenes. The count of voice references precedes audio
+package matching. [Publisher release manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+The released scenes contained 1,619 chapter 240 records. In package 10126,
+49 subtitle IDs resolved to an exact original file in every dub. None of those
+49 had text in all 13 base locales. Three of the 49 were downloaded and decoded
+in all four languages. Their Japanese recordings were already in the release,
+while their Japanese subtitles first appeared in the inspected later override.
+Fetching that Global hotfix on a fresh device remains open.
+[Publisher chapter announcement](https://zenless.hoyoverse.com/m/en-us/news/166963)
+
+From a source checkout, the following command follows the released Global
+launcher branch, reads the checked scene and translation tables, and searches
+every released package for the requested dub. Supply the compiled ZZZ reader
+from the toolkit toolchain and choose private cache and output directories.
+The result contains the available original translations, a WEM for each requested
+dub and a receipt with build, package, file ID and SHA-256. Repeating `--dub`
+selects multiple recordings. Omitting it requests all four. Both Chinese scripts
+use the Mandarin recording.
+
+```text
+python scripts/probe-zzz-publisher.py Galgame_Chapter0_11_01_01 --reader <toolchain>/upstream/galgame-perform.mjs --cache <private-cache> --output <new-private-folder>
+```
+
+This query returned Nicole's authored source, all 13 translations, and four
+complete recordings that decoded to nonzero PCM. Their durations were 4.700 s
+in English, 6.556 s in Japanese, 4.700 s in Korean and 5.195 s in Mandarin.
+The same command for `Main_GalGame_Chapter240_124000005_001` returned four
+original recordings and 12 translated strings from the same build.
+
+The command requires a unique authored scene source and a unique matching file
+in the selected dub. It supports direct source paths and the evidenced GalGame
+speaker directories. Conditional voices, comic panels and cinematic events
+require their own bindings. Automatic desktop and phone setup from the publisher,
+and acquisition of in-version Global overrides, remain open.
+
 ## November 8, 2026 · Publisher sources and subtitle variants
 
 The released Global Windows 3.3.0 branch serves the game TextMaps directly.
