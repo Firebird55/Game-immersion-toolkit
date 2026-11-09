@@ -2,7 +2,7 @@
 
 ## Installation-free publisher updates, November 9, 2026
 
-The [80-film inventory](endfield-film-configs-1.6.4.csv) now distinguishes a
+The [inventory of the 28 unresolved films](endfield-film-configs-1.6.4.csv) distinguishes a
 movie's screen time from each spoken interval. Of the 28 movie configurations
 without a verified sentence interval, 25 have no authored caption (one is
 null). The other three contain 11, 14 and 21 Chinese subtitle clocks. The
@@ -10,6 +10,19 @@ null). The other three contain 11, 14 and 21 Chinese subtitle clocks. The
 2023 technical test. None of their keys occurs in any of the 14 current
 translations. Eighteen of the 28 have a matching video. Ten have a directly
 resolvable whole voice track and two more have a voice track in their caller.
+
+The Global `VideoData.asset` lists 106 video names and durations, including
+seven of the older `fmv_` identities. Its durations for `fmv_e0m1_1`,
+`fmv_e0m1_3` and `fmv_e0m1_4` are 89.300, 145.000 and 148.960 seconds.
+All 46 caption intervals fit those durations. The Technical Test table links
+each caption ID to Chinese source text. Its five separate localization files
+are empty. A fresh byte-range check of the 18 matching Global USMs read the
+first 4 KiB of each container. Each CRID directory lists a single `@SFV`
+video stream on channel zero. Sentence audio and subtitle timing for these
+movies require an external source.
+[Archived Technical Test subtitles](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg/SubtitleTable.json)
+· [Archived localization files](https://github.com/lsy-404/EndfieldGameData/tree/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg)
+· [Global publisher resources](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)
 
 Two current strings bearing the movie name `cs_video_e0m0_3` actually play
 in the in-engine scene `cutscene_e0m0_5`. Both hero variants use the following
@@ -56,6 +69,15 @@ and 200 original speech files also matched. English preparation retained all
 404 film intervals on the earlier revision. When a required asset changes,
 the toolkit omits the affected film until its new timing or voice binding can
 be verified. Other dialogue still follows the current release's own tables.
+
+For the two in-engine scenes, the desktop reader checks the active subtitle
+configuration, director prefabs, master timeline, regional subtitle track,
+audio track, Wwise event and recording. A repacked bank can pass if its event
+still selects the verified recording. Reading newly authored or retimed
+subtitle clips requires decoding the Endfield bundle wrapper and Unity
+serialized objects in the distributed runtime. The current timeline importer
+reads these objects during an audit. Setup omits a changed clock until its
+caption, regional recording and interval have been verified.
 
 ## Publisher resources and story coverage, November 8, 2026
 
