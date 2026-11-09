@@ -16,6 +16,13 @@ name from 35,465 to 32,613 bytes. Both versions decoded to nonzero PCM at
 their containing package and entry are unchanged. Cached recordings retain
 their release and spoken language.
 
+The ordinary desktop refresh was also run against two previously prepared
+language snapshots seeded from those published revisions. Without a forced
+rebuild it activated the four text changes for English and the replaced
+recording for Korean. Both versions of the Korean line remained playable
+from the local cache after network access was disabled for that check.
+Repeating the refresh on the current release reused the existing snapshot.
+
 For an authored PlotAudio filename, the source command selects the chosen language's exact WwiseExternalSource path in the override, then consults the base if needed. It verifies the directory and the stored entry hash under the Kuro v12 layout. For partially encrypted WEMs that hash covers the encrypted prefix. Range responses must match the declared offsets and object size. The WEM framing and release pointers are checked before the selected output is saved. Two story filenames from the earlier PlotAudio audit were downloaded and decoded in all four dubs. For `vo_Main_Mengzhou_3_7_14_28` the English, Japanese, Korean and Mandarin durations were 9.678, 9.844, 9.409 and 8.675 seconds. [Regional source command](../../scripts/live_game_sources.py)
 
 ```text

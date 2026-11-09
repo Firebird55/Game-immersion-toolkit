@@ -139,6 +139,15 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     value.build_language(game, 'ja', ('en',))
     assert len(commands) == 1
     assert value.locale_index(game, 'ja').ready
+    from urllib.error import URLError
+    from backend.preparation_errors import PreparationFailure
+    def offline(_source):
+        raise URLError('offline')
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game == 'wuwa' else 'fingerprint', offline)
+    with pytest.raises(PreparationFailure) as caught:
+        value.build_language(game, 'ja', ('en',))
+    assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained
+    assert value.locale_index(game, 'ja').ready and len(commands) == 1
     with pytest.raises(ValueError, match='installed game folder'):
         value.build_language('nte', 'ja', ('en',))
 

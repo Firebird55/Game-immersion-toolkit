@@ -343,7 +343,6 @@ class Runtime:
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
                 tools = DATA_DIR / game / 'tools'
-                stamp = preparation_fingerprint(adapter, install, tools)
                 indexes = self.__dict__.setdefault('_locale_indexes', {})
                 key = (game, locale)
                 cached = indexes.get(key)
@@ -361,6 +360,15 @@ class Runtime:
                         old = json.loads(path.read_text(encoding='utf-8'))
                     except (OSError, ValueError):
                         old = {}
+                try:
+                    stamp = preparation_fingerprint(adapter, install, tools)
+                except OSError as error:
+                    if install is not None or not cached.ready or cached.source_locale != locale or old.get('install') is not None:
+                        raise
+                    from .preparation_errors import PreparationFailure, public_failure
+                    failure = public_failure(error)
+                    raise PreparationFailure(failure['code'], failure['message'] + ' The previous prepared table remains available.',
+                                             previous_snapshot_retained=True, retry_seconds=failure.get('retry_seconds', 120)) from error
                 if (not force and old.get('format') == 2 and old.get('game') == game and old.get('source_locale') == locale
                         and old.get('fingerprint') == stamp and old.get('targets_requested') == sorted(targets)
                         and old.get('reader_revision') == adapter.LANGUAGE_INDEX_VERSION
@@ -400,7 +408,8 @@ class Runtime:
                         changed = bool(old.get('fingerprint') and old['fingerprint'] != stamp)
                         message = failure['message']
                         if changed:
-                            message = 'Installed game files changed since the last preparation. ' + message
+                            source = 'The publisher release changed' if install is None else 'Installed game files changed'
+                            message = source + ' since the last preparation. ' + message
                         if old:
                             message += ' The previous table was kept; changed voice files may remain unavailable until repair succeeds.'
                         raise PreparationFailure(failure.get('code', 'reader_failed'), message,
