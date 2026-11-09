@@ -21,6 +21,15 @@ requires matching resource evidence. Unknown clocks remain unavailable.
 [Publisher launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
 · [Historical resource listings](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/raw/beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows)
 
+Global revisions `11343132-9` and `11529267-11` have different release
+indexes. In both releases the current Unity registry selected identical film
+configurations and localized subtitle bundles for 49 Mandarin, 48 English,
+46 Japanese and 48 Korean performances. The selected dub bank, hotfix packages
+and 184 original speech files also matched. English preparation retained all
+394 film intervals on the earlier revision. When a required asset changes,
+the toolkit omits the affected film until its new timing or voice binding can
+be verified. Other dialogue still follows the current release's own tables.
+
 ## Publisher resources and story coverage, November 8, 2026
 
 The Global Windows 1.6.4 updater returned resource revision `11529267-11`. Follow

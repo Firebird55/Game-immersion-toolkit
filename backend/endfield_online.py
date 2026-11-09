@@ -102,7 +102,13 @@ def _film_audio(film, caption, locale):
 
 
 def film_records(catalog, tables, locale):
-    if catalog.revision != TEXT_REVISION and not (hasattr(catalog, 'has_verified_clocks') and catalog.has_verified_clocks()):
+    if catalog.revision == TEXT_REVISION:
+        accepted = profile.FILMS
+    elif hasattr(catalog, 'verified_films'):
+        accepted = catalog.verified_films(LANGUAGES[locale])
+    else:
+        return []
+    if not accepted:
         return []
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
@@ -114,10 +120,15 @@ def film_records(catalog, tables, locale):
                  for (film, language, identity), (caption, _, _, conditional) in context.EXTRA.items()
                  if language == track and film in profile.FILMS})
     for (film, caption), (text_ref, conditional) in cues.items():
-        key = str(refs[text_ref]['id'])
-        texts = {code: display_text(values[key]) for code, values in tables.items()}
+        if film not in accepted:
+            continue
+        reference = refs.get(text_ref)
+        if not isinstance(reference, dict) or reference.get('id') is None:
+            continue
+        key = str(reference['id'])
+        texts = {code: display_text(values.get(key)) for code, values in tables.items()}
         if not all(texts.values()):
-            raise ValueError('Endfield cinematic localization is incomplete.')
+            continue
         anchor = context.PREVIOUS.get((film, track, caption))
         rows.append({'text_id': f'endfield:film:{film}:{caption}', 'source_locale': locale,
                      'previous_text_id': f'endfield:film:{film}:{anchor}' if anchor else None,
@@ -144,8 +155,7 @@ def extract(audio, tools):
         identity, digest = profile.FILMS[film][DUBS.index(dub)]
         if 'snapshot' in audio:
             from . import endfield_release
-            layers = endfield_release.descriptor(tools, audio['snapshot'])['layers']
-            if any(layers[role]['sha256'] != sha for role, sha in endfield_release.FILM_MANIFESTS.items()):
+            if film not in endfield_release.verified_films(tools, audio['snapshot'], dub):
                 _invalid()
             return endfield_release.media(tools, audio['snapshot'], dub, identity, digest)
     else:

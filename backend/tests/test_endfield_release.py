@@ -1,10 +1,13 @@
 import hashlib
 import json
 import struct
+from types import SimpleNamespace
 
+import brotli
 import pytest
 
 from backend import endfield_release as publisher, endfield_tables
+from backend import endfield_film_registry as registry, endfield_film_sources as sources, endfield_global_1_6 as profile
 
 
 def text_table(name, key, value):
@@ -58,3 +61,46 @@ def test_regional_timeline_profile_requires_both_publisher_indexes(tmp_path, mon
     assert catalog.has_verified_clocks()
     layers['main'] = {'sha256': '0' * 64}
     assert not catalog.has_verified_clocks()
+
+
+def test_cinematic_registry_selects_full_asset_path_and_bounds_decompression():
+    def field(data):
+        return struct.pack('<i', len(data)) + data
+
+    path = 'assets/beyond/test.playable'
+    name = 'main/abc123.ab'
+    first = field(brotli.compress(path.encode('utf-16le')))
+    assets = bytes(4) + struct.pack('<qii8x', 27, 0, 11)
+    bundles = struct.pack('<iii40x', 1, 11, len(first))
+    strings = first + field(name.encode('utf-16le'))
+    data = bytes.fromhex('11ff11ff00000000f4f3f2f1') + bytes(8)
+    data += field(assets) + field(b'') + field(bundles) + field(strings)
+    assert registry.bindings(data, path_hashes={27}) == [(27, path, name)]
+    assert registry.bindings(data, bundle_indices={11}) == [(27, path, name)]
+    assert registry.bindings(data, path_hashes={11}) == []
+    with pytest.raises(ValueError):
+        registry.bindings(data[:-1], path_hashes={27})
+    with pytest.raises(ValueError):
+        registry.inflate(brotli.compress(bytes(65536)), 1024)
+
+
+def test_carry_forward_requires_current_clock_bank_and_recording(tmp_path, monkeypatch):
+    monkeypatch.setattr(publisher, 'descriptor', lambda *_: {'layers': {k: {'sha256': 'changed'} for k in publisher.FILM_MANIFESTS}})
+    bank = 'default_english_banks.pck'
+    monkeypatch.setattr(sources, 'BANKS', {bank: 'original'})
+    row = SimpleNamespace(name=bank, content_hashes=('', 'original'))
+    monkeypatch.setattr(publisher, 'group', lambda _tools, _stamp, block: ('', [] if block == 21 else [row]))
+    monkeypatch.setattr(profile, 'FILMS', {k: (None, (i, str(i)), None, None)
+                                          for i, k in enumerate(('same', 'retimed', 'new_voice'))})
+    assets = {'singleconfigs/' + k + '.asset' for k in profile.FILMS}
+    assets.update({'same_others_au_en.playable', 'new_voice_others_au_en.playable'})
+    monkeypatch.setattr(publisher, '_unchanged_film_assets', lambda *_: assets)
+    def media(_tools, _stamp, dub, identity, digest):
+        assert dub == 'english' and digest == str(identity)
+        if identity == 2:
+            raise publisher.UnmatchedRecording()
+        assert identity == 0
+    monkeypatch.setattr(publisher, 'media', media)
+    assert publisher.verified_films(tmp_path, 'first', 'english') == {'same'}
+    row.content_hashes = ('', 'new bank')
+    assert publisher.verified_films(tmp_path, 'next', 'english') == set()

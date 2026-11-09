@@ -81,6 +81,10 @@ from the runtime launcher's `Add-Type` shim and from game-reader compilation.
 
 ## Core runtime and Python dependencies
 
+The Endfield cinematic registry reader added on November 9 uses the pinned
+Brotli 1.2.1 Python wheel. The frozen runtime collects its distribution
+metadata and MIT notice with the native decoder. [Upstream license](https://github.com/google/brotli/blob/v1.2.1/LICENSE)
+
 The authoritative current manifests are [requirements.txt](../requirements.txt)
 and [requirements.lock.txt](../requirements.lock.txt). The latter is a resolved
 Python 3.12/Windows set dated 2026-10-09, with **49 distributions** and exact

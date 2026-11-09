@@ -110,20 +110,23 @@ class RemoteChunk:
 
 
 @lru_cache(maxsize=48)
-def group(tools, stamp, block):
+def group(tools, stamp, block, names=None):
     params = endfield_metadata.parameters(tools)
-    directory = TABLE_GROUP if block == 18 else params.directories[block]
-    role = 'initial' if block == 1 else 'main'
+    directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 2: '0CE8FA57'}
+    directory = directories[block] if block in directories else params.directories[block]
+    role = 'initial' if block in (1, 2, 4) else 'main'
     base = _resource_url(descriptor(tools, stamp)['layers'][role]['url'], role) + '/VFS/' + directory + '/'
     path = tools / 'endfield-releases' / (stamp + '-' + str(block) + '.blc')
-    if path.is_file() and path.stat().st_size <= vfs.MAX_INDEX:
+    suffix = {18: '.bytes', 2: '.ab', 11: '.ab', 4: '.hgmmap'}.get(block, '.pck')
+    limit = 96 * 1024**2 if block == 11 else vfs.MAX_INDEX
+    if path.is_file() and path.stat().st_size <= limit:
         data = path.read_bytes()
         try:
-            return base, vfs.parse_index(data, params, block, suffix='.bytes' if block == 18 else '.pck')
+            return base, vfs.parse_index(data, params, block, suffix=suffix, names=names)
         except ValueError:
             pass
-    data = download(base + directory + '.blc', limit=vfs.MAX_INDEX)
-    rows = vfs.parse_index(data, params, block, suffix='.bytes' if block == 18 else '.pck')
+    data = download(base + directory + '.blc', limit=limit)
+    rows = vfs.parse_index(data, params, block, suffix=suffix, names=names)
     _atomic_file(path, data)
     return base, rows
 
@@ -134,15 +137,17 @@ def _source(tools, base, file):
     return vfs.PackageSource(stream, file, endfield_metadata.parameters(tools))
 
 
-def _whole(tools, base, file):
+def _whole(tools, base, file, limit=vfs.MAX_VOICE):
     digest = file.content_hashes[1]
     path = tools / 'endfield-releases' / 'assets' / digest
-    _check(re.fullmatch('[0-9a-f]{32}', digest) and 0 < file.size <= vfs.MAX_VOICE)
+    _check(re.fullmatch('[0-9a-f]{32}', digest) and 0 < file.size <= limit)
     if path.is_file() and path.stat().st_size == file.size:
         data = path.read_bytes()
         if hashlib.md5(data).hexdigest() == digest:
             return data
-    data = _source(tools, base, file).read(0, file.size)
+    source = _source(tools, base, file)
+    batch = 16 * 1024**2
+    data = b''.join(source.read(start, min(batch, file.size - start)) for start in range(0, file.size, batch))
     _check(hashlib.md5(data).hexdigest() == digest)
     _atomic_file(path, data)
     return data
@@ -170,11 +175,84 @@ class Catalog:
         layers = descriptor(self.tools, self.stamp)['layers']
         return all(layers[role]['sha256'] == digest for role, digest in FILM_MANIFESTS.items())
 
+    def verified_films(self, dub):
+        return verified_films(self.tools, self.stamp, dub)
+
 
 def prepare(tools):
     stamp, raw = discover()
     _atomic_file(tools / 'endfield-releases' / stamp, raw)
     return Catalog(tools, stamp)
+
+
+@lru_cache(maxsize=4)
+def _unchanged_film_assets(tools, stamp):
+    from . import endfield_film_registry as registry, endfield_film_sources as reference
+    base, rows = group(tools, stamp, 4)
+    file, = [row for row in rows if row.name == 'Data/Bundles/Windows/manifest.hgmmap']
+    raw = registry.inflate(_whole(tools, base, file, 160 * 1024**2), 384 * 1024**2)
+    paths = 'assets/beyond/dynamicassets/gamedata/subtitle/fmv/'
+    assets = registry.bindings(raw, path_hashes={head for head, _ in reference.ASSETS.values()})
+    del raw
+    candidates, ambiguous = {}, set()
+    for head, full_path, bundle in assets:
+        path = full_path.removeprefix(paths)
+        if not full_path.startswith(paths) or path not in reference.ASSETS or head != reference.ASSETS[path][0]:
+            continue
+        if path in candidates:
+            ambiguous.add(path)
+        candidates[path] = 'Data/Bundles/Windows/' + bundle
+    active = {}
+    for block, layer in ((2, 'initial'), (11, 'main')):
+        select = frozenset(name for name in candidates.values() if name.startswith('Data/Bundles/Windows/' + layer + '/'))
+        if select:
+            _, rows = group(tools, stamp, block, select)
+            for row in rows:
+                if row.name in active:
+                    raise ValueError('Ambiguous Endfield film bundle in released resources.')
+                active[row.name] = row.content_hashes[1]
+    return frozenset(path for path, name in candidates.items() if path not in ambiguous and
+                     active.get(name) == reference.ASSETS[path][1])
+
+
+@lru_cache(maxsize=16)
+def verified_films(tools, stamp, dub):
+    from . import endfield_film_sources as reference, endfield_global_1_6 as profile
+    _check(dub in vfs.LOCALE_BLOCKS)
+    layers = descriptor(tools, stamp)['layers']
+    if all(layers[role]['sha256'] == digest for role, digest in FILM_MANIFESTS.items()):
+        return frozenset(profile.FILMS)
+    # A changed regional voice-event bank or hotfix can select different
+    # speech despite identical text and clocks. Require the audited bank set.
+    wanted = {'default_' + dub + '_banks.pck', 'hotfix_' + dub + '.pck', 'hotfix_main.pck'}
+    expected = {name: digest for name, digest in reference.BANKS.items() if name in wanted}
+    actual = {}
+    for block in (vfs.LOCALE_BLOCKS[dub], 21):
+        _, rows = group(tools, stamp, block)
+        for row in rows:
+            name = row.name.rsplit('/', 1)[-1]
+            if name in wanted or (block != 21 and 'bank' in name):
+                _check(name not in actual)
+                actual[name] = row.content_hashes[1]
+            elif block == 21 and name not in {'hotfix_' + locale + '.pck' for locale in vfs.LOCALE_BLOCKS}:
+                return frozenset()
+    if actual != expected:
+        return frozenset()
+    verified = _unchanged_film_assets(tools, stamp)
+    suffixes = {'chinese': ('cn',), 'english': ('en',), 'japanese': ('jp',), 'korean': ('kr', 'ko')}[dub]
+    track = ('chinese', 'english', 'japanese', 'korean').index(dub)
+    accepted = set()
+    for film, recordings in profile.FILMS.items():
+        if (not recordings[track] or f'singleconfigs/{film}.asset' not in verified or
+                not any(f'{film}_others_au_{suffix}.playable' in verified for suffix in suffixes)):
+            continue
+        identity, expected_digest = recordings[track]
+        try:
+            media(tools, stamp, dub, identity, expected_digest)
+        except UnmatchedRecording:
+            continue
+        accepted.add(film)
+    return frozenset(accepted)
 
 
 class _StreamPackage(vfs.Package):
@@ -212,6 +290,10 @@ def voice_entries(tools, stamp, dub):
             for key in inventory(tools, stamp, dub)}
 
 
+class UnmatchedRecording(ValueError):
+    """The active dub no longer contains the audited cinematic performance."""
+
+
 def media(tools, stamp, dub, identity, digest=None):
     descriptor(tools, stamp)
     _check(dub in vfs.LOCALE_BLOCKS and 0 <= identity < 2**64)
@@ -225,11 +307,14 @@ def media(tools, stamp, dub, identity, digest=None):
         if hashlib.sha256(data).hexdigest() == expected:
             return data
     found = inventory(tools, stamp, dub).get(identity)
-    _check(found is not None)
+    if found is None:
+        raise UnmatchedRecording('Endfield recording missing from the selected publisher dub.')
     base, file, entry = found
     data = vfs.read_voice(_source(tools, base, file), endfield_metadata.parameters(tools), entry)
     sha = hashlib.sha256(data).hexdigest()
-    _check(len(data) == int.from_bytes(data[4:8], 'little') + 8 and (digest is None or sha == digest))
+    _check(len(data) == int.from_bytes(data[4:8], 'little') + 8)
+    if digest is not None and sha != digest:
+        raise UnmatchedRecording('The Endfield film recording changed in this publisher release.')
     _atomic_file(path, data)
     _atomic_file(receipt, sha.encode())
     return data

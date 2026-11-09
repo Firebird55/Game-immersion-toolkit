@@ -103,8 +103,8 @@ class File:
     content_hashes: tuple = ()
 
 
-def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck') -> tuple[File, ...]:
-    _require(16 <= len(data) <= MAX_INDEX)
+def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck', names=None) -> tuple[File, ...]:
+    _require(16 <= len(data) <= (96 * 1024**2 if block == 11 and suffix == '.ab' else MAX_INDEX))
     plain = chacha(data[12:], parameters.key, data[:12])
     _require(zlib.crc32(plain[:-4]) == struct.unpack('<I', plain[-4:])[0], 'Endfield voice index checksum mismatch')
     cursor = Cursor(plain[:-4])
@@ -139,7 +139,7 @@ def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck
             _require(encrypted in (0, 1))
             nonce = struct.pack('<iq', parameters.protocol, cursor.number('q')) if encrypted else None
             cursor.take(tag_size)
-            if name.lower().endswith(suffix):
+            if name.lower().endswith(suffix) and (names is None or name in names):
                 result.append(File(name, name_hash, chunk, offset, size, nonce, chunk_size, hashes))
     remainder = len(cursor.data) - cursor.position
     # Some released schema-4 indexes already carry the later ten-byte footer.

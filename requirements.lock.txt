@@ -35,6 +35,7 @@ psutil==7.2.2
 PySide6-Essentials==6.12.0
 shiboken6==6.12.0
 zstandard==0.25.0
+Brotli==1.2.1
 python-xlib==0.33; sys_platform == 'linux'
 six==1.17.0; sys_platform == 'linux'
 pyobjc-core==13.0; sys_platform == 'darwin'

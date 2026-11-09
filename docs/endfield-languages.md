@@ -12,7 +12,9 @@ translation languages in **Languages**. The Windows companion indexes the
 current Global Windows release. It reads the publisher’s original localization,
 story and radio tables and retrieves recordings directly from GRYPHLINE. Cached
 recordings work offline. Ordinary dialogue follows publisher resource updates.
-The verified film clocks below apply to the audited 1.6.4 resources.
+When the publisher updates a release, the toolkit checks each known film's
+configuration, localized timeline, voice banks and original recording before
+reusing its times. Two different Global 1.6 resource revisions passed this check.
 The verified film captions cover 390 Mandarin intervals, 394 English, 407 Japanese
 and 382 Korean. Both Chinese study selections use the same 390 Mandarin intervals.
 
