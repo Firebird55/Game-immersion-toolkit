@@ -203,7 +203,10 @@ performance separately gives 441 pairs and 1,613 localized intervals.
 
 Short or repeated desktop captions can use a stable preceding observation in
 the same radio sequence or localized film. Matching checks the selected
-performance and exact current text. The standalone phone library omits
+performance and exact current text. A confirmed caption can then identify
+its own successor. Repeated observations of identical text retain the same
+occurrence until a distinct subtitle provides evidence of a transition.
+The standalone phone library omits
 occurrences that require an observed predecessor.
 
 The 80 film configurations also include tracks without a matching subtitle
