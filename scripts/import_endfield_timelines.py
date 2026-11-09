@@ -49,7 +49,7 @@ def track_clips(objects, root):
     return captions, speech
 
 
-def unity_clocks(directory):
+def localized_tracks(directory):
     # UnityPy is needed only by maintainers regenerating a release profile.
     import UnityPy
     configs, playables = {}, defaultdict(list)
@@ -67,7 +67,6 @@ def unity_clocks(directory):
                 configs[obj['fmvId']] = refs
             if 'm_Tracks' in obj:
                 playables[identity, obj['m_Name'].lower()].append(track_clips(objects, obj))
-    cues = defaultdict(dict)
     for film, refs in configs.items():
         for number, dub in enumerate(DUBS):
             if number not in refs:
@@ -75,16 +74,21 @@ def unity_clocks(directory):
             track = localized_playable(playables, refs[number]['m_PathID'], film, dub)
             if track is None:
                 continue
-            captions, speech = track
-            for text, start, end in captions:
-                matches = [(event, origin) for event, origin, stop in speech if origin <= start < end <= stop]
-                if len(matches) != 1:
-                    continue
-                unique = (sum(a < end and start < b for _, a, b in speech) == 1
-                          and sum(other == text for other, _, _ in captions) == 1
-                          and sum(a < end and start < b for _, a, b in captions) == 1)
-                event, origin = matches[0]
-                cues[film, text][dub] = start, end, event, origin, unique
+            yield film, dub, *track
+
+
+def unity_clocks(directory):
+    cues = defaultdict(dict)
+    for film, dub, captions, speech in localized_tracks(directory):
+        for text, start, end in captions:
+            matches = [(event, origin) for event, origin, stop in speech if origin <= start < end <= stop]
+            if len(matches) != 1:
+                continue
+            unique = (sum(a < end and start < b for _, a, b in speech) == 1
+                      and sum(other == text for other, _, _ in captions) == 1
+                      and sum(a < end and start < b for _, a, b in captions) == 1)
+            event, origin = matches[0]
+            cues[film, text][dub] = start, end, event, origin, unique
     return [{'film': film, 'caption': text, 'locales': clocks} for (film, text), clocks in cues.items()]
 
 

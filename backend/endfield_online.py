@@ -7,6 +7,7 @@ import struct
 import urllib.request
 
 from . import endfield_global_1_6 as profile
+from . import endfield_global_cue_context as context
 from . import endfield_metadata, endfield_vfs
 from .game_tools import _atomic_file
 from .languages import audio_locale
@@ -91,7 +92,8 @@ def voice_entries(tools, locale):
 def _film_audio(film, caption, locale):
     dub = DUBS.index(LANGUAGES[locale])
     recording = profile.FILMS[film][dub]
-    start, end = profile.CUES[film, caption][2 * dub:2 * dub + 2]
+    extra = context.EXTRA.get((film, ('cn', 'en', 'jp', 'ko')[dub], caption))
+    start, end = extra[1:3] if extra else profile.CUES[film, caption][2 * dub:2 * dub + 2]
     if recording is None or start is None or end is None:
         _invalid()
     media, _digest = recording
@@ -105,14 +107,21 @@ def film_records(catalog, tables, locale):
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
     dub = DUBS.index(LANGUAGES[locale])
-    for (film, caption), clocks in profile.CUES.items():
-        if clocks[2 * dub] is None:
-            continue
-        key = str(refs[caption]['id'])
+    track = ('cn', 'en', 'jp', 'ko')[dub]
+    cues = {(film, caption): (caption, False) for (film, caption), clocks in profile.CUES.items()
+            if clocks[2 * dub] is not None}
+    cues.update({(film, identity): (caption, conditional)
+                 for (film, language, identity), (caption, _, _, conditional) in context.EXTRA.items()
+                 if language == track and film in profile.FILMS})
+    for (film, caption), (text_ref, conditional) in cues.items():
+        key = str(refs[text_ref]['id'])
         texts = {code: display_text(values[key]) for code, values in tables.items()}
         if not all(texts.values()):
             raise ValueError('Endfield cinematic localization is incomplete.')
+        anchor = context.PREVIOUS.get((film, track, caption))
         rows.append({'text_id': f'endfield:film:{film}:{caption}', 'source_locale': locale,
+                     'previous_text_id': f'endfield:film:{film}:{anchor}' if anchor else None,
+                     'requires_previous': conditional,
                      'source_text': texts[locale], 'texts': texts, 'english': texts.get('en', ''),
                      'chinese': texts.get('zh-Hans', ''), 'audio_locale': audio_locale(locale),
                      'audio': _film_audio(film, caption, locale), 'voice_status': 'voiced',
@@ -128,7 +137,9 @@ def extract(audio, tools):
     dub = LANGUAGES[locale]
     if 'film' in audio:
         film, caption = audio['film'], audio['caption']
-        if (film, caption) not in profile.CUES or audio != _film_audio(film, caption, locale):
+        track = ('cn', 'en', 'jp', 'ko')[DUBS.index(dub)]
+        if ((film, caption) not in profile.CUES and (film, track, caption) not in context.EXTRA
+                or audio != _film_audio(film, caption, locale)):
             _invalid()
         identity, digest = profile.FILMS[film][DUBS.index(dub)]
     else:

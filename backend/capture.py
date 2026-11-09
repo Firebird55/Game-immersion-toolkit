@@ -31,6 +31,7 @@ from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
 from .zzz_dialogue_context import ZzzDialogueContext
+from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
 
 
@@ -146,6 +147,8 @@ class CaptureService:
         self._visible_text_by_channel: dict[str, tuple[float, list[str]]] = {}
         self._local_chatter_trackers: dict[str, tuple[StableMatchTracker, float]] = {}
         self._caption_context_scope = None
+        self._endfield_radio = EndfieldCaptionContext()
+        self._endfield_film = EndfieldCaptionContext()
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
         self._zzz_dialogue_context = ZzzDialogueContext()
@@ -873,6 +876,8 @@ class CaptureService:
         enabled = ((silent_enabled or voice_enabled) and epoch == self._scan_epoch
                    and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
+            if game == 'endfield':
+                self._endfield_film.reset()
             for key in list(self._unvoiced_trackers):
                 if key.startswith(prefix):
                     del self._unvoiced_trackers[key]
@@ -887,7 +892,8 @@ class CaptureService:
             return outcome
         silent_enabled = silent_enabled and self.settings.get().capture_unvoiced
         matches = {}
-        for group in self._spatial_text_groups(response):
+        groups = list(self._spatial_text_groups(response))
+        for group in groups:
             for hit in match_lines([group]) if silent_enabled else []:
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact':
                     matches[hit.text_id] = hit
@@ -895,6 +901,15 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
+        if game == 'endfield' and voice_enabled:
+            if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
+                self._endfield_film.reset()
+            else:
+                hit = self._endfield_film.observe(index, groups, matches.values(), channel='cinematic',
+                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
+                    now=seen_at, stable_frames=settings.stable_frames)
+                if hit and self._capturable_match(hit):
+                    matches[hit.text_id] = hit
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():
@@ -991,6 +1006,17 @@ class CaptureService:
                  index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold)))
         monotonic_now = time.monotonic()
         contextual = None
+        if game == 'endfield':
+            if main_response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
+                self._endfield_radio.reset()
+                self._endfield_film.reset()
+            else:
+                hit = self._endfield_radio.observe(index, [' '.join(lines)] if lines else [], [match],
+                    channel='dialogue', scope=(epoch, self.session_id, window.handle, window.bounds, crop_bounds,
+                    index.source_locale, index.target_locale, index.player_voice, index._signature,
+                    getattr(self, 'context_scope', lambda: None)()), now=monotonic_now, stable_frames=settings.stable_frames)
+                if hit:
+                    match = hit
         if hasattr(index, 'context_fragments') and not main_response.get('dialogue_menu'):
             contextual = self._authored_caption_context(index, lines, monotonic_now,
                 (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,

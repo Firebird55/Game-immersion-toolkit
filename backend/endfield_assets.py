@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 8
+LANGUAGE_INDEX_VERSION = 9
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -142,6 +142,7 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 coverage[reason] = coverage.get(reason, 0) + 1
             result.append({'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
+                **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
                 'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
                 'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
                 'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
@@ -196,6 +197,7 @@ def authored_dialogues(catalog):
         rows = _mapping(group).get('radioSingleDataList')
         if not isinstance(rows, list):
             _unsupported()
+        previous = None
         for row in rows:
             _mapping(row)
             identity = row.get('id')
@@ -207,8 +209,10 @@ def authored_dialogues(catalog):
             if identity in dialogs:
                 _unsupported()
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
+                'previous_radio_id': previous,
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
+            previous = identity
     texts = _table(catalog, 'TextTable')
     for identity, voice in _table(catalog, 'TextVoIdTable').items():
         if not isinstance(voice, str):

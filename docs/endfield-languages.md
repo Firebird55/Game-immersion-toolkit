@@ -12,8 +12,8 @@ translation languages in **Languages**. The Windows companion indexes the
 verified Global 1.6.4 text snapshot and downloads original recordings directly
 from GRYPHLINE on demand. The first download needs internet access. A cached
 film recording can be used offline for its other captions in the same dub.
-The verified film captions cover 388 Mandarin intervals, 388 English, 399 Japanese
-and 380 Korean. Both Chinese study selections use the same 388 Mandarin intervals.
+The verified film captions cover 390 Mandarin intervals, 394 English, 407 Japanese
+and 382 Korean. Both Chinese study selections use the same 390 Mandarin intervals.
 
 For dialogue with separate Endministrator performances, set the player voice to
 match your game. The reader selects the corresponding recording and renders

@@ -457,6 +457,10 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             source_check = lambda: service._adapter.fingerprint(source_install) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
+            if item.get("requires_previous"):
+                # The standalone phone matcher does not retain a confirmed
+                # scene occurrence between scans.
+                continue
             # Other adapters retain their verified performance coverage gates.
             # In particular, unbound Honkai/NTE tables do not verify new scenes.
             if game == 'halflife':

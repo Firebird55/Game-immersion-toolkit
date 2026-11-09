@@ -73,6 +73,23 @@ field in the inspected narrative tables. Their voice classification remains
 unavailable pending scene-level evidence. [Dialogue text schema](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/DialogTextTable.json)
 · [Narration bindings](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/TextVoIdTable.json)
 
+### Mission radio playback, November 9, 2026
+
+Following the game's `PlayRadio` mission references led to 380 radio groups.
+In the 89 groups without verified line recordings, all 134 rows lack a
+resolved line override. None has a separate audio event. Of the 134,
+131 specify an emotion present in EmotionVoiceConfig; three specify type 0,
+which has no entry in that table. The controller tries the override's voice
+duration first. If that fails, it uses the real actor, emotion type, the
+row ID's hash and the last reaction when selecting a common interjection.
+After successful playback it skips the next fallback opportunity. Interrupts
+and resumes also affect playback. The visible sentence and a possible
+interjection have different identities. These 134 sentences remain unavailable
+as exact recordings. The toolkit can use the preceding row to identify short
+radio lines that already have their own original recording.
+[Radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L880-L956)
+· [Emotion configuration](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/EmotionVoiceConfig.json)
+
 ### Scenes, summaries and films
 
 - The scene registry lists 3,106 scenes. 526 reference 533 distinct timelines.
@@ -125,19 +142,27 @@ and its sole speech recording ends at 74.400 seconds. The 48 kHz recording
 has 3,571,200 frames. The exported 1.841-second Korean MP3 covers the final
 recorded interval and correlated 0.99806 with the decoded original.
 
-In total, 429 distinct film/caption pairs in 49 films passed in at least one
-dub. Their 251 subtitle IDs have text in all 14 localization tables. The
-325 pairs available in all four dubs cover 46 films and 185 subtitle IDs.
-The other 104 pairs passed in one to three dubs. Across the mapped candidates,
-73 interval assignments overlap another caption and eight repeat the same
-subtitle ID at different times. These 81 assignments remain unresolved.
+A November 9 recheck counted 431 distinct film/caption pairs in 49 films
+with at least one playable occurrence. Of these, 333 pairs have a playable
+occurrence in all four dubs. The desktop reader now also follows immediate
+predecessors in the localized timeline. In each dub and both protagonist
+versions of `cs_video_e3m5_3` it can identify the first of several identical
+captions after the preceding distinct subtitle. The later identical occurrences
+still require an independent scene-position observation. Ten other intervals
+have a shared edge smaller than one millisecond. Both neighboring clips omit
+the shared samples. Overlaps containing uncertain speech remain unresolved.
 
-| Original voice | Films with accepted intervals | Verified film/caption pairs | Overlapping | Repeated |
-| --- | ---: | ---: | ---: | ---: |
-| Mandarin | 49 | 388 | 4 | 2 |
-| English | 48 | 388 | 25 | 2 |
-| Japanese | 46 | 399 | 12 | 2 |
-| Korean | 48 | 380 | 32 | 2 |
+| Original voice | Films with accepted intervals | Verified playable intervals |
+| --- | ---: | ---: |
+| Mandarin | 49 | 390 |
+| English | 48 | 394 |
+| Japanese | 46 | 407 |
+| Korean | 48 | 382 |
+
+Short or repeated desktop captions can use a stable preceding observation in
+the same radio sequence or localized film. Matching checks the selected
+performance and exact current text. The standalone phone library omits
+occurrences that require an observed predecessor.
 
 The 80 film configurations also include tracks without a matching subtitle
 and voice. In both versions of `cs_video_e9m3_2` the English subtitle begins
@@ -158,7 +183,7 @@ subtracting the speech track's 0.050-second start. [Publisher release resources]
 
 ### Desktop playback without an installation
 
-The timeline importer reproduced the shipped 429 film/caption pairs from the serialized
+The timeline importer reproduced the localized film/caption pairs from the serialized
 Unity assets. The release profile contains package coordinates, digests,
 identifiers and millisecond intervals. The selected text comes from the matching
 revision of the localization tables. Normal preparation fetches three verified
@@ -166,10 +191,10 @@ package headers for the chosen dub. Playback reads the exact WEM by HTTP range.
 A film's speech recording must match its SHA-256 digest before entering the
 private cache. Each caption uses its own dub-specific interval.
 
-With no game folder, the language worker produced 25,965 voiced records in English,
-25,976 in Japanese, 25,958 in Korean and 25,964 for each Chinese script. Each
+With no game folder, the language worker produced 25,971 voiced records in English,
+25,984 in Japanese, 25,960 in Korean and 25,966 for each Chinese script. Each
 count includes the verified film cues available in that dub. The playback service exported a conversation and
-a timed MP3 for each of the five study selections. All 1,555 cinematic
+a timed MP3 for each of the five study selections. All 1,573 cinematic
 intervals passed bounds and nonzero PCM checks against 184 distinct localized
 speech recordings retrieved through the publisher adapter. A sample MP3 in each dub matched the original
 PCM interval with normalized correlation above 0.998. Cinematic OCR uses
@@ -246,7 +271,7 @@ claim is made.
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
 | Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
-| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 429 distinct film/caption pairs. Of these, 325 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
+| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 431 distinct film/caption pairs. Of these, 333 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
 Reading references provide a second coverage check: ReadingPopUpTable resolves
