@@ -1,5 +1,26 @@
 # Arknights: Endfield presentation audit
 
+## Installation-free publisher updates, November 9, 2026
+
+Setup follows the released Global Windows launcher version and both resource
+indexes. It reads original SparkBuffer localization and narrative tables from
+group 18 and resolves the authored voice in the initial, selected-dub and hotfix
+packages of that generation. Per-file hashes protect the original tables. An
+update to either resource index creates a new generation. Previously downloaded
+recordings retain their generation and dub. The earlier mirror comparison below
+provides an independent reference for this reader.
+
+The same worker was exercised with the archived Global 1.5.3 resource selection
+and the current 1.6.4 release. It retrieved all table and speech bytes used for
+these builds from GRYPHLINE. The earlier build produced 22,497 English voice
+records and exported the opening conversation. The current build produced
+25,971 English voice records including 394 timed film clips. In all five study
+selections, the desktop service recreated both an ordinary line and a trimmed
+film MP3 offline after deletion of the encoded outputs. The audited film profile
+requires matching resource evidence. Unknown clocks remain unavailable.
+[Publisher launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
+· [Historical resource listings](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/raw/beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows)
+
 ## Publisher resources and story coverage, November 8, 2026
 
 The Global Windows 1.6.4 updater returned resource revision `11529267-11`. Follow
@@ -7,7 +28,7 @@ the released regional launcher into `get_latest_resources`, then the main and
 initial resource URLs. Their `index_main.json` and `index_initial.json` identify
 the VFS group indexes and chunk checksums. The audit checked the selected group
 indexes against their published MD5 values and read only the listed byte ranges.
-The toolkit uses the matching community text snapshot and obtains original
+The November 8 worker used the matching community text snapshot and obtained
 recordings from installed packages or the pinned Global publisher release.
 [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
 · [Inspected resource list](https://launcher.gryphline.com/api/game/get_latest_resources?appcode=YDUTE5gscDZ229CW&game_version=1.6&version=1.6.4&platform=Windows&rand_str=O0xruPqxQxZ9aEYl)

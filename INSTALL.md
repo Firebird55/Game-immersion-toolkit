@@ -54,7 +54,7 @@ installation.
 | Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Selected official voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Contains StarRail.exe and StarRail_Data | Selected English, Mandarin, Japanese or Korean voice pack |
 | Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, setup retrieves the mainland China release and selected original dub from HoYoPlay |
-| Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, setup retrieves the selected Global 1.6.4 dub from GRYPHLINE |
+| Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, setup follows Global narrative and voice updates from GRYPHLINE. Film timelines have separate revision coverage |
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |
 | Persona 5 Royal | Contains P5R.exe and CPK/BASE.CPK | Selected study text CPK and matching English or Japanese original voice pack; verified character metadata is cached on first preparation |

@@ -23,7 +23,7 @@ De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden 
 
 In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Selecteer op iPhone elke bijgewerkte cloud-ZIP eenmaal. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
 
-Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen en filmstemmen uit Global 1.6.4 bij GRYPHLINE. Kies je taal in Instellingen.
+Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. De gecontroleerde filmfragmenten komen uit Global 1.6.4. Kies je taal in Instellingen.
 
 ## Problemen oplossen
 

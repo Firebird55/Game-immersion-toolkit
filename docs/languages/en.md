@@ -324,9 +324,9 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-08 · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [Coverage notes](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Global 1.6.4 recordings and timed film captions can be prepared without a game installation.
+Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 
 <details>
 <summary>Language details</summary>

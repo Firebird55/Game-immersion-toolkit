@@ -60,7 +60,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 | Wuthering Waves | Kuro Games |
 | Neverness to Everness | Perfect World Games |
 
-Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen en filmstemmen uit Global 1.6.4 bij GRYPHLINE. Kies je taal in Instellingen.
+Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. De gecontroleerde filmfragmenten komen uit Global 1.6.4. Kies je taal in Instellingen.
 
 [Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md)
 

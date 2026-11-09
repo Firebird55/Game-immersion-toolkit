@@ -9,9 +9,10 @@ Pair any study language with any of the game's **14 official text locales**
 **A game installation is optional.** Without a game folder, choose **Setup →
 Games → Arknights: Endfield → Install game tools**, then prepare your study and
 translation languages in **Languages**. The Windows companion indexes the
-verified Global 1.6.4 text snapshot and downloads original recordings directly
-from GRYPHLINE on demand. The first download needs internet access. A cached
-film recording can be used offline for its other captions in the same dub.
+current Global Windows release. It reads the publisher’s original localization,
+story and radio tables and retrieves recordings directly from GRYPHLINE. Cached
+recordings work offline. Ordinary dialogue follows publisher resource updates.
+The verified film clocks below apply to the audited 1.6.4 resources.
 The verified film captions cover 390 Mandarin intervals, 394 English, 407 Japanese
 and 382 Korean. Both Chinese study selections use the same 390 Mandarin intervals.
 

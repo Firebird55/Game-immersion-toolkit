@@ -128,7 +128,8 @@ class LocalVoiceAssetService(VoiceDecoder):
             if self.game not in PUBLISHER_GAMES or not all(audio.get('publisher') for audio in audios):
                 raise ValueError('Original voice installation is unavailable')
             if hasattr(self._adapter, 'publisher_snapshot_available'):
-                if not all(audio['publisher'] == stamp for audio in audios):
+                matches = getattr(self._adapter, 'publisher_voice_matches', None)
+                if not all(matches(stamp, audio) if matches else audio['publisher'] == stamp for audio in audios):
                     raise ValueError('Original voice belongs to another publisher release.')
                 return
         validate = getattr(self._adapter, 'validate_voice_source', None)

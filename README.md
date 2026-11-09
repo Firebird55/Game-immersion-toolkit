@@ -60,7 +60,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Wuthering Waves | Kuro Games |
 | Neverness to Everness | Perfect World Games |
 
-Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield dialogue and cinematic voices from GRYPHLINE Global 1.6.4. Choose your language in Setup.
+Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. The verified film clips cover Global 1.6.4. Choose your language in Setup.
 
 [Text sources, reader credits and coverage by game](docs/live-service-sources.md)
 

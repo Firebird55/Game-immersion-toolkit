@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 9
+LANGUAGE_INDEX_VERSION = 10
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -35,10 +35,28 @@ def archive_sources(install):
 
 def fingerprint(install):
     if install is None:
-        from .endfield_online import RELEASE, TEXT_REVISION
-        return f'{RELEASE}:{TEXT_REVISION}'
+        from .endfield_release import fingerprint as publisher_fingerprint
+        return publisher_fingerprint()
     return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
         for p in archive_sources(install)).encode()).hexdigest()
+
+
+def publisher_snapshot_available(tools, stamp):
+    from . import endfield_online, endfield_release
+    if stamp == f'{endfield_online.RELEASE}:{endfield_online.TEXT_REVISION}':
+        return True
+    try:
+        return bool(endfield_release.descriptor(tools, stamp))
+    except (OSError, ValueError):
+        return False
+
+
+def publisher_voice_matches(stamp, audio):
+    from . import endfield_online
+    if audio.get('publisher') == endfield_online.RELEASE:
+        return (audio.get('snapshot') == stamp if 'snapshot' in audio else
+                stamp == f'{endfield_online.RELEASE}:{endfield_online.TEXT_REVISION}')
+    return audio.get('publisher') == stamp
 
 
 def ensure_extractor(directory):
@@ -341,13 +359,16 @@ def narrative_dialogues(catalog, warnings):
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
-    from . import endfield_online
+    from . import endfield_online, endfield_release
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Endfield study/audio language.')
-    stamp = fingerprint(install)
     online = install is None
-    catalog = (DialogueCatalog('endfield', data_dir, revision=endfield_online.TEXT_REVISION)
-               if online else DialogueCatalog('endfield', data_dir))
+    if online:
+        catalog = endfield_release.prepare(data_dir / 'tools')
+        stamp = catalog.stamp
+    else:
+        stamp = fingerprint(install)
+        catalog = DialogueCatalog('endfield', data_dir)
     try:
         tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, prefix='TableCfg/I18nTextTable_')
     except ValueError:
@@ -372,7 +393,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 for row in values):
                 _unsupported()
             inventory.extend({**row, 'layer': layer} for row in values)
-    entries = endfield_online.voice_entries(data_dir / 'tools', source_locale) if online else {}
+    entries = endfield_release.voice_entries(data_dir / 'tools', stamp, VOICE_LOCALES[source_locale]) if online else {}
     # Initial, selected locale and hotfix are explicit successive layers.
     for layer, block in dict.fromkeys((entry['layer'], entry['block']) for entry in inventory):
         current, ambiguous = {}, set()
@@ -391,9 +412,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     coverage = {name: 0 for name in ('voiced', 'unvoiced', 'unknown', 'missing_source_metadata', 'missing_locale_recording')}
     rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage)
     films = endfield_online.film_records(catalog, tables, source_locale)
+    if online:
+        for film in films:
+            film['audio']['snapshot'] = stamp
     rows.extend(films)
     coverage['voiced'] += len(films)
-    if fingerprint(install) != stamp:
+    current = endfield_release.discover()[0] if online else fingerprint(install)
+    if current != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
             'the previous language table is retained.', game_files_changed=True, previous_snapshot_retained=True)
@@ -419,8 +444,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
     if online:
-        warnings.append(f'Using the verified Endfield publisher snapshot {endfield_online.RELEASE}. '
-                        'Original audio downloads on demand. Later resource revisions need a matching reader profile.')
+        warnings.append(f'Using Global Windows {catalog.revision_title} from the Endfield publisher. '
+                        'Original narrative tables and voices follow the released resources. '
+                        'Film captions require verified timing for the selected resources.')
     available = {code for row in rows for code in row['texts']}
     return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': None if online else str(install),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
@@ -435,6 +461,9 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 def extract_voice(install, audio, executable, _destination):
     if 'publisher' in audio:
+        from . import endfield_release
+        if audio['publisher'].startswith('endfield-'):
+            return endfield_release.extract(executable.parent, audio, VOICE_LOCALES[audio['locale']])
         from .endfield_online import extract
         return extract(audio, executable.parent)
     locale = audio['locale']

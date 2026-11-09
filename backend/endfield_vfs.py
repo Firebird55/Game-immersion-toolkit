@@ -99,9 +99,11 @@ class File:
     offset: int
     size: int
     nonce: bytes | None
+    chunk_size: int = 0
+    content_hashes: tuple = ()
 
 
-def parse_index(data: bytes, parameters: Parameters, block: int) -> tuple[File, ...]:
+def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck') -> tuple[File, ...]:
     _require(16 <= len(data) <= MAX_INDEX)
     plain = chacha(data[12:], parameters.key, data[:12])
     _require(zlib.crc32(plain[:-4]) == struct.unpack('<I', plain[-4:])[0], 'Endfield voice index checksum mismatch')
@@ -129,7 +131,7 @@ def parse_index(data: bytes, parameters: Parameters, block: int) -> tuple[File, 
         _require(total_files <= MAX_ENTRIES)
         for _ in range(count):
             name, name_hash = cursor.text(), cursor.number('q')
-            cursor.take(32)
+            hashes = cursor.take(16).hex(), cursor.take(16).hex()
             offset, size = cursor.number('q'), cursor.number('q')
             _require(0 <= offset <= chunk_size and 0 <= size <= chunk_size - offset)
             _require(cursor.number('B') == block)
@@ -137,9 +139,12 @@ def parse_index(data: bytes, parameters: Parameters, block: int) -> tuple[File, 
             _require(encrypted in (0, 1))
             nonce = struct.pack('<iq', parameters.protocol, cursor.number('q')) if encrypted else None
             cursor.take(tag_size)
-            if name.lower().endswith('.pck'):
-                result.append(File(name, name_hash, chunk, offset, size, nonce))
-    _require(len(cursor.data) - cursor.position == (10 if schema == 5 else 0))
+            if name.lower().endswith(suffix):
+                result.append(File(name, name_hash, chunk, offset, size, nonce, chunk_size, hashes))
+    remainder = len(cursor.data) - cursor.position
+    # Some released schema-4 indexes already carry the later ten-byte footer.
+    # The enclosing CRC covers the footer as well as every entry.
+    _require(remainder in {3: (0,), 4: (0, 10), 5: (10,)}[schema])
     return tuple(result)
 
 
@@ -255,13 +260,17 @@ class Package:
         return result
 
     def voice(self, entry: Media) -> bytes:
-        data = self.source.read(entry.offset, entry.size)
-        if entry.bank_seed is not None:
-            data = xor_data(data, entry.bank_seed, self.parameters, entry.offset - entry.bank_offset)
-        if data[:4] not in (b'RIFF', b'RIFX', b'PLUG'):
-            data = xor_data(data, entry.identity, self.parameters)
-        _require(len(data) >= 12 and data[:4] == b'RIFF', 'Unsupported Endfield original voice container')
-        return data
+        return read_voice(self.source, self.parameters, entry)
+
+
+def read_voice(source, parameters, entry):
+    data = source.read(entry.offset, entry.size)
+    if entry.bank_seed is not None:
+        data = xor_data(data, entry.bank_seed, parameters, entry.offset - entry.bank_offset)
+    if data[:4] not in (b'RIFF', b'RIFX', b'PLUG'):
+        data = xor_data(data, entry.identity, parameters)
+    _require(len(data) >= 12 and data[:4] == b'RIFF', 'Unsupported Endfield original voice container')
+    return data
 
 
 def run(assets: Path, parameters: Parameters, action: str, request: dict) -> bytes:

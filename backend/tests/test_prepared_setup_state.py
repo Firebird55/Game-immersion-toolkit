@@ -110,9 +110,12 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     value.build_language(game, 'nl', ('en',))
 
 
-def test_endfield_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch):
+@pytest.mark.parametrize("game", ["endfield", "genshin"])
+def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch, game):
     from pathlib import Path
-    from backend import endfield_assets
+    from backend.game_assets import asset_adapter
+    adapter, _ = asset_adapter(game)
+    monkeypatch.setattr(adapter, 'fingerprint', lambda _: 'owned-publisher-release')
     value = runtime(tmp_path, locale=None)
     value.setup_install = lambda _game: None
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
@@ -120,21 +123,21 @@ def test_endfield_setup_uses_publisher_without_a_folder_and_reuses_the_published
     def run(command, **options):
         commands.append(command)
         assert '--publisher' in command and '--install' not in command
-        payload = {'format': 2, 'game': 'endfield', 'install': None, 'source_locale': 'ja',
-                   'fingerprint': endfield_assets.fingerprint(None), 'targets_requested': ['en'],
-                   'reader_revision': endfield_assets.LANGUAGE_INDEX_VERSION,
-                   'records': [{'text_id': 'endfield:film:owned:caption', 'source_locale': 'ja',
+        payload = {'format': 2, 'game': game, 'install': None, 'source_locale': 'ja',
+                   'fingerprint': adapter.fingerprint(None), 'targets_requested': ['en'],
+                   'reader_revision': adapter.LANGUAGE_INDEX_VERSION,
+                   'records': [{'text_id': f'{game}:owned:caption', 'source_locale': 'ja',
                                 'source_text': 'テスト用の字幕です', 'texts': {'ja': 'テスト用の字幕です', 'en': 'Test caption'},
                                 'audio_locale': 'ja', 'audio': {'publisher': 'owned'}, 'channels': ['cinematic']}]}
         Path(command[command.index('--output') + 1]).write_text(json.dumps(payload))
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(api.subprocess, 'run', run)
-    value.build_language('endfield', 'ja', ('en',))
-    value.build_language('endfield', 'ja', ('en',))
+    value.build_language(game, 'ja', ('en',))
+    value.build_language(game, 'ja', ('en',))
     assert len(commands) == 1
-    assert value.locale_index('endfield', 'ja').ready
+    assert value.locale_index(game, 'ja').ready
     with pytest.raises(ValueError, match='installed game folder'):
-        value.build_language('genshin', 'ja', ('en',))
+        value.build_language('starrail', 'ja', ('en',))
 
 
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):

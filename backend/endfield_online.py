@@ -102,7 +102,7 @@ def _film_audio(film, caption, locale):
 
 
 def film_records(catalog, tables, locale):
-    if catalog.revision != TEXT_REVISION:
+    if catalog.revision != TEXT_REVISION and not (hasattr(catalog, 'has_verified_clocks') and catalog.has_verified_clocks()):
         return []
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
@@ -139,9 +139,15 @@ def extract(audio, tools):
         film, caption = audio['film'], audio['caption']
         track = ('cn', 'en', 'jp', 'ko')[DUBS.index(dub)]
         if ((film, caption) not in profile.CUES and (film, track, caption) not in context.EXTRA
-                or audio != _film_audio(film, caption, locale)):
+                or {key: value for key, value in audio.items() if key != 'snapshot'} != _film_audio(film, caption, locale)):
             _invalid()
         identity, digest = profile.FILMS[film][DUBS.index(dub)]
+        if 'snapshot' in audio:
+            from . import endfield_release
+            layers = endfield_release.descriptor(tools, audio['snapshot'])['layers']
+            if any(layers[role]['sha256'] != sha for role, sha in endfield_release.FILM_MANIFESTS.items()):
+                _invalid()
+            return endfield_release.media(tools, audio['snapshot'], dub, identity, digest)
     else:
         source = audio.get('source', '')
         if not source.startswith('voice/' + dub + '/') or not source.endswith('.wem'):
