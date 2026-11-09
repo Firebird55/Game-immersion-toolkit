@@ -129,6 +129,36 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert args[4].read_bytes() == b'previous'
 
 
+def test_conversation_reuses_current_actor_reaction_without_predecessor(tmp_path, monkeypatch):
+    from scripts import endfield_radio as cli
+    line = {'dialogText': ref(1), 'actorNameId': 'speaker', 'emotionType': 4, 'audioOverride': 'missing'}
+    catalog = Catalog({'DialogTextTable': {'first': line, 'other': {**line, 'dialogText': ref(2)}},
+                       'I18nTextTable_EN': {'1': 'First sentence.', '2': 'Another sentence.'},
+                       'NpcInfoTable': {'speaker': {'voActor': 'actor'}},
+                       'EmotionVoiceConfig': {'4': {'interjection': 'neutral_04'}},
+                       'AudioDialog': {'1': {'path': 'story/au_dlg_commvo_actor_neutral_04.wem'}}})
+    catalog.stamp = 'release'
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda _: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda: (catalog.stamp, b''))
+    key = voice_hash('voice/english/story/au_dlg_commvo_actor_neutral_04.wem')
+    monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
+    monkeypatch.setattr(cli.publisher, 'media', lambda cache, stamp, dub, identity: b'reaction' if identity == key else None)
+    destination = tmp_path / 'reaction.wem'
+    name = 'au_dlg_commvo_actor_neutral_04'
+    for identity in ('first', 'other'):
+        args = (tmp_path, 'en', [], 'endfield:' + identity, destination, [])
+        row = cli.run(*args, reaction=name)['rows'][0]
+        assert row['kind'] == 'conversation' and row['status'] == 'unresolved_override'
+        assert row['exported_reaction'] == name and row['reaction_candidates'] == [name]
+        assert 'file_id' not in row and destination.read_bytes() == b'reaction'
+        with pytest.raises(ValueError, match='no verified sentence'):
+            cli.run(*args)
+    catalog.values['NpcInfoTable'].clear()
+    with pytest.raises(ValueError, match='absent'):
+        cli.run(*args, reaction=name)
+    assert destination.read_bytes() == b'reaction'
+
+
 def test_narrative_tables_keep_text_media_and_voice_messages_distinct():
     catalog = Catalog({
         'DialogOptionTable': {'a': {'optionText': ref(1)}},

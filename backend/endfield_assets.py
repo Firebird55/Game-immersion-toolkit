@@ -185,10 +185,12 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
                 coverage[reason] = coverage.get(reason, 0) + 1
             radio = {}
-            if radio_details and 'radio_group' in row:
+            if radio_details and 'radio_reaction_configured' in row:
                 sentence = ('indexed' if audio else 'missing_locale_media' if source else
                             'unresolved_override' if row.get('audioOverride') else 'no_override')
-                radio = {'radio_group': row['radio_group'], 'radio_sentence': sentence}
+                radio = {'radio_sentence': sentence}
+                if 'radio_group' in row:
+                    radio['radio_group'] = row['radio_group']
                 if row.get('audioEvent'):
                     radio['radio_audio_event'] = row['audioEvent']
                 if not source:
@@ -262,8 +264,7 @@ def authored_dialogues(catalog):
     return dialogs
 
 
-def radio_dialogues(catalog):
-    dialogs = {}
+def _reaction_tables(catalog):
     actors = _mapping(catalog.file('TableCfg/NpcInfoTable.json', optional=True))
     emotions = _mapping(catalog.file('TableCfg/EmotionVoiceConfig.json', optional=True))
     reactions = {}
@@ -273,6 +274,39 @@ def radio_dialogues(catalog):
         if not isinstance(terms, list) or not all(isinstance(term, str) for term in terms) or not isinstance(fallback, str):
             _unsupported()
         reactions[key] = tuple(dict.fromkeys(term for term in (terms or [fallback]) if term))
+    return actors, reactions
+
+
+def _reaction_fields(row, actors, reactions, *, allow_actor_id):
+    actor = row.get('actorNameId', '')
+    if not isinstance(actor, str):
+        _unsupported()
+    if actor in actors:
+        actor = _mapping(actors[actor]).get('voActor', '')
+    elif not allow_actor_id:
+        actor = ''
+    if not isinstance(actor, str):
+        _unsupported()
+    emotion = row.get('emotionType')
+    terms = reactions.get(str(emotion), ())
+    return {'radio_voice_actor': actor, 'radio_interjections': terms if actor and actor != 'None' else (),
+            'radio_reaction_configured': bool(terms) if reactions and type(emotion) is int else None}
+
+
+def conversation_with_reactions(catalog, identity):
+    row = _table(catalog, 'DialogTextTable').get(identity)
+    if row is None:
+        return None
+    _text_ref(_mapping(row).get('dialogText'))
+    if not isinstance(row.get('audioOverride', ''), str):
+        _unsupported()
+    return {**row, 'dialogue_kind': 'conversation',
+            **_reaction_fields(row, *_reaction_tables(catalog), allow_actor_id=False)}
+
+
+def radio_dialogues(catalog):
+    dialogs = {}
+    actors, reactions = _reaction_tables(catalog)
     for group_id, group in _table(catalog, 'RadioTable').items():
         rows = _mapping(group).get('radioSingleDataList')
         if not isinstance(rows, list):
@@ -288,16 +322,9 @@ def radio_dialogues(catalog):
                 _unsupported()
             if identity in dialogs:
                 _unsupported()
-            terms = reactions.get(str(row.get('emotionType')), ())
-            actor = row.get('actorNameId', '')
-            if actor in actors:
-                actor = _mapping(actors[actor]).get('voActor', '')
-            if not isinstance(actor, str):
-                _unsupported()
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
                 'radio_group': group_id, 'previous_radio_id': previous,
-                'radio_voice_actor': actor, 'radio_interjections': terms if actor and actor != 'None' else (),
-                'radio_reaction_configured': (bool(terms) if emotions and type(row.get('emotionType')) is int else None),
+                **_reaction_fields(row, actors, reactions, allow_actor_id=True),
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
             previous = identity

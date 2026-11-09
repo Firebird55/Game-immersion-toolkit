@@ -1,4 +1,4 @@
-"""List released Endfield radio sentence bindings or fetch one original WEM."""
+"""List released Endfield radio bindings or fetch a radio/conversation sentence or reaction WEM."""
 import argparse
 import json
 from pathlib import Path
@@ -18,6 +18,13 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
         raise ValueError('Unknown radio group: ' + ', '.join(sorted(unknown)))
     if groups:
         dialogs = {key: row for key, row in dialogs.items() if row['radio_group'] in groups}
+    if line and not groups and line.startswith('endfield:'):
+        identity = line.removeprefix('endfield:').split(':', 1)[0]
+        if identity not in dialogs:
+            conversation = assets.conversation_with_reactions(catalog, identity)
+            dialogs = {identity: conversation} if conversation is not None else {}
+        else:
+            dialogs = {identity: dialogs[identity]}
     paths = assets.audio_paths(catalog.file('TableCfg/AudioDialog.json'))
     tables = selected_tables(catalog, assets.TEXT_LOCALES, locale, targets, prefix='TableCfg/I18nTextTable_')
     dub = assets.VOICE_LOCALES[locale]
@@ -31,7 +38,11 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
         for row in rows:
             if line is not None and row['text_id'] != line:
                 continue
-            entry = {'group': row['radio_group'], 'id': row['text_id'], 'status': row['radio_sentence']}
+            entry = {'id': row['text_id'], 'status': row['radio_sentence']}
+            if 'radio_group' in row:
+                entry['group'] = row['radio_group']
+            else:
+                entry['kind'] = row['dialogue_kind']
             if 'radio_audio_event' in row:
                 entry['audio_event'] = row['radio_audio_event']
             if 'radio_reaction_configured' in row:
@@ -47,7 +58,7 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
                 chosen = row
             report.append(entry)
     if line is not None and chosen is None:
-        raise ValueError('Unknown or untranslated radio performance for this selection.')
+        raise ValueError('Unknown or untranslated dialogue performance for this selection.')
     data = None
     if output:
         if reaction:
@@ -73,7 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--locale', choices=assets.SUPPORTED_LOCALES, required=True)
     parser.add_argument('--target', choices=assets.TEXT_LOCALES, action='append', default=[])
     parser.add_argument('--group', action='append', default=[], help='Repeat to limit the inventory to selected groups')
-    parser.add_argument('--line', help='Exact performance ID from the inventory, including any gender suffix')
+    parser.add_argument('--line', help='Exact endfield: conversation or radio performance ID, including any gender suffix')
     parser.add_argument('--wem', type=Path, help='Save the selected performance as original Wwise audio')
     parser.add_argument('--reaction', help='Export this listed reaction candidate separately from sentence audio')
     args = parser.parse_args()
