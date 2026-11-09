@@ -3,7 +3,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -178,7 +178,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
         result['metadata_revision_title'] = catalog.revision_title
-        result['coverage_warnings'].append('Using released Global regular voice packages. Optional chapter packages and later in-game hotfixes have separate coverage.')
+        result['coverage_warnings'].append('Using Global launcher voice packages and available checksum-matched chapter packs. Other optional files and in-game hotfixes require a compatible source.')
     return result
 
 

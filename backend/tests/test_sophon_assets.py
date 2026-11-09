@@ -1,6 +1,7 @@
 import hashlib
 import json
 import struct
+from types import SimpleNamespace
 
 import pytest
 import zstandard
@@ -125,3 +126,30 @@ def test_starrail_cannot_replay_another_game_or_another_dub(tmp_path, monkeypatc
     assert not voices.snapshot_available(tools, stamp, 'genshin')
     with pytest.raises(ValueError):
         voices.extract(audio | {'locale': 'ko'}, tools, 'starrail')
+
+
+def test_optional_starrail_chapters_require_the_active_release_path_size_and_digest(tmp_path, monkeypatch):
+    # An identical name from another launcher build is insufficient.
+    stamp = starrail_publisher.VERIFIED_46
+    prefix = 'StarRail_Data/Persistent/Audio/AudioPackage/Windows/Korean/'
+    path = prefix + 'External_del_4.6_chapter5_0.pck'
+    _, size, digest = starrail_publisher.CHAPTER_PACKAGES['Korean'][0]
+    calls = []
+    selected = {path: SimpleNamespace(size=size, digest=digest)}
+
+    def files(directory, channel, spec, names):
+        calls.append(names)
+        return selected.copy()
+
+    monkeypatch.setattr(sophon, 'manifest', files)
+    assert starrail_publisher.optional_files(tmp_path, 'next-release', 'ko') == {}
+    assert starrail_publisher.optional_files(tmp_path, stamp, 'ja') == {}
+    assert calls == []
+    assert starrail_publisher.optional_files(tmp_path, stamp, 'ko') == selected
+    assert calls == [(path,)]
+    for index, bad in enumerate(({path: SimpleNamespace(size=size, digest='0' * 32)},
+                                 {path: SimpleNamespace(size=size + 1, digest=digest)},
+                                 {prefix + 'External_del_4.6_chapter5_1.pck': selected[path]})):
+        selected = bad
+        with pytest.raises(ValueError, match='differ'):
+            starrail_publisher.optional_files(tmp_path / str(index), stamp, 'ko')

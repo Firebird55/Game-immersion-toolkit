@@ -3,7 +3,7 @@
 ## Global publisher playback, November 9, 2026
 
 The desktop worker prepared all five study choices with an empty toolkit cache
-and no game path. Global 4.6 produced 90,630 English, 91,966 Japanese, 92,052
+and no game path. The Global 4.6 regular packages produced 90,630 English, 91,966 Japanese, 92,052
 Korean and 92,057 Mandarin voiced records in each Chinese script. The service
 exported Leonard's sentence 200070401 in all four dubs. Each publisher WEM
 was byte-identical to its installed counterpart. The offline reader reproduced
@@ -18,10 +18,29 @@ identified design 16854589, ASB/audio 16781679 and Lua 16781679, matching
 the pinned text revision. Its ordinary player log supplied no public hotfix
 manifest URL. Setup recognizes the exact audited launcher generation and
 checks the actual revision markers for subsequent releases. A later release
-needs matching published text. Independent hotfix discovery, the eight
-optional chapter packages and ambiguous performances remain open.
+needs matching published text. Independent hotfix discovery and ambiguous
+performances remain open.
 [Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8)
 · [Matched Global text revision](https://github.com/DimbreathBot/TurnBasedGameData/tree/74a7b96fba32f00cf495a5c00b0311bd02207aaf)
+
+Five chapter-5 packages in the public Global 4.7 preload are byte-compatible
+with the active 4.6 AudioV. Preparation requires the complete original file path,
+size and MD5 in the matching manifest. It accepts both Mandarin and English
+packages and the first Korean package. Both Japanese files and the second Korean
+file have different checksums in both the Global and mainland China preloads.
+Those three remain unavailable from this source. The earlier 4.3–4.6 mainland
+launcher manifests contained none of the eight current optional checksums.
+
+The normal preparation worker now resolves 93,578 Mandarin records in each
+Chinese script, 92,151 English, 92,819 Korean and 91,966 Japanese. Both the
+Mandarin and English chapters contribute 1,521 additional records. Korean gains
+767. The two Mandarin packages contain 1,519 WEMs, of which 1,514 have an
+exact supported text binding, including two broadcasts. Sample original WEMs
+from both Mandarin packages matched the installed bytes. The selected records
+from every compatible package also exported as MP3s and replayed offline.
+[English publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_4ea0efd4ec903433_17e27e86e8c125fe5fdf0654cfe9d913)
+· [Mandarin publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_d661cb6b87d9177d_538657f961efa5766813f93b24963fb4)
+· [Korean publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_c0431fe18031980c_841f5ca2186abebbcf3bd8854a9af42b)
 
 Initial audit on October 27, 2026 with installed client 4.6.0 and adapter
 schema 2. The November 8 multi-voice check below used adapter schema 3.

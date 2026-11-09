@@ -633,7 +633,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.",
-      "coverage": "Prepare Star Rail without a game folder using the regular Global voice packages and revision-matched authored text. Global 4.6 has 173 verified regular packages per dub. Optional chapter downloads, in-game hotfix discovery and ambiguous multi-voice selections have separate coverage.",
+      "coverage": "Prepare Star Rail without a game folder using the regular Global voice packages and revision-matched authored text. Global 4.6 has 173 verified regular packages per dub and five verified chapter packages across English, Mandarin and Korean. Three chapter packages, automatic in-game hotfix discovery and ambiguous voice selections remain open.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [

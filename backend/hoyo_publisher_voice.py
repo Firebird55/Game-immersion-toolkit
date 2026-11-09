@@ -57,15 +57,29 @@ def _files(directory, stamp, locale, game):
     return result
 
 
+def _optional_files(directory, stamp, locale, game):
+    if game == 'starrail':
+        from .starrail_publisher import optional_files
+        return optional_files(directory, stamp, locale)
+    return {}
+
+
+def _archive(directory, stamp, locale, name, game):
+    regular = _files(directory, stamp, locale, game)
+    if name in regular:
+        return regular[name]
+    return _optional_files(directory, stamp, locale, game)[name]
+
+
 @lru_cache(maxsize=256)
 def _table(directory, stamp, locale, name, game):
-    asset = _files(directory, stamp, locale, game)[name]
+    asset = _archive(directory, stamp, locale, name, game)
     return external_table(name, asset.size, lambda start, count: asset.read(directory, start, count))
 
 
 def inventory(data_dir, stamp, locale, game):
     directory = data_dir / 'tools' / 'sophon'
-    files = _files(directory, stamp, locale, game)
+    files = _files(directory, stamp, locale, game) | _optional_files(directory, stamp, locale, game)
     entries = {}
     with ThreadPoolExecutor(max_workers=6) as pool:
         for layer in ('StreamingAssets', 'Persistent'):
@@ -92,7 +106,7 @@ def extract(audio, tools, game):
         raise ValueError('HoYoPlay voice identity does not match the selected original language.')
     directory, name = tools / 'sophon', audio['package']
     entry, = [row for row in _table(directory, stamp, locale, name, game) if row.file_id == identity]
-    data = _files(directory, stamp, locale, game)[name].read(directory, entry.offset, entry.size)
+    data = _archive(directory, stamp, locale, name, game).read(directory, entry.offset, entry.size)
     if data[:4] != b'RIFF' or len(data) < 12 or len(data) != struct.unpack_from('<I', data, 4)[0] + 8:
         raise ValueError('HoYoPlay publisher voice is incomplete.')
     return data
