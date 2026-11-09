@@ -22,8 +22,8 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 | `starrail-global`, `starrail-cn` | The two 4.6.0 launchers each list 692 regular dub PCKs. All 692 match across regions by full path, size and MD5. Separate optional chapters require their own source checks. |
 | `zzz-global`, `zzz-cn` | The two 3.3.0 launchers each list 313 dub PCKs with identical full paths, sizes and MD5s. The individual Global [dialogue command](../scripts/probe-zzz-publisher.py) can fetch an authored line and original dubs. |
 | `endfield-global` | Both 1.6.4 resource indexes. [Radio and film commands](game-audits/endfield.md) resolve original performances from the current dub. |
-| `wuwa-global` | 55 base game PAKs in the launcher's checksum-verified 3.7.1 file index. Separate in-game text, voice and video overlays are outside this comparison. |
-| `nte-global`, `nte-cn` | Regional branch chain, encoded resource-list checksum and declared base-section revisions. Global resolved to PC_140 1.4.11, mainland China to PC_150 1.5.4. Recovering playable per-line assets requires additional archive metadata. |
+| `wuwa-global` | The 3.7.1 base leads to the active 3.7.19 story data, four independently versioned dub manifests and 231 movies per quality tier. The command compares 1,549 released file entries and can download an exact external WEM. |
+| `nte-global`, `nte-cn` | Regional branch chain and the publisher-verified decoded resource list, including file ranges inside packages. Global PC_140 1.4.11 lists 552 files and mainland PC_150 1.5.4 lists 366. The command downloads individual files by exact name and MD5. Per-line audio still needs game archive metadata. |
 
 The three HoYoPlay readers retry the individual immutable manifest or chunk
 after a network interruption and check its published digest before caching it.

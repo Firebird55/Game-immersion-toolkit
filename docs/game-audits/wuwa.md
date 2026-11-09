@@ -1,5 +1,19 @@
 # Wuthering Waves dialogue audit
 
+## Global publisher updates and selective voice acquisition · November 9, 2026
+
+From an empty private cache the source command followed the active 3.7.1 launcher to its base PAK, read the exact KuroPublicConfig entry by HTTP range, and selected the resource route declared inside it. The current core is 3.7.19. English, Mandarin and Japanese use 3.7.6 for voice overrides, and Korean uses 3.7.7. Each independently versioned core, voice and video index must match the digest in its publisher configuration. The SD, HD and UHD indexes each list 231 movie packages. The 1,549 receipt entries include base PAKs, resource and voice packages, movie packages and signature files. [Kuro Global launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json)
+
+The same manifest reader verified 32 changed core entries between 3.7.17 and 3.7.18 and four between 3.7.18 and 3.7.19. The Korean 3.7.6 to 3.7.7 update changed two dub entries. The release command uses the bootstrap path in the current game package for later releases.
+
+For an authored PlotAudio filename, the source command selects the chosen language's exact WwiseExternalSource path in the override, then consults the base if needed. It verifies the directory and the stored entry hash under the Kuro v12 layout. For partially encrypted WEMs that hash covers the encrypted prefix. Range responses must match the declared offsets and object size. The WEM framing and release pointers are checked before the selected output is saved. Two story filenames from the earlier PlotAudio audit were downloaded and decoded in all four dubs. For `vo_Main_Mengzhou_3_7_14_28` the English, Japanese, Korean and Mandarin durations were 9.678, 9.844, 9.409 and 8.675 seconds. [Regional source command](../../scripts/live_game_sources.py)
+
+```text
+python scripts/live_game_sources.py wuwa-global --cache private-cache --output wuwa.json --dub en --voice vo_Main_Mengzhou_3_7_14_28 --save line.wem
+```
+
+Normal desktop Setup still needs an installed game for the text database, plot-flow preparation and capture-to-voice lookup. The command accepts an exact external filename. Conditional gender/choice selection, shared nonlocalized audio and per-caption film slicing still require their authored bindings. The reader uses the published Kuro catalogue format from mornye-tools, PAK format evidence from CUE4Parse and compatible archive parameters from wuwa-keys. [Catalogue format](https://github.com/Yumeo0/mornye-tools/blob/4591ef24949688ec9835bf910a204d6bbc4b339c/src-tauri/crates/game-client/src/discovery.rs) · [PAK entry layout](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs) · [Archive format provider](https://github.com/yarik0chka/wuwa-keys)
+
 ## November 8, 2026 · Floating dialogue and film voices
 
 The Global 3.7 floating subtitle database contained 46 distinct caption IDs

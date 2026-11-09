@@ -1,5 +1,15 @@
 # Neverness to Everness audit
 
+## Released file acquisition across regions · November 9, 2026
+
+The source command now follows each regional branch, decodes the updater resource list and checks its plaintext MD5 against the active launcher. It records independent files and the exact byte ranges of files stored inside aggregate packages. Global PC_140 1.4.11 listed 552 files and mainland PC_150 1.5.4 listed 366. Both included 77 PAK files. The updater format references are pinned by commit and SHA-256. The Global and mainland distributions use different public updater parameters. [Global launcher](https://ntecdn1.perfectworld.com/clientRes/publish_PC/Version/Windows/config.xml) · [Mainland launcher](https://yhcdn1.wmupd.com/clientRes/publish_PC/Version/Windows/config.xml) · [Global patcher integration](https://github.com/Tobiichi-Origuchi/nte_patcher/blob/1135247b3a21ac72304b8bd9f5aa548994f7a8ef/tests/test_integration.rs) · [Mainland downloader reference](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/scripts/nte_downloader.py)
+
+Two empty-cache checks retrieved the same game path from different regional package objects. The Global member was 22,423 bytes, the mainland member 23,485 bytes. Each matched its own publisher checksum. The regional source command can save a selected file without installing or downloading a full game. The archive contents still require compatible game archive metadata and verified localization and Wwise bindings before normal Setup can play a sentence. [Source command](../../scripts/live_game_sources.py)
+
+```text
+python scripts/live_game_sources.py nte-global --cache private-cache --output nte.json --resource Client/WindowsNoEditor/HT/Content/PatchPaks/pakchunk2-Windows_0_P.pak --save selected.pak
+```
+
 ## November 8, 2026 · Localized performances and sequence timing
 
 The cooked Global dialogue and bubble sound tables contain explicit aliases
