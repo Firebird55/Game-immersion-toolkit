@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend import endfield_assets as endfield
+from backend.local_game import LocalDialogue
 from backend.preparation_errors import PreparationFailure
 from backend.voice_assets import voice_hash
 
@@ -64,8 +65,10 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
                        'NpcInfoTable': {'actor': {'voActor': 'performer'}},
                        'EmotionVoiceConfig': {'7': {'interjectionList': ['short_reaction']}}})
     tables = {'en': {'1': 'Synthetic sentence.'}}
+    generated = endfield.dialogue_records(endfield.radio_dialogues(catalog), {}, tables, 'en', {})
+    assert LocalDialogue(**generated[0]).dialogue_kind == 'radio'
     def record(paths, entries):
-        return endfield.dialogue_records(endfield.radio_dialogues(catalog), paths, tables, 'en', entries)[0]
+        return endfield.dialogue_records(endfield.radio_dialogues(catalog), paths, tables, 'en', entries, radio_details=True)[0]
     first = record({}, {})
     assert first['radio_group'] == 'sequence' and first['radio_sentence'] == 'unresolved_override'
     assert first['radio_reaction_configured'] and first['audio'] is None

@@ -25,7 +25,7 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
     report = []
     chosen = None
     for key, dialog in dialogs.items():
-        rows = assets.dialogue_records({key: dialog}, paths, tables, locale, entries)
+        rows = assets.dialogue_records({key: dialog}, paths, tables, locale, entries, radio_details=True)
         if not rows and line is None:
             report.append({'group': dialog['radio_group'], 'id': 'endfield:' + key, 'status': 'missing_study_text'})
         for row in rows:

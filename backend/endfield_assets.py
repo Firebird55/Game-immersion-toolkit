@@ -165,7 +165,7 @@ def _radio_reaction(row, paths, locale, entries):
     return {**info, 'radio_reaction_status': status}
 
 
-def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None):
+def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None, radio_details=False):
     result = []
     for identity, row in dialogs.items():
         if row.get('dialogue_kind') == 'readable' and any('<image' in table.get(str(row['dialogText']['id']), '').lower()
@@ -185,7 +185,7 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
                 coverage[reason] = coverage.get(reason, 0) + 1
             radio = {}
-            if 'radio_group' in row:
+            if radio_details and 'radio_group' in row:
                 sentence = ('indexed' if audio else 'missing_locale_media' if source else
                             'unresolved_override' if row.get('audioOverride') else 'no_override')
                 radio = {'radio_group': row['radio_group'], 'radio_sentence': sentence}
