@@ -15,6 +15,7 @@ from tempfile import TemporaryDirectory
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from backend import sophon_assets as sophon
+from backend import game_tools
 from backend.voice_assets import external_table, voice_hash
 
 CHANNEL = 'zzz-global'
@@ -122,7 +123,7 @@ def recording(cache, build, locale, paths):
 def fetch(args):
     work_base = args.cache.resolve()
     work_base.mkdir(parents=True, exist_ok=True)
-    reader = args.reader.resolve(strict=True)
+    reader = args.reader.resolve(strict=True) if args.reader else None
     output = args.output.resolve()
     if output.exists():
         raise ValueError('Choose a new output directory.')
@@ -132,6 +133,17 @@ def fetch(args):
     files = sophon.manifest(work_base, CHANNEL, tuple(build['manifests']['game']), ('/data_version', '/res_version', '.blk'))
     with TemporaryDirectory(dir=work_base) as temp:
         work = Path(temp)
+        if reader is None:
+            source = work_base / 'reader' / game_tools.READER_SHA / 'galgame-perform.ts'
+            if not source.is_file() or hashlib.sha256(source.read_bytes()).hexdigest() != game_tools.READER_SHA:
+                raw = game_tools.download(game_tools.READER_BASE + 'galgame-perform.ts', limit=4 * 1024**2)
+                if hashlib.sha256(raw).hexdigest() != game_tools.READER_SHA:
+                    raise ValueError('ZZZ source reader checksum mismatch.')
+                game_tools._atomic_file(source.with_name('LICENSE'), game_tools.download(game_tools.READER_BASE + 'LICENSE', limit=128 * 1024))
+                game_tools._atomic_file(source, raw)
+            subprocess.run([args.node, str(ROOT / 'scripts/zzz-publisher-dialogue.mjs'), 'compile',
+                            str(work), str(source)], check=True, timeout=60)
+            reader = work / 'galgame-perform.mjs'
 
         def query(mode, **values):
             (work / (mode + '-input.json')).write_text(json.dumps({'id': args.text_id, **values}), encoding='utf-8')
@@ -165,7 +177,7 @@ def fetch(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('text_id')
-    parser.add_argument('--reader', type=Path, required=True, help='Compiled galgame-perform.mjs from the ZZZ toolchain')
+    parser.add_argument('--reader', type=Path, help='Use an existing compiled galgame-perform.mjs (default: prepare the pinned reader)')
     parser.add_argument('--node', default='node', help='Node executable for that reader')
     parser.add_argument('--cache', type=Path, required=True, help='Private cache for verified publisher chunks')
     parser.add_argument('--output', type=Path, required=True, help='New private directory for local subtitles and WEMs')
