@@ -1,4 +1,5 @@
 import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
+import {translate} from '../public/mobile-capture/interface-language.mjs';
 const catalog=JSON.parse(readFileSync('public/mobile-capture/games-data.json','utf8'));
 const repo='https://github.com/Firebird55/Game-immersion-toolkit',site='https://firebird55.github.io/Game-immersion-toolkit/';
 const text={
@@ -26,11 +27,14 @@ const sourceLabels = {
  'zh-Hant': ['文字、配音與上游專案', '遊戲', '原版配音發布管道', '各遊戲的文字來源、讀取工具與涵蓋範圍'],
 };
 const upstreamProjects = {
- genshin: ['HoYoverse / HoYoPlay', [['Dimbreath/AnimeGameData', 'https://gitlab.com/Dimbreath/animegamedata2', 'dialogue']]],
+ genshin: ['HoYoverse / HoYoPlay', [
+   ['Dimbreath/AnimeGameData', 'https://gitlab.com/Dimbreath/animegamedata2', 'dialogue'],
+   ['kuaichu/game-cdn-archive', 'https://github.com/kuaichu/game-cdn-archive', 'historical']]],
  starrail: ['HoYoverse / HoYoPlay', [['Dimbreath/TurnBasedGameData', 'https://gitlab.com/Dimbreath/turnbasedgamedata', 'sentence']]],
  zzz: ['HoYoverse / HoYoPlay', [
    ['Dimbreath/ZenlessData', 'https://git.mero.moe/dimbreath/ZenlessData', 'sceneTables'],
-   ['simon300000/zenless-voice', 'https://github.com/simon300000/zenless-voice', 'sceneReader']]],
+   ['simon300000/zenless-voice', 'https://github.com/simon300000/zenless-voice', 'sceneReader'],
+   ['Hiro420/ZZZ_TextMap', 'https://github.com/Hiro420/ZZZ_TextMap', 'schemaReference']]],
  endfield: ['GRYPHLINE', [
    ['rmxlinux/EndfieldData', 'https://github.com/rmxlinux/EndfieldData', 'storyTables'],
    ['EIHRTeam/EndfieldStudio', 'https://github.com/EIHRTeam/EndfieldStudio', 'voiceArchive']]],
@@ -38,19 +42,122 @@ const upstreamProjects = {
    ['Yumeo0/mornye-tools', 'https://github.com/Yumeo0/mornye-tools', 'launcherFormat'],
    ['yarik0chka/wuwa-keys', 'https://github.com/yarik0chka/wuwa-keys', 'archive'],
    ['Arikatsu/WutheringWaves_Data', 'https://github.com/Arikatsu/WutheringWaves_Data', 'comparison']]],
- nte: ['Perfect World Games', [['Waifus-Grace/NTE_Assets', 'https://github.com/Waifus-Grace/NTE_Assets', 'movies']]],
+ nte: ['Perfect World Games', [
+   ['Waifus-Grace/NTE_Assets', 'https://github.com/Waifus-Grace/NTE_Assets', 'movies'],
+   ['555me/NTE-usmap', 'https://github.com/555me/NTE-usmap', 'archiveSchema'],
+   ['BlueHeisenberg/SCSKiller', 'https://github.com/BlueHeisenberg/SCSKiller', 'archiveMetadata'],
+   ['Tobiichi-Origuchi/nte_patcher', 'https://github.com/Tobiichi-Origuchi/nte_patcher', 'globalUpdater'],
+   ['kuaichu/game-cdn-archive', 'https://github.com/kuaichu/game-cdn-archive', 'mainlandUpdater']]],
 };
 const projectRoles = {
- en: {heading:'Upstream project and role', dialogue:'required translations and dialogue-to-voice IDs', sentence:'required translations, sentence IDs and voice tables', sceneTables:'required translations and scene tables for installed games', sceneReader:'required scene reader', storyTables:'required localization and story tables for installed games', voiceArchive:'required voice archive metadata', launcherFormat:'required publisher catalogue format', archive:'required game archive metadata', comparison:'optional table comparison', movies:'required movie tables, with a pinned fallback revision', readers:'Unreal archive readers', audio:'Audio decoding and conversion', notices:'Third-party notices', scope:'These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.'},
- nl: {heading:'Bronproject en rol', dialogue:'benodigde vertalingen en koppelingen tussen dialoog en stem', sentence:'benodigde vertalingen, regel-ID’s en stemtabellen', sceneTables:'benodigde vertalingen en scènetabellen voor een geïnstalleerde game', sceneReader:'benodigde scènelezer', storyTables:'benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game', voiceArchive:'benodigde metadata voor stemarchieven', launcherFormat:'benodigde formaatinformatie voor de uitgeverscatalogus', archive:'benodigde metadata voor gamearchieven', comparison:'optioneel voor vergelijking van tabellen', movies:'benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie', readers:'Readers voor Unreal-archieven', audio:'Audio decoderen en converteren', notices:'Licenties en vermeldingen', scope:'Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.'},
- 'zh-Hans': {heading:'上游项目及用途', dialogue:'提供必需的译文和台词与配音的对应关系', sentence:'提供必需的译文、台词编号和配音表', sceneTables:'本地游戏读取所需的译文和场景表', sceneReader:'必需的场景读取器', storyTables:'本地游戏读取所需的本地化和剧情表', voiceArchive:'读取配音包所需的格式信息', launcherFormat:'读取发行商目录所需的格式信息', archive:'读取游戏资源包所需的格式信息', comparison:'可选的数据表核对来源', movies:'必需的影片表，必要时使用固定版本', readers:'Unreal 资源读取器', audio:'音频解码与转换', notices:'第三方许可与声明', scope:'这六款游戏计划支持在 Linux、macOS 和 Android 上独立准备数据及播放配音。各平台仍需逐款验证。其他游戏仅支持 Windows。'},
- 'zh-Hant': {heading:'上游專案及用途', dialogue:'提供必要的譯文和台詞與配音的對應關係', sentence:'提供必要的譯文、台詞編號和配音表', sceneTables:'讀取已安裝遊戲所需的譯文和場景表', sceneReader:'必要的場景讀取器', storyTables:'讀取已安裝遊戲所需的在地化和劇情表', voiceArchive:'讀取配音封存檔所需的格式資訊', launcherFormat:'讀取發行商目錄所需的格式資訊', archive:'讀取遊戲封存檔所需的格式資訊', comparison:'可選用的資料表比對來源', movies:'必要的影片表，需要時使用固定版本', readers:'Unreal 資源讀取器', audio:'音訊解碼與轉換', notices:'第三方授權與聲明', scope:'這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。'},
+ en: {
+   heading:'Upstream project and role',
+   dialogue:'required translations and dialogue-to-voice IDs',
+   sentence:'required translations, sentence IDs and voice tables',
+   sceneTables:'required translations and scene tables for installed games',
+   sceneReader:'required scene reader',
+   storyTables:'required localization and story tables for installed games',
+   voiceArchive:'required voice archive metadata',
+   launcherFormat:'required publisher catalogue format',
+   archive:'required game archive metadata',
+   comparison:'optional table comparison',
+   movies:'required movie tables, with a pinned fallback revision',
+   archiveSchema:'required installed type schema',
+   archiveMetadata:'required compatible installed archive metadata',
+   globalUpdater:'required for Global updater checks',
+   mainlandUpdater:'required for mainland updater checks',
+   historical:'optional historical release index',
+   schemaReference:'optional TextMap schema reference',
+   readers:'Unreal archive readers',
+   audio:'Audio decoding and conversion',
+   notices:'Third-party notices',
+   scope:'These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.',
+ },
+ nl: {
+   heading:'Bronproject en rol',
+   dialogue:'benodigde vertalingen en koppelingen tussen dialoog en stem',
+   sentence:'benodigde vertalingen, regel-ID’s en stemtabellen',
+   sceneTables:'benodigde vertalingen en scènetabellen voor een geïnstalleerde game',
+   sceneReader:'benodigde scènelezer',
+   storyTables:'benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game',
+   voiceArchive:'benodigde metadata voor stemarchieven',
+   launcherFormat:'benodigde formaatinformatie voor de uitgeverscatalogus',
+   archive:'benodigde metadata voor gamearchieven',
+   comparison:'optioneel voor vergelijking van tabellen',
+   movies:'benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie',
+   archiveSchema:'benodigd typeschema voor geïnstalleerde bestanden',
+   archiveMetadata:'benodigde metadata voor compatibele lokale archieven',
+   globalUpdater:'nodig voor controle van de Global-updater',
+   mainlandUpdater:'nodig voor controle van de Chinese vastelandupdater',
+   historical:'optionele index van oude releases',
+   schemaReference:'optionele referentie voor het TextMap-schema',
+   readers:'Readers voor Unreal-archieven',
+   audio:'Audio decoderen en converteren',
+   notices:'Licenties en vermeldingen',
+   scope:'Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.',
+ },
+ 'zh-Hans': {
+   heading:'上游项目及用途',
+   dialogue:'提供必需的译文和台词与配音的对应关系',
+   sentence:'提供必需的译文、台词编号和配音表',
+   sceneTables:'本地游戏读取所需的译文和场景表',
+   sceneReader:'必需的场景读取器',
+   storyTables:'本地游戏读取所需的本地化和剧情表',
+   voiceArchive:'读取配音包所需的格式信息',
+   launcherFormat:'读取发行商目录所需的格式信息',
+   archive:'读取游戏资源包所需的格式信息',
+   comparison:'可选的数据表核对来源',
+   movies:'必需的影片表，必要时使用固定版本',
+   archiveSchema:'已安装资源所需的类型表',
+   archiveMetadata:'读取本地资源包所需的兼容元数据',
+   globalUpdater:'核对全球版更新器所需',
+   mainlandUpdater:'核对中国大陆版更新器所需',
+   historical:'可选的历史版本索引',
+   schemaReference:'可选的 TextMap 格式参考',
+   readers:'Unreal 资源读取器',
+   audio:'音频解码与转换',
+   notices:'第三方许可与声明',
+   scope:'这六款游戏计划支持在 Linux、macOS 和 Android 上独立准备数据及播放配音。各平台仍需逐款验证。其他游戏仅支持 Windows。',
+ },
+ 'zh-Hant': {
+   heading:'上游專案及用途',
+   dialogue:'提供必要的譯文和台詞與配音的對應關係',
+   sentence:'提供必要的譯文、台詞編號和配音表',
+   sceneTables:'讀取已安裝遊戲所需的譯文和場景表',
+   sceneReader:'必要的場景讀取器',
+   storyTables:'讀取已安裝遊戲所需的在地化和劇情表',
+   voiceArchive:'讀取配音封存檔所需的格式資訊',
+   launcherFormat:'讀取發行商目錄所需的格式資訊',
+   archive:'讀取遊戲封存檔所需的格式資訊',
+   comparison:'可選用的資料表比對來源',
+   movies:'必要的影片表，需要時使用固定版本',
+   archiveSchema:'已安裝資源所需的型別表',
+   archiveMetadata:'讀取本機資源包所需的相容中繼資料',
+   globalUpdater:'核對全球版更新程式所需',
+   mainlandUpdater:'核對中國大陸版更新程式所需',
+   historical:'可選用的歷史版本索引',
+   schemaReference:'可選用的 TextMap 格式參考',
+   readers:'Unreal 資源讀取器',
+   audio:'音訊解碼與轉換',
+   notices:'第三方授權與聲明',
+   scope:'這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。',
+ },
 };
 const switches='[English](README.md) · [Nederlands](README.nl.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)';
 function output(path,content){
  if(process.argv.includes('--check')){if(!existsSync(path)||readFileSync(path,'utf8').replaceAll('\r\n','\n')!==content)throw Error(`Regenerate language documentation: ${path}`);}
  else writeFileSync(path,content);
 }
+const platformPath = 'docs/desktop-platforms.md';
+const platformDoc = readFileSync(platformPath, 'utf8').replaceAll('\r\n', '\n');
+const hostTable = ['| Toolkit host | Independent preparation | Original playback | Game and capture device | Transcript reader |',
+ '| --- | --- | --- | --- | --- |',
+ ...Object.entries(catalog.platformScope.hosts).map(([host, roles]) =>
+   `| ${host} | ${roles.preparation} | ${roles.playback} | ${roles.gameCapture} | ${roles.reader} |`),
+].join('\n');
+const hostMarkers = /(<!-- generated game host roles -->\n)[\s\S]*?(\n<!-- end generated game host roles -->)/;
+if (!hostMarkers.test(platformDoc)) throw Error('Missing platform table markers');
+output(platformPath, platformDoc.replace(hostMarkers, (_match, start, end) => start + '\n' + hostTable + '\n' + end));
 mkdirSync('docs/languages',{recursive:true});
 for(const [locale,t] of Object.entries(text)){
  const display=new Intl.DisplayNames([locale],{type:'language'}),name=code=>display.of(code)??code;
@@ -58,24 +165,29 @@ for(const [locale,t] of Object.entries(text)){
  const overview=`| ${t.game} | ${t.learn} | ${t.targets} |\n| :--- | :--- | :--- |\n`+catalog.games.map(g=>`| [${g.name}](${matrixPath}#${g.id}) | ${g.textOnly?`**${t.textOnly}:** `:''}${g.study.map(name).join(' · ')} | ${g.targets.length} |`).join('\n');
  const [sourceTitle,sourceGame,publisher,sourceLink] = sourceLabels[locale];
  const roles = projectRoles[locale];
+ const {targets, windowsPreparation, windowsOnly} = catalog.platformScope;
+ const platformGuide = translate('Toolkit hosts and game devices', locale);
+ const preparation = id => translate(windowsPreparation[targets[id]]?.label ?? windowsOnly, locale);
+ if (Object.keys(upstreamProjects).some(id => !Object.hasOwn(targets, id))) throw Error('An upstream credit is missing from platformScope');
  const sources = [
    '## ' + sourceTitle, '',
-   `| ${sourceGame} | ${publisher} | ${roles.heading} |`, '| :--- | :--- | :--- |',
-   ...Object.entries(upstreamProjects).map(([id, [channel, projects]]) => {
+   `| ${sourceGame} | ${publisher} | ${roles.heading} | ${translate('Windows Setup', locale)} |`, '| :--- | :--- | :--- | :--- |',
+   ...Object.keys(targets).map(id => {
      const game = catalog.games.find(game => game.id === id);
+     const [channel, projects] = upstreamProjects[id];
      const credits = projects.map(([name, url, role]) => `[${name}](${url}) (${roles[role]})`);
-     return `| ${game.name} | ${channel} | ${credits.join(' · ')} |`;
+     return `| ${game.name} | ${channel} | ${credits.join(' · ')} | ${preparation(id)} |`;
    }), '',
    `${roles.readers} ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). ${roles.audio} ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).`, '',
    publisherSetup[locale], '',
    roles.scope, '',
-   `[${sourceLink}](docs/live-service-sources.md) · [${roles.notices}](THIRD_PARTY_NOTICES.md)`,
+   `[${sourceLink}](docs/live-service-sources.md) · [${platformGuide}](docs/desktop-platforms.md) · [${roles.notices}](THIRD_PARTY_NOTICES.md)`,
  ].join('\n');
  const readme=`<!-- Generated by scripts/generate-language-docs.mjs -->\n# Game immersion toolkit\n\n${switches}\n\n## ${t.title}\n\n${t.intro}\n\n**[${t.download}](${repo}/releases/latest)** · **[${t.online}](${site})** · [${t.guide}](${installPath})\n\n![Game immersion toolkit](public/proxy-transcript.png)\n\n## ${t.start}\n\n${t.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\n## ${t.support}\n\n${overview}\n\n[${t.details}](${matrixPath}) · [${t.online}](${site}games.html)\n\n${t.assumptions}\n\n${sources}\n\n## ${t.modes}\n\n| | |\n| :--- | :--- |\n| **${t.desktop}** | ${t.desktopText} |\n| **${t.paired}** | ${t.pairedText} |\n| **${t.mobile}** | ${t.mobileText} |\n\n${t.helpText}\n\n## ${t.help}\n\n[${t.guide}](${installPath}) · [${t.matrix}](${matrixPath}) · [${t.coverage}](docs/game-ocr-presentations.md)\n\n[Contributing](CONTRIBUTING.md) · [Release](RELEASE.md) · [Security](SECURITY.md) · [License](LICENSE)\n\nCreated by [Firebird55](${repo}).\n`;
  output(locale==='en'?'README.md':`README.${locale}.md`,readme);
  let matrix=`<!-- Generated by scripts/generate-language-docs.mjs -->\n# ${t.matrix}\n\n${switches.replaceAll('](README','](../../README')}\n\n${t.legend}\n\n${t.assumptions}\n`;
  for(const g of catalog.games){
-  matrix+=`\n<a id="${g.id}"></a>\n\n## ${g.name}\n\n[${t.source}](${g.source}) · ${g.reviewedAt??catalog.checkedAt} · [${t.coverage}](../${g.guide})\n\n${g.notes}\n\n<details>\n<summary>${t.details}</summary>\n\n| ${t.language} | ${t.voice} | ${t.study} | ${t.translation} | ${t.evidence} |\n| :--- | :---: | :---: | :---: | :--- |\n`;
+  matrix+=`\n<a id="${g.id}"></a>\n\n## ${g.name}\n\n[${t.source}](${g.source}) · ${g.reviewedAt??catalog.checkedAt} · [${t.coverage}](../${g.guide})\n\n${preparation(g.id)}\n\n${g.notes}\n\n<details>\n<summary>${t.details}</summary>\n\n| ${t.language} | ${t.voice} | ${t.study} | ${t.translation} | ${t.evidence} |\n| :--- | :---: | :---: | :---: | :--- |\n`;
   for(const code of [...new Set([...g.officialText,...g.study,...g.audio,...g.targets])]){
    const shared=code==='zh-Hant'&&g.study.includes(code)&&!g.textOnly;
    matrix+=`| ${name(code)} | ${g.captureCapabilities?.voiced===false?'—':g.audio.includes(code)?'✓':shared?t.mandarin:'—'} | ${g.study.includes(code)?g.textOnly?t.textOnly:'✓':'—'} | ${g.expectedTargets?.includes(code)?'◇':g.targets.includes(code)?'✓':'—'} | ${g.unverified[code]?t.unavailable:g.expectedTargets?.includes(code)?t.expected:g.playbackVerified?.includes(code)?t.playback:g.formatOnly?.includes(code)?t.formatOnly:t.implemented} |\n`;
@@ -83,6 +195,6 @@ for(const [locale,t] of Object.entries(text)){
   matrix+='\n</details>\n';
  }
  output(matrixPath,matrix);
- output(installPath,`<!-- Generated by scripts/generate-language-docs.mjs -->\n# ${t.install}\n\n${switches.replaceAll('](README','](../../README')}\n\n${t.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\n[${t.download}](${repo}/releases/latest) · [${t.matrix}](${locale}.md)\n\n## ${t.modes}\n\n**${t.desktop}:** ${t.desktopText}\n\n**${t.paired}:** ${t.pairedText}\n\n**${t.mobile}:** ${t.mobileText}\n\n## ${t.storage}\n\n${t.storageText}\n\n${storageNotes[locale]}\n\n${publisherSetup[locale]}\n\n## ${t.trouble}\n\n${t.tips.map(s=>'- '+s).join('\n')}\n\n${t.helpText}\n`);
+ output(installPath,`<!-- Generated by scripts/generate-language-docs.mjs -->\n# ${t.install}\n\n${switches.replaceAll('](README','](../../README')}\n\n${t.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\n[${t.download}](${repo}/releases/latest) · [${t.matrix}](${locale}.md)\n\n## ${t.modes}\n\n**${t.desktop}:** ${t.desktopText}\n\n**${t.paired}:** ${t.pairedText}\n\n**${t.mobile}:** ${t.mobileText}\n\n## ${t.storage}\n\n${t.storageText}\n\n${storageNotes[locale]}\n\n${publisherSetup[locale]}\n\n| ${sourceGame} | ${translate('Windows Setup', locale)} |\n| :--- | :--- |\n${Object.keys(targets).map(id => `| ${catalog.games.find(game => game.id === id).name} | ${preparation(id)} |`).join('\n')}\n\n${roles.scope} [${platformGuide}](../desktop-platforms.md)\n\n## ${t.trouble}\n\n${t.tips.map(s=>'- '+s).join('\n')}\n\n${t.helpText}\n`);
 }
 console.log(process.argv.includes('--check')?'Language documentation is current.':'Generated four README, installation and language-matrix versions.');

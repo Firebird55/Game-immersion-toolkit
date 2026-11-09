@@ -2,6 +2,58 @@
   "format": 1,
   "readerRelease": "0.22.0",
   "checkedAt": "2026-10-28",
+  "platformScope": {
+    "windowsOnly": "Windows game integration only",
+    "liveServiceTarget": "Windows game integration. Independent preparation and playback on Linux, macOS and Android await per-game verification.",
+    "hosts": {
+      "Windows": {
+        "preparation": "Installed readers and the per-game publisher Setup routes listed in the language matrix.",
+        "playback": "Matched voices from the selected PC edition or its verified publisher release.",
+        "gameCapture": "Local PC game window or monitor.",
+        "reader": "Local reader or desktop-hosted browser reader on another device."
+      },
+      "Linux and Steam Deck": {
+        "preparation": "Pending per-game native acceptance for the six targets.",
+        "playback": "Pending per-game native acceptance.",
+        "gameCapture": "Visible-window X11 adapter. Wayland support is pending. Proton requires edition and capture checks.",
+        "reader": "A browser can connect to a desktop host."
+      },
+      "macOS": {
+        "preparation": "Pending per-game native acceptance for the six targets.",
+        "playback": "Pending per-game native acceptance.",
+        "gameCapture": "Visible-window CoreGraphics adapter with screen-recording permission. Native and compatibility-layer game editions require separate checks.",
+        "reader": "A browser can connect to a desktop host."
+      },
+      "Android": {
+        "preparation": "Planned shared-core app. Installable app and device acceptance are pending.",
+        "playback": "Independent playback on the device awaits acceptance.",
+        "gameCapture": "Planned receiver for an explicitly started iPhone/iPad screen share. Capturing an Android game needs separate acceptance.",
+        "reader": "A browser can read a desktop transcript. The independent Android transcript host is planned."
+      },
+      "iOS and iPadOS": {
+        "preparation": "Standalone toolkit processing is unsupported.",
+        "playback": "The desktop-connected reader can play matched audio from the host.",
+        "gameCapture": "Game device and explicit screen sender for the planned Android receiver.",
+        "reader": "Desktop-connected transcript panel."
+      }
+    },
+    "targets": {
+      "genshin": "mainlandLauncher",
+      "starrail": "regularGlobal",
+      "zzz": "sourceCommand",
+      "endfield": "globalNarrative",
+      "wuwa": "globalDialogue",
+      "nte": "installedWithRegionalAudit"
+    },
+    "windowsPreparation": {
+      "mainlandLauncher": { "withoutInstall": true, "label": "Publisher Setup for the mainland China launcher release" },
+      "regularGlobal": { "withoutInstall": true, "label": "Publisher Setup for regular Global launcher voice packs" },
+      "globalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global narrative voices" },
+      "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
+      "sourceCommand": { "withoutInstall": false, "label": "Installed game in Setup. Source-checkout command for selected publisher lines." },
+      "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
+    }
+  },
   "languages": {
     "en": "English",
     "zh-Hans": "Simplified Chinese",

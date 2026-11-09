@@ -53,14 +53,14 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Text, voices and upstream projects
 
-| Game | Original audio distribution | Upstream project and role |
-| :--- | :--- | :--- |
-| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (required translations and dialogue-to-voice IDs) |
-| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (required translations, sentence IDs and voice tables) |
-| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (required translations and scene tables for installed games) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (required scene reader) |
-| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (required localization and story tables for installed games) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (required voice archive metadata) |
-| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (required publisher catalogue format) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (required game archive metadata) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optional table comparison) |
-| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (required movie tables, with a pinned fallback revision) |
+| Game | Original audio distribution | Upstream project and role | Windows Setup |
+| :--- | :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (required translations and dialogue-to-voice IDs) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (optional historical release index) | Publisher Setup for the mainland China launcher release |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (required translations, sentence IDs and voice tables) | Publisher Setup for regular Global launcher voice packs |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (required translations and scene tables for installed games) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (required scene reader) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (optional TextMap schema reference) | Installed game in Setup. Source-checkout command for selected publisher lines. |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (required localization and story tables for installed games) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (required voice archive metadata) | Publisher Setup for Global narrative voices |
+| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (required publisher catalogue format) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (required game archive metadata) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optional table comparison) | Publisher Setup for Global dialogue and original voices |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (required movie tables, with a pinned fallback revision) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (required installed type schema) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (required compatible installed archive metadata) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (required for Global updater checks) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (required for mainland updater checks) | Installed game in Setup. Separate Global and mainland publisher file checks. |
 
 Unreal archive readers ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoding and conversion ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
@@ -68,7 +68,7 @@ Leave the game folder empty in Windows Setup to prepare mainland China Genshin I
 
 These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.
 
-[Text sources, reader credits and coverage by game](docs/live-service-sources.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Text sources, reader credits and coverage by game](docs/live-service-sources.md) · [Toolkit hosts and game devices](docs/desktop-platforms.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 ## Choose how to play
 

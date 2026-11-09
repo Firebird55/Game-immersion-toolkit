@@ -48,3 +48,14 @@ def test_public_game_support_matches_readers():
     assert 'pt-BR' not in by_id['heavyrain']['targets']
     assert {'pt-PT', 'pt-BR', 'es-ES', 'es-419'} <= set(by_id['beyond']['targets'])
     assert 'es-419' in by_id['zzz']['unverified']
+
+
+def test_online_setup_and_cross_platform_targets_agree_with_published_capabilities():
+    from backend.game_assets import PUBLISHER_GAMES
+    catalog = json.loads((Path(__file__).parents[2] / 'public/mobile-capture/games-data.json').read_text(encoding='utf-8'))
+    scope = catalog['platformScope']
+    targets = scope['targets']
+    assert set(targets) == {'genshin', 'starrail', 'zzz', 'endfield', 'wuwa', 'nte'}
+    assert set(targets) <= {game['id'] for game in catalog['games']}
+    assert set(targets.values()) == set(scope['windowsPreparation'])
+    assert {game for game, source in targets.items() if scope['windowsPreparation'][source]['withoutInstall']} == PUBLISHER_GAMES

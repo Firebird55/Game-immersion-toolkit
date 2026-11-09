@@ -53,14 +53,14 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Tekst, stemmen en bronprojecten
 
-| Game | Distributie van originele stemmen | Bronproject en rol |
-| :--- | :--- | :--- |
-| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (benodigde vertalingen en koppelingen tussen dialoog en stem) |
-| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (benodigde vertalingen, regel-ID’s en stemtabellen) |
-| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (benodigde vertalingen en scènetabellen voor een geïnstalleerde game) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (benodigde scènelezer) |
-| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (benodigde metadata voor stemarchieven) |
-| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (benodigde formaatinformatie voor de uitgeverscatalogus) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) |
-| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie) |
+| Game | Distributie van originele stemmen | Bronproject en rol | Windows-instellingen |
+| :--- | :--- | :--- | :--- |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (benodigde vertalingen en koppelingen tussen dialoog en stem) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (optionele index van oude releases) | Uitgeversbestanden voor de Chinese vastelandversie van de launcher |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (benodigde vertalingen, regel-ID’s en stemtabellen) | Reguliere Global-stempakketten van de uitgever |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (benodigde vertalingen en scènetabellen voor een geïnstalleerde game) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (benodigde scènelezer) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (optionele referentie voor het TextMap-schema) | In de instellingen is een geïnstalleerde game nodig. De opdracht in de broncode kan afzonderlijke regels bij de uitgever ophalen. |
+| Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (benodigde metadata voor stemarchieven) | Global-verhaalstemmen van de uitgever |
+| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (benodigde formaatinformatie voor de uitgeverscatalogus) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) | Global-dialogen en originele stemmen van de uitgever |
+| Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (benodigd typeschema voor geïnstalleerde bestanden) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (benodigde metadata voor compatibele lokale archieven) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (nodig voor controle van de Global-updater) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (nodig voor controle van de Chinese vastelandupdater) | In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd. |
 
 Readers voor Unreal-archieven ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoderen en converteren ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
@@ -68,7 +68,7 @@ Laat de gamemap leeg in de Windows-instellingen voor de Chinese vastelandversie 
 
 Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.
 
-[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md) · [Licenties en vermeldingen](THIRD_PARTY_NOTICES.md)
+[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md) · [Toolkitplatforms en gameapparaten](docs/desktop-platforms.md) · [Licenties en vermeldingen](THIRD_PARTY_NOTICES.md)
 
 ## Kies hoe je speelt
 

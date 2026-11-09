@@ -16,6 +16,7 @@ import {LanguageSetup} from './language-setup';
 
 const API = desktopApiBase();
 import type {GameId} from '../lib/games';
+import catalog from '../public/mobile-capture/games-data.json';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;
@@ -53,6 +54,9 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   const refreshSequence = useRef(0);
   const exportStatus = data?.mobile_export?.selectedGame && data.mobile_export.selectedGame !== game ? undefined : data?.mobile_export;
   const current = data?.games.find(item => item.id === game);
+  const {targets, windowsPreparation, liveServiceTarget, windowsOnly} = catalog.platformScope;
+  const release = Object.entries(targets).find(([id]) => id === game)?.[1];
+  const preparation = Object.entries(windowsPreparation).find(([id]) => id === release)?.[1];
   const sourceAvailable = !!current?.detected_path || current?.voice_state === 'publisher';
   const job = data?.jobs[game];
   const preparing = Object.values(data?.jobs ?? {}).some(item => item.state === 'preparing');
@@ -145,6 +149,9 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
             {allowedGames?.includes(game) === false && <option value="">{t('No matching game selected')}</option>}
             {data.games.filter(item => !allowedGames || allowedGames.includes(item.id)).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select></label>
+          {current && (!allowedGames || allowedGames.includes(game)) && <p className="toolkit-setup-note">
+            {t(preparation ? liveServiceTarget : windowsOnly)}{preparation && <> {t(preparation.label)}</>}
+          </p>}
           {current && (!allowedGames || allowedGames.includes(game)) && <div className="toolkit-game-grid">
             {game !== 'hito' && <LanguageSetup game={game} showAccount={readingMode === 'lexirise'} targetLanguage={targetLanguage} onConfigure={language=>leaveFor(()=>onAccount(language))} onChanged={onChanged}/>}
             <section className="toolkit-game-card" aria-label={uiText("Installed game readiness")}>

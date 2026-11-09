@@ -25,6 +25,17 @@ In Games & Languages (also in first-run setup), Keep mobile library updated main
 
 Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines.
 
+| Game | Windows Setup |
+| :--- | :--- |
+| Genshin Impact | Publisher Setup for the mainland China launcher release |
+| Honkai: Star Rail | Publisher Setup for regular Global launcher voice packs |
+| Zenless Zone Zero | Installed game in Setup. Source-checkout command for selected publisher lines. |
+| Arknights: Endfield | Publisher Setup for Global narrative voices |
+| Wuthering Waves | Publisher Setup for Global dialogue and original voices |
+| Neverness to Everness | Installed game in Setup. Separate Global and mainland publisher file checks. |
+
+These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only. [Toolkit hosts and game devices](../desktop-platforms.md)
+
 ## Troubleshooting
 
 - Missing voice pack: install the matching spoken language through the game launcher, then prepare again.

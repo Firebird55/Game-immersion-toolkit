@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {startPreview} from './e2e-preview.mjs';
 import {readFileSync} from 'node:fs';
+import catalog from '../public/mobile-capture/games-data.json' with {type:'json'};
 import {chromium,firefox} from 'playwright';
 const preview=await startPreview('setup');
 let browser;
@@ -123,6 +124,8 @@ try{
    assert.equal(await dialog.getByLabel('Game to configure',{exact:true}).locator('option[value=hito]').count(),0);
    for(const game of ['starrail','genshin','endfield','wuwa']){
     await dialog.getByLabel('Game to configure',{exact:true}).selectOption(game);
+    const platform=catalog.platformScope;
+    await dialog.getByText(platform.liveServiceTarget+' '+platform.windowsPreparation[platform.targets[game]].label,{exact:true}).waitFor();
     assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');
     if(game==='wuwa')assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).count(),0);
     else assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).isEnabled(),game==='endfield');
@@ -141,6 +144,7 @@ try{
     await dialog.getByText(games.find(g=>g.id===game).catalog_message,{exact:true}).waitFor();
    }
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('cyberpunk');
+   await dialog.getByText(catalog.platformScope.windowsOnly,{exact:true}).waitFor();
    await dialog.getByText(games.find(g=>g.id==='cyberpunk').expansion_message,{exact:true}).waitFor();
    await dialog.getByLabel('Game to configure',{exact:true}).selectOption('zzz');
    const box=await dialog.boundingBox();assert(box&&box.x>=0&&box.y>=0&&box.x+box.width<=width+1&&box.y+box.height<=height+1);

@@ -25,6 +25,17 @@ In Games en talen (ook bij de eerste installatie) houdt Keep mobile library upda
 
 Laat de gamemap leeg in de Windows-instellingen voor de Chinese vastelandversie van Genshin Impact, de reguliere Global-stempakketten van Star Rail, de Global-verhaalstemmen van Endfield of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn.
 
+| Game | Windows-instellingen |
+| :--- | :--- |
+| Genshin Impact | Uitgeversbestanden voor de Chinese vastelandversie van de launcher |
+| Honkai: Star Rail | Reguliere Global-stempakketten van de uitgever |
+| Zenless Zone Zero | In de instellingen is een geïnstalleerde game nodig. De opdracht in de broncode kan afzonderlijke regels bij de uitgever ophalen. |
+| Arknights: Endfield | Global-verhaalstemmen van de uitgever |
+| Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
+| Neverness to Everness | In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd. |
+
+Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows. [Toolkitplatforms en gameapparaten](../desktop-platforms.md)
+
 ## Problemen oplossen
 
 - Stempakket ontbreekt: installeer de juiste gesproken taal via de gamelauncher en bereid deze opnieuw voor.
