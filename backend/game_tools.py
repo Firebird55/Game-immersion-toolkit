@@ -140,6 +140,13 @@ def missing_tools(root: Path, game: str, publisher: bool = False) -> list[str]:
             resolve(runtime_data_root(root) / 'cyberpunk/tools')
         except PreparationFailure:
             missing.append('REDengine archive extractor and app-local runtime')
+    if game == "wuwa" and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        from .preparation_errors import PreparationFailure
+        try:
+            _ooz_runtime()
+        except PreparationFailure:
+            missing.append('Wuthering package decoder (Node.js and the locked ooz-wasm dependency)')
     if game == "nte" or game == "wuwa" and not publisher:
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
@@ -172,6 +179,9 @@ def _bundle_runtime_missing(root: Path, game: str, publisher: bool = False) -> l
     if game == 'nte' or game == 'wuwa' and not publisher:
         from .nte_toolchain import resolve
         reader, label = resolve, 'Unreal archive reader and managed dependencies'
+    elif game == 'wuwa' and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        reader, label = _ooz_runtime, 'Wuthering package decoder'
     elif game == 'zzz':
         from .prebuilt_node_reader import require_zzz_reader
         reader, label = require_zzz_reader, 'Scene and voice graph reader'
@@ -241,6 +251,10 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None, publish
         from .cyberpunk_assets import ensure_wolvenkit
         progress("Preparing the verified Cyberpunk extractor")
         ensure_wolvenkit(runtime_data_root(root) / "cyberpunk/tools")
+    elif game == "wuwa" and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        progress("Checking the Wuthering publisher package decoder")
+        _ooz_runtime()
     elif game == "wuwa" and not publisher:
         from .wuthering_assets import ensure_extractor
         from .media_tools import vgmstream_executable

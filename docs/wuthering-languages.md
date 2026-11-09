@@ -5,7 +5,9 @@ explicitly in the game's Languages setup. The Chinese scripts share original
 Mandarin audio. In Windows Setup, leave the game folder empty to retrieve the
 requested translations and voice inventory from Kuro Games' Global release.
 Playback fetches each original recording from its versioned package. Choosing an
-installed game folder reads that edition's local tables and voice pack.
+installed game folder reads that edition's local tables and voice pack. The
+Windows runtime uses its bundled Node and ooz-wasm decoder for compressed
+entries. Source checkouts use Node and the project's locked npm dependencies.
 
 PlotAudio's authored filename and language-specific gender flag select the
 original performance. Rover variants remain explicit. Language-independent

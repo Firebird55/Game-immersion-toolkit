@@ -45,6 +45,20 @@ Counts include protagonist variants when the game supplies two performances.
 | Simplified Chinese | 134,065 | 46,293 |
 | Traditional Chinese | 133,198 | 46,280 |
 
+The current four effective dub inventories include 185,918 external WEM paths.
+Of these, 11,627 use Oodle compression, including 288 split across multiple
+blocks. Fourteen real recordings covering the observed block counts and raw
+storage decoded to PCM. The four-block English original was 204,483 bytes
+and decoded to 2,533,115 frames at 48 kHz. The toolkit verifies the stored
+entry, reads the game's block boundaries and uses its existing ooz-wasm
+decoder for Oodle blocks. These inventories include sounds outside the
+matched story records above.
+
+The same 14 publisher samples produced byte-identical WEMs and decoded
+PCM using the unchanged Node and ooz-wasm tools from the published Windows
+v0.23.2 runtime. That check used cached package bytes, disabled network access
+and an empty system PATH.
+
 Conditional gender/choice selection, shared nonlocalized audio and per-caption film slicing still require their authored bindings. The reader uses the published Kuro catalogue format from mornye-tools, PAK format evidence from CUE4Parse and compatible archive parameters from wuwa-keys. [Catalogue format](https://github.com/Yumeo0/mornye-tools/blob/4591ef24949688ec9835bf910a204d6bbc4b339c/src-tauri/crates/game-client/src/discovery.rs) · [PAK entry layout](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs) · [Archive format provider](https://github.com/yarik0chka/wuwa-keys)
 
 ## November 8, 2026 · Floating dialogue and film voices

@@ -1,13 +1,18 @@
 """Selective reads of released Kuro Windows v12 PAK directories and individual entries."""
 import hashlib
 import io
+import json
+from functools import lru_cache
+import shutil
 import struct
+import subprocess
 import urllib.request
 import zlib
 
 from Crypto.Cipher import AES
 
-from .game_tools import _atomic_file
+from .game_tools import CODE_ROOT, _atomic_file
+from .preparation_errors import PreparationFailure
 
 LIMIT = 64 * 1024**2
 MEMBER_LIMIT = 512 * 1024**2
@@ -48,6 +53,74 @@ def string(reader):
     raw = reader.read(size)
     check(len(raw) == size and raw.endswith(terminator))
     return raw[:-len(terminator)].decode(encoding)
+
+
+@lru_cache(maxsize=1)
+def _ooz_runtime():
+    from .prebuilt_node_reader import require_zzz_reader
+    reader = require_zzz_reader()
+    if reader is not None:
+        return reader.executable, reader.root / 'dependencies/ooz/index.js'
+    node = shutil.which('node')
+    module = CODE_ROOT / 'node_modules/ooz-wasm'
+    policy = json.loads((CODE_ROOT / 'packaging/zzz-reader/inputs.json').read_bytes())
+    expected = policy['npm']['ooz-wasm']['runtime_sha256']
+    for name in ('package.json', 'index.js', 'build/ooz.js'):
+        file = module / name
+        if not node or not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != expected[name]:
+            raise PreparationFailure('missing_decoder', 'Prepare Node and the pinned ooz-wasm dependency for Wuthering playback.')
+    return node, module / 'index.js'
+
+
+def _oodle(blocks):
+    from .prebuilt_node_reader import PrebuiltNodeReader
+    node, module = _ooz_runtime()
+    # Run the toolkit's source-built decoder outside the desktop process. All
+    # input lengths and the total output have been bounded by the PAK reader.
+    program = """
+        import {readFileSync} from 'node:fs';
+        const {decompress} = await import(process.argv[1]);
+        const input = readFileSync(0);
+        for (let pos = 0; pos < input.length;) {
+            const packed = input.readUInt32LE(pos), size = input.readUInt32LE(pos + 4);
+            pos += 8;
+            process.stdout.write(decompress(input.subarray(pos, pos + packed), size));
+            pos += packed;
+        }
+    """
+    data = b''.join(struct.pack('<II', len(part), size) + part for part, size in blocks)
+    result = subprocess.run([str(node), '--input-type=module', '-e', program, module.as_uri()],
+                            input=data, capture_output=True, timeout=120, env=PrebuiltNodeReader.environment(),
+                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    check(result.returncode == 0 and len(result.stdout) == sum(size for _, size in blocks))
+    return result.stdout
+
+
+def _decompress(data, header, method, count, block_size, size, stored, encrypted, block_lengths):
+    header_size = len(header)
+    check(struct.unpack_from('<I', header, 48)[0] == count and block_size > 0
+          and (size + block_size - 1) // block_size == count)
+    position = 0
+    blocks = []
+    for index in range(count):
+        start, end = struct.unpack_from('<QQ', header, 52 + 16 * index)
+        start -= header_size
+        end -= header_size
+        check(start == position and start < end <= stored)
+        if block_lengths:
+            check(end - start == block_lengths[index])
+        blocks.append((data[start:end], min(block_size, size - index * block_size)))
+        position = (end + 15) // 16 * 16 if encrypted else end
+    check(position == len(data))
+    if method == b'Oodle':
+        return _oodle(blocks)
+    output = bytearray()
+    for packed, expected in blocks:
+        decoder = zlib.decompressobj()
+        part = decoder.decompress(packed, expected + 1)
+        check(decoder.eof and not decoder.unused_data and len(part) == expected)
+        output.extend(part)
+    return bytes(output)
 
 
 class Package:
@@ -139,8 +212,7 @@ class Package:
         flags = ((bits >> 16) & 63 | (bits & 65535) << 6 | (bits & 0x10000000) >> 6 |
                  (bits & 0x0fc00000) << 1 | (bits & 0xc0000000) >> 1 | (bits & 0x20000000) << 2)
         custom = number(reader, 'B')
-        if flags & 63 == 63:
-            reader.seek(4, 1)
+        block_size = number(reader, 'I') if flags & 63 == 63 else (flags & 63) << 11
         size = number(reader, 'I' if flags & (1 << 31) else 'Q')
         offset = number(reader, 'I' if flags & (1 << 30) else 'Q')
         method = (flags >> 23) & 63
@@ -149,7 +221,8 @@ class Package:
         encrypted = bool(flags & (1 << 22))
         check(0 < size <= MEMBER_LIMIT and 0 < stored <= MEMBER_LIMIT and custom in (0, 1, 2, 4))
         check((method == 0 and not blocks) or
-              (0 < method < len(self.methods) and self.methods[method] == b'Zlib' and blocks == 1))
+              (0 < method < len(self.methods) and self.methods[method] in (b'Zlib', b'Oodle') and blocks > 0))
+        block_lengths = [number(reader, 'I') for _ in range(blocks)] if blocks > 1 else []
         header_size = 53 + (4 + 16 * blocks if method else 0)
         header = self.range(offset, header_size)
         check(struct.unpack_from('<QQI', header, 8) == (stored, size, method))
@@ -157,14 +230,14 @@ class Package:
         data = b''.join(self.range(offset + header_size + part, min(LIMIT, length - part))
                         for part in range(0, length, LIMIT))
         protected = min(length, {0: length, 1: 0x200000, 2: 0x800, 4: 0}[custom]) if encrypted else length
-        check(hashlib.sha1(data[:protected]).digest() == header[28:48])
+        # Compressed entries cover the full stored representation including
+        # inter-block padding. Raw entries cover the unpadded encrypted prefix.
+        hashed = stored if method else min(stored, protected)
+        check(hashlib.sha1(data[:hashed]).digest() == header[28:48])
         if encrypted and protected:
             check(self.cipher is not None)
             data = self.cipher.decrypt(data[:protected]) + data[protected:]
         if method:
-            count, start, end = struct.unpack_from('<IQQ', header, 48)
-            check(count == 1 and start == header_size and 0 < end-start <= stored)
-            decoder = zlib.decompressobj()
-            data = decoder.decompress(data[:end-start], size + 1)
-            check(decoder.eof and len(data) == size)
+            return _decompress(data, header, self.methods[method], blocks, size if blocks == 1 else block_size,
+                               size, stored, encrypted, block_lengths)
         return data[:size]
