@@ -1,5 +1,28 @@
 # Honkai: Star Rail dialogue audit
 
+## Global publisher playback, November 9, 2026
+
+The desktop worker prepared all five study choices with an empty toolkit cache
+and no game path. Global 4.6 produced 90,630 English, 91,966 Japanese, 92,052
+Korean and 92,057 Mandarin voiced records in each Chinese script. The service
+exported Leonard's sentence 200070401 in all four dubs. Each publisher WEM
+was byte-identical to its installed counterpart. The offline reader reproduced
+the MP3 from its private cache in a fresh output directory for all five choices.
+All prepared voiced records resolved to the same package name and file ID in
+the independently indexed installed dub.
+
+HoYoPlay's four regular voice manifests each contain 173 PCKs. All 692
+whole-package checksums match the updated AudioV manifest for audio 16781679.
+The latter also lists two optional chapter-5 PCKs per dub. The booted client
+identified design 16854589, ASB/audio 16781679 and Lua 16781679, matching
+the pinned text revision. Its ordinary player log supplied no public hotfix
+manifest URL. Setup recognizes the exact audited launcher generation and
+checks the actual revision markers for subsequent releases. A later release
+needs matching published text. Independent hotfix discovery, the eight
+optional chapter packages and ambiguous performances remain open.
+[Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8)
+· [Matched Global text revision](https://github.com/DimbreathBot/TurnBasedGameData/tree/74a7b96fba32f00cf495a5c00b0311bd02207aaf)
+
 Initial audit on October 27, 2026 with installed client 4.6.0 and adapter
 schema 2. The November 8 multi-voice check below used adapter schema 3.
 This is an inventory of dialogue presentations and their current parser support,

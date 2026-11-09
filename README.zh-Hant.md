@@ -60,7 +60,7 @@
 | Wuthering Waves | Kuro Games |
 | Neverness to Everness | Perfect World Games |
 
-將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。已核實的過場片段來自全球版 1.6.4。
+將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。終末地的過場片段需要經過核實的時間軸。《崩壞：星穹鐵道》使用 HoYoPlay 全球版的常規語音包。
 
 [各遊戲的文字來源、讀取工具與涵蓋範圍](docs/live-service-sources.md)
 

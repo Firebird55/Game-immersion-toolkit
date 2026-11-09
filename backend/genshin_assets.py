@@ -389,13 +389,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
 
 
 def publisher_snapshot_available(tools, stamp):
-    if not isinstance(stamp, str) or not re.fullmatch('sophon-[0-9a-f]{64}', stamp):
-        return False
-    path = tools / 'sophon' / 'releases' / stamp
-    if not path.is_file() or path.stat().st_size > 64 * 1024:
-        return False
-    import hashlib
-    return stamp == 'sophon-' + hashlib.sha256(path.read_bytes()).hexdigest()
+    from .hoyo_publisher_voice import snapshot_available
+    return snapshot_available(tools, stamp, 'genshin')
 
 
 def index_install(install, data_dir, progress=lambda _message: None):

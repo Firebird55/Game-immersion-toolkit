@@ -8,12 +8,18 @@ Pair any study language with any of the game's **13 official text locales**
 
 ## Setup
 
-Select the installed client folder containing **StarRail.exe and StarRail_Data** in **Setup → Games**.
+Leave the folder empty in **Setup → Games** to use the released Global voice
+packages. In **Languages**, prepare the study language and translation you want.
+The Windows companion retrieves the original recording when you play or export
+a matched line. Global 4.6 has 173 regular packages per dub. Two optional
+chapter packages per dub are outside this source.
+
+To use an installed client, select its **StarRail.exe and StarRail_Data** folder.
 Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
 nested game client has been downloaded. Steam and conventional Epic/HoYoPlay
 library locations are discovered automatically. Game folders are read-only.
 
-Install the chosen original voice through the game's own language settings.
+For installed preparation, download the chosen voice through the game's language settings.
 Prepare only the study language and translation you want. Missing official text
 or audio stays unavailable; another language is never silently substituted.
 
@@ -22,7 +28,7 @@ or audio stays unavailable; another language is never silently substituted.
 The reader follows **TalkSentenceConfig → VoiceID → VoiceConfig** from the
 [game-data catalog](https://gitlab.com/Dimbreath/turnbasedgamedata). One immutable catalog revision supplies the selected
 subtitle and translation tables. Only an exact authored source hash can bind an
-installed original voice. Conflicting sources are skipped.
+published or installed original voice. Conflicting sources are skipped.
 
 Split subtitle tables are merged with their Main tables at one immutable metadata revision. A whole movie audio track is never substituted for an individual caption.
 

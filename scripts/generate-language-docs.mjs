@@ -14,10 +14,10 @@ const storageNotes={
  'zh-Hant':'在遊戲與語言設定（也包括首次設定精靈）中，Keep mobile library updated 會在桌面 companion 執行時為所選配音語言和譯文維護各自的 ZIP。選擇既有的本機資料夾，建議使用與手機雲端儲存同步的資料夾。Keep on this device 會保留資料庫和配音供下次自動開啟。在 iPhone 上，每個更新後的雲端 ZIP 仍需選擇一次。兩個獨立的 Remember on this device 選項可在沒有應用程式口令的情況下保存 API 金鑰和完整 VDO.Ninja 連結；僅在信任的裝置上啟用。瀏覽器或系統仍可能刪除儲存。'
 };
 const publisherSetup = {
- en: 'Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. The verified film clips cover Global 1.6.4. Choose your language in Setup.',
- nl: 'Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. De gecontroleerde filmfragmenten komen uit Global 1.6.4. Kies je taal in Instellingen.',
- 'zh-Hans': '将游戏文件夹留空，在设置中选择语言即可准备《原神》中国大陆启动器版本，或从 GRYPHLINE 获取《明日方舟：终末地》当前全球版的剧情语音。已核实的过场片段来自全球版 1.6.4。',
- 'zh-Hant': '將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。已核實的過場片段來自全球版 1.6.4。'
+ en: 'Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. Endfield film clips require verified timelines. Star Rail uses regular Global HoYoPlay voice packages. Choose your language in Setup.',
+ nl: 'Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.',
+ 'zh-Hans': '将游戏文件夹留空，在设置中选择语言即可准备《原神》中国大陆启动器版本，或从 GRYPHLINE 获取《明日方舟：终末地》当前全球版的剧情语音。终末地的过场片段需要经过核实的时间轴。《崩坏：星穹铁道》使用 HoYoPlay 全球版的常规语音包。',
+ 'zh-Hant': '將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。終末地的過場片段需要經過核實的時間軸。《崩壞：星穹鐵道》使用 HoYoPlay 全球版的常規語音包。'
 };
 const sourceLabels = {
  en: ['Text, voices and upstream projects', 'Game', 'Original audio distribution', 'Text sources, reader credits and coverage by game'],

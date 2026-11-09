@@ -5,6 +5,8 @@ import struct
 import pytest
 import zstandard
 
+from backend import dialogue_catalog, starrail_publisher
+from backend.preparation_errors import PreparationFailure
 from backend import genshin_publisher as publisher, sophon_assets as sophon
 from backend.voice_assets import voice_hash
 
@@ -24,14 +26,16 @@ def field(number, value):
     return varint(number << 3 | 2) + varint(len(value)) + value
 
 
-def fixture(directory, monkeypatch, version, speech):
-    source = 'English(US)\\VO_AQ\\synthetic.wem'
+def fixture(directory, monkeypatch, version, speech, *, game='genshin'):
+    source = 'English(US)\\VO_AQ\\synthetic.wem' if game == 'genshin' else 'English/voice/story/test.wem'
     identity = voice_hash(source)
     wem = b'RIFF' + struct.pack('<I', 4 + len(speech)) + b'WAVE' + speech
     table = struct.pack('<I Q4I', 1, identity, 1, len(wem), 56, 0)
     package = b'AKPK' + struct.pack('<6I', 48, 1, 0, 0, 0, len(table)) + table + wem
-    base = 'https://autopatchcn.yuanshen.com/test/' + version
-    name = 'YuanShen_Data/StreamingAssets/AudioAssets/English(US)/1.pck'
+    channel = publisher.voices.CHANNELS[game]
+    base = 'https://' + sophon.CHANNELS[channel][3] + '/test/' + version
+    name = ('YuanShen_Data/StreamingAssets/AudioAssets/English(US)/1.pck' if game == 'genshin' else
+            'StarRail_Data/Persistent/Audio/AudioPackage/Windows/English/External0.pck')
     md5 = lambda data: hashlib.md5(data).hexdigest()
     def encode(data):
         return zstandard.ZstdCompressor(write_content_size=False).compress(data)
@@ -46,8 +50,8 @@ def fixture(directory, monkeypatch, version, speech):
     manifest_id = 'manifest_' + '0' * 16 + '_' + md5(raw)
     objects[base + '/' + manifest_id] = encoded = encode(raw)
     spec = (base, manifest_id, len(encoded), len(raw), md5(raw), base)
-    build = {'channel': publisher.CHANNEL, 'version': version, 'manifests': {'en-us': spec}}
-    stamp, descriptor = publisher._descriptor(build)
+    build = {'channel': channel, 'version': version, 'manifests': {'en-us': spec}}
+    stamp, descriptor = publisher.voices.descriptor(build)
     sophon._atomic_file(directory / 'tools/sophon/releases' / stamp, descriptor)
     monkeypatch.setattr(sophon, 'download', lambda url, limit: objects[url])
     return source, identity, stamp, wem, objects
@@ -64,8 +68,8 @@ def test_new_build_changes_voice_and_old_cached_clip_survives_offline(tmp_path, 
     assert clips[0][0]['publisher'] != clips[1][0]['publisher']
     objects.clear()
     sophon.manifest.cache_clear()
-    publisher._files.cache_clear()
-    publisher._table.cache_clear()
+    publisher.voices._files.cache_clear()
+    publisher.voices._table.cache_clear()
     for binding, wem in clips:
         assert publisher.extract(binding, tmp_path / 'tools') == wem
         with pytest.raises(ValueError):
@@ -88,7 +92,36 @@ def test_catalog_requires_region_and_three_revision_markers(monkeypatch):
     sha = 'a' * 40
     rows = [{'title': 'CNRELWin1.2.0_R10_S20_D31', 'id': 'b' * 40},
             {'title': 'CNRELWin1.2.0_R10_S20_D30', 'id': sha}]
-    monkeypatch.setattr(publisher, 'download', lambda *args, **kwargs: json.dumps(rows))
-    assert publisher.matching_commit(rows[1]['title']) == sha
-    with pytest.raises(publisher.PreparationFailure):
-        publisher.matching_commit('OSRELWin1.2.0_R10_S20_D30')
+    monkeypatch.setattr(dialogue_catalog, 'download', lambda *args, **kwargs: json.dumps(rows))
+    assert dialogue_catalog.matching_release_commit('genshin', rows[1]['title']) == sha
+    with pytest.raises(PreparationFailure):
+        dialogue_catalog.matching_release_commit('genshin', 'OSRELWin1.2.0_R10_S20_D30')
+
+
+def test_starrail_release_checks_all_revisions_before_reusing_hotfix_comparison():
+    marker = bytearray(66)
+    marker[:8] = b'SRMI\x00\x03\x00\x01'
+    struct.pack_into('<I', marker, 8, 66)
+    struct.pack_into('<I', marker, 24, 16566615)
+    assert starrail_publisher.revision_marker(marker) == 16566615
+    with pytest.raises(ValueError):
+        starrail_publisher.revision_marker(marker[:-1])
+    reviewed = (16566615, 16566615, 16566587, 16566615)
+    assert starrail_publisher.release_title(starrail_publisher.VERIFIED_46, '4.6.0', reviewed) == starrail_publisher.VERIFIED_46_TEXT
+    assert starrail_publisher.release_title('different manifest', '4.6.0', reviewed) == 'OSPRODWin4.6.0_D16566615_A16566615_L16566587'
+    assert starrail_publisher.release_title('next manifest', '4.7.0', (20, 19, 18, 19)) == 'OSPRODWin4.7.0_D20_A19_L18'
+    with pytest.raises(ValueError):
+        starrail_publisher.release_title('next manifest', '4.7.0', (20, 19, 18, 21))
+
+
+def test_starrail_cannot_replay_another_game_or_another_dub(tmp_path, monkeypatch):
+    voices = publisher.voices
+    source, identity, stamp, wem, _ = fixture(tmp_path, monkeypatch, '1.2.0', b'star rail', game='starrail')
+    tools = tmp_path / 'tools'
+    entry = voices.inventory(tmp_path, stamp, 'en', 'starrail')[identity]
+    audio = entry | {'file_id': f'{identity:016x}', 'source': source, 'locale': 'en'}
+    assert voices.extract(audio, tools, 'starrail') == wem
+    assert voices.snapshot_available(tools, stamp, 'starrail')
+    assert not voices.snapshot_available(tools, stamp, 'genshin')
+    with pytest.raises(ValueError):
+        voices.extract(audio | {'locale': 'ko'}, tools, 'starrail')
