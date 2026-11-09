@@ -77,6 +77,22 @@ It prepares only phone message bodies with a unique authored source and an exact
 original recording in the selected language. Replies, other presentations, later
 in-version Global overrides and independent phone preparation remain outside this route.
 
+The Windows language worker prepared the Global 3.3.0 base from an empty
+game-data cache, with no game installed. The smoke test used the rebuilt
+production reader, its hash-verified app-local Node executable and source-built
+ooz decoder. The helper ran with an empty executable search path. All five
+study selections yielded nine unique recorded bodies and 15 display rows because
+some translations distinguish the two protagonists. Every display row had all
+13 text locales, an unambiguous source and a recording in the selected dub.
+
+The desktop playback service produced 75 MP3s, one for each display row in
+each selection. All decoded to nonzero PCM. The 36 distinct source recordings
+span four dubs. The two Chinese script selections share Mandarin. Measured
+durations were 3.805–15.536 seconds in English, 3.922–22.840 in Japanese,
+3.398–16.050 in Korean and 3.164–15.957 in Mandarin. A separate two-release
+fixture changed the package contents under the same filename and verified
+both the refreshed recording and playback from the earlier snapshot.
+
 ## November 8, 2026 · Publisher sources and subtitle variants
 
 The released Global Windows 3.3.0 branch serves the game TextMaps directly.
