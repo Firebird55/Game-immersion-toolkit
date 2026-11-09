@@ -129,7 +129,7 @@ def files(archive, region, version, sections, checksum):
     return result, [len(raw), hashlib.sha256(raw).hexdigest()]
 
 
-def discover(region):
+def release_config(region):
     host = HOSTS[region]
     branch = 'publish_PC'
     visited = set()
@@ -144,22 +144,27 @@ def discover(region):
             version = cfg.findtext('ResVersion', '')
             if not re.fullmatch(r'\d+\.\d+\.\d+', version):
                 raise ValueError('Invalid NTE release version.')
-            raw = download(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
-            sections = {}
-            previous = {}
-            for item in cfg.findall('BaseVerson/Res'):
-                tag, revision, size = item.get('Tag', ''), item.get('version', ''), item.get('ResSize', '')
-                if (not re.fullmatch(r'[a-zA-Z0-9_]+', tag) or not re.fullmatch(r'\d+\.\d+\.\d+', revision)
-                        or not size.isdecimal() or tag in sections):
-                    raise ValueError('Invalid or duplicate NTE resource section.')
-                sections[tag] = revision
-                previous[tag] = [int(size), revision]
-            items, previous['ResList.bin'] = files(raw, region, version, sections, cfg.findtext('Extra/listHash'))
-            return branch, version, items, previous
+            return branch, version, root, cfg
         if not re.fullmatch(r'PC_[0-9]+', next_branch):
             raise ValueError('Unsupported NTE release branch.')
         branch = next_branch
     raise ValueError('NTE region returned an incomplete release chain.')
+
+
+def discover(region):
+    branch, version, root, cfg = release_config(region)
+    raw = download(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
+    sections = {}
+    previous = {}
+    for item in cfg.findall('BaseVerson/Res'):
+        tag, revision, size = item.get('Tag', ''), item.get('version', ''), item.get('ResSize', '')
+        if (not re.fullmatch(r'[a-zA-Z0-9_]+', tag) or not re.fullmatch(r'\d+\.\d+\.\d+', revision)
+                or not size.isdecimal() or tag in sections):
+            raise ValueError('Invalid or duplicate NTE resource section.')
+        sections[tag] = revision
+        previous[tag] = [int(size), revision]
+    items, previous['ResList.bin'] = files(raw, region, version, sections, cfg.findtext('Extra/listHash'))
+    return branch, version, items, previous
 
 
 def save_file(region, branch, item, destination, *, verify=None):

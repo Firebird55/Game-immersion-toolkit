@@ -18,6 +18,7 @@ SOURCES = {
     'genshin': ('gitlab', 'Dimbreath/animegamedata2', 'main'),
     'starrail': ('gitlab', 'Dimbreath/turnbasedgamedata', 'main'),
     'endfield': ('github', 'rmxlinux/EndfieldData', 'main'),
+    'nte-cn': ('github', '555me/NTEData', 'main'),
 }
 
 
@@ -70,14 +71,17 @@ class DialogueCatalog:
         _atomic_file(receipt, hashlib.sha256(data).hexdigest().encode())
         return data
 
-    def file(self, relative, *, optional=False):
-        from urllib.error import HTTPError
+    def raw_file(self, relative):
         if self.host == 'gitlab':
             url = f'https://gitlab.com/{self.repository}/-/raw/{self.revision}/{relative}'
         else:
             url = f'https://raw.githubusercontent.com/{self.repository}/{self.revision}/{relative}'
+        return self._bytes(relative, url)
+
+    def file(self, relative, *, optional=False):
+        from urllib.error import HTTPError
         try:
-            return json.loads(self._bytes(relative, url))
+            return json.loads(self.raw_file(relative))
         except HTTPError as error:
             if optional and error.code == 404:
                 return {}
