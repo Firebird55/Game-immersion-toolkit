@@ -142,6 +142,8 @@ Mandarin. Playback of that candidate at a specific in-game occurrence depends
 on controller state. A separate empty-cache check downloaded the original
 English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
 
+[Playback checks for the thirteen unresolved rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
+
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
 use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and
 selected dub index. To list a group, run the following from the source checkout.

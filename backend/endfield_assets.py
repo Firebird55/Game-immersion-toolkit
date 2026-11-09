@@ -139,6 +139,32 @@ def _performances(row, paths, audio_ids, texts):
         yield gender, variants.get(gender, source), {code: line for code, line in lines.items() if line}
 
 
+def _radio_reaction(row, paths, locale, entries):
+    configured = row['radio_reaction_configured']
+    actor = row['radio_voice_actor']
+    info = {'radio_emotion_type': row.get('emotionType'), 'radio_reaction_configured': configured}
+    if configured is None:
+        status = 'configuration_unknown'
+    elif not configured:
+        status = 'no_configured_interjection'
+    elif not actor or actor == 'None':
+        status = 'no_mapped_performer'
+    else:
+        status = 'no_matching_voice_metadata'
+        candidates = {}
+        for term in row['radio_interjections']:
+            name = f'au_dlg_commvo_{actor}_{term}'
+            if name in paths:
+                status = 'missing_selected_dub_media'
+                original = 'voice/' + VOICE_LOCALES[locale] + '/' + paths[name].replace('\\', '/').lower()
+                if f'{voice_hash(original):016x}' in entries:
+                    candidates[name] = original
+        if candidates:
+            status = 'candidates_in_dub'
+            info.update(radio_voice_actor=actor, radio_reaction_candidates=candidates)
+    return {**info, 'radio_reaction_status': status}
+
+
 def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None):
     result = []
     for identity, row in dialogs.items():
@@ -163,19 +189,10 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 sentence = ('indexed' if audio else 'missing_locale_media' if source else
                             'unresolved_override' if row.get('audioOverride') else 'no_override')
                 radio = {'radio_group': row['radio_group'], 'radio_sentence': sentence}
+                if row.get('audioEvent'):
+                    radio['radio_audio_event'] = row['audioEvent']
                 if not source:
-                    radio['radio_emotion_type'] = row.get('emotionType')
-                    radio['radio_reaction_configured'] = row['radio_reaction_configured']
-                    candidates = {}
-                    for term in row['radio_interjections']:
-                        name = f"au_dlg_commvo_{row['radio_voice_actor']}_{term}"
-                        if name in paths:
-                            original = 'voice/' + VOICE_LOCALES[locale] + '/' + paths[name].replace('\\', '/').lower()
-                            if f'{voice_hash(original):016x}' in entries:
-                                candidates[name] = original
-                    if candidates:
-                        radio['radio_voice_actor'] = row['radio_voice_actor']
-                        radio['radio_reaction_candidates'] = candidates
+                    radio.update(_radio_reaction(row, paths, locale, entries))
             result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
                 **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
@@ -267,7 +284,7 @@ def radio_dialogues(catalog):
             if not isinstance(identity, str) or not identity:
                 _unsupported()
             _text_ref(row.get('radioText'))
-            if not isinstance(row.get('audioOverride', ''), str):
+            if not isinstance(row.get('audioOverride', ''), str) or not isinstance(row.get('audioEvent', ''), str):
                 _unsupported()
             if identity in dialogs:
                 _unsupported()

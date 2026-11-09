@@ -32,8 +32,11 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
             if line is not None and row['text_id'] != line:
                 continue
             entry = {'group': row['radio_group'], 'id': row['text_id'], 'status': row['radio_sentence']}
+            if 'radio_audio_event' in row:
+                entry['audio_event'] = row['radio_audio_event']
             if 'radio_reaction_configured' in row:
-                entry.update(emotion=row['radio_emotion_type'], reaction_configured=row['radio_reaction_configured'])
+                entry.update(emotion=row['radio_emotion_type'], reaction_configured=row['radio_reaction_configured'],
+                             reaction_status=row['radio_reaction_status'])
             if row.get('radio_reaction_candidates'):
                 entry['voice_actor'] = row['radio_voice_actor']
                 entry['reaction_candidates'] = list(row['radio_reaction_candidates'])

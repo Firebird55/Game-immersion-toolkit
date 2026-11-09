@@ -69,18 +69,28 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     first = record({}, {})
     assert first['radio_group'] == 'sequence' and first['radio_sentence'] == 'unresolved_override'
     assert first['radio_reaction_configured'] and first['audio'] is None
+    assert first['radio_reaction_status'] == 'no_matching_voice_metadata'
     name = 'au_dlg_commvo_performer_short_reaction'
     reaction = 'voice/english/reaction.wem'
     key = f'{voice_hash(reaction):016x}'
+    assert record({name: 'reaction.wem'}, {})['radio_reaction_status'] == 'missing_selected_dub_media'
     candidate = record({name: 'reaction.wem'}, {key: {'file_id': key}})
     assert candidate['audio'] is None and candidate['radio_reaction_candidates'] == {name: reaction}
     assert candidate['radio_voice_actor'] == 'performer'
+    assert candidate['radio_reaction_status'] == 'candidates_in_dub'
+    catalog.values['NpcInfoTable']['actor']['voActor'] = 'None'
+    line['audioEvent'] = 'radio_noise'
+    unmapped = record({}, {})
+    assert unmapped['radio_reaction_status'] == 'no_mapped_performer'
+    assert unmapped['radio_audio_event'] == 'radio_noise' and unmapped['voice_status'] == 'unavailable'
     catalog.values['EmotionVoiceConfig']['7'] = {'interjection': '', 'interjectionList': []}
     assert record({}, {})['radio_reaction_configured'] is False
+    assert record({}, {})['radio_reaction_status'] == 'no_configured_interjection'
     line['emotionType'] = 0
     assert record({}, {})['radio_reaction_configured'] is False
     catalog.values['EmotionVoiceConfig'] = {}
     assert record({}, {})['radio_reaction_configured'] is None
+    assert record({}, {})['radio_reaction_status'] == 'configuration_unknown'
     paths = {'spoken': 'scene/spoken.wem'}
     assert record(paths, {})['radio_sentence'] == 'missing_locale_media'
     key = f'{voice_hash("voice/english/scene/spoken.wem"):016x}'
@@ -108,6 +118,7 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert not args[4].exists()
     result = cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
     assert args[4].read_bytes() == b'reaction' and result['rows'][0]['status'] == 'no_override'
+    assert result['rows'][0]['reaction_status'] == 'candidates_in_dub'
     args[4].write_bytes(b'previous')
     monkeypatch.setattr(cli.publisher, 'discover', lambda: ('newer', b''))
     with pytest.raises(ValueError, match='changed'):
