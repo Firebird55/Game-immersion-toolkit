@@ -247,6 +247,39 @@ and voice. The eleven Mandarin caption IDs for
 can supply a verified translated recording. A film with no accepted interval
 can still contain speech.
 
+The [inventory of the other 28 configurations](endfield-film-configs-1.6.4.csv)
+records the default pointer, timed captions, current TextTable matches, voice
+event and presence of a same-name video in publisher group 13. Eighteen have
+a same-name video. One configuration has a null playable pointer. The three
+`fmv_e0m1` tracks have 11, 14 and 21 timed captions respectively, all absent
+from the released TextTable. Inspection of 90 candidate scene prefabs and
+audio/other tracks also found separate in-engine events such as
+`au_vo_cs_e2m8_1_f`. Similar scene names do not establish a film clock.
+
+**Ten configurations now have downloadable whole-event voices.** The two
+`c35m4_liinoshow` films share one event. The female and male variants of
+`e12m5_3`, `e12m5_4`, `e2m8_2` and `e6m1_1` each select their own event.
+All nine event identities resolved to single localized media and decoded
+with nonzero PCM in Mandarin, English, Japanese and Korean. These 36
+performances are separate from the 1,613 timed intervals. No new subtitle
+interval is established by the whole-track result.
+
+The [film voice command](../../scripts/endfield_film_voice.py) looks up the
+given event in the active release's initial, selected-dub and hotfix package
+indexes, requires a unique in-dub single-source playback definition and
+downloads the selected original WEM. For example, the following command
+retrieved the Japanese performance from an empty cache.
+
+```text
+python scripts/endfield_film_voice.py au_vo_csv_e12m5_4_f --locale ja --cache private-cache --wem film-ja.wem
+```
+
+The same reader retrieved `au_vo_csv_e2m8_2_f` and `au_vo_csv_e6m1_1_m`
+from both Global 1.5.3 and 1.6.4 in English. It also follows the
+`hotfix_<language>_bNN.pck` shards in the older release. A new event name
+requires its current authored identity. Subtitle capture still requires
+an independently verified clock for the individual line.
+
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event
 `au_vo_csv_e7m4_2_f` starts at 0.050 seconds. Following its bank graph
