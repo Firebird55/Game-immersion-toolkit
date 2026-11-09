@@ -82,10 +82,20 @@ def test_embedded_updater_file_requires_correct_range_and_content_before_replace
     assert output.read_bytes() == media
 
 
-def test_publisher_manifest_hash_precedes_parsing_and_a_changed_pointer_requires_retry(monkeypatch):
+def test_publisher_manifest_hash_precedes_parsing_and_a_changed_pointer_requires_retry(monkeypatch, tmp_path):
     blob = b'{"Version":"2.0.1"}'
-    monkeypatch.setattr(live, 'download', lambda url, limit: blob)
-    assert live._manifest('publisher', hashlib.sha1(blob).hexdigest())['Version'] == '2.0.1'
+    downloads = []
+    def fetch(url, limit):
+        downloads.append(url)
+        return blob
+    monkeypatch.setattr(live, 'download', fetch)
+    digest = hashlib.sha1(blob).hexdigest()
+    for _ in range(2):
+        assert live._manifest('publisher', digest, tmp_path)['Version'] == '2.0.1'
+    assert downloads == ['publisher']
+    (tmp_path / 'kuro-manifests' / digest).write_bytes(b'corrupt')
+    assert live._manifest('publisher', digest, tmp_path)['Version'] == '2.0.1'
+    assert downloads == ['publisher', 'publisher']
     with pytest.raises(ValueError):
         live._manifest('publisher', '0'*40)
     with pytest.raises(ValueError, match='Retry'):

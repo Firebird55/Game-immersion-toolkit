@@ -40,24 +40,38 @@ def kuro_bytes(url):
     return data
 
 
+@lru_cache(maxsize=3)
+def _launcher_manifest(url, digest):
+    data = kuro_bytes(url)
+    if hashlib.md5(data).hexdigest() != digest:
+        raise ValueError('Kuro launcher manifest checksum mismatch.')
+    return data
+
+
 def launcher():
     root = json.loads(kuro_bytes(KURO))['default']
     config = root['config']
     path, version = config['indexFile'], config['version']
+    pak.check(isinstance(config['indexFileMd5'], str) and re.fullmatch('[0-9a-f]{32}', config['indexFileMd5']))
     if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch(
             r'launcher/game/G153/50004/' + re.escape(version) + r'/[A-Za-z0-9]+/resource/50004/'
             + re.escape(version) + r'/indexFile\.json', path):
         raise ValueError('Unrecognized Global Kuro launcher index.')
+    network_error = None
     for candidate in root['cdnList']:
         cdn = urlsplit(candidate['url'])
         if (cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.net', cdn.netloc)
                 and cdn.path in ('', '/') and not cdn.query and not cdn.fragment):
             url = 'https://' + cdn.netloc + '/' + path
-            data = kuro_bytes(url)
-            if hashlib.md5(data).hexdigest() != config['indexFileMd5']:
-                raise ValueError('Kuro launcher manifest checksum mismatch.')
+            try:
+                data = _launcher_manifest(url, config['indexFileMd5'])
+            except OSError as error:
+                network_error = error
+                continue
             break
     else:
+        if network_error is not None:
+            raise network_error
         raise ValueError('No recognized Kuro publisher CDN.')
     files = {}
     for row in json.loads(data)['resource']:
@@ -97,11 +111,20 @@ def _json(raw):
     return json.loads(unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher), 16))
 
 
-def _manifest(url, sha):
+def _manifest(url, sha, cache=None):
     pak.check(isinstance(sha, str) and re.fullmatch('[0-9a-fA-F]{40}', sha))
+    digest = sha.lower()
+    path = Path(cache) / 'kuro-manifests' / digest if cache is not None else None
+    if path is not None and path.is_file() and path.stat().st_size <= LIMIT:
+        raw = path.read_bytes()
+        if hashlib.sha1(raw).hexdigest() == digest:
+            return _json(raw)
     raw = download(url, limit=LIMIT)
-    pak.check(hashlib.sha1(raw).hexdigest() == sha.lower())
-    return _json(raw)
+    pak.check(hashlib.sha1(raw).hexdigest() == digest)
+    index = _json(raw)
+    if path is not None:
+        _atomic_file(path, raw)
+    return index
 
 
 def _size(value):
@@ -128,17 +151,22 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     routes = [line.removeprefix('UrlPath=') for line in lines if line.startswith('UrlPath=')]
     prefixes = [line.removeprefix('InternalPrefix=') for line in lines if line.startswith('InternalPrefix=')]
     pak.check(len(routes) == len(prefixes) == 1 and re.fullmatch(r'[A-Za-z0-9]{16,80}', routes[0]))
+    network_error = None
     for prefix in prefixes[0].split(';'):
         if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.net', prefix):
             try:
                 source = _json(download(f'{prefix}/{routes[0]}/index.json', limit=LIMIT))['default']
                 break
-            except OSError:
+            except OSError as error:
+                network_error = error
                 continue
     else:
+        if network_error is not None:
+            raise network_error
         raise ValueError('No available Global Kuro bootstrap.')
     res = source['ResUri']
     pak.check(re.fullmatch(r'[A-Za-z0-9]{16,80}', res))
+    network_error = None
     for cdn in source['CdnUrl']:
         url = urlsplit(cdn['url'])
         if (url.scheme == 'https' and url.path == '/prod/client/' and not url.query and not url.fragment and
@@ -147,9 +175,12 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
             try:
                 config_data = download(root + 'config.json', limit=LIMIT)
                 break
-            except OSError:
+            except OSError as error:
+                network_error = error
                 continue
     else:
+        if network_error is not None:
+            raise network_error
         raise ValueError('No available Global Kuro resource CDN.')
     platform = _json(config_data)
     release = platform['PackageVersion']
@@ -160,7 +191,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
         revision = current['Version']
         pak.check(re.fullmatch(VERSION, revision) and current['Name'] == channel)
         name = 'ManifestResource' if channel == 'resource' else 'ManifestLang_' + channel
-        index = _manifest(root + revision + '/' + name + '.txt', current['IndexSha1'][revision])
+        index = _manifest(root + revision + '/' + name + '.txt', current['IndexSha1'][revision], cache)
         pak.check(index['Version'] == revision and index['Pv'] == 1)
         versions[channel] = revision
         for layer, folder in (('BaseFiles', release), ('PatchFiles', revision)):
@@ -178,7 +209,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
             pointer = download(video_url, limit=LIMIT)
             video_pointers[video_url] = pointer
             cfg = _json(pointer)
-            index = _manifest(root + release + '/Video/VideoManifest_' + tier + '.json', cfg['IndexSha1'])
+            index = _manifest(root + release + '/Video/VideoManifest_' + tier + '.json', cfg['IndexSha1'], cache)
             for scene, row in index['VideoInfos']['PakMap'].items():
                 if scene == '__kr_map__' and row is None:
                     continue

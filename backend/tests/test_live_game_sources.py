@@ -48,10 +48,12 @@ def test_wuwa_keeps_game_paks_and_requires_current_launcher_checksum(monkeypatch
     data = json.dumps({'resource': [row, dict(row, dest='Browser/example.pak')]}).encode()
     cfg = {'config': {'version': '1.0.1', 'indexFile': path, 'indexFileMd5': hashlib.md5(data).hexdigest()},
            'resourcesBasePath': path.split('/resource/')[0] + '/zip',
-           'cdnList': [{'url': 'https://cdn.aki-game.net/'}]}
+           'cdnList': [{'url': 'https://first.aki-game.net/'}, {'url': 'https://cdn.aki-game.net/'}]}
     def fetch(url):
         if url == sources.wuthering_release.KURO:
             return json.dumps({'default': cfg}).encode()
+        if url == 'https://first.aki-game.net/' + path:
+            raise OSError('First publisher CDN is offline')
         assert url == 'https://cdn.aki-game.net/' + path
         return data
     monkeypatch.setattr(sources.wuthering_release, 'kuro_bytes', fetch)
