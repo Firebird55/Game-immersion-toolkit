@@ -6,7 +6,7 @@ import hashlib
 import struct
 import urllib.request
 
-from . import endfield_global_1_6 as profile
+from . import endfield_cinematic_profile as profile
 from . import endfield_global_cue_context as context
 from . import endfield_metadata, endfield_vfs
 from .game_tools import _atomic_file
@@ -129,7 +129,7 @@ def film_records(catalog, tables, locale):
         texts = {code: display_text(values.get(key)) for code, values in tables.items()}
         if not all(texts.values()):
             continue
-        anchor = context.PREVIOUS.get((film, track, caption))
+        anchor = context.PREVIOUS.get((film, track, caption)) or profile.SCENE_PREVIOUS.get((film, caption))
         rows.append({'text_id': f'endfield:film:{film}:{caption}', 'source_locale': locale,
                      'previous_text_id': f'endfield:film:{film}:{anchor}' if anchor else None,
                      'requires_previous': conditional,

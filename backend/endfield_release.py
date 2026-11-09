@@ -112,7 +112,7 @@ class RemoteChunk:
 @lru_cache(maxsize=48)
 def group(tools, stamp, block, names=None):
     params = endfield_metadata.parameters(tools)
-    directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 2: '0CE8FA57'}
+    directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 12: '24ED34CF', 2: '0CE8FA57'}
     directory = directories[block] if block in directories else params.directories[block]
     role = 'initial' if block in (1, 2, 4) else 'main'
     base = _resource_url(descriptor(tools, stamp)['layers'][role]['url'], role) + '/VFS/' + directory + '/'
@@ -187,12 +187,13 @@ def prepare(tools):
 
 @lru_cache(maxsize=4)
 def _unchanged_film_assets(tools, stamp):
-    from . import endfield_film_registry as registry, endfield_film_sources as reference
+    from . import endfield_cinematic_profile as profile, endfield_film_registry as registry, endfield_film_sources as reference
     base, rows = group(tools, stamp, 4)
     file, = [row for row in rows if row.name == 'Data/Bundles/Windows/manifest.hgmmap']
     raw = registry.inflate(_whole(tools, base, file, 160 * 1024**2), 384 * 1024**2)
     paths = 'assets/beyond/dynamicassets/gamedata/subtitle/fmv/'
-    expected = {paths + path: value for path, value in reference.ASSETS.items()} | endfield_film_conditions.CONDITIONS
+    expected = ({paths + path: value for path, value in reference.ASSETS.items()}
+                | endfield_film_conditions.CONDITIONS | profile.SCENE_ASSETS)
     assets = registry.bindings(raw, path_hashes={head for head, _ in expected.values()})
     del raw
     candidates, ambiguous = {}, set()
@@ -217,39 +218,37 @@ def _unchanged_film_assets(tools, stamp):
 
 @lru_cache(maxsize=16)
 def verified_films(tools, stamp, dub):
-    from . import endfield_film_sources as reference, endfield_global_1_6 as profile
+    from . import endfield_film_voice, endfield_cinematic_profile as profile
     _check(dub in vfs.LOCALE_BLOCKS)
     layers = descriptor(tools, stamp)['layers']
     if all(layers[role]['sha256'] == digest for role, digest in FILM_MANIFESTS.items()):
         return frozenset(profile.FILMS)
-    # A changed regional voice-event bank or hotfix can select different
-    # speech despite identical text and clocks. Require the audited bank set.
-    wanted = {'default_' + dub + '_banks.pck', 'hotfix_' + dub + '.pck', 'hotfix_main.pck'}
-    expected = {name: digest for name, digest in reference.BANKS.items() if name in wanted}
-    actual = {}
-    for block in (vfs.LOCALE_BLOCKS[dub], 21):
-        _, rows = group(tools, stamp, block)
-        for row in rows:
-            name = row.name.rsplit('/', 1)[-1]
-            if name in wanted or (block != 21 and 'bank' in name):
-                _check(name not in actual)
-                actual[name] = row.content_hashes[1]
-            elif block == 21 and name not in {'hotfix_' + locale + '.pck' for locale in vfs.LOCALE_BLOCKS}:
-                return frozenset()
-    if actual != expected:
-        return frozenset()
     verified = _unchanged_film_assets(tools, stamp)
     suffixes = {'chinese': ('cn',), 'english': ('en',), 'japanese': ('jp',), 'korean': ('kr', 'ko')}[dub]
     track = ('chinese', 'english', 'japanese', 'korean').index(dub)
-    accepted = set()
+    candidates = {}
     for film, recordings in profile.FILMS.items():
+        if film in profile.SCENE_FILMS:
+            if recordings[track] and profile.scene_dependencies(film, dub) <= verified:
+                candidates[film] = recordings[track]
+            continue
         source = endfield_film_conditions.VARIANTS.get(film, film)
         if source != film and not endfield_film_conditions.CONDITIONS.keys() <= verified:
             continue
         if (not recordings[track] or f'singleconfigs/{source}.asset' not in verified or
                 not any(f'{source}_others_au_{suffix}.playable' in verified for suffix in suffixes)):
             continue
-        identity, expected_digest = recordings[track]
+        candidates[film] = recordings[track]
+    if not candidates:
+        return frozenset()
+    # An unrelated update can replace a whole dub bank. Recheck each event's
+    # authored, zero-delay play action and its recording in the active banks.
+    events = {film: profile.EVENTS[film][track] for film in candidates}
+    current = endfield_film_voice.recording_ids(tools, stamp, dub, events.values())
+    accepted = set()
+    for film, (identity, expected_digest) in candidates.items():
+        if current.get(events[film]) != identity:
+            continue
         try:
             media(tools, stamp, dub, identity, expected_digest)
         except UnmatchedRecording:

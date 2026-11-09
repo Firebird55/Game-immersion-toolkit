@@ -2,6 +2,33 @@
 
 ## Installation-free publisher updates, November 9, 2026
 
+The [80-film inventory](endfield-film-configs-1.6.4.csv) now distinguishes a
+movie's screen time from each spoken interval. Of the 28 movie configurations
+without a verified sentence interval, 25 have no authored caption (one is
+null). The other three contain 11, 14 and 21 Chinese subtitle clocks. The
+[46 historical intervals](endfield-legacy-film-clocks-1.6.4.csv) match the
+2023 technical test. None of their keys occurs in any of the 14 current
+translations. Eighteen of the 28 have a matching video. Ten have a directly
+resolvable whole voice track and two more have a voice track in their caller.
+
+Two current strings bearing the movie name `cs_video_e0m0_3` actually play
+in the in-engine scene `cutscene_e0m0_5`. Both hero variants use the following
+localized subtitle intervals, in seconds from the start of their respective
+performance. The original sound was checked for each of the 16 combinations.
+
+| Dub | First sentence | Second sentence |
+| --- | ---: | ---: |
+| Mandarin | 11.900–13.817 | 14.883–16.767 |
+| English | 12.000–14.233 | 14.233–17.050 |
+| Japanese | 11.667–14.367 | 14.367–17.050 |
+| Korean | 12.050–14.400 | 14.400–17.067 |
+
+These bring verified localized intervals to 1,629, comprising 1,613 movie
+intervals across 52 of 80 configurations and 16 in-engine intervals. Setup
+and MP3 export were exercised for all five study languages, including both
+Chinese scripts. Revalidation also selected the two scenes and their original
+audio on the earlier Global 1.6.4 resource revision `11343132-9`.
+
 Setup follows the released Global Windows launcher version and both resource
 indexes. It reads original SparkBuffer localization and narrative tables from
 group 18 and resolves the authored voice in the initial, selected-dub and hotfix
