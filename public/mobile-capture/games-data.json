@@ -141,9 +141,9 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Three new 3.3 story lines have exact publisher recordings in all four dubs. All 13 base text locales were read directly. Those three Japanese subtitles arrived through a later design update. Korean native playback and full gameplay coverage remain open.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
-      "reviewedAt": "2026-11-08"
+      "coverage": "Windows publisher Setup covers recorded phone messages in the Global PC launcher base. Three sampled 3.3 story lines have original recordings in all four dubs, but their Japanese subtitles required a later design update. Other presentations use installed files.",
+      "supportPolicy": "Prepare recorded phone messages from the Global launcher release, or select an installed game and voice pack for other dialogue.",
+      "reviewedAt": "2026-11-09"
     },
     {
       "id": "wuwa",

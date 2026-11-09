@@ -98,7 +98,13 @@ def _verified(directory, url, compressed, length, digest, maximum):
     data = zstandard.ZstdDecompressor(max_window_size=maximum // 1024).decompress(
         encoded, max_output_size=length, allow_extra_data=False)
     _check(len(data) == length and hashlib.md5(data).hexdigest() == digest)
-    _atomic_file(path, data)
+    try:
+        _atomic_file(path, data)
+    except PermissionError:
+        # Several PCK headers can share one Sophon chunk. On Windows a reader
+        # of the winning download can temporarily prevent its replacement.
+        if not path.is_file() or path.stat().st_size != length or path.read_bytes() != data:
+            raise
     return data
 
 

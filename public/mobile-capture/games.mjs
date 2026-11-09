@@ -32,7 +32,7 @@ else {
   const scope=data.platformScope, local=scope.windowsPreparation[scope.targets[game.id]];
   article.append(element('p',local ? t(scope.liveServiceTarget)+' '+t(local.label) : scope.windowsOnly));
   const selected=source!=='all'||target!=='all';
-  if(selected){const state=source!=='all'&&target!=='all'?status(game,source,target,local):'Choose both languages to check a pair';article.append(element('p',`${source==='all'?t('Any learning language'):label(source)} → ${target==='all'?t('Any translation'):label(target)}: ${t(state)}`,state.includes('Supported')?'tag':'warning'));}
+  if(selected){const state=source!=='all'&&target!=='all'?status(game,source,target,local):'Choose both languages to check a pair';article.append(element('p',`${source==='all'?t('Any learning language'):label(source)} → ${target==='all'?t('Any translation'):label(target)}: ${t(state)}`,state.includes('Supported')||state===local?.pairLabel?'tag':'warning'));}
   article.append(list(game.textOnly?'Learning text (text-only)':'Learning text + matching original voice',game.study),list('Supported official translation targets',game.targets),element('p',t('Expected support uses the same reader format; it does not require an export of every language.')));
   if(Object.keys(game.unverified).length){const p=element('p',null,'warning');p.append(element('strong','Storefront-listed, toolkit unverified'),document.createTextNode(Object.keys(game.unverified).map(label).join(' · ')));article.append(p);for(const [locale,note]of Object.entries(game.unverified))if(target===locale||target==='all')article.append(element('p',label(locale)+': '+note,'muted'));}
   const details=element('details'),summary=element('summary','Compare every language');details.append(summary);

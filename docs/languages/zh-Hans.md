@@ -11,7 +11,7 @@
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-09 · [覆盖范围说明](../zzz-languages.md)
 
 设置可从发行商获取全球版启动器中的有声手机消息。其他对话需要已安装的游戏文件。
 

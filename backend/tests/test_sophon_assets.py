@@ -21,6 +21,24 @@ def varint(value):
     return bytes(result)
 
 
+@pytest.mark.parametrize('winner_ok', [True, False])
+def test_windows_chunk_write_collision_requires_verified_winner(tmp_path, monkeypatch, winner_ok):
+    data = b'original chunk'
+    archive = zstandard.ZstdCompressor().compress(data)
+    digest = hashlib.md5(data).hexdigest()
+    monkeypatch.setattr(sophon, 'download', lambda *_args, **_kwargs: archive)
+    def competing_writer(path, payload):
+        path.write_bytes(payload if winner_ok else b'x' * len(payload))
+        raise PermissionError('concurrent reader')
+    monkeypatch.setattr(sophon, '_atomic_file', competing_writer)
+    args = (tmp_path, 'url', len(archive), len(data), digest, sophon.MAX_CHUNK)
+    if winner_ok:
+        assert sophon._verified(*args) == data
+    else:
+        with pytest.raises(PermissionError):
+            sophon._verified(*args)
+
+
 def field(number, value):
     if isinstance(value, int):
         return varint(number << 3) + varint(value)
