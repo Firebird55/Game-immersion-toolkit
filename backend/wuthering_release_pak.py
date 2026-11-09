@@ -10,6 +10,7 @@ from Crypto.Cipher import AES
 from .game_tools import _atomic_file
 
 LIMIT = 64 * 1024**2
+MEMBER_LIMIT = 512 * 1024**2
 MAGIC = b'\xe1\x12\x6f\x5a'
 
 
@@ -52,9 +53,10 @@ def string(reader):
 class Package:
     def __init__(self, url, size, identity, cache, parameters):
         self.url, self.size = url, size
-        check(size > 512)
+        check(size >= 64)
         self.cache = cache / 'kuro-package-index' / identity
-        footer = self.range(size - 512, 512)
+        tail = min(512, size)
+        footer = self.range(size - tail, tail)
         magic = footer.rfind(MAGIC)
         check(1 <= magic <= len(footer)-108)
         version, offset, length = struct.unpack_from('<IQQ', footer, magic+4)
@@ -105,11 +107,11 @@ class Package:
         _atomic_file(path, data)
         return data
 
-    def member(self, wanted):
+    def locations(self, *, wanted=(), prefix=None):
         reader = io.BytesIO(self.directory)
         directories = number(reader)
         check(0 <= directories <= 2_000_000)
-        found = None
+        found = {}
         for _ in range(directories):
             directory = self.mount + string(reader).lstrip('/')
             count = number(reader)
@@ -117,12 +119,17 @@ class Package:
             for _ in range(count):
                 name = directory + string(reader)
                 position = number(reader)
-                if name == wanted:
-                    check(found is None and position >= 0)
-                    found = position
-        if found is None:
+                if name in wanted or (prefix is not None and name.startswith(prefix)):
+                    check(name not in found)
+                    found[name] = position
+        return found
+
+    def member(self, wanted):
+        found = self.locations(wanted={wanted})
+        if wanted not in found:
             return None
-        return self.extract(found)
+        check(found[wanted] >= 0)
+        return self.extract(found[wanted])
 
     def extract(self, position):
         # Kuro v12 stores the encoded entry's length and offset in swapped slots.
@@ -140,14 +147,15 @@ class Package:
         stored = number(reader, 'I' if flags & (1 << 29) else 'Q') if method else size
         blocks = (flags >> 6) & 65535
         encrypted = bool(flags & (1 << 22))
-        check(0 < size <= LIMIT and 0 < stored <= LIMIT and custom in (0, 1, 2, 4))
+        check(0 < size <= MEMBER_LIMIT and 0 < stored <= MEMBER_LIMIT and custom in (0, 1, 2, 4))
         check((method == 0 and not blocks) or
               (0 < method < len(self.methods) and self.methods[method] == b'Zlib' and blocks == 1))
         header_size = 53 + (4 + 16 * blocks if method else 0)
         header = self.range(offset, header_size)
         check(struct.unpack_from('<QQI', header, 8) == (stored, size, method))
         length = (stored + 15) // 16 * 16 if encrypted else stored
-        data = self.range(offset + header_size, length)
+        data = b''.join(self.range(offset + header_size + part, min(LIMIT, length - part))
+                        for part in range(0, length, LIMIT))
         protected = min(length, {0: length, 1: 0x200000, 2: 0x800, 4: 0}[custom]) if encrypted else length
         check(hashlib.sha1(data[:protected]).digest() == header[28:48])
         if encrypted and protected:

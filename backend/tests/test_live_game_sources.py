@@ -50,12 +50,12 @@ def test_wuwa_keeps_game_paks_and_requires_current_launcher_checksum(monkeypatch
            'resourcesBasePath': path.split('/resource/')[0] + '/zip',
            'cdnList': [{'url': 'https://cdn.aki-game.net/'}]}
     def fetch(url):
-        if url == sources.KURO:
+        if url == sources.wuthering_release.KURO:
             return json.dumps({'default': cfg}).encode()
         assert url == 'https://cdn.aki-game.net/' + path
         return data
-    monkeypatch.setattr(sources, 'kuro_bytes', fetch)
-    assert sources.wuwa_launcher()[2] == {row['dest']: [123, '1' * 32]}
+    monkeypatch.setattr(sources.wuthering_release, 'kuro_bytes', fetch)
+    assert sources.wuthering_release.launcher()[2] == {row['dest']: [123, '1' * 32]}
     cfg['config']['indexFileMd5'] = '0' * 32
     with pytest.raises(ValueError, match='checksum'):
-        sources.wuwa_launcher()
+        sources.wuthering_release.launcher()

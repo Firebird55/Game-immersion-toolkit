@@ -1,65 +1,14 @@
 """Compare released Windows package inventories without a game installation."""
 import argparse
-import gzip
-import hashlib
-import io
 import json
 from pathlib import Path
-import re
 import sys
-from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend import endfield_release, nte_release, sophon_assets, wuthering_release
-from backend.game_tools import _atomic_file, download
+from backend.game_tools import _atomic_file
 
-KURO = 'https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json'
 NTE = nte_release.HOSTS
-LIMIT = 16 * 1024**2
-
-
-def kuro_bytes(url):
-    data = download(url, limit=LIMIT)
-    if data.startswith(b'\x1f\x8b'):
-        with gzip.GzipFile(fileobj=io.BytesIO(data)) as packed:
-            data = packed.read(LIMIT + 1)
-        if len(data) > LIMIT:
-            raise ValueError('Kuro launcher index exceeds its size limit.')
-    return data
-
-
-def wuwa_launcher():
-    root = json.loads(kuro_bytes(KURO))['default']
-    config = root['config']
-    path, version = config['indexFile'], config['version']
-    if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch(
-            r'launcher/game/G153/50004/' + re.escape(version) + r'/[A-Za-z0-9]+/resource/50004/'
-            + re.escape(version) + r'/indexFile\.json', path):
-        raise ValueError('Unrecognized Global Kuro launcher index.')
-    for candidate in root['cdnList']:
-        cdn = urlsplit(candidate['url'])
-        if (cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.net', cdn.netloc)
-                and cdn.path in ('', '/') and not cdn.query and not cdn.fragment):
-            url = 'https://' + cdn.netloc + '/' + path
-            data = kuro_bytes(url)
-            if hashlib.md5(data).hexdigest() != config['indexFileMd5']:
-                raise ValueError('Kuro launcher manifest checksum mismatch.')
-            break
-    else:
-        raise ValueError('No recognized Kuro publisher CDN.')
-    files = {}
-    for row in json.loads(data)['resource']:
-        name = row['dest']
-        if name.startswith('Client/Content/Paks/') and name.lower().endswith('.pak'):
-            if name in files or not re.fullmatch('[0-9a-f]{32}', row['md5']) or type(row['size']) is not int or row['size'] <= 0:
-                raise ValueError('Invalid or duplicate Kuro package.')
-            files[name] = [row['size'], row['md5']]
-    if not files:
-        raise ValueError('The Kuro launcher has no base game PAKs.')
-    folder = root['resourcesBasePath'].rstrip('/')
-    if folder != path.split('/resource/')[0] + '/zip':
-        raise ValueError('Unexpected Kuro download directory.')
-    return version, 'https://' + cdn.netloc + '/' + folder, files
 
 
 def collect(channel, cache, *, resource=None, save=None, voice=None, dub=None):
@@ -68,7 +17,7 @@ def collect(channel, cache, *, resource=None, save=None, voice=None, dub=None):
         raise ValueError('Select an NTE resource or a Kuro voice and dub, and supply its --save destination.')
     extra = {}
     if channel == 'wuwa-global':
-        version, base, launcher_files = wuwa_launcher()
+        version, base, launcher_files = wuthering_release.launcher()
         versions, layers, packages, params, pointers = wuthering_release.discover(cache, version, base, launcher_files)
         scope = 'Global launcher, core, dub and video files'
         files = {**launcher_files, **layers}
@@ -76,7 +25,7 @@ def collect(channel, cache, *, resource=None, save=None, voice=None, dub=None):
         if voice is not None:
             audio = wuthering_release.voice(cache, packages, dub, voice, params)
             wuthering_release.verify_pointers(pointers)
-            if wuwa_launcher() != (version, base, launcher_files):
+            if wuthering_release.launcher() != (version, base, launcher_files):
                 raise ValueError('The Kuro launcher changed during playback preparation. Retry.')
             _atomic_file(save, audio)
     elif channel in NTE:

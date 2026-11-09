@@ -1,7 +1,7 @@
 # Live-service dialogue sources
 
 Reviewed November 9, 2026. All six Windows readers support installed voice packages.
-Genshin supports mainland China launcher releases, Star Rail supports regular Global launcher voice packages, and Endfield supports Global narrative tables and voices without an installation. For each game, the source audit also retrieved complete
+Without a game installation, desktop Setup supports mainland China Genshin launcher releases, regular Global Star Rail launcher voices, Global Endfield narrative tables and voices, and Global Wuthering Waves story tables and four dubs. For each game, the source audit also retrieved complete
 sample recordings from a publisher update server. The two columns below let a
 reader reproduce the online check and see which inputs setup currently needs.
 Release region, resource revision and spoken locale matter when comparing audio.

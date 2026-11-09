@@ -108,3 +108,60 @@ def test_checked_nte_envelope_rejects_another_digest_or_advertised_size(monkeypa
         nte_release._xml(head + body, 'nte-cn', '0' * 32)
     with pytest.raises(ValueError):
         nte_release._xml(head[:12] + struct.pack('<I', 1) + body, 'nte-cn', md5)
+
+
+def test_online_wuthering_generation_changes_for_dub_only_update_and_old_clip_works_offline(monkeypatch, tmp_path):
+    from backend.wuthering_assets import EXTERNAL_ROOT
+    revision = 'a'
+    def discover(*args, **kwargs):
+        return {'en': '1.0.1'}, {}, {'en/PatchFiles/sample.pak': ('publisher', 600, revision * 40)}, (), {}
+    monkeypatch.setattr(live, 'launcher', lambda: ('1.0.0', 'publisher', {}))
+    monkeypatch.setattr(live, 'discover', discover)
+    first = live._current(tmp_path, 1)[0]
+    revision = 'b'
+    second = live._current(tmp_path, 2)[0]
+    assert first != second and all(live.snapshot_available(tmp_path, stamp) for stamp in (first, second))
+    name = EXTERNAL_ROOT + 'en_example.wem'
+    audio = {'depot': name, 'locale': 'en', 'publisher': first}
+    info = ('publisher', 600, 'a' * 40)
+    monkeypatch.setattr(live, '_voice_locations', lambda tools, stamp, dub: {name: (info, 4)} if stamp == first else {})
+    media = b'RIFF\x06\0\0\0WAVEok'
+    class Package:
+        def extract(self, position):
+            assert position == 4
+            return media
+    monkeypatch.setattr(live, '_voice_package', lambda tools, stamp, source: Package() if source == info else None)
+    assert live.extract(tmp_path, audio) == media
+    with pytest.raises(ValueError):
+        live.extract(tmp_path, dict(audio, publisher=second))
+    with pytest.raises(ValueError):
+        live.extract(tmp_path, audio, 'ja')
+    def offline(*args):
+        raise OSError('offline')
+    monkeypatch.setattr(live, '_voice_locations', offline)
+    assert live.extract(tmp_path, audio) == media
+    path = live._descriptor_path(tmp_path, first)
+    (path.parent / 'clips' / hashlib.sha256(name.encode()).hexdigest()).write_bytes(b'damaged')
+    with pytest.raises(OSError):
+        live.extract(tmp_path, audio)
+    path.write_bytes(b'{}')
+    assert not live.snapshot_available(tmp_path, first)
+
+
+def test_online_wuthering_tombstone_masks_base_and_duplicate_paths_fail_closed(monkeypatch, tmp_path):
+    from backend.wuthering_assets import EXTERNAL_ROOT
+    name = EXTERNAL_ROOT + 'en_example.wem'
+    info = {'en/BaseFiles/first.pak': ('base', 600, 'a'), 'en/PatchFiles/update.pak': ('delta', 700, 'b')}
+    monkeypatch.setattr(live, '_snapshot', lambda *_: {'products': info})
+    monkeypatch.setattr(live, '_voice_parameters', lambda stamp: ())
+    class Package:
+        def __init__(self, url, *args):
+            self.url = url
+        def locations(self, *, wanted, prefix):
+            assert prefix == EXTERNAL_ROOT + 'en_'
+            return {name: -2147483648 if self.url == 'delta' else 0}
+    monkeypatch.setattr(pak, 'Package', Package)
+    assert live._voice_locations(tmp_path, 'removed', 'en') == {}
+    info['en/BaseFiles/second.pak'] = ('also_base', 630, 'c')
+    with pytest.raises(ValueError, match='same layer'):
+        live._voice_locations(tmp_path, 'duplicate', 'en')
