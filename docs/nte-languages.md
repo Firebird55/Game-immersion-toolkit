@@ -11,6 +11,11 @@ provisions dictionaries or prepares every locale.
 
 Movie cues retain the reviewed catalog's owning subtitle namespace, key and
 exact time interval. Zero variants keep the explicit authored Sex_Switch branch.
+Dialogue and bubble tables can explicitly name a recording whose event differs
+from the subtitle key. Preparation checks these aliases against the selected
+voice bank. Story sequences can also override their cue times per dub.
+The reader verifies the public type schema by checksum and caches it for
+later preparations. [Current coverage and setup dependencies](game-audits/nte.md)
 Ambiguous, layered or unresolved event trees cannot supply guessed performances.
 Source packs and translations are checked independently. A missing official text
 pack is an error; another script or language is never substituted.

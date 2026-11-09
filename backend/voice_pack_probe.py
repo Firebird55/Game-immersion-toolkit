@@ -5,10 +5,10 @@ import re
 import time
 import threading
 from pathlib import Path
-from .game_assets import asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter
 
 LABELS = {'present': 'Installed', 'missing': 'Not detected — install this voice language in the game/launcher',
-          'incomplete': 'Incomplete', 'unknown': 'Unable to verify'}
+          'incomplete': 'Incomplete', 'unknown': 'Unable to verify', 'publisher': 'Available from publisher'}
 
 _cache = {}
 _lock = threading.Lock()
@@ -42,7 +42,7 @@ def probe(game, install, locale):
 
 def _probe(game, install, locale):
     if not install:
-        return 'missing'
+        return 'publisher' if game in PUBLISHER_GAMES else 'missing'
     install = Path(install)
     try:
         adapter, _ = asset_adapter(game)
@@ -57,10 +57,11 @@ def _probe(game, install, locale):
         elif game in ('genshin', 'starrail'):
             from . import hoyo_dialogue as common
             root = common.game_data(install, game)
-            namespace = common.voice_namespace(game, locale).casefold()
+            namespaces = {name.casefold() for name in common.voice_namespaces(game, locale)}
             paths = (p for layer in ('StreamingAssets', 'Persistent') for folder in
                      ('AudioAssets', 'Audio/AudioPackage/Windows', 'Audio/GeneratedSoundBanks/Windows')
-                     for p in bounded_files(root / layer / folder, '*.pck') if namespace in {part.casefold() for part in p.parts})
+                     for p in bounded_files(root / layer / folder, '*.pck')
+                     if not namespaces.isdisjoint(part.casefold() for part in p.relative_to(root / layer / folder).parts[:-1]))
         elif game == 'cyberpunk':
             paths = (p for p in adapter.archive_sources(install) if p.name.removeprefix('ep1_') == 'lang_' + adapter.TEXT_LOCALES[locale] + '_voice.archive')
         elif game == 'witcher3':

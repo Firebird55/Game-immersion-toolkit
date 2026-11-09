@@ -118,7 +118,6 @@ def test_frozen_scene_refresh_uses_app_local_commands_and_private_metadata(tmp_p
     directory = layout.data_root / 'languages/zzz/zh-Hans'
     monkeypatch.setattr(reader, 'discover_layout', lambda: layout)
     monkeypatch.setattr(runtime_bundle, 'discover_layout', lambda: layout)
-    monkeypatch.setattr(zzz_assets, 'fingerprint', lambda _: 'authored-game-fingerprint')
     monkeypatch.setattr(zzz_assets.shutil, 'which', lambda *_: pytest.fail('No PATH lookup'))
     calls = []
 

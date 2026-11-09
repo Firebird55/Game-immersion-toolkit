@@ -1,6 +1,7 @@
 """First-run setup and local maintenance. No credentials or game assets leave the PC."""
 from __future__ import annotations
 
+from .game_assets import PUBLISHER_GAMES
 from .runtime_paths import data_root as runtime_data_root
 from .runtime_bundle import child_command, discover_layout, resource_path
 import json
@@ -49,9 +50,9 @@ def _runtime_inventory_stamp(root: Path) -> tuple:
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
     "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
-    "starrail": "Choose Star Rail Games containing StarRail.exe and StarRail_Data; the launcher folder is also accepted.",
-    "genshin": "Choose Genshin Impact game containing GenshinImpact.exe and GenshinImpact_Data; YuanShen clients are accepted too.",
-    "endfield": "Choose the Endfield folder containing Endfield.exe and Endfield_Data/StreamingAssets/VFS.",
+    "starrail": "Optionally choose Star Rail Games. Without a folder, setup uses verified Global launcher voice packages.",
+    "genshin": "Optionally choose the Genshin Impact or YuanShen game folder. Without a folder, setup uses the mainland China publisher release in the selected language.",
+    "endfield": "The Global publisher supplies Endfield audio online. Optionally choose the folder containing Endfield.exe to use installed packages.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
     "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",
     "zzz": "Choose the game folder containing ZenlessZoneZero_Data, or the Data folder itself.",
@@ -65,9 +66,9 @@ FOLDER_HINTS = {
 VOICE_HINTS = {
     "riseofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Regional and DLC pack availability is shown separately.",
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
-    "starrail": "Install your chosen original voice in the game, then prepare its learning language and translation in Languages.",
-    "genshin": "Install your chosen voice pack through the game's language settings, then prepare it in Languages.",
-    "endfield": "Install the matching voice pack, then prepare tools and the selected language.",
+    "starrail": "Prepare the selected study language to retrieve original voices from Global publisher packages.",
+    "genshin": "Prepare the selected language to retrieve original voices from the publisher. Installed clients use their own voice packs.",
+    "endfield": "Prepare tools and the selected language. Without a game folder, the toolkit fetches original Global recordings on demand.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Install the selected study language's original voice pack through the launcher, then prepare it in Languages.",
@@ -91,7 +92,7 @@ def _voice_state(game: str, install: Path | None, state: dict) -> str:
     if game == "hito":
         return "not_required"
     if not install:
-        return "not_checked"
+        return "publisher" if game in PUBLISHER_GAMES else "not_checked"
     if (spec := STEAM_GAMES.get(game)) and not spec.voiced_capture:
         return 'unvoiced_only'
     if state.get('index_state') == 'needs_language_setup':
@@ -294,7 +295,7 @@ class InstallationService:
                     'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')
             with self._lock:
                 self._jobs[game] = {"state": "ready", "message": "Tools ready; checking game data", "progress": 100}
-            if self.install_lookup(game):
+            if self.install_lookup(game) or game in PUBLISHER_GAMES:
                 self.refresh_game(game)
         except Exception as error:
             logging.getLogger(__name__).exception('Tool preparation failed for %s', game)

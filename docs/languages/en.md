@@ -11,7 +11,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Zenless Zone Zero
 
-[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Coverage notes](../zzz-languages.md)
+[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [Coverage notes](../zzz-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -27,6 +27,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 | Korean | ✓ | ✓ | ✓ | Reader implemented |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
+| European Spanish | — | — | ✓ | Reader implemented |
 | Latin American Spanish | — | — | — | Unavailable |
 | Brazilian Portuguese | — | — | ✓ | Reader implemented |
 | Russian | — | — | ✓ | Reader implemented |
@@ -323,20 +324,20 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Coverage notes](../endfield-languages.md)
+[Official language listing](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [Coverage notes](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
+Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 
 <details>
 <summary>Language details</summary>
 
 | Language | Original voice | Learning | Translation | Evidence |
 | :--- | :---: | :---: | :---: | :--- |
-| English | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| English | ✓ | ✓ | ✓ | Audio decoded locally |
 | Simplified Chinese | ✓ | ✓ | ✓ | Audio decoded locally |
 | Traditional Chinese | Shared Mandarin voice | ✓ | ✓ | Audio decoded locally |
-| Japanese | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
-| Korean | ✓ | ✓ | ✓ | Format tested; voice pack not verified locally |
+| Japanese | ✓ | ✓ | ✓ | Audio decoded locally |
+| Korean | ✓ | ✓ | ✓ | Audio decoded locally |
 | French | — | — | ✓ | Reader implemented |
 | German | — | — | ✓ | Reader implemented |
 | Italian | — | — | ✓ | Reader implemented |

@@ -40,7 +40,7 @@ CINEMATIC_EXACT_ID_MARKERS = ("galgame",)
 CINEMATIC_ID_PREFIXES = ("cs_",)
 GAMEPLAY_ID_MARKERS = ("ongoinglevel",)
 UI_LABELS = {"talk", "outputvalue", "searchsupply", "next", "select", "confirm", "cancel"}
-GENDER_VARIANT_RE = re.compile(r"\{[MF]#(.*?)\}", re.DOTALL)
+GENDER_VARIANT_RE = re.compile(r"\{([MF])#([^{}]*)\}")
 TERMINAL_PUNCTUATION_RE = re.compile(r"[.!?…][\"')\]}]*$")
 
 
@@ -58,10 +58,21 @@ def normalize_english(value: str) -> str:
     return NON_ALNUM_RE.sub("", text)
 
 
+def gender_variants(value: str) -> dict[str, str]:
+    """Render each authored performance with the text outside its M/F tags."""
+    if not value or ("{M#" not in value and "{F#" not in value):
+        return {}
+    genders = dict.fromkeys(match[1] for match in GENDER_VARIANT_RE.finditer(value))
+    return {
+        gender: display_text(GENDER_VARIANT_RE.sub(
+            lambda match: match[2] if match[1] == gender else "", value))
+        for gender in genders
+    }
+
+
 def localized_variants(value: str) -> list[str]:
-    variants = [display_text(item) for item in GENDER_VARIANT_RE.findall(str(value or ""))]
-    variants = [item for item in variants if item]
-    return list(dict.fromkeys(variants)) or [display_text(value)]
+    variants = gender_variants(value)
+    return list(dict.fromkeys(text for text in variants.values() if text)) if variants else [display_text(value)]
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,14 +207,20 @@ class TextMapIndex:
                 chinese_value = chinese.get(text_id)
                 if not chinese_value:
                     continue
-                english_variants = localized_variants(english_value)
-                chinese_variants = localized_variants(chinese_value)
+                english_variants = gender_variants(english_value)
+                chinese_variants = gender_variants(chinese_value)
                 # ZZZ repeats character names across thousands of TextMap keys.
                 # Harvest those official label records up front so a name cannot
                 # leak through via a second, less-obvious key with the same text.
                 lowered_id = text_id.casefold()
-                for variant_index, english_text in enumerate(english_variants):
-                    chinese_text = chinese_variants[min(variant_index, len(chinese_variants) - 1)]
+                if english_variants or chinese_variants:
+                    pairs = dict.fromkeys(
+                        (english_variants.get(gender, "") if english_variants else display_text(english_value),
+                         chinese_variants.get(gender, "") if chinese_variants else display_text(chinese_value))
+                        for gender in english_variants or chinese_variants)
+                else:
+                    pairs = [(display_text(english_value), display_text(chinese_value))]
+                for english_text, chinese_text in pairs:
                     normalized = normalize_english(english_text)
                     if len(normalized) < 2 or not chinese_text:
                         continue

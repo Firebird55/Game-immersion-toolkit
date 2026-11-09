@@ -3,9 +3,9 @@ import {gunzipSync} from 'node:zlib';
 // Recent ZZZ builds store the resource catalog as a Unity serialized object
 // inside the untagged mhy1 bundle. Older installations use a standalone gzip.
 // Read only the known metadata layout, never infer a catalog from text matches.
-export function unityResourceCatalog(cab) {
+export function* unityObjectsOfType(cab, classId) {
   const data=Buffer.from(cab);
-  if(data.length<40||data.length>128*1024*1024||data.readUInt32BE(8)!==21||data[16]!==0)return null;
+  if(data.length<40||data.length>128*1024*1024||data.readUInt32BE(8)!==21||data[16]!==0)return;
   const dataStart=data.readUInt32BE(12),fileSize=data.readUInt32BE(4);
   if(fileSize!==data.length||dataStart<20||dataStart>data.length)throw Error('Invalid Unity catalog bounds');
   let p=data.indexOf(0,20)+1;
@@ -23,15 +23,19 @@ export function unityResourceCatalog(cab) {
   }
   need(4);const objects=data.readUInt32LE(p);p+=4;
   if(objects>100000)throw Error('Invalid Unity object count');
-  let result=null;
   for(let i=0;i<objects;i++){
     p=(p+3)&~3;need(20);
     const start=dataStart+data.readUInt32LE(p+8),size=data.readUInt32LE(p+12),type=data.readUInt32LE(p+16);p+=20;
     if(type>=types.length||start+size>data.length)throw Error('Invalid Unity object bounds');
-    if(types[type]===6776977){
-      if(result)throw Error('Ambiguous Unity resource catalog');
-      result=serializedResourceCatalog(data.subarray(start,start+size));
-    }
+    if(types[type]===classId)yield data.subarray(start,start+size);
+  }
+}
+
+export function unityResourceCatalog(cab) {
+  let result=null;
+  for(const object of unityObjectsOfType(cab,6776977)){
+    if(result)throw Error('Ambiguous Unity resource catalog');
+    result=serializedResourceCatalog(object);
   }
   return result;
 }

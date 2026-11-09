@@ -2,6 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
+import {tableStrings} from '../scripts/zzz-publisher-dialogue.mjs';
+
+test('released design tables follow row offsets and reject truncated or nonterminated strings', () => {
+  const bytes = Buffer.alloc(59);
+  bytes.writeUInt32LE(12); // root, its vtable, and the row vector
+  bytes.writeUInt16LE(6, 4); bytes.writeUInt16LE(8, 6); bytes.writeUInt16LE(4, 8);
+  bytes.writeInt32LE(8, 12); bytes.writeUInt32LE(4, 16);
+  bytes.writeUInt32LE(1, 20); bytes.writeUInt32LE(16, 24);
+  bytes.writeUInt16LE(8, 32); bytes.writeUInt16LE(8, 34); bytes.writeUInt16LE(4, 36);
+  bytes.writeInt32LE(8, 40); bytes.writeUInt32LE(8, 44);
+  bytes.writeUInt32LE(2, 52); bytes.write('ok', 56);
+  assert.deepEqual([...tableStrings(bytes, [0, 1])], [['ok', '']]);
+  assert.throws(() => [...tableStrings(bytes.subarray(0, 58), [0])], /string/);
+  bytes[58] = 4;
+  assert.throws(() => [...tableStrings(bytes, [0])], /string/);
+  bytes.writeUInt32LE(0, 24);
+  assert.throws(() => [...tableStrings(bytes, [0])], /reference/);
+});
 
 const uint = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
 const string = (s, width = 2) => Buffer.concat([Buffer.from([width - 1]), uint(s.length), Buffer.from(s, width === 2 ? 'utf16le' : 'latin1')]);

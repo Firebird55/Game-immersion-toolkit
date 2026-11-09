@@ -35,7 +35,7 @@ type Setup = {
 const VOICE_LABELS: Record<string, string> = { unvoiced_only: 'Spoken dialogue capture is unavailable. Prepare authored text messages and enable Include unvoiced dialogue in Capture setup.', present: 'Original voice files found', missing: 'Selected voice pack needed',
   not_checked: 'Choose a game folder first', verify_during_indexing: 'Voice pack checked during indexing', not_required: 'Voice pack not required',
   needs_language_setup: 'Prepare a game language to enable capture. Installed voice packs are listed in the language table above' };
-const VOICE_STATUS: Record<string,string> = {unvoiced_only:'Text messages only',present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
+const VOICE_STATUS: Record<string,string> = {publisher:'Available from publisher',unvoiced_only:'Text messages only',present:'Installed',missing:'Pack not detected',not_checked:'Not checked',verify_during_indexing:'Check during preparation',not_required:'Text only',needs_language_setup:'Choose game language'};
 
 export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadingMode, onCapture, onReading, onAccount, onChanged, targetLanguage, allowedGames, readingSupported = true }: {
   online: boolean; game: GameId; onGameChange: (game: GameId) => void;
@@ -53,6 +53,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
   const refreshSequence = useRef(0);
   const exportStatus = data?.mobile_export?.selectedGame && data.mobile_export.selectedGame !== game ? undefined : data?.mobile_export;
   const current = data?.games.find(item => item.id === game);
+  const sourceAvailable = !!current?.detected_path || current?.voice_state === 'publisher';
   const job = data?.jobs[game];
   const preparing = Object.values(data?.jobs ?? {}).some(item => item.state === 'preparing');
   const nativeBusy = Object.values(data?.native ?? {}).some(Boolean) || !!data?.mobile_export?.browseActive;
@@ -149,12 +150,12 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
             <section className="toolkit-game-card" aria-label={uiText("Installed game readiness")}>
               <div className="toolkit-card-heading"><FolderOpen size={20} /><div><h3>{uiText("Game files")}</h3><p>{uiText("Your installed files supply the subtitles and voices.")}</p></div></div>
               <div className="toolkit-readiness-grid">
-                <div><span>{uiText("Installation")}</span><strong className={current.detected_path ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : uiText("Choose folder")}</strong></div>
-                <div><span>{uiText("Original voices")}</span><strong className={current.voice_state === 'present' || game === 'hito' ? "is-ready" : "needs-setup"}>{uiText(game === 'hito' ? 'Text only' : VOICE_STATUS[current.voice_state] ?? 'Not checked')}</strong></div>
+                <div><span>{uiText("Installation")}</span><strong className={sourceAvailable ? "is-ready" : "needs-setup"}>{current.detected_path ? uiText("Found") : current.voice_state === "publisher" ? uiText("Optional") : uiText("Choose folder")}</strong></div>
+                <div><span>{uiText("Original voices")}</span><strong className={['present','publisher'].includes(current.voice_state) || game === 'hito' ? "is-ready" : "needs-setup"}>{uiText(game === 'hito' ? 'Text only' : VOICE_STATUS[current.voice_state] ?? 'Not checked')}</strong></div>
                 <div><span>{uiText("Bilingual catalog")}</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : uiText("Not indexed")}</strong></div>
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
-              <details className="toolkit-folder-details" open={!current.detected_path}>
+              <details className="toolkit-folder-details" open={!sourceAvailable}>
                 <summary>{current.detected_path ? uiText("Change installation folder") : uiText("Choose installation folder")}</summary>
                 <p className="toolkit-setup-note">{current.folder_hint}</p>
                 {game === 'nte' && current.tools_missing.includes('.NET 10 SDK') && <p>{uiText("NTE needs the")} <a href="https://dotnet.microsoft.com/download/dotnet/10.0" target="_blank" rel="noreferrer">{uiText("Microsoft .NET 10 SDK")}</a>{uiText(". Install it, then prepare game tools.")}</p>}
@@ -168,8 +169,8 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               {current.voice_state !== 'present' && game !== 'hito' && <p className="toolkit-setup-warning">{uiText(VOICE_LABELS[current.voice_state] ?? 'Check the language table above for voice availability')}.{!['needs_language_setup','unvoiced_only'].includes(current.voice_state) && <> {current.voice_hint}</>}</p>}
               {current.expansion_message && <p role="status" className="toolkit-setup-note">{current.expansion_message}</p>}
               <div className="toolkit-setup-actions">
-                {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> {uiText("Install game tools")}</Button>}
-                <Button variant="outline" disabled={busy || preparing || !current.detected_path || !!current.tools_missing.length || ['preparing','exporting','cancelling'].includes(data.mobile_export?.state ?? '')}
+                {current.tools_missing.length > 0 && game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !sourceAvailable} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Preparing game tools.')}><Download /> {uiText("Install game tools")}</Button>}
+                <Button variant="outline" disabled={busy || preparing || !sourceAvailable || !!current.tools_missing.length || ['preparing','exporting','cancelling'].includes(data.mobile_export?.state ?? '')}
                   onClick={() => void action(`/api/setup/games/${game}/refresh`)}><RefreshCw /> {uiText("Refresh game data")}</Button>
               </div>
               {job && <p role="status" className={job.state === 'error' ? "toolkit-setup-error" : "toolkit-setup-note"}>{job.message}</p>}
@@ -180,12 +181,12 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               {current.last_checked && <small>{uiText("Last checked")}: {new Date(current.last_checked).toLocaleString()}</small>}
               <details className="toolkit-export-help"><summary>{uiText("Game updates and tools")}</summary>
                 <p>{uiText("After a launcher update, refresh game data here. Compatible updates need no new toolkit release. A failed refresh keeps the previous complete index. Changed formats may require a toolkit update.")}</p>
-                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !current.detected_path} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Repairing game tools.')}><Download /> {uiText("Repair game tools")}</Button>}
+                {game !== 'hito' && <Button variant="outline" disabled={busy || preparing || !sourceAvailable} onClick={() => void action(`/api/setup/games/${game}/tools`, {}, 'Repairing game tools.')}><Download /> {uiText("Repair game tools")}</Button>}
                 <p>{uiText("Reader tools are downloaded separately and checksum verified. Game files stay in place.")}</p>
                 <p><a href="https://github.com/vgmstream/vgmstream/releases/tag/r2117" target="_blank" rel="noreferrer">{uiText("vgmstream")}</a>{' · '}<a href="https://github.com/simon300000/zenless-voice" target="_blank" rel="noreferrer">{uiText("ZZZ reader")}</a>{' · '}<a href="https://github.com/Ekey/REE.PAK.Tool" target="_blank" rel="noreferrer">{uiText("REE unpacker")}</a>{' · '}<a href="https://github.com/WolvenKit/WolvenKit" target="_blank" rel="noreferrer">{uiText("WolvenKit")}</a>{' · '}<a href="https://github.com/Herselfta/FModelCLI" target="_blank" rel="noreferrer">{uiText("FModelCLI")}</a></p>
               </details>
             </section>
-            <AutomaticMobileLibrary key={game} game={game} /><details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && !!current.detected_path} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
+            <AutomaticMobileLibrary key={game} game={game} /><details className="toolkit-mobile-export"><summary>{uiText("Export mobile library")}</summary><MobileLibraryExport key={`${game}-${exportStatus?.scope ?? 'legacy'}`} game={game} title={current.title} ready={current.index_ready && sourceAvailable} textOnly={game === 'hito'} busy={busy || nativeBusy} status={exportStatus} action={action} /></details>
           </div>}
         </section>}
         {data && step === 1 && <section className="toolkit-setup-section" aria-label={uiText("Capture checks")}>

@@ -1,5 +1,106 @@
 # Zenless Zone Zero dialogue audit
 
+## November 9, 2026 · Dialogue from one Global launcher release
+
+The publisher's 3.3.0 base (revision 19316624) contains the Perform scene
+references, their resource catalog, subtitle tables and original Wwise packages.
+The Perform table named 31,069 dialogue scene paths. The resource catalog
+resolved 30,736 paths across 18 blocks. The 48,849,768 bytes of selected
+scene bundles contained 221,699 dialogue records, including 59,316 with an
+authored voice reference. Of the 221,561 distinct subtitle IDs, 217,629 had
+both English and Simplified Chinese, and 213,899 had text in all 13 locales.
+These figures cover conversations, choices, ambient lines and narration
+in the resolved dialogue scenes. The count of voice references precedes audio
+package matching. [Publisher release manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+The released scenes contained 1,619 chapter 240 records. In package 10126,
+49 subtitle IDs resolved to an exact original file in every dub. None of those
+49 had text in all 13 base locales. Three of the 49 were downloaded and decoded
+in all four languages. Their Japanese recordings were already in the release,
+while their Japanese subtitles first appeared in the inspected later override.
+Fetching that Global hotfix on a fresh device remains open.
+[Publisher chapter announcement](https://zenless.hoyoverse.com/m/en-us/news/166963)
+
+From a source checkout, the following command follows the released Global
+launcher branch, reads the checked scene and translation tables, and searches
+every released package for the requested dub. Supply the compiled ZZZ reader
+from the toolkit toolchain and choose private cache and output directories.
+The result contains the available original translations, a WEM for each requested
+dub and a receipt with build, package, file ID and SHA-256. Repeating `--dub`
+selects multiple recordings. Omitting it requests all four. Both Chinese scripts
+use the Mandarin recording.
+
+```text
+python scripts/probe-zzz-publisher.py Galgame_Chapter0_11_01_01 --reader <toolchain>/upstream/galgame-perform.mjs --cache <private-cache> --output <new-private-folder>
+```
+
+This query returned Nicole's authored source, all 13 translations, and four
+complete recordings that decoded to nonzero PCM. Their durations were 4.700 s
+in English, 6.556 s in Japanese, 4.700 s in Korean and 5.195 s in Mandarin.
+The same command for `Main_GalGame_Chapter240_124000005_001` returned four
+original recordings and 12 translated strings from the same build.
+
+The command requires a unique authored scene source and a unique matching file
+in the selected dub. It supports direct source paths and the evidenced GalGame
+speaker directories. Conditional voices, comic panels and cinematic events
+require their own bindings. Automatic desktop and phone setup from the publisher,
+and acquisition of in-version Global overrides, remain open.
+
+## November 8, 2026 · Publisher sources and subtitle variants
+
+The released Global Windows 3.3.0 branch serves the game TextMaps directly.
+Follow the HoYoPlay branch into its Sophon game manifest and read
+`StreamingAssets/data_version`. For this release, the 25 listed
+`Blocks/Data` files contained the 13 base locale tables. The check downloaded
+those files from the publisher and verified the manifest, chunks and assembled
+files against their MD5s. In each Unity bundle, the TextAsset name equals the
+decimal xxHash64 of the lowercase table name. The FlatBuffer stores the authored
+key and text. This also located the source objects for Perform, OngoingTips,
+Tips, Message and Subtitle configuration. Their object names alone do not
+decode the bindings. [HoYoPlay release branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=U5hbdsT9W7)
+· [Audited publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+· [TextMap schema reference](https://github.com/Hiro420/ZZZ_TextMap/tree/499541c07d73216b4a3cd3ae1720a81597c17e6d/ZZZ_TextMap/Defs)
+
+The base contained 439,660 English keys and 450,561 Simplified Chinese keys.
+Of 224,387 distinct subtitle IDs from the audited scene, comic and cinematic
+readers, 220,442 had both languages and 216,719 had text in all 13 locales.
+The denominator includes choices and silent lines. It excludes presentations
+outside those readers. The three checked chapter 240 lines were absent from
+the older English 3.2 chapter inventory. For each, the game-authored scene
+binding identified a complete WEM fetched from the publisher in Mandarin,
+English, Japanese and Korean. All three had translations in 12 base locales.
+The Japanese text for all three was in the installed 3.3 override table.
+Across this chapter's GalGame IDs, the bilingual count rose from 1,744 in
+the launcher base to 1,846 after applying the installed design update.
+[Publisher chapter announcement](https://zenless.hoyoverse.com/m/en-us/news/166963)
+· [3.2 text comparison](https://github.com/malu-no996/ZenlessData/tree/1277ebca4b8a7a6c3bcbaac6d5708dc9f4a55f23/TextMap)
+
+For 1,509 distinct voiced GalGame references in the chapter 240 scene extraction,
+the check computed exact external-media identities for the tested source paths.
+Across all 313 publisher base voice indexes, 1,476 matched in Mandarin, 765 in
+English, 195 in Japanese and 1,474 in Korean. Only 49 matched in all four base
+indexes. Three of those were downloaded in full in every dub. The later
+installed indexes matched 1,477 per installed language (Mandarin, English and
+Japanese). These are directory joins. An unmatched path can reflect another
+binding or a subsequent update. The audit did not have the later Korean pack.
+
+The inspected launcher base had data revision `19316624`. The installed
+Global revision `19916124` contained 13 base and 13 overwrite tables. An
+older Global 3.2 hotfix manifest and its block were independently retrieved
+from the publisher. Current Global 3.3 hotfix discovery from an empty device
+remains open. The normal preparation path still requires an installation
+and compatible scene metadata. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
+· [Public release revision history](https://zzz.gachabase.net/changelog/release)
+
+The 3.3 English base contains 2,355 gender-tagged entries with text outside
+the tags and 200 entries with repeated male tags. The corresponding Simplified
+Chinese counts are 2,627 and 198. The prepared and legacy readers now preserve
+the surrounding words, resolve every inline group and align translations by
+the authored M/F labels. Missing voice packs retain the two distinct performance
+identities. Local design and silence manifest changes invalidate language
+preparation even when audio stays identical. The legacy update status reports
+an unavailable upstream and retains the last verified revision for retry.
+
 Audit date: 2026-10-27. This is a format and coverage audit, not a claim that every
 scene, language, or capture layout has passed native gameplay testing. Game
 resources were read from the owner's installation. Extracted assets, dialogue,

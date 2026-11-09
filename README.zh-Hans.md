@@ -21,7 +21,7 @@
 
 | 游戏 | 学习语言 | 翻译语言 |
 | :--- | :--- | :--- |
-| [Zenless Zone Zero](docs/languages/zh-Hans.md#zzz) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 12 |
+| [Zenless Zone Zero](docs/languages/zh-Hans.md#zzz) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 13 |
 | [Wuthering Waves](docs/languages/zh-Hans.md#wuwa) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 10 |
 | [Neverness to Everness](docs/languages/zh-Hans.md#nte) | 英语 · 简体中文 · 繁体中文 · 日语 · 韩语 | 9 |
 | [PRAGMATA](docs/languages/zh-Hans.md#pragmata) | 英语 · 法语 · 意大利语 · 德语 · 欧洲西班牙语 · 拉丁美洲西班牙语 · 巴西葡萄牙语 · 俄语 · 简体中文 · 日语 · 韩语 | 14 |
@@ -50,6 +50,19 @@
 [语言详情](docs/languages/zh-Hans.md) · [打开在线伴侣](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
 无需逐一导出所有语言包。读取器复用游戏原有标识符和语言格式。安装所选原版配音，准备数据表，并选择官方翻译。缺失的文件或翻译仍会显示为不可用。
+
+## 文本、配音与上游项目
+
+| 游戏 | 原版配音发布渠道 |
+| :--- | :--- |
+| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
+| Arknights: Endfield | GRYPHLINE |
+| Wuthering Waves | Kuro Games |
+| Neverness to Everness | Perfect World Games |
+
+将游戏文件夹留空，在设置中选择语言即可准备《原神》中国大陆启动器版本，或从 GRYPHLINE 获取《明日方舟：终末地》当前全球版的剧情语音。终末地的过场片段需要经过核实的时间轴。《崩坏：星穹铁道》使用 HoYoPlay 全球版的常规语音包。
+
+[各游戏的文本来源、读取工具与覆盖情况](docs/live-service-sources.md)
 
 ## 选择使用方式
 

@@ -86,7 +86,7 @@ if runtime:
     # Qt's module hooks collect the platform plugin and its native dependencies.
     # Do not collect all of Essentials (Designer, QML, SQL, etc. are not used).
     hidden += ['PySide6.QtCore', 'PySide6.QtGui', 'PySide6.QtWidgets', 'shiboken6']
-    data += copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6')
+    data += copy_metadata('PySide6-Essentials') + copy_metadata('shiboken6') + copy_metadata('Brotli')
     for package in packages:
         package_data, package_binaries, package_hidden = package_closure(package)
         data += package_data

@@ -1,6 +1,49 @@
 # Honkai: Star Rail dialogue audit
 
-Audit date: 2026-10-27. Installed client: 4.6.0. Adapter schema version: 2.
+## Global publisher playback, November 9, 2026
+
+The desktop worker prepared all five study choices with an empty toolkit cache
+and no game path. The Global 4.6 regular packages produced 90,630 English, 91,966 Japanese, 92,052
+Korean and 92,057 Mandarin voiced records in each Chinese script. The service
+exported Leonard's sentence 200070401 in all four dubs. Each publisher WEM
+was byte-identical to its installed counterpart. The offline reader reproduced
+the MP3 from its private cache in a fresh output directory for all five choices.
+All prepared voiced records resolved to the same package name and file ID in
+the independently indexed installed dub.
+
+HoYoPlay's four regular voice manifests each contain 173 PCKs. All 692
+whole-package checksums match the updated AudioV manifest for audio 16781679.
+The latter also lists two optional chapter-5 PCKs per dub. The booted client
+identified design 16854589, ASB/audio 16781679 and Lua 16781679, matching
+the pinned text revision. Its ordinary player log supplied no public hotfix
+manifest URL. Setup recognizes the exact audited launcher generation and
+checks the actual revision markers for subsequent releases. A later release
+needs matching published text. Independent hotfix discovery and ambiguous
+performances remain open.
+[Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8)
+· [Matched Global text revision](https://github.com/DimbreathBot/TurnBasedGameData/tree/74a7b96fba32f00cf495a5c00b0311bd02207aaf)
+
+Five chapter-5 packages in the public Global 4.7 preload are byte-compatible
+with the active 4.6 AudioV. Preparation requires the complete original file path,
+size and MD5 in the matching manifest. It accepts both Mandarin and English
+packages and the first Korean package. Both Japanese files and the second Korean
+file have different checksums in both the Global and mainland China preloads.
+Those three remain unavailable from this source. The earlier 4.3–4.6 mainland
+launcher manifests contained none of the eight current optional checksums.
+
+The normal preparation worker now resolves 93,578 Mandarin records in each
+Chinese script, 92,151 English, 92,819 Korean and 91,966 Japanese. Both the
+Mandarin and English chapters contribute 1,521 additional records. Korean gains
+767. The two Mandarin packages contain 1,519 WEMs, of which 1,514 have an
+exact supported text binding, including two broadcasts. Sample original WEMs
+from both Mandarin packages matched the installed bytes. The selected records
+from every compatible package also exported as MP3s and replayed offline.
+[English publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_4ea0efd4ec903433_17e27e86e8c125fe5fdf0654cfe9d913)
+· [Mandarin publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_d661cb6b87d9177d_538657f961efa5766813f93b24963fb4)
+· [Korean publisher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_c0431fe18031980c_841f5ca2186abebbcf3bd8854a9af42b)
+
+Initial audit on October 27, 2026 with installed client 4.6.0 and adapter
+schema 2. The November 8 multi-voice check below used adapter schema 3.
 This is an inventory of dialogue presentations and their current parser support,
 not a claim that every screen has passed OCR replay.
 
@@ -46,7 +89,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Optional NPC conversations, object interaction, inspections and legacy daily content | `DialogueNPC` has 1,725 script references; `DialogueProp` has 378. Their sentence-table content can now survive without audio. | References were inventoried, not exhaustively traversed. Selection conditions and historical/removed content are not resolved against an account. |
 | Ambient NPC speech and proximity barks | Authored `NPC_*` voice types retain exact audio and are labelled ambient. | Overhead bubbles, simultaneous speakers and capture crops need separate image replay. |
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
-| Multi-performance sentences | `TalkSentenceMultiVoice` contains 1,044 rows; 1,009 refer to present sentences, including 1,006 without a primary `VoiceID`. Text is retained as audio unavailable. | Selection semantics must be established before choosing or combining performances. List order is not a binding rule. |
+| Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
 | Pre-rendered movies | Installed USM containers and `CutSceneConfig` establish separate cinematic assets. | `CutSceneConfig` has 41 rows and caption-path fields, but this audit does not establish exhaustive movie-caption coverage or extraction. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
@@ -85,6 +128,30 @@ state. Missing localized text remains absent rather than falling back to another
 language.
 
 ## Validation results
+
+On November 8, 2026 each of the 14 singleton MultiVoice IDs resolved to an
+original WEM in every installed 4.6.0 dub (56 file bindings). Three complete
+WEMs per locale were read and checked for RIFF headers. Across the full
+1,044-row MultiVoice table, all alternatives were present in all four archive
+indexes for 1,040 IDs. Multiple variants under one sentence still require
+evidence of which performance played. Another 35 IDs in the table have no
+matching TalkSentence row in this snapshot. The October totals below predate
+this correction.
+[MultiVoice IDs](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/TalkSentenceMultiVoice.json)
+· [Authored source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/ExcelOutput/VoiceConfig.json)
+
+The same revision contains 985 `PlayMultiVoiceTalk` calls across 64,281
+non-layout `Config/Level` JSON files. Every call supplies only the sentence
+ID. These calls cover 952 of the 995 ambiguous sentences. Another 30 appear
+as ordinary dialogue or choice references. The remaining 13 had no explicit
+sentence reference in the examined level files. None of the alternatives for
+these 995 have `IsPlayerInvolved`. In one mission both outcomes of a mission
+predicate call the same MultiVoice sentence. In another, two random branches
+play distinct, named voices for earlier lines before reaching the same shared
+sentence. Exact playback of an ambiguous subtitle requires the selected
+runtime voice ID or another explicit binding.
+[Mission predicate](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/Config/Level/Mission/5011901/Act/Act501190102.json)
+· [Branched sequence](https://github.com/DimbreathBot/TurnBasedGameData/blob/74a7b96fba32f00cf495a5c00b0311bd02207aaf/Config/Level/Mission/4340180/Act/Act434018013.json)
 
 The real-data pass used integrity-checked cached Chinese/English Main and
 ordinary textmaps at the same immutable revision and read all installed locale
@@ -129,12 +196,15 @@ validation. Metadata/network failures propagate to preparation, which preserves
 the previous completed index. A rate-limited upstream is not proof of missing
 installed dialogue.
 
-The current shared install fingerprint includes audio-package metadata,
-`BinaryVersion.bytes` and `config.ini`. It does not independently fingerprint
-all persistent design-data manifests or poll the remote metadata revision.
-A text-only hotfix that changes none of those inputs can therefore require an
-explicit refresh. Stronger revision detection and version-paired local subtitle
-extraction remain follow-up work.
+The install fingerprint covers PCK and DesignData file metadata,
+`BinaryVersion.bytes` and `config.ini`. It also hashes the small release
+markers for DesignData, asset bundles, audio and video in the base and
+persistent directories. A local text hotfix that replaces `M_DesignV.bytes`
+at the same size and timestamp now triggers a rebuild. Online-only updates
+still require remote revision polling and version-paired subtitle acquisition
+in #84. The 4.6 publisher manifest lists the marker names and the installed
+4.6.0 client contains the corresponding base and persistent design markers.
+[Official Global 4.6 file manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20260918/4.6.0/5ojqcjYEliu4/manifest_edb916e5a1ca140c_65fc23eec5dce74324cada65dc595341)
 
 Future additions should traverse authored script references, resolve event/media
 relations and add independently annotated replay cases for the corresponding

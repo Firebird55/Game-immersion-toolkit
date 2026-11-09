@@ -93,6 +93,24 @@ def test_movie_caption_embedded_voice_and_readable_audio_are_never_certified_sil
     assert rows['wuwa:movie']['dialogue_kind'] == 'cinematic'
 
 
+def test_floating_captions_resolve_text_slots_and_require_confirmed_localized_voice(tmp_path):
+    database(tmp_path, [('voiced', 'A floating cue.', '浮动字幕。', plot_blob('voiced', 'vo_synthetic'))])
+    add_text(tmp_path, ['caption_2d', 'caption_3d', 'name_only'])
+    with sqlite3.connect(tmp_path / assets.FLOATING_SUBTITLES) as db:
+        db.execute('CREATE TABLE floatingsubtitle2d (BinData BLOB)')
+        db.execute('INSERT INTO floatingsubtitle2d VALUES (?)', (flat_blob({1: 'layout_only', 2: 'caption_2d'}),))
+        db.execute('CREATE TABLE floatingsubtitle3d (BinData BLOB)')
+        db.executemany('INSERT INTO floatingsubtitle3d VALUES (?)', [(flat_blob(v),) for v in (
+            {1: 'caption_3d'}, {1: 'name_only', 16: 'vo_unknown'}, {1: 'voiced', 16: 'vo_synthetic'})])
+    depots = [assets.EXTERNAL_ROOT + name for name in ('en_vo_synthetic.wem', 'en_vo_unknown.wem')]
+    rows = {r['text_id']: r for r in assets.build_language_records(tmp_path, depots, 'en', [])}
+    assert all(r['dialogue_kind'] == 'floating_caption' for r in rows.values())
+    assert {i: r['voice_status'] for i, r in rows.items()} == {
+        'wuwa:caption_2d': 'unknown', 'wuwa:caption_3d': 'unknown',
+        'wuwa:name_only': 'unavailable', 'wuwa:voiced': 'voiced'}
+    assert rows['wuwa:voiced']['audio']['depot'] == depots[0]
+
+
 def test_text_shard_replaces_nonempty_placeholder_without_cross_locale_fallback(tmp_path):
     database(tmp_path, [('spoken', 'Placeholder', '占位文本', plot_blob('spoken', 'vo_spoken'))])
     for locale in ('en', 'zh-Hans'):

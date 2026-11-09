@@ -11,7 +11,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Zenless Zone Zero
 
-[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-10-25 · [Dekkingsnotities](../zzz-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [Dekkingsnotities](../zzz-languages.md)
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -27,6 +27,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 | Koreaans | ✓ | ✓ | ✓ | Reader geïmplementeerd |
 | Frans | — | — | ✓ | Reader geïmplementeerd |
 | Duits | — | — | ✓ | Reader geïmplementeerd |
+| Spaans (Spanje) | — | — | ✓ | Reader geïmplementeerd |
 | Spaans (Latijns-Amerika) | — | — | — | Niet beschikbaar |
 | Portugees (Brazilië) | — | — | ✓ | Reader geïmplementeerd |
 | Russisch | — | — | ✓ | Reader geïmplementeerd |
@@ -323,20 +324,20 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-10-27 · [Dekkingsnotities](../endfield-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [Dekkingsnotities](../endfield-languages.md)
 
-Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.
+Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 
 <details>
 <summary>Taaldetails</summary>
 
 | Taal | Originele stem | Leren | Vertaling | Onderbouwing |
 | :--- | :---: | :---: | :---: | :--- |
-| Engels | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Engels | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Chinees (vereenvoudigd) | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Chinees (traditioneel) | Gedeelde Mandarijnse stem | ✓ | ✓ | Audio lokaal gedecodeerd |
-| Japans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
-| Koreaans | ✓ | ✓ | ✓ | Formaat getest; lokaal stempakket niet geverifieerd |
+| Japans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
+| Koreaans | ✓ | ✓ | ✓ | Audio lokaal gedecodeerd |
 | Frans | — | — | ✓ | Reader geïmplementeerd |
 | Duits | — | — | ✓ | Reader geïmplementeerd |
 | Italiaans | — | — | ✓ | Reader geïmplementeerd |

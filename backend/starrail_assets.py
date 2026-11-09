@@ -3,7 +3,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 2
+LANGUAGE_INDEX_VERSION = 5
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -14,6 +14,9 @@ def archive_sources(install):
 
 
 def fingerprint(install):
+    if install is None:
+        from .starrail_publisher import fingerprint as publisher_fingerprint
+        return publisher_fingerprint()
     return common.fingerprint(install, 'starrail')
 
 
@@ -70,10 +73,26 @@ def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue',
 
 def sentence_links(sentences, voices, locale, multi_voices=()):
     voices = {row['VoiceID']: row for row in voices}
-    multiple = {row.get('TalkSentenceID') for row in multi_voices if row.get('VoiceIDList')}
-    return [link for row in sentences for link in _voice_links(
-        row.get('TalkSentenceID'), _hash(row.get('TalkSentenceText')), row.get('VoiceID'), voices, locale,
-        multiple=row.get('TalkSentenceID') in multiple)]
+    alternatives = {}
+    for row in multi_voices:
+        candidates = row.get('VoiceIDList')
+        if candidates:
+            if not isinstance(candidates, list) or not all(type(v) is int and v > 0 for v in candidates):
+                raise PreparationFailure('unsupported_game_format', 'Unsupported Star Rail multi-voice IDs. Refresh after updating the reader.')
+            alternatives.setdefault(row.get('TalkSentenceID'), set()).update(candidates)
+    links = []
+    for row in sentences:
+        identity, primary = row.get('TalkSentenceID'), row.get('VoiceID')
+        candidates = alternatives.get(identity)
+        if candidates and primary:
+            candidates = candidates | {primary}
+        # A singleton names the only authored performance. More than one
+        # remains ambiguous, including a primary that conflicts with the list.
+        ambiguous = bool(candidates and len(candidates) > 1)
+        voice_id = next(iter(candidates)) if candidates and not ambiguous else primary
+        links.extend(_voice_links(identity, _hash(row.get('TalkSentenceText')),
+                                  voice_id, voices, locale, multiple=ambiguous))
+    return links
 
 
 def message_links(messages, overrides=(), *, prefix='message'):
@@ -139,17 +158,27 @@ def authored_links(catalog, locale):
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Star Rail study/audio language.')
-    stamp = fingerprint(install)
-    catalog = DialogueCatalog('starrail', data_dir)
+    if install is None:
+        from . import starrail_publisher, hoyo_publisher_voice
+        stamp, catalog = starrail_publisher.prepare(data_dir)
+    else:
+        stamp = fingerprint(install)
+        catalog = DialogueCatalog('starrail', data_dir)
     progress('Reading Star Rail dialogue, messages and authored voice IDs')
     tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales)
     links = authored_links(catalog, source_locale)
-    entries = common.inventory(install, 'starrail', source_locale)
+    entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
+               hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
         'Movie captions, image-only messages and presentation-specific event formats are not comprehensively mapped. Missing voice metadata is not proof of silence.']
+    if install is None:
+        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp):
+            raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
+        result['metadata_revision_title'] = catalog.revision_title
+        result['coverage_warnings'].append('Using Global launcher voice packages and available checksum-matched chapter packs. Other optional files and in-game hotfixes require a compatible source.')
     return result
 
 
@@ -158,4 +187,12 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None:
+        from .hoyo_publisher_voice import extract
+        return extract(audio, _executable, 'starrail')
     return common.extract_voice(install, 'starrail', audio)
+
+
+def publisher_snapshot_available(tools, stamp):
+    from .hoyo_publisher_voice import snapshot_available
+    return snapshot_available(tools, stamp, 'starrail')

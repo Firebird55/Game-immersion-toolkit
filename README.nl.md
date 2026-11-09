@@ -21,7 +21,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 
 | Game | Leertalen | Vertaaltalen |
 | :--- | :--- | :--- |
-| [Zenless Zone Zero](docs/languages/nl.md#zzz) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 12 |
+| [Zenless Zone Zero](docs/languages/nl.md#zzz) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 13 |
 | [Wuthering Waves](docs/languages/nl.md#wuwa) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 10 |
 | [Neverness to Everness](docs/languages/nl.md#nte) | Engels · Chinees (vereenvoudigd) · Chinees (traditioneel) · Japans · Koreaans | 9 |
 | [PRAGMATA](docs/languages/nl.md#pragmata) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) · Spaans (Latijns-Amerika) · Portugees (Brazilië) · Russisch · Chinees (vereenvoudigd) · Japans · Koreaans | 14 |
@@ -50,6 +50,19 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
 Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Installeer de gekozen originele stem, bereid de tabel voor en kies een officiële vertaling. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
+
+## Tekst, stemmen en bronprojecten
+
+| Game | Distributie van originele stemmen |
+| :--- | :--- |
+| Genshin Impact · Honkai: Star Rail · Zenless Zone Zero | HoYoverse / HoYoPlay |
+| Arknights: Endfield | GRYPHLINE |
+| Wuthering Waves | Kuro Games |
+| Neverness to Everness | Perfect World Games |
+
+Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.
+
+[Tekstbronnen, gebruikte readers en dekking per game](docs/live-service-sources.md)
 
 ## Kies hoe je speelt
 

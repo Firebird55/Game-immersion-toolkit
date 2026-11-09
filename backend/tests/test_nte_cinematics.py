@@ -3,7 +3,7 @@ import struct
 
 import pytest
 
-from backend.nte_cinematics import movie_bindings, movie_records, subtitle_cues, SRT_ROOT
+from backend.nte_cinematics import movie_bindings, movie_records, subtitle_cues, timed_sequence_cues, SRT_ROOT
 from backend.nte_assets import wwise_hash
 from backend.pragmata_audio import read_bank_play_layers
 
@@ -76,12 +76,45 @@ def test_movie_binding_cannot_choose_music_or_an_escaped_asset_path():
     assert movie_bindings([{**row,'Path':{'FilePath':row['Path']['FilePath'].replace('Synthetic','../escaped')}}]) == []
 
 
+@pytest.mark.parametrize(('table', 'namespace'), [
+    ('Sequence_Legend', 'ST_Sequence_Legend'), ('WuChao', 'ST_Miandialogue_Wuchao'), ('HeiYu', 'ST_Main_BlackBird')])
+def test_movie_binds_its_owning_string_table_even_when_another_table_reuses_the_key(table, namespace):
+    row = {'StringTableID': table,
+           'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/Synthetic.mp4'},
+           'PlayVoice': {'AssetPathName': '/Game/WwiseAudio/Events/CG/Guide/Play_Vo_CG_Synthetic.Play_Vo_CG_Synthetic'}}
+    binding, = movie_bindings([row])
+    subtitles = {binding['subtitle']: '1\n00:00:01,000 --> 00:00:02,000\nFixture_Key'}
+    en = {(namespace, 'Fixture_Key'): 'The legend begins.', ('ST_Sequence', 'Fixture_Key'): 'Another scene.'}
+    zh = {(namespace, 'Fixture_Key'): '传说开始了。'}
+    events = {'play_vo_cg_synthetic': [{'player_voice': None, 'audio': {'depot': 'fixture.wem'}}]}
+    record, = movie_records([binding], subtitles, en, zh, events)
+    assert record['text_id'] == f'nte:{namespace}:Fixture_Key'
+    assert record['english'] == 'The legend begins.'
+    assert movie_bindings([{**row, 'StringTableID': 'FutureStoryAlias'}]) == []
+
+
 def test_repeated_cue_key_has_no_guessed_original_clip():
     binding = {'subtitle': SRT_ROOT+'Synthetic.srt', 'event':'Play_Vo_CG_Synthetic', 'namespace':'ST_Sequence'}
     text = '1\n00:00:01,000 --> 00:00:03,000\nSynthetic_Key\n\n2\n00:00:04,000 --> 00:00:06,000\nSynthetic_Key'
     assert movie_records([binding], {binding['subtitle']:text}, {('ST_Sequence','Synthetic_Key'):'Synthetic line.'},
                          {('ST_Sequence','Synthetic_Key'):'测试台词。'},
                          {'play_vo_cg_synthetic':[{'player_voice':None,'audio':{'depot':'Chinese/123.wem'}}]}) == []
+
+
+def test_sequence_clock_uses_dub_override_and_blocks_overlapping_unowned_or_repeated_cues():
+    def cue(key, start, end, ns='ST_Fixture', ends=None):
+        return dict(ns=ns, key=key, start_ms=start, end_ms=end, starts=[], ends=ends or [])
+    rows = [cue('First', 100, 500, ends=[{'Key': 'EVoiceCultureType::ko', 'Value': 650}]),
+            cue('Second', 600, 900), cue(None, 800, 850, ns=None),
+            cue('Repeated', 900, 980), cue('Repeated', 1000, 1050), cue('Last', 1200, 1500)]
+    payload = {'events': {'group': ['Play_Vo_CG_Fixture'], 'mixed': ['Play_Vo_CG_Fixture', '']},
+               'groups': {'group': rows, 'mixed': rows}}
+    event, en = timed_sequence_cues(payload, 'en')[0]
+    assert event == 'Play_Vo_CG_Fixture' and [c['key'] for c in en] == ['First', 'Last']
+    assert [c['key'] for c in timed_sequence_cues(payload, 'ko')[0][1]] == ['Last']
+    rows[0]['ends'][0]['Key'] = 'EVoiceCultureType::future'
+    with pytest.raises(ValueError, match='culture override'):
+        timed_sequence_cues(payload, 'en')
 
 
 def test_unknown_switch_value_does_not_fall_back_to_female(tmp_path):

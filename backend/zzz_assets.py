@@ -13,18 +13,17 @@ from . import game_tools
 from .honkai_assets import package_tables
 from .languages import audio_locale, resolve_locale
 from .models import is_comic_text_id
-from .textmaps import display_text
+from .textmaps import display_text, gender_variants
 from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_hash
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 5
+LANGUAGE_INDEX_VERSION = 6
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': '', 'zh-Hant': 'CHT', 'ja': 'JA', 'ko': 'KO',
     'fr': 'FR', 'de': 'DE', 'es-ES': 'ES', 'pt-BR': 'PT', 'ru': 'RU', 'th': 'TH', 'vi': 'VI', 'id': 'ID'}
-GENDER = re.compile(r'\{([MF])#([^{}]*)\}')
 # Authored TextMap ID, male alternative, female/default source fields. Unknown
 # schemas must fail instead of silently removing all free-roam dialogue.
 ONGOING_SCHEMAS = (
@@ -141,8 +140,7 @@ def game_data(install):
     return path
 
 
-def fingerprint(install):
-    root = game_data(install)
+def _scene_fingerprint(root):
     files = []
     for layer in ('StreamingAssets', 'Persistent'):
         directory = root / layer
@@ -151,6 +149,23 @@ def fingerprint(install):
         files.extend((directory / 'Blocks').glob('*.blk'))
     values = [f'{p.relative_to(root).as_posix()}:{p.stat().st_size}:{p.stat().st_mtime_ns}' for p in sorted(set(files))]
     return hashlib.sha256('\n'.join(values).encode()).hexdigest()
+
+
+def design_revision_fingerprint(root):
+    digest = hashlib.sha256()
+    for layer, suffix in (('StreamingAssets', ''), ('Persistent', '_persist')):
+        for name in ('data_revision', 'silence_revision', 'data_version' + suffix, 'silence_version' + suffix):
+            path = root / layer / name
+            if path.is_file():
+                with path.open('rb') as stream:
+                    revision = hashlib.file_digest(stream, 'sha256').digest()
+                digest.update(f'{layer}/{name}\0'.encode() + revision)
+    return digest.hexdigest()
+
+
+def fingerprint(install):
+    root = game_data(install)
+    return hashlib.sha256((_scene_fingerprint(root) + design_revision_fingerprint(root)).encode()).hexdigest()
 
 
 def localized_inventory(root, locale):
@@ -179,12 +194,8 @@ def localized_inventory(root, locale):
     return namespace, entries
 
 
-def _variants(text):
-    return {gender: display_text(value) for gender, value in GENDER.findall(str(text))}
-
-
 def _text(text, gender):
-    variants = _variants(text)
+    variants = gender_variants(text)
     return variants.get(gender, '') if variants else display_text(text)
 
 
@@ -196,7 +207,7 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
         kinds.setdefault(identity, set()).add(link.get('dialogue_kind') or
             ('comic' if is_comic_text_id(identity) else 'cutscene' if identity.startswith('CS_') else 'conversation'))
         status = link.get('voice_status') or ('unavailable' if link.get('source') else 'unknown')
-        sources = _variants(link['source'])
+        sources = gender_variants(link['source'])
         if sources:
             expanded.extend({'text_id': identity + ':' + gender, 'source': source} for gender, source in sources.items() if source)
             for gender, source in sources.items():
@@ -214,19 +225,22 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
     rows = []
     for identity in sorted(identities):
         values = {locale: table.get(identity, '') for locale, table in tables.items()}
-        gendered = any(_variants(values.get(locale, '')) for locale in selected) or any(identity + ':' + gender in bindings for gender in ('M', 'F'))
+        gendered = any(gender_variants(values.get(locale, '')) for locale in selected) or any(
+            identity + ':' + gender in evidence or identity + ':' + gender in bindings for gender in ('M', 'F'))
         for gender in ('M', 'F') if gendered else (None,):
             text = _text(values.get(source_locale, ''), gender)
             if not text:
                 continue
             texts = {locale: value for locale in selected if (value := _text(values.get(locale, ''), gender))}
-            binding = bindings.get(identity + ':' + gender, bindings.get(identity)) if gender else bindings.get(identity)
+            row_id = identity + ':' + gender if gender else identity
+            binding = bindings.get(row_id)
+            if gender and row_id not in evidence and not binding:
+                binding = bindings.get(identity)
             audio = None
             if binding:
                 stat = Path(binding['package']).stat()
                 audio = {**binding, 'locale': audio_locale(source_locale), 'namespace': namespace,
                          'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
-            row_id = identity + ':' + gender if gender else identity
             states = evidence.get(row_id, evidence.get(identity, {'unknown'}))
             voice_status = 'voiced' if audio else 'unavailable' if 'unavailable' in states else 'unvoiced' if states == {'unvoiced'} else 'unknown'
             kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'message', 'choice', 'narration', 'ambient', 'gameplay_tip') if kind in kinds.get(identity, set())),
@@ -284,7 +298,7 @@ def _links(root, directory, revision, progress):
         code = Path(__file__).resolve().parents[1]
         reader_bytes = reader.read_bytes()
         environment = None
-    signature = hashlib.sha256(b''.join([fingerprint(root).encode(), reader_bytes,
+    signature = hashlib.sha256(b''.join([_scene_fingerprint(root).encode(), reader_bytes,
         *((code / 'scripts' / name).read_bytes() for name in ('extract_voice_links.mjs', 'extract_cinematic_links.mjs',
             'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs')),
         *( (tools / name).read_bytes() for name in game_tools.METADATA_FILES)])).hexdigest()

@@ -5,6 +5,27 @@ from backend import nte_assets as assets
 from backend.tests.test_new_game_assets import bank
 from backend.nte_cinematics import SRT_ROOT
 
+
+def test_authored_alias_overrides_conventional_bank_and_rejects_conflicts(tmp_path):
+    (tmp_path / 'banks').mkdir()
+    event = 'Play_Vo_FixturePerformance'
+    keys = ['Clean', 'Conflict', 'Blank', 'Untyped', 'Duplicated']
+    rows = [{'ns': 'ST_Story', 'key': key, 'value': key} for key in keys]
+    rows.append({'ns': 'ST_Other', 'key': 'Duplicated', 'value': 'Duplicated'})
+    (tmp_path / 'localization.json').write_text(json.dumps({'en': rows}))
+    (tmp_path / 'dialogue-events.json').write_text(json.dumps({
+        'clean': [event.lower()], 'conflict': [event.lower(), ''], 'blank': [''],
+        'untyped': ['?'], 'duplicated': [event.lower()]}))
+    depot = 'HT/Content/WwiseAudio/Media/English/123.wem'
+    (tmp_path / 'media.json').write_text(json.dumps([depot]))
+    for name in [event, 'Play_Vo_Conflict', 'Play_Vo_Blank']:
+        identifier = assets.wwise_hash(name)
+        (tmp_path / 'banks' / (name + '.bnk')).write_bytes(bank(version=154, bank_id=identifier,
+            language=assets.wwise_hash('English'), event=identifier))
+    result = assets.build_records(tmp_path, source_locale='en')
+    assert [(r['text_id'], r['audio']['depot']) for r in result if r['audio']] == [('nte:ST_Story:Clean', depot)]
+    assert {r['voice_status'] for r in result if r['text_id'].endswith(':Conflict')} == {'unavailable'}
+
 @pytest.mark.parametrize('locale',assets.SUPPORTED_LOCALES)
 def test_selected_text_bank_language_and_media_path_agree(tmp_path,locale):
     (tmp_path/'banks').mkdir()

@@ -42,9 +42,10 @@ def _digest(data: bytes) -> str:
 
 def _atomic_file(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".pending")
-    temporary.write_bytes(data)
-    temporary.replace(path)
+    with tempfile.TemporaryDirectory(dir=path.parent) as folder:
+        staged = Path(folder) / 'download'
+        staged.write_bytes(data)
+        staged.replace(path)
 
 
 def install_archive(url: str, digest: str, directory: Path, required: tuple[str, ...]) -> None:

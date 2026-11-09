@@ -1,6 +1,7 @@
 """Private, resumable mobile exports. Never serialize original archive references."""
 from __future__ import annotations
 
+from .game_assets import PUBLISHER_GAMES
 from .runtime_paths import data_root as runtime_data_root
 import hashlib
 from itertools import islice
@@ -453,9 +454,17 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
                 from .nte_assets import ensure_extractor
                 ensure_extractor(directory / 'tools' if source_path else data / game / 'tools')
             service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
-            source_check = lambda: service._adapter.fingerprint(Path(payload["install"])) == payload["fingerprint"]
+            source_install = None if game in PUBLISHER_GAMES and payload['install'] is None else Path(payload['install'])
+            if source_install is None and hasattr(service._adapter, 'publisher_snapshot_available'):
+                source_check = lambda: service._adapter.publisher_snapshot_available(service.tools_dir, payload['fingerprint'])
+            else:
+                source_check = lambda: service._adapter.fingerprint(source_install) == payload["fingerprint"]
         records = []
         for item in payload["records"]:
+            if item.get("requires_previous"):
+                # The standalone phone matcher does not retain a confirmed
+                # scene occurrence between scans.
+                continue
             # Other adapters retain their verified performance coverage gates.
             # In particular, unbound Honkai/NTE tables do not verify new scenes.
             if game == 'halflife':

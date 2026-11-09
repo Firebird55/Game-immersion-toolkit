@@ -205,7 +205,8 @@ class MobileExportManager:
                 count = len(entries)
             elif inputs[0].is_file():
                 records = json.loads(inputs[0].read_text(encoding='utf-8')).get('records', [])
-                count = len(records) if game == 'hito' else sum(bool(r.get('audio')) for r in records)
+                count = len(records) if game == 'hito' else sum(bool(r.get('audio')) and not r.get('requires_previous', False)
+                                                               for r in records)
             # A range is intentionally explicit: source codecs and movie trims
             # make exact MP3 byte counts unknowable before conversion.
             catalog = count * 650 + 2048

@@ -25,12 +25,13 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 3
-NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db')
+LANGUAGE_INDEX_VERSION = 4
+FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
+NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
     'Story-flow text, choices, messages, movie captions and readable records are indexed; presentation-specific OCR coverage is incomplete.',
     'Combat and ambient audio events, embedded movie audio and dynamic voice filenames still lack complete per-line bindings.',
-    'Entity-only bubbles, legacy numeric subtitle tables, song lyrics and event-specific text outside story flows are not fully indexed.',
+    'Floating 2D/3D caption text is indexed. Entity-only bubbles, legacy numeric subtitles, songs and event-specific text still have gaps.',
 ]
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_LOCALES = {'en': ('en', 4), 'zh-Hans': ('zh', 7), 'zh-Hant': ('zh', 7), 'ja': ('ja', 5), 'ko': ('ko', 6)}
@@ -59,7 +60,7 @@ def _official_archive(root: Path, path: Path) -> bool:
     # Optional in-game cinematic downloads use Video_* names rather than
     # pakchunk*. The CLI scans them too; permit only the observed official
     # location and a filename whose cinematic ID matches its parent folder.
-    match = re.fullmatch(r"Video/(hd|sd)/Paks/(\d+_\d+)/Video_(\d+_\d+)-(HD|SD)-WindowsNoEditor\.pak", relative.as_posix())
+    match = re.fullmatch(r"Video/(hd|sd|uhd)/Paks/(\d+_\d+)/Video_(\d+_\d+)-(HD|SD|UHD)-WindowsNoEditor\.pak", relative.as_posix())
     return bool(match and match[2] == match[3] and match[1].upper() == match[4])
 
 
@@ -353,6 +354,13 @@ def _narrative_refs(db_root: Path) -> dict[str, list[tuple[str, str]]]:
     if path.is_file():
         for blob, in _rows(path, 'SELECT BinData FROM infodisplay'):
             add(_string(blob, 4), 'readable', 'unavailable' if _string(blob, 6) else 'unknown')
+    path = db_root / FLOATING_SUBTITLES
+    if path.is_file():
+        for blob, in _rows(path, 'SELECT BinData FROM floatingsubtitle2d'):
+            add(_string(blob, 2), 'floating_caption', 'unknown')
+        for blob, in _rows(path, 'SELECT BinData FROM floatingsubtitle3d'):
+            # A named 3D audio cue alone does not identify an exact localized WEM.
+            add(_string(blob, 1), 'floating_caption', 'unavailable' if _string(blob, 16) else 'unknown')
     return refs
 
 
@@ -378,7 +386,7 @@ def _prepare_text_tables(install, executable, cache, locales, progress):
         if not (db_root / relative).is_file():
             progress('Reading installed Wuthering narrative metadata')
             run_extractor(install, executable, cache, 'ConfigDB/' + relative)
-        if not (db_root / relative).is_file():
+        if relative != FLOATING_SUBTITLES and not (db_root / relative).is_file():
             raise PreparationFailure('unsupported_format', 'Required Wuthering narrative tables were not found; update the toolkit or verify game files.')
 
 
@@ -425,7 +433,7 @@ def build_language_records(db_root: Path, files: list[str], source_locale: str, 
                 'texts': texts, 'audio_locale': audio_locale(source_locale)}
     def category(identity):
         kinds = {kind for kind, _ in narrative.get(identity, [])}
-        return next((kind for kind in ('cinematic', 'story_card', 'message', 'readable', 'ambient', 'choice', 'dialogue') if kind in kinds), 'dialogue')
+        return next((kind for kind in ('cinematic', 'story_card', 'message', 'readable', 'ambient', 'choice', 'dialogue', 'floating_caption') if kind in kinds), 'dialogue')
     for identity, blob in _rows(db_root / 'db_plot_audio.db', 'SELECT Id, BinData FROM plotaudio'):
         text = display_text(tables[source_locale].get(identity, ''))
         if not text or _string(blob, 0) != identity:

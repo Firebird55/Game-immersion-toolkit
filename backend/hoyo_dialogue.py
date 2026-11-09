@@ -15,10 +15,27 @@ TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CHS', 'zh-Hant': 'CHT', 'ja': 'JP', 'ko'
 VOICE_NAMES = {'en': 'English(US)', 'zh-Hans': 'Chinese(PRC)', 'zh-Hant': 'Chinese(PRC)',
                'ja': 'Japanese', 'ko': 'Korean'}
 DATA_FOLDERS = {'genshin': ('GenshinImpact_Data', 'YuanShen_Data'), 'starrail': ('StarRail_Data',)}
+RELEASE_MARKERS = {
+    'genshin': ('AssetBundles/data_revision', 'AssetBundles/res_revision', 'AssetBundles/silence_revision',
+                'data_versions_persist', 'res_versions_persist', 'data_versions_streaming',
+                'res_versions_streaming', 'silence_versions_streaming'),
+    'starrail': ('DesignData/Windows/M_DesignV.bytes', 'DesignData/Windows/M_Design_ArchiveV.bytes',
+                 'Asb/Windows/M_AsbV.bytes', 'Asb/Windows/M_BlockV.bytes',
+                 'Audio/AudioPackage/Windows/M_AudioV.bytes', 'Video/Windows/M_VideoV.bytes'),
+}
 
 
 def voice_namespace(game, locale):
+    if game == 'genshin' and locale in ('zh-Hans', 'zh-Hant'):
+        return 'Chinese'
     return 'English' if game == 'starrail' and locale == 'en' else VOICE_NAMES[locale]
+
+
+def voice_namespaces(game, locale):
+    namespace = voice_namespace(game, locale)
+    # Keep existing locally verified Genshin bindings readable across the
+    # correction. Star Rail uses Chinese(PRC) as its canonical namespace.
+    return (namespace, 'Chinese(PRC)') if namespace == 'Chinese' else (namespace,)
 
 
 def game_data(install, game):
@@ -42,6 +59,7 @@ def archive_sources(install, game):
 def fingerprint(install, game):
     root = game_data(install, game)
     files = archive_sources(install, game)
+    markers = set()
     # Text-only hotfixes can leave every voice package unchanged. Include the
     # authored data and patch manifests, but never logs, accounts or telemetry.
     metadata = ('BinaryVersion.bytes', 'ClientConfig.bytes', 'InstallVersion.bin',
@@ -50,18 +68,29 @@ def fingerprint(install, game):
                 'svc_catalog')
     for layer in ('StreamingAssets', 'Persistent', 'StreamingAssets/Persistent'):
         directory = root / layer
+        markers.update(directory / name for name in RELEASE_MARKERS[game] if (directory / name).is_file())
         files += [directory / name for name in metadata if (directory / name).is_file()]
         design = directory / 'DesignData'
         if design.is_dir():
             files += [p for p in design.rglob('*') if p.is_file()]
     if (install / 'config.ini').is_file():
         files.append(install / 'config.ini')
-    return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
-        for p in sorted(set(files))).encode()).hexdigest()
+    parts = []
+    for path in sorted(set(files) | markers):
+        stat = path.stat()
+        identity = f'{path.relative_to(install)}:{stat.st_size}:{stat.st_mtime_ns}'
+        # Launchers can preserve timestamps when replacing equal-sized markers.
+        # Hash the release manifests, keeping large audio/design assets stat-only.
+        if path in markers and path.resolve().is_relative_to(root.resolve()):
+            with path.open('rb') as stream:
+                identity += ':' + hashlib.file_digest(stream, 'sha256').hexdigest()
+        parts.append(identity)
+    return hashlib.sha256('\n'.join(parts).encode()).hexdigest()
 
 
 def inventory(install, game, locale):
-    namespace = voice_namespace(game, locale).casefold()
+    namespaces = {name.casefold() for name in voice_namespaces(game, locale)}
+    root = game_data(install, game)
     result = {}
     # Base packages precede Persistent patches; duplicate IDs inside a layer
     # must not silently choose an unrelated performance.
@@ -69,7 +98,8 @@ def inventory(install, game, locale):
     for layer in ('StreamingAssets', 'Persistent'):
         current, ambiguous = {}, set()
         for path in paths:
-            if layer not in path.parts or namespace not in {part.casefold() for part in path.parts}:
+            parts = path.relative_to(root).parts
+            if parts[0] != layer or namespaces.isdisjoint(part.casefold() for part in parts[1:-1]):
                 continue
             for entry in read_external_table(path):
                 if entry.file_id in current and current[entry.file_id] != entry:
@@ -87,6 +117,8 @@ def audio_binding(source, entries, locale):
     entry = entries.get(identity)
     if entry is None:
         return None
+    if isinstance(entry, dict) and entry.get('publisher'):
+        return {**entry, 'source': source, 'file_id': f'{identity:016x}', 'locale': audio_locale(locale)}
     stat = entry.package.stat()
     return {'source': source, 'file_id': f'{identity:016x}', 'package': str(entry.package),
             'offset': entry.offset, 'size': entry.size, 'package_size': stat.st_size,
@@ -100,7 +132,10 @@ def records(game, links, tables, locale, entries):
         texts = {code: value for code, value in texts.items() if value}
         if not texts.get(locale):
             continue
-        audio = audio_binding(link['source'], entries, locale) if link.get('source') else None
+        source = link.get('source')
+        audio = audio_binding(source, entries, locale) if source else None
+        if not audio and game == 'genshin' and locale in ('zh-Hans', 'zh-Hant') and source and source.startswith('Chinese\\'):
+            audio = audio_binding('Chinese(PRC)' + source[len('Chinese'):], entries, locale)
         voice_status = ('voiced' if audio else 'unavailable' if link.get('source')
                         else link.get('voice_status', 'unknown'))
         result.append({'text_id': game + ':' + str(link['id']), 'source_locale': locale,
@@ -113,12 +148,12 @@ def records(game, links, tables, locale, entries):
 
 def snapshot(game, install, stamp, catalog, rows, source_locale, targets, mapping):
     from .languages import resolve_locale
-    if not rows or fingerprint(install, game) != stamp:
+    if not rows or install is not None and fingerprint(install, game) != stamp:
         raise ValueError('Subtitle data is incomplete or game files changed; previous table retained.')
     available = {code for row in rows for code in row['texts']}
     missing = [code for code in targets if resolve_locale(code, mapping) not in available]
     count = sum(bool(row['audio']) for row in rows)
-    return {'format': 2, 'game': game, 'source_locale': source_locale, 'install': str(install),
+    return {'format': 2, 'game': game, 'source_locale': source_locale, 'install': str(install) if install else None,
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'records': rows,
         'missing_translation_locales': missing,
         'message': f'{len(rows):,} official {source_locale} lines; {count:,} original voices' +
@@ -129,11 +164,14 @@ def extract_voice(install, game, audio):
     locale, source = audio['locale'], audio['source']
     if locale not in SUPPORTED_LOCALES or voice_hash(source) != int(audio['file_id'], 16):
         raise ValueError('Original voice identity does not match its selected locale.')
-    namespace = voice_namespace(game, locale).casefold()
-    if not source.casefold().startswith((namespace + '/', namespace + '\\')):
+    namespaces = {name.casefold() for name in voice_namespaces(game, locale)}
+    if re.split(r'[/\\]', source, maxsplit=1)[0].casefold() not in namespaces:
         raise ValueError('Original voice source crosses locales.')
     path = Path(audio['package']).resolve()
-    if path not in {p.resolve() for p in archive_sources(install, game)} or namespace not in {p.casefold() for p in path.parts}:
+    root = game_data(install, game).resolve()
+    if (path not in {p.resolve() for p in archive_sources(install, game)}
+            or not path.is_relative_to(root)
+            or namespaces.isdisjoint(p.casefold() for p in path.relative_to(root).parts[1:-1])):
         raise ValueError('Original voice package is outside its selected installed locale.')
     stat = path.stat()
     if (stat.st_size, stat.st_mtime_ns) != (audio['package_size'], audio['package_mtime_ns']):

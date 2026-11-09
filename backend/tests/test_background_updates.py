@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import os
 import pytest
 
+from backend import zzz_assets
 from backend.textmaps import TextMapIndex
 from backend.updates import BackgroundUpdateManager
 
@@ -78,7 +80,42 @@ def test_changed_zzz_install_and_explicit_refresh_update_maps_without_scene_meta
     manager.check_once()
     assert calls == [True]
     calls.clear()
+    marker = game / "Persistent/data_revision"
+    marker.write_text("101")
+    manager.check_once()
+    assert calls == [True]
+    calls.clear()
+    stamp = marker.stat()
+    before, scene = zzz_assets.fingerprint(game), zzz_assets._scene_fingerprint(game)
+    marker.write_text("102")
+    os.utime(marker, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    assert zzz_assets.fingerprint(game) != before
+    assert zzz_assets._scene_fingerprint(game) == scene
+    manager.check_once()
+    assert calls == [True]
+    calls.clear()
     manager._thread = SimpleNamespace(is_alive=lambda: True)
     assert manager.request_check()
     manager.check_once()
     assert calls == [True]  # Explicit refresh also handles text-only upstream fixes.
+
+
+def test_unavailable_revision_keeps_last_good_identity_and_retries(tmp_path, monkeypatch):
+    maps = TextMapIndex(tmp_path / "maps")
+    maps.ready = True
+    game = tmp_path / "ZenlessZoneZero_Data"
+    manager = BackgroundUpdateManager(tmp_path, maps, VoiceAssetsStub(tmp_path / "manifest.json"),
+                                      game_data_provider=lambda: game)
+    good = {"metadata_commit": "old-revision", "installed_signature": "old-signature"}
+    manager._write_state(good)
+    monkeypatch.setattr("backend.game_tools.missing_tools", lambda *_: [])
+
+    def unavailable():
+        raise OSError("upstream returned 502")
+
+    monkeypatch.setattr(manager, "_update_metadata_repository", unavailable)
+    monkeypatch.setattr(manager, "_run_command", lambda *_a, **_k: pytest.fail("Mixed revision"))
+    manager.check_once()
+    assert manager.status()["state"] == "retrying"
+    assert manager.status()["last_checked"] and maps.ready
+    assert manager._read_state() == good

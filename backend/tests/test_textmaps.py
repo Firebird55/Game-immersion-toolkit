@@ -193,6 +193,18 @@ def test_comic_gender_variants_match_in_cinematic_channel(tmp_path) -> None:
     assert match.chinese == "怎么回事？我的眼睛…"
 
 
+def test_inline_variants_match_full_caption_and_pair_by_label(tmp_path):
+    index = TextMapIndex(tmp_path)
+    identity = 'Chat_Synthetic'
+    write_map(index, 'en_base', {identity: 'Ask {M#him}{F#her} to bring {F#her}{M#his} notebook.'})
+    write_map(index, 'zh_base', {identity: '请{F#她}{M#他}带上{M#他的}{F#她的}笔记本。'})
+    for table in ('en_overwrite', 'zh_overwrite'):
+        write_map(index, table, {})
+    index.load()
+    assert index.match_text('Ask him to bring his notebook.').chinese == '请他带上他的笔记本。'
+    assert index.match_text('Ask her to bring her notebook.').chinese == '请她带上她的笔记本。'
+
+
 def test_crowded_dialogue_crop_can_match_three_subtitle_rows(tmp_path) -> None:
     index = make_index(tmp_path)
     match = index.match_lines(

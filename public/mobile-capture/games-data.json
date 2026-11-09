@@ -62,6 +62,7 @@
         "ko",
         "fr",
         "de",
+        "es-ES",
         "es-419",
         "pt-BR",
         "ru",
@@ -77,6 +78,7 @@
         "ko",
         "fr",
         "de",
+        "es-ES",
         "pt-BR",
         "ru",
         "th",
@@ -84,12 +86,12 @@
         "id"
       ],
       "unverified": {
-        "es-419": "The storefront lists Latin American Spanish; the released reader labels its ES table Spanish — Spain. The regional identity needs verification before advertising this pair."
+        "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "English, Mandarin and Japanese asset samples cover dialogue, comics, gameplay, tips and cutscenes. Korean native playback is untested. All five study locales have synthetic OCR checks; complete gameplay chapter and branch coverage is unverified.",
+      "coverage": "Three new 3.3 story lines have exact publisher recordings in all four dubs. All 13 base text locales were read directly. Those three Japanese subtitles arrived through a later design update. Korean native playback and full gameplay coverage remain open.",
       "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
-      "reviewedAt": "2026-10-25"
+      "reviewedAt": "2026-11-08"
     },
     {
       "id": "wuwa",
@@ -631,7 +633,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.",
-      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "coverage": "Prepare Star Rail without a game folder using the regular Global voice packages and revision-matched authored text. Global 4.6 has 173 verified regular packages per dub and five verified chapter packages across English, Mandarin and Korean. Three chapter packages, automatic in-game hotfix discovery and ambiguous voice selections remain open.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [
@@ -695,7 +697,7 @@
         "es-419": "Epic lists Latin American Spanish as well as Spain Spanish; no distinct reader locale mapping is established."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.",
-      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. YouTube replay checks the dialogue crop and stable OCR matching. Prepare the selected language from your own installation.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. Prepare the selected language from an installed client or the mainland China HoYoPlay PC release. Publisher setup matches text and resource revisions and fetches selected original recordings on demand. In-game hotfixes and removed event audio have separate coverage.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [
@@ -754,10 +756,10 @@
         "id"
       ],
       "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate.",
-      "coverage": "All four official voice languages use implemented and tested locale formats with a built-in archive reader that needs no SDK. Chinese original conversation and ambient samples decode locally, including both Endministrator performances. English/Japanese/Korean packs are absent in the audited installation, so native playback is not claimed. Missing metadata references and missing recordings are counted separately; see the coverage report.",
-      "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
-      "reviewedAt": "2026-10-27",
+      "notes": "Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.",
+      "coverage": "The Windows reader retrieved original recordings directly from GRYPHLINE in all four dubs. There are 437 distinct film/caption pairs in 52 of 80 configurations. Verified intervals include both protagonist performances where applicable: 400 Mandarin, 404 English, 417 Japanese and 392 Korean. These film counts describe Global 1.6.4. Narrative tables and voice packages follow the current Global release. Installed packages remain available through the local reader.",
+      "supportPolicy": "Choose the study language and official translation in Languages. The Global Windows publisher supplies the selected original tables and voices.",
+      "reviewedAt": "2026-11-09",
       "officialAudio": [
         "en",
         "zh-Hans",
@@ -765,14 +767,13 @@
         "ko"
       ],
       "playbackVerified": [
-        "zh-Hans",
-        "zh-Hant"
-      ],
-      "formatOnly": [
         "en",
+        "zh-Hans",
+        "zh-Hant",
         "ja",
         "ko"
-      ]
+      ],
+      "formatOnly": []
     },
     {
       "id": "riseofthetombraider",

@@ -6,7 +6,7 @@ import time
 import traceback
 from pathlib import Path
 
-from .game_assets import asset_adapter
+from .game_assets import PUBLISHER_GAMES, asset_adapter
 from .local_game import LocalDialogue
 from .languages import audio_locale
 
@@ -62,12 +62,16 @@ def build(game, install, directory, locale, targets, output, progress=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', required=True)
-    parser.add_argument('--install', type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument('--install', type=Path)
+    source.add_argument('--publisher', action='store_true')
     parser.add_argument('--directory', type=Path, required=True)
     parser.add_argument('--locale', required=True)
     parser.add_argument('--targets', required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
+    if args.publisher and args.game not in PUBLISHER_GAMES:
+        parser.error('Publisher preparation is unavailable for this game.')
     report = progress_reporter(args.output)
     try:
         build(args.game, args.install, args.directory, args.locale, json.loads(args.targets), args.output, report)

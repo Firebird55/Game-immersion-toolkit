@@ -5,6 +5,10 @@ sources in October 2026. Reports distinguish authored text, verified original
 voices, confirmed unvoiced content, missing voices and unresolved formats.
 Counts refer to the audited installation and locale, not every game chapter.
 
+The November 8 live-service reports also identify which publisher release
+supplied the translations, original recordings and later updates. See the
+[source inventory for all six games](../live-service-sources.md).
+
 The [subtitle boundary audit](../subtitle-boundary-audit.md) reviews all supported
 readers for page concatenation, translation alignment and full-recording playback.
 It distinguishes authored display boundaries from remaining format and native
@@ -12,15 +16,15 @@ gameplay acceptance gaps.
 
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
-| Zenless Zone Zero | Unity-wrapped catalogs; typed stories, bubbles, cinematics, messages and gameplay tips | [ZZZ](zzz.md) |
+| Zenless Zone Zero | Installed scene readers and a Global launcher probe for released subtitle translations and four original dubs | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions; shared compiler-free archive helper | [Wuthering](wuwa.md), [runtime evidence](../wuthering-runtime.md) |
 | Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |
 | Cyberpunk 2077 | Base game and Phantom Liberty; exact hashed voices; journal messages and readables | [Cyberpunk](cyberpunk.md) |
 | The Witcher 3: Wild Hunt | Legacy/current bundles; authored choices, journals, profiles and readable body keys | [Witcher](witcher3.md) |
-| Honkai: Star Rail | Messages, choices, narrated story and combat metadata; explicit voice states | [Star Rail](starrail.md) |
-| Genshin Impact | Dialogue fallback, reminders, card dialogue and book paragraphs; version checks | [Genshin](genshin.md) |
-| Arknights: Endfield | Conversations, choices, panels, messages, readables and operator archives; compiler-free VFS/PCK reader | [Endfield](endfield.md), [runtime evidence](../endfield-runtime.md) |
+| Honkai: Star Rail | Messages, choices, narrated story and combat metadata. Regular Global voice packages are available without a game folder. | [Star Rail](starrail.md) |
+| Genshin Impact | Dialogue, reminders, card dialogue and book paragraphs. Mainland PC launcher releases support installation-free selected-dub playback with matched revisions. | [Genshin](genshin.md) |
+| Arknights: Endfield | Conversations, radio, messages, readables, operator archives and 437 film/caption pairs with verified intervals in at least one dub. Publisher text and voices prepared on Global 1.5.3 and 1.6.4 without an installation. | [Endfield](endfield.md), [runtime evidence](../endfield-runtime.md) |
 | Rise of the Tomb Raider | TIGER archives; authored subtitle and FMOD voice bindings; regional and DLC languages | [Rise](rise-tomb-raider.md) |
 | Shadow of the Tomb Raider | TIGER archives; Wwise subtitle labels, cinematic timing and collectible narration | [Shadow](shadow-tomb-raider.md) |
 | BEYOND: Two Souls | Explicit chapter choices; missing-performance inventory; faster repeated-performance validation | [BEYOND](beyond.md) |

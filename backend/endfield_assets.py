@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 3
+LANGUAGE_INDEX_VERSION = 11
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -34,8 +34,29 @@ def archive_sources(install):
 
 
 def fingerprint(install):
+    if install is None:
+        from .endfield_release import fingerprint as publisher_fingerprint
+        return publisher_fingerprint()
     return hashlib.sha256('\n'.join(f'{p.relative_to(install)}:{p.stat().st_size}:{p.stat().st_mtime_ns}'
         for p in archive_sources(install)).encode()).hexdigest()
+
+
+def publisher_snapshot_available(tools, stamp):
+    from . import endfield_online, endfield_release
+    if stamp == f'{endfield_online.RELEASE}:{endfield_online.TEXT_REVISION}':
+        return True
+    try:
+        return bool(endfield_release.descriptor(tools, stamp))
+    except (OSError, ValueError):
+        return False
+
+
+def publisher_voice_matches(stamp, audio):
+    from . import endfield_online
+    if audio.get('publisher') == endfield_online.RELEASE:
+        return (audio.get('snapshot') == stamp if 'snapshot' in audio else
+                stamp == f'{endfield_online.RELEASE}:{endfield_online.TEXT_REVISION}')
+    return audio.get('publisher') == stamp
 
 
 def ensure_extractor(directory):
@@ -63,7 +84,9 @@ def _audio_source(value):
     if 'path' not in value or not isinstance(value['path'], str):
         _unsupported()
     path = value['path'].replace('\\', '/')
-    if not path or value.get('isPlaceholder'):
+    # AudioDialog also contains extensionless Wwise event names. Only an
+    # authored external-media filename can select a recording by path hash.
+    if not path.lower().endswith('.wem') or value.get('isPlaceholder'):
         return None
     if path.startswith('/') or ':' in path or any(part in {'', '.', '..'} for part in path.split('/')):
         return None
@@ -91,32 +114,59 @@ def audio_id_paths(audio_dialog):
     return {identity: path for identity, row in _mapping(audio_dialog).items() if (path := _audio_source(row))}
 
 
+def _performances(row, paths, audio_ids, texts):
+    override = row.get('audioOverride', '')
+    source = audio_ids.get(row['audio_id']) if 'audio_id' in row else paths.get(override)
+    variants = {}
+    if ('audio_id' not in row and override and not source
+            and row.get('dialogue_kind', 'conversation') in {'conversation', 'radio'}):
+        female, male = paths.get(override + '_f'), paths.get(override + '_m')
+        if female and male and Path(female).parent == Path(male).parent:
+            variants = {'female': female, 'male': male}
+
+    localized = {}
+    for code, value in texts.items():
+        if '{F}' in value or '{M}' in value:
+            if not value.startswith('{F}') or value.count('{F}') != 1 or value.count('{M}') != 1:
+                _unsupported()
+            female_text, male_text = value[3:].split('{M}')
+            localized[code] = {'female': female_text.strip(), 'male': male_text.strip()}
+    if not localized and not variants:
+        yield None, source, texts
+        return
+    for gender in ('female', 'male'):
+        lines = {code: localized[code][gender] if code in localized else value for code, value in texts.items()}
+        yield gender, variants.get(gender, source), {code: line for code, line in lines.items() if line}
+
+
 def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None):
     result = []
     for identity, row in dialogs.items():
         if row.get('dialogue_kind') == 'readable' and any('<image' in table.get(str(row['dialogText']['id']), '').lower()
                                                        for table in tables.values()):
             continue
-        source = ((audio_ids or {}).get(row['audio_id']) if 'audio_id' in row
-                  else paths.get(row.get('audioOverride', '')))
-        source = ('voice/' + VOICE_LOCALES[locale] + '/' + source.replace('\\', '/').lower()) if source else None
         texts = {code: display_text(table.get(str(row.get('dialogText', {}).get('id')), ''))
                  for code, table in tables.items()}
         texts = {code: value for code, value in texts.items() if value}
-        if not texts.get(locale):
-            continue
-        audio = entries.get(f'{voice_hash(source):016x}') if source else None
-        voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent') or 'audio_id' in row
-                        else row.get('voice_status', 'unknown'))
-        if coverage is not None:
-            reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
-            coverage[reason] = coverage.get(reason, 0) + 1
-        result.append({'text_id': 'endfield:' + identity, 'source_locale': locale, 'source_text': texts[locale],
-            'texts': texts, 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', ''),
-            'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
-            'player_voice': {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
-            'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
-            'channels': row.get('channels', ['dialogue'])})
+        for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
+            if not lines.get(locale):
+                continue
+            source = 'voice/' + VOICE_LOCALES[locale] + '/' + path.replace('\\', '/').lower() if path else None
+            audio = entries.get(f'{voice_hash(source):016x}') if source else None
+            voice_status = ('voiced' if audio else 'unavailable' if row.get('audioOverride') or row.get('audioEvent') or 'audio_id' in row
+                            else row.get('voice_status', 'unknown'))
+            if coverage is not None:
+                reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
+                coverage[reason] = coverage.get(reason, 0) + 1
+            result.append({'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
+                'member_text_ids': ['endfield:' + identity] if gender else None,
+                **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
+                'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
+                'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
+                'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
+                'player_voice': gender or {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
+                'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
+                'channels': row.get('channels', ['dialogue'])})
     return result
 
 
@@ -165,6 +215,7 @@ def authored_dialogues(catalog):
         rows = _mapping(group).get('radioSingleDataList')
         if not isinstance(rows, list):
             _unsupported()
+        previous = None
         for row in rows:
             _mapping(row)
             identity = row.get('id')
@@ -176,8 +227,10 @@ def authored_dialogues(catalog):
             if identity in dialogs:
                 _unsupported()
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
+                'previous_radio_id': previous,
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
+            previous = identity
     texts = _table(catalog, 'TextTable')
     for identity, voice in _table(catalog, 'TextVoIdTable').items():
         if not isinstance(voice, str):
@@ -212,6 +265,21 @@ def narrative_dialogues(catalog, warnings):
     ):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, channel, status)
+
+    # DialogSkipPopUp displays the authored summary as text when a player
+    # skips a scene. Several scenes may reference the same summary identity.
+    summary_ids = _table(catalog, 'DialogSummaryMapTable', warnings).values()
+    summaries = _table(catalog, 'DialogSummaryTable', warnings)
+    if any(not isinstance(identity, str) for identity in summary_ids):
+        _unsupported()
+    missing_summaries = 0
+    for identity in dict.fromkeys(summary_ids):
+        if identity in summaries:
+            add(f'DialogSummaryTable:{identity}', summaries[identity], 'story_summary', 'dialogue')
+        elif identity:
+            missing_summaries += 1
+    if missing_summaries:
+        warnings.append(f'Endfield scenes reference {missing_summaries:,} missing story summary IDs.')
 
     for identity, row in _table(catalog, 'AIBarkText', warnings).items():
         key = f'AIBarkText:{identity}'
@@ -291,10 +359,16 @@ def narrative_dialogues(catalog, warnings):
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
+    from . import endfield_online, endfield_release
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Endfield study/audio language.')
-    stamp = fingerprint(install)
-    catalog = DialogueCatalog('endfield', data_dir)
+    online = install is None
+    if online:
+        catalog = endfield_release.prepare(data_dir / 'tools')
+        stamp = catalog.stamp
+    else:
+        stamp = fingerprint(install)
+        catalog = DialogueCatalog('endfield', data_dir)
     try:
         tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, prefix='TableCfg/I18nTextTable_')
     except ValueError:
@@ -304,9 +378,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         _unsupported()
     paths = audio_paths(audio_dialog)
     audio_ids = audio_id_paths(audio_dialog)
-    progress('Reading installed Endfield original voice packages')
+    progress('Reading publisher voice package indexes' if online else 'Reading installed Endfield original voice packages')
     inventory = []
-    for layer in ('StreamingAssets', 'Persistent'):
+    for layer in (() if online else ('StreamingAssets', 'Persistent')):
         if (streaming_assets(install, layer) / 'VFS').is_dir():
             values = json.loads(reader(install, data_dir / 'tools/EndfieldReader.dll', 'inventory',
                                        {'language': VOICE_LOCALES[source_locale], 'layer': layer}))
@@ -319,7 +393,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 for row in values):
                 _unsupported()
             inventory.extend({**row, 'layer': layer} for row in values)
-    entries = {}
+    entries = endfield_release.voice_entries(data_dir / 'tools', stamp, VOICE_LOCALES[source_locale]) if online else {}
     # Initial, selected locale and hotfix are explicit successive layers.
     for layer, block in dict.fromkeys((entry['layer'], entry['block']) for entry in inventory):
         current, ambiguous = {}, set()
@@ -337,7 +411,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     dialogs.update(narrative_dialogues(catalog, warnings))
     coverage = {name: 0 for name in ('voiced', 'unvoiced', 'unknown', 'missing_source_metadata', 'missing_locale_recording')}
     rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage)
-    if fingerprint(install) != stamp:
+    films = endfield_online.film_records(catalog, tables, source_locale)
+    if online:
+        for film in films:
+            film['audio']['snapshot'] = stamp
+    rows.extend(films)
+    coverage['voiced'] += len(films)
+    current = endfield_release.discover()[0] if online else fingerprint(install)
+    if current != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
             'the previous language table is retained.', game_files_changed=True, previous_snapshot_retained=True)
@@ -346,7 +427,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     count = sum(bool(row['audio']) for row in rows)
     unknown = sum(row['voice_status'] == 'unknown' for row in rows)
     selected_block = {'chinese': 101, 'english': 102, 'japanese': 103, 'korean': 104}[VOICE_LOCALES[source_locale]]
-    if not any(row['block'] == selected_block for row in inventory):
+    if not online and not any(row['block'] == selected_block for row in inventory):
         warnings.append('The selected Endfield voice package was not found in the installed audio inventory. '
                         'Install it through the game language settings and refresh game data.')
     if coverage['missing_source_metadata']:
@@ -355,17 +436,21 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         'installing a voice package cannot repair missing metadata. Refresh toolkit/game metadata when available.')
     if coverage['missing_locale_recording']:
         warnings.append(f'{coverage["missing_locale_recording"]:,} known Endfield voice paths have no recording in the '
-                        f'installed {source_locale} audio. Some recordings exist only in particular locales; '
+                        f'selected {source_locale} audio. Some recordings exist only in particular locales; '
                         'these lines remain unavailable and another language is never substituted.')
     if unknown:
         warnings.append(f'{unknown:,} Endfield narrative lines have unverified voice status and are excluded from silent capture.')
-    warnings.append('Endfield coverage is partial: cinematic/video soundtracks and image-only comics or storyboard panels '
-                    'do not have verified per-line bindings. Rich-content images are excluded. '
+    warnings.append(f'{len(films)} verified publisher film captions are available for the selected revision. '
+                    'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
+    if online:
+        warnings.append(f'Using Global Windows {catalog.revision_title} from the Endfield publisher. '
+                        'Original narrative tables and voices follow the released resources. '
+                        'Film captions require verified timing for the selected resources.')
     available = {code for row in rows for code in row['texts']}
-    return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': str(install),
+    return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': None if online else str(install),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
-        'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage,
+        'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 
@@ -375,6 +460,12 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, executable, _destination):
+    if 'publisher' in audio:
+        from . import endfield_release
+        if audio['publisher'].startswith('endfield-'):
+            return endfield_release.extract(executable.parent, audio, VOICE_LOCALES[audio['locale']])
+        from .endfield_online import extract
+        return extract(audio, executable.parent)
     locale = audio['locale']
     if locale not in SUPPORTED_LOCALES or not audio['source'].startswith('voice/' + VOICE_LOCALES[locale] + '/'):
         raise ValueError('Endfield original voice crosses locales.')

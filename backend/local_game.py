@@ -75,11 +75,15 @@ class LocalDialogue:
     # unknown until their adapter rebuilds them.
     voice_status: str | None = None
     dialogue_kind: str | None = None
+    previous_text_id: str | None = None
+    requires_previous: bool = False
 
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
         object.__setattr__(self, 'audio_scope', dialogue_audio_scope(self.audio, self.audio_scope))
+        if self.requires_previous and not self.previous_text_id:
+            raise ValueError('Conditional dialogue requires an authored predecessor')
         if self.dialogue_kind is not None and (not isinstance(self.dialogue_kind, str) or not self.dialogue_kind.strip()):
             raise ValueError('Invalid dialogue category')
         object.__setattr__(self, 'voice_status', status)
@@ -110,7 +114,7 @@ class LocalGameTextIndex:
                 return True
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             records = [LocalDialogue(**item) for item in payload["records"]]
-            voiced = [record for record in records if record.audio]
+            voiced = [record for record in records if record.audio and not record.requires_previous]
             unvoiced_english, unvoiced_chinese = {}, {}
             counts = dict.fromkeys(self.voice_counts, 0)
             for record in records:

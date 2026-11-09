@@ -1,5 +1,34 @@
 # Neverness to Everness audit
 
+## November 8, 2026 · Localized performances and sequence timing
+
+The cooked Global dialogue and bubble sound tables contain explicit aliases
+for text keys whose recording has a different name. The installed census
+found 21,248 dialogue/bubble keys. Of these, 2,028 had eligible unambiguous
+aliases. A native English probe found the indicated localized Wwise media
+for 1,458 rows. The reader now looks up these declarations before using
+the conventional event name. Conflicting declarations or ambiguous
+localization namespaces keep the original voice unresolved.
+[Pinned Unreal type schema](https://github.com/555me/NTE-usmap/blob/1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap)
+
+The reviewed movie catalog contains 218 definitions. Its explicit voice,
+subtitle and StringTable fields yield 42 distinct movie paths across four
+tables. In addition to 23 Sequence definitions, the reader recognizes 10
+Wuchao, seven Blackbird and two Legend definitions. The installed subtitle
+key, localized event bank and media must still resolve for an individual
+caption to acquire audio. [Movie tables](https://github.com/Waifus-Grace/NTE_Assets/tree/cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7/DataTable/Skill)
+
+Story sequences use a separate chain from the sequence's caption group to
+the Unreal StringTable, dedicated voice event and locale-specific start and
+end times. The pinned schema decoded all 177 nested sequence entries in the
+inspected main scene table. The reader checks the playback rate, start offset,
+unique event, localized media and overlap with surrounding cues. Synthetic
+fixtures cover dub-specific clocks, repeated captions and ambiguous audio.
+The final end-to-end count of playable sequences on Global remains unverified.
+On a fresh workstation, the pinned type schema downloaded successfully, but
+the existing archive metadata provider no longer supplied a usable entry.
+The type schema and the archive metadata are separate prerequisites. [Global release resources](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.11/ResList.bin.zip)
+
 Reviewed on 2026-10-27 against the locally installed client, using discovery from
 `backend.game_paths`. This is an asset/adapter audit, not a complete playthrough
 or evidence that every visible layout works in OCR. Game files, extracted text,

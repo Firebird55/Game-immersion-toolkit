@@ -283,6 +283,8 @@ export default {
  "Choose a folder in the Windows dialog. If it stalls, close it here and paste a path.":["Kies een map in het Windows-venster. Sluit het hier als het vastloopt en plak een pad.","在 Windows 对话框中选择文件夹。如果卡住，请在此关闭并粘贴路径。","在 Windows 對話方塊中選擇資料夾。如果停滯，請在此關閉並貼上路徑。"],
  "Choose folder":["Map kiezen","选择文件夹","選擇資料夾"],
  "Choose installation folder":["Installatiemap kiezen","选择安装文件夹","選擇安裝資料夾"],
+ "Available from publisher":["Beschikbaar bij de uitgever","可从发行商下载","可從發行商下載"],
+ "Optional":["Optioneel","可选","選填"],
  "Connect Lexirise":["Lexirise verbinden","连接 Lexirise","連接 Lexirise"],
  "Cutscenes & comics":["Filmscènes en strips","过场动画与漫画","過場動畫與漫畫"],
  "DIALOGUE":["DIALOOG","对话","對話"],

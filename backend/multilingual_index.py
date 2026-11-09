@@ -42,6 +42,7 @@ class MultilingualTextIndex:
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
+        self._predecessor_aliases = {}
         self._full_frame_veto = {}
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
@@ -87,6 +88,7 @@ class MultilingualTextIndex:
             lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
+            predecessor_aliases = {}
             for row in payload['records']:
                 if row.get('source_locale') != locale or not isinstance(row.get('source_text'), str) or not row['source_text']:
                     raise ValueError('Incomplete game study text')
@@ -111,6 +113,8 @@ class MultilingualTextIndex:
                 for identity in [row['text_id'], *(row.get('member_text_ids') or [])]:
                     previous = capture_channels.get(identity)
                     capture_channels[identity] = channels if previous is None else previous | channels
+                if self.game == 'endfield' and row.get('member_text_ids'):
+                    predecessor_aliases[row['text_id']] = tuple(row['member_text_ids'])
                 if row['voice_status'] != 'voiced':
                     for language, text in row['texts'].items():
                         for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
@@ -121,7 +125,7 @@ class MultilingualTextIndex:
                 for language, text in row['texts'].items():
                     for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                         key = normalize_text(display_text(value), language)
-                        if len(key) >= 2:
+                        if len(key) >= 2 or key and row.get('previous_text_id'):
                             destination.setdefault(language, {}).setdefault(key, []).append(row)
                     if row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
                         last = anchors[0]
@@ -134,6 +138,7 @@ class MultilingualTextIndex:
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
                 self._full_frame_veto = full_frame_veto
+                self._predecessor_aliases = predecessor_aliases
                 self.voice_counts, self.dialogue_coverage = voice_counts, coverage
                 self._context_pairs = context_pairs
                 self._context_firsts = {}
@@ -164,10 +169,12 @@ class MultilingualTextIndex:
     def authored_scene(text_id):
         return text_id.rsplit(':', 1)[0] if re.fullmatch(r'heavyrain:\d+:[a-f0-9]{8}', text_id) else None
 
-    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False):
+    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False,
+                    previous_text_id=None):
         hits, ambiguous = [], []
         with self.lock:
-            sources = candidates(lines)
+            sources = [display_text(' '.join(lines))] if previous_text_id else candidates(lines)
+            predecessors = {previous_text_id, *self._predecessor_aliases.get(previous_text_id, ())}
             # A known silent/unknown page may contain a shorter spoken sentence.
             # Preserve the complete observation before candidate splitting so a
             # crop or a fuzzy match cannot turn its fragment into that voice.
@@ -179,13 +186,15 @@ class MultilingualTextIndex:
                 if self.capture_unvoiced:
                     lookups += [(locale, values, True) for locale, values in self._unvoiced_lookup.items()]
                 for locale, lookup, silent in lookups:
+                    if previous_text_id and (locale != self.source_locale or silent):
+                        continue
                     key, score = normalize_text(source, locale), 100.
                     if self.game in {'starrail', 'genshin', 'endfield'}:
                         # Short interjections recur across unrelated scenes,
                         # including movies without per-caption voice bindings.
                         # Their spelling alone cannot identify a performance.
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
-                        if len(key) < minimum:
+                        if len(key) < minimum and not previous_text_id:
                             continue
                     rows, matched_keys = lookup.get(key, []), {key}
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
@@ -195,7 +204,7 @@ class MultilingualTextIndex:
                     if not silent and self.game == 'heavyrain' and channel == 'dialogue' and len(key) >= minimum:
                         rows = [row for text, matches in lookup.items() if key in text for row in matches]
                         matched_keys = {text for text in lookup if key in text}
-                    if not silent and not rows and not exact_only and len(key) >= 8:
+                    if not silent and not rows and not exact_only and not previous_text_id and len(key) >= 8:
                         matches = process.extract(key, lookup.keys(), scorer=fuzz.ratio, score_cutoff=max(88, threshold), limit=2)
                         if matches and (len(matches) == 1 or matches[1][1] < matches[0][1] - 2):
                             rows, score = lookup[matches[0][0]], matches[0][1]
@@ -218,6 +227,11 @@ class MultilingualTextIndex:
                     # observed caption leaves more than one variant possible.
                     if self.game != 'zzz' or len(rows) > 1:
                         rows = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
+                    if previous_text_id:
+                        rows = [r for r in rows if r.get('previous_text_id') in predecessors]
+                    elif any(row.get('requires_previous') for row in rows):
+                        ambiguous.append(source)
+                        continue
                     # Silent prompts can repeat in different scenes with different
                     # official translations. Audio=None is not one shared identity.
                     def identity(row):
@@ -297,12 +311,14 @@ class MultilingualTextIndex:
         """
         from .steam_games import STEAM_GAMES
         spec = STEAM_GAMES.get(self.game)
-        if not spec or not spec.floating_dialogue:
+        if self.game != 'endfield' and (not spec or not spec.floating_dialogue):
             return []
         with self.lock:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
             result = []
             for hit in hits:
+                if self.game == 'endfield' and not hit.text_id.startswith('endfield:film:'):
+                    continue
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum

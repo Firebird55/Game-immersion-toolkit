@@ -37,6 +37,18 @@ namespace CUE4Parse.UE4.Versions
     }
 }
 
+namespace CUE4Parse.MappingsProvider.Usmap
+{
+    public sealed class FileUsmapTypeMappingsProvider
+    {
+        public FileUsmapTypeMappingsProvider(string path, StringComparer comparer)
+        {
+            if (!File.Exists(path) || !ReferenceEquals(comparer, StringComparer.Ordinal))
+                throw new InvalidDataException();
+        }
+    }
+}
+
 // The real bridge resolves version types from the provider field's assembly.
 public sealed class FixtureKey
 {
@@ -50,6 +62,7 @@ public sealed class FixtureVfs
 public sealed class FixtureProvider : IDisposable
 {
     public Dictionary<string, int> Files { get; } = new();
+    public CUE4Parse.MappingsProvider.Usmap.FileUsmapTypeMappingsProvider? MappingsContainer { get; set; }
     public CUE4Parse.UE4.Versions.VersionContainer Versions { get; }
     public List<FixtureVfs> UnloadedVfs { get; } = new();
     private readonly string install;

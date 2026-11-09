@@ -116,6 +116,74 @@ def test_bark_id_path_obeys_placeholder_and_source_path_guards():
                                    '-2': {'path': '../untrusted.wem'}}) == {}
 
 
+def test_event_names_cannot_claim_a_locale_recording_by_path_hash():
+    audio = {
+        '-5': {'voType': 2, 'path': 'operator_combat_reaction'},
+        '-6': {'voType': 0, 'path': 'Operator/Real.WEM'},
+        '-7': {'path': 'future/unsupported.bnk'},
+    }
+    paths, ids = endfield.audio_paths(audio), endfield.audio_id_paths(audio)
+    assert paths == {'Real': 'Operator/Real.WEM'}
+    assert ids == {'-6': 'Operator/Real.WEM'}
+    wrong_id = f'{voice_hash("voice/english/operator_combat_reaction"):016x}'
+    coverage = {}
+    row, = endfield.dialogue_records({'reaction': {'audio_id': '-5', 'dialogText': ref(1)}},
+        paths, {'en': {'1': 'Synthetic reaction.'}}, 'en', {wrong_id: {'file_id': wrong_id}},
+        audio_ids=ids, coverage=coverage)
+    assert row['voice_status'] == 'unavailable' and row['audio'] is None
+    assert coverage == {'missing_source_metadata': 1}
+
+
+def test_skip_popup_only_captures_linked_localized_text_and_keeps_shared_identity():
+    catalog = Catalog({
+        'DialogSummaryMapTable': {'one': 'shared', 'two': 'shared', 'three': 'stale', 'four': 'blank'},
+        'DialogSummaryTable': {'shared': ref(1), 'unlinked': ref(2), 'blank': ref(0)},
+    })
+    warnings = []
+    dialogs = endfield.narrative_dialogues(catalog, warnings)
+    row, = endfield.dialogue_records(dialogs, {}, {'en': {'1': 'A synthetic recap.', '2': 'Unused.'},
+                                                 'zh-Hans': {'1': '故事梗概。'}}, 'en', {})
+    assert row['text_id'] == 'endfield:DialogSummaryTable:shared'
+    assert row['texts']['zh-Hans'] == '故事梗概。'
+    assert row['voice_status'] == 'unvoiced' and row['audio'] is None
+    assert row['dialogue_kind'] == 'story_summary' and row['channels'] == ['dialogue']
+    assert any('1 missing story summary' in warning for warning in warnings)
+
+
+@pytest.mark.parametrize('kind', ['conversation', 'radio'])
+def test_protagonist_pairs_join_the_exact_recording_and_localized_text_variant(kind):
+    dialog = {'line': {'dialogue_kind': kind, 'dialogText': ref(1), 'audioOverride': 'story',
+                       'actorNameId': 'endminf'}}
+    paths = {'story_' + suffix: 'scene/story_' + suffix + '.wem' for suffix in ('f', 'm')}
+    tables = {'en': {'1': '{F} First version. {M} Second version.'}, 'zh-Hans': {'1': '共用文本。'}}
+    female = 'voice/chinese/scene/story_f.wem'
+    key = f'{voice_hash(female):016x}'
+    coverage = {}
+    rows = endfield.dialogue_records(dialog, paths, tables, 'zh-Hans', {key: {'file_id': key}}, coverage=coverage)
+    assert [(r['text_id'], r['player_voice'], r['english'], r['source_text']) for r in rows] == [
+        ('endfield:line:female', 'female', 'First version.', '共用文本。'),
+        ('endfield:line:male', 'male', 'Second version.', '共用文本。')]
+    assert rows[0]['audio']['source'] == female and rows[1]['audio'] is None
+    assert all(r['member_text_ids'] == ['endfield:line'] for r in rows)
+    assert coverage == {'voiced': 1, 'missing_locale_recording': 1}
+    # The same explicit files apply when the selected translation has one shared wording.
+    rows = endfield.dialogue_records(dialog, paths, {'zh-Hans': tables['zh-Hans']}, 'zh-Hans', {})
+    assert [r['player_voice'] for r in rows] == ['female', 'male']
+
+
+def test_single_or_unrelated_variant_files_do_not_supply_a_missing_performance():
+    dialog = {'line': {'dialogText': ref(1), 'audioOverride': 'story'}}
+    tables = {'en': {'1': '{F}Her version.{M}His version.'}}
+    files = {'story_f': 'scene/story_f.wem', 'story_m': 'another/story_m.wem'}
+    entries = {f'{voice_hash("voice/english/" + f):016x}': {'size': 8} for f in files.values()}
+    for paths in (files, {'story_f': files['story_f']}):
+        rows = endfield.dialogue_records(dialog, paths, tables, 'en', entries)
+        assert [r['source_text'] for r in rows] == ['Her version.', 'His version.']
+        assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in rows)
+    with pytest.raises(PreparationFailure, match='unsupported structure'):
+        endfield.dialogue_records(dialog, files, {'en': {'1': '{F}broken branch'}}, 'en', entries)
+
+
 def test_voice_coverage_separates_missing_metadata_from_selected_locale_recordings():
     dialogs = {
         'metadata': {'dialogText': ref(1), 'audioOverride': 'missing_source'},
@@ -177,6 +245,7 @@ def test_proven_core_schema_drift_is_actionable(values):
     {'SNSDialogTable': {'x': {'dialogContentData': {'1': {'changedTypeField': 1, 'content': ref(1)}}}}},
     {'RichContentTable': {'x': {'contentList': 'changed schema'}}},
     {'Dialog2DTextTable': {'x': {'newText': ref(1)}}},
+    {'DialogSummaryMapTable': {'scene': {'futureId': 'x'}}},
 ])
 def test_present_but_changed_narrative_schema_is_not_reported_as_empty(values):
     with pytest.raises(PreparationFailure, match='unsupported structure'):

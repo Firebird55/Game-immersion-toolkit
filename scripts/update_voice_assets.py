@@ -9,13 +9,12 @@ from backend.runtime_paths import data_root as runtime_data_root, voice_work_roo
 from backend.runtime_bundle import child_command, discover_layout
 import json
 import os
-import re
 from pathlib import Path
 import shutil
 import subprocess
 
 from backend.agent_library import atomic_json
-from backend.textmaps import localized_variants
+from backend.textmaps import gender_variants, localized_variants
 
 
 ONGOING_TEXT_ID = "PMNJCMFLJIL"
@@ -26,13 +25,13 @@ ONGOING_MALE_VOICE = "EODLJIEIIGJ"
 def comic_voice_links(links: list[dict], english: dict[str, str]) -> list[dict]:
     result = []
     for link in links:
-        variants = dict(re.findall(r"\{([MF])#([^{}]+)\}", link["source"]))
+        variants = gender_variants(link["source"])
         if not variants:
             result.append(link)
             continue
-        translations = dict(re.findall(r"\{([MF])#([^{}]+)\}", english.get(link["text_id"], "")))
+        translations = gender_variants(english.get(link["text_id"], ""))
         for gender, source in variants.items():
-            if gender in translations:
+            if source and translations.get(gender):
                 result.append({**link, "source": source, "english": translations[gender]})
     return result
 
@@ -50,7 +49,7 @@ def ongoing_voice_links(config: dict, english: dict[str, str]) -> list[dict[str,
         text_id = link['text_id']
         if 'gameplay' not in link['channels'] or text_id not in english:
             continue
-        variants = dict(re.findall(r'\{([MF])#([^{}]+)\}', english[text_id]))
+        variants = gender_variants(english[text_id])
         if variants and link.get('gender'):
             values = [variants[link['gender']]] if link['gender'] in variants else []
         else:
@@ -111,6 +110,7 @@ def discover_game_data(root: Path) -> Path | None:
 
 
 def inventory(game_data: Path, sources: list[Path]) -> dict:
+    from backend.zzz_assets import design_revision_fingerprint
     files = []
     for layer in ("StreamingAssets", "Persistent"):
         audio = game_data / layer / "Audio/Windows/Full/Cn"
@@ -120,10 +120,12 @@ def inventory(game_data: Path, sources: list[Path]) -> dict:
             if candidate.exists():
                 files.append(candidate)
     files.extend(path for path in sources if path.exists())
-    return {
+    stamps = {
         str(path.resolve()): [path.stat().st_size, path.stat().st_mtime_ns]
         for path in sorted(set(files))
     }
+    stamps['design_revision'] = design_revision_fingerprint(game_data)
+    return stamps
 
 
 def main() -> None:

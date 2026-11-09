@@ -14,6 +14,13 @@ CATALOG_REVISION = 'cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7'
 CATALOG_BASE = f'https://raw.githubusercontent.com/Waifus-Grace/NTE_Assets/{CATALOG_REVISION}/'
 CATALOG_FILES = ('DataTable/Skill/DT_MediaFFmpegInfo.json', 'DataTable/Skill/DT_MediaFFmpegInfo_Quest.json')
 SRT_ROOT = 'HT/Content/SrtFile/FFMpeg/Story/'
+# Reviewed against installed subtitle keys and the owning Unreal StringTables.
+MOVIE_NAMESPACES = {
+    'Sequence': 'ST_Sequence',
+    'Sequence_Legend': 'ST_Sequence_Legend',
+    'WuChao': 'ST_Miandialogue_Wuchao',
+    'HeiYu': 'ST_Main_BlackBird',
+}
 
 
 def load_catalog(directory: Path) -> list[dict]:
@@ -50,9 +57,9 @@ def catalog_rows(catalog: dict) -> list[dict]:
 def movie_bindings(rows: list[dict]) -> list[dict]:
     result = []
     for row in rows:
-        # The reviewed Sequence table explicitly supplies namespace/key text.
-        # Other tables need their own reviewed namespace mapping before capture.
-        if row.get('StringTableID') != 'Sequence':
+        table_id = row.get('StringTableID')
+        namespace = MOVIE_NAMESPACES.get(table_id) if isinstance(table_id, str) else None
+        if not namespace:
             continue
         movie = row.get('Path', {}).get('FilePath', '')
         prefix = '../../../Projects/HT/Content/Movies/FFMpeg/Story/'
@@ -64,7 +71,7 @@ def movie_bindings(rows: list[dict]) -> list[dict]:
         reference = row.get('PlayVoice', {}).get('AssetPathName', '')
         match = re.fullmatch(r'/Game/WwiseAudio/Events/CG/[A-Za-z0-9_/]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1', reference)
         if match:
-            result.append({'subtitle': SRT_ROOT + relative + '.srt', 'event': match[1], 'namespace': 'ST_Sequence'})
+            result.append({'subtitle': SRT_ROOT + relative + '.srt', 'event': match[1], 'namespace': namespace})
     return result
 
 
@@ -91,22 +98,65 @@ def subtitle_cues(text: str) -> list[dict]:
     return result
 
 
-def movie_records(bindings, subtitles, english, chinese, events, *, require_han=True) -> list[dict]:
-    result = []
+def timed_sequence_cues(payload, locale):
+    """Use the selected dub's authored clock, retaining only nonoverlapping, uniquely owned cues."""
+    culture = {'zh-Hans': 'zh', 'zh-Hant': 'zh', 'ja': 'ja', 'ko': 'ko', 'en': 'en'}[locale]
+    def time(value, overrides):
+        if not isinstance(overrides, list) or type(value) is not int:
+            raise ValueError('Unsupported NTE cue clock')
+        values = {}
+        for entry in overrides:
+            key, override = entry['Key'], entry['Value']
+            if key not in {'EVoiceCultureType::zh', 'EVoiceCultureType::en', 'EVoiceCultureType::ja', 'EVoiceCultureType::ko'} or key in values or type(override) is not int:
+                raise ValueError('Unsupported NTE culture override')
+            values[key] = override
+        return values.get('EVoiceCultureType::' + culture, value)
+
+    scenes = []
+    for group, entries in payload['groups'].items():
+        events = payload['events'].get(group, [])
+        if len(events) != 1 or not re.fullmatch(r'Play_Vo_CG_[A-Za-z0-9_]+', events[0]):
+            continue
+        cues = []
+        for row in entries:
+            start = time(row['start_ms'], row['starts'])
+            end = time(row['end_ms'], row['ends'])
+            if not 0 <= start < end <= 30 * 60_000:
+                break
+            cues.append({'namespace': row['ns'], 'key': row['key'], 'start_ms': start, 'end_ms': end})
+        else:
+            ordered = sorted(cues, key=lambda c: c['start_ms'])
+            counts = Counter((c['namespace'], c['key']) for c in cues)
+            unique = []
+            previous_end = 0
+            for i, cue in enumerate(ordered):
+                overlaps = cue['start_ms'] < previous_end or i + 1 < len(ordered) and cue['end_ms'] > ordered[i + 1]['start_ms']
+                previous_end = max(previous_end, cue['end_ms'])
+                if cue['namespace'] and cue['key'] and not overlaps and counts[(cue['namespace'], cue['key'])] == 1:
+                    unique.append(cue)
+            scenes.append((events[0], unique))
+    return scenes
+
+
+def movie_records(bindings, subtitles, english, chinese, events, *, require_han=True, sequences=()) -> list[dict]:
+    scenes = list(sequences)
     for binding in bindings:
-        variants = events.get(binding['event'].lower())
         text = subtitles.get(binding['subtitle'])
-        if not variants or not text:
+        if not text:
             continue
         try:
             cues = subtitle_cues(text)
         except ValueError:
             continue
         counts = Counter(cue['key'] for cue in cues)
+        scenes.append((binding['event'], [{**cue, 'namespace': binding['namespace']} for cue in cues if counts[cue['key']] == 1]))
+    result = []
+    for event, cues in scenes:
+        variants = events.get(event.lower(), ())
         for cue in cues:
-            key = (binding['namespace'], cue['key'])
+            key = (cue['namespace'], cue['key'])
             en, zh = display_text(english.get(key, '')), display_text(chinese.get(key, ''))
-            if not en or not zh or (require_han and not contains_han(zh)) or counts[cue['key']] != 1:
+            if not en or not zh or (require_han and not contains_han(zh)):
                 continue
             for variant in variants:
                 gender = variant['player_voice']
