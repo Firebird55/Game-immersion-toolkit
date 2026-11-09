@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from backend import sophon_assets as sophon
 from backend import game_tools
+from backend.textmaps import gender_variants
 from backend.voice_assets import external_table, voice_hash
 
 CHANNEL = 'zzz-global'
@@ -88,20 +89,23 @@ def source_paths(source, version):
         raise ValueError('Unsupported or conditional ZZZ voice source.')
     if '/' in source:
         return {source}
-    if not source.lower().startswith('galgame_'):
+    family = {'galgame': 'VO_GalGame', 'ongoinglevel': 'VO_Ongoing', 'ongoingmaincity': 'VO_Ongoing',
+              'ongoing': 'VO_Ongoing', 'level': 'VO_Level', 'accompany': 'VO_Accompany',
+              'chessboard': 'VO_Chessboard', 'tips': 'VO_Tips'}.get(source.split('_', 1)[0].lower())
+    if not family:
         raise ValueError('This source needs a different verified voice path family.')
     # Index membership decides among candidates, including unversioned launch files.
     major, minor, _ = map(int, version.split('.'))
     versions = [f'Ver{i}_{j}/' for i in range(1, major + 1)
                 for j in range(1 + minor if i == major else 10)]
     speakers = {s for s in source.split('_')[1:] if re.fullmatch(r'[a-zA-Z][a-zA-Z0-9]+', s)}
-    return {f'VO_GalGame/{v}VO_{s}/{source}' for v in ['', *versions] for s in speakers}
+    return {f'{family}/{v}VO_{s}/{source}' for v in ['', *versions] for s in speakers}
 
 
 def recording(cache, build, locale, paths):
     folder, namespace = DUBS[locale]
     candidates = {voice_hash(f'{namespace}/ex/{path}.wem') for path in paths}
-    files = sophon.manifest(cache, CHANNEL, tuple(build['manifests'][sophon.VOICE_FIELDS[locale]]), ('.pck',))
+    files = sophon.manifest(cache, build['channel'], tuple(build['manifests'][sophon.VOICE_FIELDS[locale]]), ('.pck',))
     prefix = BASE + 'Audio/Windows/Full/' + folder + '/'
     packages = [asset for name, asset in files.items() if name.startswith(prefix) and '/' not in name[len(prefix):]]
 
@@ -129,8 +133,8 @@ def fetch(args):
         raise ValueError('Choose a new output directory.')
     if not re.fullmatch('[A-Za-z0-9_-]{1,240}', args.text_id):
         raise ValueError('Expected an authored subtitle ID.')
-    build = sophon.release(CHANNEL)
-    files = sophon.manifest(work_base, CHANNEL, tuple(build['manifests']['game']), ('/data_version', '/res_version', '.blk'))
+    build = sophon.release(args.channel)
+    files = sophon.manifest(work_base, args.channel, tuple(build['manifests']['game']), ('/data_version', '/res_version', '.blk'))
     with TemporaryDirectory(dir=work_base) as temp:
         work = Path(temp)
         if reader is None:
@@ -153,23 +157,37 @@ def fetch(args):
 
         designs = manifest_json(files, work_base, 'data_version')
         catalogs = [r for r in manifest_json(files, work_base, 'res_version') if not r.get('tags')
-                    and re.fullmatch(r'Blocks/\d+\.blk', r['remoteName'])]
-        plan = query('plan', design=materialize(work, work_base, files, designs, r'Blocks/Data/\d+\.blk'),
+                    and re.fullmatch(r'Blocks/\d+\.blk', r['remoteName'])] if args.kind == 'scene' else []
+        plan = query('plan', kind=args.kind, protagonist=args.protagonist,
+                     design=materialize(work, work_base, files, designs, r'Blocks/Data/\d+\.blk'),
                      catalogs=materialize(work, work_base, files, catalogs, r'Blocks/\d+\.blk'))
-        blocks = stage_scenes(work, work_base, files, plan['ranges'])
-        source = query('bindings', blocks=blocks)['source']
+        if args.kind == 'scene':
+            blocks = stage_scenes(work, work_base, files, plan['ranges'])
+            source = query('bindings', blocks=blocks)['source']
+        else:
+            source = plan['source']
         paths = source_paths(source, build['version'])
         output.parent.mkdir(parents=True, exist_ok=True)
         with TemporaryDirectory(dir=output.parent) as staging:
             result = Path(staging) / 'result'
             result.mkdir()
-            info = {'version': build['version'], 'build': build['build'], 'text_id': args.text_id, 'source': source,
-                    'texts': {k: v for k, v in plan['texts'].items() if v.strip()}, 'dubs': {}}
+            texts = {k: v for k, v in plan['texts'].items() if v.strip()}
+            if args.kind == 'ongoing' and args.protagonist:
+                gender = {'wise': 'M', 'belle': 'F'}[args.protagonist]
+                texts = {k: (gender_variants(v) or {gender: v}).get(gender, '') for k, v in texts.items()}
+                texts = {k: v for k, v in texts.items() if v.strip()}
+                if not texts:
+                    raise ValueError('No released translation for the selected ZZZ protagonist.')
+            info = {'version': build['version'], 'build': build['build'], 'channel': args.channel, 'kind': args.kind,
+                    'protagonist': args.protagonist, 'text_id': args.text_id, 'source': source,
+                    'texts': texts, 'dubs': {}}
+            if args.kind == 'scene':
+                info['scene_paths'] = plan['scenePaths']
             for locale in dict.fromkeys(args.dub or DUBS):
                 data, info['dubs'][locale] = recording(work_base, build, locale, paths)
                 (result / (locale + '.wem')).write_bytes(data)
             (result / 'subtitle.json').write_text(json.dumps(info, ensure_ascii=False, indent=2), encoding='utf-8')
-            if sophon.release(CHANNEL) != build:
+            if sophon.release(args.channel) != build:
                 raise ValueError('The launcher release changed during extraction. Retry the query.')
             result.rename(output)
 
@@ -177,9 +195,15 @@ def fetch(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('text_id')
+    parser.add_argument('--channel', choices=('zzz-global', 'zzz-cn'), default=CHANNEL)
+    parser.add_argument('--kind', choices=('scene', 'message', 'ongoing'), default='scene')
+    parser.add_argument('--protagonist', choices=('belle', 'wise'), help='Choose the authored ongoing voice variant')
     parser.add_argument('--reader', type=Path, help='Use an existing compiled galgame-perform.mjs (default: prepare the pinned reader)')
     parser.add_argument('--node', default='node', help='Node executable for that reader')
     parser.add_argument('--cache', type=Path, required=True, help='Private cache for verified publisher chunks')
     parser.add_argument('--output', type=Path, required=True, help='New private directory for local subtitles and WEMs')
     parser.add_argument('--dub', choices=DUBS, action='append', help='Repeat to select dubs (default: all four)')
-    fetch(parser.parse_args())
+    args = parser.parse_args()
+    if args.protagonist and args.kind != 'ongoing':
+        parser.error('--protagonist applies to ongoing performances')
+    fetch(args)

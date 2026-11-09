@@ -83,7 +83,7 @@ class DialogueCatalog:
                 return {}
             raise
 
-    def directory_json(self, relative):
+    def directory_json(self, relative, *, with_names=False):
         if self.host != 'gitlab':
             raise ValueError('Directory snapshots are supported only for fixed GitLab catalogs.')
         name = relative.replace('/', '-') + '.tar.gz'
@@ -101,7 +101,12 @@ class DialogueCatalog:
                 if item.size > 128 * 1024 * 1024 or total > 512 * 1024 * 1024:
                     raise ValueError('Dialogue catalog expands beyond its size limit.')
                 # Parse in memory; never extract upstream file paths to the host.
-                yield json.load(archive.extractfile(item))
+                value = json.load(archive.extractfile(item))
+                if with_names:
+                    member = PurePosixPath(*path.parts[1:]).relative_to(relative)
+                    yield member.as_posix(), value
+                else:
+                    yield value
 
     def directory_text(self, relative, suffix='.txt'):
         """Read bounded UTF-8 assets without extracting untrusted archive paths."""

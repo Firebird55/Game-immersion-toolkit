@@ -131,6 +131,27 @@ def test_starrail_release_checks_all_revisions_before_reusing_hotfix_comparison(
         starrail_publisher.release_title('next manifest', '4.7.0', (20, 19, 18, 21))
 
 
+def test_starrail_marker_binds_its_own_resource_index_by_path_digest_and_size(tmp_path):
+    files = {}
+    for revision, suffix in enumerate(starrail_publisher.MARKERS, 1):
+        directory, marker_name = ('StarRail_Data/StreamingAssets/' + suffix).rsplit('/', 1)
+        index_name = marker_name[2:-6]
+        raw = bytearray(66)
+        raw[:8] = b'SRMI\x00\x03\x00\x01'
+        digest = hashlib.md5(index_name.encode()).hexdigest()
+        struct.pack_into('<I', raw, 8, len(raw))
+        struct.pack_into('<I4IQ', raw, 24, revision,
+                         *(int(digest[i:i + 8], 16) for i in range(0, 32, 8)), 100)
+        files[directory + '/' + marker_name] = SimpleNamespace(size=66, read=lambda _d, _o, _n, data=bytes(raw): data)
+        path = f'{directory}/{index_name}_{digest}.bytes'
+        files[path] = SimpleNamespace(size=100, digest=digest)
+    assert starrail_publisher.release_revisions(tmp_path, files) == (1, 2, 3, 4)
+    for wrong in (SimpleNamespace(size=100, digest='0' * 32), SimpleNamespace(size=99, digest=digest), None):
+        files[path] = wrong
+        with pytest.raises(ValueError, match='index does not match'):
+            starrail_publisher.release_revisions(tmp_path, files)
+
+
 def test_starrail_cannot_replay_another_game_or_another_dub(tmp_path, monkeypatch):
     voices = publisher.voices
     source, identity, stamp, wem, _ = fixture(tmp_path, monkeypatch, '1.2.0', b'star rail', game='starrail')

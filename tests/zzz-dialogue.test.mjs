@@ -2,7 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {tableStrings} from '../scripts/zzz-publisher-dialogue.mjs';
+import {tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+
+test('publisher message and ongoing tables preserve their selected sentence and protagonist', () => {
+  const messages = [['x', 'VO_Message/A/Message_A_01', 'VO_Message/A/Message_A_01']];
+  assert.equal(tableVoice(messages, 'x', 'message'), messages[0][1]);
+  assert.throws(() => tableVoice([['x', messages[0][1], 'VO_Message/B/Message_B_01']], 'x', 'message'));
+  assert.throws(() => tableVoice([['x', 'Breath_01', '']], 'x', 'message'));
+  const ongoing = [['x', 'OngoingLevel_Belle_01', 'OngoingLevel_Wise_01']];
+  assert.equal(tableVoice(ongoing, 'x', 'ongoing', 'wise'), ongoing[0][2]);
+  assert.equal(tableVoice(ongoing, 'x', 'ongoing', 'belle'), ongoing[0][1]);
+  assert.throws(() => tableVoice(ongoing, 'x', 'ongoing'));
+  assert.throws(() => tableVoice([...ongoing, ['x', 'other', 'different']], 'x', 'ongoing', 'wise'));
+});
 
 test('released design tables follow row offsets and reject truncated or nonterminated strings', () => {
   const bytes = Buffer.alloc(59);

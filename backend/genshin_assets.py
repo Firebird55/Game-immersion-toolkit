@@ -7,8 +7,9 @@ import re
 from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
+from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 3
+LANGUAGE_INDEX_VERSION = 4
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -116,7 +117,16 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
     return _unique(values)
 
 
-def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, warnings=None, authored=None):
+def _voice_path(path, locale):
+    if (isinstance(path, str) and path.casefold().endswith('.wem')
+            and not path.startswith(('\\', '/')) and ':' not in path
+            and '..' not in re.split(r'[/\\]', path)):
+        return common.voice_namespace('genshin', locale) + '\\' + path
+    return None
+
+
+def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, warnings=None, authored=None,
+                   profile_sources=None):
     reminders = reminders or {}
     tables = {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards or {}}
     values = defaultdict(set)
@@ -135,6 +145,20 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                 recognized = True
                 known_structures += 1
                 kind = voice.get(trigger)
+                if kind == 'Fetter' and profile_sources is not None:
+                    trigger_id = _identity(voice.get(argument))
+                    if trigger_id and isinstance(voice[array], list):
+                        # On 7.1 this field had the same switch for all 11,869
+                        # Fetter GUID/source pairs also present in 7.2.
+                        actor_field = 'CCCECEDMIEI' if filename == 'CFIKOCLOKGH' else 'avatarName'
+                        gender_field = 'KHNPBDOBIAL' if filename == 'CFIKOCLOKGH' else 'gender'
+                        for item in voice[array]:
+                            actor = item.get(actor_field) if isinstance(item, dict) else None
+                            if isinstance(actor, str) and actor:
+                                key = (trigger_id, actor.casefold())
+                                condition = {None: 'shared', 1: 'female', 2: 'male'}.get(item.get(gender_field), 'unsupported')
+                                profile_sources.setdefault(key, set()).add((condition, _voice_path(item.get(filename), locale)))
+                    continue
                 if not isinstance(kind, str) or kind not in tables:
                     continue
                 identity = _identity(voice.get(argument))
@@ -150,11 +174,9 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                     if not isinstance(source, dict):
                         _warn(warnings, 'Some Genshin voice records use an unsupported structure.')
                         continue
-                    path = source.get(filename, '')
-                    if (isinstance(path, str) and path.casefold().endswith('.wem')
-                            and not path.startswith(('\\', '/')) and ':' not in path
-                            and '..' not in re.split(r'[/\\]', path)):
-                        values[(kind, identity)].add(common.voice_namespace('genshin', locale) + '\\' + path)
+                    path = _voice_path(source.get(filename), locale)
+                    if path:
+                        values[(kind, identity)].add(path)
                     else:
                         _warn(warnings, 'Some Genshin voice sources could not be resolved safely.')
             if not recognized and voice:
@@ -181,6 +203,74 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
             links.append({'id': row_id + suffix, 'hash': table[identity], 'source': source,
                           'player_voice': gender if len(sources) > 1 else None})
     return links
+
+
+def profile_links(rows, avatars, configs, sources):
+    # Each Fetter trigger can contain many characters. The avatar's authored
+    # voice switch selects the eligible sources within that exact trigger.
+    switches = defaultdict(set)
+    for name, config in configs:
+        if isinstance(config, dict):
+            switch = config.get('audio', {}).get('voiceSwitch', {}).get('text')
+            if isinstance(switch, str) and switch:
+                switches[name].add(switch.casefold())
+    actors = defaultdict(set)
+    for row in avatars:
+        avatar = _identity(row.get('id'))
+        if not avatar:
+            continue
+        if config_hash := _identity(row.get('combatConfigHash')):
+            actors[avatar].update(switches.get(config_hash + '.json', ()))
+        match = re.fullmatch(r'UI_AvatarIcon_([A-Za-z0-9_]+)', str(row.get('iconName', '')))
+        if match:
+            actors[avatar].update(switches.get('ConfigAvatar_' + match[1] + '.json', ()))
+    unique_actors = _unique(actors)
+    profiles = defaultdict(set)
+    for row in rows:
+        avatar, record = _identity(row.get('avatarId')), _identity(row.get('fetterId'))
+        text, trigger = _identity(row.get('voiceFileTextTextMapHash')), _identity(row.get('voiceFile'))
+        if avatar and record and text:
+            profiles[(avatar, record)].add((text, trigger, row.get('type')))
+    links = []
+    for (avatar, record), (text, trigger, kind) in _unique(profiles).items():
+        takes = sources.get((trigger, unique_actors.get(avatar)), set())
+        conditions = {condition for condition, _ in takes}
+        conditional = bool(conditions) and conditions <= {'female', 'male'}
+        genders = ('female', 'male') if conditional else ('shared',)
+        for gender in genders:
+            files = {path for condition, path in takes if condition == gender}
+            source = next(iter(files)) if (conditional or conditions == {'shared'}) and len(files) == 1 else None
+            suffix = '' if gender == 'shared' else ':' + gender
+            links.append({'id': 'fetter-' + avatar + '-' + record + suffix, 'hash': text, 'source': source,
+                          'voice_status': 'unavailable' if trigger else 'unknown',
+                          'player_voice': None if gender == 'shared' else gender,
+                          'dialogue_kind': 'combat_voice' if kind == 2 else 'profile_voice',
+                          'channels': ['dialogue', 'gameplay'] if kind == 2 else ['dialogue']})
+    return links
+
+
+def profile_records(links, tables, locale, entries):
+    records = []
+    for row in common.records('genshin', links, tables, locale, entries):
+        variants = {lang: rendered for lang, raw in row['texts'].items()
+                    if (rendered := gender_variants(raw.removeprefix('#')))}
+        if not variants:
+            records.append(row)
+            continue
+        genders = (row['player_voice'],) if row['player_voice'] else ('female', 'male')
+        for gender in genders:
+            tag = 'M' if gender == 'male' else 'F'
+            texts = row['texts'].copy()
+            for lang, rendered in variants.items():
+                if rendered.get(tag):
+                    texts[lang] = rendered[tag]
+                else:
+                    texts.pop(lang)
+            if texts.get(locale):
+                identity = row['text_id'] if row['player_voice'] else row['text_id'] + ':' + gender
+                records.append({**row, 'text_id': identity, 'player_voice': gender, 'texts': texts,
+                                'source_text': texts[locale], 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', '')})
+    return records
 
 
 def reminder_hashes(rows):
@@ -342,14 +432,15 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     reminders = reminder_hashes(reminder_rows)
     cards = card_hashes(_table(catalog, 'GCGTalkDetailExcelConfigData', warnings),
                         _table(catalog, 'GCGTutorialTextExcelConfigData', warnings), warnings)
-    authored = set()
+    authored, profile_sources = set(), {}
     links = dialogue_links(catalog.directory_json('BinOutput/Voice'), hashes, source_locale,
-                           reminders, cards=cards, warnings=warnings, authored=authored)
+                           reminders, cards=cards, warnings=warnings, authored=authored, profile_sources=profile_sources)
     links = _complete_links(links, {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards},
                             authored, reminder_rows)
     for link in links:
         if annotation := annotations.get(link['id'].split(':', 1)[0]):
             link.update(annotation)
+    profiles = _table(catalog, 'FettersExcelConfigData', warnings)
     entries = (common.inventory(install, 'genshin', source_locale) if install is not None
                else genshin_publisher.inventory(data_dir, stamp, source_locale))
     # Reminders use a distinct hash namespace. In this modality Medium takes
@@ -371,13 +462,17 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     rows += common.records('genshin', reminder_links, reminder_tables, source_locale, entries)
     if len(rows) < len(links):
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
+    if profiles:
+        profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
+                                catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources)
+        rows += profile_records(profile, tables, source_locale, entries)
     if version_matches:
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
     else:
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
     if any(row['voice_status'] == 'unknown' for row in rows):
         _warn(warnings, 'Some Genshin lines have unknown voice status and are excluded from unvoiced capture.')
-    _warn(warnings, 'Genshin coverage is partial: profile and combat voices, messages, and movie subtitle timing are not fully indexed.')
+    _warn(warnings, 'Some combat trigger families, messages, and movie subtitle intervals still lack verified Genshin bindings.')
     result = common.snapshot('genshin', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     count = sum(bool(row['audio']) for row in rows)
     source = 'installed' if install is not None else 'publisher'

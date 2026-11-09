@@ -1,7 +1,7 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, unityObjectsOfType} from './scene-catalog.mjs';
+import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, sceneCatalog, unityObjectsOfType} from './scene-catalog.mjs';
 import {authoredDialogueFromCab} from './zzz-dialogue.mjs';
 
 const utf8 = new TextDecoder('utf-8', {fatal: true});
@@ -48,6 +48,12 @@ function designTables(files, work, wanted, unpack) {
   for (const file of files) {
     const data = readFileSync(join(work, file));
     if (data.toString('ascii', 0, 3) === 'BBL') continue;
+    if (data[0] === 31 && data[1] === 139) {
+      // Older design manifests include their gzip resource index alongside
+      // the TextAsset bundles. Verify the catalog format before skipping it.
+      sceneCatalog(data);
+      continue;
+    }
     for (let pos = 0; pos < data.length;) {
       const bundle = unpack(data, pos);
       if (bundle.end <= pos || bundle.end > data.length) throw Error('Invalid ZZZ design bundle');
@@ -67,12 +73,39 @@ function designTables(files, work, wanted, unpack) {
   return tables;
 }
 
+export function tableVoice(rows, id, kind, protagonist) {
+  const candidates = new Set();
+  for (const [textId, first, second] of rows) {
+    if (textId !== id) continue;
+    if (kind === 'message') {
+      if (first && second && first !== second) throw Error('Conflicting ZZZ message voice sources');
+      const source = first || second;
+      if (!/^VO_Message\/[A-Za-z0-9_-]+\/Message_[A-Za-z0-9_-]+$/i.test(source)) throw Error('Message has no verified sentence source');
+      candidates.add(source);
+    } else if (kind === 'ongoing') {
+      // In the authored ongoing table the first column is the default (Belle)
+      // performance. An explicit second column overrides it for Wise.
+      if (second && first !== second && !protagonist) throw Error('Missing or unselected ZZZ ongoing performance');
+      const source = protagonist === 'wise' && second ? second : first;
+      if (!source) throw Error('Missing or unselected ZZZ ongoing performance');
+      candidates.add(source);
+    } else {
+      throw Error('Unknown ZZZ table voice presentation');
+    }
+  }
+  if (candidates.size !== 1) throw Error('No unique authored sentence source in the requested ZZZ table');
+  return [...candidates][0];
+}
+
 function plan(work, input, reader) {
   const key = name => String(reader.xxHash64(name.toLowerCase()));
   const names = Object.values(tags).flatMap(tag => ['TemplateTb', 'OverwriteTemplateTb'].map(s => key('TextMap' + tag + s)));
-  const perform = key('PerformTemplateTb');
-  const tables = designTables(input.design, work, new Set([...names, perform]), reader.unpackMhyFile);
-  if (!tables.has(perform)) throw Error('The released ZZZ Perform table is missing');
+  const kind = input.kind || 'scene';
+  const tableName = {scene:'PerformTemplateTb', message:'MessageConfigTemplateTb', ongoing:'OngoingTipsConfigTemplateTb'}[kind];
+  if (!tableName) throw Error('Unknown released ZZZ dialogue presentation');
+  const bindingTable = key(tableName);
+  const tables = designTables(input.design, work, new Set([...names, bindingTable]), reader.unpackMhyFile);
+  if (!tables.has(bindingTable)) throw Error('The released ZZZ binding table is missing');
   const texts = {};
   for (const [locale, tag] of Object.entries(tags)) {
     for (const suffix of ['TemplateTb', 'OverwriteTemplateTb']) {
@@ -88,13 +121,20 @@ function plan(work, input, reader) {
     }
   }
   if (!Object.values(texts).some(text => text.trim())) throw Error('Subtitle is absent from the released tables');
-  const paths = sceneAssetPaths([...tableStrings(tables.get(perform), [2, 3])], 'dialogue');
+  if (kind !== 'scene') {
+    const columns = kind === 'message' ? [7, 3, 5] : [6, 7, 8];
+    const source = tableVoice(tableStrings(tables.get(bindingTable), columns), input.id, kind, input.protagonist);
+    return {texts, source};
+  }
+  const paths = sceneAssetPaths([...tableStrings(tables.get(bindingTable), [2, 3])], 'dialogue');
   const wanted = new Set(paths.map(path => reader.xxHash64(path)));
+  const matched = new Set();
   const ranges = new Map();
   for (const candidate of input.catalogs) {
     const catalog = resourceCatalogBytes(readFileSync(join(work, candidate)), reader.unpackMhyFile);
     if (!catalog) continue;
     const result = sceneBundleRangesFromCatalog(catalog, wanted, true);
+    for (const hash of result.matchedHashes) matched.add(hash);
     for (const r of result.ranges) {
       const id = r.block + '/' + r.offset;
       if (ranges.has(id) && ranges.get(id).size !== r.size) throw Error('Conflicting released scene range');
@@ -102,7 +142,12 @@ function plan(work, input, reader) {
     }
   }
   if (!ranges.size) throw Error('No released dialogue scene ranges');
-  return {texts, ranges: [...ranges.values()]};
+  const unmatched = {};
+  for (const path of paths) if (!matched.has(reader.xxHash64(path))) {
+    const presentation = path.split('/perform/data/')[1].split('/')[0];
+    unmatched[presentation] = (unmatched[presentation] || 0) + 1;
+  }
+  return {texts, ranges: [...ranges.values()], scenePaths: {total: paths.length, matched: matched.size, unmatched}};
 }
 
 function bindings(work, input, reader) {
