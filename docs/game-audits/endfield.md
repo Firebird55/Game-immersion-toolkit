@@ -108,7 +108,8 @@ unavailable pending scene-level evidence. [Dialogue text schema](https://github.
 Following the game's `PlayRadio` mission references led to 380 radio groups.
 In the 89 groups without verified line recordings, all 134 rows lack a
 resolved line override. None has a separate audio event. Of the 134,
-131 specify an emotion present in EmotionVoiceConfig; three specify type 0,
+131 specify an emotion present in EmotionVoiceConfig. One of those entries
+has both an empty interjection and an empty list. Three rows specify type 0,
 which has no entry in that table. The controller tries the override's voice
 duration first. If that fails, it uses the real actor, emotion type, the
 row ID's hash and the last reaction when selecting a common interjection.
@@ -123,13 +124,16 @@ radio lines that already have their own original recording.
 The [per-line inventory](endfield-mission-radio-1.6.4.csv) lists **every row**
 in those 89 groups. The other 291 mission groups supply 509 direct sentence
 bindings and 35 rows with separate protagonist performances. Among the 134
-unresolved rows, 77 have at least one named-actor interjection file present
-in all four publisher dub indexes. Of these, 29 have a single configured
-candidate and 48 have several. A further 54 have a configured emotion but
-no four-dub candidate under the literal actor name. Runtime actor aliases
-and skip state can affect playback. The three rows with zero configured
-interjections are `radio_e10m1_11_001`, `radio_e10m1_11_002` and
-`radio_m1m6_1_001`. No row in this inventory had a separate audio event.
+unresolved rows, 77 have a named-actor interjection in all four publisher
+dub indexes. The publisher's NpcInfoTable maps another 44 NPCs' lines to
+their performer through `voActor`. For example, `yingge` uses
+`lady_30_01` and `jite` uses `man_30_13`. Across **121 rows**, 50 have one
+four-dub candidate and 71 have several. Nine have configured interjections
+but no verified actor recording. Runtime actor selection and skip state can
+affect playback. The four rows without a configured interjection are
+`radio_e10m1_11_001`, `radio_e10m1_11_002`, `radio_m1m6_1_001` and
+`radio_gm02m27d5_1_001`. The last uses emotion type 13 with empty values.
+No row in this inventory had a separate audio event.
 None is marked confirmed silent in capture.
 
 For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
@@ -139,7 +143,7 @@ on controller state. A separate empty-cache check downloaded the original
 English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
 
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
-use the current publisher RadioTable, AudioDialog, EmotionVoiceConfig and
+use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and
 selected dub index. To list a group, run the following from the source checkout.
 
 ```text

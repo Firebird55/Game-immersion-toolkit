@@ -168,13 +168,14 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                     radio['radio_reaction_configured'] = row['radio_reaction_configured']
                     candidates = {}
                     for term in row['radio_interjections']:
-                        name = f"au_dlg_commvo_{row.get('actorNameId', '')}_{term}"
+                        name = f"au_dlg_commvo_{row['radio_voice_actor']}_{term}"
                         if name in paths:
                             original = 'voice/' + VOICE_LOCALES[locale] + '/' + paths[name].replace('\\', '/').lower()
                             if f'{voice_hash(original):016x}' in entries:
                                 candidates[name] = original
                     if candidates:
-                        radio['radio_named_actor_candidates'] = candidates
+                        radio['radio_voice_actor'] = row['radio_voice_actor']
+                        radio['radio_reaction_candidates'] = candidates
             result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
                 **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
@@ -246,6 +247,7 @@ def authored_dialogues(catalog):
 
 def radio_dialogues(catalog):
     dialogs = {}
+    actors = _mapping(catalog.file('TableCfg/NpcInfoTable.json', optional=True))
     emotions = _mapping(catalog.file('TableCfg/EmotionVoiceConfig.json', optional=True))
     reactions = {}
     for key, value in emotions.items():
@@ -270,9 +272,14 @@ def radio_dialogues(catalog):
             if identity in dialogs:
                 _unsupported()
             terms = reactions.get(str(row.get('emotionType')), ())
+            actor = row.get('actorNameId', '')
+            if actor in actors:
+                actor = _mapping(actors[actor]).get('voActor', '')
+            if not isinstance(actor, str):
+                _unsupported()
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
                 'radio_group': group_id, 'previous_radio_id': previous,
-                'radio_interjections': terms,
+                'radio_voice_actor': actor, 'radio_interjections': terms if actor and actor != 'None' else (),
                 'radio_reaction_configured': (bool(terms) if emotions and type(row.get('emotionType')) is int else None),
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}

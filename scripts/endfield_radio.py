@@ -34,8 +34,9 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
             entry = {'group': row['radio_group'], 'id': row['text_id'], 'status': row['radio_sentence']}
             if 'radio_reaction_configured' in row:
                 entry.update(emotion=row['radio_emotion_type'], reaction_configured=row['radio_reaction_configured'])
-            if row.get('radio_named_actor_candidates'):
-                entry['named_actor_candidates'] = list(row['radio_named_actor_candidates'])
+            if row.get('radio_reaction_candidates'):
+                entry['voice_actor'] = row['radio_voice_actor']
+                entry['reaction_candidates'] = list(row['radio_reaction_candidates'])
             if row['audio']:
                 entry['file_id'] = row['audio']['file_id']
             if line is not None:
@@ -47,7 +48,7 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
     data = None
     if output:
         if reaction:
-            source = chosen.get('radio_named_actor_candidates', {}).get(reaction) if chosen else None
+            source = chosen.get('radio_reaction_candidates', {}).get(reaction) if chosen else None
             if not source:
                 raise ValueError('This reaction is absent from the selected row and dub.')
             data = publisher.media(cache, catalog.stamp, dub, assets.voice_hash(source))

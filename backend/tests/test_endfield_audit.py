@@ -61,6 +61,7 @@ def test_every_voice_state_requires_its_own_evidence():
 def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     line = {'id': 'row', 'radioText': ref(1), 'emotionType': 7, 'audioOverride': 'spoken', 'actorNameId': 'actor'}
     catalog = Catalog({'RadioTable': {'sequence': {'radioSingleDataList': [line]}},
+                       'NpcInfoTable': {'actor': {'voActor': 'performer'}},
                        'EmotionVoiceConfig': {'7': {'interjectionList': ['short_reaction']}}})
     tables = {'en': {'1': 'Synthetic sentence.'}}
     def record(paths, entries):
@@ -68,11 +69,14 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     first = record({}, {})
     assert first['radio_group'] == 'sequence' and first['radio_sentence'] == 'unresolved_override'
     assert first['radio_reaction_configured'] and first['audio'] is None
-    name = 'au_dlg_commvo_actor_short_reaction'
+    name = 'au_dlg_commvo_performer_short_reaction'
     reaction = 'voice/english/reaction.wem'
     key = f'{voice_hash(reaction):016x}'
     candidate = record({name: 'reaction.wem'}, {key: {'file_id': key}})
-    assert candidate['audio'] is None and candidate['radio_named_actor_candidates'] == {name: reaction}
+    assert candidate['audio'] is None and candidate['radio_reaction_candidates'] == {name: reaction}
+    assert candidate['radio_voice_actor'] == 'performer'
+    catalog.values['EmotionVoiceConfig']['7'] = {'interjection': '', 'interjectionList': []}
+    assert record({}, {})['radio_reaction_configured'] is False
     line['emotionType'] = 0
     assert record({}, {})['radio_reaction_configured'] is False
     catalog.values['EmotionVoiceConfig'] = {}
@@ -83,6 +87,32 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     last = record(paths, {key: {'file_id': key}})
     assert last['radio_sentence'] == 'indexed' and last['audio']['file_id'] == key
     assert 'radio_reaction_configured' not in last
+
+
+def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, monkeypatch):
+    from scripts import endfield_radio as cli
+    catalog = Catalog({'RadioTable': {'group': {'radioSingleDataList': [
+        {'id': 'row', 'radioText': ref(1), 'actorNameId': 'npc', 'emotionType': 4}]}},
+        'NpcInfoTable': {'npc': {'voActor': 'actor'}},
+        'EmotionVoiceConfig': {'4': {'interjectionList': ['sigh']}},
+        'AudioDialog': {'1': {'path': 'story/au_dlg_commvo_actor_sigh.wem'}}})
+    catalog.stamp = 'release'
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda _: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda: (catalog.stamp, b''))
+    key = voice_hash('voice/english/story/au_dlg_commvo_actor_sigh.wem')
+    monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
+    monkeypatch.setattr(cli.publisher, 'media', lambda tools, stamp, dub, identity: b'reaction' if identity == key else None)
+    args = (tmp_path, 'en', ['group'], 'endfield:row', tmp_path / 'clip.wem', [])
+    with pytest.raises(ValueError, match='no verified sentence'):
+        cli.run(*args)
+    assert not args[4].exists()
+    result = cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
+    assert args[4].read_bytes() == b'reaction' and result['rows'][0]['status'] == 'no_override'
+    args[4].write_bytes(b'previous')
+    monkeypatch.setattr(cli.publisher, 'discover', lambda: ('newer', b''))
+    with pytest.raises(ValueError, match='changed'):
+        cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
+    assert args[4].read_bytes() == b'previous'
 
 
 def test_narrative_tables_keep_text_media_and_voice_messages_distinct():
