@@ -49,7 +49,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 
 [Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Install your chosen original voice, prepare its table, and choose an official translation. Missing assets or translations remain unavailable.
+You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Choose the original voice and an official translation in Setup. For games prepared from installed files, install the selected voice pack first. Missing assets or translations remain unavailable.
 
 ## Text, voices and upstream projects
 
@@ -59,12 +59,12 @@ You do not need to export every language pack. Readers reuse the game’s author
 | Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (required translations, sentence IDs and voice tables) |
 | Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (required translations and scene tables for installed games) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (required scene reader) |
 | Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (required localization and story tables for installed games) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (required voice archive metadata) |
-| Wuthering Waves | Kuro Games | [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (required game archive metadata) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optional table comparison) |
+| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (required publisher catalogue format) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (required game archive metadata) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optional table comparison) |
 | Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (required movie tables, with a pinned fallback revision) |
 
 Unreal archive readers ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoding and conversion ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-Leave the game folder empty to prepare Genshin Impact from the mainland China HoYoPlay launcher release, or Arknights: Endfield narrative voices from the current GRYPHLINE Global release. Endfield film clips require verified timelines. Star Rail uses regular Global HoYoPlay voice packages. Choose your language in Setup.
+Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines.
 
 These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.
 

@@ -49,7 +49,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 
 [Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Installeer de gekozen originele stem, bereid de tabel voor en kies een officiële vertaling. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
+Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Kies in de instellingen de originele stem en een officiële vertaling. Gebruik je geïnstalleerde gamebestanden, installeer dan eerst het gekozen stempakket. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
 
 ## Tekst, stemmen en bronprojecten
 
@@ -59,12 +59,12 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 | Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (benodigde vertalingen, regel-ID’s en stemtabellen) |
 | Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (benodigde vertalingen en scènetabellen voor een geïnstalleerde game) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (benodigde scènelezer) |
 | Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (benodigde metadata voor stemarchieven) |
-| Wuthering Waves | Kuro Games | [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) |
+| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (benodigde formaatinformatie voor de uitgeverscatalogus) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (benodigde metadata voor gamearchieven) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (optioneel voor vergelijking van tabellen) |
 | Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (benodigde filmtabellen, met een vastgelegde revisie als terugvaloptie) |
 
 Readers voor Unreal-archieven ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoderen en converteren ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-Laat de gamemap leeg om Genshin Impact via de Chinese vastelandversie van HoYoPlay voor te bereiden. Voor Arknights: Endfield haalt de toolkit dialogen uit de actuele Global-versie bij GRYPHLINE. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Voor Star Rail gebruikt de toolkit de reguliere Global-stempakketten van HoYoPlay. Kies je taal in Instellingen.
+Laat de gamemap leeg in de Windows-instellingen voor de Chinese vastelandversie van Genshin Impact, de reguliere Global-stempakketten van Star Rail, de Global-verhaalstemmen van Endfield of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn.
 
 Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.
 

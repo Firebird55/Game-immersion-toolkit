@@ -59,7 +59,7 @@ FOLDER_HINTS = {
     "pragmata": "Choose the folder containing PRAGMATA.exe and re_chunk_*.pak archives.",
     "hito": "Choose the folder containing resources/app.asar.",
     "cyberpunk": "Choose the installation root containing bin/x64 and archive/pc/content.",
-    "wuwa": "Choose the installation root containing Client, or the Client folder itself.",
+    "wuwa": "Leave the folder empty to use Kuro Games' Global Windows release, or choose the installed Client folder.",
     "witcher3": "Choose the installation root containing bin and content.",
     "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
 }
@@ -75,7 +75,7 @@ VOICE_HINTS = {
     "pragmata": "The selected study language's original voices are verified from installed PAKs during language preparation.",
     "hito": "Hito uses verified game text and does not need a voice decoder.",
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
-    "wuwa": "Download the selected study language's voice pack in Wuthering Waves, then prepare it in Languages.",
+    "wuwa": "Choose your language to fetch its original voices from the Global publisher. For an installed game, install the matching voice pack.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
     "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
 }
@@ -167,7 +167,7 @@ class InstallationService:
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game, voice == 'publisher'), **state})
         ocr = Path.home() / ".config/oneocr"
         from .ocr_engine import portable_models_available
         from .desktop_capabilities import capture_capability
@@ -288,8 +288,9 @@ class InstallationService:
             with self._lock:
                 self._jobs[game] = {"state": "preparing", "message": message, "progress": 50}
         try:
-            prepare_tools(self.root, game, progress)
-            missing = missing_tools(self.root, game)
+            publisher = game in PUBLISHER_GAMES and not self.install_lookup(game)
+            prepare_tools(self.root, game, progress, publisher)
+            missing = missing_tools(self.root, game, publisher)
             if missing:
                 raise PreparationFailure('tools_incomplete',
                     'Preparation still needs: ' + ', '.join(missing) + '. Retry preparation or repair the toolkit installation.')

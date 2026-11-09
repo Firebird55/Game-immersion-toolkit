@@ -5,7 +5,7 @@
 
 ✓ = implemented reader support; ◇ = expected from the shared locale format; — = unavailable. Language support does not mean every chapter has been played or every line is mapped.
 
-You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Install your chosen original voice, prepare its table, and choose an official translation. Missing assets or translations remain unavailable.
+You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Choose the original voice and an official translation in Setup. For games prepared from installed files, install the selected voice pack first. Missing assets or translations remain unavailable.
 
 <a id="zzz"></a>
 
@@ -41,9 +41,9 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [Coverage notes](../wuthering-languages.md)
+[Official language listing](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [Coverage notes](../wuthering-languages.md)
 
-Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
+Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
 
 <details>
 <summary>Language details</summary>

@@ -84,3 +84,56 @@ def test_empty_official_translation_table_is_reported_unavailable(tmp_path, monk
     row, = payload['records']
     assert row['texts'] == {'en': 'Source dialogue.'}
     assert row['audio']['locale'] == 'en'
+
+
+def test_publisher_language_worker_playback_and_batch_share_one_wuthering_release(tmp_path, monkeypatch):
+    import json
+    from backend import language_worker, local_voice, wuthering_release
+    from backend.game_assets import preparation_fingerprint
+
+    tools = tmp_path / 'tools'
+    stamp = 'wuwa-' + 'a' * 64
+    audio = {'depot': assets.EXTERNAL_ROOT + 'ja_vo_fixture.wem', 'locale': 'ja', 'publisher': stamp}
+    row = {'text_id': 'wuthering:fixture', 'source_locale': 'ja', 'source_text': 'テスト用の台詞',
+           'english': 'Test line', 'chinese': '', 'texts': {'ja': 'テスト用の台詞', 'en': 'Test line'},
+           'audio_locale': 'ja', 'audio': audio}
+    def build(directory, locale, targets, progress):
+        assert directory == tools and locale == 'ja' and targets == ['en']
+        return {'format': 2, 'game': 'wuwa', 'source_locale': locale, 'install': None,
+                'fingerprint': stamp, 'source_mode': 'publisher', 'records': [row]}
+    def extract(directory, reference, locale):
+        assert directory == tools and reference == audio and locale == 'ja'
+        return b'RIFF' + bytes(32)
+    monkeypatch.setattr(wuthering_release, 'fingerprint', lambda directory: stamp if directory == tools else None)
+    monkeypatch.setattr(wuthering_release, 'snapshot_available', lambda directory, revision: (directory, revision) == (tools, stamp))
+    monkeypatch.setattr(wuthering_release, 'build_language', build)
+    monkeypatch.setattr(wuthering_release, 'extract', extract)
+    monkeypatch.setattr(assets, 'ensure_extractor', lambda *_: pytest.fail('Publisher mode needs no installed Unreal reader'))
+    source = tmp_path / 'textmap.json'
+    assert preparation_fingerprint(assets, None, tools) == stamp
+    language_worker.build('wuwa', None, tmp_path, 'ja', ['en'], source)
+    assert json.loads(source.read_bytes())['dialogue_inventory']['voice_counts']['voiced'] == 1
+
+    decoder = tmp_path / 'decoder'
+    decoder.touch()
+    monkeypatch.setattr(local_voice, 'ffmpeg_executable', lambda: 'fake-encoder')
+    def convert(args, **_):
+        if str(args[0]) == str(decoder):
+            inputs = [Path(args[-1])] if '-o' in args else [Path(arg) for arg in args[2:]]
+            for path in inputs:
+                assert path.read_bytes() == b'RIFF' + bytes(32)
+                Path(args[args.index('-o') + 1] if '-o' in args else str(path) + '.wav').touch()
+        else:
+            Path(args[-1]).write_bytes(b'MP3' * 64)
+    monkeypatch.setattr(local_voice.subprocess, 'run', convert)
+    service = local_voice.LocalVoiceAssetService('wuwa', tmp_path, decoder, tmp_path / 'clips', tools_dir=tools)
+    try:
+        assert service.ready
+        assert (service.output_dir / service.extract(row['text_id'], 1)).stat().st_size == 192
+        name, = service.extract_batch([(row['text_id'], 2, '')])
+        assert (service.output_dir / name).stat().st_size == 192
+        service._entries[row['text_id']]['publisher'] = 'different-release'
+        with pytest.raises(ValueError, match='another publisher release'):
+            service.extract_batch([(row['text_id'], 3, '')])
+    finally:
+        service.close()

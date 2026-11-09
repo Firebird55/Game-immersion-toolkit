@@ -75,6 +75,16 @@ def fingerprint(install: Path) -> str:
     return hashlib.sha256("|".join(values).encode()).hexdigest()
 
 
+def publisher_fingerprint(tools: Path) -> str:
+    from . import wuthering_release
+    return wuthering_release.fingerprint(tools)
+
+
+def publisher_snapshot_available(tools: Path, stamp: str) -> bool:
+    from . import wuthering_release
+    return wuthering_release.snapshot_available(tools, stamp)
+
+
 @lru_cache(maxsize=2)
 def _archive_metadata(install: Path, stamp: str) -> tuple[str, ...]:
     # Public archive metadata is held in memory, never written to source,
@@ -462,11 +472,14 @@ def build_language_records(db_root: Path, files: list[str], source_locale: str, 
     return records
 
 
-def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
+def index_language(install: Path | None, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
     from .languages import resolve_locale
     from .media_tools import vgmstream_executable
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Wuthering study/audio locale')
+    if install is None:
+        from . import wuthering_release
+        return wuthering_release.build_language(data_dir / 'tools', source_locale, target_locales, progress)
     stamp = fingerprint(install)
     executable = ensure_extractor(data_dir / 'tools', vgmstream_executable(data_dir.parent.parent))
     cache = data_dir / 'index-cache' / stamp[:16]
@@ -507,8 +520,11 @@ def _validate_voice(audio):
     return depot
 
 
-def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
+def extract_voice(install: Path | None, audio: dict, executable: Path, destination: Path) -> bytes:
     depot = _validate_voice(audio)
+    if install is None:
+        from . import wuthering_release
+        return wuthering_release.extract(executable.parent, audio, audio['locale'])
     from .nte_toolchain import voice_executable
     executable = voice_executable(executable)
     run_extractor(install, executable, destination, depot)
@@ -524,12 +540,15 @@ def _voice_inventory(path: Path, size: int, modified: int) -> tuple[str, ...]:
     return tuple(sorted(p.casefold() for p in values if p.startswith(EXTERNAL_ROOT) and p.endswith('.wem')))
 
 
-def extract_voices(install: Path, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
+def extract_voices(install: Path | None, audios: list[dict], executable: Path, destination: Path) -> list[bytes]:
     if not audios:
         return []
     depots = [_validate_voice(audio) for audio in audios]
     if len({VOICE_LOCALES[audio.get('locale', 'zh-Hans')][0] for audio in audios}) != 1:
         raise ValueError('Original voice batch crosses study/audio locales')
+    if install is None:
+        from . import wuthering_release
+        return [wuthering_release.extract(executable.parent, audio, audio['locale']) for audio in audios]
     from .runtime_bundle import discover_layout
     layout = discover_layout()
     data = layout.data_root / 'wuwa' if layout.mode == 'bundle' else Path(executable).parent.parent

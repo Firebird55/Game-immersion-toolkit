@@ -42,14 +42,14 @@ def main():
             time.sleep(.5)
         source = None
         if args.automatic_install or args.automatic_publisher:
-            from .game_assets import asset_adapter
+            from .game_assets import asset_adapter, preparation_fingerprint
             from .language_worker import build
             from .automatic_mobile_export import atomic_json
             from .mobile_library import digest, file_digest
             adapter, _ = asset_adapter(args.game)
-            stamp = adapter.fingerprint(args.automatic_install)
             directory = work_folder(args.output) / 'source'
             directory.mkdir(parents=True, exist_ok=True)
+            stamp = preparation_fingerprint(adapter, args.automatic_install, directory / 'tools')
             source = directory / 'textmap.json'
             marker = directory / 'verified.json'
             identity = digest([stamp, adapter.LANGUAGE_INDEX_VERSION, args.source_locale, args.translation_locale])
@@ -61,7 +61,7 @@ def main():
             if not valid:
                 temporary = directory / 'textmap.pending'
                 build(args.game, args.automatic_install, directory, args.source_locale, [args.translation_locale], temporary)
-                if adapter.fingerprint(args.automatic_install) != stamp:
+                if preparation_fingerprint(adapter, args.automatic_install, directory / 'tools') != stamp:
                     raise ValueError('Game changed during preparation.')
                 temporary.replace(source)
                 atomic_json(marker, {'identity': identity, 'sha256': file_digest(source)})

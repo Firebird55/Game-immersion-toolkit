@@ -5,7 +5,7 @@
 
 ✓ = readerondersteuning geïmplementeerd; ◇ = verwacht op basis van hetzelfde taalformaat; — = niet beschikbaar. Dit betekent niet dat elk hoofdstuk gespeeld of elke zin gekoppeld is.
 
-Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Installeer de gekozen originele stem, bereid de tabel voor en kies een officiële vertaling. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
+Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Kies in de instellingen de originele stem en een officiële vertaling. Gebruik je geïnstalleerde gamebestanden, installeer dan eerst het gekozen stempakket. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
 
 <a id="zzz"></a>
 
@@ -41,9 +41,9 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [Dekkingsnotities](../wuthering-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [Dekkingsnotities](../wuthering-languages.md)
 
-Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
+Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
 
 <details>
 <summary>Taaldetails</summary>

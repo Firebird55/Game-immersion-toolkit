@@ -137,10 +137,10 @@
         "pt-BR"
       ],
       "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.",
-      "coverage": "English and Mandarin original voice samples were decoded. Japanese and Korean native playback is untested. Synthetic OCR covers all five study locales. Mobile footage is sampled; some resized movie/story captions still miss. Full chapter and branch coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
-      "reviewedAt": "2026-10-25"
+      "notes": "Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.",
+      "coverage": "Original Global publisher recordings were decoded in all four dubs. Windows desktop playback and private library export were verified with two English lines. Cinematic speech timing, some ambient and conditional bindings, and full chapter coverage remain incomplete.",
+      "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Empty or unavailable translations are reported separately.",
+      "reviewedAt": "2026-11-09"
     },
     {
       "id": "nte",

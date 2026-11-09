@@ -86,6 +86,8 @@ def test_missing_reader_does_not_disable_other_games_or_start_executable_downloa
         assert 'SDK' not in str(caught.value) and 'source runtime' not in str(caught.value)
     assert game_tools.missing_tools(layout.application_root, 'genshin') == []
     game_tools.prepare_tools(layout.application_root, 'genshin')
+    assert game_tools.missing_tools(layout.application_root, 'wuwa', publisher=True) == []
+    game_tools.prepare_tools(layout.application_root, 'wuwa', publisher=True)
 
 
 def test_private_format_metadata_is_separate_from_missing_native_runtime(tmp_path, monkeypatch):

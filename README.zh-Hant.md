@@ -49,7 +49,7 @@
 
 [語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
 
-無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。安裝所選原版配音，準備資料表，並選擇官方翻譯。缺少的檔案或翻譯仍會顯示為無法使用。
+無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。在設定中選擇原版配音和官方譯文。若從已安裝的遊戲檔案準備資料，請先安裝所選語音包。缺少的檔案或翻譯仍會顯示為無法使用。
 
 ## 文字、配音與上游專案
 
@@ -59,12 +59,12 @@
 | Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) |
 | Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) |
 | Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) |
-| Wuthering Waves | Kuro Games | [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) |
+| Wuthering Waves | Kuro Games | [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (讀取發行商目錄所需的格式資訊) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) |
 | Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (必要的影片表，需要時使用固定版本) |
 
 Unreal 資源讀取器 ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). 音訊解碼與轉換 ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-將遊戲資料夾留空，在設定中選擇語言，即可準備《原神》中國大陸啟動器版本，或從 GRYPHLINE 取得《明日方舟：終末地》目前全球版的劇情語音。終末地的過場片段需要經過核實的時間軸。《崩壞：星穹鐵道》使用 HoYoPlay 全球版的常規語音包。
+在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。
 
 這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。
 

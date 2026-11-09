@@ -5,7 +5,7 @@
 
 ✓ = 已實作讀取支援；◇ = 根據相同語言格式預期可用；— = 無法使用。語言支援不代表已玩遍所有章節或已對應每句對話。
 
-無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。安裝所選原版配音，準備資料表，並選擇官方翻譯。缺少的檔案或翻譯仍會顯示為無法使用。
+無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。在設定中選擇原版配音和官方譯文。若從已安裝的遊戲檔案準備資料，請先安裝所選語音包。缺少的檔案或翻譯仍會顯示為無法使用。
 
 <a id="zzz"></a>
 
@@ -41,9 +41,9 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[官方語言清單](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-10-25 · [涵蓋範圍說明](../wuthering-languages.md)
+[官方語言清單](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [涵蓋範圍說明](../wuthering-languages.md)
 
-Both Chinese scripts share Mandarin voices. Rover performances remain separate. Empty Russian, Vietnamese and Indonesian placeholder tables are not supported translation promises.
+Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
 
 <details>
 <summary>語言詳細資訊</summary>

@@ -175,3 +175,19 @@ def test_manual_refresh_dispatches_only_the_selected_game(setup, tmp_path, monke
     assert response.status_code == 200
     assert refreshes == ["pragmata"]
     assert client.post("/api/setup/games/unknown/refresh", headers={"X-Proxy-Transcript": "setup"}, json={}).status_code == 404
+
+
+def test_wuthering_without_installation_offers_publisher_tools_and_refresh(setup, monkeypatch):
+    service, _, refreshes, _ = setup
+    monkeypatch.setattr('backend.installation.missing_tools', lambda _root, game, publisher: [] if publisher else ['Installed reader'])
+    row = next(game for game in service.status()['games'] if game['id'] == 'wuwa')
+    assert row['detected_path'] is None and row['voice_state'] == 'publisher'
+    assert row['tools_missing'] == [] and 'Global' in row['folder_hint']
+    checked = []
+    def missing(_root, game, publisher):
+        checked.append((game, publisher))
+        return []
+    monkeypatch.setattr('backend.game_tools.missing_tools', missing)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8766')
+    reply = client.post('/api/setup/games/wuwa/refresh', headers={'X-Proxy-Transcript': 'setup'}, json={})
+    assert reply.status_code == 200 and refreshes == ['wuwa'] and checked == [('wuwa', True)]

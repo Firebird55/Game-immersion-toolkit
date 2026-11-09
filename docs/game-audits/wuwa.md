@@ -12,7 +12,23 @@ For an authored PlotAudio filename, the source command selects the chosen langua
 python scripts/live_game_sources.py wuwa-global --cache private-cache --output wuwa.json --dub en --voice vo_Main_Mengzhou_3_7_14_28 --save line.wem
 ```
 
-Normal desktop Setup still needs an installed game for the text database, plot-flow preparation and capture-to-voice lookup. The command accepts an exact external filename. Conditional gender/choice selection, shared nonlocalized audio and per-caption film slicing still require their authored bindings. The reader uses the published Kuro catalogue format from mornye-tools, PAK format evidence from CUE4Parse and compatible archive parameters from wuwa-keys. [Catalogue format](https://github.com/Yumeo0/mornye-tools/blob/4591ef24949688ec9835bf910a204d6bbc4b339c/src-tauri/crates/game-client/src/discovery.rs) · [PAK entry layout](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs) · [Archive format provider](https://github.com/yarik0chka/wuwa-keys)
+Windows Setup can prepare the current Global release with the game folder empty. Select the study language and translation in Games & Languages. The toolkit reads the publisher's story and localization tables, binds lines to exact paths in the chosen dub and retrieves the WEM for playback or a private library export. A prepared language is checked again when the launcher or resource manifests change. Each audio reference belongs to the same publisher snapshot as its text. Installed games still use their local archives.
+
+A clean Windows language worker prepared 132,435 English rows with Simplified Chinese translations requested. It classified 46,461 as voiced, 20,074 as unvoiced, 2,119 as unavailable and 63,781 as unknown. Two short lines with translations decoded to non-silent MP3s through desktop playback. The private mobile library exporter produced byte-identical MP3s for those lines and included both translations. The sample covered about 1.83 and 0.91 seconds of speech.
+
+All five study selections were prepared from released files with English and
+Simplified Chinese requested as translations. Each selected an original WEM.
+Counts include protagonist variants when the game supplies two performances.
+
+| Study language | Prepared records | Records with an exact original voice |
+| --- | ---: | ---: |
+| English | 132,435 | 46,461 |
+| Japanese | 132,504 | 46,518 |
+| Korean | 132,302 | 46,281 |
+| Simplified Chinese | 134,065 | 46,293 |
+| Traditional Chinese | 133,198 | 46,280 |
+
+Conditional gender/choice selection, shared nonlocalized audio and per-caption film slicing still require their authored bindings. The reader uses the published Kuro catalogue format from mornye-tools, PAK format evidence from CUE4Parse and compatible archive parameters from wuwa-keys. [Catalogue format](https://github.com/Yumeo0/mornye-tools/blob/4591ef24949688ec9835bf910a204d6bbc4b339c/src-tauri/crates/game-client/src/discovery.rs) · [PAK entry layout](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs) · [Archive format provider](https://github.com/yarik0chka/wuwa-keys)
 
 ## November 8, 2026 · Floating dialogue and film voices
 

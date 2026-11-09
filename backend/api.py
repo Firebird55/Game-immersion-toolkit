@@ -329,7 +329,7 @@ class Runtime:
         return index
 
     def build_language(self, game, locale, targets, *, force=False, job=None):
-        from .game_assets import asset_adapter
+        from .game_assets import asset_adapter, preparation_fingerprint
         from .multilingual_index import MultilingualTextIndex
         if job:
             job.checkpoint()
@@ -342,7 +342,8 @@ class Runtime:
                 directory = DATA_DIR / 'languages' / game / locale
                 directory.mkdir(parents=True, exist_ok=True)
                 path = directory / 'textmap.json'
-                stamp = adapter.fingerprint(install)
+                tools = DATA_DIR / game / 'tools'
+                stamp = preparation_fingerprint(adapter, install, tools)
                 indexes = self.__dict__.setdefault('_locale_indexes', {})
                 key = (game, locale)
                 cached = indexes.get(key)
@@ -408,7 +409,7 @@ class Runtime:
                     if job:
                         job.report('validating', 'Validating the replacement language table before activation')
                     candidate = MultilingualTextIndex(game, Path(temporary))
-                    if (not candidate.ready or candidate.source_locale != locale or adapter.fingerprint(install) != stamp
+                    if (not candidate.ready or candidate.source_locale != locale or preparation_fingerprint(adapter, install, tools) != stamp
                             or install is None and candidate.snapshot_metadata.get('fingerprint') != stamp):
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
                     with job.publication() if job else nullcontext():
@@ -2032,10 +2033,12 @@ def setup_refresh(game: str, payload: SetupAction, request: Request,
     setup_access(request, x_proxy_transcript, write=True)
     if game not in GAMES:
         raise HTTPException(404, "Unsupported game")
-    if game not in PUBLISHER_GAMES and not runtime.setup_install(game):
+    install = runtime.setup_install(game)
+    publisher = install is None and game in PUBLISHER_GAMES
+    if not install and not publisher:
         raise HTTPException(400, "Choose an installed game folder first")
     from .game_tools import missing_tools
-    if missing_tools(PROJECT_ROOT, game):
+    if missing_tools(PROJECT_ROOT, game, publisher):
         raise HTTPException(409, "Install this game's tools before refreshing")
     return {"started": runtime.refresh_game(game)}
 
