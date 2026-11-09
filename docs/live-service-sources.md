@@ -19,8 +19,8 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 | Channel | Compared release inputs on November 9 |
 | --- | --- |
 | `genshin-global`, `genshin-cn` | Independent 7.2.0 launcher manifests, each with 712 dub PCKs and the main game-manifest identity. Global in-game hotfix overlays still require a matching resource manifest. |
-| `starrail-global` | 4.6.0 launcher with 692 regular dub PCKs and the game-manifest identity. Separate optional chapters require their own source checks. |
-| `zzz-global` | 3.3.0 launcher with 313 dub PCKs and the game-manifest identity. The individual [dialogue command](../scripts/probe-zzz-publisher.py) can fetch an authored line and original dubs. |
+| `starrail-global`, `starrail-cn` | The two 4.6.0 launchers each list 692 regular dub PCKs. All 692 match across regions by full path, size and MD5. Separate optional chapters require their own source checks. |
+| `zzz-global`, `zzz-cn` | The two 3.3.0 launchers each list 313 dub PCKs with identical full paths, sizes and MD5s. The individual Global [dialogue command](../scripts/probe-zzz-publisher.py) can fetch an authored line and original dubs. |
 | `endfield-global` | Both 1.6.4 resource indexes. [Radio and film commands](game-audits/endfield.md) resolve original performances from the current dub. |
 | `wuwa-global` | 55 base game PAKs in the launcher's checksum-verified 3.7.1 file index. Separate in-game text, voice and video overlays are outside this comparison. |
 | `nte-global`, `nte-cn` | Regional branch chain, encoded resource-list checksum and declared base-section revisions. Global resolved to PC_140 1.4.11, mainland China to PC_150 1.5.4. Recovering playable per-line assets requires additional archive metadata. |

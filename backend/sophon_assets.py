@@ -20,7 +20,9 @@ CHINA = ('hyp-api.mihoyo.com', 'jGHBHlcOq1', 'api-takumi.mihoyo.com')
 CHANNELS = {
     'genshin-cn': (CHINA, '1Z8W5NHUQb', '1Zg4loy9r2BG', 'autopatchcn.yuanshen.com'),
     'genshin-global': (GLOBAL, 'gopR6Cufr3', 'cxhpq4g4rgg0', 'autopatchhk.yuanshen.com'),
+    'starrail-cn': (CHINA, '64kMb5iAWu', 'cxi9zq9xwjk0', 'autopatchcn.bhsr.com'),
     'starrail-global': (GLOBAL, '4ziysqXOQ8', 'cxi9x2wxybk0', 'autopatchos.starrails.com'),
+    'zzz-cn': (CHINA, 'x6znKlJ0xK', 'cxi9diu5aadc', 'autopatchcn.juequling.com'),
     'zzz-global': (GLOBAL, 'U5hbdsT9W7', 'ddxf6vlr1reo', 'autopatchos.zenlesszonezero.com'),
 }
 VOICE_FIELDS = {'en': 'en-us', 'zh-Hans': 'zh-cn', 'zh-Hant': 'zh-cn', 'ja': 'ja-jp', 'ko': 'ko-kr'}
