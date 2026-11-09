@@ -15,8 +15,8 @@ recordings work offline. Ordinary dialogue follows publisher resource updates.
 When the publisher updates a release, the toolkit checks each known film's
 configuration, localized timeline, voice banks and original recording before
 reusing its times. Two different Global 1.6 resource revisions passed this check.
-The verified film captions cover 390 Mandarin intervals, 394 English, 407 Japanese
-and 382 Korean. Both Chinese study selections use the same 390 Mandarin intervals.
+The verified film captions cover 400 Mandarin intervals, 404 English, 417 Japanese
+and 392 Korean. Both Chinese study selections use the same 400 Mandarin intervals.
 
 For dialogue with separate Endministrator performances, set the player voice to
 match your game. The reader selects the corresponding recording and renders

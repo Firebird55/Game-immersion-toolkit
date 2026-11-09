@@ -23,14 +23,29 @@ def localized_playable(playables, identity, film, dub):
     return matches[0] if len(matches) == 1 else None
 
 
-def track_clips(objects, root):
+def track_clips(objects, root, *, conditions=None, gender=None, durations=None):
     captions, speech = [], []
-    for pointer in root['m_Tracks']:
+    pending = [(p, None) for p in reversed(root['m_Tracks'])]
+    visited = set()
+    while pending:
+        pointer, parent = pending.pop()
         if pointer['m_FileID']:
             continue
-        track = objects.get(pointer['m_PathID'], {})
+        identity = pointer['m_PathID']
+        track = objects.get(identity, {})
+        if identity in visited or (parent is not None and track.get('m_Parent') != parent):
+            return None
+        visited.add(identity)
         if track.get('m_Muted'):
             continue
+        condition = track.get('enableOnCondition', {})
+        if condition.get('m_PathID'):
+            selection = (conditions or {}).get((condition['m_FileID'], condition['m_PathID']))
+            if selection not in ('female', 'male'):
+                return None
+            if selection != gender:
+                continue
+        pending.extend((p, pointer) for p in reversed(track.get('m_Children', ())))
         for clip in track.get('m_Clips', ()):
             ref = clip['m_Asset']
             asset = objects.get(ref['m_PathID'], {}) if not ref['m_FileID'] else {}
@@ -41,7 +56,11 @@ def track_clips(objects, root):
             if (clip.get('m_TimeScale', 1) != 1 or clip.get('m_ClipIn', 0) != 0
                     or not math.isfinite(start + duration) or start < 0 or duration <= 0):
                 return None
-            interval = round(start, 5), round(start + duration, 5)
+            end = start + duration
+            if (durations and event in durations and asset.get('_stopEventAtClipEnd') == 0
+                    and asset.get('_exitAudioEvent', {}).get('_id') == 0):
+                end = max(end, start + durations[event])
+            interval = round(start, 5), round(end, 5)
             if text:
                 captions.append((text, *interval))
             if event.lower().startswith('au_vo_'):
@@ -49,7 +68,29 @@ def track_clips(objects, root):
     return captions, speech
 
 
-def localized_tracks(directory):
+def narrative_conditions(directory):
+    import UnityPy
+    verified = {}
+    for path in directory.glob('*.unity'):
+        for obj in UnityPy.load(str(path)).objects:
+            if obj.type.name != 'MonoBehaviour':
+                continue
+            data = obj.read_typetree()
+            references = data.get('references', {}).get('RefIds', ())
+            if len(references) != 1 or data.get('conditions') != [{'rid': references[0]['rid']}]:
+                continue
+            condition = references[0]
+            if condition['type'].get('class') != 'CheckNarrativeGender':
+                continue
+            gender = {1: 'male', 2: 'female'}.get(condition['data'].get('narrativeGender'))
+            if gender and data['m_Name'] == 'NarrativeGender' + gender.capitalize() + 'Condition':
+                if obj.path_id in verified:
+                    raise ValueError('Ambiguous narrative gender condition')
+                verified[obj.path_id] = gender
+    return verified
+
+
+def localized_tracks(directory, *, packages=None, conditions=None):
     # UnityPy is needed only by maintainers regenerating a release profile.
     import UnityPy
     configs, playables = {}, defaultdict(list)
@@ -66,7 +107,7 @@ def localized_tracks(directory):
                     raise ValueError('Ambiguous FMV configuration')
                 configs[obj['fmvId']] = refs
             if 'm_Tracks' in obj:
-                playables[identity, obj['m_Name'].lower()].append(track_clips(objects, obj))
+                playables[identity, obj['m_Name'].lower()].append((objects, obj))
     for film, refs in configs.items():
         for number, dub in enumerate(DUBS):
             if number not in refs:
@@ -74,12 +115,29 @@ def localized_tracks(directory):
             track = localized_playable(playables, refs[number]['m_PathID'], film, dub)
             if track is None:
                 continue
-            yield film, dub, *track
+            objects, root = track
+            conditional = any(o.get('enableOnCondition', {}).get('m_PathID') for o in objects.values())
+            variants = (('f_' + film, 'female'), ('m_' + film, 'male')) if conditional else ((film, None),)
+            for performance, gender in variants:
+                known = (conditions or {})
+                bindings = {}
+                for obj in objects.values():
+                    pointer = obj.get('enableOnCondition', {})
+                    identity = pointer.get('m_PathID')
+                    if pointer.get('m_FileID', 0) > 0 and identity in known:
+                        bindings[pointer['m_FileID'], identity] = known[identity]
+                durations = {}
+                if packages and performance in packages[dub][1]:
+                    _, _, event, frames, rate = packages[dub][1][performance]
+                    durations[event] = frames / rate
+                clips = track_clips(objects, root, conditions=bindings, gender=gender, durations=durations)
+                if clips is not None:
+                    yield performance, dub, *clips
 
 
-def unity_clocks(directory):
+def unity_clocks(directory, *, packages=None, conditions=None):
     cues = defaultdict(dict)
-    for film, dub, captions, speech in localized_tracks(directory):
+    for film, dub, captions, speech in localized_tracks(directory, packages=packages, conditions=conditions):
         for text, start, end in captions:
             matches = [(event, origin) for event, origin, stop in speech if origin <= start < end <= stop]
             if len(matches) != 1:
@@ -137,11 +195,15 @@ def main():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('--bundles', type=Path, help='Directory of unpacked Unity serialized FMV assets')
     source.add_argument('--clocks', type=Path, help='Previously exported localized Unity clocks')
+    parser.add_argument('--conditions', type=Path, help='Audited external narrative-condition objects')
     for name in ('packages', 'pcm', 'output'):
         parser.add_argument('--' + name, type=Path, required=True)
     args = parser.parse_args()
-    clocks = unity_clocks(args.bundles) if args.bundles else json.loads(args.clocks.read_bytes())
-    values = import_clocks(clocks, json.loads(args.packages.read_bytes()), json.loads(args.pcm.read_bytes()))
+    packages = json.loads(args.packages.read_bytes())
+    conditions = narrative_conditions(args.conditions) if args.conditions else {}
+    clocks = (unity_clocks(args.bundles, packages=packages, conditions=conditions)
+              if args.bundles else json.loads(args.clocks.read_bytes()))
+    values = import_clocks(clocks, packages, json.loads(args.pcm.read_bytes()))
     with args.output.open('w', encoding='utf-8', newline='\n') as stream:
         stream.write('"""Derived publisher package and cinematic bindings. Generated by scripts/import_endfield_timelines.py."""\n')
         for name, mapping in zip(('PACKAGES', 'FILMS', 'CUES'), values):

@@ -7,7 +7,7 @@ import time
 import urllib.request
 from urllib.parse import urlencode
 
-from . import endfield_metadata, endfield_tables, endfield_vfs as vfs
+from . import endfield_film_conditions, endfield_metadata, endfield_tables, endfield_vfs as vfs
 from .game_tools import _atomic_file, download
 from .voice_assets import voice_hash
 
@@ -192,16 +192,16 @@ def _unchanged_film_assets(tools, stamp):
     file, = [row for row in rows if row.name == 'Data/Bundles/Windows/manifest.hgmmap']
     raw = registry.inflate(_whole(tools, base, file, 160 * 1024**2), 384 * 1024**2)
     paths = 'assets/beyond/dynamicassets/gamedata/subtitle/fmv/'
-    assets = registry.bindings(raw, path_hashes={head for head, _ in reference.ASSETS.values()})
+    expected = {paths + path: value for path, value in reference.ASSETS.items()} | endfield_film_conditions.CONDITIONS
+    assets = registry.bindings(raw, path_hashes={head for head, _ in expected.values()})
     del raw
     candidates, ambiguous = {}, set()
     for head, full_path, bundle in assets:
-        path = full_path.removeprefix(paths)
-        if not full_path.startswith(paths) or path not in reference.ASSETS or head != reference.ASSETS[path][0]:
+        if full_path not in expected or head != expected[full_path][0]:
             continue
-        if path in candidates:
-            ambiguous.add(path)
-        candidates[path] = 'Data/Bundles/Windows/' + bundle
+        if full_path in candidates:
+            ambiguous.add(full_path)
+        candidates[full_path] = 'Data/Bundles/Windows/' + bundle
     active = {}
     for block, layer in ((2, 'initial'), (11, 'main')):
         select = frozenset(name for name in candidates.values() if name.startswith('Data/Bundles/Windows/' + layer + '/'))
@@ -211,8 +211,8 @@ def _unchanged_film_assets(tools, stamp):
                 if row.name in active:
                     raise ValueError('Ambiguous Endfield film bundle in released resources.')
                 active[row.name] = row.content_hashes[1]
-    return frozenset(path for path, name in candidates.items() if path not in ambiguous and
-                     active.get(name) == reference.ASSETS[path][1])
+    return frozenset(path.removeprefix(paths) for path, name in candidates.items() if path not in ambiguous and
+                     active.get(name) == expected[path][1])
 
 
 @lru_cache(maxsize=16)
@@ -243,8 +243,11 @@ def verified_films(tools, stamp, dub):
     track = ('chinese', 'english', 'japanese', 'korean').index(dub)
     accepted = set()
     for film, recordings in profile.FILMS.items():
-        if (not recordings[track] or f'singleconfigs/{film}.asset' not in verified or
-                not any(f'{film}_others_au_{suffix}.playable' in verified for suffix in suffixes)):
+        source = endfield_film_conditions.VARIANTS.get(film, film)
+        if source != film and not endfield_film_conditions.CONDITIONS.keys() <= verified:
+            continue
+        if (not recordings[track] or f'singleconfigs/{source}.asset' not in verified or
+                not any(f'{source}_others_au_{suffix}.playable' in verified for suffix in suffixes)):
             continue
         identity, expected_digest = recordings[track]
         try:

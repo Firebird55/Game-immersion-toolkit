@@ -88,6 +88,24 @@ def test_korean_config_slot_and_film_pointer_must_both_select_one_playable():
     assert localized_playable(tracks, 7, 'Scene', 'ko') is None
 
 
+def test_nested_performance_requires_its_authored_condition_and_correct_parent():
+    def ptr(value):
+        return {'m_FileID': 0, 'm_PathID': value}
+    group = {'enableOnCondition': {'m_FileID': 2, 'm_PathID': 99}, 'm_Children': [ptr(2)]}
+    clip = {'m_Asset': ptr(3), 'm_Start': 1, 'm_Duration': 2}
+    track = {'m_Parent': ptr(1), 'm_Clips': [clip]}
+    asset = {'_audioEventKey': 'au_vo_test', '_stopEventAtClipEnd': 0, '_exitAudioEvent': {'_id': 0}}
+    root, objects = {'m_Tracks': [ptr(1)]}, {1: group, 2: track, 3: asset}
+    args = {'conditions': {(2, 99): 'male'}, 'durations': {'au_vo_test': 5}}
+    assert track_clips(objects, root) is None
+    assert track_clips(objects, root, gender='female', **args) == ([], [])
+    assert track_clips(objects, root, gender='male', **args) == ([], [('au_vo_test', 1, 6)])
+    asset['_stopEventAtClipEnd'] = 1
+    assert track_clips(objects, root, gender='male', **args) == ([], [('au_vo_test', 1, 3)])
+    track['m_Parent'] = ptr(4)
+    assert track_clips(objects, root, gender='male', **args) is None
+
+
 def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
     key = ('opening', 'caption')
     row = {'film': key[0], 'caption': key[1], 'locales': {

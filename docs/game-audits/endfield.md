@@ -14,7 +14,7 @@ The same worker was exercised with the archived Global 1.5.3 resource selection
 and the current 1.6.4 release. It retrieved all table and speech bytes used for
 these builds from GRYPHLINE. The earlier build produced 22,497 English voice
 records and exported the opening conversation. The current build produced
-25,971 English voice records including 394 timed film clips. In all five study
+25,981 English voice records including 404 timed film clips. In all five study
 selections, the desktop service recreated both an ordinary line and a trimmed
 film MP3 offline after deletion of the encoded outputs. The audited film profile
 requires matching resource evidence. Unknown clocks remain unavailable.
@@ -23,10 +23,10 @@ requires matching resource evidence. Unknown clocks remain unavailable.
 
 Global revisions `11343132-9` and `11529267-11` have different release
 indexes. In both releases the current Unity registry selected identical film
-configurations and localized subtitle bundles for 49 Mandarin, 48 English,
-46 Japanese and 48 Korean performances. The selected dub bank, hotfix packages
-and 184 original speech files also matched. English preparation retained all
-394 film intervals on the earlier revision. When a required asset changes,
+configurations and localized subtitle bundles for 53 Mandarin, 52 English,
+50 Japanese and 52 Korean performances. The selected dub bank, hotfix packages
+and 200 original speech files also matched. English preparation retained all
+404 film intervals on the earlier revision. When a required asset changes,
 the toolkit omits the affected film until its new timing or voice binding can
 be verified. Other dialogue still follows the current release's own tables.
 
@@ -182,12 +182,24 @@ still require an independent scene-position observation. Ten other intervals
 have a shared edge smaller than one millisecond. Both neighboring clips omit
 the shared samples. Overlaps containing uncertain speech remain unresolved.
 
+A second pass recovered three further configurations. The English caption in
+both versions of `cs_video_e9m3_2` begins at 57.279 seconds. The authored event
+sets `_stopEventAtClipEnd` to zero and has no exit event. Speech continues past
+the timeline block's end at 56.933 seconds in the 60.184-second recording.
+In `cs_video_e11m1_2`, the Common group carries the four shared captions.
+The other groups reference separate `CheckNarrativeGender` assets that select
+the female or male event. Both conditions and all 16 localized recordings for
+these three configurations were checked. This adds ten performances per dub.
+The resulting 437 distinct film/caption pairs span 52 of the 80 configurations.
+339 pairs have intervals in all four dubs. Counting each protagonist's
+performance separately gives 441 pairs and 1,613 localized intervals.
+
 | Original voice | Films with accepted intervals | Verified playable intervals |
 | --- | ---: | ---: |
-| Mandarin | 49 | 390 |
-| English | 48 | 394 |
-| Japanese | 46 | 407 |
-| Korean | 48 | 382 |
+| Mandarin | 52 | 400 |
+| English | 51 | 404 |
+| Japanese | 49 | 417 |
+| Korean | 51 | 392 |
 
 Short or repeated desktop captions can use a stable preceding observation in
 the same radio sequence or localized film. Matching checks the selected
@@ -195,8 +207,7 @@ performance and exact current text. The standalone phone library omits
 occurrences that require an observed predecessor.
 
 The 80 film configurations also include tracks without a matching subtitle
-and voice. In both versions of `cs_video_e9m3_2` the English subtitle begins
-after the identified speech event ends. The eleven Mandarin caption IDs for
+and voice. The eleven Mandarin caption IDs for
 `fmv_e0m1_1` have no matching entry in the reviewed TextTable. Neither case
 can supply a verified translated recording. A film with no accepted interval
 can still contain speech.
@@ -221,11 +232,11 @@ package headers for the chosen dub. Playback reads the exact WEM by HTTP range.
 A film's speech recording must match its SHA-256 digest before entering the
 private cache. Each caption uses its own dub-specific interval.
 
-With no game folder, the language worker produced 25,971 voiced records in English,
-25,984 in Japanese, 25,960 in Korean and 25,966 for each Chinese script. Each
+With no game folder, the language worker produced 25,981 voiced records in English,
+25,994 in Japanese, 25,970 in Korean and 25,976 for each Chinese script. Each
 count includes the verified film cues available in that dub. The playback service exported a conversation and
-a timed MP3 for each of the five study selections. All 1,573 cinematic
-intervals passed bounds and nonzero PCM checks against 184 distinct localized
+a timed MP3 for each of the five study selections. All 1,613 cinematic
+intervals passed bounds and nonzero PCM checks against 200 distinct localized
 speech recordings retrieved through the publisher adapter. A sample MP3 in each dub matched the original
 PCM interval with normalized correlation above 0.998. Cinematic OCR uses
 full-frame, exact text matching and the configured Endministrator performance.
@@ -301,7 +312,7 @@ claim is made.
 | Narrative terminology notes | 38 NarrativeNoteEntryTable rows | 38 text-only note descriptions. |
 | Operator archive and voice viewer | CharacterTable has 35 operators, 2,698 profileVoice rows and 198 profileRecord rows; installed CharInfoProfileCtrl separately renders recordDesc and plays voId with voiceDesc | 2,698 authored voice descriptions and 198 text-only records. Every profile voId resolves to an AudioDialog path in this snapshot. |
 | Combat barks | 1,250 AIBarkText keys are exact AudioDialog voice IDs; installed AIBarkCtrl uses that ID for subtitle lookup and playback stop | 1,250 gameplay records, all bound to installed Chinese recordings. No guessed trigger/voice join. |
-| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 431 distinct film/caption pairs. Of these, 333 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
+| Pre-rendered cinematics, movies, media cards | Global 1.6.4 localized FMV timelines and speech-bank bindings | Desktop preparation imports 437 distinct film/caption pairs across 52 of 80 film configurations. Of these, 339 have verified clocks in all four dubs. Other video or media-card presentations still require verified bindings. |
 | Comics, storyboards and illustrated documents | Local two-dimensional narrative UI plus RichContent image rendering; publisher comic pages separately | Authored text fields covered as above; embedded artwork text, video captions and image-only bubbles remain gaps. |
 
 Reading references provide a second coverage check: ReadingPopUpTable resolves
