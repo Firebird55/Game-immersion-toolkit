@@ -120,6 +120,38 @@ radio lines that already have their own original recording.
 [Radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L880-L956)
 · [Emotion configuration](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/EmotionVoiceConfig.json)
 
+The [per-line inventory](endfield-mission-radio-1.6.4.csv) lists **every row**
+in those 89 groups. The other 291 mission groups supply 509 direct sentence
+bindings and 35 rows with separate protagonist performances. Among the 134
+unresolved rows, 77 have at least one named-actor interjection file present
+in all four publisher dub indexes. Of these, 29 have a single configured
+candidate and 48 have several. A further 54 have a configured emotion but
+no four-dub candidate under the literal actor name. Runtime actor aliases
+and skip state can affect playback. The three rows with zero configured
+interjections are `radio_e10m1_11_001`, `radio_e10m1_11_002` and
+`radio_m1m6_1_001`. No row in this inventory had a separate audio event.
+None is marked confirmed silent in capture.
+
+For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
+0.831 seconds in English, 1.415 in Japanese, 1.065 in Korean and 1.022 in
+Mandarin. Playback of that candidate at a specific in-game occurrence depends
+on controller state. A separate empty-cache check downloaded the original
+English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
+
+The [radio command](../../scripts/endfield_radio.py) and desktop preparation
+use the current publisher RadioTable, AudioDialog, EmotionVoiceConfig and
+selected dub index. To list a group, run the following from the source checkout.
+
+```text
+python scripts/endfield_radio.py --cache private-cache --locale en --group radio_e12m5_2
+```
+
+Add `--line endfield:radio_e12m5_2_001 --target zh-Hans --wem sentence.wem`
+to export its original audio and report the selected translations. A group
+with an unresolved override still appears in the inventory. For an explicitly
+requested candidate, use its own listed name with `--reaction`, `--line`
+and `--wem`. The command checks the release again before writing the output.
+
 ### Scenes, summaries and films
 
 - The scene registry lists 3,106 scenes. 526 reference 533 distinct timelines.

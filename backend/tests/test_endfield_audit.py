@@ -58,6 +58,33 @@ def test_every_voice_state_requires_its_own_evidence():
     assert sum(row['audio'] is not None for row in rows) == 1
 
 
+def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
+    line = {'id': 'row', 'radioText': ref(1), 'emotionType': 7, 'audioOverride': 'spoken', 'actorNameId': 'actor'}
+    catalog = Catalog({'RadioTable': {'sequence': {'radioSingleDataList': [line]}},
+                       'EmotionVoiceConfig': {'7': {'interjectionList': ['short_reaction']}}})
+    tables = {'en': {'1': 'Synthetic sentence.'}}
+    def record(paths, entries):
+        return endfield.dialogue_records(endfield.radio_dialogues(catalog), paths, tables, 'en', entries)[0]
+    first = record({}, {})
+    assert first['radio_group'] == 'sequence' and first['radio_sentence'] == 'unresolved_override'
+    assert first['radio_reaction_configured'] and first['audio'] is None
+    name = 'au_dlg_commvo_actor_short_reaction'
+    reaction = 'voice/english/reaction.wem'
+    key = f'{voice_hash(reaction):016x}'
+    candidate = record({name: 'reaction.wem'}, {key: {'file_id': key}})
+    assert candidate['audio'] is None and candidate['radio_named_actor_candidates'] == {name: reaction}
+    line['emotionType'] = 0
+    assert record({}, {})['radio_reaction_configured'] is False
+    catalog.values['EmotionVoiceConfig'] = {}
+    assert record({}, {})['radio_reaction_configured'] is None
+    paths = {'spoken': 'scene/spoken.wem'}
+    assert record(paths, {})['radio_sentence'] == 'missing_locale_media'
+    key = f'{voice_hash("voice/english/scene/spoken.wem"):016x}'
+    last = record(paths, {key: {'file_id': key}})
+    assert last['radio_sentence'] == 'indexed' and last['audio']['file_id'] == key
+    assert 'radio_reaction_configured' not in last
+
+
 def test_narrative_tables_keep_text_media_and_voice_messages_distinct():
     catalog = Catalog({
         'DialogOptionTable': {'a': {'optionText': ref(1)}},
