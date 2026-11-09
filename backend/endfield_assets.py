@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 12
+LANGUAGE_INDEX_VERSION = 13
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
