@@ -75,7 +75,9 @@ def test_current_genshin_schema_and_reminders_share_only_the_authored_locale_for
 
 def test_endfield_radio_and_narration_use_their_explicit_text_and_voice_references():
     class Catalog:
-        def file(self, path):
+        def file(self, path, *, optional=False):
+            if optional and path in ('TableCfg/NpcInfoTable.json', 'TableCfg/EmotionVoiceConfig.json'):
+                return {}
             return {
                 'TableCfg/DialogTextTable.json': {'dlg_one': {'audioOverride': 'au_dlg_one', 'dialogText': {'id': 1}}},
                 'TableCfg/RadioTable.json': {'group': {'radioSingleDataList': [
@@ -86,6 +88,7 @@ def test_endfield_radio_and_narration_use_their_explicit_text_and_voice_referenc
     rows = endfield.authored_dialogues(Catalog())
     assert set(rows) == {'dlg_one', 'radio_one', 'black_one'}
     assert rows['radio_one']['dialogText'] == {'id': -2}
+    assert rows['radio_one']['radio_reaction_configured'] is None
     assert rows['black_one'] == {'dialogText': {'id': 3}, 'audioOverride': 'au_black_one',
                                  'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
 

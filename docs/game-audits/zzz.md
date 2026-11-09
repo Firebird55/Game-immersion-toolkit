@@ -23,15 +23,17 @@ Fetching that Global hotfix on a fresh device remains open.
 
 From a source checkout, the following command follows the released Global
 launcher branch, reads the checked scene and translation tables, and searches
-every released package for the requested dub. Supply the compiled ZZZ reader
-from the toolkit toolchain and choose private cache and output directories.
+every released package for the requested dub. With the checkout's Node
+dependencies installed, it fetches the pinned upstream scene reader, checks
+its SHA-256 and compiles it in the private working directory. An existing
+compiled toolkit reader can also be selected with `--reader`.
 The result contains the available original translations, a WEM for each requested
 dub and a receipt with build, package, file ID and SHA-256. Repeating `--dub`
 selects multiple recordings. Omitting it requests all four. Both Chinese scripts
 use the Mandarin recording.
 
 ```text
-python scripts/probe-zzz-publisher.py Galgame_Chapter0_11_01_01 --reader <toolchain>/upstream/galgame-perform.mjs --cache <private-cache> --output <new-private-folder>
+python scripts/probe-zzz-publisher.py Galgame_Chapter0_11_01_01 --cache private-cache --output new-private-folder
 ```
 
 This query returned Nicole's authored source, all 13 translations, and four

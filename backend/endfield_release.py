@@ -265,6 +265,13 @@ class _StreamPackage(vfs.Package):
         return []
 
 
+def hotfix_dub(name):
+    match = re.fullmatch(r'hotfix_(main|chinese|english|japanese|korean)(?:_b[0-9A-Fa-f]{2})?\.pck',
+                         name.rsplit('/', 1)[-1])
+    _check(match is not None)
+    return match[1]
+
+
 @lru_cache(maxsize=16)
 def inventory(tools, stamp, dub):
     params = endfield_metadata.parameters(tools)
@@ -273,7 +280,7 @@ def inventory(tools, stamp, dub):
         base, rows = group(tools, stamp, block)
         current, duplicate = {}, set()
         for file in rows:
-            if block == 21 and file.name.rsplit('/', 1)[-1] not in ('hotfix_' + dub + '.pck', 'hotfix_main.pck'):
+            if block == 21 and hotfix_dub(file.name) not in (dub, 'main'):
                 continue
             package = _StreamPackage(_source(tools, base, file), params)
             for entry in package.entries:

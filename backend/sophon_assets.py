@@ -4,9 +4,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
+from http.client import IncompleteRead
 import json
 from pathlib import Path
 import re
+from urllib.error import URLError
 from urllib.parse import urlencode, urlsplit
 
 import zstandard
@@ -18,7 +20,9 @@ CHINA = ('hyp-api.mihoyo.com', 'jGHBHlcOq1', 'api-takumi.mihoyo.com')
 CHANNELS = {
     'genshin-cn': (CHINA, '1Z8W5NHUQb', '1Zg4loy9r2BG', 'autopatchcn.yuanshen.com'),
     'genshin-global': (GLOBAL, 'gopR6Cufr3', 'cxhpq4g4rgg0', 'autopatchhk.yuanshen.com'),
+    'starrail-cn': (CHINA, '64kMb5iAWu', 'cxi9zq9xwjk0', 'autopatchcn.bhsr.com'),
     'starrail-global': (GLOBAL, '4ziysqXOQ8', 'cxi9x2wxybk0', 'autopatchos.starrails.com'),
+    'zzz-cn': (CHINA, 'x6znKlJ0xK', 'cxi9diu5aadc', 'autopatchcn.juequling.com'),
     'zzz-global': (GLOBAL, 'U5hbdsT9W7', 'ddxf6vlr1reo', 'autopatchos.zenlesszonezero.com'),
 }
 VOICE_FIELDS = {'en': 'en-us', 'zh-Hans': 'zh-cn', 'zh-Hant': 'zh-cn', 'ja': 'ja-jp', 'ko': 'ko-kr'}
@@ -76,7 +80,18 @@ def _verified(directory, url, compressed, length, digest, maximum):
         data = path.read_bytes()
         if hashlib.md5(data).hexdigest() == digest:
             return data
-    encoded = download(url, limit=compressed)
+    # Reuse all verified chunks; retry only this immutable object after an
+    # interrupted transfer. A full-length checksum failure is a different error.
+    try:
+        encoded = download(url, limit=compressed)
+    except (IncompleteRead, ConnectionError, TimeoutError):
+        encoded = b''
+    except URLError as error:
+        if not isinstance(error.reason, (ConnectionError, TimeoutError)):
+            raise
+        encoded = b''
+    if len(encoded) < compressed:
+        encoded = download(url, limit=compressed)
     _check(len(encoded) == compressed)
     declared = zstandard.frame_content_size(encoded)
     _check(declared in (-1, length))

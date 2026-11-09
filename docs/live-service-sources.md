@@ -6,6 +6,28 @@ sample recordings from a publisher update server. The two columns below let a
 reader reproduce the online check and see which inputs setup currently needs.
 Release region, resource revision and spoken locale matter when comparing audio.
 
+The [publisher inventory command](../scripts/live_game_sources.py) records the
+active Windows generation without installing a game. Save each region's receipt
+privately, then pass it with `--previous` to see added, changed and removed
+entries after an update. For example:
+
+```text
+python scripts/live_game_sources.py wuwa-global --cache private-cache --output wuwa-before.json
+python scripts/live_game_sources.py wuwa-global --cache private-cache --previous wuwa-before.json --output wuwa-after.json
+```
+
+| Channel | Compared release inputs on November 9 |
+| --- | --- |
+| `genshin-global`, `genshin-cn` | Independent 7.2.0 launcher manifests, each with 712 dub PCKs and the main game-manifest identity. Global in-game hotfix overlays still require a matching resource manifest. |
+| `starrail-global`, `starrail-cn` | The two 4.6.0 launchers each list 692 regular dub PCKs. All 692 match across regions by full path, size and MD5. Separate optional chapters require their own source checks. |
+| `zzz-global`, `zzz-cn` | The two 3.3.0 launchers each list 313 dub PCKs with identical full paths, sizes and MD5s. The individual Global [dialogue command](../scripts/probe-zzz-publisher.py) can fetch an authored line and original dubs. |
+| `endfield-global` | Both 1.6.4 resource indexes. [Radio and film commands](game-audits/endfield.md) resolve original performances from the current dub. |
+| `wuwa-global` | 55 base game PAKs in the launcher's checksum-verified 3.7.1 file index. Separate in-game text, voice and video overlays are outside this comparison. |
+| `nte-global`, `nte-cn` | Regional branch chain, encoded resource-list checksum and declared base-section revisions. Global resolved to PC_140 1.4.11, mainland China to PC_150 1.5.4. Recovering playable per-line assets requires additional archive metadata. |
+
+The three HoYoPlay readers retry the individual immutable manifest or chunk
+after a network interruption and check its published digest before caching it.
+
 | Game | Inputs used by desktop preparation | Verified online distribution and remaining coverage |
 | --- | --- | --- |
 | Genshin Impact | Dimbreath's [AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) supplies translations and dialogue/voice identifiers. Without a game folder, setup reads the released mainland PC branch, matches all three resource revisions to an immutable text commit and reads the selected publisher Wwise packages. | The released [HoYoPlay branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8) leads to the Sophon manifests. Historical release packages recover removed event performances. The current Global 7.2 in-version audio manifest and some reminder and film bindings remain open. [Genshin evidence](game-audits/genshin.md) |

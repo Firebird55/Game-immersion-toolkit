@@ -89,6 +89,22 @@ def test_mismatched_or_truncated_chunk_cannot_replace_good_data(tmp_path, monkey
     assert not (tmp_path / 'tools/sophon/chunks' / last.rsplit('_', 1)[1]).exists()
 
 
+def test_interrupted_publisher_download_retries_only_the_unfinished_chunk(tmp_path, monkeypatch):
+    from http.client import IncompleteRead
+    source, identity, stamp, wem, objects = fixture(tmp_path, monkeypatch, '2.1.0', b'synthetic')
+    binding = publisher.inventory(tmp_path, stamp, 'en')[identity] | {
+        'file_id': f'{identity:016x}', 'source': source, 'locale': 'en'}
+    calls = []
+    def intermittent(url, limit):
+        calls.append(url)
+        if len(calls) == 1:
+            raise IncompleteRead(b'ab')
+        return objects[url]
+    monkeypatch.setattr(sophon, 'download', intermittent)
+    assert publisher.extract(binding, tmp_path / 'tools') == wem
+    assert len(calls) == 2 and calls[0] == calls[1]
+
+
 def test_catalog_requires_region_and_three_revision_markers(monkeypatch):
     sha = 'a' * 40
     rows = [{'title': 'CNRELWin1.2.0_R10_S20_D31', 'id': 'b' * 40},

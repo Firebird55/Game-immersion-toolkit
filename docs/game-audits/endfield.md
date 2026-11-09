@@ -108,7 +108,8 @@ unavailable pending scene-level evidence. [Dialogue text schema](https://github.
 Following the game's `PlayRadio` mission references led to 380 radio groups.
 In the 89 groups without verified line recordings, all 134 rows lack a
 resolved line override. None has a separate audio event. Of the 134,
-131 specify an emotion present in EmotionVoiceConfig; three specify type 0,
+131 specify an emotion present in EmotionVoiceConfig. One of those entries
+has both an empty interjection and an empty list. Three rows specify type 0,
 which has no entry in that table. The controller tries the override's voice
 duration first. If that fails, it uses the real actor, emotion type, the
 row ID's hash and the last reaction when selecting a common interjection.
@@ -119,6 +120,41 @@ as exact recordings. The toolkit can use the preceding row to identify short
 radio lines that already have their own original recording.
 [Radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L880-L956)
 · [Emotion configuration](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/TableCfg/EmotionVoiceConfig.json)
+
+The [per-line inventory](endfield-mission-radio-1.6.4.csv) lists **every row**
+in those 89 groups. The other 291 mission groups supply 509 direct sentence
+bindings and 35 rows with separate protagonist performances. Among the 134
+unresolved rows, 77 have a named-actor interjection in all four publisher
+dub indexes. The publisher's NpcInfoTable maps another 44 NPCs' lines to
+their performer through `voActor`. For example, `yingge` uses
+`lady_30_01` and `jite` uses `man_30_13`. Across **121 rows**, 50 have one
+four-dub candidate and 71 have several. Nine have configured interjections
+but no verified actor recording. Runtime actor selection and skip state can
+affect playback. The four rows without a configured interjection are
+`radio_e10m1_11_001`, `radio_e10m1_11_002`, `radio_m1m6_1_001` and
+`radio_gm02m27d5_1_001`. The last uses emotion type 13 with empty values.
+No row in this inventory had a separate audio event.
+None is marked confirmed silent in capture.
+
+For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
+0.831 seconds in English, 1.415 in Japanese, 1.065 in Korean and 1.022 in
+Mandarin. Playback of that candidate at a specific in-game occurrence depends
+on controller state. A separate empty-cache check downloaded the original
+English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
+
+The [radio command](../../scripts/endfield_radio.py) and desktop preparation
+use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and
+selected dub index. To list a group, run the following from the source checkout.
+
+```text
+python scripts/endfield_radio.py --cache private-cache --locale en --group radio_e12m5_2
+```
+
+Add `--line endfield:radio_e12m5_2_001 --target zh-Hans --wem sentence.wem`
+to export its original audio and report the selected translations. A group
+with an unresolved override still appears in the inventory. For an explicitly
+requested candidate, use its own listed name with `--reaction`, `--line`
+and `--wem`. The command checks the release again before writing the output.
 
 ### Scenes, summaries and films
 
@@ -214,6 +250,39 @@ and voice. The eleven Mandarin caption IDs for
 `fmv_e0m1_1` have no matching entry in the reviewed TextTable. Neither case
 can supply a verified translated recording. A film with no accepted interval
 can still contain speech.
+
+The [inventory of the other 28 configurations](endfield-film-configs-1.6.4.csv)
+records the default pointer, timed captions, current TextTable matches, voice
+event and presence of a same-name video in publisher group 13. Eighteen have
+a same-name video. One configuration has a null playable pointer. The three
+`fmv_e0m1` tracks have 11, 14 and 21 timed captions respectively, all absent
+from the released TextTable. Inspection of 90 candidate scene prefabs and
+audio/other tracks also found separate in-engine events such as
+`au_vo_cs_e2m8_1_f`. Similar scene names do not establish a film clock.
+
+**Ten configurations now have downloadable whole-event voices.** The two
+`c35m4_liinoshow` films share one event. The female and male variants of
+`e12m5_3`, `e12m5_4`, `e2m8_2` and `e6m1_1` each select their own event.
+All nine event identities resolved to single localized media and decoded
+with nonzero PCM in Mandarin, English, Japanese and Korean. These 36
+performances are separate from the 1,613 timed intervals. No new subtitle
+interval is established by the whole-track result.
+
+The [film voice command](../../scripts/endfield_film_voice.py) looks up the
+given event in the active release's initial, selected-dub and hotfix package
+indexes, requires a unique in-dub single-source playback definition and
+downloads the selected original WEM. For example, the following command
+retrieved the Japanese performance from an empty cache.
+
+```text
+python scripts/endfield_film_voice.py au_vo_csv_e12m5_4_f --locale ja --cache private-cache --wem film-ja.wem
+```
+
+The same reader retrieved `au_vo_csv_e2m8_2_f` and `au_vo_csv_e6m1_1_m`
+from both Global 1.5.3 and 1.6.4 in English. It also follows the
+`hotfix_<language>_bNN.pck` shards in the older release. A new event name
+requires its current authored identity. Subtitle capture still requires
+an independently verified clock for the individual line.
 
 For `f_cs_video_e7m4_2`, each localized track contained 18 subtitle cues.
 Music, sound effects and speech had separate tracks. Its speech event

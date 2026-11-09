@@ -12,7 +12,7 @@ from .preparation_errors import PreparationFailure
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 11
+LANGUAGE_INDEX_VERSION = 12
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -158,7 +158,25 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
             if coverage is not None:
                 reason = ('missing_source_metadata' if not source else 'missing_locale_recording') if voice_status == 'unavailable' else voice_status
                 coverage[reason] = coverage.get(reason, 0) + 1
-            result.append({'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
+            radio = {}
+            if 'radio_group' in row:
+                sentence = ('indexed' if audio else 'missing_locale_media' if source else
+                            'unresolved_override' if row.get('audioOverride') else 'no_override')
+                radio = {'radio_group': row['radio_group'], 'radio_sentence': sentence}
+                if not source:
+                    radio['radio_emotion_type'] = row.get('emotionType')
+                    radio['radio_reaction_configured'] = row['radio_reaction_configured']
+                    candidates = {}
+                    for term in row['radio_interjections']:
+                        name = f"au_dlg_commvo_{row['radio_voice_actor']}_{term}"
+                        if name in paths:
+                            original = 'voice/' + VOICE_LOCALES[locale] + '/' + paths[name].replace('\\', '/').lower()
+                            if f'{voice_hash(original):016x}' in entries:
+                                candidates[name] = original
+                    if candidates:
+                        radio['radio_voice_actor'] = row['radio_voice_actor']
+                        radio['radio_reaction_candidates'] = candidates
+            result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
                 **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
                 'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
@@ -211,7 +229,34 @@ def authored_dialogues(catalog):
         # establish silence without a verified recording.
         dialogs[identity] = {**row, 'voice_status': 'unknown',
                              'dialogue_kind': 'conversation'}
-    for group in _table(catalog, 'RadioTable').values():
+    for identity, row in radio_dialogues(catalog).items():
+        if identity in dialogs:
+            _unsupported()
+        dialogs[identity] = row
+    texts = _table(catalog, 'TextTable')
+    for identity, voice in _table(catalog, 'TextVoIdTable').items():
+        if not isinstance(voice, str):
+            _unsupported()
+        if identity in texts:
+            if identity in dialogs:
+                _unsupported()
+            dialogs[identity] = {'dialogText': _text_ref(texts[identity]), 'audioOverride': voice,
+                                'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
+    return dialogs
+
+
+def radio_dialogues(catalog):
+    dialogs = {}
+    actors = _mapping(catalog.file('TableCfg/NpcInfoTable.json', optional=True))
+    emotions = _mapping(catalog.file('TableCfg/EmotionVoiceConfig.json', optional=True))
+    reactions = {}
+    for key, value in emotions.items():
+        terms = _mapping(value).get('interjectionList', [])
+        fallback = value.get('interjection', '')
+        if not isinstance(terms, list) or not all(isinstance(term, str) for term in terms) or not isinstance(fallback, str):
+            _unsupported()
+        reactions[key] = tuple(dict.fromkeys(term for term in (terms or [fallback]) if term))
+    for group_id, group in _table(catalog, 'RadioTable').items():
         rows = _mapping(group).get('radioSingleDataList')
         if not isinstance(rows, list):
             _unsupported()
@@ -226,20 +271,19 @@ def authored_dialogues(catalog):
                 _unsupported()
             if identity in dialogs:
                 _unsupported()
+            terms = reactions.get(str(row.get('emotionType')), ())
+            actor = row.get('actorNameId', '')
+            if actor in actors:
+                actor = _mapping(actors[actor]).get('voActor', '')
+            if not isinstance(actor, str):
+                _unsupported()
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
-                'previous_radio_id': previous,
+                'radio_group': group_id, 'previous_radio_id': previous,
+                'radio_voice_actor': actor, 'radio_interjections': terms if actor and actor != 'None' else (),
+                'radio_reaction_configured': (bool(terms) if emotions and type(row.get('emotionType')) is int else None),
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
             previous = identity
-    texts = _table(catalog, 'TextTable')
-    for identity, voice in _table(catalog, 'TextVoIdTable').items():
-        if not isinstance(voice, str):
-            _unsupported()
-        if identity in texts:
-            if identity in dialogs:
-                _unsupported()
-            dialogs[identity] = {'dialogText': _text_ref(texts[identity]), 'audioOverride': voice,
-                                'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
     return dialogs
 
 

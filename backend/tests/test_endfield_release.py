@@ -84,6 +84,27 @@ def test_cinematic_registry_selects_full_asset_path_and_bounds_decompression():
         registry.inflate(brotli.compress(bytes(65536)), 1024)
 
 
+def test_film_event_definition_counts_unsupported_and_duplicate_objects():
+    from backend.endfield_film_voice import event_count
+    def section(data):
+        return b'HIRC' + struct.pack('<I', len(data)) + data
+    obj = struct.pack('<BII', 4, 4, 123)
+    assert event_count(section(struct.pack('<I', 2) + obj * 2), 123) == 2
+    assert event_count(section(struct.pack('<I', 1) + obj), 321) == 0
+    with pytest.raises(ValueError):
+        event_count(section(struct.pack('<I', 2) + obj), 123)
+    with pytest.raises(ValueError):
+        event_count(section(struct.pack('<I', 1) + obj + bytes(2)), 123)
+
+
+def test_historical_hotfix_shards_keep_the_published_dub():
+    assert publisher.hotfix_dub('Audio/hotfix_japanese_bD0.pck') == 'japanese'
+    assert publisher.hotfix_dub('Audio/hotfix_main_b1A.pck') == 'main'
+    assert publisher.hotfix_dub('Audio/hotfix_english.pck') == 'english'
+    with pytest.raises(ValueError):
+        publisher.hotfix_dub('Audio/hotfix_english_new_layout.pck')
+
+
 def test_carry_forward_requires_current_clock_bank_and_recording(tmp_path, monkeypatch):
     monkeypatch.setattr(publisher, 'descriptor', lambda *_: {'layers': {k: {'sha256': 'changed'} for k in publisher.FILM_MANIFESTS}})
     bank = 'default_english_banks.pck'

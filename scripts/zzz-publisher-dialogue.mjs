@@ -127,9 +127,28 @@ function bindings(work, input, reader) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [mode, work, readerPath] = process.argv.slice(2);
-  const run = {plan, bindings}[mode];
-  if (!run) throw Error('Unsupported ZZZ publisher query');
-  const reader = await import(pathToFileURL(resolve(readerPath)).href);
-  const input = JSON.parse(readFileSync(join(work, mode + '-input.json')));
-  writeFileSync(join(work, mode + '-output.json'), JSON.stringify(run(work, input, reader)));
+  if (mode === 'compile') {
+    const {default: ts} = await import('typescript');
+    if (ts.version !== '5.9.3') throw Error('Unexpected ZZZ reader compiler');
+    const source = readFileSync(readerPath, 'utf8');
+    const result = ts.transpileModule(source + '\nexport { unpackMhyFile };', {
+      compilerOptions: {target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext}, reportDiagnostics: true,
+    });
+    if (result.diagnostics?.some(d => d.category === ts.DiagnosticCategory.Error)) throw Error('ZZZ reader compilation failed');
+    let code = result.outputText;
+    // The user's private cache can be outside the source checkout. Resolve
+    // the same locked dependencies as the checkout's installed-game reader.
+    for (const dependency of ['ooz-wasm', 'xxhash-wasm']) {
+      const pattern = new RegExp(`from (['"])${dependency}\\1`, 'g');
+      if ([...code.matchAll(pattern)].length !== 1) throw Error('Unexpected ZZZ reader imports');
+      code = code.replace(pattern, () => 'from ' + JSON.stringify(import.meta.resolve(dependency)));
+    }
+    writeFileSync(join(work, 'galgame-perform.mjs'), code, {flag: 'wx'});
+  } else {
+    const run = {plan, bindings}[mode];
+    if (!run) throw Error('Unsupported ZZZ publisher query');
+    const reader = await import(pathToFileURL(resolve(readerPath)).href);
+    const input = JSON.parse(readFileSync(join(work, mode + '-input.json')));
+    writeFileSync(join(work, mode + '-output.json'), JSON.stringify(run(work, input, reader)));
+  }
 }
