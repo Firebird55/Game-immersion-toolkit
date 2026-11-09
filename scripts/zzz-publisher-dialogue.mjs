@@ -97,6 +97,50 @@ export function tableVoice(rows, id, kind, protagonist) {
   return [...candidates][0];
 }
 
+export function recordedMessages(rows) {
+  const sources = new Map(), unresolved = new Set();
+  for (const [id, first, second] of rows) {
+    if (!id || !/^[A-Za-z0-9_-]{1,240}$/.test(id)) continue;
+    const source = first || second;
+    if ((first && second && first !== second) ||
+        (source && !/^VO_Message\/[A-Za-z0-9_-]+\/Message_[A-Za-z0-9_-]+$/i.test(source)) ||
+        (sources.has(id) && sources.get(id) !== source)) unresolved.add(id);
+    sources.set(id, source);
+  }
+  const messages = new Map([...sources].filter(([id, source]) => source && !unresolved.has(id))
+    .map(([id, source]) => [id, {id, source, texts:{}}]));
+  return {messages, unresolved:unresolved.size};
+}
+
+function messages(work, input, reader) {
+  if (!Array.isArray(input.design) || !input.design.length || !input.design.every(name => /^design-\d+\.blk$/.test(name))) {
+    throw Error('Invalid released ZZZ design filenames');
+  }
+  const key = name => String(reader.xxHash64(name.toLowerCase()));
+  const binding = key('MessageConfigTemplateTb');
+  const locales = new Set(input.locales);
+  if (!locales.size || [...locales].some(locale => !Object.hasOwn(tags, locale))) throw Error('Invalid ZZZ locales');
+  const wanted = new Set([binding]);
+  const suffixes = ['TemplateTb', 'OverwriteTemplateTb'];
+  for (const locale of locales) for (const suffix of suffixes) wanted.add(key('TextMap' + tags[locale] + suffix));
+  const tables = designTables(input.design, work, wanted, reader.unpackMhyFile);
+  if (!tables.has(binding)) throw Error('Released ZZZ message table is missing');
+  const {messages, unresolved} = recordedMessages(tableStrings(tables.get(binding), [7, 3, 5]));
+  for (const locale of locales) for (const suffix of suffixes) {
+    const table = tables.get(key('TextMap' + tags[locale] + suffix));
+    if (!table && suffix === 'TemplateTb') throw Error('Released ZZZ locale table is missing');
+    if (!table) continue;
+    const seen = new Set();
+    for (const [id, value] of tableStrings(table, [0, 1])) {
+      if (!messages.has(id)) continue;
+      if (seen.has(id)) throw Error('Ambiguous subtitle in a ZZZ locale table');
+      seen.add(id);
+      messages.get(id).texts[locale] = value;
+    }
+  }
+  return {messages:[...messages.values()], unresolved};
+}
+
 function plan(work, input, reader) {
   const key = name => String(reader.xxHash64(name.toLowerCase()));
   const names = Object.values(tags).flatMap(tag => ['TemplateTb', 'OverwriteTemplateTb'].map(s => key('TextMap' + tag + s)));
@@ -190,7 +234,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     }
     writeFileSync(join(work, 'galgame-perform.mjs'), code, {flag: 'wx'});
   } else {
-    const run = {plan, bindings}[mode];
+    const run = {plan, bindings, messages}[mode];
     if (!run) throw Error('Unsupported ZZZ publisher query');
     const reader = await import(pathToFileURL(resolve(readerPath)).href);
     const input = JSON.parse(readFileSync(join(work, mode + '-input.json')));

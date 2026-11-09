@@ -40,7 +40,7 @@
     "targets": {
       "genshin": "mainlandLauncher",
       "starrail": "regularGlobal",
-      "zzz": "sourceCommand",
+      "zzz": "globalRecordedMessages",
       "endfield": "globalNarrative",
       "wuwa": "globalDialogue",
       "nte": "installedWithRegionalAudit"
@@ -50,7 +50,7 @@
       "regularGlobal": { "withoutInstall": true, "label": "Publisher Setup for regular Global launcher voice packs" },
       "globalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
-      "sourceCommand": { "withoutInstall": false, "label": "Installed game in Setup. Source-checkout command for selected publisher lines." },
+      "globalRecordedMessages": { "withoutInstall": true, "label": "Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files.", "pairLabel": "Publisher Setup for recorded phone messages only. Other dialogue uses installed files." },
       "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
     }
   },

@@ -110,15 +110,15 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     value.build_language(game, 'nl', ('en',))
 
 
-@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail", "wuwa"])
+@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail", "wuwa", "zzz"])
 def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch, game):
     from pathlib import Path
     from backend.game_assets import asset_adapter
     adapter, _ = asset_adapter(game)
     def fingerprint(source):
-        assert source == (tmp_path / 'wuwa' / 'tools' if game == 'wuwa' else None)
+        assert source == (tmp_path / game / 'tools' if game in ('wuwa', 'zzz') else None)
         return 'owned-publisher-release'
-    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game == 'wuwa' else 'fingerprint', fingerprint)
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', fingerprint)
     value = runtime(tmp_path, locale=None)
     value.setup_install = lambda _game: None
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
@@ -143,7 +143,7 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     from backend.preparation_errors import PreparationFailure
     def offline(_source):
         raise URLError('offline')
-    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game == 'wuwa' else 'fingerprint', offline)
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', offline)
     with pytest.raises(PreparationFailure) as caught:
         value.build_language(game, 'ja', ('en',))
     assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained

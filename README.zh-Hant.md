@@ -57,14 +57,14 @@
 | :--- | :--- | :--- | :--- |
 | Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (可選用的歷史版本索引) | 可從發行商準備中國大陸啟動器版本 |
 | Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) | 可從發行商準備全球版啟動器常規配音包 |
-| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (可選用的 TextMap 格式參考) | 設定中需要已安裝的遊戲。可在原始碼目錄以指令從發行商取得指定台詞。 |
+| Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (可選用的 TextMap 格式參考) | 設定可從發行商取得全球版啟動器中的有聲手機訊息。其他對話需要已安裝的遊戲檔案。 |
 | Arknights: Endfield | GRYPHLINE | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) | 可從發行商準備全球版劇情配音 |
 | Wuthering Waves | Kuro Games | [SnosMe/ooz-wasm](https://github.com/SnosMe/ooz-wasm) (讀取發行商壓縮配音項目所需) · [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (讀取發行商目錄所需的格式資訊) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) | 可從發行商準備全球版台詞與原版配音 |
 | Neverness to Everness | Perfect World Games | [Waifus-Grace/NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) (必要的影片表，需要時使用固定版本) · [555me/NTEData](https://github.com/555me/NTEData) (中國大陸版文字匯出所需的中文在地化資料) · [555me/NTE-usmap](https://github.com/555me/NTE-usmap) (已安裝資源所需的型別表) · [BlueHeisenberg/SCSKiller](https://github.com/BlueHeisenberg/SCSKiller) (讀取本機資源包所需的相容中繼資料) · [Tobiichi-Origuchi/nte_patcher](https://github.com/Tobiichi-Origuchi/nte_patcher) (核對全球版更新程式所需) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (核對中國大陸版更新程式所需) | 設定中需要已安裝的遊戲。可分別核對全球版和中國大陸版的發行商檔案。 |
 
 Unreal 資源讀取器 ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). 音訊解碼與轉換 ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。
+在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版啟動器基礎包取得有聲手機訊息。其他對話需要已安裝的遊戲檔案。
 
 這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。
 

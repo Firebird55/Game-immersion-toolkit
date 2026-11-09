@@ -23,6 +23,7 @@ else {
   if(game.expectedTargets?.includes(target))return 'Expected with installed assets';
   if(source===target)return 'Same-language reading';
   if(game.textOnly)return 'Supported text-only pair';
+  if(preparation?.pairLabel)return preparation.pairLabel;
   return preparation?.withoutInstall?'Supported with Windows publisher Setup or installed assets':'Supported with installed assets';
  }
  function card(game,source,target){

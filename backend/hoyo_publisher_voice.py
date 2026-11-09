@@ -11,7 +11,7 @@ from . import sophon_assets as sophon
 from .hoyo_dialogue import voice_namespaces
 from .voice_assets import external_table, voice_hash
 
-CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global'}
+CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global', 'zzz': 'zzz-global'}
 
 
 def descriptor(build):
@@ -47,6 +47,11 @@ def _files(directory, stamp, locale, game):
     result = {}
     for name, asset in files.items():
         parts = PurePosixPath(name).parts
+        if game == 'zzz':
+            from .zzz_assets import VOICE_FOLDERS
+            if parts[:-1] == ('ZenlessZoneZero_Data', 'StreamingAssets', 'Audio', 'Windows', 'Full', VOICE_FOLDERS[locale]):
+                result[name] = asset
+            continue
         if len(parts) < 4 or parts[1] not in ('Persistent', 'StreamingAssets') or parts[-2] not in allowed:
             continue
         if (game == 'genshin' and parts[0] == 'YuanShen_Data' and parts[2:-2] == ('AudioAssets',) or
@@ -77,7 +82,7 @@ def _table(directory, stamp, locale, name, game):
     return external_table(name, asset.size, lambda start, count: asset.read(directory, start, count))
 
 
-def inventory(data_dir, stamp, locale, game):
+def inventory(data_dir, stamp, locale, game, *, wanted=None):
     directory = data_dir / 'tools' / 'sophon'
     files = _files(directory, stamp, locale, game) | _optional_files(directory, stamp, locale, game)
     entries = {}
@@ -87,6 +92,8 @@ def inventory(data_dir, stamp, locale, game):
             paths = sorted(p for p in files if p.split('/')[1] == layer)
             for rows in pool.map(lambda name: _table(directory, stamp, locale, name, game), paths):
                 for row in rows:
+                    if wanted is not None and row.file_id not in wanted:
+                        continue
                     if row.file_id in current:
                         ambiguous.add(row.file_id)
                     current[row.file_id] = {'publisher': stamp, 'package': row.package}

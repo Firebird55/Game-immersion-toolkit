@@ -6,7 +6,12 @@ audio. Only the selected source and requested official translation tables are
 read. Account reading preferences and translation targets remain specific to
 each learning language; dictionary operations remain demand driven.
 
-TextMaps and scene configuration come from one pinned revision of the existing
+With the game folder empty, Windows Setup prepares recorded phone messages from
+the Global PC launcher base. It reads the current release's message bindings and
+translations and downloads the matching original audio on demand. Other dialogue
+presentations and later in-version overrides require installed files.
+
+With an installed game, TextMaps and scene configuration come from one pinned revision of the existing
 [extracted game-data mirror](https://git.mero.moe/dimbreath/ZenlessData). Installed
 GalGame/comic scripts and cinematic timelines supply authored subtitle/source
 or event bindings. The selected installed voice pack supplies the exact Wwise

@@ -71,8 +71,11 @@ different content layer remains open.
 The command requires a unique authored scene source and a unique matching file
 in the selected dub. It supports direct source paths and the evidenced GalGame
 and ongoing speaker directories. Additional conditional scene voices, comic panels and cinematic events
-require their own bindings. Automatic desktop and phone setup from the publisher,
-and acquisition of in-version Global overrides, remain open.
+require their own bindings. Windows Setup with no game folder reads the Global
+launcher's message configuration and the selected base and overwrite TextMaps.
+It prepares only phone message bodies with a unique authored source and an exact
+original recording in the selected language. Replies, other presentations, later
+in-version Global overrides and independent phone preparation remain outside this route.
 
 ## November 8, 2026 · Publisher sources and subtitle variants
 
@@ -116,7 +119,7 @@ The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
 from the publisher. Current Global 3.3 hotfix discovery from an empty device
-remains open. The normal preparation path still requires an installation
+remains open. Normal preparation of presentations beyond recorded phone messages still requires an installation
 and compatible scene metadata. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
 · [Public release revision history](https://zzz.gachabase.net/changelog/release)
 

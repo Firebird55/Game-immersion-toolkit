@@ -131,7 +131,10 @@ def missing_tools(root: Path, game: str, publisher: bool = False) -> list[str]:
     required = []
     if game == "zzz":
         required += [("ZZZ scene reader", voice_work_root(root) / "galgame-perform.ts")]
-        required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
+        if not publisher:
+            required += [(name, voice_work_root(root) / name) for name in METADATA_FILES]
+        else:
+            required.append(("ZZZ reader compiler for source checkouts", CODE_ROOT / "node_modules/typescript/package.json"))
         required += [(name, CODE_ROOT / "node_modules" / name / "package.json") for name in ("ooz-wasm", "xxhash-wasm")]
     if game == "cyberpunk":
         from .cyberpunk_toolchain import resolve
@@ -228,7 +231,7 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None, publish
     install_archive(VGM_URL, VGM_SHA, decoder, ("vgmstream-cli.exe", "COPYING"))
     if game == "zzz":
         directory = voice_work_root(root)
-        progress("Preparing the ZZZ scene reader and metadata")
+        progress("Preparing the ZZZ reader")
         source = download(READER_BASE + "galgame-perform.ts")
         if _digest(source) != READER_SHA:
             raise ValueError("ZZZ reader checksum mismatch")
@@ -238,7 +241,8 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None, publish
         _atomic_file(directory / "galgame-perform.ts", source)
         _atomic_file(directory / "ZENLESS-VOICE-LICENSE.txt", license_text)
         shutil.copytree(decoder, directory / "vgmstream", dirs_exist_ok=True)
-        refresh_zzz_metadata(root)
+        if not publisher:
+            refresh_zzz_metadata(root)
     elif game == "endfield":
         from .endfield_assets import ensure_extractor
         progress("Preparing the verified Endfield VFS voice reader")

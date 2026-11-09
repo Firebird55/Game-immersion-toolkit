@@ -2,7 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+import {recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+
+test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
+  const source = 'VO_Message/Actor/Message_Performance_75';
+  const rows = [['new_body_23', source, ''], ['new_body_23', '', source], ['reply', '', ''],
+    ['conflict', '', ''], ['conflict', source, ''], ['variant', source, source + 'B'],
+    ['unknown', 'voiced_flag', ''], ['', source, '']];
+  const {messages, unresolved} = recordedMessages(rows);
+  assert.deepEqual([...messages.values()], [{id:'new_body_23', source, texts:{}}]);
+  assert.equal(unresolved, 3);
+});
 
 test('publisher message and ongoing tables preserve their selected sentence and protagonist', () => {
   const messages = [['x', 'VO_Message/A/Message_A_01', 'VO_Message/A/Message_A_01']];

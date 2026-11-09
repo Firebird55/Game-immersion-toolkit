@@ -2,7 +2,7 @@
 from importlib import import_module
 from .steam_games import STEAM_GAMES
 
-PUBLISHER_GAMES = frozenset({"endfield", "genshin", "starrail", "wuwa"})
+PUBLISHER_GAMES = frozenset({"endfield", "genshin", "starrail", "wuwa", "zzz"})
 
 LOCAL_GAMES = {"starrail": "Honkai: Star Rail", "genshin": "Genshin Impact", "endfield": "Arknights: Endfield", "cyberpunk": "Cyberpunk 2077", "wuwa": "Wuthering Waves", "witcher3": "The Witcher 3",
                "nte": "Neverness to Everness", "beyond": "BEYOND: Two Souls", "heavyrain": "HEAVY RAIN"}

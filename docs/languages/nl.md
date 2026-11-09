@@ -13,7 +13,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 [Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [Dekkingsnotities](../zzz-languages.md)
 
-In de instellingen is een geïnstalleerde game nodig. De opdracht in de broncode kan afzonderlijke regels bij de uitgever ophalen.
+In de instellingen kun je ingesproken telefoonberichten uit de Global-launcher ophalen. Voor andere dialogen zijn de geïnstalleerde bestanden nodig.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 

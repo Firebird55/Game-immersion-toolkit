@@ -13,7 +13,7 @@
 
 [官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-08 · [覆盖范围说明](../zzz-languages.md)
 
-设置中需要已安装的游戏。可在源码目录用命令从发行商获取指定台词。
+设置可从发行商获取全球版启动器中的有声手机消息。其他对话需要已安装的游戏文件。
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 

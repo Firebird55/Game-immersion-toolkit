@@ -46,7 +46,7 @@ installation.
 
 | Game | Folder to choose | Voice requirement |
 | --- | --- | --- |
-| Zenless Zone Zero | Contains ZenlessZoneZero_Data, or the Data folder itself | Mandarin voice pack installed through the game launcher |
+| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Empty folder prepares recorded phone messages from the Global PC launcher base in the selected dub. For other dialogue, select the installed files and matching voice pack |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
