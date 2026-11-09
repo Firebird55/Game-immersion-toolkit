@@ -107,6 +107,6 @@ def extract(audio, tools, game):
     directory, name = tools / 'sophon', audio['package']
     entry, = [row for row in _table(directory, stamp, locale, name, game) if row.file_id == identity]
     data = _archive(directory, stamp, locale, name, game).read(directory, entry.offset, entry.size)
-    if data[:4] != b'RIFF' or len(data) < 12 or len(data) != struct.unpack_from('<I', data, 4)[0] + 8:
+    if data[:4] != b'RIFF' or data[8:12] != b'WAVE' or len(data) != struct.unpack_from('<I', data, 4)[0] + 8:
         raise ValueError('HoYoPlay publisher voice is incomplete.')
     return data
