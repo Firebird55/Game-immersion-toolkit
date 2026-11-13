@@ -1,4 +1,5 @@
 """Match released Genshin movie names and authored subtitle intervals."""
+import hashlib
 import re
 from pathlib import PurePosixPath
 from subprocess import SubprocessError
@@ -10,6 +11,33 @@ from .languages import normalize_text
 OPENING_MOVIE = 'MDAQ001_OPNew_Part1'
 OPENING_SOURCES = ('vo_op_cs_paimon_01.wem', 'vo_op_cs_paimon_02.wem', 'vo_op_cs_paimon_03.wem',
                    'vo_op_cs_kiana_01.wem', 'vo_op_cs_heroine_01.wem', 'vo_op_cs_kiana_02.wem')
+VERIFIED_OPENING_AUDIO = {
+    'en': ('Outlanders, your journey ends here', 'ccb2294bc9cfbb8d5d3acfdab248d34bdbfee4f7fa603f67750bdd7faf805178'),
+    'zh-Hans': ('外来之人，你们的旅途到此为止', '8879787f422285dafbd054e143d537670a070fdd6cf4eea72d81b7ed9284ba82'),
+    'zh-Hant': ('外來之人，你們的旅途到此為止', '8879787f422285dafbd054e143d537670a070fdd6cf4eea72d81b7ed9284ba82'),
+    'ko': ('이방인, 너희의 여정은 여기까지다', '6b5346ff856f84961f7a96262e3c6c99af2b9943ba0e176fb5c5690a1b5b5138')}
+
+
+def verified_opening_conflict(dialogue, read_audio):
+    """Identify the one reviewed opening performance from the actual regional package bytes."""
+    for row in dialogue:
+        if row['text_id'] != 'genshin:3500404':
+            continue
+        evidence = VERIFIED_OPENING_AUDIO.get(row.get('source_locale'))
+        audio = row.get('audio')
+        if (not evidence or not audio or row['source_text'] != evidence[0]
+                or audio.get('locale') != common.audio_locale(row['source_locale'])):
+            return None
+        source = audio['source'].lower().replace('\\', '/').partition('/')[2]
+        if source != 'vo_aq/vo_cs/vo_op_cs_kiana_01.wem':
+            return None
+        try:
+            recording = read_audio(audio)
+        except (TimeoutError, OSError, ValueError):
+            return None
+        if hashlib.sha256(recording).hexdigest() == evidence[1]:
+            return row['text_id']
+        return None
 
 
 def opening_performances(movies, dialogue, locale):

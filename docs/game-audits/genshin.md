@@ -255,9 +255,15 @@ sentence text. These include archived event dialogue and reused character
 reactions. Preparation compares the actual original release, package, media ID,
 dub and displayed study text across presentations. Capitalization and punctuation
 alone preserve a shared performance. Conflicted entries retain their text and
-unavailable status. They cannot start a capture chain or export incorrect audio.
-After this check, 180,862 of 471,176 English records retained original audio,
-including 20,294 recovered from an earlier publisher release.
+unavailable status unless the actual audio bytes independently identify the
+correct sentence. The three decoded English, Mandarin and Korean recordings of
+the unknown god are 2.939, 4.628 and 2.911 seconds respectively. On these
+originals independent speech recognition reproduced the god’s line. The Korean
+transcript varied slightly in the pronoun. The toolkit checks the exact
+original WEM digest and official source text before restoring this single
+sentence. The traveler’s sibling line remains unavailable. The Japanese
+publisher package had no corresponding file. A changed recording or rewritten
+caption needs a fresh check before this exception can apply.
 [7.2 original voice triggers](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
 · [7.2 authored dialogue](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/DialogExcelConfigData.json)
 
@@ -297,17 +303,17 @@ the entire published cue sequence independently in all five study selections.
 The Korean timeline uses nine cues, the other four use ten. Where a sentence
 spans successive subtitle cards, its clean original WEM is published under
 a complete-sentence ID. Each card keeps its original display interval.
-The 7.2 Global base yielded five complete performances in English, Korean
-and Mandarin and three in Japanese. The file conflict between the god and
-the traveler still excludes one sentence. Two additional JP files were
-unavailable in the checked base packages.
+The 7.2 Global base yielded all six complete performances in English, Korean
+and Mandarin, and three in Japanese. The Japanese base contained the first
+three Paimon lines. Its three other files were unavailable.
 
 The first Paimon performance decoded to 5.133 seconds in English, 4.645 in
 Japanese and Mandarin, and 4.028 in Korean. Normal Windows playback exported
 the English film performance to a 5.160-second MP3. Its full timeline spans
 1.450–6.852 seconds across two caption cards. The worker counted 471,180
-English records with 180,867 playable entries. The five film entries reuse
-separately authored dialogue performances.
+English records with 180,869 playable entries, including 20,294 recovered
+from earlier releases. The six film entries reuse separately authored
+dialogue performances.
 [English opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/EN/MDAQ001_OPNew_Part1_EN.srt)
 · [Korean opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/KR/MDAQ001_OPNew_Part1_KR.srt)
 

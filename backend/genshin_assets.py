@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 14
+LANGUAGE_INDEX_VERSION = 15
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -85,7 +85,7 @@ def _bind_predecessors(rows, annotations):
             row['previous_text_id'] = base
 
 
-def _exclude_conflicting_performances(rows, warnings):
+def _exclude_conflicting_performances(rows, warnings, *, read_audio=None):
     """A single concrete recording cannot verify different spoken sentences."""
     from .languages import normalize_text
     def media_key(audio):
@@ -100,8 +100,10 @@ def _exclude_conflicting_performances(rows, warnings):
             elif first[key] != row['source_text'] and normalize_text(first[key]) != normalize_text(row['source_text']):
                 conflicts.add(key)
     if conflicts:
+        from .genshin_cinematics import verified_opening_conflict
+        verified = verified_opening_conflict(rows, read_audio) if read_audio else None
         for row in rows:
-            if (audio := row.get('audio')) and media_key(audio) in conflicts:
+            if (audio := row.get('audio')) and media_key(audio) in conflicts and row['text_id'] != verified:
                 row['audio'] = None
                 row['voice_status'] = 'unavailable'
         _warn(warnings, f'{len(conflicts):,} Genshin recordings have conflicting authored sentence texts.')
@@ -584,7 +586,11 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             if not prepare_archive(data_dir, region, source_locale, archived_version):
                 _warn(warnings, f'The archived {archived_version} Genshin dialogue source was unavailable. Refresh to retry historical coverage.')
         retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
-    _exclude_conflicting_performances(rows, warnings)
+    def read_audio(audio):
+        if install is None:
+            return genshin_publisher.extract(audio, data_dir / 'tools')
+        return common.extract_voice(install, 'genshin', audio)
+    _exclude_conflicting_performances(rows, warnings, read_audio=read_audio)
     recovered = sum(bool((row.get('audio') or {}).get('original_publisher')) for row in rows)
     if recovered:
         _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')

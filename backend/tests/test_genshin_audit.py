@@ -195,7 +195,7 @@ def test_explicit_player_voice_pair_is_retained_and_unsafe_source_is_unavailable
 def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
     def row(text, identity, **changes):
         audio = {'file_id': identity, 'locale': 'en', 'package': 'base.pck', 'publisher': 'new', **changes}
-        return {'audio': audio, 'source_text': text, 'voice_status': 'voiced'}
+        return {'audio': audio, 'source_text': text, 'text_id': 'genshin:fixture', 'voice_status': 'voiced'}
     rows = [row('Stop here.', 'one'), row('Give my sister back!', 'one'), row('Stop here.', 'one'),
             row('Give my sister back!', 'one', original_publisher='older'), row('Stop here.', 'two'),
             row('STOP HERE!', 'two'), row('An independent performance.', 'one', package='other.pck'),
@@ -205,6 +205,25 @@ def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
     assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in rows[:3])
     assert all(r['audio'] and r['voice_status'] == 'voiced' for r in rows[3:])
     assert len(warnings) == 1 and '1 Genshin recording' in warnings[0]
+
+
+def test_reviewed_opening_audio_accepts_only_exact_locale_sentence_and_original_bytes(monkeypatch):
+    import hashlib
+    from backend import genshin_cinematics as movie
+    content = b'independently reviewed original recording'
+    monkeypatch.setattr(movie, 'VERIFIED_OPENING_AUDIO', {'en': ('This verified line.', hashlib.sha256(content).hexdigest())})
+    def rows():
+        common = {'audio': {'source': 'English(US)\\VO_AQ\\VO_CS\\vo_OP_CS_kiana_01.wem', 'file_id': 'a',
+                           'locale': 'en', 'package': 'p'}, 'source_locale': 'en', 'voice_status': 'voiced'}
+        return [{**common, 'text_id': 'genshin:3500404', 'source_text': 'This verified line.'},
+                {**common, 'text_id': 'genshin:3500424', 'source_text': 'A different line.'}]
+    for payload, modified in [(content, False), (b'a replacement', False), (content, True)]:
+        records = rows()
+        if modified:
+            records[0]['source_text'] = 'A rewritten verified line.'
+        game._exclude_conflicting_performances(records, [], read_audio=lambda audio: payload)
+        assert bool(records[0]['audio']) == (payload == content and not modified)
+        assert records[1]['audio'] is None
 
 
 def test_new_voice_schema_fails_with_actionable_public_error():
