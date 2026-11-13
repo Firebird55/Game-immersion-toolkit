@@ -124,10 +124,8 @@ variants, returned valid CRI container headers on both editions.
 
 Another 144 video records declare 138 distinct caption paths absent from
 the same revision's published caption directory. Six individually checked
-paths across chapters 3, 4 and 5 returned HTTP 404. Two published scripts,
-CS_Chap02_Act610 and CS_Chap04_Act781_2, contain 10 and 59 cues respectively
-and still lack a matching VideoConfig movie or directly bound timeline WEM.
-The ten Act610 text IDs were absent from the English, Japanese, Korean,
+paths across chapters 3, 4 and 5 returned HTTP 404. CS_Chap02_Act610 still
+lacks a matching movie or timeline WEM. Its ten text IDs were absent from the English, Japanese, Korean,
 both Chinese, French and German text tables.
 
 The regional publisher's DesignV directory for 4.7 supplies 141 additional
@@ -141,9 +139,25 @@ name remains unverified. Repeated copies of the same text and clocks are
 deduplicated. Both regional releases returned the same 141 records. The
 4.6 and 4.7 indexes from both regions retained the three reference resource
 IDs while changing their package digest. Mapping these new resources to
-individual VideoConfig paths and movie audio remains open.
+individual VideoConfig paths and movie audio is ongoing.
 [Global 4.7 DesignV marker](https://autopatchos.starrails.com/design_data/V4.7Live/output_17180467_2b67443267a6_475611c71617ea/client/Windows/M_DesignV.bytes) ·
 [Mainland 4.7 DesignV marker](https://autopatchcn.bhsr.com/design_data/V4.7Live/output_17180467_2b67443267a6_dc848fdaa66f47/client/Windows/M_DesignV.bytes)
+
+Both player variants of *Ripples of Past Reverie* identify mission 1043710.
+Its performance 104371098 plays video 4781 with two different lyric tracks.
+The Mandarin dub selects the default Act781_1 script. Its published design
+resource contains the Chinese song's distinct ending, which also appears in
+the publisher's lyrics. The other three dubs select Act781_2 via the mission's
+explicit caption override. Each script has 59 cues. Their last two entries
+start at 227.916 and 229.500 seconds for Mandarin and 228.083 and 229.666
+seconds for the other dubs. The reader resolves the current mission's
+language condition, regional movie files and caption clocks on each update.
+Across both editions, this brings the total per selected dub to 154 movie
+scripts with 860 intervals and 244 files. Playback from these two movie files
+remains open.
+[Released mission action](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/1043710/Act/Act104371098.json) ·
+[Publisher's Mandarin lyrics](https://sr.mihoyo.com/news/160771?type=news) ·
+[English vocal recording](https://www.youtube.com/watch?v=LdFYCWEp8no)
 
 After a normal update the reader resolves the reviewed caption IDs and
 current sentence recordings again. It checks the publisher movie's MD5 and
@@ -400,7 +414,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
 | Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
-| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 scripts with 801 intervals to 242 movie files. Direct publisher caption records add 996 intervals. Five Serval and two Acheron fragments play in all four dubs and eleven Silent Galaxy lines also play in Korean and Mandarin. | Exact playback for the other captions and identifying the additional publisher records by their declared movie paths remain open. |
+| Pre-rendered movies | Regional video and mission data bind 154 scripts with 860 intervals to 244 movie files per dub. Direct publisher records contain 996 additional subtitle intervals, including the 59 Mandarin cues for video 4781. Five Serval and two Acheron fragments play in all four dubs and eleven Silent Galaxy lines also play in Korean and Mandarin. | Exact playback for the other captions and identifying the remaining publisher records by their declared movie paths remain open. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
 | Character profile/voice archive | 5,445 `VoiceAtlas` rows; `AudioID`, not the menu's `VoiceID`, is the voice-config key. Exact `AudioID` records are indexed with original audio where installed. | 3,614 rows use Wwise `AudioEvent` instead; their text is indexed but event-to-media binding is unavailable. |
 | Combat, idle and character reaction lines | `VoiceAtlas.IsBattleVoice` identifies 2,506 battle entries; their localized text is retained. | Not all combat audio displays subtitles. Event-driven playback is unresolved; no inference from filename or voice title. |
