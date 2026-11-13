@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 5
+LANGUAGE_INDEX_VERSION = 6
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -479,8 +479,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         if annotation := annotations.get(link['id'].split(':', 1)[0]):
             link.update(annotation)
     profiles = _table(catalog, 'FettersExcelConfigData', warnings)
+    ambiguous = set()
     entries = (common.inventory(install, 'genshin', source_locale) if install is not None
-               else genshin_publisher.inventory(data_dir, stamp, source_locale))
+               else genshin_publisher.inventory(data_dir, stamp, source_locale, unavailable_duplicates=ambiguous))
     # Reminders use a distinct hash namespace. In this modality Medium takes
     # priority; ordinary dialogue keeps the full TextMap's canonical values.
     reminder_tables = {}
@@ -504,6 +505,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
                                 catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources, gameplay_sources)
         rows += profile_records(profile, tables, source_locale, entries)
+        links.extend(profile)
+    if install is None:
+        from .genshin_history import retained_performances
+        if not any(row['audio'] for row in rows):
+            raise ValueError('The current Genshin release has no playable narrative audio. Retry preparation.')
+        recovered = retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
+        if recovered:
+            _warn(warnings, f'{recovered:,} identical dialogue performances come from previously prepared publisher releases.')
     if version_matches:
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
     else:

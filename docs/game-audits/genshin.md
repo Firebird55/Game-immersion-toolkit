@@ -271,6 +271,20 @@ evidence. A package hit establishes a source candidate for each dub. Historical
 download, revision selection and per-take playback are still outside the
 installed-pack adapter.
 
+The installation-free reader keeps a regional record of verified performances
+from each prepared release. When a later package drops a recording, the reader
+can use the earlier publisher package if the current line ID, original path,
+player variant and displayed study-language text still agree. Ambiguous current
+package IDs are excluded. November 13 checks replayed the mainland 7.1 and 7.2
+English builds in succession. All previously matched surviving lines already
+had current recordings. A separate Global test prepared the 4.8 binding for
+event Dialog `400810204` and recovered it under 7.2, where the recording is
+absent. Normal playback exported 5.664 seconds from the publisher’s older file.
+Fresh installations need an earlier release catalog to recover media that
+already disappeared before their first preparation.
+[4.8 dialogue](https://github.com/DimbreathBot/AnimeGameData/blob/411376ae92931a04d41ae5a9386d45c0d2deb8a8/BinOutput/Talk/Quest/4008102.json)
+· [4.8 original voice binding](https://github.com/DimbreathBot/AnimeGameData/blob/411376ae92931a04d41ae5a9386d45c0d2deb8a8/BinOutput/Voice/Items/3238191112.json)
+
 ## Verification
 
 Synthetic regressions cover schema drift, global fallback precedence, conflicts,

@@ -1,5 +1,6 @@
 """Installation-free Genshin text and voice from the selected regional PC release."""
 from functools import lru_cache
+import json
 import re
 import time
 
@@ -77,9 +78,19 @@ def prepare(data_dir, region='global'):
     return stamp, catalog, build['version']
 
 
-def inventory(data_dir, stamp, locale):
-    return voices.inventory(data_dir, stamp, locale, 'genshin')
+def inventory(data_dir, stamp, locale, *, unavailable_duplicates=None):
+    return voices.inventory(data_dir, stamp, locale, 'genshin', unavailable_duplicates=unavailable_duplicates)
 
 
 def extract(audio, tools):
+    if previous := audio.get('original_publisher'):
+        channels = []
+        for stamp in (audio['publisher'], previous):
+            if not voices.snapshot_available(tools, stamp, 'genshin'):
+                raise ValueError('The Genshin voice release is unavailable.')
+            descriptor = json.loads((tools / 'sophon' / 'releases' / stamp).read_bytes())
+            channels.append(descriptor['channel'])
+        if channels[0] != channels[1]:
+            raise ValueError('A historical Genshin voice must use the same publisher edition.')
+        audio = audio | {'publisher': previous}
     return voices.extract(audio, tools, 'genshin')
