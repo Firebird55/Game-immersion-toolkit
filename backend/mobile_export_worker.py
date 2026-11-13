@@ -6,6 +6,8 @@ from pathlib import Path
 
 from .game_assets import PUBLISHER_GAMES
 from .mobile_library import export_library, prepare_source, encoded, export_workers
+from .publisher_regions import REGIONAL_GAMES, selected_region, select_region
+from .runtime_paths import data_root as runtime_data_root
 
 
 def main():
@@ -20,6 +22,7 @@ def main():
     source_args = parser.add_mutually_exclusive_group()
     source_args.add_argument('--automatic-install', type=Path)
     source_args.add_argument('--automatic-publisher', action='store_true')
+    parser.add_argument('--publisher-fingerprint', help='Released generation selected by the automatic export queue')
     args = parser.parse_args()
     if args.automatic_publisher and args.game not in PUBLISHER_GAMES:
         parser.error('Publisher export is unavailable for this game.')
@@ -49,7 +52,13 @@ def main():
             adapter, _ = asset_adapter(args.game)
             directory = work_folder(args.output) / 'source'
             directory.mkdir(parents=True, exist_ok=True)
+            if args.automatic_publisher and args.game in REGIONAL_GAMES:
+                settings_tools = runtime_data_root(args.root) / args.game / 'tools'
+                region = selected_region(settings_tools, args.game)
+                select_region(directory / 'tools', args.game, region)
             stamp = preparation_fingerprint(adapter, args.automatic_install, directory / 'tools')
+            if args.publisher_fingerprint and args.publisher_fingerprint != stamp:
+                raise ValueError('Publisher generation changed before export preparation.')
             source = directory / 'textmap.json'
             marker = directory / 'verified.json'
             identity = digest([stamp, adapter.LANGUAGE_INDEX_VERSION, args.source_locale, args.translation_locale])

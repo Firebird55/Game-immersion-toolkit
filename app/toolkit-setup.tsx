@@ -164,7 +164,7 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
               {current.publisher_regions && <label>{uiText('Publisher edition')}
-                <select value={current.publisher_region ?? ''} disabled={busy} onChange={event => {
+                <select aria-label={uiText('Publisher edition')} value={current.publisher_region ?? ''} disabled={busy} onChange={event => {
                   void action(`/api/setup/games/${game}/publisher-region`, {region: event.target.value}, 'Publisher edition saved.');
                 }}>
                   {!current.publisher_region && <option value="" disabled>{uiText('Choose an edition')}</option>}
