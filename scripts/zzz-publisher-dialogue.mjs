@@ -325,10 +325,18 @@ export function tipRows(rows) {
   const tips = [];
   for (const [text_id, primary, alternate, reaction, events, ...references] of rows) {
     if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text_id)) continue;
-    const source = (!alternate || primary === alternate) &&
-      /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|GalGame|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i.test(primary) ? primary : '';
-    tips.push({text_id, source, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip',
-      voice_status:primary || alternate ? 'unavailable' : reaction || events.length || references.some(Boolean) ? 'unknown' : 'unvoiced'});
+    const supported = /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|GalGame|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i;
+    const link = {text_id, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip'};
+    if (primary && alternate && primary !== alternate && supported.test(primary) &&
+        primary.slice(0, -1) === alternate.slice(0, -1) && /_[FM]$/.test(primary) && /_[FM]$/.test(alternate)) {
+      for (const source of [primary, alternate]) {
+        tips.push({...link, source, gender:source.at(-1), voice_status:'unavailable'});
+      }
+    } else {
+      const source = (!alternate || primary === alternate) && supported.test(primary) ? primary : '';
+      tips.push({...link, source, voice_status:primary || alternate ? 'unavailable' :
+        reaction || events.length || references.some(Boolean) ? 'unknown' : 'unvoiced'});
+    }
   }
   return tips;
 }

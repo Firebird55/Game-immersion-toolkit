@@ -237,6 +237,19 @@ def test_gameplay_tips_distinguish_original_sentences_reactions_and_silence():
     assert all(link['dialogue_kind'] == 'gameplay_tip' and link['channels'] == ['tip', 'gameplay'] for link in links)
 
 
+def test_tip_protagonist_sources_must_name_matching_takes():
+    pairs = [('Tips_Paired', 'Level_Actor_02_M', 'Level_Actor_02_F'),
+             ('Tips_Numbered', 'Level_Actor_02', 'Level_Actor_03'),
+             ('Tips_Other', 'Level_Actor_02_F', 'Level_Actor_03_M'),
+             ('Tips_Invalid', '../Other_M', '../Other_F')]
+    rows = [tip_row(key, NMMACKNBLKO=one, NPDBBLABDAK=two) for key, one, two in pairs]
+    links, counts = assets.tip_links({'rows': rows}, {key: 'Text' for key, _, _ in pairs})
+    assert [(r['text_id'], r.get('gender'), r['source']) for r in links] == [
+        ('Tips_Paired', 'M', 'Level_Actor_02_M'), ('Tips_Paired', 'F', 'Level_Actor_02_F'),
+        ('Tips_Numbered', None, ''), ('Tips_Other', None, ''), ('Tips_Invalid', None, '')]
+    assert counts['unresolved_voice_variants'] == 3
+
+
 @pytest.mark.parametrize('reader, row', [(assets.message_links, message_row()), (assets.tip_links, tip_row())])
 def test_supplemental_schema_drift_fails_before_certifying_silent_text(reader, row):
     identity = row.get('LDHNMACDKLH') or row.get('BHLFCEAPFIG')

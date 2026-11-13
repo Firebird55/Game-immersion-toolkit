@@ -115,12 +115,17 @@ def tip_links(config, textmap):
         if not TEXT_ID.fullmatch(identity) or identity not in textmap:
             continue
         primary, alternate, reaction = (row[key] for key in ('NMMACKNBLKO', 'NPDBBLABDAK', 'FNHBBPCONOL'))
+        link = {'text_id': identity, 'dialogue_kind': 'gameplay_tip', 'channels': ['tip', 'gameplay']}
+        if (primary != alternate and TIP_SOURCE.fullmatch(primary) and
+                primary[:-1] == alternate[:-1] and {primary[-2:], alternate[-2:]} == {'_F', '_M'}):
+            links.extend({**link, 'source': value, 'gender': value[-1], 'voice_status': 'unavailable'}
+                         for value in (primary, alternate))
+            continue
         source = primary if (not alternate or alternate == primary) and TIP_SOURCE.fullmatch(primary) else ''
         unresolved += bool((primary or alternate) and not source)
         # A reaction pool or a sound event never substitutes for sentence audio.
         status = 'unavailable' if primary or alternate else 'unknown' if reaction or row['FFNNCACHDLN'] or row['KDPLFOOHOAA'] else 'unvoiced'
-        links.append({'text_id': identity, 'source': source, 'dialogue_kind': 'gameplay_tip',
-                      'voice_status': status, 'channels': ['tip', 'gameplay']})
+        links.append({**link, 'source': source, 'voice_status': status})
     return links, {'rows': len(rows), 'text_references': len(links), 'unresolved_voice_variants': unresolved}
 
 

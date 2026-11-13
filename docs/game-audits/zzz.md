@@ -51,6 +51,14 @@ the irate operator (7.678 s), an Elpis fishing line (1.032 s) and Ju Fufu’s
 companion line (3.325 s).
 [Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
 
+Two Remielle gameplay tips name one take ending in `_F` and one ending in
+`_M` under the same source name. The selected text names Belle or Wise.
+These four additional English performances exported through Setup.
+The two takes for `Tips_74580002` lasted 5.009 s and 5.274 s, and those for
+`Tips_74580004` lasted 5.541 s and 5.552 s. These four bring the English
+selection to 70,397 voiced and 9,634 unavailable records. Alternate takes
+that only carry different numbers still need performer evidence.
+
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
 rows, the reaction column had 268 populated entries and 16 rows referred to an

@@ -175,6 +175,20 @@ test('released tips distinguish reactions, events, secondary references and auth
   assert.deepEqual(rows.filter(row => row.source).map(row => row.text_id), ['voice','story']);
 });
 
+test('released tip recordings use explicit matching protagonist suffixes', () => {
+  const row = (id, first, second) => [id, first, second, '', [], '', '', '', ''];
+  const rows = tipRows([
+    row('paired', 'Level_Actor_02_M', 'Level_Actor_02_F'),
+    row('numbered', 'Level_Actor_02', 'Level_Actor_03'),
+    row('other', 'Level_Actor_02_F', 'Level_Actor_03_M'),
+    row('unsafe', '../Other_M', '../Other_F'),
+  ]);
+  assert.deepEqual(rows.map(r => [r.text_id, r.gender, r.source]), [
+    ['paired', 'M', 'Level_Actor_02_M'], ['paired', 'F', 'Level_Actor_02_F'],
+    ['numbered', undefined, ''], ['other', undefined, ''], ['unsafe', undefined, ''],
+  ]);
+});
+
 test('released string vector respects entry offsets, defaults and additional schema fields', () => {
   const bytes = Buffer.alloc(80);
   bytes.writeUInt32LE(12); bytes.writeUInt16LE(6,4); bytes.writeUInt16LE(8,6); bytes.writeUInt16LE(4,8);
