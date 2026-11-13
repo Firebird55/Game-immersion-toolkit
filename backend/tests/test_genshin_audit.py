@@ -41,6 +41,37 @@ def test_movie_translations_require_exclusive_overlapping_cues_in_both_tracks():
     assert _aligned(source, {1: (200, 1000, 'Un')}) == {}
 
 
+def test_opening_movie_requires_all_authored_sentences_in_order_and_each_own_nonconflicting_recording():
+    from backend.genshin_cinematics import OPENING_MOVIE, OPENING_SOURCES, opening_performances
+    def fixture():
+        captions = ('From another', 'world.', 'Tell me.', 'What happened?', 'Outlanders.', "Who's there?", 'At last.')
+        movies = [{'text_id': f'genshin:movie:{OPENING_MOVIE}:{i}:{i*100}-{i*100+90}', 'source_text': text,
+                   'voice_status': 'unknown'} for i, text in enumerate(captions, 1)]
+        sentences = ['From another world.', *captions[2:]]
+        dialogue = [{'text_id': 'genshin:' + str(3500400 + i), 'source_text': text, 'texts': {'en': text},
+                     'english': text, 'chinese': '', 'audio': {'locale': 'en', 'source': 'English(US)/VO_AQ/VO_CS/' + name}}
+                    for i, (name, text) in enumerate(zip(OPENING_SOURCES, sentences), 1)]
+        return movies, dialogue
+    movies, dialogue = fixture()
+    dialogue[3]['audio'] = None
+    dialogue[5]['audio']['source'] = 'English(US)/VO_AQ/VO_CS/a_different_recording.wem'
+    extra, = opening_performances(movies, dialogue, 'en')
+    assert extra['source_text'] == 'From another world.' and extra['audio'] == dialogue[0]['audio']
+    assert extra['member_text_ids'] == [row['text_id'] for row in movies[:2]]
+    assert extra['text_id'].endswith(':100-290')
+    assert [i for i, cue in enumerate(movies) if cue['voice_status'] == 'voiced'] == [2, 3, 5]
+    for change in ('text', 'order', 'extra', 'locale'):
+        movies, dialogue = fixture()
+        if change == 'text':
+            movies[-1]['source_text'] = 'This release changed the final line.'
+        elif change == 'order':
+            movies[1], movies[2] = movies[2], movies[1]
+        elif change == 'extra':
+            movies.append(dict(movies[-1]))
+        assert opening_performances(movies, dialogue, 'ja' if change == 'locale' else 'en') == []
+        assert all(r['voice_status'] == 'unknown' for r in movies)
+
+
 def test_confirmed_genshin_predecessor_selects_a_short_recording_without_guessing_audio(tmp_path):
     from backend.endfield_caption_context import EndfieldCaptionContext
     from backend.multilingual_index import MultilingualTextIndex

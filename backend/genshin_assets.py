@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 13
+LANGUAGE_INDEX_VERSION = 14
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -593,13 +593,15 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         from .genshin_messages import message_records
         rows += message_records(catalog, full_tables, medium_tables, source_locale, rows, warnings)
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
-        from .genshin_cinematics import movie_records
+        from .genshin_cinematics import movie_records, opening_performances
         if install is None:
             movies = genshin_publisher.movie_names(data_dir, stamp)
         else:
             folder = common.game_data(install, 'genshin') / 'StreamingAssets/VideoAssets/StandaloneWindows64'
             movies = {path.stem for path in folder.glob('*.usm') if path.is_file()}
-        rows += movie_records(catalog, movies, tables, source_locale, warnings)
+        movie_rows = movie_records(catalog, movies, tables, source_locale, warnings)
+        movie_rows += opening_performances(movie_rows, rows, source_locale)
+        rows += movie_rows
     else:
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
     if any(row['voice_status'] == 'unknown' for row in rows):

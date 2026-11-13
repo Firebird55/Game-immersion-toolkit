@@ -288,9 +288,28 @@ ordinal-only match is insufficient. Translation joins use matching ordinal
 and timestamps, or complete matching ordinal sequences with exclusive
 overlapping intervals in both directions. This yielded 2,417 simplified
 Chinese translations for the Global 7.2 English cues. The subtitle timeline
-establishes the text's display time. Isolating a spoken recording and identifying
-its locale track in the USM are still open. The records retain unknown voice status.
+establishes the text's display time. Other movies still require a clean source
+or independently verified locale audio track for each sentence.
 [7.2 movie subtitles](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle)
+
+For the first opening movie, the six complete dialogue texts in order match
+the entire published cue sequence independently in all five study selections.
+The Korean timeline uses nine cues, the other four use ten. Where a sentence
+spans successive subtitle cards, its clean original WEM is published under
+a complete-sentence ID. Each card keeps its original display interval.
+The 7.2 Global base yielded five complete performances in English, Korean
+and Mandarin and three in Japanese. The file conflict between the god and
+the traveler still excludes one sentence. Two additional JP files were
+unavailable in the checked base packages.
+
+The first Paimon performance decoded to 5.133 seconds in English, 4.645 in
+Japanese and Mandarin, and 4.028 in Korean. Normal Windows playback exported
+the English film performance to a 5.160-second MP3. Its full timeline spans
+1.450–6.852 seconds across two caption cards. The worker counted 471,180
+English records with 180,867 playable entries. The five film entries reuse
+separately authored dialogue performances.
+[English opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/EN/MDAQ001_OPNew_Part1_EN.srt)
+· [Korean opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/KR/MDAQ001_OPNew_Part1_KR.srt)
 
 ## Historical quest and event audio
 

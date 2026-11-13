@@ -5,6 +5,67 @@ from subprocess import SubprocessError
 from urllib.error import URLError
 
 from . import hoyo_dialogue as common
+from .languages import normalize_text
+
+OPENING_MOVIE = 'MDAQ001_OPNew_Part1'
+OPENING_SOURCES = ('vo_op_cs_paimon_01.wem', 'vo_op_cs_paimon_02.wem', 'vo_op_cs_paimon_03.wem',
+                   'vo_op_cs_kiana_01.wem', 'vo_op_cs_heroine_01.wem', 'vo_op_cs_kiana_02.wem')
+
+
+def opening_performances(movies, dialogue, locale):
+    """Verify the entire six-line opening against the locale's own timed cue sequence."""
+    cues = [row for row in movies if row['text_id'].startswith(f'genshin:movie:{OPENING_MOVIE}:')]
+    if not cues:
+        return []
+    expected_ids = {'genshin:' + str(3500400 + index) for index in range(1, len(OPENING_SOURCES) + 1)}
+    lines = {}
+    for row in dialogue:
+        if row['text_id'] in expected_ids:
+            if row['text_id'] in lines:
+                return []
+            lines[row['text_id']] = row
+    cursor, matched, result = 0, [], []
+    for index, source in enumerate(OPENING_SOURCES, start=1):
+        line = lines.get('genshin:' + str(3500400 + index))
+        if not line:
+            return []
+        expected = normalize_text(line['source_text'])
+        combined, members = '', []
+        while cursor < len(cues) and len(combined) < len(expected):
+            cue = cues[cursor]
+            ordinal = cue['text_id'].split(':')[-2]
+            if ordinal != str(cursor + 1):
+                return []
+            combined += normalize_text(cue['source_text'])
+            members.append(cue)
+            cursor += 1
+        if combined != expected or not members:
+            return []
+        matched.append((line, source, members))
+    if cursor != len(cues):
+        return []
+
+    for line, source, members in matched:
+        audio = line.get('audio')
+        if not audio or audio.get('locale') != common.audio_locale(locale):
+            continue
+        relative = audio['source'].lower().replace('\\', '/').partition('/')[2]
+        if relative != 'vo_aq/vo_cs/' + source:
+            continue
+        # A divided subtitle displays only part of a single clean WEM. Publish
+        # that complete performance under its own identity, never split the WEM by display time.
+        if len(members) == 1:
+            row = members[0]
+        else:
+            start = members[0]['text_id'].rsplit(':', 1)[1].split('-')[0]
+            end = members[-1]['text_id'].rsplit('-', 1)[1]
+            row = {'text_id': f"genshin:movie:{OPENING_MOVIE}:performance-{line['text_id'].split(':')[1]}:{start}-{end}",
+                   'source_locale': locale, 'audio_locale': common.audio_locale(locale), 'channels': ['cinematic'],
+                   'member_text_ids': [cue['text_id'] for cue in members]}
+            result.append(row)
+        row.update(source_text=line['source_text'], texts=line['texts'], english=line['english'],
+                   chinese=line['chinese'], audio=audio, voice_status='voiced', dialogue_kind='cinematic_performance')
+    return result
 
 
 def subtitle_cues(text):
