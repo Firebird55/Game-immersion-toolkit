@@ -231,6 +231,24 @@ def test_existing_historical_archive_is_reindexed_for_new_player_binding_fields(
     assert calls == [version]
 
 
+def test_traveler_and_sibling_pronouns_use_original_localized_words_and_exclude_unknown_tokens():
+    class Catalog:
+        def file(self, path, *, optional):
+            assert path == 'ExcelBinOutput/ManualTextMapConfigData.json'
+            return [{'textMapId': name, 'textMapContentTextMapHash': key} for name, key in
+                    [('INFO_MALE_PRONOUN_HE', 1), ('INFO_FEMALE_PRONOUN_SHE', 2),
+                     ('INFO_MALE_PRONOUN_HE', 1), ('INFO_MALE_PRONOUN_AMBIGUOUS', 3), ('INFO_MALE_PRONOUN_AMBIGUOUS', 4)]]
+    localized = game._pronoun_texts(Catalog(), {'zh-Hans': {'1':'他', '2':'她', '3':'甲', '4':'乙'}}, [])
+    words = localized['zh-Hans']
+    assert words == {'INFO_MALE_PRONOUN_HE':'他', 'INFO_FEMALE_PRONOUN_SHE':'她'}
+    own = '{PLAYERAVATAR#SEXPRO[INFO_MALE_PRONOUN_HE|INFO_FEMALE_PRONOUN_SHE]}'
+    mate = own.replace('PLAYERAVATAR','MATEAVATAR')
+    assert game._official_variants('#'+own+'和'+mate+'。', words) == {'M':'他和她。','F':'她和他。'}
+    assert game._official_variants('#'+own+'的{M#妹妹}{F#哥哥}。', words) == {'M':'他的妹妹。','F':'她的哥哥。'}
+    assert game._official_variants('#'+own, {'INFO_MALE_PRONOUN_HE':'他'}) == {'M':'他'}
+    assert game._official_variants('#'+own.replace('PLAYERAVATAR','UNREVIEWED'), words) == {}
+
+
 def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
     def row(text, identity, **changes):
         audio = {'file_id': identity, 'locale': 'en', 'package': 'base.pck', 'publisher': 'new', **changes}

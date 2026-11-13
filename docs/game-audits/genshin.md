@@ -265,6 +265,16 @@ selection and exported to a 2.136-second male and 2.184-second female MP3.
 [7.2 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
 · [7.1 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/BinOutput/Voice)
 
+Some translations reference the player’s or sibling’s pronouns and forms
+of address through separate localization keys. The current worker now
+renders the selected character’s official wording for 522 voiced English
+records whose Chinese translations contained those tokens. The reader checks
+the original ManualTextMap and locale hash tables. On both 7.1 and 7.2,
+all 704 Simplified Chinese source strings containing these constructs had
+complete renderings for both Travelers, including the two complete sentences
+selected by the Twins2 keys. Unknown or ambiguous keys remain unavailable.
+[Versioned word and sentence keys](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/ManualTextMapConfigData.json)
+
 ### Reused audio
 
 The 7.2 Global metadata assigns one original file to both opening dialogue

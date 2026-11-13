@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 16
+LANGUAGE_INDEX_VERSION = 17
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -359,23 +359,57 @@ def profile_links(rows, avatars, configs, sources, gameplay_sources=None):
     return links
 
 
-def profile_records(links, tables, locale, entries):
+def profile_records(links, tables, locale, entries, pronouns=None):
     triggers = {'genshin:' + link['id']: link['gameplay_triggers'] for link in links if link.get('gameplay_triggers')}
     rows = common.records('genshin', links, tables, locale, entries)
     for row in rows:
         if row['audio'] and row['text_id'] in triggers:
             row['audio']['gameplay_triggers'] = triggers[row['text_id']]
-    return _render_player_text(rows, locale, split_unconditional=True)
+    return _render_player_text(rows, locale, pronouns, split_unconditional=True)
 
 
-def _render_player_text(rows, locale, *, split_unconditional=False):
+PRONOUN_TAG = re.compile(r'\{(PLAYERAVATAR|MATEAVATAR)#SEXPRO\[(INFO_[A-Za-z0-9_]+)\|(INFO_[A-Za-z0-9_]+)\]\}')
+
+
+def _pronoun_texts(catalog, tables, warnings):
+    names = defaultdict(set)
+    for row in _table(catalog, 'ManualTextMapConfigData', warnings):
+        if not isinstance(row, dict):
+            continue
+        name, key = row.get('textMapId'), _identity(row.get('textMapContentTextMapHash'))
+        if key and isinstance(name, str) and re.fullmatch('INFO_(?:MALE|FEMALE)_PRONOUN_[A-Za-z0-9_]+', name):
+            names[name].add(key)
+    unique = _unique(names)
+    return {lang: {name: common.display_text(table[key]) for name, key in unique.items() if table.get(key)}
+            for lang, table in tables.items()}
+
+
+def _official_variants(raw, words):
+    text = raw.removeprefix('#')
+    literal = gender_variants(text)
+    if '#SEXPRO[' not in text:
+        return literal
+    values = {}
+    for gender, variant in (literal or {'M': text, 'F': text}).items():
+        def substitute(match):
+            # The sibling is the opposite Traveler. The authored two keys are
+            # indexed by that character's sex, even when their wording differs.
+            male = (gender == 'M') == (match[1] == 'PLAYERAVATAR')
+            return words.get(match[2 if male else 3], match[0])
+        result = PRONOUN_TAG.sub(substitute, variant)
+        if '#SEXPRO[' not in result:
+            values[gender] = common.display_text(result)
+    return values
+
+
+def _render_player_text(rows, locale, pronouns=None, *, split_unconditional=False):
     records = []
     for row in rows:
         if not row['player_voice'] and not split_unconditional:
             records.append(row)
             continue
-        variants = {lang: rendered for lang, raw in row['texts'].items()
-                    if (rendered := gender_variants(raw.removeprefix('#')))}
+        variants = {lang: _official_variants(raw, (pronouns or {}).get(lang, {})) for lang, raw in row['texts'].items()
+                    if any(marker in raw for marker in ('{M#', '{F#', '#SEXPRO['))}
         if not variants:
             records.append(row)
             continue
@@ -587,14 +621,15 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         tables[locale] = {**medium, **values}
     ordinary = [link for link in links if not link['id'].startswith('reminder-')]
     reminder_links = [link for link in links if link['id'].startswith('reminder-')]
-    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale)
-    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries), source_locale)
+    pronouns = _pronoun_texts(catalog, medium_tables, warnings)
+    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale, pronouns)
+    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries), source_locale, pronouns)
     if len(rows) < len(links):
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
     if profiles:
         profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
                                 catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources, gameplay_sources)
-        rows += profile_records(profile, tables, source_locale, entries)
+        rows += profile_records(profile, tables, source_locale, entries, pronouns)
         links.extend(profile)
     if install is None:
         from .genshin_history import ARCHIVES, prepare_archive, retained_performances
