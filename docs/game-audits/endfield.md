@@ -225,6 +225,8 @@ Mandarin. Playback of that candidate at a specific in-game occurrence depends
 on controller state. A separate empty-cache check downloaded the original
 English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
 
+Public gameplay now identifies all thirteen captions. Two dubs show Fiona’s entry warning. In the Afternotes playthrough, the Japanese male Endministrator’s sigh matches the second caption. The first caption has no identified sentence recording.
+
 [Playback checks for the thirteen unresolved rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
 
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
