@@ -53,6 +53,8 @@ class Catalog:
                  'AudioEvent': 'Ev_not_a_media_path', 'IsBattleVoice': True}],
             'MessageItemConfig': [], 'MessageItemTextOverride': [],
             'RestaurantMessageConfig': [], 'IdleLiveMessageContent': [],
+            'ActivityHipplenSentence': [], 'ClockParkTalkText': [], 'IdleLiveEventSentence': [],
+            'ChimeraTalk': [], 'RogueDialogueOptionDisplay': [],
         }
 
     def file(self, path):
@@ -99,3 +101,25 @@ def test_companion_cutscenes_use_distinct_authored_sentence_recordings():
     assert links['1_m']['source'] == 'Japanese/voice/companionX_asta_102_m.wem'
     assert links['1_f']['dialogue_kind'] == 'cutscene_caption'
     assert all(links[i]['source'] is None for i in ('2', '3', '4'))
+
+def test_event_and_readable_records_keep_authored_ids_and_matched_paragraph_translations():
+    catalog = Catalog()
+    catalog.tables.update({
+        'ActivityHipplenSentence': [{'ID': 7, 'SentenceDesc': {'Hash': 11}}],
+        'IdleLiveEventSentence': [{'SectionID': 1, 'Index': 0, 'Sentence': {'Hash': 12}}],
+        'ChimeraTalk': [{'TalkID': 1, 'TalkContent': {'Hash': 14}, 'EvPath': 'Ev_audio'}],
+        'RogueDialogueOptionDisplay': [{'OptionDisplayID': 5, 'OptionTitle': {'Hash': 15},
+                                        'OptionDesc': {'Hash': 16}}],
+        'LocalbookConfig': [{'BookID': 1,'BookContent': {'Hash': 17}},
+                            {'BookID': 2,'BookContent': {'Hash': 18}}],
+        'AudioBookData': [{'BookID': 2,'AudioEvent': 'collection'}]})
+    found = {r['id']: r for r in starrail._presentation_links(catalog)}
+    assert set(found) == {'hipplen-7', 'idle-story-1-0', 'chimera-1', 'rogue-option-5'}
+    assert found['chimera-1']['voice_status'] == 'unavailable'
+    assert found['rogue-option-5']['hash'] == 15
+    tables = {'en': {'17': 'First\\nSecond','18': 'Spoken book'},
+              'ja': {'17': 'Only one paragraph'}}
+    rows = starrail._readable_records(catalog, tables, 'en')
+    assert [(r['source_text'],r['voice_status']) for r in rows] == [
+        ('First','unvoiced'),('Second','unvoiced'),('Spoken book','unavailable')]
+    assert all('ja' not in r['texts'] for r in rows)

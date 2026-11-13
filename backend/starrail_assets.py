@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 7
+LANGUAGE_INDEX_VERSION = 8
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -141,6 +141,57 @@ def message_links(messages, overrides=(), *, prefix='message'):
     return links
 
 
+def _presentation_links(catalog):
+    links = []
+    families = (
+        ('ActivityHipplenSentence', ('ID',), 'SentenceDesc', 'hipplen', 'event_dialogue'),
+        ('ClockParkTalkText', ('TalkID',), 'TalkText', 'clock-park', 'event_dialogue'),
+        ('IdleLiveEventSentence', ('SectionID', 'Index'), 'Sentence', 'idle-story', 'event_dialogue'),
+        ('ChimeraTalk', ('TalkID',), 'TalkContent', 'chimera', 'event_dialogue'),
+        ('RogueDialogueOptionDisplay', ('OptionDisplayID',), 'OptionTitle', 'rogue-option', 'choice'))
+    for table, ids, field, prefix, kind in families:
+        seen = set()
+        for row in _table(catalog, table, (*ids, field)):
+            text_hash = _hash(row.get(field))
+            if not text_hash:
+                continue
+            values = tuple(row[key] for key in ids)
+            if any(type(v) is not int or v < 0 for v in values) or values in seen:
+                raise ValueError('Ambiguous Star Rail presentation identity in ' + table)
+            seen.add(values)
+            identity = prefix + '-' + '-'.join(map(str, values))
+            status = 'unavailable' if row.get('EvPath') else 'unknown'
+            links.append(_text_link(identity, text_hash, kind, status))
+    return links
+
+
+def _readable_records(catalog, tables, locale):
+    books = _table(catalog, 'LocalbookConfig', ('BookID', 'BookContent'))
+    audio = {row['BookID'] for row in _table(catalog, 'AudioBookData', ('BookID', 'AudioEvent'))
+             if row.get('AudioEvent')}
+    result, seen = [], set()
+    for book in books:
+        book_id, text_hash = book['BookID'], _hash(book.get('BookContent'))
+        if type(book_id) is not int or book_id in seen:
+            raise ValueError('Ambiguous Star Rail readable identity')
+        seen.add(book_id)
+        if not text_hash:
+            continue
+        parts = {lang: [common.display_text(t) for t in table.get(str(text_hash), '').replace('\\n', '\n').splitlines()]
+                 for lang, table in tables.items()}
+        for number, para in enumerate(parts[locale]):
+            if not para:
+                continue
+            texts = {lang: values[number] for lang, values in parts.items()
+                     if len(values) == len(parts[locale]) and values[number]}
+            result.append({'text_id': f'starrail:book-{book_id}-{number}', 'source_locale': locale,
+                           'source_text': para, 'texts': texts, 'english': texts.get('en', ''),
+                           'chinese': texts.get('zh-Hans', ''), 'audio_locale': common.audio_locale(locale),
+                           'audio': None, 'channels': ['dialogue'], 'dialogue_kind': 'readable',
+                           'voice_status': 'unavailable' if book_id in audio else 'unvoiced'})
+    return result
+
+
 def authored_links(catalog, locale):
     sentences = _table(catalog, 'TalkSentenceConfig', ('TalkSentenceID', 'TalkSentenceText'))
     voices = _table(catalog, 'VoiceConfig', ('VoiceID', 'VoicePath'))
@@ -173,6 +224,7 @@ def authored_links(catalog, locale):
     for row in _table(catalog, 'IdleLiveMessageContent', ('ContentID', 'ContentType')):
         if row.get('ContentType') in {'DisplayText', 'Reply'} and (text_hash := _hash(row.get('MainText'))):
             links.append(_text_link('idle-message-' + str(row['ContentID']), text_hash, 'message', 'unvoiced'))
+    links.extend(_presentation_links(catalog))
     return links
 
 
@@ -193,6 +245,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
+    rows.extend(_readable_records(catalog, tables, source_locale))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',

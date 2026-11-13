@@ -51,6 +51,24 @@ subtitle clocks for pre-rendered movies require their own audio sources.
 [Released sentence table](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/TalkSentenceConfig.json) ·
 [Released individual source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceConfig.json)
 
+## Event panels, choices and books
+
+The 4.7.0 Windows reader resolves 922 localized dialogue entries from the
+Hipplen, Clockie, Idle Live and Chimera event tables and 2,224 authored
+Simulated Universe choice titles. Each entry resolved in all five study
+choices. A Chimera sound event without a matching original clip retains its
+displayed text and unavailable audio status.
+
+The 1,144 LocalbookConfig entries produce 22,162 English, 22,151 Japanese,
+22,149 Korean and 22,152 paragraphs in each Chinese script. The 12 books
+listed in AudioBookData contribute 48 English paragraphs with an authored
+sound event. Only translations with the same paragraph boundaries accompany
+a study paragraph. English aligned with 21,356 Japanese, 21,468 Korean and
+21,695 Chinese paragraphs in each script. OCR replay and the recordings for
+these specific audio collectibles still need verification.
+[Book contents](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/LocalbookConfig.json) ·
+[Audio collectibles](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AudioBookData.json)
+
 ## Global publisher playback, November 9, 2026
 
 Before selecting a translation snapshot, Setup follows all four SRMI revision
