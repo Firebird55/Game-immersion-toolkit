@@ -198,7 +198,7 @@ E4 and E5 mission records references the three missing movie names.
 [Quest trigger](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/LevelScriptData/map02_lv001/10100070002.json#L91-L99) ·
 [Mission record](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/MissionRuntimeAsset/e5m2.json)
 
-All 23 spoken rows can be located in an English playthrough from Chen
+All 23 dialogue rows, including one sigh, can be located in an English playthrough from Chen
 calling Perlica at 39:24.868 through Perlica's question at 42:07.876.
 The normal no-install indexes for English, Japanese, Korean and Mandarin
 each supply 24 original recordings for these rows. One row has two versions
@@ -212,6 +212,26 @@ mission's individual dialogue lines.
 [Perlica's explanation](https://www.youtube.com/watch?v=byytKbUvsYg&t=2415s) ·
 [Tangtang's reply](https://www.youtube.com/watch?v=byytKbUvsYg&t=2443s) ·
 [End of the exchange](https://www.youtube.com/watch?v=byytKbUvsYg&t=2527s)
+
+The intervals below run from the matched start to the end of each complete
+publisher recording. They can include the recording's own lead-in and tail.
+The order follows what the player heard. The video uploader's playback clock
+is independent of the toolkit's acquisition and capture logic.
+
+| Row suffix | English gameplay interval | Row suffix | English gameplay interval |
+| --- | --- | --- | --- |
+| 001 | 39:24.868–39:25.603 | 024 | 40:50.937–40:52.867 |
+| 017 | 39:26.489–39:28.118 | 025 | 40:53.497–40:59.537 |
+| 018 | 39:30.180–39:34.771 | 026 | 41:00.345–41:09.733 |
+| 019 | 39:49.465–39:50.607 | 027 | 41:10.158–41:12.813 |
+| 020 | 39:55.769–39:58.577 | 028 | 41:15.534–41:20.696 |
+| 021 | 39:59.246–40:02.011 | 009 (sigh) | 41:34.468–41:35.913 |
+| 003 | 40:08.857–40:14.694 | 010 | 41:37.966–41:44.298 |
+| 004 | 40:15.321–40:23.363 | 011 | 41:46.180–41:48.542 |
+| 022 | 40:25.241–40:28.865 | 012 (female file) | 41:49.358–41:56.611 |
+| 005 | 40:29.561–40:33.688 | 012 (male file) | 41:49.431–41:56.567 |
+| 007 | 40:37.721–40:40.709 | 015 | 41:57.401–42:00.109 |
+| 023 | 40:43.044–40:48.729 | 016 | 42:07.876–42:10.882 |
 
 ### Comparison across Global releases
 
