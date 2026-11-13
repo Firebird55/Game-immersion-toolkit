@@ -68,6 +68,7 @@ def discover(build):
         # The catalog is an extraction of Global. Reuse it in the mainland edition
         # only when the regional publisher indexes contain the same bytes.
         check(global_fix['indexes'] == hotfix['indexes'])
+        hotfix['global_audio_routes'] = global_fix['routes']
     return build | {'hotfix': hotfix}
 
 
@@ -93,6 +94,7 @@ class AudioFile:
     size: int
     digest: str
     url: str
+    alternate: str = ''
 
     def read(self, directory, start, length):
         check(0 < length <= 64 * 1024**2 and 0 <= start <= self.size - length)
@@ -102,17 +104,18 @@ class AudioFile:
             raw = path.read_bytes()
             if hashlib.sha256(raw[32:]).digest() == raw[:32]:
                 return raw[32:]
-        request = Request(self.url, headers={'Range': f'bytes={start}-{end}', 'Accept-Encoding': 'identity'})
-        for attempt in range(2):
+        urls = (self.url, self.alternate or self.url)
+        for attempt, url in enumerate(urls):
+            request = Request(url, headers={'Range': f'bytes={start}-{end}', 'Accept-Encoding': 'identity'})
             try:
                 with urlopen(request, timeout=45) as response:
-                    check(response.status == 206 and response.geturl() == self.url
+                    check(response.status == 206 and response.geturl() == url
                           and response.headers.get('Content-Range') == f'bytes {start}-{end}/{self.size}'
                           and response.headers.get('ETag', '').lower() == '"' + self.digest + '"')
                     data = response.read(length + 1)
                 break
             except HTTPError as error:
-                if attempt or error.code not in (502, 503, 504):
+                if attempt or error.code not in ((404, 410, 502, 503, 504) if self.alternate else (502, 503, 504)):
                     raise
             except (TimeoutError, ConnectionError, URLError) as error:
                 cause = error.reason if isinstance(error, URLError) else error
@@ -130,12 +133,28 @@ class AudioFile:
         return data
 
 
+def audio_roots(build):
+    urls = roots(build)
+    equivalent = build['hotfix'].get('global_audio_routes')
+    if build['channel'] == 'starrail-cn' and equivalent:
+        twin = build | {'channel': 'starrail-global', 'hotfix': {'routes': equivalent}}
+        return urls, roots(twin)
+    return urls, {}
+
+
+def audio_file(urls, relative, patch, name, size, digest):
+    local, alternate = urls
+    route = 'asb' if patch else 'base'
+    path = 'AudioBlock/' + quote(relative, safe='/()')
+    return AudioFile(name, size, digest, local[route] + path, alternate[route] + path if alternate else '')
+
+
 def files(directory, build, locale, regular):
     lang = voice_namespace('starrail', locale) + '/'
     known = {}
     for path, asset in regular.items():
         known.setdefault(path.split('/Windows/', 1)[1], []).append((path, asset))
-    urls = roots(build)
+    urls = audio_roots(build)
     result = {}
     found = set()
     for line in index(directory, build, 'audio').splitlines():
@@ -153,9 +172,7 @@ def files(directory, build, locale, regular):
         if matches:
             result.update(matches)
         else:
-            route = 'asb' if patch else 'base'
             path = 'StarRail_Data/Persistent/Audio/AudioPackage/Windows/' + relative
-            url = urls[route] + 'AudioBlock/' + quote(relative, safe='/()')
-            result[path] = AudioFile(path, size, digest, url)
+            result[path] = audio_file(urls, relative, patch, path, size, digest)
     check(result)
     return result

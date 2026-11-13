@@ -38,6 +38,8 @@ def test_discovery_rechecks_regional_markers_and_indexes_on_text_only_updates(tm
     monkeypatch.setattr(hotfix, 'download', get)
     cn = {'channel': 'starrail-cn', 'version': '4.7.0', 'build': 'unchanged', 'manifests': {}}
     old = hotfix.discover(cn)
+    primary, alternate = hotfix.audio_roots(old)
+    assert 'autopatchcn.' in primary['base'] and 'autopatchos.' in alternate['base']
     assert hotfix.index(tmp_path, old, 'design') == b'10'
     routes.update({'CN4.7.0': pointers(11), 'OS4.7.0': pointers(11)})
     new = hotfix.discover(cn)
@@ -51,6 +53,31 @@ def test_discovery_rechecks_regional_markers_and_indexes_on_text_only_updates(tm
     routes['OS4.7.0']['LuaUrl'] = 'https://other.host/resource'
     with pytest.raises(ValueError):
         hotfix.discover(cn | {'channel': 'starrail-global'})
+
+
+def test_identical_region_alternate_preserves_exact_range_and_etag(tmp_path, monkeypatch):
+    from urllib.error import URLError
+    urls = ({'asb': 'https://cn.example/'}, {'asb': 'https://global.example/'})
+    body = b'0123456789'
+    digest = hashlib.md5(body).hexdigest()
+    asset = hotfix.audio_file(urls, 'Japanese/VoBanks1.pck', True, 'voice', len(body), digest)
+    attempts = []
+    class Response(io.BytesIO):
+        status = 206
+        headers = {'ETag': '"' + digest + '"', 'Content-Range': 'bytes 1-3/10'}
+        def geturl(self):
+            return asset.alternate
+    def fetch(req, timeout):
+        attempts.append(req.full_url)
+        if req.full_url == asset.url:
+            raise URLError(TimeoutError())
+        return Response(body[1:4])
+    monkeypatch.setattr(hotfix, 'urlopen', fetch)
+    assert asset.read(tmp_path, 1, 3) == body[1:4]
+    assert attempts == [asset.url, asset.alternate]
+    Response.headers['ETag'] = '"' + 'f' * 32 + '"'
+    with pytest.raises(ValueError):
+        asset.read(tmp_path / 'separate', 1, 3)
 
 
 def test_real_audio_index_replaces_only_matching_sophon_assets_and_caches_verified_ranges(tmp_path, monkeypatch):

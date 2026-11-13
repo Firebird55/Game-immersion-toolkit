@@ -6,7 +6,6 @@ import hashlib
 import json
 import re
 import struct
-from urllib.parse import quote
 
 from . import sophon_assets as sophon, starrail_hotfix as hotfix
 from .hoyo_dialogue import audio_locale, voice_namespace
@@ -264,7 +263,7 @@ def _selected_branches(name, default, branches, locale):
 
 def _assets(directory, build, locale):
     language = voice_namespace('starrail', locale)
-    roots = hotfix.roots(build)
+    roots = hotfix.audio_roots(build)
     for row in map(json.loads, hotfix.index(directory, build, 'audio').splitlines()):
         name = row['Path']
         localized = re.fullmatch(re.escape(language) + r'/VoBanks[0-9]+\.pck', name)
@@ -272,8 +271,7 @@ def _assets(directory, build, locale):
             continue
         digest, size, patch = row['Md5'], row['Size'], row['Patch']
         check(re.fullmatch('[a-f0-9]{32}', digest) and type(size) is int and size > 28 and type(patch) is bool)
-        source = roots['asb' if patch else 'base'] + 'AudioBlock/' + quote(name, safe='/()')
-        yield hotfix.AudioFile(name, size, digest, source), language if localized else 'sfx'
+        yield hotfix.audio_file(roots, name, patch, name, size, digest), language if localized else 'sfx'
 
 
 def _unique(target, items):

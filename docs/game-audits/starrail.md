@@ -12,6 +12,10 @@ release can reuse the Global text extraction when all four regional index
 checksums and sizes agree. Each edition has its own snapshot identity, also
 covering updates within the same launcher version. Previously prepared audio
 uses its stored generation. Changed index bodies require verification.
+When a mainland audio package times out or has been removed from its CDN,
+the reader can retry the verified Global equivalent. It stores the Global
+directory only after all four regional index identities agree and requires
+the same package digest and exact byte range on the alternate host.
 [Release directory](https://github.com/PutraZC/HSR-Data/blob/main/hotfix.json) ·
 [Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8) ·
 [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1&game_ids%5B%5D=64kMb5iAWu)
