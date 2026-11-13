@@ -334,8 +334,8 @@ The Korean timeline uses nine cues, the other four use ten. Where a sentence
 spans successive subtitle cards, its clean original WEM is published under
 a complete-sentence ID. Each card keeps its original display interval.
 The 7.2 Global base yielded all six complete performances in English, Korean
-and Mandarin, and three in Japanese. The Japanese base contained the first
-three Paimon lines. Its three other files were unavailable.
+and Mandarin as separate voice files, and the first three Paimon lines in
+Japanese. The Japanese movie soundtrack supplies the three remaining lines.
 
 The first Paimon performance decoded to 5.133 seconds in English, 4.645 in
 Japanese and Mandarin, and 4.028 in Korean. Normal Windows playback exported
@@ -346,6 +346,37 @@ from earlier releases. The six film entries reuse separately authored
 dialogue performances.
 [English opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/EN/MDAQ001_OPNew_Part1_EN.srt)
 · [Korean opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/KR/MDAQ001_OPNew_Part1_KR.srt)
+
+### Japanese opening soundtrack
+
+Japanese Windows Setup obtains all six opening performances from HoYoPlay
+without a game installation. For the final three, the exported clip includes
+the original voice, music and effects from the movie. The uploader's gameplay
+starts about 0.86 seconds later than the 7.2 movie clock. The publisher's
+Japanese preview has a shorter lead-in.
+
+| Speaker and published subtitle | Publisher movie interval | Independent Japanese gameplay | Publisher's Japanese preview |
+| --- | --- | --- | --- |
+| Unknown god · 余所者 お前たちの旅はここまでだ | 24.100–28.844 s | [0:25](https://www.youtube.com/watch?v=br9TzkXmRA0&t=25s) | [0:13](https://www.youtube.com/watch?v=hQrHQVi2p2c&t=13s) |
+| Lumine · 誰っ！？ | 30.781–31.725 s | [0:32](https://www.youtube.com/watch?v=br9TzkXmRA0&t=31s) | [0:20](https://www.youtube.com/watch?v=hQrHQVi2p2c&t=19s) |
+| Unknown god · この「天理」の調停者が / ここで「人の子」の驕りに終焉を | 32.025–36.986 s | [0:33](https://www.youtube.com/watch?v=br9TzkXmRA0&t=32s) | [0:21](https://www.youtube.com/watch?v=hQrHQVi2p2c&t=21s) |
+
+In the Global 7.2 release the opening movie is 76,360,448 bytes. Its four
+stereo streams decoded using the bundled voice decoder. The separate Japanese
+Paimon recording matched only the third stream strongly (0.92 normalized
+correlation), and all three movie intervals matched the gameplay soundtrack
+(0.98, 0.97 and 0.98). Global 4.8 and 5.5 shipped an earlier 76,356,000-byte
+movie; its Japanese track matched the same three gameplay intervals at 0.97,
+0.95 and 0.97. None of those three releases supplied the final three Japanese
+performances under their separate authored WEM paths. [Global 7.2 publisher manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/msj5r4DqSLOw/manifest_92303edbe132c634_2b4ef596e7440779759717433d1c86d9)
+· [Japanese subtitle cards](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/JP/MDAQ001_OPNew_Part1_JP.srt)
+
+Setup checks the selected regional game's movie manifest. A normal game
+update may retain the movie or repack its tracks in another order. The reader
+accepts a repack only when exactly one audio stream has the SHA-256 of a
+verified Japanese recording. Playback rechecks that content and the selected
+sentence interval before exporting. A different dub, changed recording,
+changed subtitle wording or shifted cue does not inherit the old binding.
 
 ## Historical quest and event audio
 

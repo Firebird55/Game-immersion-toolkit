@@ -6,9 +6,9 @@ from subprocess import SubprocessError
 from urllib.error import URLError
 
 from . import hoyo_dialogue as common
+from .genshin_opening_soundtrack import JAPANESE_LINES, MOVIE as OPENING_MOVIE
 from .languages import normalize_text
 
-OPENING_MOVIE = 'MDAQ001_OPNew_Part1'
 OPENING_SOURCES = ('vo_op_cs_paimon_01.wem', 'vo_op_cs_paimon_02.wem', 'vo_op_cs_paimon_03.wem',
                    'vo_op_cs_kiana_01.wem', 'vo_op_cs_heroine_01.wem', 'vo_op_cs_kiana_02.wem')
 VERIFIED_OPENING_AUDIO = {
@@ -40,7 +40,7 @@ def verified_opening_conflict(dialogue, read_audio):
         return None
 
 
-def opening_performances(movies, dialogue, locale):
+def opening_performances(movies, dialogue, locale, opening_soundtrack=None):
     """Verify the entire six-line opening against the locale's own timed cue sequence."""
     cues = [row for row in movies if row['text_id'].startswith(f'genshin:movie:{OPENING_MOVIE}:')]
     if not cues:
@@ -48,13 +48,18 @@ def opening_performances(movies, dialogue, locale):
     expected_ids = {'genshin:' + str(3500400 + index) for index in range(1, len(OPENING_SOURCES) + 1)}
     lines = {}
     for row in dialogue:
-        if row['text_id'] in expected_ids:
-            if row['text_id'] in lines:
+        identity = row['text_id']
+        # The opening shows Lumine speaking before the player's twin choice.
+        if identity == 'genshin:3500405:female':
+            identity = 'genshin:3500405'
+        if identity in expected_ids:
+            if identity in lines:
                 return []
-            lines[row['text_id']] = row
+            lines[identity] = row
     cursor, matched, result = 0, [], []
     for index, source in enumerate(OPENING_SOURCES, start=1):
-        line = lines.get('genshin:' + str(3500400 + index))
+        identity = 'genshin:' + str(3500400 + index)
+        line = lines.get(identity)
         if not line:
             return []
         expected = normalize_text(line['source_text'])
@@ -69,24 +74,30 @@ def opening_performances(movies, dialogue, locale):
             cursor += 1
         if combined != expected or not members:
             return []
-        matched.append((line, source, members))
+        matched.append((identity, line, source, members))
     if cursor != len(cues):
         return []
 
-    for line, source, members in matched:
+    for identity, line, source, members in matched:
+        start = int(members[0]['text_id'].rsplit(':', 1)[1].split('-')[0])
+        end = int(members[-1]['text_id'].rsplit('-', 1)[1])
         audio = line.get('audio')
-        if not audio or audio.get('locale') != common.audio_locale(locale):
-            continue
-        relative = audio['source'].lower().replace('\\', '/').partition('/')[2]
-        if relative != 'vo_aq/vo_cs/' + source:
+        if audio:
+            relative = audio['source'].lower().replace('\\', '/').partition('/')[2]
+            if audio.get('locale') != common.audio_locale(locale) or relative != 'vo_aq/vo_cs/' + source:
+                continue
+        elif opening_soundtrack and locale == 'ja' and identity in JAPANESE_LINES:
+            first, last, text = JAPANESE_LINES[identity]
+            if (start, end) != (first, last) or normalize_text(line['source_text']) != normalize_text(text):
+                continue
+            audio = {**opening_soundtrack, 'start_ms': start, 'end_ms': end}
+        else:
             continue
         # A divided subtitle displays only part of a single clean WEM. Publish
         # that complete performance under its own identity, never split the WEM by display time.
         if len(members) == 1:
             row = members[0]
         else:
-            start = members[0]['text_id'].rsplit(':', 1)[1].split('-')[0]
-            end = members[-1]['text_id'].rsplit('-', 1)[1]
             row = {'text_id': f"genshin:movie:{OPENING_MOVIE}:performance-{line['text_id'].split(':')[1]}:{start}-{end}",
                    'source_locale': locale, 'audio_locale': common.audio_locale(locale), 'channels': ['cinematic'],
                    'member_text_ids': [cue['text_id'] for cue in members]}
