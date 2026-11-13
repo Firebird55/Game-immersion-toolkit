@@ -3,7 +3,7 @@ from functools import lru_cache
 import struct
 import time
 
-from . import hoyo_publisher_voice as voices, sophon_assets as sophon
+from . import hoyo_publisher_voice as voices, sophon_assets as sophon, starrail_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
 from .game_tools import _atomic_file
 from .hoyo_dialogue import voice_namespace
@@ -50,16 +50,21 @@ def optional_files(directory, stamp, locale):
 
 
 @lru_cache(maxsize=2)
-def _poll(period):
-    return voices.descriptor(sophon.release(CHANNEL))[0]
+def _poll(region, period):
+    return voices.descriptor(_release(region))[0]
 
 
-def fingerprint():
-    return _poll(int(time.monotonic() // 30))
+def _release(region):
+    channel = {'global': 'starrail-global', 'cn': 'starrail-cn'}[region]
+    return hotfix.discover(sophon.release(channel))
 
 
-def current(stamp):
-    return voices.descriptor(sophon.release(CHANNEL))[0] == stamp
+def fingerprint(region='global'):
+    return _poll(region, int(time.monotonic() // 30))
+
+
+def current(stamp, region='global'):
+    return voices.descriptor(_release(region))[0] == stamp
 
 
 def revision_marker(raw):
@@ -100,12 +105,16 @@ def release_title(stamp, version, revisions):
     return f'OSPRODWin{version}_D{design}_A{assets}_L{lua}'
 
 
-def prepare(data_dir):
-    build = sophon.release(CHANNEL)
+def prepare(data_dir, region='global'):
+    build = _release(region)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
-    files = sophon.manifest(directory, CHANNEL, tuple(build['manifests']['game']), ('.bytes',))
-    title = release_title(stamp, build['version'], release_revisions(directory, files))
+    # Check all four actual index bodies against this release before publishing
+    # the translation and audio selection. Reuse unchanged index digests.
+    for name in hotfix.INDEXES:
+        hotfix.index(directory, build, name)
+    revisions = tuple(build['hotfix']['indexes'][name][0] for name in hotfix.INDEXES)
+    title = release_title(stamp, build['version'], revisions)
     catalog = DialogueCatalog('starrail', data_dir, revision=matching_release_commit('starrail', title))
     catalog.revision_title = title
     _atomic_file(directory / 'releases' / stamp, raw)

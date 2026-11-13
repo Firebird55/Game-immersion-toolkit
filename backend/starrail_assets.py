@@ -3,7 +3,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 5
+LANGUAGE_INDEX_VERSION = 6
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -18,6 +18,12 @@ def fingerprint(install):
         from .starrail_publisher import fingerprint as publisher_fingerprint
         return publisher_fingerprint()
     return common.fingerprint(install, 'starrail')
+
+
+def publisher_fingerprint(tools):
+    from .publisher_regions import selected_region
+    from .starrail_publisher import fingerprint as publisher_stamp
+    return publisher_stamp(selected_region(tools, 'starrail'))
 
 
 def _hash(value):
@@ -160,7 +166,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         raise ValueError('Unsupported Star Rail study/audio language.')
     if install is None:
         from . import starrail_publisher, hoyo_publisher_voice
-        stamp, catalog = starrail_publisher.prepare(data_dir)
+        from .publisher_regions import selected_region
+        region = selected_region(data_dir / 'tools', 'starrail')
+        stamp, catalog = starrail_publisher.prepare(data_dir, region)
     else:
         stamp = fingerprint(install)
         catalog = DialogueCatalog('starrail', data_dir)
@@ -175,10 +183,12 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
         'Movie captions, image-only messages and presentation-specific event formats are not comprehensively mapped. Missing voice metadata is not proof of silence.']
     if install is None:
-        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp):
+        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
         result['metadata_revision_title'] = catalog.revision_title
-        result['coverage_warnings'].append('Using Global launcher voice packages and available checksum-matched chapter packs. Other optional files and in-game hotfixes require a compatible source.')
+        result['publisher_region'] = region
+        result['source_mode'] = 'publisher'
+        result['message'] += ' using the selected regional HoYoPlay release and verified in-game hotfix indexes.'
     return result
 
 

@@ -15,7 +15,7 @@ CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global', 'zzz': 'zzz-
 
 
 def _channel_allowed(game, channel):
-    return channel == CHANNELS[game] or game == 'genshin' and channel == 'genshin-global'
+    return channel == CHANNELS[game] or (game, channel) in {('genshin', 'genshin-global'), ('starrail', 'starrail-cn')}
 
 
 def descriptor(build):
@@ -62,6 +62,9 @@ def _files(directory, stamp, locale, game):
         if (game == 'genshin' and parts[0] == genshin_data and parts[2:-2] == ('AudioAssets',) or
                 game == 'starrail' and parts[0] == 'StarRail_Data' and parts[2:-2] == ('Audio', 'AudioPackage', 'Windows')):
             result[name] = asset
+    if game == 'starrail' and 'hotfix' in build:
+        from .starrail_hotfix import files as released_files
+        return released_files(directory, build, locale, result)
     if not result:
         raise ValueError('The selected publisher voice packages are unavailable.')
     return result

@@ -1,5 +1,40 @@
 # Honkai: Star Rail dialogue audit
 
+## Released regional hotfixes, November 13, 2026
+
+The Windows publisher reader now resolves the current release and in-version
+ASB, DesignData, Lua and Audio directories for the selected region. The
+community-maintained release directory provides versioned path names. The
+reader obtains each marker and the four actual index bodies from the official
+regional CDN and checks size, revision and MD5. The dialogue catalog must
+match the resulting exact Windows design, asset and Lua revisions. A mainland
+release can reuse the Global text extraction when all four regional index
+checksums and sizes agree. Each edition has its own snapshot identity, also
+covering updates within the same launcher version. Previously prepared audio
+uses its stored generation. Changed index bodies require verification.
+[Release directory](https://github.com/PutraZC/HSR-Data/blob/main/hotfix.json) ·
+[Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8) ·
+[Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1&game_ids%5B%5D=64kMb5iAWu)
+
+On November 13 both 4.7.0 launchers carried base revision 17006872. The
+in-game CDN markers independently selected Design 17180467, ASB and Audio
+17176203, and Lua 17175930. All four index bodies matched across editions.
+The subtitle extraction identified those exact revisions. AudioV lists 177
+packages per dub. The regular launcher set contributes 175, and the selected
+region's publisher directly supplies two more chapter packages per dub.
+Playback reuses a Sophon file only when its released size and content digest
+match. For direct packages, bounded reads verify the source ETag, range and
+total size. A private cache checks its saved bytes for offline reuse.
+The 4.6 release directories also still serve both Japanese chapter packages
+and the second Korean chapter package. The complete files were downloaded in
+both editions and matched the active 4.6 AudioV checksums in all six checks.
+The two Japanese files were 103,835,810 and 100,040,916 bytes. The Korean
+file was 82,896,166 bytes. The earlier observations below describe the
+previous launcher-only acquisition route.
+[Verified 4.7 release directories](https://github.com/PutraZC/HSR-Data/blob/6a31cad76bd8aa2b250a71905ee573de37edc642/hotfix.json) ·
+[Matching 4.7 dialogue catalog](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f) ·
+[Verified 4.6 release directories](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json)
+
 ## Global publisher playback, November 9, 2026
 
 Before selecting a translation snapshot, Setup follows all four SRMI revision
