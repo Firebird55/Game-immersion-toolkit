@@ -12,6 +12,9 @@ CAPTION_ANCHORS = {
     0x7677ef7aa22242d5: 'CS_Chap01_Act3020_Caption.json',
     0x1eab6bb9b4906c60: 'CS_Chap04_Act781_2_Caption.json',
 }
+# The Mandarin lyric script for Ripples of Past Reverie is independently
+# identified by the publisher's lyrics and the mission's default caption path.
+NAMED_CAPTIONS = {0xb9cef1d1ff5c465b: 'CS_Chap04_Act781_1_Caption.json'}
 
 
 def _packages(data):
@@ -151,8 +154,8 @@ def extra_captions(directory, build, published):
                 verified = True
             if sig in known:
                 continue
-            filename = f'design_{key:016x}_Caption.json'
-            hotfix.check(filename not in result)
+            filename = NAMED_CAPTIONS.get(key, f'design_{key:016x}_Caption.json')
+            hotfix.check(filename not in result and filename not in published)
             result[filename] = caption
             known.add(sig)
     hotfix.check(verified)

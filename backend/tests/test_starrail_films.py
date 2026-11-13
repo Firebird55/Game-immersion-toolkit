@@ -64,6 +64,37 @@ def test_unrecognized_recording_format_has_no_authorized_clock():
     assert films._duration(track()[:70]) is None
 
 
+def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(tmp_path):
+    prefix = 'Config/CutSceneCaption/'
+    primary, alternate = prefix + 'Song_1_Caption.json', prefix + 'Song_2_Caption.json'
+    path = 'Config/Level/Mission/123/Act/Act12301.json'
+    task = {'$type': 'RPG.GameCore.PlayVideo', 'VideoID': 34}
+    rule = {'$type': 'RPG.GameCore.PredicateTaskList',
+            'Predicate': {'$type': 'RPG.GameCore.ByCurrentAudioLanguage', 'AudioLanguage': 'CN'},
+            'SuccessTaskList': [task], 'FailedTaskList': [task | {'OverrideCaptionPath': alternate}]}
+    source = {'ExcelOutput/VideoConfig.json': [{'VideoID': 34, 'VideoPath': 'Song.usm', 'CaptionPath': primary}],
+              'ExcelOutput/PerformanceVideo.json': [{'PerformanceID': 12301, 'PerformancePath': path}],
+              'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
+              path: {'OnStartSequece': [{'TaskList': [rule]}]}}
+    file = SimpleNamespace(name='Song.usm', digest='a'*32, size=99, task_ids=(123,))
+    scripts = [(name, {'CaptionList': [{'CaptionTextID': {'Hash': key}, 'EndTime': end}]})
+               for name, key, end in [('Song_1_Caption.json', 11, .5), ('Song_2_Caption.json', 22, 1.)]]
+    catalog = SimpleNamespace(file=source.__getitem__, movie_files={'song.usm': file}, caption_scripts=lambda: scripts)
+    for locale, scene in [('en', 'Song_2'), ('ja', 'Song_2'), ('ko', 'Song_2'),
+                          ('zh-Hans', 'Song_1'), ('zh-Hant', 'Song_1')]:
+        row, = films.caption_rows(tmp_path, catalog, {locale: {'11': 'A', '22': 'B'}}, locale, {})
+        assert row['film_caption']['scene'] == scene
+        assert row['film_caption']['movies'][0]['video_id'] == 34 and row['audio'] is None
+    rule['Predicate']['AudioLanguage'] = 'JP'
+    routes, suppressed = films._movie_sources(catalog, scripts, 'ja')
+    assert set(routes) == {'Song_1'} and suppressed == {'Song_2'}
+    rule['Predicate']['$type'] = 'RPG.GameCore.OtherCondition'
+    routes, suppressed = films._movie_sources(catalog, scripts, 'ja')
+    assert set(routes) == {'Song_1'} and not suppressed
+    file.task_ids = (567,)
+    assert films._movie_sources(catalog, scripts, 'ja') == (routes, set())
+
+
 def test_reviewed_take_survives_repackaging_but_requires_the_same_movie_voice_and_caption(tmp_path, monkeypatch):
     raw = b'independently matched recording'
     checksum = hashlib.sha256(raw).hexdigest()

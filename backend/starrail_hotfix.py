@@ -134,6 +134,11 @@ class AudioFile:
         return data
 
 
+@dataclass(frozen=True)
+class MovieFile(AudioFile):
+    task_ids: tuple = ()
+
+
 def audio_roots(build):
     urls = roots(build)
     equivalent = build['hotfix'].get('global_audio_routes')
@@ -159,13 +164,15 @@ def movie_files(directory, build):
         if not name.lower().endswith('.usm'):
             continue
         size, digest, patch = row['Size'], row['Md5'], row['Patch']
+        tasks = row.get('TaskIds', [])
         check(re.fullmatch(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.usm', name, re.I)
               and type(size) is int and size > 0 and re.fullmatch('[0-9a-f]{32}', digest)
-              and type(patch) is bool and name.casefold() not in result)
+              and type(patch) is bool and name.casefold() not in result and isinstance(tasks, list)
+              and all(type(task) is int and task > 0 for task in tasks))
         route = 'asb' if patch else 'base'
         relative = 'Video/' + name
-        result[name.casefold()] = AudioFile(name, size, digest, urls[route] + relative,
-                                            alternates[route] + relative if alternates else '')
+        result[name.casefold()] = MovieFile(name, size, digest, urls[route] + relative,
+                                            alternates[route] + relative if alternates else '', tuple(tasks))
     check(result)
     return result
 
