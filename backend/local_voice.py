@@ -25,6 +25,8 @@ def _source_suffix(data: bytes, audio=None, game=None) -> str:
         if game != 'riseofthetombraider' or len(data) < 8192 or int.from_bytes(data[:4], 'little') not in {22050, 32000, 44100, 48000}:
             raise ValueError('Invalid original MUL voice container')
         return '.mul'
+    if game == 'genshin' and (audio or {}).get('movie') and data[:4] == b'HCA\0':
+        return '.hca'
     return '.fsb' if data[:4] in {b'FSB4', b'FSB5'} else '.wem'
 
 

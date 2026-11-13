@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 17
+LANGUAGE_INDEX_VERSION = 18
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -654,13 +654,17 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         rows += message_records(catalog, full_tables, medium_tables, source_locale, rows, warnings)
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
         from .genshin_cinematics import movie_records, opening_performances
+        opening_soundtrack = None
         if install is None:
-            movies = genshin_publisher.movie_names(data_dir, stamp)
+            movies = genshin_publisher.movie_assets(data_dir / 'tools', stamp)
+            if source_locale == 'ja':
+                from . import genshin_opening_soundtrack as opening
+                opening_soundtrack = opening.binding(movies.get(opening.MOVIE), data_dir / 'tools/sophon', stamp)
         else:
             folder = common.game_data(install, 'genshin') / 'StreamingAssets/VideoAssets/StandaloneWindows64'
             movies = {path.stem for path in folder.glob('*.usm') if path.is_file()}
         movie_rows = movie_records(catalog, movies, tables, source_locale, warnings)
-        movie_rows += opening_performances(movie_rows, rows, source_locale)
+        movie_rows += opening_performances(movie_rows, rows, source_locale, opening_soundtrack)
         rows += movie_rows
     else:
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
