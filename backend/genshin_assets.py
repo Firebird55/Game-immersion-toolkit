@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 7
+LANGUAGE_INDEX_VERSION = 8
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -507,12 +507,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         rows += profile_records(profile, tables, source_locale, entries)
         links.extend(profile)
     if install is None:
-        from .genshin_history import prepare_archive, retained_performances
+        from .genshin_history import ARCHIVES, prepare_archive, retained_performances
         if not any(row['audio'] for row in rows):
             raise ValueError('The current Genshin release has no playable narrative audio. Retry preparation.')
         progress('Checking previously published Genshin dialogue performances')
-        if not prepare_archive(data_dir, region, source_locale):
-            _warn(warnings, 'The archived 4.8 Genshin dialogue source was unavailable. Refresh to retry historical coverage.')
+        for archived_version in ARCHIVES:
+            if not prepare_archive(data_dir, region, source_locale, archived_version):
+                _warn(warnings, f'The archived {archived_version} Genshin dialogue source was unavailable. Refresh to retry historical coverage.')
         recovered = retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
         if recovered:
             _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')

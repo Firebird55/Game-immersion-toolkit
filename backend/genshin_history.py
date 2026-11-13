@@ -12,17 +12,24 @@ from .hoyo_dialogue import audio_locale
 from .voice_assets import voice_hash
 
 
-ARCHIVED_48_REVISION = '411376ae92931a04d41ae5a9386d45c0d2deb8a8'
-ARCHIVED_48_RELEASES = {
-    'global': 'sophon-0918403364ba1098b33d74abb39909a31ff1bf12b48d2f936d4e8735d1ccc70e',
-    'cn': 'sophon-f1b4e8a7917a99da22b9fa9c82dadff74499b8de31be81afd9c64f0fd83a8988',
+ARCHIVES = {
+    '5.5.0': {
+        'metadata': 'dcf2fa8cccfe7bdc70797d1cfce79f6907806835',
+        'global': 'sophon-c7feb6296ad1acb66b9c50e16f2fcd6810f3cb361e958e530f2c53cb16b7ef3d',
+        'cn': 'sophon-ae2aaab9e1962e56f11a5a877bee07946f0bcca10649fc336d638b2a8b4b4679',
+    },
+    '4.8.0': {
+        'metadata': '411376ae92931a04d41ae5a9386d45c0d2deb8a8',
+        'global': 'sophon-0918403364ba1098b33d74abb39909a31ff1bf12b48d2f936d4e8735d1ccc70e',
+        'cn': 'sophon-f1b4e8a7917a99da22b9fa9c82dadff74499b8de31be81afd9c64f0fd83a8988',
+    },
 }
 
 
-def _archived_build(data_dir, region):
+def _archived_build(data_dir, region, version):
     from . import sophon_assets as sophon
     from .game_tools import _atomic_file, download
-    stamp = ARCHIVED_48_RELEASES[region]
+    stamp = ARCHIVES[version][region]
     tools = data_dir / 'tools'
     path = tools / 'sophon' / 'releases' / stamp
     if publisher.voices.snapshot_available(tools, stamp, 'genshin'):
@@ -31,9 +38,9 @@ def _archived_build(data_dir, region):
     if region == 'global':
         url = 'https://raw.githubusercontent.com/umaichanuwu/meta/9019bb94f6dccb62bd11be734599644ed20e73b3/hoyodata.json'
         record = json.loads(download(url, limit=8 * 1024**2))['hk4e']['sophonInfos']
-        main = {'tag': '4.8.0', 'branch': 'main', 'package_id': record['package'], 'password': record['password']}
+        main = {'tag': version, 'branch': 'main', 'package_id': record['package'], 'password': record['password']}
     else:
-        url = 'https://raw.githubusercontent.com/kuaichu/game-cdn-archive/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/4.8.0.json'
+        url = f'https://raw.githubusercontent.com/kuaichu/game-cdn-archive/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/hk4e/{version}.json'
         main = json.loads(download(url, limit=1024**2))['chunk']
     build = sophon.released_build(channel, main)
     identity, raw = publisher.voices.descriptor(build)
@@ -43,15 +50,16 @@ def _archived_build(data_dir, region):
     return stamp
 
 
-def _seed_archive(data_dir, region, locale, *, mirror=False):
+def _seed_archive(data_dir, region, locale, version, *, mirror=False):
     from . import genshin_assets as game, hoyo_dialogue as common
     from .dialogue_catalog import DialogueCatalog, selected_tables
-    stamp = _archived_build(data_dir, region)
-    archive = DialogueCatalog('genshin-archive', data_dir, revision=ARCHIVED_48_REVISION)
+    revision = ARCHIVES[version]['metadata']
+    stamp = _archived_build(data_dir, region, version)
+    archive = DialogueCatalog('genshin-archive', data_dir, revision=revision)
     if mirror:
         from .genshin_archive_mirror import fetch_trees
         fetch_trees(archive)
-    translations = DialogueCatalog('genshin-archive-mirror', data_dir, revision=ARCHIVED_48_REVISION) if mirror else archive
+    translations = DialogueCatalog('genshin-archive-mirror', data_dir, revision=revision) if mirror else archive
     tables = selected_tables(translations, game.TEXT_LOCALES, locale, ())
     hashes = game.dialogue_hashes(archive.directory_json('BinOutput/Talk'))
     links = game.dialogue_links(archive.directory_json('BinOutput/Voice'), hashes, locale)
@@ -61,20 +69,20 @@ def _seed_archive(data_dir, region, locale, *, mirror=False):
     rows = common.records('genshin', links, tables, locale, entries)
     if not any(row['audio'] for row in rows):
         raise ValueError('The archived Genshin narrative audio is unavailable.')
-    retained_performances(data_dir, stamp, region, locale, links, rows, set(), archive=True)
+    retained_performances(data_dir, stamp, region, locale, links, rows, set(), archive=revision)
 
 
-def prepare_archive(data_dir, region, locale):
+def prepare_archive(data_dir, region, locale, version):
     path = _database_path(data_dir, region, locale)
     with sqlite3.connect(path, timeout=60) as database:
         database.execute('CREATE TABLE IF NOT EXISTS archives (revision TEXT PRIMARY KEY) WITHOUT ROWID')
-        if database.execute('SELECT 1 FROM archives WHERE revision=?', (ARCHIVED_48_REVISION,)).fetchone():
+        if database.execute('SELECT 1 FROM archives WHERE revision=?', (ARCHIVES[version]['metadata'],)).fetchone():
             return True
     try:
         try:
-            _seed_archive(data_dir, region, locale)
+            _seed_archive(data_dir, region, locale, version)
         except (URLError, TimeoutError, ConnectionError, IncompleteRead):
-            _seed_archive(data_dir, region, locale, mirror=True)
+            _seed_archive(data_dir, region, locale, version, mirror=True)
     except (URLError, TimeoutError, ConnectionError, IncompleteRead, SubprocessError, TarError, EOFError, ValueError, KeyError):
         return False
     return True
@@ -97,7 +105,7 @@ def _database_path(data_dir, region, locale):
     return data_dir / 'tools' / 'sophon' / f'genshin-history-{region}-{locale}.sqlite3'
 
 
-def retained_performances(data_dir, stamp, region, locale, links, rows, ambiguous, *, archive=False):
+def retained_performances(data_dir, stamp, region, locale, links, rows, ambiguous, *, archive=None):
     tools = data_dir / 'tools'
     path = _database_path(data_dir, region, locale)
     sources = {'genshin:' + link['id']: link for link in links if link.get('source')}
@@ -121,7 +129,7 @@ def retained_performances(data_dir, stamp, region, locale, links, rows, ambiguou
                          '(identity BLOB PRIMARY KEY, publisher TEXT NOT NULL, package TEXT NOT NULL) WITHOUT ROWID')
         if archive:
             database.executemany('INSERT OR IGNORE INTO performances VALUES (?, ?, ?)', current)
-            database.execute('INSERT OR IGNORE INTO archives VALUES (?)', (ARCHIVED_48_REVISION,))
+            database.execute('INSERT OR IGNORE INTO archives VALUES (?)', (archive,))
             return 0
         database.executemany('INSERT OR REPLACE INTO performances VALUES (?, ?, ?)', current)
         valid = {}

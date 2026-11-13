@@ -151,15 +151,15 @@ def test_genshin_archived_data_retries_and_cannot_displace_a_newer_preparation(t
                      'publisher': stamp, 'package': 'same.pck', 'source': source}}]
     history.retained_performances(tmp_path, later, 'cn', 'en', links, rows(later), set())
     calls = []
-    def archive(data_dir, region, locale, *, mirror=False):
+    def archive(data_dir, region, locale, version, *, mirror=False):
         calls.append((locale, mirror))
         if len(calls) <= 2:
             raise TimeoutError()
-        history.retained_performances(data_dir, earlier, region, locale, links, rows(earlier), set(), archive=True)
+        history.retained_performances(data_dir, earlier, region, locale, links, rows(earlier), set(), archive=history.ARCHIVES[version]['metadata'])
     monkeypatch.setattr(history, '_seed_archive', archive)
-    assert not history.prepare_archive(tmp_path, 'cn', 'en')
-    assert history.prepare_archive(tmp_path, 'cn', 'en')
-    assert history.prepare_archive(tmp_path, 'cn', 'en')
+    assert not history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
+    assert history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
+    assert history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
     assert calls == [('en', False), ('en', True), ('en', False)]
     missing = rows(None)
     assert history.retained_performances(tmp_path, 'new', 'cn', 'en', links, missing, set()) == 1
