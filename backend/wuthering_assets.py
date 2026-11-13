@@ -25,7 +25,7 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
@@ -479,7 +479,8 @@ def index_language(install: Path | None, data_dir: Path, source_locale: str, tar
         raise ValueError('Unsupported Wuthering study/audio locale')
     if install is None:
         from . import wuthering_release
-        return wuthering_release.build_language(data_dir / 'tools', source_locale, target_locales, progress)
+        return wuthering_release.build_language(data_dir / 'tools', source_locale, target_locales, progress,
+                                                decoder=vgmstream_executable(data_dir.parent.parent))
     stamp = fingerprint(install)
     executable = ensure_extractor(data_dir / 'tools', vgmstream_executable(data_dir.parent.parent))
     cache = data_dir / 'index-cache' / stamp[:16]
@@ -515,7 +516,14 @@ def index_language(install: Path | None, data_dir: Path, source_locale: str, tar
 def _validate_voice(audio):
     depot = audio.get('depot', '')
     code = VOICE_LOCALES.get(audio.get('locale', 'zh-Hans'), (None,))[0]
-    if code is None or not depot.startswith(EXTERNAL_ROOT + code + '_') or not depot.endswith('.wem') or '..' in depot or ':' in depot:
+    if code is None or not isinstance(depot, str):
+        raise ValueError('Invalid original voice locale or reference')
+    media = re.fullmatch(r'Client/Content/Aki/WwiseAudio_Generated/Media/' + code + r'/([1-9][0-9]{0,9})\.wem', depot)
+    if audio.get('publisher') and media and int(media[1]) <= 0xffffffff:
+        start, end = audio.get('start_ms'), audio.get('end_ms')
+        if type(start) is int and type(end) is int and 0 <= start < end <= 300000:
+            return depot
+    if not depot.startswith(EXTERNAL_ROOT + code + '_') or not depot.endswith('.wem') or '..' in depot or ':' in depot:
         raise ValueError('Invalid original voice locale or reference')
     return depot
 

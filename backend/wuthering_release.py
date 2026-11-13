@@ -391,7 +391,64 @@ def _read_tables(tools, snapshot, params, locales, destination):
                   ('db_plot_audio.db', *(table for table in assets.NARRATIVE_TABLES if table != assets.FLOATING_SUBTITLES))))
 
 
-def build_language(tools, source_locale, targets, progress=lambda _message: None):
+def _movie_locations(tools, snapshot, params, code, names):
+    if not names:
+        return {}
+    current = {}
+    for layer in ('BaseFiles', 'PatchFiles'):
+        current.update(_locations(tools, _packages(snapshot, code, layer), params, wanted=names))
+    return {name: ref for name, ref in current.items() if ref[1] >= 0}
+
+
+def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, locale, decoder):
+    from . import wuthering_assets as assets, wuthering_cinematics as films
+    from .languages import audio_locale
+    if decoder is None:
+        return
+    candidates = films.candidates(db_root, records, voices, locale)
+    if not candidates:
+        return
+    code = assets.VOICE_LOCALES[locale][0]
+    events = {event for _, event, _, _ in candidates}
+    banks = {films.EVENT_ROOT + code + '/' + event + '.bnk': event for event in events}
+    bank_refs = _movie_locations(tools, snapshot, params, code, set(banks))
+    event_tracks = {}
+    for name, (info, pos) in bank_refs.items():
+        event = banks[name]
+        media = films.media_id(_voice_package(tools, stamp, info).extract(pos), event)
+        if media:
+            event_tracks[event] = f'{films.MEDIA_ROOT}{code}/{media}.wem'
+    mapped = _movie_locations(tools, snapshot, params, code, set(event_tracks.values()))
+    current_depot = None
+    decoded = None
+    with tempfile.TemporaryDirectory(dir=db_root) as temporary:
+        directory = Path(temporary)
+        for row, event, references, anchor in sorted(candidates, key=lambda item: item[1]):
+            depot = event_tracks.get(event)
+            if depot not in mapped:
+                continue
+            if depot != current_depot:
+                current_depot = depot
+                info, pos = mapped[depot]
+                data = _voice_package(tools, stamp, info).extract(pos)
+                _validate_wem(data)
+                decoded = films.samples(data, decoder, directory)
+            if decoded is None:
+                continue
+            performances = []
+            for source in references:
+                info, pos = voices[source]
+                data = _voice_package(tools, stamp, info).extract(pos)
+                _validate_wem(data)
+                performances.append(films.samples(data, decoder, directory))
+            span = films.interval(decoded, performances, anchor)
+            if span:
+                row['audio'] = {'depot': depot, 'locale': audio_locale(locale),
+                                'start_ms': span[0], 'end_ms': span[1]}
+                row['voice_status'] = 'voiced'
+
+
+def build_language(tools, source_locale, targets, progress=lambda _message: None, *, decoder=None):
     from . import wuthering_assets as assets
     from .languages import resolve_locale
     tools = Path(tools)
@@ -411,6 +468,7 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         progress('Matching authored voice paths against the selected publisher dub')
         files = _voice_locations(tools, stamp, assets.VOICE_LOCALES[source_locale][0])
         records = assets.build_language_records(path, files, source_locale, selected)
+        _movie_records(tools, snapshot, stamp, params, path, records, files, source_locale, decoder)
     pak.check(records)
     for record in records:
         if record['audio']:
@@ -443,7 +501,10 @@ def extract(tools, audio, locale=None):
         cached = path.read_bytes()
         if len(cached) > 32 and hashlib.sha256(binding + cached[32:]).digest() == cached[:32]:
             return cached[32:]
-    reference = _voice_locations(tools, stamp, code).get(depot)
+    if depot.startswith(assets.EXTERNAL_ROOT):
+        reference = _voice_locations(tools, stamp, code).get(depot)
+    else:
+        reference = _movie_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp), code, {depot}).get(depot)
     if reference is None:
         raise ValueError('The released dub does not contain this exact original voice.')
     info, position = reference

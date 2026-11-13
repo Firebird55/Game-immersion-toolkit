@@ -97,7 +97,7 @@ def test_publisher_language_worker_playback_and_batch_share_one_wuthering_releas
     row = {'text_id': 'wuthering:fixture', 'source_locale': 'ja', 'source_text': 'テスト用の台詞',
            'english': 'Test line', 'chinese': '', 'texts': {'ja': 'テスト用の台詞', 'en': 'Test line'},
            'audio_locale': 'ja', 'audio': audio}
-    def build(directory, locale, targets, progress):
+    def build(directory, locale, targets, progress, *, decoder=None):
         assert directory == tools and locale == 'ja' and targets == ['en']
         return {'format': 2, 'game': 'wuwa', 'source_locale': locale, 'install': None,
                 'fingerprint': stamp, 'source_mode': 'publisher', 'records': [row]}

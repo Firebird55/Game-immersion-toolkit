@@ -10,7 +10,20 @@ Mainland China Setup follows the separate G152/10003 common archive and its main
 
 The source inventory tracks optional area and character package revisions in the same release snapshot. In Global 3.8 the 13 area groups supplied 26 base and patch PAKs with 680,487 directory entries under `Client/Content/Aki/`. None contained a ConfigDB table, an external voice path or a generated Wwise asset. The 236 localized character packages contained 34,267 numerically named WEM entries. They still need authored event-to-media mappings. Normal Setup follows these manifest versions and reads package contents selectively for supported rows. [Global release configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
 
-Two independent English gameplay recordings confirm speech in known film rows with empty English timing fields. The chapter-one storyteller speaks `Huanglong_main_1_7_178_3` around 11:53–11:58. In Jinhsi’s origin scene, the two captions without a PlotAudio line, `Chengxiaoshan_main_1_1_355_1` and `_10`, have English narration around 0:02–0:09 and 1:45–1:54. These times identify the performances in the cited videos. Extracting localized speech from the publisher film audio still requires a verified clock and an exact media binding. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s) · [Jinhsi backstory gameplay](https://www.youtube.com/watch?v=4sQsSS4BZSU&t=2s)
+### Jinhsi's origin film C0004
+
+The released scene links music, effects and original voice to three separate events. Its SD movie package lists one MP4. The dedicated voice event, `play_vo_story_dtm_c0004`, resolves through the selected dub's bank to a 117.971-second, 48-kHz stereo recording. The opening and closing captions each have two numbered PlotAudio performances that overlap on this voice track. Both English takes speak the corresponding caption. The first and last lines can also be heard around 0:02–0:09 and 1:45–1:54 in the gameplay recording. [Global PC launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json) · [Jinhsi's opening narration](https://www.youtube.com/watch?v=4sQsSS4BZSU&t=2s) · [Closing narration](https://www.youtube.com/watch?v=4sQsSS4BZSU&t=105s)
+
+Setup follows the current caption, numbered PlotAudio takes, event bank and streamed media in the selected publisher snapshot. It matches both takes against the voice track and extends the clip to a nearby quiet boundary. For a performance with shortened pauses, six independently matched portions must occur in the original order. Unresolved media and ambiguous matches leave the caption's audio unavailable. No scene IDs, media numbers or clip times are used as runtime lookup tables.
+
+| Global 3.8 spoken language | Opening clip in the publisher track | Closing clip in the publisher track |
+| --- | ---: | ---: |
+| English | 1.175–9.538 s | 104.047–115.011 s |
+| Japanese | 1.622–8.419 s | 103.280–114.633 s |
+| Korean | 1.084–9.925 s | 103.239–113.251 s |
+| Mandarin | 0.551–8.478 s | 103.836–114.224 s |
+
+All eight clips were exported through the desktop service from the current Global launcher with no game installation. Individual playback and batch export of the same opening line produced identical MP3 bytes in each dub. English preparation now has 48,856 voice bindings. The remaining 17 dedicated-voice cues from the earlier four-scene audit still need exact original clips. English gameplay independently confirms one of them, the chapter-one storyteller's `Huanglong_main_1_7_178_3`, around 11:53–11:58. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s)
 
 ## Global publisher updates and selective voice acquisition · November 9, 2026
 
@@ -89,8 +102,8 @@ event, 528 with a full soundtrack, 431 with another scene event and 24 with
 no such event. The 19 are in `M0234` (12), `C3jiyanfight` (3), `LYSZW` (2)
 and `C0004` (2). All 19 have zero duration in the separate English, Japanese
 and Korean timing fields. A scene event alone does not select a particular
-dubbed line. These cues still need verified start and end points in the
-corresponding voice recording. The existing shared creature recordings also
+dubbed line. The November 13 publisher preparation above resolves both C0004 cues.
+The other 17 still need verified start and end points in the corresponding voice recording. The existing shared creature recordings also
 remain separate from localized speech. [Publisher movie inventory](https://cdn-aws-hw-mc.aki-game.net/prod/client/TkSftmDssRx6BIKZBudzeoOHTnxjoL43/Windows/3.7.0/Video/VideoManifest_hd.json)
 · [Caption and event tables](https://github.com/Arikatsu/WutheringWaves_Data/tree/9218d612ad815e398e064e577e42aaf878899968/BinData/cgVedio)
 
@@ -142,7 +155,7 @@ or that its UI crop has passed desktop/mobile OCR replay.
 | Ambient and walking conversations | `Prompt` plot modes produce an ambient category; other world conversations can use normal flow dialogue. | Entity-only bubbles and level-specific interactions are not exhaustively traversed. Simultaneous speakers and top-right crops remain separate capture concerns. |
 | Combat, idle, reaction and boss speech | Installed `db_audio` contains 62 `roleaudio` rows; `db_audio_interjection` contains 360 interjections. Flow actions also contain 1,466 `PostAkEvent` references. | These are not one-row-per-caption tables. Event-to-WEM ownership and subtitle visibility are unresolved; no complete combat coverage is claimed. |
 | Real-time cinematics | Flow dialogue retains exact existing audio bindings. The flow inventory includes 416 `PlaySequenceData` actions. | Animation/sequence-only dialogue and timed caption segmentation require further authored joins. |
-| Pre-rendered movie captions | `db_cgVedio` contains 1,313 `videocaption` rows, 342 video definitions and 171 video-sound rows. Caption text keys are now indexed as cinematic. | Locale-specific timing and embedded movie audio are not converted into per-caption clips. `IsPlaySubtitleVoice=false` does not establish silence. |
+| Pre-rendered movie captions | `db_cgVedio` contains 1,313 `videocaption` rows, 342 video definitions and 171 video-sound rows. Caption text keys are now indexed as cinematic. | Publisher Setup clips both C0004 mixed performances in all four dubs. Other movie bindings and locale-specific timings remain incomplete. `IsPlaySubtitleVoice=false` does not establish silence. |
 | Centered story cards and narration | 945 `CenterText`, 122 `AvgNarration`, eight `AvgCenterText` references and 107 `ShowCenterText` actions were observed. Their authored text keys are retained. | Some cards use independent audio events or background narration. Missing `PlayVoice` alone stays unknown; multi-page segmentation is unverified. |
 | Illustrated dialogue and event story panels | 99 `AvgTalk` references, background configuration and event audio fields occur in flow scripts. Their text is retained. | No exhaustive art-embedded text/comic extractor is established. Rich layout, ruby/variable rendering and event-specific panels need replay and additional schema mapping. |
 | WavesLine text conversations and reply choices | The phone table contains 290 short-message records. Flow `PhoneMessage` mode uses ordinary `Talk` items for plain text. Runtime `SetDialogChatData` proves that modality; its text is certified unvoiced when no conflicting voice evidence exists. | All branches are retained, rather than selecting the player's unlocked messages. Phone-panel OCR is not newly validated. |
