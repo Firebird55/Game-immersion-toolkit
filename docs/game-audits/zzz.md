@@ -302,6 +302,18 @@ Voice dataset identifies its source as 3.2.0, predating this chapter.
 · [Mandarin scene opening](https://www.youtube.com/watch?v=k-R56pW5IOI&t=132s)
 · [Dataset author's version and limitations](https://huggingface.co/datasets/simon3000/zenless-voice)
 
+The Global 3.3.0 Windows game manifest contained 1,137 USM movies. An
+independent read of the CRI stream directory in every file found exactly
+one video stream (`@SFV`) and zero audio streams (`@SFA`) in **all 1,137**.
+This includes the six Procedure movies, all seven MainStory/VirtualStage
+movies, 36 InterKnot posts and the 3.3 Severian gacha movie. The English
+Wise line above belongs to a GalGame conversation with separate StudentWise
+and StudentBelle Wwise references. The base movies offer no other copy of
+this or any other missing English performance. Future publisher movies
+and separate in-version voice packages require their own inspection.
+[Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+· [English GalGame scene with Wise](https://www.youtube.com/watch?v=8Qe1Z6VFFBQ&t=2080s)
+
 The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
