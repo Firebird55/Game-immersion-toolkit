@@ -67,6 +67,33 @@ python scripts/endfield_film_voice.py --test-caption list --locale zh-Hans --cac
 python scripts/endfield_film_voice.py --test-caption fmv_e0m1_4_09-3 --locale zh-Hans --cache private-cache --mp3 reawakening.mp3
 ```
 
+### English briefing and edited mainland trailer
+
+The January 2024 Global playthrough records Perlica's English briefing.
+Two phrases can be identified directly in the publisher's English film.
+Seven overlapping excerpts of the first-hand-experience line (15.0–18.0 s)
+align to the game at an offset of 923.844–923.847 s. Six excerpts from
+the instruction to activate the device (104.0–107.0 s) align at
+918.700–918.701 s. The wording and the voice match in both passages.
+The five-second change in offset puts the two cuts on different clocks.
+The English publisher catalogue points to YouTube. The automatic archive
+export currently uses the mainland publisher's verified Mandarin download.
+[First-hand experience in gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=939s) ·
+[Same English take in the official film](https://www.youtube.com/watch?v=ntao9yWJcbo&t=15s) ·
+[Activation instruction in gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1023s) ·
+[Publisher's activation instruction](https://www.youtube.com/watch?v=ntao9yWJcbo&t=104s)
+
+The mainland Technical Test trailer reuses parts of the aircraft distress
+sequence and the bedside greeting. In the latter, the introductory sound
+and the question align at separate offsets, about −568.375 and −568.240 s
+relative to the November gameplay. The trailer shortens the subtitle to
+“你醒啦”. The aircraft sequence contains a different spoken exchange over
+some of the matching sounds. Comparisons against the mainland gameplay
+demonstration, concept film and Game Awards trailer also did not establish
+a complete original aircraft or bedside recording.
+[Publisher trailer around 0:32](https://web.hycdn.cn/upload/video/20251030/f5f9469c63684afd0c5af947bf704db3.mp4#t=32) ·
+[Original bedside exchange around 10:01](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=601s)
+
 ## Other films preserved in the Technical Test catalogue
 
 The original November 2023 distribution index identifies the two motorcycle
