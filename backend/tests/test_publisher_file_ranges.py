@@ -194,3 +194,23 @@ def test_online_wuthering_tables_reuse_immutable_member_and_repair_damaged_cache
     entry.write_bytes(entry.read_bytes()[:-1])
     assert load('a') == load('b') == payload
     assert reads == [('a', 10), ('a', 10), ('b', 10)]
+
+
+def test_kuro_manifest_and_range_request_use_the_same_verified_roots(monkeypatch):
+    import ssl
+    url = 'https://publisher.example/resource'
+    contexts = []
+    class Reply(io.BytesIO):
+        status = 206
+        headers = {'Content-Range': 'bytes 0-2/3'}
+        def geturl(self):
+            return url
+    def open_url(request, *, timeout, context):
+        assert request.full_url == url and timeout > 0
+        assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+        contexts.append(context)
+        return Reply(b'abc')
+    monkeypatch.setattr(pak.urllib.request, 'urlopen', open_url)
+    assert live.kuro_bytes(url) == b'abc'
+    assert pak.block(url, 3, 0, 3) == b'abc'
+    assert contexts[0] is contexts[1]

@@ -16,7 +16,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
 from . import wuthering_release_pak as pak
-from .game_tools import _atomic_file, download
+from .game_tools import _atomic_file, download as download_bytes
 from .wuthering_assets import PUBLIC_METADATA_URL
 
 KURO = ('https://prod-alicdn-gamestarter.kurogame.com/launcher/game/'
@@ -35,6 +35,10 @@ DUBS = ('en', 'ja', 'ko', 'zh')
 TIERS = ('sd', 'hd', 'uhd')
 LIMIT = 16 * 1024**2
 VERSION = r'[0-9]+\.[0-9]+\.[0-9]+'
+
+
+def download(url, *, limit):
+    return download_bytes(url, limit=limit, opener=pak.open_publisher_url)
 
 
 def kuro_bytes(url):
