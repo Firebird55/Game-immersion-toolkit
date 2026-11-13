@@ -49,6 +49,29 @@ Additional filmed scenes and the 333 unresolved Perform paths remain under
 investigation. The launcher base omits some later Japanese text and
 same-version Global changes still need independent discovery.
 
+The November 6 mainland production snapshot (D20245314) retains all 333
+references in 313 distinct Perform entries. Twenty-eight of these entries
+also name a different performer path that the Global launcher catalogue does
+resolve. Only that named path supplies records. Both official mainland 3.2
+catalogues (524,742 asset IDs each) and the 3.3 mainland base catalogue
+(565,107 asset IDs) lack the 333 exact IDs. The cause of their absence and
+their use in actual gameplay remain unconfirmed. The public revision timeline
+identifies D20245314 but does not give a Global PC download manifest.
+[November 6 mainland Perform snapshot](https://git.mero.moe/dimbreath/ZenlessData/src/commit/ab85fff9659168f981904259ebb9ec2c51fb5fe4/FileCfg/PerformTemplateTb.json)
+· [Public revision history](https://zzz.gachabase.net/timeline/release)
+
+The same source reader also processed the archived mainland 3.2.0 launcher
+build (RXWlt1ru1jf6). It resolved 30,176 of 30,503 referenced dialogue paths
+and all 99 motion-comic paths. The publisher ranges produced 228,625 scene
+records, 1,929 distinct comic bindings, nine recorded messages, 14,783
+ongoing records, 16,847 tip records and 248 English clue intervals. The 3.2
+comic manifests and their directly named dependencies occupied 1,895,469
+bytes before launcher chunk alignment. An original English panel (4.992 s),
+phone message (6.483 s) and complete first Limbo recording (90.647 s) were
+retrieved from the older English Wwise pack and decoded to nonzero PCM.
+This checks format continuity across two releases and regions. The Windows Setup region remains Global.
+[Archived mainland launcher listing](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/nap/3.2.0.json)
+
 ## November 9, 2026 · Dialogue from one Global launcher release
 
 The publisher's 3.3.0 base (revision 19316624) contains the Perform scene
