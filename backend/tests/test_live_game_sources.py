@@ -125,3 +125,22 @@ def test_wuwa_publisher_mirror_rotation_preserves_only_the_same_release():
     assert not reader._same_launcher(snapshot, ('3.8.0', same_mirror_path, {'game.pak': [25, 'b' * 32]}))
     assert not reader._same_launcher(snapshot, ('3.8.0', same_mirror_path + 'b', snapshot['base']))
     assert not reader._same_launcher(snapshot, ('3.8.1', same_mirror_path, snapshot['base']))
+
+
+def test_wuwa_unreachable_bootstrap_can_recover_on_a_publisher_listed_mirror(tmp_path, monkeypatch):
+    reader = sources.wuthering_release
+    calls = []
+    def launcher(region, *, excluded=()):
+        assert region == 'cn'
+        host = 'second.example' if excluded else 'first.example'
+        return '3.8.0', 'https://' + host + '/release', {}
+    def discover(tools, version, root, base, *, videos, region):
+        calls.append(root)
+        if 'first.example' in root:
+            raise TimeoutError('Publisher failed to serve its binary')
+        return {}, {}, {}, (), {}
+    monkeypatch.setattr(reader, 'launcher', launcher)
+    monkeypatch.setattr(reader, 'discover', discover)
+    stamp, descriptor, _, _ = reader._current(tmp_path, 1, 'cn')
+    assert descriptor['region'] == 'cn' and reader.snapshot_available(tmp_path, stamp)
+    assert calls == ['https://first.example/release', 'https://second.example/release']

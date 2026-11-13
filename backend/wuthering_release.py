@@ -59,7 +59,7 @@ def _launcher_manifest(url, digest):
     return data
 
 
-def launcher(region='global'):
+def launcher(region='global', *, excluded=()):
     url, channel_path, domain = CHANNELS[region]
     root = json.loads(kuro_bytes(url))
     # The live tiered launcher publishes common separately from graphics packs.
@@ -73,7 +73,7 @@ def launcher(region='global'):
     network_error = None
     for candidate in root['cdnList']:
         cdn = urlsplit(candidate['url'])
-        if (cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, cdn.netloc)
+        if (cdn.netloc not in excluded and cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, cdn.netloc)
                 and cdn.path in ('', '/') and not cdn.query and not cdn.fragment):
             url = 'https://' + cdn.netloc + '/' + path
             try:
@@ -289,7 +289,24 @@ def snapshot_available(tools, stamp):
 @lru_cache(maxsize=2)
 def _current(tools, period, region='global'):
     version, root, base = launcher(region)
-    versions, _, products, params, pointers = discover(tools, version, root, base, videos=False, region=region)
+    excluded = set()
+    while True:
+        try:
+            versions, _, products, params, pointers = discover(tools, version, root, base, videos=False, region=region)
+            break
+        except OSError as network_error:
+            # A mirror may serve its small JSON but time out on the game PAK.
+            # Retry only released mirrors independently listed by the same launcher.
+            host = urlsplit(root).netloc
+            if host in excluded:
+                raise
+            excluded.add(host)
+            if len(excluded) >= 8:
+                raise
+            try:
+                version, root, base = launcher(region, excluded=excluded)
+            except (OSError, ValueError):
+                raise network_error
     descriptor = {'schema': 1, 'base': base, 'root': root, 'products': products,
                   'launcher': version, 'versions': versions}
     if region != 'global':
