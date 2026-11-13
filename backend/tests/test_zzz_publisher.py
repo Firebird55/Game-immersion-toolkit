@@ -76,6 +76,22 @@ def test_truncated_and_unknown_directory_groups_are_rejected():
         zzz_publisher.voice_directory({'prefixes': ['../outside/'], 'blocks': [5, 0]})
 
 
+def test_short_and_qualified_scene_paths_require_same_verified_take():
+    name = 'Galgame_Example_Billy_22'
+    directory = 'VO_Galgame/VO_Billy/'
+    exact = directory + name
+    file_id = voice_hash('English(EN)/ex/' + exact + '.wem')
+    entries = {file_id: {'package': 'voice.pck'}}
+    def match(other):
+        links = [{'text_id': 'one', 'source': ref} for ref in (name, other)]
+        return zzz_publisher.original_bindings(links, entries, 'en', '3.3.0')
+    assert match(exact)['one']['file_id'] == f'{file_id:016x}'
+    assert match('Other/' + name) == {}
+    assert match(directory + name + '_alt') == {}
+    entries[voice_hash('English(EN)/ex/Other/' + name + '.wem')] = {'package': 'second.pck'}
+    assert match('Other/' + name) == {}
+
+
 def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing_bodies(tmp_path, monkeypatch):
     current = ['a']
     def release(channel):

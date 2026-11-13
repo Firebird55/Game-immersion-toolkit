@@ -247,22 +247,27 @@ def original_bindings(links, entries, dub, version, directory=None):
     result = {}
     by_source = {}
     for identity, sources in candidates.items():
-        # Different authored sentence takes under one identity require a selection rule.
-        if len(sources) != 1:
+        # The prologue references the same take both as a bare name and as an
+        # explicit directory/name. Every spelling must independently resolve to
+        # one and the same file in this dub; a missing take is not an alias.
+        if len({source.rsplit('/', 1)[-1].lower() for source in sources}) != 1:
             continue
-        source, = sources
-        if source not in by_source:
-            matches = []
-            groups = directory.get(_short_id(source)) if directory and '/' not in source else None
-            paths = _directory_paths(source, groups) if groups is not None else source_paths(source, version)
-            for path in paths:
-                full = f'{namespace}/ex/{path}.wem'
-                file_id = voice_hash(full)
-                if file_id in entries:
-                    matches.append({**entries[file_id], 'source': full, 'file_id': f'{file_id:016x}', 'locale': dub})
-            by_source[source] = matches[0] if len(matches) == 1 else None
-        if by_source[source]:
-            result[identity] = by_source[source]
+        resolved = []
+        for source in sorted(sources):
+            if source not in by_source:
+                groups = directory.get(_short_id(source)) if directory and '/' not in source else None
+                paths = _directory_paths(source, groups) if groups is not None else source_paths(source, version)
+                matches = []
+                for path in paths:
+                    full = f'{namespace}/ex/{path}.wem'
+                    file_id = voice_hash(full)
+                    if file_id in entries:
+                        matches.append({**entries[file_id], 'source': full, 'file_id': f'{file_id:016x}', 'locale': dub})
+                by_source[source] = matches[0] if len(matches) == 1 else None
+            if by_source[source]:
+                resolved.append(by_source[source])
+        if len(resolved) == len(sources) and len({item['file_id'] for item in resolved}) == 1:
+            result[identity] = resolved[0]
     return result
 
 

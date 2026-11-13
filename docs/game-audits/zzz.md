@@ -75,8 +75,8 @@ Comparing the updated English index with the first selection above, 6,341
 previously unavailable performances now have audio: 5,593 ambient lines, 531
 conversations, 198 gameplay tips and 19 narration lines. Fourteen cinema
 entries named a breath or reaction under an on-screen description. Setup
-keeps their sentence voice status unknown. Current totals are **74,913
-voiced, 132,908 authored unvoiced, 5,104 unavailable and 50,814 unknown**.
+keeps their sentence voice status unknown. This brought the totals to 74,913
+voiced, 132,908 authored unvoiced, 5,104 unavailable and 50,814 unknown.
 Seven newly resolved performances spanning the Forbidden Area, Severian,
 Silver Soldier Anby, Cissia, Fairy and a timeline voice were retrieved and
 decoded in all four dubs. The Forbidden Area line lasted 6.576 s in English,
@@ -84,6 +84,24 @@ decoded in all four dubs. The Forbidden Area line lasted 6.576 s in English,
 compiler-free Windows reader reproduced these English counts, exported the
 seven English clips, and exposed no sentence audio for the cinema reaction.
 [Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+In 17 prologue captions the released scene spells one take twice, once as a
+bare name and once with its actor directory. Both spellings independently
+resolved to the same unique file within each of the four dubs. The normal
+English Setup with no game folder gained all 17 performances, bringing its
+totals to **74,930 voiced, 132,908 authored unvoiced, 5,087 unavailable and
+50,814 unknown**. Setup leaves a caption unresolved when either spelling
+is missing or the selected files disagree.
+
+Four English publisher clips also matched the mixed audio in CGInferno's 1.0
+prologue playthrough. The matches begin at about 34:12 (Billy, 3.488 s),
+34:21 (Billy, 4.379 s), 34:26 (Billy, 7.797 s) and 35:02 (Anby, 5.649 s).
+The four clips each exported through the normal English service. Gameplay
+corroborates the English recordings; the other dubs were verified against the
+publisher files. [Billy at 34:12](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2052s)
+· [Billy at 34:21](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2061s)
+· [Billy at 34:26](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2066s)
+· [Anby at 35:02](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2102s)
 
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
@@ -273,6 +291,17 @@ older Global 3.2 hotfix manifest and its block were independently retrieved
 from the publisher. Current Global 3.3 hotfix discovery from an empty device
 remains open. The installed reader supplies additional cinematic voice mappings. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
 · [Public release revision history](https://zzz.gachabase.net/changelog/release)
+
+On 2026-11-13 the public Global HoYoPlay branch returned 3.3.0. The separate
+package-list response still listed 3.2.0 as its main package and 3.3.0 as
+its pre-download. Neither response supplied the Global player’s in-version
+design or voice manifest. The Steam public build (25596035) had an October
+20 depot update. The November Steam app metadata change did not change that
+build. These distributor results cannot establish the current in-version
+revision or its download directory. [Publisher branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=U5hbdsT9W7)
+· [Publisher package list](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGamePackages?launcher_id=VYTpXlbWo8&language=en-us)
+· [Public Steam app metadata mirror](https://api.steamcmd.net/v1/info/4162040)
+· [Publisher Steam announcements](https://steamcommunity.com/app/4162040/announcements/)
 
 The 3.3 English base contains 2,355 gender-tagged entries with text outside
 the tags and 200 entries with repeated male tags. The corresponding Simplified
