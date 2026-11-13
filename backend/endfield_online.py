@@ -102,26 +102,28 @@ def _film_audio(film, caption, locale):
 
 
 def film_records(catalog, tables, locale):
+    live = {}
     if catalog.revision == TEXT_REVISION:
         accepted = profile.FILMS
     elif hasattr(catalog, 'verified_films'):
         accepted = catalog.verified_films(LANGUAGES[locale])
+        if hasattr(catalog, 'updated_cues'):
+            live = catalog.updated_cues(LANGUAGES[locale])
     else:
         return []
-    if not accepted:
+    if not accepted and not live:
         return []
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
     dub = DUBS.index(LANGUAGES[locale])
     track = ('cn', 'en', 'jp', 'ko')[dub]
     cues = {(film, caption): (caption, False) for (film, caption), clocks in profile.CUES.items()
-            if clocks[2 * dub] is not None}
+            if film in accepted and clocks[2 * dub] is not None}
     cues.update({(film, identity): (caption, conditional)
                  for (film, language, identity), (caption, _, _, conditional) in context.EXTRA.items()
-                 if language == track and film in profile.FILMS})
+                 if language == track and film in accepted})
+    cues.update({key: (entry[0], entry[4]) for key, entry in live.items()})
     for (film, caption), (text_ref, conditional) in cues.items():
-        if film not in accepted:
-            continue
         reference = refs.get(text_ref)
         if not isinstance(reference, dict) or reference.get('id') is None:
             continue
@@ -129,23 +131,48 @@ def film_records(catalog, tables, locale):
         texts = {code: display_text(values.get(key)) for code, values in tables.items()}
         if not all(texts.values()):
             continue
-        anchor = context.PREVIOUS.get((film, track, caption)) or profile.SCENE_PREVIOUS.get((film, caption))
+        entry = live.get((film, caption))
+        if entry:
+            audio = _updated_audio(film, caption, locale, entry, catalog.revision)
+            anchor = entry[3]
+        else:
+            audio = _film_audio(film, caption, locale)
+            anchor = context.PREVIOUS.get((film, track, caption)) or profile.SCENE_PREVIOUS.get((film, caption))
         rows.append({'text_id': f'endfield:film:{film}:{caption}', 'source_locale': locale,
                      'previous_text_id': f'endfield:film:{film}:{anchor}' if anchor else None,
                      'requires_previous': conditional,
                      'source_text': texts[locale], 'texts': texts, 'english': texts.get('en', ''),
                      'chinese': texts.get('zh-Hans', ''), 'audio_locale': audio_locale(locale),
-                     'audio': _film_audio(film, caption, locale), 'voice_status': 'voiced',
+                     'audio': audio, 'voice_status': 'voiced',
                      'dialogue_kind': 'cinematic', 'channels': ['cinematic'],
                      'player_voice': 'female' if film.startswith('f_') else 'male' if film.startswith('m_') else None})
     return rows
 
 
+def _updated_audio(film, caption, locale, entry, stamp):
+    _, start, end, _, _, media, digest = entry
+    return {'publisher': stamp, 'film': film, 'caption': caption, 'file_id': f'{media:016x}',
+            'locale': audio_locale(locale), 'start_ms': start, 'end_ms': end, 'snapshot': stamp,
+            'recording_sha256': digest}
+
+
 def extract(audio, tools):
     locale = audio['locale']
-    if audio.get('publisher') != RELEASE or locale not in LANGUAGES:
+    if locale not in LANGUAGES:
         _invalid()
     dub = LANGUAGES[locale]
+    if 'recording_sha256' in audio:
+        from . import endfield_film_update, endfield_release
+        stamp = audio.get('snapshot')
+        if audio.get('publisher') != stamp:
+            _invalid()
+        film, caption = audio['film'], audio['caption']
+        entry = endfield_film_update.cues(tools, stamp, dub).get((film, caption))
+        if not entry or audio != _updated_audio(film, caption, locale, entry, stamp):
+            _invalid()
+        return endfield_release.media(tools, stamp, dub, entry[5], entry[6])
+    if audio.get('publisher') != RELEASE:
+        _invalid()
     if 'film' in audio:
         film, caption = audio['film'], audio['caption']
         track = ('cn', 'en', 'jp', 'ko')[DUBS.index(dub)]

@@ -3,44 +3,15 @@ import argparse
 from collections import Counter
 from hashlib import sha256
 import json
-import math
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import wave
 
+from backend.endfield_director import audible_interval
 from backend import endfield_global_1_6 as profile
 from scripts.import_endfield_timelines import DUBS, localized_tracks, narrative_conditions
-
-
-def audible_interval(pcm, start, end, overlaps):
-    rate, frames = pcm.getframerate(), pcm.getnframes()
-    start_ms, end_ms = round(start * 1000), min(round(end * 1000), frames * 1000 // rate)
-    if not 0 <= start_ms < end_ms:
-        return None
-    for left, right in overlaps:
-        # Two authored boundaries can quantize to the same millisecond. Omit
-        # every shared sample from the exported clips, including rounding.
-        if round(left * 1000) == round(right * 1000):
-            if left == start:
-                start_ms = max(start_ms, math.ceil(right * 1000))
-                continue
-            if right == end:
-                end_ms = min(end_ms, math.floor(left * 1000))
-                continue
-        # Include boundary samples for both the authored clock and millisecond trim.
-        first = max(0, math.floor(min(left, round(left * 1000) / 1000) * rate))
-        last = min(frames, math.ceil(max(right, round(right * 1000) / 1000) * rate))
-        if first < last:
-            pcm.setpos(first)
-            if any(pcm.readframes(last - first)):
-                return None
-    first, last = round(start_ms * rate / 1000), round(end_ms * rate / 1000)
-    if last <= first:
-        return None
-    pcm.setpos(first)
-    return (start_ms, end_ms) if any(pcm.readframes(last - first)) else None
 
 
 def derive(bundles, packages, cache, decoder, conditions=None):

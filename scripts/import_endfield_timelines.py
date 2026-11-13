@@ -8,8 +8,10 @@ Only public distribution coordinates, checksums, identifiers and timings are emi
 import argparse
 from collections import defaultdict
 import json
-import math
 from pathlib import Path
+
+
+from backend.endfield_director import track_clips
 
 
 DUBS = {'cn': 'chinese', 'en': 'english', 'jp': 'japanese', 'ko': 'korean'}
@@ -21,51 +23,6 @@ def localized_playable(playables, identity, film, dub):
     matches = [track for suffix in suffixes
                for track in playables.get((identity, film.lower() + '_others_au_' + suffix), ())]
     return matches[0] if len(matches) == 1 else None
-
-
-def track_clips(objects, root, *, conditions=None, gender=None, durations=None):
-    captions, speech = [], []
-    pending = [(p, None) for p in reversed(root['m_Tracks'])]
-    visited = set()
-    while pending:
-        pointer, parent = pending.pop()
-        if pointer['m_FileID']:
-            continue
-        identity = pointer['m_PathID']
-        track = objects.get(identity, {})
-        if identity in visited or (parent is not None and track.get('m_Parent') != parent):
-            return None
-        visited.add(identity)
-        if track.get('m_Muted'):
-            continue
-        condition = track.get('enableOnCondition', {})
-        if condition.get('m_PathID'):
-            selection = (conditions or {}).get((condition['m_FileID'], condition['m_PathID']))
-            if selection not in ('female', 'male'):
-                return None
-            if selection != gender:
-                continue
-        pending.extend((p, pointer) for p in reversed(track.get('m_Children', ())))
-        for clip in track.get('m_Clips', ()):
-            ref = clip['m_Asset']
-            asset = objects.get(ref['m_PathID'], {}) if not ref['m_FileID'] else {}
-            text, event = asset.get('_textId'), asset.get('_audioEventKey', '')
-            if not text and not event.lower().startswith('au_vo_'):
-                continue
-            start, duration = clip['m_Start'], clip['m_Duration']
-            if (clip.get('m_TimeScale', 1) != 1 or clip.get('m_ClipIn', 0) != 0
-                    or not math.isfinite(start + duration) or start < 0 or duration <= 0):
-                return None
-            end = start + duration
-            if (durations and event in durations and asset.get('_stopEventAtClipEnd') == 0
-                    and asset.get('_exitAudioEvent', {}).get('_id') == 0):
-                end = max(end, start + durations[event])
-            interval = round(start, 5), round(end, 5)
-            if text:
-                captions.append((text, *interval))
-            if event.lower().startswith('au_vo_'):
-                speech.append((event, *interval))
-    return captions, speech
 
 
 def narrative_conditions(directory):

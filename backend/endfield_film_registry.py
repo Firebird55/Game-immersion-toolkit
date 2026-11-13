@@ -27,9 +27,9 @@ def inflate(raw, limit):
     return output
 
 
-def bindings(data, *, path_hashes=None, bundle_indices=None):
-    """Only decompress path strings for selected hash heads or importer bundle IDs."""
-    _check((path_hashes is None) != (bundle_indices is None))
+def bindings(data, *, path_hashes=None, bundle_indices=None, path_prefixes=None):
+    """Resolve exact paths, or discover every released asset matching a path prefix."""
+    _check(sum(value is not None for value in (path_hashes, bundle_indices, path_prefixes)) == 1)
     size = len(data)
 
     def integer(pos):
@@ -66,9 +66,12 @@ def bindings(data, *, path_hashes=None, bundle_indices=None):
     needed = set()
     for pos in range(first, asset_end, 24):
         head, path_offset, index = struct.unpack_from('<qii', data, pos)
-        selected = head in path_hashes if path_hashes is not None else index in bundle_indices
+        selected = path_prefixes is not None or (head in path_hashes if path_hashes is not None else index in bundle_indices)
         if selected:
-            found.append((head, string_at(path_offset, True), index))
+            path = string_at(path_offset, True)
+            if path_prefixes is not None and not path.startswith(path_prefixes):
+                continue
+            found.append((head, path, index))
             needed.add(index)
     names = {}
     for pos in range(bundles + 4, bundles + 4 + count * 48, 48):

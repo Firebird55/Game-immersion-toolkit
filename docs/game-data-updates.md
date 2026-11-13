@@ -127,7 +127,11 @@ Language preparation resolves one immutable revision of the fixed game-data
 source. Subtitle tables, dialogue identifiers and voice source paths stay on that
 revision for the complete candidate build. Genshin includes Medium and split
 subtitle tables; Star Rail includes Main and split tables. Endfield uses its
-explicit dialogue and audio tables with the selected installed VFS voice group.
+explicit dialogue and audio tables with the selected VFS voice group. With
+the game folder empty, it reads the selected publisher edition's release.
+For a new or changed FMV track it follows that dub's subtitle times, voice
+event and recording. Saved clips retain the original release and times.
+[Endfield release comparison](game-audits/endfield.md)
 Prepared locales refresh through the normal language worker. Compatible data
 changes need no toolkit release; new archive or schema formats require a reader
 update. Hito’s World is disabled and no longer refreshes automatically.
