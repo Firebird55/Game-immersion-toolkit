@@ -116,3 +116,21 @@ def test_rate_limited_catalog_uses_authors_mirror_at_the_exact_release_commit(tm
         return b'{}'
     monkeypatch.setattr(catalog, '_bytes', file_bytes)
     assert catalog.file('ExcelOutput/Example.json') == {}
+
+def test_two_rate_limited_catalog_hosts_still_verify_current_exact_commit_title(monkeypatch):
+    from urllib.error import HTTPError
+    from backend import starrail_publisher as publisher
+    sha = '5' * 40
+    def limited(*args, **kwargs):
+        raise HTTPError('https://api.github.com/', 403, 'rate limited', None, None)
+    def get(url, *, limit):
+        if 'api.github.com' in url:
+            limited()
+        assert url == 'https://github.com/DimbreathBot/TurnBasedGameData/commits/main.atom'
+        return (f'<feed xmlns="http://www.w3.org/2005/Atom"><entry><id>tag:github.com,2008:Grit::Commit/{sha}</id>'
+                '<title> release-1 </title></entry></feed>').encode()
+    monkeypatch.setattr(publisher, 'matching_release_commit', limited)
+    monkeypatch.setattr(publisher, 'download', get)
+    assert publisher._text_commit('release-1') == sha
+    with pytest.raises(ValueError, match='matching'):
+        publisher._text_commit('release-2')

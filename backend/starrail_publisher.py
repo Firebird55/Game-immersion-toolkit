@@ -7,6 +7,7 @@ import json
 import re
 import time
 from urllib.error import HTTPError, URLError
+import xml.etree.ElementTree as ET
 
 from . import hoyo_publisher_voice as voices, sophon_assets as sophon, starrail_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
@@ -120,7 +121,19 @@ def _text_commit(title):
         pass
     for page in range(1, 6):
         url = f'https://api.github.com/repos/DimbreathBot/TurnBasedGameData/commits?sha=main&per_page=50&page={page}'
-        rows = json.loads(download(url, limit=2 * 1024**2))
+        try:
+            rows = json.loads(download(url, limit=2 * 1024**2))
+        except HTTPError as error:
+            if error.code not in (403, 429):
+                raise
+            feed = download('https://github.com/DimbreathBot/TurnBasedGameData/commits/main.atom', limit=256 * 1024)
+            for entry in ET.fromstring(feed).findall('{http://www.w3.org/2005/Atom}entry'):
+                label = entry.findtext('{http://www.w3.org/2005/Atom}title', '').strip()
+                ident = entry.findtext('{http://www.w3.org/2005/Atom}id', '')
+                match = re.fullmatch('tag:github.com,2008:Grit::Commit/([0-9a-f]{40})', ident)
+                if match and label == title:
+                    return match[1]
+            break
         for row in rows:
             if row['commit']['message'].splitlines()[0] == title and re.fullmatch('[0-9a-f]{40}', row['sha']):
                 return row['sha']
