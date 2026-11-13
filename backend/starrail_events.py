@@ -21,23 +21,46 @@ def _u32(data, pos):
     return struct.unpack_from('<I', data, pos)[0]
 
 
-def bank_lookup(raw):
+def _ids(raw, reference):
+    if not reference:
+        return ()
+    count = _u32(raw, reference)
+    check(count <= 1024 and reference + 4 + count * 4 <= len(raw))
+    return struct.unpack_from(f'<{count}I', raw, reference + 4)
+
+
+def _state_banks(raw, reference):
+    groups = _ids(raw, reference)
+    if len(groups) != 1:
+        return None
+    group = groups[0]
+    if _u32(raw, group + 4) != 1:
+        return None
+    table = _u32(raw, group + 8)
+    count = _u32(raw, table)
+    check(count <= 1024 and table + 4 + 8 * count <= len(raw))
+    states = {}
+    for value, pointer in struct.iter_unpack('<II', raw[table+4:table+4+8*count]):
+        check(value not in states and _u32(raw, pointer) == value)
+        if _u32(raw, pointer + 8):
+            return None
+        states[value] = _ids(raw, _u32(raw, pointer + 4))
+    return _u32(raw, group), states
+
+
+def bank_lookup(raw, *, with_states=False):
     check(len(raw) >= 36 and raw[:4] == b'DBDC' and _u32(raw, 4) == 1
           and _u32(raw, 8) == len(raw) and _u32(raw, 16) == 24 and _u32(raw, 24) == 28)
     count, slots = struct.unpack_from('<II', raw, 28)
     records = 36 + slots * 16
     check(0 < count <= 250000 and 0 < slots <= 1024**2 and records + 8 * count <= len(raw))
-    found = {}
+    found, states = {}, {}
     for event, offset in struct.iter_unpack('<II', raw[records:records+8*count]):
         check(offset + 12 <= len(raw) and event not in found and _u32(raw, offset) == event)
-        reference = _u32(raw, offset + 4)
-        if reference:
-            n = _u32(raw, reference)
-            check(n <= 1024 and reference + 4 + n * 4 <= len(raw))
-            found[event] = struct.unpack_from(f'<{n}I', raw, reference + 4)
-        else:
-            found[event] = ()
-    return found
+        found[event] = _ids(raw, _u32(raw, offset + 4))
+        if with_states and (pointer := _u32(raw, offset + 8)):
+            states[event] = pointer
+    return (found, states, raw) if with_states else found
 
 
 @dataclass(frozen=True)
@@ -120,18 +143,30 @@ def _target(objects, event):
     return None
 
 
-def _media(objects, embedded, bank, target, streams):
+def _sound(objects, target, parent=None, depth=0):
     kind, sound = objects.get(target, (0, b''))
+    if depth > 12 or kind not in (2, 5):
+        return None
+    if parent is not None:
+        pos = 25 if kind == 2 else 11
+        if len(sound) < pos + 4 or _u32(sound, pos) != parent:
+            return None
     if kind == 5:
-        # Wwise 135, basic random/sequence container: its child table and
-        # weighted playlist must both select the same sole sound.
-        if (len(sound) != 76 or _u32(sound, 58) != 1 or sound[66:68] != b'\x01\0'
-                or _u32(sound, 62) != _u32(sound, 68) or not _u32(sound, 72)):
+        if len(sound) < 76:
             return None
-        kind, sound = objects.get(_u32(sound, 62), (0, b''))
-        if kind != 2 or len(sound) < 29 or _u32(sound, 25) != target:
+        pos = 58 + sound[16] * 5
+        if (len(sound) != pos + 18 or _u32(sound, pos) != 1 or sound[pos+8:pos+10] != b'\x01\0'
+                or _u32(sound, pos + 4) != _u32(sound, pos + 10) or not _u32(sound, pos + 14)):
             return None
-    if kind != 2 or len(sound) < 18 or _u32(sound, 4) != 0x40001 or not sound[17] & 1:
+        return _sound(objects, _u32(sound, pos + 4), target, depth + 1)
+    if len(sound) < 18 or _u32(sound, 4) != 0x40001 or not sound[17] & 1:
+        return None
+    return sound
+
+
+def _media(objects, embedded, bank, target, streams, parent=None):
+    sound = _sound(objects, target, parent)
+    if not sound:
         return None
     mid, method = _u32(sound, 9), sound[8]
     if method == 0 and mid in embedded:
@@ -140,6 +175,47 @@ def _media(objects, embedded, bank, target, streams):
     if method in (1, 2) and mid in streams:
         return mid, streams[mid]
     return None
+
+
+def _switch(obj):
+    if len(obj) < 48:
+        return None
+    pos = 34 + obj[16] * 5
+    if pos + 14 > len(obj) or obj[pos] != 1 or obj[pos+9]:
+        return None
+    group, default = struct.unpack_from('<II', obj, pos + 1)
+    children = _ids(obj, pos + 10)
+    pos += 14 + len(children) * 4
+    count = _u32(obj, pos)
+    if not 1 <= count <= 1024 or len(children) != len(set(children)):
+        return None
+    pos += 4
+    branches = {}
+    for _ in range(count):
+        value = _u32(obj, pos)
+        nodes = _ids(obj, pos + 4)
+        if value in branches or any(node not in children for node in nodes):
+            return None
+        branches[value] = nodes
+        pos += 8 + 4 * len(nodes)
+    count = _u32(obj, pos)
+    pos += 4
+    if (default not in branches or count != len(children) or pos + 14 * count != len(obj)
+            or {_u32(obj, pos + 14 * n) for n in range(count)} != set(children)):
+        return None
+    return group, default, branches
+
+
+def _selected_branches(name, default, branches, locale):
+    player = {wwise_hash('state_' + gender): gender for gender in ('male', 'female')}
+    none = wwise_hash('none')
+    if player.keys() <= branches.keys() <= player.keys() | {none}:
+        return player
+    for token in re.findall('[a-z]+', name.lower()):
+        native, japanese = (wwise_hash(token + suffix) for suffix in ('_default', '_japanese'))
+        if default == native and set(branches) == {native, japanese, none} and branches[none] == branches[native]:
+            return {japanese if locale == 'ja' else native: 'localized'}
+    return {}
 
 
 def _assets(directory, build, locale):
@@ -200,7 +276,7 @@ def _lookup(directory, stamp):
     build = _release(directory, stamp)
     index = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), (LOOKUP,))[LOOKUP]
     check(0 < index.size <= 32 * 1024**2)
-    return bank_lookup(index.read(directory, 0, index.size))
+    return bank_lookup(index.read(directory, 0, index.size), with_states=True)
 
 
 @lru_cache(maxsize=5)
@@ -220,10 +296,10 @@ def _tables(directory, stamp, locale):
 @lru_cache(maxsize=8)
 def _inventory(directory, stamp, locale, requested):
     language = voice_namespace('starrail', locale)
-    lookup = _lookup(directory, stamp)
+    lookup, state_refs, raw = _lookup(directory, stamp)
     neutral, localized, streams = _tables(directory, stamp, locale)
     by_event = {}
-    for event in requested:
+    for event, _ in requested:
         candidates = lookup.get(event, ())
         neutral_ids = [bid for bid in candidates if neutral.get(bid)]
         if len(neutral_ids) == 1:
@@ -235,11 +311,31 @@ def _inventory(directory, stamp, locale, requested):
         if target and target[0] in lookup[event] and localized.get(target[0]):
             targets[event] = target
     loaded = _bundle(directory, {bid: localized[bid] for bid, _ in targets.values()}, language)
-    result = {}
+    result, switches, dependencies = {}, [], set()
+    names = dict(requested)
     for event, (bid, target) in targets.items():
+        obj = loaded[bid][0].get(target)
+        if obj and obj[0] == 6 and event in state_refs:
+            switch = _switch(obj[1])
+            state = _state_banks(raw, state_refs[event])
+            if not switch or not state or switch[0] != state[0]:
+                continue
+            if {key for key, nodes in switch[2].items() if nodes} != {key for key, banks in state[1].items() if banks}:
+                continue
+            for value, variant in _selected_branches(names[event], switch[1], switch[2], locale).items():
+                nodes, banks = switch[2][value], state[1].get(value, ())
+                if len(nodes) == len(banks) == 1 and localized.get(banks[0]):
+                    switches.append((event, variant, bid, target, nodes[0], banks[0]))
+                    dependencies.add(banks[0])
+            continue
         found = _media(*loaded[bid], localized[bid], target, streams)
         if found and found[1] is not None:
-            result[event] = found
+            result[event] = {None: found}
+    extra = _bundle(directory, {bid: localized[bid] for bid in dependencies}, language)
+    for event, variant, bid, parent, child, dependency in switches:
+        found = _media(loaded[bid][0], extra[dependency][1], localized[dependency], child, streams, parent)
+        if found and found[1]:
+            result.setdefault(event, {})[variant] = found
     return result
 
 
@@ -248,25 +344,32 @@ def bindings(tools, stamp, locale, names):
     for name in names:
         check(isinstance(name, str) and re.fullmatch('[A-Za-z0-9_]+', name))
         hashes.setdefault(wwise_hash(name), set()).add(name.lower())
-    unique = tuple(sorted(key for key, names in hashes.items() if len(names) == 1))
+    unique = tuple(sorted((key, next(iter(variants))) for key, variants in hashes.items() if len(variants) == 1))
     if not unique:
         return {}
     rows = _inventory(tools / 'sophon', stamp, locale, unique)
-    return {name: {'publisher': stamp, 'locale': audio_locale(locale), 'audio_event': name,
-                   'event_media': rows[key][0], 'bank_package': rows[key][1].asset.name,
-                   'bank_digest': rows[key][1].asset.digest, 'bank_offset': rows[key][1].offset,
-                   'bank_size': rows[key][1].size} for name in names
-            if (key := wwise_hash(name)) in rows}
+    result = {}
+    for name in names:
+        for variant, (mid, entry) in rows.get(wwise_hash(name), {}).items():
+            binding = {'publisher': stamp, 'locale': audio_locale(locale), 'audio_event': name,
+                       'event_media': mid, 'bank_package': entry.asset.name, 'bank_digest': entry.asset.digest,
+                       'bank_offset': entry.offset, 'bank_size': entry.size}
+            if variant:
+                binding['event_variant'] = variant
+            result.setdefault(name, {})[variant] = binding
+    return result
 
 
 def extract(audio, tools):
     stamp, locale, event = audio['publisher'], audio['locale'], audio['audio_event']
     # Recheck the exact event on playback, keeping an immutable singleton entry
     # when the program restarts and the original indexing process is gone.
-    expected = bindings(tools, stamp, locale, (event,)).get(event)
+    variant = audio.get('event_variant')
+    expected = bindings(tools, stamp, locale, (event,)).get(event, {}).get(variant)
     check(expected and all(audio.get(key) == value for key, value in expected.items()))
     directory = tools / 'sophon'
-    _, source = _inventory(directory, stamp, locale, (wwise_hash(event),))[wwise_hash(event)]
+    key = wwise_hash(event)
+    _, source = _inventory(directory, stamp, locale, ((key, event.lower()),))[key][variant]
     raw = source.asset.read(directory, source.offset, source.size)
     check(len(raw) >= 12 and raw[:4] == b'RIFF' and raw[8:12] == b'WAVE' and _u32(raw, 4) + 8 == len(raw))
     return raw

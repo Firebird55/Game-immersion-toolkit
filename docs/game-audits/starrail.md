@@ -89,13 +89,32 @@ a bank prefetch use their authored media IDs. Duplicate or missing sources
 remain unavailable. A random/sequence container can contribute a recording
 when both its child table and its playlist name the same sole sound.
 
-Global English preparation resolved 3,502 distinct archival events and 3,510
-rows. The full preparation/export path produced 98,610 playable English
-rows across presentations, compared with 95,100 before event support. Three
-sampled direct media bindings decoded in each of the four dubs. The 172
-switch containers depend on a state chosen by the game. Four other events
-have multiple or nested playlist children. Subtitle text alone cannot
-identify which take played.
+The 3,502 single-source events add 3,510 archive rows. The 172 switch
+events reference 344 additional media banks across their states. The reader
+joins each switch's group, state, selected child, parent and media bank to the
+regional launcher's state dependency table. All 29 protagonist switches have
+explicit male and female states. For example, the source text for Aventurine
+contains both forms of address. The English export independently played
+“Mr. Stellaron” and “Miss Stellaron” according to the selected protagonist.
+
+The other 143 switches control collaboration character voices. HoYoverse
+documents the per-character option for original Japanese voice. The reader
+chooses Japanese for Japanese study and the locale's default state for other
+dubs. It requires a credit for the selected language in the current
+`AvatarAtlas` before exporting a collaboration performance. The four characters
+have Mandarin, Japanese and Korean credits in 4.7. All 142 English default
+recordings with a single source decoded to digital silence. The 143rd event
+has two English sources, which both also decoded to silence. In Japanese,
+Korean and Mandarin, 142 switches produced one recording each. Five multi-part
+archive events still require their speaker captions and playlist positions.
+[Character voice options](https://hsr.hoyoverse.com/en-us/news/158598) ·
+[Released character credits](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AvatarAtlas.json)
+
+The complete Global Japanese preparation produced 305,316 text rows and
+100,146 playable rows across presentations. Normal export decoded male and
+female Aventurine and Saber's idle recording to MP3. Regional English
+checks also decoded both protagonist recordings and three direct events
+from the mainland CDN.
 
 The reader groups selected bank ranges by package and validates the published
 package digest, size, returned range, Wwise language and embedded/streamed

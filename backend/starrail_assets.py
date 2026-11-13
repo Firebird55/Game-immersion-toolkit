@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 11
+LANGUAGE_INDEX_VERSION = 12
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -218,6 +218,7 @@ def authored_links(catalog, locale):
             link = _text_link(identity, text_hash, kind, 'unavailable' if row.get('AudioEvent') else 'unknown')
             if row.get('AudioEvent'):
                 link['audio_event'] = row['AudioEvent']
+                link['avatar_id'] = row['AvatarID']
             links.append(link)
     links.extend(message_links(
         _table(catalog, 'MessageItemConfig', ('ID', 'ItemType')),
@@ -229,6 +230,29 @@ def authored_links(catalog, locale):
             links.append(_text_link('idle-message-' + str(row['ContentID']), text_hash, 'message', 'unvoiced'))
     links.extend(_presentation_links(catalog))
     return links
+
+
+def _archive_rows(rows, links, bindings, credits, locale):
+    from .textmaps import gender_variants
+    cv = {'en': 'CV_EN', 'zh-Hans': 'CV_CN', 'zh-Hant': 'CV_CN', 'ja': 'CV_JP', 'ko': 'CV_KR'}[locale]
+    result = []
+    for row in rows:
+        item = links.get(row['text_id'], {})
+        options = bindings.get(item.get('audio_event'), {})
+        if 'localized' in options and not _hash(credits.get(item.get('avatar_id'), {}).get(cv)):
+            options = {}
+        if not options:
+            result.append(row)
+            continue
+        for variant, binding in options.items():
+            updated = row | {'audio': binding, 'voice_status': 'voiced'}
+            if variant in ('male', 'female'):
+                tag = variant[0].upper()
+                texts = {lang: gender_variants(text).get(tag, text) for lang, text in row['texts'].items()}
+                updated.update(text_id=row['text_id'] + '_' + tag.lower(), texts=texts, source_text=texts[locale],
+                               english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''), player_voice=variant)
+            result.append(updated)
+    return result
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
@@ -251,13 +275,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     rows.extend(_readable_records(catalog, tables, source_locale))
     if install is None:
         from . import starrail_films, starrail_events
-        events = {'starrail:' + link['id']: link['audio_event'] for link in links if 'audio_event' in link}
-        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale, set(events.values()))
-        for row in rows:
-            binding = audio.get(events.get(row['text_id']))
-            if binding:
-                row['audio'] = binding
-                row['voice_status'] = 'voiced'
+        events = {'starrail:' + link['id']: link for link in links if 'audio_event' in link}
+        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale,
+                                        {link['audio_event'] for link in events.values()})
+        credits = {}
+        if any('localized' in options for options in audio.values()):
+            credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
+        rows = _archive_rows(rows, events, audio, credits, source_locale)
         rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
