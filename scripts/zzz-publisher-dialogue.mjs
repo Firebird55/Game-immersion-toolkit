@@ -222,7 +222,9 @@ function scenePlan(work, input, reader) {
   const scenes = [...tableStrings(tables.get(key), [2, 3])];
   const dialogue = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'dialogue'), reader);
   const comics = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'comic'), reader, 'comic');
-  return {...dialogue, comics};
+  const voiceDirectory = catalogRanges(work, input.catalogs,
+    new Set([reader.xxHash64('assets/napresources/data/audio/voicedata.json')]), reader, false);
+  return {...dialogue, comics, voiceDirectory:voiceDirectory.ranges};
 }
 
 // Unity v21 AssetBundle (class 142): preloads, container and main asset, runtime
@@ -281,18 +283,39 @@ function comicPlan(work, input, reader) {
   return {ranges: result.ranges};
 }
 
+// VoiceData is a Unity TextAsset containing JSON with line comments and trailing
+// commas. The numeric voidBlocks array carries its associations without comments.
+export function voiceDirectoryObject(object) {
+  const length = object.readUInt32LE(0);
+  if (length !== 9 || object.toString('ascii', 4, 4 + length) !== 'VoiceData') return null;
+  const sizeAt = Math.ceil((4 + length) / 4) * 4, start = sizeAt + 4;
+  const size = object.readUInt32LE(sizeAt);
+  if (size > 32 * 1024 * 1024 || start + size > object.length) throw Error('Invalid ZZZ voice directory bounds');
+  const document = utf8.decode(object.subarray(start, start + size)).replace(
+    /"(?:\\.|[^"\\])*"|\/\/[^\r\n]*|,\s*(?=[}\]])/g, token => token.startsWith('"') ? token : '');
+  const {allPrefixes, voidBlocks} = JSON.parse(document);
+  if (!Array.isArray(allPrefixes) || !allPrefixes.length || allPrefixes.length > 65536 ||
+      !Array.isArray(voidBlocks) || !voidBlocks.length || voidBlocks.length > 2000000) throw Error('Invalid ZZZ voice directory format');
+  return {prefixes:allPrefixes, blocks:voidBlocks};
+}
+
 export function ongoingRows(rows) {
   const links = [];
   for (const [text_id, first, second] of rows) {
     if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text_id)) continue;
     const channels = /ongoinglevel/i.test(text_id) ? ['gameplay'] : ['tip'];
     const link = {text_id, dialogue_kind:'ambient', channels};
+    const take = (source, gender) => {
+      const reaction = /(?:^|[_/])(?:cinema)?breath\d*(?:_|$)/i.test(source);
+      return {...link, ...(gender ? {gender} : {}), source:reaction ? '' : source,
+        voice_status:source && !reaction ? 'unavailable' : 'unknown'};
+    };
     if (second && first !== second) {
-      links.push({...link, source:first, gender:'F', voice_status:first ? 'unavailable' : 'unknown'});
-      links.push({...link, source:second, gender:'M', voice_status:'unavailable'});
+      links.push(take(first, 'F'));
+      links.push(take(second, 'M'));
     } else {
       // Empty sentence fields leave separate runtime sound/event fields unresolved.
-      links.push({...link, source:first, voice_status:first ? 'unavailable' : 'unknown'});
+      links.push(take(first));
     }
   }
   return links;
@@ -345,6 +368,19 @@ function catalogue(work, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.scenes$/);
   if (input.comics.length) checkNames(input.comics, /^\d+\.blk\.comics$/);
+  const directoryBlocks = input.voiceDirectory || [];
+  if (directoryBlocks.length) checkNames(directoryBlocks, /^\d+\.blk\.voice-directory$/);
+  let directory = null;
+  for (const cab of sceneCabs(work, directoryBlocks, reader)) {
+    for (const object of unityObjectsOfType(cab, 49)) {
+      const match = voiceDirectoryObject(object);
+      if (!match) continue;
+      if (directory) throw Error('Ambiguous ZZZ voice directory');
+      directory = match;
+    }
+  }
+  if (directoryBlocks.length && !directory) throw Error('Released ZZZ voice directory is missing');
+  writeFileSync(join(work, 'voice-directory.json'), JSON.stringify(directory), {flag:'wx'});
   const locales = new Set(input.locales);
   if (!locales.size || [...locales].some(locale => !Object.hasOwn(tags, locale))) throw Error('Invalid ZZZ locales');
   const key = name => String(reader.xxHash64(name.toLowerCase()));

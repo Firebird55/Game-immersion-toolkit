@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice, tipRows} from '../scripts/zzz-publisher-dialogue.mjs';
+import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice, tipRows, voiceDirectoryObject} from '../scripts/zzz-publisher-dialogue.mjs';
 
 test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
   const source = 'VO_Message/Actor/Message_Performance_75';
@@ -173,6 +173,25 @@ test('released tips distinguish reactions, events, secondary references and auth
     sample('story','GalGame_Example_Actor_02')]);
   assert.deepEqual(rows.map(row => row.voice_status), ['unvoiced','unknown','unknown','unknown','unavailable','unavailable','unavailable']);
   assert.deepEqual(rows.filter(row => row.source).map(row => row.text_id), ['voice','story']);
+});
+
+test('numbered cinema breath takes do not voice the accompanying narration', () => {
+  const rows = ongoingRows([['Cinema_Narration', 'Cinema_Actor_14_Breath01', ''],
+    ['Cinema_Pair', 'Cinema_Actor_14_Breath02', 'Cinema_Actor_04']]);
+  assert.deepEqual(rows.map(r => [r.source, r.voice_status, r.gender]), [
+    ['', 'unknown', undefined], ['', 'unknown', 'F'], ['Cinema_Actor_04', 'unavailable', 'M'],
+  ]);
+});
+
+test('released voice directory uses numeric IDs independently of the optional name comments', () => {
+  const raw = Buffer.from('{"allPrefixes":["VO_A/",], "comment":"// inside string", "voidBlocks":[41, // group\n37,0,],}');
+  const header = Buffer.alloc(20);
+  header.writeUInt32LE(9); header.write('VoiceData', 4); header.writeUInt32LE(raw.length, 16);
+  const object = Buffer.concat([header, raw]);
+  assert.deepEqual(voiceDirectoryObject(object), {prefixes:['VO_A/'], blocks:[41,37,0]});
+  assert.throws(() => voiceDirectoryObject(object.subarray(0, -5)), /bounds/);
+  header.write('OtherData', 4);
+  assert.equal(voiceDirectoryObject(Buffer.concat([header, raw])), null);
 });
 
 test('released tip recordings use explicit matching protagonist suffixes', () => {

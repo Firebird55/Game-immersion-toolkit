@@ -176,18 +176,70 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
             selected = query('comic-plan', roots=roots, rootCount=len(comic_roots), catalogs=batches['catalog'])['ranges']
         blocks = stage_scenes(work, cache, files, plan['ranges'])
         comics = stage_scenes(work, cache, files, selected, extension='comics')
+        directory = stage_scenes(work, cache, files, plan['voiceDirectory'], extension='voice-directory')
         coverage = query('catalogue', design=batches['design'], locales=sorted(locales), namespace=namespace,
-                         blocks=blocks, comics=comics)
+                         blocks=blocks, comics=comics, voiceDirectory=directory)
         coverage['comic_paths'] = comic_plan['scenePaths']
         coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
         coverage['scene_paths'] = plan['scenePaths']
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
         return (json.loads((work / 'links.json').read_bytes()),
                 {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in locales},
-                coverage)
+                coverage, json.loads((work / 'voice-directory.json').read_bytes()))
 
 
-def original_bindings(links, entries, dub, version):
+def _short_id(name):
+    value = 2166136261
+    for byte in name.lower().encode('utf-8'):
+        value = ((value * 16777619) & 0xffffffff) ^ byte
+    return value
+
+
+def voice_directory(directory):
+    if not directory:
+        return {}
+    # Each block starts with the 32-bit hash of a directory, followed by
+    # source-name hashes, and ends with zero. A directory can designate either
+    # an actor's exact folder or a parent containing multiple actors.
+    descendants = defaultdict(set)
+    for prefix in directory['prefixes']:
+        if (not isinstance(prefix, str) or len(prefix) > 240 or not prefix.endswith('/') or
+                any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_. '-]*", part) or '..' in part
+                    for part in prefix[:-1].split('/'))):
+            raise ValueError('Invalid released ZZZ voice directory path.')
+        for match in re.finditer('/', prefix):
+            parent = prefix[:match.end()]
+            descendants[_short_id(parent)].add(prefix)
+    groups = {key: tuple(sorted(paths)) for key, paths in descendants.items()}
+    sources = defaultdict(set)
+    group = None
+    for value in directory['blocks']:
+        if type(value) is not int or not 0 <= value <= 0xffffffff:
+            raise ValueError('Invalid released ZZZ voice directory ID.')
+        if group is None:
+            if value not in groups:
+                raise ValueError('Unknown group in the released ZZZ voice directory.')
+            group = value
+        elif value == 0:
+            group = None
+        else:
+            sources[value].add(group)
+    if group is not None:
+        raise ValueError('Truncated released ZZZ voice directory.')
+    return {key: tuple(groups[group] for group in ids) for key, ids in sources.items()}
+
+
+def _directory_paths(source, directory):
+    # Film soundtracks, effects and reaction pools cannot establish a separate
+    # sentence take, even when the audio file itself exists.
+    if (not re.fullmatch(r'[A-Za-z0-9_-]+', source) or
+            re.search(r'(?:^|_)(?:(?:cinema)?breath\d*|sfx)(?:_|$)', source, re.I)):
+        return set()
+    return {prefix + source for folders in directory.get(_short_id(source), ()) for prefix in folders
+            if not re.search(r'(?:^|/)(?:VO_Breath|VO_Bubble|VO_Effect|Film|SFX_[^/]+|VO_Clue)/', prefix, re.I)}
+
+
+def original_bindings(links, entries, dub, version, directory=None):
     namespace = voice_namespace('zzz', dub)
     candidates = defaultdict(set)
     for link in links:
@@ -201,7 +253,9 @@ def original_bindings(links, entries, dub, version):
         source, = sources
         if source not in by_source:
             matches = []
-            for path in source_paths(source, version):
+            hints = _directory_paths(source, directory) if directory else set()
+            paths = hints or source_paths(source, version)
+            for path in paths:
                 full = f'{namespace}/ex/{path}.wem'
                 file_id = voice_hash(full)
                 if file_id in entries:
@@ -220,7 +274,7 @@ def build_language(data_dir, source_locale, target_locales, progress):
     selected = {source_locale, *(value for value in targets.values() if value)}
     progress('Reading ZZZ dialogue and translations from the Global PC launcher release')
     dub = audio_locale(source_locale)
-    links, tables, coverage = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
+    links, tables, coverage, directory = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
     progress('Matching the selected original ZZZ dub to its released scene and message sources')
     entries = voice.inventory(data_dir, stamp, dub, 'zzz')
     expanded, channels, evidence, kinds = zzz_assets._group_links(links)
@@ -228,7 +282,7 @@ def build_language(data_dir, source_locale, target_locales, progress):
     # another. This snapshot addresses text IDs, so avoid assigning that sound
     # unless all uses of the selected performance agree on a sentence source.
     consistent = [link for link in expanded if evidence[link['text_id']] == {'unavailable'}]
-    bindings = original_bindings(consistent, entries, dub, build['version'])
+    bindings = original_bindings(consistent, entries, dub, build['version'], voice_directory(directory))
     for link in links:
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}

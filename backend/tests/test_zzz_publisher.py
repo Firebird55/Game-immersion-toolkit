@@ -38,6 +38,40 @@ def test_publisher_resolves_cinema_timeline_and_numbered_speakers_only_by_unique
     assert result['timeline']['source'].endswith('VO_Example/Vo_Csr_Timeline_Example_End_ExAmPlE_002.wem')
 
 
+def test_publisher_directory_matches_future_source_names_and_requires_a_unique_full_file():
+    short = zzz_publisher._short_id
+    folder = 'VO_Future/Ver5_11/'
+    actors = [folder + "VO_Actor'sFriend/", folder + 'VO_Other/']
+    first, second = 'FutureScene_Line_01', 'FutureScene_Line_02'
+    directory = zzz_publisher.voice_directory({'prefixes': actors, 'blocks': [
+        short(folder), short(first), short(second), 0]})
+    paths = {first: [actors[0]], second: actors}
+    entries = {voice_hash('English(EN)/ex/' + prefix + name + '.wem'): {'package': 'current.pck'}
+               for name, folders in paths.items() for prefix in folders}
+    links = [{'text_id': key, 'source': key} for key in paths]
+    result = zzz_publisher.original_bindings(links, entries, 'en', '5.11.0', directory)
+    assert set(result) == {first}
+    assert result[first]['source'] == 'English(EN)/ex/' + actors[0] + first + '.wem'
+    assert zzz_publisher.original_bindings(links, entries, 'ja', '5.11.0', directory) == {}
+
+
+@pytest.mark.parametrize('folder', ['VO_Breath/', 'VO_Bubble/Ver5_0/VO_A/', 'VO_Cinema/Film/',
+                                    'VO_Level/Ver5_0/SFX_Bell/', 'VO_Galgame/VO_Effect/'])
+def test_directory_does_not_promote_effects_or_whole_films_to_sentences(folder):
+    short = zzz_publisher._short_id
+    directory = zzz_publisher.voice_directory({'prefixes': [folder], 'blocks': [short(folder), short('Unclear_01'), 0]})
+    assert zzz_publisher._directory_paths('Unclear_01', directory) == set()
+
+
+def test_truncated_and_unknown_directory_groups_are_rejected():
+    short = zzz_publisher._short_id
+    for blocks in ([short('VO_Actor/'), 341], [3245, 341, 0], [short('VO_Actor/'), -1, 0]):
+        with pytest.raises(ValueError, match='directory'):
+            zzz_publisher.voice_directory({'prefixes': ['VO_Actor/'], 'blocks': blocks})
+    with pytest.raises(ValueError, match='directory path'):
+        zzz_publisher.voice_directory({'prefixes': ['../outside/'], 'blocks': [5, 0]})
+
+
 def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing_bodies(tmp_path, monkeypatch):
     current = ['a']
     def release(channel):
@@ -53,7 +87,7 @@ def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing
                  {'text_id': 'missing', 'source': 'VO_Message/Other/Message_Missing', 'dialogue_kind': 'message'},
                  {'text_id': 'choice', 'source': '', 'dialogue_kind':'choice', 'voice_status':'unknown'}],
                 {'en': {'text_' + tag: 'test'}, 'zh-Hant': {'text_' + tag: '測試', 'missing':'其他','choice':'選擇'}},
-                {'recorded_messages':2, 'ambiguous_messages':2})
+                {'recorded_messages':2, 'ambiguous_messages':2}, None)
     def clip(tag):
         return b'RIFF' + struct.pack('<I', 5) + b'WAVE' + tag.encode()
     def manifest(cache, channel, spec, suffixes):

@@ -59,6 +59,30 @@ The two takes for `Tips_74580002` lasted 5.009 s and 5.274 s, and those for
 selection to 70,397 voiced and 9,634 unavailable records. Alternate takes
 that only carry different numbers still need performer evidence.
 
+The resource catalogue indexes the publisher's own
+`assets/napresources/data/audio/voicedata.json`. The 388,096-byte bundle in
+Global 3.3.0 contained 2,952 original voice directories and 85,839 numerical
+source IDs in 1,302 directory groups. In each group the first number is the
+32-bit FNV-1 of the lowercase directory, followed by the source-name IDs
+and a zero terminator. Some groups name an actor directory directly; others
+refer to a parent with several actor directories. Setup selects a recording
+only when the complete path gives a unique 64-bit file ID in the requested
+dub. The same reader found 2,889 directories, 84,259 source IDs and 1,283
+groups in the 380,804-byte mainland 3.2.0 bundle. Neither location nor the
+voice group memberships are pinned to these releases.
+
+Comparing the updated English index with the first selection above, 6,341
+previously unavailable performances now have audio: 5,593 ambient lines, 531
+conversations, 198 gameplay tips and 19 narration lines. Fourteen cinema
+entries named a breath or reaction under an on-screen description. Setup
+keeps their sentence voice status unknown. Current totals are **74,913
+voiced, 132,908 authored unvoiced, 5,104 unavailable and 50,814 unknown**.
+Seven newly resolved performances spanning the Forbidden Area, Severian,
+Silver Soldier Anby, Cissia, Fairy and a timeline voice were retrieved and
+decoded in all four dubs. The Forbidden Area line lasted 6.576 s in English,
+7.467 s in Japanese, 5.550 s in Korean and 5.812 s in Mandarin.
+[Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
 rows, the reaction column had 268 populated entries and 16 rows referred to an
