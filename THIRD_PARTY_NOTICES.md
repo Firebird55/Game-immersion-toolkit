@@ -114,6 +114,15 @@ JavaScript and Python dependencies retain their distribution licenses. The locke
 Toolkit release bundles include THIRD_PARTY_LICENSES.txt with the complete license/notice files from the locked JavaScript dependency installation used for the build. This includes libraries bundled into the prebuilt frontend.
 
 
+The Endfield timeline reader follows the released bundle layout and block
+encoding described in
+[EndfieldStudio VFSFile](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/AnimeStudio/VFSFile.cs)
+and [LZ4Inv](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/AnimeStudio/LZ4/LZ4Inv.cs).
+During preparation it verifies two source documents from the same commit and
+reads their numerical tables as data in the user's private tool cache.
+[Format metadata](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/AnimeStudio/Crypto/VFSUtils.cs)
+· [Upstream license](https://github.com/EIHRTeam/EndfieldStudio/blob/48c40a5e6a931b08223384077b74b41b484a540f/LICENSE)
+
 Endfield game tools download pinned MIT-licensed reader sources from
 [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio). Their license
 notice remains beside the locally built reader. Sources, native binaries,
