@@ -9,23 +9,26 @@ from backend import endfield_release, nte_release, sophon_assets, wuthering_rele
 from backend.game_tools import _atomic_file
 
 NTE = nte_release.HOSTS
+WUWA = {'wuwa-' + region: region for region in wuthering_release.CHANNELS}
 
 
 def collect(channel, cache, *, resource=None, save=None, voice=None, dub=None):
-    if (resource is not None and channel not in NTE or voice is not None and channel != 'wuwa-global' or
+    if (resource is not None and channel not in NTE or voice is not None and channel not in WUWA or
             (voice is None) != (dub is None) or (save is None) != (resource is None and voice is None)):
         raise ValueError('Select an NTE resource or a Kuro voice and dub, and supply its --save destination.')
     extra = {}
-    if channel == 'wuwa-global':
-        version, base, launcher_files = wuthering_release.launcher()
-        versions, layers, packages, params, pointers = wuthering_release.discover(cache, version, base, launcher_files)
-        scope = 'Global launcher, core, dub and video files'
+    if channel in WUWA:
+        region = WUWA[channel]
+        version, base, launcher_files = wuthering_release.launcher(region)
+        versions, layers, packages, params, pointers = wuthering_release.discover(cache, version, base, launcher_files, region=region)
+        edition = 'Global' if region == 'global' else 'Mainland China'
+        scope = edition + ' launcher, core, dub and video files'
         files = {**launcher_files, **layers}
-        extra = {'layers': versions, 'previous_scope': 'Global launcher base PAKs'}
+        extra = {'layers': versions, 'previous_scope': edition + ' launcher base PAKs'}
         if voice is not None:
             audio = wuthering_release.voice(cache, packages, dub, voice, params)
             wuthering_release.verify_pointers(pointers)
-            if wuthering_release.launcher() != (version, base, launcher_files):
+            if wuthering_release.launcher(region) != (version, base, launcher_files):
                 raise ValueError('The Kuro launcher changed during playback preparation. Retry.')
             _atomic_file(save, audio)
     elif channel in NTE:
@@ -77,7 +80,7 @@ def differences(before, after):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('channel', choices=[*sophon_assets.CHANNELS, 'endfield-global', 'wuwa-global', *NTE])
+    parser.add_argument('channel', choices=[*sophon_assets.CHANNELS, 'endfield-global', *WUWA, *NTE])
     parser.add_argument('--cache', type=Path, required=True, help='Private directory for launcher manifests')
     parser.add_argument('--previous', type=Path, help='Compare against a previously saved inventory')
     parser.add_argument('--output', type=Path, required=True, help='Write a verified inventory for later comparison')

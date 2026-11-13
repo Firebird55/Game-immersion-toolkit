@@ -1,4 +1,4 @@
-"""Resolve the active Global Wuthering Waves story, movie and dub manifests."""
+"""Resolve the active regional Wuthering Waves story, movie and dub manifests."""
 import base64
 from functools import lru_cache
 import gzip
@@ -21,6 +21,12 @@ from .wuthering_assets import PUBLIC_METADATA_URL
 
 KURO = ('https://prod-alicdn-gamestarter.kurogame.com/launcher/game/'
         '50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json')
+
+CHANNELS = {
+    'global': (KURO, 'G153/50004', 'net'),
+    'cn': ('https://prod-volcdn-gamestarter.kurogame.xyz/launcher/game/'
+           '10003_oLNgHF1CESo51DGHN2odtp40e3oI1HfZ/G152/official/index.json', 'G152/10003', 'com'),
+}
 
 FORMAT_URL = ('https://raw.githubusercontent.com/Yumeo0/mornye-tools/4591ef24949688ec9835bf910a204d6bbc4b339c/'
               'src-tauri/crates/game-client/src/discovery.rs')
@@ -49,20 +55,21 @@ def _launcher_manifest(url, digest):
     return data
 
 
-def launcher():
-    root = json.loads(kuro_bytes(KURO))
+def launcher(region='global'):
+    url, channel_path, domain = CHANNELS[region]
+    root = json.loads(kuro_bytes(url))
     # The live tiered launcher publishes common separately from graphics packs.
     # Pre-downloads and experiment branches can advertise an unreleased version.
     config = root['resourcePacks']['common']
     path, version = config['indexFile'], config['version']
     pak.check(isinstance(config['indexFileMd5'], str) and re.fullmatch('[0-9a-f]{32}', config['indexFileMd5']))
     if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch(
-            r'launcher/game/G153/50004/' + re.escape(version) + r'/[A-Za-z0-9]+/common/indexFile\.json', path):
-        raise ValueError('Unrecognized Global Kuro launcher index.')
+            r'launcher/game/' + channel_path + '/' + re.escape(version) + r'/[A-Za-z0-9]+/common/indexFile\.json', path):
+        raise ValueError('Unrecognized regional Kuro launcher index.')
     network_error = None
     for candidate in root['cdnList']:
         cdn = urlsplit(candidate['url'])
-        if (cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.net', cdn.netloc)
+        if (cdn.scheme == 'https' and re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, cdn.netloc)
                 and cdn.path in ('', '/') and not cdn.query and not cdn.fragment):
             url = 'https://' + cdn.netloc + '/' + path
             try:
@@ -142,7 +149,8 @@ def _file(name, size, digest):
     return [_size(size), digest.lower()]
 
 
-def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True):
+def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
+    domain = CHANNELS[region][2]
     bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
     size, digest = launcher_files[bootstrap]
     params = _archive_parameters()
@@ -155,7 +163,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     pak.check(len(routes) == len(prefixes) == 1 and re.fullmatch(r'[A-Za-z0-9]{16,80}', routes[0]))
     network_error = None
     for prefix in prefixes[0].split(';'):
-        if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.net', prefix):
+        if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.' + domain, prefix):
             try:
                 source = _json(download(f'{prefix}/{routes[0]}/index.json', limit=LIMIT))['default']
                 break
@@ -165,14 +173,14 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     else:
         if network_error is not None:
             raise network_error
-        raise ValueError('No available Global Kuro bootstrap.')
+        raise ValueError('No available regional Kuro bootstrap.')
     res = source['ResUri']
     pak.check(re.fullmatch(r'[A-Za-z0-9]{16,80}', res))
     network_error = None
     for cdn in source['CdnUrl']:
         url = urlsplit(cdn['url'])
         if (url.scheme == 'https' and url.path == '/prod/client/' and not url.query and not url.fragment and
-                re.fullmatch(r'[a-z0-9-]+\.aki-game\.net', url.netloc) and int(cdn['weight']) > 0):
+                re.fullmatch(r'[a-z0-9-]+\.aki-game\.' + domain, url.netloc) and int(cdn['weight']) > 0):
             root = cdn['url'] + res + '/Windows/'
             try:
                 config_data = download(root + 'config.json', limit=LIMIT)
@@ -183,7 +191,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     else:
         if network_error is not None:
             raise network_error
-        raise ValueError('No available Global Kuro resource CDN.')
+        raise ValueError('No available regional Kuro resource CDN.')
     platform = _json(config_data)
     release = platform['PackageVersion']
     pak.check(re.fullmatch(VERSION, release) and release.split('.')[:2] == launcher_version.split('.')[:2])
@@ -252,11 +260,13 @@ def snapshot_available(tools, stamp):
 
 
 @lru_cache(maxsize=2)
-def _current(tools, period):
-    version, root, base = launcher()
-    versions, _, products, params, pointers = discover(tools, version, root, base, videos=False)
+def _current(tools, period, region='global'):
+    version, root, base = launcher(region)
+    versions, _, products, params, pointers = discover(tools, version, root, base, videos=False, region=region)
     descriptor = {'schema': 1, 'base': base, 'root': root, 'products': products,
                   'launcher': version, 'versions': versions}
+    if region != 'global':
+        descriptor['region'] = region
     raw = json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()
     stamp = 'wuwa-' + hashlib.sha256(raw).hexdigest()
     path = _descriptor_path(tools, stamp)
@@ -266,7 +276,8 @@ def _current(tools, period):
 
 
 def fingerprint(tools):
-    return _current(Path(tools), int(time.monotonic() // 60))[0]
+    from .publisher_regions import selected_region
+    return _current(Path(tools), int(time.monotonic() // 60), selected_region(Path(tools), 'wuwa'))[0]
 
 
 def _packages(snapshot, channel, layer):
@@ -363,7 +374,9 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     tools = Path(tools)
     if source_locale not in assets.SUPPORTED_LOCALES:
         raise ValueError('Unsupported Wuthering study/audio locale.')
-    stamp, snapshot, params, pointers = _current(tools, int(time.monotonic() // 60))
+    from .publisher_regions import selected_region
+    region = selected_region(tools, 'wuwa')
+    stamp, snapshot, params, pointers = _current(tools, int(time.monotonic() // 60), region)
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     selected = {locale for locale in resolved.values() if locale}
     progress('Reading the publisher’s current Wuthering story and translation tables')
@@ -380,12 +393,12 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         if record['audio']:
             record['audio']['publisher'] = stamp
     verify_pointers(pointers)
-    if launcher() != (snapshot['launcher'], snapshot['root'], snapshot['base']):
+    if selected_region(tools, 'wuwa') != region or launcher(region) != (snapshot['launcher'], snapshot['root'], snapshot['base']):
         raise ValueError('Kuro updated the launcher during preparation. Retry.')
     mapped = sum(bool(row['audio']) for row in records)
     available = {locale for row in records for locale in row['texts']}
     missing = [target for target, locale in resolved.items() if locale not in available]
-    return {'format': 2, 'game': 'wuwa', 'install': None, 'source_mode': 'publisher', 'fingerprint': stamp,
+    return {'format': 2, 'game': 'wuwa', 'install': None, 'source_mode': 'publisher', 'source_region': region, 'fingerprint': stamp,
             'source_locale': source_locale, 'records': records, 'missing_translation_locales': missing,
             'coverage_warnings': assets.COVERAGE_WARNINGS,
             'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices'}

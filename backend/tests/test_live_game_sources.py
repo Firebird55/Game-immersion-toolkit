@@ -63,3 +63,26 @@ def test_wuwa_keeps_game_paks_and_requires_current_launcher_checksum(monkeypatch
     common['indexFileMd5'] = '0' * 32
     with pytest.raises(ValueError, match='checksum'):
         sources.wuthering_release.launcher()
+
+
+def test_mainland_wuwa_accepts_only_its_released_common_pack(monkeypatch):
+    reader = sources.wuthering_release
+    path = 'launcher/game/G152/10003/3.8.0/release/common/indexFile.json'
+    payload = json.dumps({'resource': [
+        {'dest': 'Client/Content/Paks/base.pak', 'md5': 'a' * 32, 'size': 25},
+    ]}).encode()
+    config = {'version': '3.8.0', 'indexFile': path, 'indexFileMd5': hashlib.md5(payload).hexdigest(),
+              'baseUrl': path.removesuffix('/common/indexFile.json') + '/zip/'}
+    cdn = 'https://pcdownload-huoshan.aki-game.com/'
+    doc = {'resourcePacks': {'common': config},
+           'cdnList': [{'url': 'https://global.aki-game.net/'}, {'url': cdn}]}
+    def fetch(url):
+        if url == reader.CHANNELS['cn'][0]:
+            return json.dumps(doc).encode()
+        assert url == cdn + path
+        return payload
+    monkeypatch.setattr(reader, 'kuro_bytes', fetch)
+    assert reader.launcher('cn')[0] == '3.8.0'
+    config['indexFile'] = path.replace('G152/10003', 'G153/50004')
+    with pytest.raises(ValueError, match='regional'):
+        reader.launcher('cn')

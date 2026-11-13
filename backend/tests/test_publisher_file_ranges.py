@@ -125,7 +125,7 @@ def test_online_wuthering_generation_changes_for_dub_only_update_and_old_clip_wo
     revision = 'a'
     def discover(*args, **kwargs):
         return {'en': '1.0.1'}, {}, {'en/PatchFiles/sample.pak': ('publisher', 600, revision * 40)}, (), {}
-    monkeypatch.setattr(live, 'launcher', lambda: ('1.0.0', 'publisher', {}))
+    monkeypatch.setattr(live, 'launcher', lambda region: ('1.0.0', 'publisher', {}))
     monkeypatch.setattr(live, 'discover', discover)
     first = live._current(tmp_path, 1)[0]
     revision = 'b'
