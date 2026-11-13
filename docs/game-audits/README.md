@@ -22,7 +22,7 @@ gameplay acceptance gaps.
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |
 | Cyberpunk 2077 | Base game and Phantom Liberty; exact hashed voices; journal messages and readables | [Cyberpunk](cyberpunk.md) |
 | The Witcher 3: Wild Hunt | Legacy/current bundles; authored choices, journals, profiles and readable body keys | [Witcher](witcher3.md) |
-| Honkai: Star Rail | Messages, choices, narrated story and combat metadata. Regular Global voice packages are available without a game folder. | [Star Rail](starrail.md) |
+| Honkai: Star Rail | Messages, choices, narrated story and combat metadata. Regional hotfix discovery and base and chapter packages are available for Global and mainland China without a game folder. | [Star Rail](starrail.md) |
 | Genshin Impact | Dialogue, reminders, card dialogue and book paragraphs. Global and mainland China PC launcher releases support installation-free selected-dub playback with matched revisions. | [Genshin](genshin.md) |
 | Arknights: Endfield | Conversations, radio, messages, readables, operator archives and 437 film/caption pairs with verified intervals in at least one dub. Windows Setup uses the selected Global or mainland China publisher. English text and voices were prepared on mainland 1.6.4 and Global 1.5.3 and 1.6.4 without an installation. | [Endfield](endfield.md), [runtime evidence](../endfield-runtime.md) |
 | Rise of the Tomb Raider | TIGER archives; authored subtitle and FMOD voice bindings; regional and DLC languages | [Rise](rise-tomb-raider.md) |

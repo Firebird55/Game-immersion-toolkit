@@ -39,7 +39,7 @@
     },
     "targets": {
       "genshin": "regionalLauncher",
-      "starrail": "regularGlobal",
+      "starrail": "regionalChapters",
       "zzz": "globalRecordedMessages",
       "endfield": "regionalNarrative",
       "wuwa": "globalDialogue",
@@ -47,7 +47,7 @@
     },
     "windowsPreparation": {
       "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
-      "regularGlobal": { "withoutInstall": true, "label": "Publisher Setup for regular Global launcher voice packs" },
+      "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
       "globalRecordedMessages": { "withoutInstall": true, "label": "Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files.", "pairLabel": "Publisher Setup for recorded phone messages only. Other dialogue uses installed files." },

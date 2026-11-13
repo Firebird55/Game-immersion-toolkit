@@ -5,7 +5,7 @@ from .game_tools import _atomic_file
 
 
 REGIONS = {'global': 'Global', 'cn': 'Mainland China'}
-REGIONAL_GAMES = {'endfield': 'global', 'genshin': 'cn'}
+REGIONAL_GAMES = {'endfield': 'global', 'genshin': 'cn', 'starrail': 'global'}
 
 
 def selected_region(tools: Path, game: str) -> str:

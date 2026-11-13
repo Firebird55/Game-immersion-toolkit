@@ -281,7 +281,7 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
 
-可从发行商准备全球版启动器常规配音包
+可从发行商准备所选地区的基础与章节语音包
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 

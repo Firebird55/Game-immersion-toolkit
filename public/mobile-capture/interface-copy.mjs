@@ -5,7 +5,7 @@ export default {
  "Windows game integration only": ["Game-integratie alleen op Windows","仅支持 Windows 游戏集成","僅支援 Windows 遊戲整合"],
  "Windows game integration. Independent preparation and playback on Linux, macOS and Android await per-game verification.": ["Game-integratie op Windows. Zelfstandige voorbereiding en weergave op Linux, macOS en Android moeten nog per game worden geverifieerd.","支持 Windows 游戏集成。在 Linux、macOS 和 Android 上独立准备数据及播放配音仍需逐款验证。","支援 Windows 遊戲整合。在 Linux、macOS 和 Android 上獨立準備資料及播放配音仍須逐款驗證。"],
  "Publisher Setup for the Global or mainland China launcher release": ["Uitgeversbestanden uit de wereldwijde of Chinese launcher","可从发行商准备全球版或中国大陆版启动器资源","可從發行商準備全球版或中國大陸版啟動器資源"],
- "Publisher Setup for regular Global launcher voice packs": ["Reguliere Global-stempakketten van de uitgever","可从发行商准备全球版启动器常规配音包","可從發行商準備全球版啟動器常規配音包"],
+ "Publisher Setup for regional base and chapter voice packs": ["Regionale basis- en hoofdstukstemmen van de uitgever","可从发行商准备所选地区的基础与章节语音包","可從發行商準備所選地區的基礎與章節語音包"],
  "Publisher Setup for Global or mainland China narrative voices": ["Verhaalstemmen van de wereldwijde of Chinese uitgever","可从发行商准备全球版或中国大陆版剧情配音","可從發行商準備全球版或中國大陸版劇情配音"],
  "Publisher edition": ["Uitgeversversie","发行版本","發行版本"],
  "Publisher edition saved.": ["Uitgeversversie opgeslagen.","已保存发行版本。","已儲存發行版本。"],

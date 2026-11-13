@@ -51,7 +51,7 @@ def _runtime_inventory_stamp(root: Path) -> tuple:
 FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
     "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
-    "starrail": "Optionally choose Star Rail Games. Without a folder, setup uses verified Global launcher voice packages.",
+    "starrail": "Optionally choose Star Rail Games. Without a folder, select Global or Mainland China to prepare released voice packages and chapter updates.",
     "genshin": "Optionally choose the Genshin Impact or YuanShen game folder. Without a folder, select the Global or Mainland China publisher edition and your study language.",
     "endfield": "Choose Global or Mainland China for online Endfield data. To use installed packages, choose the folder containing Endfield.exe.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
@@ -67,7 +67,7 @@ FOLDER_HINTS = {
 VOICE_HINTS = {
     "riseofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Regional and DLC pack availability is shown separately.",
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
-    "starrail": "Prepare the selected study language to retrieve original voices from Global publisher packages.",
+    "starrail": "Prepare the selected study language to retrieve original voices from the selected Star Rail publisher edition.",
     "genshin": "Prepare the selected language to retrieve original voices from the publisher. Installed clients use their own voice packs.",
     "endfield": "Prepare tools and the selected language to fetch original recordings from the selected publisher edition.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
