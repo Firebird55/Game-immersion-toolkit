@@ -1,9 +1,11 @@
 """Star Rail authored dialogue, messages and exact locale PCK bindings."""
+import re
+
 from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 6
+LANGUAGE_INDEX_VERSION = 7
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -43,7 +45,7 @@ def _text_link(identity, text_hash, kind, status):
         'player_voice': None, 'voice_status': status, 'dialogue_kind': kind}
 
 
-def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue', *, multiple=False):
+def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue', *, multiple=False, individual_cutscene=False):
     if not identity or not text_hash:
         return []
     voice = voices.get(voice_id)
@@ -59,8 +61,9 @@ def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue',
         return [_text_link(identity, text_hash, kind, 'unavailable')]
     voice_type = voice.get('VoiceType', '')
     if voice_type == 'Cutscene':
-        # Retain the subtitle without substituting a whole movie soundtrack.
-        return [_text_link(identity, text_hash, 'cutscene_caption', 'unavailable')]
+        if not individual_cutscene:
+            return [_text_link(identity, text_hash, 'cutscene_caption', 'unavailable')]
+        kind = 'cutscene_caption'
     if kind == 'dialogue':
         if voice_type.startswith('NPC_'):
             kind = 'ambient'
@@ -79,6 +82,16 @@ def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue',
 
 def sentence_links(sentences, voices, locale, multi_voices=()):
     voices = {row['VoiceID']: row for row in voices}
+    # Companion cutscenes include per-line external media. Whole-film events
+    # use a separate naming family. A path reused for distinct captions is
+    # insufficient to assign either sentence to the recording.
+    cutscene_texts = {}
+    for row in sentences:
+        voice = voices.get(row.get('VoiceID'), {})
+        path = voice.get('VoicePath', '')
+        if voice.get('VoiceType') == 'Cutscene' and isinstance(path, str) and re.fullmatch(
+                r'companion(?:[0-9]+|x)_[a-z0-9]+_[0-9]+', path, re.IGNORECASE):
+            cutscene_texts.setdefault(path.lower(), set()).add(_hash(row.get('TalkSentenceText')))
     alternatives = {}
     for row in multi_voices:
         candidates = row.get('VoiceIDList')
@@ -96,8 +109,10 @@ def sentence_links(sentences, voices, locale, multi_voices=()):
         # remains ambiguous, including a primary that conflicts with the list.
         ambiguous = bool(candidates and len(candidates) > 1)
         voice_id = next(iter(candidates)) if candidates and not ambiguous else primary
-        links.extend(_voice_links(identity, _hash(row.get('TalkSentenceText')),
-                                  voice_id, voices, locale, multiple=ambiguous))
+        path = voices.get(voice_id, {}).get('VoicePath')
+        individual = isinstance(path, str) and len(cutscene_texts.get(path.lower(), ())) == 1
+        links.extend(_voice_links(identity, _hash(row.get('TalkSentenceText')), voice_id, voices, locale,
+                                  multiple=ambiguous, individual_cutscene=individual))
     return links
 
 

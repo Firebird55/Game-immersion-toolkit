@@ -89,3 +89,13 @@ def test_changed_metadata_schema_fails_instead_of_silently_reducing_coverage(rep
     catalog.tables['MessageItemConfig'] = replacement
     with pytest.raises(ValueError, match='Unsupported Star Rail MessageItemConfig schema'):
         starrail.authored_links(catalog, 'en')
+
+def test_companion_cutscenes_use_distinct_authored_sentence_recordings():
+    sentences = [{'TalkSentenceID': i, 'VoiceID': i, 'TalkSentenceText': {'Hash': 100 + i}} for i in range(1, 5)]
+    voices = [{'VoiceID': i, 'VoiceType': 'Cutscene', 'VoicePath': name, 'IsPlayerInvolved': i == 1}
+              for i, name in enumerate(('companionX_asta_102', 'companion2_abc_103',
+                  'companion2_ABC_103', 'vo_belobog_cutscene_010'), 1)]
+    links = {row['id']: row for row in starrail.sentence_links(sentences, voices, 'ja')}
+    assert links['1_m']['source'] == 'Japanese/voice/companionX_asta_102_m.wem'
+    assert links['1_f']['dialogue_kind'] == 'cutscene_caption'
+    assert all(links[i]['source'] is None for i in ('2', '3', '4'))

@@ -35,6 +35,22 @@ previous launcher-only acquisition route.
 [Matching 4.7 dialogue catalog](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f) ·
 [Verified 4.6 release directories](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json)
 
+## Per-line companion cutscene audio
+
+The 4.7.0 TalkSentence and VoiceConfig tables identify separate
+`companion<chapter>_<character>_<line>` external recordings for 689
+cutscene-classified sentence rows. Nine source names are shared by distinct
+text hashes, affecting 18 captions. The reader keeps those ambiguous. For the
+other 671 captions the selected actor takes give 730 independently resolved
+recordings per dub in the Global publisher indexes, 2,920 bindings across
+the four spoken languages. Twelve original WEMs were retrieved and decoded
+from those named sources, including the two protagonist takes in each dub.
+The English opening sample lasted 7.722 seconds, Japanese 5.990, Korean
+4.351 and Mandarin 6.115. The named whole-film events in VoiceConfig and
+subtitle clocks for pre-rendered movies require their own audio sources.
+[Released sentence table](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/TalkSentenceConfig.json) ·
+[Released individual source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceConfig.json)
+
 ## Global publisher playback, November 9, 2026
 
 Before selecting a translation snapshot, Setup follows all four SRMI revision
