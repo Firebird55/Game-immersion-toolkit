@@ -285,6 +285,23 @@ installed indexes matched 1,477 per installed language (Mandarin, English and
 Japanese). These are directory joins. An unmatched path can reflect another
 binding or a subsequent update. The audit did not have the later Korean pack.
 
+The opening exchange with Remielle gives a reproducible example. English
+3.3 gameplay shows Wise saying “Wait... She came looking for me?” at 34:40,
+with the speaker and caption visible. The scene assigns this performance to
+`Main_GalGame_Chapter240_124000001_011` and a separate Belle take to
+`_010`. The Global launcher base had Wise's exact file in Mandarin (2.743 s),
+Japanese (4.297 s) and Korean (3.753 s). Belle's exact files decoded in
+Mandarin (3.284 s) and Korean (4.156 s). Neither English file was in the
+base indexes. The Mandarin Wise recording independently matched the
+on-screen scene in Citrix the cat’s playthrough at 2:48 (normalized
+correlation 0.80). Two earlier Remielle lines matched at 2:13 and 2:20.
+Setup keeps each missing dub and performer separate. The public Zenless
+Voice dataset identifies its source as 3.2.0, predating this chapter.
+[English Wise](https://www.youtube.com/watch?v=8Qe1Z6VFFBQ&t=2080s)
+· [Mandarin Wise](https://www.youtube.com/watch?v=k-R56pW5IOI&t=168s)
+· [Mandarin scene opening](https://www.youtube.com/watch?v=k-R56pW5IOI&t=132s)
+· [Dataset author's version and limitations](https://huggingface.co/datasets/simon3000/zenless-voice)
+
 The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
@@ -302,6 +319,11 @@ revision or its download directory. [Publisher branch](https://sg-hyp-api.hoyove
 · [Publisher package list](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGamePackages?launcher_id=VYTpXlbWo8&language=en-us)
 · [Public Steam app metadata mirror](https://api.steamcmd.net/v1/info/4162040)
 · [Publisher Steam announcements](https://steamcommunity.com/app/4162040/announcements/)
+
+The publisher's 3.3 update log confirms language-specific text and audio
+changes on October 23 and October 28, and a voice-pack management fix on
+November 4. The notices identify neither the Wise file nor a patch URL.
+[Publisher's in-version update log](https://www.hoyolab.com/article/47150315)
 
 The 3.3 English base contains 2,355 gender-tagged entries with text outside
 the tags and 200 entries with repeated male tags. The corresponding Simplified
