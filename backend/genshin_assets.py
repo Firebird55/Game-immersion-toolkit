@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 12
+LANGUAGE_INDEX_VERSION = 13
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -83,6 +83,28 @@ def _bind_predecessors(rows, annotations):
         elif base + ':female' in voiced or base + ':male' in voiced:
             # Both travelers can hear this shared reply after their own take.
             row['previous_text_id'] = base
+
+
+def _exclude_conflicting_performances(rows, warnings):
+    """A single concrete recording cannot verify different spoken sentences."""
+    from .languages import normalize_text
+    def media_key(audio):
+        release = audio.get('original_publisher') or audio.get('publisher')
+        return release, audio['package'], audio['file_id'], audio['locale']
+    first, conflicts = {}, set()
+    for row in rows:
+        if audio := row.get('audio'):
+            key = media_key(audio)
+            if key not in first:
+                first[key] = row['source_text']
+            elif first[key] != row['source_text'] and normalize_text(first[key]) != normalize_text(row['source_text']):
+                conflicts.add(key)
+    if conflicts:
+        for row in rows:
+            if (audio := row.get('audio')) and media_key(audio) in conflicts:
+                row['audio'] = None
+                row['voice_status'] = 'unavailable'
+        _warn(warnings, f'{len(conflicts):,} Genshin recordings have conflicting authored sentence texts.')
 
 
 def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
@@ -561,9 +583,11 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         for archived_version in ARCHIVES:
             if not prepare_archive(data_dir, region, source_locale, archived_version):
                 _warn(warnings, f'The archived {archived_version} Genshin dialogue source was unavailable. Refresh to retry historical coverage.')
-        recovered = retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
-        if recovered:
-            _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
+        retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
+    _exclude_conflicting_performances(rows, warnings)
+    recovered = sum(bool((row.get('audio') or {}).get('original_publisher')) for row in rows)
+    if recovered:
+        _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
     _bind_predecessors(rows, annotations)
     if version_matches:
         from .genshin_messages import message_records

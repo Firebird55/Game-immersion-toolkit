@@ -161,6 +161,21 @@ def test_explicit_player_voice_pair_is_retained_and_unsafe_source_is_unavailable
     assert len(completed) == 3 and completed[-1]['voice_status'] == 'unavailable'
 
 
+def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
+    def row(text, identity, **changes):
+        audio = {'file_id': identity, 'locale': 'en', 'package': 'base.pck', 'publisher': 'new', **changes}
+        return {'audio': audio, 'source_text': text, 'voice_status': 'voiced'}
+    rows = [row('Stop here.', 'one'), row('Give my sister back!', 'one'), row('Stop here.', 'one'),
+            row('Give my sister back!', 'one', original_publisher='older'), row('Stop here.', 'two'),
+            row('STOP HERE!', 'two'), row('An independent performance.', 'one', package='other.pck'),
+            row('A different recording.', 'one', locale='ja')]
+    warnings = []
+    game._exclude_conflicting_performances(rows, warnings)
+    assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in rows[:3])
+    assert all(r['audio'] and r['voice_status'] == 'voiced' for r in rows[3:])
+    assert len(warnings) == 1 and '1 Genshin recording' in warnings[0]
+
+
 def test_new_voice_schema_fails_with_actionable_public_error():
     with pytest.raises(PreparationFailure) as error:
         game.dialogue_links([{'guid': {'newSources': [{'file': 'one.wem'}]}}], {'1': '10'}, 'en')
@@ -228,11 +243,14 @@ def test_metadata_version_mismatch_rejects_before_indexing_and_missing_version_w
 
 def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_unknown(tmp_path, monkeypatch):
     source = 'English(US)\\VO\\sample.wem'
+    profile_source = 'English(US)\\VO\\profile.wem'
     payload = b'RIFF\x04\0\0\0WAVE'
     package = tmp_path / 'GenshinImpact_Data/StreamingAssets/AudioAssets/English(US)/External.pck'
     package.parent.mkdir(parents=True)
     package.write_bytes(b'AKPK' + struct.pack('<6I', 60, 1, 4, 4, 4, 28) + bytes(12) +
                         struct.pack('<IQ4I', 1, voice_hash(source), 1, len(payload), 68, 0) + payload)
+    package.with_name('External1.pck').write_bytes(package.read_bytes().replace(
+        struct.pack('<Q', voice_hash(source)), struct.pack('<Q', voice_hash(profile_source))))
     (tmp_path / 'config.ini').write_text('[General]\ngame_version=7.1.0\n')
 
     class Catalog:
@@ -258,7 +276,7 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
             if path.endswith('Avatar'):
                 assert with_names
                 return [('ConfigAvatar_Fixture.json', {'audio': {'voiceSwitch': {'text': 'Switch_Original'}}})]
-            fetter = voice(17, 'VO\\sample.wem', 'Fetter')
+            fetter = voice(17, 'VO\\profile.wem', 'Fetter')
             fetter['sourceNames'][0]['avatarName'] = 'Switch_original'
             fetter['sourceNames'].append({'sourceFileName': 'VO\\wrong_actor.wem', 'avatarName': 'Switch_other'})
             return ([{'dialogList': [{'id': 1, 'talkContentTextMapHash': 10}]}] if path.endswith('Talk') else
@@ -274,7 +292,7 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
     assert rows['genshin:reminder-3']['voice_status'] == 'unavailable'
     assert 'tip' in rows['genshin:reminder-3']['channels']
     profile = rows['genshin:fetter-20-41']
-    assert (profile['source_text'], profile['voice_status'], profile['audio']['source']) == ('Global optional line.', 'voiced', source)
+    assert (profile['source_text'], profile['voice_status'], profile['audio']['source']) == ('Global optional line.', 'voiced', profile_source)
     assert profile['dialogue_kind'] == 'combat_voice' and 'gameplay' in profile['channels']
     assert snapshot['coverage_warnings']
     assert all(str(tmp_path) not in warning for warning in snapshot['coverage_warnings'])

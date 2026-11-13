@@ -245,6 +245,22 @@ mail 3, including its Chinese translation, with unvoiced capture enabled.
 · [7.2 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
 · [7.1 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
 
+## Conflicting source recordings
+
+The 7.2 Global metadata assigns one original file to both opening dialogue
+`3500404` (the unknown god addresses the travelers) and `3500424` (the
+Traveler calls for their sibling). Checking the full index identified 35
+physical recordings assigned to 112 distinct entries with incompatible English
+sentence text. These include archived event dialogue and reused character
+reactions. Preparation compares the actual original release, package, media ID,
+dub and displayed study text across presentations. Capitalization and punctuation
+alone preserve a shared performance. Conflicted entries retain their text and
+unavailable status. They cannot start a capture chain or export incorrect audio.
+After this check, 180,862 of 471,176 English records retained original audio,
+including 20,294 recovered from an earlier publisher release.
+[7.2 original voice triggers](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+· [7.2 authored dialogue](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/DialogExcelConfigData.json)
+
 ## Short conversation cues
 
 The 7.2 Global English Talk graph provides 122,504 definite predecessor links
