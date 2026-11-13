@@ -12,7 +12,7 @@ also compares the resource, data and silence indexes, content table and service
 catalog. A mismatch requires a matching Global extraction. Each voice binding
 keeps its original region's immutable Sophon build and selected package.
 [Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8)
-� [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1)
+· [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1)
 
 Global 7.2.0 build `msj5r4DqSLOw` and mainland build `asDgc67wRUeO`
 shared all 2,031 AssetBundles blocks, the three revision files, all three
@@ -26,6 +26,36 @@ profile line to MP3. From distinct Global publisher packs the story line
 in Korean and 6.267 s in Mandarin. This comparison covers launcher bases.
 In-version Global hotfix discovery and region-specific replacements remain open.
 [Matching text extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
+
+## Character triggers in gameplay, November 13, 2026
+
+The reader follows each authored AnimatorEvent, WeatherMonologue, JoinTeam,
+Costume and Gacha trigger's original WEM, actor switch and player condition.
+A trigger can carry several eligible performances. When the same performance
+has one unique subtitle hash in the character profile table, its existing
+profile row also supports gameplay capture. The selected audio binding
+records the originating trigger types and IDs. Different texts attached to the
+same performance remain ambiguous. Sources without a mapped actor, a unique
+profile subtitle or a matching dub recording do not acquire a spoken line.
+
+| Trigger family | Matched English profile performances on 7.1 | Matched English profile performances on 7.2 |
+| --- | ---: | ---: |
+| AnimatorEvent | 1,701 | 1,733 |
+| WeatherMonologue | 453 | 461 |
+| JoinTeam | 365 | 371 |
+| Gacha | 122 | 124 |
+| Costume | 0 | 0 |
+
+On 7.2 the normal Windows language worker verified the selected English
+recording for every counted performance. One line per matched family was
+exported through LocalVoice. The four samples also decoded in each of the four
+original Global dubs. The 7.1 column counts actor, media and text joins.
+Of 31 distinct 7.2 Costume actor/file combinations, eight also occur among
+Fetter's source candidates. None supplies a unique profile sentence through
+its actor and trigger. The outfit name or inventory description cannot identify
+the words in its original performance.
+[Publisher text and playback metadata extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+· [Outfit configuration](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/AvatarCostumeExcelConfigData.json)
 
 ## Character profile and combat performances, November 9, 2026
 
