@@ -139,6 +139,12 @@ worker built 305,330 rows across presentations, including 98,676 playable
 rows. The separate film, mission-branch and capture gaps in this audit
 still apply.
 
+Independent mainland-region playback of the saved publisher generation also
+decoded both of Huohuo's speaker parts, both of Rin's, both Aventurine
+variants, Saber and a direct Jing Yuan voice in Japanese, Korean and Mandarin
+(both Chinese text choices). Regional English playback used the separately
+verified English sources.
+
 The reader groups selected bank ranges by package and validates the published
 package digest, size, returned range, Wwise language and embedded/streamed
 identity. The complete game is not required. A changed launcher lookup that
@@ -152,16 +158,26 @@ loader requires the lookup's bank pair to agree with the actual Play action.
 The 4.7.0 Windows reader resolves 922 localized dialogue entries from the
 Hipplen, Clockie, Idle Live and Chimera event tables and 2,224 authored
 Simulated Universe choice titles. Each entry resolved in all five study
-choices. A Chimera sound event without a matching original clip retains its
-displayed text and unavailable audio status.
+choices. Of 264 distinct Chimera event names, 249 use language-neutral
+sound banks, 12 reference localized banks and three are absent from this
+release's bank lookup. Six localized events have a single authored sound.
+All six English recordings are short character reactions, including laughter
+and exclamations displayed alongside longer translated sentences. All six
+were also retrieved and decoded from the other three dub packages. The
+reader retains the display text without exporting these reactions as spoken
+sentences. Other Chimera presentations need playback verification.
 
 The 1,144 LocalbookConfig entries produce 22,162 English, 22,151 Japanese,
 22,149 Korean and 22,152 paragraphs in each Chinese script. The 12 books
 listed in AudioBookData contribute 48 English paragraphs with an authored
 sound event. Only translations with the same paragraph boundaries accompany
 a study paragraph. English aligned with 21,356 Japanese, 21,468 Korean and
-21,695 Chinese paragraphs in each script. OCR replay and the recordings for
-these specific audio collectibles still need verification.
+21,695 Chinese paragraphs in each script. All 12 collectible events resolve
+to individual embedded sources in language-neutral SFX banks. All 12 played
+as regular decoded audio and none produced a speech segment in the sampled
+release's voice-activity/transcription check. The event points to the whole
+collectible. It supplies no per-paragraph narration binding. Capture replay
+for these panels remains open.
 [Book contents](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/LocalbookConfig.json) ·
 [Audio collectibles](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AudioBookData.json)
 
