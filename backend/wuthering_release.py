@@ -19,7 +19,8 @@ from . import wuthering_release_pak as pak
 from .game_tools import _atomic_file, download
 from .wuthering_assets import PUBLIC_METADATA_URL
 
-KURO = 'https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json'
+KURO = ('https://prod-alicdn-gamestarter.kurogame.com/launcher/game/'
+        '50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json')
 
 FORMAT_URL = ('https://raw.githubusercontent.com/Yumeo0/mornye-tools/4591ef24949688ec9835bf910a204d6bbc4b339c/'
               'src-tauri/crates/game-client/src/discovery.rs')
@@ -49,13 +50,14 @@ def _launcher_manifest(url, digest):
 
 
 def launcher():
-    root = json.loads(kuro_bytes(KURO))['default']
-    config = root['config']
+    root = json.loads(kuro_bytes(KURO))
+    # The live tiered launcher publishes common separately from graphics packs.
+    # Pre-downloads and experiment branches can advertise an unreleased version.
+    config = root['resourcePacks']['common']
     path, version = config['indexFile'], config['version']
     pak.check(isinstance(config['indexFileMd5'], str) and re.fullmatch('[0-9a-f]{32}', config['indexFileMd5']))
     if not re.fullmatch(r'\d+\.\d+\.\d+', version) or not re.fullmatch(
-            r'launcher/game/G153/50004/' + re.escape(version) + r'/[A-Za-z0-9]+/resource/50004/'
-            + re.escape(version) + r'/indexFile\.json', path):
+            r'launcher/game/G153/50004/' + re.escape(version) + r'/[A-Za-z0-9]+/common/indexFile\.json', path):
         raise ValueError('Unrecognized Global Kuro launcher index.')
     network_error = None
     for candidate in root['cdnList']:
@@ -83,8 +85,8 @@ def launcher():
             files[name] = [row['size'], row['md5']]
     if not files:
         raise ValueError('The Kuro launcher has no base game PAKs.')
-    folder = root['resourcesBasePath'].rstrip('/')
-    if folder != path.split('/resource/')[0] + '/zip':
+    folder = config['baseUrl'].rstrip('/')
+    if folder != path.removesuffix('/common/indexFile.json') + '/zip':
         raise ValueError('Unexpected Kuro download directory.')
     return version, 'https://' + cdn.netloc + '/' + folder, files
 
