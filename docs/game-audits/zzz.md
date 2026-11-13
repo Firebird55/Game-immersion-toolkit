@@ -15,11 +15,17 @@ added 26 distinct Chat and Bubble assets and 292 typed scene records.
 The selected scene bundles totalled 48,891,704 bytes before Sophon chunk
 alignment. Setup retained conversations, narration, choices and ambient text.
 The English study language with English and Simplified Chinese text produced
-68,572 voiced, 126,046 authored unvoiced, 11,459 unavailable and 57,662 unknown
+68,572 voiced, 132,908 authored unvoiced, 11,459 unavailable and 50,800 unknown
 records including comics. Thirty-four English samples exported through the
 desktop playback service and decoded to nonzero PCM, including phone, gameplay,
 narration, early story and separate Belle and Wise performances. A caption shared between
 a choice and spoken dialogue keeps its conflicting evidence.
+
+The publisher gameplay-tip reader also checks the reaction, sound-event vector
+and indirect reference fields before certifying silence. Across 17,528 release
+rows, the reaction column had 268 populated entries and 16 rows referred to an
+additional sound event. With English and Simplified Chinese text, 6,862 tips
+had proven silent instructions and 780 retained unknown voice status.
 
 The subtitle configuration supplied 248 Clue intervals in each of the four
 dubs. Its source, dub, text key and millisecond start and end refer to the same

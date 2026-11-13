@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice, tipRows} from '../scripts/zzz-publisher-dialogue.mjs';
 
 test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
   const source = 'VO_Message/Actor/Message_Performance_75';
@@ -163,4 +163,26 @@ test('comic manifest selects only direct released bundle IDs including 64-bit va
   assert.deepEqual(comicDependencyIds(manifest('16232649768801158562.bundle')), [19n, 16232649768801158562n]);
   assert.throws(() => comicDependencyIds(manifest('other/32.bundle')), /dependency/);
   assert.throws(() => comicDependencyIds(manifest('32.bundle').subarray(0, 60)), /Truncated/);
+});
+
+test('released tips distinguish reactions, events, secondary references and authored silence', () => {
+  const sample = (id, source='', alt='', reaction='', events=[], ref='') => [id, source, alt, reaction, events, ref, '', '', ''];
+  const rows = tipRows([sample('silent'), sample('reaction','','','Accompany_Astra_Smile'),
+    sample('event','','','',['Play_UI_Accompany_Buy']), sample('next','','','',[],'30070020'),
+    sample('other','VO_Future/clip'), sample('voice','VO_Tips/Actor/Tips_23')]);
+  assert.deepEqual(rows.map(row => row.voice_status), ['unvoiced','unknown','unknown','unknown','unavailable','unavailable']);
+  assert.deepEqual(rows.filter(row => row.source).map(row => row.text_id), ['voice']);
+});
+
+test('released string vector respects entry offsets, defaults and additional schema fields', () => {
+  const bytes = Buffer.alloc(80);
+  bytes.writeUInt32LE(12); bytes.writeUInt16LE(6,4); bytes.writeUInt16LE(8,6); bytes.writeUInt16LE(4,8);
+  bytes.writeInt32LE(8,12); bytes.writeUInt32LE(4,16); bytes.writeUInt32LE(1,20); bytes.writeUInt32LE(16,24);
+  bytes.writeUInt16LE(8,32); bytes.writeUInt16LE(8,34); bytes.writeUInt16LE(4,36);
+  bytes.writeInt32LE(8,40); bytes.writeUInt32LE(8,44); bytes.writeUInt32LE(1,52); bytes.writeUInt32LE(8,56);
+  bytes.writeUInt32LE(2,64); bytes.write('ok',68);
+  assert.deepEqual([...tableStrings(bytes,[0,1],{vectors:[0,1], maxColumns:2})], [[['ok'],[]]]);
+  assert.throws(() => [...tableStrings(bytes,[0],{vectors:[0],maxColumns:1})], /schema/);
+  bytes.writeUInt32LE(400,52);
+  assert.throws(() => [...tableStrings(bytes,[0],{vectors:[0]})], /vector/);
 });
