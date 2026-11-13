@@ -127,11 +127,26 @@ The intervals are the game's caption windows relative to that recording.
 | `05` | Shouted interruption | 31.704–34.704 | [40:20](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2420s) |
 
 The toolkit sourced and exported the four English clips independently from
-Global 1.5.3 and 1.6.4. The 1.6.4 Japanese and Korean recordings also have
-four resolvable captions. Two of the four Mandarin captions overlap in an
-audible part of the recording. The first and last Mandarin clips can be
-exported with their own intervals. The other two still lack separate verified
-cuts. [Publisher scene and recording checks](endfield.md)
+Global 1.5.3 and 1.6.4. The Japanese and Korean recordings also have four
+resolvable captions. [Publisher scene and recording checks](endfield.md)
+
+Two independent Mandarin playthroughs match the publisher’s original voice
+track. Four excerpts per playthrough each locate its start at 29:51.126 on
+YouTube and 36:45.017 on Bilibili (correlations 0.810–0.904 and 0.807–0.896).
+The first plea and the report from the fort appear in that order on the screen.
+The game’s Mandarin caption windows overlap for 6.23 ms. A character alignment
+of the original audio puts the last syllable of the plea near 21.58 s and
+the first syllable of the next sentence near 22.34 s. The first line trails
+off after 21.75 s. The 22.170 s cut falls in the low-level decay before the
+second speaker is audible. The exported intervals are **19.620–22.170 s**
+and **22.170–24.627 s**, retaining the lead-in to the plea and the interrupted
+last syllable of the report. The four authored caption intervals, both
+protagonist scene routes, audio event and recording checksum identify this
+performance. Changes to those inputs require fresh evidence. The reference
+videos and speech model are only used for this audit.
+[Mandarin call on YouTube](https://www.youtube.com/watch?v=zpdQ1uUmjBo&t=1811s) ·
+[Mandarin call on Bilibili](https://www.bilibili.com/video/BV11bzpBuEBQ/?t=2225) ·
+[Character alignment model](https://huggingface.co/parseh/aligner-zh/tree/920ed68179700a9380364a119744e046e04fb14d)
 
 ## Five quest films compared frame by frame
 

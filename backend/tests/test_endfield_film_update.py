@@ -38,6 +38,25 @@ def _ptr(path, file=0):
     return {'m_PathID': path, 'm_FileID': file}
 
 
+def test_mandarin_distress_pair_keeps_its_reviewed_cut_only_on_the_same_performance():
+    profile = films.profile
+    captions = [(key, *clock) for key, clock in profile._VALLEY_CALL_CLOCKS.items()]
+    speech = [('au_vo_cs_e1m3_2', 0, 36)]
+    digest = profile._VALLEY_CALL_DIGEST
+    def cuts(rows=captions, tracks=speech, locale='chinese', content=digest, film='m_cutscene_e1m3_2'):
+        return profile.verified_recording_captions(film, locale, content, rows, tracks)
+    for actor in ('f', 'm'):
+        observed = cuts(film=actor + '_cutscene_e1m3_2')
+        assert observed[1:3] == [('cutscene_e1m3_2d1_04', 19.620, 22.170),
+                                 ('cutscene_e1m3_2d1_04d5', 22.170, 24.62738)]
+        assert observed[::3] == captions[::3]
+    for changed in [captions[1:], captions + [('another_caption', 19.8, 21.0)],
+                    [captions[0], (captions[1][0], 20.40, 22.24), *captions[2:]]]:
+        assert cuts(rows=changed) == changed
+    assert cuts(content='another recording') == cuts(locale='japanese') == captions
+    assert cuts(tracks=[(speech[0][0], 1, 37)]) == cuts(tracks=speech * 2) == captions
+
+
 def test_localized_config_requires_the_exact_external_file_and_root_object(monkeypatch):
     film = 'fixture'
     cfg = films.FMV + 'singleconfigs/fixture.asset'

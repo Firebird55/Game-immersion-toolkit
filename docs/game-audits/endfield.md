@@ -60,15 +60,17 @@ Each accepted recording is fetched from the selected publisher release.
 | English | 467 | 59 | 21 |
 | Japanese | 483 | 62 | 20 |
 | Korean | 459 | 63 | 21 |
-| Mandarin (Simplified and Traditional Chinese) | 479 each | 75 each | 20 |
+| Mandarin (Simplified and Traditional Chinese) | 483 each | 79 each | 20 |
 
 Across all four dubs these are 540 distinct performance/caption pairs.
 Normal Global English preparation produced 53,675 rows, including 26,044
 with original audio. On Global 1.5.3 the reader found 391 English clips,
-411 Japanese, 385 Korean and 435 Mandarin (Simplified Chinese). The English
+411 Japanese, 385 Korean and 439 Mandarin (Simplified Chinese). The English
 output includes 63 in-engine clips from 23 performances. The male and female versions of the Valley Fort
 call use the same four English captions. All four were exported separately
-on both releases. [Original audio windows and gameplay timestamps](endfield-film-gameplay.md#rally-and-unite)
+on both releases. All four Mandarin captions also export from the original
+recording on both releases. Two independent playthroughs locate its consecutive
+rescue calls and confirm their order. [Original audio windows and gameplay timestamps](endfield-film-gameplay.md#rally-and-unite)
 
 ## Installation-free publisher updates, November 9, 2026
 

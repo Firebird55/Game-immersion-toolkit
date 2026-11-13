@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 import wave
 
-from . import endfield_director as director, endfield_film_registry as registry, endfield_release as release
+from . import endfield_cinematic_profile as profile, endfield_director as director
+from . import endfield_film_registry as registry, endfield_release as release
 from .endfield_unity_timeline import timeline_objects
 from .media_tools import vgmstream_executable
 from .game_tools import _atomic_file
@@ -220,7 +221,8 @@ def _build(tools, stamp, dub):
                 for event in sorted(selected):
                     media_id = media[event]
                     pcm, digest = audio[media_id]
-                    for identity, row in _clock_rows(*clips, event, pcm):
+                    captions = profile.verified_recording_captions(film, dub, digest, *clips)
+                    for identity, row in _clock_rows(captions, clips[1], event, pcm):
                         _check((film, identity) not in results)
                         results[film, identity] = (*row, media_id, digest)
     return results
@@ -231,8 +233,9 @@ def cues(tools, stamp, dub):
     """Keep completed cue maps per immutable edition, release, dub and reader version."""
     release.descriptor(tools, stamp)
     _check(dub in TRACKS)
-    path = tools / 'endfield-releases' / 'cinematic-cues-v2' / stamp / (dub + '.json')
-    prefix = (stamp + '/' + dub + '/cinematic-cues-v2\n').encode()
+    cache_version = 'cinematic-cues-v3'
+    path = tools / 'endfield-releases' / cache_version / stamp / (dub + '.json')
+    prefix = f'{stamp}/{dub}/{cache_version}\n'.encode()
     if path.is_file() and path.stat().st_size <= 32 * 1024**2:
         content = path.read_bytes()
         checksum, _, body = content.partition(b'\n')
