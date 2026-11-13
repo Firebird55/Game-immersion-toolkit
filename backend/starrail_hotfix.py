@@ -17,7 +17,8 @@ ROUTE_INDEX = 'https://raw.githubusercontent.com/PutraZC/HSR-Data/main/hotfix.js
 ROUTES = {'design': ('ExResourceUrl', 'design_data'), 'asb': ('AssetBundleUrl', 'asb'),
           'base': ('ExAssetBundleUrl', 'asb'), 'lua': ('LuaUrl', 'lua')}
 INDEXES = {'design': ('design', 'M_DesignV'), 'asb': ('asb', 'Block/M_AsbV'),
-           'lua': ('lua', 'M_LuaV'), 'audio': ('asb', 'AudioBlock/M_AudioV')}
+           'lua': ('lua', 'M_LuaV'), 'audio': ('asb', 'AudioBlock/M_AudioV'),
+           'video': ('asb', 'Video/M_VideoV')}
 
 
 def check(condition):
@@ -147,6 +148,26 @@ def audio_file(urls, relative, patch, name, size, digest):
     route = 'asb' if patch else 'base'
     path = 'AudioBlock/' + quote(relative, safe='/()')
     return AudioFile(name, size, digest, local[route] + path, alternate[route] + path if alternate else '')
+
+
+def movie_files(directory, build):
+    urls, alternates = audio_roots(build)
+    result = {}
+    for line in index(directory, build, 'video').splitlines():
+        row = json.loads(line)
+        name = row['Path']
+        if not name.lower().endswith('.usm'):
+            continue
+        size, digest, patch = row['Size'], row['Md5'], row['Patch']
+        check(re.fullmatch(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.usm', name, re.I)
+              and type(size) is int and size > 0 and re.fullmatch('[0-9a-f]{32}', digest)
+              and type(patch) is bool and name.casefold() not in result)
+        route = 'asb' if patch else 'base'
+        relative = 'Video/' + name
+        result[name.casefold()] = AudioFile(name, size, digest, urls[route] + relative,
+                                            alternates[route] + relative if alternates else '')
+    check(result)
+    return result
 
 
 def files(directory, build, locale, regular):

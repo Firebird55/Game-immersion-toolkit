@@ -237,11 +237,14 @@ def prepare(data_dir, region='global'):
     directory = data_dir / 'tools' / 'sophon'
     # Check all actual index bodies against this release before publishing
     # the translation and audio selection. Reuse unchanged index digests.
-    for name in hotfix.INDEXES:
+    title_indexes = ('design', 'asb', 'lua', 'audio')
+    for name in title_indexes:
         hotfix.index(directory, build, name)
-    revisions = tuple(build['hotfix']['indexes'][name][0] for name in hotfix.INDEXES)
+    movie_files = hotfix.movie_files(directory, build)
+    revisions = tuple(build['hotfix']['indexes'][name][0] for name in title_indexes)
     title = release_title(stamp, build['version'], revisions)
     catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
     catalog.revision_title = title
+    catalog.movie_files = movie_files
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog

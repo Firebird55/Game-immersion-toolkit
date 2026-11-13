@@ -80,6 +80,35 @@ def test_identical_region_alternate_preserves_exact_range_and_etag(tmp_path, mon
         asset.read(tmp_path / 'separate', 1, 3)
 
 
+def test_movie_only_update_preserves_previous_caption_source_and_refreshes_stamp(tmp_path, monkeypatch):
+    routes = {'OS4.7.0': pointers()}
+    def listing(name, changed):
+        return json.dumps({'Path': name, 'Patch': changed, 'Md5': ('b' if changed else 'a')*32,
+                           'Size': 15 if changed else 10}).encode()
+    body = listing('Movie_M.usm', False)
+    def get(url, *, limit):
+        if url == hotfix.ROUTE_INDEX:
+            return json.dumps({'HotfixData': routes}).encode()
+        rev = int(url.split('output_')[1].split('_')[0])
+        value = body if '/Video/' in url else b'unchanged'
+        return marker(rev, value) if '/M_' in url else value
+    monkeypatch.setattr(hotfix, 'download', get)
+    build = {'channel': 'starrail-global', 'version': '4.7.0'}
+    old = hotfix.discover(build)
+    old_file = hotfix.movie_files(tmp_path, old)['movie_m.usm']
+    assert old_file.name == 'Movie_M.usm' and old_file.digest == 'a'*32
+    body = listing('Movie_M.usm', True)
+    new = hotfix.discover(build)
+    current_file = hotfix.movie_files(tmp_path, new)['movie_m.usm']
+    assert current_file.digest == 'b'*32 and current_file.size == 15
+    assert voices.descriptor(old)[0] != voices.descriptor(new)[0]
+    assert old['hotfix']['indexes']['audio'] == new['hotfix']['indexes']['audio']
+    assert hotfix.movie_files(tmp_path, old)['movie_m.usm'] == old_file
+    body = listing('../Movie.usm', False)
+    with pytest.raises(ValueError):
+        hotfix.movie_files(tmp_path, hotfix.discover(build))
+
+
 def test_real_audio_index_replaces_only_matching_sophon_assets_and_caches_verified_ranges(tmp_path, monkeypatch):
     old = b'old'
     new = b'new original audio'

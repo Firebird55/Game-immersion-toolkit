@@ -48,8 +48,31 @@ def _takes(tools, catalog, locale, entries):
     return result
 
 
+def _movie_sources(catalog):
+    from .starrail_assets import _table
+    configs = _table(catalog, 'VideoConfig', ('VideoID', 'VideoPath', 'CaptionPath'))
+    result = {}
+    for video in configs:
+        caption = video.get('CaptionPath')
+        if not caption:
+            continue
+        match = re.fullmatch(r'Config/CutSceneCaption/([A-Za-z0-9_-]+)_Caption\.json', caption)
+        path, video_id = video['VideoPath'], video['VideoID']
+        check(match and type(video_id) is int and video_id > 0
+              and re.fullmatch(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.usm', path, re.I)
+              and type(video.get('IsPlayerInvolved', False)) is bool)
+        variants = (('_m', 'male'), ('_f', 'female')) if video.get('IsPlayerInvolved') else (('', None),)
+        for suffix, gender in variants:
+            asset = catalog.movie_files.get((path[:-4] + suffix + '.usm').casefold())
+            if asset:
+                result.setdefault(match[1], []).append({'video_id': video_id, 'player_voice': gender,
+                    'path': asset.name, 'size': asset.size, 'md5': asset.digest})
+    return result
+
+
 def caption_rows(tools, catalog, tables, locale, entries):
     takes = _takes(tools, catalog, locale, entries)
+    movies = _movie_sources(catalog)
     seen, result = set(), []
     for filename, script in catalog.caption_scripts():
         match = re.fullmatch(r'([A-Za-z0-9_]+)_Caption\.json', filename)
@@ -69,6 +92,8 @@ def caption_rows(tools, catalog, tables, locale, entries):
                 if not rows:
                     continue
                 row, = rows
+                row['film_caption'] = {'scene': scene, 'start_ms': start_ms, 'end_ms': end_ms,
+                                       'movies': movies.get(scene, [])}
                 if audio and duration is not None and 0 <= start_ms < end_ms <= duration:
                     row['audio'] = audio | {'start_ms': start_ms, 'end_ms': end_ms}
                     row['voice_status'] = 'voiced'

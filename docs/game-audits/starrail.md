@@ -3,12 +3,12 @@
 ## Released regional hotfixes, November 13, 2026
 
 The Windows publisher reader now resolves the current release and in-version
-ASB, DesignData, Lua and Audio directories for the selected region. The
+ASB, DesignData, Lua, Audio and Video indexes for the selected region. The
 community-maintained release directory provides versioned path names. The
-reader obtains each marker and the four actual index bodies from the official
+reader obtains each marker and all five index bodies from the official
 regional CDN and checks size, revision and MD5. The dialogue catalog must
 match the resulting exact Windows design, asset and Lua revisions. A mainland
-release can reuse the Global text extraction when all four regional index
+release can reuse the Global text extraction when all five regional index
 checksums and sizes agree. Each edition has its own snapshot identity, also
 covering updates within the same launcher version. Previously prepared audio
 uses its stored generation. Changed index bodies require verification.
@@ -18,15 +18,15 @@ the repository, exact revision, directory, names and complete item count.
 A fresh cache obtained all 173 scripts for this release through that path.
 When a mainland audio package times out or has been removed from its CDN,
 the reader can retry the verified Global equivalent. It stores the Global
-directory only after all four regional index identities agree and requires
+directory only after all five regional index identities agree and requires
 the same package digest and exact byte range on the alternate host.
 [Release directory](https://github.com/PutraZC/HSR-Data/blob/main/hotfix.json) ·
 [Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8) ·
 [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1&game_ids%5B%5D=64kMb5iAWu)
 
 On November 13 both 4.7.0 launchers carried base revision 17006872. The
-in-game CDN markers independently selected Design 17180467, ASB and Audio
-17176203, and Lua 17175930. All four index bodies matched across editions.
+in-game CDN markers independently selected Design 17180467, ASB, Audio and
+Video 17176203, and Lua 17175930. All five index bodies matched across editions.
 The subtitle extraction identified those exact revisions. AudioV lists 177
 packages per dub. The regular launcher set contributes 175, and the selected
 region's publisher directly supplies two more chapter packages per dub.
@@ -83,12 +83,41 @@ locale-specific external recording, including separate protagonist takes.
 The reader checks the start and end against the Wwise sample count before
 offering a timed clip.
 
-Pre-rendered movies also retain their caption text. The publisher VideoV
-lists 242 matching USM files. An inspection of their CRI stream directories
+The release-paired VideoConfig links 153 published caption scripts to
+242 physical movies (89 with two player variants, 64 with one file).
+Preparation kept 801 subtitle intervals, each with its video ID, applicable
+actor variants, filename, byte size and digest from VideoV. Global and
+mainland 4.7 each yielded the same 801 intervals. A video-only update
+changes the snapshot identity independently of the dialogue and audio
+indexes. An inspection of the movies' CRI stream directories
 found 229 files with four language labels, one with Mandarin alone, and
 12 without language labels. Three sampled English tracks produced heavily
 distorted audio from a plain ADX demux and decoder, so they have no playback
 binding in the toolkit. The caption does not establish silence.
+
+The game's boarding film (video 310) displays four captions at
+4.516–5.950, 8.983–10.083, 19.600–20.366 and 21.450–23.300 seconds.
+A recording of Japanese gameplay shows the four English captions at
+9:18, 9:23, 9:33 and 9:35. The last two Japanese calls are audible.
+For *Silent Galaxy*, the departing mission triggers performance 101150200,
+which plays video 101, with eleven captions. Its first cue runs
+0.333–6.633 seconds. Eleven consecutive TalkSentence records additionally
+describe that same exchange. Their named English WEMs were absent from
+the release inventory. Published gameplay also shows Bronya and Cocolia
+in video 1160, whose seven caption intervals start at 5.400 seconds.
+Publisher byte ranges for these three films, including both boarding
+variants, returned valid CRI container headers on both editions.
+[Boarding gameplay](https://www.youtube.com/watch?v=L6wGHwWxnk8&t=557s) ·
+[Silent Galaxy gameplay](https://www.dailymotion.com/video/x8pn5xc?start=2518) ·
+[Cocolia gameplay](https://www.dailymotion.com/video/x8pn5xd?start=2703) ·
+[Mission video action](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/1011502/Act/Act101150200.json) ·
+[Released video configuration](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VideoConfig.json)
+
+Another 144 video records declare 138 distinct caption paths absent from
+the same revision's published caption directory. Six individually checked
+paths across chapters 3, 4 and 5 returned HTTP 404. Two published scripts,
+CS_Chap02_Act610 and CS_Chap04_Act781_2, contain 10 and 59 cues respectively
+and still lack a matching VideoConfig movie or directly bound timeline WEM.
 
 On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
 retrieved and decoded. Their durations covered the 124 authored caption
@@ -303,7 +332,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
 | Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
-| Pre-rendered movies | Installed USM containers and `CutSceneConfig` establish separate cinematic assets. | `CutSceneConfig` has 41 rows and caption-path fields, but this audit does not establish exhaustive movie-caption coverage or extraction. |
+| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. | Localized playback and the 138 other declared caption paths remain open. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
 | Character profile/voice archive | 5,445 `VoiceAtlas` rows; `AudioID`, not the menu's `VoiceID`, is the voice-config key. Exact `AudioID` records are indexed with original audio where installed. | 3,614 rows use Wwise `AudioEvent` instead; their text is indexed but event-to-media binding is unavailable. |
 | Combat, idle and character reaction lines | `VoiceAtlas.IsBattleVoice` identifies 2,506 battle entries; their localized text is retained. | Not all combat audio displays subtitles. Event-driven playback is unresolved; no inference from filename or voice title. |
