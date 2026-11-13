@@ -43,6 +43,20 @@ previous launcher-only acquisition route.
 [Matching 4.7 dialogue catalog](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f) ·
 [Verified 4.6 release directories](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json)
 
+A real text-only change to published dialogue occurred within Global 4.4.0.
+Between the July 14 and July 16 release directories, the design revision
+changed from 15749062 to 15785787. Both official AudioV bodies have the same
+108,092 bytes and MD5 `d45b24c7160d556166367cc708292b67`. Preparing the
+published English tables at each matching catalog revision yielded 234,180
+talk rows. Both protagonist variants of sentence 154170809 changed a pronoun
+in the same existing line. Its male version now renders “he” and its female
+version “she”. The reader applies the selected player's text template to
+each translation before capture or export.
+[July 14 release directory](https://github.com/PutraZC/HSR-Data/blob/2f0b87ea827be620d631e38b4ac0c48ffbdc0ab1/hotfix.json) ·
+[July 16 release directory](https://github.com/PutraZC/HSR-Data/blob/c28ef63744d832f1b29d7b40900946f06debd4c9/hotfix.json) ·
+[Earlier English text](https://github.com/DimbreathBot/TurnBasedGameData/blob/557a5d39bf66315cdabccca84828be8cdf181824/TextMap/TextMapEN.json) ·
+[Updated English text](https://github.com/DimbreathBot/TurnBasedGameData/blob/fd978d6ef09f941fba644c731ab54abd6f7c3568/TextMap/TextMapEN.json)
+
 ## Per-line companion cutscene audio
 
 The 4.7.0 TalkSentence and VoiceConfig tables identify separate
@@ -148,6 +162,9 @@ decoded both of Huohuo's speaker parts, both of Rin's, both Aventurine
 variants, Saber and a direct Jing Yuan voice in Japanese, Korean and Mandarin
 (both Chinese text choices). Regional English playback used the separately
 verified English sources.
+The full mainland archive inventory produced the same counts in every study
+choice as the Global inventory. Twenty-nine representative original mainland
+snapshot bindings were decoded across the five choices during that run.
 
 The reader groups selected bank ranges by package and validates the published
 package digest, size, returned range, Wwise language and embedded/streamed

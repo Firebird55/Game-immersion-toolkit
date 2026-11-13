@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 13
+LANGUAGE_INDEX_VERSION = 14
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -249,8 +249,15 @@ def _speaker_lines(text, count):
     return parts if all(parts) else ()
 
 
-def _archive_rows(rows, links, bindings, credits, locale, tables=None):
+def _player_row(row, gender):
     from .textmaps import gender_variants
+    tag = gender[0].upper()
+    texts = {lang: gender_variants(text).get(tag, text) for lang, text in row['texts'].items()}
+    return row | {'player_voice': gender, 'texts': texts, 'source_text': texts[row['source_locale']],
+                  'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', '')}
+
+
+def _archive_rows(rows, links, bindings, credits, locale, tables=None):
     cv = {'en': 'CV_EN', 'zh-Hans': 'CV_CN', 'zh-Hant': 'CV_CN', 'ja': 'CV_JP', 'ko': 'CV_KR'}[locale]
     result = []
     for row in rows:
@@ -272,10 +279,8 @@ def _archive_rows(rows, links, bindings, credits, locale, tables=None):
         for variant, binding in options.items():
             updated = row | {'audio': binding, 'voice_status': 'voiced'}
             if variant in ('male', 'female'):
-                tag = variant[0].upper()
-                texts = {lang: gender_variants(text).get(tag, text) for lang, text in row['texts'].items()}
-                updated.update(text_id=row['text_id'] + '_' + tag.lower(), texts=texts, source_text=texts[locale],
-                               english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''), player_voice=variant)
+                updated = _player_row(updated, variant)
+                updated['text_id'] = row['text_id'] + '_' + variant[0]
             elif parts:
                 number = int(variant.rsplit('-', 1)[1])
                 texts = {lang: lines[number - 1] for lang, lines in parts.items()}
@@ -302,6 +307,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
+    rows = [_player_row(row, row['player_voice']) if row['player_voice'] else row for row in rows]
     rows.extend(_readable_records(catalog, tables, source_locale))
     if install is None:
         from . import starrail_films, starrail_events

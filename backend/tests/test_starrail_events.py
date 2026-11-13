@@ -128,7 +128,8 @@ def test_switch_state_joins_the_selected_media_bank_across_indexing_and_playback
 
 def test_archive_player_text_and_collaboration_dub_credit():
     from backend.starrail_assets import _archive_rows
-    row = {'text_id': 'id', 'texts': {'en': '{F#Miss}{M#Mr.} Stellaron', 'zh-Hans': '星核{F#小姐}{M#先生}'}}
+    row = {'text_id': 'id', 'source_locale': 'en',
+           'texts': {'en': '{F#Miss}{M#Mr.} Stellaron', 'zh-Hans': '星核{F#小姐}{M#先生}'}}
     links = {'id': {'avatar_id': 1, 'audio_event': 'event'}}
     recording = {'event_media': 123}
     options = {'event': {'female': recording, 'male': recording | {'event_media': 321}}}
