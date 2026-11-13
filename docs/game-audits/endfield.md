@@ -16,6 +16,8 @@ voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
 The selected timed film clip resolved its original 77.014 s source recording.
 The [radio playback audit](endfield-radio-observations.md) covers all thirteen unresolved rows.
 The 28 film configurations without verified sentence intervals are listed below.
+The [cinematic gameplay comparisons](endfield-film-gameplay.md) locate the
+Liino concert, both Si films, the Wuling battle and Cradle of the Ages.
 [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
 
 ## Cinematic cues from the selected release, November 13, 2026
@@ -37,6 +39,8 @@ performances. All 328 English intervals matched the independently audited
 recording IDs between releases. For example, the opening caption of the male
 `e7m4_2` performance selects ID 724698279 on 1.5.3 and 724698278 on 1.6.4.
 The English 1.6.4 preparation retained all 408 previously verified intervals.
+A normal desktop audio export of that 1.5.3 caption produced an MP3 in each
+of the five study selections, including both Mandarin script choices.
 A separate reader comparison matched 4,207 serialized dialogue/timeline
 objects across 333 assets. The two separately audited in-engine scenes still
 require their director dependencies to pass the existing checks.

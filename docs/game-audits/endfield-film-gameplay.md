@@ -46,3 +46,33 @@ scenes and a sampled English Liino performance. The female Si recordings
 and other dubs still need independent gameplay observations for their own
 onscreen presentation. No sentence-level subtitle binding follows from
 these three reviewed examples.
+
+## A Glance of Astonishment and Cradle of the Ages
+
+**A Glance of Astonishment (`e6m1`).** Two English playthroughs use the
+female and male 104.434-second `au_vo_csv_e6m1_1` recordings. Five
+one-second windows spread over each recording independently align to 3:52.576
+in the female playthrough (correlations 0.710–0.993) and 3:42.700 in the male
+playthrough (0.779–0.990). Shared sounds also match parts of the other
+performance. The actor-specific windows distinguish the two. Half-second
+subtitle-area samples and a full-frame montage showed the Wuling battle and
+Zhuang Fangyi's appearance without a readable dialogue caption in the film.
+The preceding Watchguard line has its own conversation ID `dlg_e6m1_1_003`.
+The question “Who is she...?” first appeared in our samples around 5:42.5
+(female) and 5:33 (male), after the corresponding recording had ended.
+[Female playthrough](https://www.youtube.com/watch?v=98TczT1iH6w&t=232s) ·
+[Male playthrough](https://www.youtube.com/watch?v=dL6HOQ4UwgA&t=222s)
+
+**Cradle of the Ages (`e2m8`).** The English female `au_vo_csv_e2m8_2_f`
+recording starts at 9:12.979 in one playthrough. Three independent one-second
+windows near source times 0.9, 5.3 and 21.2 seconds recover the same offset
+(correlations 0.406, 0.805 and 0.627). Its 76.774-second recording ends
+at 10:29.753. Reviewing the sampled frames and reading the subtitle area
+every half-second found no readable dialogue in the film. Chen Qianyu's
+first dialogue about the sapling appears at approximately 10:30 and has its
+own published conversation and audio override, `dlg_e2m8_4_001` and
+`au_dlg_e2m8_4_001`. A second player's audio independently aligns to
+10:44.674 across the same three windows. The visual subtitle check here
+applies to the first playthrough. [Film](https://www.youtube.com/watch?v=QDHS296vAg8&t=552s) ·
+[Following conversation](https://www.youtube.com/watch?v=QDHS296vAg8&t=630s) ·
+[Second playthrough](https://www.youtube.com/watch?v=t5KmOLvr05o&t=644s)
