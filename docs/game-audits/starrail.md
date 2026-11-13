@@ -159,6 +159,19 @@ in Mandarin. SAM's preceding two lines remain unavailable in this film.
 [Korean gameplay](https://www.youtube.com/watch?v=EbD7xTtl-8M&t=9s) ·
 [Mandarin gameplay](https://www.youtube.com/watch?v=bbKnx4IneG4&t=704s)
 
+Video 3550, Rappa's recollection in *The Men Who Tread on the Monkey's
+Tail*, has 21 captions. Fifteen physically present English TalkSentence
+recordings from the adjoining sequence (103448009–103448023) were compared
+with the complete in-game scene. The first subtitle is audible at 8:34
+in the replay. The next caption has similar wording to 103448009, yet its
+strongest normalized correlation within the scene is only 0.151 and
+occurs at 10:14, well outside the subtitle. Other differences include a
+longer response from the Galaxy Ranger in the film. None of the fifteen
+recordings produced a match at its corresponding caption. The movie
+therefore retains its own text and timestamps without a per-line audio link.
+[Rappa gameplay](https://www.youtube.com/watch?v=sr6T9MldK9I&t=514s) ·
+[Released subtitle sequence](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/CutSceneCaption/CS_Chap03_Act3070_Caption.json)
+
 On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
 retrieved and decoded. Their durations covered the 124 authored caption
 intervals, including player takes. Speech recognition on the original
