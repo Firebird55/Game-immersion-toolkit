@@ -74,15 +74,15 @@ def test_fixed_scene_commands_require_verified_resources_and_owned_work(tmp_path
         helper.command('comic', game_data=game, work=game)
     with pytest.raises(PreparationFailure, match='normalized'):
         helper.command('comic', game_data=game, work=work / '..' / 'zzz-scenes')
-    (work / 'messages-input.json').write_text('{}')
+    (work / 'scene-plan-input.json').write_text('{}')
     (work / 'design-19.blk').write_bytes(b'fixture')
-    assert helper.publisher_messages_command(work) == [str(helper.executable),
-        str(root / 'scripts/zzz-publisher-dialogue.mjs'), 'messages', str(work), str(root / 'upstream/galgame-perform.mjs')]
-    (work / 'messages-output.json').write_text('{}')
+    assert helper.publisher_command('scene-plan', work) == [str(helper.executable),
+        str(root / 'scripts/zzz-publisher-dialogue.mjs'), 'scene-plan', str(work), str(root / 'upstream/galgame-perform.mjs')]
+    (work / 'scene-plan-output.json').write_text('{}')
     with pytest.raises(PreparationFailure, match='Unexpected input'):
-        helper.publisher_messages_command(work)
+        helper.publisher_command('scene-plan', work)
     with pytest.raises(PreparationFailure, match='private work'):
-        helper.publisher_messages_command(game)
+        helper.publisher_command('scene-plan', game)
 
 
 @pytest.mark.parametrize('change', ['missing-license', 'extra-file', 'extra-dir', 'wrong-source', 'dirty-source',

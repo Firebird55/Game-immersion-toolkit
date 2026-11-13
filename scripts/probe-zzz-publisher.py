@@ -1,8 +1,6 @@
 """Fetch an authored Global ZZZ subtitle and its original released recordings."""
 import argparse
-from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path
@@ -15,6 +13,7 @@ from tempfile import TemporaryDirectory
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from backend import sophon_assets as sophon
+from backend.zzz_publisher import source_paths, stage_scenes
 from backend import game_tools
 from backend.textmaps import gender_variants
 from backend.voice_assets import external_table, voice_hash
@@ -45,61 +44,6 @@ def materialize(work, cache, files, rows, pattern):
         target.write_bytes(asset.read(cache, 0, asset.size))
         names.append(target.name)
     return names
-
-
-def stage_scenes(work, cache, files, ranges):
-    grouped = defaultdict(list)
-    for row in ranges:
-        name = row['block']
-        if not re.fullmatch(r'Blocks/\d+\.blk', name):
-            raise ValueError('Invalid scene block identity.')
-        grouped[name].append((row['offset'], row['size']))
-
-    def stage(item):
-        name, ranges = item
-        asset = files[BASE + name]
-
-        @lru_cache(maxsize=3)
-        def chunk(position, length):
-            return asset.read(cache, position, length)
-
-        out = work / (name.split('/')[-1] + '.scenes')
-        with out.open('xb') as handle:
-            for start, length in sorted(ranges):
-                if not 0 < length <= 64 * 1024**2 or not 0 <= start <= asset.size - length:
-                    raise ValueError('Scene exceeds its released package.')
-                end = start + length
-                handle.write(struct.pack('<I', length))
-                begin = handle.tell()
-                for offset, size, *_ in asset.chunks:
-                    if offset >= end:
-                        break
-                    if offset + size > start:
-                        handle.write(chunk(offset, size)[max(0, start - offset):min(size, end - offset)])
-                if handle.tell() - begin != length:
-                    raise ValueError('Incomplete staged scene.')
-        return out.name
-
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        return list(pool.map(stage, sorted(grouped.items())))
-
-
-def source_paths(source, version):
-    if not re.fullmatch(r'[A-Za-z0-9_./-]+', source) or '..' in source:
-        raise ValueError('Unsupported or conditional ZZZ voice source.')
-    if '/' in source:
-        return {source}
-    family = {'galgame': 'VO_GalGame', 'ongoinglevel': 'VO_Ongoing', 'ongoingmaincity': 'VO_Ongoing',
-              'ongoing': 'VO_Ongoing', 'level': 'VO_Level', 'accompany': 'VO_Accompany',
-              'chessboard': 'VO_Chessboard', 'tips': 'VO_Tips'}.get(source.split('_', 1)[0].lower())
-    if not family:
-        raise ValueError('This source needs a different verified voice path family.')
-    # Index membership decides among candidates, including unversioned launch files.
-    major, minor, _ = map(int, version.split('.'))
-    versions = [f'Ver{i}_{j}/' for i in range(1, major + 1)
-                for j in range(1 + minor if i == major else 10)]
-    speakers = {s for s in source.split('_')[1:] if re.fullmatch(r'[a-zA-Z][a-zA-Z0-9]+', s)}
-    return {f'{family}/{v}VO_{s}/{source}' for v in ['', *versions] for s in speakers}
 
 
 def recording(cache, build, locale, paths):

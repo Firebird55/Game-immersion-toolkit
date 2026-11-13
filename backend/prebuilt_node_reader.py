@@ -199,18 +199,22 @@ class ZzzReader:
     identity: str
     work_root: Path
 
-    def publisher_messages_command(self, work):
+    def publisher_command(self, mode, work):
         work = Path(work)
         if (not work.is_absolute() or work != work.resolve() or not work.is_dir() or work == self.work_root
                 or not _within(work, self.work_root) or _within(work, self.root)):
             raise _failure('ZZZ publisher preparation requires a private work directory.')
         _no_links(work)
+        inputs = {'scene-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-input\.json',
+                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-(?:input|output)\.json|\d+\.blk\.scenes|catalogue-input\.json'}
+        if mode not in inputs:
+            raise _failure('Unknown ZZZ publisher preparation operation.')
         for path in work.iterdir():
             _no_links(path)
-            if not path.is_file() or not re.fullmatch(r'(?:design-\d+\.blk|messages-input\.json)', path.name):
+            if not path.is_file() or not re.fullmatch(inputs[mode], path.name):
                 raise _failure('Unexpected input in the ZZZ publisher reader work directory.')
         return [str(self.executable), str(self.root / 'scripts/zzz-publisher-dialogue.mjs'),
-                'messages', str(work), str(self.root / 'upstream/galgame-perform.mjs')]
+                mode, str(work), str(self.root / 'upstream/galgame-perform.mjs')]
 
     def command(self, mode, *, game_data, work):
         """Only owned scene operations, reading a game and writing private work."""

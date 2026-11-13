@@ -1,5 +1,33 @@
 # Zenless Zone Zero dialogue audit
 
+## November 13, 2026 · Launcher dialogue in Windows Setup
+
+Leaving the game folder empty prepares the selected study locale from the Global
+launcher release. The worker reads the Perform table, follows the resource
+catalogue and requests the scene byte ranges. The same release provides the
+selected language and translation tables, the message and reply bindings,
+ongoing performance variants, gameplay tips and original voice packages.
+A fresh launcher check before publishing prevents mixing two releases.
+
+In Global 3.3.0, 30,736 of 31,069 referenced dialogue paths matched the catalogue.
+The selected scene bundles totalled 48,849,768 bytes before Sophon chunk
+alignment. Setup retained conversations, narration, choices and ambient text.
+The English study language with English and Simplified Chinese text produced
+66,548 voiced, 126,013 authored unvoiced, 11,456 unavailable and 56,989 unknown
+records. Thirty-one English samples exported through the desktop playback
+service and decoded to nonzero PCM, including phone, gameplay, narration,
+early story and separate Belle and Wise performances. A caption shared between
+a choice and spoken dialogue keeps its conflicting evidence.
+
+The subtitle configuration supplied 248 Clue intervals in each of the four
+dubs. Its source, dub, text key and millisecond start and end refer to the same
+released recording. The normal voice decoder trims the selected interval and
+checks that it fits the actual file. The first Limbo recording's opening
+caption exported as 2.066 s in English and 3.429 s in Japanese. Additional
+filmed scenes, comic dictionaries and the 333 unresolved Perform paths remain
+under investigation. The launcher base omits some later Japanese text and
+same-version Global changes still need independent discovery.
+
 ## November 9, 2026 · Dialogue from one Global launcher release
 
 The publisher's 3.3.0 base (revision 19316624) contains the Perform scene
@@ -135,8 +163,7 @@ The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
 from the publisher. Current Global 3.3 hotfix discovery from an empty device
-remains open. Normal preparation of presentations beyond recorded phone messages still requires an installation
-and compatible scene metadata. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
+remains open. The installed reader supplies additional comic and cinematic voice mappings. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
 · [Public release revision history](https://zzz.gachabase.net/changelog/release)
 
 The 3.3 English base contains 2,355 gender-tagged entries with text outside

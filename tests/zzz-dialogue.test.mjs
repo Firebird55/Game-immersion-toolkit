@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+import {clueIntervals, ongoingRows, recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
 
 test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
   const source = 'VO_Message/Actor/Message_Performance_75';
@@ -129,4 +129,23 @@ test('narration and in-level dialogue retain their types and future objects are 
   assert.ok(rows[1].channels.includes('gameplay'));
   assert.equal(rows.length, 2);
   assert.deepEqual(unsupported, {'MoleMole.GalGame.FutureStoryNode, Logic': 1});
+});
+
+test('publisher clues retain per-dub millisecond intervals and omit conflicting clocks', () => {
+  const rows = [
+    ['VO_Clue/X/Clue_X', 'English(EN)', 'Clue_Line', '00:00:01:33', '00:00:03:1'],
+    ['VO_Clue/X/Clue_X', 'Japanese(JP)', 'Clue_Line', '00:01:02:0', '00:01:03:0'],
+  ];
+  assert.deepEqual(clueIntervals(rows, 'English(EN)'), [{text_id:'Clue_Line', source:'VO_Clue/X/Clue_X',
+    start_ms:1033, end_ms:3001}]);
+  assert.equal(clueIntervals(rows, 'Japanese(JP)')[0].start_ms, 62000);
+  assert.deepEqual(clueIntervals([...rows, [...rows[0].slice(0, 4), '00:00:03:2']], 'English(EN)'), []);
+  assert.throws(() => clueIntervals([[...rows[0].slice(0, 4), '00:00:00:0']], 'English(EN)'), /interval/);
+});
+
+test('ongoing rows retain the conditional missing performance and the authored default', () => {
+  const result = ongoingRows([['Example', '', 'Wise'], ['Other','Belle','Wise'], ['One','Shared','']]);
+  assert.deepEqual(result.map(row => [row.text_id, row.gender, row.source, row.voice_status]), [
+    ['Example','F','','unknown'], ['Example','M','Wise','unavailable'],
+    ['Other','F','Belle','unavailable'], ['Other','M','Wise','unavailable'], ['One',undefined,'Shared','unavailable']]);
 });

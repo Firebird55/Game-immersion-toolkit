@@ -40,7 +40,7 @@
     "targets": {
       "genshin": "regionalLauncher",
       "starrail": "regionalChapters",
-      "zzz": "globalRecordedMessages",
+      "zzz": "globalZzzDialogue",
       "endfield": "regionalNarrative",
       "wuwa": "globalDialogue",
       "nte": "installedWithRegionalAudit"
@@ -50,7 +50,7 @@
       "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
-      "globalRecordedMessages": { "withoutInstall": true, "label": "Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files.", "pairLabel": "Publisher Setup for recorded phone messages only. Other dialogue uses installed files." },
+      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, messages, tips and clue recordings." },
       "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
     }
   },
@@ -141,9 +141,9 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Windows publisher Setup covers recorded phone messages in the Global PC launcher base. Three sampled 3.3 story lines have original recordings in all four dubs, but their Japanese subtitles required a later design update. Other presentations use installed files.",
-      "supportPolicy": "Prepare recorded phone messages from the Global launcher release, or select an installed game and voice pack for other dialogue.",
-      "reviewedAt": "2026-11-09"
+      "coverage": "Windows Setup prepares catalogue-matched Global dialogue, narration, choices, phone messages, gameplay tips and timed clue recordings. Some scene paths, comic and cinematic audio and in-version changes still require additional coverage.",
+      "supportPolicy": "Prepare Global base dialogue from the publisher or select installed files and a matching voice pack for later overrides and additional presentations.",
+      "reviewedAt": "2026-11-13"
     },
     {
       "id": "wuwa",
