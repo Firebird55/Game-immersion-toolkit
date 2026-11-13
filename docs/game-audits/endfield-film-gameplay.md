@@ -48,8 +48,21 @@ source times 29.6, 58.5, 75.2 and 79 seconds correlate at 0.390, 0.780,
 0.245 for the male one. The female protagonist is visible. The samples
 over the painting fight and the voiced activity at 6:58.45–7:00.25 show
 no readable dialogue. The uploaded video ends before the final two seconds
-of the 116-second original recording. The female `e12m5_4` and the other
-dubs still need independent gameplay observations. [Female fight](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=343s) · [Voice activity](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=418s)
+of the 116-second original recording. [Female fight](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=343s) · [Voice activity](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=418s)
+
+The later `e12m5_4` transition has a single short reaction in each original
+dub. Five separate windows of the original effects track locate its start
+at 21:45.146 in an English female playthrough, 13:10.402 in a Japanese
+female playthrough and 2:43:34.231 in a Japanese male playthrough. The
+selected Japanese recordings also match independently at exactly the same
+offset (0.802 and 0.867 at original seconds 26.84–27.01). The English
+female comparison is weaker (0.345 for that interval), agrees with the
+effects track, and the protagonist is visible. In both inspected female
+clips the protagonist's face is revealed without a readable caption at
+the reaction. The male Japanese comparison here is audio-only.
+[English female reaction at 22:12](https://www.youtube.com/watch?v=hn35k4KVScs&t=1331s) ·
+[Japanese female reaction at 13:37](https://www.youtube.com/watch?v=ZbJXvV_QG9w&t=817s) ·
+[Japanese male reaction at 2:44:01](https://www.youtube.com/watch?v=WsxMqvNWq8U&t=9841s)
 
 ## A Glance of Astonishment and Cradle of the Ages
 
