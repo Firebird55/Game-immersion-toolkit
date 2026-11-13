@@ -452,6 +452,14 @@ def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, loc
                 row['voice_status'] = 'voiced'
 
 
+def _same_launcher(snapshot, current):
+    version, root, base = current
+    # Each call has already verified the selected regional publisher, checksummed
+    # package list, hashes and release directory. CDNs can rotate mid-Setup.
+    return (snapshot['launcher'] == version and snapshot['base'] == base
+            and urlsplit(snapshot['root']).path == urlsplit(root).path)
+
+
 def build_language(tools, source_locale, targets, progress=lambda _message: None, *, decoder=None):
     from . import wuthering_assets as assets
     from .languages import resolve_locale
@@ -478,7 +486,7 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         if record['audio']:
             record['audio']['publisher'] = stamp
     verify_pointers(pointers)
-    if selected_region(tools, 'wuwa') != region or launcher(region) != (snapshot['launcher'], snapshot['root'], snapshot['base']):
+    if selected_region(tools, 'wuwa') != region or not _same_launcher(snapshot, launcher(region)):
         raise ValueError('Kuro updated the launcher during preparation. Retry.')
     mapped = sum(bool(row['audio']) for row in records)
     available = {locale for row in records for locale in row['texts']}

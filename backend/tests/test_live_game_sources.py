@@ -115,3 +115,13 @@ def test_wuwa_optional_area_and_character_packs_follow_their_own_update(monkeypa
     updated, _, packages = reader._resource_inventory('https://publisher/', '3.8.0', channels, tmp_path)
     assert updated[area] == '3.8.2' and updated[character] == versions[character]
     assert packages[area + '/PatchFiles/map_P.pak'][0] == 'https://publisher/3.8.2/map_P.pak'
+
+
+def test_wuwa_publisher_mirror_rotation_preserves_only_the_same_release():
+    reader = sources.wuthering_release
+    snapshot = {'root': 'https://mirror-a.example/release/a', 'launcher': '3.8.0', 'base': {'game.pak': [25, 'a' * 32]}}
+    same_mirror_path = 'https://mirror-b.example/release/a'
+    assert reader._same_launcher(snapshot, ('3.8.0', same_mirror_path, snapshot['base']))
+    assert not reader._same_launcher(snapshot, ('3.8.0', same_mirror_path, {'game.pak': [25, 'b' * 32]}))
+    assert not reader._same_launcher(snapshot, ('3.8.0', same_mirror_path + 'b', snapshot['base']))
+    assert not reader._same_launcher(snapshot, ('3.8.1', same_mirror_path, snapshot['base']))
