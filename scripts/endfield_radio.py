@@ -12,7 +12,8 @@ from backend.game_tools import _atomic_file
 
 def run(cache, locale, groups, line, output, targets, reaction=None, region='global', reaction_player=None):
     catalog = publisher.prepare(cache, region)
-    dialogs = assets.radio_dialogues(catalog, reaction_player=reaction_player)
+    audio = catalog.file('TableCfg/AudioDialog.json')
+    dialogs = assets.radio_dialogues(catalog, reaction_player=reaction_player, evidence=assets.radio_evidence(catalog, audio))
     unknown = set(groups) - {r['radio_group'] for r in dialogs.values()}
     if unknown:
         raise ValueError('Unknown radio group: ' + ', '.join(sorted(unknown)))
@@ -25,7 +26,7 @@ def run(cache, locale, groups, line, output, targets, reaction=None, region='glo
             dialogs = {identity: conversation} if conversation is not None else {}
         else:
             dialogs = {identity: dialogs[identity]}
-    paths = assets.audio_paths(catalog.file('TableCfg/AudioDialog.json'))
+    paths = assets.audio_paths(audio)
     tables = selected_tables(catalog, assets.TEXT_LOCALES, locale, targets, prefix='TableCfg/I18nTextTable_')
     dub = assets.VOICE_LOCALES[locale]
     entries = publisher.voice_entries(cache, catalog.stamp, dub)

@@ -28,6 +28,38 @@ The comparison used publisher WEMs from the active dub, including other actors' 
 
 The four rows have no identifiable sentence, separate audio event or configured interjection in the inspected publisher data. None of the thirteen literal overrides or their male/female suffixes appears in the Global 1.6.4 `AudioDialog` or `AudioVoiceExtraData` tables. The radio controller calls the duration lookup before selecting a fallback and may skip a fallback after successful playback. [Radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L880-L960)
 
+### Publisher duration and radio playback on November 13
+
+The four rows above enter the text-only branch in the Global 1.5.3 and 1.6.4
+releases. For all 30,180 and 34,194 entries respectively, the signed 32-bit
+Wwise short ID of the recorded filename stem equals the `AudioDialog` key.
+This includes extensionless internal events. Both releases' `AudioVoiceExtraData`
+tables have exactly the same keys as their duration tables. All four literal row
+overrides and their female/male forms are absent in both. The two duration
+overloads and their Lua call read the dub-specific duration from `VoiceData`.
+[Runtime voice interfaces](https://github.com/Dr-hydra/Better-Endfield/blob/20ebf08a86f6b14517140d715f2d4a7dc8104447/docs/GAME_INTERFACES.md)
+
+When the duration lookup fails, the controller clears the override, looks up an
+emotion recording and posts the row's separate event if present. All four have
+an empty separate event. Three specify emotion 0, and the fourth specifies an
+explicitly empty emotion 13. Their group/row IDs have no custom event and the
+voice conflict table is empty. The two Breach lines request resumption after
+interruptions. That flag queues a continuation at the row index. An additional
+spoken continuation in 1.6 requires an interrupted voice and a nonzero
+continuation type. The Breach group sets that type to zero.
+[1.5 controller](https://github.com/rmxlinux/EndfieldData/blob/6e7185011c8e5739737f4a651a9b32c8314e6355/LuaScripts/LuaSystem/RadioSystem.lua#L860-L945)
+· [1.6 continuation](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L535-L571)
+· [Dialog interruption](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L1032-L1058)
+
+Windows Setup using publisher data makes all four eligible for the existing
+unvoiced capture option. The diagnostic reports `text_only`. The nine other
+mission rows have configured interjections and remain unresolved. Both
+outcomes were reproduced in English, Japanese, Korean and Mandarin on both
+releases. Across the complete radio table, 190 rows in 1.5.3 and 187 rows in
+1.6.4 met these conditions before localization filtering. Each new preparation
+checks the selected release's tables. A new recording, event or emotion
+prevents the text-only classification.
+
 The [publisher radio command](../../scripts/endfield_radio.py) reports `reaction_status` for rows lacking a resolved sentence source and `audio_event` when the row posts a separate event. Both fields follow the selected release and dub. The gameplay links provide audit evidence and have no role in acquisition or playback.
 
 The radio controller resolves the player's actor before selecting an emotion. For the male Endministrator heard on the second Afternotes caption, use `--reaction-player male`. This command fetched the 0.800-second Japanese performance from the Global publisher. The decoded samples were identical to the reference used for the gameplay match. Each run checks the selected release's actor table, emotion choices and dub inventory. [Publisher radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L932)

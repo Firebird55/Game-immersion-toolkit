@@ -266,7 +266,7 @@ affect playback. The four rows without a configured interjection are
 `radio_e10m1_11_001`, `radio_e10m1_11_002`, `radio_m1m6_1_001` and
 `radio_gm02m27d5_1_001`. The last uses emotion type 13 with empty values.
 No row in this inventory had a separate audio event.
-None is marked confirmed silent in capture.
+Publisher Setup makes these four rows eligible for unvoiced capture after checking the current release’s duration, event and emotion tables. Nine further rows have configured interjections and remain unresolved.
 
 For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
 0.831 seconds in English, 1.415 in Japanese, 1.065 in Korean and 1.022 in
@@ -276,7 +276,7 @@ English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
 
 Public gameplay now identifies all thirteen captions. Two dubs show Fiona’s entry warning. In the Afternotes playthrough, the Japanese male Endministrator’s sigh matches the second caption. The first caption has no identified sentence recording.
 
-[Playback checks for the thirteen unresolved rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
+[Playback and duration checks for the thirteen rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
 
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
 use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and
