@@ -149,3 +149,34 @@ English playthroughs. Technical numbers and interface labels also occur.
 
 The [three historical opening films and the current Ereignis encounter](endfield-opening-gameplay.md)
 have separate gameplay comparisons for their original versions and performances.
+
+## Which of the 28 film configurations occur in the game?
+
+The Global 1.6.4 Windows movie index contains 18 of the 28 names. The table
+counts female and male movies separately when the game lists both. The
+published subtitle and voice tracks determine which lines can be exported.
+The upload clock is only a way to find the performance in a playthrough.
+[All 28 configurations and their exact identifiers](endfield-film-configs-1.6.4.csv)
+
+| Configurations | Count | Evidence for speech and availability |
+| --- | ---: | --- |
+| `cs_video_e1m3_3` | 1 | Four captioned lines in the enclosing scene, including three over the in-world film. See [Rally and Unite](#rally-and-unite). |
+| `cs_video_e1m3_1`, `cs_video_dlg_e1m2_1`, `cs_video_e6m2_2`, `cs_video_dlg_sm2l5m1_10`, `cs_video_dlg_e9m2_3` | 5 | Five published movies matched to the [quest footage](#five-quest-films-compared-frame-by-frame). Adjacent dialogue and interface text are identified there. No independent sentence recording has been established inside these films. |
+| Female and male `cs_video_e0m0_3` | 2 | Separate English original recordings and gameplay matches for each protagonist. Breath-like activity continues into the parent scene. [Ereignis encounter](endfield-opening-gameplay.md#current-english-prologue-before-the-ereignis-fight) |
+| Female and male `cs_video_e12m5_3` and `cs_video_e12m5_4` | 4 | Two Si scenes with separate protagonist recordings. The inspected English footage has no readable subtitle at the short vocal activity. The later reaction also matches both Japanese performances. [Paint with Fresh Ink](#checking-the-alignment) |
+| Female and male `cs_video_e2m8_2` and `cs_video_e6m1_1` | 4 | Both English performances of each movie align to gameplay. Chen’s sapling line and the Watchguard exchange have separate game records. [Both quests](#a-glance-of-astonishment-and-cradle-of-the-ages) |
+| Female and male `cs_video_c35m4_liinoshow` | 2 | Both use the same Liino song event. Gameplay confirms the song and sampled frames show no lyric subtitles. [Onstage performance](https://www.youtube.com/watch?v=OXL-sPrANQw&t=193s) |
+| `fmv_e0m1_1`, `fmv_e0m1_3`, `fmv_e0m1_4` | 3 | 46 retained captions are identified in the [Technical Test footage and publisher film](endfield-opening-gameplay.md#the-three-technical-test-films). Original downloadable test audio remains unverified. |
+| `fmv_e1m1_1`, `fmv_e1m1_2`, `fmv_e2m8_1`, `fmv_e2m8_2` | 4 | Four original test files are catalogued. The motorcycle ambush has three separately identified timeline captions. The final boss footage includes dialogue around the movies. Current downloads for the original test files remain unverified. [Test walkthroughs](endfield-opening-gameplay.md#other-films-preserved-in-the-technical-test-catalogue) |
+| Female and male `cs_video_e4m2_1`, and `cs_video_e5m2_3` | 3 | The retained tracks reference music and effects and contain zero caption cues. None of these three movie names occurs in the eleven Global release indexes checked below. An active quest trigger or a recording under another name remains unverified. |
+
+The Windows launcher archive provides the publisher resource address for
+each checked release. The eleven publisher movie indexes yielded these
+counts of named USMs: 336 in 1.0.13 and 1.0.14, 373 in 1.1.9, 424 in
+1.2.4 and 1.2.5, 478 in 1.3.3, 590 in 1.4.4 and 1.4.5, 636 in 1.5.3,
+and 710 in 1.6.3 and 1.6.4. None listed any of the final ten names in
+the table. For the two 1.0 versions, the archive comparison used the
+checksum-validated filename records. Their identical 14-byte footer
+is outside the toolkit’s supported index format. This check covers the
+Global movie indexes; it cannot identify a renamed or regional performance.
+[Archived Windows launcher responses](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/akEndfield/launcher/game_resources/6/Windows)
