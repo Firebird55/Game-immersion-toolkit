@@ -86,3 +86,25 @@ def test_real_audio_index_replaces_only_matching_sophon_assets_and_caches_verifi
     rows.append(rows[0])
     with pytest.raises(ValueError):
         hotfix.files(tmp_path,build,'ja',regular)
+
+def test_rate_limited_catalog_uses_authors_mirror_at_the_exact_release_commit(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    from backend import starrail_publisher as publisher
+    sha = 'a' * 40
+    def limited(*args, **kwargs):
+        raise HTTPError('https://gitlab.com/', 429, 'rate limited', None, None)
+    monkeypatch.setattr(publisher, 'matching_release_commit', limited)
+    records = [{'sha': 'b' * 40, 'commit': {'message': 'another generation'}},
+               {'sha': sha, 'commit': {'message': 'expected generation'}}]
+    monkeypatch.setattr(publisher, 'download', lambda *a, **k: json.dumps(records).encode())
+    assert publisher._text_commit('expected generation') == sha
+    with pytest.raises(ValueError, match='matching'):
+        publisher._text_commit('absent generation')
+    catalog = publisher.ReleasedCatalog('starrail', tmp_path, revision=sha)
+    def file_bytes(relative, url):
+        if url.startswith('https://gitlab.com/'):
+            limited()
+        assert url == f'https://raw.githubusercontent.com/DimbreathBot/TurnBasedGameData/{sha}/{relative}'
+        return b'{}'
+    monkeypatch.setattr(catalog, '_bytes', file_bytes)
+    assert catalog.file('ExcelOutput/Example.json') == {}

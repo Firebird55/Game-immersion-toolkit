@@ -1,11 +1,14 @@
 """Original Global Star Rail voice packages and their compatible text generation."""
 from functools import lru_cache
 import struct
+import json
+import re
 import time
+from urllib.error import HTTPError, URLError
 
 from . import hoyo_publisher_voice as voices, sophon_assets as sophon, starrail_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
-from .game_tools import _atomic_file
+from .game_tools import _atomic_file, download
 from .hoyo_dialogue import voice_namespace
 
 CHANNEL = voices.CHANNELS['starrail']
@@ -105,6 +108,39 @@ def release_title(stamp, version, revisions):
     return f'OSPRODWin{version}_D{design}_A{assets}_L{lua}'
 
 
+def _text_commit(title):
+    try:
+        return matching_release_commit('starrail', title)
+    except HTTPError as error:
+        if error.code not in (403, 429, 500, 502, 503, 504):
+            raise
+    except (TimeoutError, ConnectionError, URLError):
+        pass
+    for page in range(1, 6):
+        url = f'https://api.github.com/repos/DimbreathBot/TurnBasedGameData/commits?sha=main&per_page=50&page={page}'
+        rows = json.loads(download(url, limit=2 * 1024**2))
+        for row in rows:
+            if row['commit']['message'].splitlines()[0] == title and re.fullmatch('[0-9a-f]{40}', row['sha']):
+                return row['sha']
+        if len(rows) < 50:
+            break
+    raise ValueError('The matching Star Rail translation snapshot is unavailable. Retry after the catalog updates.')
+
+
+class ReleasedCatalog(DialogueCatalog):
+    """Use the author's mirror of the same Git commit if the primary host is busy."""
+    def raw_file(self, relative):
+        try:
+            return super().raw_file(relative)
+        except HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504):
+                raise
+        except (TimeoutError, ConnectionError, URLError):
+            pass
+        url = f'https://raw.githubusercontent.com/DimbreathBot/TurnBasedGameData/{self.revision}/{relative}'
+        return self._bytes(relative, url)
+
+
 def prepare(data_dir, region='global'):
     build = _release(region)
     stamp, raw = voices.descriptor(build)
@@ -115,7 +151,7 @@ def prepare(data_dir, region='global'):
         hotfix.index(directory, build, name)
     revisions = tuple(build['hotfix']['indexes'][name][0] for name in hotfix.INDEXES)
     title = release_title(stamp, build['version'], revisions)
-    catalog = DialogueCatalog('starrail', data_dir, revision=matching_release_commit('starrail', title))
+    catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
     catalog.revision_title = title
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog
