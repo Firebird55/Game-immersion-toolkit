@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import struct
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
@@ -65,7 +66,7 @@ def discover(build):
     if build['channel'] == 'starrail-cn':
         global_fix = _discover(build | {'channel': 'starrail-global'}, listing)
         # The catalog is an extraction of Global. Reuse it in the mainland edition
-        # only when all four publisher indexes contain the same bytes.
+        # only when the regional publisher indexes contain the same bytes.
         check(global_fix['indexes'] == hotfix['indexes'])
     return build | {'hotfix': hotfix}
 
@@ -102,11 +103,21 @@ class AudioFile:
             if hashlib.sha256(raw[32:]).digest() == raw[:32]:
                 return raw[32:]
         request = Request(self.url, headers={'Range': f'bytes={start}-{end}', 'Accept-Encoding': 'identity'})
-        with urlopen(request, timeout=45) as response:
-            check(response.status == 206 and response.geturl() == self.url
-                  and response.headers.get('Content-Range') == f'bytes {start}-{end}/{self.size}'
-                  and response.headers.get('ETag', '').lower() == '"' + self.digest + '"')
-            data = response.read(length + 1)
+        for attempt in range(2):
+            try:
+                with urlopen(request, timeout=45) as response:
+                    check(response.status == 206 and response.geturl() == self.url
+                          and response.headers.get('Content-Range') == f'bytes {start}-{end}/{self.size}'
+                          and response.headers.get('ETag', '').lower() == '"' + self.digest + '"')
+                    data = response.read(length + 1)
+                break
+            except HTTPError as error:
+                if attempt or error.code not in (502, 503, 504):
+                    raise
+            except (TimeoutError, ConnectionError, URLError) as error:
+                cause = error.reason if isinstance(error, URLError) else error
+                if attempt or not isinstance(cause, (TimeoutError, ConnectionError)):
+                    raise
         check(len(data) == length)
         if length == self.size:
             check(hashlib.md5(data).hexdigest() == self.digest)

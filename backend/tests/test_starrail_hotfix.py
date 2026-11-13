@@ -75,8 +75,16 @@ def test_real_audio_index_replaces_only_matching_sophon_assets_and_caches_verifi
     def response(request, timeout):
         assert request.get_header('Range')=='bytes=4-11'
         return Response(new[4:12])
-    monkeypatch.setattr(hotfix,'urlopen',response)
-    assert asset.read(tmp_path,4,8)==new[4:12]
+    attempts = []
+    def transient(request, timeout):
+        from urllib.error import URLError
+        attempts.append(request.full_url)
+        if len(attempts) == 1:
+            raise URLError(TimeoutError('connection timed out'))
+        return response(request, timeout)
+    monkeypatch.setattr(hotfix, 'urlopen', transient)
+    assert asset.read(tmp_path, 4, 8) == new[4:12]
+    assert attempts == [asset.url, asset.url]
     monkeypatch.setattr(hotfix,'urlopen',lambda *a,**kwargs: pytest.fail('offline replay'))
     assert asset.read(tmp_path,4,8)==new[4:12]
     Response.headers['ETag']='"'+hashed(old)+'"'
