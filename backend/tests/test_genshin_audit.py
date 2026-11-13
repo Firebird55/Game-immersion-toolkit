@@ -192,6 +192,45 @@ def test_explicit_player_voice_pair_is_retained_and_unsafe_source_is_unavailable
     assert len(completed) == 3 and completed[-1]['voice_status'] == 'unavailable'
 
 
+def test_authoring_gender_selects_distinct_unnamed_takes_and_renders_the_correct_subtitle():
+    def choice(identity, *sources):
+        return {'gameTrigger': 'Dialog', 'gameTriggerArgs': identity,
+                'sourceNames': [{'sourceFileName': path, 'gender': gender} for path, gender in sources]}
+    voices = [{'a': choice(1, ('VO/session_18.wem', 1), ('VO/session_33.wem', 2)),
+               'b': choice(2, ('VO/solo_line.wem', 1)), 'c': choice(3, ('VO/unknown.wem', True)),
+               'd': choice(4, ('VO/same.wem', 1), ('VO/same.wem', 2))}]
+    hashes = {str(i): str(i+10) for i in range(1,5)}
+    links = game.dialogue_links(voices, hashes, 'en')
+    assert {r['id']:r['player_voice'] for r in links} == {'1:female':'female','1:male':'male','2:female':'female'}
+    tables = {'en': {'11':'#My {M#sister}{F#brother}!', '12':'One speaker.'}, 'ja': {'11':'兄妹'}}
+    rows = game._render_player_text(game.common.records('genshin', links, tables, 'en', {}), 'en')
+    assert [(r['text_id'],r['source_text']) for r in rows] == [('genshin:1:female','My brother!'),
+        ('genshin:1:male','My sister!'), ('genshin:2:female','One speaker.')]
+    older_schema = {'old': {'GLDBLKKLJHP': [{'CFIKOCLOKGH': 'take.wem', 'KHNPBDOBIAL': 1}],
+                            'NLGBEEIGDJP':'Dialog', 'BMPENHIILJG':2}}
+    assert game.dialogue_links([older_schema],hashes,'ja')[0]['id'] == '2:female'
+
+
+def test_existing_historical_archive_is_reindexed_for_new_player_binding_fields(tmp_path, monkeypatch):
+    import sqlite3
+    from backend import genshin_history as history
+    version = next(iter(history.ARCHIVES))
+    revision = history.ARCHIVES[version]['metadata']
+    path = history._database_path(tmp_path, 'global', 'en')
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE archives (revision TEXT PRIMARY KEY) WITHOUT ROWID')
+        db.execute('INSERT INTO archives VALUES (?)', (revision,))
+    calls = []
+    def seed(*args):
+        calls.append(version)
+        history.retained_performances(tmp_path, 'previous', 'global', 'en', [], [], set(), archive=revision)
+    monkeypatch.setattr(history, '_seed_archive', seed)
+    assert history.prepare_archive(tmp_path, 'global', 'en', version)
+    assert history.prepare_archive(tmp_path, 'global', 'en', version)
+    assert calls == [version]
+
+
 def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
     def row(text, identity, **changes):
         audio = {'file_id': identity, 'locale': 'en', 'package': 'base.pck', 'publisher': 'new', **changes}

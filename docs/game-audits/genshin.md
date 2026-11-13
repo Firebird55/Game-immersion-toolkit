@@ -247,6 +247,26 @@ mail 3, including its Chinese translation, with unvoiced capture enabled.
 
 ## Conflicting source recordings
 
+### Authored protagonist conditions
+
+Ordinary voice events can select different original media for a female or
+male Traveler even when the filename contains neither name. On 7.2, 3,253
+distinct Dialog trigger IDs described exactly two different source conditions.
+On 7.1, 3,196 did so. The reader follows the explicit condition and renders
+the corresponding M/F subtitle branch, including single-condition takes.
+Conflicting conditions or an unrecognized flag block playback. Historical
+indexes are upgraded once to include the newly recognized takes.
+
+On the Global 7.2 English worker, 5,738 additional entries had playable
+original recordings after this change, bringing the total to 186,607 of
+474,075 entries. Of these, 20,594 came from older publisher releases.
+Conversation ID `401710225` was recognized independently for each Traveler
+selection and exported to a 2.136-second male and 2.184-second female MP3.
+[7.2 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+· [7.1 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/BinOutput/Voice)
+
+### Reused audio
+
 The 7.2 Global metadata assigns one original file to both opening dialogue
 `3500404` (the unknown god addresses the travelers) and `3500424` (the
 Traveler calls for their sibling). Checking the full index identified 35

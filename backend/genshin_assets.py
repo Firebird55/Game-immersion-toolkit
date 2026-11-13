@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 15
+LANGUAGE_INDEX_VERSION = 16
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -219,7 +219,7 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                    profile_sources=None, gameplay_sources=None):
     reminders = reminders or {}
     tables = {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards or {}}
-    values = defaultdict(set)
+    values, player_conditions = defaultdict(set), defaultdict(set)
     known_structures, unknown_structures = 0, 0
     for mapping in voice_maps:
         if not isinstance(mapping, dict):
@@ -267,6 +267,11 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                     path = _voice_path(source.get(filename), locale)
                     if path:
                         values[(kind, identity)].add(path)
+                        field = 'KHNPBDOBIAL' if filename == 'CFIKOCLOKGH' else 'gender'
+                        if field in source:
+                            flag = source.get(field)
+                            condition = {1: 'female', 2: 'male'}.get(flag) if type(flag) is int else None
+                            player_conditions[(kind, identity, path)].add(condition or 'unsupported')
                     else:
                         _warn(warnings, 'Some Genshin voice sources could not be resolved safely.')
             if not recognized and voice:
@@ -282,16 +287,21 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
         genders = {source: ('female' if re.search(r'(?:^|[/\\_])(?:girl|female|lumine)(?:[/\\_.]|$)', source, re.I) else
                            'male' if re.search(r'(?:^|[/\\_])(?:boy|male|aether)(?:[/\\_.]|$)', source, re.I) else None)
                    for source in sources}
-        if len(sources) > 1 and (len(sources) != 2 or set(genders.values()) != {'male', 'female'}):
+        for source in sources:
+            flags = player_conditions.get((kind, identity, source))
+            if flags:
+                genders[source] = next(iter(flags)) if len(flags) == 1 else 'unsupported'
+        if 'unsupported' in genders.values() or len(sources) > 1 and (
+                len(sources) != 2 or set(genders.values()) != {'male', 'female'}):
             _warn(warnings, 'Ambiguous Genshin voice performances were left unavailable.')
             continue
         for source in sorted(sources):
-            gender = genders[source]
-            suffix = ':' + gender if len(sources) > 1 else ''
+            gender = genders[source] if len(sources) > 1 or (kind, identity, source) in player_conditions else None
+            suffix = ':' + gender if gender else ''
             table = tables[kind]
             row_id = {'Dialog': '', 'DungeonReminder': 'reminder-', 'Card': 'card-'}[kind] + identity
             links.append({'id': row_id + suffix, 'hash': table[identity], 'source': source,
-                          'player_voice': gender if len(sources) > 1 else None})
+                          'player_voice': gender})
     return links
 
 
@@ -350,11 +360,20 @@ def profile_links(rows, avatars, configs, sources, gameplay_sources=None):
 
 
 def profile_records(links, tables, locale, entries):
-    records = []
     triggers = {'genshin:' + link['id']: link['gameplay_triggers'] for link in links if link.get('gameplay_triggers')}
-    for row in common.records('genshin', links, tables, locale, entries):
+    rows = common.records('genshin', links, tables, locale, entries)
+    for row in rows:
         if row['audio'] and row['text_id'] in triggers:
             row['audio']['gameplay_triggers'] = triggers[row['text_id']]
+    return _render_player_text(rows, locale, split_unconditional=True)
+
+
+def _render_player_text(rows, locale, *, split_unconditional=False):
+    records = []
+    for row in rows:
+        if not row['player_voice'] and not split_unconditional:
+            records.append(row)
+            continue
         variants = {lang: rendered for lang, raw in row['texts'].items()
                     if (rendered := gender_variants(raw.removeprefix('#')))}
         if not variants:
@@ -568,8 +587,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         tables[locale] = {**medium, **values}
     ordinary = [link for link in links if not link['id'].startswith('reminder-')]
     reminder_links = [link for link in links if link['id'].startswith('reminder-')]
-    rows = common.records('genshin', ordinary, tables, source_locale, entries)
-    rows += common.records('genshin', reminder_links, reminder_tables, source_locale, entries)
+    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale)
+    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries), source_locale)
     if len(rows) < len(links):
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
     if profiles:
