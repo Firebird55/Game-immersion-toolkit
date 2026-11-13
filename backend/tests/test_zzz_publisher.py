@@ -59,8 +59,12 @@ def test_publisher_directory_matches_future_source_names_and_requires_a_unique_f
                                     'VO_Level/Ver5_0/SFX_Bell/', 'VO_Galgame/VO_Effect/'])
 def test_directory_does_not_promote_effects_or_whole_films_to_sentences(folder):
     short = zzz_publisher._short_id
-    directory = zzz_publisher.voice_directory({'prefixes': [folder], 'blocks': [short(folder), short('Unclear_01'), 0]})
-    assert zzz_publisher._directory_paths('Unclear_01', directory) == set()
+    source = 'Galgame_Effect_01'
+    directory = zzz_publisher.voice_directory({'prefixes': [folder], 'blocks': [short(folder), short(source), 0]})
+    paths = [folder, 'VO_Galgame/VO_Effect/']
+    entries = {voice_hash('English(EN)/ex/' + path + source + '.wem'): {'package': 'example.pck'} for path in paths}
+    assert zzz_publisher.original_bindings([{'text_id': 'description', 'source': source}],
+                                           entries, 'en', '5.0.0', directory) == {}
 
 
 def test_truncated_and_unknown_directory_groups_are_rejected():

@@ -80,7 +80,9 @@ voiced, 132,908 authored unvoiced, 5,104 unavailable and 50,814 unknown**.
 Seven newly resolved performances spanning the Forbidden Area, Severian,
 Silver Soldier Anby, Cissia, Fairy and a timeline voice were retrieved and
 decoded in all four dubs. The Forbidden Area line lasted 6.576 s in English,
-7.467 s in Japanese, 5.550 s in Korean and 5.812 s in Mandarin.
+7.467 s in Japanese, 5.550 s in Korean and 5.812 s in Mandarin. The
+compiler-free Windows reader reproduced these English counts, exported the
+seven English clips, and exposed no sentence audio for the cinema reaction.
 [Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
 
 The publisher gameplay-tip reader also checks the reaction, sound-event vector

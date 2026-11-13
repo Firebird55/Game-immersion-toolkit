@@ -235,7 +235,7 @@ def _directory_paths(source, directory):
     if (not re.fullmatch(r'[A-Za-z0-9_-]+', source) or
             re.search(r'(?:^|_)(?:(?:cinema)?breath\d*|sfx)(?:_|$)', source, re.I)):
         return set()
-    return {prefix + source for folders in directory.get(_short_id(source), ()) for prefix in folders
+    return {prefix + source for folders in directory for prefix in folders
             if not re.search(r'(?:^|/)(?:VO_Breath|VO_Bubble|VO_Effect|Film|SFX_[^/]+|VO_Clue)/', prefix, re.I)}
 
 
@@ -253,8 +253,8 @@ def original_bindings(links, entries, dub, version, directory=None):
         source, = sources
         if source not in by_source:
             matches = []
-            hints = _directory_paths(source, directory) if directory else set()
-            paths = hints or source_paths(source, version)
+            groups = directory.get(_short_id(source)) if directory and '/' not in source else None
+            paths = _directory_paths(source, groups) if groups is not None else source_paths(source, version)
             for path in paths:
                 full = f'{namespace}/ex/{path}.wem'
                 file_id = voice_hash(full)
