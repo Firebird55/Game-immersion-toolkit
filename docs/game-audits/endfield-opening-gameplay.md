@@ -26,6 +26,41 @@ A 25-frames-per-second comparison of the Chinese captions independently located 
 
 The November gameplay includes five additional archived bedside captions after the end of the 14 retained intervals. Measured Chinese subtitle windows in upload seconds are 658.24–663.48 (12), 663.48–664.76 (13), 665.16–669.44 (14), 671.24–676.76 (15) and 676.76–683.96 (20). Two different crops of the on-screen Chinese line returned the same boundaries at 25 frames per second. The video goes directly from 15 to 20. The archived text table also lists suffixes 16 through 19. Those four entries would give a false account of this performance. The current Global text tables contain none of the 46 retained historical IDs. These observations establish the old story and its cuts. An installation-free source for the three original test recordings remains unverified. [Short reply at 11:03](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=663s) · [Transition at 11:16](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=676s) · [Global game-data audit](endfield.md)
 
+## Other films preserved in the Technical Test catalogue
+
+The original November 2023 distribution index identifies the two motorcycle
+movies `fmv_e1m1_1` and `fmv_e1m1_2`, and the two movies `fmv_e2m8_1`
+and `fmv_e2m8_2` surrounding the final boss. Each is a separate USM with
+its own length and checksum. The current video registry retains durations
+of 30.916, 21.983, 29.100 and 79.683 seconds respectively. The test index
+identifies files but does not supply a working download address. The
+publisher closed the Global test on January 21, 2024.
+[Historical movie index](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/VFBlockMainInfo/00B05BD957F256D9.json) ·
+[Publisher closure notice](https://endfield.gryphline.com/en-us/news/1348)
+
+The January 2024 Global walkthrough shows that an ordinary radio exchange
+between Perlica and Fiona continues during the motorcycle ride. The ambush
+then has three separate overlaid captions with IDs `timeline_e1m1_1_01`,
+`_02` and `_03`. The English captions correspond to the archived Chinese
+lines in that order. Half-second samples show the first at approximately
+19:13–19:14, the second at 19:16–19:18, and Perlica's instruction to stay
+close at 19:32–19:36. These are observed display times in this recording.
+The three IDs belong to the timeline and have no demonstrated voice-file
+binding in the current distribution. The earlier Fiona radio exchange has
+different wording. [Radio during the ride](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1098s) ·
+[Two calls during the ambush](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1153s) ·
+[Perlica's instruction](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1172s) ·
+[Historical text](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg/SubtitleTable.json)
+
+A separate January 2024 recording shows the Triaggelos arrival, the boss
+fight and its aftermath. By 10:40 Perlica calls to the Endministrator.
+Fiona and Angelina Ajimu have a separate conversation as control returns
+to the characters. The archival subtitle table contains no key bearing
+either of the two boss-movie IDs. The soundtrack in this video does not
+identify a separate original sentence recording for either movie.
+[Boss arrival](https://www.youtube.com/watch?v=2dX2GFG8dv8&t=127s) ·
+[Aftermath](https://www.youtube.com/watch?v=2dX2GFG8dv8&t=640s)
+
 ## Current English prologue before the Ereignis fight
 
 The publisher’s September 2025 PS5 demonstration shows the female Endministrator. The January 2026 version 1.0 recording by Maakuplays shows the male Endministrator. In both, the camera turns from the protagonist to Ereignis in a snow-covered area. The protagonist shields their face, the enemy extends a hand, and the scene continues into the boss encounter. These are the versions of `cs_video_e0m0_3` identified by their current Global 1.6.4 English voice tracks. [Female performance in the official demonstration](https://www.youtube.com/watch?v=2GjOGijE9fM&t=596s) · [Male performance in 1.0 gameplay](https://www.youtube.com/watch?v=59n93iqzIIM&t=40s)
