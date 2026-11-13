@@ -9,11 +9,13 @@ selected language and translation tables, the message and reply bindings,
 ongoing performance variants, gameplay tips and original voice packages.
 A fresh launcher check before publishing prevents mixing two releases.
 
-In Global 3.3.0, 30,736 of 31,069 referenced dialogue paths matched the catalogue.
-The selected scene bundles totalled 48,849,768 bytes before Sophon chunk
+In Global 3.3.0, 30,762 of 31,095 referenced dialogue paths matched the catalogue.
+Both root-relative and fully qualified Perform paths are accepted. The latter
+added 26 distinct Chat and Bubble assets and 292 typed scene records.
+The selected scene bundles totalled 48,891,704 bytes before Sophon chunk
 alignment. Setup retained conversations, narration, choices and ambient text.
 The English study language with English and Simplified Chinese text produced
-68,573 voiced, 126,013 authored unvoiced, 11,458 unavailable and 57,645 unknown
+68,572 voiced, 126,046 authored unvoiced, 11,459 unavailable and 57,662 unknown
 records including comics. Thirty-four English samples exported through the
 desktop playback service and decoded to nonzero PCM, including phone, gameplay,
 narration, early story and separate Belle and Wise performances. A caption shared between
@@ -112,9 +114,9 @@ different content layer remains open.
 The command requires a unique authored scene source and a unique matching file
 in the selected dub. It supports direct source paths and the evidenced GalGame
 and ongoing speaker directories. Additional conditional scene voices, comic panels and cinematic events
-require their own bindings. Windows Setup with no game folder reads the Global
-launcher's message configuration and the selected base and overwrite TextMaps.
-It prepares only phone message bodies with a unique authored source and an exact
+require their own bindings. The November 9 implementation of Windows Setup
+read the Global launcher's message configuration and the selected base and
+overwrite TextMaps. That implementation prepared only phone message bodies with a unique authored source and an exact
 original recording in the selected language. Replies, other presentations, later
 in-version Global overrides and independent phone preparation remain outside this route.
 
@@ -261,7 +263,7 @@ was needed. The nine `VO_Message` entries all matched the installed Chinese pack
 | Gameplay and ongoing tips | `OngoingTipsConfigTemplateTb` text IDs and explicit male/female source fields | Preserves existing original voices and now retains records with both authored voice fields empty. The current metadata contained 1,466 such rows before TextMap filtering. Other tips tables are not implied by this support. |
 | NPC greetings and ambient combat reactions | Some are present in supported ongoing/bubble records; other source-only tables exist | Only authored text/source relationships are eligible. Audio-only barks cannot be reconstructed as official dialogue from filenames. |
 | Knock Knock messages and reply choices | Separate `MessageConfigTemplateTb`; text, options, emoji and occasional `VO_Message` sources | Current schema imported through exact TextMap joins. Empty authored message source columns establish silence. A message recording never becomes its reply-choice audio; reply-only evidence remains unknown. Image paths and literal content are excluded. |
-| Clue recordings with timed subtitles | `SubtitleConfigTemplateTb`, `Clue_` IDs, locale, source and start/end timestamps | Inventoried; dedicated segmented-audio adapter is missing. Mapping every subtitle to the entire recording would be incorrect. |
+| Clue recordings with timed subtitles | `SubtitleConfigTemplateTb`, `Clue_` IDs, locale, source and start/end timestamps | Inventoried; the Global launcher adapter now validates per-dub intervals and extracts the corresponding sentence. |
 | Other tips, TV/Hollow and event interfaces | `TipsConfigTemplateTb`, `HollowBottomMessageTemplateTb`, event-specific tables | Current `TipsConfigTemplateTb` is imported as `gameplay_tip`, including authored spoken guidance and silent instructions. Reaction pools never substitute for the main recording. Independent Hollow/event tables remain incomplete. |
 | Journey UI, reading screens, messages, mail, summaries and tutorials | Separate UI/configuration references; `ChatJourney` sample invokes journey UI rather than containing dialogue text | No blanket TextMap import. UI labels, item descriptions and notification text must not become dialogue merely because OCR sees them. |
 | Pre-rendered movies, baked text, songs and subtitles without a verified timeline event | Not established by the supported dictionary/timeline relationships | No completeness claim. Require a format-specific subtitle binding and timing/locale validation. |
@@ -359,8 +361,8 @@ future-proof schema contract:
 - `SubtitleConfigTemplateTb`: 992 rows, comprising 248 `Clue_` subtitles in each
   of four audio languages. `PMIKEPAJFKN` is the voice source, `APDFDBPICNM` the
   audio locale, `AFDMDFIHPMH` the text identity and `INPHPLFPOKF`/`GMHGKDKPKJB`
-  the start/end timestamps. Add timestamp validation and segment extraction;
-  preserve the per-language timings.
+  the start/end timestamps. The Global launcher adapter now validates these
+  intervals per dub and extracts the selected segment.
 - `HollowBottomMessageTemplateTb` contains nine related text references. These
   may overlap imported tips, but no comprehensive independent adapter is claimed.
 - `MainCityStoreVoiceConfigTemplateTb`: 262 source-only entries were observed.
