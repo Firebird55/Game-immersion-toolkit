@@ -21,6 +21,23 @@ def archive(name, source, clip):
     return File(name, header + struct.pack('<IQ4I', 1, voice_hash(source), 1, len(clip), offset, 0) + clip)
 
 
+def test_publisher_resolves_cinema_timeline_and_numbered_speakers_only_by_unique_pack_id():
+    examples = {
+        'cinema': ('OngoingCinema_Cinema_Example_001', 'VO_Cinema/Ver3_2/VO_Example'),
+        'numbered': ('Chat_Chapter230_32Actor_001', 'VO_Chat/Ver3_2/VO_32Actor'),
+        'timeline': ('Vo_Csr_Timeline_Example_End_ExAmPlE_002', 'VO_TL/Ver2_0/VO_Example'),
+        'ambiguous': ('Level_Partner_Example_001', 'VO_Level/Ver2_2/VO_Example'),
+    }
+    links = [{'text_id': key, 'source': name} for key, (name, _) in examples.items()]
+    entries = {voice_hash(f'English(EN)/ex/{path}/{name}.wem'): {'package': 'first.pck'}
+               for name, path in examples.values()}
+    entries[voice_hash('English(EN)/ex/VO_Accompany/Ver2_2/VO_Example/Level_Partner_Example_001.wem')] = {'package': 'other.pck'}
+    result = zzz_publisher.original_bindings(links, entries, 'en', '3.3.0')
+    assert set(result) == {'cinema', 'numbered', 'timeline'}
+    assert result['numbered']['source'].endswith('VO_32Actor/Chat_Chapter230_32Actor_001.wem')
+    assert result['timeline']['source'].endswith('VO_Example/Vo_Csr_Timeline_Example_End_ExAmPlE_002.wem')
+
+
 def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing_bodies(tmp_path, monkeypatch):
     current = ['a']
     def release(channel):

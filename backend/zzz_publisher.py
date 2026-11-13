@@ -25,6 +25,17 @@ BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
 SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
          'Other presentations and later in-version overrides have partial coverage.')
 
+# A source name and its Wwise directory do not always use the same family.
+# Only an exact file ID in the selected publisher pack establishes a binding.
+VOICE_DIRECTORIES = {
+    'galgame': ('VO_GalGame',), 'ongoing': ('VO_Ongoing',), 'ongoinglevel': ('VO_Ongoing',),
+    'ongoingmaincity': ('VO_Ongoing',), 'ongoingmaincitypartner': ('VO_Ongoing',), 'ongoingantique': ('VO_Ongoing',),
+    'level': ('VO_Level', 'VO_Accompany'), 'accompany': ('VO_Accompany',),
+    'chessboard': ('VO_Chessboard',), 'tips': ('VO_Tips',), 'maincity': ('VO_MainCity', 'VO_Chat'),
+    'chat': ('VO_Chat',), 'chatplus': ('VO_ChatPlus',), 'chatplustimeline': ('VO_Timeline', 'VO_ChatPlus'),
+    'timeline': ('VO_Timeline', 'VO_TL'), 'cinema': ('VO_Cinema',), 'ongoingcinema': ('VO_Cinema',),
+}
+
 
 def fingerprint():
     return voice.descriptor(sophon.release(CHANNEL))[0]
@@ -72,19 +83,23 @@ def source_paths(source, version):
         return set()
     if '/' in source:
         return {source}
-    family = {'galgame': 'VO_GalGame', 'ongoinglevel': 'VO_Ongoing', 'ongoingmaincity': 'VO_Ongoing',
-              'ongoing': 'VO_Ongoing', 'level': 'VO_Level', 'accompany': 'VO_Accompany',
-              'chessboard': 'VO_Chessboard', 'tips': 'VO_Tips', 'maincity': 'VO_MainCity', 'chat': 'VO_Chat',
-              'chatplus': 'VO_ChatPlus', 'chatplustimeline': 'VO_Timeline', 'timeline': 'VO_Timeline',
-              'ongoingantique': 'VO_Ongoing'}.get(source.split('_', 1)[0].lower())
-    if not family:
+    name = source.lower()
+    directories = VOICE_DIRECTORIES.get(name.split('_', 1)[0], ())
+    if name.startswith('vo_csr_timeline_'):
+        directories = ('VO_TL',)
+    elif name.startswith('activity_maincity_fishing_'):
+        directories = ('VO_Maincity_NPC',)
+    if not directories:
         return set()
     # Index membership decides among candidates, including unversioned launch files.
     major, minor, _ = map(int, version.split('.'))
     versions = [f'Ver{i}_{j}/' for i in range(1, major + 1)
                 for j in range(1 + minor if i == major else 10)]
-    speakers = {s for s in source.split('_')[1:] if re.fullmatch(r'[a-zA-Z][a-zA-Z0-9]+', s)}
-    return {f'{family}/{v}VO_{s}/{source}' for v in ['', *versions] for s in speakers}
+    speakers = {}
+    for token in source.split('_')[1:]:
+        if re.fullmatch(r'[A-Za-z0-9]+', token) and re.search('[A-Za-z]', token):
+            speakers.setdefault(token.lower(), token)
+    return {f'{family}/{v}VO_{s}/{source}' for family in directories for v in ['', *versions] for s in speakers.values()}
 
 
 def _stage_metadata(build, cache, work):

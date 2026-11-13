@@ -14,7 +14,7 @@ Both root-relative and fully qualified Perform paths are accepted. The latter
 added 26 distinct Chat and Bubble assets and 292 typed scene records.
 The selected scene bundles totalled 48,891,704 bytes before Sophon chunk
 alignment. Setup retained conversations, narration, choices and ambient text.
-The English study language with English and Simplified Chinese text produced
+The initial English study index with English and Simplified Chinese text produced
 68,572 voiced, 132,908 authored unvoiced, 11,459 unavailable and 50,800 unknown
 records including comics. Thirty-four English samples exported through the
 desktop playback service and decoded to nonzero PCM, including phone, gameplay,
@@ -31,6 +31,25 @@ publisher dubs. For example, Harumasa’s first cue (`Tips_72025056`) lasts
 3.348 s in English, 5.216 s in Japanese, 2.567 s in Korean and 2.520 s in
 Mandarin. This verification used the Global 3.3.0 launcher base.
 [Publisher release manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+The same Global release stores cinema dates under `VO_Cinema`, some MainCity
+chat under `VO_Chat`, companion level voices under `VO_Accompany`, and
+timeline dialogue under several recorded directory names. Setup now checks
+these locations against each authored source and the selected dub's actual
+Wwise file IDs. A second matching ID leaves the line unresolved. Actor
+identifiers can start with a number, as in the Chapter 2 irate operator.
+Repeated spellings of a name that differ only in case identify the same Wwise
+path.
+
+With the tip change above, the English index gained 1,821 voiced records in
+the same selection: 1,441 ambient lines, 243 conversations, 129 gameplay tips
+and eight narration lines. The resulting totals were 70,393 voiced, 132,908
+authored unvoiced, 9,638 unavailable and 50,800 unknown. Nine newly mapped
+sources were retrieved and decoded in all four publisher dubs. English Setup
+also exported each of these nine, including Asha’s cinema date (5.551 s),
+the irate operator (7.678 s), an Elpis fishing line (1.032 s) and Ju Fufu’s
+companion line (3.325 s).
+[Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
 
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
