@@ -247,3 +247,32 @@ def test_readable_archive_preserves_relative_identity_and_utf8_without_extractio
 def test_readable_archive_rejects_unsafe_ambiguous_or_oversized_members(members, message):
     with pytest.raises(ValueError, match=message):
         list(text_catalog(members).directory_text('Readable/EN'))
+
+def test_independent_character_triggers_require_matching_actor_source_condition_and_unique_text():
+    def trigger(kind, identity, *takes):
+        return {'gameTrigger': kind, 'gameTriggerArgs': identity, 'sourceNames': [
+            {'avatarName': actor, 'sourceFileName': path, **({'gender': gender} if gender else {})}
+            for actor, path, gender in takes]}
+    actor = 'Switch_Cast'
+    shared = (actor, 'cast/rain.wem', None)
+    variants = [(actor, 'cast/f.wem', 1), (actor, 'cast/m.wem', 2)]
+    voices = {kind: trigger(kind, 100 + i, shared) for i, kind in enumerate(sorted(game.CHARACTER_TRIGGERS))}
+    voices.update(f=trigger('Fetter', 35, shared), alternate=trigger('Fetter', 36, *variants),
+                  neither=trigger('JoinTeam', 22, ('Switch_Other', 'cast/rain.wem', None), (actor, 'cast/f.wem', 2)),
+                  both=trigger('JoinTeam', 23, *variants))
+    sources, gameplay = {}, {}
+    game.dialogue_links([voices], {}, 'en', profile_sources=sources, gameplay_sources=gameplay)
+    profiles = [{'avatarId': 3, 'fetterId': i, 'voiceFile': str(i), 'voiceFileTextTextMapHash': i + 20} for i in (35, 36)]
+    avatars = [{'id': 3, 'combatConfigHash': 98}]
+    configs = [('98.json', {'audio': {'voiceSwitch': {'text': actor}}})]
+    links = game.profile_links(profiles, avatars, configs, sources, gameplay)
+    entries = {voice_hash(link['source']): {'publisher': 'snapshot', 'package': 'test.pck'} for link in links}
+    records = game.profile_records(links, {'en': {'55': 'Rain.', '56': '#{M#Brother}{F#Sister}.'}}, 'en', entries)
+    single, female, male = records
+    assert single['channels'] == ['dialogue', 'gameplay']
+    assert {x['type'] for x in single['audio']['gameplay_triggers']} == game.CHARACTER_TRIGGERS
+    assert female['source_text'] == 'Sister.' and male['source_text'] == 'Brother.'
+    assert all(row['audio']['gameplay_triggers'] == [{'type': 'JoinTeam', 'id': '23'}] for row in (female, male))
+    clash = {**profiles[0], 'fetterId': 37, 'voiceFileTextTextMapHash': 99}
+    links = game.profile_links(profiles + [clash], avatars, configs, sources, gameplay)
+    assert all('gameplay_triggers' not in link for link in links if link['hash'] in ('55', '99'))
