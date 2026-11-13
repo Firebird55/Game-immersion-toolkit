@@ -148,6 +148,17 @@ in each dub from the selected region's release.
 [Korean gameplay](https://www.youtube.com/watch?v=jbkWEfXZjFM&t=2872s) ·
 [Mandarin gameplay](https://www.youtube.com/watch?v=-jUrr3nAm-0&t=2228s)
 
+In *The Devil in Velvet* (video 3190), Acheron's final two captioned lines
+use the same recorded performances as the two sentences in a later
+recollection. Eight complete individual WEMs matched four independent
+recordings of the original encounter. The first match starts at 5.213
+seconds in English, 4.770 in Japanese, 9.963 in Korean and 11:44.799
+in Mandarin. SAM's preceding two lines remain unavailable in this film.
+[English gameplay](https://www.youtube.com/watch?v=1khoGeARkzw&t=5s) ·
+[Japanese gameplay](https://www.youtube.com/watch?v=K0REbaGg1iw&t=4s) ·
+[Korean gameplay](https://www.youtube.com/watch?v=EbD7xTtl-8M&t=9s) ·
+[Mandarin gameplay](https://www.youtube.com/watch?v=bbKnx4IneG4&t=704s)
+
 On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
 retrieved and decoded. Their durations covered the 124 authored caption
 intervals, including player takes. Speech recognition on the original
@@ -361,7 +372,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
 | Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
-| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. Five Serval fragments play in all four dubs and eleven Silent Galaxy lines also play in Korean and Mandarin. | Playback for the other movie captions and the 138 other declared caption paths remains open. |
+| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. Five Serval and two Acheron fragments play in all four dubs and eleven Silent Galaxy lines also play in Korean and Mandarin. | Playback for the other movie captions and the 138 other declared caption paths remains open. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
 | Character profile/voice archive | 5,445 `VoiceAtlas` rows; `AudioID`, not the menu's `VoiceID`, is the voice-config key. Exact `AudioID` records are indexed with original audio where installed. | 3,614 rows use Wwise `AudioEvent` instead; their text is indexed but event-to-media binding is unavailable. |
 | Combat, idle and character reaction lines | `VoiceAtlas.IsBattleVoice` identifies 2,506 battle entries; their localized text is retained. | Not all combat audio displays subtitles. Event-driven playback is unresolved; no inference from filename or voice title. |

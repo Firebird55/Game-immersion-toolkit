@@ -62,4 +62,16 @@ REVIEWED_MOVIES = {
             'ko': 'a9774023655fcf64ed1a333cd6ce18d56479a0e91b134ecb1a7d4a436da5f5c8',
             'zh-Hans': 'ed02472d80242ec7f8ce51d32b26d027151d72e27f79cc332beed156fbc0a57c'}),
     },
+    ('CS_Chap03_Act190', 3190, 'a23b682b348efb91ca92318346b0bf36'): {
+        6177576846150994586: (138041311, {
+            'en': 'ed97893abd2c97d87934648d59f62109cc2667afed5ff3822f4fbf9b204ac0b9',
+            'ja': 'a48de3fea7f225e807ab91cf331c4175c5ac2b6f66bfa2ae17335cc762c32e0e',
+            'ko': '3f97dc60b69e45e330675b7e72c85cd28ca7a50ab77fbb69ae9bf9d93287828b',
+            'zh-Hans': 'f27cd290b40f1a0f7ac81572ff0b061511f57e25424da538ed9213c5c1d78683'}),
+        3825145531649416345: (138041312, {
+            'en': '5a7c27a322c40ff404cf17ba4c96ef976b06d6895ad3ec7311d93ec4505ff302',
+            'ja': 'a2e40ef6ea6edf19252b5769f09619b4b2823301141844a851208f22d5ea0ab8',
+            'ko': '24a73b6f5603df91fd01d4db1dd7c9d3f689bfc4fc5a9b2a47efcdc6ffeebdca',
+            'zh-Hans': '5670e1cf101d168ef5965ca4b511c7d8a74e7a749a1463ab85f06799e283ae75'}),
+    },
 }
