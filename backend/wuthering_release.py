@@ -149,6 +149,45 @@ def _file(name, size, digest):
     return [_size(size), digest.lower()]
 
 
+def _resource_inventory(root, release, channels, cache):
+    products, files, versions = {}, {}, {}
+
+    def record(channel, revision, index):
+        pak.check(index['Version'] == revision and index['Pv'] == 1)
+        versions[channel] = revision
+        for layer, folder in (('BaseFiles', release), ('PatchFiles', revision)):
+            for row in index['DiffPatch'][layer]:
+                name = row['Name']
+                info = _file(name, row['Size'], row['Hash'])
+                key = '/'.join((channel, layer, name))
+                pak.check(key not in files)
+                files[key] = info
+                products[key] = (root + folder + '/' + name, *info)
+
+    names = {'resource': 'ManifestResource', **{dub: 'ManifestLang_' + dub for dub in DUBS}}
+    for channel in sorted(channels):
+        if channel.startswith('Option_Pack_'):
+            pak.check(re.fullmatch(r'Option_Pack_[A-Za-z0-9_]+', channel))
+            names[channel] = 'Manifest' + channel
+    for channel, manifest in names.items():
+        current = channels[channel]
+        revision = current['Version']
+        pak.check(re.fullmatch(VERSION, revision) and current['Name'] == channel)
+        index = _manifest(root + revision + '/' + manifest + '.txt', current['IndexSha1'][revision], cache)
+        record(channel, revision, index)
+    if 'ManifestAggregated' in channels:
+        current = channels['ManifestAggregated']
+        rev = current['Version']
+        pak.check(re.fullmatch(VERSION, rev) and current['Name'] == 'ManifestAggregated')
+        grouped = _manifest(root + rev + '/ManifestAggregated.txt', current['IndexSha1'][rev], cache)
+        pak.check(isinstance(grouped, dict) and grouped)
+        for name, index in grouped.items():
+            pak.check(isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9_]+', name)
+                      and name not in versions and re.fullmatch(VERSION, index['Version']))
+            record(name, index['Version'], index)
+    return versions, files, products
+
+
 def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
     domain = CHANNELS[region][2]
     bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
@@ -195,23 +234,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     platform = _json(config_data)
     release = platform['PackageVersion']
     pak.check(re.fullmatch(VERSION, release) and release.split('.')[:2] == launcher_version.split('.')[:2])
-    products, files, versions = {}, {}, {}
-    for channel in ('resource', *DUBS):
-        current = platform['ResVersions'][channel]
-        revision = current['Version']
-        pak.check(re.fullmatch(VERSION, revision) and current['Name'] == channel)
-        name = 'ManifestResource' if channel == 'resource' else 'ManifestLang_' + channel
-        index = _manifest(root + revision + '/' + name + '.txt', current['IndexSha1'][revision], cache)
-        pak.check(index['Version'] == revision and index['Pv'] == 1)
-        versions[channel] = revision
-        for layer, folder in (('BaseFiles', release), ('PatchFiles', revision)):
-            for row in index['DiffPatch'][layer]:
-                name = row['Name']
-                info = _file(name, row['Size'], row['Hash'])
-                key = '/'.join((channel, layer, name))
-                pak.check(key not in files)
-                files[key] = info
-                products[key] = (root + folder + '/' + name, *info)
+    versions, files, products = _resource_inventory(root, release, platform['ResVersions'], cache)
     video_pointers = {}
     if videos:
         for tier in TIERS:
