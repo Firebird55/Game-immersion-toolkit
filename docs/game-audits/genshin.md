@@ -190,6 +190,20 @@ file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
 
+## Short conversation cues
+
+The 7.2 Global English Talk graph provides 122,504 definite predecessor links
+between playable conversations. Of these, 5,836 successors have fewer than
+eight normalized English characters. Only a unique incoming edge from one
+unconditional outgoing edge is used; disagreements, branching choices and
+missing recordings are excluded. Capture requires a stable exact predecessor
+inside the same window, crop, language, player variant and capture session.
+Global Dialog `401860220` could not be selected from its short caption alone.
+Replaying its authored preceding caption twice in the normal language index
+selected the correct original performance. The 7.1 runtime successor field
+also agreed with 165,503 nonempty Excel transitions. Four conflicting pairs
+were excluded. Previous context never adds audio to a line with no binding.
+
 ## Cinematic subtitle timing
 
 The November 13 cinematic check matched 252 of the 319 English subtitle files

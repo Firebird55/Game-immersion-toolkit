@@ -1,5 +1,6 @@
 """Synthetic Genshin schema, modality and local binding regressions."""
 import io
+import json
 import struct
 import tarfile
 
@@ -38,6 +39,40 @@ def test_movie_translations_require_exclusive_overlapping_cues_in_both_tracks():
     target = {1: (200, 1000, 'Un'), 2: (1250, 2950, 'Deux'), 3: (3000, 3400, 'Trois')}
     assert _aligned(source, target) == {1: 'Un'}
     assert _aligned(source, {1: (200, 1000, 'Un')}) == {}
+
+
+def test_confirmed_genshin_predecessor_selects_a_short_recording_without_guessing_audio(tmp_path):
+    from backend.endfield_caption_context import EndfieldCaptionContext
+    from backend.multilingual_index import MultilingualTextIndex
+    edges = {1: [2], 2: [], 3: [4], 4: [], 5: [6, 7], 6: [], 7: [], 8: [9], 9: [], 10: [9], 11: [12], 12: []}
+    talk = {'dialogList': [{'id': i, 'talkContentTextMapHash': i + 10, 'nextDialogs': successors}
+                           for i, successors in edges.items()]}
+    annotations = {}
+    game.dialogue_hashes([talk], [{'id': 11, 'talkContentTextMapHash': 21, 'nextDialogs': [7]}], annotations=annotations)
+    assert {i: a['previous_dialogue'] for i, a in annotations.items() if 'previous_dialogue' in a} == {'2': '1', '4': '3'}
+    texts = ['Take this path and follow me.', 'Yes!', 'Head back to the entrance.', 'Yes!']
+    rows = [{'text_id': 'genshin:' + str(i), 'source_locale': 'en', 'audio_locale': 'en', 'source_text': text,
+             'texts': {'en': text}, 'english': text, 'audio': {'file_id': i}, 'channels': ['dialogue'],
+             'dialogue_kind': 'conversation', 'voice_status': 'voiced'} for i, text in enumerate(texts, 1)]
+    game._bind_predecessors(rows, annotations)
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'genshin', 'source_locale': 'en', 'records': rows}))
+    index = MultilingualTextIndex('genshin', tmp_path)
+    context = EndfieldCaptionContext()
+    def scan(text, now):
+        hit = index.match_lines([text], exact_only=True)
+        return context.observe(index, [text], [hit], channel='dialogue', kind='conversation', scope=1, now=now, stable_frames=2)
+    assert scan('Yes!', 0) is None
+    scan(texts[0], 1)
+    scan(texts[0], 1.1)
+    assert scan('Yes!', 1.2).text_id == 'genshin:2'
+    assert scan('Yes!', 8) is None
+    scan(texts[2], 9)
+    scan(texts[2], 9.1)
+    assert scan('Yes!', 9.2).text_id == 'genshin:4'
+    unavailable = {**rows[1], 'audio': None, 'voice_status': 'unavailable'}
+    unavailable.pop('previous_text_id')
+    game._bind_predecessors([rows[0], unavailable], annotations)
+    assert 'previous_text_id' not in unavailable and unavailable['audio'] is None
 
 
 def test_global_dialogues_fill_gaps_without_resurrecting_runtime_conflicts():

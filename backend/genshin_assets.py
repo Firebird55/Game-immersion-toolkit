@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 9
+LANGUAGE_INDEX_VERSION = 10
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -64,8 +64,28 @@ def _warn(warnings, message):
         warnings.append(message)
 
 
+def _bind_predecessors(rows, annotations):
+    voiced = {row['text_id'] for row in rows if row['audio'] and row['dialogue_kind'] == 'conversation'}
+    for row in rows:
+        if row['text_id'] not in voiced:
+            continue
+        identity = row['text_id'].split(':')[1]
+        predecessor = annotations.get(identity, {}).get('previous_dialogue')
+        if predecessor and 'genshin:' + predecessor in voiced:
+            row['previous_text_id'] = 'genshin:' + predecessor
+
+
 def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
     values = defaultdict(set)
+    edges = {}
+
+    def transitions(identity, successors):
+        if annotations is None or not identity or not isinstance(successors, list):
+            return
+        following = frozenset(_identity(child) for child in successors)
+        if None not in following:
+            edges.setdefault(identity, set()).add(following)
+
     for talk in talks:
         if not isinstance(talk, dict):
             _warn(warnings, 'Some Genshin Talk records use an unsupported structure.')
@@ -83,6 +103,10 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
                     _warn(warnings, 'Some Genshin Talk records use an unsupported structure.')
                     continue
                 key, content = _identity(row.get(identity)), _identity(row.get(text))
+                if array == 'dialogList':
+                    transitions(key, row.get('nextDialogs'))
+                elif array == 'PCIAMAFDDAA':
+                    transitions(key, row.get('GLJCECCOEDP'))
                 if key and content:
                     values[key].add(content)
                     if annotations is not None:
@@ -106,6 +130,7 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
             continue
         key = _identity(row.get('id')) or _identity(row.get('GFLDJMJKIKE'))
         content = _identity(row.get('talkContentTextMapHash'))
+        transitions(key, row.get('nextDialogs'))
         if key and content and key not in runtime_ids:
             values[key].add(content)
         elif not key or 'talkContentTextMapHash' not in row:
@@ -120,7 +145,17 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
     # Conflicting upstream records cannot silently select a translation.
     if any(len(hashes) != 1 for hashes in values.values()):
         _warn(warnings, 'Conflicting Genshin dialogue identities were excluded.')
-    return _unique(values)
+    hashes = _unique(values)
+    if annotations is not None:
+        incoming = defaultdict(set)
+        for parent, alternatives in edges.items():
+            for children in alternatives:
+                for child in children:
+                    incoming[child].add(parent)
+        for child, parent in _unique(incoming).items():
+            if child in hashes and parent in hashes and parent != child and edges[parent] == {frozenset((child,))}:
+                annotations.setdefault(child, {})['previous_dialogue'] = parent
+    return hashes
 
 
 def _voice_path(path, locale):
@@ -517,6 +552,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         recovered = retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
         if recovered:
             _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
+    _bind_predecessors(rows, annotations)
     if version_matches:
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
         from .genshin_cinematics import movie_records
