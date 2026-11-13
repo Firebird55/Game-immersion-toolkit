@@ -15,6 +15,11 @@ voice pack. Playback downloads the original audio chunks for the requested line.
 The two Chinese study selections share a Mandarin pack. In-game hotfixes and
 removed event recordings have independent coverage.
 
+When the translation catalog limits downloads, Setup can read the same release
+from its maintainer’s mirror. Git enables the mirror for release discovery and
+larger metadata folders. Setup retries the primary catalog when it becomes
+available again. [Metadata mirror](https://github.com/DimbreathBot/AnimeGameData/tree/main)
+
 For an installed game, select the client folder containing **GenshinImpact.exe and GenshinImpact_Data (or YuanShen.exe and YuanShen_Data)** in **Setup → Games**.
 Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
 nested game client has been downloaded. Steam and conventional Epic/HoYoPlay

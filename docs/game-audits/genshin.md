@@ -27,6 +27,23 @@ in Korean and 6.267 s in Mandarin. This comparison covers launcher bases.
 In-version Global hotfix discovery and region-specific replacements remain open.
 [Matching text extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
 
+When the primary catalog rate-limits requests, Setup can use the maintained
+GitHub copy. It compares the release title to the publisher revisions and
+fetches the exact immutable commit. Larger authoring directories use Git if
+available. The existing regional comparison still applies before using
+mainland translation data for a Global release. Both hosts supply text
+and binding metadata. Original recordings come from the selected publisher.
+
+On November 13, the primary commit endpoint returned HTTP 429. With an empty
+active metadata cache and primary requests deliberately limited throughout a
+Windows worker test, 25 requests fell back to the mirror. The worker downloaded
+the actual English and Chinese data, verified the live Global launcher's
+release and indexed 471,176 entries in 116 seconds. Previously cached publisher
+packages and historical indexes were reused. Normal playback exported the
+original English line `80030105` to an 8.304-second MP3.
+[Maintainer's live metadata mirror](https://github.com/DimbreathBot/AnimeGameData/tree/main)
+· [Matching immutable release](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
+
 ## Character triggers in gameplay, November 13, 2026
 
 The reader follows each authored AnimatorEvent, WeatherMonologue, JoinTeam,
