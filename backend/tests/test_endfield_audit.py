@@ -110,8 +110,8 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
         'EmotionVoiceConfig': {'4': {'interjectionList': ['sigh']}},
         'AudioDialog': {'1': {'path': 'story/au_dlg_commvo_actor_sigh.wem'}}})
     catalog.stamp = 'release'
-    monkeypatch.setattr(cli.publisher, 'prepare', lambda _: catalog)
-    monkeypatch.setattr(cli.publisher, 'discover', lambda: (catalog.stamp, b''))
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda _tools, _region: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda _region: (catalog.stamp, b''))
     key = voice_hash('voice/english/story/au_dlg_commvo_actor_sigh.wem')
     monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
     monkeypatch.setattr(cli.publisher, 'media', lambda tools, stamp, dub, identity: b'reaction' if identity == key else None)
@@ -123,7 +123,7 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert args[4].read_bytes() == b'reaction' and result['rows'][0]['status'] == 'no_override'
     assert result['rows'][0]['reaction_status'] == 'candidates_in_dub'
     args[4].write_bytes(b'previous')
-    monkeypatch.setattr(cli.publisher, 'discover', lambda: ('newer', b''))
+    monkeypatch.setattr(cli.publisher, 'discover', lambda _region: ('newer', b''))
     with pytest.raises(ValueError, match='changed'):
         cli.run(*args, reaction='au_dlg_commvo_actor_sigh')
     assert args[4].read_bytes() == b'previous'
@@ -138,8 +138,8 @@ def test_conversation_reuses_current_actor_reaction_without_predecessor(tmp_path
                        'EmotionVoiceConfig': {'4': {'interjection': 'neutral_04'}},
                        'AudioDialog': {'1': {'path': 'story/au_dlg_commvo_actor_neutral_04.wem'}}})
     catalog.stamp = 'release'
-    monkeypatch.setattr(cli.publisher, 'prepare', lambda _: catalog)
-    monkeypatch.setattr(cli.publisher, 'discover', lambda: (catalog.stamp, b''))
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda _tools, _region: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda _region: (catalog.stamp, b''))
     key = voice_hash('voice/english/story/au_dlg_commvo_actor_neutral_04.wem')
     monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
     monkeypatch.setattr(cli.publisher, 'media', lambda cache, stamp, dub, identity: b'reaction' if identity == key else None)

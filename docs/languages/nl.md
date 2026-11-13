@@ -346,7 +346,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [Dekkingsnotities](../endfield-languages.md)
 
-Global-verhaalstemmen van de uitgever
+Verhaalstemmen van de wereldwijde of Chinese uitgever
 
 Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 

@@ -177,6 +177,26 @@ def test_manual_refresh_dispatches_only_the_selected_game(setup, tmp_path, monke
     assert client.post("/api/setup/games/unknown/refresh", headers={"X-Proxy-Transcript": "setup"}, json={}).status_code == 404
 
 
+def test_endfield_publisher_edition_survives_restart_and_refreshes_prepared_languages(setup, monkeypatch):
+    from backend import endfield_assets, endfield_release
+    service, _, refreshes, _ = setup
+    data = service.root / 'data'
+    monkeypatch.setattr(api, 'DATA_DIR', data)
+    monkeypatch.setattr(endfield_release, 'fingerprint', lambda region: 'snapshot-' + region)
+    client = TestClient(api.app, base_url='http://127.0.0.1:8766')
+    endpoint = '/api/setup/games/endfield/publisher-region'
+    headers = {'X-Proxy-Transcript': 'setup'}
+    selected = lambda status: next(row for row in status['games'] if row['id'] == 'endfield')['publisher_region']
+    assert selected(service.status()) == 'global'
+    assert client.post(endpoint, json={'region': 'cn'}).status_code == 403
+    response = client.post(endpoint, headers=headers, json={'region': 'cn'})
+    assert response.status_code == 200 and selected(response.json()) == 'cn'
+    assert refreshes == ['endfield']
+    assert endfield_assets.publisher_fingerprint(data / 'endfield/tools') == 'snapshot-cn'
+    assert client.post(endpoint, headers=headers, json={'region': 'other'}).status_code == 400
+    assert selected(service.status()) == 'cn'
+
+
 def test_wuthering_without_installation_offers_publisher_tools_and_refresh(setup, monkeypatch):
     service, _, refreshes, _ = setup
     monkeypatch.setattr('backend.installation.missing_tools', lambda _root, game, publisher: [] if publisher else ['Installed reader'])

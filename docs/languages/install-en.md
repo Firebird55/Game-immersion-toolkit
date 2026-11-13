@@ -23,14 +23,14 @@ The language manager shows actual table sizes. Shared audio/tools are counted on
 
 In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
 
-Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares recorded phone messages from the Global launcher base. Other dialogue requires installed files.
+Leave the game folder empty in Windows Setup to prepare mainland China Genshin Impact, regular Global Star Rail voices, Global or mainland China Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares recorded phone messages from the Global launcher base. Other dialogue requires installed files.
 
 | Game | Windows Setup |
 | :--- | :--- |
 | Genshin Impact | Publisher Setup for the mainland China launcher release |
 | Honkai: Star Rail | Publisher Setup for regular Global launcher voice packs |
 | Zenless Zone Zero | Global launcher recorded phone messages in publisher Setup. Other dialogue requires installed files. |
-| Arknights: Endfield | Publisher Setup for Global narrative voices |
+| Arknights: Endfield | Publisher Setup for Global or mainland China narrative voices |
 | Wuthering Waves | Publisher Setup for Global dialogue and original voices |
 | Neverness to Everness | Installed game in Setup. Separate Global and mainland publisher file checks. |
 

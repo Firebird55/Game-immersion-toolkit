@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .game_assets import PUBLISHER_GAMES
+from .publisher_regions import REGIONS, REGIONAL_GAMES, selected_region
 from .runtime_paths import data_root as runtime_data_root
 from .runtime_bundle import child_command, discover_layout, resource_path
 import json
@@ -52,7 +53,7 @@ FOLDER_HINTS = {
     "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
     "starrail": "Optionally choose Star Rail Games. Without a folder, setup uses verified Global launcher voice packages.",
     "genshin": "Optionally choose the Genshin Impact or YuanShen game folder. Without a folder, setup uses the mainland China publisher release in the selected language.",
-    "endfield": "The Global publisher supplies Endfield audio online. Optionally choose the folder containing Endfield.exe to use installed packages.",
+    "endfield": "Choose Global or Mainland China for online Endfield data. To use installed packages, choose the folder containing Endfield.exe.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
     "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",
     "zzz": "Leave the folder empty for recorded phone messages from the Global PC launcher release. For other dialogue, choose the installed folder containing ZenlessZoneZero_Data or the Data folder itself.",
@@ -68,7 +69,7 @@ VOICE_HINTS = {
     "shadowofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Some voice packs require the corresponding regional edition.",
     "starrail": "Prepare the selected study language to retrieve original voices from Global publisher packages.",
     "genshin": "Prepare the selected language to retrieve original voices from the publisher. Installed clients use their own voice packs.",
-    "endfield": "Prepare tools and the selected language. Without a game folder, the toolkit fetches original Global recordings on demand.",
+    "endfield": "Prepare tools and the selected language to fetch original recordings from the selected publisher edition.",
     "heavyrain": "Use the selected study language's official installed voice data, then explicitly prepare that language in Languages.",
     "beyond": "Select the matching spoken language in Steam Properties, wait for its official pack to finish, then explicitly prepare Languages.",
     "zzz": "Global publisher phone messages use the selected original voice. For installed dialogue, install the matching voice pack through the launcher and prepare the language.",
@@ -164,10 +165,17 @@ class InstallationService:
             except OSError:
                 voice = "not_checked"
             voice_hint = VOICE_HINTS[game]
+            edition = {}
+            if game in REGIONAL_GAMES and not install:
+                try:
+                    selected = selected_region(runtime_data_root(self.root) / game / 'tools', game)
+                except (OSError, ValueError):
+                    selected = None
+                edition = {'publisher_regions': REGIONS, 'publisher_region': selected}
             games.append({"id": game, "title": GAME_NAMES[game], "configured_path": saved.get(game),
                           "detected_path": str(install) if install else None, "folder_state": folder_state,
                           "folder_hint": FOLDER_HINTS[game], "voice_state": voice,
-                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game, voice == 'publisher'), **state})
+                          "voice_hint": voice_hint, "tools_missing": missing_tools(self.root, game, voice == 'publisher'), **state, **edition})
         ocr = Path.home() / ".config/oneocr"
         from .ocr_engine import portable_models_available
         from .desktop_capabilities import capture_capability

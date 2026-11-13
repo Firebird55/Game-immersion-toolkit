@@ -10,8 +10,8 @@ from backend.dialogue_catalog import selected_tables
 from backend.game_tools import _atomic_file
 
 
-def run(cache, locale, groups, line, output, targets, reaction=None):
-    catalog = publisher.prepare(cache)
+def run(cache, locale, groups, line, output, targets, reaction=None, region='global'):
+    catalog = publisher.prepare(cache, region)
     dialogs = assets.radio_dialogues(catalog)
     unknown = set(groups) - {r['radio_group'] for r in dialogs.values()}
     if unknown:
@@ -71,17 +71,18 @@ def run(cache, locale, groups, line, output, targets, reaction=None):
             data = publisher.extract(cache, chosen['audio'], dub)
         else:
             raise ValueError('The selected line has no verified sentence recording in this dub.')
-    if publisher.discover()[0] != catalog.stamp:
+    if publisher.discover(region)[0] != catalog.stamp:
         raise ValueError('The released resources changed during the request. Retry.')
     if output:
         _atomic_file(output, data)
-    return {'version': catalog.revision_title, 'revision': catalog.stamp, 'locale': locale, 'rows': report}
+    return {'version': catalog.revision_title, 'revision': catalog.stamp, 'region': region, 'locale': locale, 'rows': report}
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--cache', type=Path, required=True, help='Private directory for publisher files')
     parser.add_argument('--locale', choices=assets.SUPPORTED_LOCALES, required=True)
+    parser.add_argument('--region', choices=publisher.CHANNELS, default='global')
     parser.add_argument('--target', choices=assets.TEXT_LOCALES, action='append', default=[])
     parser.add_argument('--group', action='append', default=[], help='Repeat to limit the inventory to selected groups')
     parser.add_argument('--line', help='Exact endfield: conversation or radio performance ID, including any gender suffix')
@@ -92,5 +93,5 @@ if __name__ == '__main__':
         parser.error('--wem requires --line')
     if args.reaction and not args.wem:
         parser.error('--reaction requires --line and --wem')
-    print(json.dumps(run(args.cache.resolve(), args.locale, args.group, args.line, args.wem, args.target, args.reaction),
+    print(json.dumps(run(args.cache.resolve(), args.locale, args.group, args.line, args.wem, args.target, args.reaction, args.region),
                      ensure_ascii=True, indent=2))

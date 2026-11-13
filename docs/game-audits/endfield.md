@@ -1,5 +1,22 @@
 # Arknights: Endfield presentation audit
 
+## Selecting the publisher edition
+
+With the game folder empty, Windows Setup offers Global and Mainland China.
+Each uses its own launcher, app ID, channel, resource manifests and CDN. The
+edition applies to all study languages. A switch schedules the previously
+prepared languages for refresh. Saved voice references continue to read from
+their original release and edition. The radio and whole-film commands accept
+`--region global` or `--region cn`.
+
+On November 13, 2026, both official launchers returned Windows 1.6.4 and
+initial/main resource revision `11529267-11` under separate regional URLs.
+A clean mainland preparation returned 53,711 English rows, including 25,985
+voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
+The selected timed film clip resolved its original 77.014 s source recording.
+The 28 open film configurations and the two unresolved radio observations
+are tracked below. [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
+
 ## Installation-free publisher updates, November 9, 2026
 
 The [inventory of the 28 unresolved films](endfield-film-configs-1.6.4.csv) distinguishes a

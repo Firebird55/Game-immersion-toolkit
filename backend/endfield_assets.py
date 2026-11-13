@@ -9,6 +9,7 @@ import re
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .languages import audio_locale, resolve_locale
 from .preparation_errors import PreparationFailure
+from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
@@ -49,6 +50,11 @@ def publisher_snapshot_available(tools, stamp):
         return bool(endfield_release.descriptor(tools, stamp))
     except (OSError, ValueError):
         return False
+
+
+def publisher_fingerprint(tools):
+    from . import endfield_release
+    return endfield_release.fingerprint(selected_region(tools, 'endfield'))
 
 
 def publisher_voice_matches(stamp, audio):
@@ -452,7 +458,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         raise ValueError('Unsupported Endfield study/audio language.')
     online = install is None
     if online:
-        catalog = endfield_release.prepare(data_dir / 'tools')
+        region = selected_region(data_dir / 'tools', 'endfield')
+        catalog = endfield_release.prepare(data_dir / 'tools', region)
         stamp = catalog.stamp
     else:
         stamp = fingerprint(install)
@@ -505,7 +512,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             film['audio']['snapshot'] = stamp
     rows.extend(films)
     coverage['voiced'] += len(films)
-    current = endfield_release.discover()[0] if online else fingerprint(install)
+    current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
     if current != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
@@ -532,11 +539,12 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
     if online:
-        warnings.append(f'Using Global Windows {catalog.revision_title} from the Endfield publisher. '
+        warnings.append(f'Using {REGIONS[region]} Windows {catalog.revision_title} from the Endfield publisher. '
                         'Original narrative tables and voices follow the released resources. '
                         'Film captions require verified timing for the selected resources.')
     available = {code for row in rows for code in row['texts']}
     return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': None if online else str(install),
+        **({'source_mode': 'publisher', 'publisher_region': region} if online else {}),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
