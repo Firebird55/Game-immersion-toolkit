@@ -64,7 +64,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 Readers voor Unreal-archieven ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoderen en converteren ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de Global-launcher op.
+Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de Global-launcher op.
 
 Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows.
 

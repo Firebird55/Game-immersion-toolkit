@@ -134,19 +134,30 @@ def inventory(data_dir, stamp, locale, *, unavailable_duplicates=None):
     return voices.inventory(data_dir, stamp, locale, 'genshin', unavailable_duplicates=unavailable_duplicates)
 
 
-def movie_names(data_dir, stamp):
+def movie_assets(tools, stamp):
     from pathlib import PurePosixPath
-    directory = data_dir / 'tools' / 'sophon'
-    if not voices.snapshot_available(data_dir / 'tools', stamp, 'genshin'):
+    directory = tools / 'sophon'
+    if not voices.snapshot_available(tools, stamp, 'genshin'):
         raise ValueError('The Genshin movie release is unavailable.')
     build = json.loads((directory / 'releases' / stamp).read_bytes())
     channel = build['channel']
     parent = PurePosixPath(ROOTS[channel]) / 'VideoAssets' / 'StandaloneWindows64'
-    return {p.stem for name in sophon.manifest(directory, channel, tuple(build['manifests']['game']), ('.usm',))
+    return {p.stem: asset for name, asset in sophon.manifest(directory, channel, tuple(build['manifests']['game']), ('.usm',)).items()
             if (p := PurePosixPath(name)).parent == parent}
 
 
 def extract(audio, tools):
+    if 'movie' in audio:
+        from . import genshin_opening_soundtrack as opening
+        interval = (audio.get('start_ms'), audio.get('end_ms'))
+        if (audio.get('movie') != opening.MOVIE or audio.get('locale') != 'ja'
+                or audio.get('track_sha256') not in opening.TRACKS.values()
+                or interval not in {row[:2] for row in opening.JAPANESE_LINES.values()}):
+            raise ValueError('Invalid Japanese Genshin opening performance.')
+        asset = movie_assets(tools, audio['publisher']).get(opening.MOVIE)
+        if asset is None:
+            raise ValueError('The selected release lacks the Genshin opening movie.')
+        return opening.verified_track(asset, tools / 'sophon', audio['track_sha256'])[1]
     if previous := audio.get('original_publisher'):
         channels = []
         for stamp in (audio['publisher'], previous):

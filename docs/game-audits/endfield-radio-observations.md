@@ -18,6 +18,41 @@ The times below refer to the public player recordings. The on-screen text matche
 
 The comparison used publisher WEMs from the active dub, including other actors' candidates for the configured emotion. It compared the band-limited decoded waveforms with the player recording and checked the strongest candidates across separate frequency bands. Short, pitched combat sounds can give a partial correlation in one band. The search cannot exclude a short sound under the mix. The toolkit continues to require an authored binding before exporting an original recording.
 
+### An Yu in two additional playthroughs
+
+The publisher's `gm02m14_name` localization key identifies this mission as
+*分忧解难* (Chinese) and *お悩み解決* (Japanese). On-screen text in two
+independent version 1.2 walkthroughs matches the three Global 1.6.4 radio
+rows. These times are approximate subtitle starts in each video.
+
+| Radio row | Japanese subtitles | Chinese subtitles |
+| --- | --- | --- |
+| `radio_gm02m14_2_001` | [2:21](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=141s) | [3:01](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=181) |
+| `radio_gm02m14_3_001` | [2:25](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=145s) | [3:05](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=185) |
+| `radio_gm02m14_3_002` | [2:33](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=153s) | [3:11](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=191) |
+
+The Japanese-subtitled mix contains game audio at all three captions. Speech
+detection and transcription found no spoken words during the sequence.
+Comparison with 476 candidate Japanese recordings for emotion 41 and 186
+for emotion 37 yielded no verified match. In the Chinese video a guide
+speaks Mandarin over all three captions, giving directions about spraying
+the cores and opening a door. Searching the complete Japanese walkthrough
+for audio shared with the Chinese and English-subtitled recordings did not
+identify a sound specific to An Yu. One short sound heard in the Chinese
+second-caption window matched the Japanese playthrough more closely
+outside the encounter (5:27) than during that caption.
+
+In both Global 1.5.3 and 1.6.4 An Yu's NPC row has an empty `voActor`.
+Its NPC and Wwise identifiers are `gm02m14hsstudent1`, and its template is
+`npc_girl_hsstudent_a_24`. None of the six configured reaction suffixes
+combined with either name occurs in the releases' voice-duration tables.
+The controller passes the result of `GetRealActorNameId` into
+`TryGetCommonEmotionVoiceId`. It only posts a voice when that method
+succeeds. The published controller does not show how that method chooses
+an actor for an NPC with an empty voice field. These three rows still have
+no verified performance or proof of a permanently silent fallback.
+[Released radio playback controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L946)
+
 ## Four rows without a configured interjection
 
 | Mission | Rows | Reproduction point in the publisher's mission script |
@@ -37,7 +72,7 @@ This includes extensionless internal events. Both releases' `AudioVoiceExtraData
 tables have exactly the same keys as their duration tables. All four literal row
 overrides and their female/male forms are absent in both. The two duration
 overloads and their Lua call read the dub-specific duration from `VoiceData`.
-[Runtime voice interfaces](https://github.com/Dr-hydra/Better-Endfield/blob/20ebf08a86f6b14517140d715f2d4a7dc8104447/docs/GAME_INTERFACES.md)
+[Runtime per-language voice duration](https://github.com/Dr-hydra/Better-Endfield/blob/26430566b98f1d97d0d156bc8e73f8671b496e1c/docs/voice/VOICE_CUSTOM_LANGUAGE_SYSTEM.md#L85-L101)
 
 When the duration lookup fails, the controller clears the override, looks up an
 emotion recording and posts the row's separate event if present. All four have

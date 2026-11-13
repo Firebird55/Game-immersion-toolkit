@@ -156,6 +156,15 @@ class ReleasedCatalog(DialogueCatalog):
         return self._bytes(relative, url)
 
     def caption_scripts(self):
+        published = self._published_captions()
+        if hasattr(self, 'design_source'):
+            from .starrail_design import extra_captions
+            directory, build = self.design_source
+            extras = extra_captions(directory, build, dict(published))
+            return [*published, *extras.items()]
+        return published
+
+    def _published_captions(self):
         relative = 'Config/CutSceneCaption'
         try:
             return list(self.directory_json(relative, with_names=True))
@@ -246,5 +255,6 @@ def prepare(data_dir, region='global'):
     catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
     catalog.revision_title = title
     catalog.movie_files = movie_files
+    catalog.design_source = directory, build
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog

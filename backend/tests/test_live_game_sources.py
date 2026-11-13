@@ -63,3 +63,55 @@ def test_wuwa_keeps_game_paks_and_requires_current_launcher_checksum(monkeypatch
     common['indexFileMd5'] = '0' * 32
     with pytest.raises(ValueError, match='checksum'):
         sources.wuthering_release.launcher()
+
+
+def test_mainland_wuwa_accepts_only_its_released_common_pack(monkeypatch):
+    reader = sources.wuthering_release
+    path = 'launcher/game/G152/10003/3.8.0/release/common/indexFile.json'
+    payload = json.dumps({'resource': [
+        {'dest': 'Client/Content/Paks/base.pak', 'md5': 'a' * 32, 'size': 25},
+    ]}).encode()
+    config = {'version': '3.8.0', 'indexFile': path, 'indexFileMd5': hashlib.md5(payload).hexdigest(),
+              'baseUrl': path.removesuffix('/common/indexFile.json') + '/zip/'}
+    cdn = 'https://pcdownload-huoshan.aki-game.com/'
+    doc = {'resourcePacks': {'common': config},
+           'cdnList': [{'url': 'https://global.aki-game.net/'}, {'url': cdn}]}
+    def fetch(url):
+        if url == reader.CHANNELS['cn'][0]:
+            return json.dumps(doc).encode()
+        assert url == cdn + path
+        return payload
+    monkeypatch.setattr(reader, 'kuro_bytes', fetch)
+    assert reader.launcher('cn')[0] == '3.8.0'
+    config['indexFile'] = path.replace('G152/10003', 'G153/50004')
+    with pytest.raises(ValueError, match='regional'):
+        reader.launcher('cn')
+
+
+def test_wuwa_optional_area_and_character_packs_follow_their_own_update(monkeypatch, tmp_path):
+    reader = sources.wuthering_release
+    area = 'Option_Pack_SomePlace'
+    character = 'role_lang_somebody_ja'
+    def pointer(name, rev):
+        return {'Name': name, 'Version': rev, 'IndexSha1': {rev: 'a' * 40}}
+    def index(rev, base, patch=None):
+        def pak(name):
+            return [{'Name': name + '.pak', 'Size': 70, 'Hash': 'a' * 40}]
+        return {'Version': rev, 'Pv': 1,
+                'DiffPatch': {'BaseFiles': pak(base), 'PatchFiles': pak(patch) if patch else []}}
+    channels = {k: pointer(k, '3.8.1') for k in ('resource', *reader.DUBS, area, 'ManifestAggregated')}
+    def fetch(url, digest, cache):
+        if url.endswith('/ManifestAggregated.txt'):
+            return {character: index('3.8.0', 'character')}
+        if url.endswith('/Manifest' + area + '.txt'):
+            return index(channels[area]['Version'], 'map', 'map_P')
+        return index('3.8.1', 'common')
+    monkeypatch.setattr(reader, '_manifest', fetch)
+    versions, files, packages = reader._resource_inventory('https://publisher/', '3.8.0', channels, tmp_path)
+    assert versions[character] == '3.8.0' and versions[area] == '3.8.1'
+    assert files[character + '/BaseFiles/character.pak'][0] == 70
+    assert packages[area + '/BaseFiles/map.pak'][0] == 'https://publisher/3.8.0/map.pak'
+    channels[area] = pointer(area, '3.8.2')
+    updated, _, packages = reader._resource_inventory('https://publisher/', '3.8.0', channels, tmp_path)
+    assert updated[area] == '3.8.2' and updated[character] == versions[character]
+    assert packages[area + '/PatchFiles/map_P.pak'][0] == 'https://publisher/3.8.2/map_P.pak'
