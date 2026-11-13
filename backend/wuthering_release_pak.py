@@ -29,15 +29,20 @@ def check(condition):
 
 @lru_cache(maxsize=1)
 def _publisher_tls():
-    # The mainland download CDNs use a root absent from some Windows
-    # installations. Retain system trust and add the runtime's Mozilla roots.
-    context = ssl.create_default_context()
-    context.load_verify_locations(cafile=certifi.where())
-    return context
+    # A conflicting intermediate in the Windows trust store can prevent chain
+    # construction for all mainland CDNs even when the valid root is present.
+    return ssl.create_default_context(cafile=certifi.where())
 
 
 def open_publisher_url(request, *, timeout):
-    return urllib.request.urlopen(request, timeout=timeout, context=_publisher_tls())
+    try:
+        return urllib.request.urlopen(request, timeout=timeout, context=_publisher_tls())
+    except urllib.error.URLError as error:
+        if not isinstance(error.reason, ssl.SSLCertVerificationError):
+            raise
+        # Allow a locally trusted corporate issuer via a separate, still
+        # verified system context. Never combine the conflicting chains.
+        return urllib.request.urlopen(request, timeout=timeout)
 
 
 def block(url, total, offset, size):

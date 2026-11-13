@@ -214,3 +214,23 @@ def test_kuro_manifest_and_range_request_use_the_same_verified_roots(monkeypatch
     assert live.kuro_bytes(url) == b'abc'
     assert pak.block(url, 3, 0, 3) == b'abc'
     assert contexts[0] is contexts[1]
+
+
+def test_kuro_system_trust_fallback_retries_only_certificate_verification(monkeypatch):
+    import ssl
+    import urllib.error
+    requests = []
+    reason = ssl.SSLCertVerificationError('needs local root')
+    def open_url(request, *, timeout, context=None):
+        requests.append(context)
+        if context is not None:
+            raise urllib.error.URLError(reason)
+        return 'verified by system defaults'
+    monkeypatch.setattr(pak.urllib.request, 'urlopen', open_url)
+    assert pak.open_publisher_url('https://mirror.example', timeout=8) == 'verified by system defaults'
+    assert requests == [pak._publisher_tls(), None]
+    requests.clear()
+    reason = TimeoutError('transport failure')
+    with pytest.raises(urllib.error.URLError):
+        pak.open_publisher_url('https://mirror.example', timeout=8)
+    assert requests == [pak._publisher_tls()]

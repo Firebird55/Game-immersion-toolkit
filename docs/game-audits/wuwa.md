@@ -23,7 +23,7 @@ Setup follows the current caption, numbered PlotAudio takes, event bank and stre
 | Korean | 1.084–9.925 s | 103.239–113.251 s |
 | Mandarin | 0.551–8.478 s | 103.836–114.224 s |
 
-All eight clips were exported through the desktop service from the current Global launcher with no game installation. Individual playback and batch export of the same opening line produced identical MP3 bytes in each dub. English preparation now has 48,856 voice bindings. The remaining 17 dedicated-voice cues from the earlier four-scene audit still need exact original clips. English gameplay independently confirms one of them, the chapter-one storyteller's `Huanglong_main_1_7_178_3`, around 11:53–11:58. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s)
+All eight clips were exported through the desktop service from the current Global launcher with no game installation. Individual playback and batch export of the same opening line produced identical MP3 bytes in each dub. English preparation now has 48,856 voice bindings. A second installation-free preparation on the mainland server yielded 145,112 Simplified Chinese rows and 48,675 voice bindings. Both Mandarin clips played and exported there. Global Traditional Chinese used the same two Mandarin performances. The remaining 17 dedicated-voice cues from the earlier four-scene audit still need exact original clips. English gameplay independently confirms one of them, the chapter-one storyteller's `Huanglong_main_1_7_178_3`, around 11:53–11:58. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s)
 
 ### Three remaining films with separate voice events
 
