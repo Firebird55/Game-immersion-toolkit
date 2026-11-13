@@ -142,8 +142,8 @@ def _field(reader, node):
     return value
 
 
-def timeline_objects(raw):
-    """Return local MonoBehaviours, AssetBundle containers and ordered external file paths."""
+def timeline_objects(raw, *, classes=(114,)):
+    """Read selected object classes, AssetBundle roots and ordered external file paths."""
     _require(isinstance(raw, bytes) and 48 < len(raw) <= 32 * 1024**2)
     _, _, version, _, endian, metadata, length, data, _ = struct.unpack_from('>4I4sIqqq', raw)
     _require(version == 22 and endian == b'\0' * 4 and length == len(raw) and
@@ -156,7 +156,7 @@ def timeline_objects(raw):
     for _ in range(reader.count(1024)):
         kind, _, _ = reader.value('iBh')
         reader.take(32 if kind == 114 else 16)
-        root = _schema(reader, kind in (114, 142))
+        root = _schema(reader, kind == 142 or kind in classes)
         reader.take(4 * reader.count(4096))
         types.append((kind, root))
     selected = []

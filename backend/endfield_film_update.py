@@ -1,7 +1,7 @@
 """Rebuild localized FMV cues from the active release's config, playable, bank and audio."""
 from collections import Counter
 from contextlib import ExitStack
-from functools import lru_cache
+from functools import lru_cache, partial
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -18,6 +18,8 @@ from .preparation_errors import PreparationFailure
 
 
 FMV = 'assets/beyond/dynamicassets/gamedata/subtitle/fmv/'
+SCENES = 'assets/beyond/dynamicassets/gamedata/subtitle/cutscene/singleconfigs/'
+DIRECTORS = 'assets/beyond/dynamicassets/gameplay/cutscene/'
 CONDITIONS = 'assets/beyond/dynamicassets/gameplay/dialog/condition/narrativegender'
 TRACKS = {'chinese': (0, ('cn',)), 'english': (1, ('en',)), 'japanese': (2, ('jp',)),
           'korean': (3, ('ko', 'kr'))}
@@ -34,8 +36,8 @@ def _files(tools, stamp):
     manifest, = [row for row in rows if row.name == 'Data/Bundles/Windows/manifest.hgmmap']
     raw = registry.inflate(release._whole(tools, base, manifest, 160 * 1024**2), 384 * 1024**2)
     paths = {}
-    for _, path, bundle in registry.bindings(raw, path_prefixes=(FMV, CONDITIONS)):
-        if path.endswith(('.playable', '.asset')):
+    for _, path, bundle in registry.bindings(raw, path_prefixes=(FMV, CONDITIONS, SCENES, DIRECTORS)):
+        if path.endswith(('.playable', '.asset', '.prefab', '.json')):
             _check(path not in paths)
             paths[path] = 'Data/Bundles/Windows/' + bundle
     del raw
@@ -50,11 +52,11 @@ def _files(tools, stamp):
     return {path: found[name] for path, name in paths.items() if name in found}
 
 
-def _asset(tools, source, path):
+def _asset(tools, source, path, *, classes=(114,)):
     from .endfield_timeline_bundle import decode_bundle
     base, file = source
     cab, payload = decode_bundle(release._whole(tools, base, file, 32 * 1024**2), tools)
-    objects, containers, externals = timeline_objects(payload)
+    objects, containers, externals = timeline_objects(payload, classes=classes)
     roots = [pair['second']['asset'] for container in containers.values() for pair in container['m_Container']
              if pair['first'] == path]
     _check(len(roots) == 1 and roots[0]['m_FileID'] == 0 and roots[0]['m_PathID'] in objects)
@@ -135,9 +137,10 @@ def _tracks(tools, files, dub, unchanged):
             performance = gender[0] + '_' + film if gender else film
             if performance in unchanged:
                 continue
-            clips = director.track_clips(objects, root, conditions=bindings, gender=gender, complete=True)
+            read = partial(director.track_clips, objects, root, conditions=bindings, gender=gender, complete=True)
+            clips = read()
             if clips and all(clips):
-                yield performance, objects, root, bindings, gender, clips
+                yield performance, clips, read
 
 
 def _clock_rows(captions, speech, event, pcm):
@@ -178,15 +181,17 @@ def _decode(decoder, folder, media_id, data):
 
 
 def _build(tools, stamp, dub):
-    from . import endfield_film_voice
+    from . import endfield_film_voice, endfield_scene_update
     fixed = release.verified_films(tools, stamp, dub)
-    tracks = list(_tracks(tools, _files(tools, stamp), dub, fixed))
-    events = {event for *_, (_, speech) in tracks for event, _, _ in speech}
+    files = _files(tools, stamp)
+    tracks = list(_tracks(tools, files, dub, fixed))
+    tracks.extend(endfield_scene_update.tracks(tools, files, dub, fixed))
+    events = {event for _, (_, speech), _ in tracks for event, _, _ in speech}
     if not events:
         return {}
     media = endfield_film_voice.recording_ids(tools, stamp, dub, events)
     results = {}
-    for film, objects, root, bindings, gender, (_, speech) in tracks:
+    for film, (_, speech), read in tracks:
         selected = {event for event, _, _ in speech}
         if not selected <= media.keys():
             continue
@@ -209,8 +214,9 @@ def _build(tools, stamp, dub):
                 _check(pcm.getsampwidth() == 2 and pcm.getnframes() > 0 and pcm.getframerate() > 0)
                 durations[event] = pcm.getnframes() / pcm.getframerate()
             if len(durations) == len(selected):
-                clips = director.track_clips(objects, root, conditions=bindings, gender=gender,
-                                            durations=durations, complete=True)
+                clips = read(durations=durations)
+                if not clips:
+                    continue
                 for event in sorted(selected):
                     media_id = media[event]
                     pcm, digest = audio[media_id]
@@ -225,8 +231,8 @@ def cues(tools, stamp, dub):
     """Keep completed cue maps per immutable edition, release, dub and reader version."""
     release.descriptor(tools, stamp)
     _check(dub in TRACKS)
-    path = tools / 'endfield-releases' / 'cinematic-cues-v1' / stamp / (dub + '.json')
-    prefix = (stamp + '/' + dub + '/cinematic-cues-v1\n').encode()
+    path = tools / 'endfield-releases' / 'cinematic-cues-v2' / stamp / (dub + '.json')
+    prefix = (stamp + '/' + dub + '/cinematic-cues-v2\n').encode()
     if path.is_file() and path.stat().st_size <= 32 * 1024**2:
         content = path.read_bytes()
         checksum, _, body = content.partition(b'\n')

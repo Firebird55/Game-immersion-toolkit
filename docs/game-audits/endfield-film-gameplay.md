@@ -76,3 +76,46 @@ own published conversation and audio override, `dlg_e2m8_4_001` and
 applies to the first playthrough. [Film](https://www.youtube.com/watch?v=QDHS296vAg8&t=552s) ·
 [Following conversation](https://www.youtube.com/watch?v=QDHS296vAg8&t=630s) ·
 [Second playthrough](https://www.youtube.com/watch?v=t5KmOLvr05o&t=644s)
+
+## Rally and Unite
+
+The distressed call in `cs_video_e1m3_3` appears on a screen inside the
+larger scene. Its own movie track contains no caption cues. Both protagonist
+versions of the enclosing `cutscene_e1m3_2` activate separate audio and
+localized subtitle tracks. The audio event `au_vo_cs_e1m3_2` selects English
+recording 580671651. Four separate regions of those original audio bytes
+align to the linked player's soundtrack at 39:48.990–39:48.991
+(correlations 0.762–0.976). The game shows the following captions there.
+The intervals are the game's caption windows relative to that recording.
+[English gameplay](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2401s)
+
+| Caption suffix | What the player sees | Original recording (seconds) | Gameplay |
+| --- | --- | ---: | --- |
+| `03` | Comment on the incoming messages, before the movie | 12.365–15.365 | [40:01](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2401s) |
+| `04` | First plea for rescue | 19.848–20.997 | [40:08](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2408s) |
+| `04d5` | Caller identifies the fort and its attackers | 20.997–23.997 | [40:10](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2410s) |
+| `05` | Shouted interruption | 31.704–34.704 | [40:20](https://www.youtube.com/watch?v=2_oILfhbqnM&t=2420s) |
+
+The toolkit sourced and exported the four English clips independently from
+Global 1.5.3 and 1.6.4. The 1.6.4 Japanese and Korean recordings also have
+four resolvable captions. Two of the four Mandarin captions overlap in an
+audible part of the recording. The first and last Mandarin clips can be
+exported with their own intervals. The other two still lack separate verified
+cuts. [Publisher scene and recording checks](endfield.md)
+
+## Five quest films compared frame by frame
+
+The comparisons used the selected release's video stream and an independent
+playthrough. The observations below apply to the visible text in the sampled
+English playthroughs. Technical numbers and interface labels also occur.
+
+| Quest and movie | Gameplay window | Observation |
+| --- | --- | --- |
+| Valley Reboot, `cs_video_e1m3_1` | [8:16](https://www.youtube.com/watch?v=h2ZVpWZDrX0&t=496s), 20.950 s | Five separated image matches locate the first core landing during Valley Reboot. No readable dialogue caption appeared in the half-second subtitle-area samples. The movie name alone suggests a different mission. |
+| Valley Reboot, `cs_video_dlg_e1m2_1` | [14:01](https://www.youtube.com/watch?v=h2ZVpWZDrX0&t=841s), 46.367 s | Eleven four-second excerpts of the original sound-effects recording align at 14:01.309. The sampled film shows technical labels. |
+| Ready the Easterlies, `cs_video_e6m2_2` | [8:59](https://www.youtube.com/watch?v=Y23Z-lJngnQ&t=539s), 19.633 s | Five image comparisons locate the orbital drop. Lifeng comments on it after the movie. |
+| Spring’s Return I, `cs_video_dlg_sm2l5m1_10` | [36:50](https://www.youtube.com/watch?v=HCn2RHZZG9g&t=2210s), 30.317 s | The film is visible even though its own subtitle configuration has an empty playable reference. Lu Lingxiang speaks before it and Chen comments afterwards. |
+| Tremors of the Crashing Tide, `cs_video_dlg_e9m2_3` | [17:59](https://www.youtube.com/watch?v=6_cYhEKCGR4&t=1079s), 28.167 s | The uploaded sequence aligns with five separated original images. No readable dialogue caption appeared in the half-second subtitle-area samples. |
+
+The [three historical opening films and the current Ereignis encounter](endfield-opening-gameplay.md)
+have separate gameplay comparisons for their original versions and performances.

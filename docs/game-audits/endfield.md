@@ -15,9 +15,12 @@ A clean mainland preparation returned 53,711 English rows, including 25,985
 voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
 The selected timed film clip resolved its original 77.014 s source recording.
 The [radio playback audit](endfield-radio-observations.md) covers all thirteen unresolved rows.
-The 28 film configurations without verified sentence intervals are listed below.
-The [cinematic gameplay comparisons](endfield-film-gameplay.md) locate the
-Liino concert, both Si films, the Wuling battle and Cradle of the Ages.
+The November 9 inventory below lists the 28 films whose own tracks lacked
+verified sentence intervals. The [cinematic gameplay comparisons](endfield-film-gameplay.md)
+locate the Valley Fort distress call in its enclosing scene, the Liino concert,
+both Si films, the Wuling battle and Cradle of the Ages. The [opening film
+comparison](endfield-opening-gameplay.md) traces all 46 historical cues and
+both current English protagonist recordings to their respective footage.
 [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
 
 ## Cinematic cues from the selected release, November 13, 2026
@@ -42,9 +45,30 @@ The English 1.6.4 preparation retained all 408 previously verified intervals.
 A normal desktop audio export of that 1.5.3 caption produced an MP3 in each
 of the five study selections, including both Mandarin script choices.
 A separate reader comparison matched 4,207 serialized dialogue/timeline
-objects across 333 assets. The two separately audited in-engine scenes still
-require their director dependencies to pass the existing checks.
+objects across 333 assets.
 [Original Global release listings](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/raw/beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows)
+
+Setup also follows the active directors in the scene prefab when the scene
+plays the voices and shows the captions. It verifies the configured localized
+track, the scene's declared voice events, the child directors' playable file
+and object references, and the times at which the parent activates them.
+Scenes with ambiguous dependencies or overlapping speech remain unresolved.
+Each accepted recording is fetched from the selected publisher release.
+
+| Global 1.6.4 | Timed film and scene clips | Additional in-engine clips | Performances supplying the additional clips |
+| --- | ---: | ---: | ---: |
+| English | 467 | 59 | 21 |
+| Japanese | 483 | 62 | 20 |
+| Korean | 459 | 63 | 21 |
+| Mandarin (Simplified and Traditional Chinese) | 479 each | 75 each | 20 |
+
+Across all four dubs these are 540 distinct performance/caption pairs.
+Normal Global English preparation produced 53,675 rows, including 26,044
+with original audio. On Global 1.5.3 the reader found 391 English clips,
+411 Japanese, 385 Korean and 435 Mandarin (Simplified Chinese). The English
+output includes 63 in-engine clips from 23 performances. The male and female versions of the Valley Fort
+call use the same four English captions. All four were exported separately
+on both releases. [Original audio windows and gameplay timestamps](endfield-film-gameplay.md#rally-and-unite)
 
 ## Installation-free publisher updates, November 9, 2026
 
