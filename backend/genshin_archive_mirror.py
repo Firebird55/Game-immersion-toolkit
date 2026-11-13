@@ -12,7 +12,7 @@ import tempfile
 from .game_tools import _atomic_file
 
 
-def fetch_trees(catalog):
+def fetch_trees(catalog, subtitle_codes=()):
     git = shutil.which('git')
     if not git:
         raise ValueError('The historical metadata mirror requires Git.')
@@ -28,16 +28,23 @@ def fetch_trees(catalog):
         run('config', 'remote.origin.promisor', 'true')
         run('config', 'remote.origin.partialclonefilter', 'blob:none')
         run('fetch', '--no-tags', '--depth=1', '--filter=blob:none', 'origin', catalog.revision)
-        trees = ('BinOutput/Talk', 'BinOutput/Voice')
+        if any(not re.fullmatch('[A-Z]{2,3}', code) for code in subtitle_codes):
+            raise ValueError('Invalid Genshin subtitle language.')
+        trees = tuple('Subtitle/' + code for code in subtitle_codes) if subtitle_codes else ('BinOutput/Talk', 'BinOutput/Voice')
         files = run('ls-tree', '-r', '-z', catalog.revision, '--', *trees).split(b'\0')
         objects = set()
         members = {tree: [] for tree in trees}
         for row in filter(None, files):
-            match = re.fullmatch(rb'100644 blob ([a-f0-9]{40})\t(BinOutput/(?:Talk|Voice))/([A-Za-z0-9_./-]+\.json)', row)
+            if subtitle_codes and row.endswith(b'.txt'):
+                continue
+            match = re.fullmatch(rb'100644 blob ([a-f0-9]{40})\t([^/\t]+/[^/\t]+)/([A-Za-z0-9_./-]+)', row)
             if not match:
                 raise ValueError('Unexpected file in archived Genshin dialogue trees.')
+            tree, relative = match[2].decode(), match[3].decode()
+            if tree not in members or '..' in relative.split('/') or not relative.endswith('.srt' if subtitle_codes else '.json'):
+                raise ValueError('Unexpected Genshin metadata asset path.')
             objects.add(match[1])
-            members[match[2].decode()].append((match[1], match[3].decode()))
+            members[tree].append((match[1], relative))
         if not 0 < len(objects) < 100_000:
             raise ValueError('Unexpected Genshin dialogue archive size.')
         run('fetch', '--no-tags', '--no-write-fetch-head', '--no-recurse-submodules', '--filter=blob:none',
@@ -65,7 +72,7 @@ def fetch_trees(catalog):
                             member.size = size
                             archive.addfile(member, io.BytesIO(content))
                     data = output.getvalue()
-                    path = catalog.root / (tree.replace('/', '-') + '.tar.gz')
+                    path = catalog.root / (tree.replace('/', '-') + ('-text.tar.gz' if subtitle_codes else '.tar.gz'))
                     _atomic_file(path, data)
                     _atomic_file(path.with_name(path.name + '.sha256'), hashlib.sha256(data).hexdigest().encode())
             finally:

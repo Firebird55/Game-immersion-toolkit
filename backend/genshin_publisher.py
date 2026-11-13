@@ -82,6 +82,18 @@ def inventory(data_dir, stamp, locale, *, unavailable_duplicates=None):
     return voices.inventory(data_dir, stamp, locale, 'genshin', unavailable_duplicates=unavailable_duplicates)
 
 
+def movie_names(data_dir, stamp):
+    from pathlib import PurePosixPath
+    directory = data_dir / 'tools' / 'sophon'
+    if not voices.snapshot_available(data_dir / 'tools', stamp, 'genshin'):
+        raise ValueError('The Genshin movie release is unavailable.')
+    build = json.loads((directory / 'releases' / stamp).read_bytes())
+    channel = build['channel']
+    parent = PurePosixPath(ROOTS[channel]) / 'VideoAssets' / 'StandaloneWindows64'
+    return {p.stem for name in sophon.manifest(directory, channel, tuple(build['manifests']['game']), ('.usm',))
+            if (p := PurePosixPath(name)).parent == parent}
+
+
 def extract(audio, tools):
     if previous := audio.get('original_publisher'):
         channels = []

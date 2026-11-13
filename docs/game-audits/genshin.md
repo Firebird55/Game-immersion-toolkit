@@ -131,7 +131,7 @@ installed locale package.
 | Card-game dialogue and tutorials | 1,256 GCGTalkDetail rows with parallel content/voice arrays | Nonzero voice IDs are paired with the original array position, including gaps. Conflicting IDs are excluded. Zero-voice slots and emoji-only messages remain outside this import. |
 | Choices and black-screen narration | 23,483 global forced-choice rows; explicit black-screen role types | Retained and tagged by authored modality. A player role, blank audio filename or missing voice does not establish silence. Exact voice bindings still take precedence. |
 | Storyboards, comics and cinematic dialogue | 242 Storyboard Talk files, 159 StoryboardGroup files and 37 Cutscene Talk files | Supported Talk rows are retained; explicit storyboard/narration types receive cinematic channel coverage. No claim of complete comic layout or sequence recognition. |
-| Prerendered cinematics | 319 English SRT files in the reference snapshot versus 275 installed USMs | Separately inventoried. The adapter does not decrypt USMs, bind their locale tracks or cut per-cue movie audio. SRT presence alone does not prove an installed playable clip; whole movies are never used as line audio. |
+| Prerendered cinematics | Version-matched SRT subtitles and regional Windows USM inventory | Exact movie names yield timed subtitles and predecessor context. Locale recordings and isolated spoken performances remain unresolved. |
 | Books, notes and readables | 1,919 English Readable text files; localized file identities | Version-matched book assets are indexed by paragraph as text-only content. Translations require the same file identity and paragraph count. Other readable assets and exact overlaps with known authored voice text remain unknown. This is not blanket support for voiced Travel Log archives. |
 | Mail, messages and glasses chat | 323 MailExcel rows, three BirthdayMail routing rows, 421 obfuscated TpsGlassesChatMessage rows | Inventoried but not imported. Account mail and social chat are not accessed. The new glasses-chat fields need a verified text/voice schema before enabling that presentation. |
 
@@ -189,6 +189,23 @@ rejects traversal, links, foreign directories, duplicate identities and excessiv
 file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
+
+## Cinematic subtitle timing
+
+The November 13 cinematic check matched 252 of the 319 English subtitle files
+to one of 279 Global 7.2 launcher movies. Four matching files contained no
+caption text. The remaining 248 movies contributed 4,535 English cues and
+4,283 immediate predecessor links. Japanese had 4,563 cues, Korean 4,538,
+simplified Chinese 4,586 and traditional Chinese 4,580. Mainland 7.1 had
+4,330 English cues from 240 of its 275 movies. Cue identities retain exact
+start and end milliseconds. Languages may time dialogue differently, so an
+ordinal-only match is insufficient. Translation joins use matching ordinal
+and timestamps, or complete matching ordinal sequences with exclusive
+overlapping intervals in both directions. This yielded 2,417 simplified
+Chinese translations for the Global 7.2 English cues. The subtitle timeline
+establishes the text's display time. Isolating a spoken recording and identifying
+its locale track in the USM are still open. The records retain unknown voice status.
+[7.2 movie subtitles](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle)
 
 ## Historical quest and event audio
 
