@@ -326,7 +326,7 @@ export function tipRows(rows) {
   for (const [text_id, primary, alternate, reaction, events, ...references] of rows) {
     if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text_id)) continue;
     const source = (!alternate || primary === alternate) &&
-      /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i.test(primary) ? primary : '';
+      /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|GalGame|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i.test(primary) ? primary : '';
     tips.push({text_id, source, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip',
       voice_status:primary || alternate ? 'unavailable' : reaction || events.length || references.some(Boolean) ? 'unknown' : 'unvoiced'});
   }

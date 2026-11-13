@@ -21,6 +21,17 @@ desktop playback service and decoded to nonzero PCM, including phone, gameplay,
 narration, early story and separate Belle and Wise performances. A caption shared between
 a choice and spoken dialogue keeps its conflicting evidence.
 
+The gameplay-tip table explicitly names GalGame recordings for five Virtual
+Revenge tips and two Golden Week performances. The five Virtual Revenge tips
+were previously unavailable. After accepting this source family, normal Setup
+with an empty game-folder selection exported all seven English recordings.
+The two Golden Week captions also appear in the scene catalogue. Each of the
+seven named sources resolved uniquely and decoded to nonzero PCM in all four
+publisher dubs. For example, Harumasa’s first cue (`Tips_72025056`) lasts
+3.348 s in English, 5.216 s in Japanese, 2.567 s in Korean and 2.520 s in
+Mandarin. This verification used the Global 3.3.0 launcher base.
+[Publisher release manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
 rows, the reaction column had 268 populated entries and 16 rows referred to an

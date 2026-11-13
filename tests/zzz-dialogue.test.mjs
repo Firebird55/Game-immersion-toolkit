@@ -169,9 +169,10 @@ test('released tips distinguish reactions, events, secondary references and auth
   const sample = (id, source='', alt='', reaction='', events=[], ref='') => [id, source, alt, reaction, events, ref, '', '', ''];
   const rows = tipRows([sample('silent'), sample('reaction','','','Accompany_Astra_Smile'),
     sample('event','','','',['Play_UI_Accompany_Buy']), sample('next','','','',[],'30070020'),
-    sample('other','VO_Future/clip'), sample('voice','VO_Tips/Actor/Tips_23')]);
-  assert.deepEqual(rows.map(row => row.voice_status), ['unvoiced','unknown','unknown','unknown','unavailable','unavailable']);
-  assert.deepEqual(rows.filter(row => row.source).map(row => row.text_id), ['voice']);
+    sample('other','VO_Future/clip'), sample('voice','VO_Tips/Actor/Tips_23'),
+    sample('story','GalGame_Example_Actor_02')]);
+  assert.deepEqual(rows.map(row => row.voice_status), ['unvoiced','unknown','unknown','unknown','unavailable','unavailable','unavailable']);
+  assert.deepEqual(rows.filter(row => row.source).map(row => row.text_id), ['voice','story']);
 });
 
 test('released string vector respects entry offsets, defaults and additional schema fields', () => {

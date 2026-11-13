@@ -43,7 +43,7 @@ MESSAGE_CHOICES = ('FNOKFPDDECI', 'NAPGHEGEOOC', 'GGHOAADLHCF', 'EEJNOOGPFND')
 TEXT_ID = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_-]*')
 MESSAGE_SOURCE = re.compile(r'VO_Message/[A-Za-z0-9_-]+/Message_[A-Za-z0-9_-]+', re.I)
 TIP_SOURCE = re.compile(r'(?:VO_(?:Tips|Chessboard|Level|Monthlycard)/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+|'
-                        r'(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)', re.I)
+                        r'(?:Accompany|GalGame|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)', re.I)
 
 
 def ongoing_links(config):

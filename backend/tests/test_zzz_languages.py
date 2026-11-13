@@ -224,13 +224,15 @@ def test_gameplay_tips_distinguish_original_sentences_reactions_and_silence():
         tip_row('Tips_Alternate', NMMACKNBLKO='Level_First_01', NPDBBLABDAK='Level_Other_01'),
         tip_row('Tips_Event', FFNNCACHDLN=['Play_unknown_event']),
         tip_row('Tips_Future', KDPLFOOHOAA='new_configuration'),
+        tip_row('Tips_Story', NMMACKNBLKO='GalGame_Example_Actor_02'),
         tip_row('UI/Sprite/icon.png'),
     ]
     links, diagnostics = assets.tip_links({'rows': configs}, {row['BHLFCEAPFIG']: 'Text' for row in configs})
     assert [(link['text_id'], link['source'], link['voice_status']) for link in links] == [
         ('Tips_Synthetic', 'VO_Tips/VO_Synthetic/Tips_Synthetic_01', 'unavailable'),
         ('Tips_Silent', '', 'unvoiced'), ('Tips_Reaction', '', 'unknown'),
-        ('Tips_Alternate', '', 'unavailable'), ('Tips_Event', '', 'unknown'), ('Tips_Future', '', 'unknown')]
+        ('Tips_Alternate', '', 'unavailable'), ('Tips_Event', '', 'unknown'), ('Tips_Future', '', 'unknown'),
+        ('Tips_Story', 'GalGame_Example_Actor_02', 'unavailable')]
     assert diagnostics['unresolved_voice_variants'] == 1
     assert all(link['dialogue_kind'] == 'gameplay_tip' and link['channels'] == ['tip', 'gameplay'] for link in links)
 
