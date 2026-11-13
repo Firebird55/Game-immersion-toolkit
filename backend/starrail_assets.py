@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 12
+LANGUAGE_INDEX_VERSION = 13
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -232,15 +232,40 @@ def authored_links(catalog, locale):
     return links
 
 
-def _archive_rows(rows, links, bindings, credits, locale):
+def _speaker_lines(text, count):
+    raw_lines = text.replace('\\n', '\n').splitlines()
+    if len(raw_lines) != count:
+        return ()
+    parts = []
+    for line in raw_lines:
+        if line.count(':') + line.count('：') > 1 and '「' not in line:
+            # A colon can also be part of a character name or their sentence.
+            parts.append(common.display_text(line))
+            continue
+        match = re.fullmatch(r'\s*([^「」:：]{1,80}?)(?:\s*[:：]\s*(.+)|「(.+)」)\s*', line)
+        if not match:
+            return ()
+        parts.append(common.display_text(match[2] or match[3]))
+    return parts if all(parts) else ()
+
+
+def _archive_rows(rows, links, bindings, credits, locale, tables=None):
     from .textmaps import gender_variants
     cv = {'en': 'CV_EN', 'zh-Hans': 'CV_CN', 'zh-Hant': 'CV_CN', 'ja': 'CV_JP', 'ko': 'CV_KR'}[locale]
     result = []
     for row in rows:
         item = links.get(row['text_id'], {})
         options = bindings.get(item.get('audio_event'), {})
-        if 'localized' in options and not _hash(credits.get(item.get('avatar_id'), {}).get(cv)):
+        if any((key or '').startswith('localized') for key in options) and not _hash(credits.get(item.get('avatar_id'), {}).get(cv)):
             options = {}
+        parts = {}
+        if any('part-' in (key or '') for key in options):
+            for lang, table in (tables or {}).items():
+                lines = _speaker_lines(table.get(str(item['hash']), ''), len(options))
+                if lines:
+                    parts[lang] = lines
+            if locale not in parts:
+                options = {}
         if not options:
             result.append(row)
             continue
@@ -251,6 +276,11 @@ def _archive_rows(rows, links, bindings, credits, locale):
                 texts = {lang: gender_variants(text).get(tag, text) for lang, text in row['texts'].items()}
                 updated.update(text_id=row['text_id'] + '_' + tag.lower(), texts=texts, source_text=texts[locale],
                                english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''), player_voice=variant)
+            elif parts:
+                number = int(variant.rsplit('-', 1)[1])
+                texts = {lang: lines[number - 1] for lang, lines in parts.items()}
+                updated.update(text_id=f"{row['text_id']}-part-{number}", texts=texts, source_text=texts[locale],
+                               english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''))
             result.append(updated)
     return result
 
@@ -279,9 +309,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale,
                                         {link['audio_event'] for link in events.values()})
         credits = {}
-        if any('localized' in options for options in audio.values()):
+        if any((key or '').startswith('localized') for options in audio.values() for key in options):
             credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
-        rows = _archive_rows(rows, events, audio, credits, source_locale)
+        rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
         rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [

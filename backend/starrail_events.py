@@ -164,6 +164,35 @@ def _sound(objects, target, parent=None, depth=0):
     return sound
 
 
+def _sequence(objects, target, parent=None, depth=0):
+    kind, obj = objects.get(target, (0, b''))
+    if (depth > 12 or kind != 5 or len(obj) < 76
+            or parent is not None and _u32(obj, 11) != parent):
+        return ()
+    pos = 58 + obj[16] * 5
+    if pos + 4 > len(obj):
+        return ()
+    children = _ids(obj, pos)
+    size = len(children)
+    pos += 4 + 4 * size
+    if not 1 <= size <= 32 or len(obj) != pos + 2 + 8 * size:
+        return ()
+    if struct.unpack_from('<H', obj, pos)[0] != size:
+        return ()
+    playlist = list(struct.iter_unpack('<II', obj[pos+2:]))
+    order = [child for child, weight in playlist if weight]
+    if len(order) != size or set(order) != set(children) or len(set(order)) != size:
+        return ()
+    if size == 1:
+        return _sequence(objects, order[0], target, depth + 1)
+    flags = pos - 4 * size - 4
+    # Only a forward, continuous sequence which resets on each play has a
+    # fixed first line. Wwise stores playlist order separately from its children.
+    if obj[flags-2] != 1 or obj[flags-1] & 0x0e != 0x0a:
+        return ()
+    return [(target, child) for child in order]
+
+
 def _media(objects, embedded, bank, target, streams, parent=None):
     sound = _sound(objects, target, parent)
     if not sound:
@@ -175,6 +204,21 @@ def _media(objects, embedded, bank, target, streams, parent=None):
     if method in (1, 2) and mid in streams:
         return mid, streams[mid]
     return None
+
+
+def _recordings(objects, embedded, bank, target, streams, variant=None, parent=None):
+    found = _media(objects, embedded, bank, target, streams, parent)
+    if found and found[1]:
+        return {variant: found}
+    order = _sequence(objects, target, parent)
+    parts = {}
+    for number, (owner, child) in enumerate(order, 1):
+        found = _media(objects, embedded, bank, child, streams, owner)
+        if not found or not found[1]:
+            return {}
+        key = f'{variant + "-" if variant else ""}part-{number}'
+        parts[key] = found
+    return parts
 
 
 def _switch(obj):
@@ -328,14 +372,14 @@ def _inventory(directory, stamp, locale, requested):
                     switches.append((event, variant, bid, target, nodes[0], banks[0]))
                     dependencies.add(banks[0])
             continue
-        found = _media(*loaded[bid], localized[bid], target, streams)
-        if found and found[1] is not None:
-            result[event] = {None: found}
+        if recordings := _recordings(*loaded[bid], localized[bid], target, streams):
+            result[event] = recordings
     extra = _bundle(directory, {bid: localized[bid] for bid in dependencies}, language)
     for event, variant, bid, parent, child, dependency in switches:
-        found = _media(loaded[bid][0], extra[dependency][1], localized[dependency], child, streams, parent)
-        if found and found[1]:
-            result.setdefault(event, {})[variant] = found
+        recordings = _recordings(loaded[bid][0], extra[dependency][1], localized[dependency], child,
+                                 streams, variant, parent)
+        if recordings:
+            result.setdefault(event, {}).update(recordings)
     return result
 
 

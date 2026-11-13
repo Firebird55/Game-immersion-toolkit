@@ -138,3 +138,34 @@ def test_archive_player_text_and_collaboration_dub_credit():
     options = {'event': {'localized': recording}}
     assert _archive_rows([row], links, options, {1: {'CV_JP': {'Hash': 1}}}, 'en') == [row]
     assert _archive_rows([row], links, options, {1: {'CV_EN': {'Hash': 2}}}, 'en')[0]['audio'] == recording
+
+
+def test_resetting_continuous_sequence_uses_the_playlist_order_and_both_speaker_lines():
+    from backend.starrail_assets import _archive_rows
+    bank = bytearray(88)
+    bank[56:58] = b'\x01\x1a'
+    struct.pack_into('<IIIHIIII', bank, 58, 2, 41, 42, 2, 42, 25, 41, 25)
+    tree = {8: (5, bank)}
+    streams = {}
+    for child in (41, 42):
+        obj = bytearray(32)
+        struct.pack_into('<IIBII', obj, 0, child, 0x40001, 1, child + 100, 17)
+        obj[17] = 1
+        struct.pack_into('<I', obj, 25, 8)
+        tree[child] = (2, obj)
+        streams[child+100] = ev.Entry(None, child, 20)
+    bindings = ev._recordings(tree, {}, None, 8, streams)
+    assert [b[0] for b in bindings.values()] == [142, 141]
+    row = {'text_id': 'id'}
+    links = {'id': {'audio_event': 'example', 'hash': 1}}
+    tables = {'en': {'1': 'One: First.\\nTwo: Second.'}, 'ja': {'1': '甲「一」\\n乙「二」'},
+              'ko': {'1': 'No separate speakers'}}
+    first, second = _archive_rows([row], links, {'example': bindings}, {}, 'en', tables)
+    assert (first['texts'], second['texts']) == ({'en': 'First.', 'ja': '一'}, {'en': 'Second.', 'ja': '二'})
+    assert (first['text_id'], second['text_id']) == ('id-part-1', 'id-part-2')
+    assert _archive_rows([row], links, {'example': bindings}, {}, 'ko', tables) == [row]
+    for mode, flags in ((0, 0x1a), (1, 0x12), (1, 0x18), (1, 0x1e)):
+        bank[56:58] = bytes((mode, flags))
+        assert ev._recordings(tree, {}, None, 8, streams) == {}
+    bank[56:58] = b'\x01\x1a'
+    assert not ev._recordings(tree, {}, None, 8, {141: streams[141]})

@@ -105,8 +105,7 @@ dubs. It requires a credit for the selected language in the current
 have Mandarin, Japanese and Korean credits in 4.7. All 142 English default
 recordings with a single source decoded to digital silence. The 143rd event
 has two English sources, which both also decoded to silence. In Japanese,
-Korean and Mandarin, 142 switches produced one recording each. Five multi-part
-archive events still require their speaker captions and playlist positions.
+Korean and Mandarin, 142 switches produced one recording each.
 [Character voice options](https://hsr.hoyoverse.com/en-us/news/158598) ·
 [Released character credits](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AvatarAtlas.json)
 
@@ -115,6 +114,26 @@ The complete Global Japanese preparation produced 305,316 text rows and
 female Aventurine and Saber's idle recording to MP3. Regional English
 checks also decoded both protagonist recordings and three direct events
 from the mainland CDN.
+
+All five multi-part events have continuous, forward, resetting Wwise
+sequence playlists and two separate speaker captions. Three are Huohuo
+and Tail, one is Starblazer and Himeko, and one is Rin and Ishtar inside
+the collaboration switch. The reader checks playlist order, the parent of
+each sound, the exact source in the selected dub and the number of speaker
+lines before splitting the text. In Huohuo's precious-chest interaction the
+playlist puts the second child first. Export followed that order, playing
+Huohuo's remark and then Tail's response. The review fetched all 40
+individual media sources for these five events across four dub packages,
+including the two silent English Rin/Ishtar sources.
+
+With these sequences, the current Global bank structures account for all
+3,678 distinct VoiceAtlas event names. The 3,686 base archive rows produce
+3,720 playable performance rows in each of Japanese, Korean and Mandarin
+(either Chinese script). English produces 3,576 playable performance rows
+and 143 collaboration entries without an English dub. The complete English
+worker built 305,330 rows across presentations, including 98,676 playable
+rows. The separate film, mission-branch and capture gaps in this audit
+still apply.
 
 The reader groups selected bank ranges by package and validates the published
 package digest, size, returned range, Wwise language and embedded/streamed
