@@ -1,5 +1,13 @@
 # Wuthering Waves dialogue audit
 
+## November 13, 2026 · Global 3.8 launcher transition
+
+The November 12 PC update moved the common game files and graphics tiers to a new official launcher index. The former Global endpoint still serves 3.7.1 while the active game resources use 3.8. Setup now reads the released common pack and checks its publisher checksum. It follows the pack's version, download directory and rolling game and dub manifests on subsequent preparations. [Kuro update notice](https://wutheringwaves.kurogames.com/en/main/news/detail/5705) · [Global PC launcher index](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+
+A fresh English preparation resolved 143,460 rows and 48,854 original-voice bindings from 44 launcher PAKs and the 3.8.9 core resources. The current English, Japanese, Korean and Mandarin dub revisions were 3.8.6, 3.8.5, 3.8.8 and 3.8.5. Each video quality tier advertised 236 packages. Setup retrieved an 8,484-byte English original for the trial line `ActivityRoleTrial_19_1`. It decoded to 118,903 non-silent mono samples at 48 kHz (2.477 seconds). Region-specific optional area packages introduced in 3.8 still need a coverage check.
+
+Two independent English gameplay recordings confirm speech in known film rows with empty English timing fields. The chapter-one storyteller speaks `Huanglong_main_1_7_178_3` around 11:53–11:58. In Jinhsi’s origin scene the narrator speaks `Chengxiaoshan_main_1_1_355_2` around 0:12–0:20. These times identify the performances in the cited videos. Extracting localized speech from the publisher film audio still requires a verified clock and an exact media binding. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s) · [Jinhsi backstory gameplay](https://www.youtube.com/watch?v=4sQsSS4BZSU&t=12s)
+
 ## Global publisher updates and selective voice acquisition · November 9, 2026
 
 From an empty private cache the source command followed the active 3.7.1 launcher to its base PAK, read the exact KuroPublicConfig entry by HTTP range, and selected the resource route declared inside it. The current core is 3.7.19. English, Mandarin and Japanese use 3.7.6 for voice overrides, and Korean uses 3.7.7. Each independently versioned core, voice and video index must match the digest in its publisher configuration. The SD, HD and UHD indexes each list 231 movie packages. The 1,549 receipt entries include base PAKs, resource and voice packages, movie packages and signature files. [Kuro Global launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json)

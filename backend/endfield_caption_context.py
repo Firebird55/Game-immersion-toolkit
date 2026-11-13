@@ -1,4 +1,4 @@
-"""Use a confirmed immediately preceding Endfield radio or film caption."""
+"""Use a confirmed immediately preceding authored caption to distinguish a recording."""
 
 
 class EndfieldCaptionContext:
@@ -12,11 +12,11 @@ class EndfieldCaptionContext:
         self.count = 0
         self.last_seen = None
 
-    def observe(self, index, groups, visible, *, channel, scope, now, stable_frames):
+    def observe(self, index, groups, visible, *, channel, scope, now, stable_frames, kind=None):
         if scope != self.scope or self.last_seen is None or not 0 <= now - self.last_seen <= 3:
             self.reset()
             self.scope = scope
-        kind = 'radio' if channel == 'dialogue' else 'cinematic'
+        kind = kind or ('radio' if channel == 'dialogue' else 'cinematic')
         visible = [hit for hit in visible if hit is not None]
         matches = {hit.text_id: hit for hit in visible if hit.kind == 'exact'
                    and hit.dialogue_kind == kind and hit.voice_status == 'voiced'}

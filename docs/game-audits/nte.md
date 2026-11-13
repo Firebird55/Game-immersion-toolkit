@@ -1,5 +1,17 @@
 # Neverness to Everness audit
 
+## November 13, 2026 · Regional update and Blackbird dialogue
+
+The ordinary update discovery advanced to Global PC_150 1.5.4 (374 files) and mainland PC_150 1.5.6 (366 files). The mainland localization source matched the publisher's resource list checksum `0d2a993be258446172af9aa2257a0b0f` and logic build 597365. It contains 121,545 Simplified Chinese strings across 195 namespaces. The Global list has a different checksum, `f370641c5faa61efee0b0a89765d3cfe`. [Global release](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/config.xml) · [Mainland release](https://yhcdn1.wmupd.com/clientRes/PC_150/Version/Windows/config.xml) · [Matching mainland export](https://github.com/555me/NTEData/tree/4a0f58143001a2b0d33860da15c3feedb1e21c0f)
+
+The mainland source command can include the published event object for a selected dialogue key. It checks the immutable export's entire dialogue StringTable against the same-version localization, and only accepts keys unique across localization namespaces. On 1.5.6, all 2,438 Blackbird entries match and 1,599 keys name an event (1,587 distinct event paths). The event is a lookup reference. Per-language banks, external media and playable audio remain open. [Current mainland event table](https://github.com/555me/NTEData/blob/4a0f58143001a2b0d33860da15c3feedb1e21c0f/DataTable/DialogSoundTable.json)
+
+```text
+python scripts/nte_regional_text.py --cache private-cache --output blackbird-voices.json --namespace ST_Main_BlackBird --voice-events
+```
+
+In Global English PS5 gameplay, the two `Blackbird01_NPC13201_045` and `_046` lines occur at 2:02:28.6–2:02:30.9 and 2:02:32.8–2:02:35.6. The first asks about being freed from the curse. A different speaker responds before the second line answers. `Blackbird01_Player_293` is spoken at 2:39:16.6–2:39:26.0. These approximate spoken intervals were checked against the matching English dialogue text. They locate the scene in this recording. [Two NPC lines](https://www.youtube.com/watch?v=rrEpbAfpPMk&t=7348s) · [Player reply](https://www.youtube.com/watch?v=rrEpbAfpPMk&t=9556s) · [English localization sample](https://github.com/Waifus-Grace/NTE_Assets/blob/cef09a29d4d92c7b1e0b950d89ba8c75b1c529e7/Localization/en/game.json)
+
 ## Released file acquisition across regions · November 9, 2026
 
 The source command now follows each regional branch, decodes the updater resource list and checks its plaintext MD5 against the active launcher. It records independent files and the exact byte ranges of files stored inside aggregate packages. Global PC_140 1.4.11 listed 552 files and mainland PC_150 1.5.4 listed 366. Both included 77 PAK files. The updater format references are pinned by commit and SHA-256. The Global and mainland distributions use different public updater parameters. [Global launcher](https://ntecdn1.perfectworld.com/clientRes/publish_PC/Version/Windows/config.xml) · [Mainland launcher](https://yhcdn1.wmupd.com/clientRes/publish_PC/Version/Windows/config.xml) · [Global patcher integration](https://github.com/Tobiichi-Origuchi/nte_patcher/blob/1135247b3a21ac72304b8bd9f5aa548994f7a8ef/tests/test_integration.rs) · [Mainland downloader reference](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/scripts/nte_downloader.py)

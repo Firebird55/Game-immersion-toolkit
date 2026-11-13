@@ -257,6 +257,10 @@ def test_normal_standby_cleanup_errors_are_independent_sticky_and_never_retried(
 
 def test_normal_standby_absolute_deadline_covers_real_http_and_failed_cleanup_without_reset(normal_slot):
     value=normal_slot;owner=value.make();value.state.delay_body=True
+    # A socket timeout can arrive just before the monotonic deadline on Windows.
+    # Exercise unconfirmed cleanup independently of that scheduling difference.
+    stop_error = TimeoutError('Authored frontend stop did not complete')
+    value.state.stop_errors['frontend'] = stop_error
     errors=[]
     def start():
         try:owner.start(timeout=.2)
@@ -266,6 +270,8 @@ def test_normal_standby_absolute_deadline_covers_real_http_and_failed_cleanup_wi
     thread.join(1)
     assert not thread.is_alive() and time.monotonic()-begin<1
     assert errors and isinstance(errors[0],runtime_host.OwnedStandbySlotError)
+    assert any(stage == 'start' and isinstance(error, TimeoutError) for stage, error in owner.errors)
+    assert ('writer-stop', stop_error) in owner.errors
     assert owner.recovery_required and not owner.ready and owner.tree.handle is not None
     deadlines=[call[2] for call in value.state.calls if call[0]=='stop']
     assert len(deadlines)==2 and deadlines[0]==deadlines[1] and deadlines[0]<=begin+.3

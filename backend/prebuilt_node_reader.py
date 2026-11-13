@@ -207,7 +207,7 @@ class ZzzReader:
         _no_links(work)
         inputs = {'scene-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-input\.json',
                   'comic-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-(?:input|output)\.json|\d+\.blk\.comic-roots|comic-plan-input\.json',
-                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|comic-plan)-(?:input|output)\.json|\d+\.blk\.(?:scenes|comics|comic-roots)|catalogue-input\.json'}
+                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|comic-plan)-(?:input|output)\.json|\d+\.blk\.(?:scenes|comics|comic-roots|voice-directory)|catalogue-input\.json'}
         if mode not in inputs:
             raise _failure('Unknown ZZZ publisher preparation operation.')
         for path in work.iterdir():

@@ -102,6 +102,66 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     assert 'radio_reaction_configured' not in last
 
 
+def test_radio_silence_follows_released_duration_events_and_emotion_through_normal_capture(tmp_path):
+    from backend.local_game import LocalGameTextIndex
+
+    def source(name):
+        return {'path': name, 'wavDuration': 0, 'wavDurationEN': 0, 'wavDurationJP': 0, 'wavDurationKR': 0}
+    durations = dict.fromkeys(('durationCN', 'durationEN', 'durationJP', 'durationKR'), 0)
+    known = 'au_dlg_commvo_wulfa_negative_02'
+    audio = {'-2147445416': source('baseline/' + known + '.wem')}
+    assert endfield._voice_table_id(known) == '-2147445416'
+    identity = 'radio_example_04_001'
+    row = {'id': identity, 'index': 1, 'actorName': ref(0), 'actorNameId': 'actor', 'audioEffect': 0, 'audioEvent': '',
+           'audioEventDuration': 0, 'audioOverride': 'au_' + identity, 'emotionType': 13, 'iconSuffix': '', 'infoActorName': ref(0),
+           'is3D': False, 'radioText': ref(1)}
+    group_id = 'radio_example_04'
+    group = {'continueAfterDialog': True, 'continueAfterRadio': False, 'priority': 3, 'radioContinueSpeakerIds': [],
+             'radioContinueType': 0, 'radioSingleDataList': [row], 'radioType': 0}
+    catalog = Catalog({'RadioTable': {group_id: group}, 'AudioVoiceExtraData': {'-2147445416': durations},
+                       'AudioDialogCustomEventTable': {'other': {}}, 'VoiceIdConflictTable': {},
+                       'EmotionVoiceConfig': {'13': {'emotionType': 13, 'interjection': '', 'interjectionList': []}}})
+    catalog.files = {'Data/TableCfg/' + k + '.bytes' for k in catalog.values}
+    tables = {'en': {'1': 'A quiet radio caption.'}, 'zh-Hans': {'1': '\u4e00\u884c\u65e0\u58f0\u5b57\u5e55\u3002'}}
+
+    def record(details=False):
+        evidence = endfield.radio_evidence(catalog, audio)
+        links = endfield.radio_dialogues(catalog, evidence=evidence)
+        return endfield.dialogue_records(links, endfield.audio_paths(audio), tables, 'en', {}, radio_details=details)[0]
+
+    assert record(True)['radio_sentence'] == 'text_only'
+    (tmp_path / 'textmap.json').write_text(json.dumps({'records': [record()]}), encoding='utf-8')
+    index = LocalGameTextIndex('endfield', tmp_path)
+    assert not index.match_lines(['A quiet radio caption.'], exact_only=True)
+    index.capture_unvoiced = True
+    assert index.match_lines(['A quiet radio caption.'], exact_only=True).voice_status == 'unvoiced'
+    for name in (row['audioOverride'], row['audioOverride'] + '_m'):
+        key = endfield._voice_table_id(name)
+        # Even an extensionless Wwise event with zero duration blocks a declaration of silence.
+        audio[key] = source(name)
+        catalog.values['AudioVoiceExtraData'][key] = durations
+        assert record()['voice_status'] == 'unavailable'
+        del audio[key], catalog.values['AudioVoiceExtraData'][key]
+    for key, value in [('audioEvent', 'Play_chime'), ('newAudioField', 'new')]:
+        row[key] = value
+        assert record()['voice_status'] == 'unavailable'
+        if key == 'audioEvent':
+            row[key] = ''
+        else:
+            del row[key]
+    catalog.values['AudioDialogCustomEventTable'][group_id] = {}
+    assert record()['voice_status'] == 'unavailable'
+    del catalog.values['AudioDialogCustomEventTable'][group_id]
+    catalog.values['EmotionVoiceConfig']['13']['interjectionList'] = ['short_gasp']
+    assert record()['voice_status'] == 'unavailable'
+    catalog.values['EmotionVoiceConfig']['13']['interjectionList'] = []
+    catalog.values['AudioVoiceExtraData']['17'] = durations
+    assert record()['voice_status'] == 'unavailable'
+    del catalog.values['AudioVoiceExtraData']['17']
+    catalog.files.remove('Data/TableCfg/VoiceIdConflictTable.bytes')
+    assert record()['voice_status'] == 'unavailable'
+
+
 def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, monkeypatch):
     from scripts import endfield_radio as cli
     catalog = Catalog({'RadioTable': {'group': {'radioSingleDataList': [

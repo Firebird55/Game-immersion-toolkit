@@ -22,6 +22,13 @@ from .media_tools import ffmpeg_executable
 from .voice_decoder import VoiceDecoder
 
 
+def wwise_short_id(name: str) -> int:
+    value = 2166136261
+    for byte in name.lower().encode("utf-8"):
+        value = ((value * 16777619) & 0xffffffff) ^ byte
+    return value
+
+
 def voice_hash(path: str) -> int:
     value = 0xCBF29CE484222325
     for byte in path.lower().encode("utf-8"):

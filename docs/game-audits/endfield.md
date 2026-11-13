@@ -15,9 +15,12 @@ A clean mainland preparation returned 53,711 English rows, including 25,985
 voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
 The selected timed film clip resolved its original 77.014 s source recording.
 The [radio playback audit](endfield-radio-observations.md) covers all thirteen unresolved rows.
-The 28 film configurations without verified sentence intervals are listed below.
-The [cinematic gameplay comparisons](endfield-film-gameplay.md) locate the
-Liino concert, both Si films, the Wuling battle and Cradle of the Ages.
+The November 9 inventory below lists the 28 films whose own tracks lacked
+verified sentence intervals. The [cinematic gameplay comparisons](endfield-film-gameplay.md)
+locate the Valley Fort distress call in its enclosing scene, the Liino concert,
+both Si films, the Wuling battle and Cradle of the Ages. The [opening film
+comparison](endfield-opening-gameplay.md) traces all 46 historical cues and
+both current English protagonist recordings to their respective footage.
 [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
 
 ## Cinematic cues from the selected release, November 13, 2026
@@ -42,9 +45,32 @@ The English 1.6.4 preparation retained all 408 previously verified intervals.
 A normal desktop audio export of that 1.5.3 caption produced an MP3 in each
 of the five study selections, including both Mandarin script choices.
 A separate reader comparison matched 4,207 serialized dialogue/timeline
-objects across 333 assets. The two separately audited in-engine scenes still
-require their director dependencies to pass the existing checks.
+objects across 333 assets.
 [Original Global release listings](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/raw/beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows)
+
+Setup also follows the active directors in the scene prefab when the scene
+plays the voices and shows the captions. It verifies the configured localized
+track, the scene's declared voice events, the child directors' playable file
+and object references, and the times at which the parent activates them.
+Scenes with ambiguous dependencies or overlapping speech remain unresolved.
+Each accepted recording is fetched from the selected publisher release.
+
+| Global 1.6.4 | Timed film and scene clips | Additional in-engine clips | Performances supplying the additional clips |
+| --- | ---: | ---: | ---: |
+| English | 467 | 59 | 21 |
+| Japanese | 483 | 62 | 20 |
+| Korean | 459 | 63 | 21 |
+| Mandarin (Simplified and Traditional Chinese) | 483 each | 79 each | 20 |
+
+Across all four dubs these are 540 distinct performance/caption pairs.
+Normal Global English preparation produced 53,675 rows, including 26,044
+with original audio. On Global 1.5.3 the reader found 391 English clips,
+411 Japanese, 385 Korean and 439 Mandarin (Simplified Chinese). The English
+output includes 63 in-engine clips from 23 performances. The male and female versions of the Valley Fort
+call use the same four English captions. All four were exported separately
+on both releases. All four Mandarin captions also export from the original
+recording on both releases. Two independent playthroughs locate its consecutive
+rescue calls and confirm their order. [Original audio windows and gameplay timestamps](endfield-film-gameplay.md#rally-and-unite)
 
 ## Installation-free publisher updates, November 9, 2026
 
@@ -242,7 +268,7 @@ affect playback. The four rows without a configured interjection are
 `radio_e10m1_11_001`, `radio_e10m1_11_002`, `radio_m1m6_1_001` and
 `radio_gm02m27d5_1_001`. The last uses emotion type 13 with empty values.
 No row in this inventory had a separate audio event.
-None is marked confirmed silent in capture.
+Publisher Setup makes these four rows eligible for unvoiced capture after checking the current release’s duration, event and emotion tables. Nine further rows have configured interjections and remain unresolved.
 
 For Chen's `radio_f1m29d1_4_002`, the named neutral reaction decoded to
 0.831 seconds in English, 1.415 in Japanese, 1.065 in Korean and 1.022 in
@@ -252,7 +278,7 @@ English sentence for `radio_e12m5_2_001` and decoded 5.241 seconds.
 
 Public gameplay now identifies all thirteen captions. Two dubs show Fiona’s entry warning. In the Afternotes playthrough, the Japanese male Endministrator’s sigh matches the second caption. The first caption has no identified sentence recording.
 
-[Playback checks for the thirteen unresolved rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
+[Playback and duration checks for the thirteen rows](endfield-radio-observations.md) identify the exact mission triggers and distinguish ambient or combat sounds from attributed character speech. The observations are separate from the live source used by the toolkit.
 
 The [radio command](../../scripts/endfield_radio.py) and desktop preparation
 use the current publisher RadioTable, AudioDialog, NpcInfoTable, EmotionVoiceConfig and

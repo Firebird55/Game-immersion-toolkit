@@ -1,5 +1,6 @@
 import hashlib
 import json
+from types import SimpleNamespace
 from xml.etree import ElementTree
 
 import pytest
@@ -66,3 +67,22 @@ def test_text_requires_valid_mainland_launcher_digest(monkeypatch):
     monkeypatch.setattr(regional, 'release_config', lambda region: ('PC_123', '1.2.3', '', config))
     with pytest.raises(ValueError, match='checksum'):
         regional.publisher_identity()
+
+
+def test_dialogue_events_require_matching_namespace_text_and_unique_key():
+    namespace = 'ST_Main_Story'
+    values = {'line': 'one', 'ambiguous': 'shared', 'uncertain': '?'}
+    loc = {namespace: values, 'other': {'ambiguous': 'shared'}}
+    path = '/Game/WwiseAudio/Events/Voice/Dialogue/NPC01/Play_Named.Play_Named'
+    table = {'TableNamespace': namespace, 'KeysToEntries': dict(values)}
+    declarations = {key: {'DialogSoundEvent': {'AssetPathName': path}} for key in ('line', 'ambiguous')}
+    files = {'Text/Dialogue/ST_Main_Story.json': [{'Type': 'StringTable', 'Name': namespace, 'StringTable': table}],
+             'DataTable/DialogSoundTable.json': [{'Type': 'DataTable', 'Name': 'DialogSoundTable', 'Rows': declarations}]}
+    cat = SimpleNamespace(file=files.__getitem__)
+    assert regional._dialogue_events(cat, namespace, values, loc) == {'line': path}
+    declarations['line']['DialogSoundEvent']['AssetPathName'] = path.replace('.Play_Named', '.Other')
+    with pytest.raises(ValueError, match='object path'):
+        regional._dialogue_events(cat, namespace, values, loc)
+    table['KeysToEntries']['line'] = 'changed'
+    with pytest.raises(ValueError, match='does not match'):
+        regional._dialogue_events(cat, namespace, values, loc)

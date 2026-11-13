@@ -15,7 +15,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', required=True, type=Path, help='Destination for the selected text and release identity')
     parser.add_argument('--namespace', help='Limit the export to one exact localization namespace')
     parser.add_argument('--key', action='append', default=[], help='Repeat for individual keys in the selected namespace')
+    parser.add_argument('--voice-events', action='store_true',
+                        help='Include verified authored event names for the selected dialogue namespace')
     args = parser.parse_args()
-    result = snapshot(args.cache, namespace=args.namespace, keys=args.key)
+    result = snapshot(args.cache, namespace=args.namespace, keys=args.key, voice_events=args.voice_events)
     _atomic_file(args.output, json.dumps(result, ensure_ascii=False).encode('utf-8'))
     print(f"NTE mainland {result['version']}: {sum(map(len, result['texts'].values())):,} Chinese text entries.")

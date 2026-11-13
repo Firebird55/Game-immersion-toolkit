@@ -11,6 +11,7 @@ from . import genshin_publisher as publisher
 from .hoyo_dialogue import audio_locale
 from .voice_assets import voice_hash
 
+ARCHIVE_READER = 'v3:'
 
 ARCHIVES = {
     '5.5.0': {
@@ -61,12 +62,13 @@ def _seed_archive(data_dir, region, locale, version, *, mirror=False):
         fetch_trees(archive)
     translations = DialogueCatalog('genshin-archive-mirror', data_dir, revision=revision) if mirror else archive
     tables = selected_tables(translations, game.TEXT_LOCALES, locale, ())
+    pronouns = game._pronoun_texts(translations, tables, None)
     hashes = game.dialogue_hashes(archive.directory_json('BinOutput/Talk'))
     links = game.dialogue_links(archive.directory_json('BinOutput/Voice'), hashes, locale)
     if not hashes or not links:
         raise ValueError('The archived Genshin narrative tables are incomplete.')
     entries = publisher.inventory(data_dir, stamp, locale)
-    rows = common.records('genshin', links, tables, locale, entries)
+    rows = game._render_player_text(common.records('genshin', links, tables, locale, entries), locale, pronouns)
     if not any(row['audio'] for row in rows):
         raise ValueError('The archived Genshin narrative audio is unavailable.')
     retained_performances(data_dir, stamp, region, locale, links, rows, set(), archive=revision)
@@ -76,7 +78,7 @@ def prepare_archive(data_dir, region, locale, version):
     path = _database_path(data_dir, region, locale)
     with sqlite3.connect(path, timeout=60) as database:
         database.execute('CREATE TABLE IF NOT EXISTS archives (revision TEXT PRIMARY KEY) WITHOUT ROWID')
-        if database.execute('SELECT 1 FROM archives WHERE revision=?', (ARCHIVES[version]['metadata'],)).fetchone():
+        if database.execute('SELECT 1 FROM archives WHERE revision=?', (ARCHIVE_READER + ARCHIVES[version]['metadata'],)).fetchone():
             return True
     try:
         try:
@@ -129,7 +131,7 @@ def retained_performances(data_dir, stamp, region, locale, links, rows, ambiguou
                          '(identity BLOB PRIMARY KEY, publisher TEXT NOT NULL, package TEXT NOT NULL) WITHOUT ROWID')
         if archive:
             database.executemany('INSERT OR IGNORE INTO performances VALUES (?, ?, ?)', current)
-            database.execute('INSERT OR IGNORE INTO archives VALUES (?)', (archive,))
+            database.execute('INSERT OR IGNORE INTO archives VALUES (?)', (ARCHIVE_READER + archive,))
             return 0
         database.executemany('INSERT OR REPLACE INTO performances VALUES (?, ?, ?)', current)
         valid = {}

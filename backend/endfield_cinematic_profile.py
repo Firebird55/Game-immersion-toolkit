@@ -2,6 +2,35 @@
 from . import endfield_global_1_6 as fmv
 
 PACKAGES = fmv.PACKAGES
+
+# The Mandarin Valley Fort call has two subtitle windows that overlap. Both
+# protagonists use the same recording and localized timeline. Recording-relative
+# cuts were checked against the two public playthroughs in the film audit.
+_VALLEY_CALL_DIGEST = '523fbe41428c2f0ed2b317a2ce73c2ab70d2503bfebea159f02b185c306122cf'
+_VALLEY_CALL_CLOCKS = {
+    'cutscene_e1m3_2d1_03': (12.46667, 15.2),
+    'cutscene_e1m3_2d1_04': (20.41667, 22.23956),
+    'cutscene_e1m3_2d1_04d5': (22.23333, 24.62738),
+    'cutscene_e1m3_2d1_05': (29.83333, 34.56667),
+}
+_VALLEY_CALL_CUTS = {
+    'cutscene_e1m3_2d1_04': (19.620, 22.170),
+    'cutscene_e1m3_2d1_04d5': (22.170, 24.62738),
+}
+
+
+def verified_recording_captions(film, dub, digest, captions, speech):
+    if (dub != 'chinese' or digest != _VALLEY_CALL_DIGEST
+            or film not in ('m_cutscene_e1m3_2', 'f_cutscene_e1m3_2') or len(speech) != 1):
+        return captions
+    event, start, end = speech[0]
+    if (event != 'au_vo_cs_e1m3_2' or start != 0 or end < 34.56667
+            or len(captions) != len(_VALLEY_CALL_CLOCKS)
+            or {key: (a, b) for key, a, b in captions} != _VALLEY_CALL_CLOCKS):
+        return captions
+    return [(key, *_VALLEY_CALL_CUTS.get(key, (a, b))) for key, a, b in captions]
+
+
 # Each tuple follows the publisher's Mandarin, English, Japanese, Korean order.
 SCENE_FILMS = {
     'f_cutscene_e0m0_5': (

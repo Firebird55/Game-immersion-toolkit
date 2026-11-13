@@ -14,12 +14,94 @@ Both root-relative and fully qualified Perform paths are accepted. The latter
 added 26 distinct Chat and Bubble assets and 292 typed scene records.
 The selected scene bundles totalled 48,891,704 bytes before Sophon chunk
 alignment. Setup retained conversations, narration, choices and ambient text.
-The English study language with English and Simplified Chinese text produced
+The initial English study index with English and Simplified Chinese text produced
 68,572 voiced, 132,908 authored unvoiced, 11,459 unavailable and 50,800 unknown
 records including comics. Thirty-four English samples exported through the
 desktop playback service and decoded to nonzero PCM, including phone, gameplay,
 narration, early story and separate Belle and Wise performances. A caption shared between
 a choice and spoken dialogue keeps its conflicting evidence.
+
+The gameplay-tip table explicitly names GalGame recordings for five Virtual
+Revenge tips and two Golden Week performances. The five Virtual Revenge tips
+were previously unavailable. After accepting this source family, normal Setup
+with an empty game-folder selection exported all seven English recordings.
+The two Golden Week captions also appear in the scene catalogue. Each of the
+seven named sources resolved uniquely and decoded to nonzero PCM in all four
+publisher dubs. For example, Harumasa’s first cue (`Tips_72025056`) lasts
+3.348 s in English, 5.216 s in Japanese, 2.567 s in Korean and 2.520 s in
+Mandarin. This verification used the Global 3.3.0 launcher base.
+[Publisher release manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+The same Global release stores cinema dates under `VO_Cinema`, some MainCity
+chat under `VO_Chat`, companion level voices under `VO_Accompany`, and
+timeline dialogue under several recorded directory names. Setup now checks
+these locations against each authored source and the selected dub's actual
+Wwise file IDs. A second matching ID leaves the line unresolved. Actor
+identifiers can start with a number, as in the Chapter 2 irate operator.
+Repeated spellings of a name that differ only in case identify the same Wwise
+path.
+
+With the tip change above, the English index gained 1,821 voiced records in
+the same selection: 1,441 ambient lines, 243 conversations, 129 gameplay tips
+and eight narration lines. The resulting totals were 70,393 voiced, 132,908
+authored unvoiced, 9,638 unavailable and 50,800 unknown. Nine newly mapped
+sources were retrieved and decoded in all four publisher dubs. English Setup
+also exported each of these nine, including Asha’s cinema date (5.551 s),
+the irate operator (7.678 s), an Elpis fishing line (1.032 s) and Ju Fufu’s
+companion line (3.325 s).
+[Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+Two Remielle gameplay tips name one take ending in `_F` and one ending in
+`_M` under the same source name. The selected text names Belle or Wise.
+These four additional English performances exported through Setup.
+The two takes for `Tips_74580002` lasted 5.009 s and 5.274 s, and those for
+`Tips_74580004` lasted 5.541 s and 5.552 s. These four bring the English
+selection to 70,397 voiced and 9,634 unavailable records. Alternate takes
+that only carry different numbers still need performer evidence.
+
+The resource catalogue indexes the publisher's own
+`assets/napresources/data/audio/voicedata.json`. The 388,096-byte bundle in
+Global 3.3.0 contained 2,952 original voice directories and 85,839 numerical
+source IDs in 1,302 directory groups. In each group the first number is the
+32-bit FNV-1 of the lowercase directory, followed by the source-name IDs
+and a zero terminator. Some groups name an actor directory directly; others
+refer to a parent with several actor directories. Setup selects a recording
+only when the complete path gives a unique 64-bit file ID in the requested
+dub. The same reader found 2,889 directories, 84,259 source IDs and 1,283
+groups in the 380,804-byte mainland 3.2.0 bundle. Neither location nor the
+voice group memberships are pinned to these releases.
+
+Comparing the updated English index with the first selection above, 6,341
+previously unavailable performances now have audio: 5,593 ambient lines, 531
+conversations, 198 gameplay tips and 19 narration lines. Fourteen cinema
+entries named a breath or reaction under an on-screen description. Setup
+keeps their sentence voice status unknown. This brought the totals to 74,913
+voiced, 132,908 authored unvoiced, 5,104 unavailable and 50,814 unknown.
+Seven newly resolved performances spanning the Forbidden Area, Severian,
+Silver Soldier Anby, Cissia, Fairy and a timeline voice were retrieved and
+decoded in all four dubs. The Forbidden Area line lasted 6.576 s in English,
+7.467 s in Japanese, 5.550 s in Korean and 5.812 s in Mandarin. The
+compiler-free Windows reader reproduced these English counts, exported the
+seven English clips, and exposed no sentence audio for the cinema reaction.
+[Global 3.3.0 publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+In 17 prologue captions the released scene spells one take twice, once as a
+bare name and once with its actor directory. Both spellings independently
+resolved to the same unique file within each of the four dubs. The normal
+English Setup with no game folder gained all 17 performances, bringing its
+totals to **74,930 voiced, 132,908 authored unvoiced, 5,087 unavailable and
+50,814 unknown**. Setup leaves a caption unresolved when either spelling
+is missing or the selected files disagree.
+
+Four English publisher clips also matched the mixed audio in CGInferno's 1.0
+prologue playthrough. The matches begin at about 34:12 (Billy, 3.488 s),
+34:21 (Billy, 4.379 s), 34:26 (Billy, 7.797 s) and 35:02 (Anby, 5.649 s).
+The four clips each exported through the normal English service. Gameplay
+corroborates the English recordings; the other dubs were verified against the
+publisher files. [Billy at 34:12](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2052s)
+· [Billy at 34:21](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2061s)
+· [Billy at 34:26](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2066s)
+· [Anby at 35:02](https://www.youtube.com/watch?v=k8HMd3Bea-o&t=2102s)
 
 The publisher gameplay-tip reader also checks the reaction, sound-event vector
 and indirect reference fields before certifying silence. Across 17,528 release
@@ -203,12 +285,45 @@ installed indexes matched 1,477 per installed language (Mandarin, English and
 Japanese). These are directory joins. An unmatched path can reflect another
 binding or a subsequent update. The audit did not have the later Korean pack.
 
+The opening exchange with Remielle gives a reproducible example. English
+3.3 gameplay shows Wise saying “Wait... She came looking for me?” at 34:40,
+with the speaker and caption visible. The scene assigns this performance to
+`Main_GalGame_Chapter240_124000001_011` and a separate Belle take to
+`_010`. The Global launcher base had Wise's exact file in Mandarin (2.743 s),
+Japanese (4.297 s) and Korean (3.753 s). Belle's exact files decoded in
+Mandarin (3.284 s) and Korean (4.156 s). Neither English file was in the
+base indexes. The Mandarin Wise recording independently matched the
+on-screen scene in Citrix the cat’s playthrough at 2:48 (normalized
+correlation 0.80). Two earlier Remielle lines matched at 2:13 and 2:20.
+Setup keeps each missing dub and performer separate. The public Zenless
+Voice dataset identifies its source as 3.2.0, predating this chapter.
+[English Wise](https://www.youtube.com/watch?v=8Qe1Z6VFFBQ&t=2080s)
+· [Mandarin Wise](https://www.youtube.com/watch?v=k-R56pW5IOI&t=168s)
+· [Mandarin scene opening](https://www.youtube.com/watch?v=k-R56pW5IOI&t=132s)
+· [Dataset author's version and limitations](https://huggingface.co/datasets/simon3000/zenless-voice)
+
 The inspected launcher base had data revision `19316624`. The installed
 Global revision `19916124` contained 13 base and 13 overwrite tables. An
 older Global 3.2 hotfix manifest and its block were independently retrieved
 from the publisher. Current Global 3.3 hotfix discovery from an empty device
 remains open. The installed reader supplies additional cinematic voice mappings. [Historical publisher design manifest](https://autopatchos.zenlesszonezero.com/design_data/3.2_live/output_19159270_4529024a46/client/StandaloneWindows64/oversea/data_version)
 · [Public release revision history](https://zzz.gachabase.net/changelog/release)
+
+On 2026-11-13 the public Global HoYoPlay branch returned 3.3.0. The separate
+package-list response still listed 3.2.0 as its main package and 3.3.0 as
+its pre-download. Neither response supplied the Global player’s in-version
+design or voice manifest. The Steam public build (25596035) had an October
+20 depot update. The November Steam app metadata change did not change that
+build. These distributor results cannot establish the current in-version
+revision or its download directory. [Publisher branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=U5hbdsT9W7)
+· [Publisher package list](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGamePackages?launcher_id=VYTpXlbWo8&language=en-us)
+· [Public Steam app metadata mirror](https://api.steamcmd.net/v1/info/4162040)
+· [Publisher Steam announcements](https://steamcommunity.com/app/4162040/announcements/)
+
+The publisher's 3.3 update log confirms language-specific text and audio
+changes on October 23 and October 28, and a voice-pack management fix on
+November 4. The notices identify neither the Wise file nor a patch URL.
+[Publisher's in-version update log](https://www.hoyolab.com/article/47150315)
 
 The 3.3 English base contains 2,355 gender-tagged entries with text outside
 the tags and 200 entries with repeated male tags. The corresponding Simplified

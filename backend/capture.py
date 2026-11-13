@@ -149,6 +149,7 @@ class CaptureService:
         self._caption_context_scope = None
         self._endfield_radio = EndfieldCaptionContext()
         self._endfield_film = EndfieldCaptionContext()
+        self._genshin_dialogue = EndfieldCaptionContext()
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
         self._zzz_dialogue_context = ZzzDialogueContext()
@@ -1006,12 +1007,15 @@ class CaptureService:
                  index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold)))
         monotonic_now = time.monotonic()
         contextual = None
-        if game == 'endfield':
+        if game in {'endfield', 'genshin'} and hasattr(index, 'source_locale'):
+            context = self._endfield_radio if game == 'endfield' else self._genshin_dialogue
             if main_response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                self._endfield_radio.reset()
-                self._endfield_film.reset()
+                context.reset()
+                if game == 'endfield':
+                    self._endfield_film.reset()
             else:
-                hit = self._endfield_radio.observe(index, [' '.join(lines)] if lines else [], [match],
+                hit = context.observe(index, [' '.join(lines)] if lines else [], [match],
+                    kind='conversation' if game == 'genshin' else 'radio',
                     channel='dialogue', scope=(epoch, self.session_id, window.handle, window.bounds, crop_bounds,
                     index.source_locale, index.target_locale, index.player_voice, index._signature,
                     getattr(self, 'context_scope', lambda: None)()), now=monotonic_now, stable_frames=settings.stable_frames)

@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 9
+LANGUAGE_INDEX_VERSION = 17
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -64,8 +64,62 @@ def _warn(warnings, message):
         warnings.append(message)
 
 
+def _bind_predecessors(rows, annotations):
+    voiced = {row['text_id'] for row in rows if row['audio'] and row['dialogue_kind'] == 'conversation'}
+    for row in rows:
+        if row['text_id'] not in voiced:
+            continue
+        identity = row['text_id'].split(':')[1]
+        predecessor = annotations.get(identity, {}).get('previous_dialogue')
+        if not predecessor:
+            continue
+        base = 'genshin:' + predecessor
+        if base in voiced:
+            row['previous_text_id'] = base
+        elif (gender := row.get('player_voice')) in ('male', 'female'):
+            performance = base + ':' + gender
+            if performance in voiced:
+                row['previous_text_id'] = performance
+        elif base + ':female' in voiced or base + ':male' in voiced:
+            # Both travelers can hear this shared reply after their own take.
+            row['previous_text_id'] = base
+
+
+def _exclude_conflicting_performances(rows, warnings, *, read_audio=None):
+    """A single concrete recording cannot verify different spoken sentences."""
+    from .languages import normalize_text
+    def media_key(audio):
+        release = audio.get('original_publisher') or audio.get('publisher')
+        return release, audio['package'], audio['file_id'], audio['locale']
+    first, conflicts = {}, set()
+    for row in rows:
+        if audio := row.get('audio'):
+            key = media_key(audio)
+            if key not in first:
+                first[key] = row['source_text']
+            elif first[key] != row['source_text'] and normalize_text(first[key]) != normalize_text(row['source_text']):
+                conflicts.add(key)
+    if conflicts:
+        from .genshin_cinematics import verified_opening_conflict
+        verified = verified_opening_conflict(rows, read_audio) if read_audio else None
+        for row in rows:
+            if (audio := row.get('audio')) and media_key(audio) in conflicts and row['text_id'] != verified:
+                row['audio'] = None
+                row['voice_status'] = 'unavailable'
+        _warn(warnings, f'{len(conflicts):,} Genshin recordings have conflicting authored sentence texts.')
+
+
 def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
     values = defaultdict(set)
+    edges = {}
+
+    def transitions(identity, successors):
+        if annotations is None or not identity or not isinstance(successors, list):
+            return
+        following = frozenset(_identity(child) for child in successors)
+        if None not in following:
+            edges.setdefault(identity, set()).add(following)
+
     for talk in talks:
         if not isinstance(talk, dict):
             _warn(warnings, 'Some Genshin Talk records use an unsupported structure.')
@@ -83,6 +137,10 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
                     _warn(warnings, 'Some Genshin Talk records use an unsupported structure.')
                     continue
                 key, content = _identity(row.get(identity)), _identity(row.get(text))
+                if array == 'dialogList':
+                    transitions(key, row.get('nextDialogs'))
+                elif array == 'PCIAMAFDDAA':
+                    transitions(key, row.get('GLJCECCOEDP'))
                 if key and content:
                     values[key].add(content)
                     if annotations is not None:
@@ -106,6 +164,7 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
             continue
         key = _identity(row.get('id')) or _identity(row.get('GFLDJMJKIKE'))
         content = _identity(row.get('talkContentTextMapHash'))
+        transitions(key, row.get('nextDialogs'))
         if key and content and key not in runtime_ids:
             values[key].add(content)
         elif not key or 'talkContentTextMapHash' not in row:
@@ -120,7 +179,17 @@ def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
     # Conflicting upstream records cannot silently select a translation.
     if any(len(hashes) != 1 for hashes in values.values()):
         _warn(warnings, 'Conflicting Genshin dialogue identities were excluded.')
-    return _unique(values)
+    hashes = _unique(values)
+    if annotations is not None:
+        incoming = defaultdict(set)
+        for parent, alternatives in edges.items():
+            for children in alternatives:
+                for child in children:
+                    incoming[child].add(parent)
+        for child, parent in _unique(incoming).items():
+            if child in hashes and parent in hashes and parent != child and edges[parent] == {frozenset((child,))}:
+                annotations.setdefault(child, {})['previous_dialogue'] = parent
+    return hashes
 
 
 def _voice_path(path, locale):
@@ -150,7 +219,7 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                    profile_sources=None, gameplay_sources=None):
     reminders = reminders or {}
     tables = {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards or {}}
-    values = defaultdict(set)
+    values, player_conditions = defaultdict(set), defaultdict(set)
     known_structures, unknown_structures = 0, 0
     for mapping in voice_maps:
         if not isinstance(mapping, dict):
@@ -198,6 +267,11 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                     path = _voice_path(source.get(filename), locale)
                     if path:
                         values[(kind, identity)].add(path)
+                        field = 'KHNPBDOBIAL' if filename == 'CFIKOCLOKGH' else 'gender'
+                        if field in source:
+                            flag = source.get(field)
+                            condition = {1: 'female', 2: 'male'}.get(flag) if type(flag) is int else None
+                            player_conditions[(kind, identity, path)].add(condition or 'unsupported')
                     else:
                         _warn(warnings, 'Some Genshin voice sources could not be resolved safely.')
             if not recognized and voice:
@@ -213,16 +287,21 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
         genders = {source: ('female' if re.search(r'(?:^|[/\\_])(?:girl|female|lumine)(?:[/\\_.]|$)', source, re.I) else
                            'male' if re.search(r'(?:^|[/\\_])(?:boy|male|aether)(?:[/\\_.]|$)', source, re.I) else None)
                    for source in sources}
-        if len(sources) > 1 and (len(sources) != 2 or set(genders.values()) != {'male', 'female'}):
+        for source in sources:
+            flags = player_conditions.get((kind, identity, source))
+            if flags:
+                genders[source] = next(iter(flags)) if len(flags) == 1 else 'unsupported'
+        if 'unsupported' in genders.values() or len(sources) > 1 and (
+                len(sources) != 2 or set(genders.values()) != {'male', 'female'}):
             _warn(warnings, 'Ambiguous Genshin voice performances were left unavailable.')
             continue
         for source in sorted(sources):
-            gender = genders[source]
-            suffix = ':' + gender if len(sources) > 1 else ''
+            gender = genders[source] if len(sources) > 1 or (kind, identity, source) in player_conditions else None
+            suffix = ':' + gender if gender else ''
             table = tables[kind]
             row_id = {'Dialog': '', 'DungeonReminder': 'reminder-', 'Card': 'card-'}[kind] + identity
             links.append({'id': row_id + suffix, 'hash': table[identity], 'source': source,
-                          'player_voice': gender if len(sources) > 1 else None})
+                          'player_voice': gender})
     return links
 
 
@@ -280,14 +359,57 @@ def profile_links(rows, avatars, configs, sources, gameplay_sources=None):
     return links
 
 
-def profile_records(links, tables, locale, entries):
-    records = []
+def profile_records(links, tables, locale, entries, pronouns=None):
     triggers = {'genshin:' + link['id']: link['gameplay_triggers'] for link in links if link.get('gameplay_triggers')}
-    for row in common.records('genshin', links, tables, locale, entries):
+    rows = common.records('genshin', links, tables, locale, entries)
+    for row in rows:
         if row['audio'] and row['text_id'] in triggers:
             row['audio']['gameplay_triggers'] = triggers[row['text_id']]
-        variants = {lang: rendered for lang, raw in row['texts'].items()
-                    if (rendered := gender_variants(raw.removeprefix('#')))}
+    return _render_player_text(rows, locale, pronouns, split_unconditional=True)
+
+
+PRONOUN_TAG = re.compile(r'\{(PLAYERAVATAR|MATEAVATAR)#SEXPRO\[(INFO_[A-Za-z0-9_]+)\|(INFO_[A-Za-z0-9_]+)\]\}')
+
+
+def _pronoun_texts(catalog, tables, warnings):
+    names = defaultdict(set)
+    for row in _table(catalog, 'ManualTextMapConfigData', warnings):
+        if not isinstance(row, dict):
+            continue
+        name, key = row.get('textMapId'), _identity(row.get('textMapContentTextMapHash'))
+        if key and isinstance(name, str) and re.fullmatch('INFO_(?:MALE|FEMALE)_PRONOUN_[A-Za-z0-9_]+', name):
+            names[name].add(key)
+    unique = _unique(names)
+    return {lang: {name: common.display_text(table[key]) for name, key in unique.items() if table.get(key)}
+            for lang, table in tables.items()}
+
+
+def _official_variants(raw, words):
+    text = raw.removeprefix('#')
+    literal = gender_variants(text)
+    if '#SEXPRO[' not in text:
+        return literal
+    values = {}
+    for gender, variant in (literal or {'M': text, 'F': text}).items():
+        def substitute(match):
+            # The sibling is the opposite Traveler. The authored two keys are
+            # indexed by that character's sex, even when their wording differs.
+            male = (gender == 'M') == (match[1] == 'PLAYERAVATAR')
+            return words.get(match[2 if male else 3], match[0])
+        result = PRONOUN_TAG.sub(substitute, variant)
+        if '#SEXPRO[' not in result:
+            values[gender] = common.display_text(result)
+    return values
+
+
+def _render_player_text(rows, locale, pronouns=None, *, split_unconditional=False):
+    records = []
+    for row in rows:
+        if not row['player_voice'] and not split_unconditional:
+            records.append(row)
+            continue
+        variants = {lang: _official_variants(raw, (pronouns or {}).get(lang, {})) for lang, raw in row['texts'].items()
+                    if any(marker in raw for marker in ('{M#', '{F#', '#SEXPRO['))}
         if not variants:
             records.append(row)
             continue
@@ -458,7 +580,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         catalog = DialogueCatalog('genshin', data_dir)
         version_matches = _metadata_version(install, catalog, warnings)
     progress('Reading Genshin metadata and validating original voice bindings')
-    tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, medium=True)
+    full_tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales)
     dialog_rows = _table(catalog, 'DialogExcelConfigData', warnings)
     annotations = {}
     hashes = dialogue_hashes(catalog.directory_json('BinOutput/Talk'), dialog_rows, warnings, annotations)
@@ -484,8 +606,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                else genshin_publisher.inventory(data_dir, stamp, source_locale, unavailable_duplicates=ambiguous))
     # Reminders use a distinct hash namespace. In this modality Medium takes
     # priority; ordinary dialogue keeps the full TextMap's canonical values.
-    reminder_tables = {}
-    for locale, values in tables.items():
+    reminder_tables, medium_tables, tables = {}, {}, {}
+    for locale, values in full_tables.items():
         medium = {}
         codes = TEXT_LOCALES[locale]
         for code in (codes,) if isinstance(codes, str) else codes:
@@ -494,17 +616,20 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 raise PreparationFailure('unsupported_game_format',
                     'The Genshin reminder text format is unsupported. Update the toolkit and refresh game data; the previous index is retained.')
             medium.update(data)
+        medium_tables[locale] = medium
         reminder_tables[locale] = {**values, **medium}
+        tables[locale] = {**medium, **values}
     ordinary = [link for link in links if not link['id'].startswith('reminder-')]
     reminder_links = [link for link in links if link['id'].startswith('reminder-')]
-    rows = common.records('genshin', ordinary, tables, source_locale, entries)
-    rows += common.records('genshin', reminder_links, reminder_tables, source_locale, entries)
+    pronouns = _pronoun_texts(catalog, medium_tables, warnings)
+    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale, pronouns)
+    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries), source_locale, pronouns)
     if len(rows) < len(links):
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
     if profiles:
         profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
                                 catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources, gameplay_sources)
-        rows += profile_records(profile, tables, source_locale, entries)
+        rows += profile_records(profile, tables, source_locale, entries, pronouns)
         links.extend(profile)
     if install is None:
         from .genshin_history import ARCHIVES, prepare_archive, retained_performances
@@ -514,18 +639,29 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         for archived_version in ARCHIVES:
             if not prepare_archive(data_dir, region, source_locale, archived_version):
                 _warn(warnings, f'The archived {archived_version} Genshin dialogue source was unavailable. Refresh to retry historical coverage.')
-        recovered = retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
-        if recovered:
-            _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
+        retained_performances(data_dir, stamp, region, source_locale, links, rows, ambiguous)
+    def read_audio(audio):
+        if install is None:
+            return genshin_publisher.extract(audio, data_dir / 'tools')
+        return common.extract_voice(install, 'genshin', audio)
+    _exclude_conflicting_performances(rows, warnings, read_audio=read_audio)
+    recovered = sum(bool((row.get('audio') or {}).get('original_publisher')) for row in rows)
+    if recovered:
+        _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
+    _bind_predecessors(rows, annotations)
     if version_matches:
+        from .genshin_messages import message_records
+        rows += message_records(catalog, full_tables, medium_tables, source_locale, rows, warnings)
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
-        from .genshin_cinematics import movie_records
+        from .genshin_cinematics import movie_records, opening_performances
         if install is None:
             movies = genshin_publisher.movie_names(data_dir, stamp)
         else:
             folder = common.game_data(install, 'genshin') / 'StreamingAssets/VideoAssets/StandaloneWindows64'
             movies = {path.stem for path in folder.glob('*.usm') if path.is_file()}
-        rows += movie_records(catalog, movies, tables, source_locale, warnings)
+        movie_rows = movie_records(catalog, movies, tables, source_locale, warnings)
+        movie_rows += opening_performances(movie_rows, rows, source_locale)
+        rows += movie_rows
     else:
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
     if any(row['voice_status'] == 'unknown' for row in rows):

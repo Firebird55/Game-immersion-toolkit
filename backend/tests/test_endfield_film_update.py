@@ -7,6 +7,7 @@ import pytest
 
 from backend import endfield_assets, endfield_film_update as films, endfield_film_voice, endfield_online
 from backend import endfield_unity_timeline as unity
+from backend import endfield_scene_update as scenes
 
 
 def _serialized_object(*, width=4, length=4):
@@ -35,6 +36,25 @@ def test_serialized_object_rejects_a_truncated_or_mistyped_publisher_pointer():
 
 def _ptr(path, file=0):
     return {'m_PathID': path, 'm_FileID': file}
+
+
+def test_mandarin_distress_pair_keeps_its_reviewed_cut_only_on_the_same_performance():
+    profile = films.profile
+    captions = [(key, *clock) for key, clock in profile._VALLEY_CALL_CLOCKS.items()]
+    speech = [('au_vo_cs_e1m3_2', 0, 36)]
+    digest = profile._VALLEY_CALL_DIGEST
+    def cuts(rows=captions, tracks=speech, locale='chinese', content=digest, film='m_cutscene_e1m3_2'):
+        return profile.verified_recording_captions(film, locale, content, rows, tracks)
+    for actor in ('f', 'm'):
+        observed = cuts(film=actor + '_cutscene_e1m3_2')
+        assert observed[1:3] == [('cutscene_e1m3_2d1_04', 19.620, 22.170),
+                                 ('cutscene_e1m3_2d1_04d5', 22.170, 24.62738)]
+        assert observed[::3] == captions[::3]
+    for changed in [captions[1:], captions + [('another_caption', 19.8, 21.0)],
+                    [captions[0], (captions[1][0], 20.40, 22.24), *captions[2:]]]:
+        assert cuts(rows=changed) == changed
+    assert cuts(content='another recording') == cuts(locale='japanese') == captions
+    assert cuts(tracks=[(speech[0][0], 1, 37)]) == cuts(tracks=speech * 2) == captions
 
 
 def test_localized_config_requires_the_exact_external_file_and_root_object(monkeypatch):
@@ -77,7 +97,7 @@ def test_changed_film_excludes_overlapping_open_voice_and_recovers_saved_origina
     monkeypatch.setattr(films, '_files', lambda *args: {})
     def tracks(*args):
         clips = films.director.track_clips(objects, root)
-        yield 'film', objects, root, {}, None, clips
+        yield 'film', clips, lambda **kwargs: films.director.track_clips(objects, root, **kwargs)
     monkeypatch.setattr(films, '_tracks', tracks)
     monkeypatch.setattr(films.release, 'verified_films', lambda *args: set())
     monkeypatch.setattr(endfield_film_voice, 'recording_ids', lambda *args: events)
@@ -116,3 +136,48 @@ def test_changed_film_excludes_overlapping_open_voice_and_recovers_saved_origina
     assert endfield_assets.extract_voice(None, first['audio'], tmp_path / 'reader', None) == raw
     with pytest.raises(ValueError):
         endfield_assets.extract_voice(None, {**first['audio'], 'end_ms': 499}, tmp_path / 'reader', None)
+
+
+def test_scene_requires_both_active_directors_and_their_own_playable_clocks():
+    # An FMV can be drawn inside a different scene which supplies all of its
+    # dialogue. A sibling prefab with the same names must not supply that audio.
+    cab = lambda char: 'CAB-' + char * 32
+    externals = [f'archive:/{cab(c)}/{cab(c)}' for c in 'abc']
+    objs = {}
+    def game(key, parent, children):
+        objs[key] = {'m_IsActive': True, 'm_Component': [{'component': _ptr(key+1)}, {'component': _ptr(key+2)}]}
+        objs[key+1] = {'m_GameObject': _ptr(key), 'm_Father': _ptr(parent+1 if parent else 0),
+                       'm_Children': [_ptr(c+1) for c in children]}
+    game(10, None, [20, 30])
+    game(20, 10, [])
+    game(30, 10, [])
+    for object_id, file in [(10, 1), (20, 2), (30, 3)]:
+        objs[object_id+2] = {'m_GameObject': _ptr(object_id), 'm_Enabled': True, 'm_InitialTime': 0,
+                             'm_PlayableAsset': _ptr(90, file)}
+    objs[12]['m_ExposedReferences'] = {'m_References': [{'first': str(k), 'second': _ptr(k)} for k in (20, 30)]}
+    control = {90: {'m_Tracks': [_ptr(20), _ptr(30)]}}
+    for key, name, time in [(20, 'Audio', 1.25), (30, 'Others', 2.5)]:
+        control[key] = {'m_Name': name, 'm_Parent': _ptr(90),
+                        'm_Clips': [{'m_Asset': _ptr(key+1), 'm_Start': time, 'm_Duration': 4,
+                                     'm_ClipIn': 0, 'm_TimeScale': 1}]}
+        control[key+1] = {'m_Name': 'ControlPlayableAsset', 'updateDirector': True, 'active': True,
+                          'sourceGameObject': {'exposedName': str(key)}}
+    master = (cab('a'), 90, control, ())
+    prefab = ('prefab', 10, objs, externals)
+    expected = {'Audio': (cab('b'), 90), 'Others': (cab('c'), 90)}
+    windows = scenes._control_windows(master, prefab, expected)
+    assert windows == {'Audio': (1.25, 5.25), 'Others': (2.5, 6.5)}
+    def local_track(asset):
+        tree = {1: {'m_Tracks': [_ptr(2)]},
+                2: {'m_Clips': [{'m_Asset': _ptr(3), 'm_Start': .1, 'm_Duration': 1}]}, 3: asset}
+        return ('unused', 1, tree, ())
+    assert scenes._scene_clips(local_track({'_textId': 'caption'}), local_track({'_audioEventKey': 'au_vo_test'}),
+                              windows) == ([('caption', 2.6, 3.6)], [('au_vo_test', 1.35, 2.35)])
+    assert scenes._scene_clips(local_track({'_textId': 'caption'}), local_track({'_audioEventKey': 'au_vo_test'}),
+                              {**windows, 'Others': (2.5, 3.1)}) is None
+    assert scenes._control_windows(master, prefab, {**expected, 'Audio': (cab('c'), 90)}) is None
+    objs[20]['m_IsActive'] = False
+    assert scenes._control_windows(master, prefab, expected) is None
+    objs[20]['m_IsActive'] = True
+    control[30]['m_Clips'][0]['m_TimeScale'] = 2
+    assert scenes._control_windows(master, prefab, expected) is None

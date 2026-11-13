@@ -123,3 +123,14 @@ def test_event_and_readable_records_keep_authored_ids_and_matched_paragraph_tran
     assert [(r['source_text'],r['voice_status']) for r in rows] == [
         ('First','unvoiced'),('Second','unvoiced'),('Spoken book','unavailable')]
     assert all('ja' not in r['texts'] for r in rows)
+def test_existing_player_record_renders_changed_release_pronoun_in_every_translation():
+    from backend.starrail_assets import _player_row
+    row = {'text_id': 'starrail:1_m', 'source_locale': 'en', 'texts': {
+        'en': 'I think {M#he}{F#she} helped.', 'zh-Hans': '{M#他}{F#她}帮了我。'}}
+    result = _player_row(row, 'male')
+    assert (result['text_id'], result['source_text'], result['chinese']) == ('starrail:1_m', 'I think he helped.', '他帮了我。')
+    row['texts']['en'] = 'I think {M#she}{F#he} helped.'
+    assert _player_row(row, 'male')['english'] == 'I think she helped.'
+    row['texts'].update(en='The one {F#s}he mentioned.', ja='彼{F#女}は？')
+    assert _player_row(row, 'male')['texts'] == {'en': 'The one he mentioned.', 'ja': '彼は？', 'zh-Hans': '他帮了我。'}
+    assert _player_row(row, 'female')['texts']['ja'] == '彼女は？'

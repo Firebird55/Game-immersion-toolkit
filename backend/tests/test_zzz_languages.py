@@ -224,15 +224,30 @@ def test_gameplay_tips_distinguish_original_sentences_reactions_and_silence():
         tip_row('Tips_Alternate', NMMACKNBLKO='Level_First_01', NPDBBLABDAK='Level_Other_01'),
         tip_row('Tips_Event', FFNNCACHDLN=['Play_unknown_event']),
         tip_row('Tips_Future', KDPLFOOHOAA='new_configuration'),
+        tip_row('Tips_Story', NMMACKNBLKO='GalGame_Example_Actor_02'),
         tip_row('UI/Sprite/icon.png'),
     ]
     links, diagnostics = assets.tip_links({'rows': configs}, {row['BHLFCEAPFIG']: 'Text' for row in configs})
     assert [(link['text_id'], link['source'], link['voice_status']) for link in links] == [
         ('Tips_Synthetic', 'VO_Tips/VO_Synthetic/Tips_Synthetic_01', 'unavailable'),
         ('Tips_Silent', '', 'unvoiced'), ('Tips_Reaction', '', 'unknown'),
-        ('Tips_Alternate', '', 'unavailable'), ('Tips_Event', '', 'unknown'), ('Tips_Future', '', 'unknown')]
+        ('Tips_Alternate', '', 'unavailable'), ('Tips_Event', '', 'unknown'), ('Tips_Future', '', 'unknown'),
+        ('Tips_Story', 'GalGame_Example_Actor_02', 'unavailable')]
     assert diagnostics['unresolved_voice_variants'] == 1
     assert all(link['dialogue_kind'] == 'gameplay_tip' and link['channels'] == ['tip', 'gameplay'] for link in links)
+
+
+def test_tip_protagonist_sources_must_name_matching_takes():
+    pairs = [('Tips_Paired', 'Level_Actor_02_M', 'Level_Actor_02_F'),
+             ('Tips_Numbered', 'Level_Actor_02', 'Level_Actor_03'),
+             ('Tips_Other', 'Level_Actor_02_F', 'Level_Actor_03_M'),
+             ('Tips_Invalid', '../Other_M', '../Other_F')]
+    rows = [tip_row(key, NMMACKNBLKO=one, NPDBBLABDAK=two) for key, one, two in pairs]
+    links, counts = assets.tip_links({'rows': rows}, {key: 'Text' for key, _, _ in pairs})
+    assert [(r['text_id'], r.get('gender'), r['source']) for r in links] == [
+        ('Tips_Paired', 'M', 'Level_Actor_02_M'), ('Tips_Paired', 'F', 'Level_Actor_02_F'),
+        ('Tips_Numbered', None, ''), ('Tips_Other', None, ''), ('Tips_Invalid', None, '')]
+    assert counts['unresolved_voice_variants'] == 3
 
 
 @pytest.mark.parametrize('reader, row', [(assets.message_links, message_row()), (assets.tip_links, tip_row())])

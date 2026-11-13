@@ -38,6 +38,8 @@ def test_discovery_rechecks_regional_markers_and_indexes_on_text_only_updates(tm
     monkeypatch.setattr(hotfix, 'download', get)
     cn = {'channel': 'starrail-cn', 'version': '4.7.0', 'build': 'unchanged', 'manifests': {}}
     old = hotfix.discover(cn)
+    primary, alternate = hotfix.audio_roots(old)
+    assert 'autopatchcn.' in primary['base'] and 'autopatchos.' in alternate['base']
     assert hotfix.index(tmp_path, old, 'design') == b'10'
     routes.update({'CN4.7.0': pointers(11), 'OS4.7.0': pointers(11)})
     new = hotfix.discover(cn)
@@ -51,6 +53,60 @@ def test_discovery_rechecks_regional_markers_and_indexes_on_text_only_updates(tm
     routes['OS4.7.0']['LuaUrl'] = 'https://other.host/resource'
     with pytest.raises(ValueError):
         hotfix.discover(cn | {'channel': 'starrail-global'})
+
+
+def test_identical_region_alternate_preserves_exact_range_and_etag(tmp_path, monkeypatch):
+    from urllib.error import URLError
+    urls = ({'asb': 'https://cn.example/'}, {'asb': 'https://global.example/'})
+    body = b'0123456789'
+    digest = hashlib.md5(body).hexdigest()
+    asset = hotfix.audio_file(urls, 'Japanese/VoBanks1.pck', True, 'voice', len(body), digest)
+    attempts = []
+    class Response(io.BytesIO):
+        status = 206
+        headers = {'ETag': '"' + digest + '"', 'Content-Range': 'bytes 1-3/10'}
+        def geturl(self):
+            return asset.alternate
+    def fetch(req, timeout):
+        attempts.append(req.full_url)
+        if req.full_url == asset.url:
+            raise URLError(TimeoutError())
+        return Response(body[1:4])
+    monkeypatch.setattr(hotfix, 'urlopen', fetch)
+    assert asset.read(tmp_path, 1, 3) == body[1:4]
+    assert attempts == [asset.url, asset.alternate]
+    Response.headers['ETag'] = '"' + 'f' * 32 + '"'
+    with pytest.raises(ValueError):
+        asset.read(tmp_path / 'separate', 1, 3)
+
+
+def test_movie_only_update_preserves_previous_caption_source_and_refreshes_stamp(tmp_path, monkeypatch):
+    routes = {'OS4.7.0': pointers()}
+    def listing(name, changed):
+        return json.dumps({'Path': name, 'Patch': changed, 'Md5': ('b' if changed else 'a')*32,
+                           'Size': 15 if changed else 10}).encode()
+    body = listing('Movie_M.usm', False)
+    def get(url, *, limit):
+        if url == hotfix.ROUTE_INDEX:
+            return json.dumps({'HotfixData': routes}).encode()
+        rev = int(url.split('output_')[1].split('_')[0])
+        value = body if '/Video/' in url else b'unchanged'
+        return marker(rev, value) if '/M_' in url else value
+    monkeypatch.setattr(hotfix, 'download', get)
+    build = {'channel': 'starrail-global', 'version': '4.7.0'}
+    old = hotfix.discover(build)
+    old_file = hotfix.movie_files(tmp_path, old)['movie_m.usm']
+    assert old_file.name == 'Movie_M.usm' and old_file.digest == 'a'*32
+    body = listing('Movie_M.usm', True)
+    new = hotfix.discover(build)
+    current_file = hotfix.movie_files(tmp_path, new)['movie_m.usm']
+    assert current_file.digest == 'b'*32 and current_file.size == 15
+    assert voices.descriptor(old)[0] != voices.descriptor(new)[0]
+    assert old['hotfix']['indexes']['audio'] == new['hotfix']['indexes']['audio']
+    assert hotfix.movie_files(tmp_path, old)['movie_m.usm'] == old_file
+    body = listing('../Movie.usm', False)
+    with pytest.raises(ValueError):
+        hotfix.movie_files(tmp_path, hotfix.discover(build))
 
 
 def test_real_audio_index_replaces_only_matching_sophon_assets_and_caches_verified_ranges(tmp_path, monkeypatch):
@@ -116,6 +172,36 @@ def test_rate_limited_catalog_uses_authors_mirror_at_the_exact_release_commit(tm
         return b'{}'
     monkeypatch.setattr(catalog, '_bytes', file_bytes)
     assert catalog.file('ExcelOutput/Example.json') == {}
+
+def test_busy_caption_tree_uses_complete_author_directory_for_same_commit(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    from backend import starrail_publisher as publisher
+    commit, relative, filename = 'a' * 40, 'Config/CutSceneCaption', 'Example_Caption.json'
+    catalog = publisher.ReleasedCatalog('starrail', tmp_path, revision=commit)
+    def busy(*args, **kwargs):
+        raise HTTPError('https://gitlab.com/', 429, 'busy', None, None)
+    monkeypatch.setattr(catalog, 'directory_json', busy)
+    monkeypatch.setattr(catalog, '_caption_tree', busy)
+    route = {'path': relative, 'refInfo': {'currentOid': commit, 'name': commit},
+             'tree': {'items': [{'name': filename, 'contentType': 'file', 'path': relative + '/' + filename}],
+                      'totalCount': 1}}
+    data = {'payload': {'codeViewTreeRoute': route, 'codeViewLayoutRoute': {
+        'repo': {'ownerLogin': 'DimbreathBot', 'name': 'TurnBasedGameData'}}}}
+    def get(name, url, limit):
+        if name == 'caption-directory/html':
+            return b'<script data-target="react-app.embeddedData">' + json.dumps(data).encode() + b'</script>'
+        assert name == relative + '/' + filename and commit in url and limit == 2 * 1024**2
+        return b'{"line": 3}'
+    monkeypatch.setattr(catalog, '_bytes', get)
+    assert catalog.caption_scripts() == [(filename, {'line': 3})]
+    route['tree']['totalCount'] = 2
+    with pytest.raises(ValueError):
+        catalog.caption_scripts()
+    route['tree']['totalCount'] = 1
+    route['refInfo']['currentOid'] = 'b' * 40
+    with pytest.raises(ValueError):
+        catalog.caption_scripts()
+
 
 def test_two_rate_limited_catalog_hosts_still_verify_current_exact_commit_title(monkeypatch):
     from urllib.error import HTTPError

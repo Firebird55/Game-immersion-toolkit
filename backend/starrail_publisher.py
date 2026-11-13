@@ -167,6 +167,46 @@ class ReleasedCatalog(DialogueCatalog):
         # Walk immediate trees at the identical commit. Recursive tree and
         # contents listings can silently omit files in large repositories.
         repo = 'DimbreathBot/TurnBasedGameData'
+        try:
+            return self._caption_tree(repo, relative)
+        except HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504):
+                raise
+        except (TimeoutError, ConnectionError, URLError):
+            pass
+        # GitHub's ordinary directory page carries an independent complete
+        # listing, including its commit, path and total number of children.
+        url = f'https://github.com/{repo}/tree/{self.revision}/{relative}'
+        html = self._bytes('caption-directory/html', url, 8 * 1024**2)
+        blocks = re.findall(rb'<script\b[^>]*data-target="react-app\.embeddedData"[^>]*>(.*?)</script>', html, re.S)
+        hotfix.check(len(blocks) == 1)
+        payload = json.loads(blocks[0])['payload']
+        route = payload['codeViewTreeRoute']
+        source = payload['codeViewLayoutRoute']['repo']
+        hotfix.check(source['ownerLogin'] + '/' + source['name'] == repo and route['path'] == relative
+                     and route['refInfo']['currentOid'] == self.revision and route['refInfo']['name'] == self.revision)
+        items = route['tree']['items']
+        hotfix.check(isinstance(items, list) and 0 < len(items) == route['tree']['totalCount'] <= 10000)
+        names = [item['name'] for item in items if item['name'].endswith('.json')]
+        hotfix.check(len(set(names)) == len(names) and names)
+        for item in items:
+            if item['name'].endswith('.json'):
+                hotfix.check(re.fullmatch(r'[A-Za-z0-9_-]+_Caption\.json', item['name'])
+                             and item['contentType'] == 'file' and item['path'] == relative + '/' + item['name'])
+        def read(name):
+            path = relative + '/' + name
+            url = f'https://raw.githubusercontent.com/{repo}/{self.revision}/{path}'
+            data = self._bytes(path, url, 2 * 1024**2)
+            return name, data
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            result, size = [], 0
+            for name, data in pool.map(read, names):
+                size += len(data)
+                hotfix.check(size <= 32 * 1024**2)
+                result.append((name, json.loads(data)))
+        return result
+
+    def _caption_tree(self, repo, relative):
         tree = self.revision
         for component in (*relative.split('/'), None):
             url = f'https://api.github.com/repos/{repo}/git/trees/{tree}'
@@ -197,11 +237,14 @@ def prepare(data_dir, region='global'):
     directory = data_dir / 'tools' / 'sophon'
     # Check all actual index bodies against this release before publishing
     # the translation and audio selection. Reuse unchanged index digests.
-    for name in hotfix.INDEXES:
+    title_indexes = ('design', 'asb', 'lua', 'audio')
+    for name in title_indexes:
         hotfix.index(directory, build, name)
-    revisions = tuple(build['hotfix']['indexes'][name][0] for name in hotfix.INDEXES)
+    movie_files = hotfix.movie_files(directory, build)
+    revisions = tuple(build['hotfix']['indexes'][name][0] for name in title_indexes)
     title = release_title(stamp, build['version'], revisions)
     catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
     catalog.revision_title = title
+    catalog.movie_files = movie_files
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog

@@ -3,22 +3,30 @@
 ## Released regional hotfixes, November 13, 2026
 
 The Windows publisher reader now resolves the current release and in-version
-ASB, DesignData, Lua and Audio directories for the selected region. The
+ASB, DesignData, Lua, Audio and Video indexes for the selected region. The
 community-maintained release directory provides versioned path names. The
-reader obtains each marker and the four actual index bodies from the official
+reader obtains each marker and all five index bodies from the official
 regional CDN and checks size, revision and MD5. The dialogue catalog must
 match the resulting exact Windows design, asset and Lua revisions. A mainland
-release can reuse the Global text extraction when all four regional index
+release can reuse the Global text extraction when all five regional index
 checksums and sizes agree. Each edition has its own snapshot identity, also
 covering updates within the same launcher version. Previously prepared audio
 uses its stored generation. Changed index bodies require verification.
+For film captions the catalog can recover from two busy directory APIs via the
+author's ordinary repository listing at the same commit. The fallback checks
+the repository, exact revision, directory, names and complete item count.
+A fresh cache obtained all 173 scripts for this release through that path.
+When a mainland audio package times out or has been removed from its CDN,
+the reader can retry the verified Global equivalent. It stores the Global
+directory only after all five regional index identities agree and requires
+the same package digest and exact byte range on the alternate host.
 [Release directory](https://github.com/PutraZC/HSR-Data/blob/main/hotfix.json) ·
 [Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8) ·
 [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1&game_ids%5B%5D=64kMb5iAWu)
 
 On November 13 both 4.7.0 launchers carried base revision 17006872. The
-in-game CDN markers independently selected Design 17180467, ASB and Audio
-17176203, and Lua 17175930. All four index bodies matched across editions.
+in-game CDN markers independently selected Design 17180467, ASB, Audio and
+Video 17176203, and Lua 17175930. All five index bodies matched across editions.
 The subtitle extraction identified those exact revisions. AudioV lists 177
 packages per dub. The regular launcher set contributes 175, and the selected
 region's publisher directly supplies two more chapter packages per dub.
@@ -34,6 +42,20 @@ previous launcher-only acquisition route.
 [Verified 4.7 release directories](https://github.com/PutraZC/HSR-Data/blob/6a31cad76bd8aa2b250a71905ee573de37edc642/hotfix.json) ·
 [Matching 4.7 dialogue catalog](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f) ·
 [Verified 4.6 release directories](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json)
+
+A real text-only change to published dialogue occurred within Global 4.4.0.
+Between the July 14 and July 16 release directories, the design revision
+changed from 15749062 to 15785787. Both official AudioV bodies have the same
+108,092 bytes and MD5 `d45b24c7160d556166367cc708292b67`. Preparing the
+published English tables at each matching catalog revision yielded 234,180
+talk rows. Both protagonist variants of sentence 154170809 changed a pronoun
+in the same existing line. Its male version now renders “he” and its female
+version “she”. The reader applies the selected player's text template to
+each translation before capture or export.
+[July 14 release directory](https://github.com/PutraZC/HSR-Data/blob/2f0b87ea827be620d631e38b4ac0c48ffbdc0ab1/hotfix.json) ·
+[July 16 release directory](https://github.com/PutraZC/HSR-Data/blob/c28ef63744d832f1b29d7b40900946f06debd4c9/hotfix.json) ·
+[Earlier English text](https://github.com/DimbreathBot/TurnBasedGameData/blob/557a5d39bf66315cdabccca84828be8cdf181824/TextMap/TextMapEN.json) ·
+[Updated English text](https://github.com/DimbreathBot/TurnBasedGameData/blob/fd978d6ef09f941fba644c731ab54abd6f7c3568/TextMap/TextMapEN.json)
 
 ## Per-line companion cutscene audio
 
@@ -61,12 +83,94 @@ locale-specific external recording, including separate protagonist takes.
 The reader checks the start and end against the Wwise sample count before
 offering a timed clip.
 
-Pre-rendered movies also retain their caption text. The publisher VideoV
-lists 242 matching USM files. An inspection of their CRI stream directories
+The release-paired VideoConfig links 153 published caption scripts to
+242 physical movies (89 with two player variants, 64 with one file).
+Preparation kept 801 subtitle intervals, each with its video ID, applicable
+actor variants, filename, byte size and digest from VideoV. Global and
+mainland 4.7 each yielded the same 801 intervals. A video-only update
+changes the snapshot identity independently of the dialogue and audio
+indexes. An inspection of the movies' CRI stream directories
 found 229 files with four language labels, one with Mandarin alone, and
 12 without language labels. Three sampled English tracks produced heavily
 distorted audio from a plain ADX demux and decoder, so they have no playback
 binding in the toolkit. The caption does not establish silence.
+
+The game's boarding film (video 310) displays four captions at
+4.516–5.950, 8.983–10.083, 19.600–20.366 and 21.450–23.300 seconds.
+A recording of Japanese gameplay shows the four English captions at
+9:18, 9:23, 9:33 and 9:35. The last two Japanese calls are audible.
+For *Silent Galaxy*, the departing mission triggers performance 101150200,
+which plays video 101, with eleven captions. Its first cue runs
+0.333–6.633 seconds. Eleven consecutive TalkSentence records describe
+that same exchange. Korean and Mandarin each contain all eleven original
+recordings. Each complete decoded waveform independently matched the
+corresponding film in recorded gameplay, including the short reaction.
+The Korean matches fall between 9:53.380 and 10:42.480 (normalized
+correlation 0.446–0.965), the Mandarin matches between 7:41.761 and
+8:30.594 (0.503–0.928). Their closest competing peaks were lower for
+every take. Both language choices for Mandarin use the same recordings.
+The English and Japanese packages contain none of these eleven named
+external recordings. Published gameplay also shows Bronya and Cocolia
+in video 1160, whose seven caption intervals start at 5.400 seconds.
+Publisher byte ranges for these three films, including both boarding
+variants, returned valid CRI container headers on both editions.
+[Boarding gameplay](https://www.youtube.com/watch?v=L6wGHwWxnk8&t=557s) ·
+[Silent Galaxy gameplay](https://www.dailymotion.com/video/x8pn5xc?start=2518) ·
+[Korean gameplay](https://www.youtube.com/watch?v=y_HNFpFop6s&t=593s) ·
+[Mandarin gameplay](https://www.youtube.com/watch?v=Y2S0YsUFJ8k&t=461s) ·
+[Cocolia gameplay](https://www.dailymotion.com/video/x8pn5xd?start=2703) ·
+[Mission video action](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/1011502/Act/Act101150200.json) ·
+[Released video configuration](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VideoConfig.json)
+
+Another 144 video records declare 138 distinct caption paths absent from
+the same revision's published caption directory. Six individually checked
+paths across chapters 3, 4 and 5 returned HTTP 404. Two published scripts,
+CS_Chap02_Act610 and CS_Chap04_Act781_2, contain 10 and 59 cues respectively
+and still lack a matching VideoConfig movie or directly bound timeline WEM.
+The ten Act610 text IDs were absent from the English, Japanese, Korean,
+both Chinese, French and German text tables.
+
+After a normal update the reader resolves the reviewed caption IDs and
+current sentence recordings again. It checks the publisher movie's MD5 and
+the individual original recording's SHA-256 before offering the complete
+take. Moving an unchanged recording into a new package preserves playback.
+Changing the specific movie or re-recording the line requires a fresh
+comparison. A text update retaining its caption ID uses the current translation.
+
+Video 102, *Only A Child*, cuts Serval's farewell into five short captions.
+Each fragment independently matched its original individual WEM in all four
+dubs, including the one-word middle cues. The first matching recording
+starts at 1:34.200 in English, 33:56.466 in Japanese, 47:52.716 in Korean
+and 37:08.477 in Mandarin. The toolkit retrieves the five complete takes
+in each dub from the selected region's release.
+[English gameplay](https://www.youtube.com/watch?v=D2ghbhM2CPY&t=94s) ·
+[Japanese gameplay](https://www.youtube.com/watch?v=Z6acDJFztXg&t=2036s) ·
+[Korean gameplay](https://www.youtube.com/watch?v=jbkWEfXZjFM&t=2872s) ·
+[Mandarin gameplay](https://www.youtube.com/watch?v=-jUrr3nAm-0&t=2228s)
+
+In *The Devil in Velvet* (video 3190), Acheron's final two captioned lines
+use the same recorded performances as the two sentences in a later
+recollection. Eight complete individual WEMs matched four independent
+recordings of the original encounter. The first match starts at 5.213
+seconds in English, 4.770 in Japanese, 9.963 in Korean and 11:44.799
+in Mandarin. SAM's preceding two lines remain unavailable in this film.
+[English gameplay](https://www.youtube.com/watch?v=1khoGeARkzw&t=5s) ·
+[Japanese gameplay](https://www.youtube.com/watch?v=K0REbaGg1iw&t=4s) ·
+[Korean gameplay](https://www.youtube.com/watch?v=EbD7xTtl-8M&t=9s) ·
+[Mandarin gameplay](https://www.youtube.com/watch?v=bbKnx4IneG4&t=704s)
+
+Video 3550, Rappa's recollection in *The Men Who Tread on the Monkey's
+Tail*, has 21 captions. Fifteen physically present English TalkSentence
+recordings from the adjoining sequence (103448009–103448023) were compared
+with the complete in-game scene. The first subtitle is audible at 8:34
+in the replay. The next caption has similar wording to 103448009, yet its
+strongest normalized correlation within the scene is only 0.151 and
+occurs at 10:14, well outside the subtitle. Other differences include a
+longer response from the Galaxy Ranger in the film. None of the fifteen
+recordings produced a match at its corresponding caption. The movie
+therefore retains its own text and timestamps without a per-line audio link.
+[Rappa gameplay](https://www.youtube.com/watch?v=sr6T9MldK9I&t=514s) ·
+[Released subtitle sequence](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/CutSceneCaption/CS_Chap03_Act3070_Caption.json)
 
 On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
 retrieved and decoded. Their durations covered the 124 authored caption
@@ -89,13 +193,60 @@ a bank prefetch use their authored media IDs. Duplicate or missing sources
 remain unavailable. A random/sequence container can contribute a recording
 when both its child table and its playlist name the same sole sound.
 
-Global English preparation resolved 3,502 distinct archival events and 3,510
-rows. The full preparation/export path produced 98,610 playable English
-rows across presentations, compared with 95,100 before event support. Three
-sampled direct media bindings decoded in each of the four dubs. The 172
-switch containers depend on a state chosen by the game. Four other events
-have multiple or nested playlist children. Subtitle text alone cannot
-identify which take played.
+The 3,502 single-source events add 3,510 archive rows. The 172 switch
+events reference 344 additional media banks across their states. The reader
+joins each switch's group, state, selected child, parent and media bank to the
+regional launcher's state dependency table. All 29 protagonist switches have
+explicit male and female states. For example, the source text for Aventurine
+contains both forms of address. The English export independently played
+“Mr. Stellaron” and “Miss Stellaron” according to the selected protagonist.
+
+The other 143 switches control collaboration character voices. HoYoverse
+documents the per-character option for original Japanese voice. The reader
+chooses Japanese for Japanese study and the locale's default state for other
+dubs. It requires a credit for the selected language in the current
+`AvatarAtlas` before exporting a collaboration performance. The four characters
+have Mandarin, Japanese and Korean credits in 4.7. All 142 English default
+recordings with a single source decoded to digital silence. The 143rd event
+has two English sources, which both also decoded to silence. In Japanese,
+Korean and Mandarin, 142 switches produced one recording each.
+[Character voice options](https://hsr.hoyoverse.com/en-us/news/158598) ·
+[Released character credits](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AvatarAtlas.json)
+
+The complete Global Japanese preparation produced 305,316 text rows and
+100,146 playable rows across presentations. Normal export decoded male and
+female Aventurine and Saber's idle recording to MP3. Regional English
+checks also decoded both protagonist recordings and three direct events
+from the mainland CDN.
+
+All five multi-part events have continuous, forward, resetting Wwise
+sequence playlists and two separate speaker captions. Three are Huohuo
+and Tail, one is Starblazer and Himeko, and one is Rin and Ishtar inside
+the collaboration switch. The reader checks playlist order, the parent of
+each sound, the exact source in the selected dub and the number of speaker
+lines before splitting the text. In Huohuo's precious-chest interaction the
+playlist puts the second child first. Export followed that order, playing
+Huohuo's remark and then Tail's response. The review fetched all 40
+individual media sources for these five events across four dub packages,
+including the two silent English Rin/Ishtar sources.
+
+With these sequences, the current Global bank structures account for all
+3,678 distinct VoiceAtlas event names. The 3,686 base archive rows produce
+3,720 playable performance rows in each of Japanese, Korean and Mandarin
+(either Chinese script). English produces 3,576 playable performance rows
+and 143 collaboration entries without an English dub. The complete English
+worker built 305,330 rows across presentations, including 98,676 playable
+rows. The separate film, mission-branch and capture gaps in this audit
+still apply.
+
+Independent mainland-region playback of the saved publisher generation also
+decoded both of Huohuo's speaker parts, both of Rin's, both Aventurine
+variants, Saber and a direct Jing Yuan voice in Japanese, Korean and Mandarin
+(both Chinese text choices). Regional English playback used the separately
+verified English sources.
+The full mainland archive inventory produced the same counts in every study
+choice as the Global inventory. Twenty-nine representative original mainland
+snapshot bindings were decoded across the five choices during that run.
 
 The reader groups selected bank ranges by package and validates the published
 package digest, size, returned range, Wwise language and embedded/streamed
@@ -110,16 +261,26 @@ loader requires the lookup's bank pair to agree with the actual Play action.
 The 4.7.0 Windows reader resolves 922 localized dialogue entries from the
 Hipplen, Clockie, Idle Live and Chimera event tables and 2,224 authored
 Simulated Universe choice titles. Each entry resolved in all five study
-choices. A Chimera sound event without a matching original clip retains its
-displayed text and unavailable audio status.
+choices. Of 264 distinct Chimera event names, 249 use language-neutral
+sound banks, 12 reference localized banks and three are absent from this
+release's bank lookup. Six localized events have a single authored sound.
+All six English recordings are short character reactions, including laughter
+and exclamations displayed alongside longer translated sentences. All six
+were also retrieved and decoded from the other three dub packages. The
+reader retains the display text without exporting these reactions as spoken
+sentences. Other Chimera presentations need playback verification.
 
 The 1,144 LocalbookConfig entries produce 22,162 English, 22,151 Japanese,
 22,149 Korean and 22,152 paragraphs in each Chinese script. The 12 books
 listed in AudioBookData contribute 48 English paragraphs with an authored
 sound event. Only translations with the same paragraph boundaries accompany
 a study paragraph. English aligned with 21,356 Japanese, 21,468 Korean and
-21,695 Chinese paragraphs in each script. OCR replay and the recordings for
-these specific audio collectibles still need verification.
+21,695 Chinese paragraphs in each script. All 12 collectible events resolve
+to individual embedded sources in language-neutral SFX banks. All 12 played
+as regular decoded audio and none produced a speech segment in the sampled
+release's voice-activity/transcription check. The event points to the whole
+collectible. It supplies no per-paragraph narration binding. Capture replay
+for these panels remains open.
 [Book contents](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/LocalbookConfig.json) ·
 [Audio collectibles](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AudioBookData.json)
 
@@ -224,7 +385,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
 | Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
-| Pre-rendered movies | Installed USM containers and `CutSceneConfig` establish separate cinematic assets. | `CutSceneConfig` has 41 rows and caption-path fields, but this audit does not establish exhaustive movie-caption coverage or extraction. |
+| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. Five Serval and two Acheron fragments play in all four dubs and eleven Silent Galaxy lines also play in Korean and Mandarin. | Playback for the other movie captions and the 138 other declared caption paths remains open. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
 | Character profile/voice archive | 5,445 `VoiceAtlas` rows; `AudioID`, not the menu's `VoiceID`, is the voice-config key. Exact `AudioID` records are indexed with original audio where installed. | 3,614 rows use Wwise `AudioEvent` instead; their text is indexed but event-to-media binding is unavailable. |
 | Combat, idle and character reaction lines | `VoiceAtlas.IsBattleVoice` identifies 2,506 battle entries; their localized text is retained. | Not all combat audio displays subtitles. Event-driven playback is unresolved; no inference from filename or voice title. |

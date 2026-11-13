@@ -1,5 +1,6 @@
 """Synthetic Genshin schema, modality and local binding regressions."""
 import io
+import json
 import struct
 import tarfile
 
@@ -38,6 +39,96 @@ def test_movie_translations_require_exclusive_overlapping_cues_in_both_tracks():
     target = {1: (200, 1000, 'Un'), 2: (1250, 2950, 'Deux'), 3: (3000, 3400, 'Trois')}
     assert _aligned(source, target) == {1: 'Un'}
     assert _aligned(source, {1: (200, 1000, 'Un')}) == {}
+
+
+def test_opening_movie_requires_all_authored_sentences_in_order_and_each_own_nonconflicting_recording():
+    from backend.genshin_cinematics import OPENING_MOVIE, OPENING_SOURCES, opening_performances
+    def fixture():
+        captions = ('From another', 'world.', 'Tell me.', 'What happened?', 'Outlanders.', "Who's there?", 'At last.')
+        movies = [{'text_id': f'genshin:movie:{OPENING_MOVIE}:{i}:{i*100}-{i*100+90}', 'source_text': text,
+                   'voice_status': 'unknown'} for i, text in enumerate(captions, 1)]
+        sentences = ['From another world.', *captions[2:]]
+        dialogue = [{'text_id': 'genshin:' + str(3500400 + i), 'source_text': text, 'texts': {'en': text},
+                     'english': text, 'chinese': '', 'audio': {'locale': 'en', 'source': 'English(US)/VO_AQ/VO_CS/' + name}}
+                    for i, (name, text) in enumerate(zip(OPENING_SOURCES, sentences), 1)]
+        return movies, dialogue
+    movies, dialogue = fixture()
+    dialogue[3]['audio'] = None
+    dialogue[5]['audio']['source'] = 'English(US)/VO_AQ/VO_CS/a_different_recording.wem'
+    extra, = opening_performances(movies, dialogue, 'en')
+    assert extra['source_text'] == 'From another world.' and extra['audio'] == dialogue[0]['audio']
+    assert extra['member_text_ids'] == [row['text_id'] for row in movies[:2]]
+    assert extra['text_id'].endswith(':100-290')
+    assert [i for i, cue in enumerate(movies) if cue['voice_status'] == 'voiced'] == [2, 3, 5]
+    for change in ('text', 'order', 'extra', 'locale'):
+        movies, dialogue = fixture()
+        if change == 'text':
+            movies[-1]['source_text'] = 'This release changed the final line.'
+        elif change == 'order':
+            movies[1], movies[2] = movies[2], movies[1]
+        elif change == 'extra':
+            movies.append(dict(movies[-1]))
+        assert opening_performances(movies, dialogue, 'ja' if change == 'locale' else 'en') == []
+        assert all(r['voice_status'] == 'unknown' for r in movies)
+
+
+def test_confirmed_genshin_predecessor_selects_a_short_recording_without_guessing_audio(tmp_path):
+    from backend.endfield_caption_context import EndfieldCaptionContext
+    from backend.multilingual_index import MultilingualTextIndex
+    edges = {1: [2], 2: [], 3: [4], 4: [], 5: [6, 7], 6: [], 7: [], 8: [9], 9: [], 10: [9], 11: [12], 12: []}
+    talk = {'dialogList': [{'id': i, 'talkContentTextMapHash': i + 10, 'nextDialogs': successors}
+                           for i, successors in edges.items()]}
+    annotations = {}
+    game.dialogue_hashes([talk], [{'id': 11, 'talkContentTextMapHash': 21, 'nextDialogs': [7]}], annotations=annotations)
+    assert {i: a['previous_dialogue'] for i, a in annotations.items() if 'previous_dialogue' in a} == {'2': '1', '4': '3'}
+    texts = ['Take this path and follow me.', 'Yes!', 'Head back to the entrance.', 'Yes!']
+    rows = [{'text_id': 'genshin:' + str(i), 'source_locale': 'en', 'audio_locale': 'en', 'source_text': text,
+             'texts': {'en': text}, 'english': text, 'audio': {'file_id': i}, 'channels': ['dialogue'],
+             'dialogue_kind': 'conversation', 'voice_status': 'voiced'} for i, text in enumerate(texts, 1)]
+    game._bind_predecessors(rows, annotations)
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'genshin', 'source_locale': 'en', 'records': rows}))
+    index = MultilingualTextIndex('genshin', tmp_path)
+    context = EndfieldCaptionContext()
+    def scan(text, now):
+        hit = index.match_lines([text], exact_only=True)
+        return context.observe(index, [text], [hit], channel='dialogue', kind='conversation', scope=1, now=now, stable_frames=2)
+    assert scan('Yes!', 0) is None
+    scan(texts[0], 1)
+    scan(texts[0], 1.1)
+    assert scan('Yes!', 1.2).text_id == 'genshin:2'
+    assert scan('Yes!', 8) is None
+    scan(texts[2], 9)
+    scan(texts[2], 9.1)
+    assert scan('Yes!', 9.2).text_id == 'genshin:4'
+    unavailable = {**rows[1], 'audio': None, 'voice_status': 'unavailable'}
+    unavailable.pop('previous_text_id')
+    game._bind_predecessors([rows[0], unavailable], annotations)
+    assert 'previous_text_id' not in unavailable and unavailable['audio'] is None
+
+
+def test_previous_traveler_performance_selects_shared_and_gendered_replies(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    def line(identity, text, gender=None, audio=True):
+        return {'text_id': f'genshin:{identity}', 'source_locale': 'en', 'audio_locale': 'en',
+                'texts': {'en': text}, 'source_text': text, 'channels': ['dialogue'], 'player_voice': gender,
+                'audio': {'source': identity} if audio else None, 'dialogue_kind': 'conversation'}
+    rows = [line('10:female', 'Are you ready to leave?', 'female'), line('10:male', 'Are you ready to leave?', 'male'),
+            line('11', 'Yes!'), line('12:female', 'Go!', 'female'), line('12:male', 'Go!', 'male'),
+            line('13:female', 'No voice here', 'female', False), line('13:male', 'Over here', 'male'),
+            line('14', 'Yes!')]
+    game._bind_predecessors(rows, {k: {'previous_dialogue': p} for k, p in [('11', '10'), ('12', '10'), ('14', '13')]})
+    assert [r['previous_text_id'] for r in rows[2:5]] == ['genshin:10', 'genshin:10:female', 'genshin:10:male']
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'genshin', 'source_locale': 'en', 'records': rows}))
+    index = MultilingualTextIndex('genshin', tmp_path)
+    for gender, other in [('female', 'male'), ('male', 'female')]:
+        index.player_voice = gender
+        anchor = index.match_lines(['Are you ready to leave?'], exact_only=True).text_id
+        assert anchor == 'genshin:10:' + gender
+        assert index.match_lines(['Yes!'], exact_only=True, previous_text_id=anchor).text_id == 'genshin:11'
+        assert index.match_lines(['Go!'], exact_only=True, previous_text_id=anchor).text_id == 'genshin:12:' + gender
+        assert index.match_lines(['Yes!'], exact_only=True, previous_text_id='genshin:10:' + other) is None
+    index.player_voice = 'female'
+    assert index.match_lines(['Yes!'], exact_only=True, previous_text_id='genshin:13:female') is None
 
 
 def test_global_dialogues_fill_gaps_without_resurrecting_runtime_conflicts():
@@ -99,6 +190,97 @@ def test_explicit_player_voice_pair_is_retained_and_unsafe_source_is_unavailable
     assert {link['id'] for link in links} == {'1:male', '1:female'}
     completed = game._complete_links(links, {'Dialog': {'1': '10', '2': '20'}}, authored, [])
     assert len(completed) == 3 and completed[-1]['voice_status'] == 'unavailable'
+
+
+def test_authoring_gender_selects_distinct_unnamed_takes_and_renders_the_correct_subtitle():
+    def choice(identity, *sources):
+        return {'gameTrigger': 'Dialog', 'gameTriggerArgs': identity,
+                'sourceNames': [{'sourceFileName': path, 'gender': gender} for path, gender in sources]}
+    voices = [{'a': choice(1, ('VO/session_18.wem', 1), ('VO/session_33.wem', 2)),
+               'b': choice(2, ('VO/solo_line.wem', 1)), 'c': choice(3, ('VO/unknown.wem', True)),
+               'd': choice(4, ('VO/same.wem', 1), ('VO/same.wem', 2))}]
+    hashes = {str(i): str(i+10) for i in range(1,5)}
+    links = game.dialogue_links(voices, hashes, 'en')
+    assert {r['id']:r['player_voice'] for r in links} == {'1:female':'female','1:male':'male','2:female':'female'}
+    tables = {'en': {'11':'#My {M#sister}{F#brother}!', '12':'One speaker.'}, 'ja': {'11':'兄妹'}}
+    rows = game._render_player_text(game.common.records('genshin', links, tables, 'en', {}), 'en')
+    assert [(r['text_id'],r['source_text']) for r in rows] == [('genshin:1:female','My brother!'),
+        ('genshin:1:male','My sister!'), ('genshin:2:female','One speaker.')]
+    older_schema = {'old': {'GLDBLKKLJHP': [{'CFIKOCLOKGH': 'take.wem', 'KHNPBDOBIAL': 1}],
+                            'NLGBEEIGDJP':'Dialog', 'BMPENHIILJG':2}}
+    assert game.dialogue_links([older_schema],hashes,'ja')[0]['id'] == '2:female'
+
+
+def test_existing_historical_archive_is_reindexed_for_new_player_binding_fields(tmp_path, monkeypatch):
+    import sqlite3
+    from backend import genshin_history as history
+    version = next(iter(history.ARCHIVES))
+    revision = history.ARCHIVES[version]['metadata']
+    path = history._database_path(tmp_path, 'global', 'en')
+    path.parent.mkdir(parents=True)
+    with sqlite3.connect(path) as db:
+        db.execute('CREATE TABLE archives (revision TEXT PRIMARY KEY) WITHOUT ROWID')
+        db.execute('INSERT INTO archives VALUES (?)', (revision,))
+    calls = []
+    def seed(*args):
+        calls.append(version)
+        history.retained_performances(tmp_path, 'previous', 'global', 'en', [], [], set(), archive=revision)
+    monkeypatch.setattr(history, '_seed_archive', seed)
+    assert history.prepare_archive(tmp_path, 'global', 'en', version)
+    assert history.prepare_archive(tmp_path, 'global', 'en', version)
+    assert calls == [version]
+
+
+def test_traveler_and_sibling_pronouns_use_original_localized_words_and_exclude_unknown_tokens():
+    class Catalog:
+        def file(self, path, *, optional):
+            assert path == 'ExcelBinOutput/ManualTextMapConfigData.json'
+            return [{'textMapId': name, 'textMapContentTextMapHash': key} for name, key in
+                    [('INFO_MALE_PRONOUN_HE', 1), ('INFO_FEMALE_PRONOUN_SHE', 2),
+                     ('INFO_MALE_PRONOUN_HE', 1), ('INFO_MALE_PRONOUN_AMBIGUOUS', 3), ('INFO_MALE_PRONOUN_AMBIGUOUS', 4)]]
+    localized = game._pronoun_texts(Catalog(), {'zh-Hans': {'1':'他', '2':'她', '3':'甲', '4':'乙'}}, [])
+    words = localized['zh-Hans']
+    assert words == {'INFO_MALE_PRONOUN_HE':'他', 'INFO_FEMALE_PRONOUN_SHE':'她'}
+    own = '{PLAYERAVATAR#SEXPRO[INFO_MALE_PRONOUN_HE|INFO_FEMALE_PRONOUN_SHE]}'
+    mate = own.replace('PLAYERAVATAR','MATEAVATAR')
+    assert game._official_variants('#'+own+'和'+mate+'。', words) == {'M':'他和她。','F':'她和他。'}
+    assert game._official_variants('#'+own+'的{M#妹妹}{F#哥哥}。', words) == {'M':'他的妹妹。','F':'她的哥哥。'}
+    assert game._official_variants('#'+own, {'INFO_MALE_PRONOUN_HE':'他'}) == {'M':'他'}
+    assert game._official_variants('#'+own.replace('PLAYERAVATAR','UNREVIEWED'), words) == {}
+
+
+def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():
+    def row(text, identity, **changes):
+        audio = {'file_id': identity, 'locale': 'en', 'package': 'base.pck', 'publisher': 'new', **changes}
+        return {'audio': audio, 'source_text': text, 'text_id': 'genshin:fixture', 'voice_status': 'voiced'}
+    rows = [row('Stop here.', 'one'), row('Give my sister back!', 'one'), row('Stop here.', 'one'),
+            row('Give my sister back!', 'one', original_publisher='older'), row('Stop here.', 'two'),
+            row('STOP HERE!', 'two'), row('An independent performance.', 'one', package='other.pck'),
+            row('A different recording.', 'one', locale='ja')]
+    warnings = []
+    game._exclude_conflicting_performances(rows, warnings)
+    assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in rows[:3])
+    assert all(r['audio'] and r['voice_status'] == 'voiced' for r in rows[3:])
+    assert len(warnings) == 1 and '1 Genshin recording' in warnings[0]
+
+
+def test_reviewed_opening_audio_accepts_only_exact_locale_sentence_and_original_bytes(monkeypatch):
+    import hashlib
+    from backend import genshin_cinematics as movie
+    content = b'independently reviewed original recording'
+    monkeypatch.setattr(movie, 'VERIFIED_OPENING_AUDIO', {'en': ('This verified line.', hashlib.sha256(content).hexdigest())})
+    def rows():
+        common = {'audio': {'source': 'English(US)\\VO_AQ\\VO_CS\\vo_OP_CS_kiana_01.wem', 'file_id': 'a',
+                           'locale': 'en', 'package': 'p'}, 'source_locale': 'en', 'voice_status': 'voiced'}
+        return [{**common, 'text_id': 'genshin:3500404', 'source_text': 'This verified line.'},
+                {**common, 'text_id': 'genshin:3500424', 'source_text': 'A different line.'}]
+    for payload, modified in [(content, False), (b'a replacement', False), (content, True)]:
+        records = rows()
+        if modified:
+            records[0]['source_text'] = 'A rewritten verified line.'
+        game._exclude_conflicting_performances(records, [], read_audio=lambda audio: payload)
+        assert bool(records[0]['audio']) == (payload == content and not modified)
+        assert records[1]['audio'] is None
 
 
 def test_new_voice_schema_fails_with_actionable_public_error():
@@ -168,11 +350,14 @@ def test_metadata_version_mismatch_rejects_before_indexing_and_missing_version_w
 
 def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_unknown(tmp_path, monkeypatch):
     source = 'English(US)\\VO\\sample.wem'
+    profile_source = 'English(US)\\VO\\profile.wem'
     payload = b'RIFF\x04\0\0\0WAVE'
     package = tmp_path / 'GenshinImpact_Data/StreamingAssets/AudioAssets/English(US)/External.pck'
     package.parent.mkdir(parents=True)
     package.write_bytes(b'AKPK' + struct.pack('<6I', 60, 1, 4, 4, 4, 28) + bytes(12) +
                         struct.pack('<IQ4I', 1, voice_hash(source), 1, len(payload), 68, 0) + payload)
+    package.with_name('External1.pck').write_bytes(package.read_bytes().replace(
+        struct.pack('<Q', voice_hash(source)), struct.pack('<Q', voice_hash(profile_source))))
     (tmp_path / 'config.ini').write_text('[General]\ngame_version=7.1.0\n')
 
     class Catalog:
@@ -192,13 +377,13 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
                     'voiceFile': '17', 'voiceFileTextTextMapHash': 20}],
                 'ExcelBinOutput/AvatarExcelConfigData.json': [{'id': 20, 'iconName': 'UI_AvatarIcon_Fixture'}],
                 'ExcelBinOutput/GCGTalkDetailExcelConfigData.json': [],
-                'ExcelBinOutput/GCGTutorialTextExcelConfigData.json': []}[path]
+                'ExcelBinOutput/GCGTutorialTextExcelConfigData.json': []}.get(path, {})
 
         def directory_json(self, path, *, with_names=False):
             if path.endswith('Avatar'):
                 assert with_names
                 return [('ConfigAvatar_Fixture.json', {'audio': {'voiceSwitch': {'text': 'Switch_Original'}}})]
-            fetter = voice(17, 'VO\\sample.wem', 'Fetter')
+            fetter = voice(17, 'VO\\profile.wem', 'Fetter')
             fetter['sourceNames'][0]['avatarName'] = 'Switch_original'
             fetter['sourceNames'].append({'sourceFileName': 'VO\\wrong_actor.wem', 'avatarName': 'Switch_other'})
             return ([{'dialogList': [{'id': 1, 'talkContentTextMapHash': 10}]}] if path.endswith('Talk') else
@@ -214,7 +399,7 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
     assert rows['genshin:reminder-3']['voice_status'] == 'unavailable'
     assert 'tip' in rows['genshin:reminder-3']['channels']
     profile = rows['genshin:fetter-20-41']
-    assert (profile['source_text'], profile['voice_status'], profile['audio']['source']) == ('Global optional line.', 'voiced', source)
+    assert (profile['source_text'], profile['voice_status'], profile['audio']['source']) == ('Global optional line.', 'voiced', profile_source)
     assert profile['dialogue_kind'] == 'combat_voice' and 'gameplay' in profile['channels']
     assert snapshot['coverage_warnings']
     assert all(str(tmp_path) not in warning for warning in snapshot['coverage_warnings'])

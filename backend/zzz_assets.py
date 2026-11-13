@@ -18,7 +18,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 10
+LANGUAGE_INDEX_VERSION = 11
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -43,7 +43,7 @@ MESSAGE_CHOICES = ('FNOKFPDDECI', 'NAPGHEGEOOC', 'GGHOAADLHCF', 'EEJNOOGPFND')
 TEXT_ID = re.compile(r'[A-Za-z0-9_][A-Za-z0-9_-]*')
 MESSAGE_SOURCE = re.compile(r'VO_Message/[A-Za-z0-9_-]+/Message_[A-Za-z0-9_-]+', re.I)
 TIP_SOURCE = re.compile(r'(?:VO_(?:Tips|Chessboard|Level|Monthlycard)/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+|'
-                        r'(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)', re.I)
+                        r'(?:Accompany|GalGame|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)', re.I)
 
 
 def ongoing_links(config):
@@ -115,12 +115,17 @@ def tip_links(config, textmap):
         if not TEXT_ID.fullmatch(identity) or identity not in textmap:
             continue
         primary, alternate, reaction = (row[key] for key in ('NMMACKNBLKO', 'NPDBBLABDAK', 'FNHBBPCONOL'))
+        link = {'text_id': identity, 'dialogue_kind': 'gameplay_tip', 'channels': ['tip', 'gameplay']}
+        if (primary != alternate and TIP_SOURCE.fullmatch(primary) and
+                primary[:-1] == alternate[:-1] and {primary[-2:], alternate[-2:]} == {'_F', '_M'}):
+            links.extend({**link, 'source': value, 'gender': value[-1], 'voice_status': 'unavailable'}
+                         for value in (primary, alternate))
+            continue
         source = primary if (not alternate or alternate == primary) and TIP_SOURCE.fullmatch(primary) else ''
         unresolved += bool((primary or alternate) and not source)
         # A reaction pool or a sound event never substitutes for sentence audio.
         status = 'unavailable' if primary or alternate else 'unknown' if reaction or row['FFNNCACHDLN'] or row['KDPLFOOHOAA'] else 'unvoiced'
-        links.append({'text_id': identity, 'source': source, 'dialogue_kind': 'gameplay_tip',
-                      'voice_status': status, 'channels': ['tip', 'gameplay']})
+        links.append({**link, 'source': source, 'voice_status': status})
     return links, {'rows': len(rows), 'text_references': len(links), 'unresolved_voice_variants': unresolved}
 
 

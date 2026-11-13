@@ -27,6 +27,23 @@ in Korean and 6.267 s in Mandarin. This comparison covers launcher bases.
 In-version Global hotfix discovery and region-specific replacements remain open.
 [Matching text extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
 
+When the primary catalog rate-limits requests, Setup can use the maintained
+GitHub copy. It compares the release title to the publisher revisions and
+fetches the exact immutable commit. Larger authoring directories use Git if
+available. The existing regional comparison still applies before using
+mainland translation data for a Global release. Both hosts supply text
+and binding metadata. Original recordings come from the selected publisher.
+
+On November 13, the primary commit endpoint returned HTTP 429. With an empty
+active metadata cache and primary requests deliberately limited throughout a
+Windows worker test, 25 requests fell back to the mirror. The worker downloaded
+the actual English and Chinese data, verified the live Global launcher's
+release and indexed 471,176 entries in 116 seconds. Previously cached publisher
+packages and historical indexes were reused. Normal playback exported the
+original English line `80030105` to an 8.304-second MP3.
+[Maintainer's live metadata mirror](https://github.com/DimbreathBot/AnimeGameData/tree/main)
+· [Matching immutable release](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
+
 ## Character triggers in gameplay, November 13, 2026
 
 The reader follows each authored AnimatorEvent, WeatherMonologue, JoinTeam,
@@ -126,14 +143,14 @@ installed locale package.
 | Quest and ordinary conversations | 23,208 Quest Talk files; 203,908 global DialogExcel rows; several coexisting Talk schemas | Parses supported authored ID/hash pairs. Runtime Talk records take priority; the global table fills absent IDs. Conflicting identities are excluded. |
 | Optional NPC, gadget, furniture and hangout interactions | 16,927 Npc, 1,473 NpcOther, 1,485 Gadget, 1,287 Coop and associated group configurations | Supported Talk content is included regardless of whether it has audio. Group/routing configuration alone is not dialogue. Missing voice metadata stays unknown. |
 | Events | 2,107 Activity Talk files, 105 ActivityGroup files, many dedicated event Excel tables | Supported event Talk content is indexed. Event-specific UI formats and expired/removed assets do not acquire coverage merely because ordinary event Talk works. |
-| Ambient dialogue and reminders | 18,541 ReminderExcel rows; 1,798 BubbleTalkData rows; global dialogue fallback | Supported reminders use their own Medium-first text hash space and dialogue/tip/gameplay channels. `hasAudio: true` with missing audio is unavailable; omitted flags remain unknown. The separate BubbleTalk schema is inventoried but not mapped. |
+| Ambient dialogue and reminders | 18,541 ReminderExcel rows and 1,798 BubbleTalkData rows on 7.1 | Reminders use their own Medium-first hash space. An authored audio flag with missing audio is unavailable. Bubble texts and information boards use their original localized content hash. General ambient speech bubbles have unknown voice status. |
 | Character/profile and combat voices | 9,183 FettersExcel rows on 7.1; voice triggers include Fetter, AnimatorEvent, WeatherMonologue, JoinTeam, Costume and Gacha | The November 9 profile audit above covers the Fetter trigger and actor join on two releases. Other trigger families and combat sounds without authored subtitles remain open. |
 | Card-game dialogue and tutorials | 1,256 GCGTalkDetail rows with parallel content/voice arrays | Nonzero voice IDs are paired with the original array position, including gaps. Conflicting IDs are excluded. Zero-voice slots and emoji-only messages remain outside this import. |
 | Choices and black-screen narration | 23,483 global forced-choice rows; explicit black-screen role types | Retained and tagged by authored modality. A player role, blank audio filename or missing voice does not establish silence. Exact voice bindings still take precedence. |
 | Storyboards, comics and cinematic dialogue | 242 Storyboard Talk files, 159 StoryboardGroup files and 37 Cutscene Talk files | Supported Talk rows are retained; explicit storyboard/narration types receive cinematic channel coverage. No claim of complete comic layout or sequence recognition. |
 | Prerendered cinematics | Version-matched SRT subtitles and regional Windows USM inventory | Exact movie names yield timed subtitles and predecessor context. Locale recordings and isolated spoken performances remain unresolved. |
 | Books, notes and readables | 1,919 English Readable text files; localized file identities | Version-matched book assets are indexed by paragraph as text-only content. Translations require the same file identity and paragraph count. Other readable assets and exact overlaps with known authored voice text remain unknown. This is not blanket support for voiced Travel Log archives. |
-| Mail, messages and glasses chat | 323 MailExcel rows, three BirthdayMail routing rows, 421 obfuscated TpsGlassesChatMessage rows | Inventoried but not imported. Account mail and social chat are not accessed. The new glasses-chat fields need a verified text/voice schema before enabling that presentation. |
+| Mail, messages and glasses chat | Mailbox templates, system notifications, Eye of Graeae messages, replies, topics and attachments | Setup imports authored text, translations and identified senders from the matching public version. Mailbox templates and system UI support unvoiced capture. Chat performances have unknown voice status. |
 
 The reference contains 55,891 Talk files and 9,677 Voice files in total; many
 are routing, lookup or emotion records. Counts overlap the presentation rows and
@@ -190,6 +207,110 @@ file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
 
+## Ambient bubbles and scene boards
+
+The 7.2 Global worker added 1,297 English entries with Simplified Chinese
+translations, bringing the prepared total to 471,176, including 180,974 original
+voices. Of 50 explicitly authored scene text boards, 49 qualify for unvoiced
+capture. One also occurs as authored voice text, so capture keeps it ambiguous.
+The 1,247 other bubbles lack a sentence-specific voice link. The 7.1 named
+sound-effect field and the corresponding 7.2 field assign precisely the same
+cardboard pop-up effect to 83 different bubbles, of which 69 have English text.
+The reader keeps their text and excludes the shared effect from voice playback.
+The same public schema test yielded 1,289 English entries on 7.1, 741 on 5.5
+and 612 on 4.8. Known developer placeholder identities are excluded.
+[7.2 bubble authoring table](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/BubbleTalkDataExcelConfigData.json)
+· [7.1 sound-effect field](https://gitlab.com/Dimbreath/animegamedata2/-/blob/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/ExcelBinOutput/BubbleTalkDataExcelConfigData.json)
+
+## Written mail and Eye of Graeae messages
+
+On 7.2 the Global Windows preparation worker returned 469,879 English records.
+Of the 1,044 authored mailbox and message records, 332 were mail bodies, 332
+were mail subjects and nine were system notifications. The Eye of Graeae
+interface provided 281 full messages, 51 choices, six attachment captions,
+four location objectives and 29 thread titles. All 1,044 had Simplified
+Chinese translations. The five supported study selections each exposed
+these entries, with one additional mail subject and body in Simplified Chinese.
+The same reader found 984 English records on 7.1.
+
+The mailbox uses the Medium text namespace. System notifications and Eye of
+Graeae use the ordinary namespace. The reader distinguishes the full message,
+preview, attachment, option and identified sender fields. It recognizes
+renamed fields by their uniquely preserved values across independent records.
+In the 7.2 public client data, the chat body and option hashes have no exact
+DialogExcel text-hash link. Sample sentences shared with other presentations
+therefore retain unknown audio status. The Windows capture index recognized
+mail 3, including its Chinese translation, with unvoiced capture enabled.
+[7.2 mailbox](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/MailExcelConfigData.json)
+· [7.2 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
+· [7.1 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
+
+## Conflicting source recordings
+
+### Authored protagonist conditions
+
+Ordinary voice events can select different original media for a female or
+male Traveler even when the filename contains neither name. On 7.2, 3,253
+distinct Dialog trigger IDs described exactly two different source conditions.
+On 7.1, 3,196 did so. The reader follows the explicit condition and renders
+the corresponding M/F subtitle branch, including single-condition takes.
+Conflicting conditions or an unrecognized flag block playback. Historical
+indexes are upgraded once to include the newly recognized takes.
+
+On the Global 7.2 English worker, 5,738 additional entries had playable
+original recordings after this change, bringing the total to 186,607 of
+474,075 entries. Of these, 20,594 came from older publisher releases.
+Conversation ID `401710225` was recognized independently for each Traveler
+selection and exported to a 2.136-second male and 2.184-second female MP3.
+[7.2 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+· [7.1 playback conditions](https://github.com/DimbreathBot/AnimeGameData/tree/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/BinOutput/Voice)
+
+Some translations reference the player’s or sibling’s pronouns and forms
+of address through separate localization keys. The current worker now
+renders the selected character’s official wording for 522 voiced English
+records whose Chinese translations contained those tokens. The reader checks
+the original ManualTextMap and locale hash tables. On both 7.1 and 7.2,
+all 704 Simplified Chinese source strings containing these constructs had
+complete renderings for both Travelers, including the two complete sentences
+selected by the Twins2 keys. Unknown or ambiguous keys remain unavailable.
+[Versioned word and sentence keys](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/ManualTextMapConfigData.json)
+
+### Reused audio
+
+The 7.2 Global metadata assigns one original file to both opening dialogue
+`3500404` (the unknown god addresses the travelers) and `3500424` (the
+Traveler calls for their sibling). Checking the full index identified 35
+physical recordings assigned to 112 distinct entries with incompatible English
+sentence text. These include archived event dialogue and reused character
+reactions. Preparation compares the actual original release, package, media ID,
+dub and displayed study text across presentations. Capitalization and punctuation
+alone preserve a shared performance. Conflicted entries retain their text and
+unavailable status unless the actual audio bytes independently identify the
+correct sentence. The three decoded English, Mandarin and Korean recordings of
+the unknown god are 2.939, 4.628 and 2.911 seconds respectively. On these
+originals independent speech recognition reproduced the god’s line. The Korean
+transcript varied slightly in the pronoun. The toolkit checks the exact
+original WEM digest and official source text before restoring this single
+sentence. The traveler’s sibling line remains unavailable. The Japanese
+publisher package had no corresponding file. A changed recording or rewritten
+caption needs a fresh check before this exception can apply.
+[7.2 original voice triggers](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+· [7.2 authored dialogue](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/DialogExcelConfigData.json)
+
+## Short conversation cues
+
+The 7.2 Global English Talk graph provides 122,504 definite predecessor links
+between playable conversations. Of these, 5,836 successors have fewer than
+eight normalized English characters. Only a unique incoming edge from one
+unconditional outgoing edge is used; disagreements, branching choices and
+missing recordings are excluded. Capture requires a stable exact predecessor
+inside the same window, crop, language, player variant and capture session.
+Global Dialog `401860220` could not be selected from its short caption alone.
+Replaying its authored preceding caption twice in the normal language index
+selected the correct original performance. The 7.1 runtime successor field
+also agreed with 165,503 nonempty Excel transitions. Four conflicting pairs
+were excluded. Previous context never adds audio to a line with no binding.
+
 ## Cinematic subtitle timing
 
 The November 13 cinematic check matched 252 of the 319 English subtitle files
@@ -203,9 +324,28 @@ ordinal-only match is insufficient. Translation joins use matching ordinal
 and timestamps, or complete matching ordinal sequences with exclusive
 overlapping intervals in both directions. This yielded 2,417 simplified
 Chinese translations for the Global 7.2 English cues. The subtitle timeline
-establishes the text's display time. Isolating a spoken recording and identifying
-its locale track in the USM are still open. The records retain unknown voice status.
+establishes the text's display time. Other movies still require a clean source
+or independently verified locale audio track for each sentence.
 [7.2 movie subtitles](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle)
+
+For the first opening movie, the six complete dialogue texts in order match
+the entire published cue sequence independently in all five study selections.
+The Korean timeline uses nine cues, the other four use ten. Where a sentence
+spans successive subtitle cards, its clean original WEM is published under
+a complete-sentence ID. Each card keeps its original display interval.
+The 7.2 Global base yielded all six complete performances in English, Korean
+and Mandarin, and three in Japanese. The Japanese base contained the first
+three Paimon lines. Its three other files were unavailable.
+
+The first Paimon performance decoded to 5.133 seconds in English, 4.645 in
+Japanese and Mandarin, and 4.028 in Korean. Normal Windows playback exported
+the English film performance to a 5.160-second MP3. Its full timeline spans
+1.450–6.852 seconds across two caption cards. The worker counted 471,180
+English records with 180,869 playable entries, including 20,294 recovered
+from earlier releases. The six film entries reuse separately authored
+dialogue performances.
+[English opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/EN/MDAQ001_OPNew_Part1_EN.srt)
+· [Korean opening captions](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/Subtitle/KR/MDAQ001_OPNew_Part1_KR.srt)
 
 ## Historical quest and event audio
 

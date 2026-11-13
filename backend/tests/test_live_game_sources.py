@@ -43,21 +43,23 @@ def test_nte_follows_region_and_compares_resource_contents(monkeypatch, tmp_path
 
 
 def test_wuwa_keeps_game_paks_and_requires_current_launcher_checksum(monkeypatch):
-    path = 'launcher/game/G153/50004/1.0.1/example/resource/50004/1.0.1/indexFile.json'
+    path = 'launcher/game/G153/50004/1.0.1/example/common/indexFile.json'
     row = {'dest': 'Client/Content/Paks/voice.pak', 'md5': '1' * 32, 'size': 123}
     data = json.dumps({'resource': [row, dict(row, dest='Browser/example.pak')]}).encode()
-    cfg = {'config': {'version': '1.0.1', 'indexFile': path, 'indexFileMd5': hashlib.md5(data).hexdigest()},
-           'resourcesBasePath': path.split('/resource/')[0] + '/zip',
+    common = {'version': '1.0.1', 'indexFile': path, 'indexFileMd5': hashlib.md5(data).hexdigest(),
+              'baseUrl': path.removesuffix('/common/indexFile.json') + '/zip/'}
+    cfg = {'resourcePacks': {'common': common, 'hd': {'version': '7.7.7'}},
+           'predownload': {'common': {'version': '9.9.9'}},
            'cdnList': [{'url': 'https://first.aki-game.net/'}, {'url': 'https://cdn.aki-game.net/'}]}
     def fetch(url):
         if url == sources.wuthering_release.KURO:
-            return json.dumps({'default': cfg}).encode()
+            return json.dumps(cfg).encode()
         if url == 'https://first.aki-game.net/' + path:
             raise OSError('First publisher CDN is offline')
         assert url == 'https://cdn.aki-game.net/' + path
         return data
     monkeypatch.setattr(sources.wuthering_release, 'kuro_bytes', fetch)
     assert sources.wuthering_release.launcher()[2] == {row['dest']: [123, '1' * 32]}
-    cfg['config']['indexFileMd5'] = '0' * 32
+    common['indexFileMd5'] = '0' * 32
     with pytest.raises(ValueError, match='checksum'):
         sources.wuthering_release.launcher()

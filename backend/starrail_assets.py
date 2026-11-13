@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 11
+LANGUAGE_INDEX_VERSION = 18
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -218,6 +218,7 @@ def authored_links(catalog, locale):
             link = _text_link(identity, text_hash, kind, 'unavailable' if row.get('AudioEvent') else 'unknown')
             if row.get('AudioEvent'):
                 link['audio_event'] = row['AudioEvent']
+                link['avatar_id'] = row['AvatarID']
             links.append(link)
     links.extend(message_links(
         _table(catalog, 'MessageItemConfig', ('ID', 'ItemType')),
@@ -229,6 +230,65 @@ def authored_links(catalog, locale):
             links.append(_text_link('idle-message-' + str(row['ContentID']), text_hash, 'message', 'unvoiced'))
     links.extend(_presentation_links(catalog))
     return links
+
+
+def _speaker_lines(text, count):
+    raw_lines = text.replace('\\n', '\n').splitlines()
+    if len(raw_lines) != count:
+        return ()
+    parts = []
+    for line in raw_lines:
+        if line.count(':') + line.count('：') > 1 and '「' not in line:
+            # A colon can also be part of a character name or their sentence.
+            parts.append(common.display_text(line))
+            continue
+        match = re.fullmatch(r'\s*([^「」:：]{1,80}?)(?:\s*[:：]\s*(.+)|「(.+)」)\s*', line)
+        if not match:
+            return ()
+        parts.append(common.display_text(match[2] or match[3]))
+    return parts if all(parts) else ()
+
+
+def _player_row(row, gender):
+    from .textmaps import GENDER_VARIANT_RE
+    tag = gender[0].upper()
+    texts = {lang: common.display_text(GENDER_VARIANT_RE.sub(
+        lambda match: match[2] if match[1] == tag else '', text)) for lang, text in row['texts'].items()}
+    return row | {'player_voice': gender, 'texts': texts, 'source_text': texts[row['source_locale']],
+                  'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', '')}
+
+
+def _archive_rows(rows, links, bindings, credits, locale, tables=None):
+    cv = {'en': 'CV_EN', 'zh-Hans': 'CV_CN', 'zh-Hant': 'CV_CN', 'ja': 'CV_JP', 'ko': 'CV_KR'}[locale]
+    result = []
+    for row in rows:
+        item = links.get(row['text_id'], {})
+        options = bindings.get(item.get('audio_event'), {})
+        if any((key or '').startswith('localized') for key in options) and not _hash(credits.get(item.get('avatar_id'), {}).get(cv)):
+            options = {}
+        parts = {}
+        if any('part-' in (key or '') for key in options):
+            for lang, table in (tables or {}).items():
+                lines = _speaker_lines(table.get(str(item['hash']), ''), len(options))
+                if lines:
+                    parts[lang] = lines
+            if locale not in parts:
+                options = {}
+        if not options:
+            result.append(row)
+            continue
+        for variant, binding in options.items():
+            updated = row | {'audio': binding, 'voice_status': 'voiced'}
+            if variant in ('male', 'female'):
+                updated = _player_row(updated, variant)
+                updated['text_id'] = row['text_id'] + '_' + variant[0]
+            elif parts:
+                number = int(variant.rsplit('-', 1)[1])
+                texts = {lang: lines[number - 1] for lang, lines in parts.items()}
+                updated.update(text_id=f"{row['text_id']}-part-{number}", texts=texts, source_text=texts[locale],
+                               english=texts.get('en', ''), chinese=texts.get('zh-Hans', ''))
+            result.append(updated)
+    return result
 
 
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
@@ -248,17 +308,18 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
+    rows = [_player_row(row, row['player_voice']) if row['player_voice'] else row for row in rows]
     rows.extend(_readable_records(catalog, tables, source_locale))
     if install is None:
         from . import starrail_films, starrail_events
-        events = {'starrail:' + link['id']: link['audio_event'] for link in links if 'audio_event' in link}
-        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale, set(events.values()))
-        for row in rows:
-            binding = audio.get(events.get(row['text_id']))
-            if binding:
-                row['audio'] = binding
-                row['voice_status'] = 'voiced'
-        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
+        events = {'starrail:' + link['id']: link for link in links if 'audio_event' in link}
+        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale,
+                                        {link['audio_event'] for link in events.values()})
+        credits = {}
+        if any((key or '').startswith('localized') for options in audio.values() for key in options):
+            credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
+        rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
+        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
