@@ -206,7 +206,8 @@ class ZzzReader:
             raise _failure('ZZZ publisher preparation requires a private work directory.')
         _no_links(work)
         inputs = {'scene-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-input\.json',
-                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-(?:input|output)\.json|\d+\.blk\.scenes|catalogue-input\.json'}
+                  'comic-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-(?:input|output)\.json|\d+\.blk\.comic-roots|comic-plan-input\.json',
+                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|comic-plan)-(?:input|output)\.json|\d+\.blk\.(?:scenes|comics|comic-roots)|catalogue-input\.json'}
         if mode not in inputs:
             raise _failure('Unknown ZZZ publisher preparation operation.')
         for path in work.iterdir():

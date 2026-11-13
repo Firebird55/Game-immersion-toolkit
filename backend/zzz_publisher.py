@@ -22,7 +22,7 @@ from .zzz_assets import TEXT_LOCALES
 
 CHANNEL = 'zzz-global'
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
-SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
+SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
          'Other presentations and later in-version overrides have partial coverage.')
 
 
@@ -30,7 +30,7 @@ def fingerprint():
     return voice.descriptor(sophon.release(CHANNEL))[0]
 
 
-def stage_scenes(work, cache, files, ranges):
+def stage_scenes(work, cache, files, ranges, *, extension='scenes'):
     grouped = defaultdict(list)
     for row in ranges:
         name = row['block']
@@ -46,7 +46,7 @@ def stage_scenes(work, cache, files, ranges):
         def chunk(position, length):
             return asset.read(cache, position, length)
 
-        out = work / (name.split('/')[-1] + '.scenes')
+        out = work / (name.split('/')[-1] + '.' + extension)
         with out.open('xb') as handle:
             for start, length in sorted(ranges):
                 if not 0 < length <= 64 * 1024**2 or not 0 <= start <= asset.size - length:
@@ -152,8 +152,19 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
 
         plan = query('scene-plan', design=batches['design'], catalogs=batches['catalog'])
         progress('Reading the released ZZZ scene ranges and their authored dialogue')
+        comic_plan = plan['comics']
+        comic_roots = comic_plan['ranges']
+        selected = []
+        if comic_roots:
+            progress('Reading the released ZZZ motion-comic dictionary manifests')
+            roots = stage_scenes(work, cache, files, comic_roots, extension='comic-roots')
+            selected = query('comic-plan', roots=roots, rootCount=len(comic_roots), catalogs=batches['catalog'])['ranges']
         blocks = stage_scenes(work, cache, files, plan['ranges'])
-        coverage = query('catalogue', design=batches['design'], locales=sorted(locales), namespace=namespace, blocks=blocks)
+        comics = stage_scenes(work, cache, files, selected, extension='comics')
+        coverage = query('catalogue', design=batches['design'], locales=sorted(locales), namespace=namespace,
+                         blocks=blocks, comics=comics)
+        coverage['comic_paths'] = comic_plan['scenePaths']
+        coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
         coverage['scene_paths'] = plan['scenePaths']
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
         return (json.loads((work / 'links.json').read_bytes()),

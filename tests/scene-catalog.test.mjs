@@ -26,6 +26,9 @@ test('Unity-wrapped resource catalogs preserve exact scene ranges and dependenci
   const cab=unityCatalog(),decoded=unityResourceCatalog(cab);
   const expected={matchedHashes:[42n],ranges:[{block:'Blocks/100.blk',offset:500,size:50},{block:'Blocks/200.blk',offset:700,size:60}]};
   assert.deepEqual(sceneBundleRangesFromCatalog(decoded,new Set([42n]),true),expected);
+  assert.deepEqual(sceneBundleRangesFromCatalog(decoded,new Set([42n]),true,false), {
+    matchedHashes:[42n],ranges:[{block:'Blocks/100.blk',offset:500,size:50}],
+  });
   // Exercise all four packed-block alignment cases without changing authored ranges.
   for(const blocks of [3,4,5])assert.deepEqual(sceneBundleRangesFromCatalog(unityResourceCatalog(unityCatalog(blocks)),new Set([42n]),true),expected);
   const bundle=Buffer.from('mhy1synthetic');

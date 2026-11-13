@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {clueIntervals, ongoingRows, recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
+import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice} from '../scripts/zzz-publisher-dialogue.mjs';
 
 test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
   const source = 'VO_Message/Actor/Message_Performance_75';
@@ -148,4 +148,19 @@ test('ongoing rows retain the conditional missing performance and the authored d
   assert.deepEqual(result.map(row => [row.text_id, row.gender, row.source, row.voice_status]), [
     ['Example','F','','unknown'], ['Example','M','Wise','unavailable'],
     ['Other','F','Belle','unavailable'], ['Other','M','Wise','unavailable'], ['One',undefined,'Shared','unavailable']]);
+});
+
+test('comic manifest selects only direct released bundle IDs including 64-bit values', () => {
+  const u32 = value => { const b = Buffer.alloc(4); b.writeUInt32LE(value); return b; };
+  const string = name => {
+    const value = Buffer.from(name);
+    return Buffer.concat([u32(value.length), value, Buffer.alloc((4 - value.length % 4) % 4)]);
+  };
+  const manifest = member => Buffer.concat([
+    string('930.bundle'), u32(1), Buffer.alloc(12), u32(1), string('930'), Buffer.alloc(20),
+    Buffer.alloc(24), string('930.bundle'), u32(2), string('19.bundle'), string(member), Buffer.alloc(16),
+  ]);
+  assert.deepEqual(comicDependencyIds(manifest('16232649768801158562.bundle')), [19n, 16232649768801158562n]);
+  assert.throws(() => comicDependencyIds(manifest('other/32.bundle')), /dependency/);
+  assert.throws(() => comicDependencyIds(manifest('32.bundle').subarray(0, 60)), /Truncated/);
 });

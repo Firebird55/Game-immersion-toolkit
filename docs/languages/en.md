@@ -13,7 +13,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 [Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-13 · [Coverage notes](../zzz-languages.md)
 
-Global launcher dialogue scenes, messages, gameplay tips and timed clue recordings.
+Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 

@@ -81,6 +81,14 @@ def test_fixed_scene_commands_require_verified_resources_and_owned_work(tmp_path
     (work / 'scene-plan-output.json').write_text('{}')
     with pytest.raises(PreparationFailure, match='Unexpected input'):
         helper.publisher_command('scene-plan', work)
+    (work / '142.blk.comic-roots').write_bytes(b'fixture')
+    (work / 'comic-plan-input.json').write_text('{}')
+    assert helper.publisher_command('comic-plan', work)[2] == 'comic-plan'
+    (work / 'comic-plan-output.json').write_text('{}')
+    (work / '142.blk.comics').write_bytes(b'fixture')
+    assert helper.publisher_command('catalogue', work)[2] == 'catalogue'
+    with pytest.raises(PreparationFailure, match='Unexpected input'):
+        helper.publisher_command('comic-plan', work)
     with pytest.raises(PreparationFailure, match='private work'):
         helper.publisher_command('scene-plan', game)
 

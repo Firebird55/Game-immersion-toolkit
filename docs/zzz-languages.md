@@ -8,10 +8,11 @@ each learning language; dictionary operations remain demand driven.
 
 With the game folder empty, Windows Setup reads scenes and translations from
 the Global PC launcher base. Supported sources include GalGame, chat, bubbles,
-narration, choices, phone messages, ongoing dialogue, gameplay tips and
+narration, choices, motion comics, phone messages, ongoing dialogue, gameplay tips and
 per-dub clue subtitle intervals. Setup reads the selected voice package indexes
 and downloads matching recordings on demand. The installed reader supplies
-additional comic and cinematic voices and later in-version overrides.
+additional cinematic voices and later in-version overrides. Unmatched comic
+panels keep their text with unknown voice status.
 
 With an installed game, TextMaps and scene configuration come from one pinned revision of the existing
 [extracted game-data mirror](https://git.mero.moe/dimbreath/ZenlessData). Installed

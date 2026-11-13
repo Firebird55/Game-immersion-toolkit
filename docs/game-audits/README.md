@@ -16,7 +16,7 @@ gameplay acceptance gaps.
 
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
-| Zenless Zone Zero | Global launcher dialogue scenes, phone and ongoing lines, tips and timed clue recordings in Windows Setup, installed dialogue readers and a source-checkout command for selected original performances | [ZZZ](zzz.md) |
+| Zenless Zone Zero | Global launcher dialogue scenes, motion comics, phone and ongoing lines, tips and timed clue recordings in Windows Setup, installed dialogue readers and a source-checkout command for selected original performances | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions; shared compiler-free archive helper | [Wuthering](wuwa.md), [runtime evidence](../wuthering-runtime.md) |
 | Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |

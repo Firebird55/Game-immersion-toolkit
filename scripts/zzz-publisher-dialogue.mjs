@@ -2,6 +2,7 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {join, resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, sceneCatalog, unityObjectsOfType} from './scene-catalog.mjs';
+import {comicVoicePairs, uniqueComicLinks} from './comic-links.mjs';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from './zzz-dialogue.mjs';
 
 const utf8 = new TextDecoder('utf-8', {fatal: true});
@@ -145,14 +146,25 @@ function plan(work, input, reader) {
   return {texts, ...releasedRanges(work, input.catalogs, paths, reader)};
 }
 
-function releasedRanges(work, catalogs, paths, reader) {
+function releasedRanges(work, catalogs, paths, reader, category = 'dialogue') {
   const wanted = new Set(paths.map(path => reader.xxHash64(path)));
+  const result = catalogRanges(work, catalogs, wanted, reader, category === 'dialogue');
+  if (category === 'dialogue' && !result.ranges.length) throw Error('No released dialogue scene ranges');
+  const unmatched = {};
+  for (const path of paths) if (!result.matched.has(reader.xxHash64(path))) {
+    const presentation = category === 'comic' ? 'comic' : path.split('/perform/data/')[1].split('/')[0];
+    unmatched[presentation] = (unmatched[presentation] || 0) + 1;
+  }
+  return {ranges:result.ranges, scenePaths:{total:paths.length, matched:result.matched.size, unmatched}};
+}
+
+function catalogRanges(work, catalogs, wanted, reader, includeDependencies) {
   const matched = new Set();
   const ranges = new Map();
   for (const candidate of catalogs) {
     const catalog = resourceCatalogBytes(readFileSync(join(work, candidate)), reader.unpackMhyFile);
     if (!catalog) continue;
-    const result = sceneBundleRangesFromCatalog(catalog, wanted, true);
+    const result = sceneBundleRangesFromCatalog(catalog, wanted, true, includeDependencies);
     for (const hash of result.matchedHashes) matched.add(hash);
     for (const r of result.ranges) {
       const id = r.block + '/' + r.offset;
@@ -160,13 +172,7 @@ function releasedRanges(work, catalogs, paths, reader) {
       ranges.set(id, r);
     }
   }
-  if (!ranges.size) throw Error('No released dialogue scene ranges');
-  const unmatched = {};
-  for (const path of paths) if (!matched.has(reader.xxHash64(path))) {
-    const presentation = path.split('/perform/data/')[1].split('/')[0];
-    unmatched[presentation] = (unmatched[presentation] || 0) + 1;
-  }
-  return {ranges: [...ranges.values()], scenePaths: {total: paths.length, matched: matched.size, unmatched}};
+  return {ranges:[...ranges.values()], matched};
 }
 
 function* sceneCabs(work, blocks, reader) {
@@ -205,8 +211,66 @@ function scenePlan(work, input, reader) {
   const key = String(reader.xxHash64('performtemplatetb'));
   const tables = designTables(input.design, work, new Set([key]), reader.unpackMhyFile);
   if (!tables.has(key)) throw Error('Released ZZZ Perform table is missing');
-  const paths = sceneAssetPaths([...tableStrings(tables.get(key), [2, 3])], 'dialogue');
-  return releasedRanges(work, input.catalogs, paths, reader);
+  const scenes = [...tableStrings(tables.get(key), [2, 3])];
+  const dialogue = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'dialogue'), reader);
+  const comics = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'comic'), reader, 'comic');
+  return {...dialogue, comics};
+}
+
+// Unity v21 AssetBundle (class 142): preloads, container and main asset, runtime
+// compatibility, bundle name, and direct dependency bundle names. These names
+// are actual catalogue asset IDs. Transitive textures and meshes are unnecessary.
+export function comicDependencyIds(object) {
+  let pos = 0;
+  const take = length => {
+    if (length > object.length - pos) throw Error('Truncated ZZZ comic bundle manifest');
+    const start = pos;
+    pos += length;
+    return start;
+  };
+  const integer = () => object.readUInt32LE(take(4));
+  const name = () => {
+    const length = integer();
+    if (length > 128) throw Error('Invalid ZZZ comic bundle name');
+    const start = take(length);
+    take((4 - length % 4) % 4);
+    return object.toString('ascii', start, start + length);
+  };
+  const bundle = name();
+  if (!/^\d{1,20}\.bundle$/.test(bundle)) throw Error('Unsupported ZZZ comic bundle identity');
+  take(integer() * 12);
+  const containers = integer();
+  for (let i = 0; i < containers; i++) {
+    name();
+    take(20);
+  }
+  take(24);
+  if (name() !== bundle) throw Error('Inconsistent ZZZ comic bundle names');
+  const count = integer();
+  const ids = [];
+  for (let i = 0; i < count; i++) {
+    const member = /^(\d{1,20})\.bundle$/.exec(name());
+    if (!member) throw Error('Unsupported ZZZ comic dependency');
+    ids.push(BigInt(member[1]));
+  }
+  return ids;
+}
+
+function comicPlan(work, input, reader) {
+  checkNames(input.catalogs, /^catalog-\d+\.blk$/);
+  checkNames(input.roots, /^\d+\.blk\.comic-roots$/);
+  const ids = new Set();
+  let manifests = 0;
+  for (const cab of sceneCabs(work, input.roots, reader)) {
+    for (const object of unityObjectsOfType(cab, 142)) {
+      for (const id of comicDependencyIds(object)) ids.add(id);
+      manifests++;
+    }
+  }
+  if (manifests !== input.rootCount) throw Error('Incomplete ZZZ comic bundle manifests');
+  const result = catalogRanges(work, input.catalogs, ids, reader, false);
+  if (result.matched.size !== ids.size) throw Error('Unresolved ZZZ comic dependency');
+  return {ranges: result.ranges};
 }
 
 export function ongoingRows(rows) {
@@ -252,6 +316,7 @@ export function clueIntervals(rows, namespace) {
 function catalogue(work, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.scenes$/);
+  if (input.comics.length) checkNames(input.comics, /^\d+\.blk\.comics$/);
   const locales = new Set(input.locales);
   if (!locales.size || [...locales].some(locale => !Object.hasOwn(tags, locale))) throw Error('Invalid ZZZ locales');
   const key = name => String(reader.xxHash64(name.toLowerCase()));
@@ -268,6 +333,12 @@ function catalogue(work, input, reader) {
   }
   if (!links.length) throw Error('Released ZZZ scene selection contained no authored dialogue');
   const scenes = uniqueDialogueLinks(links);
+  const comicPairs = [];
+  for (const cab of sceneCabs(work, input.comics, reader)) {
+    for (const pair of comicVoicePairs(cab)) comicPairs.push(pair);
+  }
+  const comics = uniqueComicLinks(comicPairs).map(link => ({...link, dialogue_kind:'comic', channels:['cinematic']}));
+
   const messages = tableStrings(tables.get(key(bindings[0])), [7, 3, 5, 12, 13, 15, 16]);
   const messageRows = [...messages];
   const recorded = recordedMessages(messageRows);
@@ -293,7 +364,7 @@ function catalogue(work, input, reader) {
     tips.push({text_id, source, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip',
       voice_status:primary || alternate ? 'unavailable' : 'unknown'});
   }
-  const all = [...scenes, ...messageLinks.values(), ...ongoing, ...tips,
+  const all = [...scenes, ...comics, ...messageLinks.values(), ...ongoing, ...tips,
     ...clips.map(clip => ({...clip, dialogue_kind:'narration', voice_status:'unavailable', channels:['dialogue', 'cinematic']}))];
   const ids = new Set(all.map(link => link.text_id));
   writeFileSync(join(work, 'links.json'), JSON.stringify(all), {flag:'wx'});
@@ -305,7 +376,7 @@ function catalogue(work, input, reader) {
       if (!table) continue;
       const seen = new Set();
       for (const [id, value] of tableStrings(table, [0, 1])) {
-        if (!ids.has(id)) continue;
+        if (!ids.has(id) && !/^Comic_[0-9a-f]{32}$/i.test(id)) continue;
         if (seen.has(id)) throw Error('Ambiguous subtitle in a ZZZ locale table');
         seen.add(id);
         values[id] = value;
@@ -314,7 +385,7 @@ function catalogue(work, input, reader) {
     writeFileSync(join(work, 'texts-' + locale + '.json'), JSON.stringify(values), {flag:'wx'});
   }
   return {recorded_messages:recorded.messages.size, ambiguous_messages:recorded.unresolved,
-    scene_records:links.length, ongoing_records:ongoing.length, tip_records:tips.length, clue_intervals:clips.length, unsupported_nodes:unsupported};
+    scene_records:links.length, comic_bindings:comics.length, ongoing_records:ongoing.length, tip_records:tips.length, clue_intervals:clips.length, unsupported_nodes:unsupported};
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
@@ -337,7 +408,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     }
     writeFileSync(join(work, 'galgame-perform.mjs'), code, {flag: 'wx'});
   } else {
-    const run = {plan, bindings, 'scene-plan':scenePlan, catalogue}[mode];
+    const run = {plan, bindings, 'scene-plan':scenePlan, 'comic-plan':comicPlan, catalogue}[mode];
     if (!run) throw Error('Unsupported ZZZ publisher query');
     const reader = await import(pathToFileURL(resolve(readerPath)).href);
     const input = JSON.parse(readFileSync(join(work, mode + '-input.json')));

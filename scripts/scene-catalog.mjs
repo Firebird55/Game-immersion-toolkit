@@ -146,7 +146,7 @@ export function sceneAssetPaths(value, category) {
 // A scene's root bundle references separately packed voice dictionaries. Read
 // the catalog's authored dependency graph and exact mhy1 byte ranges rather
 // than assuming all dependencies share the root's block.
-export function sceneBundleRangesFromCatalog(compressed, wantedHashes, raw=false) {
+export function sceneBundleRangesFromCatalog(compressed, wantedHashes, raw=false, includeDependencies=true) {
   const bytes = raw?compressed:gunzipSync(compressed, {maxOutputLength: 128 * 1024 * 1024});
   if (bytes.length < 52) throw Error('Truncated scene catalog');
   const assets = bytes.readUInt32LE(8), blocks = bytes.readUInt32LE(12), bundles = bytes.readUInt32LE(16);
@@ -179,6 +179,7 @@ export function sceneBundleRangesFromCatalog(compressed, wantedHashes, raw=false
     if (selected.has(bundle)) continue;
     if (bundle >= bundles) throw Error('Scene dependency is outside catalog');
     selected.add(bundle);
+    if (!includeDependencies) continue;
     const offset = dependencyOffsets[bundle], count = bytes.readUInt32LE(offset);
     for (let i = 0; i < count; i++) queue.push(bytes.readUInt32LE(offset + 4 + i * 4));
     if (queue.length > 5_000_000) throw Error('Scene dependency graph exceeds limit');

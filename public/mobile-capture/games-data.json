@@ -50,7 +50,7 @@
       "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
-      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, messages, tips and clue recordings." },
+      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings." },
       "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
     }
   },
@@ -141,7 +141,7 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Windows Setup prepares catalogue-matched Global dialogue, narration, choices, phone messages, gameplay tips and timed clue recordings. Some scene paths, comic and cinematic audio and in-version changes still require additional coverage.",
+      "coverage": "Windows Setup prepares catalogue-matched Global dialogue, narration, choices, motion comics, phone messages, gameplay tips and timed clue recordings. Some scene paths, cinematic audio and in-version changes still require additional coverage.",
       "supportPolicy": "Prepare Global base dialogue from the publisher or select installed files and a matching voice pack for later overrides and additional presentations.",
       "reviewedAt": "2026-11-13"
     },
