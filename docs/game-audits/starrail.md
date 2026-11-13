@@ -101,14 +101,23 @@ A recording of Japanese gameplay shows the four English captions at
 9:18, 9:23, 9:33 and 9:35. The last two Japanese calls are audible.
 For *Silent Galaxy*, the departing mission triggers performance 101150200,
 which plays video 101, with eleven captions. Its first cue runs
-0.333–6.633 seconds. Eleven consecutive TalkSentence records additionally
-describe that same exchange. Their named English WEMs were absent from
-the release inventory. Published gameplay also shows Bronya and Cocolia
+0.333–6.633 seconds. Eleven consecutive TalkSentence records describe
+that same exchange. Korean and Mandarin each contain all eleven original
+recordings. Each complete decoded waveform independently matched the
+corresponding film in recorded gameplay, including the short reaction.
+The Korean matches fall between 9:53.380 and 10:42.480 (normalized
+correlation 0.446–0.965), the Mandarin matches between 7:41.761 and
+8:30.594 (0.503–0.928). Their closest competing peaks were lower for
+every take. Both language choices for Mandarin use the same recordings.
+The English and Japanese packages contain none of these eleven named
+external recordings. Published gameplay also shows Bronya and Cocolia
 in video 1160, whose seven caption intervals start at 5.400 seconds.
 Publisher byte ranges for these three films, including both boarding
 variants, returned valid CRI container headers on both editions.
 [Boarding gameplay](https://www.youtube.com/watch?v=L6wGHwWxnk8&t=557s) ·
 [Silent Galaxy gameplay](https://www.dailymotion.com/video/x8pn5xc?start=2518) ·
+[Korean gameplay](https://www.youtube.com/watch?v=y_HNFpFop6s&t=593s) ·
+[Mandarin gameplay](https://www.youtube.com/watch?v=Y2S0YsUFJ8k&t=461s) ·
 [Cocolia gameplay](https://www.dailymotion.com/video/x8pn5xd?start=2703) ·
 [Mission video action](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/1011502/Act/Act101150200.json) ·
 [Released video configuration](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VideoConfig.json)
@@ -118,6 +127,15 @@ the same revision's published caption directory. Six individually checked
 paths across chapters 3, 4 and 5 returned HTTP 404. Two published scripts,
 CS_Chap02_Act610 and CS_Chap04_Act781_2, contain 10 and 59 cues respectively
 and still lack a matching VideoConfig movie or directly bound timeline WEM.
+The ten Act610 text IDs were absent from the English, Japanese, Korean,
+both Chinese, French and German text tables.
+
+After a normal update the reader resolves the reviewed caption IDs and
+current sentence recordings again. It checks the publisher movie's MD5 and
+the individual original recording's SHA-256 before offering the complete
+take. Moving an unchanged recording into a new package preserves playback.
+Changing the specific movie or re-recording the line requires a fresh
+comparison. A text update retaining its caption ID uses the current translation.
 
 On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
 retrieved and decoded. Their durations covered the 124 authored caption
@@ -332,7 +350,7 @@ for that presentation, nor that every branch is reachable in a particular save.
 | Walking conversations, mission chatter and broadcasts | `MissionTalk_3d` and `Broadcast*` records are present; exact authored paths remain usable. | Floating captions, remote voices and overlapping dialogue are not individually replay-verified. |
 | Multi-performance sentences | Of 1,044 `TalkSentenceMultiVoice` rows, 1,009 refer to present sentences and 14 of these identify a single performance. | The new reader resolves the 14 unique performances through VoiceConfig. The remaining 995 present sentences retain their text and unavailable audio. |
 | Real-time cinematic captions | 689 sentence rows reference `VoiceType=Cutscene`; captions are now retained. | No per-caption audio timing/segment binding. A whole cutscene track is never substituted for one caption. |
-| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. | Localized playback and the 138 other declared caption paths remain open. |
+| Pre-rendered movies | Regional VideoV and VideoConfig bind 153 caption scripts with 801 intervals to 242 movie files. Eleven lines have verified Korean and Mandarin playback. | Playback for the other movie captions and the 138 other declared caption paths remains open. |
 | Narrated storybook content | 1,437 `TarotBookSentence` records directly reference `VoiceConfig`. Player variants produce 2,586 exact bindings in each installed voice language. | UI association, timing and full-screen text capture still need replay. |
 | Character profile/voice archive | 5,445 `VoiceAtlas` rows; `AudioID`, not the menu's `VoiceID`, is the voice-config key. Exact `AudioID` records are indexed with original audio where installed. | 3,614 rows use Wwise `AudioEvent` instead; their text is indexed but event-to-media binding is unavailable. |
 | Combat, idle and character reaction lines | `VoiceAtlas.IsBattleVoice` identifies 2,506 battle entries; their localized text is retained. | Not all combat audio displays subtitles. Event-driven playback is unresolved; no inference from filename or voice title. |

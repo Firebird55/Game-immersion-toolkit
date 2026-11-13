@@ -1,11 +1,13 @@
 """Released cinematic subtitle clocks and explicitly referenced Wwise voice takes."""
+import hashlib
 import math
 import re
 import struct
 
 from . import hoyo_publisher_voice as voices
-from .hoyo_dialogue import audio_binding, records, voice_namespace
+from .hoyo_dialogue import audio_binding, audio_locale, records, voice_namespace
 from .starrail_hotfix import check
+from .starrail_reviewed_films import REVIEWED_MOVIES
 
 
 def _duration(data):
@@ -70,9 +72,39 @@ def _movie_sources(catalog):
     return result
 
 
-def caption_rows(tools, catalog, tables, locale, entries):
+def _reviewed_sources(records):
+    wanted = {f'starrail:{sentence}' for captions in REVIEWED_MOVIES.values() for sentence, _ in captions.values()}
+    result = {}
+    for row in records:
+        key = row['text_id']
+        audio = row.get('audio')
+        if key in wanted and audio and audio.get('source') and not row.get('player_voice'):
+            # A sentence with several published performances cannot identify a movie take.
+            result[key] = None if key in result else audio
+    return result
+
+
+def _reviewed_take(tools, scene, movies, text_hash, locale, sources):
+    if len(movies) != 1 or movies[0]['player_voice'] is not None:
+        return None
+    movie = movies[0]
+    reviewed = REVIEWED_MOVIES.get((scene, movie['video_id'], movie['md5']), {}).get(text_hash)
+    if not reviewed:
+        return None
+    sentence, hashes = reviewed
+    dub = audio_locale(locale)
+    expected = hashes.get(dub)
+    audio = sources.get(f'starrail:{sentence}')
+    if expected and audio and audio['locale'] == dub:
+        raw = voices.extract(audio, tools, 'starrail')
+        if hashlib.sha256(raw).hexdigest() == expected:
+            return audio
+
+
+def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
     takes = _takes(tools, catalog, locale, entries)
     movies = _movie_sources(catalog)
+    reviewed = _reviewed_sources(sentence_rows)
     seen, result = set(), []
     for filename, script in catalog.caption_scripts():
         match = re.fullmatch(r'([A-Za-z0-9_]+)_Caption\.json', filename)
@@ -96,6 +128,9 @@ def caption_rows(tools, catalog, tables, locale, entries):
                                        'movies': movies.get(scene, [])}
                 if audio and duration is not None and 0 <= start_ms < end_ms <= duration:
                     row['audio'] = audio | {'start_ms': start_ms, 'end_ms': end_ms}
+                    row['voice_status'] = 'voiced'
+                elif original := _reviewed_take(tools, scene, movies.get(scene, []), text_hash, locale, reviewed):
+                    row['audio'] = original
                     row['voice_status'] = 'voiced'
                 result.append(row)
     return result

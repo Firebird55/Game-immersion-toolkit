@@ -1,4 +1,5 @@
 """Verify release-paired caption timing, locale and actor bindings."""
+import hashlib
 import struct
 from types import SimpleNamespace
 
@@ -61,3 +62,25 @@ def test_unrecognized_recording_format_has_no_authorized_clock():
     assert films._duration(track()) == 2000
     assert films._duration(bytes(86)) is None
     assert films._duration(track()[:70]) is None
+
+
+def test_reviewed_take_survives_repackaging_but_requires_the_same_movie_voice_and_caption(tmp_path, monkeypatch):
+    raw = b'independently matched recording'
+    checksum = hashlib.sha256(raw).hexdigest()
+    monkeypatch.setattr(films, 'REVIEWED_MOVIES', {('Film', 24, 'a'*32): {77: (12, {'zh-Hans': checksum})}})
+    movie = {'video_id': 24, 'md5': 'a'*32, 'player_voice': None}
+    bind = {'locale': 'zh-Hans', 'source': 'Chinese(PRC)/voice/line.wem', 'publisher': 'new-package-generation'}
+    row = {'text_id': 'starrail:12', 'audio': bind}
+    sources = films._reviewed_sources([row])
+    monkeypatch.setattr(films.voices, 'extract', lambda *args: raw)
+    def take(movies, caption=77, locale='zh-Hant', index=sources):
+        return films._reviewed_take(tmp_path, 'Film', movies, caption, locale, index)
+    assert take([movie]) == bind
+    assert take([movie], caption=78) is None
+    assert take([movie], locale='ja') is None
+    assert take([movie | {'md5': 'b'*32}]) is None
+    assert take([movie | {'video_id': 25}]) is None
+    assert take([movie, movie]) is None
+    assert take([movie], index=films._reviewed_sources([row, row])) is None
+    monkeypatch.setattr(films.voices, 'extract', lambda *args: b'new take')
+    assert take([movie]) is None

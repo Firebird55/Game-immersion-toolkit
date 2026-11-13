@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 15
+LANGUAGE_INDEX_VERSION = 16
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -319,7 +319,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         if any((key or '').startswith('localized') for options in audio.values() for key in options):
             credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
         rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
-        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
+        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
