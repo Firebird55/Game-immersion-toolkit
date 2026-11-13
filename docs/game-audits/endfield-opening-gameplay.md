@@ -24,7 +24,48 @@ Each value below is a seek time in seconds for a frame displaying the correspond
 
 A 25-frames-per-second comparison of the Chinese captions independently located the interval for `fmv_e0m1_1_07` at 66.56–69.76 s in the upload, against 64.80–68.00 s in the film. For `fmv_e0m1_3_02` it found 606.64–607.44 s against 62.20–63.00 s. The figures describe visible text on a 40 ms sampling grid. The English overlay sometimes combines two original Chinese cues. The Traditional Chinese trailer also splits some text differently from the archived table, including `04-2` and `10`. Each edition needs its own timing. [First exchange](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=67s) · [Bedside exchange](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=607s) · [Split trailer caption](https://www.youtube.com/watch?v=G2A5HAJFG7U&t=43s)
 
-The November gameplay includes five additional archived bedside captions after the end of the 14 retained intervals. Measured Chinese subtitle windows in upload seconds are 658.24–663.48 (12), 663.48–664.76 (13), 665.16–669.44 (14), 671.24–676.76 (15) and 676.76–683.96 (20). Two different crops of the on-screen Chinese line returned the same boundaries at 25 frames per second. The video goes directly from 15 to 20. The archived text table also lists suffixes 16 through 19. Those four entries would give a false account of this performance. The current Global text tables contain none of the 46 retained historical IDs. These observations establish the old story and its cuts. An installation-free source for the three original test recordings remains unverified. [Short reply at 11:03](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=663s) · [Transition at 11:16](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=676s) · [Global game-data audit](endfield.md)
+The November gameplay includes five additional archived bedside captions after the end of the 14 retained intervals. Measured Chinese subtitle windows in upload seconds are 658.24–663.48 (12), 663.48–664.76 (13), 665.16–669.44 (14), 671.24–676.76 (15) and 676.76–683.96 (20). Two different crops of the on-screen Chinese line returned the same boundaries at 25 frames per second. The video goes directly from 15 to 20. The archived text table also lists suffixes 16 through 19. Those four entries would give a false account of this performance. The current Global text tables contain none of the 46 retained historical IDs. These observations establish the old story and its cuts. The aircraft and bedside recordings still lack a verified publisher download. The Mandarin briefing is available from the publisher as described below. [Short reply at 11:03](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=663s) · [Transition at 11:16](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=676s) · [Global game-data audit](endfield.md)
+
+### Obtaining the Mandarin briefing audio
+
+The publisher’s mainland video catalogue supplies the full 151.960-second
+Mandarin edition of *Talos-II: Awakening* with Simplified Chinese subtitles.
+The MP4 is 196,340,927 bytes and its SHA-256 is
+`11dfb2ff2735668f570e3b030b50cd3b18aaf7e14e274684ddc8fb76e405914f`.
+In a mainland Technical Test playthrough recorded on November 10, 2023,
+all 23 of its captioned audio excerpts independently match a single offset
+of 920.351 s. Correlations range from 0.563 to 0.945. This identifies the
+actual Mandarin film mix heard in the game, including music. The website
+also lists separate Japanese, Korean, English and Traditional Chinese
+editions on YouTube. Those listings and their nine-second previews do not
+establish equivalent game recordings for the other dubs.
+[Publisher’s full Mandarin film](https://web.hycdn.cn/upload/video/20251030/d836cdada37b16eabbbdd372ed3cf809.mp4) ·
+[Test opening at 15:25](https://www.bilibili.com/video/BV1tu4y187be/?p=3&t=925) ·
+[Test ending at 17:46](https://www.bilibili.com/video/BV1tu4y187be/?p=3&t=1066) ·
+[Publisher video catalogue](https://endfield.hypergryph.com/video)
+
+The 21 game caption IDs account for all 23 subtitle displays. The archived
+IDs `04-2` and `10` each span two displays. The display transition for
+`03-2` falls after the phrase about “this land” has started. The transition
+between `09-2` and `09-3` falls inside a single display. The recording
+cuts follow those spoken phrases. For example, the last word in the phrase
+about activating the device has its syllable peak at 97.26 s. The next
+sentence begins around 97.80 s. The two exports meet at 97.560 s.
+The historical text table contains an extra line with suffix `12` after
+`11`; it does not occur in this performance.
+[Archived Mandarin text](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg/SubtitleTable.json) ·
+[This exchange in gameplay at 16:57](https://www.bilibili.com/video/BV1tu4y187be/?p=3&t=1017)
+
+The film command lists the 21 original game lines and their recording cuts.
+An export downloads and checks the publisher film once and reuses the
+verified file. It works without the game or a player video. These historical
+IDs are absent from the current Global storyline, so they are available as
+an explicit archive lookup.
+
+```text
+python scripts/endfield_film_voice.py --test-caption list --locale zh-Hans --cache private-cache
+python scripts/endfield_film_voice.py --test-caption fmv_e0m1_4_09-3 --locale zh-Hans --cache private-cache --mp3 reawakening.mp3
+```
 
 ## Other films preserved in the Technical Test catalogue
 
