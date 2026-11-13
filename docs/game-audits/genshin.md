@@ -280,8 +280,18 @@ English builds in succession. All previously matched surviving lines already
 had current recordings. A separate Global test prepared the 4.8 binding for
 event Dialog `400810204` and recovered it under 7.2, where the recording is
 absent. Normal playback exported 5.664 seconds from the publisher’s older file.
-Fresh installations need an earlier release catalog to recover media that
-already disappeared before their first preparation.
+Fresh installations also import the verified Windows 4.8 releases for the
+chosen edition and dub. The two editions share all 1,193 narrative file entries
+and their three revision values. Setup checks the immutable regional release
+descriptor and reads only the selected audio pack directories. The archive is
+limited to original Talk and voice metadata for lines still identifiable in
+the current edition. GitLab provides the historical metadata. When unavailable,
+Setup can fetch the same Git objects from GitHub with an existing Git installation.
+Current-release preparation remains available if both archival routes fail.
+On the Global 7.2 English build this recovered 16,303 recordings, raising the
+playable total from 160,654 to 176,957 among 464,300 indexed records. For the
+same event line the four Global 4.8 sources decoded to 5.619 seconds in English,
+5.289 in Mandarin, 6.497 in Japanese and 4.521 in Korean.
 [4.8 dialogue](https://github.com/DimbreathBot/AnimeGameData/blob/411376ae92931a04d41ae5a9386d45c0d2deb8a8/BinOutput/Talk/Quest/4008102.json)
 · [4.8 original voice binding](https://github.com/DimbreathBot/AnimeGameData/blob/411376ae92931a04d41ae5a9386d45c0d2deb8a8/BinOutput/Voice/Items/3238191112.json)
 
