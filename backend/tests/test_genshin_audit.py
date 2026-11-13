@@ -227,7 +227,7 @@ def test_index_uses_distinct_reminder_namespace_and_preserves_unavailable_and_un
                     'voiceFile': '17', 'voiceFileTextTextMapHash': 20}],
                 'ExcelBinOutput/AvatarExcelConfigData.json': [{'id': 20, 'iconName': 'UI_AvatarIcon_Fixture'}],
                 'ExcelBinOutput/GCGTalkDetailExcelConfigData.json': [],
-                'ExcelBinOutput/GCGTutorialTextExcelConfigData.json': []}[path]
+                'ExcelBinOutput/GCGTutorialTextExcelConfigData.json': []}.get(path, {})
 
         def directory_json(self, path, *, with_names=False):
             if path.endswith('Avatar'):

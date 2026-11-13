@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 10
+LANGUAGE_INDEX_VERSION = 11
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -493,7 +493,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         catalog = DialogueCatalog('genshin', data_dir)
         version_matches = _metadata_version(install, catalog, warnings)
     progress('Reading Genshin metadata and validating original voice bindings')
-    tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales, medium=True)
+    full_tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales)
     dialog_rows = _table(catalog, 'DialogExcelConfigData', warnings)
     annotations = {}
     hashes = dialogue_hashes(catalog.directory_json('BinOutput/Talk'), dialog_rows, warnings, annotations)
@@ -519,8 +519,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                else genshin_publisher.inventory(data_dir, stamp, source_locale, unavailable_duplicates=ambiguous))
     # Reminders use a distinct hash namespace. In this modality Medium takes
     # priority; ordinary dialogue keeps the full TextMap's canonical values.
-    reminder_tables = {}
-    for locale, values in tables.items():
+    reminder_tables, medium_tables, tables = {}, {}, {}
+    for locale, values in full_tables.items():
         medium = {}
         codes = TEXT_LOCALES[locale]
         for code in (codes,) if isinstance(codes, str) else codes:
@@ -529,7 +529,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 raise PreparationFailure('unsupported_game_format',
                     'The Genshin reminder text format is unsupported. Update the toolkit and refresh game data; the previous index is retained.')
             medium.update(data)
+        medium_tables[locale] = medium
         reminder_tables[locale] = {**values, **medium}
+        tables[locale] = {**medium, **values}
     ordinary = [link for link in links if not link['id'].startswith('reminder-')]
     reminder_links = [link for link in links if link['id'].startswith('reminder-')]
     rows = common.records('genshin', ordinary, tables, source_locale, entries)
@@ -554,6 +556,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
     _bind_predecessors(rows, annotations)
     if version_matches:
+        from .genshin_messages import message_records
+        rows += message_records(catalog, full_tables, medium_tables, source_locale, rows, warnings)
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
         from .genshin_cinematics import movie_records
         if install is None:

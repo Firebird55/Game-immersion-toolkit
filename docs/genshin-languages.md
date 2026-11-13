@@ -8,7 +8,12 @@ Pair any study language with any of the game's **15 official text locales**
 
 ## Setup
 
-Leave the game folder empty to prepare the mainland China PC launcher release directly from HoYoPlay. Setup reads its three revision markers, finds the matching translation snapshot and checks the selected voice package indexes. Playback downloads the original audio chunks for the requested line. The two Chinese study selections share a Mandarin pack. In-game hotfixes and removed event recordings have independent coverage.
+Leave the game folder empty and choose **Global** or **Mainland China** under
+**Publisher edition** to prepare that HoYoPlay PC release. Setup reads the
+release markers, finds the matching translation snapshot and checks the selected
+voice pack. Playback downloads the original audio chunks for the requested line.
+The two Chinese study selections share a Mandarin pack. In-game hotfixes and
+removed event recordings have independent coverage.
 
 For an installed game, select the client folder containing **GenshinImpact.exe and GenshinImpact_Data (or YuanShen.exe and YuanShen_Data)** in **Setup → Games**.
 Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
@@ -27,6 +32,11 @@ subtitle and translation tables. Only an exact authored source hash can bind an
 publisher or installed original voice. Conflicting sources are skipped.
 
 Genshin merges the ordinary and Medium subtitle hash spaces, including the split Russian and Thai tables. It reads authored Talk, DungeonReminder and Voice configuration, including the current obfuscated field layouts. Dialogue and reminder identities remain separate.
+
+Enable **Include unvoiced dialogue** to capture written mailbox templates and
+system announcements. Eye of Graeae message bodies, choices and attachment
+captions have translations in the prepared catalog. Their individual recordings
+still require a verified source.
 
 Use **Capture setup → Traveler voice** for ambiguous player performances.
 The bottom dialogue crop has separate per-PC calibration for this game. Check

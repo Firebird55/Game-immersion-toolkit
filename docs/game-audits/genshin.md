@@ -133,7 +133,7 @@ installed locale package.
 | Storyboards, comics and cinematic dialogue | 242 Storyboard Talk files, 159 StoryboardGroup files and 37 Cutscene Talk files | Supported Talk rows are retained; explicit storyboard/narration types receive cinematic channel coverage. No claim of complete comic layout or sequence recognition. |
 | Prerendered cinematics | Version-matched SRT subtitles and regional Windows USM inventory | Exact movie names yield timed subtitles and predecessor context. Locale recordings and isolated spoken performances remain unresolved. |
 | Books, notes and readables | 1,919 English Readable text files; localized file identities | Version-matched book assets are indexed by paragraph as text-only content. Translations require the same file identity and paragraph count. Other readable assets and exact overlaps with known authored voice text remain unknown. This is not blanket support for voiced Travel Log archives. |
-| Mail, messages and glasses chat | 323 MailExcel rows, three BirthdayMail routing rows, 421 obfuscated TpsGlassesChatMessage rows | Inventoried but not imported. Account mail and social chat are not accessed. The new glasses-chat fields need a verified text/voice schema before enabling that presentation. |
+| Mail, messages and glasses chat | Mailbox templates, system notifications, Eye of Graeae messages, replies, topics and attachments | Setup imports authored text, translations and identified senders from the matching public version. Mailbox templates and system UI support unvoiced capture. Chat performances have unknown voice status. |
 
 The reference contains 55,891 Talk files and 9,677 Voice files in total; many
 are routing, lookup or emotion records. Counts overlap the presentation rows and
@@ -189,6 +189,29 @@ rejects traversal, links, foreign directories, duplicate identities and excessiv
 file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
+
+## Written mail and Eye of Graeae messages
+
+On 7.2 the Global Windows preparation worker returned 469,879 English records.
+Of the 1,044 authored mailbox and message records, 332 were mail bodies, 332
+were mail subjects and nine were system notifications. The Eye of Graeae
+interface provided 281 full messages, 51 choices, six attachment captions,
+four location objectives and 29 thread titles. All 1,044 had Simplified
+Chinese translations. The five supported study selections each exposed
+these entries, with one additional mail subject and body in Simplified Chinese.
+The same reader found 984 English records on 7.1.
+
+The mailbox uses the Medium text namespace. System notifications and Eye of
+Graeae use the ordinary namespace. The reader distinguishes the full message,
+preview, attachment, option and identified sender fields. It recognizes
+renamed fields by their uniquely preserved values across independent records.
+In the 7.2 public client data, the chat body and option hashes have no exact
+DialogExcel text-hash link. Sample sentences shared with other presentations
+therefore retain unknown audio status. The Windows capture index recognized
+mail 3, including its Chinese translation, with unvoiced capture enabled.
+[7.2 mailbox](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/MailExcelConfigData.json)
+· [7.2 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
+· [7.1 Eye of Graeae messages](https://gitlab.com/Dimbreath/animegamedata2/-/blob/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/ExcelBinOutput/TpsGlassesChatMessageExcelConfigData.json)
 
 ## Short conversation cues
 
