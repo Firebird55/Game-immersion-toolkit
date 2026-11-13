@@ -75,6 +75,31 @@ def test_confirmed_genshin_predecessor_selects_a_short_recording_without_guessin
     assert 'previous_text_id' not in unavailable and unavailable['audio'] is None
 
 
+def test_previous_traveler_performance_selects_shared_and_gendered_replies(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    def line(identity, text, gender=None, audio=True):
+        return {'text_id': f'genshin:{identity}', 'source_locale': 'en', 'audio_locale': 'en',
+                'texts': {'en': text}, 'source_text': text, 'channels': ['dialogue'], 'player_voice': gender,
+                'audio': {'source': identity} if audio else None, 'dialogue_kind': 'conversation'}
+    rows = [line('10:female', 'Are you ready to leave?', 'female'), line('10:male', 'Are you ready to leave?', 'male'),
+            line('11', 'Yes!'), line('12:female', 'Go!', 'female'), line('12:male', 'Go!', 'male'),
+            line('13:female', 'No voice here', 'female', False), line('13:male', 'Over here', 'male'),
+            line('14', 'Yes!')]
+    game._bind_predecessors(rows, {k: {'previous_dialogue': p} for k, p in [('11', '10'), ('12', '10'), ('14', '13')]})
+    assert [r['previous_text_id'] for r in rows[2:5]] == ['genshin:10', 'genshin:10:female', 'genshin:10:male']
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'genshin', 'source_locale': 'en', 'records': rows}))
+    index = MultilingualTextIndex('genshin', tmp_path)
+    for gender, other in [('female', 'male'), ('male', 'female')]:
+        index.player_voice = gender
+        anchor = index.match_lines(['Are you ready to leave?'], exact_only=True).text_id
+        assert anchor == 'genshin:10:' + gender
+        assert index.match_lines(['Yes!'], exact_only=True, previous_text_id=anchor).text_id == 'genshin:11'
+        assert index.match_lines(['Go!'], exact_only=True, previous_text_id=anchor).text_id == 'genshin:12:' + gender
+        assert index.match_lines(['Yes!'], exact_only=True, previous_text_id='genshin:10:' + other) is None
+    index.player_voice = 'female'
+    assert index.match_lines(['Yes!'], exact_only=True, previous_text_id='genshin:13:female') is None
+
+
 def test_global_dialogues_fill_gaps_without_resurrecting_runtime_conflicts():
     warnings = []
     talks = [{'dialogList': [{'id': 1, 'talkContentTextMapHash': 10},

@@ -115,6 +115,10 @@ class MultilingualTextIndex:
                     capture_channels[identity] = channels if previous is None else previous | channels
                 if self.game == 'endfield' and row.get('member_text_ids'):
                     predecessor_aliases[row['text_id']] = tuple(row['member_text_ids'])
+                if self.game == 'genshin' and row['voice_status'] == 'voiced' and category == 'conversation':
+                    variant = re.fullmatch(r'(genshin:[0-9]+):(male|female)', row['text_id'])
+                    if variant and variant[2] == row.get('player_voice'):
+                        predecessor_aliases[row['text_id']] = (variant[1],)
                 if row['voice_status'] != 'voiced':
                     for language, text in row['texts'].items():
                         for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
@@ -175,6 +179,10 @@ class MultilingualTextIndex:
         with self.lock:
             sources = [display_text(' '.join(lines))] if previous_text_id else candidates(lines)
             predecessors = {previous_text_id, *self._predecessor_aliases.get(previous_text_id, ())}
+            if self.game == 'genshin' and previous_text_id:
+                variant = re.fullmatch(r'(genshin:[0-9]+):(male|female)', previous_text_id)
+                if variant and variant[2] != self.player_voice:
+                    return [] if multiple else None
             # A known silent/unknown page may contain a shorter spoken sentence.
             # Preserve the complete observation before candidate splitting so a
             # crop or a fuzzy match cannot turn its fragment into that voice.

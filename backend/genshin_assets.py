@@ -71,8 +71,18 @@ def _bind_predecessors(rows, annotations):
             continue
         identity = row['text_id'].split(':')[1]
         predecessor = annotations.get(identity, {}).get('previous_dialogue')
-        if predecessor and 'genshin:' + predecessor in voiced:
-            row['previous_text_id'] = 'genshin:' + predecessor
+        if not predecessor:
+            continue
+        base = 'genshin:' + predecessor
+        if base in voiced:
+            row['previous_text_id'] = base
+        elif (gender := row.get('player_voice')) in ('male', 'female'):
+            performance = base + ':' + gender
+            if performance in voiced:
+                row['previous_text_id'] = performance
+        elif base + ':female' in voiced or base + ':male' in voiced:
+            # Both travelers can hear this shared reply after their own take.
+            row['previous_text_id'] = base
 
 
 def dialogue_hashes(talks, fallback=(), warnings=None, annotations=None):
