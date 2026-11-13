@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -42,6 +42,12 @@ def fingerprint(install):
         from .genshin_publisher import fingerprint as publisher_fingerprint
         return publisher_fingerprint()
     return common.fingerprint(install, 'genshin')
+
+
+def publisher_fingerprint(tools):
+    from . import genshin_publisher
+    from .publisher_regions import selected_region
+    return genshin_publisher.fingerprint(selected_region(tools, 'genshin'))
 
 
 def _identity(value):
@@ -413,9 +419,12 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     warnings = []
     if install is None:
         from . import genshin_publisher
-        stamp, catalog, version = genshin_publisher.prepare(data_dir)
+        from .publisher_regions import selected_region
+        region = selected_region(data_dir / 'tools', 'genshin')
+        stamp, catalog, version = genshin_publisher.prepare(data_dir, region)
         version_matches = True
-        _warn(warnings, f'Using the mainland China Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
+        region_name = 'Global' if region == 'global' else 'mainland China'
+        _warn(warnings, f'Using the {region_name} Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
     else:
         stamp = fingerprint(install)
         catalog = DialogueCatalog('genshin', data_dir)
@@ -477,8 +486,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     count = sum(bool(row['audio']) for row in rows)
     source = 'installed' if install is not None else 'publisher'
     result['message'] = f'{len(rows):,} {source_locale} lines from versioned community metadata; {count:,} verified {source} voices'
-    if install is None and (not count or not genshin_publisher.current(stamp)):
-        raise ValueError('The Genshin release changed or its voice data is incomplete. Retry preparation.')
+    if install is None:
+        result['publisher_region'] = region
+        if not count or selected_region(data_dir / 'tools', 'genshin') != region or not genshin_publisher.current(stamp, region):
+            raise ValueError('The Genshin region or release changed, or its voice data is incomplete. Retry preparation.')
     result['coverage_warnings'] = warnings
     return result
 

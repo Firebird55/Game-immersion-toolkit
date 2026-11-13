@@ -14,6 +14,10 @@ from .voice_assets import external_table, voice_hash
 CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global', 'zzz': 'zzz-global'}
 
 
+def _channel_allowed(game, channel):
+    return channel == CHANNELS[game] or game == 'genshin' and channel == 'genshin-global'
+
+
 def descriptor(build):
     raw = json.dumps(build, sort_keys=True, separators=(',', ':')).encode()
     return 'sophon-' + hashlib.sha256(raw).hexdigest(), raw
@@ -26,12 +30,11 @@ def snapshot_available(tools, stamp, game):
     if not path.is_file() or path.stat().st_size > 64 * 1024:
         return False
     raw = path.read_bytes()
-    return stamp == 'sophon-' + hashlib.sha256(raw).hexdigest() and json.loads(raw)['channel'] == CHANNELS[game]
+    return stamp == 'sophon-' + hashlib.sha256(raw).hexdigest() and _channel_allowed(game, json.loads(raw)['channel'])
 
 
 @lru_cache(maxsize=12)
 def _files(directory, stamp, locale, game):
-    channel = CHANNELS[game]
     if locale not in sophon.VOICE_FIELDS or not re.fullmatch('sophon-[0-9a-f]{64}', stamp):
         raise ValueError('Invalid HoYoPlay publisher identity.')
     path = directory / 'releases' / stamp
@@ -39,11 +42,13 @@ def _files(directory, stamp, locale, game):
         raise ValueError('Invalid HoYoPlay publisher descriptor.')
     raw = path.read_bytes()
     build = json.loads(raw)
-    if 'sophon-' + hashlib.sha256(raw).hexdigest() != stamp or build['channel'] != channel:
+    channel = build['channel']
+    if 'sophon-' + hashlib.sha256(raw).hexdigest() != stamp or not _channel_allowed(game, channel):
         raise ValueError('HoYoPlay publisher descriptor has changed.')
     spec = tuple(build['manifests'][sophon.VOICE_FIELDS[locale]])
     files = sophon.manifest(directory, channel, spec, ('.pck',))
     allowed = set(voice_namespaces(game, locale))
+    genshin_data = 'GenshinImpact_Data' if channel == 'genshin-global' else 'YuanShen_Data'
     result = {}
     for name, asset in files.items():
         parts = PurePosixPath(name).parts
@@ -54,7 +59,7 @@ def _files(directory, stamp, locale, game):
             continue
         if len(parts) < 4 or parts[1] not in ('Persistent', 'StreamingAssets') or parts[-2] not in allowed:
             continue
-        if (game == 'genshin' and parts[0] == 'YuanShen_Data' and parts[2:-2] == ('AudioAssets',) or
+        if (game == 'genshin' and parts[0] == genshin_data and parts[2:-2] == ('AudioAssets',) or
                 game == 'starrail' and parts[0] == 'StarRail_Data' and parts[2:-2] == ('Audio', 'AudioPackage', 'Windows')):
             result[name] = asset
     if not result:

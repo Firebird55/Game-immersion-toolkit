@@ -1,5 +1,32 @@
 # Genshin Impact narrative audit
 
+## Regional Windows Setup, November 13, 2026
+
+Setup can acquire the active Global or mainland China launcher release. It follows
+the selected regional HoYoPlay branch and downloads original voices from that
+region. For the Global base it first requests the exact OSRELWin text extraction.
+A CNRELWin extraction can supply the same text only when both independently
+released game builds agree on the version, revision markers and complete
+AssetBundles inventory by relative path, size and publisher checksum. Setup
+also compares the resource, data and silence indexes, content table and service
+catalog. A mismatch requires a matching Global extraction. Each voice binding
+keeps its original region's immutable Sophon build and selected package.
+[Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8)
+· [Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1)
+
+Global 7.2.0 build `msj5r4DqSLOw` and mainland build `asDgc67wRUeO`
+shared all 2,031 AssetBundles blocks, the three revision files, all three
+streaming indexes, the content table and service catalog. On Windows the
+language worker used the Global publisher channel with an empty game-folder
+setting and the matching immutable text revision. It prepared 464,300 English
+records with Simplified Chinese translations requested. Of these, 160,654
+had verified original audio. LocalVoice exported one story line and one
+profile line to MP3. From distinct Global publisher packs the story line
+`80030105` decoded to 8.263 s in English, 6.093 s in Japanese, 5.048 s
+in Korean and 6.267 s in Mandarin. This comparison covers launcher bases.
+In-version Global hotfix discovery and region-specific replacements remain open.
+[Matching text extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
+
 ## Character profile and combat performances, November 9, 2026
 
 Normal preparation joins the profile's avatar ID, Fetter voice trigger and

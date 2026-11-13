@@ -45,15 +45,16 @@ def field(number, value):
     return varint(number << 3 | 2) + varint(len(value)) + value
 
 
-def fixture(directory, monkeypatch, version, speech, *, game='genshin'):
+def fixture(directory, monkeypatch, version, speech, *, game='genshin', channel=None):
     source = 'English(US)\\VO_AQ\\synthetic.wem' if game == 'genshin' else 'English/voice/story/test.wem'
     identity = voice_hash(source)
     wem = b'RIFF' + struct.pack('<I', 4 + len(speech)) + b'WAVE' + speech
     table = struct.pack('<I Q4I', 1, identity, 1, len(wem), 56, 0)
     package = b'AKPK' + struct.pack('<6I', 48, 1, 0, 0, 0, len(table)) + table + wem
-    channel = publisher.voices.CHANNELS[game]
+    channel = channel or publisher.voices.CHANNELS[game]
     base = 'https://' + sophon.CHANNELS[channel][3] + '/test/' + version
-    name = ('YuanShen_Data/StreamingAssets/AudioAssets/English(US)/1.pck' if game == 'genshin' else
+    folder = 'GenshinImpact_Data' if channel == 'genshin-global' else 'YuanShen_Data'
+    name = (folder + '/StreamingAssets/AudioAssets/English(US)/1.pck' if game == 'genshin' else
             'StarRail_Data/Persistent/Audio/AudioPackage/Windows/English/External0.pck')
     md5 = lambda data: hashlib.md5(data).hexdigest()
     def encode(data):
@@ -93,6 +94,63 @@ def test_new_build_changes_voice_and_old_cached_clip_survives_offline(tmp_path, 
         assert publisher.extract(binding, tmp_path / 'tools') == wem
         with pytest.raises(ValueError):
             publisher.extract(binding | {'locale': 'ja'}, tmp_path / 'tools')
+
+
+def test_genshin_regions_retain_their_own_originals_offline(tmp_path, monkeypatch):
+    clips = []
+    for channel in ('genshin-global', 'genshin-cn'):
+        source, identity, stamp, wem, _ = fixture(tmp_path, monkeypatch, '1.0.0', channel.encode(), channel=channel)
+        binding = publisher.inventory(tmp_path, stamp, 'en')[identity] | {
+            'file_id': f'{identity:016x}', 'source': source, 'locale': 'en'}
+        assert publisher.voices.snapshot_available(tmp_path / 'tools', stamp, 'genshin')
+        assert not publisher.voices.snapshot_available(tmp_path / 'tools', stamp, 'starrail')
+        assert publisher.extract(binding, tmp_path / 'tools') == wem
+        clips.append((binding, wem))
+    assert clips[0][0]['publisher'] != clips[1][0]['publisher']
+    sophon.manifest.cache_clear()
+    publisher.voices._table.cache_clear()
+    publisher.voices._files.cache_clear()
+    def offline(*args, **kwargs):
+        pytest.fail('An already cached regional recording went online')
+    monkeypatch.setattr(sophon, 'download', offline)
+    for binding, wem in clips:
+        assert publisher.extract(binding, tmp_path / 'tools') == wem
+
+
+def test_genshin_global_text_needs_matching_regional_release_or_all_original_resources(tmp_path, monkeypatch):
+    builds = {key: {'channel': key, 'version': '2.0.0', 'manifests': {'game': (key,)}} for key in publisher.ROOTS}
+    monkeypatch.setattr(sophon, 'release', builds.__getitem__)
+    class Marker:
+        def __init__(self, data):
+            self.size = len(data)
+            self.digest = hashlib.md5(data).hexdigest()
+            self.data = data
+        def read(self, _cache, start, size):
+            return self.data[start:start + size]
+    assets = {**{key: Marker(b'index') for key in publisher.INDEXES},
+              'AssetBundles/blocks/ab/cd.blk': Marker(b'dialogue'),
+              **{'AssetBundles/' + field: Marker(str(i).encode()) for i, field in enumerate(publisher.MARKERS, 1)}}
+    manifests = {c: {root + k: v for k, v in assets.items()} for c, root in publisher.ROOTS.items()}
+    monkeypatch.setattr(sophon, 'manifest', lambda directory, channel, spec, suffixes: manifests[channel])
+    def cn_only(game, title):
+        if title != 'CNRELWin2.0.0_R1_S2_D3':
+            raise PreparationFailure('publisher_unavailable', 'Missing regional extraction')
+        return 'a' * 40
+    monkeypatch.setattr(publisher, 'matching_release_commit', cn_only)
+    global_build = builds['genshin-global']
+    assert publisher._catalog(tmp_path, global_build, 'global') == 'a' * 40
+    cn = manifests['genshin-cn']
+    for key in ('AssetBundles/blocks/ab/cd.blk', 'data_versions_streaming', 'ctable_streaming.dat', 'svc_catalog'):
+        path = publisher.ROOTS['genshin-cn'] + key
+        cn[path] = Marker(b'replaced')
+        with pytest.raises(PreparationFailure, match='Global'):
+            publisher._catalog(tmp_path, global_build, 'global')
+        cn[path] = assets[key]
+    cn[publisher.ROOTS['genshin-cn'] + 'AssetBundles/blocks/extra.blk'] = Marker(b'extra')
+    with pytest.raises(PreparationFailure, match='Global'):
+        publisher._catalog(tmp_path, global_build, 'global')
+    monkeypatch.setattr(publisher, 'matching_release_commit', lambda game, title: title)
+    assert publisher._catalog(tmp_path, global_build, 'global') == 'OSRELWin2.0.0_R1_S2_D3'
 
 
 def test_mismatched_or_truncated_chunk_cannot_replace_good_data(tmp_path, monkeypatch):
