@@ -37,7 +37,7 @@ try{for(const name of process.env.MOBILE_TEST_BROWSERS.split(',')){
  await page.getByText(data.platformScope.liveServiceTarget+' '+data.platformScope.windowsPreparation[data.platformScope.targets.wuwa].label,{exact:true}).waitFor();
  assert.match(await page.locator('.tag').textContent(),/Supported with Windows publisher Setup or installed assets/);
  await page.selectOption('#guide-game','zzz');
- assert.match(await page.locator('.tag').textContent(),/Publisher Setup for recorded phone messages only/);
+ assert.match(await page.locator('.tag').textContent(),/Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings/);
  await page.selectOption('#guide-game','heavyrain');await page.selectOption('#guide-target','pt-BR');assert.match(await page.locator('.game-card .warning').first().textContent(),/No official toolkit translation/);
  await page.selectOption('#guide-game','zzz');await page.selectOption('#guide-study','ja');await page.selectOption('#guide-target','es-419');assert.match(await page.locator('.game-card .warning').first().textContent(),/Translation locale unverified/);
  await page.selectOption('#guide-game','nte');await page.selectOption('#guide-target','fr');assert.match(await page.locator('.game-card .warning').first().textContent(),/Expected with installed assets/);

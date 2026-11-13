@@ -115,10 +115,11 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     from pathlib import Path
     from backend.game_assets import asset_adapter
     adapter, _ = asset_adapter(game)
+    has_publisher_fingerprint = hasattr(adapter, 'publisher_fingerprint')
     def fingerprint(source):
-        assert source == (tmp_path / game / 'tools' if game in ('wuwa', 'zzz') else None)
+        assert source == (tmp_path / game / 'tools' if has_publisher_fingerprint else None)
         return 'owned-publisher-release'
-    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', fingerprint)
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if has_publisher_fingerprint else 'fingerprint', fingerprint)
     value = runtime(tmp_path, locale=None)
     value.setup_install = lambda _game: None
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
@@ -143,7 +144,7 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     from backend.preparation_errors import PreparationFailure
     def offline(_source):
         raise URLError('offline')
-    monkeypatch.setattr(adapter, 'publisher_fingerprint' if game in ('wuwa', 'zzz') else 'fingerprint', offline)
+    monkeypatch.setattr(adapter, 'publisher_fingerprint' if has_publisher_fingerprint else 'fingerprint', offline)
     with pytest.raises(PreparationFailure) as caught:
         value.build_language(game, 'ja', ('en',))
     assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained

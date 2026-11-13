@@ -1,11 +1,14 @@
 """Original Global Star Rail voice packages and their compatible text generation."""
 from functools import lru_cache
 import struct
+import json
+import re
 import time
+from urllib.error import HTTPError, URLError
 
-from . import hoyo_publisher_voice as voices, sophon_assets as sophon
+from . import hoyo_publisher_voice as voices, sophon_assets as sophon, starrail_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
-from .game_tools import _atomic_file
+from .game_tools import _atomic_file, download
 from .hoyo_dialogue import voice_namespace
 
 CHANNEL = voices.CHANNELS['starrail']
@@ -50,16 +53,21 @@ def optional_files(directory, stamp, locale):
 
 
 @lru_cache(maxsize=2)
-def _poll(period):
-    return voices.descriptor(sophon.release(CHANNEL))[0]
+def _poll(region, period):
+    return voices.descriptor(_release(region))[0]
 
 
-def fingerprint():
-    return _poll(int(time.monotonic() // 30))
+def _release(region):
+    channel = {'global': 'starrail-global', 'cn': 'starrail-cn'}[region]
+    return hotfix.discover(sophon.release(channel))
 
 
-def current(stamp):
-    return voices.descriptor(sophon.release(CHANNEL))[0] == stamp
+def fingerprint(region='global'):
+    return _poll(region, int(time.monotonic() // 30))
+
+
+def current(stamp, region='global'):
+    return voices.descriptor(_release(region))[0] == stamp
 
 
 def revision_marker(raw):
@@ -100,13 +108,50 @@ def release_title(stamp, version, revisions):
     return f'OSPRODWin{version}_D{design}_A{assets}_L{lua}'
 
 
-def prepare(data_dir):
-    build = sophon.release(CHANNEL)
+def _text_commit(title):
+    try:
+        return matching_release_commit('starrail', title)
+    except HTTPError as error:
+        if error.code not in (403, 429, 500, 502, 503, 504):
+            raise
+    except (TimeoutError, ConnectionError, URLError):
+        pass
+    for page in range(1, 6):
+        url = f'https://api.github.com/repos/DimbreathBot/TurnBasedGameData/commits?sha=main&per_page=50&page={page}'
+        rows = json.loads(download(url, limit=2 * 1024**2))
+        for row in rows:
+            if row['commit']['message'].splitlines()[0] == title and re.fullmatch('[0-9a-f]{40}', row['sha']):
+                return row['sha']
+        if len(rows) < 50:
+            break
+    raise ValueError('The matching Star Rail translation snapshot is unavailable. Retry after the catalog updates.')
+
+
+class ReleasedCatalog(DialogueCatalog):
+    """Use the author's mirror of the same Git commit if the primary host is busy."""
+    def raw_file(self, relative):
+        try:
+            return super().raw_file(relative)
+        except HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504):
+                raise
+        except (TimeoutError, ConnectionError, URLError):
+            pass
+        url = f'https://raw.githubusercontent.com/DimbreathBot/TurnBasedGameData/{self.revision}/{relative}'
+        return self._bytes(relative, url)
+
+
+def prepare(data_dir, region='global'):
+    build = _release(region)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
-    files = sophon.manifest(directory, CHANNEL, tuple(build['manifests']['game']), ('.bytes',))
-    title = release_title(stamp, build['version'], release_revisions(directory, files))
-    catalog = DialogueCatalog('starrail', data_dir, revision=matching_release_commit('starrail', title))
+    # Check all four actual index bodies against this release before publishing
+    # the translation and audio selection. Reuse unchanged index digests.
+    for name in hotfix.INDEXES:
+        hotfix.index(directory, build, name)
+    revisions = tuple(build['hotfix']['indexes'][name][0] for name in hotfix.INDEXES)
+    title = release_title(stamp, build['version'], revisions)
+    catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
     catalog.revision_title = title
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog

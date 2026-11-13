@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 4
+LANGUAGE_INDEX_VERSION = 5
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -42,6 +42,12 @@ def fingerprint(install):
         from .genshin_publisher import fingerprint as publisher_fingerprint
         return publisher_fingerprint()
     return common.fingerprint(install, 'genshin')
+
+
+def publisher_fingerprint(tools):
+    from . import genshin_publisher
+    from .publisher_regions import selected_region
+    return genshin_publisher.fingerprint(selected_region(tools, 'genshin'))
 
 
 def _identity(value):
@@ -125,8 +131,23 @@ def _voice_path(path, locale):
     return None
 
 
+CHARACTER_TRIGGERS = frozenset({'AnimatorEvent', 'WeatherMonologue', 'JoinTeam', 'Costume', 'Gacha'})
+
+
+def _character_sources(voice, schema, locale):
+    array, filename, _trigger, _argument = schema
+    actor_field = 'CCCECEDMIEI' if filename == 'CFIKOCLOKGH' else 'avatarName'
+    gender_field = 'KHNPBDOBIAL' if filename == 'CFIKOCLOKGH' else 'gender'
+    if isinstance(voice[array], list):
+        for item in voice[array]:
+            actor = item.get(actor_field) if isinstance(item, dict) else None
+            if isinstance(actor, str) and actor:
+                condition = {None: 'shared', 1: 'female', 2: 'male'}.get(item.get(gender_field), 'unsupported')
+                yield actor.casefold(), condition, _voice_path(item.get(filename), locale)
+
+
 def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, warnings=None, authored=None,
-                   profile_sources=None):
+                   profile_sources=None, gameplay_sources=None):
     reminders = reminders or {}
     tables = {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards or {}}
     values = defaultdict(set)
@@ -139,7 +160,8 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
             if not isinstance(voice, dict):
                 continue
             recognized = False
-            for array, filename, trigger, argument in VOICE_SCHEMAS:
+            for schema in VOICE_SCHEMAS:
+                array, filename, trigger, argument = schema
                 if array not in voice:
                     continue
                 recognized = True
@@ -147,17 +169,16 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
                 kind = voice.get(trigger)
                 if kind == 'Fetter' and profile_sources is not None:
                     trigger_id = _identity(voice.get(argument))
-                    if trigger_id and isinstance(voice[array], list):
-                        # On 7.1 this field had the same switch for all 11,869
-                        # Fetter GUID/source pairs also present in 7.2.
-                        actor_field = 'CCCECEDMIEI' if filename == 'CFIKOCLOKGH' else 'avatarName'
-                        gender_field = 'KHNPBDOBIAL' if filename == 'CFIKOCLOKGH' else 'gender'
-                        for item in voice[array]:
-                            actor = item.get(actor_field) if isinstance(item, dict) else None
-                            if isinstance(actor, str) and actor:
-                                key = (trigger_id, actor.casefold())
-                                condition = {None: 'shared', 1: 'female', 2: 'male'}.get(item.get(gender_field), 'unsupported')
-                                profile_sources.setdefault(key, set()).add((condition, _voice_path(item.get(filename), locale)))
+                    if trigger_id:
+                        for actor, condition, path in _character_sources(voice, schema, locale):
+                            profile_sources.setdefault((trigger_id, actor), set()).add((condition, path))
+                    continue
+                if isinstance(kind, str) and kind in CHARACTER_TRIGGERS and gameplay_sources is not None:
+                    trigger_id = _identity(voice.get(argument))
+                    if trigger_id:
+                        for actor, condition, path in _character_sources(voice, schema, locale):
+                            if path and condition != 'unsupported':
+                                gameplay_sources.setdefault((actor, condition, path.casefold()), set()).add((kind, trigger_id))
                     continue
                 if not isinstance(kind, str) or kind not in tables:
                     continue
@@ -205,7 +226,7 @@ def dialogue_links(voice_maps, hashes, locale, reminders=None, *, cards=None, wa
     return links
 
 
-def profile_links(rows, avatars, configs, sources):
+def profile_links(rows, avatars, configs, sources, gameplay_sources=None):
     # Each Fetter trigger can contain many characters. The avatar's authored
     # voice switch selects the eligible sources within that exact trigger.
     switches = defaultdict(set)
@@ -232,6 +253,7 @@ def profile_links(rows, avatars, configs, sources):
         if avatar and record and text:
             profiles[(avatar, record)].add((text, trigger, row.get('type')))
     links = []
+    contexts = defaultdict(list)
     for (avatar, record), (text, trigger, kind) in _unique(profiles).items():
         takes = sources.get((trigger, unique_actors.get(avatar)), set())
         conditions = {condition for condition, _ in takes}
@@ -246,12 +268,24 @@ def profile_links(rows, avatars, configs, sources):
                           'player_voice': None if gender == 'shared' else gender,
                           'dialogue_kind': 'combat_voice' if kind == 2 else 'profile_voice',
                           'channels': ['dialogue', 'gameplay'] if kind == 2 else ['dialogue']})
+            if source and gameplay_sources:
+                key = (unique_actors[avatar], gender, source.casefold())
+                if key in gameplay_sources:
+                    contexts[key].append(links[-1])
+    for key, matched in contexts.items():
+        if len({row['hash'] for row in matched}) == 1:
+            triggers = [{'type': kind, 'id': identity} for kind, identity in sorted(gameplay_sources[key])]
+            for row in matched:
+                row.update(channels=['dialogue', 'gameplay'], gameplay_triggers=triggers)
     return links
 
 
 def profile_records(links, tables, locale, entries):
     records = []
+    triggers = {'genshin:' + link['id']: link['gameplay_triggers'] for link in links if link.get('gameplay_triggers')}
     for row in common.records('genshin', links, tables, locale, entries):
+        if row['audio'] and row['text_id'] in triggers:
+            row['audio']['gameplay_triggers'] = triggers[row['text_id']]
         variants = {lang: rendered for lang, raw in row['texts'].items()
                     if (rendered := gender_variants(raw.removeprefix('#')))}
         if not variants:
@@ -413,9 +447,12 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     warnings = []
     if install is None:
         from . import genshin_publisher
-        stamp, catalog, version = genshin_publisher.prepare(data_dir)
+        from .publisher_regions import selected_region
+        region = selected_region(data_dir / 'tools', 'genshin')
+        stamp, catalog, version = genshin_publisher.prepare(data_dir, region)
         version_matches = True
-        _warn(warnings, f'Using the mainland China Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
+        region_name = 'Global' if region == 'global' else 'mainland China'
+        _warn(warnings, f'Using the {region_name} Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
     else:
         stamp = fingerprint(install)
         catalog = DialogueCatalog('genshin', data_dir)
@@ -432,9 +469,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     reminders = reminder_hashes(reminder_rows)
     cards = card_hashes(_table(catalog, 'GCGTalkDetailExcelConfigData', warnings),
                         _table(catalog, 'GCGTutorialTextExcelConfigData', warnings), warnings)
-    authored, profile_sources = set(), {}
+    authored, profile_sources, gameplay_sources = set(), {}, {}
     links = dialogue_links(catalog.directory_json('BinOutput/Voice'), hashes, source_locale,
-                           reminders, cards=cards, warnings=warnings, authored=authored, profile_sources=profile_sources)
+                           reminders, cards=cards, warnings=warnings, authored=authored, profile_sources=profile_sources,
+                           gameplay_sources=gameplay_sources)
     links = _complete_links(links, {'Dialog': hashes, 'DungeonReminder': reminders, 'Card': cards},
                             authored, reminder_rows)
     for link in links:
@@ -464,7 +502,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
     if profiles:
         profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
-                                catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources)
+                                catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources, gameplay_sources)
         rows += profile_records(profile, tables, source_locale, entries)
     if version_matches:
         rows += readable_records(catalog, tables, source_locale, rows, warnings)
@@ -472,13 +510,15 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
     if any(row['voice_status'] == 'unknown' for row in rows):
         _warn(warnings, 'Some Genshin lines have unknown voice status and are excluded from unvoiced capture.')
-    _warn(warnings, 'Some combat trigger families, messages, and movie subtitle intervals still lack verified Genshin bindings.')
+    _warn(warnings, 'Character trigger sounds without unique matching profile text, some messages and movie cues still lack verified Genshin sentence bindings.')
     result = common.snapshot('genshin', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     count = sum(bool(row['audio']) for row in rows)
     source = 'installed' if install is not None else 'publisher'
     result['message'] = f'{len(rows):,} {source_locale} lines from versioned community metadata; {count:,} verified {source} voices'
-    if install is None and (not count or not genshin_publisher.current(stamp)):
-        raise ValueError('The Genshin release changed or its voice data is incomplete. Retry preparation.')
+    if install is None:
+        result['publisher_region'] = region
+        if not count or selected_region(data_dir / 'tools', 'genshin') != region or not genshin_publisher.current(stamp, region):
+            raise ValueError('The Genshin region or release changed, or its voice data is incomplete. Retry preparation.')
     result['coverage_warnings'] = warnings
     return result
 

@@ -11,9 +11,9 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Zenless Zone Zero
 
-[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-09 · [Dekkingsnotities](../zzz-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-13 · [Dekkingsnotities](../zzz-languages.md)
 
-In de instellingen kun je ingesproken telefoonberichten uit de Global-launcher ophalen. Voor andere dialogen zijn de geïnstalleerde bestanden nodig.
+Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -281,7 +281,7 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [Officiële taallijst](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [Dekkingsnotities](../starrail-languages.md)
 
-Reguliere Global-stempakketten van de uitgever
+Regionale basis- en hoofdstukstemmen van de uitgever
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
@@ -312,7 +312,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [Officiële taallijst](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [Dekkingsnotities](../genshin-languages.md)
 
-Uitgeversbestanden voor de Chinese vastelandversie van de launcher
+Uitgeversbestanden uit de wereldwijde of Chinese launcher
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
@@ -346,7 +346,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [Officiële taallijst](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [Dekkingsnotities](../endfield-languages.md)
 
-Global-verhaalstemmen van de uitgever
+Verhaalstemmen van de wereldwijde of Chinese uitgever
 
 Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 

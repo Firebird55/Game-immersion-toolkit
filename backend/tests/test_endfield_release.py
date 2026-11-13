@@ -63,6 +63,30 @@ def test_regional_timeline_profile_requires_both_publisher_indexes(tmp_path, mon
     assert not catalog.has_verified_clocks()
 
 
+def test_mainland_launcher_keeps_its_own_generation_and_rejects_cross_region_urls(tmp_path, monkeypatch):
+    host, app, launcher_app, channel, cdn = publisher.CHANNELS['cn']
+    assert channel == 1
+    layers = {role: {'name': role, 'version': '23-4',
+              'path': f'{cdn}/1.6/resource/Windows/{role}/23-4_R/files'} for role in ('initial', 'main')}
+    def download(url, **_options):
+        if url.startswith(host + 'get_latest?'):
+            assert f'launcher_appcode={launcher_app}' in url and 'channel=1' in url
+            return json.dumps({'version': '1.6.5', 'pkg': {'packs': [{'url':
+                f'{cdn}/1.6/update/1/1/Windows/1.6.5_V/packs/game.zip?auth_key=ephemeral'}]}})
+        if url.startswith(host + 'get_latest_resources?'):
+            assert f'appcode={app}' in url and 'rand_str=V' in url
+            return json.dumps({'resources': list(layers.values())})
+        assert url.startswith(cdn + '/1.6/resource/')
+        return b'i' * 42
+    monkeypatch.setattr(publisher, 'download', download)
+    stamp, raw = publisher.discover('cn')
+    publisher._atomic_file(tmp_path / 'endfield-releases' / stamp, raw)
+    assert publisher.descriptor(tmp_path, stamp)['region'] == 'cn' and b'ephemeral' not in raw
+    layers['main']['path'] = layers['main']['path'].replace(cdn, publisher.CDN)
+    with pytest.raises(ValueError):
+        publisher.discover('cn')
+
+
 def test_cinematic_registry_selects_full_asset_path_and_bounds_decompression():
     def field(data):
         return struct.pack('<i', len(data)) + data

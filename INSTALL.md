@@ -46,15 +46,15 @@ installation.
 
 | Game | Folder to choose | Voice requirement |
 | --- | --- | --- |
-| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Empty folder prepares recorded phone messages from the Global PC launcher base in the selected dub. For other dialogue, select the installed files and matching voice pack |
+| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Empty folder prepares Global launcher dialogue scenes, messages, gameplay tips and timed clue recordings in the selected dub. For other dialogue, select the installed files and matching voice pack |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Selected official voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
-| Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, prepare a selected dub from regular Global publisher packages. Optional chapter downloads have separate coverage |
-| Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, setup retrieves the mainland China release and selected original dub from HoYoPlay |
-| Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, setup follows Global narrative and voice updates from GRYPHLINE. Known film timings carry forward when the current timeline, voice banks and recording still match |
+| Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, select Global or Mainland China and prepare the desired dub. The regional audio index selects released base and chapter packages |
+| Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, select Global or Mainland China in Publisher edition to retrieve the matching HoYoPlay release and original dub. Existing setups default to mainland China |
+| Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, select Global (GRYPHLINE) or Mainland China (Hypergryph) in Publisher edition. Setup follows narrative and voice updates from that edition. Known film timings carry forward when the current timeline, voice banks and recording still match |
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |
 | Persona 5 Royal | Contains P5R.exe and CPK/BASE.CPK | Selected study text CPK and matching English or Japanese original voice pack; verified character metadata is cached on first preparation |

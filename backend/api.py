@@ -108,6 +108,11 @@ class SetupAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class SetupPublisherRegion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    region: str = Field(max_length=16)
+
+
 class EventHub:
     def __init__(self, context=None) -> None:
         self.context = context
@@ -2021,6 +2026,21 @@ def setup_folder(game: str, payload: SetupFolder, request: Request,
             raise ValueError("Choose a folder or explicitly use automatic detection")
     except (ValueError, OSError):
         raise HTTPException(400, "Required game files were not found. Choose the installation folder shown in Setup; the previous folder was kept.") from None
+    runtime.refresh_game(game)
+    return runtime.installation.status()
+
+
+@app.post("/api/setup/games/{game}/publisher-region")
+def setup_publisher_region(game: str, payload: SetupPublisherRegion, request: Request,
+                           x_proxy_transcript: str | None = Header(default=None)) -> dict:
+    from .publisher_regions import REGIONAL_GAMES, select_region
+    setup_access(request, x_proxy_transcript, write=True)
+    if game not in REGIONAL_GAMES:
+        raise HTTPException(404, "This game does not support publisher edition selection.")
+    try:
+        select_region(DATA_DIR / game / 'tools', game, payload.region)
+    except ValueError as error:
+        raise HTTPException(400, str(error)) from None
     runtime.refresh_game(game)
     return runtime.installation.status()
 

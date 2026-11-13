@@ -9,6 +9,7 @@ import re
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .languages import audio_locale, resolve_locale
 from .preparation_errors import PreparationFailure
+from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
@@ -49,6 +50,11 @@ def publisher_snapshot_available(tools, stamp):
         return bool(endfield_release.descriptor(tools, stamp))
     except (OSError, ValueError):
         return False
+
+
+def publisher_fingerprint(tools):
+    from . import endfield_release
+    return endfield_release.fingerprint(selected_region(tools, 'endfield'))
 
 
 def publisher_voice_matches(stamp, audio):
@@ -304,7 +310,9 @@ def conversation_with_reactions(catalog, identity):
             **_reaction_fields(row, *_reaction_tables(catalog), allow_actor_id=False)}
 
 
-def radio_dialogues(catalog):
+def radio_dialogues(catalog, *, reaction_player=None):
+    if reaction_player not in (None, 'male', 'female'):
+        raise ValueError('Unknown Endministrator reaction performer.')
     dialogs = {}
     actors, reactions = _reaction_tables(catalog)
     for group_id, group in _table(catalog, 'RadioTable').items():
@@ -322,9 +330,14 @@ def radio_dialogues(catalog):
                 _unsupported()
             if identity in dialogs:
                 _unsupported()
+            reaction_actor = row
+            if reaction_player and row.get('actorNameId') == 'endminf':
+                # The radio controller resolves the player actor before looking up an emotion.
+                player_id = {'male': 'endminm', 'female': 'endminf'}[reaction_player]
+                reaction_actor = {**row, 'actorNameId': player_id if player_id in actors else ''}
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
                 'radio_group': group_id, 'previous_radio_id': previous,
-                **_reaction_fields(row, actors, reactions, allow_actor_id=True),
+                **_reaction_fields(reaction_actor, actors, reactions, allow_actor_id=True),
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
             previous = identity
@@ -452,7 +465,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         raise ValueError('Unsupported Endfield study/audio language.')
     online = install is None
     if online:
-        catalog = endfield_release.prepare(data_dir / 'tools')
+        region = selected_region(data_dir / 'tools', 'endfield')
+        catalog = endfield_release.prepare(data_dir / 'tools', region)
         stamp = catalog.stamp
     else:
         stamp = fingerprint(install)
@@ -505,7 +519,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             film['audio']['snapshot'] = stamp
     rows.extend(films)
     coverage['voiced'] += len(films)
-    current = endfield_release.discover()[0] if online else fingerprint(install)
+    current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
     if current != stamp:
         raise PreparationFailure('game_files_changed',
             'Endfield files changed during preparation. Wait for the game update to finish, then retry; '
@@ -532,11 +546,12 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                     'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
     if online:
-        warnings.append(f'Using Global Windows {catalog.revision_title} from the Endfield publisher. '
+        warnings.append(f'Using {REGIONS[region]} Windows {catalog.revision_title} from the Endfield publisher. '
                         'Original narrative tables and voices follow the released resources. '
                         'Film captions require verified timing for the selected resources.')
     available = {code for row in rows for code in row['texts']}
     return {'format': 2, 'game': 'endfield', 'source_locale': source_locale, 'install': None if online else str(install),
+        **({'source_mode': 'publisher', 'publisher_region': region} if online else {}),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],

@@ -18,7 +18,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 6
+LANGUAGE_INDEX_VERSION = 8
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -210,6 +210,17 @@ def _text(text, gender):
 
 
 def build_records(tables, source_locale, selected, links, prefixes, entries, cinematic, namespace):
+    expanded, channels, evidence, kinds = _group_links(links)
+    bindings = resolve_links(expanded, prefixes, entries, namespace=namespace) if namespace else {}
+    bindings.update(cinematic)
+    for identity, binding in bindings.items():
+        stat = Path(binding['package']).stat()
+        bindings[identity] = {**binding, 'locale': audio_locale(source_locale), 'namespace': namespace,
+                              'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
+    return _dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings, set(cinematic))
+
+
+def _group_links(links):
     expanded, channels, evidence, kinds = [], {}, {}, {}
     for link in links:
         identity = link['text_id']
@@ -229,9 +240,11 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
             if link['source']:
                 expanded.append({'text_id': identity, 'source': link['source']})
             evidence.setdefault(identity, set()).add(status)
-    bindings = resolve_links(expanded, prefixes, entries, namespace=namespace) if namespace else {}
-    bindings.update(cinematic)
-    identities = set(channels) | set(cinematic) | {key for key in tables[source_locale] if is_comic_text_id(key)}
+    return expanded, channels, evidence, kinds
+
+
+def _dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings, extra_ids=()):
+    identities = set(channels).union(extra_ids, (key for key in tables[source_locale] if is_comic_text_id(key)))
     rows = []
     for identity in sorted(identities):
         values = {locale: table.get(identity, '') for locale, table in tables.items()}
@@ -246,11 +259,7 @@ def build_records(tables, source_locale, selected, links, prefixes, entries, cin
             binding = bindings.get(row_id)
             if gender and row_id not in evidence and not binding:
                 binding = bindings.get(identity)
-            audio = None
-            if binding:
-                stat = Path(binding['package']).stat()
-                audio = {**binding, 'locale': audio_locale(source_locale), 'namespace': namespace,
-                         'package_size': stat.st_size, 'package_mtime_ns': stat.st_mtime_ns}
+            audio = binding
             states = evidence.get(row_id, evidence.get(identity, {'unknown'}))
             voice_status = 'voiced' if audio else 'unavailable' if 'unavailable' in states else 'unvoiced' if states == {'unvoiced'} else 'unknown'
             kind = next((kind for kind in ('comic', 'cutscene', 'conversation', 'message', 'choice', 'narration', 'ambient', 'gameplay_tip') if kind in kinds.get(identity, set())),

@@ -15,7 +15,7 @@ try{
    const exportScope=game=>'fixture-'+game+'-'+exportRevision;
    const region={left:.1,top:.6,width:.8,height:.25};
    const settings={nte_region:region,honkai3_region:region,preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,cyberpunk_region:region,cyberpunk_tip_region:region,wuwa_region:region,wuwa_tip_region:region,wuwa_cinematic_region:region,witcher3_region:region,witcher3_tip_region:region,auto_start:false};
-   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',starrail:'Honkai: Star Rail',genshin:'Genshin Impact',endfield:'Arknights: Endfield',cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness'}).map(([id,title])=>({id,title,configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:['endfield','wuwa'].includes(id)?'publisher':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='wuwa'?[]:id==='endfield'?['Endfield format metadata']:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
+   const games=Object.entries({zzz:'Zenless Zone Zero',pragmata:'PRAGMATA',starrail:'Honkai: Star Rail',genshin:'Genshin Impact',endfield:'Arknights: Endfield',cyberpunk:'Cyberpunk 2077',wuwa:'Wuthering Waves',witcher3:'The Witcher 3',nte:'Neverness to Everness'}).map(([id,title])=>({id,title,...(id==='endfield'?{publisher_regions:{global:'Global',cn:'Mainland China'},publisher_region:'global'}:{}),configured_path:null,detected_path:id==='zzz'?'F:/Games/ZZZ':null,folder_state:id==='zzz'?'detected':'missing',folder_hint:'Choose your installed game folder.',voice_state:['endfield','wuwa'].includes(id)?'publisher':'missing',voice_hint:id==='honkai3'?'Coverage limited to verified catalog 4.7 dialogue.':'Install the Mandarin voice pack in your game launcher.',tools_missing:id==='wuwa'?[]:id==='endfield'?['Endfield format metadata']:id==='nte'?['.NET 10 SDK','NTE reader']:['Voice decoder'],index_ready:false,indexed_lines:0,audio_ready:false,index_message:'Ready for setup',update_state:'waiting',update_message:'Prepare your game tools',progress:100,last_checked:null,needs_attention:false}));
    games.find(g=>g.id==='nte').catalog_message='Catalog update unavailable or incompatible; using the last complete catalog.';
    games.find(g=>g.id==='nte').catalog_warning=true;
    games.find(g=>g.id==='cyberpunk').expansion_message='Phantom Liberty needs its Mandarin voice archive. Install the Simplified Chinese language pack through your game launcher, then refresh.';
@@ -44,6 +44,10 @@ try{
     }
     else if(path==='/api/toolkit-update'&&method==='GET')value={installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'};
     else if(path==='/api/setup/report')value={version:'fixture',platform:'Windows',requirements:{ocr:true},games:[{id:'zzz',folder_state:'configured'}]};
+    else if(path==='/api/setup/games/endfield/publisher-region'&&method==='POST'){
+     const region=route.request().postDataJSON().region;assert.equal(region,'cn');
+     games.find(row=>row.id==='endfield').publisher_region=region;value=setup;
+    }
     else if(path==='/api/setup/games/zzz'){
      if(body.path==='F:/wrong'){status=400;value={detail:'Required game files were not found. Previous folder kept.'};}
      else{games[0].configured_path=body.use_automatic?null:body.path;games[0].folder_state=body.use_automatic?'detected':'configured';value=setup;}
@@ -129,6 +133,13 @@ try{
     assert.equal(await dialog.getByLabel('Installed game folder').inputValue(),'');
     if(game==='wuwa')assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).count(),0);
     else assert.equal(await dialog.getByRole('button',{name:'Install game tools',exact:true}).isEnabled(),game==='endfield');
+    if(game==='endfield'){
+     const edition=dialog.getByLabel('Publisher edition',{exact:true});
+     assert.equal(await edition.inputValue(),'global');
+     await edition.selectOption('cn');
+     await dialog.getByText('Publisher edition saved.',{exact:true}).waitFor();
+     assert.equal(await edition.inputValue(),'cn');
+    }
     if(game==='endfield'||game==='wuwa'){
      await dialog.getByText('Available from publisher',{exact:true}).waitFor();
      await dialog.getByText('Optional',{exact:true}).waitFor();

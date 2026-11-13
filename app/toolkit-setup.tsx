@@ -20,6 +20,7 @@ import catalog from '../public/mobile-capture/games-data.json';
 type GameSetup = {
   id: GameId; title: string; configured_path: string | null; detected_path: string | null;
   folder_state: string; folder_hint: string; voice_state: string; voice_hint: string;
+  publisher_region?: string | null; publisher_regions?: Record<string, string>;
   tools_missing: string[]; index_ready: boolean; audio_ready: boolean; indexed_lines: number;
   index_message: string; update_message: string; update_state: string; progress: number;
   last_checked: string | null; needs_attention: boolean;
@@ -162,6 +163,14 @@ export function ToolkitSetup({ online, game, onGameChange, readingMode, onReadin
                 <div><span>{uiText("Bilingual catalog")}</span><strong>{current.index_ready ? current.indexed_lines.toLocaleString() + ' pairs' : uiText("Not indexed")}</strong></div>
               </div>
               {current.detected_path && <code className="toolkit-installed-path">{current.detected_path}</code>}
+              {current.publisher_regions && <label>{uiText('Publisher edition')}
+                <select aria-label={uiText('Publisher edition')} value={current.publisher_region ?? ''} disabled={busy} onChange={event => {
+                  void action(`/api/setup/games/${game}/publisher-region`, {region: event.target.value}, 'Publisher edition saved.');
+                }}>
+                  {!current.publisher_region && <option value="" disabled>{uiText('Choose an edition')}</option>}
+                  {Object.entries(current.publisher_regions).map(([id, name]) => <option key={id} value={id}>{uiText(name)}</option>)}
+                </select>
+              </label>}
               <details className="toolkit-folder-details" open={!sourceAvailable}>
                 <summary>{current.detected_path ? uiText("Change installation folder") : uiText("Choose installation folder")}</summary>
                 <p className="toolkit-setup-note">{current.folder_hint}</p>

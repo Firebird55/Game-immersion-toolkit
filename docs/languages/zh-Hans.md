@@ -11,9 +11,9 @@
 
 ## Zenless Zone Zero
 
-[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-09 · [覆盖范围说明](../zzz-languages.md)
+[官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-13 · [覆盖范围说明](../zzz-languages.md)
 
-设置可从发行商获取全球版启动器中的有声手机消息。其他对话需要已安装的游戏文件。
+全球版启动器中的对话场景、动态漫画、消息、游戏提示和带时间轴的线索录音。
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -281,7 +281,7 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
 
-可从发行商准备全球版启动器常规配音包
+可从发行商准备所选地区的基础与章节语音包
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 
@@ -312,7 +312,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [官方语言列表](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [覆盖范围说明](../genshin-languages.md)
 
-可从发行商准备中国大陆启动器版本
+可从发行商准备全球版或中国大陆版启动器资源
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 
@@ -346,7 +346,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [官方语言列表](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [覆盖范围说明](../endfield-languages.md)
 
-可从发行商准备全球版剧情配音
+可从发行商准备全球版或中国大陆版剧情配音
 
 Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.
 

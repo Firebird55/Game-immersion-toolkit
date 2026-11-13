@@ -15,15 +15,16 @@ def main():
     parser.add_argument('event')
     parser.add_argument('--cache', type=Path, required=True, help='Private publisher cache')
     parser.add_argument('--locale', choices=endfield_assets.SUPPORTED_LOCALES, required=True)
+    parser.add_argument('--region', choices=endfield_release.CHANNELS, default='global')
     parser.add_argument('--wem', type=Path, required=True, help='Destination for the original whole-event WEM')
     args = parser.parse_args()
     cache = args.cache.resolve()
-    catalog = endfield_release.prepare(cache)
+    catalog = endfield_release.prepare(cache, args.region)
     identity, data = endfield_film_voice.recording(cache, catalog.stamp, endfield_assets.VOICE_LOCALES[args.locale], args.event)
-    if endfield_release.discover()[0] != catalog.stamp:
+    if endfield_release.discover(args.region)[0] != catalog.stamp:
         raise ValueError('The release changed during the film request. Retry.')
     _atomic_file(args.wem, data)
-    print(json.dumps({'event': args.event, 'locale': args.locale, 'version': catalog.revision_title,
+    print(json.dumps({'event': args.event, 'locale': args.locale, 'region': args.region, 'version': catalog.revision_title,
                       'revision': catalog.stamp, 'media_id': identity, 'sha256': hashlib.sha256(data).hexdigest()}))
 
 

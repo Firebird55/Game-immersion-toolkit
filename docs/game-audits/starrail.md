@@ -1,5 +1,74 @@
 # Honkai: Star Rail dialogue audit
 
+## Released regional hotfixes, November 13, 2026
+
+The Windows publisher reader now resolves the current release and in-version
+ASB, DesignData, Lua and Audio directories for the selected region. The
+community-maintained release directory provides versioned path names. The
+reader obtains each marker and the four actual index bodies from the official
+regional CDN and checks size, revision and MD5. The dialogue catalog must
+match the resulting exact Windows design, asset and Lua revisions. A mainland
+release can reuse the Global text extraction when all four regional index
+checksums and sizes agree. Each edition has its own snapshot identity, also
+covering updates within the same launcher version. Previously prepared audio
+uses its stored generation. Changed index bodies require verification.
+[Release directory](https://github.com/PutraZC/HSR-Data/blob/main/hotfix.json) ·
+[Global launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8) ·
+[Mainland launcher](https://hyp-api.mihoyo.com/hyp/hyp-connect/api/getGameBranches?launcher_id=jGHBHlcOq1&game_ids%5B%5D=64kMb5iAWu)
+
+On November 13 both 4.7.0 launchers carried base revision 17006872. The
+in-game CDN markers independently selected Design 17180467, ASB and Audio
+17176203, and Lua 17175930. All four index bodies matched across editions.
+The subtitle extraction identified those exact revisions. AudioV lists 177
+packages per dub. The regular launcher set contributes 175, and the selected
+region's publisher directly supplies two more chapter packages per dub.
+Playback reuses a Sophon file only when its released size and content digest
+match. For direct packages, bounded reads verify the source ETag, range and
+total size. A private cache checks its saved bytes for offline reuse.
+The 4.6 release directories also still serve both Japanese chapter packages
+and the second Korean chapter package. The complete files were downloaded in
+both editions and matched the active 4.6 AudioV checksums in all six checks.
+The two Japanese files were 103,835,810 and 100,040,916 bytes. The Korean
+file was 82,896,166 bytes. The earlier observations below describe the
+previous launcher-only acquisition route.
+[Verified 4.7 release directories](https://github.com/PutraZC/HSR-Data/blob/6a31cad76bd8aa2b250a71905ee573de37edc642/hotfix.json) ·
+[Matching 4.7 dialogue catalog](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f) ·
+[Verified 4.6 release directories](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json)
+
+## Per-line companion cutscene audio
+
+The 4.7.0 TalkSentence and VoiceConfig tables identify separate
+`companion<chapter>_<character>_<line>` external recordings for 689
+cutscene-classified sentence rows. Nine source names are shared by distinct
+text hashes, affecting 18 captions. The reader keeps those ambiguous. For the
+other 671 captions the selected actor takes give 730 independently resolved
+recordings per dub in the Global publisher indexes, 2,920 bindings across
+the four spoken languages. Twelve original WEMs were retrieved and decoded
+from those named sources, including the two protagonist takes in each dub.
+The English opening sample lasted 7.722 seconds, Japanese 5.990, Korean
+4.351 and Mandarin 6.115. The named whole-film events in VoiceConfig and
+subtitle clocks for pre-rendered movies require their own audio sources.
+[Released sentence table](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/TalkSentenceConfig.json) ·
+[Released individual source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceConfig.json)
+
+## Event panels, choices and books
+
+The 4.7.0 Windows reader resolves 922 localized dialogue entries from the
+Hipplen, Clockie, Idle Live and Chimera event tables and 2,224 authored
+Simulated Universe choice titles. Each entry resolved in all five study
+choices. A Chimera sound event without a matching original clip retains its
+displayed text and unavailable audio status.
+
+The 1,144 LocalbookConfig entries produce 22,162 English, 22,151 Japanese,
+22,149 Korean and 22,152 paragraphs in each Chinese script. The 12 books
+listed in AudioBookData contribute 48 English paragraphs with an authored
+sound event. Only translations with the same paragraph boundaries accompany
+a study paragraph. English aligned with 21,356 Japanese, 21,468 Korean and
+21,695 Chinese paragraphs in each script. OCR replay and the recordings for
+these specific audio collectibles still need verification.
+[Book contents](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/LocalbookConfig.json) ·
+[Audio collectibles](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/AudioBookData.json)
+
 ## Global publisher playback, November 9, 2026
 
 Before selecting a translation snapshot, Setup follows all four SRMI revision

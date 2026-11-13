@@ -1,4 +1,4 @@
-"""Discover the active Global Windows resource generation and read its own tables."""
+"""Discover the selected publisher's Windows release and read its own tables."""
 from functools import lru_cache
 import hashlib
 import json
@@ -16,6 +16,11 @@ LAUNCHER = 'https://launcher.gryphline.com/api/game/'
 LATEST = LAUNCHER + 'get_latest?' + urlencode(dict(appcode=APP, launcher_appcode='TiaytKBUIEdoEwRT',
     channel=6, sub_channel=6, launcher_sub_channel=6, disk_type=0, patch_encrypt=1))
 CDN = 'https://beyond.hg-cdn.com/' + APP
+CHANNELS = {
+    'global': (LAUNCHER, APP, 'TiaytKBUIEdoEwRT', 6, CDN),
+    'cn': ('https://launcher.hypergryph.com/api/game/', '6LL0KJuqHBVz33WK', 'abYeZZ16BPluCFyT', 1,
+           'https://beyond.hycdn.cn/6LL0KJuqHBVz33WK'),
+}
 TABLE_GROUP = '42A8FCA6'
 FILM_MANIFESTS = {'main': 'b4c65b4ec0eb69de6201a179a4d016ae33f30090002855e8af38bfd7685d3017',
                   'initial': '6ba2549df688cfcf394866beccbb6bbc6904aa28158ef1725582c495fadfb888'}
@@ -30,45 +35,53 @@ def _stamp(raw):
     return 'endfield-' + hashlib.sha256(raw).hexdigest()
 
 
-def _resource_url(url, role):
-    _check(role in ('initial', 'main') and re.fullmatch(re.escape(CDN) +
+def _resource_url(url, role, region='global'):
+    _check(region in CHANNELS and role in ('initial', 'main') and re.fullmatch(re.escape(CHANNELS[region][-1]) +
            r'/[0-9]+\.[0-9]+/resource/Windows/' + role + r'/[0-9]+-[0-9]+_[A-Za-z0-9]+/files', url))
     return url
 
 
-def discover():
-    latest = json.loads(download(LATEST, limit=2 * 1024**2))
+def discover(region='global'):
+    _check(region in CHANNELS)
+    launcher, app, launcher_app, channel, cdn = CHANNELS[region]
+    query = urlencode(dict(appcode=app, launcher_appcode=launcher_app, channel=channel,
+                           sub_channel=channel, launcher_sub_channel=channel, disk_type=0, patch_encrypt=1))
+    latest = json.loads(download(launcher + 'get_latest?' + query, limit=2 * 1024**2))
     version = latest['version']
     _check(re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version))
     minor = version.rsplit('.', 1)[0]
     pack = latest['pkg']['packs'][0]['url']
-    suffix = re.match(re.escape(CDN + '/' + minor + '/update/6/6/Windows/' + version) +
+    suffix = re.match(re.escape(f'{cdn}/{minor}/update/{channel}/{channel}/Windows/{version}') +
                       r'_([a-zA-Z0-9]+)/packs/', pack)
     _check(suffix)
-    detail = json.loads(download(LAUNCHER + 'get_latest_resources?' + urlencode(dict(
-        appcode=APP, game_version=minor, version=version, platform='Windows', rand_str=suffix[1])), limit=2 * 1024**2))
+    detail = json.loads(download(launcher + 'get_latest_resources?' + urlencode(dict(
+        appcode=app, game_version=minor, version=version, platform='Windows', rand_str=suffix[1])), limit=2 * 1024**2))
     layers = {}
     for row in detail['resources']:
         role = row['name']
         if role in ('main', 'initial'):
-            base = _resource_url(row['path'], role)
-            _check(role not in layers and base.startswith(CDN + '/' + minor + '/') and
+            base = _resource_url(row['path'], role, region)
+            _check(role not in layers and base.startswith(cdn + '/' + minor + '/') and
                    base.rsplit('/', 2)[1].split('_', 1)[0] == row['version'])
             index = download(base + '/index_' + role + '.json', limit=8 * 1024**2)
             _check(len(index) >= 32)
             layers[role] = {'url': base, 'sha256': hashlib.sha256(index).hexdigest(), 'version': row['version']}
     _check(set(layers) == {'main', 'initial'})
-    raw = json.dumps({'version': version, 'layers': layers}, sort_keys=True, separators=(',', ':')).encode()
+    # Retain the immutable identity of Global descriptors already used by saved recordings.
+    result = {'version': version, 'layers': layers}
+    if region != 'global':
+        result['region'] = region
+    raw = json.dumps(result, sort_keys=True, separators=(',', ':')).encode()
     return _stamp(raw), raw
 
 
 @lru_cache(maxsize=2)
-def _poll(period):
-    return discover()[0]
+def _poll(period, region):
+    return discover(region)[0]
 
 
-def fingerprint():
-    return _poll(int(time.monotonic() // 45))
+def fingerprint(region='global'):
+    return _poll(int(time.monotonic() // 45), region)
 
 
 @lru_cache(maxsize=12)
@@ -115,7 +128,8 @@ def group(tools, stamp, block, names=None):
     directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 12: '24ED34CF', 2: '0CE8FA57'}
     directory = directories[block] if block in directories else params.directories[block]
     role = 'initial' if block in (1, 2, 4) else 'main'
-    base = _resource_url(descriptor(tools, stamp)['layers'][role]['url'], role) + '/VFS/' + directory + '/'
+    release = descriptor(tools, stamp)
+    base = _resource_url(release['layers'][role]['url'], role, release.get('region', 'global')) + '/VFS/' + directory + '/'
     path = tools / 'endfield-releases' / (stamp + '-' + str(block) + '.blc')
     suffix = {18: '.bytes', 2: '.ab', 11: '.ab', 4: '.hgmmap'}.get(block, '.pck')
     limit = 96 * 1024**2 if block == 11 else vfs.MAX_INDEX
@@ -179,8 +193,8 @@ class Catalog:
         return verified_films(self.tools, self.stamp, dub)
 
 
-def prepare(tools):
-    stamp, raw = discover()
+def prepare(tools, region='global'):
+    stamp, raw = discover(region)
     _atomic_file(tools / 'endfield-releases' / stamp, raw)
     return Catalog(tools, stamp)
 

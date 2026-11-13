@@ -15,6 +15,7 @@ import zipfile
 from .export_lock import ExportLock, ExportLockCleanupError
 from .game_paths import settings_path, discover_install
 from .game_assets import PUBLISHER_GAMES, asset_adapter, preparation_fingerprint
+from .publisher_regions import REGIONAL_GAMES
 from .languages import GAME_LOCALES, LOCALE_NAMES
 from .mobile_export_controls import MobileExportManager
 from .owned_process import OwnedProcess
@@ -294,6 +295,8 @@ class AutomaticMobileExports:
         key = digest([game, locale, translation])[:24]
         output = self.home / 'work' / key / 'exports'
         tools = work_folder(output) / 'source' / 'tools'
+        if install is None and game in REGIONAL_GAMES:
+            tools = runtime_data_root(self.root) / game / 'tools'
         stamp = preparation_fingerprint(adapter, install, tools)
         identity = digest([stamp, adapter.LANGUAGE_INDEX_VERSION, locale, translation, rule['destination']])
         job = rule.get('jobs', {}).get(locale, {})
@@ -328,6 +331,8 @@ class AutomaticMobileExports:
         guard()
         self._set(game, locale, state='preparing', attempt=identity, message='Preparing mobile library in local working storage.')
         source_args = ['--automatic-install', str(install)] if install else ['--automatic-publisher']
+        if install is None:
+            source_args.extend(['--publisher-fingerprint', stamp])
         command = child_command('mobile-export', ['--root', str(self.root), '--game', game,
                    '--output', str(output), '--source-locale', locale, '--translation-locale', translation,
                    *source_args])
