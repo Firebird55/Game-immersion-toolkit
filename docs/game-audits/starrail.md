@@ -12,6 +12,10 @@ release can reuse the Global text extraction when all four regional index
 checksums and sizes agree. Each edition has its own snapshot identity, also
 covering updates within the same launcher version. Previously prepared audio
 uses its stored generation. Changed index bodies require verification.
+For film captions the catalog can recover from two busy directory APIs via the
+author's ordinary repository listing at the same commit. The fallback checks
+the repository, exact revision, directory, names and complete item count.
+A fresh cache obtained all 173 scripts for this release through that path.
 When a mainland audio package times out or has been removed from its CDN,
 the reader can retry the verified Global equivalent. It stores the Global
 directory only after all four regional index identities agree and requires

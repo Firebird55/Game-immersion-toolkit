@@ -144,6 +144,36 @@ def test_rate_limited_catalog_uses_authors_mirror_at_the_exact_release_commit(tm
     monkeypatch.setattr(catalog, '_bytes', file_bytes)
     assert catalog.file('ExcelOutput/Example.json') == {}
 
+def test_busy_caption_tree_uses_complete_author_directory_for_same_commit(tmp_path, monkeypatch):
+    from urllib.error import HTTPError
+    from backend import starrail_publisher as publisher
+    commit, relative, filename = 'a' * 40, 'Config/CutSceneCaption', 'Example_Caption.json'
+    catalog = publisher.ReleasedCatalog('starrail', tmp_path, revision=commit)
+    def busy(*args, **kwargs):
+        raise HTTPError('https://gitlab.com/', 429, 'busy', None, None)
+    monkeypatch.setattr(catalog, 'directory_json', busy)
+    monkeypatch.setattr(catalog, '_caption_tree', busy)
+    route = {'path': relative, 'refInfo': {'currentOid': commit, 'name': commit},
+             'tree': {'items': [{'name': filename, 'contentType': 'file', 'path': relative + '/' + filename}],
+                      'totalCount': 1}}
+    data = {'payload': {'codeViewTreeRoute': route, 'codeViewLayoutRoute': {
+        'repo': {'ownerLogin': 'DimbreathBot', 'name': 'TurnBasedGameData'}}}}
+    def get(name, url, limit):
+        if name == 'caption-directory/html':
+            return b'<script data-target="react-app.embeddedData">' + json.dumps(data).encode() + b'</script>'
+        assert name == relative + '/' + filename and commit in url and limit == 2 * 1024**2
+        return b'{"line": 3}'
+    monkeypatch.setattr(catalog, '_bytes', get)
+    assert catalog.caption_scripts() == [(filename, {'line': 3})]
+    route['tree']['totalCount'] = 2
+    with pytest.raises(ValueError):
+        catalog.caption_scripts()
+    route['tree']['totalCount'] = 1
+    route['refInfo']['currentOid'] = 'b' * 40
+    with pytest.raises(ValueError):
+        catalog.caption_scripts()
+
+
 def test_two_rate_limited_catalog_hosts_still_verify_current_exact_commit_title(monkeypatch):
     from urllib.error import HTTPError
     from backend import starrail_publisher as publisher
