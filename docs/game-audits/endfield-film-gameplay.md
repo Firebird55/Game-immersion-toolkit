@@ -41,11 +41,15 @@ seconds. The male voice match gives 6:14.553. This independent longer track
 disambiguates the short breath from superficially similar sounds elsewhere
 in the gameplay mix. [Transition into the film](https://www.youtube.com/watch?v=gN9SJP5rJyw&t=374s)
 
-The measurements above cover one English male playthrough of the two Si
-scenes and a sampled English Liino performance. The female Si recordings
-and other dubs still need independent gameplay observations for their own
-onscreen presentation. No sentence-level subtitle binding follows from
-these three reviewed examples.
+A separate English playthrough matches the female `e12m5_3` recording.
+Its start aligns to 5:42.598–5:42.608. Independent windows beginning at
+source times 29.6, 58.5, 75.2 and 79 seconds correlate at 0.390, 0.780,
+0.672 and 0.671 for the female recording, and 0.035, 0.529, 0.444 and
+0.245 for the male one. The female protagonist is visible. The samples
+over the painting fight and the voiced activity at 6:58.45–7:00.25 show
+no readable dialogue. The uploaded video ends before the final two seconds
+of the 116-second original recording. The female `e12m5_4` and the other
+dubs still need independent gameplay observations. [Female fight](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=343s) · [Voice activity](https://www.youtube.com/watch?v=zJ8rtHGIXsg&t=418s)
 
 ## A Glance of Astonishment and Cradle of the Ages
 
@@ -76,6 +80,19 @@ own published conversation and audio override, `dlg_e2m8_4_001` and
 applies to the first playthrough. [Film](https://www.youtube.com/watch?v=QDHS296vAg8&t=552s) ·
 [Following conversation](https://www.youtube.com/watch?v=QDHS296vAg8&t=630s) ·
 [Second playthrough](https://www.youtube.com/watch?v=t5KmOLvr05o&t=644s)
+
+An English male recording of the same quest aligns at **10:33.122**. Three
+independent windows at source 1.0–2.7, 4.0–6.5 and 16.0–22.5 seconds
+distinguish his recording from the female one. Later shared sounds match
+both. The half-second samples show no dialogue caption between the start
+of his recording and its end at 11:49.896. Chen's own subtitle is visible
+at 11:50. A Japanese run with English screen text also shows the transition
+at 11:32. Its soundtrack aligns to the female Japanese performance at
+10:14.772. The image shows the female protagonist and the original
+37.5–39.5 and 60–66 s windows correlate at 0.425 and 0.706 respectively.
+[English male](https://www.youtube.com/watch?v=DGVNOZ6WoZo&t=633s) ·
+[Chen after the film](https://www.youtube.com/watch?v=DGVNOZ6WoZo&t=710s) ·
+[Japanese performance](https://www.youtube.com/watch?v=esErRcR3xqI&t=615s)
 
 ## Rally and Unite
 
