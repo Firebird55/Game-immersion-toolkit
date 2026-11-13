@@ -185,6 +185,36 @@ The upload clock is only a way to find the performance in a playthrough.
 | `fmv_e1m1_1`, `fmv_e1m1_2`, `fmv_e2m8_1`, `fmv_e2m8_2` | 4 | Four original test files are catalogued. The motorcycle ambush has three separately identified timeline captions. The final boss footage includes dialogue around the movies. Current downloads for the original test files remain unverified. [Test walkthroughs](endfield-opening-gameplay.md#other-films-preserved-in-the-technical-test-catalogue) |
 | Female and male `cs_video_e4m2_1`, and `cs_video_e5m2_3` | 3 | The retained tracks reference music and effects and contain zero caption cues. None of these three movie names occurs in the eleven Global release indexes checked below. An active quest trigger or a recording under another name remains unverified. |
 
+### The Qingbo Stockade conversation
+
+The similarly named scene in *Stumbling Into Qingbo Stockade* has an
+identified trigger. Level script 10100070002 requests dialogue
+`dlg_e5m2_3`. Its released graph contains 23 dialogue nodes and names
+the in-engine timeline `dlgtl_e5m2_3_sub_1`. The registry contains that
+timeline's prefab and actor animation assets. The same graph contains
+no reference to the retained `cs_video_e5m2_3` movie configuration.
+None of 610 level scripts from the three areas named in the adjacent
+E4 and E5 mission records references the three missing movie names.
+[Quest trigger](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/LevelScriptData/map02_lv001/10100070002.json#L91-L99) ·
+[Mission record](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/MissionRuntimeAsset/e5m2.json)
+
+All 23 spoken rows can be located in an English playthrough from Chen
+calling Perlica at 39:24.868 through Perlica's question at 42:07.876.
+The normal no-install indexes for English, Japanese, Korean and Mandarin
+each supply 24 original recordings for these rows. One row has two versions
+for the selected protagonist. Both English versions closely match this
+upload, so the waveform alone does not identify which version was used.
+Perlica explaining who they are matches at 40:15.321 (correlation 0.954,
+8.042-second recording). Tangtang commenting on her casting matches at
+40:43.044 (0.801, 5.685 seconds). These are already playable as the
+mission's individual dialogue lines.
+[Start of the conversation](https://www.youtube.com/watch?v=byytKbUvsYg&t=2364s) ·
+[Perlica's explanation](https://www.youtube.com/watch?v=byytKbUvsYg&t=2415s) ·
+[Tangtang's reply](https://www.youtube.com/watch?v=byytKbUvsYg&t=2443s) ·
+[End of the exchange](https://www.youtube.com/watch?v=byytKbUvsYg&t=2527s)
+
+### Comparison across Global releases
+
 The Windows launcher archive provides the publisher resource address for
 each checked release. The eleven publisher movie indexes yielded these
 counts of named USMs: 336 in 1.0.13 and 1.0.14, 373 in 1.1.9, 424 in
