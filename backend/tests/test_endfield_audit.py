@@ -129,6 +129,34 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert args[4].read_bytes() == b'previous'
 
 
+def test_player_radio_reaction_follows_selected_performer_and_current_emotion(tmp_path, monkeypatch):
+    from scripts import endfield_radio as cli
+    line = {'id': 'first', 'radioText': ref(1), 'actorNameId': 'endminf', 'emotionType': 13}
+    name = 'au_dlg_commvo_endminm_sigh_03'
+    key = voice_hash('voice/japanese/story/' + name + '.wem')
+    catalog = Catalog({'RadioTable': {'group': {'radioSingleDataList': [line, {**line, 'id': 'next', 'emotionType': 22}]}},
+                       'NpcInfoTable': {actor: {'voActor': actor} for actor in ('endminf', 'endminm')},
+                       'EmotionVoiceConfig': {'13': {'interjectionList': []}, '22': {'interjectionList': ['sigh_03']}},
+                       'AudioDialog': {'1': {'path': 'story/' + name + '.wem'}}, 'I18nTextTable_JP': {'1': '台詞'}})
+    catalog.stamp = 'release'
+    monkeypatch.setattr(cli.publisher, 'prepare', lambda *_: catalog)
+    monkeypatch.setattr(cli.publisher, 'discover', lambda *_: (catalog.stamp, b''))
+    monkeypatch.setattr(cli.publisher, 'voice_entries', lambda *_: {f'{key:016x}': {'file_id': f'{key:016x}'}})
+    monkeypatch.setattr(cli.publisher, 'media', lambda tools, stamp, dub, ident: b'reaction' if ident == key else None)
+    output = tmp_path / 'reaction.wem'
+    def export(identity, player, reaction):
+        return cli.run(tmp_path, 'ja', ['group'], 'endfield:' + identity, output, [],
+                       reaction=reaction, reaction_player=player)
+    assert export('next', 'male', name)['rows'][0]['voice_actor'] == 'endminm'
+    assert output.read_bytes() == b'reaction'
+    for identity, player, reaction in [('first', 'male', name), ('next', 'female', name), ('next', 'male', None)]:
+        with pytest.raises(ValueError, match='absent|no verified sentence'):
+            export(identity, player, reaction)
+    catalog.values['EmotionVoiceConfig']['22'] = {'interjectionList': ['other']}
+    with pytest.raises(ValueError, match='absent'):
+        export('next', 'male', name)
+
+
 def test_conversation_reuses_current_actor_reaction_without_predecessor(tmp_path, monkeypatch):
     from scripts import endfield_radio as cli
     line = {'dialogText': ref(1), 'actorNameId': 'speaker', 'emotionType': 4, 'audioOverride': 'missing'}

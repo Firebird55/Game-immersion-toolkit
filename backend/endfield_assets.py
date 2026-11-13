@@ -310,7 +310,9 @@ def conversation_with_reactions(catalog, identity):
             **_reaction_fields(row, *_reaction_tables(catalog), allow_actor_id=False)}
 
 
-def radio_dialogues(catalog):
+def radio_dialogues(catalog, *, reaction_player=None):
+    if reaction_player not in (None, 'male', 'female'):
+        raise ValueError('Unknown Endministrator reaction performer.')
     dialogs = {}
     actors, reactions = _reaction_tables(catalog)
     for group_id, group in _table(catalog, 'RadioTable').items():
@@ -328,9 +330,14 @@ def radio_dialogues(catalog):
                 _unsupported()
             if identity in dialogs:
                 _unsupported()
+            reaction_actor = row
+            if reaction_player and row.get('actorNameId') == 'endminf':
+                # The radio controller resolves the player actor before looking up an emotion.
+                player_id = {'male': 'endminm', 'female': 'endminf'}[reaction_player]
+                reaction_actor = {**row, 'actorNameId': player_id if player_id in actors else ''}
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
                 'radio_group': group_id, 'previous_radio_id': previous,
-                **_reaction_fields(row, actors, reactions, allow_actor_id=True),
+                **_reaction_fields(reaction_actor, actors, reactions, allow_actor_id=True),
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
             previous = identity

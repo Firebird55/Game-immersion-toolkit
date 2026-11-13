@@ -10,9 +10,9 @@ from backend.dialogue_catalog import selected_tables
 from backend.game_tools import _atomic_file
 
 
-def run(cache, locale, groups, line, output, targets, reaction=None, region='global'):
+def run(cache, locale, groups, line, output, targets, reaction=None, region='global', reaction_player=None):
     catalog = publisher.prepare(cache, region)
-    dialogs = assets.radio_dialogues(catalog)
+    dialogs = assets.radio_dialogues(catalog, reaction_player=reaction_player)
     unknown = set(groups) - {r['radio_group'] for r in dialogs.values()}
     if unknown:
         raise ValueError('Unknown radio group: ' + ', '.join(sorted(unknown)))
@@ -83,6 +83,8 @@ if __name__ == '__main__':
     parser.add_argument('--cache', type=Path, required=True, help='Private directory for publisher files')
     parser.add_argument('--locale', choices=assets.SUPPORTED_LOCALES, required=True)
     parser.add_argument('--region', choices=publisher.CHANNELS, default='global')
+    parser.add_argument('--reaction-player', choices=('female', 'male'),
+                        help='Choose the Endministrator performer for player radio reactions')
     parser.add_argument('--target', choices=assets.TEXT_LOCALES, action='append', default=[])
     parser.add_argument('--group', action='append', default=[], help='Repeat to limit the inventory to selected groups')
     parser.add_argument('--line', help='Exact endfield: conversation or radio performance ID, including any gender suffix')
@@ -93,5 +95,6 @@ if __name__ == '__main__':
         parser.error('--wem requires --line')
     if args.reaction and not args.wem:
         parser.error('--reaction requires --line and --wem')
-    print(json.dumps(run(args.cache.resolve(), args.locale, args.group, args.line, args.wem, args.target, args.reaction, args.region),
+    print(json.dumps(run(args.cache.resolve(), args.locale, args.group, args.line, args.wem, args.target,
+                         args.reaction, args.region, args.reaction_player),
                      ensure_ascii=True, indent=2))

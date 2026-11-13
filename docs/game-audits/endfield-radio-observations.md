@@ -30,6 +30,12 @@ The four rows have no identifiable sentence, separate audio event or configured 
 
 The [publisher radio command](../../scripts/endfield_radio.py) reports `reaction_status` for rows lacking a resolved sentence source and `audio_event` when the row posts a separate event. Both fields follow the selected release and dub. The gameplay links provide audit evidence and have no role in acquisition or playback.
 
+The radio controller resolves the player's actor before selecting an emotion. For the male Endministrator heard on the second Afternotes caption, use `--reaction-player male`. This command fetched the 0.800-second Japanese performance from the Global publisher. The decoded samples were identical to the reference used for the gameplay match. Each run checks the selected release's actor table, emotion choices and dub inventory. [Publisher radio controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L932)
+
+```text
+python scripts/endfield_radio.py --cache private-cache --locale ja --reaction-player male --line endfield:radio_gm02m27d5_1_002 --reaction au_dlg_commvo_endminm_sigh_03 --wem afternotes-reaction.wem
+```
+
 ## Fiona's Alluvial Cleaning tutorial reaction
 
 The tutorial's opening caption “Endmin, please clean up this Energy Alluvium quickly.” is conversation `dlg_m1m6_1_001`. Its row names Fiona, requests emotion 4 and has an unresolved sentence override. The active NPC and emotion tables map that row to a single `neutral_04` reaction. Matching the released `au_dlg_commvo_fiona_neutral_04` WEM against unmodified-speed gameplay audio placed the English reaction at 1:17.914 (normalized correlation 0.91), Japanese at 0:17.049 (0.94), and Mandarin at 0:38.491 (0.90). The publisher recordings last 0.485, 0.571 and 0.443 seconds respectively. The English recording also matches the separate *Where Art Thou My Love* encounter at 1:11.353 (0.93). The opening row supplies its own binding and needs no preceding caption. [English tutorial](https://www.youtube.com/watch?v=OLDehlt0hxk&t=76s) · [Japanese tutorial](https://www.youtube.com/watch?v=gz-IDjR049E&t=16s) · [Mandarin tutorial](https://www.bilibili.com/video/BV13LznB3EJU?p=18&t=38) · [English reuse](https://www.youtube.com/watch?v=FjnMPmvBkfM&t=71s)
