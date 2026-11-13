@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 8
+LANGUAGE_INDEX_VERSION = 10
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -246,10 +246,13 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
     rows.extend(_readable_records(catalog, tables, source_locale))
+    if install is None:
+        from . import starrail_films
+        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
-        'Movie captions, image-only messages and presentation-specific event formats are not comprehensively mapped. Missing voice metadata is not proof of silence.']
+        'Captions without a timed localized recording, image-only messages and event-only formats have incomplete coverage. Missing voice metadata is not proof of silence.']
     if install is None:
         if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
