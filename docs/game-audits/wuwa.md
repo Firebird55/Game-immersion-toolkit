@@ -25,6 +25,18 @@ Setup follows the current caption, numbered PlotAudio takes, event bank and stre
 
 All eight clips were exported through the desktop service from the current Global launcher with no game installation. Individual playback and batch export of the same opening line produced identical MP3 bytes in each dub. English preparation now has 48,856 voice bindings. The remaining 17 dedicated-voice cues from the earlier four-scene audit still need exact original clips. English gameplay independently confirms one of them, the chapter-one storyteller's `Huanglong_main_1_7_178_3`, around 11:53–11:58. [Grand Warstorm gameplay](https://www.youtube.com/watch?v=qnIZlwn_A2o&t=713s)
 
+### Three remaining films with separate voice events
+
+The current Global launcher also supplies a separate original voice track for each of these scenes in every dub. The twelve streamed WEMs were selected by following each scene's authored event through the current localized bank and decoded to PCM. Track durations in seconds are:
+
+| Scene | Open cues | English | Japanese | Korean | Mandarin |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| M0234, the chapter-one storyteller | 12 | 87.744 | 89.000 | 89.500 | 88.524 |
+| C3jiyanfight | 3 | 86.800 | 83.900 | 83.634 | 85.500 |
+| LYSZW | 2 | 110.900 | 111.500 | 111.500 | 112.087 |
+
+The English storyteller speaks the twelve caption texts in order. In the English C3jiyanfight recording, “General!” occurs around 51 seconds and the order to follow the Qingloong around 80 seconds. In LYSZW the repeated encouragement is audible within 18–23 seconds, followed by the call for help around 52–54 seconds. These clips need a repeatable per-language boundary before Setup can return just the selected caption. [Publisher configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json) · [Released scene captions and event definitions](https://github.com/Arikatsu/WutheringWaves_Data/tree/9218d612ad815e398e064e577e42aaf878899968/BinData/cgVedio)
+
 ## Global publisher updates and selective voice acquisition · November 9, 2026
 
 From an empty private cache the source command followed the active 3.7.1 launcher to its base PAK, read the exact KuroPublicConfig entry by HTTP range, and selected the resource route declared inside it. The current core is 3.7.19. English, Mandarin and Japanese use 3.7.6 for voice overrides, and Korean uses 3.7.7. Each independently versioned core, voice and video index must match the digest in its publisher configuration. The SD, HD and UHD indexes each list 231 movie packages. The 1,549 receipt entries include base PAKs, resource and voice packages, movie packages and signature files. [Kuro Global launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/G153/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/index.json)
