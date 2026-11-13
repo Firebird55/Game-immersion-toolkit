@@ -90,7 +90,7 @@ def _table(directory, stamp, locale, name, game):
     return external_table(name, asset.size, lambda start, count: asset.read(directory, start, count))
 
 
-def inventory(data_dir, stamp, locale, game, *, wanted=None):
+def inventory(data_dir, stamp, locale, game, *, wanted=None, unavailable_duplicates=None):
     directory = data_dir / 'tools' / 'sophon'
     files = _files(directory, stamp, locale, game) | _optional_files(directory, stamp, locale, game)
     entries = {}
@@ -106,6 +106,9 @@ def inventory(data_dir, stamp, locale, game, *, wanted=None):
                         ambiguous.add(row.file_id)
                     current[row.file_id] = {'publisher': stamp, 'package': row.package}
             entries.update(current)
+            if unavailable_duplicates is not None:
+                unavailable_duplicates.difference_update(current)
+                unavailable_duplicates.update(ambiguous)
             for identity in ambiguous:
                 entries.pop(identity, None)
     if not entries:

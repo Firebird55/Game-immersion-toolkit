@@ -129,10 +129,13 @@ export function sceneAssetPaths(value, category) {
   const paths = new Set();
   const visit = entry => {
     if (typeof entry === 'string') {
-      if (!namespaces.some(namespace => entry.toLowerCase().startsWith(namespace.toLowerCase())) || !entry.toLowerCase().endsWith('.asset')) return;
-      const segments = entry.split('/');
+      const fullPrefix = 'assets/napresources/';
+      const lower = entry.toLowerCase();
+      const path = lower.startsWith(fullPrefix) ? lower.slice(fullPrefix.length) : lower;
+      if (!namespaces.some(namespace => path.startsWith(namespace.toLowerCase())) || !path.endsWith('.asset')) return;
+      const segments = path.split('/');
       if (segments.some(segment => !segment || segment === '.' || segment === '..' || !/^[A-Za-z0-9_.& -]+$/.test(segment))) return;
-      paths.add(`assets/napresources/${entry}`.toLowerCase());
+      paths.add(fullPrefix + path);
     } else if (Array.isArray(entry)) {
       entry.forEach(visit);
     } else if (entry && typeof entry === 'object') {

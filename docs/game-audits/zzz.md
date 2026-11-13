@@ -9,15 +9,23 @@ selected language and translation tables, the message and reply bindings,
 ongoing performance variants, gameplay tips and original voice packages.
 A fresh launcher check before publishing prevents mixing two releases.
 
-In Global 3.3.0, 30,736 of 31,069 referenced dialogue paths matched the catalogue.
-The selected scene bundles totalled 48,849,768 bytes before Sophon chunk
+In Global 3.3.0, 30,762 of 31,095 referenced dialogue paths matched the catalogue.
+Both root-relative and fully qualified Perform paths are accepted. The latter
+added 26 distinct Chat and Bubble assets and 292 typed scene records.
+The selected scene bundles totalled 48,891,704 bytes before Sophon chunk
 alignment. Setup retained conversations, narration, choices and ambient text.
 The English study language with English and Simplified Chinese text produced
-68,573 voiced, 126,013 authored unvoiced, 11,458 unavailable and 57,645 unknown
+68,572 voiced, 132,908 authored unvoiced, 11,459 unavailable and 50,800 unknown
 records including comics. Thirty-four English samples exported through the
 desktop playback service and decoded to nonzero PCM, including phone, gameplay,
 narration, early story and separate Belle and Wise performances. A caption shared between
 a choice and spoken dialogue keeps its conflicting evidence.
+
+The publisher gameplay-tip reader also checks the reaction, sound-event vector
+and indirect reference fields before certifying silence. Across 17,528 release
+rows, the reaction column had 268 populated entries and 16 rows referred to an
+additional sound event. With English and Simplified Chinese text, 6,862 tips
+had proven silent instructions and 780 retained unknown voice status.
 
 The subtitle configuration supplied 248 Clue intervals in each of the four
 dubs. Its source, dub, text key and millisecond start and end refer to the same
@@ -40,6 +48,29 @@ Unknown panels remain eligible for text lookup.
 Additional filmed scenes and the 333 unresolved Perform paths remain under
 investigation. The launcher base omits some later Japanese text and
 same-version Global changes still need independent discovery.
+
+The November 6 mainland production snapshot (D20245314) retains all 333
+references in 313 distinct Perform entries. Twenty-eight of these entries
+also name a different performer path that the Global launcher catalogue does
+resolve. Only that named path supplies records. Both official mainland 3.2
+catalogues (524,742 asset IDs each) and the 3.3 mainland base catalogue
+(565,107 asset IDs) lack the 333 exact IDs. The cause of their absence and
+their use in actual gameplay remain unconfirmed. The public revision timeline
+identifies D20245314 but does not give a Global PC download manifest.
+[November 6 mainland Perform snapshot](https://git.mero.moe/dimbreath/ZenlessData/src/commit/ab85fff9659168f981904259ebb9ec2c51fb5fe4/FileCfg/PerformTemplateTb.json)
+· [Public revision history](https://zzz.gachabase.net/timeline/release)
+
+The same source reader also processed the archived mainland 3.2.0 launcher
+build (RXWlt1ru1jf6). It resolved 30,176 of 30,503 referenced dialogue paths
+and all 99 motion-comic paths. The publisher ranges produced 228,625 scene
+records, 1,929 distinct comic bindings, nine recorded messages, 14,783
+ongoing records, 16,847 tip records and 248 English clue intervals. The 3.2
+comic manifests and their directly named dependencies occupied 1,895,469
+bytes before launcher chunk alignment. An original English panel (4.992 s),
+phone message (6.483 s) and complete first Limbo recording (90.647 s) were
+retrieved from the older English Wwise pack and decoded to nonzero PCM.
+This checks format continuity across two releases and regions. The Windows Setup region remains Global.
+[Archived mainland launcher listing](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/nap/3.2.0.json)
 
 ## November 9, 2026 · Dialogue from one Global launcher release
 
@@ -112,9 +143,9 @@ different content layer remains open.
 The command requires a unique authored scene source and a unique matching file
 in the selected dub. It supports direct source paths and the evidenced GalGame
 and ongoing speaker directories. Additional conditional scene voices, comic panels and cinematic events
-require their own bindings. Windows Setup with no game folder reads the Global
-launcher's message configuration and the selected base and overwrite TextMaps.
-It prepares only phone message bodies with a unique authored source and an exact
+require their own bindings. The November 9 implementation of Windows Setup
+read the Global launcher's message configuration and the selected base and
+overwrite TextMaps. That implementation prepared only phone message bodies with a unique authored source and an exact
 original recording in the selected language. Replies, other presentations, later
 in-version Global overrides and independent phone preparation remain outside this route.
 
@@ -261,7 +292,7 @@ was needed. The nine `VO_Message` entries all matched the installed Chinese pack
 | Gameplay and ongoing tips | `OngoingTipsConfigTemplateTb` text IDs and explicit male/female source fields | Preserves existing original voices and now retains records with both authored voice fields empty. The current metadata contained 1,466 such rows before TextMap filtering. Other tips tables are not implied by this support. |
 | NPC greetings and ambient combat reactions | Some are present in supported ongoing/bubble records; other source-only tables exist | Only authored text/source relationships are eligible. Audio-only barks cannot be reconstructed as official dialogue from filenames. |
 | Knock Knock messages and reply choices | Separate `MessageConfigTemplateTb`; text, options, emoji and occasional `VO_Message` sources | Current schema imported through exact TextMap joins. Empty authored message source columns establish silence. A message recording never becomes its reply-choice audio; reply-only evidence remains unknown. Image paths and literal content are excluded. |
-| Clue recordings with timed subtitles | `SubtitleConfigTemplateTb`, `Clue_` IDs, locale, source and start/end timestamps | Inventoried; dedicated segmented-audio adapter is missing. Mapping every subtitle to the entire recording would be incorrect. |
+| Clue recordings with timed subtitles | `SubtitleConfigTemplateTb`, `Clue_` IDs, locale, source and start/end timestamps | Inventoried; the Global launcher adapter now validates per-dub intervals and extracts the corresponding sentence. |
 | Other tips, TV/Hollow and event interfaces | `TipsConfigTemplateTb`, `HollowBottomMessageTemplateTb`, event-specific tables | Current `TipsConfigTemplateTb` is imported as `gameplay_tip`, including authored spoken guidance and silent instructions. Reaction pools never substitute for the main recording. Independent Hollow/event tables remain incomplete. |
 | Journey UI, reading screens, messages, mail, summaries and tutorials | Separate UI/configuration references; `ChatJourney` sample invokes journey UI rather than containing dialogue text | No blanket TextMap import. UI labels, item descriptions and notification text must not become dialogue merely because OCR sees them. |
 | Pre-rendered movies, baked text, songs and subtitles without a verified timeline event | Not established by the supported dictionary/timeline relationships | No completeness claim. Require a format-specific subtitle binding and timing/locale validation. |
@@ -359,8 +390,8 @@ future-proof schema contract:
 - `SubtitleConfigTemplateTb`: 992 rows, comprising 248 `Clue_` subtitles in each
   of four audio languages. `PMIKEPAJFKN` is the voice source, `APDFDBPICNM` the
   audio locale, `AFDMDFIHPMH` the text identity and `INPHPLFPOKF`/`GMHGKDKPKJB`
-  the start/end timestamps. Add timestamp validation and segment extraction;
-  preserve the per-language timings.
+  the start/end timestamps. The Global launcher adapter now validates these
+  intervals per dub and extracts the selected segment.
 - `HollowBottomMessageTemplateTb` contains nine related text references. These
   may overlap imported tips, but no comprehensive independent adapter is claimed.
 - `MainCityStoreVoiceConfigTemplateTb`: 262 source-only entries were observed.

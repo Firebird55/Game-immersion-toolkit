@@ -45,6 +45,20 @@ def field(number, value):
     return varint(number << 3 | 2) + varint(len(value)) + value
 
 
+def test_older_sophon_manifest_directories_are_not_data_files(tmp_path, monkeypatch):
+    base = 'https://autopatchhk.yuanshen.com/test'
+    def read(body):
+        raw = field(1, body)
+        digest = hashlib.md5(raw).hexdigest()
+        name = 'manifest_' + '0' * 16 + '_' + digest
+        monkeypatch.setattr(sophon, '_verified', lambda *args: raw)
+        return sophon.manifest(tmp_path, 'genshin-global', (base, name, 1, len(raw), digest, base), ('',))
+    directory = field(1, b'GenshinImpact_Data/StreamingAssets') + field(3, 64) + field(4, 0)
+    assert read(directory) == {}
+    with pytest.raises((ValueError, KeyError)):
+        read(field(1, b'file.pck') + field(4, 12))
+
+
 def fixture(directory, monkeypatch, version, speech, *, game='genshin', channel=None):
     source = 'English(US)\\VO_AQ\\synthetic.wem' if game == 'genshin' else 'English/voice/story/test.wem'
     identity = voice_hash(source)
@@ -94,6 +108,62 @@ def test_new_build_changes_voice_and_old_cached_clip_survives_offline(tmp_path, 
         assert publisher.extract(binding, tmp_path / 'tools') == wem
         with pytest.raises(ValueError):
             publisher.extract(binding | {'locale': 'ja'}, tmp_path / 'tools')
+
+
+def test_genshin_update_retains_only_identical_released_dialogue(tmp_path, monkeypatch):
+    from backend.genshin_history import retained_performances
+    source, identity, original, wem, _ = fixture(tmp_path, monkeypatch, '1.0.0', b'original')
+    package = publisher.inventory(tmp_path, original, 'en')[identity]
+    audio = package | {'file_id': f'{identity:016x}', 'source': source, 'locale': 'en'}
+    links = [{'id': str(i), 'source': source} for i in range(6)]
+    def records():
+        return [{'text_id': 'genshin:' + link['id'], 'source_text': 'A sentence', 'player_voice': None,
+                 'audio': None, 'voice_status': 'unavailable'} for link in links]
+
+    old = records()
+    for row in old:
+        row.update(audio=audio, voice_status='voiced')
+    assert retained_performances(tmp_path, original, 'cn', 'en', links, old, set()) == 0
+    assert publisher.extract(audio, tmp_path / 'tools') == wem
+    _, _, new, _, _ = fixture(tmp_path, monkeypatch, '1.1.0', b'new')
+    now = records()
+    now[1]['source_text'] = 'Rewritten dialogue'
+    now[2]['player_voice'] = 'male'
+    links[3]['source'] = source.replace('synthetic', 'another')
+    now[4].update(audio=audio | {'publisher': new}, voice_status='voiced')
+    now[5]['voice_status'] = 'unvoiced'
+    assert retained_performances(tmp_path, new, 'global', 'en', links, now, set()) == 0
+    assert retained_performances(tmp_path, new, 'cn', 'en', links, now, {identity}) == 0
+    assert retained_performances(tmp_path, new, 'cn', 'en', links, now, set()) == 1
+    assert now[0]['audio'] == audio | {'publisher': new, 'original_publisher': original}
+    assert publisher.extract(now[0]['audio'], tmp_path / 'tools') == wem
+    assert [r['voice_status'] for r in now[1:]] == ['unavailable'] * 3 + ['voiced', 'unvoiced']
+
+
+def test_genshin_archived_data_retries_and_cannot_displace_a_newer_preparation(tmp_path, monkeypatch):
+    from backend import genshin_history as history
+    source, identity, earlier, _, _ = fixture(tmp_path, monkeypatch, '1.0.0', b'earlier')
+    _, _, later, _, _ = fixture(tmp_path, monkeypatch, '2.0.0', b'later')
+    links = [{'id': '42', 'source': source}]
+    def rows(stamp):
+        return [{'text_id': 'genshin:42', 'source_text': 'A sentence', 'player_voice': None,
+                 'voice_status': 'voiced' if stamp else 'unavailable', 'audio': None if not stamp else {
+                     'publisher': stamp, 'package': 'same.pck', 'source': source}}]
+    history.retained_performances(tmp_path, later, 'cn', 'en', links, rows(later), set())
+    calls = []
+    def archive(data_dir, region, locale, version, *, mirror=False):
+        calls.append((locale, mirror))
+        if len(calls) <= 2:
+            raise TimeoutError()
+        history.retained_performances(data_dir, earlier, region, locale, links, rows(earlier), set(), archive=history.ARCHIVES[version]['metadata'])
+    monkeypatch.setattr(history, '_seed_archive', archive)
+    assert not history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
+    assert history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
+    assert history.prepare_archive(tmp_path, 'cn', 'en', '4.8.0')
+    assert calls == [('en', False), ('en', True), ('en', False)]
+    missing = rows(None)
+    assert history.retained_performances(tmp_path, 'new', 'cn', 'en', links, missing, set()) == 1
+    assert missing[0]['audio']['original_publisher'] == later
 
 
 def test_genshin_regions_retain_their_own_originals_offline(tmp_path, monkeypatch):

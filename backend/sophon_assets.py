@@ -44,11 +44,16 @@ def _prefix(url, channel):
 
 
 def release(channel):
-    (launcher, launcher_id, downloader), game_id, platform, _ = CHANNELS[channel]
+    (launcher, launcher_id, _), game_id, _, _ = CHANNELS[channel]
     url = f'https://{launcher}/hyp/hyp-connect/api/getGameBranches?launcher_id={launcher_id}'
     listing = json.loads(download(url, limit=2 * 1024**2))
     _check(listing['retcode'] == 0)
     main, = [item['main'] for item in listing['data']['game_branches'] if item['game']['id'] == game_id]
+    return released_build(channel, main)
+
+
+def released_build(channel, main):
+    (_, _, downloader), _, platform, _ = CHANNELS[channel]
     _check(main['branch'] == 'main' and re.fullmatch(r'\d+\.\d+\.\d+', main['tag']))
     query = urlencode({key: main[key] for key in ('tag', 'branch', 'password', 'package_id')} | {'plat_app': platform})
     # The temporary branch parameter is used only in this request.
@@ -173,6 +178,9 @@ def manifest(directory: Path, channel, spec, suffixes):
         fields = list(_fields(body))
         row = dict(fields)
         path = bytes(row[1]).decode()
+        # Older launchers include directory entries with no digest or chunks.
+        if row.get(3) == 64 and 5 not in row and 2 not in row:
+            continue
         if not path.endswith(suffixes):
             continue
         _check(path not in result and not path.startswith('/') and '..' not in path.split('/')

@@ -14,8 +14,37 @@ initial/main resource revision `11529267-11` under separate regional URLs.
 A clean mainland preparation returned 53,711 English rows, including 25,985
 voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
 The selected timed film clip resolved its original 77.014 s source recording.
-The 28 open film configurations and the two unresolved radio observations
-are tracked below. [Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
+The [radio playback audit](endfield-radio-observations.md) covers all thirteen unresolved rows.
+The 28 film configurations without verified sentence intervals are listed below.
+The [cinematic gameplay comparisons](endfield-film-gameplay.md) locate the
+Liino concert, both Si films, the Wuling battle and Cradle of the Ages.
+[Global launcher](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1) · [Mainland launcher](https://launcher.hypergryph.com/api/game/get_latest?appcode=6LL0KJuqHBVz33WK&launcher_appcode=abYeZZ16BPluCFyT&channel=1&sub_channel=1&launcher_sub_channel=1&disk_type=0&patch_encrypt=1)
+
+## Cinematic cues from the selected release, November 13, 2026
+
+Setup discovers FMV configurations and localized playable tracks in the selected
+release's Unity registry. On a new or changed film, it follows the configured
+external file and object, resolves the actor condition and Wwise voice event,
+and checks the authored caption interval against the decoded recording. It
+omits an interval when another voice could overlap it. For repeated captions
+it requires an unambiguous preceding caption. A saved clip retains its release,
+dub, recording checksum and timing.
+
+The same reader processed Global 1.5.3 and 1.6.4 without an installation.
+The 1.5.3 source had no films passing the existing unchanged-asset test.
+Reading its own tracks and recordings recovered 356 Mandarin, 328 English,
+343 Japanese and 316 Korean intervals. The English output spanned 48
+performances. All 328 English intervals matched the independently audited
+1.6.4 clocks and recording bytes. Eighteen of those intervals used different
+recording IDs between releases. For example, the opening caption of the male
+`e7m4_2` performance selects ID 724698279 on 1.5.3 and 724698278 on 1.6.4.
+The English 1.6.4 preparation retained all 408 previously verified intervals.
+A normal desktop audio export of that 1.5.3 caption produced an MP3 in each
+of the five study selections, including both Mandarin script choices.
+A separate reader comparison matched 4,207 serialized dialogue/timeline
+objects across 333 assets. The two separately audited in-engine scenes still
+require their director dependencies to pass the existing checks.
+[Original Global release listings](https://github.com/daydreamer-json/ak-endfield-api-archive/tree/538b29bee72a7bc42a30966d1e39a98a6c621a90/output/raw/beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows)
 
 ## Installation-free publisher updates, November 9, 2026
 
@@ -100,18 +129,14 @@ indexes. In both releases the current Unity registry selected identical film
 configurations and localized subtitle bundles for 53 Mandarin, 52 English,
 50 Japanese and 52 Korean performances. The selected dub bank, hotfix packages
 and 200 original speech files also matched. English preparation retained all
-404 film intervals on the earlier revision. When a required asset changes,
-the toolkit omits the affected film until its new timing or voice binding can
-be verified. Other dialogue still follows the current release's own tables.
+404 film intervals on the earlier revision. The reader now checks changed FMV
+timing and voice bindings against the updated release as described above.
 
 For the two in-engine scenes, the desktop reader checks the active subtitle
 configuration, director prefabs, master timeline, regional subtitle track,
 audio track, Wwise event and recording. A repacked bank can pass if its event
-still selects the verified recording. Reading newly authored or retimed
-subtitle clips requires decoding the Endfield bundle wrapper and Unity
-serialized objects in the distributed runtime. The current timeline importer
-reads these objects during an audit. Setup omits a changed clock until its
-caption, regional recording and interval have been verified.
+still selects the verified recording. The distributed reader rebuilds FMV
+clocks. Rebuilding changed in-engine director timelines remains open.
 
 ## Publisher resources and story coverage, November 8, 2026
 

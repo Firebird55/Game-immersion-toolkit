@@ -192,6 +192,10 @@ class Catalog:
     def verified_films(self, dub):
         return verified_films(self.tools, self.stamp, dub)
 
+    def updated_cues(self, dub):
+        from . import endfield_film_update
+        return endfield_film_update.cues(self.tools, self.stamp, dub)
+
 
 def prepare(tools, region='global'):
     stamp, raw = discover(region)

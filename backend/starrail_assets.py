@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 8
+LANGUAGE_INDEX_VERSION = 11
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -215,7 +215,10 @@ def authored_links(catalog, locale):
             links.extend(_voice_links(identity, text_hash, row['AudioID'], by_voice, locale, kind))
         elif text_hash:
             # AudioEvent is a Wwise event, not a VoiceConfig ID or media path.
-            links.append(_text_link(identity, text_hash, kind, 'unavailable' if row.get('AudioEvent') else 'unknown'))
+            link = _text_link(identity, text_hash, kind, 'unavailable' if row.get('AudioEvent') else 'unknown')
+            if row.get('AudioEvent'):
+                link['audio_event'] = row['AudioEvent']
+            links.append(link)
     links.extend(message_links(
         _table(catalog, 'MessageItemConfig', ('ID', 'ItemType')),
         _table(catalog, 'MessageItemTextOverride', ('ItemID', 'MainText'))))
@@ -246,10 +249,20 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
     rows = common.records('starrail', links, tables, source_locale, entries)
     rows.extend(_readable_records(catalog, tables, source_locale))
+    if install is None:
+        from . import starrail_films, starrail_events
+        events = {'starrail:' + link['id']: link['audio_event'] for link in links if 'audio_event' in link}
+        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale, set(events.values()))
+        for row in rows:
+            binding = audio.get(events.get(row['text_id']))
+            if binding:
+                row['audio'] = binding
+                row['voice_status'] = 'voiced'
+        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
-        'Movie captions, image-only messages and presentation-specific event formats are not comprehensively mapped. Missing voice metadata is not proof of silence.']
+        'Captions without a timed localized recording, image-only messages and event-only formats have incomplete coverage. Missing voice metadata is not proof of silence.']
     if install is None:
         if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
@@ -265,6 +278,9 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None and 'audio_event' in audio:
+        from .starrail_events import extract as extract_event
+        return extract_event(audio, _executable)
     if install is None:
         from .hoyo_publisher_voice import extract
         return extract(audio, _executable, 'starrail')

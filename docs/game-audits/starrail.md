@@ -51,6 +51,60 @@ subtitle clocks for pre-rendered movies require their own audio sources.
 [Released sentence table](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/TalkSentenceConfig.json) ·
 [Released individual source paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceConfig.json)
 
+## In-engine cinematic caption clocks
+
+The current release has 173 caption scripts with 946 entries. Each entry
+identifies the localized subtitle, its display start and its display end.
+Eighteen in-engine timelines also associate the caption script with a
+CutSceneConfig voice ID. The corresponding VoiceConfig entry selects a
+locale-specific external recording, including separate protagonist takes.
+The reader checks the start and end against the Wwise sample count before
+offering a timed clip.
+
+Pre-rendered movies also retain their caption text. The publisher VideoV
+lists 242 matching USM files. An inspection of their CRI stream directories
+found 229 files with four language labels, one with Mandarin alone, and
+12 without language labels. Three sampled English tracks produced heavily
+distorted audio from a plain ADX demux and decoder, so they have no playback
+binding in the toolkit. The caption does not establish silence.
+
+On Global 4.7, all 28 directly bound in-engine WEM tracks per dub were
+retrieved and decoded. Their durations covered the 124 authored caption
+intervals, including player takes. Speech recognition on the original
+opening station and Express tracks reproduced the corresponding dialogue.
+The clips follow the game's subtitle display times, which can differ from
+the start or end of individual words.
+[Released cinematic configurations](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/CutSceneConfig.json) ·
+[Released caption scripts](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f/Config/CutSceneCaption) ·
+[Released voice paths](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceConfig.json)
+
+## Character archive and battle voices
+
+Global 4.7.0 contains 3,686 localized VoiceAtlas rows referencing 3,678
+distinct events. The launcher's SoundBankLookUp maps each event to its
+neutral bank and localized sound bank. The publisher reader verifies the
+lookup against the actual Wwise 135 event, its Play action and the target
+sound in the selected dub. Embedded sounds, streamed sounds and streams with
+a bank prefetch use their authored media IDs. Duplicate or missing sources
+remain unavailable. A random/sequence container can contribute a recording
+when both its child table and its playlist name the same sole sound.
+
+Global English preparation resolved 3,502 distinct archival events and 3,510
+rows. The full preparation/export path produced 98,610 playable English
+rows across presentations, compared with 95,100 before event support. Three
+sampled direct media bindings decoded in each of the four dubs. The 172
+switch containers depend on a state chosen by the game. Four other events
+have multiple or nested playlist children. Subtitle text alone cannot
+identify which take played.
+
+The reader groups selected bank ranges by package and validates the published
+package digest, size, returned range, Wwise language and embedded/streamed
+identity. The complete game is not required. A changed launcher lookup that
+lags behind the hotfix's banks can leave individual names unresolved. The
+loader requires the lookup's bank pair to agree with the actual Play action.
+[Released VoiceAtlas](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/VoiceAtlas.json) ·
+[Official launcher](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=4ziysqXOQ8)
+
 ## Event panels, choices and books
 
 The 4.7.0 Windows reader resolves 922 localized dialogue entries from the

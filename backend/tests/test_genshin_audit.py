@@ -11,6 +11,35 @@ from backend.preparation_errors import PreparationFailure
 from backend.voice_assets import voice_hash
 
 
+def test_released_movie_subtitles_use_matching_intervals_and_authored_predecessors():
+    from backend.genshin_cinematics import movie_records
+    def cue(n, start, end, text):
+        return f'{n}\n00:00:{start} --> 00:00:{end}\n{text}'
+    english = '\n\n'.join([cue(1, '00,200', '01,000', 'First'), cue(2, '01,000', '02,000', '<i>Yes</i>'),
+                            cue(4, '02,000', '03,000', 'Later'), cue(5, '02,800', '04,000', 'Overlap')])
+    french = '\n\n'.join([cue(1, '00,200', '01,000', 'Une'), cue(2, '01,100', '02,000', 'Oui')])
+    class Catalog:
+        def directory_text(self, path, *, suffix):
+            code = path.split('/')[1]
+            assert suffix == '.srt'
+            text = english if code == 'EN' else french
+            return [('Movie_' + code + suffix, text), ('MissingMovie_' + code + suffix, text)]
+    rows = movie_records(Catalog(), {'Movie'}, ['en', 'fr'], 'en', [])
+    assert len(rows) == 4 and all(r['audio'] is None and r['voice_status'] == 'unknown' for r in rows)
+    assert rows[0]['texts'] == {'en': 'First', 'fr': 'Une'}
+    assert rows[1]['texts'] == {'en': 'Yes'} and rows[1]['previous_text_id'] == rows[0]['text_id']
+    assert rows[0]['previous_text_id'] is rows[2]['previous_text_id'] is rows[3]['previous_text_id'] is None
+    assert rows[1]['text_id'] == 'genshin:movie:Movie:2:1000-2000'
+
+
+def test_movie_translations_require_exclusive_overlapping_cues_in_both_tracks():
+    from backend.genshin_cinematics import _aligned
+    source = {1: (100, 900, 'One'), 2: (1200, 2600, 'Two'), 3: (2700, 3200, 'Three')}
+    target = {1: (200, 1000, 'Un'), 2: (1250, 2950, 'Deux'), 3: (3000, 3400, 'Trois')}
+    assert _aligned(source, target) == {1: 'Un'}
+    assert _aligned(source, {1: (200, 1000, 'Un')}) == {}
+
+
 def test_global_dialogues_fill_gaps_without_resurrecting_runtime_conflicts():
     warnings = []
     talks = [{'dialogList': [{'id': 1, 'talkContentTextMapHash': 10},

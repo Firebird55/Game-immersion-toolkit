@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash
 
-LANGUAGE_INDEX_VERSION = 13
+LANGUAGE_INDEX_VERSION = 14
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -565,7 +565,7 @@ def index_install(install, data_dir, progress=lambda _message: None):
 def extract_voice(install, audio, executable, _destination):
     if 'publisher' in audio:
         from . import endfield_release
-        if audio['publisher'].startswith('endfield-'):
+        if audio['publisher'].startswith('endfield-') and 'film' not in audio:
             return endfield_release.extract(executable.parent, audio, VOICE_LOCALES[audio['locale']])
         from .endfield_online import extract
         return extract(audio, executable.parent)

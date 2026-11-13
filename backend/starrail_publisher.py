@@ -1,10 +1,13 @@
 """Original Global Star Rail voice packages and their compatible text generation."""
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+import hashlib
 import struct
 import json
 import re
 import time
 from urllib.error import HTTPError, URLError
+import xml.etree.ElementTree as ET
 
 from . import hoyo_publisher_voice as voices, sophon_assets as sophon, starrail_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
@@ -118,7 +121,19 @@ def _text_commit(title):
         pass
     for page in range(1, 6):
         url = f'https://api.github.com/repos/DimbreathBot/TurnBasedGameData/commits?sha=main&per_page=50&page={page}'
-        rows = json.loads(download(url, limit=2 * 1024**2))
+        try:
+            rows = json.loads(download(url, limit=2 * 1024**2))
+        except HTTPError as error:
+            if error.code not in (403, 429):
+                raise
+            feed = download('https://github.com/DimbreathBot/TurnBasedGameData/commits/main.atom', limit=256 * 1024)
+            for entry in ET.fromstring(feed).findall('{http://www.w3.org/2005/Atom}entry'):
+                label = entry.findtext('{http://www.w3.org/2005/Atom}title', '').strip()
+                ident = entry.findtext('{http://www.w3.org/2005/Atom}id', '')
+                match = re.fullmatch('tag:github.com,2008:Grit::Commit/([0-9a-f]{40})', ident)
+                if match and label == title:
+                    return match[1]
+            break
         for row in rows:
             if row['commit']['message'].splitlines()[0] == title and re.fullmatch('[0-9a-f]{40}', row['sha']):
                 return row['sha']
@@ -140,12 +155,47 @@ class ReleasedCatalog(DialogueCatalog):
         url = f'https://raw.githubusercontent.com/DimbreathBot/TurnBasedGameData/{self.revision}/{relative}'
         return self._bytes(relative, url)
 
+    def caption_scripts(self):
+        relative = 'Config/CutSceneCaption'
+        try:
+            return list(self.directory_json(relative, with_names=True))
+        except HTTPError as error:
+            if error.code not in (403, 429, 500, 502, 503, 504):
+                raise
+        except (TimeoutError, ConnectionError, URLError):
+            pass
+        # Walk immediate trees at the identical commit. Recursive tree and
+        # contents listings can silently omit files in large repositories.
+        repo = 'DimbreathBot/TurnBasedGameData'
+        tree = self.revision
+        for component in (*relative.split('/'), None):
+            url = f'https://api.github.com/repos/{repo}/git/trees/{tree}'
+            listing = json.loads(self._bytes('caption-directory/' + tree, url, 4 * 1024**2))
+            hotfix.check(listing.get('truncated') is False)
+            if component is not None:
+                child, = (r for r in listing['tree'] if r['path'] == component and r['type'] == 'tree')
+                tree = child['sha']
+                hotfix.check(re.fullmatch('[0-9a-f]{40}', tree))
+        items = [r for r in listing['tree'] if r['path'].endswith('.json')]
+        hotfix.check(0 < len(items) <= 10000 and sum(r['size'] for r in items) <= 32 * 1024**2)
+        def read(item):
+            name, digest, size = item['path'], item['sha'], item['size']
+            hotfix.check(re.fullmatch(r'[A-Za-z0-9_-]+_Caption\.json', name)
+                         and re.fullmatch('[0-9a-f]{40}', digest) and 0 < size <= 2 * 1024**2
+                         and item['type'] == 'blob' and item['mode'] == '100644')
+            path = relative + '/' + name
+            raw = self._bytes(path, f'https://raw.githubusercontent.com/{repo}/{self.revision}/{path}', size)
+            hotfix.check(len(raw) == size and hashlib.sha1(f'blob {size}\0'.encode() + raw).hexdigest() == digest)
+            return name, json.loads(raw)
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            return list(pool.map(read, items))
+
 
 def prepare(data_dir, region='global'):
     build = _release(region)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
-    # Check all four actual index bodies against this release before publishing
+    # Check all actual index bodies against this release before publishing
     # the translation and audio selection. Reuse unchanged index digests.
     for name in hotfix.INDEXES:
         hotfix.index(directory, build, name)

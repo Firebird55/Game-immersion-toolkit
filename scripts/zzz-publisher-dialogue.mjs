@@ -9,9 +9,8 @@ const utf8 = new TextDecoder('utf-8', {fatal: true});
 const tags = {'zh-Hans':'', 'zh-Hant':'_CHT', en:'_EN', ja:'_JA', ko:'_KO', de:'_DE',
   fr:'_FR', 'es-ES':'_ES', 'pt-BR':'_PT', th:'_TH', ru:'_RU', vi:'_VI', id:'_ID'};
 
-// Both tables have a root object with a vector of row objects in field zero.
-// Only the two evidenced string fields in each row are interpreted.
-export function* tableStrings(data, columns) {
+// Design tables have a root object with a vector of row objects in field zero.
+export function* tableStrings(data, columns, {vectors = [], maxColumns} = {}) {
   function field(table, index) {
     const vtable = table - data.readInt32LE(table);
     const bytes = data.readUInt16LE(vtable), width = data.readUInt16LE(vtable + 2);
@@ -28,18 +27,27 @@ export function* tableStrings(data, columns) {
     if (!offset || at + offset + 4 > data.length) throw Error('Invalid ZZZ table reference');
     return at + offset;
   }
+  function string(at) {
+    const start = indirect(at), end = start + 4 + data.readUInt32LE(start);
+    if (end >= data.length || data[end] !== 0) throw Error('Invalid ZZZ table string');
+    return utf8.decode(data.subarray(start + 4, end));
+  }
   const first = field(indirect(0), 0);
   if (first === null) throw Error('Missing ZZZ row vector');
   const vector = indirect(first), count = data.readUInt32LE(vector);
   if (count > 2000000 || vector + 4 + 4 * count > data.length) throw Error('Invalid ZZZ row count');
   for (let i = 0; i < count; i++) {
     const row = indirect(vector + 4 + 4 * i);
+    if (maxColumns && data.readUInt16LE(row - data.readInt32LE(row)) > 4 + 2 * maxColumns) {
+      throw Error('Unsupported released ZZZ row schema');
+    }
     yield columns.map(index => {
       const at = field(row, index);
-      if (at === null) return '';
-      const start = indirect(at), end = start + 4 + data.readUInt32LE(start);
-      if (end >= data.length || data[end] !== 0) throw Error('Invalid ZZZ table string');
-      return utf8.decode(data.subarray(start + 4, end));
+      if (!vectors.includes(index)) return at === null ? '' : string(at);
+      if (at === null) return [];
+      const vector = indirect(at), count = data.readUInt32LE(vector);
+      if (count > 65536 || vector + 4 + count * 4 > data.length) throw Error('Invalid ZZZ string vector');
+      return Array.from({length:count}, (_, i) => string(vector + 4 + i * 4));
     });
   }
 }
@@ -313,6 +321,18 @@ export function clueIntervals(rows, namespace) {
   return [...intervals.values()];
 }
 
+export function tipRows(rows) {
+  const tips = [];
+  for (const [text_id, primary, alternate, reaction, events, ...references] of rows) {
+    if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text_id)) continue;
+    const source = (!alternate || primary === alternate) &&
+      /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i.test(primary) ? primary : '';
+    tips.push({text_id, source, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip',
+      voice_status:primary || alternate ? 'unavailable' : reaction || events.length || references.some(Boolean) ? 'unknown' : 'unvoiced'});
+  }
+  return tips;
+}
+
 function catalogue(work, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.scenes$/);
@@ -356,14 +376,8 @@ function catalogue(work, input, reader) {
   }
   const ongoing = ongoingRows(tableStrings(tables.get(key(bindings[1])), [6, 7, 8]));
   const clips = clueIntervals(tableStrings(tables.get(key(bindings[2])), [1, 2, 3, 4, 5]), input.namespace);
-  const tips = [];
-  for (const [text_id, primary, alternate] of tableStrings(tables.get(key(bindings[3])), [1, 11, 16])) {
-    if (!/^[A-Za-z0-9_][A-Za-z0-9_-]*$/.test(text_id)) continue;
-    const source = (!alternate || primary === alternate) &&
-      /^(?:VO_(?:Tips|Chessboard|Level|Monthlycard)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+|(?:Accompany|Level|Chessboard|Tips|OngoingMainCity)_[A-Za-z0-9_-]+)$/i.test(primary) ? primary : '';
-    tips.push({text_id, source, channels:['tip', 'gameplay'], dialogue_kind:'gameplay_tip',
-      voice_status:primary || alternate ? 'unavailable' : 'unknown'});
-  }
+  const tips = tipRows(tableStrings(tables.get(key(bindings[3])), [1, 11, 16, 14, 15, 3, 5, 6, 13],
+    {vectors:[15], maxColumns:18}));
   const all = [...scenes, ...comics, ...messageLinks.values(), ...ongoing, ...tips,
     ...clips.map(clip => ({...clip, dialogue_kind:'narration', voice_status:'unavailable', channels:['dialogue', 'cinematic']}))];
   const ids = new Set(all.map(link => link.text_id));

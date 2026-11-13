@@ -44,6 +44,10 @@ test('Unity-wrapped resource catalogs preserve exact scene ranges and dependenci
 });
 
 test('comic and dialogue references use their authored namespaces across table field changes', () => {
+  const absolute = 'Assets/NapResources/Data/ScriptConfig/Perform/Data/Chat/Side/OfficialLine.asset';
+  assert.deepEqual(sceneAssetPaths([absolute, absolute.slice('Assets/NapResources/'.length)], 'dialogue'),
+    ['assets/napresources/data/scriptconfig/perform/data/chat/side/officialline.asset']);
+  assert.deepEqual(sceneAssetPaths(['NAP_UnityProj/'+absolute, absolute.replace('/Side/', '/../')], 'dialogue'), []);
   const table = { changingKey: [{ otherKey: 'Data/ScriptConfig/Comic/Test_Comic.asset' },
     { nested: ['Data/ScriptConfig/Perform/Data/GalGame/Test.asset', 'data/scriptconfig/comic/test_comic.asset'] }] };
   assert.deepEqual(sceneAssetPaths(table, 'comic'), ['assets/napresources/data/scriptconfig/comic/test_comic.asset']);

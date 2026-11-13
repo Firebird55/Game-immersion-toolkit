@@ -16,6 +16,8 @@ from .game_tools import download, _atomic_file
 
 SOURCES = {
     'genshin': ('gitlab', 'Dimbreath/animegamedata2', 'main'),
+    'genshin-archive': ('gitlab', 'Dimbreath/AnimeGameData', 'master'),
+    'genshin-archive-mirror': ('github', 'DimbreathBot/AnimeGameData', 'master'),
     'starrail': ('gitlab', 'Dimbreath/turnbasedgamedata', 'main'),
     'endfield': ('github', 'rmxlinux/EndfieldData', 'main'),
     'nte-cn': ('github', '555me/NTEData', 'main'),
