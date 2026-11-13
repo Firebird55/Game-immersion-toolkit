@@ -126,7 +126,7 @@ installed locale package.
 | Quest and ordinary conversations | 23,208 Quest Talk files; 203,908 global DialogExcel rows; several coexisting Talk schemas | Parses supported authored ID/hash pairs. Runtime Talk records take priority; the global table fills absent IDs. Conflicting identities are excluded. |
 | Optional NPC, gadget, furniture and hangout interactions | 16,927 Npc, 1,473 NpcOther, 1,485 Gadget, 1,287 Coop and associated group configurations | Supported Talk content is included regardless of whether it has audio. Group/routing configuration alone is not dialogue. Missing voice metadata stays unknown. |
 | Events | 2,107 Activity Talk files, 105 ActivityGroup files, many dedicated event Excel tables | Supported event Talk content is indexed. Event-specific UI formats and expired/removed assets do not acquire coverage merely because ordinary event Talk works. |
-| Ambient dialogue and reminders | 18,541 ReminderExcel rows; 1,798 BubbleTalkData rows; global dialogue fallback | Supported reminders use their own Medium-first text hash space and dialogue/tip/gameplay channels. `hasAudio: true` with missing audio is unavailable; omitted flags remain unknown. The separate BubbleTalk schema is inventoried but not mapped. |
+| Ambient dialogue and reminders | 18,541 ReminderExcel rows and 1,798 BubbleTalkData rows on 7.1 | Reminders use their own Medium-first hash space. An authored audio flag with missing audio is unavailable. Bubble texts and information boards use their original localized content hash. General ambient speech bubbles have unknown voice status. |
 | Character/profile and combat voices | 9,183 FettersExcel rows on 7.1; voice triggers include Fetter, AnimatorEvent, WeatherMonologue, JoinTeam, Costume and Gacha | The November 9 profile audit above covers the Fetter trigger and actor join on two releases. Other trigger families and combat sounds without authored subtitles remain open. |
 | Card-game dialogue and tutorials | 1,256 GCGTalkDetail rows with parallel content/voice arrays | Nonzero voice IDs are paired with the original array position, including gaps. Conflicting IDs are excluded. Zero-voice slots and emoji-only messages remain outside this import. |
 | Choices and black-screen narration | 23,483 global forced-choice rows; explicit black-screen role types | Retained and tagged by authored modality. A player role, blank audio filename or missing voice does not establish silence. Exact voice bindings still take precedence. |
@@ -189,6 +189,21 @@ rejects traversal, links, foreign directories, duplicate identities and excessiv
 file/expanded sizes. It never extracts upstream paths. Book capture remains the
 global opt-in exact-match behavior; partial page text and unknown voice status
 do not gain fuzzy unvoiced capture.
+
+## Ambient bubbles and scene boards
+
+The 7.2 Global worker added 1,297 English entries with Simplified Chinese
+translations, bringing the prepared total to 471,176, including 180,974 original
+voices. Of 50 explicitly authored scene text boards, 49 qualify for unvoiced
+capture. One also occurs as authored voice text, so capture keeps it ambiguous.
+The 1,247 other bubbles lack a sentence-specific voice link. The 7.1 named
+sound-effect field and the corresponding 7.2 field assign precisely the same
+cardboard pop-up effect to 83 different bubbles, of which 69 have English text.
+The reader keeps their text and excludes the shared effect from voice playback.
+The same public schema test yielded 1,289 English entries on 7.1, 741 on 5.5
+and 612 on 4.8. Known developer placeholder identities are excluded.
+[7.2 bubble authoring table](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/BubbleTalkDataExcelConfigData.json)
+· [7.1 sound-effect field](https://gitlab.com/Dimbreath/animegamedata2/-/blob/9587d1afbd9ab0419cdd00dc05ecd114b9e3fe99/ExcelBinOutput/BubbleTalkDataExcelConfigData.json)
 
 ## Written mail and Eye of Graeae messages
 

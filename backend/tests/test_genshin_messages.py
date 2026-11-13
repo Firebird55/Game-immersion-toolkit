@@ -12,6 +12,7 @@ class Catalog:
                      {'id': 3, 'contentTextMapHash': 98}],
             'ServerMessage': [{'id': 2, 'contentTextMapHash': 20, 'showType': 'SERVER_MESSAGE_SHOW_TYPE_MESSAGE'},
                               {'id': 3, 'contentTextMapHash': 20, 'showType': 'UNREVIEWED'}],
+            'BubbleTalkData': [],
             'TpsGlassesChatCharacter': [{'characterId': 1, 'actorName': 1264548403},
                                         {'characterId': 4, 'actorName': 405055187}],
             'TpsGlassesChatTopic': [{'t': 1001, 'name': 562223715}, {'t': 1002, 'name': 118984643}, {'t': 600, 'name': 45}],
@@ -70,4 +71,19 @@ def test_ambiguous_missing_or_conflicting_message_fields_fail_closed():
     catalog.tables['TpsGlassesChatOption'].pop(0)
     warnings = []
     rows = message_records(catalog, {'en': {'30': 'Text', '40': 'Option'}}, {}, 'en', [], warnings)
-    assert rows == [] and len(warnings) == 1 and 'fields' in warnings[0]
+    assert rows == [] and any('fields' in warning for warning in warnings)
+
+
+def test_ambient_bubbles_keep_shared_sound_effects_out_of_speech_and_identify_scene_boards():
+    catalog = Catalog()
+    catalog.tables['BubbleTalkData'] = [
+        {'i': 700003, 'h': 2984426480}, {'i': 700006, 'h': 3998572240}, {'i': 1, 'h': 3754392104},
+        {'i': 901, 'h': 10, 'soundEffect': 'Shared_Popup'}, {'i': 902, 'h': 11, 'soundEffect': 'Shared_Popup'},
+        {'i': 903, 'h': 12, 'style': 'BUBBLE_TALK_STYLE_MOONINFO_SCENE_TEXT_BOARD'},
+        {'i': 904, 'h': 13, 'style': 'BUBBLE_TALK_STYLE_MOONINFO_SCENE_TEXT_BOARD'}]
+    full = {'en': {'3754392104': 'Test content', '10': 'Hello!', '11': 'Stop!', '12': 'West Entrance', '13': 'Intruder detected!'}}
+    existing = [{'source_text': 'Intruder detected!', 'voice_status': 'unavailable'}]
+    rows = {r['text_id']: r for r in message_records(catalog, full, {}, 'en', existing, [])}
+    assert set(rows) == {f'genshin:bubble:{identity}' for identity in (901, 902, 903, 904)}
+    assert [rows[f'genshin:bubble:{i}']['voice_status'] for i in (901, 902, 903, 904)] == ['unknown', 'unknown', 'unvoiced', 'unknown']
+    assert all(r['audio'] is None and 'gameplay' in r['channels'] for r in rows.values())
