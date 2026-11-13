@@ -190,6 +190,33 @@ extraction. The direct publisher data can verify each future snapshot.
 
 ### Dialogue and voice
 
+On November 13, 2026, the Global and mainland Windows 1.6.4 catalogs each
+identified 3,093 dialogue graphs. The reader found 5,923 direct mission
+line-to-line connections by following each graph's node references and
+checking for multiple uses of the same line across all 3,093 graphs.
+It excludes forks, merges, choices, intervening actions, reused lines and
+nodes with audio or subtitle overrides. The ordinary installation-free
+Global English Setup indexed 53,675 records. Of those, 4,052 voiced
+conversation records carried a mission predecessor. Each record
+retains its own localized audio source. Setup reads the current edition's
+registry and reuses verified summaries of unchanged files after an update.
+The previous Global release 11343132-9 yielded 3,038 dialogue graphs and
+5,865 direct connections. The ordinary update to 11529267-11 added 55
+graphs and retained all 22 connections in the checked mission.
+
+*Stumbling Into Qingbo Stockade* has 23 dialogue nodes and 22 connections
+in graph `dlg_e5m2_3`. English gameplay shows the opening call at 39:24.9,
+Tangtang's brief reply at 39:26.5 and Perlica's longer response at 39:30.18.
+Those are rows 001, 017 and 018. The English text also contains several ways
+to call Perlica's name and another use of “Bro” in a movie. Replaying the
+subtitle observations against the full Global English index selected the
+published 017 recording only after observing the immediately preceding call
+in consecutive frames. The following caption selected the 018 recording.
+Opening the dialogue menu, changing the capture scope or selecting a
+different speaker configuration clears the observation.
+[English gameplay](https://www.youtube.com/watch?v=byytKbUvsYg&t=2364s) ·
+[Global launcher release](https://launcher.gryphline.com/api/game/get_latest?appcode=YDUTE5gscDZ229CW&launcher_appcode=TiaytKBUIEdoEwRT&channel=6&sub_channel=6&launcher_sub_channel=6&disk_type=0&patch_encrypt=1)
+
 Of 34,194 AudioDialog IDs, 32,371 name a WEM. For all 129,484 file/language
 combinations, a positive authored duration exactly matched presence of the
 locale-specific full-path hash in the publisher's external-media indexes.

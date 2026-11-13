@@ -148,6 +148,7 @@ class CaptureService:
         self._local_chatter_trackers: dict[str, tuple[StableMatchTracker, float]] = {}
         self._caption_context_scope = None
         self._endfield_radio = EndfieldCaptionContext()
+        self._endfield_conversation = EndfieldCaptionContext()
         self._endfield_film = EndfieldCaptionContext()
         self._genshin_dialogue = EndfieldCaptionContext()
         self._caption_context = []
@@ -1008,19 +1009,27 @@ class CaptureService:
         monotonic_now = time.monotonic()
         contextual = None
         if game in {'endfield', 'genshin'} and hasattr(index, 'source_locale'):
-            context = self._endfield_radio if game == 'endfield' else self._genshin_dialogue
+            if game == 'endfield':
+                contexts = ((self._endfield_radio, 'radio'), (self._endfield_conversation, 'conversation'))
+            else:
+                contexts = ((self._genshin_dialogue, 'conversation'),)
             if main_response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                context.reset()
+                for context, _ in contexts:
+                    context.reset()
                 if game == 'endfield':
                     self._endfield_film.reset()
             else:
-                hit = context.observe(index, [' '.join(lines)] if lines else [], [match],
-                    kind='conversation' if game == 'genshin' else 'radio',
-                    channel='dialogue', scope=(epoch, self.session_id, window.handle, window.bounds, crop_bounds,
+                scope = (epoch, self.session_id, window.handle, window.bounds, crop_bounds,
                     index.source_locale, index.target_locale, index.player_voice, index._signature,
-                    getattr(self, 'context_scope', lambda: None)()), now=monotonic_now, stable_frames=settings.stable_frames)
-                if hit:
-                    match = hit
+                    getattr(self, 'context_scope', lambda: None)())
+                resolved = {}
+                for context, kind in contexts:
+                    hit = context.observe(index, [' '.join(lines)] if lines else [], [match], kind=kind,
+                        channel='dialogue', scope=scope, now=monotonic_now, stable_frames=settings.stable_frames)
+                    if hit:
+                        resolved[hit.text_id] = hit
+                if resolved:
+                    match = next(iter(resolved.values())) if len(resolved) == 1 else None
         if hasattr(index, 'context_fragments') and not main_response.get('dialogue_menu'):
             contextual = self._authored_caption_context(index, lines, monotonic_now,
                 (epoch, game, window.handle, window.bounds, crop_bounds, index.source_locale, index.target_locale,

@@ -22,6 +22,7 @@ FMV = 'assets/beyond/dynamicassets/gamedata/subtitle/fmv/'
 SCENES = 'assets/beyond/dynamicassets/gamedata/subtitle/cutscene/singleconfigs/'
 DIRECTORS = 'assets/beyond/dynamicassets/gameplay/cutscene/'
 CONDITIONS = 'assets/beyond/dynamicassets/gameplay/dialog/condition/narrativegender'
+DIALOG_GRAPHS = 'assets/beyond/dynamicassets/gameplay/dialog/json/'
 TRACKS = {'chinese': (0, ('cn',)), 'english': (1, ('en',)), 'japanese': (2, ('jp',)),
           'korean': (3, ('ko', 'kr'))}
 
@@ -37,7 +38,7 @@ def _files(tools, stamp):
     manifest, = [row for row in rows if row.name == 'Data/Bundles/Windows/manifest.hgmmap']
     raw = registry.inflate(release._whole(tools, base, manifest, 160 * 1024**2), 384 * 1024**2)
     paths = {}
-    for _, path, bundle in registry.bindings(raw, path_prefixes=(FMV, CONDITIONS, SCENES, DIRECTORS)):
+    for _, path, bundle in registry.bindings(raw, path_prefixes=(FMV, CONDITIONS, SCENES, DIRECTORS, DIALOG_GRAPHS)):
         if path.endswith(('.playable', '.asset', '.prefab', '.json')):
             _check(path not in paths)
             paths[path] = 'Data/Bundles/Windows/' + bundle
@@ -50,6 +51,7 @@ def _files(tools, stamp):
             for row in rows:
                 _check(row.name not in found)
                 found[row.name] = (base, row)
+    _check(all(name in found for path, name in paths.items() if path.startswith(DIALOG_GRAPHS)))
     return {path: found[name] for path, name in paths.items() if name in found}
 
 
