@@ -131,3 +131,6 @@ def test_existing_player_record_renders_changed_release_pronoun_in_every_transla
     assert (result['text_id'], result['source_text'], result['chinese']) == ('starrail:1_m', 'I think he helped.', '他帮了我。')
     row['texts']['en'] = 'I think {M#she}{F#he} helped.'
     assert _player_row(row, 'male')['english'] == 'I think she helped.'
+    row['texts'].update(en='The one {F#s}he mentioned.', ja='彼{F#女}は？')
+    assert _player_row(row, 'male')['texts'] == {'en': 'The one he mentioned.', 'ja': '彼は？', 'zh-Hans': '他帮了我。'}
+    assert _player_row(row, 'female')['texts']['ja'] == '彼女は？'

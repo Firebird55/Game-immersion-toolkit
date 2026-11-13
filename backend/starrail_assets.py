@@ -250,9 +250,10 @@ def _speaker_lines(text, count):
 
 
 def _player_row(row, gender):
-    from .textmaps import gender_variants
+    from .textmaps import GENDER_VARIANT_RE
     tag = gender[0].upper()
-    texts = {lang: gender_variants(text).get(tag, text) for lang, text in row['texts'].items()}
+    texts = {lang: common.display_text(GENDER_VARIANT_RE.sub(
+        lambda match: match[2] if match[1] == tag else '', text)) for lang, text in row['texts'].items()}
     return row | {'player_voice': gender, 'texts': texts, 'source_text': texts[row['source_locale']],
                   'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', '')}
 
