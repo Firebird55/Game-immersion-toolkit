@@ -23,7 +23,7 @@ De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden 
 
 In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
 
-Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de Global-dialogen van Wuthering Waves. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de Global-launcher op.
+Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de Global-launcher op.
 
 | Game | Windows-instellingen |
 | :--- | :--- |

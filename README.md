@@ -64,7 +64,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 Unreal archive readers ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). Audio decoding and conversion ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Global Wuthering Waves dialogue. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares Global launcher dialogue scenes, motion comics, messages, tips and timed clue recordings.
+Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Wuthering Waves dialogue from either region. Choose the language you want to study. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares Global launcher dialogue scenes, motion comics, messages, tips and timed clue recordings.
 
 These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only.
 
