@@ -52,7 +52,7 @@ FOLDER_HINTS = {
     "riseofthetombraider": "Choose the Rise of the Tomb Raider folder containing ROTTR.exe and bigfile.000.tiger.",
     "shadowofthetombraider": "Choose the Shadow of the Tomb Raider folder containing SOTTR.exe and bigfile.000.tiger.",
     "starrail": "Optionally choose Star Rail Games. Without a folder, setup uses verified Global launcher voice packages.",
-    "genshin": "Optionally choose the Genshin Impact or YuanShen game folder. Without a folder, setup uses the mainland China publisher release in the selected language.",
+    "genshin": "Optionally choose the Genshin Impact or YuanShen game folder. Without a folder, select the Global or Mainland China publisher edition and your study language.",
     "endfield": "Choose Global or Mainland China for online Endfield data. To use installed packages, choose the folder containing Endfield.exe.",
     "heavyrain": "Choose the HEAVY RAIN folder containing HeavyRain.exe and the Resources archives.",
     "beyond": "Choose the BEYOND Two Souls folder containing BeyondTwoSouls_Steam.exe and BigFile_PC.idx.",

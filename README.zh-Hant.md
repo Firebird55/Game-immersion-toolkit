@@ -55,7 +55,7 @@
 
 | 遊戲 | 原版配音發布管道 | 上游專案及用途 | Windows 設定 |
 | :--- | :--- | :--- | :--- |
-| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (可選用的歷史版本索引) | 可從發行商準備中國大陸啟動器版本 |
+| Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (可選用的歷史版本索引) | 可從發行商準備全球版或中國大陸版啟動器資源 |
 | Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) | 可從發行商準備全球版啟動器常規配音包 |
 | Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (可選用的 TextMap 格式參考) | 設定可從發行商取得全球版啟動器中的有聲手機訊息。其他對話需要已安裝的遊戲檔案。 |
 | Arknights: Endfield | GRYPHLINE / Hypergryph | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) | 可從發行商準備全球版或中國大陸版劇情配音 |
@@ -64,7 +64,7 @@
 
 Unreal 資源讀取器 ([UEExtractor](https://github.com/SolicenTEAM/UEExtractor), [CUE4Parse](https://github.com/FabianFG/CUE4Parse)). 音訊解碼與轉換 ([vgmstream](https://github.com/vgmstream/vgmstream), [FFmpeg](https://ffmpeg.org/)).
 
-在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版啟動器基礎包取得有聲手機訊息。其他對話需要已安裝的遊戲檔案。
+在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備全球版或中國大陸版《原神》、全球版《崩壞：星穹鐵道》的常規配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版《鳴潮》的台詞與配音。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版啟動器基礎包取得有聲手機訊息。其他對話需要已安裝的遊戲檔案。
 
 這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。
 

@@ -53,7 +53,7 @@ installation.
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Selected official voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, prepare a selected dub from regular Global publisher packages. Optional chapter downloads have separate coverage |
-| Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, setup retrieves the mainland China release and selected original dub from HoYoPlay |
+| Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, select Global or Mainland China in Publisher edition to retrieve the matching HoYoPlay release and original dub. Existing setups default to mainland China |
 | Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, select Global (GRYPHLINE) or Mainland China (Hypergryph) in Publisher edition. Setup follows narrative and voice updates from that edition. Known film timings carry forward when the current timeline, voice banks and recording still match |
 | Spyro Reignited Trilogy | Contains Spyro.exe and Falcon/Content/Paks | All 14 official voice languages; installed original banks are read directly |
 | Detroit: Become Human | Contains DetroitBecomeHuman.exe and BigFile_PC.idx | All 12 official voice languages and 24 text locales; original voices read directly |

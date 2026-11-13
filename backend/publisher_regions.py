@@ -5,7 +5,7 @@ from .game_tools import _atomic_file
 
 
 REGIONS = {'global': 'Global', 'cn': 'Mainland China'}
-REGIONAL_GAMES = {'endfield'}
+REGIONAL_GAMES = {'endfield': 'global', 'genshin': 'cn'}
 
 
 def selected_region(tools: Path, game: str) -> str:
@@ -15,7 +15,7 @@ def selected_region(tools: Path, game: str) -> str:
         with (tools / 'publisher-region').open('rb') as stream:
             region = stream.read(16).decode('ascii')
     except FileNotFoundError:
-        return 'global'
+        return REGIONAL_GAMES[game]
     if region not in REGIONS:
         raise ValueError('Choose a supported publisher edition in Setup.')
     return region

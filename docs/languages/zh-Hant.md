@@ -312,7 +312,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 [官方語言清單](https://store.epicgames.com/p/genshin-impact) · 2026-10-25 · [涵蓋範圍說明](../genshin-languages.md)
 
-可從發行商準備中國大陸啟動器版本
+可從發行商準備全球版或中國大陸版啟動器資源
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.
 

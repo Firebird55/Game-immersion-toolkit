@@ -38,7 +38,7 @@
       }
     },
     "targets": {
-      "genshin": "mainlandLauncher",
+      "genshin": "regionalLauncher",
       "starrail": "regularGlobal",
       "zzz": "globalRecordedMessages",
       "endfield": "regionalNarrative",
@@ -46,7 +46,7 @@
       "nte": "installedWithRegionalAudit"
     },
     "windowsPreparation": {
-      "mainlandLauncher": { "withoutInstall": true, "label": "Publisher Setup for the mainland China launcher release" },
+      "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
       "regularGlobal": { "withoutInstall": true, "label": "Publisher Setup for regular Global launcher voice packs" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
