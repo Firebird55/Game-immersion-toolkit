@@ -37,4 +37,23 @@ These matches establish the original mixes used by that game performance, includ
 
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
-The installation-free archive command still needs these package identities, original English text bindings and per-caption export windows. Chinese package retrieval succeeded, but the corresponding Mandarin scene identities and gameplay matches remain unverified. The archive's availability and integrity checks establish a recoverable historical source. Current publisher update discovery remains independent.
+## Mandarin recordings
+
+The separate Chinese streamed package ends in `3F4A536996369BBDA4AA64B4AD5996D2.chk`. The complete 105,863,503-byte member passed its ZIP CRC check. Its SHA-256 is `51be530994d9bbc2f6e8253a63f9129a4477a6510a3c8b112b59b8b95bfed1eb`.
+
+| Scene | Mandarin media ID | Original WEM bytes | Decoded duration |
+| --- | ---: | ---: | ---: |
+| Aircraft | 1046408181 | 4,817,946 | 89.862 s |
+| Bedside | 945985728 | 7,492,874 | 142.504 s |
+| Briefing | 780870713 | 4,290,068 | 151.552 s |
+
+Five aircraft excerpts at 4, 20, 26, 67 and 76 s independently match DragonGJY's November 2023 mainland playthrough at an offset of 1.8317–1.8318 s, with correlations 0.931–0.992. Six bedside excerpts at 56, 67, 80, 90, 105 and 117 s independently match at 544.5095 s, with correlations 0.971–0.989. The original aircraft and bedside mixes therefore remain present in the January Global client's Chinese package. [Mainland aircraft](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=5s) · [Mainland bedside](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=601s)
+
+Five briefing excerpts at 2, 15, 46, 91 and 120 s match the publisher's full Mandarin film at an offset of 3.0212–3.0214 s, with correlations 0.758–0.842. The existing publisher-film export and the newly recovered original WEM have different time origins. [Full publisher film](https://web.hycdn.cn/upload/video/20251030/d836cdada37b16eabbbdd372ed3cf809.mp4)
+
+The respective Mandarin WEM SHA-256 values are
+`cc5acb17c7789874963fc93ef5d1fddd8aed90b9aaed2b15ef4dd5b53ad7bccc`,
+`b98ebbf70afbdea8785362a189854c2fcf3592b5f40336f891f4d9579350a6e0` and
+`fe11338ddcae3c9b016f2349235004662503de5c37b56bb2954b2b5b05b6565e`.
+
+The installation-free archive command still needs these package identities, original English text bindings and per-caption export windows. The archive's availability and integrity checks establish recoverable historical sources in both dubs. Current publisher update discovery remains independent.
