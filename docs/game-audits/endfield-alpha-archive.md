@@ -35,6 +35,26 @@ The game recordings and gameplay soundtrack were decoded to mono 8 kHz PCM and f
 
 These matches establish the original mixes used by that game performance, including sound effects. The bedside English conversation begins in the latter portion of its recording. English wording and speech timing differ from the earlier mainland test. The [previous mainland caption clocks](endfield-opening-gameplay.md) therefore require separate validation before use with these recordings. [Aircraft exchange](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=19s) · [Bedside exchange](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=837s) · [Briefing](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=930s)
 
+### A second mainland aircraft playthrough
+
+An independent November 2023 recording identifies the same original Mandarin
+aircraft mix. Three-second source excerpts at 4, 20, 26, 67 and 76 seconds
+match part 3 of the upload with a consistent 39.0539–39.0540-second offset.
+The respective normalized correlations at 8 kHz, filtered at 320–3,500 Hz,
+are 0.699, 0.778, 0.742, 0.729 and 0.873.
+[Independent test walkthrough, part 3](https://www.bilibili.com/video/BV1tu4y187be/?p=3)
+
+The recording's native Chinese subtitles also show each remaining aircraft
+caption: `07` around 1:45, `08` at 1:48, `09` around 1:49, `10` at 1:58.8
+and `11` at 2:02.8. The final two appear over the dark aftermath of the
+crash. These observations independently confirm the displayed text and mix;
+they do not establish complete spoken export windows.
+Speech-recognition checks on the original mix and a comparison after reducing
+the shared soundtrack did not yield reliable words for the five remaining
+cuts. No extra recording, silence classification or additional playable
+caption is inferred from that failure. The six unresolved Mandarin cuts and
+English text/cuts remain open below.
+
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
 ## Mandarin recordings
@@ -68,7 +88,7 @@ python scripts/endfield_film_voice.py --archive-film fmv_e0m1_1 --locale en --ca
 python scripts/endfield_film_voice.py --archive-film fmv_e0m1_3 --locale zh-Hans --cache private-cache --wem bedside-zh.wem
 ```
 
-The first request transfers approximately 119 MB for English or 105 MB for Mandarin. The cache uses approximately 120 MB or 106 MB respectively. These are whole scene recordings with the original mix. Original English text bindings and per-caption archive export windows remain open. Current publisher update discovery is independent of this fixed historical source.
+The first request transfers approximately 119 MB for English or 105 MB for Mandarin. The cache uses approximately 120 MB or 106 MB respectively. These are whole scene recordings with the original mix. Original English text bindings and English per-caption archive windows remain open; the supported Mandarin caption cuts are listed below. Current publisher update discovery is independent of this fixed historical source.
 
 Subtitle display times cannot establish complete spoken intervals. Short replies can begin before their display cue, and neighboring utterances can form one continuous exchange. The sentence-export follow-up must compare the original acoustic boundaries with the corresponding displayed text before assigning cuts.
 
