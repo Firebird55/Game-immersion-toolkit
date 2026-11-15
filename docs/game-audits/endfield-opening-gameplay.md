@@ -4,6 +4,8 @@ Reviewed November 13, 2026. All 46 retained Chinese caption cues can be identifi
 
 ## The three Technical Test films
 
+The January 2024 Global client's original English recordings for all three films were recovered and independently matched to gameplay on November 15. They are available in a public client archive through range reads. The existing archive export command still requires the corresponding English text and per-caption timing integration. [Original source, checksums and waveform evidence](endfield-alpha-archive.md)
+
 DragonGJY recorded the mainland PC test on November 10, 2023. The faint Chinese captions are part of the recording. The larger English captions are the uploader’s translation. The upload ends after the player-name prompt and its description links directly to the publisher’s film that follows. KyoStinV’s January 2024 Global Technical Test playthrough also shows the bedside scene and then Perlica’s briefing in the game. [Chinese prologue](https://www.youtube.com/watch?v=jCcaIyTgo-U) · [Global test transition at 15:10](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=910s) · [Original Chinese cue table](https://github.com/lsy-404/EndfieldGameData/blob/89ba7929f7fa64579852326b2bed0e679c3ccf49/TableCfg/SubtitleTable.json)
 
 | Film and archived duration | What is visible | Video checkpoints |

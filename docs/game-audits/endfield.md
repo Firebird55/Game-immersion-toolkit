@@ -1,5 +1,9 @@
 # Arknights: Endfield presentation audit
 
+## Historical original audio acquisition · November 15, 2026
+
+The film command retrieves the original English and Mandarin aircraft, bedside and briefing WEMs from the public Technical Alpha client archive without an installation. It checks the selected compressed byte range, complete package hash and individual recording hash. All six performances have independent waveform evidence. Per-caption archive integration still requires original text bindings and recording-relative windows. [Commands, source identities and gameplay comparisons](endfield-alpha-archive.md)
+
 ## Selecting the publisher edition
 
 With the game folder empty, Windows Setup offers Global and Mainland China.

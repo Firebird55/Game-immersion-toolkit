@@ -28,6 +28,8 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 The three HoYoPlay readers retry the individual immutable manifest or chunk
 after a network interruption and check its published digest before caching it.
 
+For Endfield's historical Technical Alpha, the [archive acquisition command](game-audits/endfield-alpha-archive.md) retrieves six verified original scene recordings from a public client archive. This covers the English and Mandarin aircraft, bedside and briefing soundtracks. Individual sentence exports from these newly recovered WEMs still require text bindings and cuts.
+
 | Game | Inputs used by desktop preparation | Verified online distribution and remaining coverage |
 | --- | --- | --- |
 | Genshin Impact | Dimbreath's [AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) supplies translations and dialogue/voice identifiers. Without a game folder, Setup reads the selected regional PC release, verifies its resource identity against an immutable text commit and reads the selected publisher Wwise packages. | The released [HoYoPlay branch](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8) leads to the Sophon manifests. Historical release packages recover removed event performances. The current Global 7.2 in-version audio manifest and some reminder and film bindings remain open. [Genshin evidence](game-audits/genshin.md) |
