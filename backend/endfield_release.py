@@ -8,7 +8,8 @@ import urllib.request
 from urllib.parse import urlencode
 
 from . import endfield_film_conditions, endfield_metadata, endfield_tables, endfield_vfs as vfs
-from .game_tools import _atomic_file, download
+from .game_tools import _atomic_file
+from .publisher_http import download
 from .voice_assets import voice_hash
 
 APP = 'YDUTE5gscDZ229CW'
