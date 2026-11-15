@@ -41,7 +41,8 @@ def test_test_film_transcript_only_includes_the_verified_performance(tmp_path, m
     rows = film.lines(tmp_path)
     monkeypatch.setattr(film, 'download', lambda *a, **kw: pytest.fail('Re-fetched the same transcript'))
     assert film.lines(tmp_path) == rows
-    assert len(rows) == 44 and film.FILM + '_12' not in rows
+    assert len(rows) == 45 and film.FILM + '_12' not in rows
+    assert rows['fmv_e0m1_3_01'] == {'text': 'Archive line', 'start_ms': 55400, 'end_ms': 58200}
     assert rows['fmv_e0m1_3_02'] == {'text': 'Archive line', 'start_ms': 61700, 'end_ms': 62550}
     assert rows['fmv_e0m1_1_04']['end_ms'] == rows['fmv_e0m1_1_05']['start_ms']
     assert 'fmv_e0m1_3_20' not in rows
