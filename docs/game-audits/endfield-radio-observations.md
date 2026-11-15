@@ -53,6 +53,42 @@ an actor for an NPC with an empty voice field. These three rows still have
 no verified performance or proof of a permanently silent fallback.
 [Released radio playback controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L946)
 
+### Further independent gameplay checks on November 15
+
+A further English-dubbed *Divvy Up the Trouble* playthrough displays An Yu's
+three exact captions at approximately 2:56, 5:25 and 5:30. The first warns
+about the leaking valve, the second identifies the Water Quality Testing
+Room, and the third warns about nearby Blight. The separate English Antal
+barks `chr_0023_antal_explore_point_valub_01` and
+`chr_0023_antal_explocomm_postv_point_02` match their original publisher
+recordings at 5:17.078 and 5:19.994, with normalized correlations 0.837 and
+0.878. Those barks finish before An Yu's latter two captions. They establish
+that English character voices remain audible in this recording.
+[First An Yu caption](https://www.youtube.com/watch?v=nhq9lA9Ve-w&t=176s)
+· [Antal controls followed by both later captions](https://www.youtube.com/watch?v=nhq9lA9Ve-w&t=317s)
+
+Speech detection and independent transcription found no words during the
+three An Yu captions. The transcription did identify Antal's two earlier
+lines. Searching the previously acquired English reaction references for
+the configured emotions compared 477 candidates for the first caption
+and 186 for each later caption. The strongest correlations were 0.292,
+0.225 and 0.164 respectively; none established an An Yu recording. This
+adds an English example with audible original-voice controls to the earlier
+Japanese and commentary-covered Chinese examples. It does not establish
+how the game resolves an NPC whose `voActor` is empty, or justify exporting
+another actor's reaction or marking the three rows permanently unvoiced.
+
+A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
+Landbreaker captions around 1:16–1:24. Fiona's preceding Japanese
+`au_dlg_commvo_fiona_neutral_04` matches the publisher recording at
+0:47.670 (correlation 0.711). The speech detector identifies that short
+reaction; it finds no speech over the two later captions. The player's
+combat and movement sounds continue through the encounter. This is an
+additional Japanese playback observation, not a verified Landbreaker voice
+binding. The source command continues to leave those performers unresolved.
+[Japanese control](https://www.youtube.com/watch?v=trE3BE09sCk&t=47s)
+· [Both Landbreaker captions](https://www.youtube.com/watch?v=trE3BE09sCk&t=76s)
+
 ## Four rows without a configured interjection
 
 | Mission | Rows | Reproduction point in the publisher's mission script |
