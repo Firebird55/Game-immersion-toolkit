@@ -1,6 +1,6 @@
 # Endfield mission radio playback observations
 
-Checked November 13, 2026. Thirteen radio rows in the [Global 1.6.4 inventory](endfield-mission-radio-1.6.4.csv) have no bound sentence or named reaction recording. All thirteen also exist in Global 1.5.3. Running the same reader on each publisher release and each of the four dubs found nine rows with a configured interjection and no mapped performer, plus four rows without a configured interjection. All thirteen have an empty separate audio-event field.
+Checked November 16, 2026. Thirteen radio rows in the [Global 1.6.4 inventory](endfield-mission-radio-1.6.4.csv) have no bound sentence or named reaction recording. All thirteen also exist in Global 1.5.3. Running the same reader on each publisher release and each of the four dubs found nine rows with a configured interjection and no mapped performer, plus four rows without a configured interjection. All thirteen have an empty separate audio-event field.
 
 ## Gameplay evidence
 
@@ -88,6 +88,47 @@ additional Japanese playback observation, not a verified Landbreaker voice
 binding. The source command continues to leave those performers unresolved.
 [Japanese control](https://www.youtube.com/watch?v=trE3BE09sCk&t=47s)
 · [Both Landbreaker captions](https://www.youtube.com/watch?v=trE3BE09sCk&t=76s)
+
+### Independently located An Yu recordings on November 16
+
+Two additional public walkthroughs display the three unresolved An Yu radio
+rows. The links below seek to frames checked directly against the displayed
+captions; they are checkpoints, not measured caption or spoken boundaries.
+
+| Radio row | CyberRogue Relax, English screen text | Ken Karada, Chinese screen text |
+| --- | --- | --- |
+| `radio_gm02m14_2_001` | [13:23](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=803s) | [5:04](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=304s) |
+| `radio_gm02m14_3_001` | [17:45](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=1065s) | [7:38](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=458s) |
+| `radio_gm02m14_3_002` | [17:49](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=1069s) | [7:44](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=464s) |
+
+Ken Karada's recording contains an independent Mandarin voice control.
+Perlica's `chr_0004_pelica_explore_point_valub_01` matches the original
+publisher recording at **4:08.060**, with normalized correlation **0.977**
+at 16 kHz, filtered at 400–3,400 Hz. Comparing the same event's English,
+Japanese and Korean recordings gave 0.086, 0.095 and 0.169 respectively.
+The localized bark text, signed Wwise ID `680098892` and `AudioDialog`
+path independently identify this performance. The voice control establishes
+audible Mandarin character audio in this upload; the interface alone does
+not establish its regional edition.
+[Perlica control](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=248s)
+
+Speech detection found no speech in the 4:55–5:12 and 7:29–7:52 search
+windows covering An Yu's captions. Transcription did recognize Perlica in
+the separate control window. The waveform search compared 479 Mandarin
+references for emotion 41 and 187 for emotion 37, including short reactions.
+Its strongest correlations were 0.451, 0.328 and 0.340 for the three rows.
+The two strongest first-row candidates correlated mainly below 700 Hz;
+neither exceeded 0.135 in any of the three higher bands. The later-row
+candidates also failed the separate band comparisons. This did not
+establish an An Yu performance or justify assigning another actor's
+recording to her.
+
+The English-screen-text upload supplies another visual reproduction of all
+three rows. Its sampled caption windows yielded no verified original-voice
+control, so it is not additional evidence that An Yu is silent in any dub.
+These walkthroughs add independently located scenes and a Mandarin control;
+the three performer bindings remain unresolved. No gameplay soundtrack is
+used as a toolkit audio source, and no silence override is added.
 
 ## Four rows without a configured interjection
 
