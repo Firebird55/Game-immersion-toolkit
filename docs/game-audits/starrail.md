@@ -45,7 +45,7 @@ the ADX data. All eight results decoded with FFmpeg to nonzero stereo PCM at
 [Original boarding file](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap00_Act310_f.usm)
 · [Original Silent Galaxy file](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap01_Act3020.usm)
 
-Independent waveform comparisons identify three of these soundtracks in
+Independent waveform comparisons identify four of these soundtracks in
 public gameplay. Offsets relate the original audio's zero to the upload's
 zero. The source excerpts were filtered at 320–3,500 Hz and compared at
 8 kHz using normalized waveform correlation.
@@ -55,10 +55,12 @@ zero. The source excerpts were filtered at 320–3,500 Hz and compared at
 | Boarding, Japanese | 4, 8, 19, 21, 25 s; 2 s each | 553.359–553.362 s | 0.384, 0.504, 0.529, 0.554, 0.744 |
 | Silent Galaxy, English | 1, 8, 17, 27, 37, 46 s; 3 s each | 6.434 s | 0.994, 0.989, 0.986, 0.978, 0.986, 0.990 |
 | Silent Galaxy, Korean | 1, 8, 17, 27, 37, 46 s; 3 s each | 593.303 s | 0.908, 0.952, 0.921, 0.910, 0.945, 0.906 |
+| Silent Galaxy, Japanese | 1, 8, 17, 27, 37, 46 s; 3 s each | 770.149 s | 0.986, 0.985, 0.984, 0.987, 0.988, 0.987 |
 
 [Japanese boarding gameplay](https://www.youtube.com/watch?v=L6wGHwWxnk8&t=557s)
 · [English Silent Galaxy gameplay](https://www.youtube.com/watch?v=kbMz5JbShYA&t=7s)
 · [Korean Silent Galaxy gameplay](https://www.youtube.com/watch?v=y_HNFpFop6s&t=594s)
+· [Japanese Silent Galaxy gameplay](https://www.youtube.com/watch?v=yoNYBnZ8w8w&t=771s)
 
 The normal publisher preparation now uses an owned Python reader for this
 masked-ADX format. It checks the complete movie MD5 and size, authored dub
@@ -75,7 +77,8 @@ subtitle display clock: for example, one English line continues beyond the
 caption's disappearance. The other English/Japanese captions remain unavailable;
 the existing exact Korean/Mandarin sentence recordings remain preferred.
 Japanese window alignment was checked against the decoded original speech;
-an independent Japanese Silent Galaxy gameplay match remains outstanding.
+six independent excerpts now identify the original Japanese mix in public
+gameplay, including the later exchange containing the two other exported cuts.
 Boarding audio is readable but its individual caption windows remain unresolved.
 
 A fresh run of the actual English language worker prepared 306,267 records,
