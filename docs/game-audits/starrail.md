@@ -1,5 +1,30 @@
 # Honkai: Star Rail dialogue audit
 
+## Released 4.6 chapter packages rechecked · November 15, 2026
+
+The two Japanese chapter packages and the second Korean chapter package are
+available from both publisher regions. A fresh check fetched the released
+AudioV markers and index bodies, then read all six complete package bodies
+through the normal ranged publisher reader. Every full file matched its
+released size and MD5. The regional indexes both identify audio revision
+16781679, with a 112,742-byte AudioV body and MD5
+`f4e0fbb3ae338c02662c48a07a95226c`.
+
+| Released package | Bytes | MD5 | External entries | Decoded sample | Publisher sources |
+| --- | ---: | --- | ---: | ---: | --- |
+| Japanese/External_del_4.6_chapter5_0.pck | 103,835,810 | `21aeb1c1691f162f1b505b55f60c411e` | 770 | 6.186 s | [Global](https://autopatchos.starrails.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_fe1337388fb7ac/client/Windows/AudioBlock/Japanese/External_del_4.6_chapter5_0.pck) / [Mainland](https://autopatchcn.bhsr.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_5e2c76c57a3c3d/client/Windows/AudioBlock/Japanese/External_del_4.6_chapter5_0.pck) |
+| Japanese/External_del_4.6_chapter5_1.pck | 100,040,916 | `7f35079e4f1593abf0de71a70da22423` | 749 | 4.041 s | [Global](https://autopatchos.starrails.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_fe1337388fb7ac/client/Windows/AudioBlock/Japanese/External_del_4.6_chapter5_1.pck) / [Mainland](https://autopatchcn.bhsr.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_5e2c76c57a3c3d/client/Windows/AudioBlock/Japanese/External_del_4.6_chapter5_1.pck) |
+| Korean/External_del_4.6_chapter5_1.pck | 82,896,166 | `8fbb5c41e40e54dca1e7bb0b75358e87` | 749 | 3.601 s | [Global](https://autopatchos.starrails.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_fe1337388fb7ac/client/Windows/AudioBlock/Korean/External_del_4.6_chapter5_1.pck) / [Mainland](https://autopatchcn.bhsr.com/asb/V4.6Live/output_16566615_0c4dcd9ce0fa_5e2c76c57a3c3d/client/Windows/AudioBlock/Korean/External_del_4.6_chapter5_1.pck) |
+
+One original WEM from each of the six independently fetched packages decoded
+to nonzero 48 kHz mono PCM. Matching regional packages produced identical
+sample hashes. This verifies acquisition and a representative decode from
+each package. It does not establish every sentence's text or movie binding.
+These are released 4.6 files; the different public preload identities are
+excluded. Acquisition uses the selected region's released AudioV routes and
+requires no game installation. The remaining film, presentation and update
+acceptance work is tracked separately.
+
 ## Released regional hotfixes, November 13, 2026
 
 The Windows publisher reader now resolves the current release and in-version
