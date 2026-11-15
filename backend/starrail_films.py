@@ -7,7 +7,7 @@ import struct
 from . import hoyo_publisher_voice as voices
 from .hoyo_dialogue import audio_binding, audio_locale, records, voice_namespace
 from .starrail_hotfix import check
-from .starrail_reviewed_films import REVIEWED_MOVIES
+from .starrail_reviewed_films import REVIEWED_MOVIES, MOVIE_AUDIO_CUTS
 
 
 def _duration(data):
@@ -152,12 +152,45 @@ def _reviewed_take(tools, scene, movies, text_hash, locale, sources):
             return audio
 
 
+def _movie_take(catalog, scene, movies, text_hash, locale, cache):
+    from . import starrail_movie_audio as movie_audio, starrail_movie_metadata as metadata
+    source = getattr(catalog, 'movie_audio_source', None)
+    if not source or not source[2] or len(movies) != 1 or movies[0]['player_voice'] is not None:
+        return None
+    dub = audio_locale(locale)
+    movie = movies[0]
+    profiles = {digest: cuts for (name, video, lang, digest), cuts in MOVIE_AUDIO_CUTS.items()
+                if (name, video, lang) == (scene, movie['video_id'], dub) and text_hash in cuts}
+    if not profiles:
+        return None
+    directory, stamp, revision = source
+    asset = catalog.movie_files[movie['path'].casefold()]
+    identity = asset.name, dub
+    if identity not in cache:
+        try:
+            formats = cache.get('formats')
+            if formats is None:
+                formats = metadata.load(directory, revision)
+                cache['formats'] = formats
+            cache[identity] = movie_audio.binding(directory, stamp, asset, dub, formats)
+        except metadata.MovieFormatUnavailable:
+            cache[identity] = None
+            catalog.movie_audio_incomplete = True
+    selected = cache[identity]
+    if selected:
+        binding, duration = selected
+        cuts = profiles.get(binding['recording_sha256'])
+        if cuts and (window := cuts.get(text_hash)) and 0 <= window[0] < window[1] <= duration:
+            return binding | {'start_ms': window[0], 'end_ms': window[1]}
+        catalog.movie_audio_incomplete = True
+
+
 def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
     takes = _takes(tools, catalog, locale, entries)
     scripts = list(catalog.caption_scripts())
     movies, suppressed = _movie_sources(catalog, scripts, locale)
     reviewed = _reviewed_sources(sentence_rows)
-    seen, result = set(), []
+    seen, result, movie_cache = set(), [], {}
     for filename, script in scripts:
         match = re.fullmatch(r'([A-Za-z0-9_]+)_Caption\.json', filename)
         check(match and match[1] not in seen and isinstance(script.get('CaptionList'), list))
@@ -184,6 +217,9 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
                     row['audio'] = audio | {'start_ms': start_ms, 'end_ms': end_ms}
                     row['voice_status'] = 'voiced'
                 elif original := _reviewed_take(tools, scene, movies.get(scene, []), text_hash, locale, reviewed):
+                    row['audio'] = original
+                    row['voice_status'] = 'voiced'
+                elif original := _movie_take(catalog, scene, movies.get(scene, []), text_hash, locale, movie_cache):
                     row['audio'] = original
                     row['voice_status'] = 'voiced'
                 result.append(row)

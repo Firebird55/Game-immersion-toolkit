@@ -1,4 +1,24 @@
 """Content identities of independently matched film performances. See the Star Rail audit."""
+# Recording-relative spoken windows, including lead-in/decay. Display times
+# differ by dub and can omit words; a changed recording cannot reuse these.
+MOVIE_AUDIO_CUTS = {
+    ('CS_Chap01_Act3020', 101, 'en', '3420f0552032a6dc068a29e75fa2ea43e4d0e93b7e6b586b757df48cd7f54a69'): {
+        1684346036223274091: (200, 6550),
+        191324678032103056: (6550, 13200),
+        741912924397370491: (13200, 18100),
+        18129351958797881320: (18100, 23250),
+        2573798733379866625: (31400, 36400),
+        16427662856523948490: (36400, 41450),
+        10860693209200705991: (41450, 48100),
+        14960296995890117809: (48100, 52300),
+    },
+    ('CS_Chap01_Act3020', 101, 'ja', '1101f64927bfc5cc5874b16564fc01c1a80153398ab8c6f56bcaba0ad13d58d9'): {
+        1684346036223274091: (200, 6500),
+        2573798733379866625: (31600, 36600),
+        16427662856523948490: (36600, 41650),
+    },
+}
+
 REVIEWED_MOVIES = {
     ('CS_Chap01_Act3020', 101, 'f0db051bd87897609601fde6672b8b2f'): {
         1684346036223274091: (101013435, {

@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 20
+LANGUAGE_INDEX_VERSION = 21
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -25,7 +25,7 @@ def fingerprint(install):
 def publisher_fingerprint(tools):
     from .publisher_regions import selected_region
     from .starrail_publisher import fingerprint as publisher_stamp
-    return publisher_stamp(selected_region(tools, 'starrail'))
+    return publisher_stamp(selected_region(tools, 'starrail'), tools)
 
 
 def _hash(value):
@@ -321,15 +321,22 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
         rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
+    # Route/display provenance is inventory metadata, not a LocalDialogue field.
+    # Keep it available without breaking worker and runtime row validation.
+    result['film_captions'] = {row['text_id']: row.pop('film_caption') for row in rows if 'film_caption' in row}
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
         'Captions without a timed localized recording, image-only messages and event-only formats have incomplete coverage. Missing voice metadata is not proof of silence.']
     if install is None:
-        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region):
+        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region, data_dir / 'tools'):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
         result['metadata_revision_title'] = catalog.revision_title
         result['publisher_region'] = region
         result['source_mode'] = 'publisher'
+        if getattr(catalog, 'movie_format_metadata_stale', False):
+            result['coverage_warnings'].append('The movie format metadata service is unavailable. Verified cached movie parameters may be reused; other dialogue remains available. Preparation will check again automatically.')
+        if getattr(catalog, 'movie_audio_incomplete', False):
+            result['coverage_warnings'].append('Some movie audio has changed or lacks matching format metadata or verified spoken windows. Those captions remain unavailable; earlier recordings are retained.')
         result['message'] += ' using the selected regional HoYoPlay release and verified in-game hotfix indexes.'
     return result
 
@@ -339,6 +346,9 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None and 'movie' in audio:
+        from .starrail_movie_audio import extract as extract_movie
+        return extract_movie(audio, _executable)
     if install is None and 'audio_event' in audio:
         from .starrail_events import extract as extract_event
         return extract_event(audio, _executable)

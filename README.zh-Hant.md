@@ -56,7 +56,7 @@
 | 遊戲 | 原版配音發布管道 | 上游專案及用途 | Windows 設定 |
 | :--- | :--- | :--- | :--- |
 | Genshin Impact | HoYoverse / HoYoPlay | [Dimbreath/AnimeGameData](https://gitlab.com/Dimbreath/animegamedata2) (提供必要的譯文和台詞與配音的對應關係) · [kuaichu/game-cdn-archive](https://github.com/kuaichu/game-cdn-archive) (可選用的歷史版本索引) | 可從發行商準備全球版或中國大陸版啟動器資源 |
-| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) | 可從發行商準備所選地區的基礎與章節語音包 |
+| Honkai: Star Rail | HoYoverse / HoYoPlay | [Dimbreath/TurnBasedGameData](https://gitlab.com/Dimbreath/turnbasedgamedata) (提供必要的譯文、台詞編號和配音表) · [Furina1027/hoyo-files](https://github.com/Furina1027/hoyo-files) (已核驗影片音訊的格式資訊) | 可從發行商準備所選地區的基礎與章節語音包及部分影片片段 |
 | Zenless Zone Zero | HoYoverse / HoYoPlay | [Dimbreath/ZenlessData](https://git.mero.moe/dimbreath/ZenlessData) (讀取已安裝遊戲所需的譯文和場景表) · [simon300000/zenless-voice](https://github.com/simon300000/zenless-voice) (必要的場景讀取器) · [Hiro420/ZZZ_TextMap](https://github.com/Hiro420/ZZZ_TextMap) (可選用的 TextMap 格式參考) | 全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。 |
 | Arknights: Endfield | GRYPHLINE / Hypergryph | [rmxlinux/EndfieldData](https://github.com/rmxlinux/EndfieldData) (讀取已安裝遊戲所需的在地化和劇情表) · [EIHRTeam/EndfieldStudio](https://github.com/EIHRTeam/EndfieldStudio) (讀取配音封存檔所需的格式資訊) | 可從發行商準備全球版或中國大陸版劇情配音 |
 | Wuthering Waves | Kuro Games | [SnosMe/ooz-wasm](https://github.com/SnosMe/ooz-wasm) (讀取發行商壓縮配音項目所需) · [Yumeo0/mornye-tools](https://github.com/Yumeo0/mornye-tools) (讀取發行商目錄所需的格式資訊) · [yarik0chka/wuwa-keys](https://github.com/yarik0chka/wuwa-keys) (讀取遊戲封存檔所需的格式資訊) · [Arikatsu/WutheringWaves_Data](https://github.com/Arikatsu/WutheringWaves_Data) (可選用的資料表比對來源) | 可從發行商準備全球版台詞與原版配音 |

@@ -55,22 +55,29 @@ def optional_files(directory, stamp, locale):
     return selected
 
 
-@lru_cache(maxsize=2)
-def _poll(region, period):
-    return voices.descriptor(_release(region))[0]
+@lru_cache(maxsize=4)
+def _poll(region, period, tools):
+    return voices.descriptor(_release(region, tools))[0]
 
 
-def _release(region):
+def _release(region, tools=None):
+    from . import starrail_movie_metadata
     channel = {'global': 'starrail-global', 'cn': 'starrail-cn'}[region]
-    return hotfix.discover(sophon.release(channel))
+    build = hotfix.discover(sophon.release(channel))
+    revision, stale = starrail_movie_metadata.check_latest(tools / 'sophon' if tools else None)
+    if revision:
+        build['movie_format_revision'] = revision
+    if stale:
+        build['movie_format_metadata_stale'] = True
+    return build
 
 
-def fingerprint(region='global'):
-    return _poll(region, int(time.monotonic() // 30))
+def fingerprint(region='global', tools=None):
+    return _poll(region, int(time.monotonic() // 30), tools)
 
 
-def current(stamp, region='global'):
-    return voices.descriptor(_release(region))[0] == stamp
+def current(stamp, region='global', tools=None):
+    return voices.descriptor(_release(region, tools))[0] == stamp
 
 
 def revision_marker(raw):
@@ -241,7 +248,7 @@ class ReleasedCatalog(DialogueCatalog):
 
 
 def prepare(data_dir, region='global'):
-    build = _release(region)
+    build = _release(region, data_dir / 'tools')
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
     # Check all actual index bodies against this release before publishing
@@ -256,5 +263,7 @@ def prepare(data_dir, region='global'):
     catalog.revision_title = title
     catalog.movie_files = movie_files
     catalog.design_source = directory, build
+    catalog.movie_audio_source = directory, stamp, build.get('movie_format_revision')
+    catalog.movie_format_metadata_stale = bool(build.get('movie_format_metadata_stale'))
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog
