@@ -20,8 +20,66 @@ verified by the normal reader. The counts refer to serialized table entries.
 [7.2 English manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/msj5r4DqSLOw/manifest_17a2098527183c10_860f28f0e5bfd9b243a35760a8243968)
 
 This English row keeps the `unavailable` recording state. Later launcher
-snapshots re-evaluate the authored source. The current Global in-version
-hotfix inventory still requires its own source check.
+snapshots re-evaluate the authored source. The November 5 hotfix inspected
+below also lacks the recording. Newer Global hotfixes remain to be inventoried.
+
+## Windows 7.2 hotfix source verification · November 15, 2026
+
+A public Android dispatch snapshot supplied the route hint for resource
+revision `49086080`, suffix `1c55d912bf`, and data/silence revision `49291486`,
+suffix `c25ba650a6`. This hint was not treated as a Windows manifest or proof
+of the currently activated Global revision. The corresponding Windows indexes
+were fetched independently from both publisher regions. Every paired body
+was byte-identical. The data indexes additionally matched the dispatch
+snapshot's declared size and MD5.
+[Pinned route hint](https://github.com/HertaA11/genshin-android-hotfix/blob/412e899357942771b2b7d701ba915eb213f47207/CNRELAndroid7.2.0.json)
+
+| Index | Bytes | Rows | MD5 |
+| --- | ---: | ---: | --- |
+| Windows `res_versions_external` | 370,806 | 2,630 | `f4da719220541436f56fd80f4ea510bb` |
+| Windows `res_versions_medium` | 207,245 | 1,312 | `0e329f1abd269a2ee22213ec379257f5` |
+| General `client/…/data_versions` | 71,416 | 533 | `2d53a763cf78415d4a90c81be3419da5` |
+| General `client/…/data_versions_medium` | 7,002 | 52 | `6bf505fc8e990e881ae5b436b6a4071c` |
+| General `client_silence/…/data_versions` | 523 | 4 | `2bcf33810856cb0820725300ff2d8666` |
+
+[Global Windows resources](https://autopatchhk.yuanshen.com/client_game_res/7.2_live/output_49086080_1c55d912bf/client/StandaloneWindows64/res_versions_external)
+· [CN Windows resources](https://autopatchcn.yuanshen.com/client_game_res/7.2_live/output_49086080_1c55d912bf/client/StandaloneWindows64/res_versions_external)
+· [Global design data](https://autopatchhk.yuanshen.com/client_design_data/7.2_live/output_49291486_c25ba650a6/client/General/AssetBundles/data_versions)
+· [CN design data](https://autopatchcn.yuanshen.com/client_design_data/7.2_live/output_49291486_c25ba650a6/client/General/AssetBundles/data_versions)
+· [Global silence data](https://autopatchhk.yuanshen.com/client_design_data/7.2_live/output_49291486_c25ba650a6/client_silence/General/AssetBundles/data_versions)
+· [CN silence data](https://autopatchcn.yuanshen.com/client_design_data/7.2_live/output_49291486_c25ba650a6/client_silence/General/AssetBundles/data_versions)
+
+The Windows index contains 179 English PCKs. All 178 base English packages
+retain exactly their Sophon path, size and MD5. The sole additional package,
+`English(US)/VO_7.2_a_0.pck`, is 230,283 bytes with MD5
+`f820260ccca60e0e7f67519096707553`. Its complete body was fetched separately
+from each publisher region and verified. Both contain the same two original
+WEMs. They decode to nonzero 48 kHz mono audio without a game installation.
+[Global audio package](https://autopatchhk.yuanshen.com/client_game_res/7.2_live/output_49086080_1c55d912bf/client/StandaloneWindows64/AudioAssets/English(US)/VO_7.2_a_0.pck)
+· [CN audio package](https://autopatchcn.yuanshen.com/client_game_res/7.2_live/output_49086080_1c55d912bf/client/StandaloneWindows64/AudioAssets/English(US)/VO_7.2_a_0.pck)
+
+| External media ID | Authored sentence trigger | Original WEM bytes | Decoded duration |
+| --- | ---: | ---: | ---: |
+| `189754f4bdbc1f5f` | `70291110`, Varka | 75,351 | 4.386 s |
+| `fd8d9fa8dc7b56de` | `776810312`, Iliana | 154,820 | 8.280 s |
+
+The existing 7.2 voice declarations bind these IDs through their original
+`sourceFileName` values, respectively `vo_ZDAQ7029_8_varka_01.wem` and
+`vo_NWWQ004_4_iliana_06.wem`. Neither ID is Kachina's missing profile ID.
+The unchanged base package identities and both complete new entries extend
+that absence check to this particular hotfix.
+[Authored voice records](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice/Items)
+
+The metadata archive has an exact Windows title for these R/S/D revisions,
+dated November 5. It also has a newer November 12 Windows title with resource
+revision `49411577`, silence `49291486` and data `49419538`. The newer
+resource suffix and the currently activated Global route remain unverified.
+These checks establish a working original hotfix source, not current-region
+activation or automatic adoption. Normal Setup still uses its verified
+launcher snapshot; connecting independent active hotfix discovery, matched
+text and audio overlays, and upstream-only update acceptance remains open.
+[Matching November 5 Windows snapshot](https://github.com/DimbreathBot/AnimeGameData/commit/d7f2135c7eb0052e842e0f187f4e5bb88c304737)
+· [Newer November 12 Windows snapshot](https://github.com/DimbreathBot/AnimeGameData/commit/a311cd77d7dafbd2bedc7d3cac4e986c6125b586)
 
 ## Regional Windows Setup, November 13, 2026
 
