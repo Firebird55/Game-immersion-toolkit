@@ -25,7 +25,6 @@ from .textmaps import display_text
 READER_URL = "https://github.com/SolicenTEAM/UEExtractor/releases/download/v.1.0.8.7/UEExtractor.zip"
 READER_SHA = "e89ffece53cc11970d08f6d0a683b67ca58882e8c51fb99de07923175eb96660"
 READER_REVISION = "1dff3554320d530efff26a827819f0e011f1b892"
-METADATA_URL = "https://api.github.com/repos/BlueHeisenberg/SCSKiller/issues/14"
 TABLE_SCHEMA_SHA256 = '7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58'
 TABLE_SCHEMA_URL = ('https://raw.githubusercontent.com/555me/NTE-usmap/'
                     '1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap')
@@ -156,18 +155,8 @@ def _archive_metadata(install: Path, stamp: str) -> str:
                 return value
         except Exception:
             pass
-    try:
-        payload = json.loads(download(METADATA_URL))
-    except (OSError, ValueError) as error:
-        raise PreparationFailure('game_metadata_unavailable',
-            'The NTE archive metadata provider is unavailable. Retry when it is reachable. Existing prepared data is retained.') from error
-    if not isinstance(payload, dict) or not isinstance(payload.get('body'), str):
-        raise PreparationFailure('game_metadata_unavailable', 'The NTE archive metadata provider returned an unsupported response. A compatible source is required for this game build.')
-    values = list(dict.fromkeys(re.findall(r"0x[0-9a-fA-F]{64}", payload.get("body", ""))))
-    if len(values) != 1:
-        raise PreparationFailure('game_metadata_unavailable',
-            'The NTE archive metadata provider has no unambiguous entry for this game build. Fresh preparation needs a compatible metadata source. Existing prepared data is retained.')
-    return values[0]
+    from .nte_archive_metadata import for_install, load
+    return for_install(install, load(fetch=download))
 
 
 def _stage_table_schema(cache: Path, destination: Path) -> None:

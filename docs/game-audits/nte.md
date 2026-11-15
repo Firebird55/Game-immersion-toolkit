@@ -1,5 +1,44 @@
 # Neverness to Everness audit
 
+## November 16, 2026 · Verified regional archive metadata
+
+The former GitHub-issue provider currently returns no usable archive entry.
+Fresh preparation now reads the explicitly named Global and Chinese entries
+from the public UnrealExporter data file. It resolves the current file commit
+before fetching immutable data. A GitHub API outage can use the independently
+checked fallback revision; that value still has to verify the selected archive.
+No upstream application or downloaded code is executed.
+[Checked source revision](https://github.com/luk-gg/UnrealExporter/blob/7f3fb1dee733d36338766467b0c54cbd47d58851/UnrealExporter/aes.txt)
+
+The production reader was checked without a game installation against current
+publisher files in both regions. The selected file is
+`Client/WindowsNoEditor/HT/Content/PatchPaks/pakchunk2-Windows_0_P.pak`.
+
+| Publisher region | Branch / release | Whole file bytes | Publisher file MD5 | Verified index bytes |
+| --- | --- | ---: | --- | ---: |
+| Global | PC_150 / 1.5.4 | 23,475 | `09dc1d0a352e2490e3e0e4d37da66d45` | 160 |
+| Mainland China | PC_150 / 1.5.6 | 23,492 | `9786d72ed0bf09bdbb8dbbee0763297b` | 160 |
+
+Both complete small archives passed their publisher size and MD5 checks.
+The production range reader then verified each encrypted index using two
+requests totalling 672 bytes per region. It validates object offsets, exact
+HTTP ranges and index SHA-1 before accepting a regional parameter. Each
+regional release identity was checked again after acquisition. Partial reads
+do not establish the checksum of an entire large PAK. The v12 index offset
+adjustment follows the public format reference.
+[Global release](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/config.xml)
+· [Mainland release](https://yhcdn1.wmupd.com/clientRes/PC_150/Version/Windows/config.xml)
+· [NTE package format](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/UE4/Pak/Objects/FPakInfo.cs)
+
+The normal installed reader uses this verified selection and keeps its existing
+protected cache behavior. Synthetic tests also cover regional mismatch,
+changed metadata without a toolkit change, malformed ranges, damaged indexes
+and an unavailable metadata API. This removes the missing fresh metadata
+source; it does not yet connect the online file lists to complete localization,
+dialogue-table and per-line voice acquisition. Full online Setup, current
+text/voice coherence and the presentation/update/platform work in #88 remain
+open. No real parameter values or game files are distributed.
+
 ## November 13, 2026 · Regional update and Blackbird dialogue
 
 The ordinary update discovery advanced to Global PC_150 1.5.4 (374 files) and mainland PC_150 1.5.6 (366 files). The mainland localization source matched the publisher's resource list checksum `0d2a993be258446172af9aa2257a0b0f` and logic build 597365. It contains 121,545 Simplified Chinese strings across 195 namespaces. The Global list has a different checksum, `f370641c5faa61efee0b0a89765d3cfe`. [Global release](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/config.xml) · [Mainland release](https://yhcdn1.wmupd.com/clientRes/PC_150/Version/Windows/config.xml) · [Matching mainland export](https://github.com/555me/NTEData/tree/4a0f58143001a2b0d33860da15c3feedb1e21c0f)
@@ -62,8 +101,8 @@ inspected main scene table. The reader checks the playback rate, start offset,
 unique event, localized media and overlap with surrounding cues. Synthetic
 fixtures cover dub-specific clocks, repeated captions and ambiguous audio.
 The final end-to-end count of playable sequences on Global remains unverified.
-On a fresh workstation, the pinned type schema downloaded successfully, but
-the existing archive metadata provider no longer supplied a usable entry.
+During the November 8 check, the pinned type schema downloaded successfully,
+but the then-used archive metadata provider no longer supplied a usable entry.
 The type schema and the archive metadata are separate prerequisites. [Global release resources](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.11/ResList.bin.zip)
 
 Reviewed on 2026-10-27 against the locally installed client, using discovery from

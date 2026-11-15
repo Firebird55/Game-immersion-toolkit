@@ -47,7 +47,7 @@ const upstreamProjects = {
    ['Waifus-Grace/NTE_Assets', 'https://github.com/Waifus-Grace/NTE_Assets', 'movies'],
    ['555me/NTEData', 'https://github.com/555me/NTEData', 'mainlandText'],
    ['555me/NTE-usmap', 'https://github.com/555me/NTE-usmap', 'archiveSchema'],
-   ['BlueHeisenberg/SCSKiller', 'https://github.com/BlueHeisenberg/SCSKiller', 'archiveMetadata'],
+   ['luk-gg/UnrealExporter', 'https://github.com/luk-gg/UnrealExporter', 'archiveMetadata'],
    ['Tobiichi-Origuchi/nte_patcher', 'https://github.com/Tobiichi-Origuchi/nte_patcher', 'globalUpdater'],
    ['kuaichu/game-cdn-archive', 'https://github.com/kuaichu/game-cdn-archive', 'mainlandUpdater']]],
 };
