@@ -1,5 +1,28 @@
 # Genshin Impact narrative audit
 
+## Kachina's English profile recording · November 15, 2026
+
+Fetter `100024` belongs to Kachina, avatar `10000100`, and is titled
+*About Citlali*. It uses voice trigger `4005`, voice switch `switch_kachina`
+and text hash `2954663063`. The 5.5 and 7.2 voice declarations both resolve
+to `English(US)\VO_friendship\VO_kachina\vo_kachina_teammate_citlali_01.wem`,
+whose external-media ID is `b43555dea8d39785`.
+[7.2 profile table](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/FettersExcelConfigData.json) ·
+[7.2 voice declarations](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice) ·
+[5.5 voice declarations](https://github.com/DimbreathBot/AnimeGameData/tree/dcf2fa8cccfe7bdc70797d1cfce79f6907806835/BinOutput/Voice)
+
+An installation-free read of every external-media table in the Global 5.5 base
+checked 160 English packages and 116,425 serialized entries. The Global 7.2 base
+checked 178 English packages and 174,297 entries. Neither inventory contains
+that declared ID. The publisher manifests and their chunk digests were
+verified by the normal reader. The counts refer to serialized table entries.
+[5.5 English manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/wUcNY2SeSiQE/manifest_f67cb4385a052f1f_485143352632d8d353b19e7ab85a35f5) ·
+[7.2 English manifest](https://autopatchhk.yuanshen.com/client_app/sophon/manifests/cxhpq4g4rgg0/msj5r4DqSLOw/manifest_17a2098527183c10_860f28f0e5bfd9b243a35760a8243968)
+
+This English row keeps the `unavailable` recording state. Later launcher
+snapshots re-evaluate the authored source. The current Global in-version
+hotfix inventory still requires its own source check.
+
 ## Regional Windows Setup, November 13, 2026
 
 Setup can acquire the active Global or mainland China launcher release. It follows
