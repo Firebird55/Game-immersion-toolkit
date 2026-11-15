@@ -27,6 +27,10 @@ def _source_suffix(data: bytes, audio=None, game=None) -> str:
         return '.mul'
     if game == 'genshin' and (audio or {}).get('movie') and data[:4] == b'HCA\0':
         return '.hca'
+    if game == 'starrail' and (audio or {}).get('movie'):
+        if data[:2] != b'\x80\0':
+            raise ValueError('Invalid original Star Rail movie audio')
+        return '.adx'
     return '.fsb' if data[:4] in {b'FSB4', b'FSB5'} else '.wem'
 
 

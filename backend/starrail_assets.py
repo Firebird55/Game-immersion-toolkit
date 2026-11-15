@@ -339,6 +339,9 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if install is None and 'movie' in audio:
+        from .starrail_movie_audio import extract as extract_movie
+        return extract_movie(audio, _executable)
     if install is None and 'audio_event' in audio:
         from .starrail_events import extract as extract_event
         return extract_event(audio, _executable)
