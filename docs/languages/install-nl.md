@@ -28,7 +28,7 @@ Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese v
 | Game | Windows-instellingen |
 | :--- | :--- |
 | Genshin Impact | Uitgeversbestanden uit de wereldwijde of Chinese launcher |
-| Honkai: Star Rail | Publisher Setup for regional base and chapter voice packs and selected movie clips |
+| Honkai: Star Rail | Regionale basis- en hoofdstukstemmen en geselecteerde filmfragmenten van de uitgever |
 | Zenless Zone Zero | Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher. |
 | Arknights: Endfield | Verhaalstemmen van de wereldwijde of Chinese uitgever |
 | Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
