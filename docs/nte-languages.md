@@ -1,5 +1,13 @@
 # NTE language preparation
 
+Setup currently reads an installed game. It obtains the public archive format
+parameters automatically and verifies them against an encrypted archive's
+complete index checksum. Global and mainland China parameters are distinct;
+the selected files determine which is compatible. Existing protected metadata
+remains reusable. An unavailable or incompatible source leaves the previous
+completed preparation intact. Fully installation-free regional voice Setup
+remains under development; see the [source verification](game-audits/nte.md).
+
 Study locales are English, Japanese, Korean, Simplified Chinese and Traditional
 Chinese. Mandarin audio is shared by the two Chinese scripts. Preparation reads
 only requested localization tables and the selected Wwise language's event banks

@@ -167,10 +167,37 @@ def discover(region):
     return branch, version, items, previous
 
 
-def save_file(region, branch, item, destination, *, verify=None):
-    """Read only the manifest-declared byte range and publish the verified file atomically."""
+def read_range(region, branch, item, position, length):
+    """Read a declared file range; partial contents need their own format checksum."""
+    if (region not in HOSTS or not isinstance(branch, str) or
+            not re.fullmatch(r'PC_[0-9]+|publish_PC', branch) or
+            any(type(value) is not int for value in
+                (item.size, item.offset, item.object_size, position, length)) or
+            not 0 < length <= 64 * 1024**2 or not 0 <= position <= item.size - length or
+            not 0 <= item.offset <= item.object_size - item.size):
+        raise ValueError('Invalid NTE publisher file range.')
+    _digest(item.digest)
+    _digest(item.object_digest)
     name = f'{item.object_digest}.{item.object_size}'
     url = f'https://{HOSTS[region]}/clientRes/{branch}/Res/{name[0]}/{name}'
+    start = item.offset + position
+    end = start + length - 1
+    request = urllib.request.Request(url, headers={'Range': f'bytes={start}-{end}',
+                                                  'Accept-Encoding': 'identity'})
+    with urllib.request.urlopen(request, timeout=60) as response:
+        if (response.status != 206 or response.geturl() != url or
+                response.headers.get('Content-Range') != f'bytes {start}-{end}/{item.object_size}'):
+            raise ValueError('NTE CDN returned an unexpected file range.')
+        data = response.read(length + 1)
+    if len(data) != length:
+        raise ValueError('Incomplete NTE resource.')
+    if position == 0 and length == item.size and hashlib.md5(data).hexdigest() != item.digest:
+        raise ValueError('NTE publisher file checksum mismatch.')
+    return data
+
+
+def save_file(region, branch, item, destination, *, verify=None):
+    """Read only the manifest-declared byte range and publish the verified file atomically."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=destination.parent) as tmp:
         staged = Path(tmp) / 'download'
@@ -179,17 +206,7 @@ def save_file(region, branch, item, destination, *, verify=None):
             position = 0
             while position < item.size:
                 length = min(4 * 1024**2, item.size - position)
-                start = item.offset + position
-                end = start + length - 1
-                request = urllib.request.Request(url, headers={'Range': f'bytes={start}-{end}',
-                                                               'Accept-Encoding': 'identity'})
-                with urllib.request.urlopen(request, timeout=60) as response:
-                    if (response.status != 206 or response.geturl() != url or
-                            response.headers.get('Content-Range') != f'bytes {start}-{end}/{item.object_size}'):
-                        raise ValueError('NTE CDN returned an unexpected file range.')
-                    data = response.read(length + 1)
-                if len(data) != length:
-                    raise ValueError('Incomplete NTE resource.')
+                data = read_range(region, branch, item, position, length)
                 out.write(data)
                 checksum.update(data)
                 position += length

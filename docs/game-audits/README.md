@@ -18,7 +18,7 @@ gameplay acceptance gaps.
 | --- | --- | --- |
 | Zenless Zone Zero | Global launcher dialogue scenes, motion comics, phone and ongoing lines, tips and timed clue recordings in Windows Setup, installed dialogue readers and a source-checkout command for selected original performances | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions; shared compiler-free archive helper | [Wuthering](wuwa.md), [runtime evidence](../wuthering-runtime.md) |
-| Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance | [NTE](nte.md) |
+| Neverness to Everness | Typed subtitles; mail, summaries and messages; original voice provenance; public regional archive parameters verified against actual publisher indexes. Full online voice Setup remains open. | [NTE](nte.md) |
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |
 | Cyberpunk 2077 | Base game and Phantom Liberty; exact hashed voices; journal messages and readables | [Cyberpunk](cyberpunk.md) |
 | The Witcher 3: Wild Hunt | Legacy/current bundles; authored choices, journals, profiles and readable body keys | [Witcher](witcher3.md) |
