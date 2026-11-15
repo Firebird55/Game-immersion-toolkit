@@ -71,3 +71,18 @@ python scripts/endfield_film_voice.py --archive-film fmv_e0m1_3 --locale zh-Hans
 The first request transfers approximately 119 MB for English or 105 MB for Mandarin. The cache uses approximately 120 MB or 106 MB respectively. These are whole scene recordings with the original mix. Original English text bindings and per-caption archive export windows remain open. Current publisher update discovery is independent of this fixed historical source.
 
 Subtitle display times cannot establish complete spoken intervals. Short replies can begin before their display cue, and neighboring utterances can form one continuous exchange. The sentence-export follow-up must compare the original acoustic boundaries with the corresponding displayed text before assigning cuts.
+
+## Mandarin bedside caption exports
+
+The caption command now exports fifteen bedside entries from the original Mandarin WEM. The supported suffixes are `02`, `04`, `05-1`, `05-2`, `05-3`, `06`, `07`, `08`, `09`, `10`, `11-1`, `11-2`, `12`, `13` and `14`. Text comes from the checksum-pinned historical subtitle table. The intervals use the WEM's own time origin and include the utterance lead-in and decay. Neighboring exports share boundaries at 70.050, 90.550 and 100.800 s.
+
+The short `02` reply exports 61.700–62.550 s. The existing display cue begins at film time 62.200 s, and the original audio has a different offset. Simply copying that display cue would omit the spoken lead-in. Original waveforms, gameplay captions and offline speech alignment were compared when selecting these intervals. The four remaining bedside captions `01`, `03`, `15` and `20` need further boundary verification. Their whole scene recording is available.
+
+```text
+python scripts/endfield_film_voice.py --test-caption list --locale zh-Hans --cache private-cache
+python scripts/endfield_film_voice.py --test-caption fmv_e0m1_3_02 --locale zh-Hans --cache private-cache --mp3 bedside-reply.mp3
+```
+
+The list includes these fifteen bedside captions and the existing twenty-one publisher briefing captions. Original voice decoding requires the prepared VGMStream tool, and MP3 encoding requires FFmpeg. Aircraft caption cuts and English archive text/cuts remain open.
+
+All fifteen bedside captions were exported through this command without a game installation. Each resulting MP3 decoded successfully with FFmpeg. The regression fixture also checks that a failed original-voice decode preserves an existing destination and that bedside export requests the bedside WEM.

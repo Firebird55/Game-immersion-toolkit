@@ -1,4 +1,4 @@
-"""Verified Mandarin soundtrack for the Technical Test's Talos-II briefing."""
+"""Verified Mandarin caption exports from the original Technical Test mixes."""
 import hashlib
 import json
 from pathlib import Path
@@ -7,7 +7,8 @@ import tempfile
 import urllib.request
 
 from .game_tools import _atomic_file, download
-from .media_tools import ffmpeg_executable
+from .media_tools import ffmpeg_executable, vgmstream_executable
+from . import endfield_alpha_archive
 
 
 FILM = 'fmv_e0m1_4'
@@ -34,6 +35,26 @@ CUTS = {
     '15-1': (133600, 138600), '15-2': (138700, 145000), '16': (145700, 149400),
 }
 
+# The bedside WEM has a different time origin from the publisher briefing.
+# Adjacent speech uses shared boundaries, preserving each complete utterance.
+ARCHIVE_CUTS = {
+    'fmv_e0m1_3_02': (61700, 62550),
+    'fmv_e0m1_3_04': (66350, 68250),
+    'fmv_e0m1_3_05-1': (68400, 70050),
+    'fmv_e0m1_3_05-2': (70050, 75100),
+    'fmv_e0m1_3_05-3': (75200, 77250),
+    'fmv_e0m1_3_06': (80000, 87400),
+    'fmv_e0m1_3_07': (88750, 90550),
+    'fmv_e0m1_3_08': (90550, 94650),
+    'fmv_e0m1_3_09': (94900, 100800),
+    'fmv_e0m1_3_10': (100800, 104000),
+    'fmv_e0m1_3_11-1': (104350, 109750),
+    'fmv_e0m1_3_11-2': (109950, 112750),
+    'fmv_e0m1_3_12': (113450, 118750),
+    'fmv_e0m1_3_13': (118900, 119850),
+    'fmv_e0m1_3_14': (120100, 124800),
+}
+
 
 def lines(cache):
     path = cache / 'endfield-history' / (TEXT_SHA256 + '.json')
@@ -47,6 +68,8 @@ def lines(cache):
     rows = {}
     for suffix, (start, end) in CUTS.items():
         key = FILM + '_' + suffix
+        rows[key] = {'text': source[key]['subtitleText']['text'], 'start_ms': start, 'end_ms': end}
+    for key, (start, end) in ARCHIVE_CUTS.items():
         rows[key] = {'text': source[key]['subtitleText']['text'], 'start_ms': start, 'end_ms': end}
     return rows
 
@@ -77,15 +100,26 @@ def _movie(cache):
 
 
 def export(cache, caption, destination):
-    if caption not in {FILM + '_' + suffix for suffix in CUTS}:
+    if caption not in {FILM + '_' + suffix for suffix in CUTS} | set(ARCHIVE_CUTS):
         raise ValueError('Unknown Technical Test caption for this recording.')
     record = lines(cache)[caption]
-    movie = _movie(cache)
     ffmpeg = ffmpeg_executable()
     if not ffmpeg:
         raise ValueError('Prepare FFmpeg to export the original film mix.')
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(dir=destination.parent) as folder:
+        if caption in ARCHIVE_CUTS:
+            decoder = vgmstream_executable()
+            if not decoder:
+                raise ValueError('Prepare the original voice decoder in Setup to export archived film captions.')
+            _, audio = endfield_alpha_archive.recording(cache, 'fmv_e0m1_3', 'zh-Hans')
+            wem = Path(folder) / 'original.wem'
+            wem.write_bytes(audio)
+            movie = Path(folder) / 'original.wav'
+            subprocess.run([str(decoder), '-o', str(movie), str(wem)], check=True, timeout=90,
+                           stdout=subprocess.DEVNULL)
+        else:
+            movie = _movie(cache)
         clip = Path(folder) / 'clip.mp3'
         start, end = record['start_ms'], record['end_ms']
         subprocess.run([str(ffmpeg), '-v', 'error', '-nostdin', '-ss', str(start / 1000),
