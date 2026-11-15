@@ -6,6 +6,39 @@ The film command retrieves the original English and Mandarin aircraft, bedside a
 
 Eighteen Mandarin bedside captions and six aircraft captions now have individual original-audio exports, alongside the existing twenty-one Mandarin publisher briefing captions. One other bedside caption, five aircraft caption cuts and English text/cuts remain open. [Supported caption IDs and commands](endfield-alpha-archive.md#mandarin-archive-caption-exports)
 
+## Current resource refresh · November 15, 2026
+
+The Global publisher advanced its initial and main resources from
+`11529267-11` to `11775769-12` while retaining game version 1.6.4. Normal
+installation-free English language preparation discovered the new resource
+identity and completed in 58 seconds with the existing reader. It returned
+53,675 rows, including 26,044 original voices and 467 timed film/scene clips.
+All 467 previously prepared clip IDs, texts, requested Chinese translations,
+protagonist selections, media IDs, recording hashes and intervals survived
+unchanged. The reader recorded the new publisher snapshot on every binding.
+[Current initial index](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/resource/Windows/initial/11775769-12_l6O95WctWk3y348R/files/index_initial.json)
+· [Current main index](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/resource/Windows/main/11775769-12_BgTDcDO3dkf1DQ93/files/index_main.json)
+
+The initial index SHA-256 is
+`ae216756fc1c3f207572e8173226c88ea19136d1b6626408a8841154e67b09c7`;
+the main index SHA-256 is
+`76d80b4a0df15e751e5c5a95f9dff5172d85b3839f74698e2dc03d031f0477b7`.
+Of the 770 table identities, only `FactoryBuildingTable` and
+`FactoryBuildingRendererTemplateTable` changed. The four English voice
+packages and four hotfix packages retained their content hashes. This is
+an actual resource update with unchanged narrative data, rather than a
+text-only or voice-only update.
+
+The normal voice service separately exported the male Valley Fort caption
+`cutscene_e1m3_2d1_03` from the previous and new snapshots without a game
+installation. Both MP3s decoded to the same nonzero 3.000-second PCM, SHA-256
+`c1e73722c4064c32eb793898887bb401286475d045829e122dee2ee3bcaad19b`.
+The previous snapshot remained readable after preparing the new one.
+This verifies source discovery, preparation and playback across these two
+resource versions. Scheduled activation on a running device, changed text
+or voices, interruption/offline behavior and other hosts remain separate
+acceptance work.
+
 ## Selecting the publisher edition
 
 With the game folder empty, Windows Setup offers Global and Mainland China.
