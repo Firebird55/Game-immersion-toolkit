@@ -909,6 +909,10 @@ def test_ready_scope_native_close_failure_prevents_source_control_and_retains_th
 def test_authored_source_admission_failure_is_sticky_and_never_reports_ready_or_retries(registered, monkeypatch, fault):
     host, calls, _ = registered
     host.start_registered(); host.resume_registered()
+    if fault == 'late':
+        # Advance the fixture clock when the response arrives after its deadline.
+        clock = [time.monotonic()]
+        monkeypatch.setattr(runtime_host, 'time', SimpleNamespace(monotonic=lambda: clock[0], sleep=time.sleep))
     full, changed = {3000: {101}, 8766: {102}}, {3000: {999}, 8766: {102}}
     state, control = {'owners': full}, []
     monkeypatch.setattr(runtime_host, 'listener_processes', lambda: state['owners'])
@@ -926,7 +930,7 @@ def test_authored_source_admission_failure_is_sticky_and_never_reports_ready_or_
             if limit == 65537:
                 if fault == 'listener-change': state['owners'] = changed
                 if fault == 'child-exit': host._alive = lambda: (_ for _ in ()).throw(runtime_host.HostProbeFailure('registered-writer-not-live'))
-                if fault == 'late': time.sleep(.03)
+                if fault == 'late': clock[0] += .03
             return self.body[:limit]
     def open_url(request, *, timeout):
         if not isinstance(request, runtime_host.Request): return Response(b'x')
