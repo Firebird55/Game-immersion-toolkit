@@ -13,7 +13,8 @@ from urllib.parse import urlencode, urlsplit
 
 import zstandard
 
-from .game_tools import _atomic_file, download
+from .game_tools import _atomic_file
+from .publisher_http import download
 
 GLOBAL = ('sg-hyp-api.hoyoverse.com', 'VYTpXlbWo8', 'sg-public-api.hoyoverse.com')
 CHINA = ('hyp-api.mihoyo.com', 'jGHBHlcOq1', 'api-takumi.mihoyo.com')

@@ -51,3 +51,20 @@ The recordings and translations originate from each game's publisher.
 Hugging Face was evaluated as a historical comparison for HoYoverse audio.
 For example, the [zenless-voice dataset card](https://huggingface.co/datasets/simon3000/zenless-voice)
 names the snapshot and its mapping limits. All six readers use the publisher's original game packages.
+
+## Conditional publisher checks · November 15, 2026
+
+The HoYoPlay, Star Rail hotfix and Endfield publisher readers revalidate small
+HTTP responses with the source's ETag or Last-Modified validator when supplied.
+Each check still contacts the source. Only a matching HTTP 304 reuses a body;
+a network error, an unsolicited 304, a mismatched 304 validator, a partial response
+or an exceeded caller limit fails the check. Publishers without validators
+continue to supply a complete response. Existing index and asset checksum
+checks still run before snapshot activation.
+
+The process-local metadata cache holds at most 64 entries and 8 MiB of bodies,
+with a 2 MiB limit per entry. It respects `no-store` and does not persist
+temporary launcher query parameters. This reduces repeated transfers where
+the source supports validation; it does not supply missing active hotfix
+routes or complete the remaining update and platform acceptance criteria.
+[HTTP validation semantics](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.2)

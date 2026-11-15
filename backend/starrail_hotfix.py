@@ -9,7 +9,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
-from .game_tools import _atomic_file, download
+from .game_tools import _atomic_file
+from .publisher_http import download
 from .hoyo_dialogue import voice_namespace
 from .sophon_assets import CHANNELS
 
