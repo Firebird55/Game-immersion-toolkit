@@ -49,6 +49,8 @@ The separate Chinese streamed package ends in `3F4A536996369BBDA4AA64B4AD5996D2.
 
 Five aircraft excerpts at 4, 20, 26, 67 and 76 s independently match DragonGJY's November 2023 mainland playthrough at an offset of 1.8317–1.8318 s, with correlations 0.931–0.992. Six bedside excerpts at 56, 67, 80, 90, 105 and 117 s independently match at 544.5095 s, with correlations 0.971–0.989. The original aircraft and bedside mixes therefore remain present in the January Global client's Chinese package. [Mainland aircraft](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=5s) · [Mainland bedside](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=601s)
 
+A further bedside comparison sampled 55, 61, 63, 68, 70, 75, 89, 110, 120, 124, 126, 129, 132, 135 and 138 s. All fifteen independently returned the same 544.5095 s offset, with correlations 0.977–0.993. This extends the waveform verification through the five additional subtitle displays and the end of the conversation. [Later dialogue in the mainland recording](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=663s)
+
 Five briefing excerpts at 2, 15, 46, 91 and 120 s match the publisher's full Mandarin film at an offset of 3.0212–3.0214 s, with correlations 0.758–0.842. The existing publisher-film export and the newly recovered original WEM have different time origins. [Full publisher film](https://web.hycdn.cn/upload/video/20251030/d836cdada37b16eabbbdd372ed3cf809.mp4)
 
 The respective Mandarin WEM SHA-256 values are
@@ -67,3 +69,5 @@ python scripts/endfield_film_voice.py --archive-film fmv_e0m1_3 --locale zh-Hans
 ```
 
 The first request transfers approximately 119 MB for English or 105 MB for Mandarin. The cache uses approximately 120 MB or 106 MB respectively. These are whole scene recordings with the original mix. Original English text bindings and per-caption archive export windows remain open. Current publisher update discovery is independent of this fixed historical source.
+
+Subtitle display times cannot establish complete spoken intervals. Short replies can begin before their display cue, and neighboring utterances can form one continuous exchange. The sentence-export follow-up must compare the original acoustic boundaries with the corresponding displayed text before assigning cuts.
