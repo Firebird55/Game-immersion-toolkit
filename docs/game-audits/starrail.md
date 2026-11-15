@@ -60,15 +60,44 @@ zero. The source excerpts were filtered at 320–3,500 Hz and compared at
 · [English Silent Galaxy gameplay](https://www.youtube.com/watch?v=kbMz5JbShYA&t=7s)
 · [Korean Silent Galaxy gameplay](https://www.youtube.com/watch?v=y_HNFpFop6s&t=594s)
 
-This establishes a source for the original English and Japanese Silent
-Galaxy film mixes, although their separately named sentence WEMs remain
-absent. It does not yet enable those film mixes in normal Setup. Remaining
-implementation must verify the selected movie, locale, format metadata and
-decoded sample bounds before returning original audio, retain offline source
-identity, and validate complete spoken export windows rather than copying
-subtitle display times. Both movies use the older masked-ADX format. This
-check does not validate the newer movie formats or other protagonist movies.
-No game media or format-key values are distributed in the repository.
+The normal publisher preparation now uses an owned Python reader for this
+masked-ADX format. It checks the complete movie MD5 and size, authored dub
+label, packet bounds, declared ADX sample count and absence of premature EOF.
+Format parameters are downloaded as data from an immutable
+[hoyo-files revision](https://github.com/Furina1027/hoyo-files/tree/a0774e9ddf72ead835846bf03f4a08c0cae406f0/pkg_version/usm).
+They must name the exact movie MD5, size and applicable generation. Downloaded
+code is never executed. Saved bindings retain the source generation, format
+revision, complete metadata digest and original recording SHA-256.
+
+Eight English and three Japanese Silent Galaxy captions have reviewed spoken
+windows tied to the original recording hash. These windows differ from the
+subtitle display clock: for example, one English line continues beyond the
+caption's disappearance. The other English/Japanese captions remain unavailable;
+the existing exact Korean/Mandarin sentence recordings remain preferred.
+Japanese window alignment was checked against the decoded original speech;
+an independent Japanese Silent Galaxy gameplay match remains outstanding.
+Boarding audio is readable but its individual caption windows remain unresolved.
+
+A fresh run of the actual English language worker prepared 306,267 records,
+including eight new movie bindings. All eight exported through the ordinary
+voice service to nonempty MP3s of the expected durations with network access
+disabled. Japanese preparation produced 306,258 records and three movie
+bindings; all three also exported through the same service offline. A worker
+regression test covers a discovered contract failure:
+film route/display provenance now lives in the snapshot's `film_captions`
+inventory instead of being passed as an unsupported dialogue-model field.
+
+The periodic publisher check also follows the external format-data revision,
+so a metadata update can trigger preparation without a toolkit update. A
+temporary format-service outage retains its last verified revision and reports
+the limitation. Previously cached original recordings remain usable offline.
+A changed recording cannot inherit old spoken windows. New scenes and changed
+performances still require verified boundaries; this is not complete automatic
+future-film coverage. First preparation of this reviewed Silent Galaxy source
+fetches its approximately 65 MB movie plus format metadata; subsequent exports
+reuse the verified original ADX. Newer movie formats and other protagonist
+movies remain unverified. No game media or format-key values are distributed
+in the repository.
 
 ## Released regional hotfixes, November 13, 2026
 

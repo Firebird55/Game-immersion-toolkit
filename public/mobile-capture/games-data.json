@@ -47,7 +47,7 @@
     },
     "windowsPreparation": {
       "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
-      "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs" },
+      "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs and selected movie clips" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
       "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings." },

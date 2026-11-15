@@ -138,3 +138,83 @@ def test_pinned_metadata_cache_validates_complete_digest_and_never_executes_data
     assert metadata.load(tmp_path, first.revision, first.digest).key_for(a) == 7
     with pytest.raises(ValueError):
         metadata.load(tmp_path, first.revision, 'b' * 64)
+
+
+def test_normal_caption_preparation_uses_spoken_windows_and_rejects_changed_track(tmp_path, monkeypatch):
+    from backend import starrail_films as films
+    scene, video, locale, digest = next(key for key in films.MOVIE_AUDIO_CUTS if key[2] == 'en')
+    text_hash = next(iter(films.MOVIE_AUDIO_CUTS[scene, video, locale, digest]))
+    tables = {'en': {str(text_hash): 'Fixture sentence', '9': 'Unreviewed sentence'}}
+    source = {'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
+              'ExcelOutput/VideoConfig.json': [{'VideoID': video, 'VideoPath': 'Scene.usm',
+                  'CaptionPath': f'Config/CutSceneCaption/{scene}_Caption.json'}]}
+    a = asset(b'fixture source')
+    scripts = [(scene + '_Caption.json', {'CaptionList': [
+        {'CaptionTextID': {'Hash': text_hash}, 'StartTime': .333, 'EndTime': 6.633},
+        {'CaptionTextID': {'Hash': 9}, 'StartTime': 7, 'EndTime': 8}]})]
+    c = SimpleNamespace(file=source.__getitem__, movie_files={'scene.usm': a},
+                        caption_scripts=lambda: scripts, movie_audio_source=(tmp_path, 'publisher', '1' * 40))
+    selected = {'publisher': 'publisher', 'locale': 'en', 'movie': 'Scene.usm', 'recording_sha256': digest}
+    monkeypatch.setattr(metadata, 'load', lambda *_: object())
+    monkeypatch.setattr(audio, 'binding', lambda *_: (dict(selected), 53433))
+    first, unavailable = films.caption_rows(tmp_path, c, tables, 'en', {})
+    assert first['voice_status'] == 'voiced' and unavailable['audio'] is None
+    assert (first['audio']['start_ms'], first['audio']['end_ms']) == (200, 6550)
+    assert first['film_caption']['start_ms'] == 333
+    selected['recording_sha256'] = 'b' * 64
+    changed, _ = films.caption_rows(tmp_path, c, tables, 'en', {})
+    assert changed['audio'] is None and c.movie_audio_incomplete
+    assert first['audio']['recording_sha256'] == digest
+
+
+def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path, monkeypatch):
+    from backend import starrail_publisher as publisher
+    state = {'revision': '1' * 40, 'time': 60}
+    monkeypatch.setattr(publisher.sophon, 'release', lambda *_: {'channel': 'starrail-global', 'version': '4.7.0'})
+    monkeypatch.setattr(publisher.hotfix, 'discover', lambda build: build)
+    monkeypatch.setattr(metadata, 'check_latest', lambda *_: (state['revision'], False))
+    monkeypatch.setattr(publisher.time, 'monotonic', lambda: state['time'])
+    publisher._poll.cache_clear()
+    previous = publisher.fingerprint('global', tmp_path)
+    state.update(revision='2' * 40, time=90)
+    assert publisher.fingerprint('global', tmp_path) != previous
+    assert not publisher.current(previous, 'global', tmp_path)
+    publisher._poll.cache_clear()
+
+
+def test_optional_format_outage_retains_known_revision_and_recovers(tmp_path, monkeypatch):
+    from urllib.error import URLError
+    monkeypatch.setattr(metadata, 'latest_revision', lambda: '1' * 40)
+    assert metadata.check_latest(tmp_path) == ('1' * 40, False)
+    def offline():
+        raise URLError('offline fixture')
+    monkeypatch.setattr(metadata, 'latest_revision', offline)
+    assert metadata.check_latest(tmp_path) == ('1' * 40, True)
+    assert metadata.check_latest(tmp_path / 'fresh') == (None, True)
+    monkeypatch.setattr(metadata, 'latest_revision', lambda: '2' * 40)
+    assert metadata.check_latest(tmp_path) == ('2' * 40, False)
+
+
+def test_actual_worker_keeps_film_provenance_outside_validated_dialogue_rows(tmp_path, monkeypatch):
+    from backend import language_worker, starrail_assets as assets, starrail_publisher as publisher
+    from backend import starrail_films as films, starrail_events, hoyo_publisher_voice as voices
+    c = SimpleNamespace(revision='1' * 40, revision_title='fixture')
+    monkeypatch.setattr(publisher, 'prepare', lambda *_: ('publisher', c))
+    monkeypatch.setattr(publisher, 'current', lambda *_: True)
+    monkeypatch.setattr(assets, 'selected_tables', lambda *_: {'en': {}})
+    monkeypatch.setattr(assets, 'authored_links', lambda *_: [])
+    monkeypatch.setattr(assets, '_readable_records', lambda *_: [])
+    monkeypatch.setattr(voices, 'inventory', lambda *_: {})
+    monkeypatch.setattr(starrail_events, 'bindings', lambda *_: {})
+    provenance = {'scene': 'Fixture', 'start_ms': 100, 'end_ms': 200, 'movies': []}
+    row = {'text_id': 'starrail:fixture', 'source_locale': 'en', 'source_text': 'Fixture',
+           'texts': {'en': 'Fixture'}, 'english': 'Fixture', 'chinese': '', 'audio_locale': 'en',
+           'audio': {'publisher': 'publisher', 'locale': 'en', 'movie': 'Scene.usm'},
+           'voice_status': 'voiced', 'dialogue_kind': 'cutscene_caption', 'film_caption': provenance}
+    monkeypatch.setattr(films, 'caption_rows', lambda *_: [dict(row)])
+    out = tmp_path / 'candidate.json'
+    language_worker.build('starrail', None, tmp_path / 'data', 'en', (), out)
+    prepared = json.loads(out.read_bytes())
+    assert prepared['film_captions'] == {'starrail:fixture': provenance}
+    assert 'film_caption' not in prepared['records'][0]
+    assert prepared['dialogue_inventory']['voice_counts']['voiced'] == 1

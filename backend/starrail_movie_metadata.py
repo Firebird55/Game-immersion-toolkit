@@ -15,9 +15,13 @@ FILES = ('hkrpg_history.json', 'hkrpg_keys.json', 'hkrpg_keys_versions.json')
 LIMIT = 8 * 1024**2
 
 
+class MovieFormatUnavailable(ValueError):
+    pass
+
+
 def check(value):
     if not value:
-        raise ValueError('Matching Star Rail movie format metadata is unavailable. Refresh game data and retry.')
+        raise MovieFormatUnavailable('Matching Star Rail movie format metadata is unavailable. Refresh game data and retry.')
 
 
 def latest_revision():
@@ -33,6 +37,24 @@ def latest_revision():
         revision = match[1]
     check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
     return revision
+
+
+def check_latest(directory=None):
+    """An optional format service must not disable otherwise usable dialogue."""
+    pointer = directory / 'starrail-movie-formats' / 'current.json' if directory else None
+    try:
+        revision = latest_revision()
+    except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError, KeyError, TypeError, ET.ParseError):
+        try:
+            check(pointer is not None and pointer.stat().st_size <= 1024)
+            revision = json.loads(pointer.read_bytes())['revision']
+            check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
+            return revision, True
+        except (OSError, ValueError, KeyError, TypeError):
+            return None, True
+    if pointer is not None:
+        _atomic_file(pointer, json.dumps({'revision': revision}).encode())
+    return revision, False
 
 
 def _version(value):

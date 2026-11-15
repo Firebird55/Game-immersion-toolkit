@@ -32,6 +32,16 @@ published or installed original voice. Conflicting sources are skipped.
 
 Split subtitle tables are merged with their Main tables at one immutable metadata revision. A whole movie audio track is never substituted for an individual caption.
 
+Publisher preparation can also read original audio from reviewed movie files,
+without an installed game. Silent Galaxy currently has eight English and three
+Japanese film clips with verified recording identities and separate spoken
+windows. Other unresolved captions remain unavailable. The first preparation
+fetches this movie (about 65 MB); later exports reuse its verified audio.
+The optional community format metadata is checked for updates automatically.
+New or changed performances still need verified spoken boundaries. See the
+[movie audit](game-audits/starrail.md#original-movie-audio-recovered--november-15-2026)
+for source provenance and remaining limits.
+
 Use **Capture setup → Trailblazer voice** for ambiguous player performances.
 The bottom dialogue crop has separate per-PC calibration for this game. Check
 it against your subtitle size, resolution and display scaling. YouTube evidence
