@@ -56,4 +56,14 @@ The respective Mandarin WEM SHA-256 values are
 `b98ebbf70afbdea8785362a189854c2fcf3592b5f40336f891f4d9579350a6e0` and
 `fe11338ddcae3c9b016f2349235004662503de5c37b56bb2954b2b5b05b6565e`.
 
-The installation-free archive command still needs these package identities, original English text bindings and per-caption export windows. The archive's availability and integrity checks establish recoverable historical sources in both dubs. Current publisher update discovery remains independent.
+## Installation-free acquisition
+
+The film command can list and retrieve the six verified original WEMs. It reads the selected locale's compressed package range from the archive, verifies the expanded package size and SHA-256, then resolves the original media ID and checks the recording's SHA-256. A verified package is cached for the other two films in that dub. A truncated response, changed bytes or an unexpected HTTP range fails before an output recording is written. Traditional Chinese selects the same Mandarin recordings.
+
+```text
+python scripts/endfield_film_voice.py --archive-film list --locale en --cache private-cache
+python scripts/endfield_film_voice.py --archive-film fmv_e0m1_1 --locale en --cache private-cache --wem aircraft-en.wem
+python scripts/endfield_film_voice.py --archive-film fmv_e0m1_3 --locale zh-Hans --cache private-cache --wem bedside-zh.wem
+```
+
+The first request transfers approximately 119 MB for English or 105 MB for Mandarin. The cache uses approximately 120 MB or 106 MB respectively. These are whole scene recordings with the original mix. Original English text bindings and per-caption archive export windows remain open. Current publisher update discovery is independent of this fixed historical source.

@@ -7,6 +7,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend import endfield_assets, endfield_film_voice, endfield_release, endfield_test_film
+from backend import endfield_alpha_archive
 from backend.game_tools import _atomic_file
 
 
@@ -15,6 +16,7 @@ def main():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('event', nargs='?', help='Authored Wwise event from the selected game release')
     source.add_argument('--test-caption', help='Mandarin Technical Test caption ID, or "list" for its transcript')
+    source.add_argument('--archive-film', help='Original Technical Alpha film ID, or "list" for verified recordings')
     parser.add_argument('--cache', type=Path, required=True, help='Private publisher cache')
     parser.add_argument('--locale', choices=endfield_assets.SUPPORTED_LOCALES, required=True)
     parser.add_argument('--region', choices=endfield_release.CHANNELS, default='global')
@@ -23,6 +25,18 @@ def main():
     output.add_argument('--mp3', type=Path, help='Destination for one historical film caption')
     args = parser.parse_args()
     cache = args.cache.resolve()
+    if args.archive_film:
+        if args.archive_film == 'list':
+            if args.wem or args.mp3:
+                parser.error('Listing archived recordings does not take an output file.')
+            print(json.dumps(endfield_alpha_archive.inventory(args.locale)))
+        else:
+            if not args.wem:
+                parser.error('--archive-film requires --wem for the original scene recording.')
+            record, data = endfield_alpha_archive.recording(cache, args.archive_film, args.locale)
+            _atomic_file(args.wem, data)
+            print(json.dumps({'film': args.archive_film, **record}))
+        return
     if args.test_caption:
         if args.locale != 'zh-Hans':
             parser.error('The verified Technical Test source has Mandarin audio and Simplified Chinese captions.')
