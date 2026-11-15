@@ -9,6 +9,8 @@ class EndfieldCaptionContext:
         self.scope = None
         self.anchor = self.candidate = None
         self.candidate_predecessor = None
+        self.possible = frozenset()
+        self.possible_count = 0
         self.count = 0
         self.last_seen = None
 
@@ -18,6 +20,7 @@ class EndfieldCaptionContext:
             self.scope = scope
         kind = kind or ('radio' if channel == 'dialogue' else 'cinematic')
         visible = [hit for hit in visible if hit is not None]
+        mission_text = groups[0] if kind == 'conversation' and getattr(index, 'game', None) == 'endfield' and len(groups) == 1 else None
         matches = {hit.text_id: hit for hit in visible if hit.kind == 'exact'
                    and hit.dialogue_kind == kind and hit.voice_status == 'voiced'}
         resolved = {}
@@ -32,9 +35,27 @@ class EndfieldCaptionContext:
                     hit = repeat
             if hit is None and self.anchor:
                 hit = index.match_lines([group], exact_only=True, channel=channel, previous_text_id=self.anchor)
+            if (hit is None and mission_text and self.possible_count >= max(2, stable_frames)
+                    and not self.possible.intersection(index.mission_anchor_ids(mission_text))):
+                # The preceding subtitle can be ambiguous. Only a unique
+                # consecutive pair may select the current line's recording.
+                found = {}
+                for previous in self.possible:
+                    choice = index.match_lines([group], exact_only=True, channel=channel, previous_text_id=previous)
+                    if choice and choice.dialogue_kind == kind and choice.voice_status == 'voiced':
+                        found[choice.text_id] = (choice, previous)
+                if len(found) == 1:
+                    hit, self.anchor = next(iter(found.values()))
             if hit and hit.dialogue_kind == kind and hit.voice_status == 'voiced':
                 resolved[hit.text_id] = hit
         matches.update(resolved)
+        if not matches and not visible and mission_text and (possible := index.mission_anchor_ids(mission_text)):
+            count = self.possible_count + 1 if self.possible == possible else 1
+            self.reset()
+            self.scope, self.last_seen = scope, now
+            self.possible, self.possible_count = possible, count
+            return None
+        self.possible, self.possible_count = frozenset(), 0
         if len(matches) != 1 or any(hit.text_id not in matches for hit in visible):
             if groups or visible or self.candidate_predecessor or self.candidate != self.anchor:
                 self.reset()

@@ -50,10 +50,47 @@ def _takes(tools, catalog, locale, entries):
     return result
 
 
-def _movie_sources(catalog):
+def _mission_captions(catalog, task_ids, video_id, default, locale):
+    from .starrail_assets import _table
+    lang = {'en': 'EN', 'ja': 'JP', 'ko': 'KR', 'zh-Hans': 'CN'}[audio_locale(locale)]
+    paths = _table(catalog, 'PerformanceVideo', ('PerformanceID', 'PerformancePath'))
+    selected, alternatives = set(), set()
+    for perf in paths:
+        path = perf['PerformancePath']
+        mission = re.fullmatch(r'Config/Level/Mission/(\d+)/Act/Act(\d+)\.json', path)
+        if not mission or int(mission[1]) not in task_ids:
+            continue
+        check(int(mission[2]) == perf['PerformanceID'])
+        for sequence in catalog.file(path).get('OnStartSequece', []):
+            for task in sequence['TaskList']:
+                if task.get('$type') == 'RPG.GameCore.PlayVideo' and task.get('VideoID') == video_id:
+                    selected.add(task.get('OverrideCaptionPath', default))
+                if task.get('$type') != 'RPG.GameCore.PredicateTaskList':
+                    continue
+                predicate = task.get('Predicate', {})
+                if predicate.get('$type') != 'RPG.GameCore.ByCurrentAudioLanguage':
+                    continue
+                for field in ('SuccessTaskList', 'FailedTaskList'):
+                    plays = [action for action in task[field] if action.get('$type') == 'RPG.GameCore.PlayVideo'
+                             and action.get('VideoID') == video_id]
+                    for action in plays:
+                        caption = action.get('OverrideCaptionPath', default)
+                        alternatives.add(caption)
+                        if (predicate['AudioLanguage'] == lang) == (field == 'SuccessTaskList'):
+                            selected.add(caption)
+    return selected, alternatives
+
+
+def _movie_sources(catalog, scripts, locale):
     from .starrail_assets import _table
     configs = _table(catalog, 'VideoConfig', ('VideoID', 'VideoPath', 'CaptionPath'))
-    result = {}
+    result, conditional = {}, set()
+    script_paths = {'Config/CutSceneCaption/' + filename for filename, _ in scripts}
+    declared = {row.get('CaptionPath') for row in configs}
+    # An unlisted numbered script can identify a mission worth reading. Its
+    # name alone never binds a movie. Only the PlayVideo action does that.
+    orphan_stems = {re.sub(r'_\d+_Caption\.json$', '', path) for path in script_paths - declared
+                    if re.search(r'_\d+_Caption\.json$', path)}
     for video in configs:
         caption = video.get('CaptionPath')
         if not caption:
@@ -64,12 +101,26 @@ def _movie_sources(catalog):
               and re.fullmatch(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.usm', path, re.I)
               and type(video.get('IsPlayerInvolved', False)) is bool)
         variants = (('_m', 'male'), ('_f', 'female')) if video.get('IsPlayerInvolved') else (('', None),)
+        available, tasks = [], set()
         for suffix, gender in variants:
             asset = catalog.movie_files.get((path[:-4] + suffix + '.usm').casefold())
             if asset:
-                result.setdefault(match[1], []).append({'video_id': video_id, 'player_voice': gender,
-                    'path': asset.name, 'size': asset.size, 'md5': asset.digest})
-    return result
+                available.append({'video_id': video_id, 'player_voice': gender, 'path': asset.name,
+                                  'size': asset.size, 'md5': asset.digest})
+                tasks.update(getattr(asset, 'task_ids', ()))
+        selected = {caption}
+        if tasks and re.sub(r'(?:_\d+)?_Caption\.json$', '', caption) in orphan_stems:
+            eligible, alternatives = _mission_captions(catalog, tasks, video_id, caption, locale)
+            if eligible and caption in alternatives and len(alternatives) > 1:
+                selected = eligible
+                conditional.update(alternatives)
+        for path in selected:
+            selected_scene = re.fullmatch(r'Config/CutSceneCaption/([A-Za-z0-9_-]+)_Caption\.json', path)
+            check(selected_scene)
+            if available:
+                result.setdefault(selected_scene[1], []).extend(available)
+    suppressed = {path.rsplit('/', 1)[1][:-len('_Caption.json')] for path in conditional} - result.keys()
+    return result, suppressed
 
 
 def _reviewed_sources(records):
@@ -103,14 +154,17 @@ def _reviewed_take(tools, scene, movies, text_hash, locale, sources):
 
 def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
     takes = _takes(tools, catalog, locale, entries)
-    movies = _movie_sources(catalog)
+    scripts = list(catalog.caption_scripts())
+    movies, suppressed = _movie_sources(catalog, scripts, locale)
     reviewed = _reviewed_sources(sentence_rows)
     seen, result = set(), []
-    for filename, script in catalog.caption_scripts():
+    for filename, script in scripts:
         match = re.fullmatch(r'([A-Za-z0-9_]+)_Caption\.json', filename)
         check(match and match[1] not in seen and isinstance(script.get('CaptionList'), list))
         scene = match[1]
         seen.add(scene)
+        if scene in suppressed and scene not in takes:
+            continue
         for n, caption in enumerate(script['CaptionList']):
             start, end = caption.get('StartTime', 0), caption['EndTime']
             text_hash = caption['CaptionTextID']['Hash']

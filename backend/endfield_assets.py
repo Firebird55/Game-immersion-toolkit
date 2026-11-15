@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 16
+LANGUAGE_INDEX_VERSION = 17
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -207,9 +207,10 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                     radio['radio_audio_event'] = row['audioEvent']
                 if not source:
                     radio.update(_radio_reaction(row, paths, locale, entries))
+            previous = row.get('previous_radio_id') or row.get('previous_mission_id')
             result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
-                **({'previous_text_id': 'endfield:' + row['previous_radio_id']} if row.get('previous_radio_id') else {}),
+                **({'previous_text_id': 'endfield:' + previous} if previous else {}),
                 'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
                 'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
                 'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
@@ -260,6 +261,10 @@ def authored_dialogues(catalog, *, radio_evidence=None):
         # establish silence without a verified recording.
         dialogs[identity] = {**row, 'voice_status': 'unknown',
                              'dialogue_kind': 'conversation'}
+    if hasattr(catalog, 'mission_predecessors'):
+        for child, parent in catalog.mission_predecessors().items():
+            if child in dialogs and parent in dialogs:
+                dialogs[child]['previous_mission_id'] = parent
     for identity, row in radio_dialogues(catalog, evidence=radio_evidence).items():
         if identity in dialogs:
             _unsupported()

@@ -183,7 +183,58 @@ The upload clock is only a way to find the performance in a playthrough.
 | Female and male `cs_video_c35m4_liinoshow` | 2 | Both use the same Liino song event. Gameplay confirms the song and sampled frames show no lyric subtitles. [Onstage performance](https://www.youtube.com/watch?v=OXL-sPrANQw&t=193s) |
 | `fmv_e0m1_1`, `fmv_e0m1_3`, `fmv_e0m1_4` | 3 | 46 retained captions are identified in the [Technical Test footage and publisher film](endfield-opening-gameplay.md#the-three-technical-test-films). The original Mandarin briefing mix can be exported for 21 lines. The aircraft and bedside recordings still lack a verified source. |
 | `fmv_e1m1_1`, `fmv_e1m1_2`, `fmv_e2m8_1`, `fmv_e2m8_2` | 4 | Four original test files are catalogued. The motorcycle ambush has three separately identified timeline captions. The final boss footage includes dialogue around the movies. Current downloads for the original test files remain unverified. [Test walkthroughs](endfield-opening-gameplay.md#other-films-preserved-in-the-technical-test-catalogue) |
-| Female and male `cs_video_e4m2_1`, and `cs_video_e5m2_3` | 3 | The retained tracks reference music and effects and contain zero caption cues. None of these three movie names occurs in the eleven Global release indexes checked below. An active quest trigger or a recording under another name remains unverified. |
+| Female and male `cs_video_e4m2_1` | 2 | The publisher sound effect matches both protagonist versions of the Sarcophagus memory montage in January 2025. Both Mandarin playthroughs show Perlica's dialogue after the montage. The retained tracks contain no sentence cues. [Beta Test quest and exact times](endfield-e4m2-gameplay.md) |
+| `cs_video_e5m2_3` | 1 | The retained tracks reference music and effects and contain zero caption cues. This movie name is absent from the eleven Global release indexes checked below. An active quest trigger or a recording under another name remains unverified. |
+
+### The Qingbo Stockade conversation
+
+The similarly named scene in *Stumbling Into Qingbo Stockade* has an
+identified trigger. Level script 10100070002 requests dialogue
+`dlg_e5m2_3`. Its released graph contains 23 dialogue nodes and names
+the in-engine timeline `dlgtl_e5m2_3_sub_1`. The registry contains that
+timeline's prefab and actor animation assets. The same graph contains
+no reference to the retained `cs_video_e5m2_3` movie configuration.
+None of 610 level scripts from the three areas named in the adjacent
+E4 and E5 mission records references the three missing movie names.
+[Quest trigger](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/LevelScriptData/map02_lv001/10100070002.json#L91-L99) ·
+[Mission record](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/Json/MissionRuntimeAsset/e5m2.json)
+
+All 23 dialogue rows, including one sigh, can be located in an English playthrough from Chen
+calling Perlica at 39:24.868 through Perlica's question at 42:07.876.
+The normal no-install indexes for English, Japanese, Korean and Mandarin
+each supply 24 original recordings for these rows. One row has two versions
+for the selected protagonist. Both English versions closely match this
+upload, so the waveform alone does not identify which version was used.
+Perlica explaining who they are matches at 40:15.321 (correlation 0.954,
+8.042-second recording). Tangtang commenting on her casting matches at
+40:43.044 (0.801, 5.685 seconds). These are already playable as the
+mission's individual dialogue lines.
+[Start of the conversation](https://www.youtube.com/watch?v=byytKbUvsYg&t=2364s) ·
+[Perlica's explanation](https://www.youtube.com/watch?v=byytKbUvsYg&t=2415s) ·
+[Tangtang's reply](https://www.youtube.com/watch?v=byytKbUvsYg&t=2443s) ·
+[End of the exchange](https://www.youtube.com/watch?v=byytKbUvsYg&t=2527s)
+
+The intervals below run from the matched start to the end of each complete
+publisher recording. They can include the recording's own lead-in and tail.
+The order follows what the player heard. The video uploader's playback clock
+is independent of the toolkit's acquisition and capture logic.
+
+| Row suffix | English gameplay interval | Row suffix | English gameplay interval |
+| --- | --- | --- | --- |
+| 001 | 39:24.868–39:25.603 | 024 | 40:50.937–40:52.867 |
+| 017 | 39:26.489–39:28.118 | 025 | 40:53.497–40:59.537 |
+| 018 | 39:30.180–39:34.771 | 026 | 41:00.345–41:09.733 |
+| 019 | 39:49.465–39:50.607 | 027 | 41:10.158–41:12.813 |
+| 020 | 39:55.769–39:58.577 | 028 | 41:15.534–41:20.696 |
+| 021 | 39:59.246–40:02.011 | 009 (sigh) | 41:34.468–41:35.913 |
+| 003 | 40:08.857–40:14.694 | 010 | 41:37.966–41:44.298 |
+| 004 | 40:15.321–40:23.363 | 011 | 41:46.180–41:48.542 |
+| 022 | 40:25.241–40:28.865 | 012 (female file) | 41:49.358–41:56.611 |
+| 005 | 40:29.561–40:33.688 | 012 (male file) | 41:49.431–41:56.567 |
+| 007 | 40:37.721–40:40.709 | 015 | 41:57.401–42:00.109 |
+| 023 | 40:43.044–40:48.729 | 016 | 42:07.876–42:10.882 |
+
+### Comparison across Global releases
 
 The Windows launcher archive provides the publisher resource address for
 each checked release. The eleven publisher movie indexes yielded these

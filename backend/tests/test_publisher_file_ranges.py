@@ -125,7 +125,7 @@ def test_online_wuthering_generation_changes_for_dub_only_update_and_old_clip_wo
     revision = 'a'
     def discover(*args, **kwargs):
         return {'en': '1.0.1'}, {}, {'en/PatchFiles/sample.pak': ('publisher', 600, revision * 40)}, (), {}
-    monkeypatch.setattr(live, 'launcher', lambda: ('1.0.0', 'publisher', {}))
+    monkeypatch.setattr(live, 'launcher', lambda region: ('1.0.0', 'publisher', {}))
     monkeypatch.setattr(live, 'discover', discover)
     first = live._current(tmp_path, 1)[0]
     revision = 'b'
@@ -194,3 +194,43 @@ def test_online_wuthering_tables_reuse_immutable_member_and_repair_damaged_cache
     entry.write_bytes(entry.read_bytes()[:-1])
     assert load('a') == load('b') == payload
     assert reads == [('a', 10), ('a', 10), ('b', 10)]
+
+
+def test_kuro_manifest_and_range_request_use_the_same_verified_roots(monkeypatch):
+    import ssl
+    url = 'https://publisher.example/resource'
+    contexts = []
+    class Reply(io.BytesIO):
+        status = 206
+        headers = {'Content-Range': 'bytes 0-2/3'}
+        def geturl(self):
+            return url
+    def open_url(request, *, timeout, context):
+        assert request.full_url == url and timeout > 0
+        assert context.verify_mode == ssl.CERT_REQUIRED and context.check_hostname
+        contexts.append(context)
+        return Reply(b'abc')
+    monkeypatch.setattr(pak.urllib.request, 'urlopen', open_url)
+    assert live.kuro_bytes(url) == b'abc'
+    assert pak.block(url, 3, 0, 3) == b'abc'
+    assert contexts[0] is contexts[1]
+
+
+def test_kuro_system_trust_fallback_retries_only_certificate_verification(monkeypatch):
+    import ssl
+    import urllib.error
+    requests = []
+    reason = ssl.SSLCertVerificationError('needs local root')
+    def open_url(request, *, timeout, context=None):
+        requests.append(context)
+        if context is not None:
+            raise urllib.error.URLError(reason)
+        return 'verified by system defaults'
+    monkeypatch.setattr(pak.urllib.request, 'urlopen', open_url)
+    assert pak.open_publisher_url('https://mirror.example', timeout=8) == 'verified by system defaults'
+    assert requests == [pak._publisher_tls(), None]
+    requests.clear()
+    reason = TimeoutError('transport failure')
+    with pytest.raises(urllib.error.URLError):
+        pak.open_publisher_url('https://mirror.example', timeout=8)
+    assert requests == [pak._publisher_tls()]

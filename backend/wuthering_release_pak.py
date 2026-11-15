@@ -4,10 +4,13 @@ import io
 import json
 from functools import lru_cache
 import shutil
+import ssl
 import struct
 import subprocess
 import urllib.request
 import zlib
+
+import certifi
 
 from Crypto.Cipher import AES
 
@@ -24,11 +27,29 @@ def check(condition):
         raise ValueError('Unsupported or inconsistent Kuro publisher package.')
 
 
+@lru_cache(maxsize=1)
+def _publisher_tls():
+    # A conflicting intermediate in the Windows trust store can prevent chain
+    # construction for all mainland CDNs even when the valid root is present.
+    return ssl.create_default_context(cafile=certifi.where())
+
+
+def open_publisher_url(request, *, timeout):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout, context=_publisher_tls())
+    except urllib.error.URLError as error:
+        if not isinstance(error.reason, ssl.SSLCertVerificationError):
+            raise
+        # Allow a locally trusted corporate issuer via a separate, still
+        # verified system context. Never combine the conflicting chains.
+        return urllib.request.urlopen(request, timeout=timeout)
+
+
 def block(url, total, offset, size):
     check(0 < size <= LIMIT and 0 <= offset <= total - size)
     end = offset + size - 1
     request = urllib.request.Request(url, headers={'Range': f'bytes={offset}-{end}', 'Accept-Encoding': 'identity'})
-    with urllib.request.urlopen(request, timeout=45) as response:
+    with open_publisher_url(request, timeout=45) as response:
         check(response.status == 206 and response.geturl() == url and
               response.headers.get('Content-Range') == f'bytes {offset}-{end}/{total}')
         data = response.read(size + 1)

@@ -43,6 +43,7 @@ class MultilingualTextIndex:
         self._capture_channels = {}
         self._unvoiced_lookup = {}
         self._predecessor_aliases = {}
+        self._mission_predecessors = {}
         self._full_frame_veto = {}
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
@@ -89,6 +90,10 @@ class MultilingualTextIndex:
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             predecessor_aliases = {}
+            mission_parents = {row.get('previous_text_id') for row in payload['records']
+                               if self.game == 'endfield' and row.get('dialogue_kind') == 'conversation'
+                               and row.get('previous_text_id')}
+            mission_predecessors = {}
             for row in payload['records']:
                 if row.get('source_locale') != locale or not isinstance(row.get('source_text'), str) or not row['source_text']:
                     raise ValueError('Incomplete game study text')
@@ -115,6 +120,10 @@ class MultilingualTextIndex:
                     capture_channels[identity] = channels if previous is None else previous | channels
                 if self.game == 'endfield' and row.get('member_text_ids'):
                     predecessor_aliases[row['text_id']] = tuple(row['member_text_ids'])
+                if mission_parents and category == 'conversation' and row['voice_status'] == 'voiced' and (
+                        row['text_id'] in mission_parents or mission_parents.intersection(row.get('member_text_ids') or [])):
+                    key = normalize_text(row['source_text'], locale)
+                    mission_predecessors.setdefault(key, []).append(row)
                 if self.game == 'genshin' and row['voice_status'] == 'voiced' and category == 'conversation':
                     variant = re.fullmatch(r'(genshin:[0-9]+):(male|female)', row['text_id'])
                     if variant and variant[2] == row.get('player_voice'):
@@ -143,6 +152,7 @@ class MultilingualTextIndex:
                 self._unvoiced_lookup = unvoiced_lookup
                 self._full_frame_veto = full_frame_veto
                 self._predecessor_aliases = predecessor_aliases
+                self._mission_predecessors = mission_predecessors
                 self.voice_counts, self.dialogue_coverage = voice_counts, coverage
                 self._context_pairs = context_pairs
                 self._context_firsts = {}
@@ -172,6 +182,21 @@ class MultilingualTextIndex:
     @staticmethod
     def authored_scene(text_id):
         return text_id.rsplit(':', 1)[0] if re.fullmatch(r'heavyrain:\d+:[a-f0-9]{8}', text_id) else None
+
+    def mission_anchor_ids(self, text):
+        """A short observed caption can narrow the next line without exporting this take."""
+        with self.lock:
+            displayed = ' '.join(display_text(text).casefold().split())
+            key = normalize_text(displayed, self.source_locale)
+            if not key or key in self._full_frame_veto.get(self.source_locale, ()):
+                return frozenset()
+            # Preserve meaningful punctuation in the full caption. A label or
+            # fragment never establishes the first member of a short pair.
+            matches = {row['text_id'] for row in self._lookup.get(self.source_locale, {}).get(key, ())
+                       if ' '.join(row['source_text'].casefold().split()) == displayed
+                       and (not row.get('player_voice') or row['player_voice'] == self.player_voice)}
+            parents = {row['text_id'] for row in self._mission_predecessors.get(key, ())}
+            return frozenset(matches) if matches <= parents else frozenset()
 
     def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False,
                     previous_text_id=None):

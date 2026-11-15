@@ -27,9 +27,9 @@ METADATA_FILES = {"PerformTemplateTb.json": "FileCfg/PerformTemplateTb.json",
                   "VoiceData.json": "Data/_unsorted/VoiceData.json"}
 
 
-def download(url: str, limit: int = 64 * 1024 * 1024) -> bytes:
+def download(url: str, limit: int = 64 * 1024 * 1024, *, opener=None) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "GameImmersionToolkit/1"})
-    with urllib.request.urlopen(request, timeout=90) as response:
+    with (opener or urllib.request.urlopen)(request, timeout=90) as response:
         data = response.read(limit + 1)
     if len(data) > limit:
         raise ValueError("Tool download exceeds its size limit")
