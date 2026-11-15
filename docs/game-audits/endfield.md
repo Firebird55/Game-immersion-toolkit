@@ -4,7 +4,7 @@
 
 The film command retrieves the original English and Mandarin aircraft, bedside and briefing WEMs from the public Technical Alpha client archive without an installation. It checks the selected compressed byte range, complete package hash and individual recording hash. All six performances have independent waveform evidence. Further caption coverage requires original text bindings and recording-relative windows. [Commands, source identities and gameplay comparisons](endfield-alpha-archive.md)
 
-Fifteen Mandarin bedside captions now have individual original-audio exports, alongside the existing twenty-one Mandarin publisher briefing captions. Four other bedside captions, the aircraft caption cuts and English text/cuts remain open. [Supported caption IDs and commands](endfield-alpha-archive.md#mandarin-bedside-caption-exports)
+Seventeen Mandarin bedside captions and six aircraft captions now have individual original-audio exports, alongside the existing twenty-one Mandarin publisher briefing captions. Two other bedside captions, five aircraft caption cuts and English text/cuts remain open. [Supported caption IDs and commands](endfield-alpha-archive.md#mandarin-archive-caption-exports)
 
 ## Selecting the publisher edition
 

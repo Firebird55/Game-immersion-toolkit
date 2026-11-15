@@ -72,17 +72,21 @@ The first request transfers approximately 119 MB for English or 105 MB for Manda
 
 Subtitle display times cannot establish complete spoken intervals. Short replies can begin before their display cue, and neighboring utterances can form one continuous exchange. The sentence-export follow-up must compare the original acoustic boundaries with the corresponding displayed text before assigning cuts.
 
-## Mandarin bedside caption exports
+## Mandarin archive caption exports
 
-The caption command now exports fifteen bedside entries from the original Mandarin WEM. The supported suffixes are `02`, `04`, `05-1`, `05-2`, `05-3`, `06`, `07`, `08`, `09`, `10`, `11-1`, `11-2`, `12`, `13` and `14`. Text comes from the checksum-pinned historical subtitle table. The intervals use the WEM's own time origin and include the utterance lead-in and decay. Neighboring exports share boundaries at 70.050, 90.550 and 100.800 s.
+The caption command exports seventeen bedside entries and six aircraft entries from their respective original Mandarin WEMs. The bedside suffixes are `02`, `03`, `04`, `05-1`, `05-2`, `05-3`, `06`, `07`, `08`, `09`, `10`, `11-1`, `11-2`, `12`, `13`, `14` and `15`. The aircraft suffixes are `01` through `06`. Text comes from the checksum-pinned historical subtitle table. The intervals use each WEM's own time origin and include the utterance lead-in and decay. Neighboring bedside exports share boundaries at 70.050, 90.550 and 100.800 s.
 
-The short `02` reply exports 61.700–62.550 s. The existing display cue begins at film time 62.200 s, and the original audio has a different offset. Simply copying that display cue would omit the spoken lead-in. Original waveforms, gameplay captions and offline speech alignment were compared when selecting these intervals. The four remaining bedside captions `01`, `03`, `15` and `20` need further boundary verification. Their whole scene recording is available.
+The short `02` reply exports 61.700–62.550 s. The existing display cue begins at film time 62.200 s, and the original audio has a different offset. Simply copying that display cue would omit the spoken lead-in. Original waveforms, gameplay captions and offline speech alignment were compared when selecting these intervals. The remaining bedside captions `01` and `20` need further verification. Their whole scene recording is available.
+
+The eight additional cuts were compared with the original Chinese captions in the public gameplay. An independent speech-recognition pass on the original recording, without a speech detector discarding quiet radio voices, located the first aircraft call at approximately 2.74–4.76 s, its reply at 5.52–11.60 s and the altitude instruction at 12.98–15.86 s. The aircraft exports include padding around those utterances. The receipt and next question meet at 20.550 s. Bedside `03` exports 63.000–65.400 s; its last words extend beyond the earlier alignment estimate. Bedside `15` exports 126.200–131.900 s, before the next introduction. Recognition is timing research; exported text remains the original subtitle table. The two uncertain bedside entries and aircraft `07` through `11` are excluded.
+[Aircraft exchange](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=5s) · [Bedside reply](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=608s) · [Bedside closing conversation](https://www.youtube.com/watch?v=jCcaIyTgo-U&t=671s)
 
 ```text
 python scripts/endfield_film_voice.py --test-caption list --locale zh-Hans --cache private-cache
 python scripts/endfield_film_voice.py --test-caption fmv_e0m1_3_02 --locale zh-Hans --cache private-cache --mp3 bedside-reply.mp3
+python scripts/endfield_film_voice.py --test-caption fmv_e0m1_1_02 --locale zh-Hans --cache private-cache --mp3 aircraft-reply.mp3
 ```
 
-The list includes these fifteen bedside captions and the existing twenty-one publisher briefing captions. Original voice decoding requires the prepared VGMStream tool, and MP3 encoding requires FFmpeg. Aircraft caption cuts and English archive text/cuts remain open.
+The list contains 44 captions: seventeen bedside, six aircraft and the existing twenty-one publisher briefing captions. Original voice decoding requires the prepared VGMStream tool, and MP3 encoding requires FFmpeg. The five remaining aircraft cuts and English archive text/cuts remain open.
 
-All fifteen bedside captions were exported through this command without a game installation. Each resulting MP3 decoded successfully with FFmpeg. The regression fixture also checks that a failed original-voice decode preserves an existing destination and that bedside export requests the bedside WEM.
+All 23 aircraft and bedside captions were exported through this command without a game installation. Each resulting MP3 decoded successfully with FFmpeg. The regression fixture also checks that a failed original-voice decode preserves an existing destination and that aircraft and bedside exports request their own WEM.

@@ -35,10 +35,17 @@ CUTS = {
     '15-1': (133600, 138600), '15-2': (138700, 145000), '16': (145700, 149400),
 }
 
-# The bedside WEM has a different time origin from the publisher briefing.
+# Each archived WEM has its own time origin, separate from the publisher film.
 # Adjacent speech uses shared boundaries, preserving each complete utterance.
 ARCHIVE_CUTS = {
+    'fmv_e0m1_1_01': (2450, 5050),
+    'fmv_e0m1_1_02': (5250, 11900),
+    'fmv_e0m1_1_03': (12750, 16150),
+    'fmv_e0m1_1_04': (18300, 20550),
+    'fmv_e0m1_1_05': (20550, 22300),
+    'fmv_e0m1_1_06': (23250, 27600),
     'fmv_e0m1_3_02': (61700, 62550),
+    'fmv_e0m1_3_03': (63000, 65400),
     'fmv_e0m1_3_04': (66350, 68250),
     'fmv_e0m1_3_05-1': (68400, 70050),
     'fmv_e0m1_3_05-2': (70050, 75100),
@@ -53,6 +60,7 @@ ARCHIVE_CUTS = {
     'fmv_e0m1_3_12': (113450, 118750),
     'fmv_e0m1_3_13': (118900, 119850),
     'fmv_e0m1_3_14': (120100, 124800),
+    'fmv_e0m1_3_15': (126200, 131900),
 }
 
 
@@ -112,7 +120,7 @@ def export(cache, caption, destination):
             decoder = vgmstream_executable()
             if not decoder:
                 raise ValueError('Prepare the original voice decoder in Setup to export archived film captions.')
-            _, audio = endfield_alpha_archive.recording(cache, 'fmv_e0m1_3', 'zh-Hans')
+            _, audio = endfield_alpha_archive.recording(cache, caption.rsplit('_', 1)[0], 'zh-Hans')
             wem = Path(folder) / 'original.wem'
             wem.write_bytes(audio)
             movie = Path(folder) / 'original.wav'
