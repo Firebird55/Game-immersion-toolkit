@@ -25,6 +25,51 @@ excluded. Acquisition uses the selected region's released AudioV routes and
 requires no game installation. The remaining film, presentation and update
 acceptance work is tracked separately.
 
+## Original movie audio recovered · November 15, 2026
+
+The earlier distorted ADX attempt omitted the USM packet-level audio mask.
+A separate format check now recovers complete original soundtracks from two
+Global 4.7 publisher movies without a game installation. The complete bodies
+passed the VideoV byte-size and MD5 checks. The CRI directory explicitly names
+CN, EN, JP and KR audio streams; no language was inferred from track order.
+Each stream's `@SFA` payloads were processed separately before concatenating
+the ADX data. All eight results decoded with FFmpeg to nonzero stereo PCM at
+48 kHz, with no clipped samples in these checks.
+[Packet-format reference](https://github.com/Furina1027/hoyo-files/blob/a0774e9ddf72ead835846bf03f4a08c0cae406f0/src/utils/usm_demux.ts)
+
+| Publisher movie | Original bytes | VideoV MD5 | Decoded duration per dub |
+| --- | ---: | --- | ---: |
+| `CS_Chap00_Act310_f.usm`, boarding | 34,696,032 | `dae38a58976a0e370a1eebff21a73da9` | 28.715 s |
+| `CS_Chap01_Act3020.usm`, Silent Galaxy | 65,392,224 | `f0db051bd87897609601fde6672b8b2f` | 53.433 s |
+
+[Original boarding file](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap00_Act310_f.usm)
+· [Original Silent Galaxy file](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap01_Act3020.usm)
+
+Independent waveform comparisons identify three of these soundtracks in
+public gameplay. Offsets relate the original audio's zero to the upload's
+zero. The source excerpts were filtered at 320–3,500 Hz and compared at
+8 kHz using normalized waveform correlation.
+
+| Performance | Original excerpt starts | Consistent upload offset | Correlations |
+| --- | --- | ---: | --- |
+| Boarding, Japanese | 4, 8, 19, 21, 25 s; 2 s each | 553.359–553.362 s | 0.384, 0.504, 0.529, 0.554, 0.744 |
+| Silent Galaxy, English | 1, 8, 17, 27, 37, 46 s; 3 s each | 6.434 s | 0.994, 0.989, 0.986, 0.978, 0.986, 0.990 |
+| Silent Galaxy, Korean | 1, 8, 17, 27, 37, 46 s; 3 s each | 593.303 s | 0.908, 0.952, 0.921, 0.910, 0.945, 0.906 |
+
+[Japanese boarding gameplay](https://www.youtube.com/watch?v=L6wGHwWxnk8&t=557s)
+· [English Silent Galaxy gameplay](https://www.youtube.com/watch?v=kbMz5JbShYA&t=7s)
+· [Korean Silent Galaxy gameplay](https://www.youtube.com/watch?v=y_HNFpFop6s&t=594s)
+
+This establishes a source for the original English and Japanese Silent
+Galaxy film mixes, although their separately named sentence WEMs remain
+absent. It does not yet enable those film mixes in normal Setup. Remaining
+implementation must verify the selected movie, locale, format metadata and
+decoded sample bounds before returning original audio, retain offline source
+identity, and validate complete spoken export windows rather than copying
+subtitle display times. Both movies use the older masked-ADX format. This
+check does not validate the newer movie formats or other protagonist movies.
+No game media or format-key values are distributed in the repository.
+
 ## Released regional hotfixes, November 13, 2026
 
 The Windows publisher reader now resolves the current release and in-version
