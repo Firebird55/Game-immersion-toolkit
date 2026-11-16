@@ -96,6 +96,13 @@ rows retain their unresolved classification, and a missing ordinary voice pack
 remains unavailable. Runtime-injected table/code changes and a positive
 performance in gameplay remain outside this static check.
 
+The reader therefore retains the configured reaction terms for every nonempty
+performer name, including the literal `None`. If a later same-format publisher
+update adds its authored voice-data path and selected-dub media, the existing
+reaction-candidate route can expose it without a toolkit update. That candidate
+is separate from sentence audio: neither the current missing metadata nor a
+later generic reaction proves a voiced subtitle sentence or authored silence.
+
 The times below refer to the public player recordings. The on-screen text matched the corresponding publisher localization. The recordings predate 1.6.4. They document individual playthroughs, including environmental sounds and combat. Their negative audio searches did not establish silence; the later static caller evidence above resolves the five explicit-empty-performer routes.
 
 | Mission and radio rows | Observations |

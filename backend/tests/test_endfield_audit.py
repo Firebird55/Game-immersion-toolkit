@@ -84,7 +84,7 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     catalog.values['NpcInfoTable']['actor']['voActor'] = 'None'
     line['audioEvent'] = 'radio_noise'
     unmapped = record({}, {})
-    assert unmapped['radio_reaction_status'] == 'no_mapped_performer'
+    assert unmapped['radio_reaction_status'] == 'no_matching_voice_metadata'
     assert unmapped['radio_audio_event'] == 'radio_noise' and unmapped['voice_status'] == 'unavailable'
     catalog.values['EmotionVoiceConfig']['7'] = {'interjection': '', 'interjectionList': []}
     assert record({}, {})['radio_reaction_configured'] is False
@@ -241,10 +241,47 @@ def test_explicit_empty_radio_performer_uses_unvoiced_capture_and_later_update_r
     assert prepare(locale='ko') == []
 
 
+def test_literal_none_performer_preserves_a_later_authored_reaction_without_claiming_sentence_audio(
+        empty_radio_performer):
+    catalog, audio, _row, _group, prepare = empty_radio_performer
+    catalog.values['NpcInfoTable']['npc']['voActor'] = 'None'
+    links = endfield.radio_dialogues(catalog, evidence=endfield.radio_evidence(catalog, audio))
+    link = links['radio_fixture_01_001']
+    assert link['radio_voice_actor'] == 'None' and link['radio_interjections'] == ('gasp',)
+    assert not link['radio_performer_known_empty'] and not link['radio_text_only']
+    current, = prepare(details=True)
+    assert current['radio_reaction_status'] == 'no_matching_voice_metadata'
+    assert current['voice_status'] == 'unavailable' and current['audio'] is None
+
+    # A later same-format publisher update can bind this literal nonempty name.
+    name = 'au_dlg_commvo_None_gasp'
+    path = 'fixture/' + name + '.wem'
+    identity = endfield._voice_table_id(name)
+    audio[identity] = {'path': path,
+        **dict.fromkeys(('wavDuration', 'wavDurationEN', 'wavDurationJP', 'wavDurationKR'), 1)}
+    catalog.values['AudioVoiceExtraData'][identity] = dict.fromkeys(
+        ('durationCN', 'durationEN', 'durationJP', 'durationKR'), 1)
+    paths = endfield.audio_paths(audio)
+    missing, = prepare(paths=paths, details=True)
+    assert missing['radio_reaction_status'] == 'missing_selected_dub_media'
+    assert missing['voice_status'] == 'unavailable' and missing['audio'] is None
+    source = 'voice/english/' + path.lower()
+    entry = {f'{voice_hash(source):016x}': {'file_id': 'reaction'}}
+    available, = prepare(paths=paths, entries=entry, details=True)
+    assert available['radio_voice_actor'] == 'None'
+    assert available['radio_reaction_candidates'] == {name: source}
+    assert available['radio_reaction_status'] == 'candidates_in_dub'
+    assert available['radio_sentence'] == 'unresolved_override'
+    assert available['voice_status'] == 'unavailable' and available['audio'] is None
+    plain, = prepare(paths=paths, entries=entry)
+    assert plain['voice_status'] == 'unavailable' and plain['audio'] is None
+    LocalDialogue(**plain)
+
+
 @pytest.mark.parametrize('mapping,actor', [({}, 'npc'), ({'npc': {}}, 'npc'),
     ({'npc': {'voActor': 'None'}}, 'npc'), ({'endminf': {'voActor': ''}}, 'endminf'),
     ({'endminm': {'voActor': ''}}, 'endminm'), ({'': {'voActor': ''}}, '')])
-def test_missing_or_sentinel_radio_performer_is_not_an_authored_empty_actor(empty_radio_performer, mapping, actor):
+def test_unresolved_radio_performer_is_not_an_authored_empty_actor(empty_radio_performer, mapping, actor):
     catalog, _audio, row, _group, prepare = empty_radio_performer
     catalog.values['NpcInfoTable'] = mapping
     row['actorNameId'] = actor
