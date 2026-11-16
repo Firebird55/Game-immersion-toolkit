@@ -1,20 +1,23 @@
 """Read published cinematic caption records from the regional DesignV directory."""
 import math
+import re
 import struct
 
 from . import starrail_hotfix as hotfix
+from .xxhash64 import xxhash64
 
 
-# These original resource IDs were checked against all cues in the named
-# scripts. The directory supplies the current package, offset and size.
-CAPTION_ANCHORS = {
-    0xf5ea143b3b93e86b: 'CS_Chap00_Act220_Caption.json',
-    0x7677ef7aa22242d5: 'CS_Chap01_Act3020_Caption.json',
-    0x1eab6bb9b4906c60: 'CS_Chap04_Act781_2_Caption.json',
-}
-# The Mandarin lyric script for Ripples of Past Reverie is independently
-# identified by the publisher's lyrics and the mission's default caption path.
-NAMED_CAPTIONS = {0xb9cef1d1ff5c465b: 'CS_Chap04_Act781_1_Caption.json'}
+# This previously named entry already used a scene-based identity. This is
+# compatibility for saved IDs only; resource resolution never uses this set.
+_LEGACY_NAMED_IDENTITIES = frozenset({'CS_Chap04_Act781_1_Caption.json'})
+
+
+def caption_resource_id(path):
+    # Native JsonToBinaryPath preserves case, replaces the last extension and
+    # prepends BakedConfig/ to the complete authored Config/... path.
+    hotfix.check(isinstance(path, str) and re.fullmatch(
+        r'Config/CutSceneCaption/[A-Za-z0-9_-]+_Caption\.json', path))
+    return xxhash64(('BakedConfig/' + path[:-5] + '.bytes').encode('utf-8'))
 
 
 def _packages(data):
@@ -54,12 +57,12 @@ def _uint(data, offset, bits):
     raise ValueError('Invalid design integer.')
 
 
-def _caption(data):
+def _caption(data, *, allow_empty=False):
     if data[:1] != b'\x01':
         return None
     try:
         count, offset = _uint(data, 1, 32)
-        if count % 2 or not 0 < count // 2 <= len(data) // 7:
+        if count % 2 or count // 2 > len(data) // 7 or not count and not allow_empty:
             return None
         rows = []
         for _ in range(count // 2):
@@ -93,7 +96,7 @@ def _signature(script):
                   round(row['EndTime'] * 1000)) for row in script['CaptionList'])
 
 
-def _caption_run(directory, asset, entries, anchors):
+def _caption_run(directory, asset, entries, anchors, wanted=()):
     entries = sorted(entries, key=lambda item: item[2])
     page_size = 64 * 1024
     pages, seen = {}, set()
@@ -111,20 +114,24 @@ def _caption_run(directory, asset, entries, anchors):
             size -= len(block)
         return b''.join(parts)
 
-    def probe(position):
+    def probe(position, *, allow_empty=False):
         key, length, start = entries[position]
         if not length or read(start, 1) != b'\x01' or length > 2 * 1024**2:
             return None
-        return _caption(read(start, length))
+        return _caption(read(start, length), allow_empty=allow_empty)
 
     for index, (key, _, _) in enumerate(entries):
-        if key not in anchors or index in seen:
+        if key not in anchors and key not in wanted or index in seen:
             continue
-        anchor = probe(index)
-        if not anchor or _signature(anchor) != anchors[key]:
+        anchor = probe(index, allow_empty=True)
+        if key in anchors:
+            hotfix.check(anchor is not None and _signature(anchor) == anchors[key])
+        if not anchor:
             continue
         seen.add(index)
         yield key, anchor
+        if key not in anchors:
+            continue
         for step in (-1, 1):
             position = index + step
             while 0 <= position < len(entries) and position not in seen:
@@ -136,27 +143,50 @@ def _caption_run(directory, asset, entries, anchors):
                 position += step
 
 
-def extra_captions(directory, build, published):
+def extra_captions(directory, build, published, declared_paths=(), *, identities=None, unresolved=None):
     known = {_signature(script) for script in published.values()}
-    anchors = {key: _signature(published[name]) for key, name in CAPTION_ANCHORS.items() if name in published}
+    anchors, names, paths = {}, {}, {}
+    for filename, script in published.items():
+        path = 'Config/CutSceneCaption/' + filename
+        key = caption_resource_id(path)
+        hotfix.check(key not in paths or paths[key] == path)
+        paths[key], anchors[key] = path, _signature(script)
+    for path in declared_paths:
+        key = caption_resource_id(path)
+        hotfix.check(key not in paths or paths[key] == path)
+        paths[key], names[key] = path, path.rsplit('/', 1)[1]
     local, alternate = hotfix.audio_roots(build)
-    result = {}
+    result, found, indexed, candidates = {}, set(), set(), []
     verified = False
     for digest, size, entries in _packages(hotfix.index(directory, build, 'design')):
-        if not any(key in anchors for key, _, _ in entries):
+        relevant = {key for key, _, _ in entries if key in paths}
+        hotfix.check(indexed.isdisjoint(relevant))
+        indexed.update(relevant)
+        if not relevant:
             continue
         path = digest + '.bytes'
         asset = hotfix.AudioFile(path, size, digest, local['design'] + path,
                                  alternate['design'] + path if alternate else '')
-        for key, caption in _caption_run(directory, asset, entries, anchors):
+        for key, caption in _caption_run(directory, asset, entries, anchors, names):
             sig = _signature(caption)
-            if key in anchors and sig == anchors[key]:
-                verified = True
-            if sig in known:
-                continue
-            filename = NAMED_CAPTIONS.get(key, f'design_{key:016x}_Caption.json')
-            hotfix.check(filename not in result and filename not in published)
-            result[filename] = caption
-            known.add(sig)
+            found.add(key)
+            if key in anchors:
+                hotfix.check(sig == anchors[key])
+                verified = verified or bool(sig)
+            candidates.append((key, caption))
     hotfix.check(verified)
+    # Resolve declared paths before deduplicating unnamed neighbors. An alias
+    # encountered earlier in a package cannot hide the actual authored name.
+    for key, caption in sorted(candidates, key=lambda row: row[0] not in names):
+        sig = _signature(caption)
+        if key in anchors or key not in names and sig in known:
+            continue
+        filename = names.get(key, f'design_{key:016x}_Caption.json')
+        hotfix.check(filename not in result and filename not in published)
+        result[filename] = caption
+        if identities is not None and key in names and filename not in _LEGACY_NAMED_IDENTITIES:
+            identities[filename] = f'design_{key:016x}'
+        known.add(sig)
+    if unresolved is not None:
+        unresolved.extend(sorted(paths[key] for key in names.keys() - found))
     return result

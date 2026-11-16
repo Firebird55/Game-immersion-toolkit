@@ -593,7 +593,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         stamp, catalog, version = genshin_publisher.prepare(data_dir, region)
         version_matches = True
         region_name = 'Global' if region == 'global' else 'mainland China'
-        _warn(warnings, f'Using the {region_name} Windows {version} launcher release. In-game hotfixes and removed event assets can differ.')
+        _warn(warnings, f'Using the {region_name} Windows {version} publisher release and its verified current hotfix indexes. Removed event assets can still differ.')
     else:
         stamp = fingerprint(install)
         catalog = DialogueCatalog('genshin', data_dir)

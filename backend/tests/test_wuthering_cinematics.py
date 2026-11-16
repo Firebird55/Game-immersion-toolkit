@@ -82,16 +82,29 @@ def test_caption_clock_fallback_is_per_scene_and_per_selected_dub(tmp_path):
         films.caption_cues(tmp_path, 'unsupported')
 
 
+def test_long_authored_caption_clocks_do_not_authorize_long_audio_exports(tmp_path):
+    with sqlite3.connect(tmp_path / 'db_cgVedio.db') as db:
+        db.execute('CREATE TABLE videocaption (CgName TEXT, BinData BLOB)')
+        db.execute('INSERT INTO videocaption VALUES (?,?)',
+                   ('long_movie', flat_blob({2: 13500, 3: 150, 4: 'later_caption', 5: 13620, 6: 120})))
+    assert films.caption_cues(tmp_path, 'en') == [('long_movie', 'later_caption', 454000, 458000)]
+    assert films.caption_cues(tmp_path, 'ja') == [('long_movie', 'later_caption', 450000, 455000)]
+    ref = {'publisher': 'wuwa-' + 'a' * 64, 'locale': 'en',
+           'depot': films.MEDIA_ROOT + 'en/123.wem', 'start_ms': 454000, 'end_ms': 458000}
+    with pytest.raises(ValueError):
+        assets._validate_voice(ref)
+
+
 def test_invalid_selected_clocks_never_fall_back_to_a_different_track(tmp_path):
     with sqlite3.connect(tmp_path / 'db_cgVedio.db') as db:
         db.execute('CREATE TABLE videocaption (CgName TEXT, BinData BLOB)')
-        for scene, values in [('negative', {5: 600, 6: -1}), ('outside', {5: 8999, 6: 10}),
+        for scene, values in [('negative', {5: 600, 6: -1}), ('overflow', {5: 2**31 - 1, 6: 1}),
                               ('empty', {})]:
             db.execute('INSERT INTO videocaption VALUES (?,?)',
                        (scene, flat_blob({2: 30, 3: 60 if scene != 'empty' else 0, 4: scene, **values})))
     assert films.caption_cues(tmp_path, 'en') == []
     assert films.caption_cues(tmp_path, 'ja') == [('negative', 'negative', 1000, 3000),
-                                                ('outside', 'outside', 1000, 3000)]
+                                                ('overflow', 'overflow', 1000, 3000)]
 
 
 def test_mix_requires_unique_overlapping_performances_and_stops_at_quiet():

@@ -65,6 +65,12 @@ def _files(directory, stamp, locale, game):
     if game == 'starrail' and 'hotfix' in build:
         from .starrail_hotfix import files as released_files
         return released_files(directory, build, locale, result)
+    if game == 'genshin' and 'hotfix' in build:
+        from .genshin_hotfix import files as released_files
+        return released_files(directory, build, locale, result)
+    if game == 'zzz' and 'hotfix' in build:
+        from .zzz_hotfix import voice_files
+        return voice_files(directory, build, locale, result)
     if not result:
         raise ValueError('The selected publisher voice packages are unavailable.')
     return result

@@ -141,9 +141,9 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Windows Setup prepares catalogue-matched Global dialogue, narration, choices, motion comics, phone messages, gameplay tips and timed clue recordings. Some scene paths, cinematic audio and in-version changes still require additional coverage.",
-      "supportPolicy": "Prepare Global base dialogue from the publisher or select installed files and a matching voice pack for later overrides and additional presentations.",
-      "reviewedAt": "2026-11-13"
+      "coverage": "Windows Setup follows current Global publisher text, scene and voice updates plus a matching launcher base for catalogue-matched dialogue, narration, choices, motion comics, phone messages, tips and timed clue recordings. Some scene paths, cinematic audio and auxiliary update formats remain unresolved.",
+      "supportPolicy": "Prepare current Global publisher dialogue without an installed game, or select installed files and a matching voice pack for additional presentations. Mainland publisher Setup and complete story/device acceptance remain open.",
+      "reviewedAt": "2026-11-16"
     },
     {
       "id": "wuwa",
@@ -749,7 +749,7 @@
         "es-419": "Epic lists Latin American Spanish as well as Spain Spanish; no distinct reader locale mapping is established."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence. Epic also lists generic Portuguese alongside Brazilian Portuguese; this does not establish a separate Portugal reader mapping.",
-      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. Prepare the selected language from an installed client or the mainland China HoYoPlay PC release. Publisher setup matches text and resource revisions and fetches selected original recordings on demand. In-game hotfixes and removed event audio have separate coverage.",
+      "coverage": "Authored story dialogue uses official subtitle and original-voice identifiers. Prepare from an installed client or the Global or mainland China publisher release and its current in-game update. Publisher setup matches the current text and resource revisions, follows the separate audio base and retrieves exact originals. Normal supported-format updates refresh without a toolkit update when matching text is available. Removed event and unresolved sentence bindings have separate coverage.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [

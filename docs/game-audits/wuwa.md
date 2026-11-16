@@ -1,5 +1,81 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Long caption clocks are separate from audio limits
+
+The current original `videocaption` table has seventeen positive display windows
+that extend beyond five minutes: fourteen in `M2_12_07` and three in `M0355`.
+They are ordinary frame values, not negative clocks, empty localized rows or a
+different time unit. The original `VideoDefine` declares 30 frames per second;
+`VideoView` compares the configured frame clocks with the movie's elapsed
+milliseconds. Neither operation applies the toolkit's five-minute audio bound.
+The longest checked caption ends at 461.833 seconds.
+
+The caption selector now validates metadata against the signed frame domain,
+independently of the bounded whole-track decoder and original-audio reference
+validation. A direct check of the same publisher table returns all **1,353**
+selected display cues in each of English, Japanese, Korean and both Chinese
+study scripts, including these seventeen. The locale-selection and wholly empty
+locale fallback rules are unchanged. Compatible later long scenes therefore do
+not need an additional filename or caption-ID allowlist.
+
+This does **not** make the seventeen long captions exportable audio. Whole-track
+decoding and authorized publisher movie intervals retain their 300-second bound.
+No clock becomes a voice binding, no new soundtrack is decoded merely to read
+its caption, and no full spoken boundary is inferred from its display duration.
+A regression accepts a later localized caption and its default-track fallback
+while rejecting an audio export using those display times. Invalid, negative
+and overflowing selected clocks remain excluded without borrowing another dub.
+[Selected publisher launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Publisher rolling configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+
+The ordinary Windows source-development publisher builder was run before and
+after this correction for English study text with Simplified Chinese
+translations. Both complete results are byte-identical after canonical JSON
+serialization: 143,460 records, 48,856 voiced, 20,720 unvoiced, 2,167 unavailable
+and 71,717 unknown, including both existing Jinhsi movie clips. The two warm-cache
+runs took 14.688 and 13.328 seconds. None of the seventeen late caption IDs has a
+numbered PlotAudio group, and both owning scenes declare mixed soundtrack
+events outside the current single-voice clip adapter. Consequently no current
+prepared record, voice, coverage warning or reader cache revision changes.
+
+A separate cropped, unprompted English speech-recognition check of the existing
+original `C3jiyanfight` and `LYSZW` tracks recovered words missed or badly aligned
+by earlier whole-track recognition. The second `LYSZW` caption's wording is
+spoken around 53 seconds in the original recording. The short General call has
+unreliable word boundaries. These research estimates neither authorize a clip
+nor resolve the other **seventeen** open spoken windows in those scenes and
+`M0234`. Existing recordings and classifications remain unchanged.
+
+### Independent Japanese C3jiyanfight playback and bounded decoder probe
+
+A separately located [Japanese cutscene compilation by pxldawn](https://www.youtube.com/watch?v=4_cafY0Poas&t=406s),
+uploaded September 28, 2024, independently matches the original Japanese
+`C3jiyanfight` voice track already acquired from the publisher. Three separated
+comparison excerpts give the same source-zero position, **6:46.594** in the
+upload, at 12-kHz sample precision:
+
+| Original track excerpt | Upload excerpt starts | Normalized correlation |
+| --- | ---: | ---: |
+| 0.500–7.500 s | 6:47.094 | 0.735 |
+| 48.000–55.000 s | 7:34.594 | 0.468 |
+| 77.000–83.000 s | 8:03.594 | 0.533 |
+
+The same three source ranges from the other dubs reach at most 0.068. The
+comparison uses 280–4,500 Hz mono audio. It establishes the Japanese performance
+and scene synchronization independently of the upload title; it does not
+establish visible caption frames or individual spoken boundaries. These are
+comparison excerpts, not newly authorized sentence exports.
+
+The existing Windows decoder also reproduced each of these three excerpts
+directly from the original 333,797-byte Japanese WEM using an authored local
+TXTP instruction. The decoded 7/7/6-second outputs are byte-identical to the
+corresponding PCM from the earlier full-track conversion. They took
+0.047/0.094/0.109 seconds and produced 1,344,000/1,344,000/1,152,000 PCM bytes.
+This verifies the pinned decoder's trim behavior on a real selected recording;
+it does not validate a source longer than 300 seconds, other codec layouts or a
+production windowed-extraction API. The existing audio bound is retained.
+[Upstream TXTP trim semantics](https://github.com/vgmstream/vgmstream/blob/master/doc/TXTP.md#trim-file).
+
 ## November 16, 2026 · Film performances versus ordinary PlotAudio sources
 
 The 3.8.11 publisher table contains 311 movie captions whose text identity also
@@ -87,10 +163,11 @@ export using its display times.
 The existing original-media, overlapping-performance and acoustic-boundary
 checks remain required.
 
-The current publisher table contains 1,353 caption rows. The selector retains
-1,336 bounded display cues per study locale, including the 17 unresolved cues
-above. Seventeen other cues fall outside the film matcher's existing 300-second
-limit. Nonzero localized timing occurs in 106 scenes for each non-Chinese dub;
+The current publisher table contains 1,353 caption rows. The initial selector
+retained 1,336 display cues per study locale, including the 17 unresolved cues
+above. The long-clock correction described above retains the seventeen other
+display windows independently of the film decoder's 300-second limit.
+Nonzero localized timing occurs in 106 scenes for each non-Chinese dub;
 no partially populated localized scene occurred in this particular release.
 Synthetic regressions independently exercise that important partial-track case,
 scene/locale isolation, invalid clocks and a localized anchor far from the

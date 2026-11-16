@@ -9,9 +9,10 @@ from pathlib import Path
 import re
 import struct
 import subprocess
+import time
 from tempfile import TemporaryDirectory
 
-from . import game_tools, hoyo_publisher_voice as voice, sophon_assets as sophon, zzz_assets
+from . import game_tools, hoyo_publisher_voice as voice, sophon_assets as sophon, zzz_assets, zzz_hotfix
 from .hoyo_dialogue import voice_namespace
 from .languages import audio_locale, resolve_locale
 from .prebuilt_node_reader import require_zzz_reader
@@ -23,7 +24,7 @@ from .zzz_assets import TEXT_LOCALES
 CHANNEL = 'zzz-global'
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
 SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
-         'Other presentations and later in-version overrides have partial coverage.')
+         'Selected original updater inventories include in-version text, scene and voice changes. Other presentations remain partially covered.')
 
 # A source name and its Wwise directory do not always use the same family.
 # Only an exact file ID in the selected publisher pack establishes a binding.
@@ -37,8 +38,13 @@ VOICE_DIRECTORIES = {
 }
 
 
+@lru_cache(maxsize=2)
+def _poll(_period):
+    return voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNEL)))[0]
+
+
 def fingerprint():
-    return voice.descriptor(sophon.release(CHANNEL))[0]
+    return _poll(int(time.monotonic() // 30))
 
 
 def stage_scenes(work, cache, files, ranges, *, extension='scenes'):
@@ -103,12 +109,18 @@ def source_paths(source, version):
 
 
 def _stage_metadata(build, cache, work):
-    files = sophon.manifest(cache, CHANNEL, tuple(build['manifests']['game']), ('/data_version', '/res_version', '.blk'))
+    files = sophon.manifest(cache, CHANNEL, tuple(build['manifests']['game']), ('revision', '/data_version', '/res_version', '.blk'))
+    inventories = None
+    if 'hotfix' in build:
+        files, inventories = zzz_hotfix.metadata_files(cache, build, files)
     batches = {}
     for index, label, pattern in (('data_version', 'design', r'Blocks/Data/(\d+)\.blk'),
                                   ('res_version', 'catalog', r'Blocks/(\d+)\.blk')):
-        asset = files[BASE + index]
-        rows = json.loads(asset.read(cache, 0, asset.size))['files']
+        if inventories is not None:
+            rows = inventories[label]
+        else:
+            asset = files[BASE + index]
+            rows = json.loads(asset.read(cache, 0, asset.size))['files']
         if not isinstance(rows, list) or not rows:
             raise ValueError('Unsupported ZZZ launcher resource list.')
         selected = {}
@@ -183,6 +195,8 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
         coverage['scene_paths'] = plan['scenePaths']
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
+        if 'hotfix' in build:
+            coverage['auxiliary_update_resources'] = zzz_hotfix.silence_evidence(cache, build)
         return (json.loads((work / 'links.json').read_bytes()),
                 {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in locales},
                 coverage, json.loads((work / 'voice-directory.json').read_bytes()))
@@ -272,7 +286,7 @@ def original_bindings(links, entries, dub, version, directory=None):
 
 
 def build_language(data_dir, source_locale, target_locales, progress):
-    build = sophon.release(CHANNEL)
+    build = zzz_hotfix.discover(sophon.release(CHANNEL))
     stamp, raw = voice.descriptor(build)
     game_tools._atomic_file(data_dir / 'tools/sophon/releases' / stamp, raw)
     targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
@@ -292,10 +306,12 @@ def build_language(data_dir, source_locale, target_locales, progress):
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}
     rows = zzz_assets._dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings)
-    if not rows or fingerprint() != stamp:
+    if not rows or voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNEL)))[0] != stamp:
         raise ValueError('No ZZZ dialogue was prepared or the launcher release changed. Retry preparation.')
     available = {locale for row in rows for locale in row['texts']}
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': None, 'source_mode': 'publisher',
-            'fingerprint': stamp, 'metadata_revision': build['build'], 'records': rows, 'coverage': coverage,
+            'fingerprint': stamp, 'metadata_revision': build['build'] +
+                ('/' + build['hotfix']['revisions']['design'] if 'hotfix' in build else ''),
+            'records': rows, 'coverage': coverage,
             'missing_translation_locales': [target for target, locale in targets.items() if locale not in available],
             'coverage_warnings': [SCOPE], 'message': f"{len(rows):,} Global ZZZ dialogue entries in {source_locale}. {SCOPE}"}

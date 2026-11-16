@@ -1,5 +1,102 @@
 # Zenless Zone Zero dialogue audit
 
+## November 16, 2026 · Current Global publisher updates without an installation
+
+Revision 13 follows the public Global Windows dispatcher and gateway using the
+version from HoYoPlay. Public Collapse bootstrap metadata supplies the query
+templates and response-decoding parameters as data; downloaded code and game
+executables are never run. No account, login or installed game is required.
+Only the allowlisted publisher endpoints and CDN paths are accepted. Unrelated
+gateway configuration is discarded rather than stored with the snapshot.
+[Bootstrap format source](https://github.com/CollapseLauncher/Collapse/blob/74cfbfb29398baf65e89b8254e143ee417d61d09/CollapseLauncher/Classes/Helper/Metadata/DataCooker.cs)
+· [Updater response and inventory contract](https://github.com/CollapseLauncher/Hi3Helper.EncTool/blob/fe5bcb93dfdae80de8db5e759fb7abc7ee0f859b/Parser/Sleepy/SleepyInfo.cs)
+· [Global launcher discovery](https://sg-hyp-api.hoyoverse.com/hyp/hyp-connect/api/getGameBranches?launcher_id=VYTpXlbWo8&game_ids%5B%5D=U5hbdsT9W7).
+
+The actual Global 3.3.0 response selects design/resource revision **20245314**,
+audio **19815450**, silence **20080629**, and base
+**19316624_6fdf21fa4c**. These are observed values, not reader constants. The
+five small inventories pass their declared byte sizes and standard XXH64
+checksums before use. The four original launcher revision markers independently
+match the numeric base generation. Selected base Blocks also pass the current
+inventory's complete XXH64, in addition to Sophon's chunk checks. Optional
+Blocks absent from the main launcher manifest use the updater's separate base
+root: one original **4,537,398-byte** optional Block passed its full checksum.
+This is HTTPS and advertised-checksum consistency, not verification of the
+gateway's RSA response signature; the public data wrapper is not publisher
+authentication.
+[Current design inventory](https://autopatchos.zenlesszonezero.com/design_data/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/oversea/data_version)
+· [Current resource inventory](https://autopatchos.zenlesszonezero.com/game_res/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/oversea/res_version)
+· [Current audio inventory](https://autopatchos.zenlesszonezero.com/game_res/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/oversea/audio_version).
+
+The **26** original design files total **251,335,109 bytes**: thirteen launcher
+base TextMaps and thirteen update files. They decode all thirteen official
+text locales and their current overwrite tables, plus the Perform, message,
+ongoing, tip and clue tables. Japanese has **16,089** overwrite entries:
+9,886 IDs absent from the baseline and 6,203 changed values, with no identical
+overwrites in this comparison. These counts include UI and other non-dialogue
+strings; they are not 16,089 additional spoken sentences.
+
+Actual normal Windows source-development preparation, with no game folder,
+produced:
+
+| Study language | Records | Voiced | Unvoiced | Unavailable | Unknown | Warm-input elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Japanese, English/Mandarin translation | 288,027 | 76,748 | 135,211 | 3,405 | 72,663 | 197.578 s |
+| English, Japanese/Mandarin translation | 295,204 | 76,806 | 135,811 | 3,406 | 79,181 | 167.047 s |
+
+Both flows match **30,765 of 31,098** referenced scene paths, all 101 comic
+paths and 1,929 distinct comic bindings. Selected scene ranges total 48,898,310
+bytes; comic dictionaries add 1,949,117 bytes. The same **333** unmatched paths
+remain: 144 Bubble, 21 BubbleStory, 142 Chat, three ChatPlus and 23 GalGame.
+The current hotfix does not resolve those references or complete the story.
+
+The complete active audio inventory replaces the old package selection; removed
+packages are not restored by unioning every historical launcher PCK. The selected
+dub and common updates overlay the matching base. Ambiguous same-layer sources
+remain unavailable. Entire raw update packages are downloaded and XXH64-checked
+before their individual recordings are read. Current Japanese update inputs total
+**299,150,582 bytes** including its 216,205,388-byte localized patch, localized
+hotfix and common patch; English totals **225,770,933 bytes**. Base voices still
+use selective, independently checked Sophon chunks rather than downloading all
+24.6 GB listed by the audio inventory.
+
+Raw voice packages up to **8 GiB** now stream to a private staging file with
+**1 MiB** verification blocks. Full publisher XXH64 must pass before atomic
+publication. The cache retains only SHA256 block digests in memory, not four
+whole packages; selected ranges are read from disk. First use after a process
+restart streams the full cached file through XXH64 again, and every later
+range read checks its actual blocks even when size/mtime are preserved. An
+interrupted, overlong, truncated or wrong-hash download cannot replace the prior
+cache file. A concurrent Windows reader permits reuse only after a complete hash
+check and identical block digests. Whole-decoding metadata keeps its separate
+256 MiB bound; JSON inventory indexes permit up to 32 MiB rather than failing
+when the currently 3.31 MB resource list grows beyond 4 MiB. Owned fixtures lower
+these thresholds to exercise package growth
+without an actual multi-gigabyte download; a real Windows read-sharing lock and
+all seven real offline samples also passed with this cache.
+
+Seven normal voice-service samples cover the actual Japanese/English Persistent
+patches, unchanged Sophon bases and timed clue recordings. Closing/reopening
+into fresh output folders with discovery and byte-range networking prohibited
+reproduces identical nonzero PCM. Japanese has 3,186 caption bindings to the
+selected Persistent patch. Two StudentWise sources also occur in the base under
+the same file IDs; their original WEM bytes and decoded PCM differ in the patch,
+while their durations remain 2.570917 and 8.396125 seconds. This establishes
+source-version differences, not a claim of different acting takes. Source-bound
+descriptors and caches retain each original independently.
+
+The current auxiliary silence resource is a fully hash-checked **245,118-byte**
+BBL payload. Its meaning is not interpreted as a story table or proof of
+unvoiced content; coverage reports zero interpreted auxiliary payloads. Global
+and mainland public dispatch/gateway responses were independently recovered,
+but the mainland CDN attempt failed to connect and mainland publisher Setup is
+not implemented by this change. Additional films, regional flow, full update
+activation/recovery, cold transfer costs and native/device acceptance remain
+open. Synthetic owned-source regressions exercise an upstream-only text/voice
+change with unchanged launcher/code, active-package removal, patch/base
+generation separation, corrupt sources, locale isolation and retained offline
+recordings. They are separate from the actual source-development probes above.
+
 ## November 16, 2026 · Narration with a separate audio key
 
 The shared installed/publisher story reader now retains an unresolved audio

@@ -11,7 +11,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 ## Zenless Zone Zero
 
-[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-13 · [Dekkingsnotities](../zzz-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [Dekkingsnotities](../zzz-languages.md)
 
 Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.
 

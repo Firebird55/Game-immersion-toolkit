@@ -6,13 +6,27 @@ audio. Only the selected source and requested official translation tables are
 read. Account reading preferences and translation targets remain specific to
 each learning language; dictionary operations remain demand driven.
 
-With the game folder empty, Windows Setup reads scenes and translations from
-the Global PC launcher base. Supported sources include GalGame, chat, bubbles,
+With the game folder empty, Windows Setup follows the Global PC publisher's
+current in-version text, scene and original-voice inventories as well as its
+matching launcher base. Supported sources include GalGame, chat, bubbles,
 narration, choices, motion comics, phone messages, ongoing dialogue, gameplay tips and
 per-dub clue subtitle intervals. Setup reads the selected voice package indexes
-and downloads matching recordings on demand. The installed reader supplies
-additional cinematic voices and later in-version overrides. Unmatched comic
+and downloads matching recordings. Current raw update packages are downloaded
+to a disk cache and hash-checked completely before their individual recordings
+are read; the
+checked Japanese patch package was about 216 MB. Unchanged base recordings use
+verified selective launcher chunks. The installed reader supplies
+additional cinematic voices. Unmatched comic
 panels keep their text with unknown voice status.
+
+Normal compatible publisher updates change the prepared snapshot without a
+toolkit release. Removed packages are excluded from the active inventory;
+retained recordings keep their original release descriptor and cached bytes.
+Public Collapse bootstrap metadata supplies discovery parameters as data, while
+the actual inventories and recordings come from the publisher's HTTPS servers.
+Its data wrapper is not a publisher signature. Mainland publisher Setup,
+unmatched scene paths, additional film bindings and the meaning of the auxiliary
+silence-update payload remain open. See the [source audit](game-audits/zzz.md).
 
 With an installed game, TextMaps and scene configuration come from one pinned revision of the existing
 [extracted game-data mirror](https://git.mero.moe/dimbreath/ZenlessData). Installed

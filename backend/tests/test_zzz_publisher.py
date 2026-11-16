@@ -117,6 +117,7 @@ def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing
         prefix = 'ZenlessZoneZero_Data/StreamingAssets/Audio/Windows/Full/'
         return {path: archive(path, source, clip(tag)) for folder in ('Cn', 'Jp') for path in [prefix + folder + '/record.pck']}
     monkeypatch.setattr(sophon_assets, 'release', release)
+    monkeypatch.setattr(zzz_publisher.zzz_hotfix, 'discover', lambda build: build)
     monkeypatch.setattr(sophon_assets, 'manifest', manifest)
     monkeypatch.setattr(zzz_publisher, '_read_catalogue', catalogue)
     first_audio = None

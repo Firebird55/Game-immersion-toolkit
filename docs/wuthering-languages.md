@@ -20,6 +20,10 @@ the ID resolves to its localized PlotAudio performance. Update detection
 checks the active Global story and dub releases independently. For installed
 games it also includes optional SD, HD and UHD film packages. [Film and floating-caption coverage](game-audits/wuwa.md)
 
+Film display clocks also retain captions beyond five minutes. Their display
+times alone do not make an original sentence recording available; longer audio
+and complete spoken boundaries still require separate verified bindings.
+
 The translation target follows that learning language's effective Lexirise
 settings. Official translations must align through the same dialogue ID.
 Missing, empty and unsupported translation tables produce an unavailable

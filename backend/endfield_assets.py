@@ -155,7 +155,7 @@ def _radio_reaction(row, paths, locale, entries):
         status = 'no_configured_interjection'
     elif row.get('radio_performer_known_empty'):
         status = 'empty_authored_performer'
-    elif not actor or actor == 'None':
+    elif not actor:
         status = 'no_mapped_performer'
     else:
         status = 'no_matching_voice_metadata'
@@ -317,8 +317,9 @@ def _reaction_fields(row, actors, reactions, *, allow_actor_id):
         _unsupported()
     emotion = row.get('emotionType')
     terms = reactions.get(str(emotion), ())
+    # Nonempty authored names, including the literal "None", retain their terms.
     return {'radio_voice_actor': actor, 'radio_performer_known_empty': known_empty,
-            'radio_interjections': terms if actor and actor != 'None' else (),
+            'radio_interjections': terms if actor else (),
             'radio_reaction_configured': bool(terms) if reactions and type(emotion) is int else None}
 
 

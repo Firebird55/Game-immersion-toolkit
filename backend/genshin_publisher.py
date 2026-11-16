@@ -7,7 +7,7 @@ import time
 from subprocess import SubprocessError
 from urllib.error import HTTPError, URLError
 
-from . import hoyo_publisher_voice as voices, sophon_assets as sophon
+from . import hoyo_publisher_voice as voices, sophon_assets as sophon, genshin_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
 from .game_tools import _atomic_file
 from .preparation_errors import PreparationFailure
@@ -50,7 +50,11 @@ class ReleaseCatalog(DialogueCatalog):
 
 @lru_cache(maxsize=4)
 def _poll(region, _period):
-    return voices.descriptor(sophon.release(CHANNELS[region]))[0]
+    return voices.descriptor(_release(region))[0]
+
+
+def _release(region):
+    return hotfix.discover(sophon.release(CHANNELS[region]))
 
 
 def fingerprint(region='global'):
@@ -58,7 +62,7 @@ def fingerprint(region='global'):
 
 
 def current(stamp, region='global'):
-    return voices.descriptor(sophon.release(CHANNELS[region]))[0] == stamp
+    return voices.descriptor(_release(region))[0] == stamp
 
 
 def _narrative_payload(directory, build):
@@ -87,6 +91,9 @@ def _narrative_payload(directory, build):
 
 def _catalog(directory, build, region):
     markers, payload = _narrative_payload(directory, build)
+    if 'hotfix' in build:
+        revisions = build['hotfix']['revisions']
+        markers = tuple(str(revisions[name][0]) for name in ('res', 'silence', 'design'))
     revision = build['version'] + '_R%s_S%s_D%s' % markers
     mirror = None
 
@@ -114,17 +121,21 @@ def _catalog(directory, build, region):
         except PreparationFailure as error:
             if error.code != 'publisher_unavailable':
                 raise
-        reference = sophon.release(CHANNELS['cn'])
-        if reference['version'] != build['version'] or _narrative_payload(directory, reference) != (markers, payload):
+        reference = _release('cn') if 'hotfix' in build else sophon.release(CHANNELS['cn'])
+        if (reference['version'] != build['version']
+                or _narrative_payload(directory, reference) != _narrative_payload(directory, build)
+                or 'hotfix' in build and reference['hotfix'] != build['hotfix']):
             raise PreparationFailure('publisher_unavailable',
                 'A matching Global Genshin translation snapshot is unavailable. Retry after the catalog updates.')
     return find('CNRELWin' + revision)
 
 
 def prepare(data_dir, region='global'):
-    build = sophon.release(CHANNELS[region])
+    build = _release(region)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
+    for name in hotfix.INDEXES:
+        hotfix.index(directory, build, name)
     catalog = ReleaseCatalog('genshin', data_dir, revision=_catalog(directory, build, region))
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog, build['version']
@@ -142,8 +153,11 @@ def movie_assets(tools, stamp):
     build = json.loads((directory / 'releases' / stamp).read_bytes())
     channel = build['channel']
     parent = PurePosixPath(ROOTS[channel]) / 'VideoAssets' / 'StandaloneWindows64'
-    return {p.stem: asset for name, asset in sophon.manifest(directory, channel, tuple(build['manifests']['game']), ('.usm',)).items()
-            if (p := PurePosixPath(name)).parent == parent}
+    regular = {name: asset for name, asset in sophon.manifest(directory, channel, tuple(build['manifests']['game']), ('.usm',)).items()
+               if PurePosixPath(name).parent == parent}
+    if 'hotfix' in build:
+        return hotfix.movie_files(directory, build, regular)
+    return {PurePosixPath(name).stem: asset for name, asset in regular.items()}
 
 
 def extract(audio, tools):
