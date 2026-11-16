@@ -1,5 +1,100 @@
 # Honkai: Star Rail dialogue audit
 
+## Original hotfix discovery prototype · November 16, 2026
+
+The standalone `starrail_original_discovery` API now discovers the current Global
+4.7 routes through official public dispatch responses. It does not fetch PutraZC,
+send account fields, log in or execute client code. **Production release
+discovery still uses the existing provider.** A native-helper lifecycle and
+automatically prepared descriptions are not enabled by this change.
+
+The minimal original bootstrap consists of two files from the fully checksummed
+launcher manifest:
+
+| Original file | Bytes | Whole-file MD5 |
+| --- | ---: | --- |
+| `ClientConfig.bytes` | 201 | `bfed4c1f95a3f99f1c50b7cfb77d338a` |
+| 4.7 `BinaryVersion.bytes` | 246 | `19e416ef427578caf0d73c4762f835df` |
+| 4.6 `BinaryVersion.bytes` | 246 | `9f912acbfa508881ae6978f221b1f5d9` |
+
+Native `ClientStartupConfig.Load` explicitly loads `ClientConfig.bytes`. Its
+native deserializer establishes four strings, four counted string arrays and
+the default-server integer. The supplied description consumes all 201 bytes.
+The 4.6 and 4.7 client-config bytes are identical. Version data uses big-endian
+integers, signed 16-bit UTF-8 byte lengths and booleans; both original 246-byte
+files consume all 31 operations. The private diagnostic derives the version
+operation order and named stores from native call signatures. Request version
+and dispatch seed come from these original inputs; seed values are not stored
+in the published discovery receipt or repository.
+
+The larger original `data.unity3d` carrier independently corroborates ownership:
+its fully verified 23,289,537-byte UnityFS file contains serialized-v21
+`resources.assets`. The bounded object directory identifies object 455 as
+TextAsset class 49, named `ClientConfig`, containing the JSON
+`GlobalDispatchUrlList`. Every binary-config field matches that object. Only
+52,690,944 bytes of relevant serialized metadata were expanded in memory; no
+game binary was loaded or executed. The existing locked `ooz-wasm` decoder
+handled payload compression. Normal standalone discovery needs the two small
+bootstrap files, not this carrier.
+
+The native diagnostic locates methods from managed type/signature metadata,
+then reads their original method bodies as data. It joins semantic
+`ServerDispatchData` fields to protobuf-object members through the original
+parser's copies, and those members to wire tags through `WriteTo`. Global
+region-list, name and primary/alternate gateway tags are independently joined
+through the original repeated-field codec, region writer and
+`SetDispatchUrls` caller. Method addresses, obfuscated protocol type names,
+resource revisions and protobuf field numbers are discovered inputs; there is
+no per-version address or tag list in that diagnostic.
+
+| Native-derived resource field | 4.6 field number | 4.7 field number |
+| --- | ---: | ---: |
+| Design data | 5 | 5 |
+| Asset bundles | 15 | 6 |
+| Lua | 2 | 7 |
+| Base asset bundles | 1,335 | 1,379 |
+
+The same frozen extractor handles both generations' changed tags. For 4.7 it
+uses the already whole-file-verified original native client. For 4.6, targeted
+method windows are read from the original launcher file with expected MD5
+`d33cb7b0781287362e7f3d8571b520aa`; the relevant Sophon chunks are MD5-verified.
+That 543,701,808-byte DLL was **not** downloaded or verified as a whole.
+The old original-derived metadata dump is a retained frozen input, not a claim
+that the complete old metadata-helper preparation was rerun from publisher
+downloads. These limits remain separate from the positive changed-tag result.
+
+Using the current original bootstrap and derived fields, the standalone API
+obtains four Global regions, follows the publisher's default gateway and
+resolves design/ASB/base/Lua routes. It validates HTTPS domains, required wire
+types and unique fields, and verifies all five native revision markers. Their
+complete revision/MD5/size tuples exactly match the 4.7 input generation in the
+table proof below. A supplied description must match the actual launcher
+`GameAssembly.dll` MD5; another client's description cannot silently replace it.
+Bootstrap paths are supplied inputs too: the private probe resolves native
+`Load` literals against the original launcher inventory, and synthetic renames
+use the same standalone API. The explicit ClientConfig field-layout description
+remains supplied input.
+
+The current public server rejects the 4.6 request with scalar field 1 equal to
+4 and an update-required message, supplying no regions. The same standalone
+API parses the old bootstrap, reports source unavailability and retains the
+previous complete discovery receipt byte-for-byte. This is publisher retirement,
+not evidence of an unsupported format. No successful old live gateway replay is
+claimed. Strict synthetic tests also cover changed supplied tags, malformed
+bootstrap/protobuf data, other URL destinations, native-identity mismatch and
+incomplete marker responses without replacing a complete receipt.
+
+These are discovery and parameter-recovery contracts. They do not prove the
+normal production worker, every original catalog table, changed audio playback,
+all regions, or full update/restart/interruption acceptance. The 4.6 → 4.7 text
+and voice changes below remain valid original-package evidence, but the retired
+old dispatch response does not turn that comparison into a complete autonomous
+update trial.
+
+Sources: [official public Global dispatch](https://globaldp-prod-os01.starrails.com/query_dispatch),
+[official launcher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_08c01a4f44bfa674_38615c5752d4bdeb90700ad54e5a54b1),
+[official earlier launcher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20260918/4.6.0/5ojqcjYEliu4/manifest_edb916e5a1ca140c_65fc23eec5dce74324cada65dc595341).
+
 ## Original text and voice-table prototype · November 16, 2026
 
 The standalone `starrail_original_tables.OriginalTables` reader now reads native
@@ -7,8 +102,9 @@ The standalone `starrail_original_tables.OriginalTables` reader now reads native
 from official DesignV packages. Its `file(relative)`, `table(name)` and
 `textmap(code)` interfaces do not access a text mirror or require a game folder.
 **The production `ReleasedCatalog` has not switched to this reader.** Other
-catalog tables, independent hotfix discovery and automatic native-description
-extraction remain work for #84; this prototype does not complete autonomous
+catalog tables, production integration of independent hotfix discovery and
+automatic original-table description extraction remain work for #84; this
+prototype does not complete autonomous
 updates or current subtitle coverage.
 
 The format descriptions were established from the original publisher client's
