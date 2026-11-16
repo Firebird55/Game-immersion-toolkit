@@ -61,7 +61,7 @@ Global English text into that different generation. Other mainland study-text
 languages remain edition-dependent. Earlier four-dub mainland acquisition
 probes below are separate from this normal Chinese-study playback check.
 
-### Ordinary protagonist branches, index schema 6
+### Ordinary protagonist branches and text, index schema 7
 
 The adapter now resolves the authored Wwise 154 `Sex_Switch` for ordinary
 dialogue as well as films. Each supported fixed female/male branch retains its
@@ -75,24 +75,41 @@ Original gain is applied to whole dialogue recordings as well as timed clips.
 Known film captions require their verified recording-relative cut: an ordinary
 alias cannot substitute a complete film mix when cue ownership is ambiguous.
 The index version change makes earlier preparation refresh its bindings.
+Authored `<male=>…<male>` / `<female=>…<female>` spans and
+`{Gender}|gender(…,…)` arguments are selected before display markup is removed.
+Text conditions remain independent of audio switches: a shared recording can
+still require different source text or translations for each protagonist.
+Malformed or empty source variants retain an unavailable/unknown inventory
+record without a recording; unsupported target variants are omitted and reported.
+Markup-only entries do not become empty study records.
+
+The five original Global text resources contain **1,217** gender-bearing
+localized entries, including UI. Three raw values have unsupported template
+shapes; some otherwise recognized branches are empty. These are not invented
+sentences or silence declarations. Original English, Japanese, Korean and both
+Chinese study-text preparations independently verified the two text/translation
+branches of `Akane02_free_NPC035_011`, alongside the voice samples below.
 
 Normal Global **1.5.4** preparation produced the following inventories. They
 include UI and player variants and do not count independently matched or played
-story sentences. All four inventories' resolved gains are finite and within
+story sentences. All five inventories' resolved gains are finite and within
 the supported range; the observed range is **−8 to +9 dB**.
 
 | Study text and dub | Prepared records | Resolved voice records | Unavailable | Unknown |
 | --- | ---: | ---: | ---: | ---: |
-| English | 126,091 | 27,836 | 1,535 | 94,718 |
-| Japanese | 126,011 | 27,606 | 1,700 | 94,703 |
-| Korean | 126,016 | 27,775 | 1,602 | 94,637 |
-| Simplified Chinese / Mandarin | 126,120 | 28,019 | 1,401 | 94,698 |
+| English | 126,155 | 27,803 | 1,578 | 94,772 |
+| Japanese | 126,463 | 27,611 | 1,719 | 95,130 |
+| Korean | 126,096 | 27,782 | 1,607 | 94,705 |
+| Simplified Chinese / Mandarin | 126,184 | 28,019 | 1,411 | 94,752 |
+| Traditional Chinese / Mandarin | 126,183 | 28,003 | 1,426 | 94,752 |
 
 For `ST_Legend_Celebration/Akane02_free_Player_021`, both exact authored
 branches were acquired and played through the normal voice service in every
 dub, without an installation. After closing/restarting the service with
 publisher networking prohibited, fresh conversions reproduced identical decoded
-PCM for all eight performances. The original media pairs, female then male, are
+PCM for all eight distinct dubbed performances. Both Chinese study-text
+options independently reproduced the same two Mandarin recordings. The
+original media pairs, female then male, are
 English **950392790 / 400039128**, Japanese **410489564 / 180522315**, Korean
 **565084882 / 275702544**, and Mandarin **276823360 / 573879151**.
 
@@ -101,14 +118,38 @@ current row, `Akane02_Protect_Player_Siteli_001`, has the same official text
 but no verified voice/presentation binding. It stays unknown. The successful
 downloads do not establish that the two keys are interchangeable or that the
 unknown row is silent. Authored conversation/choice context remains necessary.
-The same normal route also prepared mainland **1.5.6** Chinese text: **126,137**
-records, **28,019** resolved voices, **1,401** unavailable and **94,715** unknown.
+The same normal route also prepared mainland **1.5.6** Chinese text: **126,199**
+records, **28,019** resolved voices, **1,409** unavailable and **94,769** unknown.
 Both protagonist samples independently reproduced the Mandarin originals above
 after offline service restart. This adds two checked regional performances;
 it does not establish absent mainland study-text locales or cold-cache costs.
 The branch-format and configured-player matching tests use owned fixtures;
 they are distinct from this real-caption ambiguity and from native application
 or mobile-device acceptance.
+
+### Independently found gameplay and original dialogue context
+
+A November 16 search found the Mandarin question in part 5 of a public *To Us,
+Back Then* playthrough. Its complete original caption appears around **19:38**,
+with Zero as the displayed speaker. Comparing the normal female Mandarin
+original-voice export with the complete upload audio locates it at
+**19:36.847** (normalized correlation **0.605**, 8 kHz, 320–3,500 Hz).
+Independent speech recognition recovers the same question in the original
+export and gameplay, plus the preceding stage-design comment and following
+broadcast reply. This is one observed performance, not a general alias rule or
+toolkit device-acceptance result.
+[Question in gameplay](https://www.bilibili.com/video/BV1efJ669EK8/?p=5&t=1177)
+
+A private source-development read of the selected Global publisher assets also
+follows `BP_NPC_035_L110401`'s `HTDialogueComponent` reference to
+`DLG/SCLC_DLG_Project/SCLC_DLG_6`. Its original `DlgDialogue` node list and
+`TargetIndex` edges establish the sequence from `Akane02_free_NPC035_010` to
+the spoken `Akane02_free_Player_021` node, then `Akane02_free_NPC035_011`.
+The first transition has no choice-label text. The conflicting
+`Akane02_Protect_Player_Siteli_001` key is absent from this one graph; its own
+caller/presentation is not established by that absence. Broader graph discovery
+and safe capture-context integration remain open. No game Blueprint is executed,
+and neither the source assets nor the private diagnostic helper is published.
 
 ### Type-data updates and retained history
 
@@ -135,7 +176,10 @@ Competing downloads may reuse an already published chunk only after its
 publisher checks and complete bytes agree. A Windows reader denying replacement
 does not invalidate that identical cache entry; a different or corrupt entry
 still fails. Owned tests exercise the actual Windows read-sharing lock as well
-as a competing-writer fixture. Full concurrent preparation/update acceptance
+as a competing-writer fixture. Immutable format-source files use the same
+byte-exact reuse rule, including a real Windows read-sharing-lock test. This
+fixes a separately reproduced identical-metadata replacement failure during
+parallel language preparation. Full concurrent preparation/update acceptance
 remains separate from this chunk-publication check.
 
 ### Historical Japanese changed recording
@@ -184,16 +228,20 @@ original `SequenceInfo` arrays. The reader now skips those optional slots while
 retaining valid neighboring sequences; other scalar and array slots still fail.
 Owned compiled-bridge fixtures check all five cases.
 
-Both supplied historical releases now prepare through the normal language
-worker without an installation: **116,875** Japanese-study records, including
+Both supplied historical releases prepared through the normal language
+worker without an installation in the preceding schema-6 replay: **116,875**
+Japanese-study records, including
 **25,175** resolved voices, **1,861** unvoiced, **1,407** unavailable and
 **88,432** unknown in each. Each protagonist's normal voice-service export
 matches that release's original media and gain. Both branches change between
 the two releases, reproducing the exchanged original byte sequences above.
 After both preparations, closing/restarting each service with publisher
 discovery and byte-range networking prohibited still reproduces all four
-decoded performances from their respective immutable snapshots. The first
-corrected preparations took approximately 226 and 423 seconds using existing
+decoded performances from their respective immutable snapshots.
+The same two schema-6 snapshots also reopened under the schema-7 code after all
+current Global/mainland preparations, with publisher networking prohibited and
+fresh conversions again reproducing the four original decoded performances.
+The first corrected preparations took approximately 226 and 423 seconds using existing
 research caches; these are not cold-cache transfer or timing measurements.
 
 The historical inputs are explicitly supplied version-addressed manifests.
@@ -207,9 +255,6 @@ announces Japanese female-protagonist voices for *To Us, Back Then*. That
 regional announcement is not an independently established mapping to the two
 Global resource revisions or a reason to relabel their original recordings.
 [Publisher update notice](https://yh.wanmei.com/news/gamebroad/20261015/264630.html)
-The old active bootstrap was not recovered, and no automatic device update is
-claimed. The separate current-caption ambiguity also remains open. Neither an
-arbitrary protagonist voice nor a silence override is assigned.
 
 ### Remaining acceptance
 

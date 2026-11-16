@@ -45,7 +45,8 @@ unmapped text, response choices, and newer unsupported chapters are skipped.
 
 In **Capture setup**, select **Zero voice** for NTE dialogue and movies with
 protagonist variants. Fixed female/male branches use their authored bank media;
-an unconfigured choice does not select a default. Missing media in the other
+the corresponding text and translations follow the same choice. An unconfigured
+choice does not select a default. Missing media in the other
 branch does not block the configured branch. A caption also used by an unresolved
 conversation or choice remains ambiguous until its context is verified.
 There is no automatic/default gender choice. Fixed voices still capture without
