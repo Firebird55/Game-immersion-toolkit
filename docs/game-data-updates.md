@@ -66,10 +66,12 @@ dialogue/sequence/movie tables, subtitle cues and localized voice banks. Its
 immutable snapshots include compatible public type metadata, so normal content
 and type-data updates do not require a toolkit release. Missing regional text,
 stale translations and unresolved bindings are reported separately. Saved voices
-retain their exact publisher snapshot. NTE index schema 8 rebuilds older prepared
+retain their exact publisher snapshot. NTE index schema 9 rebuilds older prepared
 maps with the original movie-alias registry and each referenced StringTable's
-exact namespace. Compatible game updates can add aliases without a toolkit
-alias-list change. Fixed protagonist branches retain their authored source-text
+exact namespace, including typed CG event references whose object names use
+`Play_Vo_*` without repeating `CG`. Compatible game updates can add aliases and
+reuse those authored voice-name forms without a toolkit update.
+Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated
 caption with unknown ownership remains unresolved; a successful voice download

@@ -282,8 +282,8 @@ internal static class NteReader
                     if (!row.TryGetProperty("PlayVoice", out var voice) || voice.ValueKind != JsonValueKind.Object ||
                         !voice.TryGetProperty("AssetPathName", out var asset) || asset.ValueKind != JsonValueKind.String)
                         continue;
-                    var match = Regex.Match(asset.GetString()!, @"^/Game/WwiseAudio/Events/CG/[\w/-]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1$");
-                    if (match.Success) voiceEvents.Add(match.Groups[1].Value);
+                    var voiceEvent = NteCinematicVoice(asset.GetString()!);
+                    if (voiceEvent is not null) voiceEvents.Add(voiceEvent);
                 }
             }
             movies["StringTableNamespaces.json"] = ReadNteMovieNamespaces(files, Rows, (path, name) =>
@@ -351,6 +351,14 @@ internal static class NteReader
         return result;
     }
 
+    static string? NteCinematicVoice(string path)
+    {
+        // The authored CG reference establishes ownership; released events do
+        // not all repeat CG in their object names.
+        var match = Regex.Match(path, @"^/Game/WwiseAudio/Events/CG/[\w/-]+/(Play_Vo_[A-Za-z0-9_]+)\.\1$");
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
     static void ReadNteSequences(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,
         Func<string, object> export, HashSet<string> voiceEvents, string destination)
     {
@@ -370,12 +378,12 @@ internal static class NteReader
                 if (string.IsNullOrEmpty(group) || group == "None") continue;
                 var settings = info.GetProperty("Settings");
                 var path = info.GetProperty("VoiceSource").GetProperty("AssetPathName").GetString()!;
-                var match = Regex.Match(path, @"^/Game/WwiseAudio/Events/CG/[\w/-]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1$");
+                var voiceEvent = NteCinematicVoice(path);
                 var regularClock = settings.GetProperty("PlayRate").GetDouble() == 1 &&
                     settings.GetProperty("StartTime").GetDouble() == 0 && !settings.GetProperty("bRandomStartTime").GetBoolean();
                 if (!events.TryGetValue(group, out var names)) events[group] = names = new(StringComparer.Ordinal);
-                names.Add(regularClock && match.Success ? match.Groups[1].Value : "");
-                if (regularClock && match.Success) voiceEvents.Add(match.Groups[1].Value);
+                names.Add(regularClock && voiceEvent is not null ? voiceEvent : "");
+                if (regularClock && voiceEvent is not null) voiceEvents.Add(voiceEvent);
             }
         }
         const string captionsFile = folder + "DT_VoiceCaptionDataTable.uasset";

@@ -96,7 +96,7 @@ def movie_bindings(rows: list[dict], namespaces: dict[str, str | None] | None = 
         if not re.fullmatch(r'[A-Za-z0-9_/-]+', relative):
             continue
         reference = row.get('PlayVoice', {}).get('AssetPathName', '')
-        match = re.fullmatch(r'/Game/WwiseAudio/Events/CG/[A-Za-z0-9_/]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1', reference)
+        match = re.fullmatch(r'/Game/WwiseAudio/Events/CG/[A-Za-z0-9_/]+/(Play_Vo_[A-Za-z0-9_]+)\.\1', reference)
         if match:
             result.append({'subtitle': SRT_ROOT + relative + '.srt', 'event': match[1], 'namespace': namespace})
     return result
@@ -142,7 +142,7 @@ def timed_sequence_cues(payload, locale):
     scenes = []
     for group, entries in payload['groups'].items():
         events = payload['events'].get(group, [])
-        if len(events) != 1 or not re.fullmatch(r'Play_Vo_CG_[A-Za-z0-9_]+', events[0]):
+        if len(events) != 1 or not re.fullmatch(r'Play_Vo_[A-Za-z0-9_]+', events[0]):
             continue
         cues = []
         for row in entries:
