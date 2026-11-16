@@ -3,6 +3,7 @@ import argparse
 import json
 from pathlib import Path
 import subprocess
+import struct
 import tempfile
 
 
@@ -50,6 +51,33 @@ def probe(executable, work_root):
         request.write_text(json.dumps({'ranges': [{'offset': 0, 'address': 1, 'bytes': 2}]}))
         if run().returncode == 0 or output.exists():
             raise ValueError('The helper accepted truncated native data.')
+        # Static control flow follows both conditional paths and skips bytes
+        # proven unreachable after return/jump. No native instruction is run.
+        source.write_bytes(bytes.fromhex('7403 90 c3 ff b801000000 c3 48b8'))
+        payload = {'ranges': [{'offset': 0, 'address': 4096, 'bytes': source.stat().st_size, 'control_flow': True}]}
+        request.write_text(json.dumps(payload))
+        if run().returncode or [row[0] for row in json.loads(output.read_text())[0]] != [4096, 4098, 4099, 4101, 4106]:
+            raise ValueError('The static control-flow decoder did not preserve both reachable branches.')
+        output.unlink()
+        for bad in ['ffe0', '7405c3', '740148b80100000000000000c3', '90']:
+            source.write_bytes(bytes.fromhex(bad)); payload['ranges'][0]['bytes'] = source.stat().st_size
+            request.write_text(json.dumps(payload))
+            if run().returncode == 0 or output.exists():
+                raise ValueError('The static decoder accepted indirect, external conditional, overlapping or unterminated flow.')
+        switch = (bytes.fromhex('83f801 771c 488d0d') + struct.pack('<i', 24)
+                  + bytes.fromhex('48630481 4801c8 ffe0 b805000000 c3 b809000000 c3 31c0 c3')
+                  + struct.pack('<ii', -15, -9) + bytes.fromhex('48b8'))
+        source.write_bytes(switch); payload['ranges'][0]['bytes'] = len(switch)
+        request.write_text(json.dumps(payload))
+        if run().returncode or len(json.loads(output.read_text())[0]) != 12:
+            raise ValueError('The bounded static switch decoder did not preserve every authored edge.')
+        output.unlink()
+        # An extra path jumping past the unsigned guard cannot authorize the
+        # switch, even when another path already decoded its instructions.
+        source.write_bytes(b'\x74\x05' + switch); payload['ranges'][0]['bytes'] = len(switch) + 2
+        request.write_text(json.dumps(payload))
+        if run().returncode == 0 or output.exists():
+            raise ValueError('A branch bypassed the original switch bound.')
 
 
 if __name__ == '__main__':

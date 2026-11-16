@@ -3,6 +3,7 @@
 // client files are data: this program never loads or invokes a client library.
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Buffers.Binary;
 using HSRGlobalMetadata;
 using HSRGlobalMetadata.Output;
 using HSRGlobalMetadata.Structs;
@@ -78,7 +79,9 @@ internal static class StarRailMetadata {
         formatter.Options.ShowBranchSize = false;
         formatter.Options.SignedImmediateOperands = false;
         foreach (var range in ranges.EnumerateArray()) {
-            Keys(range, "offset", "address", "bytes");
+            bool flow = range.TryGetProperty("control_flow", out var flowValue);
+            if (flow) { Keys(range, "offset", "address", "bytes", "control_flow"); if (flowValue.ValueKind != JsonValueKind.True) throw new InvalidDataException(); }
+            else Keys(range, "offset", "address", "bytes");
             long offset = range.GetProperty("offset").GetInt64();
             ulong address = range.GetProperty("address").GetUInt64();
             int count = range.GetProperty("bytes").GetInt32();
@@ -86,11 +89,75 @@ internal static class StarRailMetadata {
             if (offset < 0 || count is < 1 or > 65536 || offset > source.Length - count ||
                 total > 16 * 1024 * 1024 || address > ulong.MaxValue - (ulong)count) throw new InvalidDataException();
             byte[] data = new byte[count]; source.Position = offset; source.ReadExactly(data);
-            var decoder = Decoder.Create(64, new ByteArrayCodeReader(data)); decoder.IP = address;
+            var pending = new Queue<ulong>(); pending.Enqueue(address);
+            var decoded = new SortedDictionary<ulong, Instruction>();
+            var occupied = new Dictionary<ulong, ulong>();
+            var branchTargets = new SortedSet<ulong>();
+            var guardedRegions = new List<(ulong First, ulong Last)>();
+            while (pending.Count != 0) {
+                ulong entry = pending.Dequeue();
+                if (decoded.ContainsKey(entry)) continue;
+                if (entry < address || entry >= address + (ulong)count) throw new InvalidDataException();
+                int skip = checked((int)(entry - address));
+                var reader = new ByteArrayCodeReader(data); reader.Position = skip;
+                var decoder = Decoder.Create(64, reader); decoder.IP = entry;
+                var path = new List<Instruction>();
+                while (decoder.IP < address + (ulong)count) {
+                    if (decoded.ContainsKey(decoder.IP)) break;
+                    decoder.Decode(out var instruction);
+                    if (instruction.Code == Code.INVALID || decoder.IP > address + (ulong)count || decoded.Count >= 8192 || ++instructionTotal > 262144) throw new InvalidDataException();
+                    for (ulong at = instruction.IP; at < instruction.NextIP; at++) {
+                        if (occupied.ContainsKey(at)) throw new InvalidDataException();
+                        occupied.Add(at, instruction.IP);
+                    }
+                    decoded.Add(instruction.IP, instruction);
+                    path.Add(instruction);
+                    if (!flow) continue;
+                    if (instruction.NextIP == address + (ulong)count && instruction.FlowControl is FlowControl.Next or FlowControl.Call or FlowControl.IndirectCall or FlowControl.ConditionalBranch) throw new InvalidDataException();
+                    if (instruction.FlowControl == FlowControl.XbeginXabortXend) throw new InvalidDataException();
+                    if (instruction.FlowControl == FlowControl.IndirectBranch) {
+                        // Bounded compiler switch: unsigned index guard, then a
+                        // RIP-relative signed-32 table and an indirect jump.
+                        // Enumerate all authored edges, never evaluate an index.
+                        if (path.Count < 6) throw new InvalidDataException();
+                        var guard = path[^6]; var fallback = path[^5]; var pointer = path[^4];
+                        var load = path[^3]; var add = path[^2];
+                        if (guard.Mnemonic != Mnemonic.Cmp || guard.Op0Kind != OpKind.Register || guard.Op0Register.GetSize() != 4 ||
+                            fallback.Mnemonic != Mnemonic.Ja || pointer.Mnemonic != Mnemonic.Lea || pointer.MemoryBase != Register.RIP ||
+                            pointer.MemoryIndex != Register.None || pointer.Op0Register.GetSize() != 8 ||
+                            load.Mnemonic != Mnemonic.Movsxd || load.Op0Register.GetSize() != 8 ||
+                            load.MemoryBase != pointer.Op0Register || load.MemoryIndex != guard.Op0Register.GetFullRegister() ||
+                            load.MemoryIndexScale != 4 || load.MemoryDisplacement64 != 0 ||
+                            add.Mnemonic != Mnemonic.Add || add.Op0Register != load.Op0Register || add.Op1Register != pointer.Op0Register ||
+                            instruction.Mnemonic != Mnemonic.Jmp || instruction.Op0Register != load.Op0Register) throw new InvalidDataException();
+                        ulong maximum = guard.GetImmediate(1), table = pointer.IPRelativeMemoryAddress;
+                        if (maximum > 255 || table < address || table > address + (ulong)count || (maximum + 1) * 4 > address + (ulong)count - table) throw new InvalidDataException();
+                        for (ulong i = 0; i <= maximum; i++) {
+                            int relative = BinaryPrimitives.ReadInt32LittleEndian(data.AsSpan(checked((int)(table - address + i * 4)), 4));
+                            ulong edge = unchecked((ulong)((long)table + relative));
+                            if (edge < address || edge >= address + (ulong)count) throw new InvalidDataException();
+                            pending.Enqueue(edge); branchTargets.Add(edge);
+                        }
+                        guardedRegions.Add((pointer.IP, instruction.IP));
+                        break;
+                    }
+                    if (instruction.FlowControl is FlowControl.Return or FlowControl.Interrupt or FlowControl.Exception) break;
+                    if (instruction.FlowControl is FlowControl.UnconditionalBranch or FlowControl.ConditionalBranch) {
+                        if (instruction.Op0Kind is not (OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64)) throw new InvalidDataException();
+                        ulong branch = instruction.NearBranchTarget;
+                        branchTargets.Add(branch);
+                        if (branch >= address && branch < address + (ulong)count) pending.Enqueue(branch);
+                        else if (instruction.FlowControl == FlowControl.ConditionalBranch) throw new InvalidDataException();
+                        if (instruction.FlowControl == FlowControl.UnconditionalBranch) break;
+                    }
+                }
+            }
+            foreach (var region in guardedRegions) {
+                using var entries = branchTargets.GetViewBetween(region.First, region.Last).GetEnumerator();
+                if (entries.MoveNext()) throw new InvalidDataException();
+            }
             var instructions = new List<object[]>();
-            while (decoder.IP < address + (ulong)count) {
-                decoder.Decode(out var instruction);
-                if (instruction.Code == Code.INVALID || decoder.IP > address + (ulong)count || instructions.Count >= 8192 || ++instructionTotal > 262144) throw new InvalidDataException();
+            foreach (var instruction in decoded.Values) {
                 formatter.Options.MemorySizeOptions = instruction.Mnemonic == Mnemonic.Lea ? MemorySizeOptions.Never : MemorySizeOptions.Always;
                 var formatted = new StringOutput(); formatter.Format(in instruction, formatted);
                 string text = formatted.ToString().ToLowerInvariant();

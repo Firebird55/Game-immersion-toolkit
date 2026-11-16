@@ -207,6 +207,29 @@ The native loader call establishes the additional one-byte hash prefix for
 ordinary tables; the three LRU tables use their direct counted row resource.
 Native shared helpers establish signed array lengths and enum serialization.
 
+The owned preparation adapter now regenerates the metadata from complete
+publisher inputs and derives these descriptions through the managed decoder.
+It does not consume retained research dumps, a Python disassembler or a newer
+third-party data snapshot. Managed identities distinguish duplicate display names
+and nested method/field scopes. Typed arrays must reach original global/member
+static storage; heap element stores and clobbered receivers cannot establish a
+filename binding. Each serialized field requires a masked, owned native read or
+field-address argument, with complete and unique bit positions. Inline text IDs
+require the recognized signed legacy-hash expression and the later unsigned
+current-hash read in the same field, rather than accepting arbitrary overwritten
+registers.
+
+Bootstrap derivation includes the native string-to-enum conversion for package
+type: original label/constant pairs, string argument flow and enum return flow
+must agree. Its bounded static branch graph handles the guarded compiler jump
+table without running native instructions. The complete current pipeline derives
+nine ClientConfig fields, 31 version-reader operations, the resource wire tags,
+21 filename/row bindings and all 109 serialized fields. Field order, prefix and
+enum descriptions agree with the independently validated original-resource
+descriptions. A descriptor generation is cached only after all required schemas
+pass; helper, input or derivation changes invalidate it. An incomplete attempt
+preserves the previous receipt and complete generations.
+
 Using those descriptions, this reader consumes all 21 original resources to EOF
 and matches 368,989 semantic rows against the frozen verification snapshot, with
 zero missing or extra rows. All resources come from the already whole-MD5-checked
@@ -225,10 +248,23 @@ string codec description for 4.7. Exact corresponding compiler source, build
 material and full licenses travel with the executable and are checked at
 runtime. Functional local builds used SDK 10.0.302; they are not pinned delivery
 acceptance. The shared builder requires SDK 10.0.403/runtime 10.0.14 and runs
-authored malformed-range/output-preservation probes. Normal metadata acquisition,
-native-description orchestration, ordinary provider integration and full update
-recovery remain unfinished. A newer third-party game-data publication is not
-needed for this frozen software path.
+authored malformed-range/output-preservation probes. Ordinary provider
+integration and full update recovery remain unfinished. The
+complete current native-description preparation adapter is implemented; its
+ordinary two-version worker acceptance and pinned distributable still need their
+own checks. The GPL metadata decoder continues to use its frozen software
+profiles; the separately demonstrated owned native-key derivation is not yet a
+complete metadata-profile recovery fallback. A newer third-party game-data
+publication is not needed for this frozen software path.
+
+The complete current adapter also succeeds against the live public dispatch
+using its freshly generated description. All five resource index identities
+match the original 4.7 generation below. Passing its generated table descriptions
+directly to `OriginalTables` consumes all 21 original resources and 368,989 rows.
+An authenticated descriptor cache skips metadata indexing and disassembly on a
+repeat attempt. This is original route/table preparation evidence; it does not
+yet establish the ordinary setup worker, regional editions, playback or recovery
+acceptance for the new provider.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

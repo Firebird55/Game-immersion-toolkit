@@ -45,6 +45,22 @@ Both operations reject existing outputs and paths through links. The caller
 stages results privately and publishes a generation only after its complete
 semantic and integrity checks pass.
 
+An optional `control_flow: true` range follows statically known direct branches
+and a bounded compiler switch pattern: unsigned index guard, RIP-relative signed
+32-bit table and register jump. It enumerates every table edge without evaluating
+an input or executing instructions. Overlapping instructions, unterminated flow,
+unknown indirect branches, external conditional branches and paths bypassing the
+switch guard fail. This permits enum-label analysis without interpreting embedded
+table bytes or unreachable tail data as instructions.
+
+`starrail_native_preparation.prepare` joins complete original acquisition,
+metadata regeneration, managed decoding, bootstrap/protocol descriptions and all
+requested table descriptions. Cache identities cover the authenticated inputs,
+helper artifact and owned derivation logic. Failed or incomplete generations
+retain the previous descriptor receipt and complete outputs. Source checkouts
+build only the fixed software in private directories with a closed package feed;
+bundled installations resolve only the verified included apphost.
+
 Functional research regenerated metadata from complete manifest-verified Global
 4.6 and 4.7 inputs with the same frozen source and metadata-only entrypoint.
 Managed decoding derived all nine bootstrap fields on both versions through the
