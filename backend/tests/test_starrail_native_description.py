@@ -91,6 +91,26 @@ def test_malformed_or_ambiguous_primitive_metadata(instructions, methods):
         native.primitive_readers(instructions, methods, 0)
 
 
+@pytest.mark.parametrize(('operation', 'operands'), [
+    ('xor', 'eax, eax'), ('mov', 'al, 0'), ('lea', 'rax, [rbx]'), ('movsxd', 'rax, ebx'),
+    ('xchg', 'rbx, rax'), ('mul', 'rbx'), ('cmpxchg', 'qword ptr [rdi], rbx'),
+    ('xor', 'r12d, r12d'),
+])
+def test_scalar_return_and_receiver_aliases_cannot_be_overwritten(operation, operands):
+    metadata, instructions = evidence()
+    instructions.insert(1, (0, operation, operands))
+    instructions = [(i + 1, op, args) for i, (_, op, args) in enumerate(instructions)]
+    with pytest.raises(ValueError):
+        native.client_schema(metadata, instructions, READERS)
+
+
+def test_independent_work_and_receiver_reads_preserve_scalar_binding():
+    metadata, instructions = evidence()
+    instructions[1:1] = [(0, 'xor', 'ebx, ebx'), (0, 'test', 'r12, r12'), (0, 'test', 'rax, rax')]
+    instructions = [(i + 1, op, args) for i, (_, op, args) in enumerate(instructions)]
+    assert native.client_schema(metadata, instructions, READERS)[0] == {'kind': 'string', 'semantic': 'Label'}
+
+
 def key_evidence(multiplier=0x123456789ABC, addition=0x765432101234, step=0xABCDEF123456,
                  index='rax', key='rdx', temporary='r11', negative_bits=19, positive_bits=24):
     mask_register = {'rax': 'eax', 'r8': 'r8d'}[index]

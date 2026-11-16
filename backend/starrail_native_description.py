@@ -30,6 +30,52 @@ def _instructions(value):
     return value
 
 
+def _register(value):
+    aliases = {'eax': 'rax', 'ax': 'rax', 'al': 'rax', 'ah': 'rax',
+               'ebx': 'rbx', 'bx': 'rbx', 'bl': 'rbx', 'bh': 'rbx',
+               'ecx': 'rcx', 'cx': 'rcx', 'cl': 'rcx', 'ch': 'rcx',
+               'edx': 'rdx', 'dx': 'rdx', 'dl': 'rdx', 'dh': 'rdx',
+               'esi': 'rsi', 'si': 'rsi', 'sil': 'rsi', 'edi': 'rdi', 'di': 'rdi', 'dil': 'rdi',
+               'ebp': 'rbp', 'bp': 'rbp', 'bpl': 'rbp', 'esp': 'rsp', 'sp': 'rsp', 'spl': 'rsp'}
+    match = re.fullmatch(r'(r(?:[89]|1[0-5]))[dwb]', value)
+    return aliases.get(value, match[1] if match else value)
+
+
+def _writes(operation, operands, register):
+    """Conservative x64 register effects for supported read/store joins."""
+    operation = operation.split()[-1]
+    register = _register(register)
+    parts = [part.strip() for part in operands.split(',')]
+    if operation == 'call':
+        return register in {'rax', 'rcx', 'rdx', 'r8', 'r9', 'r10', 'r11'}
+    if operation in {'div', 'idiv', 'mul', 'cmpxchg8b', 'cmpxchg16b'} or operation == 'imul' and len(parts) == 1:
+        return register in {'rax', 'rdx'}
+    if operation in {'cpuid', 'rdtscp'}:
+        return register in {'rax', 'rbx', 'rcx', 'rdx'}
+    if operation in {'rdtsc', 'rdmsr', 'cqo', 'cdq', 'cwd'}:
+        return register in {'rax', 'rdx'}
+    if operation in {'syscall', 'sysenter', 'int', 'int1', 'int3'}:
+        return True
+    if operation in {'enter', 'leave'}:
+        return register in {'rsp', 'rbp'}
+    if operation in {'cbw', 'cwde', 'cdqe', 'lahf'} or operation.startswith('lods'):
+        return register == 'rax'
+    if operation.startswith('cmpxchg') and register == 'rax':
+        return True
+    if operation in {'xchg', 'xadd'}:
+        return any(_register(part) == register for part in parts)
+    if operation in {'cmp', 'test', 'bt', 'push', 'nop', 'ret', 'sahf'} or operation.startswith('j'):
+        return False
+    if operation.startswith('loop'):
+        return register == 'rcx'
+    if operation.startswith(('stos', 'scas')):
+        return register == 'rdi'
+    if operation in {'movsb', 'movsw', 'movsq', 'cmpsb', 'cmpsw', 'cmpsq'} or (
+            operation in {'movsd', 'cmpsd'} and not operands.startswith('xmm')):
+        return register in {'rsi', 'rdi'}
+    return bool(parts) and _register(parts[0]) == register
+
+
 def primitive_readers(instructions, methods, image_base):
     """Join direct calls to no-argument string/uint/bool metadata signatures.
 
@@ -123,12 +169,14 @@ def client_schema(metadata_block, instructions, readers):
             width, register = {'string': ('qword', 'rax'), 'int': ('dword', 'eax'),
                                'uint': ('dword', 'eax'), 'bool': ('byte', 'al')}[dtype]
             _check((match[1], match[4]) == (width, register))
-            # A scalar return cannot survive another call before its store.
-            _check(not any(op == 'call' for _, op, _ in instructions[last + 1:i]))
-        stores.append((int(match[3], 16), match[2], {'kind': kind, 'semantic': name}))
-    _check(len(stores) == len(fields) and {offset for offset, _, _ in stores} == set(fields)
-           and len({register for _, register, _ in stores}) == 1)
-    return [field for _, _, field in stores]
+            _check(not any(_writes(op, args, 'rax') for _, op, args in instructions[last + 1:i]))
+        stores.append((int(match[3], 16), match[2], {'kind': kind, 'semantic': name}, i))
+    _check(len(stores) == len(fields) and {offset for offset, _, _, _ in stores} == set(fields)
+           and len({register for _, register, _, _ in stores}) == 1)
+    receiver = stores[0][1]
+    _check(calls and not any(_writes(op, args, receiver)
+                            for _, op, args in instructions[calls[0][0] + 1:stores[-1][3]]))
+    return [field for _, _, field, _ in stores]
 
 
 def string_key(instructions):

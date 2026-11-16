@@ -82,7 +82,10 @@ and offsets to the native return stores in serialization order. String arrays
 require count, allocation, indexed string-store and loop-branch evidence. Every
 public field must be accounted for once, with consistent object registers,
 primitive kinds and store widths. Missing, duplicate, unsupported or ambiguous
-evidence fails closed. The implementation bounds method evidence to 8,192
+evidence fails closed. Scalar return aliases cannot be overwritten before the
+matching store; the shared receiver register cannot be rebound while fields are
+being read. Independent instructions and register reads remain allowed.
+The implementation bounds method evidence to 8,192
 instructions and a 64-KiB span, and config metadata to 256 fields. It contains
 no release, address, field-offset or nine-field order list.
 
