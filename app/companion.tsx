@@ -418,6 +418,7 @@ const TranscriptRow = memo(function TranscriptRow({
 function CompanionClient() {
  const {t: uiText}=useInterfaceLanguage();
   const nativeHost = useNativeHost();
+  const accountsSupported = !nativeHost.android || nativeHost.capabilities?.protected_accounts === true;
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -928,7 +929,7 @@ function CompanionClient() {
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={openReadingOptions} disabled={!providerReadingSource}
           title={!providerReadingSource ? uiText('Lexirise reading tools are unavailable for this language.') : undefined}
           aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> <span className="control-label">{uiText("Reading options")}</span></button>}
-        {readingMode === 'lexirise' && <button type="button" className="reader-options-button" aria-label={uiText("Account settings")} title={uiText("Account settings")} onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}><UserRound size={15} /><span className="control-label">{uiText("Account settings")}</span></button>}
+        {readingMode === 'lexirise' && accountsSupported && <button type="button" className="reader-options-button" aria-label={uiText("Account settings")} title={uiText("Account settings")} onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}><UserRound size={15} /><span className="control-label">{uiText("Account settings")}</span></button>}
         </div>
       </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -1101,12 +1102,12 @@ function CompanionClient() {
       </footer>
 
       {readerSettingsOpen && readerSettingsOpen.account === (lexirise.account ?? 'legacy') && <ReadingOptionsDialog initial={readingOptions} onChange={next => saveReadingOptions(next, readerSettingsOpen)} onClose={() => setReaderSettingsOpen(null)} sourceLanguage={readerSettingsOpen.language} />}
-      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
+      {readingMode === 'lexirise' && accountsSupported && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
         <AccountSwitcher onChanged={() => void loadSnapshot()}/>
         {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
         <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
       </DialogContent></Dialog>}
-      {readingMode === 'lexirise' && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
+      {readingMode === 'lexirise' && accountsSupported && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">
