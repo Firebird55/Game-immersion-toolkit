@@ -147,9 +147,48 @@ it does not make all those entries voiced dialogue. Mainland patch contents
 and base-file fallback require independent selection; the Global files must
 not be substituted into a different regional generation.
 
+The owned reader also parsed the original mainland 1.5.6 `zh-CN` patch
+resource: **121,545 entries in 195 namespaces**, including 2,438 Blackbird
+keys. Its 17,691,445 bytes have SHA-256
+`bfd7c1722af7503a629d820b40f359205755b565367f699381455c8a98725a76`.
+This checks that original resource independently of the community export.
+The inspected mainland base and patch PAK directories list only `zh-CN`
+for this resource; that observation alone does not establish the complete
+regional text-language scope across other containers.
+
 The archive and localization acquisition layers are implemented. Ordinary
 Setup, complete authoring-table extraction, evidenced patch precedence and
 update activation remain open in #88. The public support matrix is unchanged.
+
+### Original IoStore authoring resources
+
+The original dialogue and sequence tables are in IoStore containers rather
+than the ordinary PAK directory. `backend/nte_publisher_iostore.py` implements
+a bounded signed-v8 reader for one selected container. It verifies the complete
+TOC against the publisher manifest MD5 and each selected stored UCAS block
+against the TOC's SHA-1 before decrypting or decompressing. Cached blocks are
+rechecked. Adjacent downloads coalesce up to 4 MiB; an invalid response publishes
+none of its blocks. The seekable-stream interface returns only checksum-covered
+bytes and refuses gaps, unknown formats and mismatched regional cipher proofs.
+There is no independent RSA or whole-large-UCAS checksum claim.
+[Primary IoStore format reference](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/UE4/IO/Objects/FIoStoreTocResource.cs)
+
+In Global 1.5.4, the owned reader recovered the complete original bytes of
+`DialogSoundTable`, `BubbleVoiceMsgTable`, `DT_VoiceCaptionDataTable` and
+`DT_StorySequenceData` from `Paks/pakchunk1-Windows`, plus
+`DT_StorySequenceData_World` and `DialogSoundTable_Favor_QQ` from
+`PatchPaks/pakchunk0-Windows_0_P`. All six SHA-256 values match the independent
+range probe. The two complete TOCs contain 19,767 and 17,591 file entries.
+No installation, game process or community table export supplied these bytes.
+
+These are original Zen package resources, not extracted JSON or legacy loose
+Unreal packages. The managed parser still needs to consume them through checked
+streams with the appropriate global container, type schema, imports and mount
+priority. The resource reader alone does not establish dialogue aliases,
+complete current movie timing or normal publisher Setup. Thirteen synthetic
+tests cover partial stream reads, unsigned gaps, corruption, AES padding,
+compression output bounds, unsafe directory graphs and historical cache
+isolation; the archive/localization group totals 57 passing tests.
 
 ### The five Global HPW resources are video files
 
