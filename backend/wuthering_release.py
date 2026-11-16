@@ -469,6 +469,39 @@ def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, loc
                 row['voice_status'] = 'voiced'
 
 
+def _movie_context_records(tools, snapshot, stamp, params, db_root, records, locale, decoder):
+    from . import wuthering_assets as assets, wuthering_bank as bank
+    from . import wuthering_cinematics as films, wuthering_context as context
+    if decoder is None or not any(row.get('dialogue_kind') == 'cinematic'
+                                  and row.get('voice_status') == 'unavailable'
+                                  and row.get('audio') is None for row in records):
+        return
+    code = assets.VOICE_LOCALES[locale][0]
+    events = {event for choices in context.full_scene_events(db_root).values() for event in choices}
+    names = {films.EVENT_ROOT + code + '/' + event + '.bnk': event for event in events}
+    references = _movie_locations(tools, snapshot, params, code, set(names))
+    banks = {names[name]: _voice_package(tools, stamp, info).extract(position)
+             for name, (info, position) in references.items()}
+    candidates = {media for data in banks.values() for media in bank.media_candidates(data)}
+    names = {f'{films.MEDIA_ROOT}{code}/{media}.wem': media for media in candidates}
+    references = _movie_locations(tools, snapshot, params, code, set(names))
+    members = {names[name] for name in references}
+    bindings = {event: bank.scene_sources(data, event, members) for event, data in banks.items()}
+    wanted = {source.media_id for sources in bindings.values() for source in sources}
+    shapes = {}
+    with tempfile.TemporaryDirectory(dir=db_root) as temporary:
+        for name, (info, position) in references.items():
+            media = names[name]
+            if media not in wanted:
+                continue
+            data = _voice_package(tools, stamp, info).extract(position)
+            _validate_wem(data)
+            shape = films.source_info(data, decoder, Path(temporary))
+            if shape:
+                shapes[media] = shape
+    context.assign_contexts(db_root, records, locale, bindings, shapes)
+
+
 def _same_launcher(snapshot, current):
     version, root, base = current
     # Each call has already verified the selected regional publisher, checksummed
@@ -498,6 +531,7 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         files = _voice_locations(tools, stamp, assets.VOICE_LOCALES[source_locale][0])
         records = assets.build_language_records(path, files, source_locale, selected)
         _movie_records(tools, snapshot, stamp, params, path, records, files, source_locale, decoder)
+        _movie_context_records(tools, snapshot, stamp, params, path, records, source_locale, decoder)
     pak.check(records)
     for record in records:
         if record['audio']:

@@ -1,5 +1,14 @@
 // Product copy shared by the desktop and browser interfaces.
 export default {
+ "Shared subtitle is incomplete. Read or save the full line on the PC.":["De gedeelde ondertitel is ingekort. Lees of bewaar de volledige regel op de pc.","共享字幕被截短，请在电脑上阅读或保存完整台词。","共用字幕被截短，請在電腦上閱讀或儲存完整台詞。"],
+ "Include subtitles without available audio":["Ondertitels zonder beschikbare audio opnemen","收录暂无音频的字幕","收錄暫無音訊的字幕"],
+ "Audio binding unresolved":["Audiokoppeling onbekend","音频关联尚未确定","音訊關聯尚未確定"],
+ "Original voice unavailable":["Originele stem niet beschikbaar","原版配音暂不可用","原版配音暫不可用"],
+ "Captures verified dialogue text with missing or unresolved audio. Its audio status stays visible; general reactions are not presented as spoken sentences. Saved history is kept when this is off.":["Legt bevestigde dialoogtekst vast wanneer audio ontbreekt of de koppeling onbekend is. De audiostatus blijft zichtbaar; algemene reacties worden niet als gesproken zinnen aangeboden. Opgeslagen geschiedenis blijft bewaard als dit uitstaat.","收录音频缺失或关联未确定的已验证对白字幕，并保留音频状态。通用反应音不会被当作完整台词。关闭后仍保留已存历史。","收錄音訊缺失或關聯未確定的已驗證對白字幕，並保留音訊狀態。通用反應音不會被當作完整台詞。關閉後仍保留已存歷史。"],
+ "Original voice · context clip":["Originele stem · fragment met context","原版配音 · 含上下文片段","原版配音 · 含上下文片段"],
+ "Play context clip":["Fragment met context afspelen","播放含上下文片段","播放含上下文片段"],
+ "▶ Play context clip":["▶ Fragment met context afspelen","▶ 播放含上下文片段","▶ 播放含上下文片段"],
+ "Context clip":["Fragment met context","含上下文片段","含上下文片段"],
  "Windows Setup": ["Windows-instellingen","Windows 设置","Windows 設定"],
  "Supported with Windows publisher Setup or installed assets": ["Ondersteund via de uitgever in de Windows-instellingen of met geïnstalleerde gamebestanden","可从 Windows 设置读取发行商资源，也可使用已安装的游戏文件","可在 Windows 設定中讀取發行商資源，也可使用已安裝的遊戲檔案"],
  "Windows game integration only": ["Game-integratie alleen op Windows","仅支持 Windows 游戏集成","僅支援 Windows 遊戲整合"],
@@ -15,6 +24,7 @@ export default {
  "Global": ["Wereldwijd","全球版","全球版"],
  "Mainland China": ["Chinees vasteland","中国大陆版","中國大陸版"],
  "Publisher Setup for Global dialogue and original voices": ["Global-dialogen en originele stemmen van de uitgever","可从发行商准备全球版台词与原版配音","可從發行商準備全球版台詞與原版配音"],
+ "Publisher Setup for Global dialogue, original voices and verified scene contexts": ["Global-dialogen, originele stemmen en geverifieerde scènefragmenten met context van de uitgever","可从发行商准备全球版台词、原版配音和已核实的场景上下文片段","可從發行商準備全球版台詞、原版配音和已核實的場景上下文片段"],
  "Publisher Setup for the selected edition's available text and original voices": ["Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever","从发行商获取所选版本可用的文本与原版配音","從發行商取得所選版本可用的文字與原版配音"],
  "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.": ["Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.","全球版启动器中的对话场景、动态漫画、消息、游戏提示和带时间轴的线索录音。","全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。"],
  "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings.": ["De instellingen halen Global-dialoogscènes, bewegende strips, berichten, tips en opnamen van aanwijzingen op bij de uitgever.","设置可从发行商获取全球版对话场景、动态漫画、消息、提示和线索录音。","設定可從發行商取得全球版對話場景、動態漫畫、訊息、提示和線索錄音。"],

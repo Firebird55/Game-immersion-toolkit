@@ -104,6 +104,7 @@ class AppSettings(BaseModel):
     auto_start: bool = True
     save_unmatched: bool = False
     capture_unvoiced: bool = False
+    capture_missing_audio: bool = False
 
     @field_validator("process_names", "window_title_contains")
     @classmethod
@@ -120,10 +121,15 @@ class LanguageContext(BaseModel):
     audio_locale: str = 'zh-Hans'
     # Some authored subtitle pages identify a complete recording but have no
     # verified individual audio cut. Keep that explicit through every reader.
-    audio_scope: Literal['line', 'paragraph'] = 'line'
+    audio_scope: Literal['line', 'context', 'paragraph'] = 'line'
     texts: dict[str, str] = Field(default_factory=dict)
     voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
     dialogue_kind: str | None = None
+    text_capture_verified: bool = False
+
+    @property
+    def is_verified_missing_audio(self) -> bool:
+        return self.text_capture_verified and self.voice_status in {'unknown', 'unavailable'}
 
     @model_validator(mode='after')
     def legacy_language_defaults(self):

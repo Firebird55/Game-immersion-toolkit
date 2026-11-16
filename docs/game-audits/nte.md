@@ -456,6 +456,135 @@ ambiguity. Twelve compiled owned-reader fixtures and 96 focused Python checks
 passed; packaged compiler-free and full hosted acceptance remain separate.
 [Selected publisher manifest](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
 
+### Wwise source headers and timed-media limits, index schema 10
+
+The shared fixed-event reader now consumes the Wwise 154 codec `cacheID`
+before media size for all three storage values. Earlier versions 145/150 keep
+their former layout and default version restrictions. Storage metadata is
+opt-in for NTE; other callers retain their existing result shape, and internal
+storage fields are not copied into saved audio bindings. The independent
+[pinned Wwise parser](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wparser.py#L249)
+also declares this version-dependent field independently of storage type.
+
+The current 508 original bank files contain 867 storage-2 and 56 storage-0
+codec sources; no native storage-1 example was available. Header correction
+changes 28 bank/dub cases across seven events and leaves 480 unchanged. The
+original localized `AkAudioEvent` load metadata explicitly references all 56
+separate WEM files, with matching event, bank and language identities and
+non-streaming media declarations. These banks declare that they do not contain
+media, so absent `DIDX`/`DATA` chunks do not imply a missing recording. The raw
+event census consequently resolves at least one branch in 436 cases; 72 cases
+remain unresolved and four captionless-scene banks remain absent. These are
+graph results, not additional playable caption coverage.
+
+Loading the correct recording does not establish its subtitle clock. An initial
+prototype exposed 104 timed bindings before export rejected an original
+English source lasting 58,081 ms against a caption ending at 60,000 ms. All 104
+remain withheld, including windows that fit inside their recording. The inspected
+sequence settings and first-level shot assets do not establish the runtime
+voice caller, recording ownership or a common caption/voice origin. Nothing is
+clamped, guessed from text or classified as silent from this mismatch.
+
+NTE cinematic binding therefore retains the previously reviewed storage-2 route;
+storage 0/1 remains unavailable for timed captions pending its authored clock
+contract. Storage 2 alone is not a universal timing guarantee. Whole recordings
+with an exact ordinary-dialogue owner can still use the corrected header.
+Multi-layer events cannot become partially voiced by discarding an unsuitable
+layer. Random/history containers and unsupported switches remain unresolved.
+Owned fixtures cover all three storage values, explicit protagonist selection,
+mixed-layer rejection, unchanged saved-binding fields and malformed headers.
+Storage-1 coverage is a format fixture only, without native validation.
+
+The final guarded normal preparation passed all five Global 1.5.4 study-text
+flows and the separate mainland 1.5.6 Mandarin flow. Each rebuilt record set
+matches schema 9 exactly except for its new immutable publisher snapshot ID:
+text IDs, translations, voices, gains, windows and statuses are preserved, and
+none of the 104 unproven bindings is promoted. Mainland still reports its absent
+English translation separately. Each flow exported the same 61 reviewed clips
+and reproduced identical nonzero PCM after a fresh-output restart with discovery
+and byte-range networking prohibited: **366 pairs across 732 conversions**.
+Further offline replay preserved all 54 saved schema-8 clips, four schema-7
+current/historical clips and 54 schema-9 clips across six flows, matching prior
+PCM in **112 retained conversions**. These checks preserve authored display
+cuts; they do not establish full utterance inclusion for every cinematic cue.
+Two initial mainland attempts failed at the publisher TLS handshake; a subsequent
+unchanged normal attempt completed discovery, preparation and its final updater
+recheck before the successful playback/offline run.
+
+The affected shared-parser, PRAGMATA, NTE, Endfield and Wuthering checks pass
+**519 tests**. Initial frozen-runtime fixture runs rejected a temporary folder
+inside a source checkout; rerunning with a separate writable test root passed
+without relaxing that guard. Generated documentation, links and the public
+publication scan also pass. Full hosted and native-device acceptance remain
+separate.
+
+### Experimental native schema recovery from official clients
+
+An isolated `backend/nte_native_schema.py` API can supplement a retained usmap
+with new standalone native types declared in an official Windows client. It is
+not called by Setup or the normal publisher pipeline and does not change index
+schema 10 or the managed reader identity. The caller must authenticate both
+inputs first; the helper's SHA-256 values identify its inputs, not their trust.
+It parses data only and never loads or executes the downloaded game.
+
+The parser derives addresses from bounded PE64 section mappings and validates
+complete native struct/property descriptor records. It does not use game
+versions, fixed executable offsets, type-name prefixes or caption ID lists.
+Unknown native parents, struct/enum constructors, unsupported flags, malformed
+nesting and ambiguous identities remain excluded. Case collisions cannot create
+an extra semantic type. Existing names, enum records and struct records retain
+their original bytes and resolution order; no existing type is overwritten.
+Limits include a 512 MiB client, an 8 MiB seed/output, 64 MiB maximum seed
+expansion, 96 PE sections, 32,768 descriptor candidates, 250,000 native property
+descriptors and nesting depth 16. The experimental seed decoder supports the
+reviewed version-4 unversioned usmap envelope with no compression or Zstandard;
+unknown envelopes/extensions are rejected without producing replacement data.
+
+With the code and the existing 1.4 usmap fixed, the helper processed the two
+manifest-checksummed original Global clients
+[1.4.9](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.9/ResList.bin.zip)
+and [1.5.4](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip). The older
+client leaves the seed byte-identical; the newer appends **137** standalone
+types. Networking was prohibited during both regeneration runs. A newer 1.5
+mapping was quarantined from generation and used only for evaluation: all 137
+types agree in field order, dimensions and wire types; 116 also have identical
+field spelling and 21 differ only in FName casing. Three earlier byte-enum
+candidates were excluded by their original nonzero enum-constructor reference,
+without a list of game-specific exceptions. Another 453 newly observed native
+types remain excluded by unresolved parent/struct/enum identities. These counts
+describe schema recovery, not narrative coverage.
+
+The unchanged production managed reader also extracted current dialogue aliases,
+sequence cues, voice events and movie tables using the generated mapping. Each
+output exactly matches extraction with the independent retained 1.5 control.
+The generated map loads in the existing managed mapping reader. This experiment
+does not prove automatic Setup adoption, independent key acquisition or complete
+content-update acceptance. Those remain separate from metadata regeneration.
+Historical authoring comparison also exposes a seed compatibility limit: the
+fixed 1.4 seed and the historical snapshot's independently selected 1.4 mapping
+produce equal ordinary aliases and movie tables, but different native sequence
+inventories (85 event groups/63 caption groups versus zero, and 68 additional
+voice events). These are not accepted as additional playback coverage or an
+exact historical preparation replay. The helper cannot resolve that difference
+by overwriting retained type definitions.
+
+A separate retained-version English worker replay rebuilt **126,168** current
+records, including **27,864** voiced entries, with the generated mapping. Every
+record field matches the existing current snapshot except its explicitly
+experimental publisher snapshot ID: text, translations, audio ownership, gains,
+windows and statuses are preserved. This replay supplied the retained official
+version and experimental schema explicitly; it is not an unmodified Setup or
+live-update adoption pass. **307 affected NTE checks** passed, including **34
+owned format cases** for malformed inputs, bounds, native ownership, enums,
+parents, nested descriptors, duplicates and preservation of retained records.
+
+A diagnostic found a corresponding new caption structure in the museum files:
+22 bubble-track rows contain 251 captions and 250 distinct nonempty voice IDs.
+The original data asset explicitly owns the sequence and bubble tables; its
+StringTable's actual namespace differs from its asset basename. Current quest
+activation, default track selection and voice-start semantics remain unproven.
+These records are not promoted as active, voiced, silent or covered content.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats

@@ -95,6 +95,7 @@ type Settings = Record<`${Exclude<GameId, 'zzz' | 'pragmata'>}_region`, CaptureR
   auto_start: boolean;
   save_unmatched: boolean;
   capture_unvoiced: boolean;
+  capture_missing_audio?: boolean;
 };
 type CaptureStatus = {
   visible_text_ids: string[];
@@ -138,11 +139,12 @@ type TranscriptLine = {
   channel: 'dialogue' | 'gameplay' | 'tip' | 'cinematic';
   voiced: boolean;
   voice_status?: 'voiced' | 'unvoiced' | 'unavailable' | 'unknown';
+  text_capture_verified?: boolean;
   dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
   audio_source?: 'original' | 'recording';
-  audio_scope?: 'line' | 'paragraph';
+  audio_scope?: 'line' | 'context' | 'paragraph';
   speaker_english?: string | null;
   speaker_chinese?: string | null;
   favorite: boolean;
@@ -151,11 +153,18 @@ function isComicLine(line: TranscriptLine) {
   return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
 function voicePlaybackLabel(line: TranscriptLine) {
-  return line.audio_scope === 'paragraph' ? 'Original voice · full paragraph'
+  return line.audio_scope === 'context' ? 'Original voice · context clip'
+    : line.audio_scope === 'paragraph' ? 'Original voice · full paragraph'
     : line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.voice_status === 'unvoiced' || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
+}
+function isMissingAudioLine(line: TranscriptLine) {
+  return !!line.text_capture_verified && (line.voice_status === 'unknown' || line.voice_status === 'unavailable');
+}
+function missingAudioLabel(line: TranscriptLine) {
+  return line.voice_status === 'unavailable' ? 'Original voice unavailable' : 'Audio binding unresolved';
 }
 type UpdateStatus = {
   state: string;
@@ -383,6 +392,8 @@ const TranscriptRow = memo(function TranscriptRow({
       {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} current onSummary={setReadingSummary} /> : <StableText className="current-chinese" lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
+      {line.audio_scope === 'context' && <small>{uiText("Context clip")}</small>}
+      {isMissingAudioLine(line) && <small>{uiText(missingAudioLabel(line))}</small>}
       <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
       <div className="line-actions">
         <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`${voicePlaybackLabel(line)}: ${line.english}`} title={voicePlaybackLabel(line)}><Volume2 size={16} /></button>
@@ -390,7 +401,7 @@ const TranscriptRow = memo(function TranscriptRow({
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
-          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced') || (sendingRef !== null && sendingRef !== ref)}
+          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced' || isMissingAudioLine(line)) || (sendingRef !== null && sendingRef !== ref)}
           game={line.game}
           onClick={() => onSendToLexirise('line', line.id)}
           compact
@@ -937,7 +948,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.channel === 'tip' ? 'Top-right' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.channel === 'tip' ? 'Top-right' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : isMissingAudioLine(latestLine) ? uiText(missingAudioLabel(latestLine)) : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -950,13 +961,13 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} locale={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
-              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine) ? <span className="text-muted">{uiText(latestLine.voice_status === 'unvoiced' ? 'Unvoiced dialogue' : missingAudioLabel(latestLine))}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'context' ? 'Play context clip' : latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
               </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
-              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced')}
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine))}
             </div>
           </div>
         ) : (
@@ -1101,6 +1112,10 @@ function CompanionClient() {
             onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
           </label>}
           <p className="toolkit-setup-note">{uiText('Applies to all games. Includes text the game identifies as unvoiced; missing voice files are reported separately. Saved history is kept when this is off.')}</p>
+          {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_missing_audio ?? false}
+            onChange={event => setDraftSettings(current => current ? {...current, capture_missing_audio: event.target.checked} : current)} /> {uiText('Include subtitles without available audio')}
+          </label>}
+          <p className="toolkit-setup-note">{uiText('Captures verified dialogue text with missing or unresolved audio. Its audio status stays visible; general reactions are not presented as spoken sentences. Saved history is kept when this is off.')}</p>
           {selectedGame === 'zzz' && draftSettings && <label>{uiText("Proxy voice")}<select aria-label={uiText("Proxy voice")} value={draftSettings.zzz_proxy_voice ?? 'unconfigured'}
               onChange={event => setDraftSettings(current => current ? { ...current, zzz_proxy_voice: event.target.value as Settings['zzz_proxy_voice'] } : current)}>
               <option value="unconfigured">{draftSettings.zzz_detected_proxy === 'female' ? 'Automatic · Belle' : draftSettings.zzz_detected_proxy === 'male' ? 'Automatic · Wise' : 'Automatic · detect from dialogue'}</option>

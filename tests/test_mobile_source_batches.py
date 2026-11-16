@@ -76,8 +76,10 @@ def test_prepared_sources_enable_verified_batching_for_every_voiced_game(tmp_pat
         assert result['coverage']['exportedVoices'] == 1
 
 
-@pytest.mark.parametrize('game', ['zzz', 'pragmata', 'cyberpunk', 'witcher3', 'wuwa', 'nte', 'beyond', 'heavyrain'])
-def test_selected_multilingual_exports_use_the_selected_decoder_and_official_target(tmp_path, monkeypatch, game):
+@pytest.mark.parametrize('game,scope', [(game, 'paragraph' if game == 'beyond' else 'line')
+    for game in ['zzz', 'pragmata', 'cyberpunk', 'witcher3', 'wuwa', 'nte', 'beyond', 'heavyrain']]
+    + [('wuwa', 'context')])
+def test_selected_multilingual_exports_use_the_selected_decoder_and_official_target(tmp_path, monkeypatch, game, scope):
     from backend import language_preparation, lexirise, lexirise_settings, local_voice, pragmata_audio, nte_assets
     from scripts import index_pragmata_assets
     directory = tmp_path / 'data/languages' / game / 'ja'; directory.mkdir(parents=True)
@@ -86,7 +88,7 @@ def test_selected_multilingual_exports_use_the_selected_decoder_and_official_tar
            'source_locale': 'ja', 'audio_locale': 'ja', 'texts': {'ja': '合成の字幕です。', 'zh-Hans': '合成字幕。'},
            'audio': {'locale': 'ja', 'fixture': 1}, 'channels': ['cinematic'], 'player_voice': 'female'}
     if game == 'zzz': row['member_text_ids'] = ['GalGame_fixture']
-    if game == 'beyond': row['audio_scope'] = 'paragraph'
+    row['audio_scope'] = scope
     path = directory / 'textmap.json'
     path.write_text(json.dumps({'format': 2, 'game': game, 'source_locale': 'ja', 'targets_requested': ['zh-hans'],
         'install': str(tmp_path / 'game'), 'fingerprint': 'fixture', 'records': [row]}), encoding='utf-8')
@@ -117,7 +119,7 @@ def test_selected_multilingual_exports_use_the_selected_decoder_and_official_tar
     assert records[0]['sourceLocale'] == records[0]['audioLocale'] == 'ja'
     assert records[0]['translationLocale'] == 'zh-Hans' and records[0]['translationText'] == row['texts']['zh-Hans']
     assert records[0]['channels'] == ['cinematic'] and records[0]['playerVoice'] == 'female'
-    assert records[0]['audioScope'] == ('paragraph' if game == 'beyond' else 'line')
+    assert records[0]['audioScope'] == scope
     assert 'memberTextIds' not in records[0], 'A historical ZZZ alias is not a two-caption context'
     check.force()
     result = export_library(game, records, tmp_path / 'export', voice=voice, check=check)

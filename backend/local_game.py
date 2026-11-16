@@ -30,7 +30,7 @@ def dialogue_voice_status(audio, status=None):
 
 
 def dialogue_audio_scope(audio, scope=None):
-    if scope not in {None, 'line', 'paragraph'}:
+    if scope not in {None, 'line', 'context', 'paragraph'}:
         raise ValueError('Invalid original voice scope')
     # Older adapters already preserve complete-performance metadata. Honor it
     # consistently for every game, even before its index is rebuilt.
@@ -79,10 +79,15 @@ class LocalDialogue:
     requires_previous: bool = False
     text_binding_unresolved: bool = False
     unresolved_text_locales: list[str] | None = None
+    # Only the adapter can establish that this is authored, displayed dialogue.
+    # Generic localization/UI entries must never opt into text-only capture.
+    text_capture_verified: bool = False
 
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
+        if type(self.text_capture_verified) is not bool:
+            raise ValueError('Invalid authored text capture evidence')
         if type(self.text_binding_unresolved) is not bool or (
                 self.unresolved_text_locales is not None and
                 (not isinstance(self.unresolved_text_locales, list) or

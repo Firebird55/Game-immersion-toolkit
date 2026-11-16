@@ -150,7 +150,8 @@ def read_tmlfsm_dialogue_segments(path: Path) -> list[dict[str, float | str]]:
 
 
 def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (150,),
-                          switch_states: dict[int, int] | None = None) -> dict[int, list[dict[str, object]]]:
+                          switch_states: dict[int, int] | None = None,
+                          include_storage_type: bool = False) -> dict[int, list[dict[str, object]]]:
     """Read fixed Play -> layer -> source trees, preserving delays/gain.
 
     Switch containers require an explicit authored Wwise 154 group/value and
@@ -180,6 +181,7 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
     nodes = {}
     children = {}
     selected_children = {}
+    storage_types = {}
     for oid, (kind, payload) in objects.items():
         if kind not in (2, 5, 6, 7, 9):
             continue
@@ -188,10 +190,12 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
             plugin = _u32(payload, pos)
             if plugin & 0xF != 1:
                 continue
+            storage_types[oid] = payload[pos + 4]
             media = _u32(payload, pos + 5)
-            # Wwise 154 prefetch sources insert cacheID before media size.
+            # Wwise 154 codec sources include cacheID before media size for
+            # every storage type, including separately loaded in-memory media.
             # Treating it as size shifts every subsequent node property.
-            cache_bytes = 4 if version == 154 and payload[pos+4] == 2 else 0
+            cache_bytes = 4 if version == 154 else 0
             pos += 14 + cache_bytes
         fx_count = payload[pos + 1]
         pos += 2 + (1 if fx_count else 0) + fx_count * 6
@@ -262,7 +266,8 @@ def read_bank_play_layers(path: Path, *, allowed_versions: tuple[int, ...] = (15
         kind, media, volume, wait = nodes[oid]
         gain, delay = gain + volume, delay + wait
         if kind == 2:
-            return [{'media_id': media, 'gain_db': gain, 'delay_seconds': delay}]
+            return [{'media_id': media, 'gain_db': gain, 'delay_seconds': delay,
+                     **({'storage_type': storage_types[oid]} if include_storage_type else {})}]
         if kind == 6 and oid in selected_children and selected_children[oid] in children.get(oid, []):
             return walk(selected_children[oid], gain, delay, visiting | {oid})
         if kind not in (7, 9) or not children.get(oid):

@@ -163,7 +163,9 @@ def test_only_the_dub_with_verified_speech_can_prepare_a_cue(monkeypatch):
     assert online.film_records(Catalog(), tables, 'en') == []
     [record] = online.film_records(Catalog(), tables, 'ja')
     assert record['audio']['start_ms'] == 1250 and record['audio']['end_ms'] == 1743
-    assert online.film_records(Catalog(), {**tables, 'en': {}}, 'ja') == []
+    [without_translation] = online.film_records(Catalog(), {**tables, 'en': {}}, 'ja')
+    assert without_translation['texts'] == {'ja': 'Japanese fixture'}
+    assert without_translation['english'] == '' and without_translation['source_text'] == 'Japanese fixture'
     monkeypatch.setattr(Catalog, 'file', lambda *_: {})
     assert online.film_records(Catalog(), tables, 'ja') == []
     with pytest.raises(ValueError):

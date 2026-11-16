@@ -20,9 +20,18 @@ the ID resolves to its localized PlotAudio performance. Update detection
 checks the active Global story and dub releases independently. For installed
 games it also includes optional SD, HD and UHD film packages. [Film and floating-caption coverage](game-audits/wuwa.md)
 
+Verified film audio can replay a complete original scene, explicitly labeled
+as a **context clip**. Native callers, selected-dub banks and Rover states must
+establish its ownership; the source must be mono/stereo and at most five
+minutes. Exact source frames retain the complete utterance without claiming a
+sentence cut. Existing individual recordings stay unchanged. Choose Rover voice
+for scenes with separate female and male performances; unconfigured selection
+does not choose a default branch.
+
 Film display clocks also retain captions beyond five minutes. Their display
-times alone do not make an original sentence recording available; longer audio
-and complete spoken boundaries still require separate verified bindings.
+times alone do not make an original recording available. Longer scenes,
+unsupported surround sources, complex event graphs and MusicSubtitle groups
+still need verified bindings. Missing audio never becomes certified silence.
 
 The translation target follows that learning language's effective Lexirise
 settings. Official translations must align through the same dialogue ID.

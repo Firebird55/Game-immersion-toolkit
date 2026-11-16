@@ -487,6 +487,7 @@ class CaptureService:
             region = getattr(settings, f"{profile.id}_region")
             index = self.game_indexes[profile.id]
             index.capture_unvoiced = settings.capture_unvoiced
+            index.capture_missing_audio = getattr(settings, 'capture_missing_audio', False)
             index.player_voice = getattr(settings, f"{profile.id}_player_voice", "unconfigured") if profile.id in {"starrail", "genshin", "endfield"} else settings.cyberpunk_v_voice if profile.id == "cyberpunk" else settings.nte_player_voice if profile.id == 'nte' else getattr(settings, f"{profile.id}_rover_voice", "unconfigured")
             result = self._scan_pragmata(window, region, engine, epoch, now, game=profile.id)
             return self._with_unvoiced(result, index, window, engine, epoch, now, profile.id)
@@ -865,6 +866,7 @@ class CaptureService:
         """
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
+        missing_lines = getattr(index, 'match_missing_audio_lines', None)
         spec = STEAM_GAMES.get(game)
         has_film_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_film_cues', 0)
         voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or (spec and spec.floating_dialogue) else None
@@ -872,10 +874,13 @@ class CaptureService:
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
                  getattr(index, 'source_locale', None), getattr(index, '_signature', None),
-                 getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced, voice_enabled)
+                 getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced,
+                 getattr(settings, 'capture_missing_audio', False), voice_enabled)
         silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
                               and index.status().get('unvoiced_count', 0))
-        enabled = ((silent_enabled or voice_enabled) and epoch == self._scan_epoch
+        missing_enabled = bool(getattr(settings, 'capture_missing_audio', False) and missing_lines
+                               and index.ready and index.status().get('missing_audio_count', 0))
+        enabled = ((silent_enabled or missing_enabled or voice_enabled) and epoch == self._scan_epoch
                    and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
             if game == 'endfield':
@@ -893,11 +898,15 @@ class CaptureService:
         if epoch != self._scan_epoch:
             return outcome
         silent_enabled = silent_enabled and self.settings.get().capture_unvoiced
+        missing_enabled = missing_enabled and getattr(self.settings.get(), 'capture_missing_audio', False)
         matches = {}
         groups = list(self._spatial_text_groups(response))
         for group in groups:
             for hit in match_lines([group]) if silent_enabled else []:
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact':
+                    matches[hit.text_id] = hit
+            for hit in missing_lines([group]) if missing_enabled else []:
+                if self._capturable_match(hit):
                     matches[hit.text_id] = hit
             for hit in voice_lines([group]) if voice_enabled else []:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
@@ -938,7 +947,9 @@ class CaptureService:
                 del self._unvoiced_trackers[key]
                 self._visible_match_started.pop(key, None)
         if matches:
-            description = 'dialogue' if any(hit.voice_status == 'voiced' for hit in matches.values()) else 'unvoiced dialogue'
+            description = ('dialogue' if any(hit.voice_status == 'voiced' for hit in matches.values())
+                           else 'dialogue without available audio' if any(hit.voice_status != 'unvoiced' for hit in matches.values())
+                           else 'unvoiced dialogue')
             self._update_snapshot(phase='matched', message=f'{GAME_PROFILES[game].name} {description} matched',
                                   visible_text_ids=self._visible_text_ids(seen_at))
         return outcome
@@ -979,8 +990,10 @@ class CaptureService:
         settings = self.settings.get()
         if index is not None:
             index.capture_unvoiced = settings.capture_unvoiced
+            index.capture_missing_audio = getattr(settings, 'capture_missing_audio', False)
         if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0
-                and not (settings.capture_unvoiced and index.status().get('unvoiced_count', 0))):
+                and not (settings.capture_unvoiced and index.status().get('unvoiced_count', 0))
+                and not (getattr(settings, 'capture_missing_audio', False) and index.status().get('missing_audio_count', 0))):
             self._tracker.observe(None)
             status = index.status() if index else {"message": "PRAGMATA index unavailable"}
             self._update_snapshot(
@@ -1021,7 +1034,8 @@ class CaptureService:
             else:
                 scope = (epoch, self.session_id, window.handle, window.bounds, crop_bounds,
                     index.source_locale, index.target_locale, index.player_voice, index._signature,
-                    getattr(self, 'context_scope', lambda: None)())
+                    getattr(self, 'context_scope', lambda: None)(),
+                    getattr(settings, 'capture_missing_audio', False), settings.capture_unvoiced)
                 resolved = {}
                 for context, kind in contexts:
                     hit = context.observe(index, [' '.join(lines)] if lines else [], [match], kind=kind,
@@ -1085,7 +1099,9 @@ class CaptureService:
                     observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            message = f"{GAME_PROFILES[game].name} {'unvoiced dialogue' if match.voice_status == 'unvoiced' else 'subtitle with original voice'} matched"
+            kind = ('unvoiced dialogue' if match.voice_status == 'unvoiced' else
+                    'dialogue without available audio' if match.voice_status != 'voiced' else 'subtitle with original voice')
+            message = f"{GAME_PROFILES[game].name} {kind} matched"
 
         self._tip_tracker.observe(None)
         if game in {'beyond', 'heavyrain'} and match is None:
@@ -1526,6 +1542,8 @@ class CaptureService:
             return False
         if match.voice_status == 'unvoiced':
             return self.settings.get().capture_unvoiced and match.kind == 'exact'
+        if match.voice_status in {'unknown', 'unavailable'} and match.text_capture_verified:
+            return getattr(self.settings.get(), 'capture_missing_audio', False) and match.kind == 'exact'
         return self._mapped_voice(match)
 
     def _observe_visible_matches(self, channel: str, text_ids: list[str], now: float) -> None:
@@ -1643,7 +1661,7 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
-        if line.voice_status == 'unvoiced':
+        if line.voice_status == 'unvoiced' or (line.text_capture_verified and line.voice_status in {'unknown', 'unavailable'}):
             if self._event_loop is not None:
                 self._queue_publication(self.on_line(line))
                 self._prune_history()

@@ -25,11 +25,12 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 6
+LANGUAGE_INDEX_VERSION = 7
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
     'Story-flow text, choices, messages, movie captions and readable records are indexed; presentation-specific OCR coverage is incomplete.',
+    'Some film audio replays the complete scene, labeled as context. Other films still need verified audio bindings.',
     'Combat and ambient audio events, embedded movie audio and dynamic voice filenames still lack complete per-line bindings.',
     'Floating 2D/3D caption text is indexed. Entity-only bubbles, legacy numeric subtitles, songs and event-specific text still have gaps.',
 ]
@@ -520,12 +521,54 @@ def _validate_voice(audio):
         raise ValueError('Invalid original voice locale or reference')
     media = re.fullmatch(r'Client/Content/Aki/WwiseAudio_Generated/Media/' + code + r'/([1-9][0-9]{0,9})\.wem', depot)
     if audio.get('publisher') and media and int(media[1]) <= 0xffffffff:
+        if audio.get('scene_context') is True:
+            frames, channels = audio.get('source_frames'), audio.get('source_channels')
+            scene, event = audio.get('scene'), audio.get('event')
+            if (type(frames) is int and 0 < frames <= 48000 * 300
+                    and type(channels) is int and channels in (1, 2)
+                    and isinstance(scene, str) and re.fullmatch(r'[A-Za-z0-9_]{1,128}', scene)
+                    and isinstance(event, str) and re.fullmatch(r'[A-Za-z0-9_]{1,256}', event)
+                    and 'start_ms' not in audio and 'end_ms' not in audio
+                    and 'playback_scope' not in audio):
+                return depot
+            raise ValueError('Invalid original scene context reference')
         start, end = audio.get('start_ms'), audio.get('end_ms')
         if type(start) is int and type(end) is int and 0 <= start < end <= 300000:
             return depot
     if not depot.startswith(EXTERNAL_ROOT + code + '_') or not depot.endswith('.wem') or '..' in depot or ':' in depot:
         raise ValueError('Invalid original voice locale or reference')
     return depot
+
+
+def decode_voice_source(data, audio, wav, decoder, directory):
+    """Preserve exact scene PCM, or explicitly rebase a bounded source window."""
+    import wave
+    _validate_voice(audio)
+    if decoder is None:
+        raise ValueError('Prepare the original voice decoder in Setup')
+    if 'start_ms' in audio or 'end_ms' in audio:
+        from .wuthering_cinematics import decode_window
+        result = decode_window(data, decoder, directory, audio.get('start_ms'), audio.get('end_ms'))
+        if result is None:
+            raise ValueError('The original voice window is incomplete or unsupported')
+        with wave.open(str(wav), 'wb') as output:
+            output.setparams((result.channels, 2, 48000, 0, 'NONE', 'not compressed'))
+            output.writeframes(result.pcm)
+        return result.start_ms
+    source = directory / 'source.wem'
+    source.write_bytes(data)
+    subprocess.run([str(decoder), '-i', '-o', str(wav), str(source)], check=True,
+                   capture_output=True, timeout=90,
+                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+    if audio.get('scene_context') is True:
+        frames, channels = audio['source_frames'], audio['source_channels']
+        with wave.open(str(wav)) as output:
+            if (output.getframerate() != 48000 or output.getnchannels() != channels
+                    or output.getsampwidth() != 2 or output.getcomptype() != 'NONE'
+                    or output.getnframes() != frames or wav.stat().st_size != 44 + frames * channels * 2
+                    or len(output.readframes(frames)) != frames * channels * 2):
+                raise ValueError('The original scene context does not match its verified source')
+    return None
 
 
 def extract_voice(install: Path | None, audio: dict, executable: Path, destination: Path) -> bytes:

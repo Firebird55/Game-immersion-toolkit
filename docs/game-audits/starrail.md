@@ -1,5 +1,205 @@
 # Honkai: Star Rail dialogue audit
 
+## Original hotfix discovery prototype · November 16, 2026
+
+The standalone `starrail_original_discovery` API now discovers the current Global
+4.7 routes through official public dispatch responses. It does not fetch PutraZC,
+send account fields, log in or execute client code. **Production release
+discovery still uses the existing provider.** A native-helper lifecycle and
+automatically prepared descriptions are not enabled by this change.
+
+The minimal original bootstrap consists of two files from the fully checksummed
+launcher manifest:
+
+| Original file | Bytes | Whole-file MD5 |
+| --- | ---: | --- |
+| `ClientConfig.bytes` | 201 | `bfed4c1f95a3f99f1c50b7cfb77d338a` |
+| 4.7 `BinaryVersion.bytes` | 246 | `19e416ef427578caf0d73c4762f835df` |
+| 4.6 `BinaryVersion.bytes` | 246 | `9f912acbfa508881ae6978f221b1f5d9` |
+
+Native `ClientStartupConfig.Load` explicitly loads `ClientConfig.bytes`. Its
+native deserializer establishes four strings, four counted string arrays and
+the default-server integer. The supplied description consumes all 201 bytes.
+The 4.6 and 4.7 client-config bytes are identical. Version data uses big-endian
+integers, signed 16-bit UTF-8 byte lengths and booleans; both original 246-byte
+files consume all 31 operations. The private diagnostic derives the version
+operation order and named stores from native call signatures. Request version
+and dispatch seed come from these original inputs; seed values are not stored
+in the published discovery receipt or repository.
+
+The larger original `data.unity3d` carrier independently corroborates ownership:
+its fully verified 23,289,537-byte UnityFS file contains serialized-v21
+`resources.assets`. The bounded object directory identifies object 455 as
+TextAsset class 49, named `ClientConfig`, containing the JSON
+`GlobalDispatchUrlList`. Every binary-config field matches that object. Only
+52,690,944 bytes of relevant serialized metadata were expanded in memory; no
+game binary was loaded or executed. The existing locked `ooz-wasm` decoder
+handled payload compression. Normal standalone discovery needs the two small
+bootstrap files, not this carrier.
+
+The native diagnostic locates methods from managed type/signature metadata,
+then reads their original method bodies as data. It joins semantic
+`ServerDispatchData` fields to protobuf-object members through the original
+parser's copies, and those members to wire tags through `WriteTo`. Global
+region-list, name and primary/alternate gateway tags are independently joined
+through the original repeated-field codec, region writer and
+`SetDispatchUrls` caller. Method addresses, obfuscated protocol type names,
+resource revisions and protobuf field numbers are discovered inputs; there is
+no per-version address or tag list in that diagnostic.
+
+| Native-derived resource field | 4.6 field number | 4.7 field number |
+| --- | ---: | ---: |
+| Design data | 5 | 5 |
+| Asset bundles | 15 | 6 |
+| Lua | 2 | 7 |
+| Base asset bundles | 1,335 | 1,379 |
+
+The same frozen extractor handles both generations' changed tags. For 4.7 it
+uses the already whole-file-verified original native client. For 4.6, targeted
+method windows are read from the original launcher file with expected MD5
+`d33cb7b0781287362e7f3d8571b520aa`; the relevant Sophon chunks are MD5-verified.
+That 543,701,808-byte DLL was **not** downloaded or verified as a whole.
+The old original-derived metadata dump is a retained frozen input, not a claim
+that the complete old metadata-helper preparation was rerun from publisher
+downloads. These limits remain separate from the positive changed-tag result.
+
+Using the current original bootstrap and derived fields, the standalone API
+obtains four Global regions, follows the publisher's default gateway and
+resolves design/ASB/base/Lua routes. It validates HTTPS domains, required wire
+types and unique fields, and verifies all five native revision markers. Their
+complete revision/MD5/size tuples exactly match the 4.7 input generation in the
+table proof below. A supplied description must match the actual launcher
+`GameAssembly.dll` MD5; another client's description cannot silently replace it.
+Bootstrap paths are supplied inputs too: the private probe resolves native
+`Load` literals against the original launcher inventory, and synthetic renames
+use the same standalone API. The explicit ClientConfig field-layout description
+remains supplied input.
+
+The current public server rejects the 4.6 request with scalar field 1 equal to
+4 and an update-required message, supplying no regions. The same standalone
+API parses the old bootstrap, reports source unavailability and retains the
+previous complete discovery receipt byte-for-byte. This is publisher retirement,
+not evidence of an unsupported format. No successful old live gateway replay is
+claimed. Strict synthetic tests also cover changed supplied tags, malformed
+bootstrap/protobuf data, other URL destinations, native-identity mismatch and
+incomplete marker responses without replacing a complete receipt.
+
+These are discovery and parameter-recovery contracts. They do not prove the
+normal production worker, every original catalog table, changed audio playback,
+all regions, or full update/restart/interruption acceptance. The 4.6 → 4.7 text
+and voice changes below remain valid original-package evidence, but the retired
+old dispatch response does not turn that comparison into a complete autonomous
+update trial.
+
+Sources: [official public Global dispatch](https://globaldp-prod-os01.starrails.com/query_dispatch),
+[official launcher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_08c01a4f44bfa674_38615c5752d4bdeb90700ad54e5a54b1),
+[official earlier launcher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20260918/4.6.0/5ojqcjYEliu4/manifest_edb916e5a1ca140c_65fc23eec5dce74324cada65dc595341).
+
+## Original text and voice-table prototype · November 16, 2026
+
+The standalone `starrail_original_tables.OriginalTables` reader now reads native
+`TalkSentenceConfig`, `VoiceConfig` and full/startup `Textmap` resources directly
+from official DesignV packages. Its `file(relative)`, `table(name)` and
+`textmap(code)` interfaces do not access a text mirror or require a game folder.
+**The production `ReleasedCatalog` has not switched to this reader.** Other
+catalog tables, production integration of independent hotfix discovery and
+automatic original-table description extraction remain work for #84; this
+prototype does not complete autonomous
+updates or current subtitle coverage.
+
+The format descriptions were established from the original publisher client's
+native `FromBinary` methods and managed field metadata. They are serialization
+descriptions, without a version list, method-address list or dialogue ID list.
+`TextID` contains a legacy signed hash and a current unsigned 64-bit hash.
+Native masked rows, canonical integers, booleans, UTF-8 bounds, row counts,
+unique identities and complete resource consumption are checked. New fields
+require a newly derived description; the reader accepts supplied descriptions,
+but does not yet derive them automatically. Unknown voice-type values remain
+numeric and are never promoted to `NoVoice`.
+
+The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
+revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
+bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
+The original native client identity is GameAssembly MD5
+`2db87084b0383dbe7ce3556bb33db662`; its metadata MD5 is
+`ba110cdff0a1c2588333f7f2071e3ec6`, both acquired through the checksummed
+launcher manifest. No game, Lua or downloaded native code was executed.
+
+The index tail is significant: full localized packages live under its locale
+folder, such as `en/<package-md5>.bytes`. It must not be discarded or inferred
+from a translated string. The common package
+`2c0856f09fbc10734c0f146a92a0a6e7` is 33,508,837 bytes. All 248,809 original
+sentence rows and 92,131 voice rows match the already frozen
+`dad9155eb00fdeda31fb8456507c53590d49071f` extraction for IDs, subtitle/speaker
+hashes, authored voice paths, player involvement and voice type, with zero
+field differences. That extraction is a verification oracle only; acquisition
+and parsing do not read it.
+
+| Official text locale | Full native rows | Full package MD5 |
+| --- | ---: | --- |
+| `cn` | 495,527 | `2992a81e50e9f57b177c31317600ada3` |
+| `cht` | 492,796 | `fbd9aede173c6888ab5aaacdb508ef14` |
+| `en` | 492,775 | `8f2f7a1ecaaa1925379866fd7af4fc6f` |
+| `jp` | 492,775 | `e730127b7487b045ea30fd421a86fb6d` |
+| `kr` | 492,767 | `22f4cc5390208f911a0b6d05a0020207` |
+| `de` | 492,772 | `53dac0a9818d262ac7bd35908240ed5b` |
+| `fr` | 492,771 | `22786333eda53e63c0b9b93b4476c7e7` |
+| `es` | 492,771 | `3c138a185e8f9131f29b6c064478ae68` |
+| `pt` | 492,772 | `f1bd2cf8cb461e996fda5841900c00df` |
+| `ru` | 492,769 | `53de262b7c092e946ef42c9820d36b5d` |
+| `th` | 492,772 | `c8a692590fbdae07d012bec285f45325` |
+| `vi` | 492,772 | `3e2d4c5212c3bf02f7759e91637f50d2` |
+| `id` | 492,774 | `1c9cd6b0ceca400f810c173a25e77a90` |
+
+All fourteen complete packages total 1,004,288,509 bytes and pass their whole
+publisher MD5, taken from the fully MD5-verified official DesignV index. Earlier
+range probes alone had only HTTP range/ETag checks and private SHA-256 receipts;
+they were not whole-package verification. The reusable reader now gates every
+package on complete MD5 before parsing or atomically caching it. A failed new
+download leaves previously complete packages intact.
+
+The frozen prototype structurally parsed all 6,408,813 full text rows against
+their original header IDs, offsets and lengths. It then resolved the same 64
+deterministically selected sentence IDs, comprising 111 subtitle/speaker hashes,
+in every locale: 1,443 strings, zero missing and zero differences against the
+frozen extraction. The standalone reader independently parsed all thirteen
+complete tables. Textmap row totals include interface and inactive strings;
+they are **format evidence, not an inventory of active subtitle presentations**.
+This Global result does not independently verify mainland package bytes.
+
+The same reader and descriptions also parse an earlier official 4.6.0
+generation, DesignV `16854589`, index MD5
+`a7312833dc866a77217b1c26ef9bc0eb` (2,262,050 bytes). Its common package
+`1efaad7a4e7c92a8a12c66cffbe3b50a` and English/Japanese full Textmap packages
+`fc21263410cd08ba5f5ac5ff280c1582` / `2b654227cd0aec5f517143f926880c96`
+also pass complete publisher MD5. Together these three packages add 164,241,325
+bytes. The reader code and descriptions stayed byte-identical between the
+4.6 and 4.7 reads, and the comparison reads no third-party text/voice rows.
+
+| Original input comparison, 4.6 → 4.7 | Added | Removed | Changed existing |
+| --- | ---: | ---: | ---: |
+| Sentence rows, 244,380 → 248,809 | 4,429 | 0 | 16 |
+| Voice rows, 90,284 → 92,131 | 1,847 | 0 | 0 |
+| English strings, 474,199 → 492,775 | 18,912 | 336 | 262 |
+| Japanese strings, 474,199 → 492,775 | 18,912 | 336 | 265 |
+
+Of the new sentence rows, 1,805 join an original voice path and original
+English/Japanese text. This demonstrates content changes rather than a version
+label change. It does not establish which rows are active subtitle
+presentations or prove changed audio playback. Both route sets were supplied
+explicitly: the older set came from the already documented frozen
+`8fe88ba411d4` route directory. Production still obtains current routes from
+PutraZC and most catalog tables from Dimbreath. Therefore this is a frozen-reader
+data replay, **not the full autonomous update acceptance test**. Original audio,
+production preparation/restart/recovery, every required catalog dependency and
+independent route discovery still need their own combined evidence.
+
+Sources: [official 4.7 DesignV marker](https://autopatchos.starrails.com/design_data/V4.7Live/output_17180467_2b67443267a6_475611c71617ea/client/Windows/M_DesignV.bytes),
+[official DesignV index](https://autopatchos.starrails.com/design_data/V4.7Live/output_17180467_2b67443267a6_475611c71617ea/client/Windows/DesignV_5e340a3628885b9fde90bdd2d15ce3ee.bytes),
+[official launcher manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_08c01a4f44bfa674_38615c5752d4bdeb90700ad54e5a54b1),
+[official 4.6 DesignV marker](https://autopatchos.starrails.com/design_data/V4.6Live/output_16854589_26047487232d_c2f00471f3ad4c/client/Windows/M_DesignV.bytes),
+[frozen older route directory](https://github.com/PutraZC/HSR-Data/blob/8fe88ba411d4/hotfix.json).
+
 ## Battle College tutorial captions · November 16, 2026
 
 Schema 25 adds the separate `Config/BattleCollegeCaption/<name>.json` family.

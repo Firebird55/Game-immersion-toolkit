@@ -43,11 +43,11 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[官方語言清單](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [涵蓋範圍說明](../wuthering-languages.md)
+[官方語言清單](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-16 · [涵蓋範圍說明](../wuthering-languages.md)
 
-可從發行商準備全球版台詞與原版配音
+可從發行商準備全球版台詞、原版配音和已核實的場景上下文片段
 
-Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
+Windows Setup can prepare dialogue and verified film contexts from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Context audio is labeled separately from individual lines.
 
 <details>
 <summary>語言詳細資訊</summary>
@@ -344,7 +344,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[官方語言清單](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [涵蓋範圍說明](../endfield-languages.md)
+[官方語言清單](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-16 · [涵蓋範圍說明](../endfield-languages.md)
 
 可從發行商準備全球版或中國大陸版劇情配音
 

@@ -68,6 +68,15 @@ installation.
 | Half-Life 2 | Contains hl2.exe and hl2/gameinfo.txt | Anniversary base game plus installed episodic/ep2 campaigns; each requested voice pack must exist in its own campaign |
 | Deus Ex: Human Revolution - Director's Cut | Contains DXHRDC.exe and BIGFILE.000 | Director’s Cut PC edition with complete BIGFILE segments and the selected original language |
 
+Endfield's general reactions are separate from sentence recordings. A sigh or
+"ah" is not offered as speech of the displayed sentence. Confirmed text-only
+captions use the unvoiced option; unresolved or missing audio keeps its own
+status. See the [current subtitle inventory](docs/game-audits/endfield-current-subtitle-acceptance.md)
+for the current radio classifications and historical-film boundaries.
+Some Endfield captions use the complete original scene recording, explicitly
+labeled as context. Observed context recordings run from 14.5 to 224.5 seconds;
+they include the full performance rather than an exact individual-sentence cut.
+
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 
 See [NTE support](docs/nte-honkai-support.md) before configuring NTE. Honkai Impact 3rd is archived and unsupported; it is not available in setup or capture. Source development of NTE's reader requires the [Microsoft .NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0); the [desktop runtime contract](docs/nte-runtime.md) uses an application-local runtime and dependencies.

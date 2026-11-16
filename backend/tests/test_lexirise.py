@@ -28,7 +28,8 @@ class FakeAPI:
             if request.method == 'POST':
                 data = json.loads(request.content)
                 assert data['language'] == 'zh' and data['mode'] == 'sentence'
-                item = {'id': len(self.items) + 100, 'expression_text': data['text'], 'audio_urls': data['audioUrls']}
+                item = {'id': len(self.items) + 100, 'expression_text': data['text'], 'audio_urls': data['audioUrls'],
+                        'notes': data.get('notes', '')}
                 self.items.append(item)
                 return httpx.Response(200, json={'result': 'created', 'item': item})
             return httpx.Response(200, json={'items': self.items, 'nextOffset': None})
@@ -103,6 +104,22 @@ def test_paragraph_recording_is_not_uploaded_as_a_sentence_clip(tmp_path):
     assert 'Unvoiced' not in payloads[0]['notes']
 
 
+def test_context_clip_is_uploaded_and_described_as_context(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    payloads = []
+
+    def respond(request):
+        if request.method == 'POST' and request.url.path == '/v1/vocabulary':
+            payloads.append(json.loads(request.content))
+        return api(request)
+
+    service.transport = httpx.MockTransport(respond)
+    service.send(**kwargs, audio_scope='context')
+    assert ('POST', '/v1/vocabulary/audio') in api.calls
+    assert payloads[0]['audioUrls']
+    assert 'context clip; includes surrounding dialogue' in payloads[0]['notes']
+
+
 def test_lost_deck_response_resumes_without_duplicate_upload_or_card(tmp_path):
     api, service, kwargs = fixture(tmp_path)
     api.fail_after_add = True
@@ -154,6 +171,18 @@ def test_unvoiced_sentence_export_never_uploads_audio_or_overwrites_existing_voi
     assert service.send(**kwargs)['sent']
     assert ('PATCH', '/v1/vocabulary/100') not in api.calls
     assert api.items[0]['audio_urls'] == ['https://audio.lexirise.test/existing.mp3']
+
+
+@pytest.mark.parametrize('status,note', [('unknown', 'audio binding unresolved'),
+                                       ('unavailable', 'original audio unavailable')])
+@pytest.mark.parametrize('scope', ['line', 'context', 'paragraph'])
+def test_missing_audio_export_preserves_status_without_upload_or_unvoiced_claim(tmp_path, status, note, scope):
+    api, service, kwargs = fixture(tmp_path)
+    kwargs.update(audio=None, voice_status=status, audio_scope=scope)
+    assert service.send(**kwargs)['sent']
+    assert ('POST', '/v1/vocabulary/audio') not in api.calls
+    assert api.items[0]['audio_urls'] == []
+    assert note in api.items[0]['notes'] and 'Unvoiced' not in api.items[0]['notes'] and 'Voiced dialogue' not in api.items[0]['notes']
 
 
 def test_wrong_deck_type_fails_before_upload(tmp_path):
@@ -209,15 +238,28 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
     assert response.status_code == 200 and response.json()['audio_included'] is False
     assert sent[-1]['audio'] is None
+
     assert line.voiced is True  # Whole recording is not confirmed unvoiced dialogue.
+    line.audio_scope = 'context'
+    response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and response.json()['audio_included'] is True
+    assert sent[-1]['audio_scope'] == 'context' and sent[-1]['audio'] is not None
     line.audio_scope = 'line'
     line.voiced = False
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
-    assert len(sent) == 2
+    assert len(sent) == 3
     line.voice_status = 'unvoiced'
     response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
     assert response.status_code == 200 and response.json()['audio_included'] is False
     assert sent[-1]['audio'] is None
+
+    for status in ('unknown', 'unavailable'):
+        line.voice_status, line.text_capture_verified = status, False
+        assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
+        line.text_capture_verified = True
+        response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+        assert response.status_code == 200 and not response.json()['audio_included']
+        assert sent[-1]['audio'] is None and sent[-1]['voice_status'] == status
 
 def test_foreign_account_cannot_reuse_decks_or_export_markers(tmp_path):
     api, service, kwargs = fixture(tmp_path)

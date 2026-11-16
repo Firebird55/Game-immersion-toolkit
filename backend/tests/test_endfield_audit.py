@@ -57,6 +57,12 @@ def test_every_voice_state_requires_its_own_evidence():
         'endfield:empty_radio': 'unknown', 'endfield:DialogOptionTable:choice': 'unvoiced',
     }
     assert sum(row['audio'] is not None for row in rows) == 1
+    # Missing recordings do not invalidate these original authored captions or
+    # change their voice state. Unreferenced menu localization never enters.
+    assert all(row['text_capture_verified'] is True for row in rows)
+    arbitrary, = endfield.dialogue_records({'localization_only': {'dialogText': ref(9)}}, {},
+        {'en': {'9': 'An arbitrary localized menu value.'}}, 'en', {})
+    assert arbitrary['text_capture_verified'] is False
 
 
 def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
@@ -81,6 +87,8 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     assert candidate['audio'] is None and candidate['radio_reaction_candidates'] == {name: reaction}
     assert candidate['radio_voice_actor'] == 'performer'
     assert candidate['radio_reaction_status'] == 'candidates_in_dub'
+    assert candidate['text_capture_verified'] is True
+    assert candidate['voice_status'] == 'unavailable'
     catalog.values['NpcInfoTable']['actor']['voActor'] = 'None'
     line['audioEvent'] = 'radio_noise'
     unmapped = record({}, {})
@@ -619,6 +627,24 @@ def test_missing_pack_has_actionable_warning_and_never_becomes_silent(tmp_path, 
     assert result['metadata_revision_title'] == Catalog.revision_title
     assert any('Install it through the game language settings' in warning for warning in result['coverage_warnings'])
     assert any('third-party' in warning for warning in result['coverage_warnings'])
+
+
+def test_publisher_keeps_an_authored_cinematic_caption_without_a_sentence_recording(tmp_path, monkeypatch):
+    from backend import endfield_release, endfield_online
+    catalog = Catalog()
+    catalog.stamp = 'stable'
+    monkeypatch.setattr(endfield_release, 'prepare', lambda *_args: catalog)
+    monkeypatch.setattr(endfield_release, 'discover', lambda *_args: ('stable', b''))
+    monkeypatch.setattr(endfield_release, 'voice_entries', lambda *_args: {})
+    unknown = {'text_id': 'endfield:film:scene:caption', 'source_locale': 'en',
+               'source_text': 'An authored caption.', 'texts': {'en': 'An authored caption.'},
+               'english': 'An authored caption.', 'chinese': '', 'audio_locale': 'en',
+               'audio': None, 'voice_status': 'unknown', 'text_capture_verified': True,
+               'dialogue_kind': 'cinematic', 'channels': ['cinematic']}
+    monkeypatch.setattr(endfield_online, 'film_records', lambda *_args: [unknown])
+    result = endfield.index_language(None, tmp_path, 'en', ())
+    assert result['records'][-1] == unknown
+    assert result['voice_coverage']['unknown'] == 1
 
 
 def test_present_pack_diagnostics_do_not_blame_metadata_gaps_on_installation(tmp_path, monkeypatch):
