@@ -266,6 +266,39 @@ repeat attempt. This is original route/table preparation evidence; it does not
 yet establish the ordinary setup worker, regional editions, playback or recovery
 acceptance for the new provider.
 
+The same frozen helper also regenerated fresh metadata from complete Global
+4.6 inputs (build `28nuQlEyEGAX`, native MD5
+`d33cb7b0781287362e7f3d8571b520aa`) and derived the same 21 table roles and 109
+fields with changed protocol tags. Original table comparisons found 4,429 added
+sentence IDs, 16 changed existing sentence rows and 1,847 added voice IDs in 4.7.
+The retired 4.6 dispatch is an explicit retained-baseline replay; it is not a
+live discovery pass or evidence of a format break.
+
+Mainland 4.7 now passes the native preparation API independently: build
+`55EjVJ7DGGpF`, native MD5 `3cdfac8ce662ceea48d827a77e38a9bc`, metadata MD5
+`52233e5d172eeece25998f5e8fb9749b` and startup MD5
+`8e6574f1deaf5c7b5c59e0dafb7db8b8`. All three complete files were authenticated
+against the [original CN manifest](https://autopatchcn.bhsr.com/client/sophon/manifests/cxi9zq9xwjk0/20261030/4.7.0/jtxaUnbtOZLC/manifest_0e4269e70b1ad07e_6110fa9c21b26d52920107fb5e71d9d2).
+The unchanged helper regenerated its own dump and literals, then the owned API
+derived all 21 table bindings and 109 fields without substituting Global
+metadata. The original CN parser combines adjacent region strings with a vector
+copy and lane exchange. The derivation now follows that exact transfer into the
+region setter's receiver, excluding temporary gateway-array slots with matching
+offsets; unsupported lane operations and clobbered owners fail closed. Raw
+literal prefiltering can inspect a larger unrelated constructor, while decoded
+method bounds remain 64 KiB. Live public CN dispatch succeeds, and all five
+resource index revision/digest/size tuples equal the independently verified
+current Global generation. This proves regional bootstrap discovery and native
+description preparation, not regional playback or ordinary worker acceptance.
+
+Original mission action resources are a separate remaining integration task.
+Three sampled authored `PerformanceVideo` paths resolve through the original
+`JsonToBinaryPath` rule to `BakedConfig/Config/Level/Mission/.../Act/...bytes`.
+Their bounded original HTTPS ranges contain binary configuration, not JSON.
+These samples do not authenticate the entire containing package or implement
+its polymorphic task reader. Caption-only binary proofs cannot substitute for
+mission predicate and dub-branch ownership.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).

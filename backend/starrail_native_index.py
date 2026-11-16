@@ -109,11 +109,17 @@ class NativeIndex:
         _check(len(value) == length)
         return value
 
-    def extent(self, address):
+    def raw_extent(self, address):
+        """Bound a raw literal prefilter; this never permits larger disassembly."""
         index = bisect.bisect_right(self.ordered, address)
         _check(address in self.methods and index < len(self.ordered))
         end = self.ordered[index]
-        _check(0 < end - address <= 65536)
+        _check(0 < end - address <= 16 * 1024**2)
+        return end
+
+    def extent(self, address):
+        end = self.raw_extent(address)
+        _check(end - address <= 65536)
         return end
 
     def method(self, owner, signature, *, include_nested=False):

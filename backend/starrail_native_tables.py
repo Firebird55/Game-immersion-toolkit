@@ -28,7 +28,7 @@ def bindings(index, names):
         if not ctor or not arrays or len(rows) != 1:
             continue
         _check(len(ctor) == 1)
-        start = int(ctor[0], 16); end = index.extent(start); raw = index.read(start, end - start)
+        start = int(ctor[0], 16); end = index.raw_extent(start); raw = index.read(start, end - start)
         total += len(raw); _check(total <= 16 * 1024**2)
         if not any(start + match.start() + len(match.group()) + struct.unpack_from('<i', match.group(), len(match.group()) - 4)[0]
                    in literals for match in prefilter.finditer(raw)):

@@ -79,3 +79,14 @@ def test_nested_methods_keep_their_own_field_and_constructor_scope(tmp_path):
     scope = index.methods[address][0]['owner']
     assert 'string Name' in index.scopes[scope]
     assert 'string Name' not in index.scopes[index.owners['Unique.Owner'][0]]
+
+
+def test_long_unrelated_constructor_can_be_prefiltered_without_widening_decoder_bounds(tmp_path):
+    index = NativeIndex(fixture(tmp_path))
+    index.ordered = [0x1000, 0x11000 + 1]
+    assert index.raw_extent(0x1000) == 0x11001
+    with pytest.raises(ValueError):
+        index.extent(0x1000)
+    index.ordered[-1] = 0x1000 + 16 * 1024**2 + 1
+    with pytest.raises(ValueError):
+        index.raw_extent(0x1000)

@@ -26,6 +26,52 @@ def _copies(instructions):
     return result
 
 
+def _region_sources(instructions, setter, name_offset):
+    """Join region fields to the setter receiver, excluding its temporary array.
+
+    IL2CPP may copy two adjacent strings with a 128-bit load/store and exchange
+    their lanes. Only adjacent, fully understood transfers establish ownership.
+    """
+    at = _one(i for i, (_, op, args) in enumerate(instructions)
+              if op == 'call' and args == hex(setter))
+    def argument(register):
+        for _, op, args in reversed(instructions[max(0, at - 18):at]):
+            if descriptions._writes(op, args, register):
+                match = re.fullmatch(register + r', (' + REGISTER + r')', args)
+                _check(op == 'mov' and match); return match[1]
+        _check(False)
+    receiver, array = argument('rcx'), argument('rdx')
+    begin = max(0, at - 18); window = instructions[begin:at + 18]
+    pairs = _copies(instructions[begin:at])
+    _check(len(pairs) == 2 and pairs[0][0] == pairs[1][0]
+           and pairs[0][2] == pairs[1][2] == array and array != receiver
+           and pairs[1][3] - pairs[0][3] == 8)
+    copies = []
+    for i, (_, op, args) in enumerate(window):
+        copies.extend((begin + i, row) for row in _copies(window[i:i + 2]))
+        load = re.fullmatch(r'(xmm[0-9]+), xmmword ptr \[(' + REGISTER + r') \+ ' + NUMBER + r'\]', args)
+        if op != 'movdqu' or not load:
+            continue
+        following = i + 1; offsets = (0, 8)
+        if following < len(window) and window[following][1:] == ('pshufd', f'{load[1]}, {load[1]}, 0x4e'):
+            following += 1; offsets = (8, 0)
+        if following >= len(window):
+            continue
+        _, store_op, store_args = window[following]
+        store = re.fullmatch(r'xmmword ptr \[(' + REGISTER + r') \+ ' + NUMBER + r'\], ' + load[1], store_args)
+        if store_op == 'movdqu' and store:
+            copies.extend((begin + i, (load[2], int(load[3], 0) + source, store[1], int(store[2], 0) + lane))
+                          for source, lane in zip(offsets, (0, 8)))
+    name_at, name = _one((position, source_offset) for position, (source, source_offset, destination, destination_offset) in copies
+                        if source == pairs[0][0] and destination == receiver and destination_offset == name_offset)
+    pair_at = _one(begin + i for i in range(len(window) - 1) if _copies(window[i:i + 2]) == [pairs[0]])
+    _check(all(not descriptions._writes(op, args, register)
+               for _, op, args in instructions[min(pair_at, name_at, at):max(pair_at, name_at, at) + 1]
+               for register in (receiver, pairs[0][0])))
+    _check(all(not descriptions._writes(op, args, array) for _, op, args in instructions[pair_at:at]))
+    return {'name': name, 'primary_gateway': pairs[0][1], 'alternate_gateway': pairs[1][1]}
+
+
 def _string_tag(instructions, offset):
     positions = [i for i, (_, op, args) in enumerate(instructions)
                  if op == 'mov' and re.fullmatch(r'rdx, qword ptr \[' + REGISTER + r' \+ ' + hex(offset) + r'\]', args)]
@@ -271,14 +317,10 @@ def derive(index, files):
     _check(any(op == 'mov' and re.fullmatch(REGISTER + r', qword ptr \[' + REGISTER + r' \+ ' + hex(list_offset) + r'\]', args)
                for _, op, args in global_parser))
     name_offset = _offset(index.scopes[setter_scope], 'Name')
-    name_field = _one(row[1] for row in _copies(global_parser) if row[3] == name_offset)
-    setter_at = _one(i for i, (_, op, args) in enumerate(global_parser) if op == 'call' and args == hex(index.base + setter))
-    pairs = [(row[3], row[1]) for row in _copies(global_parser[max(0, setter_at - 18):setter_at])]
-    _check(len(pairs) == 2 and pairs[1][0] - pairs[0][0] == 8)
+    region_sources = _region_sources(global_parser, index.base + setter, name_offset)
     region_writer = index.method(region_type, r'public void WriteTo\(Google\.Protobuf\.CodedOutputStream\)')
     region_body, region_sha = index.body(region_writer)
-    region_fields = {key: _string_tag(region_body, offset) for key, offset in (
-        ('name', name_field), ('primary_gateway', pairs[0][1]), ('alternate_gateway', pairs[1][1]))}
+    region_fields = {key: _string_tag(region_body, offset) for key, offset in region_sources.items()}
     global_writer = index.method(global_type, r'public void WriteTo\(Google\.Protobuf\.CodedOutputStream\)')
     global_ctor = index.method(global_type, r'(?:private|public) (?:static )?void \.cctor\(\)')
     (write, write_sha), (ctor, ctor_sha) = index.bodies([global_writer, global_ctor])
