@@ -89,11 +89,67 @@ original WEM decoded to nonzero PCM with the prepared voice decoder.
 | English | 529528553 | 22,148 | 1.864989 s | `df9fea4eb39d2227cd77726255b5fd2192c30905ca1f484dd5a4eef84ed588ee` |
 | Korean | 523829702 | 23,066 | 1.821338 s | `320071d81087d3361194c6c37e03f7fd253cc17c5038ab1adc30fceee9229e0c` |
 
-These are installation-free source probes, separate from normal Setup.
-The owned publisher archive reader, immutable historical parameter lookup,
-complete locale/patch selection and normal voice-service integration still
-need implementation. Full dialogue aliases, sequence/movie bindings,
-rolling updates and platform acceptance remain open.
+These initial source probes are separate from normal Setup. The owned reader
+and historical metadata lookup are now implemented below. Complete locale/patch
+selection and normal voice-service integration still need implementation.
+Full dialogue aliases, sequence/movie bindings, rolling updates and platform
+acceptance remain open.
+
+### Owned selective archive reader
+
+`backend/nte_publisher_pak.py` now reads publisher archives without a game
+installation. It checks the complete companion file against the manifest MD5,
+validates every selected or cached 64 KiB PAK block, and verifies decrypted
+primary/directory index SHA-1 values. Missing contiguous blocks are coalesced
+into requests of at most 4 MiB. A damaged cached block is fetched again; a
+partly invalid response does not activate its other chunks. No independent
+RSA-signature verification or whole-large-PAK checksum is claimed.
+
+The reader uses encoded entry locations, handles compressed and encrypted
+members and nonencoded entries, and retains explicit deletion records. An
+invalid location listed by a patch is a deletion: it cannot fall through to
+an older recording. The overlay helper requires evidenced mount priority
+from its caller; it does not guess precedence from PAK filenames.
+[Engine deletion semantics](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/PakFile/FPakFile/GetPakEntry/2?application_version=5.5)
+
+Archive metadata can also be reopened by its exact source commit and SHA-256,
+including from a checksum-verified private cache without a network connection.
+It never substitutes the latest parameters for an explicitly historical source.
+Synthetic checks exercise corruption, bounds, case ambiguity, regional mismatch,
+single/multiple compression blocks, AES padding and deletion versus historical
+retrieval. Original regional parameters and game assets are not bundled.
+
+The owned reader retrieved the four sample banks and recordings listed above
+from both Global 1.5.4 and mainland China 1.5.6. All eight recordings decoded;
+their bytes match the independently checked Global originals. Recreating the
+archive and metadata readers with network access prohibited retrieved identical
+cached bytes. Separate empty-cache runs transferred 7,481,874 Global and
+7,610,758 mainland publisher bytes for the four examples, including the used
+indexes and companion files. These are sample costs, not whole-game estimates.
+
+### Original localization through the owned reader
+
+`backend/nte_locres.py` reads the original 10100 localization format, including
+shared localized strings, namespaces, authored keys and source hashes. Public
+format parameters are fetched strictly as data at an identified source commit;
+the localization marker proves their applicability. Explicit historical source
+commit/checksum references retain the old parameters after an upstream change.
+Unknown headers, invalid offsets, duplicate keys, missing string references and
+truncated resources fail instead of yielding a partial table.
+
+Using the signed archive layer, all five Global study-text resources (`en`,
+`zh-CN`, `zh-Hant`, `ja`, `ko`) were acquired directly from the selected
+Global 1.5.4 patch. Each contains **121,528 entries in 195 namespaces**,
+including UI. All five have exactly the same authored key set and source
+hashes. The English resource also matches the independently recovered SHA-256
+above. This checks translation identity within the selected regional snapshot;
+it does not make all those entries voiced dialogue. Mainland patch contents
+and base-file fallback require independent selection; the Global files must
+not be substituted into a different regional generation.
+
+The archive and localization acquisition layers are implemented. Ordinary
+Setup, complete authoring-table extraction, evidenced patch precedence and
+update activation remain open in #88. The public support matrix is unchanged.
 
 ### The five Global HPW resources are video files
 

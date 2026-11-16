@@ -125,6 +125,34 @@ def test_api_outage_uses_pinned_candidate_but_still_checks_archive():
         result.verified_key(lambda p, n: data[p:p + n], len(data))
 
 
+def test_historical_metadata_keeps_immutable_identity_after_upstream_rotation_and_offline_restart(tmp_path):
+    old = source()
+    old_digest = hashlib.sha256(old).hexdigest()
+    calls = []
+    def fetch(url, *_):
+        calls.append(url)
+        if 'api.github' in url:
+            return json.dumps([{'sha': 'a' * 40}]).encode()
+        return old
+    before = metadata.load(fetch=fetch, cache=tmp_path)
+    assert before.digest == old_digest
+    calls.clear()
+    def offline(*_):
+        pytest.fail('Historical cached data must not request the latest source or need a connection')
+    historical = metadata.load(fetch=offline, cache=tmp_path, revision=before.revision, digest=before.digest)
+    assert historical == before
+    cached = tmp_path / f'{before.revision}-{before.digest}.txt'
+    cached.write_bytes(source('0x' + '05' * 32))
+    historical = metadata.load(fetch=fetch, cache=tmp_path, revision=before.revision, digest=before.digest)
+    assert historical == before and len(calls) == 1 and 'api.github' not in calls[0]
+    with pytest.raises(PreparationFailure):
+        metadata.load(revision=before.revision, digest=before.digest,
+                      fetch=lambda *_: source('0x' + '06' * 32))
+    for revision, digest in [('../escape', old_digest), ('a' * 40, None), (None, old_digest)]:
+        with pytest.raises(PreparationFailure):
+            metadata.load(revision=revision, digest=digest, fetch=offline)
+
+
 def test_fresh_normal_reader_selects_chinese_metadata_without_existing_private_cache(tmp_path, monkeypatch):
     folder = tmp_path / 'Client/WindowsNoEditor/HT/Content/PatchPaks'
     folder.mkdir(parents=True)
