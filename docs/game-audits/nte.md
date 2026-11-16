@@ -217,6 +217,13 @@ ownership. The Blackbird sample above resolves to its expected original event.
 These counts describe authoring, not verified playback for every entry. The
 current aliases require the patch tables as well as the base tables.
 
+The same publisher API also reads the original `DT_MediaFFmpegInfo` and
+`DT_MediaFFmpegInfo_Quest` tables. They contain 225 rows in this snapshot;
+the existing reviewed namespace rules resolve 42 movie bindings. Other
+StringTable aliases remain to be resolved. This exports the current authored
+movie configuration without depending on an older community table snapshot;
+it does not establish all movie speech or timing.
+
 The managed stream's source-build probe also passed with authored reflection
 types: reads spanning the 4 MiB request limit, clone/seek isolation, wrong-host
 refusal and a failed source. The hosted compiler-free helper probe exercises

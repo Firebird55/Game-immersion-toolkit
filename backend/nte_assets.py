@@ -211,7 +211,7 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
-    outputs = ('inventory.json',) if inventory else ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json')
+    outputs = ('inventory.json',) if inventory else ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
     if any((destination / name).exists() for name in outputs):
         raise ValueError('NTE publisher extraction requires a fresh staging directory')
     invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)

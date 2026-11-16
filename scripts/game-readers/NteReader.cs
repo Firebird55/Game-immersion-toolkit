@@ -76,7 +76,7 @@ internal static class NteReader
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var cue = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "CUE4Parse");
                     var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    ReadNteDialogueTables(provider, cue, names, destination, events);
+                    ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true);
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
                 }
                 else if (args[0] == "inventory")
@@ -201,7 +201,7 @@ internal static class NteReader
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
-        HashSet<string> voiceEvents)
+        HashSet<string> voiceEvents, bool readMovies = false)
     {
         var profile = Path.Combine(destination, "dialogue.usmap");
         if (new FileInfo(profile).Length > 8 * 1024 * 1024 ||
@@ -265,6 +265,18 @@ internal static class NteReader
         }
         File.WriteAllText(Path.Combine(destination, "dialogue-events.json"), JsonSerializer.Serialize(aliases));
         ReadNteSequences(files, Rows, Export, voiceEvents, destination);
+        if (readMovies)
+        {
+            var movies = new Dictionary<string, object>();
+            foreach (var name in new[] { "DT_MediaFFmpegInfo", "DT_MediaFFmpegInfo_Quest" })
+            {
+                var path = "HT/Content/DataTable/Skill/" + name + ".uasset";
+                if (!files.Contains(path)) continue;
+                var rows = Rows(path).ToDictionary(row => row.Item1, row => row.Item2.Clone(), StringComparer.Ordinal);
+                movies[name + ".json"] = new[] { new { Type = "DataTable", Rows = rows } };
+            }
+            File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
+        }
     }
 
     static void ReadNteSequences(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,
