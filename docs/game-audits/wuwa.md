@@ -1,5 +1,50 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · The game's per-scene subtitle-clock fallback
+
+The current Global publisher source was inspected without installing or running
+the game. Its launcher is 3.8.0 and its independently discovered core is 3.8.11;
+the four dub revisions remain English 3.8.6, Japanese 3.8.5, Korean 3.8.8 and
+Mandarin 3.8.5. The released
+`Client/Content/Aki/JavaScript/Game/Module/Video/VideoConfig.js` has SHA-256
+`63b0352b9ae0e0f685cec9b29f4512e3d9840a485e17b5fe3ff137596c608f76`.
+It was read as static source, never imported or executed.
+[Publisher launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Publisher rolling configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+
+`VideoConfig.GetVideoCaptions` selects clocks for the current audio language,
+independently for each complete scene. For English, Japanese or Korean, any
+nonzero localized duration enables that scene's localized rows; individual
+zero-duration rows are then omitted. Only a scene with no nonzero duration in
+the selected dub falls back to the default clocks. Both Chinese study scripts
+use the default track. The film matcher now uses that selected track's cue as
+its search anchor, instead of always using the default-language start.
+
+All **17** unresolved captions in M0234, C3jiyanfight and LYSZW have default
+display windows selected by this fallback in every dub. Their zero localized
+duration fields therefore do not mean the game has no caption clocks.
+**These remain display windows, not verified full spoken intervals.** Selecting
+a fallback clock does not itself establish a voiced caption or authorize an
+export using its display times.
+The existing original-media, overlapping-performance and acoustic-boundary
+checks remain required.
+
+The current publisher table contains 1,353 caption rows. The selector retains
+1,336 bounded display cues per study locale, including the 17 unresolved cues
+above. Seventeen other cues fall outside the film matcher's existing 300-second
+limit. Nonzero localized timing occurs in 106 scenes for each non-Chinese dub;
+no partially populated localized scene occurred in this particular release.
+Synthetic regressions independently exercise that important partial-track case,
+scene/locale isolation, invalid clocks and a localized anchor far from the
+default start. Reader revision 6 refreshes previous language snapshots.
+
+The original `VideoView` also confirms that subtitle-triggered external
+PlotAudio playback requires `IsPlaySubtitleVoice`. The current table has 25
+such captions, 23 sharing a PlotAudio identity. Another 288 captions share a
+PlotAudio identity while that flag is false. This distinguishes the runtime
+trigger from a text-ID join; it does not prove those 288 recordings differ from
+their film performances. Their exact film/audio joins remain under review.
+
 ## November 13, 2026 · Global 3.8 launcher transition
 
 The November 12 PC update moved the common game files and graphics tiers to a new official launcher index. The former Global endpoint still serves 3.7.1 while the active game resources use 3.8. Setup now reads the released common pack and checks its publisher checksum. It follows the pack's version, download directory and rolling game and dub manifests on subsequent preparations. [Kuro update notice](https://wutheringwaves.kurogames.com/en/main/news/detail/5705) · [Global PC launcher index](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)

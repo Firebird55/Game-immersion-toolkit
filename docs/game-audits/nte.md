@@ -256,12 +256,50 @@ regional announcement is not an independently established mapping to the two
 Global resource revisions or a reason to relabel their original recordings.
 [Publisher update notice](https://yh.wanmei.com/news/gamebroad/20261015/264630.html)
 
+### Startup refresh from a retained schema-7 snapshot
+
+A further November 16 Windows source-development probe exercised the existing
+startup monitor and production `Runtime.build_language`, rather than calling
+only the language worker. The starting Japanese 1.4.9 snapshot was rebuilt
+with reader revision 7 from the verified version-addressed publisher manifest.
+The updater then used unmodified current Global discovery to prepare 1.5.4
+with the same toolkit source and reader revision. No game installation was
+supplied. The original prepared file remained available during staging; the
+existing live index object acquired the replacement snapshot after validation.
+
+| Japanese snapshot | Prepared records | Resolved voice records | Identity |
+| --- | ---: | ---: | --- |
+| Historical 1.4.9, revision 7 | 117,324 | 25,180 | `nte-6f14c38c39f9ccd54d4ed71c54479ee7e4ca64ba2eb006adceb267401ec8b78b` |
+| Discovered 1.5.4, revision 7 | 126,463 | 27,611 | `nte-784900973a48dedd259290285abbd398e24c4689946ca6ca8617b8d9059e9420` |
+
+The replacement has 10,073 added identities, 934 removed identities and 930
+changed source texts among retained identities. These are table differences,
+including UI and player variants, not unique spoken-line or complete-story
+counts. Startup preparation and index publication took 265.485 seconds with
+warm research caches; this is not a cold transfer or performance estimate.
+
+Both authored `Akane02_free_Player_021` branches were played before refresh.
+After replacement, each resolves to different original WEM bytes, consistently
+with the historical exchange documented above. Fresh conversions of both
+current performances and both retained historical performances succeeded with
+publisher discovery and byte-range networking prohibited throughout service
+startup and extraction. The historical PCM remains identical to its pre-refresh
+output. No current or old recording is relabeled from acoustic assumptions.
+
+This probe uses the real startup monitor, staging worker, validation and index
+publication, but a recording callback substitutes for account/UI activation.
+The starting historical release was supplied explicitly; this is not observation
+of a new live rollout. Scheduled rechecks, manual recovery, interruption,
+download-cost controls and native/device acceptance remain separate. The
+duplicate-caption capture ambiguity is unchanged.
+
 ### Remaining acceptance
 
 The three voiced `DeadNumber` movie aliases still need an authored StringTable
 ownership binding. Complete chapters, conversation/choice context, more complex
 conditional/bark/phone/comic presentations,
-all cue windows, real upstream-only update adoption, download-cost/resume/metered
+all cue windows, full live-device upstream-only update adoption beyond the
+qualified startup replay, download-cost/resume/metered
 behavior and each claimed native host remain open in #88. The live Windows
 source flow and separate compiler-free authored-helper checks are distinct
 evidence; neither proves full frozen-image, Linux, macOS or Android acceptance.

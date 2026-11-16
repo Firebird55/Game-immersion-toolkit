@@ -46,3 +46,30 @@ def test_zzz_distinct_authored_caption_still_identifies_its_player_without_confi
         'source_locale': 'en', 'records': records}))
     value = MultilingualTextIndex('zzz', tmp_path)
     assert value.match_lines([text], exact_only=True).text_id == 'zzz:fixture:male'
+
+
+@pytest.mark.parametrize('game', ['nte', 'genshin'])
+def test_unresolved_silent_source_cannot_be_captured_through_a_valid_translation(tmp_path, game):
+    source, translation, alias = ('An unresolved synthetic source branch.',
+                                 '待确认的合成译文。', 'A synthetic rendered alias.')
+    unresolved = {'text_id': game + ':diagnostic', 'source_locale': 'en', 'source_text': source,
+                  'texts': {'en': source, 'zh-Hans': translation}, 'audio_locale': 'en',
+                  'audio': None, 'voice_status': 'unvoiced', 'text_binding_unresolved': True,
+                  'ocr_texts': {'en': [alias]}}
+    control = {**unresolved, 'text_id': game + ':control',
+               'source_text': 'An independently resolved synthetic caption.',
+               'texts': {'en': 'An independently resolved synthetic caption.'},
+               'text_binding_unresolved': False, 'ocr_texts': {}}
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': game,
+        'source_locale': 'en', 'records': [unresolved, control]}))
+    value = MultilingualTextIndex(game, tmp_path)
+    assert value.ready
+    for enabled in (False, True):
+        value.capture_unvoiced = enabled
+        for observed in (source, translation, alias):
+            assert value.match_lines([observed], exact_only=True) is None
+            assert value.match_unvoiced_lines([observed]) == []
+        hit = value.match_lines([control['source_text']], exact_only=True)
+        assert bool(hit) == enabled
+        if hit:
+            assert hit.text_id == control['text_id'] and hit.voice_status == 'unvoiced'

@@ -44,12 +44,13 @@ def test_numbered_performances_require_one_scene_event_and_current_localized_sou
     with sqlite3.connect(table) as db:
         db.execute('CREATE TABLE videocaption (CgName TEXT, BinData BLOB)')
         db.execute('CREATE TABLE videosound (CgName TEXT, GirlOrBoy INTEGER, BinData BLOB)')
-        db.execute('INSERT INTO videocaption VALUES (?,?)', ('movie', flat_blob({2: 75, 4: 'line'})))
+        db.execute('INSERT INTO videocaption VALUES (?,?)', ('movie', flat_blob({2: 75, 3: 60,
+                   4: 'line', 9: 600, 10: 90})))
         path = '/Game/Aki/WwiseAudio/Events/' + event + '.' + event
         scene = flat_blob({3: path})
         db.execute('INSERT INTO videosound VALUES (?,?,?)', ('movie', 2, scene))
     sources = [assets.EXTERNAL_ROOT + 'ja_take_' + n + '.wem' for n in ('001', '002')]
-    assert films.candidates(tmp_path, [row], sources, 'ja') == [(row, event, sources, 2500)]
+    assert films.candidates(tmp_path, [row], sources, 'ja') == [(row, event, sources, 20000)]
     assert films.candidates(tmp_path, [row], sources, 'en') == []
     assert films.candidates(tmp_path, [row], sources[:1], 'ja') == []
     with sqlite3.connect(table) as db:
@@ -58,6 +59,39 @@ def test_numbered_performances_require_one_scene_event_and_current_localized_sou
     with sqlite3.connect(table) as db:
         db.execute('UPDATE videosound SET GirlOrBoy=1, BinData=?', (scene,))
     assert films.candidates(tmp_path, [row], sources, 'ja') == []
+
+
+def test_caption_clock_fallback_is_per_scene_and_per_selected_dub(tmp_path):
+    rows = [
+        ('partial', {2: 30, 3: 60, 4: 'first', 5: 600, 6: 90}),
+        ('partial', {2: 120, 3: 30, 4: 'second', 7: 900, 8: 60}),
+        ('default', {2: 180, 3: 60, 4: 'third'}),
+        ('default', {2: 300, 3: 90, 4: 'fourth'}),
+    ]
+    with sqlite3.connect(tmp_path / 'db_cgVedio.db') as db:
+        db.execute('CREATE TABLE videocaption (CgName TEXT, BinData BLOB)')
+        db.executemany('INSERT INTO videocaption VALUES (?,?)', [(scene, flat_blob(fields)) for scene, fields in rows])
+    defaults = [('partial', 'first', 1000, 3000), ('partial', 'second', 4000, 5000),
+                ('default', 'third', 6000, 8000), ('default', 'fourth', 10000, 13000)]
+    assert films.caption_cues(tmp_path, 'en') == [('partial', 'first', 20000, 23000), *defaults[2:]]
+    assert films.caption_cues(tmp_path, 'ko') == [('partial', 'second', 30000, 32000), *defaults[2:]]
+    assert films.caption_cues(tmp_path, 'ja') == defaults
+    for locale in ('zh-Hans', 'zh-Hant'):
+        assert films.caption_cues(tmp_path, locale) == defaults
+    with pytest.raises(ValueError, match='locale'):
+        films.caption_cues(tmp_path, 'unsupported')
+
+
+def test_invalid_selected_clocks_never_fall_back_to_a_different_track(tmp_path):
+    with sqlite3.connect(tmp_path / 'db_cgVedio.db') as db:
+        db.execute('CREATE TABLE videocaption (CgName TEXT, BinData BLOB)')
+        for scene, values in [('negative', {5: 600, 6: -1}), ('outside', {5: 8999, 6: 10}),
+                              ('empty', {})]:
+            db.execute('INSERT INTO videocaption VALUES (?,?)',
+                       (scene, flat_blob({2: 30, 3: 60 if scene != 'empty' else 0, 4: scene, **values})))
+    assert films.caption_cues(tmp_path, 'en') == []
+    assert films.caption_cues(tmp_path, 'ja') == [('negative', 'negative', 1000, 3000),
+                                                ('outside', 'outside', 1000, 3000)]
 
 
 def test_mix_requires_unique_overlapping_performances_and_stops_at_quiet():

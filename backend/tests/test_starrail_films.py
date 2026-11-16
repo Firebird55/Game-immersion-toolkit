@@ -48,7 +48,7 @@ def test_authored_caption_uses_referenced_voice_and_actor_or_retains_text(tmp_pa
     assert male['player_voice'] == 'male' and male['audio']['start_ms'] == 500 and male['audio']['end_ms'] == 1125
     assert female['player_voice'] == 'female'
     assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in [female, *other])
-    assert len(rows) == 6
+    assert len(rows) == 8
     assert male['film_caption'] == {'scene': 'Movie', 'start_ms': 500, 'end_ms': 1125, 'movies': []}
     assert rows[-1]['film_caption'] == {'scene': 'Film', 'start_ms': 0, 'end_ms': 2500, 'movies': [
         {'video_id': 30, 'player_voice': 'male', 'path': 'Film_m.usm', 'size': 100, 'md5': 'a'*32},
