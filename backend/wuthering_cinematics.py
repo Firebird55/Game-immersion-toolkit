@@ -168,6 +168,40 @@ def _quiet_edge(adjacent, peak, track_boundary):
     return None
 
 
+def caption_cues(db_root, locale):
+    """Select authored display clocks, not inferred spoken boundaries.
+
+    VideoConfig.GetVideoCaptions chooses a locale's nonzero-duration rows for
+    each complete scene. Only an entirely empty locale track falls back to the
+    default clocks; a missing row in a populated locale track stays omitted.
+    """
+    from . import wuthering_assets as assets
+    if locale not in assets.VOICE_LOCALES:
+        raise ValueError('Unsupported Wuthering movie-caption locale.')
+
+    def frame(blob, column):
+        at = assets._field(blob, column)
+        if at is None:
+            return 0
+        if at + 4 > len(blob):
+            raise ValueError('Incomplete Wuthering movie-caption clock.')
+        return struct.unpack_from('<i', blob, at)[0]
+
+    localized = {'en': (5, 6), 'ja': (9, 10), 'ko': (7, 8)}.get(locale)
+    groups = {}
+    for scene, blob in assets._rows(db_root / 'db_cgVedio.db', 'SELECT CgName, BinData FROM videocaption'):
+        groups.setdefault(scene, []).append(blob)
+    result = []
+    for scene, rows in groups.items():
+        columns = localized if localized and any(frame(blob, localized[1]) != 0 for blob in rows) else (2, 3)
+        for blob in rows:
+            start, duration = (frame(blob, column) for column in columns)
+            if 0 <= start < MAX_SECONDS * 30 and 0 < duration <= MAX_SECONDS * 30 - start:
+                result.append((scene, assets._string(blob, 4), round(start * 1000 / 30),
+                               round((start + duration) * 1000 / 30)))
+    return result
+
+
 def candidates(db_root, records, voices, locale):
     from . import wuthering_assets as assets
     code, gender_slot = assets.VOICE_LOCALES[locale]
@@ -187,14 +221,9 @@ def candidates(db_root, records, voices, locale):
         return []
     table = db_root / 'db_cgVedio.db'
     scenes = {}
-    for scene, blob in assets._rows(table, 'SELECT CgName, BinData FROM videocaption'):
-        key = assets._string(blob, 4)
+    for scene, key, start_ms, _ in caption_cues(db_root, locale):
         if key in groups:
-            at = assets._field(blob, 2)
-            if at is not None and at + 4 <= len(blob):
-                frame = struct.unpack_from('<i', blob, at)[0]
-                if 0 <= frame <= MAX_SECONDS * 30:
-                    scenes.setdefault(key, set()).add((scene, round(frame * 1000 / 30)))
+            scenes.setdefault(key, set()).add((scene, start_ms))
     events = {}
     for scene, variant, blob in assets._rows(table, 'SELECT CgName, GirlOrBoy, BinData FROM videosound'):
         path = assets._string(blob, 3)

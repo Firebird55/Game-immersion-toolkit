@@ -25,7 +25,7 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 5
+LANGUAGE_INDEX_VERSION = 6
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
