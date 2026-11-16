@@ -14,7 +14,8 @@ class EndfieldCaptionContext:
         self.count = 0
         self.last_seen = None
 
-    def observe(self, index, groups, visible, *, channel, scope, now, stable_frames, kind=None):
+    def observe(self, index, groups, visible, *, channel, scope, now, stable_frames, kind=None,
+                prefer_authored_occurrence=False):
         if scope != self.scope or self.last_seen is None or not 0 <= now - self.last_seen <= 3:
             self.reset()
             self.scope = scope
@@ -52,6 +53,20 @@ class EndfieldCaptionContext:
                     hit, self.anchor = next(iter(found.values()))
             if hit and hit.dialogue_kind == kind and eligible(hit):
                 resolved[hit.text_id] = hit
+        if prefer_authored_occurrence and len(resolved) == 1:
+            preferred = next(iter(resolved.values()))
+            # The index coalesces identical source/voice/translation identities
+            # to their first row. A single-caption presentation can retain its
+            # actual later occurrence when the authored observed pair proves it.
+            # Every other complete source field must still agree exactly,
+            # including audio, all translations, branch, kind and capture scope.
+            equivalent_rows = getattr(index, 'equivalent_caption_occurrence', None)
+            equivalent = {hit.text_id for hit in visible if hit.kind == 'exact'
+                          and hit.source_ocr == preferred.source_ocr and equivalent_rows
+                          and equivalent_rows(hit, preferred)}
+            for identity in equivalent:
+                matches.pop(identity, None)
+            visible = [hit for hit in visible if hit.text_id not in equivalent]
         matches.update(resolved)
         if not matches and not visible and mission_text and (possible := index.mission_anchor_ids(mission_text)):
             count = self.possible_count + 1 if self.possible == possible else 1
