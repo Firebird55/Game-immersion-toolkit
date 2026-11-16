@@ -16,6 +16,7 @@ class SceneSource:
     media_id: int
     gender: str | None
     delay_ms: int
+    authored_mute: bool = False
 
 
 class _Reader:
@@ -101,7 +102,10 @@ def _base(reader):
     _check(reader.number('H') == 0)  # No RTPC curves.
     milliseconds = properties.get(36, 0.) * 1000
     _check(0 <= milliseconds <= 300000 and abs(milliseconds - round(milliseconds)) < .001)
-    return parent, round(milliseconds)
+    volume, makeup = properties.get(0, 0.), properties.get(5, 0.)
+    # Preserve ownership even for timing carriers. Playback eligibility is a
+    # separate decision; an authored minimum fader must not become spoken audio.
+    return parent, round(milliseconds), volume + makeup, min(volume, makeup) <= -96
 
 
 def _children(reader):
@@ -122,7 +126,7 @@ def _node(kind, data):
         _check(media and reader.byte() == 9)  # Language-specific, non-prefetch.
     else:
         _check(kind in (6, 7))
-    parent, delay = _base(reader)
+    parent, delay, gain, muted = _base(reader)
     children, states = (), {}
     if kind == 6:
         _check(reader.byte() == 1 and reader.uint() == wwise_hash('player_rover_gender'))
@@ -153,7 +157,7 @@ def _node(kind, data):
     elif kind == 7:
         children = _children(reader)
     reader.finish()
-    return parent, delay, media, children, states
+    return parent, delay, media, children, states, gain, muted
 
 
 def media_candidates(bank):
@@ -200,11 +204,14 @@ def scene_sources(bank, event, localized_media):
             if kind != 2 or len(data) < 9 or struct.unpack_from('<I', data, 5)[0] not in members:
                 continue
             path, current, gender, delay = [], key, None, 0
+            gain, muted = 0., False
             while current:
                 _check(current not in path)
                 path.append(current)
                 node_kind, node_data = nodes[current]
-                parent, node_delay, media, children, states = _node(node_kind, node_data)
+                parent, node_delay, media, children, states, node_gain, node_muted = _node(node_kind, node_data)
+                gain += node_gain
+                muted = muted or node_muted
                 if current == key:
                     delay, source_media = node_delay, media
                 else:
@@ -225,7 +232,7 @@ def scene_sources(bank, event, localized_media):
                        and struct.unpack_from('<II', action, 10) == (wwise_hash(event), 30))
                 matches += 1
             _check(matches == 1)
-            sources.append(SceneSource(source_media, gender, delay))
+            sources.append(SceneSource(source_media, gender, delay, muted or gain <= -96))
         _check(len(sources) in (1, 2) and len(set(sources)) == len(sources)
               and ({source.gender for source in sources} == {None} if len(sources) == 1
                    else {source.gender for source in sources} == {'male', 'female'}))

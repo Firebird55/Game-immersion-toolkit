@@ -62,6 +62,16 @@ def test_exact_root_and_localized_members_establish_ownership_and_delay():
     assert not scene_sources(data, 'owned_scene', {999})
 
 
+@pytest.mark.parametrize('source_props,parent_props', [
+    ({0: -96}, {}), ({5: -96}, {}), ({}, {0: -96}),
+    ({0: -48}, {0: -48}), ({0: -96}, {5: 96}),
+])
+def test_muted_timing_carriers_keep_source_ownership_without_an_audible_claim(source_props, parent_props):
+    nodes = direct(properties=source_props)
+    nodes[1] = (7, 20, base(properties=parent_props) + children([10]))
+    assert scene_sources(bank(nodes), 'owned_scene', {101}) == (SceneSource(101, None, 0, True),)
+
+
 def test_unselected_language_or_music_source_is_never_inferred_from_hash():
     nodes = direct() + [(2, 90, b'bad!!' + u32(303) + b'unsupported unrelated sound')]
     assert scene_sources(bank(nodes), 'owned_scene', {101}) == (SceneSource(101, None, 0),)

@@ -95,7 +95,8 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes):
                         variants = []
                         break
             shape = source_shapes.get(source.media_id)
-            if (shape and len(shape) == 2 and type(shape[0]) is int and shape[0] in (1, 2)
+            if (not source.authored_mute and shape and len(shape) == 2
+                    and type(shape[0]) is int and shape[0] in (1, 2)
                     and type(shape[1]) is int and 0 < shape[1] <= 48000 * 300):
                 channels, frames = shape
                 variant.update(audio_scope='context', voice_status='voiced', audio={

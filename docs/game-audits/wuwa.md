@@ -28,6 +28,15 @@ inventory and are not promoted by this operation; no isolated dialogue stem is
 inferred. M0355's two sources per dub exceed five minutes and also remain
 unavailable through this complete-source route.
 
+A separate original shared-song event, `play_all_sound_m0390_lyric`, assigns
+-96 dB to its streamed source. Source ownership alone therefore cannot establish
+audible playback: such a source can serve as a subtitle timing carrier. The
+ownership reader retains that evidence, while context promotion rejects authored
+mute faders or a source/ancestor gain sum at that mute level. This does not label
+the written lyric unvoiced. All 564 accepted localized source/ancestor paths were
+checked: their Volume values span -6 to +3 dB, and their lowest combined gain is
+-7.5 dB. None is muted, so current context counts and existing exports are unchanged.
+
 Normal publisher preparation returns **1,131 context variants for 807 distinct
 caption identities, 107 original sources and 70 scenes in each study locale**.
 These are variant counts, not 1,131 unique captions or a complete film-coverage

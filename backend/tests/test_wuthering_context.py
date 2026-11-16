@@ -15,6 +15,8 @@ from backend.models import AppSettings
 from backend.multilingual_index import MultilingualTextIndex
 from backend.wuthering_bank import SceneSource
 from backend.tests.test_wuthering_narrative import flat_blob, flow_database
+from backend.tests.test_wuthering_bank import bank, direct
+from backend.wuthering_bank import scene_sources
 
 
 def scene_db(root, *, scene='owned_scene', event='play_owned_scene', variant=2, start=0., end=-1.):
@@ -74,6 +76,19 @@ def test_duration_or_channel_metadata_never_becomes_a_fallback(shape, tmp_path):
     rows = [record()]
     assign(tmp_path, rows, shapes={101: shape})
     assert rows[0]['audio'] is None and rows[0]['voice_status'] == 'unavailable'
+
+
+def test_native_muted_carrier_is_not_promoted_by_its_real_source_and_short_duration(tmp_path):
+    # Observed native carrier shape: root Play -> streamed sound, Volume=-96 dB.
+    # It is a genuine original recording, but this event supplies no audible
+    # ownership proof. Do not amplify it into a spoken sentence or call it silent.
+    scene_db(tmp_path, event='owned_scene')
+    sources = scene_sources(bank(direct(properties={0: -96})), 'owned_scene', {101})
+    assert sources == (SceneSource(101, None, 0, True),)
+    rows = [record()]
+    original = copy.deepcopy(rows)
+    context.assign_contexts(tmp_path, rows, 'en', {'owned_scene': sources}, {101: (2, 123457)})
+    assert rows == original and rows[0]['voice_status'] == 'unavailable'
 
 
 @pytest.mark.parametrize('options', [{'start': 2.5}, {'end': 20.}, {'start': float('nan')},
