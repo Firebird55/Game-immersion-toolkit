@@ -10,14 +10,11 @@ param(
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path -Parent $PSScriptRoot
 $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build-inputs.json') -Raw | ConvertFrom-Json
-function No-Links([string]$Path) {
-    $item=[IO.Path]::GetFullPath($Path)
-    while($item) {
-        if((Test-Path -LiteralPath $item) -and ((Get-Item -LiteralPath $item -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {throw 'Android build inputs cannot follow links.'}
-        $item=[IO.Path]::GetDirectoryName($item)
-    }
-}
-foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome)) {No-Links $item}
+. (Join-Path $PSScriptRoot 'android-build-paths.ps1')
+$SdkRoot=Resolve-AndroidSupplierPath $SdkRoot 'Android SDK' @("platforms/android-$($policy.compile_sdk)/android.jar","build-tools/$($policy.build_tools)/aapt2.exe","build-tools/$($policy.build_tools)/zipalign.exe")
+$Python=Resolve-AndroidSupplierPath $Python 'Build Python' @('')
+$JavaHome=Resolve-AndroidSupplierPath $JavaHome 'Build Java' @('bin/java.exe','bin/keytool.exe')
+foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome)) {Assert-AndroidNoLinks $item}
 $BuildRoot=[IO.Path]::GetFullPath($BuildRoot)
 New-Item -ItemType Directory -Path $BuildRoot -Force | Out-Null
 foreach($name in @('temp','gradle-user','android-user','avd')) {New-Item -ItemType Directory -Path (Join-Path $BuildRoot $name) -Force | Out-Null}
