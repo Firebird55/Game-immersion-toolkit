@@ -18,7 +18,7 @@ try{
    const profiles=[{id:'first',name:'First account'}];
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
-   let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false;
+   let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false,missingAudio=null;
    let languageReadStatus=200,failPreparation=false,greekLine=false,selectedReadingLanguage='en';
    let initialLanguageGate=true;const initialLanguageReads=[];
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
@@ -26,7 +26,7 @@ try{
    const region={left:.1,top:.6,width:.8,height:.25};
    const updates={state:'retrying',progress:null,automatic:true,message:'Installed game files changed. The reader could not prepare the selected language; the previous table was kept.',items:[{game:'zzz',locale:'zh-Hans',state:'error',message:'The new archive format needs a reader update. Original voices remain unavailable until preparation succeeds.'},{game:'beyond',locale:'nl',state:'ready',message:'Prepared Dutch subtitles and original audio are current.'}]};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
-   const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:greekLine?'el':'en',source_locale:greekLine?'el':'en',source_text:greekLine?'Μια δοκιμαστική πρόταση.':'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:!unvoiced,has_audio:!unvoiced,voice_status:unvoiced?'unvoiced':'voiced',favorite:false});
+   const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:greekLine?'el':'en',source_locale:greekLine?'el':'en',source_text:greekLine?'Μια δοκιμαστική πρόταση.':'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:!unvoiced&&!missingAudio,has_audio:!unvoiced&&!missingAudio,voice_status:missingAudio??(unvoiced?'unvoiced':'voiced'),text_capture_verified:!!missingAudio,favorite:false});
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
     {locale:'zh-Hans',language:'zh',name:'Simplified Chinese',reader_available:true,prepared:prepared?{targets:['en'],mapped_lines:1}:null,coverage_warnings:prepared?['Synthetic coverage warning: an updated cinematic format is not mapped.']:[]},
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
@@ -133,9 +133,12 @@ try{
    await page.getByRole('button',{name:'Capture setup',exact:true}).click();
    const captureSettings=page.getByRole('dialog',{name:'Capture setup',exact:true});
    await captureSettings.getByLabel('Include unvoiced dialogue',{exact:true}).check();
+   assert.equal(await captureSettings.getByLabel('Include subtitles without available audio',{exact:true}).isChecked(),false);
+   await captureSettings.getByLabel('Include subtitles without available audio',{exact:true}).check();
    await captureSettings.getByRole('button',{name:'Save capture settings',exact:true}).click();
    await captureSettings.waitFor({state:'hidden'});
    assert.equal(settings.capture_unvoiced,true,'Capture toggle is saved through local settings');
+   assert.equal(settings.capture_missing_audio,true,'Missing-audio capture has its own saved control');
    await page.locator('.current-line .reading-hanzi').click();
    await page.waitForTimeout(100);
    assert(releaseOld,'Old-account lookup is pending');
@@ -382,6 +385,14 @@ try{
    assert.equal(await page.locator('.current-line').getByRole('button',{name:'Original voice unavailable',exact:true}).count(),0);
    await send.click();
    await page.getByText('Sentence saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
+   for(const [status,label] of [['unknown','Audio binding unresolved'],['unavailable','Original voice unavailable']]){
+    missingAudio=status;generation++;delete sent.first['line:1'];
+    await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
+    await page.locator('.current-line').getByText(label,{exact:true}).waitFor();
+    assert.equal(await page.locator('.current-line').getByRole('button',{name:'Original voice unavailable',exact:true}).count(),0);
+    await send.click();await page.getByText('Sentence saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
+   }
+   missingAudio=null;
    selectedReadingLanguage='ja';generation++;
    await page.reload();
    await page.locator('.current-line .reading-text[lang="en"]').waitFor();

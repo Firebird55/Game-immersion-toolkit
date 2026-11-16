@@ -185,9 +185,12 @@ def test_pragmata_uses_subtitles_and_original_assets_without_speech_gate(tmp_pat
         service._executor.shutdown()
 
 
-def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio(tmp_path):
+@pytest.mark.parametrize('status,toggle', [('unvoiced', 'capture_unvoiced'),
+    ('unknown', 'capture_missing_audio'), ('unavailable', 'capture_missing_audio')])
+def test_certified_text_dialogue_is_opt_in_durable_and_never_schedules_audio(tmp_path, status, toggle):
     service, match, scheduled, published = fixture_service(tmp_path, mapped=False, game='pragmata')
-    match.voice_status, match.dialogue_kind = 'unvoiced', 'conversation'
+    match.voice_status, match.dialogue_kind = status, 'conversation'
+    match.text_capture_verified = status != 'unvoiced'
 
     async def run():
         service._event_loop = asyncio.get_running_loop()
@@ -197,19 +200,20 @@ def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio
         for _ in range(3):
             scan()
         assert not published and service.transcript.count() == 0
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
-        assert SettingsStore(service.settings.path).get().capture_unvoiced
+        service.settings.save(service.settings.get().model_copy(update={toggle: True}))
+        assert getattr(SettingsStore(service.settings.path).get(), toggle)
         for _ in range(3):
             scan()
         await asyncio.sleep(.02)
         assert len(published) == 1 and not scheduled
         line = published[0]
-        assert line.voice_status == 'unvoiced' and line.dialogue_kind == 'conversation'
+        assert line.voice_status == status and line.dialogue_kind == 'conversation'
         assert not line.voiced and not line.has_audio and not line.audio_pending
         restarted = TranscriptStore(service.transcript.path)
         assert restarted.purge_unvoiced() == []
-        assert restarted.get(line.id).voice_status == 'unvoiced'
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        assert restarted.get(line.id).voice_status == status
+        assert restarted.get(line.id).text_capture_verified == match.text_capture_verified
+        service.settings.save(service.settings.get().model_copy(update={toggle: False}))
         assert not service._capturable_match(match)
         assert restarted.get(line.id) is not None
     try:
@@ -218,7 +222,9 @@ def test_certified_unvoiced_dialogue_is_opt_in_durable_and_never_schedules_audio
         service._executor.shutdown()
 
 
-def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path, monkeypatch):
+@pytest.mark.parametrize('status,toggle', [('unvoiced', 'capture_unvoiced'),
+    ('unknown', 'capture_missing_audio'), ('unavailable', 'capture_missing_audio')])
+def test_text_page_outside_caption_lane_is_stable_opt_in_and_resets_after_toggle(tmp_path, monkeypatch, status, toggle):
     import json
     from backend import api
     from backend.capture import _ScanOutcome
@@ -229,7 +235,8 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
     (directory / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'cyberpunk',
         'source_locale': 'en', 'records': [{'text_id': 'letter', 'english': text, 'chinese': '',
             'source_locale': 'en', 'source_text': text, 'texts': {'en': text}, 'audio_locale': 'en',
-            'audio': None, 'voice_status': 'unvoiced', 'dialogue_kind': 'readable', 'channels': ['tip']}]}), encoding='utf-8')
+            'audio': None, 'voice_status': status, 'text_capture_verified': status != 'unvoiced',
+            'dialogue_kind': 'readable', 'channels': ['tip']}]}), encoding='utf-8')
     index = MultilingualTextIndex('cyberpunk', directory)
     service, _, scheduled, published = fixture_service(tmp_path, game='cyberpunk')
     window = SimpleNamespace(bounds=(-1920, 0, 1920, 1080), title='Game')
@@ -243,6 +250,7 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
         service._event_loop = asyncio.get_running_loop()
         def scan():
             index.capture_unvoiced = service.settings.get().capture_unvoiced
+            index.capture_missing_audio = service.settings.get().capture_missing_audio
             # A phone/page screen is deliberately excluded from voiced OCR on
             # every frame; it must not reset the separate silent confirmation.
             service._update_snapshot(phase='excluded_screen')
@@ -250,19 +258,19 @@ def test_unvoiced_page_outside_caption_lane_is_stable_opt_in_and_resets_after_to
                                          datetime.now(timezone.utc), 'cyberpunk')
         scan()
         assert scans == []
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        service.settings.save(service.settings.get().model_copy(update={toggle: True}))
         assert not scan().emitted_lines
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        service.settings.save(service.settings.get().model_copy(update={toggle: False}))
         scan()
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': True}))
+        service.settings.save(service.settings.get().model_copy(update={toggle: True}))
         assert not scan().emitted_lines, 'A toggle resets partial frame confirmation'
         assert len(scan().emitted_lines) == 1
         await asyncio.sleep(.02)
         assert len(published) == 1 and not scheduled
-        assert published[0].dialogue_kind == 'readable' and published[0].voice_status == 'unvoiced'
+        assert published[0].dialogue_kind == 'readable' and published[0].voice_status == status
         assert published[0].channel == 'tip'
         assert not scan().emitted_lines
-        service.settings.save(service.settings.get().model_copy(update={'capture_unvoiced': False}))
+        service.settings.save(service.settings.get().model_copy(update={toggle: False}))
         reopened = TranscriptStore(service.transcript.path)
         monkeypatch.setattr(api, 'runtime', SimpleNamespace(transcript=reopened,
             game_indexes={'cyberpunk': MultilingualTextIndex('cyberpunk', directory)}), raising=False)

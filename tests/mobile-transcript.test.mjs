@@ -6,6 +6,17 @@ const source='pc-01234567-89ab-cdef-0123-456789abcdef',session='test-session';
 const row={source,game:'zzz',id:1,chinese:'你好',english:'Hello',speakerChinese:'',speakerEnglish:'',createdAt:1,audio:true};
 const message=value=>JSON.stringify({v:PROTOCOL,session,...value});
 
+test('PC text-only captions preserve missing audio evidence and reject contradictory or malformed status',()=>{
+ for(const voiceStatus of ['unknown','unavailable']){
+  const caption={...row,audio:false,voiceStatus,textCaptureVerified:true};
+  const page=parseMessage(message({type:'page',request:'missing',before:null,rows:[caption]}),session);
+  assert.equal(page.rows[0].voiceStatus,voiceStatus);assert.equal(page.rows[0].textCaptureVerified,true);
+  for(const changes of [{audio:true},{voiceStatus:'unvoiced-maybe'},{textCaptureVerified:'true'},
+                       {textTruncated:true},{textTruncated:'true'}])
+   assert.throws(()=>parseMessage(message({type:'page',request:'bad',before:null,rows:[{...caption,...changes}]}),session));
+ }
+});
+
 test('Dutch PC rows retain explicit learning, audio and official translation locales',()=>{
  for(const game of ['beyond','heavyrain'])for(const scope of ['paragraph','context']){
  const dutch={...row,game,sourceText:'Een testzin.',sourceLanguage:'nl',sourceLocale:'nl',translationText:'测试句子。',translationLocale:'zh-Hans',audioLocale:'nl',audioScope:scope};

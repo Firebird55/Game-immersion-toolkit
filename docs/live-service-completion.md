@@ -5,6 +5,21 @@ The endpoint is reliable subtitle support and autonomous normal content updates.
 It does not require cataloguing every sound without subtitles or cutting every
 film utterance at word boundaries. No release is requested.
 
+Desktop Capture setup provides separate, default-off controls for confirmed
+unvoiced dialogue and **Include subtitles without available audio**. The latter
+requires adapter evidence that a record is authored, displayed dialogue; generic
+localization entries do not qualify. Matching is exact and complete, respects
+player and presentation restrictions, and rejects unresolved text branches or
+ambiguous duplicates. It retains `unknown` or `unavailable` audio status rather
+than declaring silence or attaching a generic reaction. History and favorites
+survive disabling the control and restarting. Desktop exports and paired-PC
+phone history retain that status; text-only Lexirise saves include an honest note
+and never upload reaction audio. Standalone phone catalog preparation retains its
+existing per-game coverage gates; this control applies to desktop capture.
+The paired-PC transport's existing length cap is explicit: a shortened subtitle
+cannot retain complete-caption evidence or be saved as a full sentence on the
+phone; its full original remains readable and exportable on the PC.
+
 ## Fixed audit bases
 
 Use these published generations as the starting inventories. Later publisher

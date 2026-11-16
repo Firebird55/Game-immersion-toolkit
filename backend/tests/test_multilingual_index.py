@@ -83,6 +83,72 @@ def index(tmp_path, source='ko', rows=None):
     return MultilingualTextIndex('cyberpunk', tmp_path)
 
 
+@pytest.mark.parametrize('status', ['unknown', 'unavailable'])
+def test_verified_missing_audio_needs_own_toggle_exact_complete_text_and_unambiguous_evidence(tmp_path, status):
+    text = 'A complete subtitle with unresolved audio.'
+    row = {'text_id': 'cyberpunk:caption', 'english': text, 'chinese': '',
+           'source_locale': 'en', 'source_text': text, 'texts': {'en': text},
+           'audio_locale': 'en', 'audio': None, 'voice_status': status,
+           'text_capture_verified': True, 'dialogue_kind': 'radio'}
+    value = index(tmp_path, 'en', [row])
+    assert value.status()['missing_audio_count'] == 1
+    value.capture_unvoiced = True
+    assert value.match_text(text) is None
+    value.capture_missing_audio = True
+    hit = value.match_text(text)
+    assert hit and hit.is_verified_missing_audio and hit.voice_status == status
+    invalid = {**row, 'texts': []}
+    (tmp_path / 'textmap.json').write_text(json.dumps({'format': 2, 'game': 'cyberpunk',
+        'source_locale': 'en', 'records': [invalid]}), encoding='utf-8')
+    assert not value.load() and value.match_text(text).text_id == row['text_id']
+    assert value.match_missing_audio_lines([text])[0].text_id == row['text_id']
+    assert value.match_unvoiced_lines([text]) == []
+    assert value.match_text(text.replace('subtitle', 'subtitl')) is None
+    assert value.match_text('An unrelated UI paragraph. ' + text) is None
+    for changes in ({'text_capture_verified': False}, {'text_binding_unresolved': True},
+                    {'text_capture_verified': False, 'dialogue_kind': 'ui'}):
+        value = index(tmp_path, 'en', [row, {**row, 'text_id': 'cyberpunk:unresolved', **changes}])
+        value.capture_missing_audio = True
+        assert value.match_text(text) is None
+    value = index(tmp_path, 'en', [row, {**row, 'text_id': 'cyberpunk:different-translation',
+                                       'texts': {'en': text, 'zh-Hans': '不同的翻译。'}}])
+    value.capture_missing_audio = True
+    assert value.match_text(text) is None
+
+
+def test_missing_caption_does_not_borrow_other_player_or_survive_invalid_generation(tmp_path):
+    text = 'Wait!'
+    row = {'text_id': 'endfield:caption:female', 'source_locale': 'en', 'source_text': text,
+           'texts': {'en': text}, 'audio_locale': 'en', 'audio': None, 'voice_status': 'unavailable',
+           'text_capture_verified': True, 'player_voice': 'female'}
+    path = tmp_path / 'textmap.json'
+    payload = {'format': 2, 'game': 'endfield', 'source_locale': 'en', 'records': [row]}
+    path.write_text(json.dumps(payload), encoding='utf-8')
+    value = MultilingualTextIndex('endfield', tmp_path)
+    value.capture_missing_audio = True
+    assert value.match_text(text) is None
+    value.player_voice = 'male'
+    assert value.match_text(text) is None
+    value.player_voice = 'female'
+    assert value.match_text(text).text_id == row['text_id']
+    # A genuine short spoken/silent caption must veto text-only selection even
+    # when the original voice matcher cannot identify such a short performance.
+    for status in ('voiced', 'unvoiced'):
+        conflict = {**row, 'text_id': 'endfield:other-presentation', 'text_capture_verified': False,
+                    'voice_status': status, 'audio': {'voice': 1} if status == 'voiced' else None}
+        payload['records'] = [row, conflict]
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        assert value.load() and value.match_text(text) is None
+        conflict['player_voice'] = 'male'
+        path.write_text(json.dumps(payload), encoding='utf-8')
+        assert value.load() and value.match_text(text).text_id == row['text_id']
+    payload['records'] = [row]
+    row['text_capture_verified'] = 'true'
+    path.write_text(json.dumps(payload), encoding='utf-8')
+    assert not value.load()
+    assert value.match_text(text).text_id == row['text_id']
+
+
 @pytest.mark.parametrize('lines', [
     ['가까이 있어요.', '지켜줄게요.'], ['Stay close. I will protect you.'],
     ['跟紧我。我会保护你。 Stay close. I will protect you.'],

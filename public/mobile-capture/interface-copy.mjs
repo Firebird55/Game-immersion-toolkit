@@ -1,5 +1,10 @@
 // Product copy shared by the desktop and browser interfaces.
 export default {
+ "Shared subtitle is incomplete. Read or save the full line on the PC.":["De gedeelde ondertitel is ingekort. Lees of bewaar de volledige regel op de pc.","共享字幕被截短，请在电脑上阅读或保存完整台词。","共用字幕被截短，請在電腦上閱讀或儲存完整台詞。"],
+ "Include subtitles without available audio":["Ondertitels zonder beschikbare audio opnemen","收录暂无音频的字幕","收錄暫無音訊的字幕"],
+ "Audio binding unresolved":["Audiokoppeling onbekend","音频关联尚未确定","音訊關聯尚未確定"],
+ "Original voice unavailable":["Originele stem niet beschikbaar","原版配音暂不可用","原版配音暫不可用"],
+ "Captures verified dialogue text with missing or unresolved audio. Its audio status stays visible; general reactions are not presented as spoken sentences. Saved history is kept when this is off.":["Legt bevestigde dialoogtekst vast wanneer audio ontbreekt of de koppeling onbekend is. De audiostatus blijft zichtbaar; algemene reacties worden niet als gesproken zinnen aangeboden. Opgeslagen geschiedenis blijft bewaard als dit uitstaat.","收录音频缺失或关联未确定的已验证对白字幕，并保留音频状态。通用反应音不会被当作完整台词。关闭后仍保留已存历史。","收錄音訊缺失或關聯未確定的已驗證對白字幕，並保留音訊狀態。通用反應音不會被當作完整台詞。關閉後仍保留已存歷史。"],
  "Original voice · context clip":["Originele stem · fragment met context","原版配音 · 含上下文片段","原版配音 · 含上下文片段"],
  "Play context clip":["Fragment met context afspelen","播放含上下文片段","播放含上下文片段"],
  "▶ Play context clip":["▶ Fragment met context afspelen","▶ 播放含上下文片段","▶ 播放含上下文片段"],

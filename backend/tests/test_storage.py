@@ -825,7 +825,9 @@ def test_purge_unvoiced_keeps_confirmed_subtitles_and_favorites(tmp_path) -> Non
         score=100,
         kind="exact",
     )
-    unvoiced = store.add(match.model_copy(update={"text_id": "unvoiced"}), "session-a")
+    # Text provenance alone does not exempt a failed voiced row from cleanup.
+    unvoiced = store.add(match.model_copy(update={"text_id": "unvoiced", "voice_status": "voiced",
+                                                "text_capture_verified": True}), "session-a")
     voiced = store.add(match.model_copy(update={"text_id": "voiced"}), "session-a")
     favorite = store.add(match.model_copy(update={"text_id": "favorite"}), "session-a")
     cinematic = store.add(

@@ -225,7 +225,7 @@ class TranscriptStore:
                         0,
                         json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                             'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                            'voice_status', 'dialogue_kind', 'audio_scope')}, ensure_ascii=False),
+                            'voice_status', 'dialogue_kind', 'audio_scope', 'text_capture_verified')}, ensure_ascii=False),
                     ),
                 )
                 row_id = statement.lastrowid
@@ -409,7 +409,7 @@ class TranscriptStore:
                                 match.speaker_chinese,
                                 json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                                     'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
-                                    'voice_status', 'dialogue_kind', 'audio_scope')}, ensure_ascii=False),
+                                    'voice_status', 'dialogue_kind', 'audio_scope', 'text_capture_verified')}, ensure_ascii=False),
                                 previous["id"],
                             ),
                         )
@@ -524,7 +524,8 @@ class TranscriptStore:
                 """
                 ).fetchall()
             rows = [row for row in rows if not (self._row_to_line(row).is_comic
-                                               or self._row_to_line(row).voice_status == 'unvoiced')]
+                                               or self._row_to_line(row).voice_status == 'unvoiced'
+                                               or self._row_to_line(row).is_verified_missing_audio)]
             if rows:
                 with self._sql_lifetime.cursor(connection) as statement:
                     statement.executemany(

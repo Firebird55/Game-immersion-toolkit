@@ -33,6 +33,7 @@ class MultilingualTextIndex:
         self.ready = False
         self.player_voice = 'unconfigured'
         self.capture_unvoiced = False
+        self.capture_missing_audio = False
         self.target_locale = 'en'
         self.source_locale = ''
         self.entry_count = self.audio_count = 0
@@ -42,6 +43,8 @@ class MultilingualTextIndex:
         self._records, self._lookup, self._context_pairs, self._context_firsts = [], {}, {}, {}
         self._capture_channels = {}
         self._unvoiced_lookup = {}
+        self._missing_audio_lookup = {}
+        self._missing_audio_blockers = {}
         self._predecessor_aliases = {}
         self._mission_predecessors = {}
         self._full_frame_veto = {}
@@ -58,7 +61,7 @@ class MultilingualTextIndex:
         with self._load_lock, self.lock:
             candidate.path.replace(self.path)
             settings = {'game', 'path', 'lock', '_load_lock', 'player_voice',
-                        'target_locale', 'capture_unvoiced'}
+                        'target_locale', 'capture_unvoiced', 'capture_missing_audio'}
             self.__dict__.update({key: value for key, value in candidate.__dict__.items()
                                   if key not in settings})
 
@@ -89,6 +92,19 @@ class MultilingualTextIndex:
             study_language(locale)
             lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             player_frame_veto = {}
+            missing_audio_lookup = {}
+            missing_audio_count = 0
+            missing_audio_blockers = {}
+            eligible_missing_keys = {}
+            for row in payload['records']:
+                if (row.get('text_capture_verified') is True and not row.get('text_binding_unresolved')
+                        and row.get('voice_status', 'unknown') in {'unknown', 'unavailable'} and not row.get('audio')):
+                    texts, anchors = row.get('texts'), row.get('ocr_texts', {})
+                    if not isinstance(texts, dict) or not isinstance(anchors, dict):
+                        raise ValueError('Invalid authored dialogue text metadata')
+                    for language, text in texts.items():
+                        for value in [text, *anchors.get(language, [])]:
+                            eligible_missing_keys.setdefault(language, set()).add(normalize_text(display_text(value), language))
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             predecessor_aliases = {}
@@ -104,6 +120,8 @@ class MultilingualTextIndex:
                 if row.get('audio_locale') != audio_locale(locale, self.game):
                     raise ValueError('Original voice locale does not match study text')
                 row['voice_status'] = dialogue_voice_status(row.get('audio'), row.get('voice_status'))
+                if type(row.get('text_capture_verified', False)) is not bool:
+                    raise ValueError('Invalid authored text capture evidence')
                 row.setdefault('audio_scope', 'paragraph' if self.game == 'beyond'
                                and row['text_id'].endswith(':complete') and row.get('audio') else 'line')
                 row['audio_scope'] = dialogue_audio_scope(row.get('audio'), row['audio_scope'])
@@ -139,15 +157,35 @@ class MultilingualTextIndex:
                 # Authored silence does not resolve an unsupported text branch.
                 # Keep its inventory/veto, but neither its diagnostic source nor
                 # an otherwise valid translation can identify a capturable row.
-                if row.get('text_binding_unresolved') or row['voice_status'] not in {'voiced', 'unvoiced'}:
+                missing_audio = row['voice_status'] in {'unknown', 'unavailable'}
+                if not missing_audio:
+                    # A short voiced caption still conflicts with text-only
+                    # capture even if it is too short to identify its recording.
+                    for language, text in row['texts'].items():
+                        if language not in eligible_missing_keys:
+                            continue
+                        for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
+                            key = normalize_text(display_text(value), language)
+                            if key in eligible_missing_keys[language]:
+                                missing_audio_blockers.setdefault(row.get('player_voice'), {}).setdefault(language, set()).add(key)
+                if missing_audio:
+                    # Keep unverified and unresolved duplicates in this lookup
+                    # as vetoes. Their spelling cannot certify another row.
+                    destination = missing_audio_lookup
+                    if row.get('text_capture_verified') and not row.get('text_binding_unresolved'):
+                        missing_audio_count += 1
+                elif row.get('text_binding_unresolved'):
                     continue
-                destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
+                else:
+                    destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
                 for language, text in row['texts'].items():
                     for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                         key = normalize_text(display_text(value), language)
+                        if missing_audio and key not in eligible_missing_keys.get(language, ()):
+                            continue
                         if len(key) >= 2 or key and row.get('previous_text_id'):
                             destination.setdefault(language, {}).setdefault(key, []).append(row)
-                    if row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
+                    if not missing_audio and row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
                         last = anchors[0]
                         if last and text.endswith(' ' + last):
                             first = text[:-len(last)-1]
@@ -157,6 +195,9 @@ class MultilingualTextIndex:
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
+                self._missing_audio_lookup = missing_audio_lookup
+                self._missing_audio_blockers = missing_audio_blockers
+                self.missing_audio_count = missing_audio_count
                 self._full_frame_veto = full_frame_veto
                 self._player_frame_veto = player_frame_veto
                 self._predecessor_aliases = predecessor_aliases
@@ -184,6 +225,7 @@ class MultilingualTextIndex:
         return {'ready': self.ready, 'state': self.state, 'message': self.message,
                 'entry_count': self.entry_count, 'audio_count': self.audio_count, 'source_locale': self.source_locale,
                 'unvoiced_count': self.voice_counts['unvoiced'], 'voice_counts': dict(self.voice_counts),
+                'missing_audio_count': getattr(self, 'missing_audio_count', 0),
                 'dialogue_coverage': self.dialogue_coverage,
                 'capture_capabilities': self.snapshot_metadata.get('capture_capabilities')}
 
@@ -237,6 +279,8 @@ class MultilingualTextIndex:
                 lookups = [(locale, values, False) for locale, values in self._lookup.items()]
                 if self.capture_unvoiced:
                     lookups += [(locale, values, True) for locale, values in self._unvoiced_lookup.items()]
+                if self.capture_missing_audio:
+                    lookups += [(locale, values, True) for locale, values in self._missing_audio_lookup.items()]
                 for locale, lookup, silent in lookups:
                     if previous_text_id and (locale != self.source_locale or silent):
                         continue
@@ -246,7 +290,8 @@ class MultilingualTextIndex:
                         # including movies without per-caption voice bindings.
                         # Their spelling alone cannot identify a performance.
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
-                        if len(key) < minimum and not previous_text_id:
+                        missing_lookup = lookup is self._missing_audio_lookup.get(locale)
+                        if len(key) < minimum and not previous_text_id and not missing_lookup:
                             continue
                     rows, matched_keys = lookup.get(key, []), {key}
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
@@ -284,12 +329,24 @@ class MultilingualTextIndex:
                     elif any(row.get('requires_previous') for row in rows):
                         ambiguous.append(source)
                         continue
+                    if any(row['voice_status'] in {'unknown', 'unavailable'} for row in rows):
+                        complete = normalize_text(display_text(' '.join(lines)), locale)
+                        blockers = [self._missing_audio_blockers.get(None, {})]
+                        blockers += ([self._missing_audio_blockers.get(self.player_voice, {})]
+                                     if self.player_voice in {'male', 'female'} else
+                                     [values for player, values in self._missing_audio_blockers.items() if player])
+                        if (key != complete or any(not row.get('text_capture_verified')
+                                or row.get('text_binding_unresolved') for row in rows)
+                                or any(key in values.get(locale, ()) for values in blockers)):
+                            ambiguous.append(source)
+                            continue
                     # Silent prompts can repeat in different scenes with different
                     # official translations. Audio=None is not one shared identity.
                     def identity(row):
                         return (json.dumps(row.get('audio'), sort_keys=True), row['source_text'],
                                 json.dumps(row['texts'], sort_keys=True)
-                                if row['voice_status'] == 'unvoiced' or row['audio_scope'] in {'paragraph', 'context'} else '')
+                                if row['voice_status'] != 'voiced' or row['audio_scope'] in {'paragraph', 'context'} else '',
+                                row['voice_status'])
                     identities = {identity(r) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]
@@ -307,6 +364,7 @@ class MultilingualTextIndex:
                         translation_locale=target or self.target_locale, translation_text=row['texts'].get(target, '') if target else '',
                         speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
                         voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
+                        text_capture_verified=row.get('text_capture_verified', False),
                         audio_scope=row['audio_scope']))
         if multiple:
             # Retain independent visible speakers, but never turn a wrapped
@@ -353,6 +411,14 @@ class MultilingualTextIndex:
             return []
         return [hit for hit in self.match_lines(lines, exact_only=True, channel=None, multiple=True)
                 if hit.voice_status == 'unvoiced' and hit.kind == 'exact']
+
+    def match_missing_audio_lines(self, lines):
+        """Preserve verified complete captions without asserting spoken silence."""
+        if not self.capture_missing_audio:
+            return []
+        return [hit for hit in self.match_lines(lines, exact_only=True, channel=None, multiple=True)
+                if hit.voice_status in {'unknown', 'unavailable'} and hit.text_capture_verified
+                and hit.kind == 'exact']
 
     def match_full_frame_voice_lines(self, lines):
         """Floating dialogue must not match short labels, choices or unknown UI.
