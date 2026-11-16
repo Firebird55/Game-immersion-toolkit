@@ -185,6 +185,36 @@ voice control was verified there. It is retained only as caption/layout
 evidence, and its negative audio searches do not strengthen a silence claim.
 [Additional caption recording](https://www.youtube.com/watch?v=mUmnWu6WNeU&t=236s)
 
+### Further independently found An Yu gameplay
+
+A further November 16 search found another continuous *Divvy Up the Trouble*
+recording. Decoded-frame checks locate the three correct English caption
+beginnings at approximately **10:37**, **11:49** and **11:54**. The third is
+fully visible at the last checkpoint. The earlier two checkpoints catch the
+typewriter display; a separate three-second OCR scan recovers their complete
+text. These checkpoints identify captions, not spoken boundaries.
+[First caption](https://www.youtube.com/watch?v=k7Z9yQ7cmcY&t=637s)
+· [Second caption](https://www.youtube.com/watch?v=k7Z9yQ7cmcY&t=709s)
+· [Third caption](https://www.youtube.com/watch?v=k7Z9yQ7cmcY&t=714s)
+
+The original Japanese `chr_0030_zhuangfy_interact_etherium_01` matches at
+**9:17.378**, with normalized correlation **0.947** at 16 kHz, filtered at
+400–3,400 Hz. The same English, Mandarin and Korean performances reach at
+most 0.181. The selected publisher's Japanese localization, `AIBarkText`
+reference and signed `AudioDialog` ID **221392628** independently identify
+the recording. Speech recognition also recovers part of its Japanese words.
+[Original-voice control](https://www.youtube.com/watch?v=k7Z9yQ7cmcY&t=557s)
+
+The reaction comparison covers 10:27–10:44, 11:39–11:56 and 11:48–12:03,
+using 477 measurable Japanese references for emotion 41 and 186 for emotion
+37, including short reactions down to 30 ms. The respective maxima are
+0.338, 0.158 and 0.154. The two strongest first-window candidates do not
+match consistently across frequency bands: above 700 Hz they reach at most
+0.040 and 0.093 respectively. The whole-upload speech scan finds the separate
+Japanese control, but no speech over the three caption windows. This is a
+further qualified playback observation, without establishing a reaction
+performer or permanent silence. All nine configured-reaction rows remain open.
+
 ### Independent Landbreaker control
 
 A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
