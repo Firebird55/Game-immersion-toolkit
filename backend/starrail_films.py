@@ -33,7 +33,7 @@ def _takes(tools, catalog, locale, entries):
         if not path or not row.get('VoiceID'):
             continue
         name = row['CutSceneName']
-        check(re.fullmatch('[A-Za-z0-9_]+', name) and path == f'Config/CutSceneCaption/{name}_Caption.json'
+        check(re.fullmatch('[A-Za-z0-9_-]+', name) and path == f'Config/CutSceneCaption/{name}_Caption.json'
               and name not in result)
         voice = voices_by_id.get(row['VoiceID'])
         if voice is None or voice.get('VoiceType') != 'Cutscene':
@@ -192,12 +192,15 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
     scripts = list(catalog.caption_scripts())
     movies, suppressed = _movie_sources(catalog, scripts, locale)
     reviewed = _reviewed_sources(sentence_rows)
-    seen, result, movie_cache = set(), [], {}
+    seen, identities, result, movie_cache = set(), set(), [], {}
     for filename, script in scripts:
-        match = re.fullmatch(r'([A-Za-z0-9_]+)_Caption\.json', filename)
+        match = re.fullmatch(r'([A-Za-z0-9_-]+)_Caption\.json', filename)
         check(match and match[1] not in seen and isinstance(script.get('CaptionList'), list))
         scene = match[1]
         seen.add(scene)
+        identity = getattr(catalog, 'caption_identities', {}).get(filename, scene)
+        check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)) and identity not in identities)
+        identities.add(identity)
         if scene in suppressed and scene not in takes:
             continue
         for n, caption in enumerate(script['CaptionList']):
@@ -213,7 +216,7 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
             variants = [('_m', 'male', None, None), ('_f', 'female', None, None)] if any(
                 movie['player_voice'] is not None for movie in movie_sources) else [('', None, None, None)]
             for suffix, gender, audio, duration in takes.get(scene, variants):
-                link = {'id': f'film-{scene}-{n}{suffix}', 'hash': text_hash, 'player_voice': gender,
+                link = {'id': f'film-{identity}-{n}{suffix}', 'hash': text_hash, 'player_voice': gender,
                         'dialogue_kind': 'cutscene_caption', 'voice_status': 'unavailable', 'channels': ['cinematic']}
                 rows = records('starrail', [link], tables, locale, {})
                 if not rows:

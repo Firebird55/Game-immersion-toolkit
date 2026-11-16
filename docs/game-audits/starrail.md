@@ -1,5 +1,85 @@
 # Honkai: Star Rail dialogue audit
 
+## Declared caption resources resolved · November 16, 2026
+
+All 138 previously unnamed, declared movie-caption files are now identified in
+the current publisher directory. Their 974 cues already had retained text;
+this correction establishes their actual caption paths, movie associations
+and authored player branches. A caption's display clock alone does not
+authorize a spoken audio cut. These files therefore keep unavailable audio
+until the matching original performance and spoken window are verified.
+
+The current Global 4.7 launcher supplies these three matching originals. Each
+complete file passed its manifest MD5 and an independently recorded SHA-256;
+the files were parsed as data. The implementation uses the ordinary resource
+directory and release-paired translation catalog during preparation.
+
+| Original file | Bytes | Publisher MD5 |
+| --- | ---: | --- |
+| `GameAssembly.dll` | 564,008,240 | `2db87084b0383dbe7ce3556bb33db662` |
+| `global-metadata.dat` | 106,856,312 | `ba110cdff0a1c2588333f7f2071e3ec6` |
+| `startup-metadata.dat` | 4,228,712 | `ef1d483fdd35702f8a8423b861fc7acc` |
+
+[Official Global 4.7 game manifest](https://autopatchos.starrails.com/client/sophon/manifests/cxi9x2wxybk0/20261030/4.7.0/83LId4LQZKoD/manifest_08c01a4f44bfa674_38615c5752d4bdeb90700ad54e5a54b1)
+· [Static metadata inspection source](https://github.com/im-remi/HSRGlobalMetadata/tree/bb66f7c59d73cadcd026d817a011598ea23c5313)
+
+Native method ownership and bounded body inspection establish the route:
+`GameCoreConfigLoader.LoadVideoCaptionConfig` calls `JsonToBinaryPath`, then
+the binary reader reaches `AssetLoader.LoadBinaryFromFile` and
+`DesignDataMgr.SyncLoadBytesFromFile`. Both design-data providers construct
+`DesignDataShortNameHash` from the complete path using UTF-8 and seed-zero
+standard XXH64. `JsonToBinaryPath` preserves case, prepends `BakedConfig/`
+and replaces the last filename extension with `.bytes`. Thus an authored
+`Config/CutSceneCaption/<scene>_Caption.json` resolves through
+`BakedConfig/Config/CutSceneCaption/<scene>_Caption.bytes`.
+The small shared checksum helper implements the
+[public XXH64 specification](https://github.com/Cyan4973/xxHash/blob/d66a9cb6f223b1f15cceebee39bc07ed0bd4ad3d/doc/xxhash_spec.md#xxh64-algorithm-description).
+Production preparation needs no installed client or native metadata extractor.
+
+The four initial reference paths match their existing resource IDs exactly.
+All 173 independently published scripts, including the other 169 held-outs,
+then match every one of their 946 text hashes and start/end clocks at toolkit
+millisecond precision. The 309 unique `VideoConfig`/`CutSceneConfig` paths,
+together with the published scripts, identify 311 current resources with
+1,920 cues. All 311 keys exist and decode strictly; none of those declared
+paths remains unresolved. This includes the 138 newly named files and their
+974 cues. Names and package locations are read again for normal content updates;
+resource resolution has no per-movie hash allowlist.
+
+Ordinary publisher preparation independently selected the same 4.7 build
+`8Mu3l7s23x8Q`, fingerprint
+`sophon-2d949d4141f326b6d2d4a4df774bbb8788ed42c52300fb3a45249b1f9cef65e8`
+and catalog `dad9155eb00fdeda31fb8456507c53590d49071f`, titled
+`OSPRODWin4.7.0_D17180467_A17176203_L17175930`. All 974 newly named cues
+have text in twelve of the thirteen supported text locales. Korean retains
+three absent strings: `CS_Chap04_Act640` cues 6 and 28, and
+`CS_Chap04_Act680` cue 49. No neighboring translation is substituted.
+An independent mainland-China request for build `55EjVJ7DGGpF` read all
+311 resources from the CN CDN; all 1,920 cues and every raw resource byte
+were identical to Global. Both use DesignV revision `17180467`, directory
+MD5 `5e340a3628885b9fde90bdd2d15ce3ee`.
+
+Schema 24 retains anonymous resource identities separately from the newly
+verified scene name. The one lyric scene named by an earlier reader retains
+its existing canonical ID through an identity-only compatibility rule.
+Previously unscoped player captions now have explicit male/female branches:
+672 unavailable rows become 1,344 unavailable variants in each EN/JA probe.
+Their display text follows the existing gender-template renderer. All other
+existing records, including every playable audio binding, remain identical.
+English now has 307,424 records with 98,693 voiced; Japanese has 307,415
+with 100,170. These are extra actor-scoped caption records, not newly voiced
+sentences. The twelve English and nine Japanese reviewed movie clips retain
+their existing IDs, original recordings and spoken windows.
+
+Three anonymous resources remain independently retained: `9d08b0c771adc0d9`
+has thirteen cues, `dd207c8af15b4c72` has two and `95f542bc08cb0ea0`
+has seven. Their 22 cues bring the complete discovered inventory to 314
+scripts and 1,942 cues. They have no established caller or movie path.
+The ten `CS_Chap02_Act610` text IDs remain absent in all thirteen text
+locales, with no original movie/timeline binding. Korean also still lacks
+`CS_Chap02_Act3020` cue 2, separately from the three newly named Korean gaps.
+Other MultiVoice selection and spoken movie cuts remain open.
+
 ## Unnamed MultiVoice descriptions corrected · November 16, 2026
 
 Two Benny descriptions were incorrectly offered with an NPC greeting as their

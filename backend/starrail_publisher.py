@@ -166,8 +166,13 @@ class ReleasedCatalog(DialogueCatalog):
         published = self._published_captions()
         if hasattr(self, 'design_source'):
             from .starrail_design import extra_captions
+            from .starrail_assets import _table
             directory, build = self.design_source
-            extras = extra_captions(directory, build, dict(published))
+            paths = {row['CaptionPath'] for name in ('VideoConfig', 'CutSceneConfig')
+                     for row in _table(self, name, ('CaptionPath',)) if row.get('CaptionPath')}
+            self.caption_identities, self.unresolved_caption_paths = {}, []
+            extras = extra_captions(directory, build, dict(published), paths,
+                                    identities=self.caption_identities, unresolved=self.unresolved_caption_paths)
             return [*published, *extras.items()]
         return published
 
