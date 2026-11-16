@@ -10,10 +10,11 @@ Pair any study language with any of the game's **15 official text locales**
 
 Leave the game folder empty and choose **Global** or **Mainland China** under
 **Publisher edition** to prepare that HoYoPlay PC release. Setup reads the
-release markers, finds the matching translation snapshot and checks the selected
-voice pack. Playback downloads the original audio chunks for the requested line.
-The two Chinese study selections share a Mandarin pack. In-game hotfixes and
-removed event recordings have independent coverage.
+launcher and current in-game update, finds the matching translation snapshot
+and checks the selected voice pack. Changed original packages are downloaded
+and checked once; unchanged packages use original audio chunks for the
+requested line. The two Chinese study selections share a Mandarin pack.
+Removed event recordings and unresolved sentence bindings have separate coverage.
 
 When the translation catalog limits downloads, Setup can read the same release
 from its maintainer’s mirror. Git enables the mirror for release discovery and
@@ -56,7 +57,12 @@ and reproducible replay instructions are in
 
 After the official launcher finishes a patch or voice download, choose
 **Refresh game data**. Automatic checks revisit prepared locales about every
-two minutes. A failed build leaves the previous complete table available.
+two minutes, including updates within the same launcher version. No toolkit
+update is needed for normal supported-format updates when compatible public
+bootstrap metadata and matching text are available. A failed build leaves the
+previous complete table available. The updater data is a public third-party
+source; the actual resource indexes and recordings come from the selected
+publisher server. [Sources and limits](game-audits/genshin.md#active-regional-hotfixes-without-an-installation--november-16-2026).
 
 History, favorites, original playback, explicit game-deck export, Lexirise
 reading and independent Migaku mode use the existing language-aware workflow.
