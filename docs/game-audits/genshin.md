@@ -300,6 +300,14 @@ those rows are not subtitle references for the three wear-voice triggers.
 · [Original outfit identities](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/AvatarCostumeExcelConfigData.json)
 · [Fetter wear-voice source declarations](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice/Items)
 
+The current hotfix's `ConfigCostumeData` is byte-identical to the launcher
+baseline. Its 22 wear-voice declarations still provide no join to the three
+trigger IDs in the current 9,330 Fetter rows. A bounded static inspection of
+the original native metadata distinguishes `VoiceTrigger.Costume` from
+`VoiceTrigger.Fetter`, but does not establish the exact outfit UI callback or
+an authored subtitle reference. An `OnAvatarChangeCostume` string occurrence
+belongs to an enum parser and is not accepted as an audio caller.
+
 All 30 recordings have exact external-media entries in **each of the four
 Global 7.2 launcher dubs**, for 120 verified index hits. The selected publisher
 snapshot is `sophon-949715f1227aa46c6238a9484a772ca543d19e6387c20b9807ea5d1fd68ae534`.
@@ -320,7 +328,7 @@ The missing part is the wear voices' original **caption/text binding**, not
 availability of these 30 original recordings in the checked launcher source.
 No sentence, translated transcript, silence classification or capture alias
 is inferred from an outfit description. Full wear-voice sentence capture,
-current hotfix activation and other native-host acceptance remain open.
+full live-device hotfix activation and other native-host acceptance remain open.
 
 ## Character profile and combat performances, November 9, 2026
 
