@@ -20,7 +20,7 @@ def string(value, wide=False):
 
 
 def package(rows, *, encrypted_index=True, mount='../../../HT/', folder='Content/', declared_padding=False,
-            extra_index_bytes=b''):
+            extra_index_bytes=b'', wide_numbers=False):
     """rows: (name, payload, compression block size, encrypted, nonencoded)."""
     cipher = AES.new(KEY, AES.MODE_ECB)
     body, encoded, nonencoded, positions = bytearray(64), bytearray(), [], []
@@ -55,13 +55,13 @@ def package(rows, *, encrypted_index=True, mount='../../../HT/', folder='Content
                               struct.pack('<BI', int(encrypted), block_size))
         else:
             positions.append((name, len(encoded)))
-            bits = 7 << 29 | method << 23 | int(encrypted) << 22 | len(blocks) << 6 | (63 if method else 0)
+            bits = (0 if wide_numbers else 7 << 29) | method << 23 | int(encrypted) << 22 | len(blocks) << 6 | (63 if method else 0)
             encoded.extend(struct.pack('<I', bits))
             if method:
                 encoded.extend(struct.pack('<I', block_size))
-            encoded.extend(struct.pack('<II', offset, len(payload)))
+            encoded.extend(struct.pack('<qq' if wide_numbers else '<II', offset, len(payload)))
             if method:
-                encoded.extend(struct.pack('<I', stored))
+                encoded.extend(struct.pack('<q' if wide_numbers else '<I', stored))
             if len(blocks) != 1 or encrypted:
                 encoded.extend(b''.join(struct.pack('<I', n) for n in lengths))
     def store(data):
@@ -113,12 +113,13 @@ def open_archive(data, tmp_path, monkeypatch, *, region='nte-global'):
 
 
 @pytest.mark.parametrize('encrypted_index', [True, False])
-def test_all_supported_entry_encodings_and_single_block_length_exception(tmp_path, monkeypatch, encrypted_index):
+@pytest.mark.parametrize('wide_numbers', [True, False])
+def test_all_supported_entry_encodings_and_single_block_length_exception(tmp_path, monkeypatch, encrypted_index, wide_numbers):
     samples = [('single.bin', b'A voice bank' * 80, 4096, False, False),
                ('multiple.bin', bytes(range(256)) * 50, 4096, encrypted_index, False),
                ('caf\u00e9.bin', b'original recording', 0, encrypted_index, False),
                ('explicit.bin', b'localized text' * 800, 4096, encrypted_index, True)]
-    archive, requests = open_archive(package(samples, encrypted_index=encrypted_index), tmp_path, monkeypatch)
+    archive, requests = open_archive(package(samples, encrypted_index=encrypted_index, wide_numbers=wide_numbers), tmp_path, monkeypatch)
     for name, payload, *_ in samples:
         assert archive.read('ht/content/' + name.upper()) == payload
     before = len(requests)
@@ -174,6 +175,26 @@ def test_patch_deletions_block_fallback_while_explicit_historical_source_survive
     with pytest.raises(FileNotFoundError):
         chosen.read(path)
     assert old.read(path) == b'historical voice'
+
+
+def test_replaced_recording_uses_new_source_without_rewriting_the_historical_cache(tmp_path, monkeypatch):
+    old, _ = open_archive(package([('voice.wem', b'first performance', 0, False, False)]), tmp_path, monkeypatch)
+    assert old.read('HT/Content/voice.wem') == b'first performance'
+    newer, _ = open_archive(package([('voice.wem', b'updated performance', 0, False, False)]), tmp_path, monkeypatch)
+    selected, path = pak.overlay([newer, old])['ht/content/voice.wem']
+    assert selected.read(path) == b'updated performance'
+    assert old.read(path) == b'first performance'
+    assert old.source.root != newer.source.root
+
+
+def test_valid_manifest_and_chunk_crcs_do_not_replace_the_directory_index_checksum(tmp_path, monkeypatch):
+    data = bytearray(package([('voice.wem', b'original', 0, False, False)], encrypted_index=False))
+    directory = data.index(struct.pack('<i', 1) + string('Content/'))
+    data[directory + 8] ^= 1
+    # The synthetic server supplies a new valid manifest/.sig for these bytes,
+    # but the checksum stored in the primary index still describes the old directory.
+    with pytest.raises(PreparationFailure):
+        open_archive(bytes(data), tmp_path, monkeypatch)
 
 
 @pytest.mark.parametrize('folder', ['../Content/', 'Content//', '/../../Content/', 'Content\\'])
