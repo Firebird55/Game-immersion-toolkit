@@ -44,6 +44,9 @@ captions have translations in the prepared catalog. Their individual recordings
 still require a verified source.
 
 Use **Capture setup → Traveler voice** for ambiguous player performances.
+This also selects authored Traveler wording in ordinary dialogue, reminders
+and translations when the original recording is shared. Unresolved source
+wording remains unavailable; an unresolved translation is omitted.
 The bottom dialogue crop has separate per-PC calibration for this game. Check
 it against your subtitle size, resolution and display scaling. YouTube evidence
 and reproducible replay instructions are in

@@ -9,7 +9,7 @@ from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 from .textmaps import gender_variants
 
-LANGUAGE_INDEX_VERSION = 18
+LANGUAGE_INDEX_VERSION = 19
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {**common.TEXT_LOCALES, 'it': 'IT', 'tr': 'TR',
                 'ru': ('RU_0', 'RU_1'), 'th': ('TH_0', 'TH_1')}
@@ -85,7 +85,7 @@ def _bind_predecessors(rows, annotations):
             row['previous_text_id'] = base
 
 
-def _exclude_conflicting_performances(rows, warnings, *, read_audio=None):
+def _exclude_conflicting_performances(rows, warnings, *, read_audio=None, authored_templates=None):
     """A single concrete recording cannot verify different spoken sentences."""
     from .languages import normalize_text
     def media_key(audio):
@@ -95,9 +95,10 @@ def _exclude_conflicting_performances(rows, warnings, *, read_audio=None):
     for row in rows:
         if audio := row.get('audio'):
             key = media_key(audio)
+            text = (authored_templates or {}).get(row['text_id'], row['source_text'])
             if key not in first:
-                first[key] = row['source_text']
-            elif first[key] != row['source_text'] and normalize_text(first[key]) != normalize_text(row['source_text']):
+                first[key] = text
+            elif first[key] != text and normalize_text(first[key]) != normalize_text(text):
                 conflicts.add(key)
     if conflicts:
         from .genshin_cinematics import verified_opening_conflict
@@ -359,13 +360,13 @@ def profile_links(rows, avatars, configs, sources, gameplay_sources=None):
     return links
 
 
-def profile_records(links, tables, locale, entries, pronouns=None):
+def profile_records(links, tables, locale, entries, pronouns=None, authored_templates=None):
     triggers = {'genshin:' + link['id']: link['gameplay_triggers'] for link in links if link.get('gameplay_triggers')}
     rows = common.records('genshin', links, tables, locale, entries)
     for row in rows:
         if row['audio'] and row['text_id'] in triggers:
             row['audio']['gameplay_triggers'] = triggers[row['text_id']]
-    return _render_player_text(rows, locale, pronouns, split_unconditional=True)
+    return _render_player_text(rows, locale, pronouns, authored_templates=authored_templates)
 
 
 PRONOUN_TAG = re.compile(r'\{(PLAYERAVATAR|MATEAVATAR)#SEXPRO\[(INFO_[A-Za-z0-9_]+)\|(INFO_[A-Za-z0-9_]+)\]\}')
@@ -387,8 +388,14 @@ def _pronoun_texts(catalog, tables, warnings):
 def _official_variants(raw, words):
     text = raw.removeprefix('#')
     literal = gender_variants(text)
+    if literal:
+        # Each tag is a conditional fragment; a missing opposite tag can
+        # intentionally leave just the surrounding sentence for that player.
+        literal = {gender: common.display_text(re.sub(r'\{([MF])#([^{}]*)\}',
+            lambda match: match[2] if match[1] == gender else '', text)) for gender in ('M', 'F')}
     if '#SEXPRO[' not in text:
-        return literal
+        return {gender: value for gender, value in literal.items()
+                if not any(token in value for token in ('{M#', '{F#'))}
     values = {}
     for gender, variant in (literal or {'M': text, 'F': text}).items():
         def substitute(match):
@@ -397,17 +404,14 @@ def _official_variants(raw, words):
             male = (gender == 'M') == (match[1] == 'PLAYERAVATAR')
             return words.get(match[2 if male else 3], match[0])
         result = PRONOUN_TAG.sub(substitute, variant)
-        if '#SEXPRO[' not in result:
+        if not any(token in result for token in ('#SEXPRO[', '{M#', '{F#')):
             values[gender] = common.display_text(result)
     return values
 
 
-def _render_player_text(rows, locale, pronouns=None, *, split_unconditional=False):
+def _render_player_text(rows, locale, pronouns=None, *, authored_templates=None):
     records = []
     for row in rows:
-        if not row['player_voice'] and not split_unconditional:
-            records.append(row)
-            continue
         variants = {lang: _official_variants(raw, (pronouns or {}).get(lang, {})) for lang, raw in row['texts'].items()
                     if any(marker in raw for marker in ('{M#', '{F#', '#SEXPRO['))}
         if not variants:
@@ -417,15 +421,30 @@ def _render_player_text(rows, locale, pronouns=None, *, split_unconditional=Fals
         for gender in genders:
             tag = 'M' if gender == 'male' else 'F'
             texts = row['texts'].copy()
+            unresolved = []
             for lang, rendered in variants.items():
                 if rendered.get(tag):
                     texts[lang] = rendered[tag]
                 else:
                     texts.pop(lang)
-            if texts.get(locale):
-                identity = row['text_id'] if row['player_voice'] else row['text_id'] + ':' + gender
-                records.append({**row, 'text_id': identity, 'player_voice': gender, 'texts': texts,
-                                'source_text': texts[locale], 'english': texts.get('en', ''), 'chinese': texts.get('zh-Hans', '')})
+                    unresolved.append(lang)
+            identity = row['text_id'] if row['player_voice'] else row['text_id'] + ':' + gender
+            result = {**row, 'text_id': identity, 'player_voice': gender}
+            if unresolved:
+                result['unresolved_text_locales'] = sorted(unresolved)
+            if locale not in texts:
+                # Retain the original as diagnostic text, never attach its
+                # recording to an invented or incompletely rendered branch.
+                texts[locale] = row['source_text']
+                result.update(audio=None, voice_status='unavailable' if row['voice_status'] == 'voiced'
+                              else row['voice_status'], text_binding_unresolved=True)
+            result.update(texts=texts, source_text=texts[locale], english=texts.get('en', ''),
+                          chinese=texts.get('zh-Hans', ''))
+            if authored_templates is not None:
+                # A shared recording can accompany authored text conditions.
+                # Different original templates must still collide normally.
+                authored_templates[identity] = row['source_text']
+            records.append(result)
     return records
 
 
@@ -622,14 +641,17 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     ordinary = [link for link in links if not link['id'].startswith('reminder-')]
     reminder_links = [link for link in links if link['id'].startswith('reminder-')]
     pronouns = _pronoun_texts(catalog, medium_tables, warnings)
-    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale, pronouns)
-    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries), source_locale, pronouns)
+    authored_templates = {}
+    rows = _render_player_text(common.records('genshin', ordinary, tables, source_locale, entries), source_locale,
+                               pronouns, authored_templates=authored_templates)
+    rows += _render_player_text(common.records('genshin', reminder_links, reminder_tables, source_locale, entries),
+                                source_locale, pronouns, authored_templates=authored_templates)
     if len(rows) < len(links):
         _warn(warnings, 'Some Genshin authored lines have no text in the selected locale.')
     if profiles:
         profile = profile_links(profiles, _table(catalog, 'AvatarExcelConfigData', warnings),
                                 catalog.directory_json('BinOutput/Avatar', with_names=True), profile_sources, gameplay_sources)
-        rows += profile_records(profile, tables, source_locale, entries, pronouns)
+        rows += profile_records(profile, tables, source_locale, entries, pronouns, authored_templates)
         links.extend(profile)
     if install is None:
         from .genshin_history import ARCHIVES, prepare_archive, retained_performances
@@ -644,7 +666,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         if install is None:
             return genshin_publisher.extract(audio, data_dir / 'tools')
         return common.extract_voice(install, 'genshin', audio)
-    _exclude_conflicting_performances(rows, warnings, read_audio=read_audio)
+    _exclude_conflicting_performances(rows, warnings, read_audio=read_audio, authored_templates=authored_templates)
     recovered = sum(bool((row.get('audio') or {}).get('original_publisher')) for row in rows)
     if recovered:
         _warn(warnings, f'{recovered:,} identical dialogue performances come from earlier publisher releases.')
@@ -670,6 +692,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         _warn(warnings, 'Genshin readables require metadata matching the installed client version.')
     if any(row['voice_status'] == 'unknown' for row in rows):
         _warn(warnings, 'Some Genshin lines have unknown voice status and are excluded from unvoiced capture.')
+    if any(row.get('unresolved_text_locales') for row in rows):
+        _warn(warnings, 'Some Genshin protagonist text variants could not be resolved. Their source recordings or unresolved translations are excluded.')
     _warn(warnings, 'Character trigger sounds without unique matching profile text, some messages and movie cues still lack verified Genshin sentence bindings.')
     result = common.snapshot('genshin', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
     count = sum(bool(row['audio']) for row in rows)
