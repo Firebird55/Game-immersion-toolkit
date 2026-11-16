@@ -122,6 +122,26 @@ def test_declared_resources_follow_normal_updates_and_preserve_unresolved_paths(
         release([known_group], paths)
 
 
+def test_neighbor_caption_cannot_skip_second_published_generation_reference(tmp_path, monkeypatch):
+    reference, second = caption(31, 2.25), caption(69, 1.5)
+    published = {'Reference_Caption.json': design._caption(reference),
+                 'Other_Caption.json': design._caption(second)}
+    source = {}
+    monkeypatch.setattr(design.hotfix, 'audio_roots', lambda build: ({'design': 'https://publisher/'}, {}))
+    monkeypatch.setattr(design.hotfix, 'index', lambda *args: source['index'])
+    monkeypatch.setattr(design.hotfix.AudioFile, 'read',
+                        lambda asset, directory, start, length: source['blob'][start:start + length])
+    def release(other):
+        source['index'], source['blob'] = package([(0xb42fa30808e62001, reference),
+                                                  (0x052d95c54d5fb49e, other)])
+        return design.extra_captions(tmp_path, {}, published)
+    assert release(second) == {}
+    # The neighbor walk reaches this published anchor before its own loop.
+    # Its clock mismatch must fail even after the first reference matched.
+    with pytest.raises(ValueError):
+        release(caption(69, 99))
+
+
 def test_design_rejects_incomplete_indexes_and_invalid_caption_clocks():
     index, _ = package([(4, caption(1, 1.))])
     for raw in (index[:-1], index + b'x', index[:12] + b'\0\0\0\2' + index[16:],
