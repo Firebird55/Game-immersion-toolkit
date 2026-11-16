@@ -115,6 +115,31 @@ def open_archive(data, tmp_path, monkeypatch, *, region='nte-global'):
     return pak.Archive(source, CATALOG), requests
 
 
+@pytest.mark.parametrize('identical', [True, False])
+def test_competing_chunk_writer_accepts_only_identical_verified_bytes(tmp_path, monkeypatch, identical):
+    data = package([('large.wem', bytes(range(256)) * 1024, 0, False, False)])
+    archive, requests = open_archive(data, tmp_path, monkeypatch)
+    source = archive.source
+    assert source._cached(0) is None
+    atomic = pak._atomic_file
+    writes = []
+    def competing(path, value):
+        writes.append(path.name)
+        atomic(path, value if identical else b'x' * len(value))
+        raise PermissionError('Owned competing writer shares this cache file')
+    monkeypatch.setattr(pak, '_atomic_file', competing)
+    if not identical:
+        with pytest.raises(PermissionError):
+            source.read(0, pak.CHUNK)
+        assert source._cached(0) is None
+    else:
+        assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        before = len(requests)
+        assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        assert len(requests) == before
+    assert writes == ['0.chunk']
+
+
 @pytest.mark.parametrize('block_size', [128, 4096])
 @pytest.mark.parametrize('explicit', [False, True])
 def test_encrypted_compressed_members_accept_declared_padding_without_decoding_it(tmp_path, monkeypatch, block_size, explicit):
