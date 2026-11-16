@@ -240,6 +240,17 @@ def test_word_text_flags_aliases_and_strict_input_limits(monkeypatch):
                                  original.Array(original.Word(), original.Word()))
 
 
+def test_complete_large_nested_inventory_fits_the_bounded_reader():
+    # An authored table can have modest row/byte counts but millions of nested
+    # values. This exceeds the earlier cap without any individual huge array.
+    count, width = 51_000, 100
+    payload = struct.pack('<I', count) + (bytes([width]) + bytes(width)) * count
+    contract = original.Array(original.Word(), original.Array(original.Word(8), original.Word(8)))
+    rows = original.decode_original(payload, contract)
+    assert len(rows) == count and all(len(row) == width for row in rows)
+    assert rows[0] == rows[-1] == [0] * width
+
+
 def test_missing_pack_is_unavailable_and_other_translations_stay_exact(tmp_path):
     spec, inventory, objects, options = value = fixture(variants=True)
     options['publisher_entries'] = {}

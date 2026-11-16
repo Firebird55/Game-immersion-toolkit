@@ -129,12 +129,22 @@ installation or whole-PCK download.
 
 The actual original TalkExcel loader and its 45,699-row inventory object have
 been identified and acquired from a fully MD5-verified publisher package. Its
-complete native record contract and all referenced Talk objects still need to
-be decoded and replayed through this API. No constructed sample inventory is
-accepted as evidence that this complete original inventory works. A bounded
-native analysis recovered the Items scalar transforms, but complete automatic
-schema recovery, original Excel linkage, regional/full-presentation coverage
-and the two-generation preparation/update/restart trial remain open.
+42 serialized fields were recovered from the owned native control/data flow;
+the additional metadata field caches a derived list. All 13,973,525 bytes then
+passed the product decoder's strict UTF-8/EOF checks, with 45,699 unique positive
+IDs. That nested table contains 5,055,663 decoded values, exceeding the former
+four-million bound. The reader now permits eight million values while retaining
+its byte, collection, nesting and cumulative-input limits. A synthetic nested
+inventory regression covers this valid large-table case.
+
+All referenced Talk resources still need to be replayed through preparation.
+The original load-type enum distinguishes ordinary quests, Blossom, activity,
+gadget, furniture, storyboard and scenery. Runtime descriptors can reference
+the actual dialogue payload by an original UInt64 asset index; grouped resources
+must retain that authored hop. No constructed sample inventory establishes that
+the complete original inventory and those routes work. Complete automatic native
+schema/bootstrap recovery, regional/full-presentation coverage and the
+two-generation preparation/update/restart trial remain open.
 
 [Owned preparation and retention tests](../../backend/tests/test_genshin_original_dialogue.py)
 cover changed operands, a 137-object synthetic inventory, conditional takes,

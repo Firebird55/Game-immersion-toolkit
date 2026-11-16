@@ -20,7 +20,9 @@ from .voice_assets import wwise_short_id
 
 MAX_OBJECT = 64 * 1024**2
 MAX_TOTAL = 512 * 1024**2
-MAX_VALUES = 4_000_000
+# The original TalkExcel inventory alone has over five million decoded scalar,
+# record and collection values. Keep a bounded allowance for that whole table.
+MAX_VALUES = 8_000_000
 MAX_COUNT = 1_000_000
 MAX_SCHEMA = 4096
 MAX_DEPTH = 16
