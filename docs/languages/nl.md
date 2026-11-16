@@ -43,11 +43,11 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-09 · [Dekkingsnotities](../wuthering-languages.md)
+[Officiële taallijst](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-16 · [Dekkingsnotities](../wuthering-languages.md)
 
-Global-dialogen en originele stemmen van de uitgever
+Global-dialogen, originele stemmen en geverifieerde scènefragmenten met context van de uitgever
 
-Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.
+Windows Setup can prepare dialogue and verified film contexts from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Context audio is labeled separately from individual lines.
 
 <details>
 <summary>Taaldetails</summary>

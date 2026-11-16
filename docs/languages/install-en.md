@@ -31,7 +31,7 @@ Leave the game folder empty in Windows Setup to prepare Global or mainland China
 | Honkai: Star Rail | Publisher Setup for regional voices, selected movie clips and tutorial text |
 | Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Publisher Setup for Global or mainland China narrative voices |
-| Wuthering Waves | Publisher Setup for Global dialogue and original voices |
+| Wuthering Waves | Publisher Setup for Global dialogue, original voices and verified scene contexts |
 | Neverness to Everness | Publisher Setup for the selected edition's available text and original voices |
 
 These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only. [Toolkit hosts and game devices](../desktop-platforms.md)

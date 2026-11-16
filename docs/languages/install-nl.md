@@ -31,7 +31,7 @@ Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese v
 | Honkai: Star Rail | Regionale stemmen, geselecteerde filmfragmenten en tutorialtekst van de uitgever |
 | Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Verhaalstemmen van de wereldwijde of Chinese uitgever |
-| Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
+| Wuthering Waves | Global-dialogen, originele stemmen en geverifieerde scènefragmenten met context van de uitgever |
 | Neverness to Everness | Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever |
 
 Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows. [Toolkitplatforms en gameapparaten](../desktop-platforms.md)

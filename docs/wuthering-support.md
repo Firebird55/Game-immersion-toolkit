@@ -6,6 +6,14 @@ English, Japanese, Korean, Simplified Chinese or Traditional Chinese in
 toolkit discover the Steam library. See [language preparation](wuthering-languages.md)
 for selected study text, aligned translations and original voice availability.
 
+In Windows Setup, leaving the game folder empty also prepares verified original
+film contexts from the selected publisher release. These clips replay the
+complete bound scene and carry a **context** label in playback and exports.
+They preserve full utterances and exact source frames, with a five-minute
+output limit. Longer or unsupported film sources remain unavailable; subtitle
+display times never authorize a guessed audio cut. See the current
+[film inventory and remaining gaps](game-audits/wuwa.md).
+
 Original voice ownership follows the game's `PlotAudio` ID and
 `FileName` fields, plus its own per-dub gender flags and external-source filename
 rules. Choose **Rover voice** in Capture setup for lines addressed to, or spoken

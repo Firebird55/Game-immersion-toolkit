@@ -1,5 +1,85 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Verified complete-scene audio contexts
+
+Publisher preparation now emits explicitly labeled `context` audio for native
+film captions whose original scene, selected dub and Rover branch are proven.
+The original `VideoSound` caller must start the event at scene zero and play it
+to completion. A bounded Wwise-172 reader follows the root Play action through
+the complete parent chain to one localized streamed source, or the explicit
+`player_rover_gender` state. An unconfigured Rover never selects the native
+default. Unsupported effects, randomized timing, state properties, RTPCs,
+chained events and ambiguous ownership remain unresolved.
+
+The current Global core 3.8.11 inventory contains 117 captioned scenes and
+1,353 selected display cues in each study locale. Of 106 localized movie banks
+per dub, the conservative reader accepts 93 banks / 141 sources; thirteen roots
+also post other events or set states and need further authored joins. All four
+dubs were checked against their actual original archive members. The reader
+preserves the observed 500-ms source delay in C0007 instead of assuming every
+source begins at movie zero.
+[Publisher launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Publisher rolling configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+
+Across those 564 original sources, decoder metadata confirms 48-kHz, one-stream
+audio with equal source and playback frame counts. There are 492 mono/stereo
+sources and 72 three-, four- or six-channel sources. The latter remain in the
+inventory and are not promoted by this operation; no isolated dialogue stem is
+inferred. M0355's two sources per dub exceed five minutes and also remain
+unavailable through this complete-source route.
+
+Normal publisher preparation returns **1,131 context variants for 807 distinct
+caption identities, 107 original sources and 70 scenes in each study locale**.
+These are variant counts, not 1,131 unique captions or a complete film-coverage
+denominator. English/Japanese/Korean/Mandarin use dub revisions
+3.8.6/3.8.5/3.8.8/3.8.5. Both Chinese scripts share Mandarin originals.
+
+| Study locale | Complete prepared records | Context variants |
+| --- | ---: | ---: |
+| English | 143,784 | 1,131 |
+| Simplified Chinese | 145,436 | 1,131 |
+| Traditional Chinese | 144,534 | 1,131 |
+| Japanese | 143,836 | 1,131 |
+| Korean | 143,638 | 1,131 |
+
+Every record was validated through `LocalDialogue`, with unique record IDs.
+Every context reference agrees with the selected original source's channel and
+frame counts. Complete sources keep every PCM frame, including sources whose
+length is not an integer number of milliseconds. Output remains at most
+300 seconds. Decoder output must match exact PCM16 rate, channels, frames and
+bytes; truncated output fails. Exact existing voices, known written/silent or
+unknown presentations and punctuation-only ellipses stay unchanged. Captions
+whose `IsPlaySubtitleVoice` flag posts a separate PlotAudio source cannot borrow
+the simultaneous scene soundtrack.
+
+The English preservation check retains all 48,856 previous audio records and
+all 92,437 previous unknown/unvoiced records unchanged. Its baseline record hash
+matches the earlier caption-clock audit. Both existing C0004 exports are also
+byte-identical between the prior whole-decode/trim path and the bounded-window
+adapter path.
+
+Real production single and batch playback of the previously verified LYSZW and
+C3jiyanfight utterances replays their complete 110.9- and 86.8-second native
+contexts. Both retain identical MP3 bytes after a fresh process with network
+access forbidden. A separate short M0271 source exercises non-integer-millisecond
+frame counts and both Rover branches in all four dubs: configured matching,
+single/batch playback and fresh offline replay agree, while unconfigured Rover
+does not choose a branch. These checks complement the original waveform and
+gameplay evidence; they do not claim physical capture of every scene.
+[Japanese C3jiyanfight gameplay](https://www.youtube.com/watch?v=4_cafY0Poas)
+
+The seventeen late M2_12_07/M0355 captions remain unresolved by this route.
+This does not establish that their complete utterances cannot fit in a bounded
+context: the original late-source comparisons below remain valid. Generic
+authored groups, complex callers and clocks still need their joins. Native
+MusicSubtitle adds another distinct presentation: the current table contains
+281 rows in eighteen groups, and its runtime synchronizes captions to the
+actual source playback position. Five no-VideoSound films invoke that manager
+from original movie frame events; M0395 instead posts its exact Global event at
+frame zero. These callers are inventoried but not yet promoted. Frozen-version
+update/recovery acceptance, remaining presentations and regional/platform
+coverage are still open. No original audio, frames or native dumps are published.
+
 ## November 16, 2026 · Original gender tracks for the late film captions
 
 The current publisher's `PlayerInfoController` explicitly sets the Wwise state
@@ -69,8 +149,8 @@ source exposed a one-frame rounding error with decimal-second trims; integer
 trims reproduce its late, 2-millisecond and exactly 300-second windows exactly.
 The final operation also reproduces both original-source comparisons above.
 Fault tests reject overruns, malformed metadata, incorrect/truncated outputs
-and metadata/decode timeouts. No capture mapper or public audio reference calls
-this new operation, and it supplies no automatic sentence windows.
+and metadata/decode timeouts. The voice adapter can use the operation for an
+already authorized interval; it supplies no automatic sentence windows.
 
 ## November 16, 2026 · Long caption clocks are separate from audio limits
 

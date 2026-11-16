@@ -156,6 +156,19 @@ def _node(kind, data):
     return parent, delay, media, children, states
 
 
+def media_candidates(bank):
+    """Candidate streamed IDs to check against real selected-dub members.
+
+    This is an inventory filter, never a binding or a playable reference.
+    """
+    try:
+        return frozenset(struct.unpack_from('<I', data, 5)[0]
+                         for kind, data in _nodes(bank).values()
+                         if kind == 2 and len(data) >= 18 and data[:5] == b'\x01\0\x14\0\x02')
+    except (ValueError, TypeError, struct.error):
+        return frozenset()
+
+
 def scene_sources(bank, event, localized_media):
     """Return proven sources in the selected dub, or no bindings on ambiguity.
 

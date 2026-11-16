@@ -49,7 +49,7 @@
       "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
       "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional voices, selected movie clips and tutorial text" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
-      "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
+      "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue, original voices and verified scene contexts" },
       "regionalNteDialogue": { "withoutInstall": true, "label": "Publisher Setup for the selected edition's available text and original voices" },
       "globalZzzDialogue": { "withoutInstall": true, "label": "Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global or mainland China dialogue scenes, motion comics, messages, tips and clue recordings." }
     }
@@ -189,10 +189,10 @@
         "pt-BR"
       ],
       "unverified": {},
-      "notes": "Windows Setup can prepare dialogue from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Rover performances remain separate.",
-      "coverage": "Original Global publisher recordings were decoded in all four dubs. Windows desktop playback and private library export were verified with two English lines. Cinematic speech timing, some ambient and conditional bindings, and full chapter coverage remain incomplete.",
+      "notes": "Windows Setup can prepare dialogue and verified film contexts from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Context audio is labeled separately from individual lines.",
+      "coverage": "The current Global source provides 1,131 context variants across 70 native film scenes in each study locale. Complete scene sources retain their original frames and remain within five minutes; exact existing voices are preserved. Longer films, unsupported surround recordings, complex event graphs, MusicSubtitle groups and other subtitle presentations still have gaps. Current-source playback does not establish complete chapter, regional or platform coverage.",
       "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Empty or unavailable translations are reported separately.",
-      "reviewedAt": "2026-11-09"
+      "reviewedAt": "2026-11-16"
     },
     {
       "id": "nte",

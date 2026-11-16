@@ -27,6 +27,38 @@ class PcmWindow:
     pcm: bytes
 
 
+def _source_format(metadata):
+    if not isinstance(metadata, dict):
+        return None
+    rate, channels, frames = (metadata.get(key) for key in ('sampleRate', 'channels', 'numberOfSamples'))
+    mixing, stream = metadata.get('mixingInfo'), metadata.get('streamInfo')
+    if (type(rate) is not int or rate != 48000 or type(channels) is not int or channels not in (1, 2)
+            or type(frames) is not int or not 0 < frames <= 2**63 - 1
+            or type(metadata.get('playSamples')) is not int or metadata['playSamples'] != frames
+            or not isinstance(mixing, dict) or type(mixing.get('inputChannels')) is not int
+            or mixing['inputChannels'] != channels or type(mixing.get('outputChannels')) is not int
+            or mixing['outputChannels'] != channels
+            or not isinstance(stream, dict) or type(stream.get('total')) is not int or stream['total'] not in (0, 1)
+            or type(stream.get('index')) is not int or stream['index'] != 0):
+        return None
+    return channels, frames
+
+
+def source_info(wem, decoder, directory):
+    """Probe the exact original source without decoding or choosing a window."""
+    try:
+        with tempfile.TemporaryDirectory(prefix='wuwa-probe-', dir=directory) as temporary:
+            from pathlib import Path
+            source = Path(temporary) / 'source.wem'
+            source.write_bytes(wem)
+            probe = subprocess.run([str(decoder), '-m', '-I', '-i', str(source)], check=True,
+                                   capture_output=True, timeout=45,
+                                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            return _source_format(json.loads(probe.stdout))
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+
+
 def decode_window(wem, decoder, directory, start_ms, end_ms):
     """Decode a bounded interval, including intervals in a longer source.
 
@@ -49,22 +81,11 @@ def decode_window(wem, decoder, directory, start_ms, end_ms):
             probe = subprocess.run([str(decoder), '-m', '-I', '-i', str(source)], check=True,
                                    capture_output=True, timeout=max(.001, deadline - time.monotonic()),
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-            metadata = json.loads(probe.stdout)
-            if not isinstance(metadata, dict):
+            shape = _source_format(json.loads(probe.stdout))
+            if shape is None:
                 return None
-            rate, channels, frames = (metadata.get(key) for key in ('sampleRate', 'channels', 'numberOfSamples'))
-            mixing, stream = metadata.get('mixingInfo'), metadata.get('streamInfo')
-            if (type(rate) is not int or rate != 48000 or type(channels) is not int or channels not in (1, 2)
-                    or type(frames) is not int or not 0 < frames <= 2**63 - 1
-                    or type(metadata.get('playSamples')) is not int or metadata['playSamples'] != frames
-                    or not isinstance(mixing, dict) or type(mixing.get('inputChannels')) is not int
-                    or mixing['inputChannels'] != channels or type(mixing.get('outputChannels')) is not int
-                    or mixing['outputChannels'] != channels
-                    # The pinned decoder reports zero for plain PCM without
-                    # subsongs, and one for these single-stream Wwise originals.
-                    or not isinstance(stream, dict) or type(stream.get('total')) is not int or stream['total'] not in (0, 1)
-                    or type(stream.get('index')) is not int or stream['index'] != 0
-                    or end_ms * 48 > frames):
+            channels, frames = shape
+            if end_ms * 48 > frames:
                 return None
             # Integer TXTP times are samples. Decimal seconds can round a trim
             # down by one frame, even when milliseconds map exactly at 48 kHz.
@@ -82,7 +103,7 @@ def decode_window(wem, decoder, directory, start_ms, end_ms):
             if output.stat().st_size != 44 + expected_bytes:
                 return None
             with wave.open(str(output)) as decoded:
-                if (decoded.getframerate() != rate or decoded.getnchannels() != channels
+                if (decoded.getframerate() != 48000 or decoded.getnchannels() != channels
                         or decoded.getsampwidth() != 2 or decoded.getnframes() != expected_frames
                         or decoded.getcomptype() != 'NONE'):
                     return None

@@ -24,6 +24,7 @@ export default {
  "Global": ["Wereldwijd","全球版","全球版"],
  "Mainland China": ["Chinees vasteland","中国大陆版","中國大陸版"],
  "Publisher Setup for Global dialogue and original voices": ["Global-dialogen en originele stemmen van de uitgever","可从发行商准备全球版台词与原版配音","可從發行商準備全球版台詞與原版配音"],
+ "Publisher Setup for Global dialogue, original voices and verified scene contexts": ["Global-dialogen, originele stemmen en geverifieerde scènefragmenten met context van de uitgever","可从发行商准备全球版台词、原版配音和已核实的场景上下文片段","可從發行商準備全球版台詞、原版配音和已核實的場景上下文片段"],
  "Publisher Setup for the selected edition's available text and original voices": ["Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever","从发行商获取所选版本可用的文本与原版配音","從發行商取得所選版本可用的文字與原版配音"],
  "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.": ["Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.","全球版启动器中的对话场景、动态漫画、消息、游戏提示和带时间轴的线索录音。","全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。"],
  "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings.": ["De instellingen halen Global-dialoogscènes, bewegende strips, berichten, tips en opnamen van aanwijzingen op bij de uitgever.","设置可从发行商获取全球版对话场景、动态漫画、消息、提示和线索录音。","設定可從發行商取得全球版對話場景、動態漫畫、訊息、提示和線索錄音。"],
