@@ -548,11 +548,12 @@ def test_transcript_round_trip(tmp_path) -> None:
 
 
 @pytest.mark.parametrize('source_locale', ['nl', 'zh-Hans'])
-def test_paragraph_pages_remain_separate_and_keep_audio_scope_after_reopen(tmp_path, source_locale):
+@pytest.mark.parametrize('scope', ['paragraph', 'context'])
+def test_shared_recording_pages_remain_separate_and_keep_audio_scope_after_reopen(tmp_path, source_locale, scope):
     store = TranscriptStore(tmp_path/'transcript.db')
     match = TextMatch(game='beyond', text_id='beyond:TEST:page-1', english='Please wait here.', chinese='请在这里等候。',
                       source_ocr='请在这里等候。', score=100, kind='exact', source_locale=source_locale,
-                      source_text='First authored page.', audio_scope='paragraph', voice_status='voiced')
+                      source_text='First authored page.', audio_scope=scope, voice_status='voiced')
     first, upgraded = store.add_or_upgrade_recent(match, 'session')
     assert first and not upgraded
     second_match = match.model_copy(update={'text_id': 'beyond:TEST:page-2',
@@ -560,7 +561,7 @@ def test_paragraph_pages_remain_separate_and_keep_audio_scope_after_reopen(tmp_p
     second, upgraded = store.add_or_upgrade_recent(second_match, 'session')
     assert second and not upgraded and second.id != first.id
     assert store.add_or_upgrade_recent(second_match, 'session') == (None, False)
-    assert all(line.audio_scope == 'paragraph' for line in TranscriptStore(store.path).list())
+    assert all(line.audio_scope == scope for line in TranscriptStore(store.path).list())
     assert store.count() == 2
 
 

@@ -289,7 +289,7 @@ class MultilingualTextIndex:
                     def identity(row):
                         return (json.dumps(row.get('audio'), sort_keys=True), row['source_text'],
                                 json.dumps(row['texts'], sort_keys=True)
-                                if row['voice_status'] == 'unvoiced' or row['audio_scope'] == 'paragraph' else '')
+                                if row['voice_status'] == 'unvoiced' or row['audio_scope'] in {'paragraph', 'context'} else '')
                     identities = {identity(r) for r in rows}
                     if self.game == 'heavyrain' and len(identities) > 1 and score == 100 and context_groups:
                         rows = [row for row in rows if self.authored_scene(row['text_id']) in context_groups]

@@ -5,7 +5,7 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
-@pytest.mark.parametrize('scope', [None, 'line', 'paragraph'])
+@pytest.mark.parametrize('scope', [None, 'line', 'context', 'paragraph'])
 def test_authored_full_track_always_has_paragraph_scope_in_all_indexes(tmp_path, scope):
     from backend.local_game import LocalDialogue
     row = {'text_id': 'test:page', 'source_locale': 'en', 'audio_locale': 'en',
@@ -105,15 +105,16 @@ def test_bad_refresh_preserves_previous_language_snapshot(tmp_path):
     assert value.match_lines(['Stay close. I will protect you.'])
 
 
-def test_paragraph_audio_does_not_disambiguate_different_subtitle_pages(tmp_path):
+@pytest.mark.parametrize('scope', ['paragraph', 'context'])
+def test_shared_audio_does_not_disambiguate_different_subtitle_pages(tmp_path, scope):
     first = {'text_id': 'page-1', 'source_locale': 'en', 'audio_locale': 'en',
              'source_text': 'Please wait at the station.', 'texts': {'en': 'Please wait at the station.', 'fr': 'Attendez ici.'},
-             'audio': {'voice': 'whole-recording'}, 'audio_scope': 'paragraph'}
+             'audio': {'voice': 'whole-recording'}, 'audio_scope': scope}
     second = {**first, 'text_id': 'page-2', 'texts': {**first['texts'], 'fr': 'Attendez là.'}}
     value = index(tmp_path, 'en', [first, second])
     assert value.match_lines([first['source_text']]) is None
     assert value.match_lines(['Attendez ici.']).text_id == 'page-1'
-    assert value.match_lines(['Attendez là.']).audio_scope == 'paragraph'
+    assert value.match_lines(['Attendez là.']).audio_scope == scope
     value = index(tmp_path, 'en', [{**first, 'audio_scope': 'guessed'}])
     assert not value.ready and 'voice scope' in value.message
 

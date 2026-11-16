@@ -1,5 +1,9 @@
 // Product copy shared by the desktop and browser interfaces.
 export default {
+ "Original voice · context clip":["Originele stem · fragment met context","原版配音 · 含上下文片段","原版配音 · 含上下文片段"],
+ "Play context clip":["Fragment met context afspelen","播放含上下文片段","播放含上下文片段"],
+ "▶ Play context clip":["▶ Fragment met context afspelen","▶ 播放含上下文片段","▶ 播放含上下文片段"],
+ "Context clip":["Fragment met context","含上下文片段","含上下文片段"],
  "Windows Setup": ["Windows-instellingen","Windows 设置","Windows 設定"],
  "Supported with Windows publisher Setup or installed assets": ["Ondersteund via de uitgever in de Windows-instellingen of met geïnstalleerde gamebestanden","可从 Windows 设置读取发行商资源，也可使用已安装的游戏文件","可在 Windows 設定中讀取發行商資源，也可使用已安裝的遊戲檔案"],
  "Windows game integration only": ["Game-integratie alleen op Windows","仅支持 Windows 游戏集成","僅支援 Windows 遊戲整合"],

@@ -142,7 +142,7 @@ type TranscriptLine = {
   has_audio: boolean;
   audio_pending?: boolean;
   audio_source?: 'original' | 'recording';
-  audio_scope?: 'line' | 'paragraph';
+  audio_scope?: 'line' | 'context' | 'paragraph';
   speaker_english?: string | null;
   speaker_chinese?: string | null;
   favorite: boolean;
@@ -151,7 +151,8 @@ function isComicLine(line: TranscriptLine) {
   return line.game === 'zzz' && line.channel === 'cinematic' && /^Comic_[0-9a-f]{32}(?::[MF])?$/i.test(line.text_id);
 }
 function voicePlaybackLabel(line: TranscriptLine) {
-  return line.audio_scope === 'paragraph' ? 'Original voice · full paragraph'
+  return line.audio_scope === 'context' ? 'Original voice · context clip'
+    : line.audio_scope === 'paragraph' ? 'Original voice · full paragraph'
     : line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
 }
 function isReadableLine(line: TranscriptLine) {
@@ -383,6 +384,7 @@ const TranscriptRow = memo(function TranscriptRow({
       {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} current onSummary={setReadingSummary} /> : <StableText className="current-chinese" lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
+      {line.audio_scope === 'context' && <small>{uiText("Context clip")}</small>}
       <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
       <div className="line-actions">
         <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`${voicePlaybackLabel(line)}: ${line.english}`} title={voicePlaybackLabel(line)}><Volume2 size={16} /></button>
@@ -950,7 +952,7 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} locale={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
-              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {latestLine.voice_status === 'unvoiced' ? <span className="text-muted">{uiText('Unvoiced dialogue')}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'context' ? 'Play context clip' : latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
               </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>

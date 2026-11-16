@@ -126,7 +126,7 @@ export function validateRow(row){
  const tagged=row?.sourceText!=null;
  if(tagged&&(!locale(row.sourceLanguage)||!locale(row.sourceLocale)||!locale(row.audioLocale)||!locale(row.translationLocale)||typeof row.sourceText!=='string'||!row.sourceText.trim()||row.sourceText.length>8000||typeof row.translationText!=='string'||row.translationText.length>8000))fail('Invalid dialogue language context.');
  if(!row||!hex(row.id)||typeof row.textId!=='string'||row.textId.length>512||typeof row.english!=='string'||typeof row.chinese!=='string'||!tagged&&(!row.english.trim()||!row.chinese.trim())||row.english.length>8000||row.chinese.length>8000||row.audio!==null&&!hex(row.audio)||row.sourceVoice!=null&&!hex(row.sourceVoice))fail('Invalid dialogue record.');
- if(row.audioScope!=null&&!['line','paragraph'].includes(row.audioScope))fail('Invalid original voice scope.');
+ if(row.audioScope!=null&&!['line','context','paragraph'].includes(row.audioScope))fail('Invalid original voice scope.');
  if(row.audio&&!hex(row.sourceVoice))fail('Missing original voice binding.');
  for(const field of ['anchorsEnglish','anchorsChinese','anchorsSource','anchorsTranslation'])if(row[field]!=null&&(!Array.isArray(row[field])||row[field].length>100||row[field].some(v=>typeof v!=='string'||v.length>8000)))fail('Invalid authored OCR anchors.');
  if(row.memberTextIds!=null&&(!row.textId.includes(':context-')||!Array.isArray(row.memberTextIds)||row.memberTextIds.length!==2||row.memberTextIds.some(v=>typeof v!=='string'||v.length>512||!v.startsWith(row.textId.split(':context-')[0]+':'))||new Set(row.memberTextIds).size!==2))fail('Invalid authored context members.');
@@ -188,6 +188,8 @@ export function subtitleRows(blocks,crop,width,height,game){
 }
 export function ratio(a,b){if(!a.length||!b.length)return 0;const previous=new Uint16Array(b.length+1);for(let i=0;i<a.length;i++){let diagonal=0;for(let j=0;j<b.length;j++){const old=previous[j+1];previous[j+1]=a[i]===b[j]?diagonal+1:Math.max(previous[j+1],previous[j]);diagonal=old;}}return 200*previous[b.length]/(a.length+b.length);}
 const grams = text => [...new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)))];
+const voiceMatchIdentity=row=>JSON.stringify([row.sourceVoice??row.id,
+ ['paragraph','context'].includes(row.audioScope)?[row.sourceText??row.chinese,row.translationText??row.english,row.sourceLocale??'zh-Hans',row.translationLocale??'en']:null]);
 export class DialogueMatcher{
  constructor(rows,game=null){this.game=game;this.exact=new Map();this.grams=null;this.cache=new Map();this.hito=rows.some(r=>r.textId.startsWith('hito:'));this.exactOnly=rows.some(r=>/^(nte|honkai3):/.test(r.textId));for(const row of rows)for(const value of [row.sourceText??row.chinese,row.translationText??row.english,...row.anchorsSource??row.anchorsChinese??[],...row.anchorsTranslation??row.anchorsEnglish??[]]){const key=normalize(value);if(key.length<2||key.length>2000)continue;const list=this.exact.get(key)??[];if(!list.includes(row))list.push(row);this.exact.set(key,list);}
   this.contextPairs=new Map();this.contextFirsts=new Set();
@@ -205,7 +207,7 @@ export class DialogueMatcher{
    if(hit.state==='matched'&&hit.score===100&&key.length>=8&&scene(hit.row))observed.add(scene(hit.row));
    if(hit.state==='ambiguous'&&allowed.size){
     const candidates=[...this.exact].filter(([text])=>text===key||key.length>=(/\p{Script=Han}/u.test(key)?12:24)&&text.includes(key)).flatMap(([,rows])=>rows).filter(row=>allowed.has(scene(row))&&row.channels.includes('dialogue'));
-    if(new Set(candidates.map(row=>row.sourceVoice??row.id)).size===1)hit={state:'matched',row:candidates[0],score:100};
+    if(new Set(candidates.map(voiceMatchIdentity)).size===1)hit={state:'matched',row:candidates[0],score:100};
    }
    if(hit.state==='matched')hits.set(hit.row.id,hit);
   }
@@ -225,7 +227,7 @@ export class DialogueMatcher{
   for(const hit of hits){
    if(hits.some(other=>other.score>=92&&other.key!==hit.key&&other.key.includes(hit.key)))continue;
    if(results.some(other=>other.state==='ambiguous'&&other.key.includes(hit.key)))continue;
-   if(new Set(hits.filter(other=>other.key===hit.key&&other.score===hit.score).map(other=>other.row.sourceVoice??other.row.id)).size!==1)continue;
+   if(new Set(hits.filter(other=>other.key===hit.key&&other.score===hit.score).map(other=>voiceMatchIdentity(other.row))).size!==1)continue;
    selected.set(hit.row.id,hit);
   }
   if(primary?.state==='matched'){
@@ -284,7 +286,7 @@ export class DialogueMatcher{
   if(this.game!=='zzz'||new Set(possible.map(hit=>hit.row.id)).size>1)possible=possible.filter(hit=>!hit.row.playerVoice||hit.row.playerVoice===player);
   if(!possible.length)return {state:'unmatched'};
   const best=Math.max(...possible.map(r=>r.score)), chosen=possible.filter(r=>r.score===best);
-  if(new Set(chosen.map(r=>r.row.sourceVoice??r.row.id)).size!==1)return {state:'ambiguous'};
+  if(new Set(chosen.map(r=>voiceMatchIdentity(r.row))).size!==1)return {state:'ambiguous'};
   return {state:'matched',...chosen[0]};
  }
 }
@@ -302,7 +304,7 @@ export function refreshHistoryVoices(history,catalog){
   const exact=ids.get(old.id),samePerformance=row=>identity(row)===identity(old)&&(row.sourceText??row.chinese)===(old.sourceText??old.chinese);
   const possible=exact&&samePerformance(exact)?[exact]:(identities.get(identity(old))??[]).filter(samePerformance);
   if(!possible.length||new Set(possible.map(row=>row.sourceVoice??null)).size!==1)return old;
-  return {...old,audio:possible[0].audio,sourceVoice:possible[0].sourceVoice};
+  return {...old,audio:possible[0].audio,sourceVoice:possible[0].sourceVoice,...(possible[0].audioScope!=null?{audioScope:possible[0].audioScope}:{})};
  });
 }
 

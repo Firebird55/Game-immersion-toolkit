@@ -395,7 +395,7 @@ class LexiriseService:
                     else:
                         payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
                                    "notes": f"{game_title}{' — ' + speaker if speaker else ''}\n" +
-                                            (f"Audio: {audio_source}" if audio is not None else
+                                            (f"Audio: {audio_source}" + (" — context clip; includes surrounding dialogue." if audio_scope == 'context' else "") if audio is not None else
                                              "Voiced dialogue; full-paragraph recording omitted (individual subtitle timing unavailable)."
                                              if audio_scope == 'paragraph' else "Unvoiced game dialogue"),
                                    "tags": [game], "audioUrls": [state["audio_url"]] if audio is not None else []}

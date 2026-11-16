@@ -30,7 +30,7 @@ def dialogue_voice_status(audio, status=None):
 
 
 def dialogue_audio_scope(audio, scope=None):
-    if scope not in {None, 'line', 'paragraph'}:
+    if scope not in {None, 'line', 'context', 'paragraph'}:
         raise ValueError('Invalid original voice scope')
     # Older adapters already preserve complete-performance metadata. Honor it
     # consistently for every game, even before its index is rebuilt.

@@ -28,10 +28,13 @@ def voice(tmp_path, calls):
 
 
 @pytest.mark.parametrize("game", ["zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "starrail", "genshin", "endfield"])
-def test_export_roundtrip_and_private_allowlist(tmp_path, game):
+@pytest.mark.parametrize("scope", ["paragraph", "context"])
+def test_export_roundtrip_and_private_allowlist(tmp_path, game, scope):
     calls = []
     output = tmp_path / "export"
-    result = export_library(game, rows(game), output, voice=voice(tmp_path, calls))
+    records = rows(game)
+    records[0]["audioScope"] = scope
+    result = export_library(game, records, output, voice=voice(tmp_path, calls))
     folder = Path(result["folder"])
     with zipfile.ZipFile(Path(result["catalog"])) as pack:
         manifest = json.loads(pack.read("manifest.json"))
@@ -40,7 +43,7 @@ def test_export_roundtrip_and_private_allowlist(tmp_path, game):
         assert manifest["coverage"]["exportedVoices"] == 2
         assert "install" not in catalog[1] and "api_key" not in catalog[1]
         assert catalog[0]["anchorsEnglish"] == ["The lantern"]
-        assert catalog[0]["audioScope"] == "paragraph"
+        assert catalog[0]["audioScope"] == scope
         assert "audioScope" not in catalog[1]  # Legacy sentence clips remain compatible.
         assert catalog[0]["audio"] == catalog[1]["audio"]
         assert all(info.compress_type == zipfile.ZIP_STORED for info in pack.infolist())

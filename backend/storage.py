@@ -296,7 +296,7 @@ class TranscriptStore:
         while a subtitle is still visible.
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
-        if match.source_locale != 'zh-Hans' or match.audio_scope == 'paragraph':
+        if match.source_locale != 'zh-Hans' or match.audio_scope in {'paragraph', 'context'}:
             with self._connection_scope() as connection:
                 with self._sql_lifetime.cursor(connection) as statement:
                     duplicate = statement.execute("""SELECT 1 FROM transcript_lines
@@ -323,7 +323,7 @@ class TranscriptStore:
             if (
                 adjacent
                 and not (is_comic or self._row_to_line(adjacent).is_comic
-                         or self._row_to_line(adjacent).audio_scope == 'paragraph')
+                         or self._row_to_line(adjacent).audio_scope in {'paragraph', 'context'})
                 and self._prefix_text(adjacent["english"]) == self._prefix_text(match.english)
             ):
                 return None, False
@@ -356,7 +356,7 @@ class TranscriptStore:
             for recent in recent_rows:
                 # Each official comic ID is already a complete utterance.
                 # Similar wording in another bubble is not an OCR fragment.
-                if is_comic or self._row_to_line(recent).is_comic or self._row_to_line(recent).audio_scope == 'paragraph':
+                if is_comic or self._row_to_line(recent).is_comic or self._row_to_line(recent).audio_scope in {'paragraph', 'context'}:
                     continue
                 recent_text = self._prefix_text(recent["english"])
                 if (
@@ -377,7 +377,7 @@ class TranscriptStore:
                     (session_id, match.game, upgrade_cutoff.isoformat()),
                 ).fetchone()
             if previous and not (is_comic or self._row_to_line(previous).is_comic
-                                 or self._row_to_line(previous).audio_scope == 'paragraph'):
+                                 or self._row_to_line(previous).audio_scope in {'paragraph', 'context'}):
                 previous_text = self._prefix_text(previous["english"])
                 complete_text = self._prefix_text(match.english)
                 is_completion = (

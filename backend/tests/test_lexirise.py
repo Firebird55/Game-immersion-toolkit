@@ -103,6 +103,22 @@ def test_paragraph_recording_is_not_uploaded_as_a_sentence_clip(tmp_path):
     assert 'Unvoiced' not in payloads[0]['notes']
 
 
+def test_context_clip_is_uploaded_and_described_as_context(tmp_path):
+    api, service, kwargs = fixture(tmp_path)
+    payloads = []
+
+    def respond(request):
+        if request.method == 'POST' and request.url.path == '/v1/vocabulary':
+            payloads.append(json.loads(request.content))
+        return api(request)
+
+    service.transport = httpx.MockTransport(respond)
+    service.send(**kwargs, audio_scope='context')
+    assert ('POST', '/v1/vocabulary/audio') in api.calls
+    assert payloads[0]['audioUrls']
+    assert 'context clip; includes surrounding dialogue' in payloads[0]['notes']
+
+
 def test_lost_deck_response_resumes_without_duplicate_upload_or_card(tmp_path):
     api, service, kwargs = fixture(tmp_path)
     api.fail_after_add = True
@@ -210,10 +226,14 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
     assert response.status_code == 200 and response.json()['audio_included'] is False
     assert sent[-1]['audio'] is None
     assert line.voiced is True  # Whole recording is not confirmed unvoiced dialogue.
+    line.audio_scope = 'context'
+    response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and response.json()['audio_included'] is True
+    assert sent[-1]['audio_scope'] == 'context' and sent[-1]['audio'] is not None
     line.audio_scope = 'line'
     line.voiced = False
     assert client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'}).status_code == 409
-    assert len(sent) == 2
+    assert len(sent) == 3
     line.voice_status = 'unvoiced'
     response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
     assert response.status_code == 200 and response.json()['audio_included'] is False

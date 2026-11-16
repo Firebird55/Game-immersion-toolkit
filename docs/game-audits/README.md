@@ -9,6 +9,11 @@ The November 8 live-service reports also identify which publisher release
 supplied the translations, original recordings and later updates. See the
 [source inventory for all six games](../live-service-sources.md).
 
+The [live-service completion scope](../live-service-completion.md) fixes the
+current audit bases, acceptable context clips and autonomous update trial for
+issues #83–#88. Historical test content and sounds without subtitles are tracked
+separately from active subtitle blockers.
+
 The [subtitle boundary audit](../subtitle-boundary-audit.md) reviews all supported
 readers for page concatenation, translation alignment and full-recording playback.
 It distinguishes authored display boundaries from remaining format and native

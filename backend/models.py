@@ -120,7 +120,7 @@ class LanguageContext(BaseModel):
     audio_locale: str = 'zh-Hans'
     # Some authored subtitle pages identify a complete recording but have no
     # verified individual audio cut. Keep that explicit through every reader.
-    audio_scope: Literal['line', 'paragraph'] = 'line'
+    audio_scope: Literal['line', 'context', 'paragraph'] = 'line'
     texts: dict[str, str] = Field(default_factory=dict)
     voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
     dialogue_kind: str | None = None

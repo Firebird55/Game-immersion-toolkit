@@ -7,11 +7,11 @@ const row={source,game:'zzz',id:1,chinese:'你好',english:'Hello',speakerChines
 const message=value=>JSON.stringify({v:PROTOCOL,session,...value});
 
 test('Dutch PC rows retain explicit learning, audio and official translation locales',()=>{
- for(const game of ['beyond','heavyrain']){
- const dutch={...row,game,sourceText:'Een testzin.',sourceLanguage:'nl',sourceLocale:'nl',translationText:'测试句子。',translationLocale:'zh-Hans',audioLocale:'nl',audioScope:'paragraph'};
+ for(const game of ['beyond','heavyrain'])for(const scope of ['paragraph','context']){
+ const dutch={...row,game,sourceText:'Een testzin.',sourceLanguage:'nl',sourceLocale:'nl',translationText:'测试句子。',translationLocale:'zh-Hans',audioLocale:'nl',audioScope:scope};
  const page=parseMessage(message({type:'page',request:'dutch',before:null,rows:[dutch]}),session);
  assert.equal(page.rows[0].sourceLanguage,'nl');assert.equal(page.rows[0].translationLocale,'zh-Hans');
- assert.equal(page.rows[0].audioScope,'paragraph');
+ assert.equal(page.rows[0].audioScope,scope);
  assert.throws(()=>parseMessage(message({type:'page',request:'bad-scope',before:null,rows:[{...dutch,audioScope:'guessed-cut'}]}),session));
  assert.throws(()=>parseMessage(message({type:'page',request:'bad',before:null,rows:[{...dutch,audioLocale:'../private'}]}),session));
  }

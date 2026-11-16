@@ -8,8 +8,19 @@ const hex='a'.repeat(64), voiceHash=await sha256(new Uint8Array([1,2,3]));
 const row={id:hex,textId:'dialogue-one',english:'The lantern is bright.',chinese:'灯笼很亮。',sourceVoice:hex,audio:voiceHash,channels:['dialogue','cinematic','gameplay']};
 
 test('library import preserves paragraph audio scope and rejects unrecognized scope',()=>{
- assert.equal(validateRow({...row,audioScope:'paragraph'}).audioScope,'paragraph');
+ for(const scope of ['paragraph','context'])assert.equal(validateRow({...row,audioScope:scope}).audioScope,scope);
  assert.throws(()=>validateRow({...row,audioScope:'guessed-cut'}),/scope/);
+});
+
+test('context audio cannot choose between different official translations',()=>{
+ const first={...row,audioScope:'context',translationText:'First official translation.'};
+ const second={...first,id:'b'.repeat(64),textId:'dialogue-two',translationText:'Second official translation.'};
+ const matcher=new DialogueMatcher([first,second],'wuwa');
+ assert.equal(matcher.match(row.chinese).state,'ambiguous');
+ assert.equal(matcher.match(first.translationText).row.textId,first.textId);
+ assert.equal(matcher.match(second.translationText).row.textId,second.textId);
+ const retained={...first,game:'wuwa',audioScope:'line',audio:null};
+ assert.equal(refreshHistoryVoices([retained],{manifest:{game:'wuwa'},rows:[first]})[0].audioScope,'context');
 });
 
 test('new RPG libraries preserve locale text, crops and ambiguous-interjection rejection',()=>{
