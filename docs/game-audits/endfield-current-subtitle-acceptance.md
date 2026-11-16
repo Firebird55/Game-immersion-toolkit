@@ -30,6 +30,38 @@ No further per-row search for full sentence recordings is required by this
 reaction mechanism unless new evidence identifies an actually missing spoken
 subtitle.
 
+The full revision-20 prepared indexes were then checked through the separate
+missing-audio policy and the production preceding-caption controller. Both
+`radio_sm2l7m1_5_002` and `radio_gm01m16_3_002` resolve after two stable
+observations of their actual authored predecessor in all five selections.
+Their audio stays unavailable. Default-off behavior, complete-text guards and
+the two unknown cinematic captions per selection were also checked.
+
+| Study selection | Residual radio rows captured with the applicable opt-ins/context | Still guarded |
+| --- | ---: | ---: |
+| English | 133 / 134 | 1 |
+| Japanese | 133 / 134 | 1 |
+| Korean | 132 / 134 | 2 |
+| Simplified Chinese | 131 / 134 | 3 |
+| Traditional Chinese | 131 / 134 | 3 |
+
+These remaining rows are explicitly accounted for, not a full capture pass:
+
+- `radio_gm01m12_1_001` remains ambiguous in every selection and has no authored
+  predecessor. Its short reaction-like caption cannot identify one current row.
+- `radio_m1m76_2_001` remains ambiguous in Korean and both Chinese scripts and
+  likewise has no authored predecessor.
+- `radio_e10m1_11_002` is confirmed unvoiced but remains below the standalone
+  short-caption minimum in both Chinese scripts. It has predecessor
+  `radio_e10m1_11_001`; the new missing-audio predecessor policy does not extend
+  the separate unvoiced policy.
+
+The smallest remaining matching work is an equally strict authored-pair route
+for that unvoiced successor, plus additional authored presentation/speaker
+context for the two rows without predecessors. Broad fuzzy matching or a
+generic voice must not be substituted. One captured identity per selection is
+an alias with the same complete official text, translations and audio state.
+
 This 134-row subset is not the entire radio inventory. The current table has
 **3,403 groups and 5,714 raw rows**. Protagonist expansion and localization yield:
 
@@ -158,6 +190,21 @@ sources, producing the same 501 English and 503 Mandarin accounted cinematic
 pairs, including the same two unresolved captions per selection. English has
 53,709 total records and Mandarin 54,968. This verifies current regional source
 preparation; it does not claim every regional device/playback flow was exercised.
+An independent original-file comparison also matched all 770 table hashes,
+all 22 initial/dub/hotfix package hashes across the four dubs, and all 5,826
+cinematic asset paths and bundle hashes between the selected Global and
+Mainland releases. The editions retain their own release descriptors and URLs.
+
+A bounded check of the current male prologue playback locates the unresolved
+boss caption at [4:54](https://www.youtube.com/watch?v=59n93iqzIIM&t=294s).
+Two separate later original-voice controls identify the scene at upload offset
+290.045375 seconds, with waveform correlations 0.750 and 0.642. The checked
+4:54.3 frame displays this exact caption over the boss's runes/effects. A
+24-second transcript recovers the later ordinary English voices but does not
+establish the boss caption's spoken wording. The speech-detector configuration
+also misses those known controls, so its negative result is not evidence of
+silence. This is an actual current caption with **unknown original speech
+ownership**, not a completed spoken binding or certified unvoiced line.
 
 With revision-20 code and format metadata held fixed, the retained official
 1.5.3 discovery descriptor was replayed once more. Its normal English worker
@@ -175,8 +222,8 @@ cached English table, then interrupted its official HTTPS response after
 preparation in 28.219 seconds and produced all 53,675 current records with the
 same text, audio bindings and voice states as the earlier current preparation.
 Running-device scheduled activation remains distinct from worker/cache evidence.
-Current-content acceptance still needs the shared missing-audio capture/export
-route and representative end-to-end captures for that route. The eight cinematic
+Current-content acceptance still needs the remaining short-caption matching
+cases above and representative physical/end-to-end captures. The eight cinematic
 audio exceptions above remain explicit. This census covers tracks accepted by
 the strict original-config/director reader; it does not prove that every other
 client scene format or physical capture layout has been exercised.

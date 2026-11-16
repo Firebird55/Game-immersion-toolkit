@@ -9,14 +9,20 @@ Pair any study language with any of the game's **14 official text locales**
 **A game installation is optional.** Without a game folder, choose **Setup →
 Games → Arknights: Endfield → Install game tools**, then prepare your study and
 translation languages in **Languages**. The Windows companion indexes the
-current Global Windows release. It reads the publisher’s original localization,
-story and radio tables and retrieves recordings directly from GRYPHLINE. Cached
+selected Global or Mainland China Windows release. It reads the publisher’s original localization,
+story and radio tables and retrieves recordings directly from that publisher. Cached
 recordings work offline. Ordinary dialogue follows publisher resource updates.
 When the publisher updates a release, the toolkit checks each known film's
 configuration, localized timeline, voice banks and original recording before
 reusing its times. Two different Global 1.6 resource revisions passed this check.
-The verified film captions cover 400 Mandarin intervals, 404 English, 417 Japanese
-and 392 Korean. Both Chinese study selections use the same 400 Mandarin intervals.
+Global 1.6.4 resource `11775769-12` retains 467 English, 483 Japanese, 459 Korean
+and 483 Mandarin line clips. It adds 32 English, 12 Japanese, 38 Korean and
+18 Mandarin complete-scene context bindings. Both Chinese script selections use
+the same Mandarin sources. Context recordings are labeled explicitly and span
+14.5–224.5 seconds; they include the complete original performance rather than
+an exact sentence cut. Two captions per dub retain unknown audio. The
+[current subtitle inventory](game-audits/endfield-current-subtitle-acceptance.md)
+records their exact boundaries and remaining acceptance work.
 
 For dialogue with separate Endministrator performances, set the player voice to
 match your game. The reader selects the corresponding recording and renders
@@ -24,6 +30,11 @@ gender-specific translations when the game supplies them. Scene summaries shown
 when skipping dialogue use the existing unvoiced-text capture option. Radio
 captions whose original data explicitly disables the performer use that same
 option. A missing actor field or recording does not establish silence. The
+separate **Include subtitles without available audio** option preserves verified
+authored captions with unknown or unavailable audio, subject to complete,
+unambiguous text and player selection. General reactions stay separate from
+sentence audio. Ambiguous short captions can require a proven preceding caption.
+The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.
 
@@ -69,7 +80,8 @@ identities and the separate codec/frozen-platform acceptance still required.
 ## Dialogue and original voice
 
 The reader follows **DialogTextTable and RadioTable text ID → audioOverride → AudioDialog source path**, plus authored TextTable/TextVoIdTable narration, operator profile voices and exact AIBarkText voice-ID joins, from the
-[third-party game-data mirror](https://github.com/rmxlinux/EndfieldData). One immutable catalog revision supplies the selected
+[publisher's original tables](game-audits/endfield.md). The installed-reader fallback also retains the
+[third-party game-data mirror](https://github.com/rmxlinux/EndfieldData). One immutable release supplies the selected
 subtitle and translation tables. Only an exact authored source hash can bind an
 installed original voice. Conflicting sources are skipped.
 
@@ -82,8 +94,9 @@ missing metadata reference.
 Endfield resolves the complete authored source path and its locale-specific Wwise external hash. StreamingAssets and Persistent layers are combined with patch precedence. Only the selected voice group, initial audio and hotfix group are read; unrelated music and effects are excluded.
 
 Use **Capture setup → Endministrator voice** for ambiguous player performances.
-The bottom dialogue crop has separate per-PC calibration for this game. Check
-it against your subtitle size, resolution and display scaling. YouTube evidence
+Dialogue and cinematic regions have separate per-PC calibration. Check
+subtitle size, resolution and display scaling; include the whole frame where
+the caption can move. A bottom-only region does not cover every presentation. YouTube evidence
 and reproducible replay instructions are in
 [game OCR presentations](game-ocr-presentations.md#starrail-genshin-endfield).
 
@@ -92,9 +105,14 @@ and reproducible replay instructions are in
 After the official launcher finishes a patch or voice download, choose
 **Refresh game data**. Automatic checks revisit prepared locales about every
 two minutes. A failed build leaves the previous complete table available.
-Installation-free preparation uses the audited Global resource revision
-`11529267-11`. Support for a later publisher revision requires new validated
-package indexes, text and film clocks.
+Installation-free preparation discovers the selected publisher's current
+resource indexes and derives text, recording and supported scene bindings from
+that release. Reader-20 checks cover original 1.5.3 and live 1.6.4 with unchanged
+toolkit code and format metadata, including added text and voices. Separate
+recovery checks cover an interrupted official transfer, fresh-process retry
+and retained older recordings. A changed
+version or chapter alone does not require a new toolkit release. Unsupported
+format changes and unresolved audio remain explicit.
 
 History, favorites, original playback, explicit game-deck export, Lexirise
 reading and independent Migaku mode use the existing language-aware workflow.
