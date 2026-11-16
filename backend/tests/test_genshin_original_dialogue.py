@@ -109,6 +109,112 @@ def prepare(path, fixture_value):
     return original.prepare_original_talk_snapshot(path, inventory, objects.__getitem__, spec, **options)
 
 
+def routed_fixture(generation=0):
+    """Whole native graph: direct Talk, one descriptor and a shared group."""
+    spec, _, objects, options = fixture(generation, count=5)
+    word = original.Word(32, (('xor', 0x3456 + generation),))
+    wide = original.Word(64, (('add', 0x1122334455 + generation),))
+    record = lambda *fields: original.Record(tuple(original.Field(name, value) for name, value in fields))
+    descriptor = record(('id', word), ('assetIndex', wide), ('payloadKind', word))
+    group = record(('id', word), ('talks', original.Array(word, descriptor)))
+    inventory_contract = original.Array(word, record(('id', word), ('resourceKind', word), ('group', word)))
+    spec = replace(spec, inventory=inventory_contract, descriptor=descriptor, descriptor_payload_kinds=(7,),
+        inventory_routes=(original.InventoryRoute(0, 'Data/Talk/'),
+                          original.InventoryRoute(1, 'Data/Descriptor/', representation='descriptor'),
+                          original.InventoryRoute(2, 'Data/Group/', 'group', 'group', group)))
+    assets, descriptors, listing = {}, {}, []
+    for index in range(5):
+        identity = 100 + index
+        kind = 1 if index == 0 else 2 if index < 4 else 0
+        listing.append({'id': identity, 'resourceKind': kind, 'group': 900})
+        if not kind:
+            continue
+        # Same lower 40 bits, different full original identities. A shortened
+        # catalog/container-name lookup must never silently pick another Talk.
+        asset_index = ((index + 1) << 40) | 0x0102030405
+        source = objects.pop(f'Data/Talk/{identity}')
+        assets[asset_index] = original.OriginalAsset(asset_index, source.payload, source.sha256,
+                                                    'c' * 64, options['publisher_stamp'])
+        descriptors[identity] = {'id': identity, 'assetIndex': asset_index, 'payloadKind': 7}
+    def object(path, contract, value):
+        payload = encode(contract, value)
+        return original.OriginalObject(path, payload, hashlib.sha256(payload).hexdigest())
+    objects['Data/Descriptor/100'] = object('Data/Descriptor/100', descriptor, descriptors[100])
+    objects['Data/Group/900'] = object('Data/Group/900', group,
+                                     {'id': 900, 'talks': [descriptors[index] for index in (101, 102, 103)]})
+    inventory = object('Data/Inventory', inventory_contract, listing)
+    return (spec, inventory, objects, {**options, 'load_asset': assets.__getitem__}), assets, group, descriptors
+
+
+def test_group_descriptors_follow_full_catalog_identity_and_ordinary_snapshot(tmp_path):
+    value, assets, _, _ = routed_fixture()
+    loaded = []
+    options = value[3]
+    options['load_asset'] = lambda identity: loaded.append(identity) or assets[identity]
+    snapshot = prepare(tmp_path / 'graph.json', value)
+    assert set(loaded) == set(assets) and len(loaded) == 4
+    assert snapshot['original_dialogue']['inventory_rows'] == 5
+    assert snapshot['original_dialogue']['talk_objects'] == 5
+    assert len(snapshot['records']) == 5
+    assert snapshot['records'][-1]['voice_status'] == 'unknown'
+    assert snapshot['records'][0]['audio']['source'].endswith('sample-0-0.wem')
+    assert snapshot['records'][2]['previous_text_id'] == 'genshin:1001'
+
+
+@pytest.mark.parametrize('failure', ['missing', 'wrong_identity', 'stale', 'truncated',
+                                    'unsupported_payload', 'duplicate_member', 'unknown_member', 'missing_member'])
+def test_incomplete_native_resource_graph_retains_previous_snapshot(tmp_path, failure):
+    path = tmp_path / 'graph.json'
+    first, _, _, _ = routed_fixture()
+    prepare(path, first)
+    before = path.read_bytes()
+    value, assets, group, descriptors = routed_fixture(1)
+    spec, _, objects, options = value
+    identity = next(iter(assets))
+    source = assets[identity]
+    if failure == 'missing':
+        assets.pop(identity)
+    elif failure == 'wrong_identity':
+        assets[identity] = replace(source, asset_index=source.asset_index + 1)
+    elif failure == 'stale':
+        assets[identity] = replace(source, publisher_stamp='sophon-' + 'f' * 64)
+    elif failure == 'truncated':
+        payload = source.payload[:-1]
+        assets[identity] = replace(source, payload=payload, sha256=hashlib.sha256(payload).hexdigest())
+    else:
+        members = [descriptors[index].copy() for index in (101, 102, 103)]
+        if failure == 'unsupported_payload':
+            members[0]['payloadKind'] = 99
+        elif failure == 'duplicate_member':
+            members.append(members[0])
+        elif failure == 'unknown_member':
+            members[0]['id'] = 999
+        else:
+            members.pop()
+        payload = encode(group, {'id': 900, 'talks': members})
+        objects['Data/Group/900'] = original.OriginalObject('Data/Group/900', payload,
+                                                         hashlib.sha256(payload).hexdigest())
+    with pytest.raises((ValueError, KeyError)):
+        prepare(path, value)
+    assert path.read_bytes() == before
+
+
+def test_changed_original_graph_contract_and_catalog_identity_refresh_snapshot(tmp_path):
+    path = tmp_path / 'graph.json'
+    first, _, _, _ = routed_fixture()
+    previous = prepare(path, first)
+    second, assets, _, _ = routed_fixture(1)
+    updated = prepare(path, second)
+    assert updated['original_dialogue']['inventory_rows'] == 5
+    assert updated['metadata_revision'] != previous['metadata_revision']
+    assert updated['records'][0]['audio']['source'].endswith('sample-1-0.wem')
+    for identity, source in assets.items():
+        assets[identity] = replace(source, catalog_sha256='d' * 64)
+    changed_catalog = prepare(path, second)
+    assert changed_catalog['records'] == updated['records']
+    assert changed_catalog['metadata_revision'] != updated['metadata_revision']
+
+
 def test_complete_authored_inventory_and_ordinary_voice_service(tmp_path, monkeypatch):
     value = fixture(count=137, variants=True)
     path = tmp_path / 'textmap.json'

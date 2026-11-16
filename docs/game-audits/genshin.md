@@ -88,6 +88,13 @@ loads every referenced original Talk object. A native routing contract can
 construct a resource path from its proven prefix and exact typed inventory ID;
 unknown route values refuse preparation. Shared references load an object once.
 No dialogue-number prefix or guessed ordinal supplies a filename.
+Routes also support an original descriptor or a group of descriptors. Each
+descriptor retains its full UInt64 catalog identity, native payload kind and
+Talk ID. The asset loader must return that exact identity from a verified
+catalog of the same publisher generation. Shortened container names cannot
+replace full catalog/bundle ownership. Group root IDs and inventory membership
+are checked before activation; duplicate, unknown or absent members refuse the
+update. Catalog digests participate in the snapshot revision.
 It reads the original voice Lut,
 loads each referenced Items group and joins the exact original UUID hash,
 argument and trigger. Duplicate event keys, UUID hash collisions and missing
@@ -137,6 +144,25 @@ four-million bound. The reader now permits eight million values while retaining
 its byte, collection, nesting and cumulative-input limits. A synthetic nested
 inventory regression covers this valid large-table case.
 
+The 48 serialized runtime descriptor fields were separately recovered from
+their original native owner, including both nested condition/execution arrays.
+All **338 Blossom descriptors** passed strict decoding, retained their exact
+inventory IDs and resolved their full UInt64 references to original catalog
+entries. All 338 referenced Talk payloads then passed exact EOF and matching
+root IDs, yielding 912 authored dialogue nodes. The **23,801** current direct
+Quest paths identified from exact inventory IDs likewise passed original Talk
+decoding and root-ID checks, yielding **321,344** nodes.
+
+The grouped route also resolved **2,109 Activity, 242 Storyboard, 38 Scenery and
+two Furniture descriptors** to 2,391 exact original catalog assets. Every Talk
+payload passed strict decoding and matched its descriptor ID, yielding 21,051
+nodes. The group IDs match their original resource names. Additional candidate
+FreeGroup and NpcOther resources and the shared GlobalDialog object are readable,
+but their complete inventory routing is not yet established. Gadget loading
+uses two separately authored IDs in its resource path; their complete source
+inventory remains unresolved. These counts describe original-format evidence,
+not full end-to-end preparation or complete presentation coverage.
+
 All referenced Talk resources still need to be replayed through preparation.
 The original load-type enum distinguishes ordinary quests, Blossom, activity,
 gadget, furniture, storyboard and scenery. Runtime descriptors can reference
@@ -147,9 +173,12 @@ schema/bootstrap recovery, regional/full-presentation coverage and the
 two-generation preparation/update/restart trial remain open.
 
 [Owned preparation and retention tests](../../backend/tests/test_genshin_original_dialogue.py)
-cover changed operands, a 137-object synthetic inventory, conditional takes,
-unknown choices, missing packs, ambiguous identities, strict bounds and failed
-update/retry. These tests do not establish real native inventory discovery.
+cover changed operands, a 137-object synthetic inventory, a shared descriptor
+graph with colliding shortened identities, conditional takes, unknown choices,
+missing packs, ambiguous identities, strict bounds and failed update/retry.
+Changed catalog identities refresh provenance; wrong identities, stale assets,
+unsupported payloads and incomplete groups preserve the preceding snapshot.
+These tests do not establish real native inventory discovery.
 
 Normal Setup still uses its matching text extraction. The explicit API does not
 switch that provider or change capture eligibility. Full original inventory

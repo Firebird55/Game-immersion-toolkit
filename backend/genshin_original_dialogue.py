@@ -240,6 +240,28 @@ class OriginalObject:
                and _digest(self.sha256) and hashlib.sha256(self.payload).hexdigest() == self.sha256)
 
 
+@dataclass(frozen=True)
+class OriginalAsset:
+    """An exact native UInt64 reference resolved in a verified original catalog.
+
+    Catalog lookup must preserve the full identity and bundle ownership. An
+    object name shortened for a bundle container is not sufficient evidence.
+    The caller verifies the catalog and its containing publisher packages.
+    """
+    asset_index: int
+    payload: bytes
+    sha256: str
+    catalog_sha256: str
+    publisher_stamp: str
+
+    def __post_init__(self):
+        _check(type(self.asset_index) is int and 0 < self.asset_index < 1 << 64
+               and isinstance(self.payload, bytes) and 0 < len(self.payload) <= MAX_OBJECT
+               and _digest(self.sha256) and hashlib.sha256(self.payload).hexdigest() == self.sha256
+               and _digest(self.catalog_sha256) and isinstance(self.publisher_stamp, str)
+               and re.fullmatch('sophon-[0-9a-f]{64}', self.publisher_stamp))
+
+
 def _path(value):
     return (isinstance(value, str) and 0 < len(value) <= 512 and value.startswith('Data/')
             and '\\' not in value and ':' not in value and '..' not in value.split('/')
@@ -256,6 +278,8 @@ class InventoryRoute:
     kind: int
     prefix: str
     identity_field: str = 'id'
+    representation: str = 'talk'
+    group_contract: object = None
 
     def __post_init__(self):
         _check(type(self.kind) is int and 0 <= self.kind <= 0xffffffff
@@ -263,6 +287,10 @@ class InventoryRoute:
                and _path(self.prefix.rstrip('/'))
                and isinstance(self.identity_field, str)
                and re.fullmatch('[A-Za-z][A-Za-z0-9_]{0,63}', self.identity_field))
+        _check(self.representation in ('talk', 'descriptor', 'group')
+               and (self.group_contract is not None) == (self.representation == 'group'))
+        if self.group_contract is not None:
+            _contract(self.group_contract)
 
 
 @dataclass(frozen=True)
@@ -286,6 +314,8 @@ class NativeDialogueProfile:
     executable_sha256: str
     metadata_sha256: str
     inventory_routes: tuple = ()
+    descriptor: object = None
+    descriptor_payload_kinds: tuple = ()
 
     def fingerprint(self):
         _check(_path(self.lut_path) and _path(self.items_prefix.rstrip('/'))
@@ -305,27 +335,44 @@ class NativeDialogueProfile:
         routes = {}
         for route in self.inventory_routes:
             _check(isinstance(route, InventoryRoute) and route.kind not in routes)
-            routes[route.kind] = [route.prefix, route.identity_field]
+            routes[route.kind] = [route.prefix, route.identity_field, route.representation,
+                                  _contract(route.group_contract) if route.group_contract else None]
+        uses_descriptors = any(route.representation != 'talk' for route in self.inventory_routes)
+        _check((self.descriptor is not None) == uses_descriptors
+               and isinstance(self.descriptor_payload_kinds, tuple)
+               and len(self.descriptor_payload_kinds) <= 64
+               and bool(self.descriptor_payload_kinds) == uses_descriptors
+               and len(set(self.descriptor_payload_kinds)) == len(self.descriptor_payload_kinds)
+               and all(type(value) is int and 0 <= value <= 0xffffffff
+                       for value in self.descriptor_payload_kinds))
         contracts = [_contract(value) for value in (self.inventory, self.talk, self.lut, self.items)]
+        if self.descriptor is not None:
+            contracts.append(_contract(self.descriptor))
         raw = json.dumps([contracts, self.lut_path, self.items_prefix, self.trigger_names,
-                          self.method_sha256, self.executable_sha256, self.metadata_sha256, routes],
+                          self.method_sha256, self.executable_sha256, self.metadata_sha256, routes,
+                          self.descriptor_payload_kinds],
                          sort_keys=True, separators=(',', ':')).encode()
         return hashlib.sha256(raw).hexdigest()
 
 
 def prepare_original_talk_snapshot(destination, inventory, load_object, profile, *,
                                    tables, textmap_sha256, source_locale,
-                                   publisher_stamp, publisher_entries, current):
+                                   publisher_stamp, publisher_entries, current, load_asset=None):
     """Prepare every inventory Talk through the ordinary snapshot/voice path.
 
     ``load_object(path)`` returns an OriginalObject from verified publisher
     packages. No rows may come from a mirror or inferred filename ordinals.
+    Descriptor routes additionally use ``load_asset(full_uint64_identity)``;
+    this returns an OriginalAsset from the exact catalog/bundle, never a guessed
+    pathname. Groups yield ``id, talks``; descriptors yield ``id, assetIndex,
+    payloadKind``. Every inventory member must appear in its authored group.
     A failure, interrupted write or changed release retains the previous cache.
     Missing/ambiguous voice entries stay unknown or unavailable, never unvoiced.
     This explicit API has Talk coverage; it does not claim other presentations.
     """
     _check(isinstance(profile, NativeDialogueProfile) and isinstance(inventory, OriginalObject))
     fingerprint = profile.fingerprint()
+    _check(profile.descriptor is None or callable(load_asset))
     _check(isinstance(publisher_stamp, str) and re.fullmatch('sophon-[0-9a-f]{64}', publisher_stamp)
            and callable(load_object) and callable(current))
     _check(isinstance(tables, dict) and source_locale in tables and isinstance(textmap_sha256, dict)
@@ -355,14 +402,39 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
 
     listing = decode_original(inventory.payload, profile.inventory)
     _check(isinstance(listing, list) and 0 < len(listing) < MAX_OBJECTS)
-    talks, identities, resources = [], set(), {}
+    talks, identities, resources, assets = [], set(), {}, {}
     routes = {route.kind: route for route in profile.inventory_routes}
     for row in listing:
         _check(isinstance(row, dict) and type(row.get('id')) is int and row['id'] > 0
                and row['id'] not in identities)
         identities.add(row['id'])
+
+    def bind_descriptor(descriptor):
+        nonlocal total
+        _check(isinstance(descriptor, dict) and type(descriptor.get('id')) is int
+               and descriptor['id'] in identities and type(descriptor.get('assetIndex')) is int
+               and 0 < descriptor['assetIndex'] < 1 << 64
+               and type(descriptor.get('payloadKind')) is int
+               and descriptor['payloadKind'] in profile.descriptor_payload_kinds)
+        identity = descriptor['assetIndex']
+        if identity not in assets:
+            _check(len(objects) < MAX_OBJECTS)
+            source = load_asset(identity)
+            _check(isinstance(source, OriginalAsset) and source.asset_index == identity
+                   and source.publisher_stamp == publisher_stamp)
+            total += len(source.payload)
+            _check(total <= MAX_TOTAL)
+            objects[f'asset:{identity:016x}'] = {'sha256': source.sha256,
+                                               'catalog_sha256': source.catalog_sha256}
+            talk = decode_original(source.payload, profile.talk)
+            _check(isinstance(talk, dict) and isinstance(talk.get('dialogList'), list))
+            assets[identity] = talk
+            talks.append(talk)
+        _check(assets[identity].get('id') == descriptor['id'])
+
+    for row in listing:
         if 'resource' in row:
-            path, identity = row['resource'], row['id']
+            path, identity, representation, contract = row['resource'], row['id'], 'talk', profile.talk
         else:
             kind = row.get('resourceKind')
             _check(type(kind) is int and kind in routes)
@@ -370,14 +442,33 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
             identity = row.get(route.identity_field)
             _check(type(identity) is int and 0 < identity <= 0xffffffff)
             path = route.prefix + str(identity)
+            representation = route.representation
+            contract = (profile.talk if representation == 'talk' else profile.descriptor
+                        if representation == 'descriptor' else route.group_contract)
         _check(_path(path))
         if path in resources:
-            _check(resources[path] == identity)
+            previous_identity, previous_representation, previous_contract, members = resources[path]
+            _check((previous_identity, previous_representation, previous_contract)
+                   == (identity, representation, _contract(contract))
+                   and (representation == 'talk' or row['id'] in members))
             continue
-        resources[path] = identity
-        talk = read(path, profile.talk)
-        _check(isinstance(talk, dict) and talk.get('id') == identity and isinstance(talk.get('dialogList'), list))
-        talks.append(talk)
+        source = read(path, contract)
+        _check(isinstance(source, dict) and source.get('id') == identity)
+        if representation == 'talk':
+            _check(isinstance(source.get('dialogList'), list))
+            talks.append(source)
+            members = {identity}
+        else:
+            descriptors = source.get('talks') if representation == 'group' else [source]
+            _check(isinstance(descriptors, list) and 0 < len(descriptors) < MAX_OBJECTS)
+            members = set()
+            for descriptor in descriptors:
+                _check(isinstance(descriptor, dict) and type(descriptor.get('id')) is int
+                       and descriptor['id'] not in members)
+                bind_descriptor(descriptor)
+                members.add(descriptor['id'])
+            _check(row['id'] in members)
+        resources[path] = (identity, representation, _contract(contract), members)
     lut = read(profile.lut_path, profile.lut)
     _check(isinstance(lut, dict))
     groups, events = {}, defaultdict(list)
