@@ -45,12 +45,12 @@ class Reader:
     def number(self, layout='i'):
         return struct.unpack('<' + layout, self.read(struct.calcsize('<' + layout)))[0]
 
-    def string(self):
+    def string(self, max_bytes=8192):
         count = self.number()
-        check(-4096 <= count <= 8192)
         if not count:
             return ''
         width = 1 if count > 0 else 2
+        check(abs(count) * width <= max_bytes)
         data = self.read(abs(count) * width)
         check(data.endswith(bytes(width)))
         try:

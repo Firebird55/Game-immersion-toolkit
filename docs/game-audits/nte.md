@@ -119,12 +119,37 @@ Synthetic checks exercise corruption, bounds, case ambiguity, regional mismatch,
 single/multiple compression blocks, AES padding and deletion versus historical
 retrieval. Original regional parameters and game assets are not bundled.
 
-The owned reader retrieved the four Global sample banks and recordings listed
-above. Their bytes match the independently checked originals, all four decoded,
-and recreating the archive and metadata readers with network access prohibited
-retrieved identical cached bytes. This validates the archive acquisition layer;
-ordinary Setup, complete text/authoring extraction and update activation remain
-open in #88. The public support matrix is unchanged.
+The owned reader retrieved the four sample banks and recordings listed above
+from both Global 1.5.4 and mainland China 1.5.6. All eight recordings decoded;
+their bytes match the independently checked Global originals. Recreating the
+archive and metadata readers with network access prohibited retrieved identical
+cached bytes. Separate empty-cache runs transferred 7,481,874 Global and
+7,610,758 mainland publisher bytes for the four examples, including the used
+indexes and companion files. These are sample costs, not whole-game estimates.
+
+### Original localization through the owned reader
+
+`backend/nte_locres.py` reads the original 10100 localization format, including
+shared localized strings, namespaces, authored keys and source hashes. Public
+format parameters are fetched strictly as data at an identified source commit;
+the localization marker proves their applicability. Explicit historical source
+commit/checksum references retain the old parameters after an upstream change.
+Unknown headers, invalid offsets, duplicate keys, missing string references and
+truncated resources fail instead of yielding a partial table.
+
+Using the signed archive layer, all five Global study-text resources (`en`,
+`zh-CN`, `zh-Hant`, `ja`, `ko`) were acquired directly from the selected
+Global 1.5.4 patch. Each contains **121,528 entries in 195 namespaces**,
+including UI. All five have exactly the same authored key set and source
+hashes. The English resource also matches the independently recovered SHA-256
+above. This checks translation identity within the selected regional snapshot;
+it does not make all those entries voiced dialogue. Mainland patch contents
+and base-file fallback require independent selection; the Global files must
+not be substituted into a different regional generation.
+
+The archive and localization acquisition layers are implemented. Ordinary
+Setup, complete authoring-table extraction, evidenced patch precedence and
+update activation remain open in #88. The public support matrix is unchanged.
 
 ### The five Global HPW resources are video files
 
