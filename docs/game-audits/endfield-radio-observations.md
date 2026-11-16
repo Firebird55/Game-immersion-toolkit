@@ -73,6 +73,29 @@ override acceptance or other native/device coverage gaps.
 
 ## Gameplay evidence
 
+### Literal `None` performers: voice-data lookup boundary
+
+A further November 16 static check followed the four Landbreaker rows beyond
+the common-reaction resolver. The literal `None` is a nonempty string on that
+path; it is not converted to a generic actor or another NPC. Both
+`SpeakNarrative` overloads reach `_SpeakNarrative`, which requires
+`TryGetVoiceData` to succeed before `SelectWwiseEvent` or `PlayVoice` is called.
+The lookup checks the name-derived ID in `AudioDialog`, consulting
+`VoiceIdConflictTable`, and can retry with the selected player-gender suffix.
+Independently identified table getters confirm these are the same two tables.
+If both voice-data lookups fail, the narrative method returns a zero handle
+before event selection or playback.
+
+The selected Global 1.6.4 catalog has 34,194 `AudioDialog` rows and an empty
+`VoiceIdConflictTable`. None of the 18 unique name/gender possibilities for
+these four rows' complete configured-interjection sets has a voice-data row;
+the table also has no matching performer paths. This identifies a failed
+metadata route in the inspected source contract, rather than a discovered
+recording or bank event. It does **not** establish authored silence. The four
+rows retain their unresolved classification, and a missing ordinary voice pack
+remains unavailable. Runtime-injected table/code changes and a positive
+performance in gameplay remain outside this static check.
+
 The times below refer to the public player recordings. The on-screen text matched the corresponding publisher localization. The recordings predate 1.6.4. They document individual playthroughs, including environmental sounds and combat. Their negative audio searches did not establish silence; the later static caller evidence above resolves the five explicit-empty-performer routes.
 
 | Mission and radio rows | Observations |
@@ -84,6 +107,8 @@ The times below refer to the public player recordings. The on-screen text matche
 | A Breach Starts with a Crack, `radio_e10m1_11_001` and `_002` | Both lines appear at the end of the preceding mission. Neither speech detection nor transcription found speech during either caption in two playthroughs. In the preceding scene, Zhuang Fangyi's original `au_dlg_e9m4_19_019` matches the **English** recording in one video (correlation 0.75) and the **Japanese** recording in the other (0.79). Both recordings therefore include dialogue audio in the respective dub. [English at 43:34](https://www.youtube.com/watch?v=D31_Ccpoz7c&t=2614s) · [Japanese at 31:48](https://www.youtube.com/watch?v=JmQGmO1a25o&t=1908s) |
 | Alluvial Cleaning, `radio_m1m6_1_001` | The Russian subtitle matches the publisher's hidden entry warning from approximately 0:03 to 0:06.5. This recording begins before the warning. Music and movement continue through the caption. Speech detection flagged a brief sound at 0:05.9–0:06.2, and transcription did not identify a spoken sentence. The following tutorial has a separate English Fiona reaction matching the publisher waveform at 0:07.515 (correlation 0.94). A second recording opens with the Portuguese warning already visible through 0:02.5. Its Japanese tutorial reaction matches at 0:16.389 (0.99). The missing start of the second recording limits what can be inferred there. [English dub with Russian subtitles](https://www.youtube.com/watch?v=Dy1iO0XBEDc&t=2s) · [Japanese dub with Portuguese subtitles](https://www.youtube.com/watch?v=er5mD2v5okk) |
 | Bell of Recollection: Afternotes, `radio_gm02m27d5_1_001` | The first Endministrator caption appears after collecting the last Suiming research material, at 7:00 and 3:01 in two independent guides. In both mixes the guide's narrator is talking during the caption. A third, continuous playthrough shows the exact first caption at about 16:58–17:03 with Traditional Chinese subtitles. No spoken words were detected across the first caption. The second caption follows at 17:03, and its Japanese male Endministrator reaction `au_dlg_commvo_endminm_sigh_03` matches the publisher waveform at about 17:03.22 (normalized correlation 0.93). The first caption has no configured reaction and the second has its own reaction choices. [Continuous gameplay with original-audio control](https://www.youtube.com/watch?v=r6OxrWFyCGM&t=1017s). [First recording](https://www.youtube.com/watch?v=emR-SCTq8vw&t=419s) · [Second recording](https://www.youtube.com/watch?v=GV7EFBuBN8A&t=180s) |
+
+An additional independently found [Mandarin Illusion playthrough](https://www.bilibili.com/video/BV18s6MBzEgh/?t=107), uploaded January 27, 2026, shows the exact Greedy Landbreaker caption around 2:02–2:05. Fiona's original Mandarin reaction matches at 1:47.950 (correlation 0.715 over the speech band; low/high-band checks locate the same onset). This positively establishes game voice in that recording's mix. The creator's commentary overlaps the later caption and the video cuts away before the Alert Landbreaker caption, so this recording supplies neither a performance assignment for the Greedy row nor evidence for the Alert row. It does not establish silence or current-release playback.
 
 The comparison used publisher WEMs from the active dub, including other actors' candidates for the configured emotion. It compared the band-limited decoded waveforms with the player recording and checked the strongest candidates across separate frequency bands. Short, pitched combat sounds can give a partial correlation in one band. The search cannot exclude a short sound under the mix. The toolkit continues to require an authored binding before exporting an original recording.
 
