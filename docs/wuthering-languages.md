@@ -71,3 +71,7 @@ storage so previously supported packages can be prepared after a metadata-source
 outage. A first preparation or an unknown changed archive parameter may still
 need investigation; this is not a claim of autonomous key derivation.
 [Recovery evidence and update limits](game-audits/wuwa-publisher-recovery.md).
+
+Complete subtitles with the game's native player-nickname slot can be recognized
+from their exact surrounding words. Other dynamic text grammars and ambiguous
+short captions still need their own evidence; the matching threshold is unchanged.

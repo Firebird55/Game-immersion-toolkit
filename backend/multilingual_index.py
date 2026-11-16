@@ -49,6 +49,7 @@ class MultilingualTextIndex:
         self._mission_predecessors = {}
         self._full_frame_veto = {}
         self._player_frame_veto = {}
+        self._wuwa_name_templates = None
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
         self._signature = None
@@ -191,7 +192,12 @@ class MultilingualTextIndex:
                             first = text[:-len(last)-1]
                             pair = (language, normalize_text(first, language), normalize_text(last, language))
                             context_pairs.setdefault(pair, []).append(row)
+            names = None
+            if self.game == 'wuwa':
+                from .wuthering_text_templates import PlayerNameTemplates
+                names = PlayerNameTemplates(payload['records'])
             with self.lock:
+                self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
@@ -238,8 +244,13 @@ class MultilingualTextIndex:
                     if self.player_voice in {'female', 'male'} else self._player_frame_veto.values())
         return [self._full_frame_veto, *selected]
 
+    def _authored_keys(self, key, locale):
+        aliases = self._wuwa_name_templates.keys(key, locale) if self._wuwa_name_templates else ()
+        return {key, *aliases}
+
     def _vetoed(self, key, locale):
-        return any(key in table.get(locale, ()) for table in self._frame_vetoes())
+        keys = self._authored_keys(key, locale)
+        return any(keys.intersection(table.get(locale, ())) for table in self._frame_vetoes())
 
     def _veto_locales(self):
         return {locale for table in self._frame_vetoes() for locale in table}
@@ -323,7 +334,8 @@ class MultilingualTextIndex:
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
                         if len(key) < minimum and not previous_text_id and not missing_lookup:
                             continue
-                    rows, matched_keys = lookup.get(key, []), {key}
+                    matched_keys = self._authored_keys(key, locale)
+                    rows = [row for matched in matched_keys for row in lookup.get(matched, [])]
                     # HEAVY RAIN paginates some authored paragraphs at runtime.
                     # A sufficiently long, exact contiguous page can identify
                     # the whole bound performance; never infer page audio cuts.
@@ -365,7 +377,11 @@ class MultilingualTextIndex:
                         blockers += ([self._missing_audio_blockers.get(self.player_voice, {})]
                                      if self.player_voice in {'male', 'female'} else
                                      [values for player, values in self._missing_audio_blockers.items() if player])
-                        if (key != complete or any(not row.get('text_capture_verified')
+                        name_conflict = self._wuwa_name_templates and len(matched_keys) > 1 and any(
+                            (not voiced.get('player_voice') or voiced['player_voice'] == self.player_voice)
+                            and (not previous_text_id or voiced.get('previous_text_id') in predecessors)
+                            for matched in matched_keys for voiced in self._lookup.get(locale, {}).get(matched, []))
+                        if (key != complete or name_conflict or any(not row.get('text_capture_verified')
                                 or row.get('text_binding_unresolved') for row in rows)
                                 or any((bool(conflicts) if not previous_text_id else
                                         bool(predecessors.intersection(conflicts)))

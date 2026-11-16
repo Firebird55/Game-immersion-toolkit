@@ -1,5 +1,39 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Native player-name recognition
+
+Exact subtitle matching now recognizes the original `{PlayerName}` slot. The
+original VideoConfig consumer passes caption text through PlotTextReplacer,
+which substitutes FunctionModel's player nickname. The index retains the
+original texts and voice references; it recognizes a substituted nickname only
+when all surrounding normalized words agree exactly. The slot must be unique,
+the fixed text substantial (at least twelve Latin or six East Asian characters),
+and the normalized nickname between one and 32 characters. This last bound is
+an OCR admission limit, not a claim about the game's account-name policy.
+
+This is Wuthering-specific. Ordinary fuzzy thresholds, other games, wrong-player
+refusals, previous-caption requirements, channel admission and all conflicting
+text/audio candidates remain unchanged. Literal and template collisions still
+prevent a voice match. Confirmed-silent/unknown/missing-audio presentations remain
+vetoes; a verified missing-audio row cannot borrow an overlapping literal voice.
+Unsupported `{TA}` and gender-expression substitutions are not guessed by this
+single-slot mechanism.
+
+The full five prepared indexes each admit twenty of twenty-one controlled late
+M2 observations with the configured Rover branch, including three different
+nicknames in each original player-name caption. The single punctuation-only
+cue remains unresolved in each locale. Without a configured Rover, the two
+Rover-dependent records remain refused. This is controlled text replay, not an
+image-OCR proof for every language or utterance.
+
+A real cached English gameplay image at 359 seconds independently shows the
+nickname **Rayne** in the caption whose original text contains `{PlayerName}`.
+The bundled PortableOcrEngine, with every model SHA-256 verified, read that image
+and the full 144,067-record index selected the correct existing recording as an
+**exact** match (score 100). The pass took 1.74 seconds. No OCR text was injected,
+no native game code was executed and this was not physical window capture.
+[Streetwise Rhapsody gameplay](https://www.youtube.com/watch?v=bEfRuWfai3I&t=359s).
+
 ## November 17, 2026 · Complete M0355 contexts and late-caption accounting
 
 The complete-film context bound is now six minutes, separately from the
@@ -36,11 +70,11 @@ scripts reuse Mandarin originals. Total new original range acquisition was
 Audio ownership is separate from OCR admission. The M2 punctuation-only cue
 cannot identify its performance from punctuation alone. Rover-dependent captions
 require the matching configured branch. Authored `{PlayerName}` substitutions
-also exposed real recognition failures, especially in Chinese/Korean; these stay
-open rather than being hidden by the corrected audio count. The original
+also exposed real recognition failures, especially in Chinese/Korean; the
+native-slot mechanism above addresses those failures separately from audio. The original
 VideoConfig caption consumer calls PlotTextReplacer, which replaces that exact
-token with the player's nickname. The remaining capture work must preserve
-other text/audio conflicts while accounting for that native substitution.
+token with the player's nickname. Other dynamic text grammars and punctuation-only recognition remain separate
+from these audio bindings.
 
 ## November 16, 2026 · Publisher metadata recovery
 
