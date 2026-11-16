@@ -13,7 +13,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 [Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [Dekkingsnotities](../zzz-languages.md)
 
-Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.
+Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 

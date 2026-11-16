@@ -23,13 +23,13 @@ The language manager shows actual table sizes. Shared audio/tools are counted on
 
 In Games & Languages (also in first-run setup), Keep mobile library updated maintains one ZIP per chosen voice language and translation while the companion runs. Choose an existing local folder, preferably synchronized with your mobile cloud-storage app. Keep on this device retains mobile libraries and voices for reopening. Separate Remember on this device options save the API key and complete VDO.Ninja link without an application passphrase; use only on trusted devices. Browser/OS deletion is still possible.
 
-Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Wuthering Waves dialogue from either region. Choose the language you want to study. Genshin also checks current in-game updates and keeps the previous table if replacement data cannot be verified. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares Global publisher dialogue scenes, motion comics, messages, tips and timed clue recordings, including compatible current text and voice updates.
+Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Wuthering Waves dialogue from either region. Choose the language you want to study. Genshin also checks current in-game updates and keeps the previous table if replacement data cannot be verified. Endfield film clips require verified timelines. For Zenless Zone Zero, choose Global or Mainland China with an empty folder to prepare publisher dialogue scenes, motion comics, messages, tips and timed clue recordings, including compatible current text and voice updates.
 
 | Game | Windows Setup |
 | :--- | :--- |
 | Genshin Impact | Publisher Setup for the Global or mainland China launcher release |
 | Honkai: Star Rail | Publisher Setup for regional base and chapter voice packs and selected movie clips |
-| Zenless Zone Zero | Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
+| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Publisher Setup for Global or mainland China narrative voices |
 | Wuthering Waves | Publisher Setup for Global dialogue and original voices |
 | Neverness to Everness | Publisher Setup for the selected edition's available text and original voices |

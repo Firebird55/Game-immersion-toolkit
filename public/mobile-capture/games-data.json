@@ -51,7 +51,7 @@
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
       "regionalNteDialogue": { "withoutInstall": true, "label": "Publisher Setup for the selected edition's available text and original voices" },
-      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings." }
+      "globalZzzDialogue": { "withoutInstall": true, "label": "Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global or mainland China dialogue scenes, motion comics, messages, tips and clue recordings." }
     }
   },
   "languages": {
@@ -141,8 +141,8 @@
         "es-419": "Epic lists Latin American Spanish. The Global PC release has one ES table and Steam lists Spanish (Spain). A separate Latin American text mapping remains unverified."
       },
       "notes": "Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.",
-      "coverage": "Windows Setup follows current Global publisher text, scene and voice updates plus a matching launcher base for catalogue-matched dialogue, narration, choices, motion comics, phone messages, tips and timed clue recordings. Some scene paths, cinematic audio and auxiliary update formats remain unresolved.",
-      "supportPolicy": "Prepare current Global publisher dialogue without an installed game, or select installed files and a matching voice pack for additional presentations. Mainland publisher Setup and complete story/device acceptance remain open.",
+      "coverage": "Windows Setup follows the selected Global or mainland China publisher's current text, scene and voice updates plus its matching launcher base for catalogue-matched dialogue, narration, choices, motion comics, phone messages, tips and timed clue recordings. Some scene paths, cinematic audio and auxiliary update formats remain unresolved.",
+      "supportPolicy": "Choose Global or Mainland China to prepare current publisher dialogue without an installed game, or select installed files and a matching voice pack for additional presentations. Each edition keeps its own text and recordings. Complete story, cold-installation and device acceptance remain open.",
       "reviewedAt": "2026-11-16"
     },
     {

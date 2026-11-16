@@ -15,7 +15,8 @@ CHANNELS = {'genshin': 'genshin-cn', 'starrail': 'starrail-global', 'zzz': 'zzz-
 
 
 def _channel_allowed(game, channel):
-    return channel == CHANNELS[game] or (game, channel) in {('genshin', 'genshin-global'), ('starrail', 'starrail-cn')}
+    return channel == CHANNELS[game] or (game, channel) in {
+        ('genshin', 'genshin-global'), ('starrail', 'starrail-cn'), ('zzz', 'zzz-cn')}
 
 
 def descriptor(build):

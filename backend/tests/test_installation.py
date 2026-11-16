@@ -213,19 +213,20 @@ def test_wuthering_without_installation_offers_publisher_tools_and_refresh(setup
     assert reply.status_code == 200 and refreshes == ['wuwa'] and checked == [('wuwa', True)]
 
 
-def test_nte_without_installation_exposes_regional_setup_and_refreshes_its_selected_source(setup, monkeypatch):
+@pytest.mark.parametrize('game', ['nte', 'zzz'])
+def test_game_without_installation_exposes_regional_setup_and_refreshes_its_selected_source(setup, monkeypatch, game):
     from backend.publisher_regions import selected_region
     service, _, refreshes, _ = setup
     monkeypatch.setattr('backend.installation.missing_tools', lambda *_: [])
     monkeypatch.setattr('backend.game_tools.missing_tools', lambda *_: [])
     monkeypatch.setattr(api, 'DATA_DIR', service.root / 'data')
-    row = next(game for game in service.status()['games'] if game['id'] == 'nte')
+    row = next(row for row in service.status()['games'] if row['id'] == game)
     assert row['detected_path'] is None and row['voice_state'] == 'publisher'
     assert row['publisher_region'] == 'global' and set(row['publisher_regions']) == {'global', 'cn'}
     client = TestClient(api.app, base_url='http://127.0.0.1:8766')
     headers = {'X-Proxy-Transcript': 'setup'}
-    response = client.post('/api/setup/games/nte/publisher-region', headers=headers, json={'region': 'cn'})
+    response = client.post('/api/setup/games/' + game + '/publisher-region', headers=headers, json={'region': 'cn'})
     assert response.status_code == 200
-    assert selected_region(service.root / 'data/nte/tools', 'nte') == 'cn'
-    reply = client.post('/api/setup/games/nte/refresh', headers=headers, json={})
-    assert reply.status_code == 200 and refreshes == ['nte', 'nte']
+    assert selected_region(service.root / 'data' / game / 'tools', game) == 'cn'
+    reply = client.post('/api/setup/games/' + game + '/refresh', headers=headers, json={})
+    assert reply.status_code == 200 and refreshes == [game, game]

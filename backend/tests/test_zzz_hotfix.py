@@ -41,37 +41,45 @@ def row(name, data, patch=True):
     return {'remoteName': name, 'fileSize': len(data), 'md5': str(xxhash64(data)), 'isPatch': patch}
 
 
-def snapshot(revision, bodies):
-    roots = {kind: f'https://autopatchos.zenlesszonezero.com/{directory}/9.0_live/output_{revision}_abcdef/{client}/StandaloneWindows64/oversea/'
+def snapshot(revision, bodies, channel='zzz-global'):
+    edition = live.EDITIONS[channel]
+    roots = {kind: f'https://{edition["host"]}/{directory}/9.0_live/output_{revision}_abcdef/{client}/StandaloneWindows64/{edition["area"]}/'
              for kind, directory, client in [('design', 'design_data', 'client'), ('resource', 'game_res', 'client'),
                                               ('silence', 'design_data', 'client_silence')]}
     indexes = {name: {'name': live.INDEXES[name][1], 'size': len(raw), 'hash': str(xxhash64(raw))}
                for name, raw in bodies.items()}
-    return {'channel': 'zzz-global', 'version': '9.0.0', 'build': 'unchanged-launcher',
+    return {'channel': channel, 'version': '9.0.0', 'build': 'unchanged-launcher',
             'manifests': {'game': ['game'], 'en-us': ['en']},
             'hotfix': {'roots': roots, 'indexes': indexes, 'revisions': {'design': str(revision)},
                        'audio_revision': str(revision), 'base_revision': '1000_abcdef'}}
 
 
 @pytest.mark.parametrize('unavailable', [False, True])
-def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monkeypatch, unavailable):
+@pytest.mark.parametrize('channel', ['zzz-global', 'zzz-cn'])
+def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monkeypatch, unavailable, channel):
     key = RSA.generate(1024)
-    values = {'GameDispatchChannelName': 'OSPRODWin', 'GameDispatchDefaultName': 'prod_gf_eu',
+    edition = live.EDITIONS[channel]
+    server = 'prod_gf_eu' if channel == 'zzz-global' else 'prod_gf_cn'
+    values = {'GameDispatchChannelName': edition['prefix'], 'GameDispatchDefaultName': server,
               'GameDispatchURLTemplate': '?version={0}{1}&channel_id=1&platform=3',
               'GameGatewayURLTemplate': '?version={0}{1}&language=1&seed={2}',
               'ProtoDispatchKey': 'owned-fixture',
-              'endpoints': ['https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch',
-                            'https://globaldp-prod-os02.zenlesszonezero.com/query_dispatch']}
-    monkeypatch.setattr(live, '_settings', lambda: (values, key))
+              'endpoints': [f'https://globaldp-prod-{edition["dispatch"]}0{number}.{edition["domain"]}/query_dispatch'
+                            for number in (1, 2)]}
+    def settings(region):
+        assert region == edition['region']
+        return values, key
+    monkeypatch.setattr(live, '_settings', settings)
     base = b'1000_abcdef'
     bodies = {name: (base if name == 'base' else b'owned fixture') for name in live.INDEXES}
-    first = snapshot(2000, bodies)
+    first = snapshot(2000, bodies, channel)
     cdn = {}
     for kind, field, revision in [('design', 'design_data', 'data_revision'), ('resource', 'game_res', 'res_revision'),
                                     ('silence', 'silence_data', 'silence_revision')]:
         specs = [{'fileName': spec['name'], 'fileSize': spec['size'], 'fileMD5': spec['hash']}
                  for name, spec in first['hotfix']['indexes'].items() if live.INDEXES[name][0] == kind]
-        cdn[field] = {'base_url': first['hotfix']['roots'][kind].removesuffix('StandaloneWindows64/oversea/'),
+        suffix = 'StandaloneWindows64/' + edition['area'] + '/'
+        cdn[field] = {'base_url': first['hotfix']['roots'][kind].removesuffix(suffix),
                       revision: '1111' if kind == 'silence' else '2000', 'md5_files': json.dumps(specs)}
     cdn['game_res']['audio_revision'] = '1555'
     payload = encoded({'retcode': 0, 'cdn_conf_ext': cdn, 'client_secret_key': 'must-never-persist'})
@@ -80,11 +88,11 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
     seen = []
     def request(url, headers, maximum):
         seen.append((url, headers))
-        if unavailable and 'globaldp-prod-os01.' in url:
+        if unavailable and url.startswith(values['endpoints'][0]):
             raise URLError('owned unavailable endpoint')
         if '/query_dispatch?' in url:
-            return encoded({'retcode': 0, 'region_list': [{'retcode': 0, 'name': 'prod_gf_eu',
-                'dispatch_url': 'https://prod-gf-eu.zenlesszonezero.com/query_gateway'}]})
+            return encoded({'retcode': 0, 'region_list': [{'retcode': 0, 'name': server,
+                'dispatch_url': f'https://{server.replace("_", "-")}.{edition["domain"]}/query_gateway'}]})
         if '/query_gateway?' in url:
             return encoded({'content': base64.b64encode(encrypted).decode(), 'sign': 'not-an-authentication-proof'})
         assert url.endswith('/base_revision')
@@ -94,7 +102,7 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
     assert build['hotfix']['revisions'] == {'design': '2000', 'resource': '2000', 'silence': '1111'}
     assert build['hotfix']['audio_revision'] == '1555'
     assert 'client_secret_key' not in json.dumps(build)
-    assert seen[-2][1]['version'] == 'OSPRODWin9.0.0' and seen[-2][1]['seed'] == 'owned-fixture'
+    assert seen[-2][1]['version'] == edition['prefix'] + '9.0.0' and seen[-2][1]['seed'] == 'owned-fixture'
     assert not any('account' in name for _, headers in seen for name in headers)
     values['endpoints'] = ['https://untrusted.example/query_dispatch']
     with pytest.raises(ValueError):
@@ -199,6 +207,17 @@ def test_optional_base_block_uses_its_own_base_generation_not_the_patch_root(tmp
     assert asset.read(tmp_path, 1, 4) == raw[1:5]
 
 
+def test_mainland_never_accepts_global_roots_or_dispatchers():
+    global_build = snapshot(2000, {})
+    for kind, root in global_build['hotfix']['roots'].items():
+        with pytest.raises(ValueError):
+            live._cdn(root.removesuffix('StandaloneWindows64/oversea/'), kind, '9.0.0', 'zzz-cn')
+    with pytest.raises(ValueError):
+        live._endpoint('https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch', channel='zzz-cn')
+    with pytest.raises(ValueError):
+        live._endpoint('https://prod-gf-jp.zenlesszonezero.com/query_gateway', gateway=True, channel='zzz-cn')
+
+
 def test_same_launcher_release_adopts_changed_text_and_voice_and_retains_old_recording_offline(tmp_path, monkeypatch):
     source = 'English(EN)/ex/VO_Message/Actor/Message_Sentence.wem'
     def archive(tag):
@@ -248,3 +267,52 @@ def test_same_launcher_release_adopts_changed_text_and_voice_and_retains_old_rec
         assert voice.snapshot_available(tmp_path / 'tools', prepared['fingerprint'], 'zzz')
         with pytest.raises(ValueError):
             zzz_assets.extract_voice(None, {**audio, 'locale': 'ja'}, tmp_path / 'tools', None)
+
+
+def test_mainland_hant_keeps_its_own_text_dub_and_missing_translation_after_region_switch(tmp_path, monkeypatch):
+    from backend.publisher_regions import select_region
+    from backend.hoyo_dialogue import voice_namespace
+    builds, responses = {}, {}
+    for channel, dub, folder, tag in [('zzz-global', 'en', 'En', 'a'), ('zzz-cn', 'zh-Hans', 'Cn', 'b')]:
+        source = voice_namespace('zzz', dub) + '/ex/VO_Message/Actor/Message_Sentence.wem'
+        clip = b'RIFF' + struct.pack('<I', 5) + b'WAVE' + tag.encode()
+        media = b'AKPK' + struct.pack('<6I', 48, 1, 0, 0, 0, 28) + struct.pack('<IQ4I', 1, voice_hash(source), 1, len(clip), 56, 0) + clip
+        body = inventory([row('Audio/Windows/Full/' + folder + '/Patch.pck', media)])
+        builds[channel] = snapshot(2000, {'audio': body}, channel)
+        builds[channel]['manifests']['zh-cn'] = ['zh-cn']
+        root = builds[channel]['hotfix']['roots']['resource']
+        responses[root + 'audio_version'] = body
+        responses[root + 'Audio/Windows/Full/' + folder + '/Patch.pck'] = media
+    monkeypatch.setattr(sophon_assets, 'release', lambda channel: {k: v for k, v in builds[channel].items() if k != 'hotfix'})
+    monkeypatch.setattr(live, 'discover', lambda build: builds[build['channel']])
+    def manifest(_cache, _channel, spec, _suffixes):
+        if spec != ('game',):
+            return {}
+        return {live.BASE + name: Source(live.BASE + name, b'1000') for name in
+                ('audio_revision', 'data_revision', 'res_revision', 'silence_revision')}
+    monkeypatch.setattr(sophon_assets, 'manifest', manifest)
+    monkeypatch.setattr(live, '_request', lambda url, *_: responses[url])
+    def catalogue(build, _directory, locales, namespace, _progress):
+        cn = build['channel'] == 'zzz-cn'
+        assert namespace == ('Chinese(PRC)' if cn else 'English(EN)')
+        assert locales == ({'zh-Hant', 'en'} if cn else {'en'})
+        return ([{'text_id': 'sentence', 'source': 'VO_Message/Actor/Message_Sentence', 'dialogue_kind': 'message'}],
+                {'zh-Hant': {'sentence': '繁體測試'}} if cn else {'en': {'sentence': 'Owned Global text'}}, {}, None)
+    monkeypatch.setattr(zzz_publisher, '_read_catalogue', catalogue)
+    snapshots = []
+    for region, locale in [('global', 'en'), ('cn', 'zh-Hant')]:
+        select_region(tmp_path / 'tools', 'zzz', region)
+        output = tmp_path / (region + '.json')
+        language_worker.build('zzz', None, tmp_path, locale, ('en',) if region == 'cn' else (), output)
+        snapshots.append(json.loads(output.read_bytes()))
+    cn = snapshots[1]
+    assert cn['publisher_region'] == 'cn' and cn['source_locale'] == 'zh-Hant'
+    assert cn['records'][0]['texts'] == {'zh-Hant': '繁體測試'}
+    assert cn['records'][0]['audio_locale'] == 'zh-Hans' and cn['records'][0]['voice_status'] == 'voiced'
+    assert cn['missing_translation_locales'] == ['en'] and 'zh-Hant' in zzz_assets.SUPPORTED_LOCALES
+    assert cn['fingerprint'] != snapshots[0]['fingerprint']
+    voice._files.cache_clear();voice._table.cache_clear();live._verified_file.cache_clear()
+    monkeypatch.setattr(live, '_request', lambda *_: pytest.fail('network used offline'))
+    monkeypatch.setattr(sophon_assets, 'release', lambda *_: pytest.fail('discovery used for old region'))
+    for prepared, tag in zip(snapshots, ('a', 'b')):
+        assert zzz_assets.extract_voice(None, prepared['records'][0]['audio'], tmp_path / 'tools', None).endswith(tag.encode())

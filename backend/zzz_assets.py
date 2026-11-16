@@ -18,7 +18,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 13
+LANGUAGE_INDEX_VERSION = 14
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -173,9 +173,10 @@ def fingerprint(install):
     return hashlib.sha256((_scene_fingerprint(root) + design_revision_fingerprint(root)).encode()).hexdigest()
 
 
-def publisher_fingerprint(_tools):
+def publisher_fingerprint(tools):
+    from .publisher_regions import selected_region
     from .zzz_publisher import fingerprint
-    return fingerprint()
+    return fingerprint(selected_region(tools, 'zzz'))
 
 
 def publisher_snapshot_available(tools, stamp):

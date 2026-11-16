@@ -91,17 +91,21 @@ def test_failure_requires_retry_but_changed_source_requeues(tmp_path, monkeypatc
     state['change'] = False;run();assert next(destination.rglob('*.zip')).read_bytes() != previous
 
 
-def test_publisher_export_worker_pins_setup_edition_and_detects_a_change(tmp_path, monkeypatch):
-    from backend import endfield_assets, endfield_release, game_paths, mobile_export_worker as worker
+@pytest.mark.parametrize('game', ['endfield', 'zzz'])
+def test_publisher_export_worker_pins_setup_edition_and_detects_a_change(tmp_path, monkeypatch, game):
+    from backend import endfield_release, zzz_publisher, game_paths, mobile_export_worker as worker
+    from backend.game_assets import asset_adapter
     from backend.publisher_regions import select_region, selected_region
     from backend.mobile_export_layout import work_folder
     from backend import language_worker
 
-    host_tools = tmp_path / 'data/endfield/tools'
+    adapter = asset_adapter(game)[0]
+    host_tools = tmp_path / 'data' / game / 'tools'
     output = tmp_path / 'exports'
     private_tools = work_folder(output) / 'source/tools'
     monkeypatch.setattr(game_paths, 'settings_path', lambda: tmp_path / 'settings.json')
     monkeypatch.setattr(endfield_release, 'fingerprint', lambda region: 'publisher-' + region)
+    monkeypatch.setattr(zzz_publisher, 'fingerprint', lambda region: 'publisher-' + region)
     monkeypatch.setattr(worker, 'prepare_source', lambda *_a, **_k: ([], None, None, None))
     monkeypatch.setattr(worker, 'export_library', lambda *_a, **_k: None)
     received = []
@@ -111,16 +115,16 @@ def test_publisher_export_worker_pins_setup_edition_and_detects_a_change(tmp_pat
         received.append(region)
         snapshot.write_text(json.dumps({'publisher_region': region}))
     monkeypatch.setattr(language_worker, 'build', build)
-    select_region(host_tools, 'endfield', 'cn')
-    args = ['worker', '--root', str(tmp_path), '--output', str(output), '--game', 'endfield',
+    select_region(host_tools, game, 'cn')
+    args = ['worker', '--root', str(tmp_path), '--output', str(output), '--game', game,
             '--automatic-publisher', '--source-locale', 'en', '--translation-locale', 'ja',
-            '--publisher-fingerprint', endfield_assets.publisher_fingerprint(host_tools)]
+            '--publisher-fingerprint', adapter.publisher_fingerprint(host_tools)]
     monkeypatch.setattr(sys, 'argv', args)
     assert worker.main() == 0 and received == ['cn']
-    assert selected_region(private_tools, 'endfield') == 'cn'
-    select_region(host_tools, 'endfield', 'global')
+    assert selected_region(private_tools, game) == 'cn'
+    select_region(host_tools, game, 'global')
     assert worker.main() == 1 and received == ['cn']
-    args[-1] = endfield_assets.publisher_fingerprint(host_tools)
+    args[-1] = adapter.publisher_fingerprint(host_tools)
     assert worker.main() == 0 and received == ['cn', 'global']
 
 

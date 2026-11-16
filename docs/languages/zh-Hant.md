@@ -13,7 +13,7 @@
 
 [官方語言清單](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [涵蓋範圍說明](../zzz-languages.md)
 
-全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。
+Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
