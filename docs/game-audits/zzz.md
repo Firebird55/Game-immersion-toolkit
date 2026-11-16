@@ -60,6 +60,21 @@ hotfix and common patch; English totals **225,770,933 bytes**. Base voices still
 use selective, independently checked Sophon chunks rather than downloading all
 24.6 GB listed by the audio inventory.
 
+Raw voice packages up to **8 GiB** now stream to a private staging file with
+**1 MiB** verification blocks. Full publisher XXH64 must pass before atomic
+publication. The cache retains only SHA256 block digests in memory, not four
+whole packages; selected ranges are read from disk. First use after a process
+restart streams the full cached file through XXH64 again, and every later
+range read checks its actual blocks even when size/mtime are preserved. An
+interrupted, overlong, truncated or wrong-hash download cannot replace the prior
+cache file. A concurrent Windows reader permits reuse only after a complete hash
+check and identical block digests. Whole-decoding metadata keeps its separate
+256 MiB bound; JSON inventory indexes permit up to 32 MiB rather than failing
+when the currently 3.31 MB resource list grows beyond 4 MiB. Owned fixtures lower
+these thresholds to exercise package growth
+without an actual multi-gigabyte download; a real Windows read-sharing lock and
+all seven real offline samples also passed with this cache.
+
 Seven normal voice-service samples cover the actual Japanese/English Persistent
 patches, unchanged Sophon bases and timed clue recordings. Closing/reopening
 into fresh output folders with discovery and byte-range networking prohibited

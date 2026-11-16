@@ -12,7 +12,8 @@ matching launcher base. Supported sources include GalGame, chat, bubbles,
 narration, choices, motion comics, phone messages, ongoing dialogue, gameplay tips and
 per-dub clue subtitle intervals. Setup reads the selected voice package indexes
 and downloads matching recordings. Current raw update packages are downloaded
-and hash-checked completely before their individual recordings are read; the
+to a disk cache and hash-checked completely before their individual recordings
+are read; the
 checked Japanese patch package was about 216 MB. Unchanged base recordings use
 verified selective launcher chunks. The installed reader supplies
 additional cinematic voices. Unmatched comic

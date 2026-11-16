@@ -1,5 +1,6 @@
 """Owned updater envelopes, current inventories and retained voice generations."""
 import base64
+import io
 import json
 import struct
 from urllib.error import URLError
@@ -11,6 +12,13 @@ from Crypto.PublicKey import RSA
 from backend import hoyo_publisher_voice as voice, language_worker, sophon_assets, zzz_assets, zzz_hotfix as live, zzz_publisher
 from backend.xxhash64 import xxhash64
 from backend.voice_assets import voice_hash
+
+
+@pytest.fixture(autouse=True)
+def owned_streams(monkeypatch):
+    # Existing owned envelopes use one deterministic transport for metadata and
+    # raw assets. Separate streaming fixtures below observe every bounded read.
+    monkeypatch.setattr(live, '_stream_response', lambda url, size: io.BytesIO(live._request(url, {}, size)))
 
 
 class Source:
@@ -97,6 +105,9 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
 def test_known_inventory_fields_allow_the_publishers_string_size_and_extra_metadata():
     assert live._spec({'fileName': 'data_version', 'fileSize': '23', 'fileMD5': '42', 'optional': 'future'}) == {
         'name': 'data_version', 'size': 23, 'hash': '42'}
+    assert live._spec({'fileName': 'res_version', 'fileSize': 5 * 1024**2, 'fileMD5': '42'})['size'] == 5 * 1024**2
+    with pytest.raises(ValueError):
+        live._spec({'fileName': 'res_version', 'fileSize': live.MAX_INDEX + 1, 'fileMD5': '42'})
     query, headers = live._query('?version={0}&sdk_version=99.0', 'OSPRODWin9.0.0')
     assert headers['sdk_version'] == '99.0' and query.startswith('?version=OSPRODWin9.0.0')
     for suffix in ('&host=other', '&cookie=value', '&version=duplicate', '&bad-name=value'):
@@ -148,7 +159,7 @@ def test_full_original_checksum_precedes_cache_publication_and_offline_reads(tmp
     monkeypatch.setattr(live, '_request', lambda *_: b'x' * len(original))
     with pytest.raises(ValueError):
         file.read(tmp_path, 0, 4)
-    assert not (tmp_path / 'zzz-files').exists()
+    assert not list((tmp_path / 'zzz-files').iterdir())
     monkeypatch.setattr(live, '_request', lambda *_: original)
     assert file.read(tmp_path, 3, 4) == original[3:7]
     monkeypatch.setattr(live, '_request', lambda *_: pytest.fail('network used offline'))

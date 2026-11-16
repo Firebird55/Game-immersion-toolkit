@@ -1,21 +1,29 @@
 """Released ZZZ updater inventories, separate from the launcher base packages."""
+from collections import OrderedDict
 from dataclasses import dataclass
 from functools import lru_cache
 import base64
+import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import struct
+from tempfile import TemporaryDirectory
+import threading
 from urllib.error import URLError
 from urllib.parse import parse_qsl, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .game_tools import _atomic_file
-from .xxhash64 import xxhash64
+from .xxhash64 import xxhash64, xxhash64_stream
 
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
 PERSISTENT = 'ZenlessZoneZero_Data/Persistent/'
 MAX_FILE = 256 * 1024**2
+MAX_INDEX = 32 * 1024**2
+MAX_STREAM_FILE = 8 * 1024**3
+VERIFY_BLOCK_SIZE = 1024**2
 INDEXES = {'design': ('design', 'data_version'), 'catalog': ('resource', 'res_version'),
            'audio': ('resource', 'audio_version'), 'base': ('resource', 'base_revision'),
            'silence': ('silence', 'silence_version')}
@@ -124,7 +132,7 @@ def _spec(row):
     if isinstance(size, str) and size.isdecimal():
         size = int(size)
     check(isinstance(name, str) and re.fullmatch('[A-Za-z0-9_-]{1,128}', name)
-          and type(size) is int and 0 < size <= 4 * 1024**2
+          and type(size) is int and 0 < size <= MAX_INDEX
           and isinstance(digest, str) and digest.isdecimal() and 0 <= int(digest) < 1 << 64)
     return {'name': name, 'size': size, 'hash': digest}
 
@@ -225,17 +233,135 @@ def rows(directory, build, name):
         path, size, digest = row['remoteName'], row['fileSize'], row['md5']
         check(isinstance(path, str) and re.fullmatch('[A-Za-z0-9_./-]{1,512}', path)
               and '..' not in path.split('/') and not path.startswith('/') and path not in seen
-              and type(size) is int and 0 < size <= 4 * 1024**3 and type(row['isPatch']) is bool
+              and type(size) is int and 0 < size <= MAX_STREAM_FILE and type(row['isPatch']) is bool
               and isinstance(digest, str) and digest.isdecimal() and 0 <= int(digest) < 1 << 64)
         seen.add(path)
     return entries
 
 
-@lru_cache(maxsize=4)
-def _verified_file(path, size, digest, mtime):
-    raw = Path(path).read_bytes()
-    check(len(raw) == size and xxhash64(raw) == digest)
-    return raw
+def _stamp(stat):
+    # Windows can report different cached birth times through stat and fstat
+    # after a rename. Integrity comes from the full hash and checked blocks.
+    return stat.st_size, stat.st_mtime_ns, stat.st_dev, stat.st_ino
+
+
+def _blocks(handle, size):
+    """Read exact verification blocks with bounded reads, including a final EOF."""
+    for offset in range(0, size, VERIFY_BLOCK_SIZE):
+        wanted = min(VERIFY_BLOCK_SIZE, size - offset)
+        block = bytearray()
+        while len(block) < wanted:
+            part = handle.read(wanted - len(block))
+            check(isinstance(part, bytes) and 0 < len(part) <= wanted - len(block))
+            block.extend(part)
+        yield bytes(block)
+    check(handle.read(1) == b'')
+
+
+def _check_file(path, size, digest, stamp=None):
+    blocks = []
+    with Path(path).open('rb') as handle:
+        before = _stamp(os.fstat(handle.fileno()))
+        check(before[0] == size and (stamp is None or before == stamp))
+        def parts():
+            for block in _blocks(handle, size):
+                blocks.append(hashlib.sha256(block).digest())
+                yield block
+        check(xxhash64_stream(parts()) == digest and _stamp(os.fstat(handle.fileno())) == before)
+    return before, tuple(blocks)
+
+
+class _VerifiedFiles:
+    """Only verified block digests stay in memory, never whole update packages."""
+    def __init__(self):
+        self._entries = OrderedDict()
+        self._lock = threading.Lock()
+
+    def remember(self, path, size, digest, stamp, blocks):
+        key = path, size, digest, stamp, VERIFY_BLOCK_SIZE
+        with self._lock:
+            self._entries[key] = blocks
+            self._entries.move_to_end(key)
+            while len(self._entries) > 4:
+                self._entries.popitem(last=False)
+        return blocks
+
+    def __call__(self, path, size, digest, stamp):
+        key = path, size, digest, stamp, VERIFY_BLOCK_SIZE
+        with self._lock:
+            if key in self._entries:
+                self._entries.move_to_end(key)
+                return self._entries[key]
+        verified, blocks = _check_file(path, size, digest, stamp)
+        return self.remember(path, size, digest, verified, blocks)
+
+    def cache_clear(self):
+        with self._lock:
+            self._entries.clear()
+
+
+_verified_file = _VerifiedFiles()
+
+
+def _read_range(path, size, start, length, stamp, blocks):
+    result = bytearray()
+    end = start + length
+    with path.open('rb') as handle:
+        check(_stamp(os.fstat(handle.fileno())) == stamp)
+        position = start // VERIFY_BLOCK_SIZE * VERIFY_BLOCK_SIZE
+        handle.seek(position)
+        while position < end:
+            block = handle.read(min(VERIFY_BLOCK_SIZE, size - position))
+            check(len(block) == min(VERIFY_BLOCK_SIZE, size - position)
+                  and hashlib.sha256(block).digest() == blocks[position // VERIFY_BLOCK_SIZE])
+            result.extend(block[max(0, start - position):min(len(block), end - position)])
+            position += len(block)
+        check(len(result) == length and _stamp(os.fstat(handle.fileno())) == stamp)
+    return bytes(result)
+
+
+def _stream_response(url, size):
+    request = Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Accept-Encoding': 'identity'})
+    response = build_opener(_NoRedirect()).open(request, timeout=30)
+    try:
+        check(response.status == 200 and response.geturl() == url)
+        length = response.headers.get('Content-Length')
+        check(length is None or length.isdecimal() and int(length) == size)
+    except Exception:
+        response.close()
+        raise
+    return response
+
+
+def _download_file(path, url, size, digest):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with TemporaryDirectory(prefix='zzz-update-', dir=path.parent) as directory:
+        staged = Path(directory) / 'download'
+        blocks = []
+        with _stream_response(url, size) as response, staged.open('xb') as output:
+            def parts():
+                for block in _blocks(response, size):
+                    check(output.write(block) == len(block))
+                    blocks.append(hashlib.sha256(block).digest())
+                    yield block
+            check(xxhash64_stream(parts()) == digest)
+        blocks = tuple(blocks)
+        try:
+            staged.replace(path)
+        except PermissionError as error:
+            # Another worker can publish the same immutable object while a
+            # Windows reader holds it without delete sharing. Reuse only a
+            # complete publisher-hash and block-identical file, never just stat.
+            try:
+                stamp, existing = _check_file(path, size, digest)
+                check(existing == blocks)
+            except (OSError, ValueError):
+                raise error from None
+        else:
+            stamp = _stamp(path.stat())
+            check(stamp[0] == size)
+        _verified_file.remember(str(path), size, digest, stamp, blocks)
+    return stamp, blocks
 
 
 @dataclass(frozen=True)
@@ -250,28 +376,27 @@ class File:
         return tuple((offset, min(8 * 1024**2, self.size - offset)) for offset in range(0, self.size, 8 * 1024**2))
 
     def read(self, directory, start, length):
-        check(0 < self.size <= MAX_FILE and 0 < length <= 64 * 1024**2 and 0 <= start <= self.size - length)
+        check(0 < self.size <= MAX_STREAM_FILE and 0 < length <= 64 * 1024**2 and 0 <= start <= self.size - length)
         parsed = urlsplit(self.url)
         check(parsed.scheme == 'https' and parsed.netloc == 'autopatchos.zenlesszonezero.com'
               and not parsed.query and not parsed.fragment)
         path = Path(directory) / 'zzz-files' / f'{self.digest:016x}-{self.size}'
         if path.is_file() and path.stat().st_size == self.size:
             try:
-                raw = _verified_file(str(path), self.size, self.digest, path.stat().st_mtime_ns)
-                return raw[start:start + length]
+                stamp = _stamp(path.stat())
+                blocks = _verified_file(str(path), self.size, self.digest, stamp)
+                return _read_range(path, self.size, start, length, stamp, blocks)
             except ValueError:
                 pass
-        raw = _request(self.url, {}, self.size)
-        check(len(raw) == self.size and xxhash64(raw) == self.digest)
-        _atomic_file(path, raw)
-        _verified_file.cache_clear()
-        return raw[start:start + length]
+        stamp, blocks = _download_file(path, self.url, self.size, self.digest)
+        return _read_range(path, self.size, start, length, stamp, blocks)
 
 
 def resource(build, row):
     root = ('design' if row['remoteName'].startswith('Blocks/Data/') else
             'silence' if row['remoteName'].startswith('Blocks/Silence/') else 'resource')
-    check(type(row['isPatch']) is bool and row['fileSize'] <= MAX_FILE)
+    maximum = MAX_STREAM_FILE if row['remoteName'].endswith('.pck') else MAX_FILE
+    check(type(row['isPatch']) is bool and 0 < row['fileSize'] <= maximum)
     if not row['isPatch']:
         root = 'resource'
     _, url = _cdn(build['hotfix']['roots'][root].removesuffix('StandaloneWindows64/oversea/'), root, build['version'])
