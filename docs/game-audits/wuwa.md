@@ -46,6 +46,36 @@ unreliable word boundaries. These research estimates neither authorize a clip
 nor resolve the other **seventeen** open spoken windows in those scenes and
 `M0234`. Existing recordings and classifications remain unchanged.
 
+### Independent Japanese C3jiyanfight playback and bounded decoder probe
+
+A separately located [Japanese cutscene compilation by pxldawn](https://www.youtube.com/watch?v=4_cafY0Poas&t=406s),
+uploaded September 28, 2024, independently matches the original Japanese
+`C3jiyanfight` voice track already acquired from the publisher. Three separated
+comparison excerpts give the same source-zero position, **6:46.594** in the
+upload, at 12-kHz sample precision:
+
+| Original track excerpt | Upload excerpt starts | Normalized correlation |
+| --- | ---: | ---: |
+| 0.500–7.500 s | 6:47.094 | 0.735 |
+| 48.000–55.000 s | 7:34.594 | 0.468 |
+| 77.000–83.000 s | 8:03.594 | 0.533 |
+
+The same three source ranges from the other dubs reach at most 0.068. The
+comparison uses 280–4,500 Hz mono audio. It establishes the Japanese performance
+and scene synchronization independently of the upload title; it does not
+establish visible caption frames or individual spoken boundaries. These are
+comparison excerpts, not newly authorized sentence exports.
+
+The existing Windows decoder also reproduced each of these three excerpts
+directly from the original 333,797-byte Japanese WEM using an authored local
+TXTP instruction. The decoded 7/7/6-second outputs are byte-identical to the
+corresponding PCM from the earlier full-track conversion. They took
+0.047/0.094/0.109 seconds and produced 1,344,000/1,344,000/1,152,000 PCM bytes.
+This verifies the pinned decoder's trim behavior on a real selected recording;
+it does not validate a source longer than 300 seconds, other codec layouts or a
+production windowed-extraction API. The existing audio bound is retained.
+[Upstream TXTP trim semantics](https://github.com/vgmstream/vgmstream/blob/master/doc/TXTP.md#trim-file).
+
 ## November 16, 2026 · Film performances versus ordinary PlotAudio sources
 
 The 3.8.11 publisher table contains 311 movie captions whose text identity also
