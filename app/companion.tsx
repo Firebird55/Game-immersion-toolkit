@@ -455,6 +455,23 @@ function CompanionClient() {
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  useEffect(() => {
+    const stopPlayback = () => {
+      const audio = playback.current;
+      playback.current = null;
+      if (audio) {audio.pause(); audio.removeAttribute('src'); audio.load();}
+    };
+    const onHidden = () => {if (document.hidden) stopPlayback();};
+    if (nativeHost.android) {
+      window.addEventListener('toolkit-host-pause', stopPlayback);
+      document.addEventListener('visibilitychange', onHidden);
+    }
+    return () => {
+      window.removeEventListener('toolkit-host-pause', stopPlayback);
+      document.removeEventListener('visibilitychange', onHidden);
+      stopPlayback();
+    };
+  }, [nativeHost.android, lexirise.account]);
   // A generation distinguishes A → B → A from an outstanding request for A.
   const accountScope = useRef({ account: 'legacy', generation: 0, ready: false });
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
@@ -841,7 +858,7 @@ function CompanionClient() {
     const audio = new Audio(`${API_URL}/api/lines/${line.id}/audio?v=${line.id}-${line.audio_source ?? 'recording'}`);
     audio.playbackRate = playbackRate;
     playback.current = audio;
-    void audio.play();
+    void audio.play().catch(() => {if (playback.current === audio) playback.current = null;});
   }, [playbackRate]);
 
   const sendToLexirise = useCallback(async (kind: 'line', id: number | string, game: GameId) => {
