@@ -23,8 +23,9 @@ its search anchor, instead of always using the default-language start.
 All **17** unresolved captions in M0234, C3jiyanfight and LYSZW have default
 display windows selected by this fallback in every dub. Their zero localized
 duration fields therefore do not mean the game has no caption clocks.
-**These remain display windows, not verified full spoken intervals.** No new
-caption is promoted to voiced and none is exported by copying its display times.
+**These remain display windows, not verified full spoken intervals.** Selecting
+a fallback clock does not itself establish a voiced caption or authorize an
+export using its display times.
 The existing original-media, overlapping-performance and acoustic-boundary
 checks remain required.
 
