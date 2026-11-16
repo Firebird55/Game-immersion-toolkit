@@ -59,8 +59,8 @@ reviewed crop explicitly; updates preserve existing per-PC calibration.
 ## Verified coverage
 
 The NTE publisher route reads the selected release's original localization,
-dialogue and movie tables, sequence clocks and voice banks. Compatible public
-type-data updates are selected automatically. Movie text aliases follow the
+dialogue and movie tables, sequence clocks and voice banks. Compatible needed
+type-data updates are derived from the selected original client. Movie text aliases follow the
 original registry and each actual StringTable namespace, including newly added
 aliases in compatible game updates. Exact historical snapshots retain
 their metadata and original recordings. Original CG references also support

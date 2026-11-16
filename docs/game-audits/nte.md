@@ -165,18 +165,19 @@ This flag alone cannot assign a speaker or silence to the conflicting
 Protect001 entry. The missing caller and safe capture-context integration
 remain unresolved; no caption alias or capture-guard override is introduced.
 
-### Type-data updates and retained history
+### Earlier community type-data route and retained history
 
-Publisher preparation selects compatible public type data from the immutable
+The earlier publisher preparation selected compatible public type data from the immutable
 commit of the [NTE-usmap index](https://github.com/555me/NTE-usmap/blob/1b92d5267092dac6bcfec605bcaf6ae05b664746/index.json),
-instead of requiring the installed reader's fixed 1.4 profile. The current run
+instead of requiring the installed reader's fixed 1.4 profile. That initial run
 used `mapping/HT-1.5-153.usmap`, SHA-256
 `b198e62ad29a1f6d2141797edfcef2cfa6c832bdf07d82df1f96a98e62144120`.
-The helper checks the selected type-data digest before parsing. Community index
-entries cannot choose arbitrary repositories: the reader derives the
-immutable URL from the allowlisted repository and path. This consumes data only.
-New compatible mappings can be adopted without a toolkit release. Historical
-snapshots retain their exact metadata and never substitute the latest profile.
+The helper checked the selected type-data digest before parsing. Community index
+entries could not choose arbitrary repositories: the reader derived the
+immutable URL from the allowlisted repository and path. This consumed data only.
+The original-native route below now generates current metadata without that
+community-index lookup. Historical snapshots retain their exact metadata and
+never substitute the latest profile.
 
 Shared publisher HTTP handling revalidates metadata with conditional requests
 when validators are available. Preparation rechecks the complete selected
