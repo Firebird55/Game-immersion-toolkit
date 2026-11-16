@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from .lexirise_settings import STUDY_LANGUAGES
+from .language_contracts import STUDY_LANGUAGES
 
 ASIAN = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 GAME_LOCALES = {
