@@ -1,5 +1,15 @@
 # Automatic connection recovery
 
+**Retired hosted service:** the owner retired the independent mobile gaming
+flow on November 16, 2026. The production pairing config now selects a 410-only
+entrypoint with public Worker/preview ingress disabled in source. See
+[service retirement](mobile-service-retirement.md) for the exact source,
+retained data boundary and separate remote verification requirements. The
+desktop-connected iOS reader uses the desktop's same-origin service.
+
+The following protocol/deployment description is retained as historical context
+and for the private local fixture. It is not a current hosted-service promise.
+
 The public preview uses [the pairing service](https://game-immersion-pairing.boazbrak.workers.dev/health).
 
 GitHub Pages serves the frontend. A separate small Cloudflare Worker with one

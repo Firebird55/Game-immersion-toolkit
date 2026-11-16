@@ -1,0 +1,13 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "game-immersion-pairing-local",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-12",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {"ALLOWED_ORIGINS": "http://127.0.0.1:3000,http://localhost:3000"},
+  "durable_objects": {"bindings": [{"name": "ROOMS", "class_name": "PairingRoom"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["PairingRoom"]}],
+  "ratelimits": [{"name": "ADMISSION", "namespace_id": "19701", "simple": {"limit": 60, "period": 60}}],
+  "observability": {"enabled": false}
+}
