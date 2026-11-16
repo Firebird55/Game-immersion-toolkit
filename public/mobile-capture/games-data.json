@@ -190,9 +190,9 @@
       ],
       "unverified": {},
       "notes": "Windows Setup can prepare dialogue, verified film contexts and shared-song captions from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Song audio follows its original sung language; translated lyrics without that vocal retain unavailable audio. Context audio is labeled separately from individual lines.",
-      "coverage": "The current Global source provides 1,131 context variants across 70 native film scenes per study locale, plus verified whole-song contexts for 18 English and 30 Mandarin captions per Chinese script. Song labels above the ordinary subtitle lane use exact full-frame recognition and authored predecessors for short successors. Complete sources retain their original frames and remain within five minutes. Longer films, unsupported surround recordings, complex event graphs, remaining MusicSubtitle groups and other presentations still have gaps. Current-source playback does not establish complete chapter, regional or platform coverage.",
+      "coverage": "The current Global source provides 1,221 context variants across 71 native film scenes per study locale, plus verified whole-song contexts for 18 English and 30 Mandarin captions per Chinese script. Song labels above the ordinary subtitle lane use exact full-frame recognition and authored predecessors for short successors. Complete film sources retain their original frames within six minutes; shared songs remain within five minutes. Longer films, unsupported surround recordings, complex event graphs, remaining MusicSubtitle groups and other presentations still have gaps. Current-source playback does not establish complete chapter, regional or platform coverage.",
       "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Empty or unavailable translations are reported separately.",
-      "reviewedAt": "2026-11-16"
+      "reviewedAt": "2026-11-17"
     },
     {
       "id": "nte",

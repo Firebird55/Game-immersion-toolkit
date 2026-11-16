@@ -25,7 +25,8 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 8
+LANGUAGE_INDEX_VERSION = 9
+FILM_CONTEXT_SECONDS = 360
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
@@ -533,7 +534,8 @@ def _validate_voice(audio):
                 0 < len(scene) <= 512 and scene.isprintable() and bool(scene.strip())
                 if audio.get('music_context') is True else
                 bool(re.fullmatch(r'[A-Za-z0-9_]{1,128}', scene))))
-            if (type(frames) is int and 0 < frames <= 48000 * 300
+            maximum_seconds = 300 if audio.get('music_context') is True else FILM_CONTEXT_SECONDS
+            if (type(frames) is int and 0 < frames <= 48000 * maximum_seconds
                     and type(channels) is int and channels in (1, 2)
                     and valid_scene
                     and isinstance(event, str) and re.fullmatch(r'[A-Za-z0-9_]{1,256}', event)

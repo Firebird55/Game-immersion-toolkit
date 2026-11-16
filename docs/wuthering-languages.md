@@ -22,7 +22,7 @@ games it also includes optional SD, HD and UHD film packages. [Film and floating
 
 Verified film audio can replay a complete original scene, explicitly labeled
 as a **context clip**. Native callers, selected-dub banks and Rover states must
-establish its ownership; the source must be mono/stereo and at most five
+establish its ownership; the source must be mono/stereo and at most six
 minutes. Exact source frames retain the complete utterance without claiming a
 sentence cut. Existing individual recordings stay unchanged. Choose Rover voice
 for scenes with separate female and male performances; unconfigured selection
