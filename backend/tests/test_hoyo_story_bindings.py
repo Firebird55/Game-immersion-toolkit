@@ -34,7 +34,8 @@ def test_genshin_mandarin_pack_probe_binding_and_extraction(tmp_path, locale, fo
 
 def test_multi_voice_requires_one_consistent_authored_performance():
     def sentence(identity, primary=None):
-        return {'TalkSentenceID': identity, 'TalkSentenceText': {'Hash': identity + 100}, 'VoiceID': primary}
+        return {'TalkSentenceID': identity, 'TalkSentenceText': {'Hash': identity + 100},
+                'TextmapTalkSentenceName': {'Hash': 900}, 'VoiceID': primary}
 
     voices = [{'VoiceID': 6, 'VoicePath': 'greeting'}, {'VoiceID': 7, 'VoicePath': 'reply'}]
     sentences = [sentence(1), sentence(2), sentence(3, 7), sentence(4), sentence(5, 6)]
