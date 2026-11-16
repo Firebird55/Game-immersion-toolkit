@@ -8,11 +8,11 @@ Pair any study language with any of the game's **13 official text locales**
 
 ## Setup
 
-Leave the folder empty in **Setup → Games** to use the released Global voice
-packages. In **Languages**, prepare the study language and translation you want.
+Leave the folder empty in **Setup → Games** to use the selected Global or
+mainland China publisher edition. In **Languages**, prepare the study language and translation you want.
 The Windows companion retrieves the original recording when you play or export
-a matched line. Global 4.6 has 173 regular packages per dub. Two optional
-chapter packages per dub are outside this source.
+a matched line. Base and chapter packages follow the current regional publisher
+manifests; missing original recordings stay unavailable.
 
 To use an installed client, select its **StarRail.exe and StarRail_Data** folder.
 Epic/HoYoPlay launcher folders for Genshin and Star Rail are accepted when their
@@ -39,6 +39,14 @@ a toolkit update. Their movie and player associations stay separate from audio
 verification: subtitle display times do not establish when the words are spoken.
 The [caption audit](game-audits/starrail.md#declared-caption-resources-resolved--november-16-2026)
 records the verified paths, language coverage and remaining gaps.
+
+Battle College tutorial films use their separate authored caption and movie
+paths. In the reviewed release, 38 of 45 declared captions have text in every
+supported locale; seven strings remain missing. Their original movie stream
+directories contain no embedded audio tracks. Tutorial audio therefore remains
+unavailable while any separate sound-event route is unresolved; those entries
+are not classified as silent dialogue. See the
+[tutorial audit](game-audits/starrail.md#battle-college-tutorial-captions--november-16-2026).
 
 Some written descriptions accompany a short character greeting or reaction.
 That audio does not establish a recording of the written words. Unnamed

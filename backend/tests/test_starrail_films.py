@@ -125,6 +125,40 @@ def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(t
     assert films._movie_sources(catalog, scripts, 'ja') == (routes, set())
 
 
+def test_tutorial_uses_authored_movie_owner_and_missing_text_cannot_invent_audio(tmp_path):
+    filename, identity = 'BattleCollegeCaption/Future_Lesson.json', 'design_0123456789abcdef'
+    script = {'CaptionList': [{'CaptionTextID': {'Hash': 69}, 'StartTime': .5, 'EndTime': 1.5},
+                              {'CaptionTextID': {'Hash': 70}, 'EndTime': 2.5}]}
+    video = {'VideoID': 40001, 'VideoPath': 'DifferentLesson.usm',
+             'CaptionPath': 'Config/' + filename}
+    source = {'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
+              'ExcelOutput/VideoConfig.json': [], 'ExcelOutput/LoopCGConfig.json': [video]}
+    catalog = SimpleNamespace(file=source.__getitem__, caption_scripts=lambda: [(filename, script)],
+                              caption_identities={filename: identity}, movie_files={
+        'differentlesson.usm': SimpleNamespace(name='DifferentLesson.usm', digest='a' * 32, size=99),
+        'future_lesson.usm': SimpleNamespace(name='Future_Lesson.usm', digest='b' * 32, size=100)})
+    def prepare():
+        return films.caption_rows(tmp_path, catalog, {'en': {'69': 'A fixture tutorial caption'}}, 'en', {})
+    row, = prepare()
+    assert row['text_id'] == 'starrail:film-' + identity + '-0'
+    assert row['film_caption'] == {'scene': 'BattleCollegeCaption/Future_Lesson', 'start_ms': 500,
+                                   'end_ms': 1500, 'movies': [{'video_id': 40001, 'player_voice': None,
+                                        'path': 'DifferentLesson.usm', 'size': 99, 'md5': 'a' * 32}]}
+    assert row['audio'] is None and row['voice_status'] == 'unavailable'
+    # New lesson names/IDs and actual protagonist files follow the authored
+    # table. A movie with a matching caption basename never supplies audio.
+    video['IsPlayerInvolved'] = True
+    catalog.movie_files = {'differentlesson_m.usm': SimpleNamespace(name='DifferentLesson_m.usm', digest='c' * 32, size=101)}
+    male, female = prepare()
+    assert [r['player_voice'] for r in (male, female)] == ['male', 'female']
+    assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in (male, female))
+    assert male['film_caption']['movies'] == female['film_caption']['movies']
+    assert len(male['film_caption']['movies']) == 1
+    video['CaptionPath'] = 'Config/CutSceneCaption/Future_Lesson_Caption.json'
+    with pytest.raises(ValueError):
+        prepare()
+
+
 def test_reviewed_take_survives_repackaging_but_requires_the_same_movie_voice_and_caption(tmp_path, monkeypatch):
     raw = b'independently matched recording'
     checksum = hashlib.sha256(raw).hexdigest()

@@ -28,7 +28,7 @@
 | 游戏 | Windows 设置 |
 | :--- | :--- |
 | Genshin Impact | 可从发行商准备全球版或中国大陆版启动器资源 |
-| Honkai: Star Rail | 可从发行商准备所选地区的基础与章节语音包及部分影片片段 |
+| Honkai: Star Rail | 可从发行商准备所选地区的语音、部分影片片段和教程文本 |
 | Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | 可从发行商准备全球版或中国大陆版剧情配音 |
 | Wuthering Waves | 可从发行商准备全球版台词与原版配音 |

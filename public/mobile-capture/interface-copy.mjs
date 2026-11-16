@@ -7,6 +7,7 @@ export default {
  "Publisher Setup for the Global or mainland China launcher release": ["Uitgeversbestanden uit de wereldwijde of Chinese launcher","可从发行商准备全球版或中国大陆版启动器资源","可從發行商準備全球版或中國大陸版啟動器資源"],
  "Publisher Setup for regional base and chapter voice packs": ["Regionale basis- en hoofdstukstemmen van de uitgever","可从发行商准备所选地区的基础与章节语音包","可從發行商準備所選地區的基礎與章節語音包"],
  "Publisher Setup for regional base and chapter voice packs and selected movie clips": ["Regionale basis- en hoofdstukstemmen en geselecteerde filmfragmenten van de uitgever","可从发行商准备所选地区的基础与章节语音包及部分影片片段","可從發行商準備所選地區的基礎與章節語音包及部分影片片段"],
+ "Publisher Setup for regional voices, selected movie clips and tutorial text": ["Regionale stemmen, geselecteerde filmfragmenten en tutorialtekst van de uitgever","可从发行商准备所选地区的语音、部分影片片段和教程文本","可從發行商準備所選地區的語音、部分影片片段及教學文字"],
  "Publisher Setup for Global or mainland China narrative voices": ["Verhaalstemmen van de wereldwijde of Chinese uitgever","可从发行商准备全球版或中国大陆版剧情配音","可從發行商準備全球版或中國大陸版劇情配音"],
  "Publisher edition": ["Uitgeversversie","发行版本","發行版本"],
  "Publisher edition saved.": ["Uitgeversversie opgeslagen.","已保存发行版本。","已儲存發行版本。"],

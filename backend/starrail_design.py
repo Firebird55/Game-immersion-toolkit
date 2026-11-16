@@ -16,8 +16,15 @@ def caption_resource_id(path):
     # Native JsonToBinaryPath preserves case, replaces the last extension and
     # prepends BakedConfig/ to the complete authored Config/... path.
     hotfix.check(isinstance(path, str) and re.fullmatch(
-        r'Config/CutSceneCaption/[A-Za-z0-9_-]+_Caption\.json', path))
+        r'Config/(?:CutSceneCaption/[A-Za-z0-9_-]+_Caption|BattleCollegeCaption/[A-Za-z0-9_-]+)\.json', path))
     return xxhash64(('BakedConfig/' + path[:-5] + '.bytes').encode('utf-8'))
+
+
+def caption_filename(path):
+    caption_resource_id(path)
+    # Tutorial captions have a distinct authored root and no _Caption suffix.
+    # Retain that namespace even if a future tutorial shares a cinematic name.
+    return path.removeprefix('Config/') if path.startswith('Config/BattleCollegeCaption/') else path.rsplit('/', 1)[1]
 
 
 def _packages(data):
@@ -147,14 +154,16 @@ def extra_captions(directory, build, published, declared_paths=(), *, identities
     known = {_signature(script) for script in published.values()}
     anchors, names, paths = {}, {}, {}
     for filename, script in published.items():
-        path = 'Config/CutSceneCaption/' + filename
+        path = 'Config/' + filename if filename.startswith('BattleCollegeCaption/') else 'Config/CutSceneCaption/' + filename
         key = caption_resource_id(path)
         hotfix.check(key not in paths or paths[key] == path)
         paths[key], anchors[key] = path, _signature(script)
+        if filename.startswith('BattleCollegeCaption/') and identities is not None:
+            identities[filename] = f'design_{key:016x}'
     for path in declared_paths:
         key = caption_resource_id(path)
         hotfix.check(key not in paths or paths[key] == path)
-        paths[key], names[key] = path, path.rsplit('/', 1)[1]
+        paths[key], names[key] = path, caption_filename(path)
     local, alternate = hotfix.audio_roots(build)
     result, found, indexed, candidates = {}, set(), set(), []
     verified = False

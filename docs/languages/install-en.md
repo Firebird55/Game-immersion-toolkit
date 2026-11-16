@@ -28,7 +28,7 @@ Leave the game folder empty in Windows Setup to prepare Global or mainland China
 | Game | Windows Setup |
 | :--- | :--- |
 | Genshin Impact | Publisher Setup for the Global or mainland China launcher release |
-| Honkai: Star Rail | Publisher Setup for regional base and chapter voice packs and selected movie clips |
+| Honkai: Star Rail | Publisher Setup for regional voices, selected movie clips and tutorial text |
 | Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Publisher Setup for Global or mainland China narrative voices |
 | Wuthering Waves | Publisher Setup for Global dialogue and original voices |

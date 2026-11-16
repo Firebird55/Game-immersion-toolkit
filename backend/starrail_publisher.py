@@ -165,11 +165,23 @@ class ReleasedCatalog(DialogueCatalog):
     def caption_scripts(self):
         published = self._published_captions()
         if hasattr(self, 'design_source'):
-            from .starrail_design import extra_captions
+            from .starrail_design import caption_filename, extra_captions
             from .starrail_assets import _table
             directory, build = self.design_source
-            paths = {row['CaptionPath'] for name in ('VideoConfig', 'CutSceneConfig')
+            paths = {row['CaptionPath'] for name in ('VideoConfig', 'CutSceneConfig', 'LoopCGConfig')
                      for row in _table(self, name, ('CaptionPath',)) if row.get('CaptionPath')}
+            # The tutorial UI explicitly loads LoopCG.CaptionPath into its
+            # CaptionComponent, separately from ManaVideoPlayer.SetLoopCGID.
+            # Pair available text-extraction scripts with the original bodies;
+            # a newly published path can still resolve through DesignV alone.
+            for path in sorted(paths):
+                filename = caption_filename(path)
+                if filename.startswith('BattleCollegeCaption/'):
+                    try:
+                        published.append((filename, self.file(path)))
+                    except HTTPError as error:
+                        if error.code != 404:
+                            raise
             self.caption_identities, self.unresolved_caption_paths = {}, []
             extras = extra_captions(directory, build, dict(published), paths,
                                     identities=self.caption_identities, unresolved=self.unresolved_caption_paths)

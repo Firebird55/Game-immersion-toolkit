@@ -142,6 +142,39 @@ def test_neighbor_caption_cannot_skip_second_published_generation_reference(tmp_
         release(caption(69, 99))
 
 
+def test_tutorial_paths_keep_their_root_and_validate_every_neighbor_generation(tmp_path, monkeypatch):
+    path = 'Config/BattleCollegeCaption/New_Lesson.json'
+    filename = 'BattleCollegeCaption/New_Lesson.json'
+    reference, tutorial = caption(31, 2.25), caption(69, 1.5)
+    known = design.caption_resource_id('Config/CutSceneCaption/Reference_Caption.json')
+    key = design.caption_resource_id(path)
+    published = {'Reference_Caption.json': design._caption(reference), filename: design._caption(tutorial)}
+    source = {}
+    monkeypatch.setattr(design.hotfix, 'audio_roots', lambda build: ({'design': 'https://publisher/'}, {}))
+    monkeypatch.setattr(design.hotfix, 'index', lambda *args: source['index'])
+    monkeypatch.setattr(design.hotfix.AudioFile, 'read',
+                        lambda asset, directory, start, length: source['blob'][start:start + length])
+    def release(body, paths):
+        source['index'], source['blob'] = package([(known, reference), (key, body)])
+        identities = {}
+        result = design.extra_captions(tmp_path, {}, published, paths, identities=identities)
+        return result, identities
+    assert design.caption_filename(path) == filename
+    assert key != design.caption_resource_id('Config/CutSceneCaption/New_Lesson_Caption.json')
+    assert release(tutorial, [path]) == ({}, {filename: f'design_{key:016x}'})
+    # The cinematic neighbor scan reaches the tutorial before its own loop.
+    # Its independently published reference must still reject a clock conflict.
+    with pytest.raises(ValueError):
+        release(caption(69, 99), [path])
+    del published[filename]
+    assert release(tutorial, [path])[0] == {filename: design._caption(tutorial)}
+    for unsafe in ('Config/BattleCollegeCaption/../New_Lesson.json',
+                   'Config/BattleCollegeCaption/New_Lesson.json?x',
+                   'Config/BattleCollegeCaption/nested/New_Lesson.json'):
+        with pytest.raises(ValueError):
+            design.caption_resource_id(unsafe)
+
+
 def test_design_rejects_incomplete_indexes_and_invalid_caption_clocks():
     index, _ = package([(4, caption(1, 1.))])
     for raw in (index[:-1], index + b'x', index[:12] + b'\0\0\0\2' + index[16:],
