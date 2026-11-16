@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -29,7 +30,7 @@ TABLE_SCHEMA_SHA256 = '7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0b
 TABLE_SCHEMA_URL = ('https://raw.githubusercontent.com/555me/NTE-usmap/'
                     '1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap')
 MEDIA_ROOT = "HT/Content/WwiseAudio/Media/Chinese/"
-LANGUAGE_INDEX_VERSION = 5
+LANGUAGE_INDEX_VERSION = 6
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 TEXT_LOCALES = {'en': 'en', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-Hant', 'ja': 'ja', 'ko': 'ko',
     'fr': 'fr', 'de': 'de', 'es-ES': 'es', 'pt-BR': 'pt-BR', 'ru': 'ru', 'th': 'th', 'vi': 'vi', 'id': 'id'}
@@ -408,26 +409,27 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
         except (ValueError, IndexError, struct.error):
             continue
         variants = [(None, layers)]
-        if not layers and event.startswith('Play_Vo_CG_'):
+        if not layers:
             try:
                 variants = [(gender, read_bank_play_layers(path, allowed_versions=(154,),
                              switch_states={wwise_hash('Sex_Switch'): wwise_hash(gender)}).get(wwise_hash(event), []))
                             for gender in ['female', 'male']]
             except (ValueError, IndexError, struct.error):
                 continue
+            if not any(len(selected) == 1 for _, selected in variants):
+                continue
         for gender, selected in variants:
-            if len(selected) != 1:
-                continue
-            layer = selected[0]
-            depot = f"{media_root}{layer['media_id']}.wem"
-            if depot not in media:
-                continue
-            audio = {"depot": depot, "event": event, **({'locale': 'zh-Hans' if source_locale == 'zh-Hant' else source_locale} if source_locale else {})}
-            if gender is None:
-                events[event.lower()] = audio
-            if layer['delay_seconds'] == 0:
+            audio = None
+            if len(selected) == 1:
+                layer = selected[0]
+                depot = f"{media_root}{layer['media_id']}.wem"
+                if depot in media and math.isfinite(layer['gain_db']) and -60 <= layer['gain_db'] <= 24:
+                    audio = {"depot": depot, "event": event, 'gain_db': layer['gain_db'],
+                             **({'locale': 'zh-Hans' if source_locale == 'zh-Hant' else source_locale} if source_locale else {})}
+            events.setdefault(event.lower(), []).append({'player_voice': gender, 'audio': audio})
+            if audio and layer['delay_seconds'] == 0:
                 cinema_events.setdefault(event.lower(), []).append({'player_voice': gender,
-                    'audio': {**audio, 'gain_db': layer['gain_db']}})
+                    'audio': audio})
     pairs_by_key = {}
     unique_namespace = {}
     for (ns, key), en in english.items():
@@ -447,13 +449,17 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
             event = conventional
         else:
             event = declarations[0] if len(declarations) == 1 else ''
-        audio = events.get(event) if len(pairs_by_key[lower]) == 1 and (event == conventional or unique_namespace[lower]) else None
+        performances = events.get(event) if len(pairs_by_key[lower]) == 1 and (event == conventional or unique_namespace[lower]) else None
         kind, text_only = dialogue_presentation(ns, key)
-        status = 'voiced' if audio else ('unavailable' if event in authored_events or any(declarations or ())
-                                         else 'unvoiced' if text_only else 'unknown')
-        if en and (source_locale or (contains_han(zh) and (audio or status == 'unvoiced'))):
-            records.append({"text_id": f"nte:{ns}:{key}", "english": en, "chinese": zh, "audio": audio,
-                            'voice_status': status, 'dialogue_kind': kind})
+        for performance in performances or [{'player_voice': None, 'audio': None}]:
+            audio, gender = performance['audio'], performance['player_voice']
+            status = 'voiced' if audio else ('unavailable' if event in authored_events or any(declarations or ())
+                                             else 'unvoiced' if text_only else 'unknown')
+            if en and (source_locale or (contains_han(zh) and (audio or status == 'unvoiced'))):
+                suffix = ':' + gender if gender else ''
+                records.append({"text_id": f"nte:{ns}:{key}{suffix}", "english": en, "chinese": zh, "audio": audio,
+                                **({'player_voice': gender} if gender else {}),
+                                'voice_status': status, 'dialogue_kind': kind})
     sequences_file = cache / 'sequence-cues.json'
     if cinema_bindings or sequences_file.is_file():
         from .nte_cinematics import movie_records, subtitle_cues, timed_sequence_cues
@@ -473,19 +479,24 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
                 raise PreparationFailure('unsupported_game_format',
                     'This NTE update uses an unsupported movie subtitle layout. Update the toolkit, then retry preparation; the previous index is retained.') from None
             cinema_keys.update(f"nte:{binding['namespace']}:{cue['key']}" for cue in cues)
-        for row in records:
-            if row['text_id'] in cinema_keys and not row['audio']:
-                row.update(voice_status='unavailable', dialogue_kind='cinematic')
-        existing = {r['text_id'] for r in records}
         movies = movie_records(cinema_bindings or (), subtitles, english, chinese, cinema_events,
                                require_han=source_locale is None, sequences=sequences)
         for row in movies:
             row.update(voice_status='voiced', dialogue_kind='cinematic')
-        if source_locale:
-            movie_ids = {r['text_id'] for r in movies}
-            records = [r for r in records if r['audio'] or r['text_id'] not in movie_ids]
-            existing = {r['text_id'] for r in records}
-        records.extend(r for r in movies if r['text_id'] not in existing)
+        def caption_id(row):
+            return row['text_id'].removesuffix(':' + row['player_voice']) if row.get('player_voice') else row['text_id']
+        movie_ids = {r['text_id'] for r in movies}
+        movie_roots = {caption_id(r) for r in movies}
+        retained = []
+        for row in records:
+            identity = caption_id(row)
+            if identity in cinema_keys:
+                # A caption owned by a film must never play its whole mix.
+                if row['text_id'] in movie_ids or not row.get('player_voice') and identity in movie_roots:
+                    continue
+                row.update(audio=None, voice_status='unavailable', dialogue_kind='cinematic')
+            retained.append(row)
+        records = retained + movies
     if source_locale:
         from .languages import audio_locale
         tables = {locale: {(r['ns'], r['key']): display_text(r['value']) for r in localization.get(TEXT_LOCALES[locale], [])}

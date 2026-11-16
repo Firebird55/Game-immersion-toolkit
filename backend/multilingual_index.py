@@ -45,6 +45,7 @@ class MultilingualTextIndex:
         self._predecessor_aliases = {}
         self._mission_predecessors = {}
         self._full_frame_veto = {}
+        self._player_frame_veto = {}
         self.voice_counts = {status: 0 for status in ('voiced', 'unvoiced', 'unavailable', 'unknown')}
         self.dialogue_coverage = {}
         self._signature = None
@@ -87,6 +88,7 @@ class MultilingualTextIndex:
             locale = payload['source_locale']
             study_language(locale)
             lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
+            player_frame_veto = {}
             voice_counts = dict.fromkeys(self.voice_counts, 0)
             coverage = {}
             predecessor_aliases = {}
@@ -129,9 +131,11 @@ class MultilingualTextIndex:
                     if variant and variant[2] == row.get('player_voice'):
                         predecessor_aliases[row['text_id']] = (variant[1],)
                 if row['voice_status'] != 'voiced':
+                    veto = (player_frame_veto.setdefault(row['player_voice'], {})
+                            if row.get('player_voice') else full_frame_veto)
                     for language, text in row['texts'].items():
                         for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
-                            full_frame_veto.setdefault(language, set()).add(normalize_text(display_text(value), language))
+                            veto.setdefault(language, set()).add(normalize_text(display_text(value), language))
                 if row['voice_status'] not in {'voiced', 'unvoiced'}:
                     continue
                 destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
@@ -151,6 +155,7 @@ class MultilingualTextIndex:
                 self._capture_channels = capture_channels
                 self._unvoiced_lookup = unvoiced_lookup
                 self._full_frame_veto = full_frame_veto
+                self._player_frame_veto = player_frame_veto
                 self._predecessor_aliases = predecessor_aliases
                 self._mission_predecessors = mission_predecessors
                 self.voice_counts, self.dialogue_coverage = voice_counts, coverage
@@ -183,12 +188,23 @@ class MultilingualTextIndex:
     def authored_scene(text_id):
         return text_id.rsplit(':', 1)[0] if re.fullmatch(r'heavyrain:\d+:[a-f0-9]{8}', text_id) else None
 
+    def _frame_vetoes(self):
+        selected = ([self._player_frame_veto.get(self.player_voice, {})]
+                    if self.player_voice in {'female', 'male'} else self._player_frame_veto.values())
+        return [self._full_frame_veto, *selected]
+
+    def _vetoed(self, key, locale):
+        return any(key in table.get(locale, ()) for table in self._frame_vetoes())
+
+    def _veto_locales(self):
+        return {locale for table in self._frame_vetoes() for locale in table}
+
     def mission_anchor_ids(self, text):
         """A short observed caption can narrow the next line without exporting this take."""
         with self.lock:
             displayed = ' '.join(display_text(text).casefold().split())
             key = normalize_text(displayed, self.source_locale)
-            if not key or key in self._full_frame_veto.get(self.source_locale, ()):
+            if not key or self._vetoed(key, self.source_locale):
                 return frozenset()
             # Preserve meaningful punctuation in the full caption. A label or
             # fragment never establishes the first member of a short pair.
@@ -212,8 +228,8 @@ class MultilingualTextIndex:
             # Preserve the complete observation before candidate splitting so a
             # crop or a fuzzy match cannot turn its fragment into that voice.
             nonvoiced_observations = [(locale, normalize_text(source, locale))
-                for source in sources for locale, keys in self._full_frame_veto.items()
-                if normalize_text(source, locale) in keys]
+                for source in sources for locale in self._veto_locales()
+                if self._vetoed(normalize_text(source, locale), locale)]
             for source in sources:
                 lookups = [(locale, values, False) for locale, values in self._lookup.items()]
                 if self.capture_unvoiced:
@@ -245,7 +261,7 @@ class MultilingualTextIndex:
                         elif matches:
                             ambiguous.append(source)
                     if not silent and rows and (
-                            matched_keys & self._full_frame_veto.get(locale, set())
+                            any(self._vetoed(key, locale) for key in matched_keys)
                             or any(normalize_text(source, observed_locale) in observed
                                    for observed_locale, observed in nonvoiced_observations)):
                         # This text cannot identify spoken versus silent/UI
@@ -355,8 +371,8 @@ class MultilingualTextIndex:
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum
-                        and not any(normalize_text(text, locale) in lookup
-                                    for locale, lookup in self._full_frame_veto.items())):
+                        and not any(self._vetoed(normalize_text(text, locale), locale)
+                                    for locale in self._veto_locales())):
                     result.append(hit)
             return result
 

@@ -163,6 +163,34 @@ def test_normal_adapter_prepares_updates_and_replays_its_original_snapshot_witho
         assets.extract_voice(None, forged, executable, online.root / 'unused')
 
 
+def test_player_update_keeps_each_historical_branch_without_reusing_the_new_male_recording(online, monkeypatch):
+    from backend.tests.test_nte_cinematics import synthetic_switch
+    source = online.root / 'owned-switch.bnk'
+    synthetic_switch(source, event_name='Play_Vo_Line', language='English')
+    def original(payload):
+        return b'RIFF' + (len(payload) + 4).to_bytes(4, 'little') + b'WAVE' + payload
+    for generation, resources in enumerate(online.originals.values(), 1):
+        bank_path = next(name for name in resources if name.endswith('.bnk'))
+        resources[bank_path] = source.read_bytes()
+        resources[online.media] = original(b'owned unchanged female')
+        resources[online.media.replace('/123.wem', '/456.wem')] = original(b'owned male revision ' + bytes([generation]))
+    first = assets.index_language(None, online.root, 'en', ['fr'])
+    online.current[0] = list(online.states)[1]
+    second = assets.index_language(None, online.root, 'en', ['fr'])
+    assert {r['player_voice'] for r in first['records']} == {'female', 'male'}
+    assert {r['player_voice'] for r in second['records']} == {'female', 'male'}
+    assert first['fingerprint'] != second['fingerprint']
+    assert all(r['texts']['fr'] == 'Authored translation.' for r in first['records'])
+    assert all(r['source_text'] == 'Source revision 2.' and 'fr' not in r['texts'] for r in second['records'])
+    monkeypatch.setattr(publisher, '_discovery', lambda *_: pytest.fail('Historical playback used current discovery'))
+    executable = online.tools / 'NteReader.dll'
+    recordings = [{r['player_voice']: assets.extract_voice(None, r['audio'], executable, online.root / 'unused')
+                   for r in payload['records']} for payload in [first, second]]
+    assert recordings[0]['female'] == recordings[1]['female']
+    assert recordings[0]['male'] != recordings[1]['male']
+    assert recordings[0]['female'] != recordings[0]['male']
+
+
 def test_mid_preparation_revision_change_never_returns_an_activatable_partial_index(online):
     previous = assets.index_language(None, online.root, 'en', [])
     online.flip[0] = True

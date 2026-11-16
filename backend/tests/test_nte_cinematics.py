@@ -8,24 +8,24 @@ from backend.nte_assets import wwise_hash
 from backend.pragmata_audio import read_bank_play_layers
 
 
-def synthetic_switch(path, group='Sex_Switch', continuous=False, fade=False):
+def synthetic_switch(path, group='Sex_Switch', continuous=False, fade=False, *, event_name='Play_Vo_CG_Synthetic', language='Chinese', gain=-6):
     def sound(oid, media):
         source = struct.pack('<IIBIIIB', oid, 262145, 2, media, 987, 100, 1)
         # Empty effects/metadata, bus/parent, flags, properties/ranges.
         return source + bytes(4) + struct.pack('<IIB', 0, 30, 0) + bytes(2)
     node = struct.pack('<I', 30) + bytes(4) + struct.pack('<IIB', 0, 0, 0)
-    node += b'\x01\x00' + struct.pack('<f', -6) + bytes(1)
+    node += b'\x01\x00' + struct.pack('<f', gain) + bytes(1)
     node += bytes(6) + b'\x00\x01' + bytes(8)
     node += struct.pack('<BIIB', 0, wwise_hash(group), wwise_hash('female'), int(continuous))
     node += struct.pack('<3I', 2, 10, 11) + struct.pack('<I', 2)
     node += struct.pack('<3I', wwise_hash('female'), 1, 10) + struct.pack('<3I', wwise_hash('male'), 1, 11)
     node += struct.pack('<I', 2)
     node += struct.pack('<IBii', 10, 0, int(fade), 0) + struct.pack('<IBii', 11, 0, 0, 0)
-    event = wwise_hash('Play_Vo_CG_Synthetic')
+    event = wwise_hash(event_name)
     objects = [(2, sound(10, 123)), (2, sound(11, 456)), (6, node),
                (3, struct.pack('<IHI', 20, 0x0403, 30)), (4, struct.pack('<IBI', event, 1, 20))]
     hirc = struct.pack('<I', len(objects)) + b''.join(struct.pack('<BI', kind, len(data)) + data for kind, data in objects)
-    header = struct.pack('<3I', 154, event, wwise_hash('Chinese'))
+    header = struct.pack('<3I', 154, event, wwise_hash(language))
     path.write_bytes(b'BKHD' + struct.pack('<I', len(header)) + header + b'HIRC' + struct.pack('<I', len(hirc)) + hirc)
     return event
 
