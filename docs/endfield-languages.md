@@ -43,6 +43,8 @@ operator-training steps also use the unvoiced-text option. Their text is read
 across the full game frame; a bottom subtitle crop is not required. Illustrative
 videos, images, headings and short skill labels are separate from these written
 bodies. A tutorial video is not offered as the voice of its accompanying text.
+Written Baker system notices use the same unvoiced option; voice-message cells
+keep their separate original-audio route.
 The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.

@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 22
+LANGUAGE_INDEX_VERSION = 23
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -546,8 +546,11 @@ def narrative_dialogues(catalog, warnings):
             content_type = row.get('contentType')
             if type(content_type) is not int:
                 _unsupported()
-            if content_type == 1:
-                add(f'SNSDialogTable:{identity}:{number}', row.get('content'), 'message', 'dialogue')
+            if content_type in (1, 7):
+                # Native SNSDialogContentType.System=7 uses the separate
+                # SNSContentSystemMsg written-content widget, not voice/media.
+                add(f'SNSDialogTable:{identity}:{number}', row.get('content'),
+                    'message_system' if content_type == 7 else 'message', 'dialogue')
             elif content_type == 5:
                 parameters = row.get('contentParam')
                 if not isinstance(parameters, list) or not all(isinstance(value, str) for value in parameters):

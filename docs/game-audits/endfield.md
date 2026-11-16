@@ -32,6 +32,13 @@ live 1.6.4 preparation with the same revision-22 reader retains every old ID and
 adds 113 written bodies, with six older explanations changed. Baseline discovery
 is explicitly replayed. See the [written-body inventory and limits](endfield-current-subtitle-acceptance.md#written-instructions-and-tutorials).
 
+Revision 23 also retains all 117 current written Baker system-message bodies.
+Original native enum/default data and the separate `SNSContentSystemMsg` widget
+establish this presentation; a nonempty text reference in an image/video cell
+does not establish a displayed body. Both this written message category and
+ordinary text use unvoiced capture, separately from the existing voice-message
+route. [Original-source boundary and current preparation](endfield-current-subtitle-acceptance.md#written-baker-system-messages).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

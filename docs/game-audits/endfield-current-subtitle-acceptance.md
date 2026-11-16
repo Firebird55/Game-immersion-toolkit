@@ -228,6 +228,41 @@ image-only text, input-glyph rendering and every physical layout remain separate
 acceptance work. No tutorial audio or story-wide completeness is inferred from
 the count of written bodies.
 
+## Written Baker system messages
+
+Revision 23 follows the native `SNSDialogContentType.System` presentation,
+separately from ordinary text, voice, image and video cells. The selected
+original Windows client's metadata defines **System = 7**; the same field/default
+inventory independently reproduces the existing Text = 1 and Voice = 5 controls.
+The current MD5-checked `SNSContentSystemMsg` Lua widget renders the cell's
+`content` as written text. This source was decoded as data, never executed.
+An original text reference in an image cell is not enough to call it a displayed
+caption; those other media widgets retain their own rendering rules.
+
+All **117 current authored system-message bodies** are now prepared in every
+study selection under the existing unvoiced capture option. They retain their
+official localized text, have no sentence-audio reference and do not borrow the
+cell's parameter or a background voice. The normal publisher workers prepare
+55,086 English, 56,345 Simplified Chinese, 55,067 Traditional Chinese, 55,177
+Japanese and 55,065 Korean records. Every prior revision-22 record remains
+unchanged, including its recognition anchors and original audio state.
+
+Fresh network-forbidden complete-index matching resolves 102 of the 117 English
+bodies, 104 in each Chinese script, 110 Japanese and 104 Korean. These counts
+include aliases only when all official texts and the unvoiced state agree. The
+[remaining standalone system-message cases](endfield-system-message-capture-guards-1.6.4.csv)
+remain guarded; indexing the native text is not a full capture pass. The shared
+minimum-text and ambiguity rules were not weakened for short system labels.
+
+The same frozen revision-23 reader prepares 49,550 English records from the
+explicitly replayed original 1.5.3 descriptor and 55,086 from live 1.6.4. All old
+IDs remain. The 5,536 additions include 3,156 voiced rows and 118 written bodies
+(113 tutorials/instructions and five system messages). The six written-text
+changes above are retained. Previously verified recordings keep their exact
+source references; this text-only extension does not claim a new audio/device
+acceptance run. Runtime-generated notices, actor-name substitution, unsupported
+media contents and the remaining presentation/capture guards stay explicit.
+
 ## Text provenance and remaining acceptance
 
 Reader revisions 19–20 mark text from the original conversation, radio, narration
