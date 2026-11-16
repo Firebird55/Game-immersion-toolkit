@@ -13,6 +13,7 @@ from Crypto.Cipher import AES
 
 from .preparation_errors import PreparationFailure
 from .publisher_http import download
+from .game_tools import _atomic_file
 
 REPOSITORY = 'luk-gg/UnrealExporter'
 SOURCE_PATH = 'UnrealExporter/aes.txt'
@@ -68,22 +69,32 @@ class Catalog:
         return found[0]
 
 
-def load(*, fetch=None):
+def load(*, fetch=None, revision=None, digest=None, cache=None):
     fetch = fetch or download
+    historical = revision is not None or digest is not None
+    if historical:
+        check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision) and
+              isinstance(digest, str) and re.fullmatch('[0-9a-f]{64}', digest))
     fallback = False
+    if not historical:
+        try:
+            url = f'https://api.github.com/repos/{REPOSITORY}/commits?path={SOURCE_PATH}&per_page=1'
+            rows = json.loads(fetch(url, LIMIT))
+            check(isinstance(rows, list) and len(rows) == 1)
+            revision = rows[0]['sha']
+            check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
+        except (OSError, ValueError, KeyError, TypeError, IndexError, PreparationFailure):
+            # An API outage can use the independently checked immutable reference.
+            # Its values still have to prove themselves against the chosen archive.
+            revision, fallback = FALLBACK_REVISION, True
     try:
-        url = f'https://api.github.com/repos/{REPOSITORY}/commits?path={SOURCE_PATH}&per_page=1'
-        rows = json.loads(fetch(url, LIMIT))
-        check(isinstance(rows, list) and len(rows) == 1)
-        revision = rows[0]['sha']
-        check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
-    except (OSError, ValueError, KeyError, TypeError, IndexError, PreparationFailure):
-        # An API outage can use the independently checked immutable reference.
-        # Its values still have to prove themselves against the chosen archive.
-        revision, fallback = FALLBACK_REVISION, True
-    try:
-        raw = fetch(f'https://raw.githubusercontent.com/{REPOSITORY}/{revision}/{SOURCE_PATH}', LIMIT)
+        path = cache / f'{revision}-{digest}.txt' if historical and cache is not None else None
+        raw = path.read_bytes() if path is not None and path.is_file() and path.stat().st_size <= LIMIT else b''
+        if not raw or hashlib.sha256(raw).hexdigest() != digest:
+            raw = fetch(f'https://raw.githubusercontent.com/{REPOSITORY}/{revision}/{SOURCE_PATH}', LIMIT)
         check(isinstance(raw, bytes) and 0 < len(raw) <= LIMIT)
+        actual_digest = hashlib.sha256(raw).hexdigest()
+        check(digest is None or actual_digest == digest)
         text = raw.decode('utf-8-sig')
         pairs = re.findall(r'^Neverness to Everness \((chinese|global)\)[ \t]+(0x[0-9a-fA-F]{64})[ \t]*$',
                            text.replace('\r\n', '\n'), re.M)
@@ -93,11 +104,13 @@ def load(*, fetch=None):
             check(region not in parameters)
             parameters[region] = value.lower()
         check(parameters)
+        if cache is not None:
+            _atomic_file(cache / f'{revision}-{actual_digest}.txt', raw)
     except (OSError, ValueError, TypeError) as error:
         raise PreparationFailure('game_metadata_unavailable',
             'The NTE archive format source is unavailable or incompatible. '
             'Retry preparation; existing prepared data is retained.') from error
-    return Catalog(revision, hashlib.sha256(raw).hexdigest(), parameters, fallback)
+    return Catalog(revision, actual_digest, parameters, fallback)
 
 
 def for_install(install, catalog):

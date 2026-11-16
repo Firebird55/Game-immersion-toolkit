@@ -89,11 +89,42 @@ original WEM decoded to nonzero PCM with the prepared voice decoder.
 | English | 529528553 | 22,148 | 1.864989 s | `df9fea4eb39d2227cd77726255b5fd2192c30905ca1f484dd5a4eef84ed588ee` |
 | Korean | 523829702 | 23,066 | 1.821338 s | `320071d81087d3361194c6c37e03f7fd253cc17c5038ab1adc30fceee9229e0c` |
 
-These are installation-free source probes, separate from normal Setup.
-The owned publisher archive reader, immutable historical parameter lookup,
-complete locale/patch selection and normal voice-service integration still
-need implementation. Full dialogue aliases, sequence/movie bindings,
-rolling updates and platform acceptance remain open.
+These initial source probes are separate from normal Setup. The owned reader
+and historical metadata lookup are now implemented below. Complete locale/patch
+selection and normal voice-service integration still need implementation.
+Full dialogue aliases, sequence/movie bindings, rolling updates and platform
+acceptance remain open.
+
+### Owned selective archive reader
+
+`backend/nte_publisher_pak.py` now reads publisher archives without a game
+installation. It checks the complete companion file against the manifest MD5,
+validates every selected or cached 64 KiB PAK block, and verifies decrypted
+primary/directory index SHA-1 values. Missing contiguous blocks are coalesced
+into requests of at most 4 MiB. A damaged cached block is fetched again; a
+partly invalid response does not activate its other chunks. No independent
+RSA-signature verification or whole-large-PAK checksum is claimed.
+
+The reader uses encoded entry locations, handles compressed and encrypted
+members and nonencoded entries, and retains explicit deletion records. An
+invalid location listed by a patch is a deletion: it cannot fall through to
+an older recording. The overlay helper requires evidenced mount priority
+from its caller; it does not guess precedence from PAK filenames.
+[Engine deletion semantics](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/PakFile/FPakFile/GetPakEntry/2?application_version=5.5)
+
+Archive metadata can also be reopened by its exact source commit and SHA-256,
+including from a checksum-verified private cache without a network connection.
+It never substitutes the latest parameters for an explicitly historical source.
+Synthetic checks exercise corruption, bounds, case ambiguity, regional mismatch,
+single/multiple compression blocks, AES padding and deletion versus historical
+retrieval. Original regional parameters and game assets are not bundled.
+
+The owned reader retrieved the four Global sample banks and recordings listed
+above. Their bytes match the independently checked originals, all four decoded,
+and recreating the archive and metadata readers with network access prohibited
+retrieved identical cached bytes. This validates the archive acquisition layer;
+ordinary Setup, complete text/authoring extraction and update activation remain
+open in #88. The public support matrix is unchanged.
 
 ### The five Global HPW resources are video files
 
