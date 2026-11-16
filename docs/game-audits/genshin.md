@@ -12,22 +12,47 @@ still owns package authentication, native metadata/bootstrap, method ownership,
 shard discovery and regional identity. A hash identifies an input; it does not
 authenticate the publisher.
 
-The original Global 7.2 design index identifies all 1,024 text shards for each of
-15 official text locales. The native manager selects the low ten hash bits,
-iterates 1,024 shards and chooses the Medium prefix through bucket 511 and the
-ordinary prefix thereafter. The complete English preparation read 33 official
-packages (64,425,132 bytes), with every publisher MD5 verified, and decoded
-619,152 ordinary plus 235,449 Medium entries. Every shard passed strict EOF,
-UTF-8, bucket, duplicate and alias-reference checks. Only after the original
-parse, comparison with the frozen matching extraction found all 854,601 entries
-identical. These localization totals are not a story-coverage denominator.
+All 15 official text locales were actually read from the original 7.2 design
+packages using the frozen utility: 15,360 shards, 495 packages and 12,779,262
+localization entries. Every package passed its publisher size and whole-file
+MD5 check (1,113,675,679 bytes total; largest file 32,447,783 bytes). Independently
+fetched Global and mainland China design indexes advertised the same identities
+for all 495 selected packages; regional identity was checked, not inferred from
+the version number. Every shard passed strict EOF, UTF-8, native bucket,
+duplicate and alias-reference checks. The native manager selects the low ten
+hash bits, iterates 1,024 shards per locale and chooses the Medium prefix through
+bucket 511 and the ordinary prefix thereafter.
+
+| Locale | Ordinary entries | Medium entries |
+| --- | ---: | ---: |
+| CHS | 640,563 | 245,654 |
+| CHT | 619,307 | 235,596 |
+| DE | 618,847 | 235,238 |
+| EN | 619,152 | 235,449 |
+| ES | 619,024 | 235,473 |
+| FR | 619,168 | 235,469 |
+| ID | 618,732 | 235,088 |
+| JP | 618,974 | 235,507 |
+| KR | 619,154 | 235,507 |
+| PT | 618,863 | 235,387 |
+| RU | 619,109 | 235,601 |
+| TH | 619,094 | 235,486 |
+| IT | 584,785 | 234,866 |
+| TR | 584,780 | 234,859 |
+| VI | 619,063 | 235,467 |
+
+These localization totals are not a story-coverage denominator. Only after all
+original parsing completed, comparison with the already frozen matching English
+and Japanese extractions found every ID and value identical. No new control
+tables were downloaded; the other 13 locales have original-format validation,
+without a claim of separate mirror comparison.
 
 Both original native reader methods independently yielded the same parameters.
-A fresh offline process reread all 1,024 shards with network access, the older
-fixed-parameter parser, mirror rows and precomputed parameter values forbidden.
-It made no prohibited access and produced byte-identical outputs with unchanged
-software and helper hashes. This is current-generation parsing evidence, not
-the two-generation normal-update acceptance trial.
+The all-locale parsing process prohibited network access, the older fixed-
+parameter parser, mirror rows and precomputed parameter values. It made no
+prohibited access, retained identical software/helper hashes and reproduced the
+earlier English output hashes. This is current-generation parsing evidence,
+not the two-generation normal-update acceptance trial.
 
 The utility merges complete shard sets, resolves bounded aliases, rejects
 ambiguous/malformed input and atomically publishes a separate text cache only
@@ -38,12 +63,13 @@ No real texts, native bytes or game parameters are included in those fixtures.
 
 Normal Setup still uses its matching text extraction. This utility does not
 activate a language, invent a Talk/voice join or change capture eligibility.
-Original Talk/Voice/Excel linkage, all-locale parsing, automatic native bootstrap
+Original Talk/Voice/Excel linkage, automatic native bootstrap
 and method discovery, and normal-worker update/recovery acceptance remain open.
 The original `Config_TextMap` object itself was decoded completely, but its
 cache/partition settings do not resolve those remaining binding questions.
 
 [Original Global design index](https://autopatchhk.yuanshen.com/client_design_data/7.2_live/output_49419538_604495f667/client/General/AssetBundles/data_versions)
+· [Independently checked mainland design index](https://autopatchcn.yuanshen.com/client_design_data/7.2_live/output_49419538_604495f667/client/General/AssetBundles/data_versions)
 · [Frozen matching extraction used only after parsing](https://gitlab.com/Dimbreath/animegamedata2/-/tree/a311cd77d7dafbd2bedc7d3cac4e986c6125b586)
 · [Owned format tests](../../backend/tests/test_genshin_original_textmap.py)
 
