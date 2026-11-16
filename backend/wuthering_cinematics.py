@@ -55,8 +55,11 @@ def source_info(wem, decoder, directory):
                                    capture_output=True, timeout=45,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             return _source_format(json.loads(probe.stdout))
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return None
+    except (OSError, subprocess.SubprocessError, ValueError) as error:
+        from .preparation_errors import PreparationFailure
+        raise PreparationFailure('audio_probe_failed',
+            'The original Wuthering audio could not be inspected. Check the decoder and toolkit cache location, '
+            'then retry preparation. An incomplete candidate will not replace the previous table.') from error
 
 
 def decode_window(wem, decoder, directory, start_ms, end_ms):

@@ -5,7 +5,7 @@ import hashlib
 import json
 from .lexirise import API_BASE, LexiriseService, LexiriseError
 
-STUDY_LANGUAGES = frozenset("zh yue nan ja ko en es fr de it pt ru id ar hi ta th vi tr nl pl cs ro hu sv no da fi la grc lzh".split())
+from .language_contracts import STUDY_LANGUAGES
 GLOBAL_FIELDS = frozenset("translationLanguage interfaceLanguage disableWordPopups wordPopupOpenMode useCustomProficiencyColors customProficiencyColors".split())
 LANGUAGE_FIELDS = frozenset("readingAid readingAboveWords script inlineGlossMode coloringMode toneColorPreset customToneColors colorKnownWordsToo emphasizeFrequencyLevel wordSpacing ttsOnWordClick automaticGrammarHighlighting highlightProperNouns customFont fontSize segmentByCharacter dictionariesEnabled dictionaries wordPopup".split())
 

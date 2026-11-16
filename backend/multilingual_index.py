@@ -244,6 +244,36 @@ class MultilingualTextIndex:
     def _veto_locales(self):
         return {locale for table in self._frame_vetoes() for locale in table}
 
+    def equivalent_caption_occurrence(self, first, second):
+        """Compare complete current source rows, never only displayed fields.
+
+        Authored ordering may distinguish two otherwise identical occurrences.
+        Unknown/missing audio has no shared None performance identity.
+        """
+        if (first.kind != 'exact' or second.kind != 'exact'
+                or first.voice_status not in {'voiced', 'unvoiced'}
+                or first.voice_status != second.voice_status
+                or first.source_text != second.source_text
+                or first.source_locale != self.source_locale or second.source_locale != self.source_locale):
+            return False
+        with self.lock:
+            key = normalize_text(first.source_text or '', self.source_locale)
+            candidates = [*self._lookup.get(self.source_locale, {}).get(key, ()),
+                          *self._unvoiced_lookup.get(self.source_locale, {}).get(key, ())]
+            identities = {first.text_id, second.text_id}
+            found = {identity: [] for identity in identities}
+            for row in candidates:
+                identity = row['text_id']
+                if identity in found and (not row.get('player_voice') or row['player_voice'] == self.player_voice):
+                    if row not in found[identity]:
+                        found[identity].append(row)
+            if any(len(rows) != 1 for rows in found.values()):
+                return False
+            def content(identity):
+                return {name: value for name, value in found[identity][0].items()
+                        if name not in {'text_id', 'previous_text_id', 'requires_previous'}}
+            return content(first.text_id) == content(second.text_id)
+
     def mission_anchor_ids(self, text):
         """A short observed caption can narrow the next line without exporting this take."""
         with self.lock:
@@ -432,13 +462,19 @@ class MultilingualTextIndex:
         """
         from .steam_games import STEAM_GAMES
         spec = STEAM_GAMES.get(self.game)
-        if self.game != 'endfield' and (not spec or not spec.floating_dialogue):
+        songs = self.game == 'wuwa' and self.snapshot_metadata.get(
+            'publisher_song_voices', self.snapshot_metadata.get('publisher_song_cues', 0))
+        if self.game != 'endfield' and not songs and (not spec or not spec.floating_dialogue):
             return []
         with self.lock:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
             result = []
             for hit in hits:
-                if self.game == 'endfield' and not hit.text_id.startswith('endfield:film:'):
+                if self.game == 'endfield':
+                    top = hit.dialogue_kind == 'conversation' and 'cinematic' in self._capture_channels.get(hit.text_id, ())
+                    if not hit.text_id.startswith('endfield:film:') and not top:
+                        continue
+                if self.game == 'wuwa' and (not hit.text_id.startswith('wuwa:music:') or hit.dialogue_kind != 'music_subtitle'):
                     continue
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12

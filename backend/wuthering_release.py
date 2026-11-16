@@ -387,8 +387,9 @@ def _table(tools, info, position, name, params):
 
 def _read_tables(tools, snapshot, params, locales, destination):
     from . import wuthering_assets as assets
+    from .wuthering_music import TABLE as music_table
     root = 'Client/Content/Aki/ConfigDB/'
-    names = {'db_plot_audio.db', *assets.NARRATIVE_TABLES}
+    names = {'db_plot_audio.db', music_table, *assets.NARRATIVE_TABLES}
     for locale in locales:
         code = assets.TEXT_LOCALES[locale]
         names.update((code + '/lang_multi_text.db', code + '/lang_multi_text_1sthalf.db'))
@@ -451,7 +452,7 @@ def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, loc
             if depot != current_depot:
                 current_depot = depot
                 info, pos = mapped[depot]
-                data = _voice_package(tools, stamp, info).extract(pos)
+                data = _source_bytes(tools, stamp, depot, (info, pos))
                 _validate_wem(data)
                 decoded = films.samples(data, decoder, directory)
             if decoded is None:
@@ -459,7 +460,7 @@ def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, loc
             performances = []
             for source in references:
                 info, pos = voices[source]
-                data = _voice_package(tools, stamp, info).extract(pos)
+                data = _source_bytes(tools, stamp, source, (info, pos))
                 _validate_wem(data)
                 performances.append(films.samples(data, decoder, directory))
             span = films.interval(decoded, performances, anchor)
@@ -494,7 +495,7 @@ def _movie_context_records(tools, snapshot, stamp, params, db_root, records, loc
             media = names[name]
             if media not in wanted:
                 continue
-            data = _voice_package(tools, stamp, info).extract(position)
+            data = _source_bytes(tools, stamp, name, (info, position))
             _validate_wem(data)
             shape = films.source_info(data, decoder, Path(temporary))
             if shape:
@@ -510,10 +511,49 @@ def _same_launcher(snapshot, current):
             and urlsplit(snapshot['root']).path == urlsplit(root).path)
 
 
+def _shared_locations(tools, snapshot, params, names):
+    remaining, result = set(names), {}
+    for layer in ('PatchFiles', 'BaseFiles', 'launcher'):
+        if not remaining:
+            break
+        matches = _locations(tools, _packages(snapshot, 'resource', layer), params, wanted=remaining)
+        result.update(matches)
+        remaining.difference_update(matches)  # Tombstones must mask older sources.
+    return {name: reference for name, reference in result.items() if reference[1] >= 0}
+
+
+def _music_records(tools, snapshot, stamp, params, db_root, locale, targets, decoder):
+    from . import wuthering_music as music, wuthering_bank as bank, wuthering_cinematics as films
+    events = {event for values in music.callers(db_root).values() for event in values} if (db_root / music.TABLE).is_file() else set()
+    names = {films.EVENT_ROOT + event + '.bnk': event for event in events}
+    references = _shared_locations(tools, snapshot, params, names) if decoder else {}
+    banks = {names[name]: _voice_package(tools, stamp, info).extract(position)
+             for name, (info, position) in references.items()}
+    candidates = {media for data in banks.values() for media in bank.media_candidates(data)}
+    names = {f'{films.MEDIA_ROOT}{media}.wem': media for media in candidates}
+    references = _shared_locations(tools, snapshot, params, names) if names else {}
+    members = {names[name] for name in references}
+    sources = {event: bank.song_sources(data, event, members) for event, data in banks.items()}
+    wanted = {source.media_id for values in sources.values() for source in values if not source.authored_mute}
+    shapes = {}
+    with tempfile.TemporaryDirectory(dir=db_root) as temporary:
+        for name, (info, position) in references.items():
+            media = names[name]
+            if media in wanted:
+                data = _source_bytes(tools, stamp, name, (info, position))
+                _validate_wem(data)
+                shape = films.source_info(data, decoder, Path(temporary))
+                if shape:
+                    shapes[media] = shape
+    return music.records(db_root, locale, targets, sources, shapes)
+
+
 def build_language(tools, source_locale, targets, progress=lambda _message: None, *, decoder=None):
     from . import wuthering_assets as assets
     from .languages import resolve_locale
-    tools = Path(tools)
+    # Native decoders still observe Windows path limits. Resolve a cache alias
+    # before adding the release and nested private work directories.
+    tools = Path(tools).resolve()
     if source_locale not in assets.SUPPORTED_LOCALES:
         raise ValueError('Unsupported Wuthering study/audio locale.')
     from .publisher_regions import selected_region
@@ -524,7 +564,9 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     progress('Reading the publisher’s current Wuthering story and translation tables')
     with tempfile.TemporaryDirectory(dir=_descriptor_path(tools, stamp).parent) as folder:
         path = Path(folder)
-        _read_tables(tools, snapshot, params, {source_locale, *selected}, path)
+        # Song vocal language is independent of the selected UI/voice pack.
+        # Read the actual KeepOrigin/original relation across the voiced locales.
+        _read_tables(tools, snapshot, params, {*assets.SUPPORTED_LOCALES, *selected}, path)
         pak.check((path / assets.TEXT_LOCALES[source_locale] / 'lang_multi_text.db').is_file())
         selected = {locale for locale in selected if (path / assets.TEXT_LOCALES[locale] / 'lang_multi_text.db').is_file()}
         progress('Matching authored voice paths against the selected publisher dub')
@@ -532,6 +574,7 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         records = assets.build_language_records(path, files, source_locale, selected)
         _movie_records(tools, snapshot, stamp, params, path, records, files, source_locale, decoder)
         _movie_context_records(tools, snapshot, stamp, params, path, records, source_locale, decoder)
+        records.extend(_music_records(tools, snapshot, stamp, params, path, source_locale, selected, decoder))
     pak.check(records)
     for record in records:
         if record['audio']:
@@ -544,8 +587,39 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     missing = [target for target, locale in resolved.items() if locale not in available]
     return {'format': 2, 'game': 'wuwa', 'install': None, 'source_mode': 'publisher', 'source_region': region, 'fingerprint': stamp,
             'source_locale': source_locale, 'records': records, 'missing_translation_locales': missing,
+            'publisher_song_cues': sum(row.get('dialogue_kind') == 'music_subtitle' and bool(row.get('text_capture_verified')) for row in records),
+            'publisher_song_voices': sum(row.get('dialogue_kind') == 'music_subtitle' and bool(row.get('audio')) for row in records),
             'coverage_warnings': assets.COVERAGE_WARNINGS,
             'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices'}
+
+
+def _source_bytes(tools, stamp, depot, reference=None):
+    """Reuse an exact original source during preparation and later playback.
+
+    A manifest-owned reference authenticates every new transfer. Snapshot and
+    full depot path bind cached bytes, keeping retained older recordings usable
+    without consulting the newest publisher inventory.
+    """
+    tools = Path(tools)
+    directory = _descriptor_path(tools, stamp).parent / 'clips'
+    key = hashlib.sha256(depot.encode()).hexdigest()
+    binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
+    path = directory / key
+    if path.is_file() and path.stat().st_size <= pak.MEMBER_LIMIT + 32:
+        cached = path.read_bytes()
+        if len(cached) > 32 and hashlib.sha256(binding + cached[32:]).digest() == cached[:32]:
+            try:
+                _validate_wem(cached[32:])
+                return cached[32:]
+            except ValueError:
+                pass
+    if reference is None:
+        return None
+    info, position = reference
+    data = _voice_package(tools, stamp, info).extract(position)
+    _validate_wem(data)
+    _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
+    return data
 
 
 def extract(tools, audio, locale=None):
@@ -555,26 +629,19 @@ def extract(tools, audio, locale=None):
     pak.check(locale is None or audio_locale(locale) == audio.get('locale'))
     code = assets.VOICE_LOCALES[audio['locale']][0]
     stamp, tools = audio['publisher'], Path(tools)
-    directory = _descriptor_path(tools, stamp).parent / 'clips'
     _snapshot(tools, stamp)
-    key = hashlib.sha256(depot.encode()).hexdigest()
-    binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
-    path = directory / key
-    if path.is_file() and path.stat().st_size <= pak.MEMBER_LIMIT + 32:
-        cached = path.read_bytes()
-        if len(cached) > 32 and hashlib.sha256(binding + cached[32:]).digest() == cached[:32]:
-            return cached[32:]
+    cached = _source_bytes(tools, stamp, depot)
+    if cached is not None:
+        return cached
     if depot.startswith(assets.EXTERNAL_ROOT):
         reference = _voice_locations(tools, stamp, code).get(depot)
+    elif audio.get('music_context') is True:
+        reference = _shared_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp), {depot}).get(depot)
     else:
         reference = _movie_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp), code, {depot}).get(depot)
     if reference is None:
         raise ValueError('The released dub does not contain this exact original voice.')
-    info, position = reference
-    data = _voice_package(tools, stamp, info).extract(position)
-    _validate_wem(data)
-    _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
-    return data
+    return _source_bytes(tools, stamp, depot, reference)
 
 
 def _validate_wem(data):

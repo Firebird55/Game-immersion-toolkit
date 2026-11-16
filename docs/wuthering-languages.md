@@ -28,9 +28,18 @@ sentence cut. Existing individual recordings stay unchanged. Choose Rover voice
 for scenes with separate female and male performances; unconfigured selection
 does not choose a default branch.
 
+Publisher preparation also supports verified shared-song subtitles. Their
+complete original English or Mandarin recording is labeled as a context clip;
+choosing Japanese or Korean voices does not create a sung translation. Official
+translated lyrics remain text with unavailable audio in study languages without
+that vocal. The separate missing-audio capture option can retain those complete
+captions; confirmed-unvoiced capture stays separate. Song labels above the
+ordinary subtitle area use exact full-frame recognition, with authored previous
+captions helping distinguish short successors. [Music subtitle evidence and limits](game-audits/wuwa-music-subtitles.md)
+
 Film display clocks also retain captions beyond five minutes. Their display
 times alone do not make an original recording available. Longer scenes,
-unsupported surround sources, complex event graphs and MusicSubtitle groups
+unsupported surround sources, complex event graphs and remaining MusicSubtitle groups
 still need verified bindings. Missing audio never becomes certified silence.
 
 The translation target follows that learning language's effective Lexirise

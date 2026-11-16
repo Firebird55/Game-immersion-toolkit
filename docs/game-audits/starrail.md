@@ -54,14 +54,25 @@ no per-version address or tag list in that diagnostic.
 | Lua | 2 | 7 |
 | Base asset bundles | 1,335 | 1,379 |
 
-The same frozen extractor handles both generations' changed tags. For 4.7 it
-uses the already whole-file-verified original native client. For 4.6, targeted
-method windows are read from the original launcher file with expected MD5
-`d33cb7b0781287362e7f3d8571b520aa`; the relevant Sophon chunks are MD5-verified.
-That 543,701,808-byte DLL was **not** downloaded or verified as a whole.
-The old original-derived metadata dump is a retained frozen input, not a claim
-that the complete old metadata-helper preparation was rerun from publisher
-downloads. These limits remain separate from the positive changed-tag result.
+The same frozen extractor handles both generations' changed tags. The initial
+4.6 diagnostic used authenticated Sophon chunks, which did not establish whole
+file integrity. A subsequent bounded acquisition completed all three original
+4.6 files from manifest MD5 `65fc23eec5dce74324cada65dc595341` and verified
+their complete sizes and MD5 values:
+
+| Original 4.6 input | Bytes | Whole MD5 |
+| --- | ---: | --- |
+| GameAssembly.dll | 543,701,808 | `d33cb7b0781287362e7f3d8571b520aa` |
+| global-metadata.dat | 102,982,324 | `c255e9fee5d03234847feb4b38cfd4c3` |
+| startup-metadata.dat | 4,091,208 | `16ebd221c3040a97210086ede71ab464` |
+
+The frozen GPL metadata reader then regenerated both outputs from these complete
+publisher inputs, reproducing the retained original-derived output byte for
+byte. The fresh 182,828,387-byte dump has SHA-256
+`990529a865cdb848b18ed253df5448ada0059916660396ec6bd2e0877d2424a8`;
+the 12,024,282-byte literal output has SHA-256
+`c6af79ee5c6fdcfe91f44586561a825822da342f6cdefbb1f276d6c6141824be`.
+The same source/entrypoint also regenerated complete 4.7 inputs exactly.
 
 Using the current original bootstrap and derived fields, the standalone API
 obtains four Global regions, follows the publisher's default gateway and
@@ -93,8 +104,7 @@ The same frozen owned API derives all nine fields for 4.6 and 4.7, despite their
 different native offsets and parser bodies. Both original files consume exactly
 201 bytes and yield the same canonical decoded-value SHA-256
 `9e904d4efe0c9bde40b083d82fe0f0a3921669906f4d2dd1bd03babb0e131536`.
-This replay downloads no new native bytes and retains the whole-file versus
-Sophon-chunk integrity distinction above. Synthetic evidence covers relocated
+This description replay downloads no new native bytes. Synthetic evidence covers relocated
 fields, new scalar fields, conflicting primitive owners, incomplete stores,
 malformed bounds, missing array evidence and clobbered scalar returns.
 
@@ -161,11 +171,10 @@ The standalone `starrail_original_tables.OriginalTables` reader now reads native
 `TalkSentenceConfig`, `VoiceConfig` and full/startup `Textmap` resources directly
 from official DesignV packages. Its `file(relative)`, `table(name)` and
 `textmap(code)` interfaces do not access a text mirror or require a game folder.
-**The production `ReleasedCatalog` has not switched to this reader.** Other
-catalog tables, production integration of independent hotfix discovery and
-automatic original-table description extraction remain work for #84; this
-prototype does not complete autonomous
-updates or current subtitle coverage.
+**The production `ReleasedCatalog` has not switched to this reader.** Production
+integration of independent discovery, metadata preparation and automatically
+generated complete catalog descriptions remains work for #84. This prototype
+does not complete autonomous updates or current subtitle coverage.
 
 The format descriptions were established from the original publisher client's
 native `FromBinary` methods and managed field metadata. They are serialization
@@ -176,6 +185,86 @@ unique identities and complete resource consumption are checked. New fields
 require a newly derived description; the reader accepts supplied descriptions,
 but does not yet derive them automatically. Unknown voice-type values remain
 numeric and are never promoted to `NoVoice`.
+
+The standalone reader also accepts a complete supplied `descriptions` mapping.
+Each table describes its ordered fields, optional single/composite identity,
+native hash-byte prefix and enum values. Explicit unkeyed descriptions preserve
+the original sequence; the reader does not guess an identity column. Supported
+array elements are unsigned integers, strings and finite little-endian floats,
+with signed zigzag array counts. Unknown description keys, unknown field kinds,
+noncanonical numbers, negative/oversized counts, malformed values, duplicate
+declared identities and trailing bytes are rejected. Unknown enum values retain
+their numeric value. A supplied generation replaces the default descriptions
+completely, so missing descriptions cannot mix an older table into preparation.
+
+The current original native probe derives filename-to-row bindings for all 21
+tables actually requested by the catalog, including nine obfuscated containers.
+It follows original filename literals into typed path arrays and their static
+fields, and uses typed row dictionaries rather than a class-name suffix or
+rename list. Static field representation is inferred across constructors.
+Original `FromBinary` bodies establish all 109 serialized field-bit positions.
+The native loader call establishes the additional one-byte hash prefix for
+ordinary tables; the three LRU tables use their direct counted row resource.
+Native shared helpers establish signed array lengths and enum serialization.
+
+The owned preparation adapter now regenerates the metadata from complete
+publisher inputs and derives these descriptions through the managed decoder.
+It does not consume retained research dumps, a Python disassembler or a newer
+third-party data snapshot. Managed identities distinguish duplicate display names
+and nested method/field scopes. Typed arrays must reach original global/member
+static storage; heap element stores and clobbered receivers cannot establish a
+filename binding. Each serialized field requires a masked, owned native read or
+field-address argument, with complete and unique bit positions. Inline text IDs
+require the recognized signed legacy-hash expression and the later unsigned
+current-hash read in the same field, rather than accepting arbitrary overwritten
+registers.
+
+Bootstrap derivation includes the native string-to-enum conversion for package
+type: original label/constant pairs, string argument flow and enum return flow
+must agree. Its bounded static branch graph handles the guarded compiler jump
+table without running native instructions. The complete current pipeline derives
+nine ClientConfig fields, 31 version-reader operations, the resource wire tags,
+21 filename/row bindings and all 109 serialized fields. Field order, prefix and
+enum descriptions agree with the independently validated original-resource
+descriptions. A descriptor generation is cached only after all required schemas
+pass; helper, input or derivation changes invalidate it. An incomplete attempt
+preserves the previous receipt and complete generations.
+
+Using those descriptions, this reader consumes all 21 original resources to EOF
+and matches 368,989 semantic rows against the frozen verification snapshot, with
+zero missing or extra rows. All resources come from the already whole-MD5-checked
+common package below; this adds no downloads. Float comparisons use float32
+values and treat positive/negative zero as the same JSON number; decoded values
+retain their sign. Enum descriptions and managed metadata are still supplied
+from the retained original-derived metadata output. This proves the table
+reader contract, not ordinary worker, restart or recovery acceptance.
+
+The separate [metadata helper](../../packaging/starrail-reader/README.md) now has
+a source-pinned build and compiler-free resource contract. Its metadata-only
+GPL entrypoint regenerates the needed dump without Mono.Cecil or dummy assembly
+export. Its pinned MIT managed decoder reproduces all nine ClientConfig fields
+through the unchanged owned description API for both versions, and the native
+string codec description for 4.7. Exact corresponding compiler source, build
+material and full licenses travel with the executable and are checked at
+runtime. Functional local builds used SDK 10.0.302; they are not pinned delivery
+acceptance. The shared builder requires SDK 10.0.403/runtime 10.0.14 and runs
+authored malformed-range/output-preservation probes. Ordinary provider
+integration and full update recovery remain unfinished. The
+complete current native-description preparation adapter is implemented; its
+ordinary two-version worker acceptance and pinned distributable still need their
+own checks. The GPL metadata decoder continues to use its frozen software
+profiles; the separately demonstrated owned native-key derivation is not yet a
+complete metadata-profile recovery fallback. A newer third-party game-data
+publication is not needed for this frozen software path.
+
+The complete current adapter also succeeds against the live public dispatch
+using its freshly generated description. All five resource index identities
+match the original 4.7 generation below. Passing its generated table descriptions
+directly to `OriginalTables` consumes all 21 original resources and 368,989 rows.
+An authenticated descriptor cache skips metadata indexing and disassembly on a
+repeat attempt. This is original route/table preparation evidence; it does not
+yet establish the ordinary setup worker, regional editions, playback or recovery
+acceptance for the new provider.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

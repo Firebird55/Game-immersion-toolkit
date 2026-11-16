@@ -61,10 +61,129 @@ Unicode/markup preservation, aliases across shards, duplicate/cyclic/missing
 references, truncation, input limits, interrupted publication and restart/retry.
 No real texts, native bytes or game parameters are included in those fixtures.
 
-Normal Setup still uses its matching text extraction. This utility does not
-activate a language, invent a Talk/voice join or change capture eligibility.
-Original Talk/Voice/Excel linkage, automatic native bootstrap
-and method discovery, and normal-worker update/recovery acceptance remain open.
+Following the actual native Talk manager's stream call identified a different
+root reader and its array, record and role readers. A private diagnostic then
+completely parsed two original Quest assets (514 and 197 bytes, with 11 and four
+records), with strict EOF/UTF-8 and root IDs equal to the official asset paths.
+The root reads its array before its ID; the first DWORD is an array length,
+which explains why treating that word as the Talk ID found no valid reader.
+The record's key accessor formats field +0x80 as a decimal string. All 15 decoded
+field values exist as keys in all 15 independently parsed original locale tables
+(225 matches); the accessor itself does not perform localization lookup.
+No mirror rows were used to derive or parse those records.
+
+## Explicit original Talk preparation API · November 16, 2026
+
+The [original dialogue reader](../../backend/genshin_original_dialogue.py)
+accepts typed read contracts from caller-proved original native owners. It
+supports bounded unsigned arithmetic, flag-selected fields, protected-value
+semantic inputs, UTF-8 strings, arrays and dictionaries. Exact EOF, duplicate
+keys, finite floats and cumulative input limits are checked. The contracts and
+their source/method digests are explicit inputs; this API does not automatically
+discover native methods or derive a complete contract. The repository contains
+synthetic contracts, never original native bytes, text or game parameters.
+
+The preparation API consumes the entire supplied authored Talk inventory and
+loads every referenced original Talk object. A native routing contract can
+construct a resource path from its proven prefix and exact typed inventory ID;
+unknown route values refuse preparation. Shared references load an object once.
+No dialogue-number prefix or guessed ordinal supplies a filename.
+Routes also support an original descriptor or a group of descriptors. Each
+descriptor retains its full UInt64 catalog identity, native payload kind and
+Talk ID. The asset loader must return that exact identity from a verified
+catalog of the same publisher generation. Shortened container names cannot
+replace full catalog/bundle ownership. Group root IDs and inventory membership
+are checked before activation; duplicate, unknown or absent members refuse the
+update. Catalog digests participate in the snapshot revision.
+It reads the original voice Lut,
+loads each referenced Items group and joins the exact original UUID hash,
+argument and trigger. Duplicate event keys, UUID hash collisions and missing
+original identities cannot select a different recording. Conditional source
+alternatives use the existing Traveler handling. An absent publisher recording
+is unavailable; a Talk node without an authored binding remains unknown. Neither
+case becomes confirmed unvoiced. The resulting cache uses the ordinary
+installation-free snapshot and voice-service format. Failed, truncated or
+interrupted updates retain the preceding cache, as does a changed publisher
+generation at activation.
+
+Completed original Talk captions retain positive text-capture provenance through
+rendering and index reload, including choices and rows with missing UUID/audio
+bindings. The separate missing-audio capture option can match their complete,
+exact, unambiguous caption while preserving its unknown/unavailable voice state.
+It is off by default. Unresolved source templates remain excluded, and generic
+TextMap/interface translations without authored Talk membership are not promoted.
+
+The actual product decoder, with private original-owned read operands, parsed
+all **7,449 current Lut-referenced Items groups**: 33,079,559 original bytes,
+154,113 Items records and 178,559 source alternatives. The original 154,113-row
+Lut, 10,627-row Inner object and both Talk samples also passed exact EOF/UTF-8.
+The native activation hashes each UUID to the VoiceID and combines the argument
+and trigger as `(argument << 32) | trigger`; the Dialog enum is 2. Exact UUID
+and argument joins succeeded for 154,111 Lut rows. Two original Dialog Lut
+entries point at groups without their expected UUID hash and remain unresolved.
+The Items field at offset +0x74 is an unrelated integer; the trigger comes from
+its original string field, not that integer. These are current-generation source
+checks, not a complete story inventory or an autonomous update acceptance run.
+
+For the two sampled Talks, 13 lines have exact original Lut/Items WEM paths.
+Two player-choice nodes retain unknown voice status. All four publisher dubs
+contain the 13 recordings and four additional entries from those same Items
+groups: **68 recordings, of which 52 belong to the sampled Talk lines**. Each
+passed ordinary voice-service decoding twice with networking prohibited and a
+new output directory on reopen. Decoded PCM was identical. The extra download
+used 55 size/MD5-verified Sophon chunks, 68,708,466 compressed bytes, with no game
+installation or whole-PCK download.
+
+The actual original TalkExcel loader and its 45,699-row inventory object have
+been identified and acquired from a fully MD5-verified publisher package. Its
+42 serialized fields were recovered from the owned native control/data flow;
+the additional metadata field caches a derived list. All 13,973,525 bytes then
+passed the product decoder's strict UTF-8/EOF checks, with 45,699 unique positive
+IDs. That nested table contains 5,055,663 decoded values, exceeding the former
+four-million bound. The reader now permits eight million values while retaining
+its byte, collection, nesting and cumulative-input limits. A synthetic nested
+inventory regression covers this valid large-table case.
+
+The 48 serialized runtime descriptor fields were separately recovered from
+their original native owner, including both nested condition/execution arrays.
+All **338 Blossom descriptors** passed strict decoding, retained their exact
+inventory IDs and resolved their full UInt64 references to original catalog
+entries. All 338 referenced Talk payloads then passed exact EOF and matching
+root IDs, yielding 912 authored dialogue nodes. The **23,801** current direct
+Quest paths identified from exact inventory IDs likewise passed original Talk
+decoding and root-ID checks, yielding **321,344** nodes.
+
+The grouped route also resolved **2,109 Activity, 242 Storyboard, 38 Scenery and
+two Furniture descriptors** to 2,391 exact original catalog assets. Every Talk
+payload passed strict decoding and matched its descriptor ID, yielding 21,051
+nodes. The group IDs match their original resource names. Additional candidate
+FreeGroup and NpcOther resources and the shared GlobalDialog object are readable,
+but their complete inventory routing is not yet established. Gadget loading
+uses two separately authored IDs in its resource path; their complete source
+inventory remains unresolved. These counts describe original-format evidence,
+not full end-to-end preparation or complete presentation coverage.
+
+All referenced Talk resources still need to be replayed through preparation.
+The original load-type enum distinguishes ordinary quests, Blossom, activity,
+gadget, furniture, storyboard and scenery. Runtime descriptors can reference
+the actual dialogue payload by an original UInt64 asset index; grouped resources
+must retain that authored hop. No constructed sample inventory establishes that
+the complete original inventory and those routes work. Complete automatic native
+schema/bootstrap recovery, regional/full-presentation coverage and the
+two-generation preparation/update/restart trial remain open.
+
+[Owned preparation and retention tests](../../backend/tests/test_genshin_original_dialogue.py)
+cover changed operands, a 137-object synthetic inventory, a shared descriptor
+graph with colliding shortened identities, conditional takes, unknown choices,
+missing packs, ambiguous identities, strict bounds and failed update/retry.
+Changed catalog identities refresh provenance; wrong identities, stale assets,
+unsupported payloads and incomplete groups preserve the preceding snapshot.
+These tests do not establish real native inventory discovery.
+
+Normal Setup still uses its matching text extraction. The explicit API does not
+switch that provider or change capture eligibility. Full original inventory
+linkage, automatic native bootstrap and method discovery, and normal-worker
+update/recovery acceptance remain open.
 The original `Config_TextMap` object itself was decoded completely, but its
 cache/partition settings do not resolve those remaining binding questions.
 

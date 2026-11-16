@@ -1,0 +1,88 @@
+"""Exercise a built metadata apphost with authored data, never game files."""
+import argparse
+import json
+from pathlib import Path
+import subprocess
+import struct
+import tempfile
+
+
+def probe(executable, work_root):
+    executable = Path(executable).resolve(strict=True)
+    with tempfile.TemporaryDirectory(prefix='starrail-authored-', dir=work_root) as temporary:
+        root = Path(temporary)
+        source = root / 'authored-data.bin'
+        # One read/store join, relative call, RIP displacement, mask, return and
+        # prefixed string copy. Bytes are authored x64 fixture data, not code run.
+        source.write_bytes(bytes.fromhex('488b05f0ffffff e800000000 48894720 48b88877665544332211 85c0 0f48c1 f3a4 c3'))
+        request, output = root / 'request.json', root / 'output.json'
+        payload = {'ranges': [{'offset': 0, 'address': 4096, 'bytes': source.stat().st_size}]}
+        request.write_text(json.dumps(payload))
+        def run():
+            return subprocess.run([str(executable), 'disassemble', str(source), str(request), str(output)],
+                                  capture_output=True, timeout=30)
+        result = run()
+        if result.returncode:
+            raise ValueError('The authored disassembly probe failed.')
+        rows = json.loads(output.read_text())[0]
+        if rows != [[4096, 'mov', 'rax, qword ptr [rip - 0x10]'],
+                    [4103, 'call', '0x100c'], [4108, 'mov', 'qword ptr [rdi + 0x20], rax'],
+                    [4112, 'movabs', 'rax, 0x1122334455667788'], [4122, 'test', 'eax, eax'],
+                    [4124, 'cmovs', 'eax, ecx'], [4127, 'rep movsb', 'byte ptr [rdi], byte ptr [rsi]'],
+                    [4129, 'ret', '']]:
+            raise ValueError('The managed decoder operand contract changed.')
+        # Existing results survive; malformed later ranges publish no output.
+        before = output.read_bytes()
+        if run().returncode == 0 or output.read_bytes() != before:
+            raise ValueError('The helper overwrote an existing result.')
+        output.unlink()
+        for bad in [{'offset': -1, 'address': 1, 'bytes': 1},
+                    {'offset': 0, 'address': 1, 'bytes': 65537},
+                    {'offset': 0, 'address': 2**64 - 1, 'bytes': 2},
+                    {'offset': 0, 'address': 1, 'bytes': 1, 'unknown': 1}]:
+            request.write_text(json.dumps({'ranges': [payload['ranges'][0], bad]}))
+            if run().returncode == 0 or output.exists():
+                raise ValueError('The helper accepted malformed range bounds.')
+        request.write_text('{"ranges":[],"ranges":[]}')
+        if run().returncode == 0 or output.exists():
+            raise ValueError('The helper accepted duplicate request fields.')
+        # A truncated instruction cannot be silently dropped by a linear decoder.
+        source.write_bytes(b'\x48\xb8')
+        request.write_text(json.dumps({'ranges': [{'offset': 0, 'address': 1, 'bytes': 2}]}))
+        if run().returncode == 0 or output.exists():
+            raise ValueError('The helper accepted truncated native data.')
+        # Static control flow follows both conditional paths and skips bytes
+        # proven unreachable after return/jump. No native instruction is run.
+        source.write_bytes(bytes.fromhex('7403 90 c3 ff b801000000 c3 48b8'))
+        payload = {'ranges': [{'offset': 0, 'address': 4096, 'bytes': source.stat().st_size, 'control_flow': True}]}
+        request.write_text(json.dumps(payload))
+        if run().returncode or [row[0] for row in json.loads(output.read_text())[0]] != [4096, 4098, 4099, 4101, 4106]:
+            raise ValueError('The static control-flow decoder did not preserve both reachable branches.')
+        output.unlink()
+        for bad in ['ffe0', '7405c3', '740148b80100000000000000c3', '90']:
+            source.write_bytes(bytes.fromhex(bad)); payload['ranges'][0]['bytes'] = source.stat().st_size
+            request.write_text(json.dumps(payload))
+            if run().returncode == 0 or output.exists():
+                raise ValueError('The static decoder accepted indirect, external conditional, overlapping or unterminated flow.')
+        switch = (bytes.fromhex('83f801 771c 488d0d') + struct.pack('<i', 24)
+                  + bytes.fromhex('48630481 4801c8 ffe0 b805000000 c3 b809000000 c3 31c0 c3')
+                  + struct.pack('<ii', -15, -9) + bytes.fromhex('48b8'))
+        source.write_bytes(switch); payload['ranges'][0]['bytes'] = len(switch)
+        request.write_text(json.dumps(payload))
+        if run().returncode or len(json.loads(output.read_text())[0]) != 12:
+            raise ValueError('The bounded static switch decoder did not preserve every authored edge.')
+        output.unlink()
+        # An extra path jumping past the unsigned guard cannot authorize the
+        # switch, even when another path already decoded its instructions.
+        source.write_bytes(b'\x74\x05' + switch); payload['ranges'][0]['bytes'] = len(switch) + 2
+        request.write_text(json.dumps(payload))
+        if run().returncode == 0 or output.exists():
+            raise ValueError('A branch bypassed the original switch bound.')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--executable', required=True, type=Path)
+    parser.add_argument('--work-root', required=True, type=Path)
+    options = parser.parse_args()
+    probe(options.executable, options.work_root)

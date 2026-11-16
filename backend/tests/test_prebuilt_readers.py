@@ -58,7 +58,7 @@ def helper_fixture(tmp_path, kind='probe', platform='win-x64'):
     resource = app / '_internal'
     home = resource / 'helpers' / kind
     home.mkdir(parents=True)
-    stem = 'ToolkitReaderProbe' if kind == 'probe' else 'NteReader'
+    stem = Path(readers.ENTRIES[kind]).stem
     sources = {name: 'c' * 64 for name in readers._source_names(kind)}
     target = readers.TARGETS[platform]
     native_files = target['native_files']
@@ -111,6 +111,7 @@ def save(layout, home, manifest):
     (home / 'helper-manifest.json').write_text(json.dumps(manifest))
     prefix = 'helpers/' + manifest['kind'] + '/'
     resources = {name: digest((layout.resource_root / name).read_bytes()) for name in layout.resources}
+    resources.update({prefix + name: digest((home / name).read_bytes()) for name in manifest['files']})
     resources[prefix + 'helper-manifest.json'] = digest((home / 'helper-manifest.json').read_bytes())
     return replace(layout, resources=resources)
 
