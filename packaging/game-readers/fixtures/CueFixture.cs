@@ -37,6 +37,69 @@ namespace CUE4Parse.UE4.Versions
     }
 }
 
+namespace CUE4Parse.FileProvider
+{
+    // Authored transport witness only: no IoStore, AES or game package parser.
+    public sealed class StreamedFileProvider : IDisposable
+    {
+        public CUE4Parse.UE4.Versions.VersionContainer Versions { get; }
+        public Dictionary<string, int> Files { get; } = new();
+        public List<FixtureVfs> UnloadedVfs { get; } = new();
+        public List<FixtureVfs> MountedVfs { get; } = new();
+        readonly List<Stream> streams = new();
+        bool initialized, defaultKey;
+        public StreamedFileProvider(string name, CUE4Parse.UE4.Versions.VersionContainer versions, StringComparer comparer)
+        {
+            if (name != "HT" || !ReferenceEquals(comparer, StringComparer.OrdinalIgnoreCase)) throw new InvalidDataException();
+            Versions = versions;
+        }
+        public void Initialize() { initialized = true; }
+        public void RegisterVfs(string name, Stream[] source, Func<string, object>? unused = null)
+        {
+            if (!initialized || source.Length != 2) throw new InvalidDataException();
+            streams.AddRange(source);
+            using var toc = new MemoryStream();
+            source[0].CopyTo(toc);
+            using var row = JsonDocument.Parse(toc.ToArray());
+            var item = row.RootElement;
+            if (item.GetProperty("schema").GetString() != "proxy-owned-publisher-stream-v1") throw new InvalidDataException();
+            var member = source[1];
+            member.Seek(item.GetProperty("offset").GetInt64(), SeekOrigin.Begin);
+            var data = new byte[item.GetProperty("size").GetInt32()];
+            member.ReadExactly(data);
+            if (Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)).ToLowerInvariant() !=
+                item.GetProperty("sha256").GetString()) throw new InvalidDataException();
+            var previous = member.Position;
+            using var clone = (Stream)((ICloneable)member).Clone();
+            clone.Seek(0, SeekOrigin.Begin);
+            var prefix = new byte[8]; clone.ReadExactly(prefix);
+            if (member.Position != previous || Convert.ToHexString(prefix).ToLowerInvariant() != item.GetProperty("prefix").GetString())
+                throw new InvalidDataException();
+            member.Seek(-8, SeekOrigin.End);
+            var suffix = new byte[8]; member.ReadExactly(suffix);
+            if (member.ReadByte() != -1 || Convert.ToHexString(suffix).ToLowerInvariant() != item.GetProperty("suffix").GetString())
+                throw new InvalidDataException();
+            var refused = false;
+            try { member.Seek(1, SeekOrigin.End); } catch (ArgumentOutOfRangeException) { refused = true; }
+            if (!refused) throw new InvalidDataException();
+            Files[item.GetProperty("member").GetString()!] = 0;
+            UnloadedVfs.Add(new FixtureVfs());
+        }
+        public void SubmitKey(Guid guid, FixtureKey key)
+        {
+            if (!initialized || key.Value != "0x" + new string('0', 64)) throw new InvalidDataException();
+            if (guid == Guid.Empty) defaultKey = true;
+            else if (!defaultKey || UnloadedVfs.RemoveAll(v => v.EncryptionKeyGuid == guid) == 0) throw new InvalidDataException();
+        }
+        public void Mount()
+        {
+            if (!defaultKey || UnloadedVfs.Count != 0) throw new InvalidDataException();
+        }
+        public byte[] SaveAsset(string name) => throw new InvalidDataException();
+        public void Dispose() { foreach (var source in streams) source.Dispose(); }
+    }
+}
+
 namespace CUE4Parse.MappingsProvider.Usmap
 {
     public sealed class FileUsmapTypeMappingsProvider

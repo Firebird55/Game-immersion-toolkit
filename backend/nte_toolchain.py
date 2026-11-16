@@ -22,7 +22,7 @@ SCHEMA = 'toolkit-nte-dependencies-v2'
 DEPENDENCIES = {
     'UEExtractor.dll': '0076582a3edf2a3b0114b2788a8fc4814a49db2d3e6f0995713a72f915a7c1e2',
 }
-MODES = frozenset({'inventory', 'index', 'voice', 'voices', 'wuwa-list', 'wuwa-extract'})
+MODES = frozenset({'inventory', 'index', 'voice', 'voices', 'publisher-tables', 'wuwa-list', 'wuwa-extract'})
 
 
 def _failure():

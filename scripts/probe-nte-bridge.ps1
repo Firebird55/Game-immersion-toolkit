@@ -3,6 +3,7 @@ param([Parameter(Mandatory=$true)][string]$HelperRoot,
       [Parameter(Mandatory=$true)][string]$EvidenceRoot)
 $ErrorActionPreference='Stop'
 $SourceRoot=Split-Path -Parent $PSScriptRoot
+$publisherProbePython=(Get-Command python -ErrorAction Stop).Source
 $reportPath=Join-Path $SourceRoot 'output/checks/r19-nte-bridge.json'
 Remove-Item -LiteralPath $reportPath -Force -ErrorAction SilentlyContinue
 $temporary=Join-Path $env:RUNNER_TEMP ('R19 NTE fixture space 漢字 '+[guid]::NewGuid())
@@ -85,6 +86,8 @@ try {
     $inventory=Join-Path $temporary 'inventory'
     Require-Code (Invoke-Bridge @('inventory',$install,$tools,$inventory) ($request | ConvertTo-Json -Compress)) 0
     if(@(Get-Content -LiteralPath (Join-Path $inventory 'inventory.json') -Raw | ConvertFrom-Json).Count -lt 100){throw 'Reflection inventory did not enumerate the authored provider.'}
+    & $publisherProbePython (Join-Path $PSScriptRoot 'probe-nte-publisher.py') --application (Join-Path $application 'NteReader.exe') --tools $tools --context $install --destination (Join-Path $temporary 'publisher-stream-probe')
+    if($LASTEXITCODE -ne 0){throw 'Owned publisher stream transport failed.'}
     $texts=@{'en'='Owned NTE fixture';'zh-CN'='中文测试';'zh-Hant'='中文測試';'ja'='日本語テスト';'ko'='한국어 테스트'}
     foreach($voice in @('Chinese','English','Japanese','Korean')){
         $request=Request $voice; $destination=Join-Path $temporary ('index-'+$voice)
@@ -117,8 +120,12 @@ try {
 } finally {
     foreach($process in $owned){if(-not $process.HasExited){$process.Kill($true)};if(-not $process.WaitForExit(10000)){throw 'Owned NTE bridge process did not stop.'};$process.Dispose()}
     foreach($name in $saved.Keys){[Environment]::SetEnvironmentVariable($name,$saved[$name])}
-    Get-ChildItem -LiteralPath $temporary -File -Recurse -Force | ForEach-Object {$_.IsReadOnly=$false}
-    Remove-Item -LiteralPath $temporary -Recurse -Force
+    $cleanupTarget=[IO.Path]::GetFullPath($temporary)
+    $cleanupParent=[IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    if(-not $cleanupTarget.StartsWith($cleanupParent,[StringComparison]::OrdinalIgnoreCase) -or
+       ((Get-Item -LiteralPath $cleanupTarget -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {throw 'Authored fixture cleanup target escaped its temporary parent.'}
+    Get-ChildItem -LiteralPath $cleanupTarget -File -Recurse -Force | ForEach-Object {$_.IsReadOnly=$false}
+    Remove-Item -LiteralPath $cleanupTarget -Recurse -Force
 }
 New-Item -ItemType Directory -Path (Split-Path $reportPath) -Force | Out-Null
 $report.owned_cleanup='passed';$report | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $reportPath -Encoding utf8

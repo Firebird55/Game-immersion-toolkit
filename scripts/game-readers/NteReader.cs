@@ -1,5 +1,6 @@
 // Toolkit-owned glue for separately downloaded, checksum-verified UEExtractor.
-// It only reads installed archives. No game data or archive metadata is bundled.
+// It reads installed archives or checked private publisher streams. No game data
+// or archive metadata is bundled.
 using System.Collections;
 using System.Reflection;
 using System.Text.Json;
@@ -26,7 +27,7 @@ internal static class NteReader
                     game_execution_approved = false }));
                 return local ? 0 : 2;
             }
-            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
+            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "publisher-tables" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
             var destination = Path.GetFullPath(args[3]);
@@ -57,7 +58,10 @@ internal static class NteReader
             if (archiveKeys.Length is < 1 or > 512 || archiveKeys.Any(key => key == null || key.Length != 66 ||
                 !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit))) throw new ArgumentException();
             var filter = wuwa ? WuwaFilter(request.RootElement.GetProperty("filter").GetString()!, args[0] == "wuwa-list") : null;
-            var provider = CreateProvider(assembly, install, wuwa ? "GAME_WutheringWaves" : "GAME_NevernessToEverness", archiveKeys!);
+            var publisher = args[0] == "publisher-tables" || args[0] == "inventory" &&
+                request.RootElement.TryGetProperty("publisher_streams", out _);
+            var provider = CreateProvider(assembly, install, wuwa ? "GAME_WutheringWaves" : "GAME_NevernessToEverness", archiveKeys!,
+                publisher ? request.RootElement.GetProperty("publisher_streams") : null);
             try
             {
                 provider.GetType().GetMethods().Single(m => m.Name == "Mount" && m.GetParameters().Length == 0).Invoke(provider, null);
@@ -65,6 +69,16 @@ internal static class NteReader
                 Directory.CreateDirectory(destination);
                 if (wuwa)
                     ReadWuwa(provider, save, destination, filter!, args[0] == "wuwa-list");
+                else if (args[0] == "publisher-tables")
+                {
+                    var files = (IEnumerable)Property(provider, "Files");
+                    var names = files.Cast<object>().Select(pair => (string)Property(pair, "Key"))
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var cue = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "CUE4Parse");
+                    var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true);
+                    File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
+                }
                 else if (args[0] == "inventory")
                 {
                     var files = (IEnumerable)provider.GetType().GetProperty("Files")!.GetValue(provider)!;
@@ -187,7 +201,7 @@ internal static class NteReader
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
-        HashSet<string> voiceEvents)
+        HashSet<string> voiceEvents, bool readMovies = false)
     {
         var profile = Path.Combine(destination, "dialogue.usmap");
         if (new FileInfo(profile).Length > 8 * 1024 * 1024 ||
@@ -204,6 +218,8 @@ internal static class NteReader
         object Export(string name)
         {
             var file = index.GetType().GetProperty("Item")!.GetValue(index, [name])!;
+            var size = Convert.ToInt64(Property(file, "Size"));
+            if (size is < 0 or > 512 * 1024 * 1024) throw new UnsupportedGameFormatException();
             var package = load.Invoke(provider, [file])!;
             var slot = (int)package.GetType().GetMethod("GetExportIndex")!.Invoke(package,
                 [Path.GetFileNameWithoutExtension(name), StringComparison.Ordinal])!;
@@ -249,6 +265,18 @@ internal static class NteReader
         }
         File.WriteAllText(Path.Combine(destination, "dialogue-events.json"), JsonSerializer.Serialize(aliases));
         ReadNteSequences(files, Rows, Export, voiceEvents, destination);
+        if (readMovies)
+        {
+            var movies = new Dictionary<string, object>();
+            foreach (var name in new[] { "DT_MediaFFmpegInfo", "DT_MediaFFmpegInfo_Quest" })
+            {
+                var path = "HT/Content/DataTable/Skill/" + name + ".uasset";
+                if (!files.Contains(path)) continue;
+                var rows = Rows(path).ToDictionary(row => row.Item1, row => row.Item2.Clone(), StringComparer.Ordinal);
+                movies[name + ".json"] = new[] { new { Type = "DataTable", Rows = rows } };
+            }
+            File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
+        }
     }
 
     static void ReadNteSequences(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,
@@ -307,7 +335,7 @@ internal static class NteReader
         }
         File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
     }
-    static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys)
+    static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys, JsonElement? publisherStreams = null)
     {
         // Initialize only the embedded-assembly resolver. The supplier's
         // UnrealArchiveReader constructor invokes native-code downloaders;
@@ -323,15 +351,21 @@ internal static class NteReader
         var versionArgs = versionCtor.GetParameters().Select(p => p.IsOptional ? Type.Missing : (object?)null).ToArray();
         versionArgs[0] = game;
         var version = versionCtor.Invoke(versionArgs);
+        if (publisherStreams.HasValue)
+            providerType = cue.GetType("CUE4Parse.FileProvider.StreamedFileProvider", true)!;
         var providerCtor = providerType.GetConstructors().Single(c => {
             var parameters = c.GetParameters();
-            return parameters.Length == 4 && parameters[0].ParameterType == typeof(string)
-                && parameters[2].ParameterType == versionType;
+            return publisherStreams.HasValue
+                ? parameters.Length == 3 && parameters[0].ParameterType == typeof(string) && parameters[1].ParameterType == versionType
+                : parameters.Length == 4 && parameters[0].ParameterType == typeof(string) && parameters[2].ParameterType == versionType;
         });
-        var provider = providerCtor.Invoke([install, SearchOption.AllDirectories, version, StringComparer.OrdinalIgnoreCase]);
+        var provider = providerCtor.Invoke(publisherStreams.HasValue
+            ? ["HT", version, StringComparer.OrdinalIgnoreCase]
+            : [install, SearchOption.AllDirectories, version, StringComparer.OrdinalIgnoreCase]);
         try
         {
             providerType.GetMethod("Initialize")!.Invoke(provider, null);
+            if (publisherStreams.HasValue) RegisterPublisherStreams(provider, publisherStreams.Value);
             var submit = providerType.GetMethod("SubmitKey")!;
             var guid = Activator.CreateInstance(submit.GetParameters()[0].ParameterType)!;
             foreach (var key in keys)
@@ -355,6 +389,108 @@ internal static class NteReader
             (provider as IDisposable)?.Dispose();
             throw;
         }
+    }
+
+    static void RegisterPublisherStreams(object provider, JsonElement streams)
+    {
+        if (streams.ValueKind != JsonValueKind.Array || streams.GetArrayLength() is < 1 or > 128)
+            throw new UnsupportedGameFormatException();
+        var register = provider.GetType().GetMethods().Single(m => m.Name == "RegisterVfs" &&
+            m.GetParameters().Length == 3 && m.GetParameters()[0].ParameterType == typeof(string) &&
+            m.GetParameters()[1].ParameterType == typeof(Stream[]));
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        string? server = null;
+        var number = 0;
+        foreach (var item in streams.EnumerateArray())
+        {
+            var name = item.GetProperty("name").GetString()!;
+            if (name.Length > 160 || !Regex.IsMatch(name, @"^[A-Za-z0-9_/-]+\.utoc$") ||
+                name.StartsWith('/') || name.Contains("..") || name.Contains("//") || !seen.Add(name) ||
+                (number == 0) != (Path.GetFileName(name) == "global.utoc")) throw new UnsupportedGameFormatException();
+            var tocLength = item.GetProperty("toc_size").GetInt64();
+            var ucasLength = item.GetProperty("ucas_size").GetInt64();
+            if (tocLength is <= 0 or > 64 * 1024 * 1024 || ucasLength is <= 0 or > (1L << 40))
+                throw new UnsupportedGameFormatException();
+            var toc = new PublisherRangeStream(item.GetProperty("toc_url").GetString()!, tocLength);
+            var ucas = new PublisherRangeStream(item.GetProperty("ucas_url").GetString()!, ucasLength);
+            server ??= toc.Server;
+            if (toc.Server != server || ucas.Server != server) throw new UnsupportedGameFormatException();
+            var before = ((IEnumerable)Property(provider, "UnloadedVfs")).Cast<object>().Count() +
+                         ((IEnumerable)Property(provider, "MountedVfs")).Cast<object>().Count();
+            try
+            {
+                register.Invoke(provider, [name, new Stream[] {toc, ucas}, null]);
+                var after = ((IEnumerable)Property(provider, "UnloadedVfs")).Cast<object>().Count() +
+                            ((IEnumerable)Property(provider, "MountedVfs")).Cast<object>().Count();
+                if (after != before + 1) throw new UnsupportedGameFormatException();
+            }
+            catch { toc.Dispose(); ucas.Dispose(); throw; }
+            number++;
+        }
+    }
+
+    sealed class PublisherRangeStream : Stream, ICloneable
+    {
+        static readonly HttpClient Client = new(new SocketsHttpHandler {
+            AllowAutoRedirect = false, UseProxy = false, MaxConnectionsPerServer = 4 })
+            { Timeout = TimeSpan.FromSeconds(120) };
+        readonly string endpoint;
+        readonly long length;
+        long position;
+        bool disposed;
+        public string Server { get; }
+        public PublisherRangeStream(string endpoint, long length)
+        {
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var uri) || uri.Scheme != "http" ||
+                uri.Host != "127.0.0.1" || uri.Port is < 1 or > 65535 || uri.UserInfo.Length != 0 ||
+                uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
+                !Regex.IsMatch(uri.AbsolutePath, @"^/[A-Za-z0-9_-]{43}/[a-f0-9]{32}$"))
+                throw new UnsupportedGameFormatException();
+            this.endpoint = endpoint;
+            this.length = length;
+            Server = uri.GetLeftPart(UriPartial.Authority) + uri.AbsolutePath[..uri.AbsolutePath.LastIndexOf('/')];
+        }
+        public override bool CanRead => !disposed;
+        public override bool CanSeek => !disposed;
+        public override bool CanWrite => false;
+        public override long Length => length;
+        public override long Position { get => position; set => Seek(value, SeekOrigin.Begin); }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            ArgumentNullException.ThrowIfNull(buffer);
+            if (offset < 0 || count < 0 || offset > buffer.Length - count) throw new ArgumentOutOfRangeException();
+            var amount = (int)Math.Min(count, length - position);
+            for (var done = 0; done < amount;)
+            {
+                var size = Math.Min(amount - done, 4 * 1024 * 1024);
+                using var request = new HttpRequestMessage(HttpMethod.Get, endpoint +
+                    "?offset=" + position.ToString(System.Globalization.CultureInfo.InvariantCulture) +
+                    "&size=" + size.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                using var response = Client.Send(request, HttpCompletionOption.ResponseHeadersRead);
+                if (response.StatusCode != System.Net.HttpStatusCode.OK || response.Content.Headers.ContentLength != size)
+                    throw new UnsupportedGameFormatException();
+                using var input = response.Content.ReadAsStream();
+                input.ReadExactly(buffer.AsSpan(offset + done, size));
+                if (input.ReadByte() != -1) throw new UnsupportedGameFormatException();
+                position += size;
+                done += size;
+            }
+            return amount;
+        }
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            ObjectDisposedException.ThrowIf(disposed, this);
+            var next = origin switch { SeekOrigin.Begin => offset, SeekOrigin.Current => checked(position + offset),
+                SeekOrigin.End => checked(length + offset), _ => throw new ArgumentOutOfRangeException() };
+            if (next < 0 || next > length) throw new ArgumentOutOfRangeException();
+            return position = next;
+        }
+        public object Clone() => new PublisherRangeStream(endpoint, length) { Position = position };
+        protected override void Dispose(bool disposing) { disposed = true; base.Dispose(disposing); }
+        public override void Flush() { }
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
     const string WuwaRoot = "Client/Content/Aki/";
     const string WuwaVoices = WuwaRoot + "WwiseAudio_Generated/WwiseExternalSource/";

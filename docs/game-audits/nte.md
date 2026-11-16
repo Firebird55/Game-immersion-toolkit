@@ -190,6 +190,52 @@ tests cover partial stream reads, unsigned gaps, corruption, AES padding,
 compression output bounds, unsafe directory graphs and historical cache
 isolation; the archive/localization group totals 57 passing tests.
 
+### Managed authoring through verified publisher streams
+
+The owned managed reader can now consume temporary private publisher streams
+instead of an installation directory. `run_publisher_reader` stages the verified
+type schema and passes registered loopback sources and archive metadata through
+stdin. The child permits only those bounded loopback endpoints, uses independent
+seek positions when cloning streams, and cannot redirect requests to another
+host. The broker exposes neither a directory listing nor arbitrary file paths.
+Failed source verification, incomplete output and stale staging files cannot
+become a completed authoring extraction.
+
+The global IoStore resource needs special treatment: the managed parser reads
+aligned padding beyond its final block hash. The complete small global UCAS
+therefore passes its publisher MD5 before the broker serves it. Other UCAS
+streams continue to require checked compression blocks and refuse unsigned
+gaps. Large unselected chunks remain in the inventory without relaxing the
+512 MiB selected-resource limit; the current base inventory includes a
+3,300,228,421-byte non-authoring chunk.
+
+A Global 1.5.4 run through this API read the original current base and patch
+tables. It produced **22,894 dialogue aliases**, **21,767 declared event names**
+and **87 sequence event groups**. Of those groups, 67 have a resolved caption
+table with **429 cues**; all 429 retain original StringTable namespace/key
+ownership. The Blackbird sample above resolves to its expected original event.
+These counts describe authoring, not verified playback for every entry. The
+current aliases require the patch tables as well as the base tables.
+
+The same publisher API also reads the original `DT_MediaFFmpegInfo` and
+`DT_MediaFFmpegInfo_Quest` tables. They contain 225 rows in this snapshot;
+the existing reviewed namespace rules resolve 42 movie bindings. Other
+StringTable aliases remain to be resolved. This exports the current authored
+movie configuration without depending on an older community table snapshot;
+it does not establish all movie speech or timing.
+
+The managed stream's source-build probe also passed with authored reflection
+types: reads spanning the 4 MiB request limit, clone/seek isolation, wrong-host
+refusal and a failed source. The hosted compiler-free helper probe exercises
+the same transport without real game assets. This fixture is distinct from the
+live original-table result and does not establish native game acceptance.
+
+Ordinary publisher Setup still needs manifest-driven container and patch
+selection, index activation, localized bank/media acquisition and voice-service
+integration. Full movie/presentation coverage, immutable update/history replay
+and each claimed host remain separate acceptance requirements in #88. The
+installed reader and public support matrix are unchanged.
+
 ### The five Global HPW resources are video files
 
 All five `.hpw` resources in this Global 1.5.4 snapshot were downloaded and
