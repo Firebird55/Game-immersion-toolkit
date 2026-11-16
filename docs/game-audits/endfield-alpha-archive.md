@@ -35,6 +35,32 @@ The game recordings and gameplay soundtrack were decoded to mono 8 kHz PCM and f
 
 These matches establish the original mixes used by that game performance, including sound effects. The bedside English conversation begins in the latter portion of its recording. English wording and speech timing differ from the earlier mainland test. The [previous mainland caption clocks](endfield-opening-gameplay.md) therefore require separate validation before use with these recordings. [Aircraft exchange](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=19s) · [Bedside exchange](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=837s) · [Briefing](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=930s)
 
+### Independent Global aircraft recording
+
+A further November 16 search located MrLowRes's January 12, 2024
+Technical Test intro, published without commentary. Seven three-second
+excerpts from the verified English aircraft WEM, starting at original
+seconds **4, 20, 26, 67, 76, 81 and 84**, independently locate exactly the
+same **85.19625-second** recording-to-upload offset. Normalized correlations
+at 8 kHz, filtered at 320–3,500 Hz, are **0.992, 0.961, 0.849, 0.904,
+0.903, 0.932 and 0.918** respectively.
+[Independent Global intro](https://www.youtube.com/watch?v=4nG-nZyBJJg&t=89s)
+
+The first voice excerpt and the final two distinguish the English original
+from the Mandarin counterpart: searching the same Mandarin excerpts over
+the upload gives maxima of 0.042, 0.143 and 0.159, while some shared
+sound effects in between match both mixes. The late English captions are
+visible at approximately **2:31, 2:34, 2:36, 2:45 and 2:49**, including the
+last two over the dark crash aftermath.
+[Crash exchange](https://www.youtube.com/watch?v=4nG-nZyBJJg&t=151s)
+· [Aftermath](https://www.youtube.com/watch?v=4nG-nZyBJJg&t=165s)
+
+This independently verifies the historical English scene through its end.
+It supplies neither machine-readable English subtitle bindings nor verified
+spoken boundaries for the seven remaining Mandarin cuts. The command still
+retrieves the checksum-verified original publisher/archive WEM; the player's
+recording is playback evidence only.
+
 ### A second mainland aircraft playthrough
 
 An independent November 2023 recording identifies the same original Mandarin
