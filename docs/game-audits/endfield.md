@@ -49,6 +49,15 @@ cases separate. Authored training context improves complete-index matching to
 updates discover compatible new IDs and changed graph digests without an ID
 allowlist. See the [source inventory, guards and frozen two-generation replay](endfield-current-subtitle-acceptance.md#original-top-captions-and-training-step-order).
 
+Revision 25 additionally respects two unique dialogue callers whose original
+data explicitly disables speech. Static original-controller and current patch
+inventories establish that playback is skipped; retained WEM presence is not a
+spoken binding for these punctuation-only captions. Exactly one voiced and one
+unavailable row become unvoiced per selection, with every other original field
+and audio binding retained. Frozen old/current preparation keeps all old IDs
+and now counts 3,155 new voiced records after the disabled source is excluded.
+See the [original caller proof and limits](endfield-current-subtitle-acceptance.md#explicitly-disabled-original-dialogue-speech).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

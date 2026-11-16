@@ -127,3 +127,48 @@ def top_dialogues(tools, stamp):
         if child in result and parent in result:
             result[child] = parent
     return result
+
+
+def _disabled_trunk(node):
+    if node.get('$type') != 'Beyond.Gameplay.DialogTreeTrunkNode':
+        return None
+    actor = node.get('_actorNodeData', {})
+    action = actor.get('mfTrunkActionData', {})
+    if (actor.get('$type') != 'Beyond.Gameplay.DTTrunkNodeData' or action.get('actionEnum') != 307
+            or action.get('disablePlayVoice') is not True or action.get('customText')
+            or actor.get('actions') or actor.get('actionGroups') or action.get('voiceConfig')
+            or action.get('exUIDescriptor', {}).get('useRadio') or action.get('enableEmotionVoice')
+            or action.get('isOverrideEmotionVoiceId') or action.get('overrideEmotionVoiceId')):
+        return None
+    return action.get('_trunkId')
+
+
+def _disabled_summary(tools, path, source):
+    identity = (path + '\0' + source[1].content_hashes[1]).encode()
+    destination = tools / 'endfield-releases' / 'dialogue-disabled-speech-v1' / sha256(identity).hexdigest()
+    if destination.is_file() and destination.stat().st_size <= 4 * 1024**2:
+        checksum, _, body = destination.read_bytes().partition(b'\n')
+        if checksum == sha256(identity + body).hexdigest().encode():
+            return json.loads(body)
+    _, root, objects, _ = assets._asset(tools, source, path, classes=(49,))
+    graph = json.loads(objects[root]['m_Script'])
+    candidates = ([_disabled_trunk(node) for node in graph['nodes']]
+                  if graph.get('type') == 'Beyond.Gameplay.DialogTree' else [])
+    summary = list(_references(graph)), [value for value in candidates if value]
+    body = json.dumps(summary, separators=(',', ':')).encode()
+    _atomic_file(destination, sha256(identity + body).hexdigest().encode() + b'\n' + body)
+    return summary
+
+
+@lru_cache(maxsize=4)
+def disabled_dialogues(tools, stamp):
+    """The original voice controller skips playback for these unique callers."""
+    files = assets._files(tools, stamp)
+    paths = [path for path in files if path.startswith(assets.DIALOG_GRAPHS) and path.endswith('.json')]
+    assets._check(paths)
+    occurrences, candidates = Counter(), set()
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for references, ids in pool.map(lambda path: _disabled_summary(tools, path, files[path]), paths):
+            occurrences.update(references)
+            candidates.update(ids)
+    return frozenset(identity for identity in candidates if occurrences[identity] == 1)

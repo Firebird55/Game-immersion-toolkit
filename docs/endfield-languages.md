@@ -30,6 +30,9 @@ gender-specific translations when the game supplies them. Scene summaries shown
 when skipping dialogue use the existing unvoiced-text capture option. Radio
 captions whose original data explicitly disables the performer use that same
 option. A missing actor field or recording does not establish silence. The
+same unvoiced option covers simple original dialogue callers that explicitly
+disable speech. Their original text and older saved recordings remain available.
+The
 separate **Include subtitles without available audio** option preserves verified
 authored captions with unknown or unavailable audio, subject to complete,
 unambiguous text and player selection. General reactions stay separate from

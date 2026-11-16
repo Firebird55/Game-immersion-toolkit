@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 24
+LANGUAGE_INDEX_VERSION = 25
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -194,9 +194,13 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
         for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
             if not lines.get(locale):
                 continue
+            if row.get('authored_speech_disabled'):
+                path = None
             source = 'voice/' + VOICE_LOCALES[locale] + '/' + path.replace('\\', '/').lower() if path else None
             audio = entries.get(f'{voice_hash(source):016x}') if source else None
-            if audio:
+            if row.get('authored_speech_disabled'):
+                voice_status = 'unvoiced'
+            elif audio:
                 voice_status = 'voiced'
             elif not source and row.get('radio_text_only'):
                 voice_status = 'unvoiced'
@@ -320,6 +324,11 @@ def authored_dialogues(catalog, *, radio_evidence=None):
             dialogs[identity]['channels'] = ['dialogue', 'cinematic']
             if previous:
                 dialogs[identity]['previous_mission_id'] = previous
+    if hasattr(catalog, 'disabled_dialogues'):
+        for identity in catalog.disabled_dialogues():
+            if identity not in dialogs:
+                _unsupported()
+            dialogs[identity]['authored_speech_disabled'] = True
     for identity, row in radio_dialogues(catalog, evidence=radio_evidence).items():
         if identity in dialogs:
             _unsupported()

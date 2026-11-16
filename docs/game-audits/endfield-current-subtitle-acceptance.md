@@ -324,6 +324,45 @@ discover the same 13 selected top-caption records. The existing changed-voice,
 offline restart and retained-recording proof remains separate; this metadata
 change does not claim a new physical scheduled-activation trial.
 
+## Explicitly disabled original dialogue speech
+
+Revision 25 honors a unique original dialogue caller's literal
+`disablePlayVoice = true`. The original Windows metadata identifies this field
+in `DialogPlayTrunkActionData`. Static reading of `DialogManager._PlayVoice`
+shows its branch skipping both actual `VoiceManager.SpeakNarrative` calls.
+The same metadata lookup independently reproduces the top-layout getter field.
+All four current, MD5-checked original IFix files were parsed as data; their
+replacement signatures do not patch this controller or its action-data type.
+No native client, Lua or patch code was executed, and no negative speech
+detector result supplies this classification.
+
+The full 3,093-graph census contains exactly two unique simple callers with
+that declaration: `dlg_c37m3_40_010` and `dlg_sm2l2m4_3_012`. Both display only
+punctuation. The first retains an original WEM in the released tables/packages;
+the second has no usable recording. Their actual caller disables speech in
+both cases, so both now use **unvoiced** state. Scripted actor actions/groups,
+alternate routes, custom text and repeated references stay outside this strict
+rule. The source selector follows current graph paths and content hashes;
+new compatible IDs do not require an ID override or newer community snapshot.
+
+All five ordinary current publisher workers retain their previous record
+totals, texts, translations, capture layouts, predecessors and recognition
+anchors. Exactly these two voice states change per selection: one voiced and
+one unavailable record become unvoiced, and the disabled retained WEM is no
+longer offered as the caption's sentence recording. All other audio bindings
+and states remain exactly equal. Existing saved recordings and older snapshots
+are retained. Punctuation-only text remains guarded by the existing minimum;
+unvoiced capture remains opt-in.
+
+The same frozen revision-25 reader replays original 1.5.3 discovery and prepares
+49,550 English records, against live 1.6.4's 55,086. Every old ID remains, with
+5,536 new records and the same 11 changed English texts. The updated new-voice
+count is **3,155**: the later retained-but-disabled recording is correctly
+excluded. The old generation contains only the second disabled caller, whose
+prior unavailable state becomes unvoiced. No other prior audio or capture
+metadata changes. This corrects source ownership; physical gameplay and the
+remaining presentation/device acceptance gates remain separate.
+
 ## Text provenance and remaining acceptance
 
 Reader revisions 19–20 mark text from the original conversation, radio, narration
