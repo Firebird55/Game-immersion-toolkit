@@ -585,6 +585,52 @@ StringTable's actual namespace differs from its asset basename. Current quest
 activation, default track selection and voice-start semantics remain unproven.
 These records are not promoted as active, voiced, silent or covered content.
 
+#### Retained-schema constructor joins
+
+A second isolated API, `backend/nte_seeded_schema.py`, resolves some native
+parent, nested-struct and enum callbacks from retained metadata. It compares
+complete current native definitions against unique retained seed definitions:
+field names, order, dimensions, slot positions and primitive/container wire
+shapes must agree exactly before a definition can be a witness. A callback
+identity requires at least **two independent seed-owner types** in the same
+original client. Conflicting target names, mixed struct/enum callback kinds,
+undefined or duplicate retained targets, changed shapes and unsupported flags
+cannot certify a new type. Native constructors are not loaded, executed or
+interpreted. There are no per-game callback addresses or type-name allowlists.
+
+The API appends only; old names, enum values and struct records keep their
+original bytes. It uses the same bounded PE/usmap readers as the strict-root
+experiment. The resulting inherited types, named nested structs and typed enums
+load in the unchanged managed mapping reader, whose
+[usmap property format](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/MappingsProvider/Usmap/UsmapProperties.cs)
+retains these explicit identities. Unknown constructors are not downgraded to
+unnamed integers or a guessed primitive type.
+
+With the same code and retained 1.4 seed, the manifest-checksummed original
+clients produce **one** additional type on 1.4.9 and **300** on 1.5.4: 299 newly
+recoverable type names between the generations, including the original 137
+standalone roots. Both regenerations prohibit networking and access to newer
+mapping/control files. The current client has 10,903 complete seed/native shape
+matches and 1,305 independently witnessed callback identities, including 306
+enum callbacks. Another **290** newly observed types remain excluded.
+
+Only after output generation, comparison with the quarantined 1.5 mapping found
+zero missing types or wire/parent/dimension differences across all 300 additions;
+251 also have identical field spelling and 49 differ only in FName casing. The
+unchanged supplier reader loads 24,346 unique mapped types and re-extracts the
+same four current authoring outputs (dialogue aliases, sequence cues, voice
+events and movie tables) with exactly equal parsed JSON values. **358 affected
+NTE/asset/language tests passed**, including **55 owned native-schema cases**.
+This is
+metadata/authoring evidence, not a new narrative or playback coverage count.
+
+This API is not called by Setup. It does not refresh changed existing seed
+definitions, discover new enum names/values, obtain archive/localization keys,
+resolve every newly introduced callback, or prove an autonomous preparation,
+activation or recovery lifecycle. Those remain required before normal publisher
+preparation can adopt generated metadata. No game data, client bytes or generated
+mapping is committed.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats

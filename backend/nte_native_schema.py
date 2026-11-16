@@ -214,7 +214,7 @@ class _PE:
         value = self.data[offset:end]
         return value.decode('ascii') if re.fullmatch(rb'[A-Za-z_][A-Za-z0-9_]*', value) else None
 
-    def native(self):
+    def native(self, *, with_callbacks=False):
         results, matches, properties = [], 0, 0
         for _, length, section, flags in sorted(self.sections, key=lambda item: item[2]):
             if flags & 0x20000000 or not flags & 0x40000000:
@@ -250,12 +250,13 @@ class _PE:
                     dimension = self.unpack('H', prop + 48)[0]
                     if not field_name or object_flags != NATIVE_FLAGS or not dimension:
                         break
-                    enum = False
-                    if generator & 63 == 0:
+                    enum, callback = False, 0
+                    if generator & 63 == 0 or with_callbacks and generator & 63 in (25, 30):
                         if self.pointer(address, 64) is None:
                             break
-                        enum = self.unpack('Q', prop + 56)[0] != 0
-                    fields.append((field_name, generator, dimension, enum))
+                        callback = self.unpack('Q', prop + 56)[0]
+                        enum = bool(callback)
+                    fields.append((field_name, generator, dimension, callback if with_callbacks else enum))
                 else:
                     results.append((name, parent, ops, struct_flags, tuple(fields)))
                     _check(len(results) <= MAX_NATIVE)

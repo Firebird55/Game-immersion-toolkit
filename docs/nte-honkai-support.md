@@ -70,6 +70,10 @@ loaded media is parsed with its full codec header, but storage-0/1 cinematic
 caption timing remains unavailable without a verified original clock contract.
 Recovery of new type definitions directly from official clients remains an
 isolated experiment and does not yet replace the current metadata source.
+Its [seeded constructor variant](game-audits/nte.md#retained-schema-constructor-joins)
+can reuse independently witnessed current-client callback identities for new
+inherited/nested types and typed enums; unresolved identities and changes to
+existing definitions remain outside that append-only experiment.
 Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.
