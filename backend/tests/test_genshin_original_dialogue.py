@@ -308,3 +308,69 @@ def test_actual_parsed_translation_content_contributes_to_identity(tmp_path):
     second = prepare(destination, value)
     assert first['metadata_revision'] != second['metadata_revision']
     assert second['records'][0]['texts']['en'] == 'Changed original translation.'
+
+
+@pytest.mark.parametrize('missing', ['uuid', 'choice'])
+def test_authored_missing_voice_text_survives_into_explicit_index_capture(tmp_path, missing):
+    from backend.multilingual_index import MultilingualTextIndex
+    spec, inventory, objects, options = value = fixture()
+    identity = '1000' if missing == 'uuid' else '1002'
+    expected = 'unavailable' if missing == 'uuid' else 'unknown'
+    text = 'これは正式な会話の字幕です。対応する録音の調査はまだ終わっていません。'
+    options['tables']['ja'][str(int(identity) + 1000)] = text
+    unrelated = 'この画面全般の説明は、会話に紐付けられていない翻訳です。'
+    options['tables']['ja']['999999'] = unrelated
+    if missing == 'uuid':
+        path = 'Data/Voice/Items/800'
+        payload = encode(spec.items, {})
+        objects[path] = original.OriginalObject(path, payload, hashlib.sha256(payload).hexdigest())
+    snapshot = prepare(tmp_path / 'textmap.json', value)
+    row = next(row for row in snapshot['records'] if row['text_id'] == 'genshin:' + identity)
+    assert row['text_capture_verified'] and row['voice_status'] == expected and row['audio'] is None
+    assert unrelated not in {row['source_text'] for row in snapshot['records']}
+    index = MultilingualTextIndex('genshin', tmp_path)
+    assert index.ready, index.message
+    assert index.match_text(text) is None
+    index.capture_unvoiced = True
+    assert index.match_text(text) is None
+    index.capture_missing_audio = True
+    hit = index.match_text(text)
+    assert hit and hit.text_id == row['text_id'] and hit.text_capture_verified
+    assert hit.is_verified_missing_audio and hit.voice_status == expected
+    assert index.match_text(text.split('。')[0] + '。') is None
+    assert index.match_text(text.replace('正式', '正確')) is None
+    assert index.match_text('別の説明です。' + text) is None
+    assert index.match_text(unrelated) is None
+
+
+def test_ambiguous_authored_talk_captions_stay_excluded_with_missing_audio_enabled(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    spec, inventory, objects, options = value = fixture()
+    text = 'これは同じ字幕ですが、二つの正式な会話で翻訳と音声の状態が異なります。'
+    options['tables']['ja']['2000'] = options['tables']['ja']['2002'] = text
+    path = 'Data/Voice/Items/800'
+    payload = encode(spec.items, {})
+    objects[path] = original.OriginalObject(path, payload, hashlib.sha256(payload).hexdigest())
+    snapshot = prepare(tmp_path / 'textmap.json', value)
+    captions = [row for row in snapshot['records'] if row['source_text'] == text]
+    assert len(captions) == 2 and all(row['text_capture_verified'] for row in captions)
+    assert {row['voice_status'] for row in captions} == {'unknown', 'unavailable'}
+    index = MultilingualTextIndex('genshin', tmp_path)
+    assert index.ready, index.message
+    index.capture_missing_audio = True
+    assert index.match_text(text) is None
+
+
+def test_unresolved_original_source_template_never_gains_capture_provenance(tmp_path):
+    from backend.multilingual_index import MultilingualTextIndex
+    value = fixture()
+    text = '#{M#Resolved}{F#Unclosed'
+    value[3]['tables']['ja']['2000'] = text
+    snapshot = prepare(tmp_path / 'textmap.json', value)
+    unresolved = [row for row in snapshot['records'] if row.get('text_binding_unresolved')]
+    assert unresolved and all(row['text_capture_verified'] is False for row in unresolved)
+    index = MultilingualTextIndex('genshin', tmp_path)
+    assert index.ready, index.message
+    index.capture_missing_audio = True
+    index.capture_unvoiced = True
+    assert index.match_text(text) is None

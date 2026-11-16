@@ -99,6 +99,13 @@ installation-free snapshot and voice-service format. Failed, truncated or
 interrupted updates retain the preceding cache, as does a changed publisher
 generation at activation.
 
+Completed original Talk captions retain positive text-capture provenance through
+rendering and index reload, including choices and rows with missing UUID/audio
+bindings. The separate missing-audio capture option can match their complete,
+exact, unambiguous caption while preserving its unknown/unavailable voice state.
+It is off by default. Unresolved source templates remain excluded, and generic
+TextMap/interface translations without authored Talk membership are not promoted.
+
 The actual product decoder, with private original-owned read operands, parsed
 all **7,449 current Lut-referenced Items groups**: 33,079,559 original bytes,
 154,113 Items records and 178,559 source alternatives. The original 154,113-row

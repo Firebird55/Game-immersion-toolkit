@@ -420,6 +420,13 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
     rows = game._render_player_text(common.records('genshin', links, tables, source_locale, publisher_entries),
                                    source_locale, authored_templates=templates)
     _check(rows and len({row['text_id'] for row in rows}) == len(rows))
+    for row in rows:
+        # These captions came from the complete authored Talk/text-hash join,
+        # including choices without a proven recording. Keep that positive text
+        # evidence after common.records/rendering; unresolved source templates
+        # still veto missing-audio capture. Unreferenced TextMap/UI rows never
+        # enter this preparation path.
+        row['text_capture_verified'] = not bool(row.get('text_binding_unresolved'))
     game._exclude_conflicting_performances(rows, warnings, authored_templates=templates)
     game._bind_predecessors(rows, annotations)
     if len(rows) < len(links):
