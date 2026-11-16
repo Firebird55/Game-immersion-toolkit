@@ -84,7 +84,7 @@ def test_confirmed_successor_anchors_next_caption_without_advancing_on_identical
     assert scan('Now!', 1.3) is None
 
 
-@pytest.mark.parametrize('status', ['unknown', 'unavailable'])
+@pytest.mark.parametrize('status', ['unknown', 'unavailable', 'unvoiced'])
 @pytest.mark.parametrize('anchor_missing', [False, True])
 def test_verified_missing_radio_uses_stable_authored_predecessor_without_borrowing_voice(tmp_path, status, anchor_missing):
     first = {**film_row('endfield:radio:first', 'Keep watching the eastern gate.'),
@@ -101,12 +101,14 @@ def test_verified_missing_radio_uses_stable_authored_predecessor_without_borrowi
     path.write_text(json.dumps(payload), encoding='utf-8')
     index = MultilingualTextIndex('endfield', tmp_path)
     index.capture_missing_audio = True
+    index.capture_unvoiced = status == 'unvoiced'
+    toggle = 'capture_unvoiced' if status == 'unvoiced' else 'capture_missing_audio'
     context = EndfieldCaptionContext()
 
     def scan(text, now):
         hit = index.match_lines([text], exact_only=True)
         return context.observe(index, [text], [hit], channel='dialogue',
-            scope=(index._signature, index.capture_missing_audio), now=now, stable_frames=2)
+            scope=(index._signature, index.capture_missing_audio, index.capture_unvoiced), now=now, stable_frames=2)
 
     assert index.match_text('Roger.') is None
     assert scan(first['source_text'], 0) is None
@@ -115,11 +117,11 @@ def test_verified_missing_radio_uses_stable_authored_predecessor_without_borrowi
     scan(first['source_text'], .3)
     hit = scan('Roger.', .4)
     assert hit and hit.text_id == missing['text_id'] and hit.voice_status == status
-    assert hit.is_verified_missing_audio and hit.kind == 'exact'
+    assert hit.is_verified_missing_audio == (status != 'unvoiced') and hit.kind == 'exact'
     assert scan('Roger.', .5).text_id == missing['text_id']
-    index.capture_missing_audio = False
+    setattr(index, toggle, False)
     assert scan('Roger.', .6) is None
-    index.capture_missing_audio = True
+    setattr(index, toggle, True)
     assert scan('Roger.', .7) is None
     scan(first['source_text'], 1)
     scan(first['source_text'], 1.1)

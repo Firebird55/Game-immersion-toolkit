@@ -24,6 +24,8 @@ stable, immediately preceding authored caption. The same source-language,
 player, session/window and timeout restrictions apply as for original voices;
 changing the capture control resets this evidence. A competing performance
 after the same predecessor remains ambiguous. This does not infer a recording.
+Confirmed unvoiced successors use the existing unvoiced control; unknown or
+unavailable successors use the separate missing-audio control.
 
 ## Fixed audit bases
 

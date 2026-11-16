@@ -22,6 +22,7 @@ class EndfieldCaptionContext:
         visible = [hit for hit in visible if hit is not None]
         def eligible(hit):
             return hit.voice_status == 'voiced' or (
+                getattr(index, 'capture_unvoiced', False) and hit.voice_status == 'unvoiced') or (
                 getattr(index, 'capture_missing_audio', False) and hit.is_verified_missing_audio)
         mission_text = groups[0] if kind == 'conversation' and getattr(index, 'game', None) == 'endfield' and len(groups) == 1 else None
         matches = {hit.text_id: hit for hit in visible if hit.kind == 'exact'

@@ -1035,7 +1035,7 @@ class CaptureService:
                 scope = (epoch, self.session_id, window.handle, window.bounds, crop_bounds,
                     index.source_locale, index.target_locale, index.player_voice, index._signature,
                     getattr(self, 'context_scope', lambda: None)(),
-                    getattr(settings, 'capture_missing_audio', False))
+                    getattr(settings, 'capture_missing_audio', False), settings.capture_unvoiced)
                 resolved = {}
                 for context, kind in contexts:
                     hit = context.observe(index, [' '.join(lines)] if lines else [], [match], kind=kind,

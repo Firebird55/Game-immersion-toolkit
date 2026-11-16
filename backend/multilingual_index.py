@@ -283,7 +283,7 @@ class MultilingualTextIndex:
                     lookups += [(locale, values, True) for locale, values in self._missing_audio_lookup.items()]
                 for locale, lookup, silent in lookups:
                     missing_lookup = lookup is self._missing_audio_lookup.get(locale)
-                    if previous_text_id and (locale != self.source_locale or silent and not missing_lookup):
+                    if previous_text_id and locale != self.source_locale:
                         continue
                     key, score = normalize_text(source, locale), 100.
                     if self.game in {'starrail', 'genshin', 'endfield'}:
