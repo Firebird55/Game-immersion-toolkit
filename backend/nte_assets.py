@@ -462,7 +462,7 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
             audio, gender = performance['audio'], performance['player_voice']
             status = 'voiced' if audio else ('unavailable' if event in authored_events or any(declarations or ())
                                              else 'unvoiced' if text_only else 'unknown')
-            if en and (source_locale or (contains_han(zh) and (audio or status == 'unvoiced'))):
+            if display_text(en) and (source_locale or (contains_han(zh) and (audio or status == 'unvoiced'))):
                 suffix = ':' + gender if gender else ''
                 records.append({"text_id": f"nte:{ns}:{key}{suffix}", "english": en, "chinese": zh, "audio": audio,
                                 **({'player_voice': gender} if gender else {}),

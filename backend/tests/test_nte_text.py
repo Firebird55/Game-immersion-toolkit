@@ -6,6 +6,7 @@ import pytest
 from backend import nte_assets as assets
 from backend.nte_text import localized_records, player_variants
 from backend.tests.test_nte_player_voices import cache, index
+from backend.local_game import LocalDialogue
 
 
 TEMPLATES = {
@@ -66,6 +67,10 @@ def test_unknown_template_shapes_cannot_manufacture_a_spoken_variant(bad):
     assert len(rows) == 1 and rows[0]['text_binding_unresolved']
     assert rows[0]['voice_status'] == 'unavailable' and rows[0]['audio'] is None
     assert 'unresolved protagonist text' in ' '.join(assets.coverage_warnings(rows))
+    rows[0].update(english=rows[0]['texts']['en'], chinese='')
+    LocalDialogue(**rows[0])
+    with pytest.raises(ValueError, match='Unresolved study text'):
+        LocalDialogue(**{**rows[0], 'voice_status': 'voiced', 'audio': {'depot': 'wrong.wem'}})
 
 
 def test_bad_target_does_not_replace_valid_source_or_borrow_opposite_gender():
@@ -89,3 +94,37 @@ def test_identical_authored_text_arguments_do_not_require_a_player_setting():
 def test_conditional_fragments_preserve_common_text_and_display_markup():
     assert player_variants('Welcome <b><male=>sir<male><female=>madam<female></b>!') == {
         'female': 'Welcome madam!', 'male': 'Welcome sir!'}
+
+
+def test_markup_only_localization_does_not_create_an_empty_study_record(tmp_path):
+    cache(tmp_path)
+    path = tmp_path / 'localization.json'
+    source = json.loads(path.read_text())
+    source['en'].append({'ns': 'Owned', 'key': 'Empty', 'value': '<b>\n</b>'})
+    path.write_text(json.dumps(source))
+    records = assets.build_records(tmp_path, source_locale='en')
+    assert len(records) == 2 and all(row['source_text'].strip() for row in records)
+
+
+def test_normal_language_worker_accepts_rendered_and_unresolved_text_records(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import language_worker
+    cache(tmp_path)
+    path = tmp_path / 'localization.json'
+    source = json.loads(path.read_text())
+    source['en'][0]['value'] = TEMPLATES['en']
+    source['en'].extend([
+        {'ns': 'Owned', 'key': 'Unsupported', 'value': '{Gender}|gender(unsupported)'},
+        {'ns': 'Owned', 'key': 'Empty', 'value': '<i> </i>'}])
+    path.write_text(json.dumps(source))
+    records = assets.build_records(tmp_path, source_locale='en', target_locales=['fr'])
+    adapter = SimpleNamespace(LANGUAGE_INDEX_VERSION=assets.LANGUAGE_INDEX_VERSION,
+        index_language=lambda *args: {'format': 2, 'game': 'nte', 'source_locale': 'en', 'records': records})
+    monkeypatch.setattr(language_worker, 'asset_adapter', lambda game: (adapter, None))
+    output = tmp_path / 'prepared.json'
+    language_worker.build('nte', None, tmp_path, 'en', ['fr'], output)
+    prepared = json.loads(output.read_text())
+    assert len(prepared['records']) == 3
+    assert prepared['dialogue_inventory']['voice_counts'] == {
+        'voiced': 2, 'unvoiced': 0, 'unavailable': 0, 'unknown': 1}
+    assert prepared['records'][0]['texts']['en'] != prepared['records'][1]['texts']['en']
