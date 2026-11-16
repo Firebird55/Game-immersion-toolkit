@@ -72,7 +72,7 @@ field values exist as keys in all 15 independently parsed original locale tables
 (225 matches); the accessor itself does not perform localization lookup.
 No mirror rows were used to derive or parse those records.
 
-## Explicit original Talk preparation API · November 16, 2026
+## Explicit original Talk preparation API · November 17, 2026
 
 The [original dialogue reader](../../backend/genshin_original_dialogue.py)
 accepts typed read contracts from caller-proved original native owners. It
@@ -95,6 +95,14 @@ catalog of the same publisher generation. Shortened container names cannot
 replace full catalog/bundle ownership. Group root IDs and inventory membership
 are checked before activation; duplicate, unknown or absent members refuse the
 update. Catalog digests participate in the snapshot revision.
+Native-owned UInt32-to-UInt64 source dictionaries can also enumerate Talks,
+descriptors or descriptor groups directly. Every indexed root must match its
+index key, and every descriptor must still resolve to a known Talk inventory
+member. NPC/cutscene index keys have a separate namespace: an equal number cannot
+silently replace an inventory Talk. Compound group routes retain the two typed
+inventory values in their authored order, including native zero/default values;
+both group root IDs must agree. An omitted native dialogue array means there
+are no captions in that object, without manufacturing an unvoiced line.
 It reads the original voice Lut,
 loads each referenced Items group and joins the exact original UUID hash,
 argument and trigger. Duplicate event keys, UUID hash collisions and missing
@@ -157,11 +165,40 @@ The grouped route also resolved **2,109 Activity, 242 Storyboard, 38 Scenery and
 two Furniture descriptors** to 2,391 exact original catalog assets. Every Talk
 payload passed strict decoding and matched its descriptor ID, yielding 21,051
 nodes. The group IDs match their original resource names. Additional candidate
-FreeGroup and NpcOther resources and the shared GlobalDialog object are readable,
-but their complete inventory routing is not yet established. Gadget loading
-uses two separately authored IDs in its resource path; their complete source
-inventory remains unresolved. These counts describe original-format evidence,
-not full end-to-end preparation or complete presentation coverage.
+FreeGroup and NpcOther resources and the shared GlobalDialog object are readable.
+
+The original source dictionaries independently enumerate **3,978 NPC free-talk
+groups, 1,604 NPC other-dialogue objects and 37 cutscene dialogue objects**.
+Every resource was resolved by its full catalog identity and passed strict
+decoding with matching root IDs. The free-talk groups contain 18,493 descriptors
+referencing 17,443 unique Talk payloads; all referenced Talks passed matching-ID
+and EOF checks, yielding 68,208 nodes before repeated group contexts. The other
+NPC objects contain 1,859 nodes and the cutscene objects contain 708. The original
+MainQuest and MainQuestBrief dictionaries each enumerate 4,543 resources; their
+complete dialogue-prefix decoding remains open.
+
+Gadget loading uses the first two authored extra-load IDs in order. They are
+not a Scene ID inferred from a dialogue number. The 1,506 inventory rows with
+such pairs identify 667 groups exactly. A separate scan of all 176,150 named
+data objects in their current verified bundle found one further group with
+native default IDs: `0_0`. Classification required the exact native-constructed
+path's full UInt64 catalog identity, followed by complete group decoding. Of
+174,884 bounded prefix reads, 174,216 failed that catalog identity check; 1,266
+other objects failed the prefix bounds. The resulting **668 groups and 1,507
+referenced Talks** all passed complete EOF and ID checks, yielding **4,372 nodes**.
+Ten inventory rows without authored pairs remain without a group binding; this
+scan does not establish that other current or future bundle partitions contain
+no additional groups.
+
+The combined parsed sources currently contain **414,070 unique dialogue IDs**
+and **411,847 positive caption hashes**, with no conflicting hashes for an ID.
+These are measured parsed sources, not a complete story denominator. Joining
+all 15 fully parsed original text locales leaves five caption hashes absent in
+Simplified Chinese, 3,437 in English, 3,465 in Japanese, 32,833 in Turkish and
+32,836 in Italian; other locale gaps are also recorded. These source gaps do
+not establish silence, unreachable content or missing parser fields. All counts
+above describe original-format evidence, not full end-to-end preparation or
+complete presentation coverage.
 
 All referenced Talk resources still need to be replayed through preparation.
 The original load-type enum distinguishes ordinary quests, Blossom, activity,
@@ -178,6 +215,10 @@ graph with colliding shortened identities, conditional takes, unknown choices,
 missing packs, ambiguous identities, strict bounds and failed update/retry.
 Changed catalog identities refresh provenance; wrong identities, stale assets,
 unsupported payloads and incomplete groups preserve the preceding snapshot.
+Resource-index tests additionally cover changed native operands, full indexed
+enumeration without filename probes, group-key namespace collisions, wrong
+indexed roots, absent assets, truncated dictionaries, unknown indexed inventory
+kinds, compound-ID disagreement and authored empty Talk arrays.
 These tests do not establish real native inventory discovery.
 
 Normal Setup still uses its matching text extraction. The explicit API does not

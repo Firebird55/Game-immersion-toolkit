@@ -215,6 +215,156 @@ def test_changed_original_graph_contract_and_catalog_identity_refresh_snapshot(t
     assert changed_catalog['metadata_revision'] != updated['metadata_revision']
 
 
+def indexed_fixture(generation=0):
+    value, assets, group, descriptors = routed_fixture(generation)
+    spec, inventory, objects, options = value
+    word, wide = spec.inventory.count, spec.descriptor.fields[1].value
+    index_contract = original.Dictionary(word, word, wide)
+    indices = []
+    for key, asset_index, source_path, representation, contract in (
+            (900, (9 << 40) | 0x0102030405, 'Data/Group/900', 'group', group),
+            (100, (8 << 40) | 0x0102030405, 'Data/Descriptor/100', 'descriptor', None)):
+        source = objects.pop(source_path)
+        assets[asset_index] = original.OriginalAsset(asset_index, source.payload, source.sha256,
+                                                    'c' * 64, options['publisher_stamp'])
+        path = f'Data/Index/{representation}'
+        payload = encode(index_contract, {key: asset_index})
+        objects[path] = original.OriginalObject(path, payload, hashlib.sha256(payload).hexdigest())
+        indices.append(original.SourceIndex(path, index_contract, representation, contract))
+    spec = replace(spec, source_indices=tuple(indices))
+    return (spec, inventory, objects, options), assets, group, descriptors
+
+
+def test_original_indices_enumerate_groups_and_descriptors_without_filename_probes(tmp_path):
+    value, assets, _, _ = indexed_fixture()
+    loaded = []
+    options = value[3]
+    options['load_asset'] = lambda identity: loaded.append(identity) or assets[identity]
+    snapshot = prepare(tmp_path / 'indexed.json', value)
+    assert len(loaded) == len(set(loaded)) == len(assets) == 6
+    assert snapshot['original_dialogue']['source_indices'] == 2
+    assert snapshot['original_dialogue']['inventory_rows'] == 5
+    assert snapshot['original_dialogue']['talk_objects'] == 5
+    assert {row['text_id'] for row in snapshot['records']} == {f'genshin:{1000 + n}' for n in range(5)}
+
+
+@pytest.mark.parametrize('failure', ['missing_index_asset', 'wrong_group_id', 'truncated_index',
+                                     'unknown_indexed_kind'])
+def test_broken_publisher_resource_index_retains_previous_snapshot(tmp_path, failure):
+    path = tmp_path / 'indexed.json'
+    old, _, _, _ = indexed_fixture()
+    prepare(path, old)
+    before = path.read_bytes()
+    value, assets, group, descriptors = indexed_fixture(1)
+    spec, _, objects, _ = value
+    asset_index = (9 << 40) | 0x0102030405
+    if failure == 'missing_index_asset':
+        assets.pop(asset_index)
+    elif failure == 'wrong_group_id':
+        payload = encode(group, {'id': 901, 'talks': [descriptors[n] for n in (101, 102, 103)]})
+        source = assets[asset_index]
+        assets[asset_index] = replace(source, payload=payload, sha256=hashlib.sha256(payload).hexdigest())
+    elif failure == 'truncated_index':
+        source = objects[spec.source_indices[0].path]
+        payload = source.payload[:-1]
+        objects[source.path] = original.OriginalObject(source.path, payload, hashlib.sha256(payload).hexdigest())
+    else:
+        rows = original.decode_original(value[1].payload, spec.inventory)
+        rows[1]['resourceKind'] = 99
+        payload = encode(spec.inventory, rows)
+        inventory = original.OriginalObject(value[1].path, payload, hashlib.sha256(payload).hexdigest())
+        value = spec, inventory, objects, value[3]
+    with pytest.raises((ValueError, KeyError)):
+        prepare(path, value)
+    assert path.read_bytes() == before
+
+
+def test_changed_native_index_and_routes_refresh_current_original_snapshot(tmp_path):
+    path = tmp_path / 'indexed.json'
+    first = prepare(path, indexed_fixture()[0])
+    second = prepare(path, indexed_fixture(1)[0])
+    assert first['original_dialogue']['profile_sha256'] != second['original_dialogue']['profile_sha256']
+    assert first['metadata_revision'] != second['metadata_revision']
+    assert first['fingerprint'] != second['fingerprint']
+    assert {row['text_id'] for row in first['records']} == {row['text_id'] for row in second['records']}
+    assert second['records'][0]['audio']['source'].endswith('sample-1-0.wem')
+    assert json.loads(path.read_text(encoding='utf-8')) == second
+
+
+def test_source_index_group_keys_do_not_replace_talk_inventory_ids(tmp_path):
+    value, _, _, _ = indexed_fixture()
+    spec, inventory, objects, options = value
+    contract = original.Dictionary(spec.inventory.count, spec.inventory.count,
+                                   spec.descriptor.fields[1].value)
+    # NPC/cutscene index identities have their own namespace. A matching number
+    # must not bypass the inventory's actual Talk binding.
+    payload = encode(contract, {101: (7 << 40) | 0x0102030405})
+    path = 'Data/Index/other'
+    objects[path] = original.OriginalObject(path, payload, hashlib.sha256(payload).hexdigest())
+    talk = encode(spec.talk, {'id': 101, 'dialogList': [
+        {'id': 7000, 'talkContentTextMapHash': 8000, 'nextDialogs': []}]})
+    assets = dict(options['load_asset'].__self__)
+    asset_index = (7 << 40) | 0x0102030405
+    assets[asset_index] = original.OriginalAsset(asset_index, talk, hashlib.sha256(talk).hexdigest(),
+                                               'c' * 64, options['publisher_stamp'])
+    options['load_asset'] = assets.__getitem__
+    for table in options['tables'].values():
+        table['8000'] = 'Other authored caption.'
+    spec = replace(spec, source_indices=(*spec.source_indices, original.SourceIndex(path, contract)))
+    snapshot = prepare(tmp_path / 'namespaces.json', (spec, inventory, objects, options))
+    assert {row['text_id'] for row in snapshot['records']} == {
+        *[f'genshin:{1000 + n}' for n in range(5)], 'genshin:7000'}
+    assert next(row for row in snapshot['records'] if row['text_id'] == 'genshin:7000')['voice_status'] == 'unknown'
+
+
+def test_compound_group_route_keeps_both_authored_ids_and_checks_group_root(tmp_path):
+    value, assets, old_group, descriptors = routed_fixture()
+    spec, _, objects, options = value
+    word = spec.inventory.count
+    group = original.Record((original.Field('id', word), original.Field('id2', word),
+                             old_group.fields[1]))
+    listing = [{'id': 100 + n, 'resourceKind': 1 if not n else 2 if n < 4 else 0,
+                'pair': [900, 1234]} for n in range(5)]
+    inventory_contract = original.Array(word, original.Record((original.Field('id', word),
+        original.Field('resourceKind', word), original.Field('pair', original.Array(word, word)))))
+    payload = encode(inventory_contract, listing)
+    inventory = original.OriginalObject('Data/Inventory', payload, hashlib.sha256(payload).hexdigest())
+    route = original.InventoryRoute(2, 'Data/Gadget/', 'pair', 'group', group, (0, 1))
+    spec = replace(spec, inventory=inventory_contract,
+                   inventory_routes=tuple(route if item.kind == 2 else item for item in spec.inventory_routes))
+    objects.pop('Data/Group/900')
+    group_path = 'Data/Gadget/900_1234'
+    payload = encode(group, {'id': 900, 'id2': 1234, 'talks': [descriptors[n] for n in (101, 102, 103)]})
+    objects[group_path] = original.OriginalObject(group_path, payload, hashlib.sha256(payload).hexdigest())
+    path = tmp_path / 'compound.json'
+    snapshot = prepare(path, (spec, inventory, objects, options))
+    assert len(snapshot['records']) == 5
+    before = path.read_bytes()
+    wrong = encode(group, {'id': 900, 'id2': 4321, 'talks': [descriptors[n] for n in (101, 102, 103)]})
+    objects[group_path] = original.OriginalObject(group_path, wrong, hashlib.sha256(wrong).hexdigest())
+    with pytest.raises(ValueError):
+        prepare(path, (spec, inventory, objects, options))
+    assert path.read_bytes() == before
+
+
+def test_authored_empty_talk_array_is_no_caption_and_never_unvoiced(tmp_path):
+    spec, inventory, objects, options = fixture(count=5)
+    old_contract = spec.talk
+    talk = original.Record((old_contract.fields[0], replace(old_contract.fields[1], mask=1)), original.Word(8))
+    for identity in range(100, 105):
+        source = objects[f'Data/Talk/{identity}']
+        decoded = original.decode_original(source.payload, old_contract)
+        if identity == 104:
+            decoded.pop('dialogList')
+        payload = encode(talk, decoded)
+        objects[source.path] = original.OriginalObject(source.path, payload, hashlib.sha256(payload).hexdigest())
+    snapshot = prepare(tmp_path / 'empty.json', (replace(spec, talk=talk), inventory, objects, options))
+    assert snapshot['original_dialogue']['talk_objects'] == 5
+    assert len(snapshot['records']) == 4
+    assert all(row['voice_status'] != 'unvoiced' for row in snapshot['records'])
+    assert 'genshin:1004' not in {row['text_id'] for row in snapshot['records']}
+
+
 def test_complete_authored_inventory_and_ordinary_voice_service(tmp_path, monkeypatch):
     value = fixture(count=137, variants=True)
     path = tmp_path / 'textmap.json'
