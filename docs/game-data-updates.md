@@ -160,7 +160,11 @@ A later nonempty actor mapping restores the existing reaction path; missing
 metadata or a missing voice pack is not relabeled silent.
 For a new or changed FMV track it follows that dub's subtitle times, voice
 event and recording. Saved clips retain the original release and times.
-[Endfield release comparison](game-audits/endfield.md)
+[Endfield release comparison](game-audits/endfield.md). A controlled 1.5.3-to-1.6.4
+rehearsal with the same reader covers newly added dialogue, changed text and two
+changed original recordings; fresh offline playback retains both saved versions.
+The older discovery is replayed and current discovery is live. Scheduled device
+activation remains separate acceptance work.
 Prepared locales refresh through the normal language worker. Compatible data
 changes need no toolkit release; new archive or schema formats require a reader
 update. Hito’s World is disabled and no longer refreshes automatically.

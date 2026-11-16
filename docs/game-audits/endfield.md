@@ -63,9 +63,50 @@ installation. Both MP3s decoded to the same nonzero 3.000-second PCM, SHA-256
 `c1e73722c4064c32eb793898887bb401286475d045829e122dee2ee3bcaad19b`.
 The previous snapshot remained readable after preparing the new one.
 This verifies source discovery, preparation and playback across these two
-resource versions. Scheduled activation on a running device, changed text
-or voices, interruption/offline behavior and other hosts remain separate
-acceptance work.
+resource versions. The separate version rehearsal below covers selected changed
+text and recordings. Scheduled activation on a running device, interrupted or
+corrupt updates and other hosts remain separate acceptance work.
+
+## Publisher-version rehearsal with changed text and voices · November 16, 2026
+
+The same revision-18 Endfield reader prepared original Global **1.5.3** and
+**1.6.4** resources without a game installation. The baseline worker replayed
+the retained 1.5.3 discovery descriptor, with initial/main revision `10731330-8`.
+Its tables, package indexes and recordings remained the original publisher
+resources. The second ordinary language worker used live current discovery,
+selecting revision `11775769-12`, and completed in **28.328 s** with warm caches.
+Endfield reader, worker and voice-service code was unchanged between the two
+preparations. This is a controlled version rehearsal; scheduled device
+activation remains separate.
+
+| English preparation | Records | Voiced | Confirmed unvoiced | Unavailable | Unknown |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Global 1.5.3 baseline | 48,257 | 22,888 | 17,189 | 7,995 | 185 |
+| Live Global 1.6.4 | 53,675 | 26,044 | 18,619 | 8,827 | 185 |
+
+The current result retains every old record ID and adds **5,418 records**,
+including **3,156 voiced bindings**. Five existing prepared records change
+their English text; one is voiced in both versions. The underlying English
+table changes 82 existing values, including entries outside prepared dialogue.
+These inventory counts do not mean that every new recording was played.
+
+The normal voice service independently exported two changed existing recordings,
+an unchanged bark in both versions and a newly added story line. The profile
+voice `chr_0011_seraph_39` changes from **38.021792 s** to **36.623354 s**, alongside
+its English text. Dialogue `dlg_e11m6_1_004` changes from **4.390417 s** to
+**6.446833 s**. Both pairs decode to different nonzero PCM. The unchanged
+control yields identical 1.156354-second PCM across both releases; new story
+line `dlg_c37m1_1_001` yields 5.467917 seconds.
+
+A fresh second Python process blocked networking and publisher discovery,
+reopened both saved snapshots and repeated all seven exports into fresh output
+folders. Every export retained its original PCM hash and length. The older
+changed recordings therefore remain available from the cache after current
+preparation. There was no account traffic or game execution. Complete cold
+transfer, running-device scheduling, interrupted activation and cross-platform
+acceptance remain open.
+[Baseline main index](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.5/resource/Windows/main/10731330-8_qaMiws1HojwzPhd6/files/index_main.json)
+· [Current main index](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/resource/Windows/main/11775769-12_BgTDcDO3dkf1DQ93/files/index_main.json)
 
 ## Selecting the publisher edition
 
