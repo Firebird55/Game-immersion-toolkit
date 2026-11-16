@@ -244,12 +244,15 @@ also misses those known controls, so its negative result is not evidence of
 silence. This is an actual current caption with **unknown original speech
 ownership**, not a completed spoken binding or certified unvoiced line.
 
-With revision-20 code and format metadata held fixed, the retained official
+With revision-21 code and the same frozen format metadata, the retained official
 1.5.3 discovery descriptor was replayed once more. Its normal English worker
-completed in 31.172 seconds with 48,291 records: 22,920 voiced, 17,189 unvoiced,
+completed in 23.172 seconds with 48,291 records: 22,920 voiced, 17,189 unvoiced,
 7,995 unavailable and 187 unknown. Live 1.6.4 again retains every old ID and adds
 5,418 records, including 3,156 voiced records; five existing English texts change.
 The earlier changed-recording and restart proof remains independently recorded.
+Every old baseline row, and every live revision-21 worker row above, matches
+the retained revision-20 evidence in all fields apart from the additional OCR
+anchors. The new anchors do not replace historical texts or recording references.
 
 The version rehearsal verifies changed English text, two changed original
 recordings, a new voiced line, offline restart and retention of older recordings.
