@@ -17,7 +17,7 @@ from Crypto.PublicKey import RSA
 
 ROOT = 'https://raw.githubusercontent.com/CollapseLauncher/CollapseLauncher-ReleaseRepo/main/metadata/v3/stable/'
 CONFIGS = {('genshin', 'global'): 'config_GIGlb.json', ('genshin', 'cn'): 'config_GICN.json',
-           ('zzz', 'global'): 'config_Glb.json', ('zzz', 'cn'): 'config_CN.json'}
+           ('zzz', 'global'): 'config_ZZZGlb.json', ('zzz', 'cn'): 'config_ZZZCN.json'}
 LIMIT = 1024 * 1024
 
 
