@@ -78,7 +78,14 @@ supported; successful media loading alone cannot supply that contract.
 An isolated native-schema experiment can append supported standalone types
 from official client descriptors to a frozen usmap. It preserves every existing
 record and excludes unresolved native parents, struct/enum constructors and
-ambiguous identities. It is not part of normal preparation yet; current metadata
+ambiguous identities. A separate seeded-callback variant also admits new parent,
+nested-struct and enum references when multiple complete, unchanged seed types
+identify the same callback in the current original client. Conflicts and
+unwitnessed targets remain excluded. A separate candidate API can replace fully
+resolved changed existing definitions inside a new immutable generation, preserving
+the original seed and all historical metadata. It retains the complete original
+manifest and explicit frozen reader/format/parameter identities. Enum values are
+not refreshed. These experiments are outside normal preparation; current metadata
 sources and independent key acquisition remain separate update dependencies.
 Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain

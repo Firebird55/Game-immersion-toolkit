@@ -72,8 +72,68 @@ table proof below. A supplied description must match the actual launcher
 `GameAssembly.dll` MD5; another client's description cannot silently replace it.
 Bootstrap paths are supplied inputs too: the private probe resolves native
 `Load` literals against the original launcher inventory, and synthetic renames
-use the same standalone API. The explicit ClientConfig field-layout description
-remains supplied input.
+use the same standalone API.
+
+The owned `starrail_native_description` API now derives the ClientConfig layout
+from matching original metadata and decoded native instructions. It identifies
+the binary reader through the unique dominant owner of no-argument primitive
+calls in `VersionData.Deserialize`, then joins public config field names/types
+and offsets to the native return stores in serialization order. String arrays
+require count, allocation, indexed string-store and loop-branch evidence. Every
+public field must be accounted for once, with consistent object registers,
+primitive kinds and store widths. Missing, duplicate, unsupported or ambiguous
+evidence fails closed. Scalar return aliases cannot be overwritten before the
+matching store; the shared receiver register cannot be rebound while fields are
+being read. Independent instructions and register reads remain allowed.
+The implementation bounds method evidence to 8,192
+instructions and a 64-KiB span, and config metadata to 256 fields. It contains
+no release, address, field-offset or nine-field order list.
+
+The same frozen owned API derives all nine fields for 4.6 and 4.7, despite their
+different native offsets and parser bodies. Both original files consume exactly
+201 bytes and yield the same canonical decoded-value SHA-256
+`9e904d4efe0c9bde40b083d82fe0f0a3921669906f4d2dd1bd03babb0e131536`.
+This replay downloads no new native bytes and retains the whole-file versus
+Sophon-chunk integrity distinction above. Synthetic evidence covers relocated
+fields, new scalar fields, conflicting primitive owners, incomplete stores,
+malformed bounds, missing array evidence and clobbered scalar returns.
+
+This API takes metadata and disassembly as inputs; it does not authenticate or
+generate them, load a native library, or prove arbitrary native control flow.
+The retained `HSRGlobalMetadata` helper at frozen revision
+`bb66f7c59d73cadcd026d817a011598ea23c5313` has fixed metadata codecs and string-key
+formulas. Its successful extraction for these inputs does not prove recovery
+after a key/layout change. A compiler-free, provenance-checked helper lifecycle,
+automatic metadata codec derivation from original native data, and descriptions
+for the additional catalog tables remain prerequisites for enabling production
+discovery. No additional third-party helper or binary is shipped by this change.
+
+The standalone owned API also exposes `string_key(instructions)` for the
+evidenced masked-index string codec. It joins the original signed-index mask
+selection, multiplier/add seed and scalar block-step operations, requiring unique
+compatible instruction evidence. Its operands are derived data; there is no
+known-key list or fixed native register. Synthetic tests change all arithmetic
+operands, index masks and registers and reject incomplete or ambiguous joins.
+The private 4.7 probe locates the native header pointer from its original
+initializer and uses PE exception-directory entries for accessor bounds. The
+4,571-byte string accessor has SHA-256
+`bd68f13fa7a44b1fb6706810a3cea5116609de2507ea97a2d387e08c4960fa1d`.
+The owned API's derived parameters decrypt 64 deterministic original metadata
+namespace/type names exactly matching the retained helper output, with combined
+verification SHA-256
+`864f8f16f172e689ff133c23f8ea05cf370dbc081ea59058160a9699bd28ce1c`.
+The native input's whole-file MD5 is `2db87084b0383dbe7ce3556bb33db662` and the
+original global metadata MD5 is `ba110cdff0a1c2588333f7f2071e3ec6`, both checked
+against the official 4.7 manifest. No native code is executed or downloaded by
+this replay. Actual key bytes and native code remain private.
+
+This string-key result still uses frozen semantic header slots, record layout
+and the evidenced scalar codec shape. A separate bounded native probe recovers
+arithmetic operands agreeing with 21 of the helper's 28 semantic header fields,
+with zero conflicting recovered expressions; seven fields, table-record codecs
+and string-literal codecs remain unresolved. It does not establish relocated
+slot ownership, an actual changed-key release, configurable helper decoding or
+normal-worker recovery. Production metadata preparation remains disabled.
 
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone

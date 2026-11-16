@@ -1,0 +1,164 @@
+"""Owned synthetic native/metadata evidence; no game bytes or addresses."""
+import copy
+
+import pytest
+
+from backend import starrail_native_description as native
+from backend.starrail_original_discovery import decode_bootstrap
+
+
+READERS = {0x101: 'string', 0x202: 'u32', 0x303: 'bool'}
+
+
+def evidence(offset=0x20, register='r12'):
+    metadata = '\n'.join(f'    public {kind} {name} // Offset: {hex(offset + i * 8)}, Token: 0x1'
+                         for i, (kind, name) in enumerate((
+                             ('string', 'Label'), ('string[]', 'Endpoints'), ('uint', 'Index'), ('bool', 'Enabled'))))
+    instructions = [
+        ('call', '0x101'), ('mov', f'qword ptr [{register} + {hex(offset)}], rax'),
+        ('call', '0x202'), ('call', '0x999'),
+        ('mov', f'qword ptr [{register} + {hex(offset + 8)}], rax'),
+        ('call', '0x101'), ('mov', 'qword ptr [rsi + rdi*8 + 0x20], rax'), ('jne', '0x5'),
+        ('call', '0x202'), ('mov', f'dword ptr [{register} + {hex(offset + 16)}], eax'),
+        ('call', '0x303'), ('mov', f'byte ptr [{register} + {hex(offset + 24)}], al')]
+    return metadata, [(i + 1, op, args) for i, (op, args) in enumerate(instructions)]
+
+
+@pytest.mark.parametrize(('offset', 'register'), [(0x20, 'r12'), (0x118, 'r15')])
+def test_fields_move_and_new_scalar_without_release_allowlist(offset, register):
+    schema = native.client_schema(*evidence(offset, register), READERS)
+    assert schema == [{'kind': kind, 'semantic': name} for kind, name in (
+        ('string', 'Label'), ('string_array', 'Endpoints'), ('u32', 'Index'), ('bool', 'Enabled'))]
+    assert decode_bootstrap(b'\0\x01A\0\0\0\0\0\0\0\x05\x01', schema) == {
+        'Label': 'A', 'Endpoints': [], 'Index': 5, 'Enabled': True}
+
+
+def test_primitive_owner_and_obfuscated_names_are_derived():
+    instructions = [(1, 'call', '0x1101'), (2, 'call', '0x1202'), (3, 'call', '0x1101'),
+                    (4, 'call', '0x1404')]
+    methods = {0x101: [{'owner': 'ReaderA', 'signature': 'public string X()'}],
+               0x202: [{'owner': 'ReaderA', 'signature': 'public uint Y()'}],
+               0x404: [{'owner': 'Unrelated', 'signature': 'public bool Z()'}]}
+    assert native.primitive_readers(instructions, methods, 0x1000) == {0x1101: 'string', 0x1202: 'u32'}
+    methods[0x101].append({'owner': 'ReaderA', 'signature': 'public uint Q()'})
+    with pytest.raises(ValueError):
+        native.primitive_readers(instructions, methods, 0x1000)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'duplicate', 'width', 'register', 'kind',
+                                      'clobbered', 'allocation', 'array_loop', 'unknown_type',
+                                      'duplicate_name', 'unknown_reader', 'instruction_bounds'])
+def test_incomplete_or_ambiguous_native_evidence_is_rejected(mutation):
+    metadata, instructions = evidence()
+    readers = copy.copy(READERS)
+    if mutation == 'missing':
+        instructions.pop()
+    elif mutation == 'duplicate':
+        instructions.append((99, 'mov', 'byte ptr [r12 + 0x38], al'))
+    elif mutation == 'width':
+        instructions[-1] = (12, 'mov', 'dword ptr [r12 + 0x38], al')
+    elif mutation == 'register':
+        instructions[-1] = (12, 'mov', 'byte ptr [r13 + 0x38], al')
+    elif mutation == 'kind':
+        readers[0x303] = 'u32'
+    elif mutation == 'clobbered':
+        instructions.insert(1, (1.5, 'call', '0x999'))
+        instructions = [(i, op, args) for i, (_, op, args) in enumerate(instructions)]
+    elif mutation == 'allocation':
+        instructions[3] = (4, 'nop', '')
+    elif mutation == 'array_loop':
+        instructions[6] = (7, 'nop', '')
+    elif mutation == 'unknown_type':
+        metadata += '\n    public long Other // Offset: 0x90, Token: 0x2'
+    elif mutation == 'duplicate_name':
+        metadata += '\n    public uint Index // Offset: 0x90, Token: 0x2'
+    elif mutation == 'unknown_reader':
+        readers[0x303] = 'float'
+    elif mutation == 'instruction_bounds':
+        instructions[-1] = (1, 'ret', '')
+    with pytest.raises(ValueError):
+        native.client_schema(metadata, instructions, readers)
+
+
+@pytest.mark.parametrize('instructions,methods', [
+    ([], {}), ([(1, 'call', '0x101')], {0x101: [{'owner': 'A', 'signature': 'public string A()', 'extra': 1}]}),
+    ([(1, 'call', '0x101'), (2, 'call', '0x202')],
+     {0x101: [{'owner': 'A', 'signature': 'public string A()'}],
+      0x202: [{'owner': 'B', 'signature': 'public uint B()'}]}),
+])
+def test_malformed_or_ambiguous_primitive_metadata(instructions, methods):
+    with pytest.raises(ValueError):
+        native.primitive_readers(instructions, methods, 0)
+
+
+@pytest.mark.parametrize(('operation', 'operands'), [
+    ('xor', 'eax, eax'), ('mov', 'al, 0'), ('lea', 'rax, [rbx]'), ('movsxd', 'rax, ebx'),
+    ('xchg', 'rbx, rax'), ('mul', 'rbx'), ('cmpxchg', 'qword ptr [rdi], rbx'),
+    ('xor', 'r12d, r12d'),
+])
+def test_scalar_return_and_receiver_aliases_cannot_be_overwritten(operation, operands):
+    metadata, instructions = evidence()
+    instructions.insert(1, (0, operation, operands))
+    instructions = [(i + 1, op, args) for i, (_, op, args) in enumerate(instructions)]
+    with pytest.raises(ValueError):
+        native.client_schema(metadata, instructions, READERS)
+
+
+def test_independent_work_and_receiver_reads_preserve_scalar_binding():
+    metadata, instructions = evidence()
+    instructions[1:1] = [(0, 'xor', 'ebx, ebx'), (0, 'test', 'r12, r12'), (0, 'test', 'rax, rax')]
+    instructions = [(i + 1, op, args) for i, (_, op, args) in enumerate(instructions)]
+    assert native.client_schema(metadata, instructions, READERS)[0] == {'kind': 'string', 'semantic': 'Label'}
+
+
+def key_evidence(multiplier=0x123456789ABC, addition=0x765432101234, step=0xABCDEF123456,
+                 index='rax', key='rdx', temporary='r11', negative_bits=19, positive_bits=24):
+    mask_register = {'rax': 'eax', 'r8': 'r8d'}[index]
+    instructions = [
+        ('shr', f'ecx, {hex(negative_bits)}'), ('shr', f'edx, {hex(positive_bits)}'),
+        ('test', 'r13d, r13d'), ('mov', f'ecx, {hex((1 << negative_bits) - 1)}'),
+        ('mov', f'{mask_register}, {hex((1 << positive_bits) - 1)}'),
+        ('cmovs', f'{mask_register}, ecx'), ('and', f'{mask_register}, r13d'),
+        ('movabs', f'{temporary}, {hex(multiplier)}'), ('imul', f'{temporary}, {index}'),
+        ('movabs', f'{key}, {hex(addition)}'), ('add', f'{key}, {temporary}'),
+        ('ret', ''), ('movabs', f'{temporary}, {hex(step)}'),
+        ('imul', f'{temporary}, r10'), ('add', f'{key}, {temporary}'), ('jmp', '0x1')]
+    return [(i + 1, operation, operands) for i, (operation, operands) in enumerate(instructions)]
+
+
+@pytest.mark.parametrize('values', [
+    {}, {'multiplier': 0xFEDCBA9876543210, 'addition': 5, 'step': 0x123,
+         'index': 'r8', 'key': 'r15', 'temporary': 'rbx', 'negative_bits': 21, 'positive_bits': 26},
+])
+def test_string_operands_masks_and_registers_change_without_key_list(values):
+    instructions = key_evidence(**values)
+    description = native.string_key(instructions)
+    assert description == {
+        'multiply': values.get('multiplier', 0x123456789ABC), 'add': values.get('addition', 0x765432101234),
+        'step': values.get('step', 0xABCDEF123456),
+        'negative_index_mask': (1 << values.get('negative_bits', 19)) - 1,
+        'positive_index_mask': (1 << values.get('positive_bits', 24)) - 1}
+    assert native.string_key([list(row) for row in instructions]) == description
+
+
+@pytest.mark.parametrize('mutation', ['mask', 'sign', 'index', 'shift', 'seed', 'step', 'ambiguous', 'width'])
+def test_string_key_rejects_missing_or_ambiguous_data_flow(mutation):
+    instructions = key_evidence()
+    if mutation == 'mask':
+        instructions[3] = (4, 'mov', 'ecx, 0x123')
+    elif mutation == 'sign':
+        instructions[5] = (6, 'cmovns', 'eax, ecx')
+    elif mutation == 'index':
+        instructions[6] = (7, 'and', 'eax, r14d')
+    elif mutation == 'shift':
+        instructions[0] = (1, 'nop', '')
+    elif mutation == 'seed':
+        instructions[10] = (11, 'add', 'rsi, r11')
+    elif mutation == 'step':
+        instructions[14] = (15, 'add', 'rsi, r11')
+    elif mutation == 'ambiguous':
+        instructions += [(i + 100, op, args) for i, op, args in instructions]
+    elif mutation == 'width':
+        instructions[7] = (8, 'movabs', 'r11, 0x10000000000000000')
+    with pytest.raises(ValueError):
+        native.string_key(instructions)
