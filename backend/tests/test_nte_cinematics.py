@@ -68,18 +68,22 @@ def test_bad_timing_or_non_key_subtitles_cannot_supply_original_clips(text):
         subtitle_cues(text)
 
 
-def test_movie_binding_cannot_choose_music_or_an_escaped_asset_path():
+@pytest.mark.parametrize('event', ['Play_Vo_CG_Synthetic', 'Play_Vo_OwnedFuture'])
+def test_movie_binding_cannot_choose_music_or_an_escaped_asset_path(event):
     row = {'StringTableID':'Sequence','Path':{'FilePath':'../../../Projects/HT/Content/Movies/FFMpeg/Story/Synthetic.mp4'},
-           'PlayVoice':{'AssetPathName':'/Game/WwiseAudio/Events/CG/Guide/Synthetic/Play_Vo_CG_Synthetic.Play_Vo_CG_Synthetic'}}
+           'PlayVoice':{'AssetPathName':f'/Game/WwiseAudio/Events/CG/Guide/Synthetic/{event}.{event}'}}
     assert movie_bindings([row])[0]['subtitle'] == SRT_ROOT+'Synthetic.srt'
     assert movie_bindings([{**row,'PlayVoice':{'AssetPathName':row['PlayVoice']['AssetPathName'].replace('Play_Vo','Play_Sfx')}}]) == []
     assert movie_bindings([{**row,'Path':{'FilePath':row['Path']['FilePath'].replace('Synthetic','../escaped')}}]) == []
+    assert movie_bindings([{**row,'PlayVoice':{'AssetPathName':row['PlayVoice']['AssetPathName'].replace('/Events/CG/', '/Events/Dialogue/')}}]) == []
+    assert movie_bindings([{**row,'PlayVoice':{'AssetPathName':row['PlayVoice']['AssetPathName'] + 'Other'}}]) == []
 
 
-def test_original_registry_can_add_a_movie_alias_without_a_toolkit_alias_update():
+@pytest.mark.parametrize('event', ['Play_Vo_CG_Owned', 'Play_Vo_OwnedFuture'])
+def test_original_registry_can_add_a_movie_alias_without_a_toolkit_alias_update(event):
     row = {'StringTableID': 'OwnedFutureAlias',
            'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/OwnedMovie.mp4'},
-           'PlayVoice': {'AssetPathName': '/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_Owned.Play_Vo_CG_Owned'}}
+           'PlayVoice': {'AssetPathName': f'/Game/WwiseAudio/Events/CG/Owned/{event}.{event}'}}
     owners = movie_namespaces({'StringTableNamespaces.json': {'OwnedFutureAlias': 'Different.Authored.Namespace'}})
     binding, = movie_bindings([row], owners)
     assert binding['namespace'] == 'Different.Authored.Namespace'
@@ -87,7 +91,7 @@ def test_original_registry_can_add_a_movie_alias_without_a_toolkit_alias_update(
     # FName aliases are insensitive to case; the original namespace is exact.
     assert movie_bindings([{**row, 'StringTableID': 'OWNEDFUTUREALIAS'}], owners) == [binding]
     srt = '1\n00:00:01,000 --> 00:00:02,000\nOwnedLine\n'
-    events = {'play_vo_cg_owned': [{'player_voice': None, 'audio': {'depot': 'Owned/voice.wem'}}]}
+    events = {event.lower(): [{'player_voice': None, 'audio': {'depot': 'Owned/voice.wem'}}]}
     records = movie_records([binding], {binding['subtitle']: srt},
         {('Different.Authored.Namespace', 'OwnedLine'): 'An independently owned caption.'},
         {('Different.Authored.Namespace', 'OwnedLine'): '独立测试字幕。'}, events)
@@ -144,16 +148,18 @@ def test_repeated_cue_key_has_no_guessed_original_clip():
                          {'play_vo_cg_synthetic':[{'player_voice':None,'audio':{'depot':'Chinese/123.wem'}}]}) == []
 
 
-def test_sequence_clock_uses_dub_override_and_blocks_overlapping_unowned_or_repeated_cues():
+@pytest.mark.parametrize('event', ['Play_Vo_CG_Fixture', 'Play_Vo_OwnedFuture'])
+def test_sequence_clock_uses_dub_override_and_blocks_overlapping_unowned_or_repeated_cues(event):
     def cue(key, start, end, ns='ST_Fixture', ends=None):
         return dict(ns=ns, key=key, start_ms=start, end_ms=end, starts=[], ends=ends or [])
     rows = [cue('First', 100, 500, ends=[{'Key': 'EVoiceCultureType::ko', 'Value': 650}]),
             cue('Second', 600, 900), cue(None, 800, 850, ns=None),
             cue('Repeated', 900, 980), cue('Repeated', 1000, 1050), cue('Last', 1200, 1500)]
-    payload = {'events': {'group': ['Play_Vo_CG_Fixture'], 'mixed': ['Play_Vo_CG_Fixture', '']},
-               'groups': {'group': rows, 'mixed': rows}}
-    event, en = timed_sequence_cues(payload, 'en')[0]
-    assert event == 'Play_Vo_CG_Fixture' and [c['key'] for c in en] == ['First', 'Last']
+    payload = {'events': {'group': [event], 'mixed': [event, ''], 'music': ['Play_Sfx_Owned']},
+               'groups': {'group': rows, 'mixed': rows, 'music': rows}}
+    actual_event, en = timed_sequence_cues(payload, 'en')[0]
+    assert actual_event == event and [c['key'] for c in en] == ['First', 'Last']
+    assert len(timed_sequence_cues(payload, 'en')) == 1
     assert [c['key'] for c in timed_sequence_cues(payload, 'ko')[0][1]] == ['Last']
     rows[0]['ends'][0]['Key'] = 'EVoiceCultureType::future'
     with pytest.raises(ValueError, match='culture override'):

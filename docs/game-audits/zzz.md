@@ -1,5 +1,88 @@
 # Zenless Zone Zero dialogue audit
 
+## November 16, 2026 · Selected mainland publisher in normal Windows Setup
+
+Reader revision 14 adds **Global / Mainland China** to Publisher edition with
+an empty game folder. Global remains the default for existing setups. Normal
+preparation, automatic source fingerprints and mobile-library preparation use
+that selection. Each edition has its own public bootstrap identity, platform
+area, dispatcher/gateway allowlist, CDN roots and immutable release descriptor.
+Mainland preparation accepts only its own publisher inventory roots and cannot
+borrow missing Global translations. All five study locales remain available;
+both Chinese scripts select the mainland Mandarin package without requiring an
+installed voice pack. Existing Global records retain their own descriptor when
+the selected edition changes. No account, game execution or traffic interception
+is used.
+
+The earlier mainland connection timeout was investigated with bounded public DNS
+and HTTPS probes. The publisher hostname resolved to IPv4, with no observed IPv6
+answer. Ordinary HTTPS and an explicit IPv4 TLS request with the same hostname
+and certificate verification both retrieved the exact advertised **6,631-byte**
+design inventory. This does not establish IPv6 as the cause of the old failure;
+no DNS, proxy or network configuration was changed and no transport workaround
+was added to production.
+
+A fresh mainland dispatcher/gateway selected its own 3.3.0 release, design and
+resource revision **20245314**, audio **19815450**, silence **20080629** and
+base **19316624_6fdf21fa4c**. All five small inventories passed their full
+declared size/XXH64 checks. Four original mainland Sophon markers independently
+matched the numeric base generation. These are observed values, not constants
+in the reader. Publisher HTTPS plus advertised-checksum consistency is the
+verification boundary, as for the Global route below.
+[Mainland design inventory](https://autopatchcn.juequling.com/design_data/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/cn/data_version)
+· [Mainland resource inventory](https://autopatchcn.juequling.com/game_res/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/cn/res_version)
+· [Mainland audio inventory](https://autopatchcn.juequling.com/game_res/3.3_live/output_20245314_2b72369431/client/StandaloneWindows64/cn/audio_version)
+· [Regional bootstrap metadata](https://github.com/CollapseLauncher/CollapseLauncher-ReleaseRepo).
+
+A separate cold mainland source probe downloaded five complete base TextMaps
+totalling **77,765,632 bytes**, each fully hash-checked, before an actual Windows
+connection timeout on the next Sophon request. The subsequent successful normal
+preparation is therefore **not** evidence of a complete cold transfer. It reused
+24 of the 26 original design files only where the independently fetched
+mainland inventory declared the exact same whole-file hash and size. Production
+verified all selected original files; the two different mainland patch files
+(9,311,220 and 784,740 bytes) came from the mainland publisher. Equal verified
+bytes can share the content-addressed cache without substituting Global text
+or inferring a missing mainland table.
+
+Actual normal language-worker results, with no game installation and warmed
+source/tool caches:
+
+| Mainland study locale | Records | Voiced | Confirmed unvoiced | Unavailable | Unknown | Elapsed |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Traditional Chinese, English/Simplified Chinese targets | 264,634 | 76,852 | 133,351 | 3,299 | 51,132 | 280.391 s |
+| Japanese, English/Simplified Chinese targets | 288,027 | 76,748 | 135,211 | 3,405 | 72,663 | 160.016 s |
+
+These two flows published their own mainland fingerprint after a fresh final
+source check. Requested translation locales were present, which does not imply
+that every individual sentence has every requested translation. Both matched
+30,765 of 31,098 scene references, all 101 comic paths and 1,929 comic bindings.
+The same **333** missing references remain: 144 Bubble, 21 BubbleStory, 142 Chat,
+three ChatPlus and 23 GalGame. The auxiliary silence payload passed its full
+hash but remains uninterpreted, not evidence of silent dialogue.
+
+The normal voice service exported **eight** original mainland samples: two
+Persistent patch bindings, one unchanged Sophon base and one timed clue for each
+of Mandarin/Traditional Chinese and Japanese. All decoded to nonzero PCM.
+A separate fresh Python process prohibited source discovery and networking,
+reopened both complete prepared tables and exported those eight again with
+identical PCM hashes and lengths. It also reopened **seven earlier Global
+English/Japanese** recordings with identical PCM while Publisher edition remained
+Mainland China. Thus edition switching preserves historical voices rather than
+redirecting them to the newly selected publisher. No game media or private
+profiles are published with this evidence.
+
+Owned regression fixtures cover edition-specific dispatcher headers and paths,
+cross-region endpoint rejection, Traditional Chinese/Mandarin with no local pack,
+missing mainland translations, Setup refresh, automatic export pinning and
+offline history after edition switches. The existing normal-update, active
+package deletion, patch/base generation and streamed-cache regressions still
+apply. These source-development and synthetic checks do not establish native
+gameplay, every mainland dub's playback, all branches or complete cold-installation
+acceptance. Additional film timelines, the 333 scene references, auxiliary update
+interpretation, actual upstream update/recovery and platform acceptance remain
+open.
+
 ## November 16, 2026 · Current Global publisher updates without an installation
 
 Revision 13 follows the public Global Windows dispatcher and gateway using the
@@ -88,10 +171,10 @@ descriptors and caches retain each original independently.
 The current auxiliary silence resource is a fully hash-checked **245,118-byte**
 BBL payload. Its meaning is not interpreted as a story table or proof of
 unvoiced content; coverage reports zero interpreted auxiliary payloads. Global
-and mainland public dispatch/gateway responses were independently recovered,
-but the mainland CDN attempt failed to connect and mainland publisher Setup is
-not implemented by this change. Additional films, regional flow, full update
-activation/recovery, cold transfer costs and native/device acceptance remain
+and mainland public dispatch/gateway responses were independently recovered.
+The initial mainland CDN attempt failed to connect; the separate regional
+implementation and qualified successful probes are recorded above. Additional
+films, full update activation/recovery, cold transfer costs and native/device acceptance remain
 open. Synthetic owned-source regressions exercise an upstream-only text/voice
 change with unchanged launcher/code, active-package removal, patch/base
 generation separation, corrupt sources, locale isolation and retained offline
@@ -274,7 +357,8 @@ comic manifests and their directly named dependencies occupied 1,895,469
 bytes before launcher chunk alignment. An original English panel (4.992 s),
 phone message (6.483 s) and complete first Limbo recording (90.647 s) were
 retrieved from the older English Wwise pack and decoded to nonzero PCM.
-This checks format continuity across two releases and regions. The Windows Setup region remains Global.
+This checked format continuity across two releases and regions before mainland
+Windows Setup was added in reader revision 14 above.
 [Archived mainland launcher listing](https://github.com/kuaichu/game-cdn-archive/blob/58fb1715ce2f891e9873741c66700817d9552cda/docs/data/hoyo/versions/nap/3.2.0.json)
 
 ## November 9, 2026 · Dialogue from one Global launcher release

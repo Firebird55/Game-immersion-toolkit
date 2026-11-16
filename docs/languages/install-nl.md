@@ -23,13 +23,13 @@ De taalmanager toont echte tabelgroottes. Gedeelde audio en hulpmiddelen worden 
 
 In Games en talen (ook bij de eerste installatie) houdt Keep mobile library updated één ZIP per gekozen stemtaal en vertaling bij zolang de companion draait. Kies een bestaande lokale map, bij voorkeur gesynchroniseerd met je mobiele cloudopslag. Keep on this device bewaart bibliotheken en stemmen voor opnieuw openen. Afzonderlijke Remember on this device-opties bewaren de API-sleutel en volledige VDO.Ninja-link zonder appwachtwoord; gebruik dit alleen op vertrouwde apparaten. De browser of het besturingssysteem kan opslag nog steeds wissen.
 
-Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Genshin controleert ook gewone game-updates en bewaart de vorige tabel als de nieuwe gegevens niet kunnen worden gecontroleerd. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de actuele Global-uitgeversbestanden op, inclusief compatibele tekst- en stemupdates.
+Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Genshin controleert ook gewone game-updates en bewaart de vorige tabel als de nieuwe gegevens niet kunnen worden gecontroleerd. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero kies je Global of Mainland China met een lege gamemap voor dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de actuele uitgeversbestanden, inclusief compatibele tekst- en stemupdates.
 
 | Game | Windows-instellingen |
 | :--- | :--- |
 | Genshin Impact | Uitgeversbestanden uit de wereldwijde of Chinese launcher |
-| Honkai: Star Rail | Regionale basis- en hoofdstukstemmen en geselecteerde filmfragmenten van de uitgever |
-| Zenless Zone Zero | Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher. |
+| Honkai: Star Rail | Regionale stemmen, geselecteerde filmfragmenten en tutorialtekst van de uitgever |
+| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Verhaalstemmen van de wereldwijde of Chinese uitgever |
 | Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
 | Neverness to Everness | Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever |

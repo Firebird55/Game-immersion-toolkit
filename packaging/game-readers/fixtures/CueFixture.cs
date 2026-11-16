@@ -177,17 +177,22 @@ public sealed class FixtureProvider : IDisposable
     {
         if (!marker.TryGetValue("sequence_case", out var selected)) return;
         var kind = selected.GetString();
-        object Sequence(string name) => new {
+        var prefix = kind == "named-voice" ? "Play_Vo_" : "Play_Vo_CG_";
+        object Sequence(string name, string? source = null) => new {
             CaptionsID = name,
             Settings = new { PlayRate = 1, StartTime = 0, bRandomStartTime = false },
-            VoiceSource = new { AssetPathName = $"/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_{name}.Play_Vo_CG_{name}" }
+            VoiceSource = new { AssetPathName = source ?? $"/Game/WwiseAudio/Events/CG/Owned/{prefix}{name}.{prefix}{name}" }
         };
         object? slot = kind switch {
-            "nulls" => null, "string" => "owned invalid slot", "number" => 7,
+            "nulls" => null, "named-voice" => Sequence("owned_middle"), "string" => "owned invalid slot", "number" => 7,
             "boolean" => true, "array" => Array.Empty<object>(), _ => throw new InvalidDataException()
         };
         var row = JsonSerializer.SerializeToElement(new {
-            SequenceInfo = new object?[] { null, Sequence("owned_first"), slot, Sequence("owned_last"), null }
+            SequenceInfo = new object?[] { null, Sequence("owned_first"), slot, Sequence("owned_last"), null,
+                kind == "named-voice" ? Sequence("music", "/Game/WwiseAudio/Events/CG/Owned/Play_Sfx_owned.Play_Sfx_owned") : null,
+                kind == "named-voice" ? Sequence("outside", "/Game/WwiseAudio/Events/Dialogue/Owned/Play_Vo_outside.Play_Vo_outside") : null,
+                kind == "named-voice" ? Sequence("mismatch", "/Game/WwiseAudio/Events/CG/Owned/Play_Vo_first.Play_Vo_second") : null,
+                kind == "named-voice" ? Sequence("escape", "/Game/WwiseAudio/Events/CG/../Owned/Play_Vo_escape.Play_Vo_escape") : null }
         });
         const string table = "HT/Content/DataTable/DT_StorySequenceData.uasset";
         Func<string, IEnumerable<(string, JsonElement)>> rows = name =>
@@ -200,8 +205,10 @@ public sealed class FixtureProvider : IDisposable
             method.Invoke(null, new object[] { new HashSet<string> { table }, rows, export, voices, "unused-owned-output" });
         }
         catch (System.Reflection.TargetInvocationException error) when
-            (kind != "nulls" && error.InnerException?.GetType().Name == "UnsupportedGameFormatException") { return; }
-        if (kind != "nulls" || !voices.SetEquals(new[] { "Play_Vo_CG_owned_first", "Play_Vo_CG_owned_last" }))
+            (kind is not ("nulls" or "named-voice") && error.InnerException?.GetType().Name == "UnsupportedGameFormatException") { return; }
+        var expected = kind == "named-voice" ? new[] { prefix + "owned_first", prefix + "owned_middle", prefix + "owned_last" } :
+            new[] { prefix + "owned_first", prefix + "owned_last" };
+        if (kind is not ("nulls" or "named-voice") || !voices.SetEquals(expected))
             throw new InvalidDataException();
     }
     static void VerifyMovieRegistryFixture(Dictionary<string, JsonElement> marker)

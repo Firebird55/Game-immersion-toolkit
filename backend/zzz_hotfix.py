@@ -27,6 +27,12 @@ VERIFY_BLOCK_SIZE = 1024**2
 INDEXES = {'design': ('design', 'data_version'), 'catalog': ('resource', 'res_version'),
            'audio': ('resource', 'audio_version'), 'base': ('resource', 'base_revision'),
            'silence': ('silence', 'silence_version')}
+EDITIONS = {
+    'zzz-global': {'region': 'global', 'prefix': 'OSPRODWin', 'area': 'oversea',
+                   'host': 'autopatchos.zenlesszonezero.com', 'dispatch': 'os', 'domain': 'zenlesszonezero.com'},
+    'zzz-cn': {'region': 'cn', 'prefix': 'CNPRODWin', 'area': 'cn',
+               'host': 'autopatchcn.juequling.com', 'dispatch': 'cn', 'domain': 'juequling.com'},
+}
 
 
 def check(condition):
@@ -64,9 +70,10 @@ def _query(template, *values):
     return template, headers
 
 
-def _settings():
+def _settings(region='global'):
     from .hoyo_dispatch_metadata import load
-    config, decoder = load('zzz', 'global')
+    check(region in ('global', 'cn'))
+    config, decoder = load('zzz', region)
     names = ('GameDispatchChannelName', 'GameDispatchURLTemplate', 'GameGatewayURLTemplate',
              'GameDispatchDefaultName', 'ProtoDispatchKey')
     values = {name: decoder.text(config[name]) for name in names}
@@ -88,7 +95,7 @@ def _settings():
         check(offset < start)
         tail[index] ^= packed[offset]
     check(tail[:identity * 2].decode('utf-16le') == 'StandaloneWindows64'
-          and tail[identity * 2:].decode('utf-16le') == 'oversea')
+          and tail[identity * 2:].decode('utf-16le') == {'global': 'oversea', 'cn': 'cn'}[region])
     check(packed[0] == 0x30)
     size = packed[1]
     count = size & 127
@@ -104,26 +111,29 @@ def _settings():
     return values, key
 
 
-def _endpoint(url, *, gateway=False):
+def _endpoint(url, *, gateway=False, channel='zzz-global'):
+    edition = EDITIONS[channel]
     parsed = urlsplit(url)
-    host = (r'prod-gf-[a-z]{2,8}\.zenlesszonezero\.com' if gateway else
-            r'globaldp-prod-os0[1-9]\.zenlesszonezero\.com')
+    domain = re.escape(edition['domain'])
+    host = (rf'prod-gf-[a-z]{{2,8}}\.{domain}' if gateway else
+            rf'globaldp-prod-{edition["dispatch"]}0[1-9]\.{domain}')
     check(parsed.scheme == 'https' and re.fullmatch(host, parsed.netloc)
           and parsed.path == ('/query_gateway' if gateway else '/query_dispatch')
           and not parsed.query and not parsed.fragment)
     return url
 
 
-def _cdn(url, kind, version):
+def _cdn(url, kind, version, channel='zzz-global'):
+    edition = EDITIONS[channel]
     parsed = urlsplit(url)
     directory = 'game_res' if kind == 'resource' else 'design_data'
     client = 'client_silence' if kind == 'silence' else 'client'
     branch = '.'.join(version.split('.')[:2]) + '_live'
     pattern = rf'/{directory}/{re.escape(branch)}/output_([1-9][0-9]*)_[0-9a-f]{{6,64}}/{client}/'
     match = re.fullmatch(pattern, parsed.path)
-    check(parsed.scheme == 'https' and parsed.netloc == 'autopatchos.zenlesszonezero.com'
+    check(parsed.scheme == 'https' and parsed.netloc == edition['host']
           and match and not parsed.query and not parsed.fragment)
-    return int(match[1]), url + 'StandaloneWindows64/oversea/'
+    return int(match[1]), url + 'StandaloneWindows64/' + edition['area'] + '/'
 
 
 def _spec(row):
@@ -138,12 +148,14 @@ def _spec(row):
 
 
 def discover(build):
-    check(build['channel'] == 'zzz-global' and re.fullmatch(r'[1-9][0-9]*\.[0-9]+\.[0-9]+', build['version']))
-    values, key = _settings()
-    check(values['GameDispatchChannelName'] == 'OSPRODWin')
-    query, headers = _query(values['GameDispatchURLTemplate'], 'OSPRODWin', build['version'])
-    check(headers['version'] == 'OSPRODWin' + build['version'])
-    endpoints = [_endpoint(value) for value in values['endpoints']]
+    check(build['channel'] in EDITIONS and re.fullmatch(r'[1-9][0-9]*\.[0-9]+\.[0-9]+', build['version']))
+    edition = EDITIONS[build['channel']]
+    values, key = _settings(edition['region'])
+    prefix = edition['prefix']
+    check(values['GameDispatchChannelName'] == prefix)
+    query, headers = _query(values['GameDispatchURLTemplate'], prefix, build['version'])
+    check(headers['version'] == prefix + build['version'])
+    endpoints = [_endpoint(value, channel=build['channel']) for value in values['endpoints']]
     for number, endpoint in enumerate(endpoints):
         try:
             listing = json.loads(_request(endpoint + query, headers, 128 * 1024))
@@ -155,9 +167,9 @@ def discover(build):
     check(listing.get('retcode') == 0 and isinstance(regions, list) and 0 < len(regions) <= 16)
     matches = [row for row in regions if row.get('name') == values['GameDispatchDefaultName']]
     check(len(matches) == 1 and matches[0].get('retcode') == 0)
-    endpoint = _endpoint(matches[0]['dispatch_url'], gateway=True)
-    query, headers = _query(values['GameGatewayURLTemplate'], 'OSPRODWin', build['version'], values['ProtoDispatchKey'])
-    check(headers['version'] == 'OSPRODWin' + build['version'])
+    endpoint = _endpoint(matches[0]['dispatch_url'], gateway=True, channel=build['channel'])
+    query, headers = _query(values['GameGatewayURLTemplate'], prefix, build['version'], values['ProtoDispatchKey'])
+    check(headers['version'] == prefix + build['version'])
     envelope = json.loads(_request(endpoint + query, headers, 1024 * 1024))
     encrypted = base64.b64decode(envelope['content'], validate=True)
     width = key.size_in_bytes()
@@ -175,7 +187,7 @@ def discover(build):
                                    ('resource', 'game_res', 'res_revision'),
                                    ('silence', 'silence_data', 'silence_revision')):
         source = config[field]
-        _, roots[kind] = _cdn(source['base_url'], kind, build['version'])
+        _, roots[kind] = _cdn(source['base_url'], kind, build['version'], build['channel'])
         revisions[kind] = str(source[revision])
         check(revisions[kind].isdecimal())
         rows = json.loads(source['md5_files'])
@@ -199,7 +211,8 @@ def discover(build):
 def _index_bytes(build, name):
     hotfix = build['hotfix']
     root, filename = INDEXES[name]
-    _, url = _cdn(hotfix['roots'][root].removesuffix('StandaloneWindows64/oversea/'), root, build['version'])
+    suffix = 'StandaloneWindows64/' + EDITIONS[build['channel']]['area'] + '/'
+    _, url = _cdn(hotfix['roots'][root].removesuffix(suffix), root, build['version'], build['channel'])
     spec = hotfix['indexes'][name]
     check(spec['name'] == filename)
     raw = _request(url + filename, {}, spec['size'])
@@ -378,7 +391,7 @@ class File:
     def read(self, directory, start, length):
         check(0 < self.size <= MAX_STREAM_FILE and 0 < length <= 64 * 1024**2 and 0 <= start <= self.size - length)
         parsed = urlsplit(self.url)
-        check(parsed.scheme == 'https' and parsed.netloc == 'autopatchos.zenlesszonezero.com'
+        check(parsed.scheme == 'https' and parsed.netloc in {edition['host'] for edition in EDITIONS.values()}
               and not parsed.query and not parsed.fragment)
         path = Path(directory) / 'zzz-files' / f'{self.digest:016x}-{self.size}'
         if path.is_file() and path.stat().st_size == self.size:
@@ -399,7 +412,9 @@ def resource(build, row):
     check(type(row['isPatch']) is bool and 0 < row['fileSize'] <= maximum)
     if not row['isPatch']:
         root = 'resource'
-    _, url = _cdn(build['hotfix']['roots'][root].removesuffix('StandaloneWindows64/oversea/'), root, build['version'])
+    channel = build['channel']
+    suffix = 'StandaloneWindows64/' + EDITIONS[channel]['area'] + '/'
+    _, url = _cdn(build['hotfix']['roots'][root].removesuffix(suffix), root, build['version'], channel)
     if not row['isPatch']:
         base = build['hotfix']['base_revision']
         check(re.fullmatch('[1-9][0-9]*_[0-9a-f]{6,64}', base))

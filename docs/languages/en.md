@@ -13,7 +13,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 [Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [Coverage notes](../zzz-languages.md)
 
-Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
+Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -281,7 +281,7 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [Official language listing](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [Coverage notes](../starrail-languages.md)
 
-Publisher Setup for regional base and chapter voice packs and selected movie clips
+Publisher Setup for regional voices, selected movie clips and tutorial text
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 

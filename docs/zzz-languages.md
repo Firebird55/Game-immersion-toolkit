@@ -6,7 +6,8 @@ audio. Only the selected source and requested official translation tables are
 read. Account reading preferences and translation targets remain specific to
 each learning language; dictionary operations remain demand driven.
 
-With the game folder empty, Windows Setup follows the Global PC publisher's
+With the game folder empty, choose **Global** or **Mainland China** in
+**Publisher edition**. Windows Setup follows that PC publisher's
 current in-version text, scene and original-voice inventories as well as its
 matching launcher base. Supported sources include GalGame, chat, bubbles,
 narration, choices, motion comics, phone messages, ongoing dialogue, gameplay tips and
@@ -24,9 +25,22 @@ toolkit release. Removed packages are excluded from the active inventory;
 retained recordings keep their original release descriptor and cached bytes.
 Public Collapse bootstrap metadata supplies discovery parameters as data, while
 the actual inventories and recordings come from the publisher's HTTPS servers.
-Its data wrapper is not a publisher signature. Mainland publisher Setup,
-unmatched scene paths, additional film bindings and the meaning of the auxiliary
+Its data wrapper is not a publisher signature. Each edition uses its own
+dispatcher, inventories, text and release identity; missing translations are
+not borrowed from the other edition. Traditional Chinese remains available
+with Mandarin audio in both editions, including without a local voice pack.
+Unmatched scene paths, additional film bindings and the meaning of the auxiliary
 silence-update payload remain open. See the [source audit](game-audits/zzz.md).
+
+Normal publisher preparation was checked for Global Japanese/English and
+mainland Traditional Chinese/Japanese. Eight mainland original-voice samples
+covered current patch packages, unchanged base recordings and timed clues.
+All eight and seven earlier Global clips reopened in a fresh offline process
+with identical decoded audio after the selected edition changed to mainland.
+The mainland preparation reused content only where the mainland publisher
+declared exactly the same complete file hash and size. A separate cold transfer
+encountered a publisher connection timeout; these are source-development checks,
+not complete cold-installation or native gameplay acceptance.
 
 With an installed game, TextMaps and scene configuration come from one pinned revision of the existing
 [extracted game-data mirror](https://git.mero.moe/dimbreath/ZenlessData). Installed

@@ -106,7 +106,7 @@ try {
         Require-Code (Invoke-Bridge @('voices',$install,$tools,$batch) ($request | ConvertTo-Json -Compress)) 0
         if([Convert]::ToHexString([IO.File]::ReadAllBytes((Join-Path $batch '1.wem'))) -ne [Convert]::ToHexString([byte[]](255..0))){throw 'Actual NTE batch voice bytes differ.'}
     }
-    foreach($case in @('nulls','string','number','boolean','array')) {
+    foreach($case in @('nulls','named-voice','string','number','boolean','array')) {
         $sequenceInstall=Join-Path $temporary ('sequence-'+$case); New-Item -ItemType Directory -Path $sequenceInstall | Out-Null
         $marker=@{schema='proxy-owned-nte-fixture-v1';localization_version=3;sequence_case=$case} | ConvertTo-Json -Compress
         [IO.File]::WriteAllText((Join-Path $sequenceInstall 'owned-fixture.json'),$marker)

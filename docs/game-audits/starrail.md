@@ -1,5 +1,76 @@
 # Honkai: Star Rail dialogue audit
 
+## Battle College tutorial captions · November 16, 2026
+
+Schema 25 adds the separate `Config/BattleCollegeCaption/<name>.json` family.
+Current `LoopCGConfig` declares eighteen such paths and their actual movie
+paths. All eighteen native resource hashes and complete caption hash/clock
+sequences match the revision-paired extracted scripts: 45 cues total.
+Names, movie IDs and package locations are data inputs, without an eighteen-file
+allowlist or a guessed `CutSceneCaption` alias. Three numbered tutorial movies
+use differently numbered caption files; the authored joins are preserved.
+
+Two original Lua resources in current LuaV revision `17175930` establish the
+presentation: `BattleCollegeDetailPanel.play_video` and
+`BattleCollegeDetailVideoTabItem.play_video` read `LoopCGConfig.GetData(videoID)`,
+pass that row's `CaptionPath` to `GameCoreConfigLoader.LoadVideoCaptionConfig`,
+and pass the resulting config to the bound `CaptionComponent`. The same input
+`videoID` goes to `ManaVideoPlayer.SetLoopCGID`. Both serialized prototype
+containers were parsed completely as data, with bounded string/constant/prototype
+references. The straight register/field/call joins use the shared early
+[Luau instruction layout](https://github.com/luau-lang/luau/blob/c87565b8b0db5d5d5bfd2b8b00ad6573e5d06d9f/Common/include/Luau/Bytecode.h).
+This is not a claim to reconstruct every custom game opcode or conditional.
+No downloaded Lua, native client or patch was executed.
+
+The fourteen original Lua packages total 54,375,173 bytes and all pass their
+publisher MD5. Both relevant resources are in package
+`9dcff474da9788d7a8ee73371914c509`:
+
+| Caller resource | Bytes | Original resource SHA-256 |
+| --- | ---: | --- |
+| `b83a1ba5ba3d33be` · detail panel | 4,571 | `69cb014ba78d4bd0352af97eb7173b806d07da61f70c91e8b9614c648000c01a` |
+| `0b4401db80f3d824` · video tab | 3,629 | `82b0d1e21515f86fe7d7e21dc1676cd87c053de8ee286a175db6ec0882c9be36` |
+
+The matching original native `LoadVideoCaptionConfig` body at RVA `1e910050`
+uses the same case-preserving `JsonToBinaryPath` and DesignV reader established
+below. `CaptionComponent.SetCaptionConfig` owns the loaded caption list;
+`TickCaption` compares its start/end clocks with the bound movie player's
+loop-relative playback clock, and `_ShowCaption` calls `SafeSetTextID`.
+Those are subtitle display clocks, without authority to cut spoken audio.
+
+All thirteen text tables contain 38 of the 45 declared cues. The same seven
+hashes are absent in every locale: three cues in tutorial 4, two in 12 and two
+in 13. They remain missing; no neighboring prose or other language is inserted.
+The new native anchors also discover two further caption cues at resource
+`3254a8030939a1c7`. These remain anonymous unavailable neighbors without an
+authored movie owner. They do not resolve the three older anonymous resources
+listed below. The retained inventory is now 333 files / 1,989 cues, including
+these four anonymous resources / 24 cues.
+
+**Audio remains unavailable for the tutorial captions.** The authored LoopCG
+rows expose only `VideoID`, `VideoPath`, `CaptionPath` and `IsPlayerInvolved`;
+they declare no dub, Wwise recording or separate sentence audio. All eighteen
+movie identities have matching optional format metadata. However, bounded
+publisher reads of their complete CRID stream directories show video streams
+and **zero `@SFA` audio streams** in all eighteen movies. Only 18 × 64 KiB of
+movie headers were fetched, with exact range/size/publisher-MD5-ETag checks.
+This proves absence of embedded tracks in those directories, not silence of
+the entire tutorial interface or absence of a separate sound-event route.
+No complete tutorial audio was decoded and no tutorial line is marked unvoiced.
+
+Ordinary installation-free Global 4.7 preparation adds forty unavailable rows
+in both English and Japanese: 38 localized declared tutorial cues and the two
+unowned neighbors. English now has 307,464 records / 98,693 voiced; Japanese
+has 307,455 / 100,170. Every pre-existing record, including audio and player
+selection, remains byte-for-byte equal as structured data. The existing twelve
+English and nine Japanese reviewed movie clips remain the playable movie set.
+Both the new preparation and unchanged schema-24 snapshots reopen in fresh
+offline converters. All 21 existing clips export twice with networking blocked,
+nonzero decoded PCM, matching spoken durations and identical restart hashes.
+
+[Revision-paired LoopCG declarations](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/ExcelOutput/LoopCGConfig.json)
+· [Revision-paired tutorial captions](https://github.com/DimbreathBot/TurnBasedGameData/tree/dad9155eb00fdeda31fb8456507c53590d49071f/Config/BattleCollegeCaption)
+
 ## Declared caption resources resolved · November 16, 2026
 
 All 138 previously unnamed, declared movie-caption files are now identified in

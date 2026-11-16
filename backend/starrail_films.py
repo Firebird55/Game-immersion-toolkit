@@ -85,7 +85,7 @@ def _movie_sources(catalog, scripts, locale):
     from .starrail_assets import _table
     configs = _table(catalog, 'VideoConfig', ('VideoID', 'VideoPath', 'CaptionPath'))
     result, conditional = {}, set()
-    script_paths = {'Config/CutSceneCaption/' + filename for filename, _ in scripts}
+    script_paths = {'Config/CutSceneCaption/' + filename for filename, _ in scripts if '/' not in filename}
     declared = {row.get('CaptionPath') for row in configs}
     # An unlisted numbered script can identify a mission worth reading. Its
     # name alone never binds a movie. Only the PlayVideo action does that.
@@ -120,6 +120,23 @@ def _movie_sources(catalog, scripts, locale):
             if available:
                 result.setdefault(selected_scene[1], []).extend(available)
     suppressed = {path.rsplit('/', 1)[1][:-len('_Caption.json')] for path in conditional} - result.keys()
+    if any(filename.startswith('BattleCollegeCaption/') for filename, _ in scripts):
+        for video in _table(catalog, 'LoopCGConfig', ('VideoID', 'VideoPath', 'CaptionPath')):
+            caption = video.get('CaptionPath')
+            if not caption:
+                continue
+            match = re.fullmatch(r'Config/BattleCollegeCaption/([A-Za-z0-9_-]+)\.json', caption)
+            path, video_id = video['VideoPath'], video['VideoID']
+            check(match and type(video_id) is int and video_id > 0
+                  and re.fullmatch(r'(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_-]+\.usm', path, re.I)
+                  and type(video.get('IsPlayerInvolved', False)) is bool)
+            variants = (('_m', 'male'), ('_f', 'female')) if video.get('IsPlayerInvolved') else (('', None),)
+            scene = 'BattleCollegeCaption/' + match[1]
+            for suffix, gender in variants:
+                asset = catalog.movie_files.get((path[:-4] + suffix + '.usm').casefold())
+                if asset:
+                    result.setdefault(scene, []).append({'video_id': video_id, 'player_voice': gender,
+                                                          'path': asset.name, 'size': asset.size, 'md5': asset.digest})
     return result, suppressed
 
 
@@ -195,8 +212,10 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
     seen, identities, result, movie_cache = set(), set(), [], {}
     for filename, script in scripts:
         match = re.fullmatch(r'([A-Za-z0-9_-]+)_Caption\.json', filename)
-        check(match and match[1] not in seen and isinstance(script.get('CaptionList'), list))
-        scene = match[1]
+        tutorial = re.fullmatch(r'BattleCollegeCaption/([A-Za-z0-9_-]+)\.json', filename)
+        check((match or tutorial) and isinstance(script.get('CaptionList'), list))
+        scene = match[1] if match else 'BattleCollegeCaption/' + tutorial[1]
+        check(scene not in seen)
         seen.add(scene)
         identity = getattr(catalog, 'caption_identities', {}).get(filename, scene)
         check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)) and identity not in identities)

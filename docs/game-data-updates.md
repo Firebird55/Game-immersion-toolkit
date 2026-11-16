@@ -16,7 +16,7 @@ installed game files. ZZZ also refreshes its external language/scene metadata.
 
 | Game | Data included in refresh |
 | --- | --- |
-| Zenless Zone Zero | With the folder empty, the Global publisher's current text/resource/audio inventories and matching launcher base update dialogue scenes, messages, gameplay tips, clue recordings and translations. Complete raw patch files pass their declared hashes; unchanged base audio uses selective verified chunks. Old snapshots retain their own recordings. With installed assets, game-file changes and explicit refresh update maps, scene metadata and voice bindings |
+| Zenless Zone Zero | With the folder empty, the selected Global or mainland China publisher's current text/resource/audio inventories and matching launcher base update dialogue scenes, messages, gameplay tips, clue recordings and translations. Each edition keeps its own metadata and missing translations. Complete raw patch files pass their declared hashes; unchanged base audio uses selective verified chunks. Old snapshots retain their own recordings after edition changes. With installed assets, game-file changes and explicit refresh update maps, scene metadata and voice bindings |
 | PRAGMATA | Installed base and patch PAKs, bilingual messages, authored cutscene timelines and verified original Mandarin banks |
 | Cyberpunk 2077 | Base game plus optional Phantom Liberty English/Chinese text and Mandarin voice archives |
 | The Witcher III | Installed English/Chinese string tables and Mandarin speech IDs under both `content` and `dlc` |
@@ -66,10 +66,12 @@ dialogue/sequence/movie tables, subtitle cues and localized voice banks. Its
 immutable snapshots include compatible public type metadata, so normal content
 and type-data updates do not require a toolkit release. Missing regional text,
 stale translations and unresolved bindings are reported separately. Saved voices
-retain their exact publisher snapshot. NTE index schema 8 rebuilds older prepared
+retain their exact publisher snapshot. NTE index schema 9 rebuilds older prepared
 maps with the original movie-alias registry and each referenced StringTable's
-exact namespace. Compatible game updates can add aliases without a toolkit
-alias-list change. Fixed protagonist branches retain their authored source-text
+exact namespace, including typed CG event references whose object names use
+`Play_Vo_*` without repeating `CG`. Compatible game updates can add aliases and
+reuse those authored voice-name forms without a toolkit update.
+Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated
 caption with unknown ownership remains unresolved; a successful voice download
@@ -158,7 +160,11 @@ A later nonempty actor mapping restores the existing reaction path; missing
 metadata or a missing voice pack is not relabeled silent.
 For a new or changed FMV track it follows that dub's subtitle times, voice
 event and recording. Saved clips retain the original release and times.
-[Endfield release comparison](game-audits/endfield.md)
+[Endfield release comparison](game-audits/endfield.md). A controlled 1.5.3-to-1.6.4
+rehearsal with the same reader covers newly added dialogue, changed text and two
+changed original recordings; fresh offline playback retains both saved versions.
+The older discovery is replayed and current discovery is live. Scheduled device
+activation remains separate acceptance work.
 Prepared locales refresh through the normal language worker. Compatible data
 changes need no toolkit release; new archive or schema formats require a reader
 update. Hito’s World is disabled and no longer refreshes automatically.

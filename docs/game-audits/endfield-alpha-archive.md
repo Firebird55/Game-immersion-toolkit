@@ -181,6 +181,27 @@ use the verified original archive independently of this gameplay recording.
 · [Bedside introduction](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=928)
 · [Motorcycle call](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=1175)
 
+### Separate opening-film upload
+
+A further November 10, 2023 recording by Fanyin1572 contains the complete
+138.854-second opening upload. Seven independent 1.5-second excerpts of the
+original Mandarin aircraft WEM, beginning at 4, 20, 26, 67, 76, 81 and 84
+seconds, recover the same **48.4092–48.4093 s** offset. Correlations range
+from 0.877 to 0.997. Direct frames at upload times 113.3, 116.6, 119.3,
+128.7 and 132.2 seconds show the five exact pending aircraft captions.
+This independently identifies the soundtrack and captions; it does not
+establish each utterance's complete audible boundaries.
+[Opening film](https://www.bilibili.com/video/BV1Ku4y1N7z9/)
+
+An additional unprompted SenseVoice pass on the original recordings recovers
+the known aircraft opening, preceding bedside conversation and first/final
+motorcycle calls as positive controls. It still does not recover the full
+wording of the seven unresolved captions, including after the previously
+prepared private vocal separation. No new sentence cut or silence claim
+follows from those results. The model is a private research aid, never the
+source of game text or exported audio.
+[Research model revision](https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09/tree/355f4d4884d8afd08aef04b9007a8556d7b463b2)
+
 ## Original motorcycle ambush scene
 
 The same verified English package contains media **52120711**, a

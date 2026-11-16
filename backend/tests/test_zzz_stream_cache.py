@@ -45,7 +45,7 @@ def test_package_larger_than_metadata_limit_streams_and_reopens_offline_without_
     raw = bytes(range(256)) * 3
     monkeypatch.setattr(live, 'MAX_FILE', 32)
     monkeypatch.setattr(live, 'MAX_STREAM_FILE', 1024)
-    build = {'version': '9.0.0', 'hotfix': {'roots': {'resource': URL.split('Audio/')[0]}}}
+    build = {'channel': 'zzz-global', 'version': '9.0.0', 'hotfix': {'roots': {'resource': URL.split('Audio/')[0]}}}
     row = {'remoteName': 'Audio/Windows/Full/Jp/Patch.pck', 'fileSize': len(raw),
            'md5': str(xxhash64(raw)), 'isPatch': True}
     asset = live.resource(build, row)

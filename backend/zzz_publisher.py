@@ -16,12 +16,13 @@ from . import game_tools, hoyo_publisher_voice as voice, sophon_assets as sophon
 from .hoyo_dialogue import voice_namespace
 from .languages import audio_locale, resolve_locale
 from .prebuilt_node_reader import require_zzz_reader
+from .publisher_regions import REGIONS, selected_region
 from .runtime_bundle import discover_layout
 from .runtime_paths import voice_work_root
 from .voice_assets import voice_hash
 from .zzz_assets import TEXT_LOCALES
 
-CHANNEL = 'zzz-global'
+CHANNELS = {'global': 'zzz-global', 'cn': 'zzz-cn'}
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
 SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
          'Selected original updater inventories include in-version text, scene and voice changes. Other presentations remain partially covered.')
@@ -39,12 +40,12 @@ VOICE_DIRECTORIES = {
 
 
 @lru_cache(maxsize=2)
-def _poll(_period):
-    return voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNEL)))[0]
+def _poll(region, _period):
+    return voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNELS[region])))[0]
 
 
-def fingerprint():
-    return _poll(int(time.monotonic() // 30))
+def fingerprint(region='global'):
+    return _poll(region, int(time.monotonic() // 30))
 
 
 def stage_scenes(work, cache, files, ranges, *, extension='scenes'):
@@ -109,7 +110,7 @@ def source_paths(source, version):
 
 
 def _stage_metadata(build, cache, work):
-    files = sophon.manifest(cache, CHANNEL, tuple(build['manifests']['game']), ('revision', '/data_version', '/res_version', '.blk'))
+    files = sophon.manifest(cache, build['channel'], tuple(build['manifests']['game']), ('revision', '/data_version', '/res_version', '.blk'))
     inventories = None
     if 'hotfix' in build:
         files, inventories = zzz_hotfix.metadata_files(cache, build, files)
@@ -286,12 +287,13 @@ def original_bindings(links, entries, dub, version, directory=None):
 
 
 def build_language(data_dir, source_locale, target_locales, progress):
-    build = zzz_hotfix.discover(sophon.release(CHANNEL))
+    region = selected_region(data_dir / 'tools', 'zzz')
+    build = zzz_hotfix.discover(sophon.release(CHANNELS[region]))
     stamp, raw = voice.descriptor(build)
     game_tools._atomic_file(data_dir / 'tools/sophon/releases' / stamp, raw)
     targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
     selected = {source_locale, *(value for value in targets.values() if value)}
-    progress('Reading ZZZ dialogue and translations from the Global PC launcher release')
+    progress('Reading ZZZ dialogue and translations from the ' + REGIONS[region] + ' PC publisher release')
     dub = audio_locale(source_locale)
     links, tables, coverage, directory = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
     progress('Matching the selected original ZZZ dub to its released scene and message sources')
@@ -306,12 +308,13 @@ def build_language(data_dir, source_locale, target_locales, progress):
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}
     rows = zzz_assets._dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings)
-    if not rows or voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNEL)))[0] != stamp:
+    if not rows or voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNELS[region])))[0] != stamp:
         raise ValueError('No ZZZ dialogue was prepared or the launcher release changed. Retry preparation.')
     available = {locale for row in rows for locale in row['texts']}
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': None, 'source_mode': 'publisher',
+            'publisher_region': region,
             'fingerprint': stamp, 'metadata_revision': build['build'] +
                 ('/' + build['hotfix']['revisions']['design'] if 'hotfix' in build else ''),
             'records': rows, 'coverage': coverage,
             'missing_translation_locales': [target for target, locale in targets.items() if locale not in available],
-            'coverage_warnings': [SCOPE], 'message': f"{len(rows):,} Global ZZZ dialogue entries in {source_locale}. {SCOPE}"}
+            'coverage_warnings': [SCOPE], 'message': f"{len(rows):,} {REGIONS[region]} ZZZ dialogue entries in {source_locale}. {SCOPE}"}

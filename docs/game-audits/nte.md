@@ -371,10 +371,96 @@ reuse, missing/conflicting owners, escaped paths and malformed or excessive
 metadata. They are source-development reflection fixtures, not actual
 UEExtractor/game-data or packaged native acceptance.
 
+### Authored cinematic event names and current inventory, index schema 9
+
+The original Global 1.5.4 `PlayVoice` reference on movie row `q110137` names
+`Play_Vo_HM_U01C02_003` inside the authored `Events/CG` package tree. The event
+object name does not repeat `CG`. Its original registry owner is `ST_Sequence`,
+and its original SRT supplies three caption keys. Native sequence `q110130`
+similarly declares `Play_Vo_HM_U01C02_002_b` and an existing three-cue caption
+group; its original banks select separate female/male recordings. Together
+these establish **nine cue/voice bindings for six caption keys** per tested
+dub. Another similarly named source, `q110128`, still lacks its caption-table
+row and does not acquire invented timings.
+
+The reader and Python binding stages now accept exact authored `Play_Vo_*`
+object references inside the CG package tree. They still reject music events,
+other package roots, escaped paths and mismatched object names. Neither scene
+IDs nor caption aliases are hardcoded. Schema 9 and the changed reader identity
+refresh preparation after this change; compatible future content can reuse the
+same declaration format without a toolkit update.
+
+The following is a fresh inventory of the selected original Global 1.5.4
+resources, rather than a denominator for complete voiced-story coverage:
+
+| Movie-table rows | Count | Interpretation |
+| --- | ---: | --- |
+| No authored namespace and no separate voice reference | 168 | No dialogue/voice binding established by these fields |
+| Namespace present, no separate voice reference | 10 | Embedded soundtrack or other authoring still needs investigation |
+| Declared Sfx/Music event | 1 | Outside the typed voice route; no original SRT at the declared path |
+| Typed voice reference and original SRT present | 41 | Eligible for further bank, media, text and timing checks |
+| Typed voice reference, original SRT absent | 5 | No subtitle windows invented |
+| Total | 225 | Includes presentations beyond subtitled story dialogue |
+
+The five missing SRT bindings belong to `q110082`, `q110591`, `q110744`,
+`q110771` and `q110908`. All 46 typed movie events have banks for all four
+official dubs. Among the 41 rows with SRTs, at least one exact original media
+branch resolves for 29 rows in English, Japanese and Korean, and 31 in Mandarin.
+The other 12/10 remain unresolved Wwise branches or layers. This does not imply
+that every branch, localized caption or full spoken boundary is covered.
+
+The two original story-sequence tables have 176 and 20 rows, containing
+**202 nested slots**: 62 `MediaId` slots, 139 native sequence asset references
+and one empty native-sequence placeholder. The earlier 177-entry historical
+inspection below is not the current inventory. Of the 139 nonempty native
+sequences, 76 declare captions and voice, 11 captions without a separate voice
+reference, nine voice without a caption group, and 43 neither. Absence of a
+separate reference is not evidence of silence.
+
+Of 72 caption-table groups, 68 have an authored event owner and supply 432
+namespace-resolved cues. Two groups have no supported separate voice reference,
+and two have no matching sequence-table caption-group owner. Conversely, 17
+declared sequence caption-group IDs have no caption-table row. The current
+timing/uniqueness checks retain 423 of the 432 authored cues and exclude nine;
+all four dub clocks yield these counts. Among those 423 candidate windows,
+exact original media resolves for at least one branch on 334 English, 322
+Japanese, 325 Korean and 341 Mandarin cues. Remaining cues encounter unresolved
+Wwise branches/layers or unsupported Wwise graph layouts. These are candidate
+windows before localized-text checks and cross-scene ownership deduplication,
+not a count of final playable sentences.
+
+The broader bank census covers 128 distinct declared movie/native-sequence
+events across four dubs, including captionless scenes. Of 512 event/dub cases,
+408 resolve at least one exact original media branch, 76 have unresolved
+branches/layers and 24 use unsupported graphs. Four cases are one captionless
+scene event whose bank is absent in every dub; they do not establish a missing
+regional pack. No original WEM was missing from the branches that resolved.
+
+Normal installation-free preparation and export verified all nine newly bound
+clips in five Global study-text flows and the separate mainland 1.5.6 Mandarin
+flow: **54 paired clips across 108 conversions**. After restarting into fresh
+output folders with publisher discovery and byte-range networking prohibited,
+each clip reproduced identical, nonzero PCM. Independent original bank checks
+confirm three source recordings per tested dub, the two sequence protagonist
+branches, zero source delay, and gains of 0 dB for the native sequence and
+−5 dB for the movie. Decoded durations match the authored display windows within
+3 ms; full acoustic lead-in/decay and native-device capture remain separate.
+Mainland still reports the requested English translation as unavailable.
+
+The updated tools also reproduced all 52 prior schema-8 Japanese `DeadNumber`
+clips plus both ordinary protagonist takes with publisher networking prohibited,
+matching previously checked PCM. Four further schema-7 current/historical
+protagonist takes retained their earlier PCM. This preserves saved snapshots;
+it does not prove a new live rollout or remove the independent A21 capture
+ambiguity. Twelve compiled owned-reader fixtures and 96 focused Python checks
+passed; packaged compiler-free and full hosted acceptance remain separate.
+[Selected publisher manifest](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
+
 ### Remaining acceptance
 
-Additional movie formats and full spoken boundaries remain unresolved despite
-the three verified `DeadNumber` namespace bindings above. Complete chapters,
+Missing caption resources, more complex Wwise graphs, additional movie formats
+and full spoken boundaries remain unresolved despite the verified bindings
+above. Complete chapters,
 conversation/choice context, more complex
 conditional/bark/phone/comic presentations,
 all cue windows, full live-device upstream-only update adoption beyond the

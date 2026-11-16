@@ -13,7 +13,7 @@
 
 [官方语言列表](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [覆盖范围说明](../zzz-languages.md)
 
-全球版启动器中的对话场景、动态漫画、消息、游戏提示和带时间轴的线索录音。
+Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -281,7 +281,7 @@ Ten original dubs, including Dutch. Chinese is a translation target, without a C
 
 [官方语言列表](https://store.epicgames.com/p/honkai-star-rail) · 2026-10-25 · [覆盖范围说明](../starrail-languages.md)
 
-可从发行商准备所选地区的基础与章节语音包及部分影片片段
+可从发行商准备所选地区的语音、部分影片片段和教程文本
 
 Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.
 

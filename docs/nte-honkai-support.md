@@ -63,7 +63,9 @@ dialogue and movie tables, sequence clocks and voice banks. Compatible public
 type-data updates are selected automatically. Movie text aliases follow the
 original registry and each actual StringTable namespace, including newly added
 aliases in compatible game updates. Exact historical snapshots retain
-their metadata and original recordings. Complete chapter/presentation and
+their metadata and original recordings. Original CG references also support
+voice-event object names that omit the redundant `CG` name segment, while
+music events and unrelated source roots remain excluded. Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.
 

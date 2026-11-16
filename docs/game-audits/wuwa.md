@@ -1,5 +1,66 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Original gender tracks for the late film captions
+
+The current publisher's `PlayerInfoController` explicitly sets the Wwise state
+`player_rover_gender` to `male` or `female` from the player's authored gender.
+The released script has SHA-256
+`0bb78f7f9f055d00967a9d2a04fb16890ad9d5d97aa4bd8a35552ae9d72ae852`.
+Both `M2_12_07` and `M0355` event banks contain that exact state group, with
+separate direct streamed sounds for those two values and an empty `None` branch.
+Following those authored branches in all four localized banks establishes
+**16 original source bindings**. This follows the native caller and graph;
+neither a recording's numeric filename nor the movie's mixed-event name chooses
+the voice. The films also start other audio and music nodes, which remain
+separate from these gender-selected sources.
+[Publisher launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Publisher rolling configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+
+These bindings were read from Global core 3.8.11 and English/Japanese/Korean/
+Mandarin dub revisions 3.8.6/3.8.5/3.8.8/3.8.5. Both English tracks for
+`M2_12_07` last 460.287 seconds; the Mandarin female track lasts 462.333 seconds.
+The `M0355` tracks last 321.063 seconds outside Mandarin and 321.029 seconds in
+Mandarin. The released `VideoView` starts each film's selected sound at its
+authored `StartMoment` and can seek the event to the movie's elapsed time to
+correct delayed playback. Both inspected sound definitions start at zero.
+These are source-clock bindings, not sentence boundaries.
+
+Independently located gameplay provides the following waveform checks, using
+280–4,500 Hz mono audio at 12 kHz. Source zero is an observation in that upload,
+not a runtime lookup value.
+
+| Original source | Compared source excerpts | Upload source zero | Correlations |
+| --- | --- | ---: | --- |
+| M2_12_07, English | 309–315, 351–359, 419–425, 449–459 s | 2.589 s | 0.702 / 0.597 / 0.711 / 0.597 |
+| M0355, English female | 290–297, 299–303.3, 304.5–308.4, 309.7–313.5 s | 429.572 s | 0.363 / 0.357 / 0.299 / 0.345 |
+
+The first comparison matches both gender sources in these shared performances;
+other dubs reach at most 0.133. The second distinguishes female Rover in its
+first two excerpts: the male counterparts score 0.034/0.045. Its later Aemeath
+speech matches both gender tracks. Visible English captions were separately
+checked at 312/359/456 seconds in the first upload and 730/735/741 seconds in
+the second.
+[Streetwise Rhapsody gameplay, October 9, 2025](https://www.youtube.com/watch?v=bEfRuWfai3I&t=312s)
+· [Headstart Gaming gameplay, May 2, 2026](https://www.youtube.com/watch?v=Nhm-wkaENZA&t=730s)
+
+Unprompted recognition of both original English gender tracks recovers the
+wording of the thirteen non-ellipsis late `M2_12_07` captions and all three late
+`M0355` captions. Recognition times are estimates: observed quiet intervals
+demonstrate word-boundary errors, and long internal pauses can split one
+caption's utterance. The ellipsis remains unresolved; its display interval
+contains a nonzero segment in the gender-selected source, so missing recognized
+words do not establish silence. None of these observations authorizes new
+sentence cuts or changes an unavailable/unknown entry to unvoiced.
+
+A private bounded-decoder probe returned the requested 295–460-second region
+from the original English M2_12_07 source and 289–320-second region from the
+original Japanese M0355 female source. Each output is byte-identical to the
+same PCM region of its complete decode, despite both sources exceeding
+300 seconds. Requested-length decoding also succeeded for all sixteen original
+tracks. This establishes a decoder capability on these real sources; production
+audio limits, sentence selection and playable coverage remain unchanged.
+All original recordings, gameplay frames and native dumps remain private.
+
 ## November 16, 2026 · Long caption clocks are separate from audio limits
 
 The current original `videocaption` table has seventeen positive display windows
