@@ -1,8 +1,12 @@
 """Match numbered PlotAudio performances against their authored localized film track."""
 import re
+import json
 import struct
 import subprocess
+import tempfile
+import time
 import wave
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -13,6 +17,81 @@ MAX_SECONDS = 300
 # Caption clocks are metadata; their frame domain is independent of the
 # bounded whole-track decoder and of authorized exported audio intervals.
 MAX_CAPTION_FRAMES = 2**31 - 1
+
+
+@dataclass(frozen=True)
+class PcmWindow:
+    """Original 48-kHz PCM16 frames and their explicit source-clock origin."""
+    start_ms: int
+    channels: int
+    pcm: bytes
+
+
+def decode_window(wem, decoder, directory, start_ms, end_ms):
+    """Decode a bounded interval, including intervals in a longer source.
+
+    This internal primitive establishes no sentence or voice binding. Existing
+    whole-track matching and public audio-reference limits remain independent.
+    Invalid windows, metadata and incomplete/failed decodes return None.
+    """
+    if (type(start_ms) is not int or type(end_ms) is not int
+            or not 0 <= start_ms < end_ms or end_ms - start_ms > MAX_SECONDS * 1000):
+        return None
+    deadline = time.monotonic() + 45
+    try:
+        # Neither source paths nor labels from game/user data become TXTP syntax.
+        # Each call owns its files, so a stale or concurrent output cannot pass.
+        with tempfile.TemporaryDirectory(prefix='wuwa-window-', dir=directory) as temporary:
+            from pathlib import Path
+            work = Path(temporary)
+            source, instruction, output = (work / name for name in ('source.wem', 'window.txtp', 'window.wav'))
+            source.write_bytes(wem)
+            probe = subprocess.run([str(decoder), '-m', '-I', '-i', str(source)], check=True,
+                                   capture_output=True, timeout=max(.001, deadline - time.monotonic()),
+                                   creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            metadata = json.loads(probe.stdout)
+            if not isinstance(metadata, dict):
+                return None
+            rate, channels, frames = (metadata.get(key) for key in ('sampleRate', 'channels', 'numberOfSamples'))
+            mixing, stream = metadata.get('mixingInfo'), metadata.get('streamInfo')
+            if (type(rate) is not int or rate != 48000 or type(channels) is not int or channels not in (1, 2)
+                    or type(frames) is not int or not 0 < frames <= 2**63 - 1
+                    or type(metadata.get('playSamples')) is not int or metadata['playSamples'] != frames
+                    or not isinstance(mixing, dict) or type(mixing.get('inputChannels')) is not int
+                    or mixing['inputChannels'] != channels or type(mixing.get('outputChannels')) is not int
+                    or mixing['outputChannels'] != channels
+                    # The pinned decoder reports zero for plain PCM without
+                    # subsongs, and one for these single-stream Wwise originals.
+                    or not isinstance(stream, dict) or type(stream.get('total')) is not int or stream['total'] not in (0, 1)
+                    or type(stream.get('index')) is not int or stream['index'] != 0
+                    or end_ms * 48 > frames):
+                return None
+            # Integer TXTP times are samples. Decimal seconds can round a trim
+            # down by one frame, even when milliseconds map exactly at 48 kHz.
+            instruction.write_text(f'source.wem #i #t {end_ms * 48} #r {start_ms * 48}\n', encoding='ascii')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            subprocess.run([str(decoder), '-W', '1', '-o', str(output), str(instruction)], check=True,
+                           capture_output=True, timeout=remaining,
+                           creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            expected_frames = (end_ms - start_ms) * 48
+            expected_bytes = expected_frames * channels * 2
+            # The pinned decoder's PCM16 WAV has its ordinary 44-byte header.
+            # Bound the file before reading; reject padding, truncation or extras.
+            if output.stat().st_size != 44 + expected_bytes:
+                return None
+            with wave.open(str(output)) as decoded:
+                if (decoded.getframerate() != rate or decoded.getnchannels() != channels
+                        or decoded.getsampwidth() != 2 or decoded.getnframes() != expected_frames
+                        or decoded.getcomptype() != 'NONE'):
+                    return None
+                pcm = decoded.readframes(expected_frames)
+            if len(pcm) != expected_bytes:
+                return None
+            return PcmWindow(start_ms, channels, pcm)
+    except (OSError, subprocess.SubprocessError, ValueError, EOFError, wave.Error):
+        return None
 
 
 def media_id(bank, event):

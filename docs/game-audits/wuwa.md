@@ -61,6 +61,17 @@ tracks. This establishes a decoder capability on these real sources; production
 audio limits, sentence selection and playable coverage remain unchanged.
 All original recordings, gameplay frames and native dumps remain private.
 
+An independent internal decoder-window operation now checks source-frame JSON
+metadata, integer interval bounds, a maximum 300-second output, the shared
+45-second deadline and exact PCM16 output format/frame/byte counts. It uses
+fixed local filenames and integer-sample TXTP trims. An owned 301.25-second
+source exposed a one-frame rounding error with decimal-second trims; integer
+trims reproduce its late, 2-millisecond and exactly 300-second windows exactly.
+The final operation also reproduces both original-source comparisons above.
+Fault tests reject overruns, malformed metadata, incorrect/truncated outputs
+and metadata/decode timeouts. No capture mapper or public audio reference calls
+this new operation, and it supplies no automatic sentence windows.
+
 ## November 16, 2026 · Long caption clocks are separate from audio limits
 
 The current original `videocaption` table has seventeen positive display windows
