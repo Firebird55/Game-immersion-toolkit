@@ -83,9 +83,49 @@ identities. Synthetic regressions cover an actual changed text/voice fixture,
 stale translations, mid-preparation changes, historical playback without current
 discovery, conflicting overlays and partial batch decompression.
 
+### Historical Japanese changed recording
+
+A read-only November 16 comparison identified a changed original recording
+between the publisher's version-addressed Global **1.4.9** and **1.4.10**
+resource lists. Both lists contain 552 resources. The Japanese override
+`TagPatchPaks/pakchunk102-Windows_0_P.pak` has 31,498 entries in each release;
+its complete companion signature-file MD5 and the selected chunk checksums
+were checked before reading the members. This does not independently verify
+the publisher's RSA signature or establish every changed member.
+[1.4.9 resource list](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.9/ResList.bin.zip)
+· [1.4.10 resource list](https://ntecdn1.perfectworld.com/clientRes/PC_140/Version/Windows/version/1.4.10/ResList.bin.zip)
+
+The changed bank `Play_Vo_Akane02_free_Player_021.bnk` is 1,048 bytes in
+both releases. Its authored Wwise 154 `Sex_Switch` selects media **410489564**
+for the female protagonist and **180522315** for the male protagonist, with
+zero gain and delay in both banks. There is no unconditional performance.
+The male Japanese WEM itself differs:
+
+| Release | Original WEM bytes | Decoded duration | Original WEM SHA-256 |
+| --- | ---: | ---: | --- |
+| 1.4.9 | 24,138 | 2.323 s | `2d1219c7944e0d2559706891241c64748e73f74e2be56cc7d3e2d8101b8abafa` |
+| 1.4.10 | 21,871 | 2.132 s | `94b610abaad4fc5fd8da6ca17b88d1a21e0f9ea8ac51ed803eec1fd363f52195` |
+
+The historical resource-list ZIP SHA-256 values are
+`900a04e2f9f75b4e970f6d76d033a942b4ab8f559d770409c0901ed3333f949e`
+and `5de937a2d80c94f5311c5599c8470df08f3c317654a828ba7d184a67646c4fb7`.
+The ZIP CRCs and declared root versions were checked. An independent old
+active-bootstrap/listHash pointer was not recovered; this is a comparison of
+the archived version-addressed publisher inputs, not a newly observed live
+bootstrap transition.
+
+This supplies a concrete replaced voice for update acceptance. It also
+exposes a remaining binding gap: the Global 1.5.4 Japanese normal index lists
+`ST_Legend_Celebration/Akane02_free_Player_021` as unavailable. The current
+adapter resolves this fixed protagonist switch for cinematic events, but not
+ordinary dialogue. Ordinary female/male bindings and normal historical-update
+replay still need implementation and verification. Neither an arbitrary
+protagonist voice nor a silence override is assigned.
+
 ### Remaining acceptance
 
-The three voiced `DeadNumber` movie aliases still need an authored StringTable
+Ordinary protagonist-dependent dialogue and the three voiced `DeadNumber`
+movie aliases still need their respective authored performance and StringTable
 ownership binding. Complete chapters, conditional/bark/phone/comic presentations,
 all cue windows, real upstream-only update adoption, download-cost/resume/metered
 behavior and each claimed native host remain open in #88. The live Windows
