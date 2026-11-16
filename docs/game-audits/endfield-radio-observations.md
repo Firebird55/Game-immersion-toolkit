@@ -82,6 +82,49 @@ mapping. All three performers remain unresolved; no other actor's audio
 or silence override is assigned.
 [Released radio playback controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L946)
 
+### Further English and Japanese An Yu checks
+
+On November 16 a fresh search found Mikiyuki's independent May 15
+playthrough. A frame review checked all three English captions against
+the publisher references above. Rechecking CyberRogue Relax's recording
+also recovered the correct English captions; the older checkpoints in
+that upload are not reused.
+
+| Radio row | CyberRogue Relax | Mikiyuki |
+| --- | --- | --- |
+| `radio_gm02m14_2_001` | [13:50](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=830s) | [9:20](https://www.youtube.com/watch?v=lMZVfkEd2ZU&t=560s) |
+| `radio_gm02m14_3_001` | [16:05](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=965s) | [9:30](https://www.youtube.com/watch?v=lMZVfkEd2ZU&t=570s) |
+| `radio_gm02m14_3_002` | [16:09](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=969s) | [9:34](https://www.youtube.com/watch?v=lMZVfkEd2ZU&t=574s) |
+
+These are checked caption frames, not spoken boundaries. Each upload's
+dub was verified separately from its screen text. In CyberRogue Relax's
+recording, the original English `chr_0007_ikut_interact_treasure_valub_01`
+matches at **10:45.556** (normalized correlation **0.946**), and
+`chr_0007_ikut_combat_outbattle_nor_02` at **16:58.829** (**0.918**).
+The Mandarin, Japanese and Korean versions of those same two events
+score at most 0.156 in their respective search windows.
+
+In Mikiyuki's recording, the original Japanese
+`chr_0030_zhuangfy_interact_etherium_01` matches at **7:37.486**
+(**0.963**), and `chr_0012_avywen_interact_treasure_valub_01` at
+**7:50.553** (**0.863**). The other three dubs score at most 0.171.
+The publisher's `AIBarkText` and `AudioDialog` entries independently
+identify all four control recordings.
+
+Speech detection finds the separate controls but no speech during the
+three An Yu captions in either upload. Unprompted transcription also
+recovers the controls' language and words, without recovering words in
+the caption windows. The reaction search includes short references down
+to 30 ms and compares 477 measurable original references for emotion 41
+and 186 for emotion 37 in each dub. English maxima are 0.258, 0.250 and
+0.250; the latter two windows recover the same sound at 16:05.934.
+Japanese maxima are 0.328, 0.183 and 0.169. Separate frequency bands do
+not confirm the strongest first-caption candidates: English scores
+0.079, 0.065 and 0.049 above 700 Hz, and Japanese 0.194, 0.059 and
+0.041. This supplies further playback observations, without establishing
+a particular reaction performer or a permanent text-only state. All nine
+rows with unresolved configured interjections remain open.
+
 ### Independent Landbreaker control
 
 A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
