@@ -34,6 +34,10 @@ separate **Include subtitles without available audio** option preserves verified
 authored captions with unknown or unavailable audio, subject to complete,
 unambiguous text and player selection. General reactions stay separate from
 sentence audio. Ambiguous short captions can require a proven preceding caption.
+Include the official speaker label in the capture area when it is shown above a
+short radio caption. The reader can use the complete name and caption together;
+the same sentence from another speaker remains separate. Anonymous labels such
+as `???` do not identify a recording or resolve an ambiguous translation.
 The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.

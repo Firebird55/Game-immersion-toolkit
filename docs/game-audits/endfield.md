@@ -14,6 +14,14 @@ themselves. Reader revisions 19–20 record authored-text provenance without
 reclassifying missing or unknown audio. Shared capture/export and the remaining
 current/regional acceptance gates are explicit in that report.
 
+Revision 21 additionally follows the original radio widget's official
+speaker/caption pair. All five ordinary publisher workers preserve previous
+texts, translations, audio states and recording bindings. With the existing
+capture opt-ins and applicable predecessor or visible speaker, 133 of the 134
+residual radio rows match per selection. One anonymous short caption remains
+guarded; named context does not invent its identity or a sentence recording.
+See the [original speaker and complete-index evidence](endfield-current-subtitle-acceptance.md#original-speakercaption-context).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller
