@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 17
+LANGUAGE_INDEX_VERSION = 18
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -153,6 +153,8 @@ def _radio_reaction(row, paths, locale, entries):
         status = 'configuration_unknown'
     elif not configured:
         status = 'no_configured_interjection'
+    elif row.get('radio_performer_known_empty'):
+        status = 'empty_authored_performer'
     elif not actor or actor == 'None':
         status = 'no_mapped_performer'
     else:
@@ -301,15 +303,22 @@ def _reaction_fields(row, actors, reactions, *, allow_actor_id):
     actor = row.get('actorNameId', '')
     if not isinstance(actor, str):
         _unsupported()
+    known_empty = False
     if actor in actors:
-        actor = _mapping(actors[actor]).get('voActor', '')
+        mapped = _mapping(actors[actor])
+        # The released common-reaction resolver returns false for an explicitly
+        # empty NpcInfo.voActor. Missing rows/fields and the literal "None" are
+        # different states. Player aliases are resolved before this lookup.
+        known_empty = bool(actor) and actor not in ('endminm', 'endminf') and mapped.get('voActor') == ''
+        actor = mapped.get('voActor', '')
     elif not allow_actor_id:
         actor = ''
     if not isinstance(actor, str):
         _unsupported()
     emotion = row.get('emotionType')
     terms = reactions.get(str(emotion), ())
-    return {'radio_voice_actor': actor, 'radio_interjections': terms if actor and actor != 'None' else (),
+    return {'radio_voice_actor': actor, 'radio_performer_known_empty': known_empty,
+            'radio_interjections': terms if actor and actor != 'None' else (),
             'radio_reaction_configured': bool(terms) if reactions and type(emotion) is int else None}
 
 
@@ -350,7 +359,7 @@ def radio_evidence(catalog, audio):
     return audio.keys(), events.keys()
 
 
-def _radio_text_only(row, group_id, group, reactions, evidence):
+def _radio_text_only(row, group_id, group, reactions, evidence, *, performer_empty=False):
     if not evidence or not reactions:
         return False
     row_fields = {'actorName', 'actorNameId', 'audioEffect', 'audioEvent', 'audioEventDuration', 'audioOverride',
@@ -361,7 +370,8 @@ def _radio_text_only(row, group_id, group, reactions, evidence):
     if set(row) != row_fields or set(group) not in (group_fields, group_fields | {'radioContinueSpeakerIds', 'radioContinueType'}):
         return False
     emotion = row['emotionType']
-    if type(emotion) is not int or (emotion != 0 and str(emotion) not in reactions) or reactions.get(str(emotion), ()) != ():
+    if (type(emotion) is not int or (emotion != 0 and str(emotion) not in reactions) or
+            reactions.get(str(emotion), ()) and not performer_empty):
         return False
     if (row['audioEvent'] != '' or row['audioEventDuration'] != 0 or row['audioEffect'] != 0 or row['is3D'] is not False or
             group['radioType'] != 0 or group.get('radioContinueType', 0) != 0 or group.get('radioContinueSpeakerIds', []) != []):
@@ -398,10 +408,12 @@ def radio_dialogues(catalog, *, reaction_player=None, evidence=None):
                 # The radio controller resolves the player actor before looking up an emotion.
                 player_id = {'male': 'endminm', 'female': 'endminf'}[reaction_player]
                 reaction_actor = {**row, 'actorNameId': player_id if player_id in actors else ''}
+            reaction = _reaction_fields(reaction_actor, actors, reactions, allow_actor_id=True)
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
                 'radio_group': group_id, 'previous_radio_id': previous,
-                'radio_text_only': complete_emotions and _radio_text_only(row, group_id, group, reactions, evidence),
-                **_reaction_fields(reaction_actor, actors, reactions, allow_actor_id=True),
+                'radio_text_only': complete_emotions and _radio_text_only(row, group_id, group, reactions, evidence,
+                    performer_empty=reaction['radio_performer_known_empty']),
+                **reaction,
                 'voice_status': 'unknown',
                 'channels': ['dialogue', 'gameplay']}
             previous = identity

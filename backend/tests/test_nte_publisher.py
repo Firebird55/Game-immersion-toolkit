@@ -117,11 +117,12 @@ def online(monkeypatch, tmp_path):
         (destination / 'dialogue-events.json').write_text(json.dumps({'line': [event.lower()]}))
         (destination / 'voice-events.json').write_text(json.dumps([event]))
         (destination / 'sequence-cues.json').write_text(json.dumps({'groups': {}, 'events': {}}))
-        movie = {'StringTableID': 'Sequence', 'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/owned.mp4'},
+        movie = {'StringTableID': 'OwnedFutureAlias', 'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/owned.mp4'},
                  'PlayVoice': {'AssetPathName': '/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_Owned.Play_Vo_CG_Owned'}}
         (destination / 'movie-tables.json').write_text(json.dumps({
             'DT_MediaFFmpegInfo.json': [{'Type': 'DataTable', 'Rows': {'one': movie}}],
-            'DT_MediaFFmpegInfo_Quest.json': [{'Type': 'DataTable', 'Rows': {}}]}))
+            'DT_MediaFFmpegInfo_Quest.json': [{'Type': 'DataTable', 'Rows': {}}],
+            'StringTableNamespaces.json': {'OwnedFutureAlias': 'ST_MainDialogue'}}))
         if flip[0]:
             current[0] = list(states)[1]
 

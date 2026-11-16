@@ -32,6 +32,11 @@ published or installed original voice. Conflicting sources are skipped.
 
 Split subtitle tables are merged with their Main tables at one immutable metadata revision. A whole movie audio track is never substituted for an individual caption.
 
+Some written descriptions accompany a short character greeting or reaction.
+That audio does not establish a recording of the written words. Unnamed
+entries with candidate audio but no primary sentence voice remain unresolved; the toolkit
+preserves them separately from confirmed spoken and unvoiced lines.
+
 Publisher preparation can also read original audio from reviewed movie files,
 without an installed game. Silent Galaxy currently has eight English and five
 Japanese film clips with verified recording identities and separate spoken

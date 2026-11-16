@@ -161,7 +161,7 @@ internal static class NteReader
                     File.WriteAllText(Path.Combine(destination, "reader-format.json"), JsonSerializer.Serialize(new { localizationVersions }));
                     var keys = all.Values.SelectMany(rows => rows).Select(row => "Play_Vo_" + row.key).ToHashSet(StringComparer.OrdinalIgnoreCase);
                     if (request.RootElement.TryGetProperty("read_dialogue_tables", out var readTables) && readTables.GetBoolean())
-                        ReadNteDialogueTables(provider, cue, names, destination, keys);
+                        ReadNteDialogueTables(provider, cue, names, destination, keys, readMovies: true);
                     if (request.RootElement.TryGetProperty("cinema_events", out var cinemaEvents))
                     {
                         if (cinemaEvents.GetArrayLength() > 2000) throw new InvalidDataException();
@@ -217,17 +217,18 @@ internal static class NteReader
             m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType.Name == "GameFile");
         var converter = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "Newtonsoft.Json")
             .GetType("Newtonsoft.Json.JsonConvert", true)!.GetMethod("SerializeObject", [typeof(object)])!;
-        object Export(string name)
+        object ExportNamed(string name, string objectName)
         {
             var file = index.GetType().GetProperty("Item")!.GetValue(index, [name])!;
             var size = Convert.ToInt64(Property(file, "Size"));
             if (size is < 0 or > 512 * 1024 * 1024) throw new UnsupportedGameFormatException();
             var package = load.Invoke(provider, [file])!;
             var slot = (int)package.GetType().GetMethod("GetExportIndex")!.Invoke(package,
-                [Path.GetFileNameWithoutExtension(name), StringComparison.Ordinal])!;
+                [objectName, StringComparison.Ordinal])!;
             if (slot < 0) throw new UnsupportedGameFormatException();
             return Property(((Array)Property(package, "ExportsLazy")).GetValue(slot)!, "Value");
         }
+        object Export(string name) => ExportNamed(name, Path.GetFileNameWithoutExtension(name));
         IEnumerable<(string, JsonElement)> Rows(string name)
         {
             var table = Export(name);
@@ -276,9 +277,78 @@ internal static class NteReader
                 if (!files.Contains(path)) continue;
                 var rows = Rows(path).ToDictionary(row => row.Item1, row => row.Item2.Clone(), StringComparer.Ordinal);
                 movies[name + ".json"] = new[] { new { Type = "DataTable", Rows = rows } };
+                foreach (var row in rows.Values)
+                {
+                    if (!row.TryGetProperty("PlayVoice", out var voice) || voice.ValueKind != JsonValueKind.Object ||
+                        !voice.TryGetProperty("AssetPathName", out var asset) || asset.ValueKind != JsonValueKind.String)
+                        continue;
+                    var match = Regex.Match(asset.GetString()!, @"^/Game/WwiseAudio/Events/CG/[\w/-]+/(Play_Vo_CG_[A-Za-z0-9_]+)\.\1$");
+                    if (match.Success) voiceEvents.Add(match.Groups[1].Value);
+                }
             }
+            movies["StringTableNamespaces.json"] = ReadNteMovieNamespaces(files, Rows, (path, name) =>
+            {
+                var table = ExportNamed(path, name);
+                if (table.GetType().Name != "UStringTable") throw new UnsupportedGameFormatException();
+                var json = (string)converter.Invoke(null, [table])!;
+                if (json.Length > 16 * 1024 * 1024) throw new UnsupportedGameFormatException();
+                using var parsed = JsonDocument.Parse(json);
+                return parsed.RootElement.Clone();
+            });
             File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
         }
+    }
+
+    static Dictionary<string, string?> ReadNteMovieNamespaces(HashSet<string> files,
+        Func<string, IEnumerable<(string, JsonElement)>> rows, Func<string, string, JsonElement> owner)
+    {
+        const string registry = "HT/Content/DataTable/DT_TextTable.uasset";
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!files.Contains(registry)) return result;
+        int count = 0;
+        foreach (var (alias, row) in rows(registry))
+        {
+            if (++count > 4096 || alias.Length is 0 or > 512 || alias.Any(char.IsControl) ||
+                row.ValueKind != JsonValueKind.Object || !row.TryGetProperty("TextTable", out var table) || table.ValueKind != JsonValueKind.Object ||
+                !table.TryGetProperty("AssetPathName", out var asset) || asset.ValueKind != JsonValueKind.String ||
+                !table.TryGetProperty("SubPathString", out var subpath) || subpath.ValueKind != JsonValueKind.String || subpath.GetString() != "")
+                throw new UnsupportedGameFormatException();
+            string? ns = null;
+            var reference = asset.GetString()!;
+            if (reference is not ("" or "None"))
+            {
+                var match = Regex.Match(reference, @"^/Game/([\w/-]+)\.([A-Za-z0-9_]+)$");
+                if (!match.Success || match.Groups[1].Value.Split('/').Any(part => part is "" or "." or ".."))
+                    throw new UnsupportedGameFormatException();
+                var path = "HT/Content/" + match.Groups[1].Value + ".uasset";
+                if (files.Contains(path))
+                {
+                    var name = match.Groups[2].Value;
+                    var identity = path + "\0" + name;
+                    if (owners.TryGetValue(identity, out var known)) ns = known;
+                    else
+                    {
+                    var original = owner(path, name);
+                    if (original.ValueKind != JsonValueKind.Object ||
+                        !original.TryGetProperty("Type", out var kind) || kind.ValueKind != JsonValueKind.String || kind.GetString() != "StringTable" ||
+                        !original.TryGetProperty("StringTable", out var content) || content.ValueKind != JsonValueKind.Object ||
+                        !content.TryGetProperty("TableNamespace", out var value) || value.ValueKind != JsonValueKind.String)
+                        throw new UnsupportedGameFormatException();
+                    ns = value.GetString();
+                    if (string.IsNullOrEmpty(ns) || ns.Length > 512 || ns.Any(char.IsControl))
+                        throw new UnsupportedGameFormatException();
+                    owners[identity] = ns;
+                    }
+                }
+            }
+            // Conflicting FName aliases or missing owners must never select a
+            // table merely because its asset basename resembles the alias.
+            if (result.TryGetValue(alias, out var previous))
+                result[alias] = previous == ns ? ns : null;
+            else result[alias] = ns;
+        }
+        return result;
     }
 
     static void ReadNteSequences(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,

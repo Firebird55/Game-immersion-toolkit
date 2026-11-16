@@ -1,5 +1,23 @@
 # Arknights: Endfield presentation audit
 
+## Empty radio performers resolved from original code · November 16, 2026
+
+The selected publisher's native metadata/code pair, original radio controller
+and complete initial IFix target tables establish that an explicitly empty
+`NpcInfo.voActor` prevents a common-reaction call. Reader revision 18 applies
+that contract only when complete same-release tables exclude a separate
+sentence/event binding. It retains missing fields, player aliases, the literal
+`None` and missing-dub recordings as unresolved or unavailable.
+
+All five study selections preserve their original radio text, IDs, audio
+bindings and 5,109 voiced radio records. Exactly 87 other unique rows change
+from unavailable to unvoiced. Within the previously checked 134 residual rows,
+five An Yu/Chen rows are now text-only: nine text-only in total, four unresolved
+Landbreaker performers and 121 named reaction candidates. Normal installation-free
+English preparation passed; the full index recognizes the five captions only
+with unvoiced capture enabled. The seven historical Mandarin film cuts remain
+open. [Exact source evidence, checks and remaining boundaries](endfield-radio-observations.md#explicitly-empty-performers-in-the-released-runtime).
+
 ## Historical original audio acquisition · November 15, 2026
 
 The film command retrieves the original English and Mandarin aircraft, bedside and briefing WEMs from the public Technical Alpha client archive without an installation. It checks the selected compressed byte range, complete package hash and individual recording hash. All six performances have independent waveform evidence. Further caption coverage requires original text bindings and recording-relative windows. [Commands, source identities and gameplay comparisons](endfield-alpha-archive.md)
@@ -63,7 +81,7 @@ initial/main resource revision `11529267-11` under separate regional URLs.
 A clean mainland preparation returned 53,711 English rows, including 25,985
 voiced rows and 408 timed clips. One conversation WEM decoded to 2.644 s.
 The selected timed film clip resolved its original 77.014 s source recording.
-The [radio playback audit](endfield-radio-observations.md) covers all thirteen unresolved rows.
+The [radio playback audit](endfield-radio-observations.md) covers all thirteen originally unresolved rows and their current source classifications.
 The November 9 inventory below lists the 28 films whose own tracks lacked
 verified sentence intervals. The [cinematic gameplay comparisons](endfield-film-gameplay.md)
 locate the Valley Fort distress call in its enclosing scene, the Liino concert,

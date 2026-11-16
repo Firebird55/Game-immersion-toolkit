@@ -1,5 +1,70 @@
 # Honkai: Star Rail dialogue audit
 
+## Unnamed MultiVoice descriptions corrected · November 16, 2026
+
+Two Benny descriptions were incorrectly offered with an NPC greeting as their
+sentence audio. The original `TalkSentenceConfig` rows `413071601` and
+`413071801` have neither a primary `VoiceID` nor an authored speaker name.
+`TalkSentenceMultiVoice` separately references `424030190` and `424030196`,
+whose `VoiceConfig` paths are `vo_ambient_w3_greeting_benny_104_calm` and
+`vo_ambient_w3_greeting_benny_110_joyful`.
+
+The released callers distinguish the presentations. `Act424030715` shows the
+first description in an ordinary `PlayAndWaitSimpleTalk` list;
+`Act424030716` separately calls `PlayMultiVoiceTalk` for that same text ID
+before another dialogue list. `Act424030717` and `Act424030718` repeat the
+pattern for the second description. A global table join had applied the
+MultiVoice source to the description without preserving that distinction.
+[Calm ordinary presentation](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/4240307/Act/Act424030715.json)
+· [Calm MultiVoice caller](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/4240307/Act/Act424030716.json)
+· [Joyful ordinary presentation](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/4240307/Act/Act424030717.json)
+· [Joyful MultiVoice caller](https://github.com/DimbreathBot/TurnBasedGameData/blob/dad9155eb00fdeda31fb8456507c53590d49071f/Config/Level/Mission/4240307/Act/Act424030718.json)
+
+The ordinary publisher reader retrieved both complete original WEMs in all
+four dubs without a game installation. All eight decoded to nonzero mono
+48 kHz PCM. Unprompted English and Mandarin recognition independently
+recovers a short first-person utterance in each take, rather than the
+third-person description. These are positive observations of different
+spoken content, not an inference of silence from failed recognition.
+
+| Dub / original source | Duration | Original WEM SHA-256 |
+| --- | ---: | --- |
+| English / calm | 2.900 s | `e178ef0b98b0dd456429cfbd7062a73fe7fd0779446fdaa2794540d4cf52518b` |
+| English / joyful | 3.000 s | `d5d0a7e5eec7b3b4070284c3cfb9569b622d580113f6cea37acfdb16092b927e` |
+| Japanese / calm | 2.795 s | `3e9971be9800b698db9a922f7e76d67060064bd4a82107239296f8ffdece3fa9` |
+| Japanese / joyful | 3.172 s | `50788e6d99b6ff4727acdbdb528cb80f05d75352afe0f6d43ad5739d2223b720` |
+| Korean / calm | 3.115 s | `e18e3d62076c6049a1189a2170a644dd60b22d078d46dcc7a39d5705cbd851a5` |
+| Korean / joyful | 2.966 s | `0a3b68facb82e7c315afdd3f3a5ec60cf2effd5c4530193ec70dd4b484643607` |
+| Mandarin / calm | 2.316 s | `ecf5e2a97b78939367deb00c8829a7355aa255ae99c35b9bee0165caa0191b0b` |
+| Mandarin / joyful | 2.288 s | `b1b0d06ca4e3f9a71dddb338ab02d4eeecf999df903cc9efcf380c77ee46aec8` |
+
+Schema 23 keeps unnamed MultiVoice entries without a primary sentence voice
+`unknown`, including a singleton candidate. Explicit `NoVoice`, named-speaker
+singletons and primary voiced narrator bindings retain their existing behavior.
+The rule reads the selected release's fields on every normal preparation;
+new IDs and changes to those bindings require no hardcoded character list.
+Existing cached originals remain stored.
+
+The current authoring has 99 entries matching the uncertainty guard. Two
+Benny rows change from `voiced` to `unknown`; the other 97 were already
+`unavailable`. Their general presentation kind is preserved. Missing names
+alone do not establish narration, silence or a reaction role for all 99.
+The four Mullich descriptions `413021201`, `413021501`, `413021801` and
+`413022001` also retain unresolved audio, even though their pairs of numeric
+voice IDs alias identical source paths. A shared NPC recording is not evidence
+that it speaks the description.
+
+Normal English preparation now retains 306,752 records with 98,693 voiced
+rows; Japanese retains 306,743 with 100,170. Both contain the same 99 guarded
+unknown entries. The twelve English and nine Japanese reviewed movie clips
+remain available. Reopening each corrected index with network access prohibited
+rejects both descriptions as playable entries. All 21 movie clips still export
+into two fresh conversion directories with identical nonzero decoded PCM across
+the reopen. This is source-development verification with prepared decoder tools,
+not a packaged native acceptance claim. Earlier schema-22 counts below describe
+the snapshot before this correction. These are two corrected false bindings,
+not 99 newly completed lines or confirmed unvoiced entries.
+
 ## Protagonist movie clips · November 16, 2026
 
 The normal movie reader now resolves the selected Trailblazer's authored

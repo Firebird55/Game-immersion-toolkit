@@ -158,6 +158,7 @@ public sealed class FixtureProvider : IDisposable
         }
         if (marker["schema"].GetString() != "proxy-owned-nte-fixture-v1") throw new InvalidDataException();
         VerifySequenceFixture(marker);
+        VerifyMovieRegistryFixture(marker);
         version = marker["localization_version"].GetByte();
         for (int i = 0; i < 100; i++) Files[$"Owned/Dummy/{i}"] = 0;
         foreach (var locale in texts.Keys) Files[$"Owned/Localization/{locale}/game.locres"] = 0;
@@ -201,6 +202,55 @@ public sealed class FixtureProvider : IDisposable
         catch (System.Reflection.TargetInvocationException error) when
             (kind != "nulls" && error.InnerException?.GetType().Name == "UnsupportedGameFormatException") { return; }
         if (kind != "nulls" || !voices.SetEquals(new[] { "Play_Vo_CG_owned_first", "Play_Vo_CG_owned_last" }))
+            throw new InvalidDataException();
+    }
+    static void VerifyMovieRegistryFixture(Dictionary<string, JsonElement> marker)
+    {
+        if (!marker.TryGetValue("movie_registry_case", out var selected)) return;
+        var kind = selected.GetString();
+        const string table = "HT/Content/DataTable/DT_TextTable.uasset";
+        const string first = "HT/Content/Text/OwnedAsset.uasset";
+        const string second = "HT/Content/Text/OtherOwnedAsset.uasset";
+        JsonElement Row(string path) => JsonSerializer.SerializeToElement(new {
+            TextTable = new { AssetPathName = path, SubPathString = "" }
+        });
+        var valid = Row("/Game/Text/OwnedAsset.DifferentObjectName");
+        var data = new List<(string, JsonElement)> {
+            ("FutureAlias", valid), ("SameOwner", valid),
+            ("NamedSibling", Row("/Game/Text/OwnedAsset.SecondObjectName")),
+            ("MissingOwner", Row("/Game/Text/Absent.Owned")), ("EmptyOwner", Row("None")),
+            ("Conflict", valid), ("CONFLICT", Row("/Game/Text/OtherOwnedAsset.OtherObject"))
+        };
+        if (kind == "escape") data.Add(("Bad", Row("/Game/Text/../Escaped.Owned")));
+        else if (kind == "missing-property") data.Add(("Bad", JsonSerializer.SerializeToElement(new { Unexpected = true })));
+        else if (kind == "too-many") data.AddRange(Enumerable.Repeat(("FutureAlias", valid), 4097));
+        else if (kind is not ("valid" or "wrong-owner" or "namespace-overflow")) throw new InvalidDataException();
+        Func<string, IEnumerable<(string, JsonElement)>> rows = name => name == table ? data : throw new InvalidDataException();
+        var reads = new Dictionary<string, int>();
+        Func<string, string, JsonElement> owner = (path, name) => {
+            if (!(path == first && name is "DifferentObjectName" or "SecondObjectName" ||
+                  path == second && name == "OtherObject")) throw new InvalidDataException();
+            var identity = path + "\0" + name;
+            reads[identity] = reads.GetValueOrDefault(identity) + 1;
+            return JsonSerializer.SerializeToElement(new {
+                Type = kind == "wrong-owner" ? "DataTable" : "StringTable",
+                StringTable = new { TableNamespace = kind == "namespace-overflow" ? new string('x', 513) :
+                    path == first ? name == "DifferentObjectName" ? "Owned.Namespace" : "Sibling.Namespace" : "Other.Namespace" }
+            });
+        };
+        var method = System.Reflection.Assembly.GetEntryAssembly()!.GetType("NteReader", true)!
+            .GetMethod("ReadNteMovieNamespaces", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        Dictionary<string, string?> result;
+        try {
+            result = (Dictionary<string, string?>)method.Invoke(null, new object[] {
+                new HashSet<string> { table, first, second }, rows, owner })!;
+        }
+        catch (System.Reflection.TargetInvocationException error) when
+            (kind != "valid" && error.InnerException?.GetType().Name == "UnsupportedGameFormatException") { return; }
+        if (kind != "valid" || result.Count != 6 || result["FutureAlias"] != "Owned.Namespace" ||
+            result["SameOwner"] != "Owned.Namespace" || result["MissingOwner"] != null ||
+            result["NamedSibling"] != "Sibling.Namespace" || result["EmptyOwner"] != null || result["Conflict"] != null ||
+            reads[first + "\0DifferentObjectName"] != 1 || reads[first + "\0SecondObjectName"] != 1 || reads[second + "\0OtherObject"] != 1)
             throw new InvalidDataException();
     }
     public void SubmitKey(Guid guid, FixtureKey key)

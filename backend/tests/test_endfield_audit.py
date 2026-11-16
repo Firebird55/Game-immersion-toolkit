@@ -189,6 +189,99 @@ def test_radio_export_respects_explicit_reaction_and_release_change(tmp_path, mo
     assert args[4].read_bytes() == b'previous'
 
 
+@pytest.fixture
+def empty_radio_performer():
+    identity = 'radio_fixture_01_001'
+    row = {'id': identity, 'index': 1, 'actorName': ref(0), 'actorNameId': 'npc', 'audioEffect': 0,
+           'audioEvent': '', 'audioEventDuration': 0, 'audioOverride': 'au_' + identity, 'emotionType': 7,
+           'iconSuffix': '', 'infoActorName': ref(0), 'is3D': False, 'radioText': ref(1)}
+    group = {'continueAfterDialog': False, 'continueAfterRadio': False, 'priority': 3,
+             'radioContinueSpeakerIds': [], 'radioContinueType': 0, 'radioSingleDataList': [row], 'radioType': 0}
+    name = 'au_dlg_commvo_fixture_baseline'
+    key = endfield._voice_table_id(name)
+    audio = {key: {'path': 'fixture/' + name + '.wem',
+                  **dict.fromkeys(('wavDuration', 'wavDurationEN', 'wavDurationJP', 'wavDurationKR'), 0)}}
+    extra = {key: dict.fromkeys(('durationCN', 'durationEN', 'durationJP', 'durationKR'), 0)}
+    catalog = Catalog({'RadioTable': {'radio_fixture_01': group}, 'NpcInfoTable': {'npc': {'voActor': ''}},
+        'EmotionVoiceConfig': {'7': {'emotionType': 7, 'interjection': 'gasp', 'interjectionList': ['gasp']}},
+        'AudioVoiceExtraData': extra, 'AudioDialogCustomEventTable': {'other': {}}, 'VoiceIdConflictTable': {}})
+    catalog.files = {'Data/TableCfg/' + key + '.bytes' for key in catalog.values}
+    def prepare(*, paths=None, entries=None, locale='en', details=False):
+        links = endfield.radio_dialogues(catalog, evidence=endfield.radio_evidence(catalog, audio))
+        return endfield.dialogue_records(links, paths or {}, {'en': {'1': 'A synthetic radio observation.'}},
+                                        locale, entries or {}, radio_details=details)
+    return catalog, audio, row, group, prepare
+
+
+def test_explicit_empty_radio_performer_uses_unvoiced_capture_and_later_update_restores_reaction(
+        tmp_path, empty_radio_performer):
+    from backend.local_game import LocalGameTextIndex
+    catalog, _audio, _row, _group, prepare = empty_radio_performer
+    record, = prepare(details=True)
+    assert record['radio_reaction_configured'] is True
+    assert record['radio_reaction_status'] == 'empty_authored_performer'
+    assert record['radio_sentence'] == 'text_only' and record['voice_status'] == 'unvoiced'
+    plain, = prepare()
+    LocalDialogue(**plain)
+    (tmp_path / 'textmap.json').write_text(json.dumps({'records': [plain]}), encoding='utf-8')
+    index = LocalGameTextIndex('endfield', tmp_path)
+    assert index.match_lines([plain['source_text']], exact_only=True) is None
+    index.capture_unvoiced = True
+    assert index.match_lines([plain['source_text']], exact_only=True).voice_status == 'unvoiced'
+    # A normal publisher-table update can add a performer without toolkit changes.
+    catalog.values['NpcInfoTable']['npc']['voActor'] = 'performer'
+    name = 'au_dlg_commvo_performer_gasp'
+    path = 'voice/english/fixture/reaction.wem'
+    missing, = prepare(paths={name: 'fixture/reaction.wem'}, details=True)
+    assert missing['voice_status'] != 'unvoiced' and missing['radio_reaction_status'] == 'missing_selected_dub_media'
+    restored, = prepare(paths={name: 'fixture/reaction.wem'},
+                         entries={f'{voice_hash(path):016x}': {'file_id': 'reaction'}}, details=True)
+    assert restored['radio_reaction_candidates'] == {name: path}
+    assert restored['radio_reaction_status'] == 'candidates_in_dub' and restored['voice_status'] != 'unvoiced'
+    assert prepare(locale='ko') == []
+
+
+@pytest.mark.parametrize('mapping,actor', [({}, 'npc'), ({'npc': {}}, 'npc'),
+    ({'npc': {'voActor': 'None'}}, 'npc'), ({'endminf': {'voActor': ''}}, 'endminf'),
+    ({'endminm': {'voActor': ''}}, 'endminm'), ({'': {'voActor': ''}}, '')])
+def test_missing_or_sentinel_radio_performer_is_not_an_authored_empty_actor(empty_radio_performer, mapping, actor):
+    catalog, _audio, row, _group, prepare = empty_radio_performer
+    catalog.values['NpcInfoTable'] = mapping
+    row['actorNameId'] = actor
+    record, = prepare()
+    assert record['voice_status'] != 'unvoiced' and record['audio'] is None
+
+
+@pytest.mark.parametrize('field,value', [('audioEvent', 'Play_effect'), ('audioEventDuration', 1),
+    ('audioEffect', 1), ('is3D', True), ('unreviewedAudio', 'new'), ('audioOverride', 'different_source')])
+def test_empty_radio_actor_does_not_certify_other_audio_routes(empty_radio_performer, field, value):
+    _catalog, _audio, row, _group, prepare = empty_radio_performer
+    row[field] = value
+    record, = prepare()
+    assert record['voice_status'] != 'unvoiced'
+
+
+def test_empty_radio_actor_preserves_bound_sentence_and_missing_pack(empty_radio_performer):
+    catalog, audio, row, _group, prepare = empty_radio_performer
+    name = row['audioOverride']
+    key = endfield._voice_table_id(name)
+    audio[key] = {'path': 'fixture/' + name + '.wem',
+                 **dict.fromkeys(('wavDuration', 'wavDurationEN', 'wavDurationJP', 'wavDurationKR'), 0)}
+    catalog.values['AudioVoiceExtraData'][key] = dict.fromkeys(
+        ('durationCN', 'durationEN', 'durationJP', 'durationKR'), 0)
+    declared, = prepare()
+    assert declared['voice_status'] == 'unavailable' and declared['audio'] is None
+    source = 'voice/english/fixture/sentence.wem'
+    paths = {name: 'fixture/sentence.wem'}
+    missing, = prepare(paths=paths)
+    assert missing['voice_status'] == 'unavailable'
+    voiced, = prepare(paths=paths, entries={f'{voice_hash(source):016x}': {'file_id': 'sentence'}})
+    assert voiced['voice_status'] == 'voiced' and voiced['audio']['file_id'] == 'sentence'
+    catalog.values['VoiceIdConflictTable'] = {'changed': {}}
+    row['audioOverride'] = 'au_radio_fixture_01_002'
+    assert prepare()[0]['voice_status'] != 'unvoiced'
+
+
 def test_player_radio_reaction_follows_selected_performer_and_current_emotion(tmp_path, monkeypatch):
     from scripts import endfield_radio as cli
     line = {'id': 'first', 'radioText': ref(1), 'actorNameId': 'endminf', 'emotionType': 13}

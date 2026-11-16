@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 22
+LANGUAGE_INDEX_VERSION = 23
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -105,6 +105,17 @@ def sentence_links(sentences, voices, locale, multi_voices=()):
         candidates = alternatives.get(identity)
         if candidates and primary:
             candidates = candidates | {primary}
+        singleton = next(iter(candidates)) if candidates and len(candidates) == 1 else None
+        explicit_unvoiced = singleton is not None and voices.get(singleton, {}).get('VoiceType') == 'NoVoice'
+        if candidates and not primary and not _hash(row.get('TextmapTalkSentenceName')) and not explicit_unvoiced:
+            # MultiVoice authoring can supply an NPC greeting for unnamed
+            # text. Without a primary sentence voice or a named speaker, its
+            # presence alone does not establish speech of the written words.
+            # Keep the general presentation kind; missing names do not prove
+            # that every such entry is narration or text-only.
+            links.append(_text_link(identity, _hash(row.get('TalkSentenceText')), 'dialogue', 'unknown') |
+                         {'unresolved_multi_voice': True})
+            continue
         # A singleton names the only authored performance. More than one
         # remains ambiguous, including a primary that conflicts with the list.
         ambiguous = bool(candidates and len(candidates) > 1)
@@ -327,6 +338,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     result['coverage_warnings'] = [
         'Multi-voice and event-only performances without an exact original media binding remain unavailable.',
         'Captions without a timed localized recording, image-only messages and event-only formats have incomplete coverage. Missing voice metadata is not proof of silence.']
+    if any(link.get('unresolved_multi_voice') for link in links):
+        result['coverage_warnings'].append('Some unnamed text entries have candidate audio without a verified recording of their written words. They remain unresolved.')
     if install is None:
         if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region, data_dir / 'tools'):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')

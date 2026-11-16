@@ -21,7 +21,9 @@ and 392 Korean. Both Chinese study selections use the same 400 Mandarin interval
 For dialogue with separate Endministrator performances, set the player voice to
 match your game. The reader selects the corresponding recording and renders
 gender-specific translations when the game supplies them. Scene summaries shown
-when skipping dialogue use the existing unvoiced-text capture option. The
+when skipping dialogue use the existing unvoiced-text capture option. Radio
+captions whose original data explicitly disables the performer use that same
+option. A missing actor field or recording does not establish silence. The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.
 
