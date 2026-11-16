@@ -186,19 +186,39 @@ class PreparedLibraryStore:
         return self.current()
 
 
-def write_prepared_library(snapshot, destination, clips):
+def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: False, publish_guard=nullcontext):
     """Author/export a portable snapshot with exact already-decoded voice bytes.
 
     clips maps original text IDs to .mp3/.wav paths. The original archive refs
     are replaced by local content-addressed clips; credentials are never copied.
     """
+    def guard():
+        if cancelled():
+            raise InterruptedError('Prepared library export cancelled')
+    guard()
     payload = {key: snapshot[key] for key in ('format', 'game', 'source_locale')}
+    for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision'):
+        if key not in snapshot:
+            continue
+        value = snapshot[key]
+        if key == 'reader_revision':
+            valid = type(value) is int and 0 <= value <= 2**31 - 1
+        elif key == 'fingerprint':
+            valid = isinstance(value, str) and bool(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._:-]{0,255}', value))
+        elif key == 'source_region':
+            valid = isinstance(value, str) and value in {'global', 'cn', 'mainland'}
+        else:
+            valid = isinstance(value, str) and value in {'publisher', 'installed', 'prepared'}
+        if not valid:
+            raise ValueError('Invalid prepared library source identity')
+        payload[key] = value
     for key in ('capture_capabilities', 'publisher_song_cues', 'publisher_film_cues'):
         if key in snapshot:
             payload[key] = snapshot[key]
     payload.update(install=None, records=[])
     audio = {}
     for original in snapshot['records']:
+        guard()
         row = dict(original)
         if row.get('audio'):
             clip = clips(original) if callable(clips) else clips.get((row['text_id'], row.get('player_voice')), clips.get(row['text_id']))
@@ -224,18 +244,27 @@ def write_prepared_library(snapshot, destination, clips):
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     pending = destination.with_suffix(destination.suffix + '.pending')
-    with zipfile.ZipFile(pending, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
-        archive.writestr('manifest.json', json.dumps(manifest, sort_keys=True, separators=(',', ':')))
-        archive.writestr('textmap.json', raw)
-        for name, clip in audio.items():
-            digest, size = hashlib.sha256(), 0
-            with clip.open('rb') as source, archive.open(name, 'w', force_zip64=True) as output:
-                while block := source.read(1024 * 1024):
-                    size += len(block)
-                    if size > MAX_AUDIO:
+    _no_links(pending)
+    try:
+        with zipfile.ZipFile(pending, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+            archive.writestr('manifest.json', json.dumps(manifest, sort_keys=True, separators=(',', ':')))
+            archive.writestr('textmap.json', raw)
+            for name, clip in audio.items():
+                digest, size = hashlib.sha256(), 0
+                with clip.open('rb') as source, archive.open(name, 'w', force_zip64=True) as output:
+                    while block := source.read(1024 * 1024):
+                        guard();size += len(block)
+                        if size > MAX_AUDIO:
+                            raise ValueError('Prepared audio changed during export')
+                        digest.update(block);output.write(block)
+                if digest.hexdigest() != manifest['files'][name]['sha256'] or size != manifest['files'][name]['size']:
                         raise ValueError('Prepared audio changed during export')
-                    digest.update(block);output.write(block)
-            if digest.hexdigest() != manifest['files'][name]['sha256'] or size != manifest['files'][name]['size']:
-                raise ValueError('Prepared audio changed during export')
-    pending.replace(destination)
+        with publish_guard() as mark_committed:
+            guard()
+            pending.replace(destination)
+            if mark_committed:
+                mark_committed()
+    except BaseException:
+        pending.unlink(missing_ok=True)
+        raise
     return destination

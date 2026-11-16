@@ -18,12 +18,19 @@ imported to bootstrap the local session.
 format-2 text snapshot and content-addressed, already-decoded MP3/WAV clips.
 Original archive references are replaced with local clip references. Account
 credentials, executable code and arbitrary paths are not importable members.
+The writer preserves only bounded source fingerprint, regional edition, source
+mode and reader revision as source provenance. It does not copy URL collections,
+account diagnostics or arbitrary snapshot metadata. Immutable generations retain
+that source identity; existing transcript models do not expose all of it per line.
 
 The writer accepts a source snapshot, destination and decoded clips supplied by
 the existing original-voice services. It preserves official texts, voice state,
 context/paragraph labels, player branches, capture channels, authored predecessor
 links and OCR anchors. Clips can be selected by a callback for branches sharing a
 text ID. It verifies audio again while writing before replacing the destination.
+Export has its own cancellation callback and optional atomic publication guard;
+cancelled writes retain the previous completed archive. This is separate from
+the HTTP import cancellation protocol.
 
 Import validates checksums, bounds, the complete `LocalDialogue` contract and the
 actual production index before publishing a pointer. Previous generations remain

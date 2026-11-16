@@ -112,3 +112,28 @@ def test_wrong_player_branch_and_gaps_do_not_complete_confirmation(tmp_path):
     assert not session.observe(generation, 2, [text], now=2)
     assert not session.observe(generation, 3, [text], now=6)
     assert len(session.observe(generation, 4, [text], now=6.1)) == 1
+
+
+def test_portable_source_identity_is_bounded_and_export_cancel_keeps_completed_destination(tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    payload.update(fingerprint='official-' + 'a' * 64, source_region='global', source_mode='publisher', reader_revision=8,
+                   original_urls=['https://private.invalid/package'], account_diagnostics={'token': 'must-not-copy'})
+    output = tmp_path / 'prepared.zip'
+    write_prepared_library(payload, output, {'owned:line': tmp_path / 'input/tone.wav'})
+    with zipfile.ZipFile(output) as source:
+        portable = json.loads(source.read('textmap.json'))
+    assert {key: portable[key] for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision')} == {
+        key: payload[key] for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision')}
+    assert 'original_urls' not in portable and 'account_diagnostics' not in portable
+    original = output.read_bytes();calls = 0
+    def cancelled():
+        nonlocal calls
+        calls += 1
+        return calls >= 3
+    with pytest.raises(InterruptedError):
+        write_prepared_library(payload, output, {'owned:line': tmp_path / 'input/tone.wav'}, cancelled=cancelled)
+    assert output.read_bytes() == original and not output.with_suffix('.zip.pending').exists()
+    payload['fingerprint'] = 'https://private.invalid/package'
+    with pytest.raises(ValueError, match='source identity'):
+        write_prepared_library(payload, output, {})
+    assert output.read_bytes() == original
