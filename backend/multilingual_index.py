@@ -136,7 +136,10 @@ class MultilingualTextIndex:
                     for language, text in row['texts'].items():
                         for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                             veto.setdefault(language, set()).add(normalize_text(display_text(value), language))
-                if row['voice_status'] not in {'voiced', 'unvoiced'}:
+                # Authored silence does not resolve an unsupported text branch.
+                # Keep its inventory/veto, but neither its diagnostic source nor
+                # an otherwise valid translation can identify a capturable row.
+                if row.get('text_binding_unresolved') or row['voice_status'] not in {'voiced', 'unvoiced'}:
                     continue
                 destination = unvoiced_lookup if row['voice_status'] == 'unvoiced' else lookup
                 for language, text in row['texts'].items():

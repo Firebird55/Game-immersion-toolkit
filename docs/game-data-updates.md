@@ -138,6 +138,11 @@ authored Traveler text and translation variants, including shared recordings.
 Archive reader 4 retains the exact rendered historical identity. Unresolved
 source branches cannot acquire audio through historical recovery.
 
+An unresolved source-text branch remains an inventory diagnostic even when the
+presentation is confirmed silent. Capture cannot identify it through a rendered
+alias or an otherwise valid translation. Independently resolved text-only
+entries still follow the unvoiced-capture setting.
+
 Language preparation resolves one immutable revision of the fixed game-data
 source. Subtitle tables, dialogue identifiers and voice source paths stay on that
 revision for the complete candidate build. Genshin includes Medium and split
