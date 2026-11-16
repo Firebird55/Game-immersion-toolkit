@@ -68,6 +68,8 @@ voice-event object names that omit the redundant `CG` name segment, while
 music events and unrelated source roots remain excluded. Wwise 154 separately
 loaded media is parsed with its full codec header, but storage-0/1 cinematic
 caption timing remains unavailable without a verified original clock contract.
+Recovery of new type definitions directly from official clients remains an
+isolated experiment and does not yet replace the current metadata source.
 Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.

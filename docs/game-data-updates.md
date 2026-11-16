@@ -75,6 +75,11 @@ Wwise 154 codec headers also retain their declared cache identifier for all
 storage types. Separately loaded storage-0/1 recordings remain unavailable for
 timed cinematic captions until their original clock/ownership contract is
 supported; successful media loading alone cannot supply that contract.
+An isolated native-schema experiment can append supported standalone types
+from official client descriptors to a frozen usmap. It preserves every existing
+record and excludes unresolved native parents, struct/enum constructors and
+ambiguous identities. It is not part of normal preparation yet; current metadata
+sources and independent key acquisition remain separate update dependencies.
 Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated
