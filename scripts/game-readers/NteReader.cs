@@ -292,6 +292,8 @@ internal static class NteReader
             foreach (var (_, row) in rows(folder + name + ".uasset"))
             foreach (var info in row.GetProperty("SequenceInfo").EnumerateArray())
             {
+                // Optional slots can be empty in released sequence tables.
+                if (info.ValueKind == JsonValueKind.Null) continue;
                 if (info.ValueKind != JsonValueKind.Object) throw new UnsupportedGameFormatException();
                 if (!info.TryGetProperty("CaptionsID", out var id)) continue;
                 var group = id.GetString()!;
