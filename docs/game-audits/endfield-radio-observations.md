@@ -10,7 +10,7 @@ The times below refer to the public player recordings. The on-screen text matche
 | --- | --- |
 | Where Art Thou My Love, `radio_gm01m10_5_001` and `_002` | English combat calls overlap the captions at 1:00–1:09 in one recording. In a second playthrough, Fiona's English `au_dlg_commvo_fiona_neutral_04` matches the publisher waveform at 1:11.353 (correlation 0.93). During the subsequent Angry and Lazy Landbreaker captions, around 1:23–1:33, game audio continues. Neither speech detection nor transcription identified speech in that window. Comparing the 185 available English `negative_02` reactions found no verified match in either encounter. [First playthrough](https://www.youtube.com/watch?v=XMId1vTVV88&t=59s) · [Second playthrough with Fiona control](https://www.youtube.com/watch?v=FjnMPmvBkfM&t=71s) |
 | Illusion, `radio_gm01m16_2_001` and `_002` | Fiona's Japanese `au_dlg_commvo_fiona_negative_03` matches at 3:48.949 (correlation 0.57) before both captions at 4:06–4:14. A second playthrough matches the English recording of the same reaction at 2:01.890 (0.64). The Greedy and Alert Landbreaker captions follow around 2:18–2:27. The game mixes contain audio, but speech detection found no speech during either pair of captions. Comparison with the configured reactions in the respective dubs yielded no verified performance for either NPC. [Japanese playthrough](https://www.youtube.com/watch?v=OGKyAE4pN0Y&t=228s) · [English playthrough with Fiona control](https://www.youtube.com/watch?v=I5HIk_BoM9U&t=121s) |
-| Divvy Up the Trouble, `radio_gm02m14_2_001`, `radio_gm02m14_3_001` and `_002` | All three An Yu captions appear around 3:30–3:40. The soundtrack contains audio throughout. Neither the speech detector nor automatic transcription identified speech over these captions. A search across English and Japanese reaction recordings for the configured emotion types yielded no verified match. [Gameplay](https://www.youtube.com/watch?v=4reYDXGS8lI&t=209s) |
+| Divvy Up the Trouble, `radio_gm02m14_2_001`, `radio_gm02m14_3_001` and `_002` | The corrected Chinese and Korean caption checkpoints are listed below. The earlier instruction-caption associations and corresponding negative audio searches are withdrawn; the three performers remain unresolved. |
 | Daily: Spray and Clean, `radio_m1m73_5_001` and `_002` | Both Japanese captions appear around 0:11–0:20. Before Chen's captions appear, Fiona's Japanese `au_dlg_commvo_fiona_positive_03` matches the original publisher audio at **0:05.739**, with normalized correlation 0.91. None of the 476 Japanese recordings matching Chen's configured emotion yielded a comparable match during either caption. A second playthrough shows Chen's first caption around 1:16. [Both captions](https://www.youtube.com/watch?v=6dBfutWjbgY&t=5s) · [Second playthrough](https://www.youtube.com/watch?v=tq9nTZ-uT-o&t=74s) |
 | A Breach Starts with a Crack, `radio_e10m1_11_001` and `_002` | Both lines appear at the end of the preceding mission. Neither speech detection nor transcription found speech during either caption in two playthroughs. In the preceding scene, Zhuang Fangyi's original `au_dlg_e9m4_19_019` matches the **English** recording in one video (correlation 0.75) and the **Japanese** recording in the other (0.79). Both recordings therefore include dialogue audio in the respective dub. [English at 43:34](https://www.youtube.com/watch?v=D31_Ccpoz7c&t=2614s) · [Japanese at 31:48](https://www.youtube.com/watch?v=JmQGmO1a25o&t=1908s) |
 | Alluvial Cleaning, `radio_m1m6_1_001` | The Russian subtitle matches the publisher's hidden entry warning from approximately 0:03 to 0:06.5. This recording begins before the warning. Music and movement continue through the caption. Speech detection flagged a brief sound at 0:05.9–0:06.2, and transcription did not identify a spoken sentence. The following tutorial has a separate English Fiona reaction matching the publisher waveform at 0:07.515 (correlation 0.94). A second recording opens with the Portuguese warning already visible through 0:02.5. Its Japanese tutorial reaction matches at 0:16.389 (0.99). The missing start of the second recording limits what can be inferred there. [English dub with Russian subtitles](https://www.youtube.com/watch?v=Dy1iO0XBEDc&t=2s) · [Japanese dub with Portuguese subtitles](https://www.youtube.com/watch?v=er5mD2v5okk) |
@@ -18,117 +18,81 @@ The times below refer to the public player recordings. The on-screen text matche
 
 The comparison used publisher WEMs from the active dub, including other actors' candidates for the configured emotion. It compared the band-limited decoded waveforms with the player recording and checked the strongest candidates across separate frequency bands. Short, pitched combat sounds can give a partial correlation in one band. The search cannot exclude a short sound under the mix. The toolkit continues to require an authored binding before exporting an original recording.
 
-### An Yu in two additional playthroughs
+### An Yu: corrected caption identities and gameplay checkpoints
 
-The publisher's `gm02m14_name` localization key identifies this mission as
-*分忧解难* (Chinese) and *お悩み解決* (Japanese). On-screen text in two
-independent version 1.2 walkthroughs matches the three Global 1.6.4 radio
-rows. These times are approximate subtitle starts in each video.
+Rechecked November 16 against the publisher's Global 1.5.3 and 1.6.4
+`RadioTable` and English localization. Both releases give the same three
+text references. The first celebrates clearing the Blight; the second
+asks about improving the Type-C Tianshi Pillar; the third is a short
+follow-up. The nearby leaking-valve warning and Water Quality Testing
+Room instructions are different rows. Matching only the speaker and
+mission had incorrectly associated those instructions with these IDs.
 
-| Radio row | Japanese subtitles | Chinese subtitles |
-| --- | --- | --- |
-| `radio_gm02m14_2_001` | [2:21](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=141s) | [3:01](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=181) |
-| `radio_gm02m14_3_001` | [2:25](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=145s) | [3:05](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=185) |
-| `radio_gm02m14_3_002` | [2:33](https://www.youtube.com/watch?v=zPSDg2DKQNw&t=153s) | [3:11](https://www.bilibili.com/video/BV1mK5Q6cE38/?p=4&t=191) |
+The earlier An Yu checkpoint tables and their speech/reaction searches
+are withdrawn as evidence for these three rows. In particular, the
+previous Ken Karada checkpoints at 5:04, 7:38 and 7:44 show other mission
+instructions. The corrected comparisons below use the actual localized
+text references, not the order in which a walkthrough happens to show
+An Yu's captions. The English, Japanese and commentary-covered Chinese
+checkpoints previously listed here require the same revalidation.
 
-The Japanese-subtitled mix contains game audio at all three captions. Speech
-detection and transcription found no spoken words during the sequence.
-Comparison with 476 candidate Japanese recordings for emotion 41 and 186
-for emotion 37 yielded no verified match. In the Chinese video a guide
-speaks Mandarin over all three captions, giving directions about spraying
-the cores and opening a door. Searching the complete Japanese walkthrough
-for audio shared with the Chinese and English-subtitled recordings did not
-identify a sound specific to An Yu. One short sound heard in the Chinese
-second-caption window matched the Japanese playthrough more closely
-outside the encounter (5:27) than during that caption.
+| Radio row | Publisher text reference | Ken Karada, Chinese screen text | Independently found Korean-screen-text walkthrough |
+| --- | ---: | --- | --- |
+| `radio_gm02m14_2_001` | `2852030914314140975` | [5:33](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=333s) | [1:49](https://www.youtube.com/watch?v=FPHyFFhV90g&t=109s) |
+| `radio_gm02m14_3_001` | `-4015342405813863765` | [5:42](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=342s) | [2:04](https://www.youtube.com/watch?v=FPHyFFhV90g&t=124s) |
+| `radio_gm02m14_3_002` | `-6352011822563413840` | [5:48](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=348s) | [2:14](https://www.youtube.com/watch?v=FPHyFFhV90g&t=134s) |
+
+These links seek to checked caption frames; they are not measured spoken
+boundaries. The selected publisher release also supplies matching Korean
+text for all three rows. The Korean-screen-text upload has no verified
+original-voice control in this check, so it establishes the displayed
+captions, not the dub or absence of voices.
+
+Ken Karada's recording retains an independent Mandarin voice control.
+Perlica's `chr_0004_pelica_explore_point_valub_01` matches the original
+publisher recording at **4:08.060**, with normalized correlation **0.977**
+at 16 kHz, filtered at 400–3,400 Hz. Comparing the same event's English,
+Japanese and Korean recordings gave 0.086, 0.095 and 0.169 respectively.
+The localized bark text, signed Wwise ID `680098892` and `AudioDialog`
+path independently identify this performance. The control is a different
+moment in the mission; its validity does not validate the old caption
+checkpoints. [Perlica control](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=248s)
+
+The repeated Mandarin search covers the correct first caption at
+5:25–5:40 and the later pair at 5:38–5:56. It compares 479 original
+reaction references for emotion 41 and 187 for emotion 37, including short
+reactions. The strongest correlations are 0.389 for the first window and
+0.276 for each later window. The overlapping later windows recover the
+same candidate at 5:46.392, not two independently matched reactions.
+Separate frequency bands do not confirm these candidates: the strongest
+first-window candidate reaches 0.406 below 700 Hz but only 0.227, 0.140
+and 0.067 in the three higher bands; the later candidate reaches at most
+0.056 in those higher bands. Speech detection finds no speech in the
+three corrected caption windows, while detecting the separate Perlica
+control. This does not establish a performer or permanent silence.
 
 In both Global 1.5.3 and 1.6.4 An Yu's NPC row has an empty `voActor`.
 Its NPC and Wwise identifiers are `gm02m14hsstudent1`, and its template is
 `npc_girl_hsstudent_a_24`. None of the six configured reaction suffixes
 combined with either name occurs in the releases' voice-duration tables.
 The controller passes the result of `GetRealActorNameId` into
-`TryGetCommonEmotionVoiceId`. It only posts a voice when that method
-succeeds. The published controller does not show how that method chooses
-an actor for an NPC with an empty voice field. These three rows still have
-no verified performance or proof of a permanently silent fallback.
+`TryGetCommonEmotionVoiceId` and only posts a reaction on success. The
+published controller does not establish the result for this empty actor
+mapping. All three performers remain unresolved; no other actor's audio
+or silence override is assigned.
 [Released radio playback controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L946)
 
-### Further independent gameplay checks on November 15
-
-A further English-dubbed *Divvy Up the Trouble* playthrough displays An Yu's
-three exact captions at approximately 2:56, 5:25 and 5:30. The first warns
-about the leaking valve, the second identifies the Water Quality Testing
-Room, and the third warns about nearby Blight. The separate English Antal
-barks `chr_0023_antal_explore_point_valub_01` and
-`chr_0023_antal_explocomm_postv_point_02` match their original publisher
-recordings at 5:17.078 and 5:19.994, with normalized correlations 0.837 and
-0.878. Those barks finish before An Yu's latter two captions. They establish
-that English character voices remain audible in this recording.
-[First An Yu caption](https://www.youtube.com/watch?v=nhq9lA9Ve-w&t=176s)
-· [Antal controls followed by both later captions](https://www.youtube.com/watch?v=nhq9lA9Ve-w&t=317s)
-
-Speech detection and independent transcription found no words during the
-three An Yu captions. The transcription did identify Antal's two earlier
-lines. Searching the previously acquired English reaction references for
-the configured emotions compared 477 candidates for the first caption
-and 186 for each later caption. The strongest correlations were 0.292,
-0.225 and 0.164 respectively; none established an An Yu recording. This
-adds an English example with audible original-voice controls to the earlier
-Japanese and commentary-covered Chinese examples. It does not establish
-how the game resolves an NPC whose `voActor` is empty, or justify exporting
-another actor's reaction or marking the three rows permanently unvoiced.
+### Independent Landbreaker control
 
 A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
 Landbreaker captions around 1:16–1:24. Fiona's preceding Japanese
 `au_dlg_commvo_fiona_neutral_04` matches the publisher recording at
 0:47.670 (correlation 0.711). The speech detector identifies that short
-reaction; it finds no speech over the two later captions. The player's
-combat and movement sounds continue through the encounter. This is an
-additional Japanese playback observation, not a verified Landbreaker voice
-binding. The source command continues to leave those performers unresolved.
+reaction; it finds no speech over the two later captions. Combat and
+movement sounds continue. This is a Japanese playback observation,
+not a verified Landbreaker voice binding.
 [Japanese control](https://www.youtube.com/watch?v=trE3BE09sCk&t=47s)
 · [Both Landbreaker captions](https://www.youtube.com/watch?v=trE3BE09sCk&t=76s)
-
-### Independently located An Yu recordings on November 16
-
-Two additional public walkthroughs display the three unresolved An Yu radio
-rows. The links below seek to frames checked directly against the displayed
-captions; they are checkpoints, not measured caption or spoken boundaries.
-
-| Radio row | CyberRogue Relax, English screen text | Ken Karada, Chinese screen text |
-| --- | --- | --- |
-| `radio_gm02m14_2_001` | [13:23](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=803s) | [5:04](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=304s) |
-| `radio_gm02m14_3_001` | [17:45](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=1065s) | [7:38](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=458s) |
-| `radio_gm02m14_3_002` | [17:49](https://www.youtube.com/watch?v=0dPAC5gFvRE&t=1069s) | [7:44](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=464s) |
-
-Ken Karada's recording contains an independent Mandarin voice control.
-Perlica's `chr_0004_pelica_explore_point_valub_01` matches the original
-publisher recording at **4:08.060**, with normalized correlation **0.977**
-at 16 kHz, filtered at 400–3,400 Hz. Comparing the same event's English,
-Japanese and Korean recordings gave 0.086, 0.095 and 0.169 respectively.
-The localized bark text, signed Wwise ID `680098892` and `AudioDialog`
-path independently identify this performance. The voice control establishes
-audible Mandarin character audio in this upload; the interface alone does
-not establish its regional edition.
-[Perlica control](https://www.youtube.com/watch?v=e3OTBHNRcPE&t=248s)
-
-Speech detection found no speech in the 4:55–5:12 and 7:29–7:52 search
-windows covering An Yu's captions. Transcription did recognize Perlica in
-the separate control window. The waveform search compared 479 Mandarin
-references for emotion 41 and 187 for emotion 37, including short reactions.
-Its strongest correlations were 0.451, 0.328 and 0.340 for the three rows.
-The two strongest first-row candidates correlated mainly below 700 Hz;
-neither exceeded 0.135 in any of the three higher bands. The later-row
-candidates also failed the separate band comparisons. This did not
-establish an An Yu performance or justify assigning another actor's
-recording to her.
-
-The English-screen-text upload supplies another visual reproduction of all
-three rows. Its sampled caption windows yielded no verified original-voice
-control, so it is not additional evidence that An Yu is silent in any dub.
-These walkthroughs add independently located scenes and a Mandarin control;
-the three performer bindings remain unresolved. No gameplay soundtrack is
-used as a toolkit audio source, and no silence override is added.
 
 ## Four rows without a configured interjection
 

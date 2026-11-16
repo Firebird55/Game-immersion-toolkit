@@ -55,6 +55,30 @@ cuts. No extra recording, silence classification or additional playable
 caption is inferred from that failure. The six unresolved Mandarin cuts and
 English text/cuts remain open below.
 
+### A further independent Technical Test recording
+
+A separately located November 10, 2023 playthrough identifies the same
+Mandarin aircraft, bedside and motorcycle ambush mixes. Correlations use
+8 kHz mono PCM filtered at 320–3,500 Hz, with normalized target-window
+energy. Every excerpt in each scene independently recovers one offset.
+The upload's commentary, watermark and clock are not acquisition inputs.
+
+| Original scene | Excerpt starts in the original WEM | Recording-to-upload offset | Correlations |
+| --- | --- | ---: | --- |
+| Aircraft | 4, 20, 26, 67, 76, 81, 84 s; three seconds each | 64.0646 s | 0.912–0.998 |
+| Bedside | 56, 80, 117, 129, 134, 137 s; 1.5 seconds each | 527.6166 s | 0.988–0.997 |
+| Motorcycle ambush | 0.5, 5, 10, 19, 21 s; 1.5 seconds each | 902.9067 s | 0.523–0.892 |
+
+The five remaining aircraft captions are visible around 2:10, 2:13,
+2:16, 2:24 and 2:28. Bedside `20` is visible around 11:02, and the second
+motorcycle call around 15:08. The original Chinese wording was checked
+against the historical subtitle table. These are displayed-caption
+checkpoints and whole-mix matches, not verified spoken cut boundaries.
+The seven Mandarin cuts remain excluded from sentence export.
+[Aircraft](https://www.bilibili.com/video/BV1az4y1P7BN/?p=1&t=130)
+· [Bedside introduction](https://www.bilibili.com/video/BV1az4y1P7BN/?p=1&t=662)
+· [Motorcycle call](https://www.bilibili.com/video/BV1az4y1P7BN/?p=1&t=908)
+
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
 ## Original motorcycle ambush scene
