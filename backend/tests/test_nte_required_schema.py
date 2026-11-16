@@ -16,14 +16,15 @@ def primitive(fields=None, *, custom=False, flags=None, base=0x140000000):
     return pe, offset
 
 
-def enum(pe, *, changed=False):
+def enum(pe, *, changed=False, members=None):
     name = pe.name('Mood')
-    members = [(0, pe.name('Mood::Calm')), (2 if changed else 1, pe.name('Mood::Alert'))]
-    offset, address = pe.alloc(32)
+    members = members or [(0, 'Calm'), (2 if changed else 1, 'Alert')]
+    members = [(value, pe.name('Mood::'+name)) for value, name in members]
+    offset, address = pe.alloc(16*len(members))
     for index, (value, pointer) in enumerate(members):
         pe.put(offset+16*index, 'Qq', pointer, value)
     offset, _ = pe.alloc(48)
-    pe.put(offset, '5QIHBB', pe.code, 0, name, pe.name('Mood::Type'), address, 0x45, 2, 0, 1)
+    pe.put(offset, '5QIHBB', pe.code, 0, name, pe.name('Mood::Type'), address, 0x45, len(members), 0, 1)
 
 
 def test_unrelated_native_drift_does_not_block_actual_required_closure():
@@ -145,3 +146,22 @@ def test_ambiguous_native_descriptors_cannot_fall_back_to_a_reader_class_contrac
     result = required.validate(metadata, metadata, old.bytes(), current.bytes(), ['Dialogue'],
                                reader_classes={'Dialogue': 'CUE4Parse.UE4.Assets.Exports.Engine.UDialogue'})
     assert not result.eligible and result.unresolved[0].reasons == ('ambiguous_required_native_descriptor',)
+
+
+@pytest.mark.parametrize('changed', [False, True])
+def test_original_enum_refresh_preserves_unchanged_sentinels_and_drops_stale_sentinels_on_change(changed):
+    original, old, _, _ = fixture()
+    _, current, _, _ = fixture(base=0x180000000)
+    rows = [(n, p, [(f, d, w) for _, f, d, w in fs]) for n, p, _, fs in shapes(original).values()]
+    metadata = seed(rows, enum_members=((0, 'Calm'), (1, 'Alert'), (2, 'Mood_MAX')))
+    enum(old)
+    enum(current, members=[(0, 'Calm'), (1, 'Alert'), (2, 'Alarm')] if changed else None)
+    refreshed, names = required.refresh_original_enums(metadata, old.bytes(), current.bytes())
+    assert names == (('Mood',) if changed else ())
+    assert (refreshed == metadata) is (not changed)
+    assert shapes(refreshed) == shapes(metadata)
+    result = required.validate(metadata, refreshed, old.bytes(), current.bytes(), ['Existing0'])
+    assert result.eligible
+    body, table, end, _, _, _, _ = _seed(refreshed)
+    declared = required._enum_rows(body, table, end)['Mood']
+    assert declared[-1] == ((2, 'Alarm') if changed else (2, 'Mood_MAX'))

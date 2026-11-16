@@ -63,8 +63,9 @@ index or a game change during extraction rejects the refresh before publication.
 
 NTE publisher preparation reads the selected region's original localization,
 dialogue/sequence/movie tables, subtitle cues and localized voice banks. Its
-immutable snapshots include compatible public type metadata, so normal content
-and type-data updates do not require a toolkit release. Missing regional text,
+immutable snapshots identify original-native format derivation and fixed
+description dependencies. Compatible content/type-data updates do not need a
+current community mapping or a toolkit release. Missing regional text,
 stale translations and unresolved bindings are reported separately. Saved voices
 retain their exact publisher snapshot. NTE index schema 10 rebuilds older prepared
 maps with the original movie-alias registry and each referenced StringTable's
@@ -75,24 +76,20 @@ Wwise 154 codec headers also retain their declared cache identifier for all
 storage types. Separately loaded storage-0/1 recordings remain unavailable for
 timed cinematic captions until their original clock/ownership contract is
 supported; successful media loading alone cannot supply that contract.
-An isolated native-schema experiment can append supported standalone types
-from official client descriptors to a frozen usmap. It preserves every existing
-record and excludes unresolved native parents, struct/enum constructors and
-ambiguous identities. A separate seeded-callback variant also admits new parent,
-nested-struct and enum references when multiple complete, unchanged seed types
-identify the same callback in the current original client. Conflicts and
-unwitnessed targets remain excluded. A separate candidate API can replace fully
-resolved changed existing definitions inside a new immutable generation, preserving
-the original seed and all historical metadata. It retains the complete original
-manifest and explicit frozen reader/format/parameter identities. Enum values are
-not refreshed. These experiments are outside normal preparation; current metadata
-sources and independent key acquisition remain separate update dependencies.
-A required-closure validator can separately check the actual reader's requested
-types against current original descriptors and a retrievable, authenticated
-publisher baseline. It rejects stale required layouts/enums and changed custom
-serializer contracts, while preserving unrelated and historical data. This gate
-has supplied-version worker/playback evidence; the default provider does not yet
-collect and adopt that evidence automatically.
+Native generation can append resolvable original types and replace fully proved
+changed existing definitions in a new immutable generation. It preserves the
+fixed seed and historical metadata, excludes conflicting/unwitnessed targets,
+and refreshes changed known enum literals from original descriptor arrays.
+The original-native publisher path collects the actual reader's requested types
+and engine-class evidence for each invocation, checks the exact schema hash and
+nonce, and validates the recursive closure against current originals and a
+retrievable original baseline before preparation can return an index. Changed
+known enum literals come from original arrays. Stale required layouts, enum
+values and custom serializer contracts fail while the previous complete index
+and historical originals remain intact. Current-source lookup no longer needs
+an updated community mapping; existing archive/localization descriptions are
+explicitly frozen. Supplied-version, same-locale old/current worker and changed
+original-audio/restart trials are recorded in the NTE audit.
 Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated

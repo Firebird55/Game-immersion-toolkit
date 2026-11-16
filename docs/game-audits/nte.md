@@ -755,11 +755,81 @@ After both preparations and the failed-candidate trial, two selected clips from
 each generation also reopened through the normal voice service with publisher
 discovery and byte ranges prohibited, matching their previous PCM hashes.
 
-The default provider remains unchanged. Before adoption, the ordinary managed
+At this isolated-validation stage the default provider remained unchanged.
+Before adoption, the ordinary managed
 helper must retain its lookup/class evidence, source acquisition must choose and
 authenticate original native inputs coherently, and the required-closure gate
 must run before activation. New required enum/constructor acquisition and rotated
 archive/localization parameters remain explicit format/source dependencies.
+
+#### Original-native publisher preparation
+
+The normal provider now has an original-native metadata path. Its source
+fingerprint retains the complete official inventory, including non-content
+entries, plus a fixed seed/baseline, generator, validator and owned-reader
+identity. Large native acquisition and schema work happen in the language
+worker. The worker generates candidate definitions from authenticated originals,
+refreshes changed existing enum literals from original arrays, extracts authoring,
+and validates that invocation's required closure before returning any prepared
+index. It does not query a current community mapping index or newer usmap.
+Historical legacy mapping references remain readable and keep their identities.
+
+The owned reader's schema-usage output is opt-in. It records actual mapping
+lookups and runtime engine export classes, the exact schema SHA-256 and a fresh
+request nonce. A complete marker is written only after successful extraction;
+the pinned supplier's explicit failed-instanced-struct read/load warnings also
+prevent that marker. Legitimate authored null slots remain supported. Legacy,
+installed NTE and Wuthering reader output contracts do not change.
+
+An original baseline-manifest entry supplies a lineage hint. Renamed or failed
+owners use a generic PE candidate order, capped at 16 files and 768 MiB of
+declared current-source bytes, separately from the fixed baseline. Complete
+publisher files are authenticated before parsing. A partial plugin cannot
+publish authoring without passing the actual required closure. Each completed
+source epoch retains immutable resolved metadata and validation receipts; the
+final inventory check includes native entries. Initial setup may need the whole
+original PC client executable as metadata input, without installing or executing
+the game. Verified checksums permit reuse on later preparations.
+
+Existing archive and localization descriptions are frozen at explicitly pinned
+source revisions/digests and checked against original data. A rotated key or
+unsupported new required constructor remains an explicit source investigation;
+it is not automatically relabeled as a new package format. The normal failure
+path retains the previous complete index and its originals.
+
+The same normal provider and current owned reader prepared Global 1.4.9 and
+1.5.4 with identical Japanese-study/Chinese-target selection, using supplied
+version-addressed official discovery. Neither `_current` nor the type loader was
+replaced by a candidate shim. The results contain **117,575** and **126,472**
+records and preserve every record field from the earlier candidate-backed
+trials except their own immutable publisher identities. The locale-controlled
+delta has **9,558 added** and **661 removed** IDs; common IDs contain **930**
+changed source captions, **87** changed Chinese translations and **95** changed
+audio references. These text totals include UI; they are update evidence, not a
+substitute for the presentation inventory.
+
+The actual 1.5.4 originals retain the two changed Japanese protagonist
+performances: female media grows from 21,871 to 24,138 bytes and male media shrinks
+in the opposite direction. Both encoded originals and decoded PCM differ by
+generation. Two added main-story protagonist clips also decode successfully.
+After both normal preparations, all four old/current replacement performances
+and both new clips replay through the normal voice service with discovery and
+byte ranges prohibited, matching their source-specific PCM hashes. An injected
+required-layout failure through the same provider/worker preserves the previous
+complete index byte-for-byte. This remains a supplied-version update trial;
+complete subtitle-presentation and platform acceptance are still tracked below.
+
+The separately acquired original mainland 1.5.6 native file has publisher MD5
+`8876eee326786fa8df0b48ce520351f4` and SHA-256
+`64ed3cae0b5fc61f3b56cdd933b4807cb23f0ec7913590db60d1a8642de2dfec`.
+The same normal provider prepared **126,212** Chinese-study records with **28,080**
+resolved voices, agreeing with every prior record field except the immutable
+snapshot identity. Its actual required closure passed from mainland native data;
+Global evidence was not substituted. The normal voice service verified **61**
+mainland clips, 48 caption keys and seven originals with authored gains/branches,
+then reproduced identical fresh PCM with publisher discovery and ranges
+prohibited. Source and native provenance remain edition-specific even where
+generated schema bytes agree.
 
 ### Remaining acceptance
 

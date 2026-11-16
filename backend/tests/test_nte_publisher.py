@@ -205,3 +205,26 @@ def test_mid_preparation_revision_change_never_returns_an_activatable_partial_in
         assets.index_language(None, online.root, 'en', [])
     assert previous['records'][0]['source_text'] == 'Source revision 1.'
     assert publisher.snapshot_available(online.tools, previous['fingerprint'])
+
+
+def test_native_only_publisher_change_is_checked_before_returning_an_index(online, monkeypatch):
+    old = online.current[0]
+    value = dict(online.states[old])
+    native = 'Client/RenamedApplication.exe'
+    value['publisher_files'] = dict(value['files']) | {native: {
+        'size': 32, 'digest': 'a'*32, 'object_size': 32, 'object_digest': 'a'*32, 'offset': 0}}
+    raw = publisher._json(value); stamp = 'nte-'+hashlib.sha256(raw).hexdigest()
+    path = online.tools/'nte-publisher'/stamp/'release.json'; path.parent.mkdir(parents=True); path.write_bytes(raw)
+    online.states[stamp] = value; online.originals[stamp] = online.originals[old]; online.current[0] = stamp
+    changed = [False]
+    def observed(_):
+        result = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections', 'publisher_files')}
+        if changed[0]:
+            result['publisher_files'] = dict(value['publisher_files']) | {native: {**value['publisher_files'][native], 'digest': 'b'*32}}
+        return result
+    monkeypatch.setattr(publisher, '_discovery', observed)
+    first = assets.index_language(None, online.root, 'en', [])
+    changed[0] = True
+    with pytest.raises(PreparationFailure, match='changed during preparation'):
+        assets.index_language(None, online.root, 'en', [])
+    assert first['fingerprint'] == stamp and publisher.snapshot_available(online.tools, stamp)

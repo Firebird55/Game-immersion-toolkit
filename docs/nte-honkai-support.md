@@ -68,20 +68,14 @@ voice-event object names that omit the redundant `CG` name segment, while
 music events and unrelated source roots remain excluded. Wwise 154 separately
 loaded media is parsed with its full codec header, but storage-0/1 cinematic
 caption timing remains unavailable without a verified original clock contract.
-Recovery of new type definitions directly from official clients remains an
-isolated experiment and does not yet replace the current metadata source.
-Its [seeded constructor variant](game-audits/nte.md#retained-schema-constructor-joins)
-can reuse independently witnessed current-client callback identities for new
-inherited/nested types and typed enums. A separate immutable candidate lifecycle
-also refreshes fully resolved existing definitions, with explicit unresolved
-layouts and frozen parameter identities. Enum member changes and complete
-normal-worker update/recovery acceptance remain open; Setup does not adopt these
-candidates.
-An isolated required-closure gate now distinguishes original native equivalence,
-baseline custom serializers and frozen managed-reader contracts. Its original
-baseline can be retrieved without a game installation; current and historical
-candidate-backed worker/playback trials remain separate from default automatic
-source adoption.
+The [original-native publisher route](game-audits/nte.md#original-native-publisher-preparation)
+generates needed format metadata from authenticated publisher client files and
+a fixed retained seed. It refreshes resolvable changed definitions and original
+enum literals, then validates the actual reader's required closure before the
+worker returns an index. The fixed original baseline is retrievable without a
+game installation. No current community mapping index is required; existing
+archive/localization parameters remain explicitly frozen. Unsupported required
+layouts fail without replacing the prior complete index or historical audio.
 Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.

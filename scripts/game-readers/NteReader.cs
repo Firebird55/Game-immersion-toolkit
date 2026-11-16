@@ -76,8 +76,14 @@ internal static class NteReader
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var cue = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "CUE4Parse");
                     var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    string? usageNonce = null;
+                    if (request.RootElement.TryGetProperty("capture_schema_usage", out var captureUsage) && captureUsage.GetBoolean())
+                    {
+                        usageNonce = request.RootElement.GetProperty("schema_usage_nonce").GetString();
+                        if (usageNonce is null || !Regex.IsMatch(usageNonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
+                    }
                     ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true,
-                        expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString());
+                        expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString(), usageNonce: usageNonce);
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
                 }
                 else if (args[0] == "inventory")
@@ -202,7 +208,7 @@ internal static class NteReader
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
-        HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null)
+        HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null, string? usageNonce = null)
     {
         expectedSchema ??= "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58";
         var profile = Path.Combine(destination, "dialogue.usmap");
@@ -211,7 +217,17 @@ internal static class NteReader
                 expectedSchema, StringComparison.OrdinalIgnoreCase))
             throw new UnsupportedGameFormatException();
         var type = cue.GetType("CUE4Parse.MappingsProvider.Usmap.FileUsmapTypeMappingsProvider", true)!;
-        provider.GetType().GetProperty("MappingsContainer")!.SetValue(provider, Activator.CreateInstance(type, [profile, StringComparer.Ordinal]));
+        var usage = usageNonce is null ? null : new SchemaUsageComparer();
+        using var schemaLog = usage is null ? null : SchemaParseLog.Capture();
+        var mappings = Activator.CreateInstance(type, [profile, (StringComparer?)usage ?? StringComparer.Ordinal])!;
+        provider.GetType().GetProperty("MappingsContainer")!.SetValue(provider, mappings);
+        if (usage is not null)
+        {
+            _ = Property(mappings, "MappingsForGame");
+            usage.Names.Clear();
+            usage.Enabled = true;
+        }
+        var exportClasses = new Dictionary<string, string>(StringComparer.Ordinal);
         var index = Property(provider, "Files");
         var load = provider.GetType().GetMethods().Single(m => m.Name == "LoadPackage" &&
             m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType.Name == "GameFile");
@@ -226,7 +242,20 @@ internal static class NteReader
             var slot = (int)package.GetType().GetMethod("GetExportIndex")!.Invoke(package,
                 [objectName, StringComparison.Ordinal])!;
             if (slot < 0) throw new UnsupportedGameFormatException();
-            return Property(((Array)Property(package, "ExportsLazy")).GetValue(slot)!, "Value");
+            var export = Property(((Array)Property(package, "ExportsLazy")).GetValue(slot)!, "Value");
+            if (usage is not null)
+            {
+                var implementation = export.GetType().FullName!;
+                var exportType = Property(export, "ExportType").ToString()!;
+                if (implementation.StartsWith("CUE4Parse.UE4.Assets.Exports.", StringComparison.Ordinal) &&
+                    export.GetType().Name == "U" + exportType)
+                {
+                    if (exportClasses.TryGetValue(exportType, out var known) && known != implementation)
+                        throw new UnsupportedGameFormatException();
+                    exportClasses[exportType] = implementation;
+                }
+            }
+            return export;
         }
         object Export(string name) => ExportNamed(name, Path.GetFileNameWithoutExtension(name));
         IEnumerable<(string, JsonElement)> Rows(string name)
@@ -297,6 +326,8 @@ internal static class NteReader
             });
             File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
         }
+        if (usage is not null)
+            WriteSchemaUsage(destination, expectedSchema, usageNonce!, usage, exportClasses, schemaLog!);
     }
 
     static Dictionary<string, string?> ReadNteMovieNamespaces(HashSet<string> files,
@@ -638,7 +669,96 @@ internal static class NteReader
         File.WriteAllText(Path.Combine(destination, "files.json"), JsonSerializer.Serialize(selected.Keys));
     }
     static object Property(object value, string name) => value.GetType().GetProperty(name)!.GetValue(value)!;
+
+    internal sealed class SchemaUsageComparer : StringComparer
+    {
+        internal bool Enabled;
+        internal readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> Names = new(StringComparer.Ordinal);
+        public override int Compare(string? left, string? right) => StringComparer.Ordinal.Compare(left, right);
+        public override bool Equals(string? left, string? right) => StringComparer.Ordinal.Equals(left, right);
+        public override int GetHashCode(string value)
+        {
+            if (Enabled)
+            {
+                if (value.Length is 0 or > 256 || Names.Count >= 100_000) throw new UnsupportedGameFormatException();
+                Names.TryAdd(value, 0);
+            }
+            return StringComparer.Ordinal.GetHashCode(value);
+        }
+    }
+
+    internal static void WriteSchemaUsage(string destination, string schema, string nonce, SchemaUsageComparer usage,
+        Dictionary<string, string> classes, SchemaParseLog log)
+    {
+        if (log.HasFailures) throw new UnsupportedGameFormatException();
+        File.WriteAllText(Path.Combine(destination, "schema-usage.json"), JsonSerializer.Serialize(new {
+            schema = "nte-schema-usage-v1", complete = true, nonce,
+            schema_sha256 = schema.ToLowerInvariant(), lookups = usage.Names.Keys.Order(StringComparer.Ordinal).ToArray(), classes }));
+    }
+
+    internal sealed class SchemaParseLog : IDisposable
+    {
+        readonly PropertyInfo loggerProperty;
+        readonly object prior, current;
+        int failures;
+        internal bool HasFailures => System.Threading.Volatile.Read(ref failures) != 0;
+        SchemaParseLog(PropertyInfo property, object before, object after) => (loggerProperty, prior, current) = (property, before, after);
+        internal static SchemaParseLog Capture()
+        {
+            // The fixed supplier deliberately turns failed instanced-struct
+            // reads into null. Authored null slots produce no such warning.
+            // This scoped sink prevents a partial parse from claiming complete
+            // usage evidence, without changing legacy/installed/Wuwa logging.
+            var assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.GetName().Name == "Serilog")
+                ?? Assembly.Load("Serilog");
+            var sinkType = assembly.GetType("Serilog.Core.ILogEventSink", true)!;
+            var sink = DispatchProxy.Create(sinkType, typeof(NteSchemaLogProxy));
+            var configuration = Activator.CreateInstance(assembly.GetType("Serilog.LoggerConfiguration", true)!)!;
+            var writeTo = Property(configuration, "WriteTo");
+            var method = writeTo.GetType().GetMethods().Single(m => m.Name == "Sink" && !m.IsGenericMethod &&
+                m.GetParameters().Length == 3 && m.GetParameters()[0].ParameterType == sinkType &&
+                m.GetParameters()[1].ParameterType.IsEnum);
+            var parameters = method.GetParameters();
+            var arguments = new object?[parameters.Length];
+            arguments[0] = sink;
+            for (int i = 1; i < parameters.Length; i++)
+                arguments[i] = parameters[i].HasDefaultValue ? parameters[i].DefaultValue : null;
+            method.Invoke(writeTo, arguments);
+            var logger = configuration.GetType().GetMethod("CreateLogger", Type.EmptyTypes)!.Invoke(configuration, null)!;
+            var property = assembly.GetType("Serilog.Log", true)!.GetProperty("Logger")!;
+            var result = new SchemaParseLog(property, property.GetValue(null)!, logger);
+            ((NteSchemaLogProxy)sink).OnEvent = value => {
+                try
+                {
+                    var text = Property(Property(value, "MessageTemplate"), "Text").ToString()!;
+                    if (text.StartsWith("Failed to read FInstancedStruct", StringComparison.Ordinal) ||
+                        text.StartsWith("Failed to load FInstancedStruct", StringComparison.Ordinal))
+                        System.Threading.Interlocked.Increment(ref result.failures);
+                }
+                catch { System.Threading.Interlocked.Increment(ref result.failures); }
+            };
+            property.SetValue(null, logger);
+            return result;
+        }
+        public void Dispose()
+        {
+            loggerProperty.SetValue(null, prior);
+            (current as IDisposable)?.Dispose();
+        }
+    }
     static string TextKey(object value) => (string)value.GetType().GetField("Str")!.GetValue(value)!;
     sealed record LocalizedRow(string ns, string key, string value);
     sealed class UnsupportedGameFormatException : Exception { }
+}
+
+// DispatchProxy generates a subtype in its own assembly, requiring a public,
+// non-sealed proxy base. The reflected interface belongs to the fixed supplier.
+public class NteSchemaLogProxy : DispatchProxy
+{
+    public Action<object>? OnEvent;
+    protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+    {
+        if (targetMethod?.Name == "Emit" && args is [object value]) OnEvent?.Invoke(value);
+        return null;
+    }
 }

@@ -177,6 +177,55 @@ def _enum_rows(body, names, start):
     return {name: value for name, value in rows if counts[name] == 1}
 
 
+def refresh_original_enums(candidate_usmap, baseline_pe, client_pe):
+    """Replace changed existing enum literals from complete original arrays.
+
+    Unchanged baseline descriptions retain all bytes, including existing
+    runtime-generated sentinels. Changed enums contain only original explicit
+    members; no new MAX name/value or unnamed integer fallback is synthesized.
+    This cannot identify a new property's constructor or a new enum target.
+    """
+    body, names, name_end, struct_offset, _, _, _ = _seed(candidate_usmap)
+    previous, current = _enums(_PE(baseline_pe)), _enums(_PE(client_pe))
+    declared = _enum_rows(body, names, name_end)
+    def represented(explicit, description):
+        return {(value, name.casefold()) for value, name in explicit} <= {(value, name.casefold()) for value, name in description}
+    updates = {name: value[0] for name, value in current.items() if name in previous and name in declared
+               and (previous[name] != value or not represented(value[0], declared[name]))}
+    if not updates:
+        return candidate_usmap, ()
+    reader = _Reader(body)
+    reader.position = name_end
+    count = reader.number('I')
+    lookup = {name: index for index, name in enumerate(names)}
+    extra, enums = bytearray(), bytearray(struct.pack('<I', count))
+    def named(name):
+        if name not in lookup:
+            _check(len(names) < 500_000)
+            lookup[name] = len(names); names.append(name)
+            raw = name.encode('utf-8')
+            _check(0 < len(raw) <= 512)
+            extra.extend(struct.pack('<H', len(raw)) + raw)
+        return struct.pack('<i', lookup[name])
+    for _ in range(count):
+        begin = reader.position
+        name = names[reader.number('i')]
+        reader.take(reader.number('H')*12)
+        if name in updates:
+            members = updates[name]
+            enums.extend(named(name) + struct.pack('<H', len(members)))
+            for value, member in members:
+                enums.extend(struct.pack('<Q', value) + named(member))
+        else:
+            enums.extend(body[begin:reader.position])
+    _check(reader.position == struct_offset)
+    expanded = struct.pack('<I', len(names)) + body[4:name_end] + extra + enums + body[struct_offset:]
+    _check(len(expanded)+16 <= 8*1024**2)
+    result = struct.pack('<HBIBII', 0x30c4, 4, 0, 0, len(expanded), len(expanded)) + expanded
+    _seed(result)
+    return result, tuple(sorted(updates))
+
+
 def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, reader_classes=None):
     """Validate the actual reader's recursive required closure, without controls.
 
@@ -268,7 +317,8 @@ def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, 
         expected = candidate_enums.get(name)
         if new is None or expected is None:
             failures[name] = {'unproved_required_enum'}
-        elif old == new and expected == seed_enums.get(name):
+        elif (old == new and expected == seed_enums.get(name)
+              and {(v, n.casefold()) for v, n in new[0]} <= {(v, n.casefold()) for v, n in expected}):
             evidence.append((name, 'baseline_enum_equivalent'))
         elif expected == new[0]:
             evidence.append((name, 'native_enum_refreshed'))
