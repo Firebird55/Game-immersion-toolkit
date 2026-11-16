@@ -149,6 +149,10 @@ revision for the complete candidate build. Genshin includes Medium and split
 subtitle tables; Star Rail includes Main and split tables. Endfield uses its
 explicit dialogue and audio tables with the selected VFS voice group. With
 the game folder empty, it reads the selected publisher edition's release.
+Endfield reader revision 18 also refreshes radio classifications from explicit
+empty performer fields and complete same-release sentence/event evidence.
+A later nonempty actor mapping restores the existing reaction path; missing
+metadata or a missing voice pack is not relabeled silent.
 For a new or changed FMV track it follows that dub's subtitle times, voice
 event and recording. Saved clips retain the original release and times.
 [Endfield release comparison](game-audits/endfield.md)

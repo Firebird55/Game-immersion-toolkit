@@ -1,16 +1,85 @@
 # Endfield mission radio playback observations
 
-Checked November 16, 2026. Thirteen radio rows in the [Global 1.6.4 inventory](endfield-mission-radio-1.6.4.csv) have no bound sentence or named reaction recording. All thirteen also exist in Global 1.5.3. Running the same reader on each publisher release and each of the four dubs found nine rows with a configured interjection and no mapped performer, plus four rows without a configured interjection. All thirteen have an empty separate audio-event field.
+Checked November 16, 2026. Thirteen radio rows in the [Global 1.6.4 inventory](endfield-mission-radio-1.6.4.csv) have no bound sentence or named reaction recording. The subsequent native-source check below resolves five of the nine configured-reaction rows: An Yu's three rows and Chen's two have an explicitly empty authored performer, so the common-reaction resolver returns false. Together with the four rows without a configured interjection, nine are now text-only under the inspected source contract. The four Landbreaker rows with the literal performer string `None` remain unresolved. All thirteen have an empty separate audio-event field.
+
+## Explicitly empty performers in the released runtime
+
+The selected Global 1.6.4 launcher supplies versioned `GameAssembly.dll`
+(320,415,624 bytes) and IL2CPP metadata (74,424,564 bytes). Bounded HTTP ranges
+from this same original pair identify method ownership through metadata tokens
+and the matching code-generation module. The native code was inspected
+statically; neither game code nor patch instructions were executed. A complete
+native-file digest is not claimed.
+[Original native file](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/update/6/6/Windows/1.6.4_O0xruPqxQxZ9aEYl/files/GameAssembly.dll)
+· [Original metadata](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/update/6/6/Windows/1.6.4_O0xruPqxQxZ9aEYl/files/Endfield_Data/il2cpp_data/Metadata/global-metadata.dat)
+
+`DialogUtils.GetRealActorNameId` leaves ordinary NPC identifiers unchanged;
+the player aliases have a separate branch. `VoiceUtils.TryGetCommonEmotionVoiceId`
+looks up the NPC row and reads `NpcInfoData.voActor`. Its empty-string check
+returns false before selecting an interjection or constructing an event name.
+The independently identified `NpcInfoData.get_voActor` getter reads the same
+field used on this path. There is no substitution of a different NPC's voice.
+The inspected 4,096-byte native windows beginning at the two resolver entries
+have SHA-256 values `c8d6e6296cfce0c942c72d8367cdddb57ebf56cd5165a59c36c0e53b700beab2`
+and `a350dc3bd0e0de3dc91287a62337bab8888e5cfa1e482cda6c768458fe8455a7`.
+
+The selected publisher Lua block independently supplies `RadioSystem.lua`.
+Its logical file passed the declared MD5; the decoded source has SHA-256
+`ee53bdb672c2433230f6760d640dea83ac193aaebd6fd1a79c20a7dc9476ca40`.
+The controller calls `SpeakNarrative` only when that resolver succeeds. Its
+separate sentence-duration and audio-event routes remain independent.
+
+All four selected initial IFix files passed their complete logical-file MD5
+checks and a bounded parser consumed every byte through their fix tables.
+The 15,985-byte Gameplay patch has SHA-256
+`c73f8bc6e81ecb786485d1844fb4ea19ca881348eed1bdfdb7806b0b41021efd`.
+Its six replacement targets concern network login, resource preferences, NPC
+proxy data and preloading. None of the four files declares a replacement of
+the reviewed actor/reaction resolvers or NPC getter. These are replacement
+declarations, not proof of patch execution. Remote SDK-injected overrides and
+live execution were not observed.
+[Selected initial resource index](https://beyond.hg-cdn.com/YDUTE5gscDZ229CW/1.6/resource/Windows/initial/11775769-12_l6O95WctWk3y348R/files/index_initial.json)
+· [Reviewed data-only patch framing](https://github.com/Variante/endfield_research_kit/blob/855204767a551815aa2e3d793c1041b704b8e806/scripts/game_data/ifix_patch.py)
+
+Reader revision 18 applies this contract to explicit empty `voActor` fields,
+with complete same-release duration/event evidence excluding a separate
+sentence or event. A missing NPC row or field, a player alias, the literal
+`None`, a missing selected-dub recording or an unresolved audio route is not
+certified silent. The selector reads current tables on each preparation;
+adding a nonempty performer in a normal update restores the existing named
+reaction route without a toolkit change. No radio-ID silence allowlist is used.
+
+Comparison of every radio row in all five study selections changes exactly
+87 unique authored rows, across seven NPCs, from unavailable to unvoiced.
+All 5,109 voiced radio records per selection, all original-audio bindings,
+text and identities remain unchanged. English, Japanese and Traditional
+Chinese retain 5,913 radio records (199 unvoiced, 605 unavailable); Simplified
+Chinese has 5,993 (279 unvoiced, 605 unavailable); Korean has 5,912
+(199 unvoiced, 604 unavailable). These are table records, not an exhaustive
+playback or caller inventory.
+
+Within the original 89-group, 134-row residual inventory, the result is
+121 named reaction candidates, four no-interjection rows, five explicit-empty
+performer rows and four unresolved performers. The CSV's added
+`authored_reaction_route` column records that distinction.
+
+Normal installation-free English language preparation passed with 53,675
+records: 26,044 voiced, 18,619 unvoiced, 8,827 unavailable and 185 unknown.
+It took 39.484 seconds with warm research caches, not a cold download estimate.
+The complete prepared index matches all five An Yu/Chen captions exactly
+with unvoiced capture enabled and matches none in voiced-only mode. This does
+not close the four Landbreaker rows, seven historical film cuts, remote SDK
+override acceptance or other native/device coverage gaps.
 
 ## Gameplay evidence
 
-The times below refer to the public player recordings. The on-screen text matched the corresponding publisher localization. The recordings predate 1.6.4. They document individual playthroughs, including environmental sounds and combat.
+The times below refer to the public player recordings. The on-screen text matched the corresponding publisher localization. The recordings predate 1.6.4. They document individual playthroughs, including environmental sounds and combat. Their negative audio searches did not establish silence; the later static caller evidence above resolves the five explicit-empty-performer routes.
 
 | Mission and radio rows | Observations |
 | --- | --- |
 | Where Art Thou My Love, `radio_gm01m10_5_001` and `_002` | English combat calls overlap the captions at 1:00–1:09 in one recording. In a second playthrough, Fiona's English `au_dlg_commvo_fiona_neutral_04` matches the publisher waveform at 1:11.353 (correlation 0.93). During the subsequent Angry and Lazy Landbreaker captions, around 1:23–1:33, game audio continues. Neither speech detection nor transcription identified speech in that window. Comparing the 185 available English `negative_02` reactions found no verified match in either encounter. [First playthrough](https://www.youtube.com/watch?v=XMId1vTVV88&t=59s) · [Second playthrough with Fiona control](https://www.youtube.com/watch?v=FjnMPmvBkfM&t=71s) |
 | Illusion, `radio_gm01m16_2_001` and `_002` | Fiona's Japanese `au_dlg_commvo_fiona_negative_03` matches at 3:48.949 (correlation 0.57) before both captions at 4:06–4:14. A second playthrough matches the English recording of the same reaction at 2:01.890 (0.64). The Greedy and Alert Landbreaker captions follow around 2:18–2:27. The game mixes contain audio, but speech detection found no speech during either pair of captions. Comparison with the configured reactions in the respective dubs yielded no verified performance for either NPC. [Japanese playthrough](https://www.youtube.com/watch?v=OGKyAE4pN0Y&t=228s) · [English playthrough with Fiona control](https://www.youtube.com/watch?v=I5HIk_BoM9U&t=121s) |
-| Divvy Up the Trouble, `radio_gm02m14_2_001`, `radio_gm02m14_3_001` and `_002` | The corrected Chinese and Korean caption checkpoints are listed below. The earlier instruction-caption associations and corresponding negative audio searches are withdrawn; the three performers remain unresolved. |
+| Divvy Up the Trouble, `radio_gm02m14_2_001`, `radio_gm02m14_3_001` and `_002` | The corrected Chinese and Korean caption checkpoints are listed below. The earlier instruction-caption associations and corresponding negative audio searches are withdrawn. The subsequent native caller check above establishes the explicit-empty-performer route. |
 | Daily: Spray and Clean, `radio_m1m73_5_001` and `_002` | Both Japanese captions appear around 0:11–0:20. Before Chen's captions appear, Fiona's Japanese `au_dlg_commvo_fiona_positive_03` matches the original publisher audio at **0:05.739**, with normalized correlation 0.91. None of the 476 Japanese recordings matching Chen's configured emotion yielded a comparable match during either caption. A second playthrough shows Chen's first caption around 1:16. [Both captions](https://www.youtube.com/watch?v=6dBfutWjbgY&t=5s) · [Second playthrough](https://www.youtube.com/watch?v=tq9nTZ-uT-o&t=74s) |
 | A Breach Starts with a Crack, `radio_e10m1_11_001` and `_002` | Both lines appear at the end of the preceding mission. Neither speech detection nor transcription found speech during either caption in two playthroughs. In the preceding scene, Zhuang Fangyi's original `au_dlg_e9m4_19_019` matches the **English** recording in one video (correlation 0.75) and the **Japanese** recording in the other (0.79). Both recordings therefore include dialogue audio in the respective dub. [English at 43:34](https://www.youtube.com/watch?v=D31_Ccpoz7c&t=2614s) · [Japanese at 31:48](https://www.youtube.com/watch?v=JmQGmO1a25o&t=1908s) |
 | Alluvial Cleaning, `radio_m1m6_1_001` | The Russian subtitle matches the publisher's hidden entry warning from approximately 0:03 to 0:06.5. This recording begins before the warning. Music and movement continue through the caption. Speech detection flagged a brief sound at 0:05.9–0:06.2, and transcription did not identify a spoken sentence. The following tutorial has a separate English Fiona reaction matching the publisher waveform at 0:07.515 (correlation 0.94). A second recording opens with the Portuguese warning already visible through 0:02.5. Its Japanese tutorial reaction matches at 0:16.389 (0.99). The missing start of the second recording limits what can be inferred there. [English dub with Russian subtitles](https://www.youtube.com/watch?v=Dy1iO0XBEDc&t=2s) · [Japanese dub with Portuguese subtitles](https://www.youtube.com/watch?v=er5mD2v5okk) |
@@ -78,8 +147,9 @@ combined with either name occurs in the releases' voice-duration tables.
 The controller passes the result of `GetRealActorNameId` into
 `TryGetCommonEmotionVoiceId` and only posts a reaction on success. The
 published controller does not establish the result for this empty actor
-mapping. All three performers remain unresolved; no other actor's audio
-or silence override is assigned.
+mapping. This Lua-only check left all three routes unresolved. The native
+caller evidence above now establishes the explicit-empty-performer outcome;
+no other actor's audio is assigned.
 [Released radio playback controller](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L922-L946)
 
 ### Further English and Japanese An Yu checks
@@ -122,8 +192,9 @@ Japanese maxima are 0.328, 0.183 and 0.169. Separate frequency bands do
 not confirm the strongest first-caption candidates: English scores
 0.079, 0.065 and 0.049 above 700 Hz, and Japanese 0.194, 0.059 and
 0.041. This supplies further playback observations, without establishing
-a particular reaction performer or a permanent text-only state. All nine
-rows with unresolved configured interjections remain open.
+a particular reaction performer or a permanent text-only state. These audio
+searches alone left all nine routes unresolved; the native caller evidence
+above subsequently resolves five.
 
 ### Additional An Yu sources and audio qualification
 
@@ -177,7 +248,8 @@ not confirmed across frequency bands: its correlations above 700 Hz are
 0.039, 0.039 and 0.020. Speech detection identifies the independent controls
 but no speech in these three windows. This adds a qualified playback
 observation; it establishes neither an An Yu performer nor permanent silence.
-All three An Yu bindings, and all nine unresolved reaction rows, remain open.
+This playback check alone did not resolve the An Yu bindings or the nine
+configured-reaction rows; the later native caller check above resolves five.
 
 The same search found Amadeus Alter's June 7 recording, with the three
 captions directly visible at about 3:56, 4:08 and 4:12. No independent game
@@ -213,7 +285,8 @@ match consistently across frequency bands: above 700 Hz they reach at most
 0.040 and 0.093 respectively. The whole-upload speech scan finds the separate
 Japanese control, but no speech over the three caption windows. This is a
 further qualified playback observation, without establishing a reaction
-performer or permanent silence. All nine configured-reaction rows remain open.
+performer or permanent silence. The later native caller check above resolves
+five of these nine routes independently of the negative waveform searches.
 
 ### Independent Landbreaker control
 
@@ -252,8 +325,9 @@ first reaches at most 0.067 and the second 0.131 at their proposed positions.
 Speech detection finds no speech over the two captions, and unprompted
 transcription recovers no corresponding words. This is another observation
 with independently verified game voices; it still supplies neither an
-authored Chen performer nor proof of permanent silence. Both Chen rows,
-and all nine unresolved reaction rows, remain open.
+authored Chen performer nor proof of permanent silence. Both Chen rows
+were unresolved by this playback check; the later native caller evidence
+above resolves the five explicit-empty-performer rows.
 
 ## Four rows without a configured interjection
 
@@ -289,9 +363,10 @@ continuation type. The Breach group sets that type to zero.
 · [Dialog interruption](https://github.com/rmxlinux/EndfieldData/blob/d847759f71d4549aba4727b3b0ac1a1ad0e37742/LuaScripts/LuaSystem/RadioSystem.lua#L1032-L1058)
 
 Windows Setup using publisher data makes all four eligible for the existing
-unvoiced capture option. The diagnostic reports `text_only`. The nine other
-mission rows have configured interjections and remain unresolved. Both
-outcomes were reproduced in English, Japanese, Korean and Mandarin on both
+unvoiced capture option. The diagnostic reports `text_only`. At that stage,
+the nine other mission rows had configured interjections and remained
+unresolved; the later native caller check above resolves five. Those earlier
+classifications were reproduced in English, Japanese, Korean and Mandarin on both
 releases. Across the complete radio table, 190 rows in 1.5.3 and 187 rows in
 1.6.4 met these conditions before localization filtering. Each new preparation
 checks the selected release's tables. A new recording, event or emotion
