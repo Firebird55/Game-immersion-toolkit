@@ -54,6 +54,12 @@ Hugging Face was evaluated as a historical comparison for HoYoverse audio.
 For example, the [zenless-voice dataset card](https://huggingface.co/datasets/simon3000/zenless-voice)
 names the snapshot and its mapping limits. All six readers use the publisher's original game packages.
 
+Genshin's November 16 Costume follow-up found all 30 authored wear recordings
+in each of the four Global 7.2 launcher dubs and decoded one original sample
+per dub without a game installation. The original subtitle/caption bindings
+remain open; an outfit description does not supply the spoken sentence.
+[Costume source identities and playback limits](game-audits/genshin.md#costume-wear-voice-sources)
+
 ## Conditional publisher checks · November 15, 2026
 
 The HoYoPlay, Star Rail hotfix and Endfield publisher readers revalidate small

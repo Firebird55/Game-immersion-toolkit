@@ -196,6 +196,45 @@ the words in its original performance.
 [Publisher text and playback metadata extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
 · [Outfit configuration](https://gitlab.com/Dimbreath/animegamedata2/-/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/AvatarCostumeExcelConfigData.json)
 
+### Costume wear-voice sources
+
+Checked November 16, 2026. The 31 actor/file combinations above contain **30
+distinct original WEM paths**. The original `ConfigCostumeData` separately
+declares costume-specific `audio.wearVoice` Fetter triggers, using IDs
+`5000001` through `5000003`.
+`AvatarCostumeExcelConfigData` joins the outfit's `jsonName`, `skinId` and
+`characterId`; the voice declarations also reference these recordings through
+Costume triggers. These are original wear-voice bindings. None of the 9,330
+profile rows references those three Fetter trigger IDs as its `voiceFile`.
+The outfit names and descriptions therefore do not establish their spoken
+captions. Separately, 18 profile rows have explicit show/hide costume lists;
+those rows are not subtitle references for the three wear-voice triggers.
+[Original wear-voice configuration](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Fashion/AvatarCostume/ConfigCostumeData.json)
+· [Original outfit identities](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/ExcelBinOutput/AvatarCostumeExcelConfigData.json)
+· [Fetter wear-voice source declarations](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice/Items)
+
+All 30 recordings have exact external-media entries in **each of the four
+Global 7.2 launcher dubs**, for 120 verified index hits. The selected publisher
+snapshot is `sophon-949715f1227aa46c6238a9484a772ca543d19e6387c20b9807ea5d1fd68ae534`.
+These are availability checks, not playback of all 120 recordings. The unchanged
+publisher reader additionally retrieved Diluc's
+`VO_Costume\VO_diluc\vo_diluc_suit_aristocrat_02.wem` into a separate research
+cache in each dub, without a game installation. Every sample decoded to
+nonzero 48 kHz mono PCM:
+
+| Dub | External media ID | Original WEM bytes | Decoded duration |
+| --- | --- | ---: | ---: |
+| English | `a98f0f9936ea7fdb` | 95,371 | 4.514792 s |
+| Japanese | `2b19f33173a04e9d` | 54,376 | 3.073250 s |
+| Korean | `032cc39612ca3064` | 53,661 | 2.542500 s |
+| Mandarin | `6fd71aa0e4fca483` | 37,745 | 2.302563 s |
+
+The missing part is the wear voices' original **caption/text binding**, not
+availability of these 30 original recordings in the checked launcher source.
+No sentence, translated transcript, silence classification or capture alias
+is inferred from an outfit description. Full wear-voice sentence capture,
+current hotfix activation and other native-host acceptance remain open.
+
 ## Character profile and combat performances, November 9, 2026
 
 Normal preparation joins the profile's avatar ID, Fetter voice trigger and
