@@ -114,6 +114,10 @@ def test_app_origin_cookie_and_reader_meta_are_real_http_contracts(host):
     connection.request('GET', '/api/snapshot')
     response = connection.getresponse();response.read();connection.close()
     assert response.status == 403
+    connection = http.client.HTTPConnection('127.0.0.1', host.server.server_port)
+    connection.request('GET', '/')
+    response = connection.getresponse();response.read();connection.close()
+    assert response.status == 403  # Another Android app cannot mint a private session cookie.
     status, value = request(host, 'GET', '/api/snapshot')
     assert status == 200 and value['context']['state_version'] == 0
 
@@ -127,3 +131,38 @@ def test_cancel_receipts_are_bounded_without_resurrecting_old_cancelled_ids(host
         host.cancel_import(str(uuid.uuid4()))
     assert host.cancel_import(first)[0]['cancelled']
     assert len(host.import_jobs) == 128
+
+
+def test_native_rotation_invalidates_confirmation_and_rejects_old_geometry(host, tmp_path):
+    archive, _ = fixture_library(tmp_path / 'input')
+    host.session.import_library(archive)
+    generation = host.session.start()
+    raw = json.dumps({'width': 1600, 'height': 240, 'blocks': [
+        {'text': 'Follow the river beyond the bridge.', 'rect': [40, 70, 1200, 145]}]})
+    assert host.accept_ocr(generation, 1, raw) == []
+    rotated = json.dumps({'width': 240, 'height': 1600, 'blocks': []})
+    assert host.accept_ocr(generation, 2, rotated) == []
+    assert not host.session.running and host.session.generation != generation
+    assert host.accept_ocr(generation, 3, raw) == []
+    assert host.session.history.count() == 0
+    generation = host.session.start()
+    invalid = json.dumps({'width': 240, 'height': 1600, 'blocks': [
+        {'text': 'Follow the river beyond the bridge.', 'rect': [-1, 0, 200, 200]}]})
+    with pytest.raises(ValueError):
+        host.accept_ocr(generation, 1, invalid)
+
+
+def test_real_http_audio_ranges_keep_authored_original_bytes(host, tmp_path):
+    archive, payload = fixture_library(tmp_path / 'input')
+    host.session.import_library(archive)
+    generation = host.session.start()
+    text = payload['records'][0]['source_text']
+    host.session.observe(generation, 1, [text], now=1)
+    identity = host.session.observe(generation, 2, [text], now=1.1)[0]['id']
+    original = host.session.audio_path(identity).read_bytes()
+    route = f'/api/lines/{identity}/audio'
+    assert request(host, 'GET', route, headers={'Range': 'bytes=0-43'}) == (206, original[:44])
+    assert request(host, 'GET', route, headers={'Range': 'bytes=-20'}) == (206, original[-20:])
+    assert request(host, 'GET', route, headers={'Range': 'bytes=10-'}) == (206, original[10:])
+    assert request(host, 'GET', route, headers={'Range': 'bytes=999999-'}) == (416, b'')
+    assert request(host, 'GET', route, headers={'Range': 'bytes=0-4,8-12'}) == (416, b'')

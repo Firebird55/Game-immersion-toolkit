@@ -5,7 +5,10 @@ reader over app-local loopback HTTP. It never starts a desktop capture adapter,
 development Node server or remote OCR service. The stable app-local origin keeps
 the reader's existing storage keys across offline restarts.
 
-API requests require the app's private, process-random HttpOnly/SameSite cookie,
+All reader and API requests require the app's private, process-random
+HttpOnly/SameSite cookie. Native code installs it in the WebView before first
+navigation; unauthenticated loopback clients cannot mint a session by opening
+the root page. Requests also require
 the exact local Host and a matching Origin when supplied. Native frames have a
 10 MiB encoded limit and a separate generation/sequence boundary. Native OCR
 decodes only bounded images; the receiver does not grant iOS screen capture.

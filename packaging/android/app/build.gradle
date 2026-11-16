@@ -1,0 +1,103 @@
+plugins { id 'com.android.application'; id 'com.chaquo.python' }
+
+def repository = rootProject.projectDir.parentFile.parentFile
+def wheelhouse = System.getenv('ANDROID_PYTHON_WHEELHOUSE')
+def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
+if (!readerFrontend || !new File(readerFrontend, 'desktop-manifest.json').isFile()) {
+    throw new GradleException('Build the actual shared desktop reader before constructing Android.')
+}
+if (!wheelhouse || !new File(wheelhouse, 'requirements-android.lock.txt').isFile()) {
+    throw new GradleException('Prepare the verified offline Android Python wheelhouse first.')
+}
+def generatedPython = layout.buildDirectory.dir('generated/toolkit-python')
+def generatedAssets = layout.buildDirectory.dir('generated/toolkit-assets')
+def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contracts.py', 'languages.py',
+    'local_game.py', 'textmaps.py', 'bilingual.py', 'multilingual_index.py', 'storage.py',
+    'runtime_writers.py', 'sqlite_operation_lifetime.py', 'steam_games.py', 'capture_confirmation.py',
+    'endfield_caption_context.py', 'prepared_library.py', 'prepared_session.py', 'android_host.py', 'android_probe.py']
+
+android {
+    namespace 'io.github.firebird55.gameimmersiontoolkit'
+    compileSdk 34
+    buildToolsVersion '36.0.0'
+    ndkVersion '27.3.13750724'
+    defaultConfig {
+        applicationId 'io.github.firebird55.gameimmersiontoolkit'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '0.23.2-android-prototype'
+        ndk { abiFilters 'arm64-v8a', 'x86_64' }
+    }
+    signingConfigs {
+        debug {
+            def store = System.getenv('ANDROID_DEBUG_KEYSTORE')
+            if (!store) throw new GradleException('Set ANDROID_DEBUG_KEYSTORE to a private build-host debug key.')
+            storeFile file(store)
+            storePassword 'android'; keyAlias 'androiddebugkey'; keyPassword 'android'
+        }
+    }
+    buildTypes { debug { applicationIdSuffix '.debug' }; release { minifyEnabled false } }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets { main { assets.srcDir generatedAssets } }
+    packaging { jniLibs { useLegacyPackaging false } }
+}
+
+chaquopy {
+    defaultConfig {
+        version '3.12'
+        extractPackages 'opencc'
+        def python = System.getenv('TOOLKIT_BUILD_PYTHON')
+        if (!python) throw new GradleException('Set TOOLKIT_BUILD_PYTHON to the build-host Python 3.12 executable.')
+        buildPython python
+        pip {
+            options '--no-index', '--find-links', wheelhouse
+            install '-r', new File(wheelhouse, 'requirements-android.lock.txt').absolutePath
+        }
+    }
+    sourceSets { main { srcDir generatedPython } }
+}
+
+tasks.register('prepareToolkitPython', Sync) {
+    from(new File(repository, 'backend')) { include portableSources }
+    into generatedPython.map { it.dir('backend') }
+}
+tasks.register('prepareToolkitReader') {
+    inputs.dir(readerFrontend)
+    portableSources.each { inputs.file(new File(repository, 'backend/' + it)) }
+    outputs.dir(generatedAssets)
+    doLast {
+        def output = generatedAssets.get().asFile
+        delete(output)
+        output.mkdirs()
+        // AAPT drops _next directories and expands .gz assets. One opaque
+        // archive preserves the exact maintained desktop reader inventory.
+        new java.util.zip.ZipOutputStream(new FileOutputStream(new File(output, 'reader.bundle'))).withCloseable { zip ->
+            fileTree(readerFrontend).files.sort().each { source ->
+                def name = new File(readerFrontend).toPath().relativize(source.toPath()).toString().replace('\\', '/')
+                zip.putNextEntry(new java.util.zip.ZipEntry(name))
+                zip.write(source.bytes)
+                zip.closeEntry()
+            }
+        }
+        def sources = [:]
+        portableSources.each { name ->
+            def bytes = new File(repository, 'backend/' + name).bytes
+            sources['backend/' + name] = java.security.MessageDigest.getInstance('SHA-256').digest(bytes).encodeHex().toString()
+        }
+        new File(output, 'core-source-manifest.json').text = groovy.json.JsonOutput.toJson([schema:'toolkit-android-core-source-v1', files:sources])
+    }
+}
+tasks.named('preBuild') { dependsOn 'prepareToolkitPython', 'prepareToolkitReader' }
+tasks.configureEach {
+    if (name.endsWith('PythonSources')) dependsOn 'prepareToolkitPython'
+    if (name.startsWith('merge') && name.endsWith('Assets')) dependsOn 'prepareToolkitReader'
+}
+
+dependencies {
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
+    implementation 'com.google.mlkit:text-recognition-chinese:16.0.1'
+    implementation 'com.google.mlkit:text-recognition-japanese:16.0.1'
+    implementation 'com.google.mlkit:text-recognition-korean:16.0.1'
+}

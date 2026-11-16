@@ -36,6 +36,7 @@ class AndroidHost:
         self.pending_lock = threading.Lock()
         self.import_lock = threading.RLock()
         self.import_jobs = {}
+        self.frame_geometry = None
         self.server = ThreadingHTTPServer(('127.0.0.1', port), self._handler())
         self.server.daemon_threads = True
         self.origin = f'http://127.0.0.1:{self.server.server_port}'
@@ -93,11 +94,22 @@ class AndroidHost:
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096}
 
     def accept_ocr(self, generation, sequence, raw):
+        with self.session.lock:
+            if generation != self.session.generation or not self.session.running:
+                return []
+            return self._accept_ocr(generation, sequence, raw)
+
+    def _accept_ocr(self, generation, sequence, raw):
         value = json.loads(raw)
         width, height, blocks = value['width'], value['height'], value['blocks']
         if (type(width) is not int or type(height) is not int or not 0 < width <= 4096
                 or not 0 < height <= 4096 or not isinstance(blocks, list) or len(blocks) > 128):
             raise ValueError('Invalid native OCR frame')
+        if self.frame_geometry and self.frame_geometry[0] == generation and self.frame_geometry[1:] != (width, height):
+            self.session.stop('Screen dimensions changed; reconnect the screen source')
+            self.frame_geometry = None
+            return []
+        self.frame_geometry = (generation, width, height)
         settings = self.session.settings.get()
         game = self.session.index.game if self.session.index else 'zzz'
         channels = {'dialogue': getattr(settings, game + '_region', settings.region),
@@ -107,7 +119,9 @@ class AndroidHost:
         for block in blocks:
             if (not isinstance(block, dict) or not isinstance(block.get('text'), str)
                     or len(block['text']) > 8192 or not isinstance(block.get('rect'), list)
-                    or len(block['rect']) != 4 or any(type(n) is not int for n in block['rect'])):
+                    or len(block['rect']) != 4 or any(type(n) is not int for n in block['rect'])
+                    or not 0 <= block['rect'][0] < block['rect'][2] <= width
+                    or not 0 <= block['rect'][1] < block['rect'][3] <= height):
                 raise ValueError('Invalid native OCR block')
             texts.append(block['text'])
         for channel, region in channels.items():
@@ -132,7 +146,7 @@ class AndroidHost:
                 self.connection.settimeout(15)
             def log_message(self, *args):
                 pass  # Frames, URLs, catalogs and account data never become logs.
-            def _headers(self, status, size, content_type, *, cookie=False):
+            def _headers(self, status, size, content_type, *, cookie=False, extra=None):
                 self.send_response(status)
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(size))
@@ -142,6 +156,8 @@ class AndroidHost:
                 self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src https://vdo.ninja; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
                 if cookie:
                     self.send_header('Set-Cookie', f'toolkit_session={host.cookie}; HttpOnly; SameSite=Strict; Path=/')
+                for name, value in (extra or {}).items():
+                    self.send_header(name, value)
                 self.end_headers()
             def _json(self, value, status=200):
                 raw = json.dumps(value, ensure_ascii=False).encode()
@@ -152,8 +168,6 @@ class AndroidHost:
                 origin = self.headers.get('Origin')
                 if origin and origin != host.origin:
                     return False
-                if not path.startswith('/api/'):
-                    return True
                 try:
                     cookie = SimpleCookie(self.headers.get('Cookie', ''))
                     return secrets.compare_digest(cookie['toolkit_session'].value, host.cookie)
@@ -236,19 +250,37 @@ class AndroidHost:
                         value = json.loads(self._body(4096)).get('favorite')
                         if type(value) is not bool:
                             raise ValueError('Invalid favorite value')
-                        line = host.session.history.set_favorite(identity, value)
+                        with host.session.lock:
+                            line = host.session.history.set_favorite(identity, value)
+                            if line is not None:
+                                host.session.state_version += 1
                         if line is None:
                             self._json({'detail': 'Line not found'}, 404);return
-                        host.session.state_version += 1
                         self._json(host.session._line(line));return
                     if operation == 'audio' and self.command == 'GET':
                         audio = host.session.audio_path(identity)
                         if audio is None:
                             self._json({'detail': 'Original recording unavailable'}, 404);return
-                        self._headers(200, audio.stat().st_size, 'audio/wav' if audio.suffix == '.wav' else 'audio/mpeg')
+                        size = audio.stat().st_size
+                        first, last, status = 0, size - 1, 200
+                        extra = {'Accept-Ranges': 'bytes'}
+                        if self.headers.get('Range'):
+                            match = re.fullmatch(r'bytes=([0-9]*)-([0-9]*)', self.headers['Range'])
+                            if match and (match[1] or match[2]):
+                                first = int(match[1]) if match[1] else max(0, size - int(match[2]))
+                                last = min(size - 1, int(match[2])) if match[1] and match[2] else size - 1
+                            if not match or not (match[1] or match[2]) or not 0 <= first <= last < size:
+                                self._headers(416, 0, 'application/octet-stream', extra={'Content-Range': f'bytes */{size}'})
+                                return
+                            status = 206;extra['Content-Range'] = f'bytes {first}-{last}/{size}'
+                        self._headers(status, last - first + 1, 'audio/wav' if audio.suffix == '.wav' else 'audio/mpeg', extra=extra)
                         with audio.open('rb') as source:
-                            while block := source.read(1024**2):
-                                self.wfile.write(block)
+                            source.seek(first);remaining = last - first + 1
+                            while remaining:
+                                block = source.read(min(1024**2, remaining))
+                                if not block:
+                                    break
+                                self.wfile.write(block);remaining -= len(block)
                         return
                 if path.startswith('/api/'):
                     self._json({'detail': 'This host capability is not available'}, 501);return
@@ -299,6 +331,14 @@ def pause():
     with _host_lock:
         if _host:
             _host.session.stop('App paused; reconnect the screen source to continue')
+
+
+def bootstrap_cookie():
+    """Native-only bootstrap: unauthenticated loopback clients get no session."""
+    with _host_lock:
+        if not _host:
+            raise ValueError('The private host has not started')
+        return f'toolkit_session={_host.cookie}; HttpOnly; SameSite=Strict; Path=/'
 
 
 def accept_ocr(generation, sequence, raw):

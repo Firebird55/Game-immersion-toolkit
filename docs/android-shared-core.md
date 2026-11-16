@@ -49,8 +49,55 @@ wrong player branches, source gaps, separate missing-audio capture, corrupt and
 cancelled imports, and retained history/favorites/old clips after an update and
 restart. The shared session never resumes capture automatically after restart.
 
-This foundation alone does not prove an installable APK, Android dependency
-loading, physical-device OCR/playback, an iOS screen sender, protected Android
-account storage, desktop-export UI integration or complete issue #81 acceptance.
-Native build, source transport, lifecycle, migration and physical tests remain
-separate acceptance requirements. No release is made by this change.
+The native host now constructs a signed, installable debug APK for both ABIs.
+The reader is the byte-identical maintained desktop frontend in an opaque
+`reader.bundle`; Android's asset merger otherwise discards `_next` paths and
+changes gzip filenames. Native extraction verifies the shared manifest and
+atomically publishes a build-identity directory. The local HTTP origin retains
+its first allocated port in private storage so the existing reader preferences
+and storage keys survive process death. An occupied port causes an explicit
+startup failure instead of silently creating a different preference origin.
+
+The host provides SAF ZIP selection, private storage, lifecycle pause and bundled
+MLKit text recognition. Remote frames are bounded, newest-pending-only, and
+generation checked after OCR. A dimension change invalidates confirmation and
+requires reconnecting. Local Android game capture/MediaProjection and protected
+account storage are not implemented by this prototype. The remote iOS screen
+transport is a separate shared frontend capability, not desktop capture.
+
+Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
+
+```text
+pwsh scripts/build-android-app.ps1 -SdkRoot <sdk> -Wheelhouse <wheelhouse> \
+  -Frontend <verified-desktop-frontend> -BuildRoot <private-build-directory> \
+  -Python <build-python> -JavaHome <jdk> -DownloadGradle
+```
+
+The script verifies the pinned Gradle archive and offline wheels, constructs the
+actual frontend/core APK, audits native ABIs and 16-KiB load alignment, verifies
+APK signatures and ZIP alignment, and emits candidate provenance. Its persistent
+host-local debug key supports local candidate upgrades; it is not a production
+update identity. No production key or workflow secret is used.
+
+The manually dispatched `android-shared-core.yml` workflow builds on Windows
+(the pinned NDK compiler supplier), then transfers the checksum-bound APK to a
+Linux KVM Android emulator. `scripts/probe-android-runtime.mjs` exercises the same
+authored desktop fixture, actual native media playback, bundled native OCR,
+WebView import/frame/OCR/transcript flow, audio range requests and favorites.
+It disables network before first launch and force-stops/restarts the app to
+check the actual shared reader's mode, playback speed, font and pinyin settings,
+history and original clips. A green archive/build audit is not a substitute for
+this runtime job. Until the job passes, target runtime acceptance is unverified.
+
+Physical Android/iOS sender tests, long-session fuzzy-match performance, audio
+focus, protected Android account storage, complete desktop migration/export UI,
+stable production signing/update identity and full issue #81 acceptance remain
+open. No release is made by this change. Bundled libraries retain their upstream
+notices; production distribution still requires the complete Android dependency
+license/source inventory, including the embedding runtime and native OCR SDKs.
+
+Build/runtime references reviewed November 16, 2026:
+[Chaquopy embedding](https://chaquo.com/chaquopy/doc/current/android.html),
+[bundled MLKit text recognition](https://developers.google.com/ml-kit/vision/text-recognition/v2/android),
+[Android WebView debugging](https://developer.android.com/develop/ui/views/layout/webapps/debugging),
+and the [emulator action](https://github.com/ReactiveCircus/android-emulator-runner).

@@ -75,3 +75,20 @@ def run(root):
     return json.dumps({'schema': 'toolkit-android-shared-core-probe-v1', 'results': results,
         'result_sha256': hashlib.sha256(encoded).hexdigest(), 'fixture': 'authored-text-and-generated-tone',
         'private_audio_path': str(restarted.audio_path(identity))}, sort_keys=True)
+
+
+def run_ocr(root, raw):
+    """Feed actual bundled native OCR into the unchanged production session."""
+    root = Path(root);root.mkdir(parents=True, exist_ok=True)
+    work = Path(tempfile.mkdtemp(prefix='native-ocr-', dir=root))
+    blocks = json.loads(raw)['blocks']
+    observed = [block['text'] for block in blocks]
+    session = PreparedCaptureSession(work / 'application')
+    session.import_library(_library(work / 'original'))
+    generation = session.start()
+    first = session.observe(generation, 1, observed, now=1)
+    confirmed = session.observe(generation, 2, observed, now=1.1)
+    if first or len(confirmed) != 1 or confirmed[0]['text_id'] != 'authored:bridge':
+        raise ValueError('Native OCR did not match the authored shared-core fixture')
+    return json.dumps({'fixture': 'authored-native-bitmap', 'confirmed_text_id': confirmed[0]['text_id'],
+        'voice_status': confirmed[0]['voice_status'], 'original_audio_available': session.audio_path(confirmed[0]['id']).is_file()})
