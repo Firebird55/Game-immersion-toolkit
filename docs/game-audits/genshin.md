@@ -1,5 +1,89 @@
 # Genshin Impact narrative audit
 
+## Active regional hotfixes without an installation · November 16, 2026
+
+Normal publisher preparation now checks the selected Global or mainland China
+Windows dispatch response, the current resource/design/silence indexes, and the
+separate `base_revision` before selecting the matching immutable text extraction.
+The public [Global bootstrap metadata](https://raw.githubusercontent.com/CollapseLauncher/CollapseLauncher-ReleaseRepo/main/metadata/v3/stable/config_GIGlb.json)
+and [mainland bootstrap metadata](https://raw.githubusercontent.com/CollapseLauncher/CollapseLauncher-ReleaseRepo/main/metadata/v3/stable/config_GICN.json)
+supply changing dispatch format parameters. The toolkit reads these documents
+as bounded data, with the already pinned Brotli and PyCryptodome libraries.
+It never downloads executable bootstrap code or persists decoded keys in a
+snapshot. No account, UID, login token or game installation is used. The two
+editions have different bootstrap parameters; reusing the Global parameters
+for mainland China caused the earlier integer error response.
+
+The original released Global 7.2 executable and both metadata files were
+independently checked against their publisher manifests. Static string and
+method analysis confirmed `MoleMole.Miscs.GetGlobalDispatchUrl`, the actual
+Unity HTTP client version, and the default field read by its dispatch seed
+argument. Native code was never executed. The public launcher's currently
+decoded seed agrees with that original field. This is source evidence for
+the bootstrap format, not a new runtime dependency on version-specific native
+offsets. [Static analysis source](https://github.com/portra400nc/genshin-il2cpp-re/tree/9ba116e5cfed3edca08a3de300480674d315e921)
+· [Original launcher response handling](https://github.com/CollapseLauncher/Hi3Helper.EncTool/blob/fe5bcb93dfdae80de8db5e759fb7abc7ee0f859b/Parser/YSDispatchHelper/DispatchHelper.cs)
+
+Independent Global and mainland requests returned the same current index
+identities. Every downloaded body matched its advertised size and MD5:
+
+| Index | Revision and suffix | Bytes | Rows | MD5 |
+| --- | --- | ---: | ---: | --- |
+| Windows resources | `49411577_7ffe3bd9a6` | 370,957 | 2,631 | `0914db549b6118cc849a3063b7599239` |
+| Design data | `49419538_604495f667` | 71,416 | 533 | `09f2c36615dc806f67f55e3d2c8a0c8d` |
+| Silence data | `49291486_c25ba650a6` | 523 | 4 | `2bcf33810856cb0820725300ff2d8666` |
+| Base revision | resource index above | 19 | 1 | `403247d78dc495d3bf57c7133d01978a` |
+
+[Global resources](https://autopatchhk.yuanshen.com/client_game_res/7.2_live/output_49411577_7ffe3bd9a6/client/StandaloneWindows64/res_versions_external)
+· [Mainland resources](https://autopatchcn.yuanshen.com/client_game_res/7.2_live/output_49411577_7ffe3bd9a6/client/StandaloneWindows64/res_versions_external)
+· [Global design data](https://autopatchhk.yuanshen.com/client_design_data/7.2_live/output_49419538_604495f667/client/General/AssetBundles/data_versions)
+· [Separate base revision](https://autopatchhk.yuanshen.com/client_game_res/7.2_live/output_49411577_7ffe3bd9a6/client/StandaloneWindows64/base_revision)
+· [Matching November 12 extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/a311cd77d7dafbd2bedc7d3cac4e986c6125b586)
+
+The base revision is `49008628_644b3d946e`. Unpatched original audio and movies
+use that base; patched packages use the current resource revision. Unchanged
+packages retain their verified Sophon source. Changed packages are streamed
+once into a private cache and verified against their complete publisher MD5
+before any recording is exposed. Genshin's current CDN ETag is an opaque
+multipart identifier, so a partial response's ETag is not used as an MD5 proof.
+Subsequent reads verify the selected cache blocks, including after a process
+restart. Snapshot identities contain only compact revision/index identities;
+old recordings and indexes retain their original generation offline.
+
+The source changed within the same 7.2 launcher build: compared with the
+November 5 Windows resource index, two BLKs changed and
+`Japanese/VO_7.2_b_0.pck` was added. Its 829,686 bytes match MD5
+`d110dfe69ac4be4dc648627aec2a8a99`. The normal publisher voice API retrieves
+its two exact authored Vesna friendship recordings (`friendship_01` and
+`friendship_04`); neither external ID is unresolved. The new data/design
+generation is selected independently of this voice change.
+[New original Japanese package](https://autopatchhk.yuanshen.com/client_game_res/7.2_live/output_49411577_7ffe3bd9a6/client/StandaloneWindows64/AudioAssets/Japanese/VO_7.2_b_0.pck)
+
+The normal installation-free Windows Japanese language worker selected the
+current extraction and completed in 114.87 seconds. It produced 480,619
+records: 186,719 voiced, 20,419 unavailable, 267,340 unknown and 6,141 unvoiced.
+These include UI and player variants, not unique recordings or complete story
+acceptance. Compared with the original launcher extraction, the English
+TextMap has 56 rewritten existing hashes and two additions; 102 prepared
+records contain the changed English translation, including voiced dialogue.
+Both new Japanese profile captions match their own exact prepared line.
+Normal LocalVoice exports of Fetter `143033` and `143036` decode to 15.182875
+and 38.850 seconds. A newly opened voice service, fresh output directories
+and prohibited publisher networking reproduce identical decoded PCM for both.
+The production source hashes stayed unchanged throughout this worker proof.
+
+The dispatch response is read over publisher HTTPS and the declared resource
+hashes are checked. Independent RSA signature authentication of that response
+has not been established; public launcher wrapping keys do not provide it.
+A missing matching text commit, regional mismatch, malformed format or failed
+checksum refuses the replacement generation and retains the previous prepared
+table. Synthetic checks cover same-version text/voice changes without toolkit
+code changes, edition-specific bootstrap parameters, the separate audio base,
+changed movies, corrupted cache reads and old-generation offline playback.
+This replaces the unresolved active-route limitation in the dated November 15
+and earlier launcher-only checks below. Remaining authored caption/trigger
+bindings, removed content and full platform/story acceptance remain open.
+
 ## Shared recordings with Traveler text conditions · November 16, 2026
 
 Ordinary dialogue and reminders now render their authored M/F text fragments
@@ -36,8 +120,8 @@ nonzero PCM bytes with SHA-256
 Fresh conversions after reopening the service, with discovery and package
 networking prohibited, reproduce that PCM. This verifies one shared English
 performance and its caption selection, not both protagonists' full narrative
-or all dubs/platforms. The existing regional launcher snapshot, installation
-fallback and unresolved active hotfix route remain unchanged.
+or all dubs/platforms. This earlier proof used the launcher snapshot; the later
+active-hotfix check above extends publisher preparation.
 [Original dialogue graph](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Talk/Quest/302203.json)
 · [Matching original voice declarations](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
 
@@ -62,7 +146,10 @@ verified by the normal reader. The counts refer to serialized table entries.
 
 This English row keeps the `unavailable` recording state. Later launcher
 snapshots re-evaluate the authored source. The November 5 hotfix inspected
-below also lacks the recording. Newer Global hotfixes remain to be inventoried.
+below also lacks the recording. The current November 16 inventory independently
+checked all 179 English packages and 174,299 serialized entries under active
+resource revision `49411577`; it still contains zero hits for the declared
+recording. This remains an unavailable performance, not verified silence.
 
 ## Windows 7.2 hotfix source verification · November 15, 2026
 
@@ -113,12 +200,11 @@ that absence check to this particular hotfix.
 
 The metadata archive has an exact Windows title for these R/S/D revisions,
 dated November 5. It also has a newer November 12 Windows title with resource
-revision `49411577`, silence `49291486` and data `49419538`. The newer
-resource suffix and the currently activated Global route remain unverified.
-These checks establish a working original hotfix source, not current-region
-activation or automatic adoption. Normal Setup still uses its verified
-launcher snapshot; connecting independent active hotfix discovery, matched
-text and audio overlays, and upstream-only update acceptance remains open.
+revision `49411577`, silence `49291486` and data `49419538`. At the time of
+this November 15 check, the newer resource suffix and active Global route
+remained unverified. The November 16 check above subsequently verified both
+regions and connected matched text and original audio overlays to normal
+publisher preparation.
 [Matching November 5 Windows snapshot](https://github.com/DimbreathBot/AnimeGameData/commit/d7f2135c7eb0052e842e0f187f4e5bb88c304737)
 · [Newer November 12 Windows snapshot](https://github.com/DimbreathBot/AnimeGameData/commit/a311cd77d7dafbd2bedc7d3cac4e986c6125b586)
 
@@ -146,7 +232,8 @@ had verified original audio. LocalVoice exported one story line and one
 profile line to MP3. From distinct Global publisher packs the story line
 `80030105` decoded to 8.263 s in English, 6.093 s in Japanese, 5.048 s
 in Korean and 6.267 s in Mandarin. This comparison covers launcher bases.
-In-version Global hotfix discovery and region-specific replacements remain open.
+The November 16 follow-up above adds active regional hotfix discovery and
+replacements to these previously verified launcher bases.
 [Matching text extraction](https://gitlab.com/Dimbreath/animegamedata2/-/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca)
 
 When the primary catalog rate-limits requests, Setup can use the maintained
