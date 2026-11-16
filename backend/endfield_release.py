@@ -213,6 +213,10 @@ class Catalog:
         from .endfield_mission_dialogue import disabled_dialogues
         return disabled_dialogues(self.tools, self.stamp)
 
+    def character_speakers(self):
+        from .endfield_recording_identity import character_speakers
+        return character_speakers(self.tools, self.stamp)
+
 
 def prepare(tools, region='global'):
     stamp, raw = discover(region)

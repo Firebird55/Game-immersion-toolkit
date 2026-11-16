@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
+import re
 import threading
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from rapidfuzz import fuzz, process
@@ -49,6 +50,38 @@ def dialogue_capture_channels(channels=None):
     return frozenset(channels)
 
 
+def validate_original_recording_metadata(digest, speaker, status, scope):
+    if speaker is not None and (not isinstance(speaker, str) or
+            re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', speaker) is None):
+        raise ValueError('Invalid original speaker identity')
+    if digest is not None and (not isinstance(digest, str) or
+            re.fullmatch(r'[0-9a-f]{64}', digest) is None or not speaker or status != 'voiced' or scope != 'line'):
+        raise ValueError('Invalid original recording identity')
+
+
+def original_recording_context(row):
+    """Preserve every capture condition when two original exports share bytes."""
+    digest, speaker = row.get('original_recording_sha256'), row.get('original_speaker_id')
+    validate_original_recording_metadata(digest, speaker, row.get('voice_status'), row.get('audio_scope', 'line'))
+    if digest is None:
+        return None
+    audio = row['audio']
+    context = {name: value for name, value in row.items() if name not in {'text_id', 'audio'}}
+    # These two authored presentations can expose the same original utterance.
+    # All other source fields, including full translations, predecessor/member
+    # identities, OCR anchors and scope, must still agree without normalization.
+    if row.get('dialogue_kind') in {'conversation', 'operator_voice'}:
+        context.pop('dialogue_kind', None)
+    if (set(audio) == {'publisher', 'file_id', 'source', 'locale'}
+            and isinstance(audio['publisher'], str) and audio['publisher'].startswith('endfield-')):
+        context['audio_export'] = {'publisher': audio['publisher'], 'locale': audio['locale']}
+    else:
+        # Portable clips retain their actual content-addressed export identity.
+        # Unknown audio options and different encodings are never discarded.
+        context['audio_export'] = audio
+    return json.dumps(context, sort_keys=True, separators=(',', ':'))
+
+
 @dataclass(frozen=True)
 class LocalDialogue:
     text_id: str
@@ -79,6 +112,8 @@ class LocalDialogue:
     requires_previous: bool = False
     text_binding_unresolved: bool = False
     unresolved_text_locales: list[str] | None = None
+    original_recording_sha256: str | None = None
+    original_speaker_id: str | None = None
     # Only the adapter can establish that this is authored, displayed dialogue.
     # Generic localization/UI entries must never opt into text-only capture.
     text_capture_verified: bool = False
@@ -96,6 +131,8 @@ class LocalDialogue:
         if self.text_binding_unresolved and self.audio:
             raise ValueError('Unresolved study text cannot bind an original recording')
         object.__setattr__(self, 'audio_scope', dialogue_audio_scope(self.audio, self.audio_scope))
+        validate_original_recording_metadata(self.original_recording_sha256, self.original_speaker_id,
+                                            status, self.audio_scope)
         if self.requires_previous and not self.previous_text_id:
             raise ValueError('Conditional dialogue requires an authored predecessor')
         if self.dialogue_kind is not None and (not isinstance(self.dialogue_kind, str) or not self.dialogue_kind.strip()):
@@ -219,8 +256,9 @@ class LocalGameTextIndex:
                 records = [r for r in records if not r.player_voice or r.player_voice == self.player_voice]
                 # A shared recording may cover several independently translated
                 # pages. The voice alone cannot disambiguate those pages.
-                voices = {(json.dumps(r.audio, sort_keys=True), r.english, r.chinese)
-                          for r in records}
+                voices = {('verified-original-export', original_recording_context(asdict(r)))
+                          if self.game == 'endfield' and r.original_recording_sha256 else
+                          (json.dumps(r.audio, sort_keys=True), r.english, r.chinese) for r in records}
                 if len(voices) != 1:
                     continue
                 record = records[0]

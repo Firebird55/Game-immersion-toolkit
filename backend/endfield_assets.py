@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 25
+LANGUAGE_INDEX_VERSION = 26
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -234,6 +234,7 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
                 'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
                 'player_voice': gender or {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
+                **({'original_speaker_id': row['original_speaker_id']} if row.get('original_speaker_id') else {}),
                 'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
                 'text_capture_verified': row.get('text_capture_verified') is True,
                 'channels': row.get('channels', ['dialogue'])})
@@ -329,6 +330,11 @@ def authored_dialogues(catalog, *, radio_evidence=None):
             if identity not in dialogs:
                 _unsupported()
             dialogs[identity]['authored_speech_disabled'] = True
+    if hasattr(catalog, 'character_speakers'):
+        characters = _table(catalog, 'CharacterTable')
+        for identity, character in catalog.character_speakers().items():
+            if identity in dialogs and character in characters:
+                dialogs[identity]['original_speaker_id'] = character
     for identity, row in radio_dialogues(catalog, evidence=radio_evidence).items():
         if identity in dialogs:
             _unsupported()
@@ -645,6 +651,8 @@ def narrative_dialogues(catalog, warnings):
                 add(f'CharacterTable:{identity}:{field}:{row["id"]}', row.get(text_field), kind,
                     'dialogue' if field == 'profileVoice' else 'tip',
                     'unavailable' if field == 'profileVoice' else 'unvoiced', voice)
+                if field == 'profileVoice':
+                    dialogs[f'CharacterTable:{identity}:{field}:{row["id"]}']['original_speaker_id'] = identity
     return dialogs
 
 
@@ -709,6 +717,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                 film['audio']['snapshot'] = stamp
     rows.extend(films)
     _guard_speaker_anchors(rows)
+    if online:
+        from .endfield_recording_identity import annotate
+        annotate(catalog, rows, VOICE_LOCALES[source_locale], progress)
     for film in films:
         coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)

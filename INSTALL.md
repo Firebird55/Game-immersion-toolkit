@@ -143,6 +143,9 @@ game folder; illustrative media is not a recording of the written explanation.
 Voiced top-of-screen Endfield captions are read across the full frame. Short
 operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.
+Repeated Endfield operator captions can share a verified original recording
+when all official texts and capture conditions agree. Other variants keep their
+context safeguards.
 
 For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
 For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.
