@@ -27,7 +27,7 @@ def caption_filename(path):
     return path.removeprefix('Config/') if path.startswith('Config/BattleCollegeCaption/') else path.rsplit('/', 1)[1]
 
 
-def _packages(data):
+def _packages(data, *, with_folder=False):
     header = struct.Struct('>Q16sQI')
     member = struct.Struct('>QII')
     hotfix.check(len(data) >= 16)
@@ -47,7 +47,14 @@ def _packages(data):
                      and len({key for key, _, _ in entries}) == number
                      and all(start + length <= size for _, length, start in entries))
         count += number
-        yield digest.hex(), size, entries
+        if with_folder:
+            # Native DesignV keeps language packages in a relative folder.
+            # Caption callers need only the original three-field interface.
+            folder = data[end + 2:end + 2 + tail].decode('ascii')
+            hotfix.check(not folder or re.fullmatch(r'[a-z]{2,8}(?:-[a-z]{2,8})?', folder))
+            yield digest.hex(), size, entries, folder
+        else:
+            yield digest.hex(), size, entries
     hotfix.check(count == total and offset == len(data))
 
 
