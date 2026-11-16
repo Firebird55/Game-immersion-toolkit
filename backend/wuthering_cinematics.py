@@ -10,6 +10,9 @@ import numpy as np
 MEDIA_ROOT = 'Client/Content/Aki/WwiseAudio_Generated/Media/'
 EVENT_ROOT = 'Client/Content/Aki/WwiseAudio_Generated/Event/'
 MAX_SECONDS = 300
+# Caption clocks are metadata; their frame domain is independent of the
+# bounded whole-track decoder and of authorized exported audio intervals.
+MAX_CAPTION_FRAMES = 2**31 - 1
 
 
 def media_id(bank, event):
@@ -196,7 +199,7 @@ def caption_cues(db_root, locale):
         columns = localized if localized and any(frame(blob, localized[1]) != 0 for blob in rows) else (2, 3)
         for blob in rows:
             start, duration = (frame(blob, column) for column in columns)
-            if 0 <= start < MAX_SECONDS * 30 and 0 < duration <= MAX_SECONDS * 30 - start:
+            if 0 <= start < MAX_CAPTION_FRAMES and 0 < duration <= MAX_CAPTION_FRAMES - start:
                 result.append((scene, assets._string(blob, 4), round(start * 1000 / 30),
                                round((start + duration) * 1000 / 30)))
     return result
