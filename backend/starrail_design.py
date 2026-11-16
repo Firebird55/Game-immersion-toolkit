@@ -170,7 +170,8 @@ def extra_captions(directory, build, published, declared_paths=(), *, identities
         for key, caption in _caption_run(directory, asset, entries, anchors, names):
             sig = _signature(caption)
             found.add(key)
-            if key in anchors and sig == anchors[key]:
+            if key in anchors:
+                hotfix.check(sig == anchors[key])
                 verified = verified or bool(sig)
             candidates.append((key, caption))
     hotfix.check(verified)
