@@ -39,6 +39,16 @@ does not establish a displayed body. Both this written message category and
 ordinary text use unvoiced capture, separately from the existing voice-message
 route. [Original-source boundary and current preparation](endfield-current-subtitle-acceptance.md#written-baker-system-messages).
 
+Revision 24 additionally follows original top-caption layout declarations and
+the exact stage order of operator-training steps. The current graph inventory
+contains 15 top-layout nodes; the strict source selector adds full-frame voiced
+capture for 12 IDs/13 protagonist-expanded records and keeps three emotion-route
+cases separate. Authored training context improves complete-index matching to
+472 English, 478 per Chinese script, 496 Japanese and 498 Korean bodies out of
+498. Previous text/audio/state/recognition anchors remain unchanged. Normal
+updates discover compatible new IDs and changed graph digests without an ID
+allowlist. See the [source inventory, guards and frozen two-generation replay](endfield-current-subtitle-acceptance.md#original-top-captions-and-training-step-order).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

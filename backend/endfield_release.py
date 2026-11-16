@@ -205,6 +205,10 @@ class Catalog:
         from .endfield_mission_dialogue import predecessors
         return predecessors(self.tools, self.stamp)
 
+    def top_dialogues(self):
+        from .endfield_mission_dialogue import top_dialogues
+        return top_dialogues(self.tools, self.stamp)
+
 
 def prepare(tools, region='global'):
     stamp, raw = discover(region)

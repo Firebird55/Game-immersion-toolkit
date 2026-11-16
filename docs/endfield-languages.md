@@ -45,6 +45,11 @@ videos, images, headings and short skill labels are separate from these written
 bodies. A tutorial video is not offered as the voice of its accompanying text.
 Written Baker system notices use the same unvoiced option; voice-message cells
 keep their separate original-audio route.
+Voiced top-of-screen dialogue uses the original layout declaration and full-frame
+capture. Operator-training steps can use the immediately preceding authored step
+to identify a short instruction. Keep the complete instruction visible; a new
+menu or interrupted sequence clears that context. Remaining ambiguous cases stay
+guarded in the current subtitle inventory.
 The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.

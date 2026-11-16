@@ -263,6 +263,67 @@ source references; this text-only extension does not claim a new audio/device
 acceptance run. Runtime-generated notices, actor-name substitution, unsupported
 media contents and the remaining presentation/capture guards stay explicit.
 
+## Original top captions and training-step order
+
+Revision 24 reads each current dialogue graph's original `_showAtTop`
+declaration. The current `DialogTimelineCtrl` renders those captions through
+its separate `topTrunkText`/`topTrunkNode` view; its original encoded Lua is
+MD5-checked (`0d86f5c6732969ce9dc5388b3413c1c0`) and decoded only as data.
+The controller and source graphs are not executed. Ordinary voiced top captions
+therefore enter full-frame capture without enabling unvoiced-text capture.
+The normal bottom dialogue region remains independently available.
+
+An offline census read all **3,093 original current dialogue graphs**, with
+18,835 distinct trunk references. Fifteen nodes explicitly use the top layout.
+The strict selector accepts 12 IDs, producing **13 prepared records** because
+one has both protagonist performances. Three other top nodes enable an emotion
+voice route and retain the existing conservative layout restriction pending
+separate route acceptance. Custom text, disabled speech, actor-action groups,
+radio and alternate-voice cases do not acquire this new top-caption route.
+This finite graph inventory is not proof that every other client presentation
+or indirect world trigger has been inventoried.
+
+Only original, unique and unbranched same-layout edges supply a preceding top
+caption. Referenced operator-training stages independently supply their exact
+`stepIds` order. A step used with different predecessors gets no guessed order.
+Written steps can share predecessor aliases only when all their official texts
+and unvoiced state agree. A confirmed later occurrence replaces a canonical
+first-row alias only when every other complete source field also agrees,
+including translations, audio, branch, category and capture channels.
+Menus, changed capture scope and stale observations clear these contexts.
+Short text and ambiguity safeguards remain unchanged.
+
+All five ordinary publisher workers complete with the revision-23 record totals
+above. Every previous text, translation, recording reference, voice status and
+OCR anchor remains exactly equal. Only 13 capture-channel declarations,
+359 predecessor fields and 312 English/326 other-selection step-alias fields
+change. A fresh network-forbidden complete-index replay checks each current
+training stage in authored order, with two stable exact observations per step:
+
+| Study selection | Training bodies matched with stage context | Remaining guarded bodies |
+| --- | ---: | ---: |
+| English | 472 / 498 | 26 |
+| Simplified Chinese | 478 / 498 | 20 |
+| Traditional Chinese | 478 / 498 | 20 |
+| Japanese | 496 / 498 | 2 |
+| Korean | 498 / 498 | 0 |
+
+These counts include aliases only when all official texts and the unvoiced state
+agree. The [remaining ordered-stage cases](endfield-training-context-guards-1.6.4.csv)
+stay guarded. The instruction-book and guide-body standalone limits above remain
+separate. All 12 selected top captions match independently for each protagonist
+in every study selection. Synthetic production-capture tests additionally check
+the top screen position, written-step progression, repeated occurrence and menu
+reset. This is not physical OCR, device or playback acceptance.
+
+With the same revision-24 source and format metadata frozen, the explicitly
+replayed original 1.5.3 descriptor prepares 49,550 English records; live 1.6.4
+prepares 55,086. Every old ID survives, with 5,536 added records including
+3,156 voiced records and the same 11 changed English texts. Both generations
+discover the same 13 selected top-caption records. The existing changed-voice,
+offline restart and retained-recording proof remains separate; this metadata
+change does not claim a new physical scheduled-activation trial.
+
 ## Text provenance and remaining acceptance
 
 Reader revisions 19–20 mark text from the original conversation, radio, narration

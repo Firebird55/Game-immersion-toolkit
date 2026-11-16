@@ -468,8 +468,10 @@ class MultilingualTextIndex:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
             result = []
             for hit in hits:
-                if self.game == 'endfield' and not hit.text_id.startswith('endfield:film:'):
-                    continue
+                if self.game == 'endfield':
+                    top = hit.dialogue_kind == 'conversation' and 'cinematic' in self._capture_channels.get(hit.text_id, ())
+                    if not hit.text_id.startswith('endfield:film:') and not top:
+                        continue
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum
