@@ -15,6 +15,7 @@ def test_sentence_retention_distinguishes_silence_missing_media_and_unresolved_m
               {'VoiceID': 40, 'VoicePath': 'whole_movie', 'VoiceType': 'Cutscene'},
               {'VoiceID': 60, 'VoicePath': '../wrong'},
               {'VoiceID': 70, 'VoicePath': 'scene', 'IsPlayerInvolved': True}]
+    sentences[4]['TextmapTalkSentenceName'] = {'Hash': 900}
     links = {row['id']: row for row in starrail.sentence_links(sentences, voices, 'en',
         [{'TalkSentenceID': 5, 'VoiceIDList': [71, 72]}])}
     assert {key: row.get('voice_status') for key, row in links.items() if row['source'] is None} == {
@@ -24,6 +25,45 @@ def test_sentence_retention_distinguishes_silence_missing_media_and_unresolved_m
     assert links['7_m']['source'] == 'English/voice/scene_m.wem'
     assert links['7_f']['source'] == 'English/voice/scene_f.wem'
     assert (links['7_m']['player_voice'], links['7_f']['player_voice']) == ('male', 'female')
+
+
+def test_narrative_multi_voice_reactions_are_not_promoted_to_speech_of_the_description():
+    def sentence(identity, **fields):
+        return {'TalkSentenceID': identity, 'TalkSentenceText': {'Hash': 100 + identity}, **fields}
+    named = {'TextmapTalkSentenceName': {'Hash': 900}}
+    sentences = [sentence(1), sentence(2), sentence(3, **named), sentence(4, VoiceID=40),
+                 sentence(5, VoiceID=50), sentence(6)]
+    voices = [{'VoiceID': 10, 'VoicePath': 'fixture_greeting'},
+              {'VoiceID': 11, 'VoicePath': 'fixture_greeting'},
+              {'VoiceID': 40, 'VoicePath': 'spoken_narrator', 'VoiceType': 'StoryNew'},
+              {'VoiceID': 50, 'VoicePath': '', 'VoiceType': 'NoVoice'}]
+    multi = [{'TalkSentenceID': identity, 'VoiceIDList': candidates}
+             for identity, candidates in [(1, [10]), (2, [10, 11]), (3, [10]), (4, [40]), (5, [50]), (6, [50])]]
+    def prepare():
+        return {row['id']: row for row in starrail.sentence_links(sentences, voices, 'ja', multi)}
+    links = prepare()
+    for identity in ['1', '2']:
+        assert links[identity]['source'] is None and links[identity]['voice_status'] == 'unknown'
+        assert links[identity]['dialogue_kind'] == 'dialogue' and links[identity]['unresolved_multi_voice']
+    # A named speaker's singleton remains usable. An explicitly authored
+    # narrator voice works without a speaker label; explicit NoVoice survives.
+    assert links['3']['source'] == 'Japanese/voice/fixture_greeting.wem'
+    assert links['4']['source'] == 'Japanese/voice/spoken_narrator.wem'
+    assert links['5']['voice_status'] == 'unvoiced'
+    assert links['6']['voice_status'] == 'unvoiced'
+    # Normal content updates re-evaluate the actual authoring. A new
+    # description does not need a hardcoded ID or an English text heuristic.
+    sentences.append(sentence(7))
+    multi.append({'TalkSentenceID': 7, 'VoiceIDList': [10]})
+    assert prepare()['7']['voice_status'] == 'unknown'
+    sentences[0]['VoiceID'] = 40
+    multi[0]['VoiceIDList'] = [40]
+    assert prepare()['1']['source'] == 'Japanese/voice/spoken_narrator.wem'
+    # Missing selected media cannot turn any of these into confirmed silence.
+    rows = hoyo_dialogue.records('starrail', list(links.values()),
+        {'ja': {str(100 + i): 'Owned fixture text' for i in range(1, 7)}}, 'ja', {})
+    assert [LocalDialogue(**row).voice_status for row in rows] == [
+        'unknown', 'unknown', 'unavailable', 'unavailable', 'unvoiced', 'unvoiced']
 
 
 def test_phone_options_and_conditional_text_keep_authored_identities_without_media_labels():
