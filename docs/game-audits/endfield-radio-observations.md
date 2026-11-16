@@ -148,6 +148,43 @@ their negative audio results do not strengthen the claim of a text-only row.
 The earlier English, Japanese and Mandarin waveform controls remain the
 qualified voice observations. No actor or silence override is added.
 
+### Additional An Yu playthrough with two original-voice controls
+
+A November 16 search located KCG95's July 12 mission recording. Direct frame
+checks identify the three original English captions, in the publisher's order,
+at approximately **10:13**, **10:59** and **11:05**. These are visible-caption
+checkpoints, not spoken boundaries.
+[First caption](https://www.youtube.com/watch?v=c-WIaCeAurE&t=613s)
+· [Second caption](https://www.youtube.com/watch?v=c-WIaCeAurE&t=659s)
+· [Third caption](https://www.youtube.com/watch?v=c-WIaCeAurE&t=665s)
+
+Two separate passages independently establish Japanese game voices in this
+recording. Perlica's `chr_0004_pelica_explore_idletalk_01` matches the original
+publisher waveform at **1:39.839**, with normalized correlation **0.818**.
+Chen's `chr_0005_chen_interact_etherium_01` matches at **8:05.765**, with
+correlation **0.975**. The English, Mandarin and Korean performances of the
+same events reach at most 0.079 in those search windows. The selected
+publisher's `AIBarkText` and `AudioDialog` tables independently join the text
+references, signed Wwise IDs and original filenames.
+[Perlica control](https://www.youtube.com/watch?v=c-WIaCeAurE&t=99s)
+· [Chen control](https://www.youtube.com/watch?v=c-WIaCeAurE&t=485s)
+
+The configured-reaction comparison covers 10:02–10:19, 10:48–11:02 and
+10:57–11:10, using 477 measurable Japanese references for emotion 41 and
+186 for emotion 37, including short reactions down to 30 ms. The respective
+maxima are 0.434, 0.213 and 0.163. The strongest first-window candidate is
+not confirmed across frequency bands: its correlations above 700 Hz are
+0.039, 0.039 and 0.020. Speech detection identifies the independent controls
+but no speech in these three windows. This adds a qualified playback
+observation; it establishes neither an An Yu performer nor permanent silence.
+All three An Yu bindings, and all nine unresolved reaction rows, remain open.
+
+The same search found Amadeus Alter's June 7 recording, with the three
+captions directly visible at about 3:56, 4:08 and 4:12. No independent game
+voice control was verified there. It is retained only as caption/layout
+evidence, and its negative audio searches do not strengthen a silence claim.
+[Additional caption recording](https://www.youtube.com/watch?v=mUmnWu6WNeU&t=236s)
+
 ### Independent Landbreaker control
 
 A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
