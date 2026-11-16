@@ -32,7 +32,7 @@
 | Zenless Zone Zero | 全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。 |
 | Arknights: Endfield | 可從發行商準備全球版或中國大陸版劇情配音 |
 | Wuthering Waves | 可從發行商準備全球版台詞與原版配音 |
-| Neverness to Everness | 設定中需要已安裝的遊戲。可分別核對全球版和中國大陸版的發行商檔案。 |
+| Neverness to Everness | 從發行商取得所選版本可用的文字與原版配音 |
 
 這六款遊戲規劃支援在 Linux、macOS 和 Android 上獨立準備資料及播放配音。各平台仍須逐款驗證。其他遊戲僅支援 Windows。 [工具執行平台與遊戲裝置](../desktop-platforms.md)
 

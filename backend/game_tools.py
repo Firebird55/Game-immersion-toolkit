@@ -143,13 +143,13 @@ def missing_tools(root: Path, game: str, publisher: bool = False) -> list[str]:
             resolve(runtime_data_root(root) / 'cyberpunk/tools')
         except PreparationFailure:
             missing.append('REDengine archive extractor and app-local runtime')
-    if game == "wuwa" and publisher:
+    if game in {"wuwa", "nte"} and publisher:
         from .wuthering_release_pak import _ooz_runtime
         from .preparation_errors import PreparationFailure
         try:
             _ooz_runtime()
         except PreparationFailure:
-            missing.append('Wuthering package decoder (Node.js and the locked ooz-wasm dependency)')
+            missing.append('Publisher package decoder (Node.js and the locked ooz-wasm dependency)')
     if game == "nte" or game == "wuwa" and not publisher:
         from .nte_assets import dotnet_sdk
         if dotnet_sdk() is None:
@@ -196,6 +196,12 @@ def _bundle_runtime_missing(root: Path, game: str, publisher: bool = False) -> l
             reader()
         except PreparationFailure:
             missing.append(label)
+    if game == 'nte' and publisher:
+        from .wuthering_release_pak import _ooz_runtime
+        try:
+            _ooz_runtime()
+        except PreparationFailure:
+            missing.append('Publisher package decoder')
     return missing
 
 
@@ -266,5 +272,9 @@ def prepare_tools(root: Path, game: str, progress=lambda _message: None, publish
         ensure_extractor(runtime_data_root(root) / "wuwa/tools", vgmstream_executable(root))
     elif game == "nte":
         from .nte_assets import ensure_extractor
-        progress("Preparing the verified NTE archive reader and local .NET bridge")
+        progress("Preparing the verified NTE dialogue reader")
         ensure_extractor(runtime_data_root(root) / "nte/tools")
+        if publisher:
+            from .wuthering_release_pak import _ooz_runtime
+            progress('Checking the NTE publisher package decoder')
+            _ooz_runtime()

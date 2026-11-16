@@ -32,7 +32,7 @@ Leave the game folder empty in Windows Setup to prepare Global or mainland China
 | Zenless Zone Zero | Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
 | Arknights: Endfield | Publisher Setup for Global or mainland China narrative voices |
 | Wuthering Waves | Publisher Setup for Global dialogue and original voices |
-| Neverness to Everness | Installed game in Setup. Separate Global and mainland publisher file checks. |
+| Neverness to Everness | Publisher Setup for the selected edition's available text and original voices |
 
 These six games are the targets for independent preparation and playback on Linux, macOS and Android. Per-game acceptance on those hosts is pending. Other game integrations support Windows only. [Toolkit hosts and game devices](../desktop-platforms.md)
 

@@ -32,7 +32,7 @@ Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese v
 | Zenless Zone Zero | Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher. |
 | Arknights: Endfield | Verhaalstemmen van de wereldwijde of Chinese uitgever |
 | Wuthering Waves | Global-dialogen en originele stemmen van de uitgever |
-| Neverness to Everness | In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd. |
+| Neverness to Everness | Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever |
 
 Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linux, macOS en Android. Verificatie per game op die platforms staat nog open. De overige game-integraties ondersteunen alleen Windows. [Toolkitplatforms en gameapparaten](../desktop-platforms.md)
 

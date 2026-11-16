@@ -8,10 +8,16 @@ Honkai means **Honkai Impact 3rd**, not Honkai: Star Rail.
 
 ## Setup
 
-Open **Setup → Games**, choose the game, and select its installation folder.
-Steam libraries on any registered drive are discovered automatically.
+For NTE, open **Setup → Games** and choose a publisher edition. Leave the game
+folder empty for online preparation, or select an installed client. Steam
+libraries on any registered drive are discovered automatically. Honkai setup
+directions below are retained historical documentation.
 
-- **NTE:** choose the Neverness to Everness folder containing
+- **NTE publisher:** choose the edition and an available study language in
+  **Languages**. Official text, translations and selected original voices are
+  retrieved without a game installation. Missing regional text or unresolved
+  audio is reported separately. See the [current source audit](game-audits/nte.md#publisher-setup-and-immutable-voice-snapshots).
+- **NTE installed fallback:** choose the Neverness to Everness folder containing
   `Client/WindowsNoEditor/HT/Binaries/Win64/HTGame.exe`. The nested Client,
   WindowsNoEditor, or HT folder is also accepted. A launcher without the client
   download is insufficient. Install the Chinese voice pack through NTE.
@@ -46,6 +52,13 @@ same picture coordinates as capture. **Use tested dialogue crop** restores the
 reviewed crop explicitly; updates preserve existing per-PC calibration.
 
 ## Verified coverage
+
+The NTE publisher route reads the selected release's original localization,
+dialogue and movie tables, sequence clocks and voice banks. Compatible public
+type-data updates are selected automatically. Exact historical snapshots retain
+their metadata and original recordings. Complete chapter/presentation and
+cross-platform acceptance remain open. The installed results below describe an
+earlier reviewed client.
 
 NTE reads the installed English and zh-CN `game.locres` tables. It joins the
 same localization namespace/key, verifies the exact `Play_Vo_<key>` bank and

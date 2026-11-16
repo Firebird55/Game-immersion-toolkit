@@ -278,7 +278,7 @@ class Archive:
             position += (length + 15) // 16 * 16 if encrypted else length
         return Entry(offset, size, stored, method, encrypted, block_size, header, tuple(blocks))
 
-    def read(self, path):
+    def _parts(self, path):
         entry = self.entry(path)
         if entry is None:
             raise FileNotFoundError('The selected NTE patch deletes this resource.')
@@ -290,14 +290,17 @@ class Archive:
         if not e.method:
             check(e.size == e.stored and not e.blocks)
             if not e.size:
-                return b''
+                return e, b''
             length = (e.stored + 15) // 16 * 16 if e.encrypted else e.stored
             check(e.offset + e.header_size + length <= self.index_offset)
             data = self.source.read(e.offset + e.header_size, length)
-            return (self.cipher.decrypt(data) if e.encrypted else data)[:e.size]
+            return e, (self.cipher.decrypt(data) if e.encrypted else data)[:e.size]
+        stored_sizes = {sum(n for _, n in e.blocks)}
+        if e.encrypted:
+            stored_sizes.add(sum((n + 15) // 16 * 16 for _, n in e.blocks))
         check(e.method < len(self.methods) and 0 < e.block_size <= MEMBER_LIMIT and
               len(e.blocks) == (e.size + e.block_size - 1) // e.block_size and
-              sum(n for _, n in e.blocks) == e.stored)
+              e.stored in stored_sizes)
         end = e.offset + e.header_size
         for offset, size in e.blocks:
             length = (size + 15) // 16 * 16 if e.encrypted else size
@@ -311,18 +314,27 @@ class Archive:
             part = data[offset - start:offset - start + length]
             blocks.append(((self.cipher.decrypt(part) if e.encrypted else part)[:size],
                            min(e.block_size, e.size - i * e.block_size)))
+        return e, blocks
+
+    @staticmethod
+    def _oodle(blocks):
+        from .wuthering_release_pak import _oodle
+        try:
+            return _oodle(blocks)
+        except PreparationFailure as error:
+            if error.code != 'missing_decoder':
+                raise
+            raise PreparationFailure('missing_decoder',
+                'Prepare the NTE publisher package decoder in Setup, then retry.') from error
+        except ValueError:
+            check(False)
+
+    def _decode(self, e, blocks):
+        if not e.method:
+            return blocks
         method = self.methods[e.method]
         if method == 'Oodle':
-            from .wuthering_release_pak import _oodle
-            try:
-                result = _oodle(blocks)
-            except PreparationFailure as error:
-                if error.code != 'missing_decoder':
-                    raise
-                raise PreparationFailure('missing_decoder',
-                    'Prepare the NTE publisher package decoder in Setup, then retry.') from error
-            except ValueError:
-                check(False)
+            result = self._oodle(blocks)
         elif method in ('Zlib', 'Gzip'):
             parts = []
             for data, size in blocks:
@@ -337,6 +349,27 @@ class Archive:
         else:
             check(False)
         check(len(result) == e.size)
+        return result
+
+    def read(self, path):
+        return self._decode(*self._parts(path))
+
+    def read_many(self, paths):
+        """Decode small bank batches together, with the same entry/range checks."""
+        check(0 < len(paths) <= 256)
+        entries = [self.entry(path) for path in paths]
+        check(all(e is not None for e in entries) and sum(e.size for e in entries) <= TRANSFER and
+              sum(e.stored for e in entries) <= 2 * TRANSFER)
+        parts = [self._parts(path) for path in paths]
+        compressed = [(i, e, blocks) for i, (e, blocks) in enumerate(parts) if self.methods[e.method] == 'Oodle']
+        result = [self._decode(e, blocks) if self.methods[e.method] != 'Oodle' else None for e, blocks in parts]
+        if compressed:
+            combined = self._oodle([b for _, _, blocks in compressed for b in blocks])
+            check(len(combined) == sum(e.size for _, e, _ in compressed))
+            offset = 0
+            for index, entry, _ in compressed:
+                result[index] = combined[offset:offset + entry.size]
+                offset += entry.size
         return result
 
 

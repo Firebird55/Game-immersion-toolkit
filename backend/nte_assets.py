@@ -135,6 +135,16 @@ def fingerprint(install: Path) -> str:
                           CATALOG_REVISION + '|' + '|'.join(values)).encode()).hexdigest()
 
 
+def publisher_fingerprint(tools: Path) -> str:
+    from . import nte_publisher
+    return nte_publisher.fingerprint(tools)
+
+
+def publisher_snapshot_available(tools: Path, stamp: str) -> bool:
+    from . import nte_publisher
+    return nte_publisher.snapshot_available(tools, stamp)
+
+
 def _metadata_path(install: Path, stamp: str) -> Path:
     from .runtime_bundle import discover_layout
     layout = discover_layout()
@@ -207,7 +217,7 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
 
 
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
-                         *, schema_cache: Path | None = None, inventory=False):
+                         *, schema_cache: Path | None = None, inventory=False, table_schema=None):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
@@ -218,9 +228,18 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
     if not inventory:
         if schema_cache is None:
             raise ValueError('NTE publisher authoring requires verified type metadata')
-        _stage_table_schema(schema_cache, destination)
+        if table_schema is None:
+            _stage_table_schema(schema_cache, destination)
+        else:
+            data, digest = table_schema.data, table_schema.reference['sha256']
+            if (not isinstance(data, bytes) or not 16 <= len(data) <= 8 * 1024**2 or
+                    hashlib.sha256(data).hexdigest() != digest):
+                raise PreparationFailure('game_metadata_unavailable', 'The selected NTE dialogue type data failed verification.')
+            (destination / 'dialogue.usmap').write_bytes(data)
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors}
+        if not inventory:
+            request['type_schema_sha256'] = TABLE_SCHEMA_SHA256 if table_schema is None else table_schema.reference['sha256']
         try:
             result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
                 timeout=600, cwd=working_directory, env=environment,
@@ -346,11 +365,12 @@ def dialogue_presentation(namespace: str, key: str) -> tuple[str, bool]:
     return 'uncategorized', False
 
 
-def coverage_warnings(records: list[dict]) -> list[str]:
+def coverage_warnings(records: list[dict], *, publisher=False) -> list[str]:
     warnings = [
         'NTE comic panels and text embedded in textures or movies have no verified general subtitle binding.',
         'Phone chats, response options, combat barks and mixed character archives have partial classification; unknown voice status is excluded from unvoiced capture.',
-        'Cinematic audio covers reviewed movie bindings and resolvable events only; new story sequences may need a reader/catalog update.',
+        ('Publisher cinematic tables refresh with game data; unresolved movie text ownership and ambiguous events remain unavailable.'
+         if publisher else 'Cinematic audio covers reviewed movie bindings and resolvable events only; new story sequences may need a reader/catalog update.'),
     ]
     missing = sum(row.get('voice_status') == 'unavailable' for row in records)
     if missing:
@@ -532,6 +552,9 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
     from .game_catalogs import read_snapshot
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported NTE study/audio locale')
+    if install is None:
+        from . import nte_publisher
+        return nte_publisher.build_language(data_dir / 'tools', source_locale, target_locales, progress)
     snapshot = read_snapshot('nte', data_dir)
     bindings = movie_bindings(catalog_rows(snapshot['catalog']) if snapshot else load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
     targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
@@ -584,6 +607,9 @@ def _voice_language(audio):
 
 def extract_voice(install: Path, audio: dict, executable: Path, destination: Path) -> bytes:
     language = _voice_language(audio)
+    if install is None:
+        from . import nte_publisher
+        return nte_publisher.extract(executable.parent, audio)
     from .nte_toolchain import voice_executable
     executable = voice_executable(executable)
     options = {'voice_language': language} if audio.get('locale') else {}
@@ -599,6 +625,9 @@ def extract_voices(install: Path, audios: list[dict], executable: Path, destinat
     languages = {_voice_language(audio) for audio in audios}
     if not 1 <= len(depots) <= 8 or len(languages) != 1:
         raise ValueError('NTE batches require one selected original voice language')
+    if install is None:
+        from . import nte_publisher
+        return [nte_publisher.extract(executable.parent, audio) for audio in audios]
     from .nte_toolchain import voice_executable
     executable = voice_executable(executable)
     options = {'voice_language': next(iter(languages))} if any(audio.get('locale') for audio in audios) else {}
