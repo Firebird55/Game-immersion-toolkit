@@ -80,16 +80,20 @@ def test_public_envelope_bounds_expansion_and_rejects_recursive_master(key, monk
             decoder(key).decode(value)
 
 
-def test_fixed_launcher_editions_load_only_two_public_metadata_documents(monkeypatch, key):
+@pytest.mark.parametrize('game, region, filename', [
+    ('genshin', 'global', 'config_GIGlb.json'), ('genshin', 'cn', 'config_GICN.json'),
+    ('zzz', 'global', 'config_ZZZGlb.json'), ('zzz', 'cn', 'config_ZZZCN.json'),
+])
+def test_fixed_launcher_editions_load_only_two_public_metadata_documents(monkeypatch, key, game, region, filename):
     requests = []
     master = {'Key': encoded(envelope(key.export_key(format='DER'))), 'BitSize': key.size_in_bytes()}
     def fetch(url):
         requests.append(url)
         return json.dumps(master if url.endswith('/config_master.json') else {'Name': 'public config'}).encode()
     monkeypatch.setattr(metadata, 'fetch', fetch)
-    config, d = metadata.load('genshin', 'global')
+    config, d = metadata.load(game, region)
     assert config == {'Name': 'public config'} and isinstance(d, metadata.Decoder)
-    assert set(requests) == {metadata.ROOT + 'config_master.json', metadata.ROOT + 'config_GIGlb.json'}
+    assert set(requests) == {metadata.ROOT + 'config_master.json', metadata.ROOT + filename}
     with pytest.raises(KeyError):
         metadata.load('genshin', 'https://untrusted.example/')
 
