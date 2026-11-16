@@ -119,9 +119,12 @@ The three IDs belong to the timeline. On November 16 the complete original
 English scene recording was identified in the public Technical Alpha
 archive: seven separated excerpts match this gameplay with a consistent
 1,153.1999 s offset. It is now available through the installation-free
-archive command as `timeline_e1m1_1`. This establishes the historical scene
-mix, while English text bindings, per-caption cuts and a current-distribution
-binding remain open. [Original recording and acquisition](endfield-alpha-archive.md#original-english-motorcycle-ambush-scene).
+archive command as `timeline_e1m1_1`. Its Mandarin counterpart independently
+matches a mainland playthrough. The first and third Mandarin captions have
+verified recording-relative exports; the second remains uncertain. This
+establishes the historical scene mixes, while English text bindings/cuts
+and a current-distribution binding remain open.
+[Original recordings and acquisition](endfield-alpha-archive.md#original-motorcycle-ambush-scene).
 The earlier Fiona radio exchange has
 different wording. [Radio during the ride](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1098s) ·
 [Two calls during the ambush](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1153s) ·
