@@ -48,7 +48,10 @@ def _contexts(captions, speech, recordings, known):
             # occurrence identifies that exact recording, never another take.
             if chosen and len({(row[0], row[1]) for row in chosen}) == 1:
                 media, digest, pcm = chosen[0]
-                yield text, (media, digest, pcm.getnframes() * 1000 // pcm.getframerate())
+                rate = pcm.getframerate()
+                # FFmpeg's millisecond duration must reach the original EOF,
+                # including a final fractional millisecond of native samples.
+                yield text, (media, digest, (pcm.getnframes() * 1000 + rate - 1) // rate)
                 continue
         yield text, None
 
@@ -100,7 +103,7 @@ def _build(tools, stamp, dub):
 def cues(tools, stamp, dub):
     films.release.descriptor(tools, stamp)
     films._check(dub in films.TRACKS)
-    version = 'cinematic-context-v1'
+    version = 'cinematic-context-v2'
     path = tools / 'endfield-releases' / version / stamp / (dub + '.json')
     prefix = f'{stamp}/{dub}/{version}\n'.encode()
     if path.is_file() and path.stat().st_size <= 32 * 1024**2:

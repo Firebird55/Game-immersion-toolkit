@@ -7,10 +7,10 @@ import pytest
 from backend import endfield_film_context as context, endfield_online
 
 
-def pcm(samples):
+def pcm(samples, rate=1000):
     stream = io.BytesIO()
     with wave.open(stream, 'wb') as output:
-        output.setparams((1, 2, 1000, 0, 'NONE', 'not compressed'))
+        output.setparams((1, 2, rate, 0, 'NONE', 'not compressed'))
         output.writeframes(b''.join(int(value).to_bytes(2, 'little', signed=True) for value in samples))
     stream.seek(0)
     return wave.open(stream)
@@ -25,6 +25,14 @@ def test_context_keeps_complete_recording_for_overlap_repeat_and_lingering_text(
         rows = dict(context._contexts(captions, [('own_event', 0, 4)],
                                      {'own_event': (7, 'original', source)}, {'already_verified'}))
     assert rows == dict.fromkeys(('overlap', 'repeat', 'linger'), (7, 'original', 4000))
+
+
+def test_complete_context_reaches_noninteger_millisecond_recording_eof():
+    with pcm([100] * 1000, rate=44100) as source:
+        rows = dict(context._contexts([('caption', .001, .02)], [('event', 0, 1)],
+                                     {'event': (7, 'original', source)}, set()))
+    assert rows['caption'] == (7, 'original', 23)
+    assert rows['caption'][2] * 44100 >= 1000 * 1000
 
 
 def test_context_rejects_competing_events_different_repeated_takes_and_codec_noise():
