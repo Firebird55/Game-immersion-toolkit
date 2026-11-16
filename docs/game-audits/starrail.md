@@ -161,11 +161,10 @@ The standalone `starrail_original_tables.OriginalTables` reader now reads native
 `TalkSentenceConfig`, `VoiceConfig` and full/startup `Textmap` resources directly
 from official DesignV packages. Its `file(relative)`, `table(name)` and
 `textmap(code)` interfaces do not access a text mirror or require a game folder.
-**The production `ReleasedCatalog` has not switched to this reader.** Other
-catalog tables, production integration of independent hotfix discovery and
-automatic original-table description extraction remain work for #84; this
-prototype does not complete autonomous
-updates or current subtitle coverage.
+**The production `ReleasedCatalog` has not switched to this reader.** Production
+integration of independent discovery, metadata preparation and automatically
+generated complete catalog descriptions remains work for #84. This prototype
+does not complete autonomous updates or current subtitle coverage.
 
 The format descriptions were established from the original publisher client's
 native `FromBinary` methods and managed field metadata. They are serialization
@@ -176,6 +175,39 @@ unique identities and complete resource consumption are checked. New fields
 require a newly derived description; the reader accepts supplied descriptions,
 but does not yet derive them automatically. Unknown voice-type values remain
 numeric and are never promoted to `NoVoice`.
+
+The standalone reader also accepts a complete supplied `descriptions` mapping.
+Each table describes its ordered fields, optional single/composite identity,
+native hash-byte prefix and enum values. Explicit unkeyed descriptions preserve
+the original sequence; the reader does not guess an identity column. Supported
+array elements are unsigned integers, strings and finite little-endian floats,
+with signed zigzag array counts. Unknown description keys, unknown field kinds,
+noncanonical numbers, negative/oversized counts, malformed values, duplicate
+declared identities and trailing bytes are rejected. Unknown enum values retain
+their numeric value. A supplied generation replaces the default descriptions
+completely, so missing descriptions cannot mix an older table into preparation.
+
+The current original native probe derives filename-to-row bindings for all 21
+tables actually requested by the catalog, including nine obfuscated containers.
+It follows original filename literals into typed path arrays and their static
+fields, and uses typed row dictionaries rather than a class-name suffix or
+rename list. Static field representation is inferred across constructors.
+Original `FromBinary` bodies establish all 109 serialized field-bit positions.
+The native loader call establishes the additional one-byte hash prefix for
+ordinary tables; the three LRU tables use their direct counted row resource.
+Native shared helpers establish signed array lengths and enum serialization.
+
+Using those descriptions, this reader consumes all 21 original resources to EOF
+and matches 368,989 semantic rows against the frozen verification snapshot, with
+zero missing or extra rows. All resources come from the already whole-MD5-checked
+common package below; this adds no downloads. Float comparisons use float32
+values and treat positive/negative zero as the same JSON number; decoded values
+retain their sign. Enum descriptions and managed metadata are still supplied
+from the retained original-derived metadata output. This proves the table
+reader contract, not normal metadata-helper acquisition, delivery, restart or
+recovery. The separately licensed, frozen metadata software can be used by that
+future preparation route; a new third-party data snapshot is not required by
+the standalone reader.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

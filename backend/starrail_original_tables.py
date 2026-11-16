@@ -7,8 +7,10 @@ and autonomous hotfix-route discovery are separate unfinished work.
 """
 from functools import lru_cache
 import hashlib
+import math
 from pathlib import Path
 import re
+import struct
 
 from . import starrail_design as design, starrail_hotfix as hotfix
 from .game_tools import _atomic_file
@@ -35,6 +37,43 @@ VOICE_TYPES.update(dict(zip(range(3, 19), (
     'BroadcastUltraFar2', 'BroadcastUltraFar3', 'StoryNew', 'NPC_Near_NoDuck',
     'NPC_Normal_NoDuck', 'NPC_Far_NoDuck', 'SystemReverb1'))))
 VOICE_TYPES[99] = 'NoVoice'
+KINDS = {'u32', 's32', 'textid', 'bool', 'string', 'f32', 'u32[]', 'string[]', 'f32[]'}
+
+
+def _schema(value):
+    hotfix.check(isinstance(value, (list, tuple)) and 0 < len(value) <= 64)
+    fields = []
+    for item in value:
+        hotfix.check(isinstance(item, (list, tuple)) and len(item) == 2
+                     and isinstance(item[0], str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', item[0])
+                     and isinstance(item[1], str) and item[1] in KINDS)
+        fields.append(tuple(item))
+    hotfix.check(len({name for name, _ in fields}) == len(fields))
+    return tuple(fields)
+
+
+def _description(value):
+    hotfix.check(isinstance(value, dict) and set(value) == {'fields', 'identity', 'hash_byte_prefix', 'enums'}
+                 and type(value['hash_byte_prefix']) is bool and isinstance(value['enums'], dict))
+    fields = _schema(value['fields'])
+    identity = value['identity']
+    hotfix.check(isinstance(identity, (list, tuple)) and len(identity) <= len(fields)
+                 and all(isinstance(name, str) for name in identity)
+                 and len(set(identity)) == len(identity)
+                 and set(identity) <= {name for name, kind in fields if kind in {'u32', 's32', 'textid', 'string'}})
+    enums = {}
+    for name, mapping in value['enums'].items():
+        hotfix.check(name in {key for key, kind in fields if kind in {'u32', 's32'}}
+                     and isinstance(mapping, dict) and 0 < len(mapping) <= 65536)
+        values = {}
+        for number, label in mapping.items():
+            hotfix.check(type(number) is int or isinstance(number, str) and re.fullmatch(r'-?(?:0|[1-9][0-9]*)', number))
+            number = int(number)
+            hotfix.check(-(1 << 31) <= number < 1 << 32 and number not in values
+                         and isinstance(label, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', label))
+            values[number] = label
+        enums[name] = values
+    return fields, tuple(identity), value['hash_byte_prefix'], enums
 
 
 class Reader:
@@ -50,6 +89,11 @@ class Reader:
         return (value >> 1) ^ -(value & 1)
 
     def value(self, kind):
+        if kind.endswith('[]'):
+            count = self.sint()
+            minimum = 4 if kind == 'f32[]' else 1
+            hotfix.check(0 <= count <= min(2_000_000, (len(self.data) - self.at) // minimum))
+            return [self.value(kind[:-2]) for _ in range(count)]
         if kind == 'u32':
             return self.uint(32)
         if kind == 's32':
@@ -68,47 +112,68 @@ class Reader:
             hotfix.check(length <= len(self.data) - self.at)
             start, self.at = self.at, self.at + length
             return self.data[start:self.at].decode('utf-8')
+        if kind == 'f32':
+            hotfix.check(self.at + 4 <= len(self.data))
+            value, = struct.unpack_from('<f', self.data, self.at)
+            self.at += 4
+            hotfix.check(math.isfinite(value))
+            return value
         raise ValueError('Unknown original Star Rail field description.')
 
 
-def decode_table(data, schema, identity):
+def decode_table(data, schema, identity=None, *, hash_byte_prefix=False):
     """Decode a native masked row array, rejecting ambiguous/truncated input."""
-    hotfix.check(isinstance(schema, tuple) and 0 < len(schema) <= 64
-                 and all(isinstance(field, tuple) and len(field) == 2
-                         and re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', field[0])
-                         and field[1] in {'u32', 's32', 'textid', 'bool', 'string'} for field in schema)
-                 and len({field for field, _ in schema}) == len(schema)
-                 and identity in {field for field, _ in schema})
+    schema = _schema(schema)
+    identity = (identity,) if isinstance(identity, str) else (() if identity is None else identity)
+    hotfix.check(isinstance(data, bytes) and type(hash_byte_prefix) is bool
+                 and isinstance(identity, (tuple, list)) and len(identity) <= len(schema)
+                 and all(isinstance(name, str) for name in identity) and len(set(identity)) == len(identity)
+                 and set(identity) <= {name for name, kind in schema if kind in {'u32', 's32', 'textid', 'string'}})
     reader = Reader(data)
+    if hash_byte_prefix:
+        hotfix.check(len(data) > 0)
+        reader.at += 1
     count = reader.sint()
     hotfix.check(0 <= count <= min(2_000_000, len(data) - reader.at))
     rows, identities = [], set()
-    defaults = {'u32': 0, 's32': 0, 'textid': {'Hash': 0}, 'bool': False, 'string': ''}
+    defaults = {'u32': 0, 's32': 0, 'bool': False, 'string': '', 'f32': 0.0}
     for _ in range(count):
         mask = reader.uint()
         if mask >> len(schema):
             raise ValueError('An original Star Rail row needs a new native field description.')
         row = {field: reader.value(kind) if mask & (1 << bit) else
-               ({'Hash': 0} if kind == 'textid' else defaults[kind])
+               ({'Hash': 0} if kind == 'textid' else [] if kind.endswith('[]') else defaults[kind])
                for bit, (field, kind) in enumerate(schema)}
-        key = row[identity]
-        key = key['Hash'] if isinstance(key, dict) else key
-        hotfix.check(key not in identities)
-        identities.add(key)
+        if identity:
+            key = tuple(row[name]['Hash'] if isinstance(row[name], dict) else row[name] for name in identity)
+            hotfix.check(key not in identities)
+            identities.add(key)
         rows.append(row)
     hotfix.check(reader.at == len(data))
     return rows
 
 
 class OriginalTables:
-    """A small ``file(relative)`` source for evidenced original core tables.
+    """A ``file(relative)`` source for supplied original catalog descriptions.
 
     Does not fall back to third-party data. A caller must retain its previous
     complete preparation until every required table/provider succeeds.
     """
-    def __init__(self, directory, build, *, schemas=None):
+    def __init__(self, directory, build, *, schemas=None, descriptions=None):
         self.directory = Path(directory)
         self.schemas = dict(SCHEMAS if schemas is None else schemas)
+        if descriptions is None:
+            hotfix.check({'TalkSentenceConfig', 'VoiceConfig'} <= self.schemas.keys())
+            descriptions = {
+                'TalkSentenceConfig': {'fields': self.schemas['TalkSentenceConfig'], 'identity': ['TalkSentenceID'],
+                                      'hash_byte_prefix': False, 'enums': {}},
+                'VoiceConfig': {'fields': self.schemas['VoiceConfig'], 'identity': ['VoiceID'],
+                                'hash_byte_prefix': False, 'enums': {'VoiceType': VOICE_TYPES}}}
+        hotfix.check(isinstance(descriptions, dict) and 0 < len(descriptions) <= 4096)
+        self.descriptions = {}
+        for name, description in descriptions.items():
+            hotfix.check(isinstance(name, str) and re.fullmatch(r'[A-Za-z][A-Za-z0-9_]*', name))
+            self.descriptions[name] = _description(description)
         roots, alternate = hotfix.audio_roots(build)
         self.resources = {}
         for digest, size, entries, folder in design._packages(
@@ -147,13 +212,14 @@ class OriginalTables:
         return self._package(asset)[start:start + length]
 
     def table(self, name):
-        hotfix.check(name in {'TalkSentenceConfig', 'VoiceConfig'})
+        hotfix.check(isinstance(name, str) and name in self.descriptions)
+        schema, identity, prefix, enums = self.descriptions[name]
         rows = decode_table(self.resource('BakedConfig/ExcelOutput/' + name + '.bytes'),
-                            self.schemas[name], 'TalkSentenceID' if name == 'TalkSentenceConfig' else 'VoiceID')
-        if name == 'VoiceConfig':
-            for row in rows:
-                # Preserve an unknown enum without promoting it to NoVoice.
-                row['VoiceType'] = VOICE_TYPES.get(row['VoiceType'], row['VoiceType'])
+                            schema, identity, hash_byte_prefix=prefix)
+        for row in rows:
+            for field, values in enums.items():
+                # Unknown native values retain their number, never NoVoice.
+                row[field] = values.get(row[field], row[field])
         return rows
 
     def textmap(self, code, *, main=False):
@@ -166,7 +232,7 @@ class OriginalTables:
     def file(self, relative, *, optional=False):
         # Native Textmap is a single logical table; third-party KR/RU/TH JSON
         # transport splits are deliberately not invented as publisher resources.
-        match = re.fullmatch(r'ExcelOutput/(TalkSentenceConfig|VoiceConfig)\.json', relative)
+        match = re.fullmatch(r'ExcelOutput/([A-Za-z][A-Za-z0-9_]*)\.json', relative)
         if match:
             return self.table(match[1])
         match = re.fullmatch(r'TextMap/TextMap(Main)?([A-Z]{2,3})\.json', relative)
