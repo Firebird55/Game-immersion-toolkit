@@ -11,7 +11,7 @@ You do not need to export every language pack. Readers reuse the game’s author
 
 ## Zenless Zone Zero
 
-[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-13 · [Coverage notes](../zzz-languages.md)
+[Official language listing](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [Coverage notes](../zzz-languages.md)
 
 Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
 

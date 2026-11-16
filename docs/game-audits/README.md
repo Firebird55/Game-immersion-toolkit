@@ -16,7 +16,7 @@ gameplay acceptance gaps.
 
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
-| Zenless Zone Zero | Global launcher dialogue scenes, motion comics, phone and ongoing lines, tips and timed clue recordings in Windows Setup, installed dialogue readers and a source-checkout command for selected original performances | [ZZZ](zzz.md) |
+| Zenless Zone Zero | Global publisher dialogue scenes, motion comics, phone/ongoing lines, tips and timed clue recordings in Windows Setup, following current in-version inventories and a matching launcher base; installed readers retain additional cinematic voices. Scene, auxiliary-update and platform gaps remain open. | [ZZZ](zzz.md) |
 | Wuthering Waves | Redirected localization shards; conversations, choices, messages, readables and movie captions; shared compiler-free archive helper | [Wuthering](wuwa.md), [runtime evidence](../wuthering-runtime.md) |
 | Neverness to Everness | Installation-free Windows publisher preparation follows regional manifests, original dialogue/movie tables, selected dub banks and immutable format/type metadata. Movie aliases resolve through the original StringTable registry; fixed protagonist branches retain their original media and gains. Complete narrative, context, update and platform acceptance remain open. | [NTE](nte.md) |
 | PRAGMATA | Owned compiler-free selected PAK reader; additional voice banks; narrative reading inventory | [PRAGMATA](pragmata.md), [reader evidence](../re-pak-runtime.md) |

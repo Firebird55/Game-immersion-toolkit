@@ -15,10 +15,10 @@ const storageNotes={
  'zh-Hant':'在遊戲與語言設定（也包括首次設定精靈）中，Keep mobile library updated 會在桌面 companion 執行時為所選配音語言和譯文維護各自的 ZIP。選擇既有的本機資料夾，建議使用與手機雲端儲存同步的資料夾。Keep on this device 會保留資料庫和配音供下次自動開啟。兩個獨立的 Remember on this device 選項可在沒有應用程式口令的情況下保存 API 金鑰和完整 VDO.Ninja 連結；僅在信任的裝置上啟用。瀏覽器或系統仍可能刪除儲存。'
 };
 const publisherSetup = {
- en: 'Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Wuthering Waves dialogue from either region. Choose the language you want to study. Genshin also checks current in-game updates and keeps the previous table if replacement data cannot be verified. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares Global launcher dialogue scenes, motion comics, messages, tips and timed clue recordings.',
- nl: 'Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Genshin controleert ook gewone game-updates en bewaart de vorige tabel als de nieuwe gegevens niet kunnen worden gecontroleerd. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de Global-launcher op.',
- 'zh-Hans': '在 Windows 设置中将游戏文件夹留空，选择学习语言，即可准备全球版或中国大陆版《原神》、全球版或中国大陆版《崩坏：星穹铁道》的基础与章节配音、全球版或中国大陆版《明日方舟：终末地》的剧情配音或全球版或中国大陆版《鸣潮》的台词与配音。《原神》也会检查常规游戏热更新；新数据无法核实时会保留原有数据表。《终末地》的过场片段需要经过核实的时间轴。《绝区零》可从全球版启动器基础包获取对话场景、动态漫画、消息、提示和带时间轴的线索录音。',
- 'zh-Hant': '在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備全球版或中國大陸版《原神》、全球版或中國大陸版《崩壞：星穹鐵道》的基礎與章節配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版或中國大陸版《鳴潮》的台詞與配音。《原神》也會檢查一般遊戲熱更新；新資料無法核實時會保留原有資料表。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版啟動器基礎包取得對話場景、動態漫畫、訊息、提示和帶時間軸的線索錄音。'
+ en: 'Leave the game folder empty in Windows Setup to prepare Global or mainland China Genshin Impact, Global or mainland China Star Rail base and chapter voices, Global or mainland China Endfield narrative voices or Wuthering Waves dialogue from either region. Choose the language you want to study. Genshin also checks current in-game updates and keeps the previous table if replacement data cannot be verified. Endfield film clips require verified timelines. For Zenless Zone Zero, an empty folder prepares Global publisher dialogue scenes, motion comics, messages, tips and timed clue recordings, including compatible current text and voice updates.',
+ nl: 'Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese vastelandversie van Genshin Impact, de basis- en hoofdstukstemmen van de wereldwijde of Chinese Star Rail-versie, de Endfield-verhaalstemmen van de wereldwijde of Chinese uitgever of de dialogen van Wuthering Waves uit beide regio’s. Kies je leertaal. Genshin controleert ook gewone game-updates en bewaart de vorige tabel als de nieuwe gegevens niet kunnen worden gecontroleerd. Endfield-filmfragmenten vereisen een gecontroleerde tijdlijn. Bij Zenless Zone Zero levert een lege gamemap dialoogscènes, bewegende strips, berichten, tips en getimede opnamen van aanwijzingen uit de actuele Global-uitgeversbestanden op, inclusief compatibele tekst- en stemupdates.',
+ 'zh-Hans': '在 Windows 设置中将游戏文件夹留空，选择学习语言，即可准备全球版或中国大陆版《原神》、全球版或中国大陆版《崩坏：星穹铁道》的基础与章节配音、全球版或中国大陆版《明日方舟：终末地》的剧情配音或全球版或中国大陆版《鸣潮》的台词与配音。《原神》也会检查常规游戏热更新；新数据无法核实时会保留原有数据表。《终末地》的过场片段需要经过核实的时间轴。《绝区零》可从全球版发布资源及其兼容更新获取对话场景、动态漫画、消息、提示和带时间轴的线索录音。',
+ 'zh-Hant': '在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備全球版或中國大陸版《原神》、全球版或中國大陸版《崩壞：星穹鐵道》的基礎與章節配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版或中國大陸版《鳴潮》的台詞與配音。《原神》也會檢查一般遊戲熱更新；新資料無法核實時會保留原有資料表。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可從全球版發布資源及其相容更新取得對話場景、動態漫畫、訊息、提示和帶時間軸的線索錄音。'
 };
 const sourceLabels = {
  en: ['Text, voices and upstream projects', 'Game', 'Original audio distribution', 'Text sources, reader credits and coverage by game'],
@@ -35,6 +35,7 @@ const upstreamProjects = {
  zzz: ['HoYoverse / HoYoPlay', [
    ['Dimbreath/ZenlessData', 'https://git.mero.moe/dimbreath/ZenlessData', 'sceneTables'],
    ['simon300000/zenless-voice', 'https://github.com/simon300000/zenless-voice', 'sceneReader'],
+   ['Collapse metadata', 'https://github.com/CollapseLauncher/CollapseLauncher-ReleaseRepo', 'bootstrap'],
    ['Hiro420/ZZZ_TextMap', 'https://github.com/Hiro420/ZZZ_TextMap', 'schemaReference']]],
  endfield: ['GRYPHLINE / Hypergryph', [
    ['rmxlinux/EndfieldData', 'https://github.com/rmxlinux/EndfieldData', 'storyTables'],
@@ -60,6 +61,7 @@ const projectRoles = {
    movieAudio:'format data for reviewed movie audio',
    sceneTables:'required translations and scene tables for installed games',
    sceneReader:'required scene reader',
+   bootstrap:'public updater discovery parameters, read as data',
    storyTables:'required localization and story tables for installed games',
    voiceArchive:'required voice archive metadata',
    launcherFormat:'required publisher catalogue format',
@@ -73,7 +75,6 @@ const projectRoles = {
    mainlandText:'Chinese text for the mainland release, required by the regional export command',
    mainlandUpdater:'required for mainland updater checks',
    historical:'optional historical release index',
-   bootstrap:'public data for publisher hotfix discovery',
    schemaReference:'optional TextMap schema reference',
    readers:'Unreal archive readers',
    audio:'Audio decoding and conversion',
@@ -87,6 +88,7 @@ const projectRoles = {
    movieAudio:'formaatgegevens voor gecontroleerde filmaudio',
    sceneTables:'benodigde vertalingen en scènetabellen voor een geïnstalleerde game',
    sceneReader:'benodigde scènelezer',
+   bootstrap:'openbare parameters voor het vinden van updates, gelezen als gegevens',
    storyTables:'benodigde vertalingen en verhaaltabellen voor een geïnstalleerde game',
    voiceArchive:'benodigde metadata voor stemarchieven',
    launcherFormat:'benodigde formaatinformatie voor de uitgeverscatalogus',
@@ -100,7 +102,6 @@ const projectRoles = {
    mainlandText:'Chinese tekst voor de vastelandversie, nodig voor de regionale tekstexport',
    mainlandUpdater:'nodig voor controle van de Chinese vastelandupdater',
    historical:'optionele index van oude releases',
-   bootstrap:'openbare gegevens voor hotfixcontrole bij de uitgever',
    schemaReference:'optionele referentie voor het TextMap-schema',
    readers:'Readers voor Unreal-archieven',
    audio:'Audio decoderen en converteren',
@@ -114,6 +115,7 @@ const projectRoles = {
    movieAudio:'已核验影片音频的格式信息',
    sceneTables:'本地游戏读取所需的译文和场景表',
    sceneReader:'必需的场景读取器',
+   bootstrap:'以数据形式读取的公开更新发现参数',
    storyTables:'本地游戏读取所需的本地化和剧情表',
    voiceArchive:'读取配音包所需的格式信息',
    launcherFormat:'读取发行商目录所需的格式信息',
@@ -127,7 +129,6 @@ const projectRoles = {
    mainlandText:'中国大陆版文本导出命令所需的中文本地化数据',
    mainlandUpdater:'核对中国大陆版更新器所需',
    historical:'可选的历史版本索引',
-   bootstrap:'发行商热更新查询所需的公开数据',
    schemaReference:'可选的 TextMap 格式参考',
    readers:'Unreal 资源读取器',
    audio:'音频解码与转换',
@@ -141,6 +142,7 @@ const projectRoles = {
    movieAudio:'已核驗影片音訊的格式資訊',
    sceneTables:'讀取已安裝遊戲所需的譯文和場景表',
    sceneReader:'必要的場景讀取器',
+   bootstrap:'以資料形式讀取的公開更新探索參數',
    storyTables:'讀取已安裝遊戲所需的在地化和劇情表',
    voiceArchive:'讀取配音封存檔所需的格式資訊',
    launcherFormat:'讀取發行商目錄所需的格式資訊',
@@ -154,7 +156,6 @@ const projectRoles = {
    mainlandText:'中國大陸版文字匯出所需的中文在地化資料',
    mainlandUpdater:'核對中國大陸版更新程式所需',
    historical:'可選用的歷史版本索引',
-   bootstrap:'發行商熱更新查詢所需的公開資料',
    schemaReference:'可選用的 TextMap 格式參考',
    readers:'Unreal 資源讀取器',
    audio:'音訊解碼與轉換',
