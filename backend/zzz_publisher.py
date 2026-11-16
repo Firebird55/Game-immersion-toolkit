@@ -186,6 +186,8 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         presentation_owners = query('presentation-owners', blocks=presentation_blocks, catalogs=batches['catalog'],
                                     keys=plan['timelineKeys'], timelineConfigs=presentation_plan['timelineConfigs'],
                                     videoConfigs=presentation_plan['videoConfigs'])
+        progress('Reading original ZZZ film subtitle tracks and whole-voice event ownership')
+        cinema_timelines = stage_scenes(work, cache, files, presentation_owners['cinemaRanges'], extension='cinema-timelines')
         progress('Reading the released ZZZ scene ranges and their authored dialogue')
         comic_plan = plan['comics']
         comic_roots = comic_plan['ranges']
@@ -199,6 +201,7 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         directory = stage_scenes(work, cache, files, plan['voiceDirectory'], extension='voice-directory')
         coverage = query('catalogue', design=batches['design'], locales=sorted(locales), namespace=namespace,
                          blocks=blocks, comics=comics, voiceDirectory=directory,
+                         cinemaTimelines=cinema_timelines,
                          knownTimelineKeys=[owner['key'] for owner in presentation_owners['owners']])
         coverage['comic_paths'] = comic_plan['scenePaths']
         coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
@@ -206,6 +209,8 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         coverage['perform_presentations'] = plan['performPresentations']
         coverage['presentation_owners'] = presentation_owners['coverage']
         coverage['presentation_owners']['extra_config_references'] = presentation_plan['extraConfigs']
+        coverage['presentation_owners']['subtitle_audio_acquisition'] = 'partial-subtitle-tracks; original audio unresolved'
+        coverage['selected_cinema_timeline_bytes'] = sum(item['size'] for item in presentation_owners['cinemaRanges'])
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
         if 'hotfix' in build:
             coverage['auxiliary_update_resources'] = zzz_hotfix.silence_evidence(cache, build)

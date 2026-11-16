@@ -174,7 +174,7 @@ def prebuilt_node_reader(kind: str, *, layout=None) -> PrebuiltNodeReader:
 ZZZ_PREFIX = 'toolchains/zzz/'
 ZZZ_SCHEMA = 'toolkit-zzz-reader-v1'
 ZZZ_SCRIPTS = ('extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-catalog.mjs',
-               'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs', 'zzz-presentation-config.mjs', 'zzz-publisher-dialogue.mjs')
+               'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs', 'zzz-presentation-config.mjs', 'zzz-cinema-timeline.mjs', 'zzz-publisher-dialogue.mjs')
 ZZZ_DEPENDENCIES = {
     'ooz/package.json': '44a8f84d67fe48d832560bdb0d6d1b853092cb2b20dff5683fb7b904b4501be1',
     'ooz/index.js': '042a89949156d960ccb4ab67026edb35fd9f116b78852d44c7d92889685f4562',
@@ -206,10 +206,10 @@ class ZzzReader:
             raise _failure('ZZZ publisher preparation requires a private work directory.')
         _no_links(work)
         inputs = {'scene-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-input\.json',
-                  'comic-plan': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|presentation-config-plan|presentation-owners)-(?:input|output)\.json|\d+\.blk\.(?:comic-roots|presentation-roots|presentation-configs)|comic-plan-input\.json',
+                  'comic-plan': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|presentation-config-plan|presentation-owners)-(?:input|output)\.json|\d+\.blk\.(?:comic-roots|presentation-roots|presentation-configs|cinema-timelines)|comic-plan-input\.json',
                   'presentation-config-plan': r'(?:design-\d+|catalog-\d+)\.blk|scene-plan-(?:input|output)\.json|\d+\.blk\.presentation-roots|presentation-config-plan-input\.json',
                   'presentation-owners': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|presentation-config-plan)-(?:input|output)\.json|\d+\.blk\.(?:presentation-roots|presentation-configs)|presentation-owners-input\.json',
-                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|comic-plan|presentation-config-plan|presentation-owners)-(?:input|output)\.json|\d+\.blk\.(?:scenes|comics|comic-roots|voice-directory|presentation-roots|presentation-configs)|catalogue-input\.json'}
+                  'catalogue': r'(?:design-\d+|catalog-\d+)\.blk|(?:scene-plan|comic-plan|presentation-config-plan|presentation-owners)-(?:input|output)\.json|\d+\.blk\.(?:scenes|comics|comic-roots|voice-directory|presentation-roots|presentation-configs|cinema-timelines)|catalogue-input\.json'}
         if mode not in inputs:
             raise _failure('Unknown ZZZ publisher preparation operation.')
         for path in work.iterdir():

@@ -1,5 +1,59 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original film subtitle tracks in normal publisher preparation
+
+Reader revision 17 follows explicit `.playable` overrides from the selected
+original timeline owners. It acquires their exact current catalog ranges without
+an installed game or a per-film toolkit list. The current original configurations
+reference **408 distinct override paths**, of which **404** match the catalog;
+their bundled ranges total 1,436,125 bytes. The four absent paths remain missing,
+not unused or unvoiced. These configuration totals are not an active-presentation
+denominator.
+
+The owned Unity v21 reader follows actual TimelineAsset, GroupTrack,
+SubtitleTrack and SubtitleClip object pointers, checking reciprocal parents,
+the original subtitle language and the clip's timeline fields. Current cinema
+overrides store separate subtitle clips with bare TextMap identities, so the
+older installed cinematic reader's mandatory `CS_` prefix omits them. These
+authored display times do not establish speech cuts. A unique whole-film
+`Play_vo_` event on a completely understood timeline is retained as context
+ownership, never presented as an individual sentence recording. Multiple
+events, edited source offsets, external pointers and unsupported track layouts
+cannot supply that binding. A valid subtitle track remains readable when an
+adjacent track is unsupported; that timeline's audio remains unknown.
+
+The bounded original-source check read all 404 overrides. Separate typed subtitle
+tracks supplied 10,899 locale references and 1,961 distinct IDs: 2,729 English,
+2,758 Mandarin, 2,730 Japanese and 2,682 Korean references before duplicate and
+TextMap filtering. Selected original TextMaps supply the translations. Other
+inline-subtitle, parameterized audio, language/player-filtered and runtime
+prefab layouts remain explicitly unresolved. A lack of separate subtitle clips
+is not evidence that a film is silent or has no captions.
+
+Fresh normal Global English preparation completed in 145.516 seconds with
+**297,159 records**, adding **1,955** film captions. All 295,204 preceding record
+dictionaries remained identical, with no removals. New records are 1,544
+`unavailable` and 411 `unknown`; this change certifies no new voice playback or
+silence. Source ownership of 168 whole-film event names is positive evidence,
+but their original bank/media acquisition is still required before those
+captions can expose playable context audio.
+
+Two bounded bank-registry checks are finished negatives. The original native
+literal's `AudioResourceData.bytes` path is absent from the current catalog.
+The original built-in `resources.assets` metadata contains 48 typed TextAssets;
+all 48 exact names were checked and none supplies that registry. Only metadata
+and typed TextAsset name ranges were read, not the full asset or geometry. The
+selected English package tables contain 16,623 banks / 475,878,358 bytes; their
+payloads were not downloaded or searched as a substitute for source ownership.
+
+The app-local closed reader includes the new parser and allows its staged files
+through normal preparation. Synthetic fixtures cover all four dub namespaces,
+language isolation, ownership, external/cyclic structures, edited clips and
+multiple-event ambiguity. Mainland normal replay, original cinematic bank/media
+resolution, remaining layouts/current callers, four missing override paths,
+player variants and frozen actual-generation update/recovery acceptance keep
+#85 open. No publisher assets, native bytes, captions or recordings are shipped.
+
 ## November 16, 2026 · Original timeline and movie configuration ownership
 
 Reader revision 16 follows the original publisher's configuration root during

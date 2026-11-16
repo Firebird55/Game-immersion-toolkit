@@ -5,6 +5,7 @@ import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, sce
 import {comicVoicePairs, uniqueComicLinks} from './comic-links.mjs';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from './zzz-dialogue.mjs';
 import {AUTO_META_CONFIG_ASSET, autoPresentationConfig, typedPresentationObjects, presentationDictionary, timelineOwners} from './zzz-presentation-config.mjs';
+import {cinemaSubtitleTimeline, cinemaSubtitleLinks} from './zzz-cinema-timeline.mjs';
 
 const utf8 = new TextDecoder('utf-8', {fatal: true});
 const tags = {'zh-Hans':'', 'zh-Hant':'_CHT', en:'_EN', ja:'_JA', ko:'_KO', de:'_DE',
@@ -297,12 +298,16 @@ function presentationOwners(work, input, reader) {
   const all = timelineOwners(entries, [...new Set(entries.map(row => row.key).filter(Boolean))]);
   const paths = new Set(all.owners.flatMap(owner => Object.values(owner.paths)).filter(Boolean));
   const catalog = catalogRanges(work, input.catalogs, new Set([...paths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
-  return {owners:all.owners, videoKeys:videos.map(row => row.key), coverage:{...result.coverage,
+  const cinemaPaths = new Set(all.owners.flatMap(owner => [owner.paths.timelineResPath, owner.paths.timelineResPathFemale])
+    .filter(path => /\.playable$/i.test(path)));
+  const cinema = catalogRanges(work, input.catalogs, new Set([...cinemaPaths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
+  return {owners:all.owners, videoKeys:videos.map(row => row.key), cinemaRanges:cinema.ranges, coverage:{...result.coverage,
     timeline_configs:timelineConfigs, video_configs:videoConfigs, configured_timeline_records:entries.length,
     all_original_owners:all.owners.length,
     all_ambiguous_equal_priority_keys:all.coverage.ambiguous_equal_priority_keys,
     configured_video_keys:videos.length, authored_source_paths:paths.size,
     catalogue_matched_source_paths:catalog.matched.size,
+    cinema_override_paths:cinemaPaths.size, cinema_catalogue_matches:cinema.matched.size,
     subtitle_audio_acquisition:'not-implemented'}};
 }
 
@@ -447,6 +452,8 @@ function catalogue(work, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.scenes$/);
   if (input.comics.length) checkNames(input.comics, /^\d+\.blk\.comics$/);
+  const cinemaBlocks = input.cinemaTimelines || [];
+  if(cinemaBlocks.length)checkNames(cinemaBlocks, /^\d+\.blk\.cinema-timelines$/);
   const directoryBlocks = input.voiceDirectory || [];
   if (directoryBlocks.length) checkNames(directoryBlocks, /^\d+\.blk\.voice-directory$/);
   let directory = null;
@@ -481,6 +488,13 @@ function catalogue(work, input, reader) {
     for (const pair of comicVoicePairs(cab)) comicPairs.push(pair);
   }
   const comics = uniqueComicLinks(comicPairs).map(link => ({...link, dialogue_kind:'comic', channels:['cinematic']}));
+  const cinemaLinks = [], cinemaUnsupported = [];
+  let cinemaTimelines = 0;
+  for(const cab of sceneCabs(work, cinemaBlocks, reader)) {
+    const result = cinemaSubtitleTimeline(cab); cinemaTimelines++;
+    cinemaUnsupported.push(...result.unsupported);
+    cinemaLinks.push(...cinemaSubtitleLinks(result,input.namespace));
+  }
 
   const messages = tableStrings(tables.get(key(bindings[0])), [7, 3, 5, 12, 13, 15, 16]);
   const messageRows = [...messages];
@@ -501,7 +515,7 @@ function catalogue(work, input, reader) {
   const clips = clueIntervals(tableStrings(tables.get(key(bindings[2])), [1, 2, 3, 4, 5]), input.namespace);
   const tips = tipRows(tableStrings(tables.get(key(bindings[3])), [1, 11, 16, 14, 15, 3, 5, 6, 13],
     {vectors:[15], maxColumns:18}));
-  const all = [...scenes, ...comics, ...messageLinks.values(), ...ongoing, ...tips,
+  const all = [...scenes, ...comics, ...cinemaLinks, ...messageLinks.values(), ...ongoing, ...tips,
     ...clips.map(clip => ({...clip, dialogue_kind:'narration', voice_status:'unavailable', channels:['dialogue', 'cinematic']}))];
   const ids = new Set(all.map(link => link.text_id));
   writeFileSync(join(work, 'links.json'), JSON.stringify(all), {flag:'wx'});
@@ -523,6 +537,7 @@ function catalogue(work, input, reader) {
   }
   const knownTimelines = new Set(input.knownTimelineKeys || []);
   return {recorded_messages:recorded.messages.size, ambiguous_messages:recorded.unresolved,
+    cinema_timelines:cinemaTimelines, cinema_subtitle_references:cinemaLinks.length, unsupported_cinema_timelines:cinemaUnsupported,
     typed_timeline_callers:{keys:timelineKeys.size, original_owners:[...timelineKeys].filter(key => knownTimelines.has(key)).length,
       unresolved_keys:[...timelineKeys].filter(key => !knownTimelines.has(key)).sort(), current_use:'unclassified'},
     scene_records:links.length, comic_bindings:comics.length, ongoing_records:ongoing.length, tip_records:tips.length, clue_intervals:clips.length, unsupported_nodes:unsupported};
