@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 18
+LANGUAGE_INDEX_VERSION = 19
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -218,6 +218,7 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
                 'player_voice': gender or {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
                 'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
+                'text_capture_verified': row.get('text_capture_verified') is True,
                 'channels': row.get('channels', ['dialogue'])})
     return result
 
@@ -261,7 +262,7 @@ def authored_dialogues(catalog, *, radio_evidence=None):
         # An empty override is not proof that the presentation has no voice;
         # the runtime may use another event/default. Only text-only tables below
         # establish silence without a verified recording.
-        dialogs[identity] = {**row, 'voice_status': 'unknown',
+        dialogs[identity] = {**row, 'voice_status': 'unknown', 'text_capture_verified': True,
                              'dialogue_kind': 'conversation'}
     if hasattr(catalog, 'mission_predecessors'):
         for child, parent in catalog.mission_predecessors().items():
@@ -279,6 +280,7 @@ def authored_dialogues(catalog, *, radio_evidence=None):
             if identity in dialogs:
                 _unsupported()
             dialogs[identity] = {'dialogText': _text_ref(texts[identity]), 'audioOverride': voice,
+                                'text_capture_verified': True,
                                 'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
     return dialogs
 
@@ -331,7 +333,7 @@ def conversation_with_reactions(catalog, identity):
     if not isinstance(row.get('audioOverride', ''), str):
         _unsupported()
     actors, reactions, _ = _reaction_tables(catalog)
-    return {**row, 'dialogue_kind': 'conversation',
+    return {**row, 'dialogue_kind': 'conversation', 'text_capture_verified': True,
             **_reaction_fields(row, actors, reactions, allow_actor_id=False)}
 
 
@@ -411,6 +413,7 @@ def radio_dialogues(catalog, *, reaction_player=None, evidence=None):
                 reaction_actor = {**row, 'actorNameId': player_id if player_id in actors else ''}
             reaction = _reaction_fields(reaction_actor, actors, reactions, allow_actor_id=True)
             dialogs[identity] = {**row, 'dialogText': row['radioText'], 'dialogue_kind': 'radio',
+                'text_capture_verified': True,
                 'radio_group': group_id, 'previous_radio_id': previous,
                 'radio_text_only': complete_emotions and _radio_text_only(row, group_id, group, reactions, evidence,
                     performer_empty=reaction['radio_performer_known_empty']),
@@ -432,6 +435,7 @@ def narrative_dialogues(catalog, warnings):
 
     def add(identity, reference, kind, channel, status='unvoiced', voice=''):
         dialogs[identity] = {'dialogText': _text_ref(reference), 'dialogue_kind': kind,
+                            'text_capture_verified': True,
                             'channels': [channel], 'voice_status': status, 'audioOverride': voice}
 
     for name, field, kind, channel, status in (

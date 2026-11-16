@@ -1,5 +1,19 @@
 # Arknights: Endfield presentation audit
 
+## Current-content closing basis · November 16, 2026
+
+The [current subtitle acceptance inventory](endfield-current-subtitle-acceptance.md)
+reconciles the original 89 radio groups and 28 films against Global 1.6.4,
+resource revision `11775769-12`. All 134 residual radio rows have text in all
+five study selections: 121 general-reaction routes, nine confirmed unvoiced
+rows and four unresolved literal-`None` performers. Generic reactions remain
+separate from sentence audio. A fresh scan of all 5,561 current level scripts
+and 28 runtime string pools found no historical `fmv_` movie-call argument.
+The unfinished historical archive cuts are not current subtitle blockers by
+themselves. Reader revision 19 records authored-text provenance without
+reclassifying missing or unknown audio. Shared capture/export and the remaining
+current/regional acceptance gates are explicit in that report.
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

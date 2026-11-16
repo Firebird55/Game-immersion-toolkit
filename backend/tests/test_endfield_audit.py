@@ -57,6 +57,12 @@ def test_every_voice_state_requires_its_own_evidence():
         'endfield:empty_radio': 'unknown', 'endfield:DialogOptionTable:choice': 'unvoiced',
     }
     assert sum(row['audio'] is not None for row in rows) == 1
+    # Missing recordings do not invalidate these original authored captions or
+    # change their voice state. Unreferenced menu localization never enters.
+    assert all(row['text_capture_verified'] is True for row in rows)
+    arbitrary, = endfield.dialogue_records({'localization_only': {'dialogText': ref(9)}}, {},
+        {'en': {'9': 'An arbitrary localized menu value.'}}, 'en', {})
+    assert arbitrary['text_capture_verified'] is False
 
 
 def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
@@ -81,6 +87,8 @@ def test_radio_reaction_and_sentence_follow_current_tables_and_selected_dub():
     assert candidate['audio'] is None and candidate['radio_reaction_candidates'] == {name: reaction}
     assert candidate['radio_voice_actor'] == 'performer'
     assert candidate['radio_reaction_status'] == 'candidates_in_dub'
+    assert candidate['text_capture_verified'] is True
+    assert candidate['voice_status'] == 'unavailable'
     catalog.values['NpcInfoTable']['actor']['voActor'] = 'None'
     line['audioEvent'] = 'radio_noise'
     unmapped = record({}, {})

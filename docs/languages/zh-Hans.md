@@ -344,7 +344,7 @@ Both Chinese scripts share Mandarin voices. Choose any listed study language wit
 
 ## Arknights: Endfield
 
-[官方语言列表](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-09 · [覆盖范围说明](../endfield-languages.md)
+[官方语言列表](https://store.steampowered.com/app/4732690/Arknights_Endfield/) · 2026-11-16 · [覆盖范围说明](../endfield-languages.md)
 
 可从发行商准备全球版或中国大陆版剧情配音
 

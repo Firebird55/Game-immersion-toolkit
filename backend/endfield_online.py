@@ -144,6 +144,7 @@ def film_records(catalog, tables, locale):
                      'source_text': texts[locale], 'texts': texts, 'english': texts.get('en', ''),
                      'chinese': texts.get('zh-Hans', ''), 'audio_locale': audio_locale(locale),
                      'audio': audio, 'voice_status': 'voiced',
+                     'text_capture_verified': True,
                      'dialogue_kind': 'cinematic', 'channels': ['cinematic'],
                      'player_voice': 'female' if film.startswith('f_') else 'male' if film.startswith('m_') else None})
     return rows

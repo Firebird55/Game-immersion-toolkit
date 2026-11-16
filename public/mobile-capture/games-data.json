@@ -809,9 +809,9 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Released Global narrative tables and original voices can be prepared without a game installation. Timed film captions have separate revision coverage.",
-      "coverage": "The Windows reader retrieved original recordings directly from GRYPHLINE in all four dubs. There are 437 distinct film/caption pairs in 52 of 80 configurations. Verified intervals include both protagonist performances where applicable: 400 Mandarin, 404 English, 417 Japanese and 392 Korean. These film counts describe Global 1.6.4. Narrative tables and voice packages follow the current Global release. Installed packages remain available through the local reader.",
+      "coverage": "The Windows reader retrieves original recordings directly from the selected publisher in all four dubs. Global 1.6.4 resource 11775769-12 supplies 467 English, 483 Japanese, 459 Korean and 483 Mandarin film/scene clips per Chinese script choice, including both protagonist performances where applicable. The original 134 residual radio rows comprise 121 generic-reaction routes, nine confirmed unvoiced rows and four unresolved performers; a reaction is never substituted for a sentence recording. Historical test films are separate from current subtitle acceptance. Narrative tables and voice packages follow the selected publisher release. Installed packages remain available through the local reader.",
       "supportPolicy": "Choose the study language and official translation in Languages. The Global Windows publisher supplies the selected original tables and voices.",
-      "reviewedAt": "2026-11-09",
+      "reviewedAt": "2026-11-16",
       "officialAudio": [
         "en",
         "zh-Hans",

@@ -90,6 +90,7 @@ def test_endfield_radio_and_narration_use_their_explicit_text_and_voice_referenc
     assert rows['radio_one']['dialogText'] == {'id': -2}
     assert rows['radio_one']['radio_reaction_configured'] is None
     assert rows['black_one'] == {'dialogText': {'id': 3}, 'audioOverride': 'au_black_one',
+                                 'text_capture_verified': True,
                                  'dialogue_kind': 'narration', 'channels': ['cinematic', 'dialogue']}
 
 
