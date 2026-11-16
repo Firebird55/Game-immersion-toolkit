@@ -1,5 +1,63 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Film performances versus ordinary PlotAudio sources
+
+The 3.8.11 publisher table contains 311 movie captions whose text identity also
+occurs in PlotAudio. Only 23 of those captions enable `IsPlaySubtitleVoice`.
+The other 288 belong to 21 films and also occur in story-flow references.
+The released `VideoView` posts the subtitle-triggered external recording only
+when that flag is enabled. A false flag does not invalidate the ordinary
+PlotAudio recording: the film may instead contain the same performance in its
+separately authored track. A text-ID join and proof of the film performance are
+therefore different evidence.
+
+The November 16 comparison followed the six supported single-stream English
+event banks below to their original publisher WEMs. The first four scenes use
+separate voice events; the latter two use mixed soundtrack events. All six
+events use the shared scene variant. Each standalone sample came from its exact
+PlotAudio filename in the same selected English release, rather than from a
+gameplay recording or a voice mirror.
+
+| Film | Track duration | Standalone samples compared | Whole-sample correlation ≥ 0.4 | 0.19–0.4 | Below 0.19 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| C0001 | 193.490 s | 18 | 14 | 1 | 3 |
+| C0002 | 185.544 s | 16 | 15 | 0 | 1 |
+| C0003 | 99.473 s | 18 | 17 | 1 | 0 |
+| C0004 | 117.971 s | 8 | 6 | 1 | 1 |
+| M2_12_261 | 133.112 s | 10 | 10 | 0 | 0 |
+| M3_2_13 | 94.176 s | 4 | 3 | 0 | 1 |
+
+The comparison used 12-kHz mono PCM filtered at 280–4,500 Hz and normalized
+cross-correlation. There were 65 strong whole-sample comparisons, three weaker
+ones and six low results. The selected English caption windows were checked
+independently using the game's per-scene language fallback. These are waveform
+and source comparisons, not 65 verified full sentence-cut boundaries or a
+new automatic acceptance threshold. They do not establish other dubs, complex
+event graphs, gender-specific scene variants or the other 15 films.
+
+Low whole-sample correlation is not proof of a different or missing performance.
+For example, the existing ordered-section comparison recovers the six parts of
+`Huanglong_main_1_4_199_53` in order around 110.439–117.366 s in C0002, despite
+its low whole-sample score. In M3_2_13, `MAIN_YHX_53_4` is an active English
+caption at 34.000 s. An unprompted speech-recognition pass recovers matching
+wording in the standalone recording and estimates it around 33.760–38.940 s
+in the film. Those estimates establish neither complete spoken boundaries nor
+identical performance. This is not an example of an absent spoken sentence.
+
+All six low-result standalone files were also retrieved from the retained
+3.7.1 launcher snapshot's English base packages. Every file is byte-identical
+to its 3.8 base counterpart, and none has a corresponding override in the
+selected 3.7.6 or 3.8.6 English patch packages. This comparison supplies no
+evidence of an old film take being replaced by a new ordinary recording.
+
+No demonstrably wrong performance was established by this pass. The existing
+ordinary PlotAudio sources are retained; no broad capture veto, voice rollback,
+silence override or new film clip is introduced. Exact film performance and
+presentation-specific capture remain separate coverage work. The 17 unresolved
+spoken windows in M0234, C3jiyanfight and LYSZW remain open.
+[Selected publisher launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Publisher rolling configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+
 ## November 16, 2026 · The game's per-scene subtitle-clock fallback
 
 The current Global publisher source was inspected without installing or running
