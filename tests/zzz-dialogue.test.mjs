@@ -118,6 +118,17 @@ test('ambient reaction pools and breathing are not claimed as spoken sentences',
   assert.ok(rows.every(r => !r.source));
 });
 
+test('typed timeline call sites are inventoried without promoting their keys into captions or voices', () => {
+  const keys = new Set();
+  const rows = authoredDialogueFromCab(cab([
+    object('MainCityChatPlayTimelineNode', [text('TimelineKey', 'FutureTimeline')], 1),
+    object('TimelinePair', [text('TimelineKey', 'FutureOtherPlayer')], 2),
+    object('UnrelatedConfiguration', [text('TimelineKey', 'UnownedLookalike')], 3),
+  ]), {}, keys);
+  assert.deepEqual([...keys], ['FutureTimeline', 'FutureOtherPlayer']);
+  assert.deepEqual(rows, []);
+});
+
 test('truncated or unsupported recognized streams fail instead of returning partial dialogue', () => {
   const bytes = cab([object('GalPlayStoryNode', [text('dialogueKey', 'Synthetic'), text('externalVoiceKey', '')], 1)]);
   assert.throws(() => authoredDialogueFromCab(bytes.subarray(0, -30)), /Truncated|Unclosed/);

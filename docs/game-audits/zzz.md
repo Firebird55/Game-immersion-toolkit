@@ -1,5 +1,62 @@
 # Zenless Zone Zero dialogue audit
 
+## November 16, 2026 · Original timeline and movie configuration ownership
+
+Reader revision 16 follows the original publisher's configuration root during
+normal installation-free preparation. Static review of the authenticated native
+and metadata inputs identified the named `AUTO_META_CONFIG_PATH` resource
+constant, its owning importer, the `AssetPath` structure, and the serialized
+`NewAutoConfigMetaConfig` schema. The resource identity is a non-secret bootstrap
+identifier. The implementation contains format software, not native bytes,
+decryption material or a community snapshot of scene bindings.
+
+Preparation reads that newly selected root's variable reference arrays, then
+acquires its original timeline and localized-video configuration groups. It
+checks MonoScript ownership and consumes each typed Odin dictionary completely,
+including shared object references. New keys and new config groups do not need
+a per-scene toolkit list. Unknown serialization layouts and missing source
+groups fail instead of publishing a partial owner inventory. The installed
+runtime uses its app-local closed reader for these additional stages.
+
+The current Global root owns **42 timeline groups, 21 extra-data groups and one
+localized-video group**. All 64 reference hashes occur in the original catalog;
+the new normal preparation reads the 42 timeline groups and the video group.
+The extra-data references remain inventoried for further work. The 42 timeline
+dictionaries in fresh Global preparation contain 1,640 records, including an empty-key record that cannot
+match a configured scene. They establish original scene/audio paths and authored
+player overrides. Editor `ShowText`/`TextShowInfo` placeholders are not imported
+as subtitles, and a localized video path is not proof of a spoken language.
+
+Original signature-owned methods establish the conflict rule: configs sort by
+ascending `prorityOrder`, and the importer inserts only previously absent keys.
+The reader therefore selects the lowest order. Conflicting bindings with equal
+priority remain explicitly ambiguous because the original sort is unstable.
+No arbitrary first match or adjacent sentence supplies their audio. Catalogue
+membership of the selected paths is reported separately from subtitle/audio
+acquisition, which remains unimplemented for these newly discovered owners.
+
+Fresh Global English preparation produced 295,204 records in 181 seconds, with
+every existing record dictionary unchanged. Its current original configs safely
+resolve **862 of 903 configured timeline keys**; 37 remain unmatched and four
+have conflicting equal-priority bindings. All **25 distinct typed timeline keys**
+encountered in the normally selected stories have an original owner. The owner
+map has 1,600 resolved keys overall; 1,959 of its 1,990 distinct original path
+references occur in the selected catalog. These ownership/catalog checks are
+separate from subtitle and audio coverage.
+
+An independent fresh mainland-China Japanese preparation passed in 185 seconds:
+288,027 existing records remained identical. Its separately discovered publisher
+source produced the same owner/conflict totals and resolved all 25 typed caller
+keys. This verifies the new discovery path in both editions, not playback of the
+still-unacquired film/timeline audio.
+
+The ordinary dialogue reader also inventories typed timeline call sites in its
+selected stories and compares their keys with the original owner map. This is
+positive caller evidence, not proof that every configured/test scene is reachable
+in current gameplay. Original film/timeline subtitle joins, all spoken-locale
+audio retrieval, remaining owner keys, and the frozen two-generation update,
+retained-recording and interrupted-download acceptance still keep #85 open.
+
 ## November 16, 2026 · Previously omitted movie and timeline references
 
 Reader revision 15 keeps the original Perform presentation inventory in normal

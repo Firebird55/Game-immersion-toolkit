@@ -205,7 +205,7 @@ export async function prepareBlockedReader({ readerSource, readerLicense, archiv
     writeFileSync(join(stage, 'reader.mjs'), result.outputText);
     mkdirSync(join(stage, 'notices')); writeFileSync(join(stage, 'notices/upstream-reader-LICENSE'), license);
     writeFileSync(join(stage, 'notices/toolkit-LICENSE'), textBytes(join(ROOT, 'LICENSE')));
-    for (const name of ['extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs']) {
+    for (const name of ['extract_voice_links.mjs', 'extract_cinematic_links.mjs', 'scene-catalog.mjs', 'cinematic-links.mjs', 'comic-links.mjs', 'zzz-dialogue.mjs', 'zzz-presentation-config.mjs']) {
       const bytes = textBytes(join(ROOT, 'scripts', name)); sources['scripts/' + name] = sha256(bytes);
       const emitted = name.startsWith('extract_') ? immutableExtractor(name, bytes.toString('utf8')) : bytes;
       writeFileSync(join(stage, name), emitted);
