@@ -20,9 +20,12 @@ class EndfieldCaptionContext:
             self.scope = scope
         kind = kind or ('radio' if channel == 'dialogue' else 'cinematic')
         visible = [hit for hit in visible if hit is not None]
+        def eligible(hit):
+            return hit.voice_status == 'voiced' or (
+                getattr(index, 'capture_missing_audio', False) and hit.is_verified_missing_audio)
         mission_text = groups[0] if kind == 'conversation' and getattr(index, 'game', None) == 'endfield' and len(groups) == 1 else None
         matches = {hit.text_id: hit for hit in visible if hit.kind == 'exact'
-                   and hit.dialogue_kind == kind and hit.voice_status == 'voiced'}
+                   and hit.dialogue_kind == kind and eligible(hit)}
         resolved = {}
         for group in groups:
             hit = None
@@ -42,11 +45,11 @@ class EndfieldCaptionContext:
                 found = {}
                 for previous in self.possible:
                     choice = index.match_lines([group], exact_only=True, channel=channel, previous_text_id=previous)
-                    if choice and choice.dialogue_kind == kind and choice.voice_status == 'voiced':
+                    if choice and choice.dialogue_kind == kind and eligible(choice):
                         found[choice.text_id] = (choice, previous)
                 if len(found) == 1:
                     hit, self.anchor = next(iter(found.values()))
-            if hit and hit.dialogue_kind == kind and hit.voice_status == 'voiced':
+            if hit and hit.dialogue_kind == kind and eligible(hit):
                 resolved[hit.text_id] = hit
         matches.update(resolved)
         if not matches and not visible and mission_text and (possible := index.mission_anchor_ids(mission_text)):

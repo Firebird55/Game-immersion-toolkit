@@ -82,3 +82,51 @@ def test_confirmed_successor_anchors_next_caption_without_advancing_on_identical
     for now in (.9, 1, 1.1, 1.2):
         assert scan('Wait!', now).text_id == c
     assert scan('Now!', 1.3) is None
+
+
+@pytest.mark.parametrize('status', ['unknown', 'unavailable'])
+@pytest.mark.parametrize('anchor_missing', [False, True])
+def test_verified_missing_radio_uses_stable_authored_predecessor_without_borrowing_voice(tmp_path, status, anchor_missing):
+    first = {**film_row('endfield:radio:first', 'Keep watching the eastern gate.'),
+             'channels': ['dialogue'], 'dialogue_kind': 'radio', 'text_capture_verified': True}
+    if anchor_missing:
+        first.update(audio=None, voice_status='unavailable')
+    missing = {**film_row('endfield:radio:second', 'Roger.', first['text_id'], True),
+               'audio': None, 'voice_status': status, 'text_capture_verified': True,
+               'channels': ['dialogue'], 'dialogue_kind': 'radio'}
+    unrelated = {**film_row('endfield:unrelated', 'Roger.'),
+                 'channels': ['dialogue'], 'dialogue_kind': 'radio'}
+    path = tmp_path / 'textmap.json'
+    payload = {'format': 2, 'game': 'endfield', 'source_locale': 'en', 'records': [first, missing, unrelated]}
+    path.write_text(json.dumps(payload), encoding='utf-8')
+    index = MultilingualTextIndex('endfield', tmp_path)
+    index.capture_missing_audio = True
+    context = EndfieldCaptionContext()
+
+    def scan(text, now):
+        hit = index.match_lines([text], exact_only=True)
+        return context.observe(index, [text], [hit], channel='dialogue',
+            scope=(index._signature, index.capture_missing_audio), now=now, stable_frames=2)
+
+    assert index.match_text('Roger.') is None
+    assert scan(first['source_text'], 0) is None
+    assert scan('Roger.', .1) is None
+    scan(first['source_text'], .2)
+    scan(first['source_text'], .3)
+    hit = scan('Roger.', .4)
+    assert hit and hit.text_id == missing['text_id'] and hit.voice_status == status
+    assert hit.is_verified_missing_audio and hit.kind == 'exact'
+    assert scan('Roger.', .5).text_id == missing['text_id']
+    index.capture_missing_audio = False
+    assert scan('Roger.', .6) is None
+    index.capture_missing_audio = True
+    assert scan('Roger.', .7) is None
+    scan(first['source_text'], 1)
+    scan(first['source_text'], 1.1)
+    assert scan('Roger.', 5) is None
+    # An authored competing performance after the SAME predecessor remains
+    # ambiguous, rather than being silently downgraded to text-only capture.
+    unrelated['previous_text_id'] = first['text_id']
+    path.write_text(json.dumps(payload), encoding='utf-8')
+    assert index.load()
+    assert index.match_lines(['Roger.'], previous_text_id=first['text_id']) is None

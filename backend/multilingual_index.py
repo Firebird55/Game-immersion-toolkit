@@ -167,7 +167,7 @@ class MultilingualTextIndex:
                         for value in [text, *row.get('ocr_texts', {}).get(language, [])]:
                             key = normalize_text(display_text(value), language)
                             if key in eligible_missing_keys[language]:
-                                missing_audio_blockers.setdefault(row.get('player_voice'), {}).setdefault(language, set()).add(key)
+                                missing_audio_blockers.setdefault(row.get('player_voice'), {}).setdefault(language, {}).setdefault(key, set()).add(row.get('previous_text_id'))
                 if missing_audio:
                     # Keep unverified and unresolved duplicates in this lookup
                     # as vetoes. Their spelling cannot certify another row.
@@ -282,7 +282,8 @@ class MultilingualTextIndex:
                 if self.capture_missing_audio:
                     lookups += [(locale, values, True) for locale, values in self._missing_audio_lookup.items()]
                 for locale, lookup, silent in lookups:
-                    if previous_text_id and (locale != self.source_locale or silent):
+                    missing_lookup = lookup is self._missing_audio_lookup.get(locale)
+                    if previous_text_id and (locale != self.source_locale or silent and not missing_lookup):
                         continue
                     key, score = normalize_text(source, locale), 100.
                     if self.game in {'starrail', 'genshin', 'endfield'}:
@@ -290,7 +291,6 @@ class MultilingualTextIndex:
                         # including movies without per-caption voice bindings.
                         # Their spelling alone cannot identify a performance.
                         minimum = 5 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', key) else 12
-                        missing_lookup = lookup is self._missing_audio_lookup.get(locale)
                         if len(key) < minimum and not previous_text_id and not missing_lookup:
                             continue
                     rows, matched_keys = lookup.get(key, []), {key}
@@ -308,6 +308,8 @@ class MultilingualTextIndex:
                             matched_keys = {matches[0][0]}
                         elif matches:
                             ambiguous.append(source)
+                    if previous_text_id:
+                        rows = [r for r in rows if r.get('previous_text_id') in predecessors]
                     if not silent and rows and (
                             any(self._vetoed(key, locale) for key in matched_keys)
                             or any(normalize_text(source, observed_locale) in observed
@@ -324,9 +326,7 @@ class MultilingualTextIndex:
                     # observed caption leaves more than one variant possible.
                     if self.game != 'zzz' or len(rows) > 1:
                         rows = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
-                    if previous_text_id:
-                        rows = [r for r in rows if r.get('previous_text_id') in predecessors]
-                    elif any(row.get('requires_previous') for row in rows):
+                    if not previous_text_id and any(row.get('requires_previous') for row in rows):
                         ambiguous.append(source)
                         continue
                     if any(row['voice_status'] in {'unknown', 'unavailable'} for row in rows):
@@ -337,7 +337,10 @@ class MultilingualTextIndex:
                                      [values for player, values in self._missing_audio_blockers.items() if player])
                         if (key != complete or any(not row.get('text_capture_verified')
                                 or row.get('text_binding_unresolved') for row in rows)
-                                or any(key in values.get(locale, ()) for values in blockers)):
+                                or any((bool(conflicts) if not previous_text_id else
+                                        bool(predecessors.intersection(conflicts)))
+                                       for values in blockers
+                                       for conflicts in [values.get(locale, {}).get(key, set())])):
                             ambiguous.append(source)
                             continue
                     # Silent prompts can repeat in different scenes with different

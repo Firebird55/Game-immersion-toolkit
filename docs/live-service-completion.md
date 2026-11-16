@@ -19,6 +19,11 @@ existing per-game coverage gates; this control applies to desktop capture.
 The paired-PC transport's existing length cap is explicit: a shortened subtitle
 cannot retain complete-caption evidence or be saved as a full sentence on the
 phone; its full original remains readable and exportable on the PC.
+Endfield can also preserve a short verified text-only radio successor after a
+stable, immediately preceding authored caption. The same source-language,
+player, session/window and timeout restrictions apply as for original voices;
+changing the capture control resets this evidence. A competing performance
+after the same predecessor remains ambiguous. This does not infer a recording.
 
 ## Fixed audit bases
 
