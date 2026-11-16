@@ -1,5 +1,52 @@
 # Genshin Impact narrative audit
 
+## Original TextMap utility · November 16, 2026
+
+The experimental [original TextMap reader](../../backend/genshin_original_textmap.py)
+can decode original subtitle/localization tables independently of mirror rows.
+Its bounded native-template parser derives count and string parameters from a
+caller-provided, authenticated x64 reader method. It recognizes the inspected
+arithmetic forms without a game-version, address or parameter allowlist. It has
+no disassembler/runtime dependency and never executes publisher code. The caller
+still owns package authentication, native metadata/bootstrap, method ownership,
+shard discovery and regional identity. A hash identifies an input; it does not
+authenticate the publisher.
+
+The original Global 7.2 design index identifies all 1,024 text shards for each of
+15 official text locales. The native manager selects the low ten hash bits,
+iterates 1,024 shards and chooses the Medium prefix through bucket 511 and the
+ordinary prefix thereafter. The complete English preparation read 33 official
+packages (64,425,132 bytes), with every publisher MD5 verified, and decoded
+619,152 ordinary plus 235,449 Medium entries. Every shard passed strict EOF,
+UTF-8, bucket, duplicate and alias-reference checks. Only after the original
+parse, comparison with the frozen matching extraction found all 854,601 entries
+identical. These localization totals are not a story-coverage denominator.
+
+Both original native reader methods independently yielded the same parameters.
+A fresh offline process reread all 1,024 shards with network access, the older
+fixed-parameter parser, mirror rows and precomputed parameter values forbidden.
+It made no prohibited access and produced byte-identical outputs with unchanged
+software and helper hashes. This is current-generation parsing evidence, not
+the two-generation normal-update acceptance trial.
+
+The utility merges complete shard sets, resolves bounded aliases, rejects
+ambiguous/malformed input and atomically publishes a separate text cache only
+after complete validation. Owned tests cover changed native parameters and IDs,
+Unicode/markup preservation, aliases across shards, duplicate/cyclic/missing
+references, truncation, input limits, interrupted publication and restart/retry.
+No real texts, native bytes or game parameters are included in those fixtures.
+
+Normal Setup still uses its matching text extraction. This utility does not
+activate a language, invent a Talk/voice join or change capture eligibility.
+Original Talk/Voice/Excel linkage, all-locale parsing, automatic native bootstrap
+and method discovery, and normal-worker update/recovery acceptance remain open.
+The original `Config_TextMap` object itself was decoded completely, but its
+cache/partition settings do not resolve those remaining binding questions.
+
+[Original Global design index](https://autopatchhk.yuanshen.com/client_design_data/7.2_live/output_49419538_604495f667/client/General/AssetBundles/data_versions)
+· [Frozen matching extraction used only after parsing](https://gitlab.com/Dimbreath/animegamedata2/-/tree/a311cd77d7dafbd2bedc7d3cac4e986c6125b586)
+· [Owned format tests](../../backend/tests/test_genshin_original_textmap.py)
+
 ## Active regional hotfixes without an installation · November 16, 2026
 
 Normal publisher preparation now checks the selected Global or mainland China
