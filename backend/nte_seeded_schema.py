@@ -27,6 +27,11 @@ class SeededSchemaResult(NativeSchemaResult):
     callbacks: tuple[CallbackEvidence, ...]
 
 
+@dataclass(frozen=True)
+class RefreshedSchemaResult(SeededSchemaResult):
+    refreshed: tuple[str, ...]
+
+
 def _seed_shapes(body, names, start, count):
     reader, rows = _Reader(body), []
     reader.position = start
@@ -134,6 +139,21 @@ def append_seeded_native_types(seed_usmap: bytes, client_pe: bytes) -> SeededSch
     A changed seeded shape cannot be a witness. Unwitnessed/conflicting callback
     identities exclude the affected new type rather than inventing a target.
     """
+    return _recover(seed_usmap, client_pe, refresh=False)
+
+
+def refresh_seeded_native_types(seed_usmap: bytes, client_pe: bytes) -> RefreshedSchemaResult:
+    """Build a new candidate, replacing only fully resolved current definitions.
+
+    The original seed is immutable. Changed types cannot witness their own new
+    layout, and unresolved known types are explicitly reported. Enum values and
+    definitions absent from the native structure table still need validation.
+    This experimental candidate is not a production preparation contract.
+    """
+    return _recover(seed_usmap, client_pe, refresh=True)
+
+
+def _recover(seed_usmap, client_pe, *, refresh):
     body, names, name_end, struct_offset, struct_start, count, known = _seed(seed_usmap)
     seed = _seed_shapes(body, names, struct_start, count)
     targets = {'struct': set(seed), 'enum': _enum_names(body, names, name_end, struct_offset)}
@@ -190,12 +210,18 @@ def append_seeded_native_types(seed_usmap: bytes, client_pe: bytes) -> SeededSch
         kind, children, mode, callback = node
         return kind, tuple(resolve(child) for child in children), target(mode, callback) if mode else None
 
-    additions = []
+    additions, replacements = [], {}
+
+    def comparable(node):
+        kind, children, resolved_target = node
+        parts = (kind,) + tuple(comparable(child) for child in children)
+        return parts + (resolved_target,) if kind in (9, 26) else parts
+
     for name, parent, ops, flags, _ in native:
-        if name in known:
+        if name in known and not refresh:
             continue
         reasons = set(excluded.get(name, ()))
-        if name.casefold() in known_identities:
+        if name not in known and name.casefold() in known_identities:
             reasons.add('seed_name_case_conflict')
         if duplicates[name.casefold()] != 1:
             reasons.add('duplicate_native_name')
@@ -211,11 +237,28 @@ def append_seeded_native_types(seed_usmap: bytes, client_pe: bytes) -> SeededSch
             reasons.add(str(error))
         if reasons:
             excluded[name] = reasons
+        elif name in known:
+            retained = seed.get(name)
+            if retained is None:
+                excluded[name] = {'duplicate_seed_name'}
+                continue
+            position, current_fields = 0, []
+            for field_name, dimension, node in resolved:
+                current_fields.append((position, field_name, dimension, comparable(node)))
+                position += dimension
+            # FName spelling alone does not change the unversioned wire layout.
+            # Each current field is already unique under FName comparison.
+            old_fields = [(i, n.casefold(), d, t) for i, n, d, t in retained[3]]
+            new_fields = [(i, n.casefold(), d, t) for i, n, d, t in current_fields]
+            if (super_name, position, new_fields) != (retained[1], retained[2], old_fields):
+                replacements[name] = (name, super_name, resolved)
         else:
             additions.append((name, super_name, resolved))
-    exclusions = tuple(Exclusion(name, tuple(sorted(reasons))) for name, reasons in sorted(excluded.items()) if name not in known)
+    exclusions = tuple(Exclusion(name, tuple(sorted(reasons))) for name, reasons in sorted(excluded.items()) if refresh or name not in known)
     metadata = (hashlib.sha256(seed_usmap).hexdigest(), hashlib.sha256(client_pe).hexdigest())
-    if not additions:
+    if not additions and not replacements:
+        if refresh:
+            return RefreshedSchemaResult(seed_usmap, *metadata, (), exclusions, len(native), matched, evidence, ())
         return SeededSchemaResult(seed_usmap, *metadata, (), exclusions, len(native), matched, evidence)
     _check(count + len(additions) <= MAX_TYPES)
     additions.sort(key=lambda row: row[0])
@@ -239,15 +282,47 @@ def append_seeded_native_types(seed_usmap: bytes, client_pe: bytes) -> SeededSch
         data = bytes([kind]) + b''.join(wire(child) for child in children)
         return data + named(resolved_target) if kind in (9, 26) else data
 
-    for name, super_name, fields in additions:
-        appended.extend(named(name) + named(super_name) + struct.pack('<HH', sum(row[1] for row in fields), len(fields)))
+    def record(row):
+        name, super_name, fields = row
+        data = bytearray(named(name) + named(super_name) + struct.pack('<HH', sum(row[1] for row in fields), len(fields)))
         position = 0
         for field_name, dimension, shape in fields:
-            appended.extend(struct.pack('<HB', position, dimension) + named(field_name) + wire(shape))
+            data.extend(struct.pack('<HB', position, dimension) + named(field_name) + wire(shape))
             position += dimension
-            _check(len(appended) <= MAX_SEED)
-    _check(len(body) + len(new_names) + len(appended) + 16 <= MAX_SEED)
+            _check(len(data) <= MAX_SEED)
+        return data
+
+    retained = bytearray()
+    reader = _Reader(body)
+    reader.position = struct_start
+
+    def skip_wire():
+        kind = reader.number('B')
+        if kind == 26:
+            skip_wire(); reader.take(4)
+        elif kind == 9:
+            reader.take(4)
+        elif kind in (8, 25, 28):
+            skip_wire()
+        elif kind == 24:
+            skip_wire(); skip_wire()
+
+    for _ in range(count):
+        begin = reader.position
+        name = names[reader.number('i')]
+        reader.take(6)  # Parent and total slot count.
+        length = reader.number('H')
+        for _ in range(length):
+            reader.take(7)
+            skip_wire()
+        retained.extend(record(replacements[name]) if name in replacements else body[begin:reader.position])
+    for row in additions:
+        appended.extend(record(row))
+    _check(struct_start + len(new_names) + len(retained) + len(appended) + 16 <= MAX_SEED)
     expanded = (struct.pack('<I', len(names)) + body[4:name_end] + new_names + body[name_end:struct_offset]
-                + struct.pack('<I', count + len(additions)) + body[struct_start:] + appended)
+                + struct.pack('<I', count + len(additions)) + retained + appended)
     result = struct.pack('<HBIBII', 0x30c4, 4, 0, 0, len(expanded), len(expanded)) + expanded
+    if refresh:
+        return RefreshedSchemaResult(result, *metadata, tuple(row[0] for row in additions), exclusions,
+                                     len(native), matched, evidence, tuple(sorted(replacements)))
     return SeededSchemaResult(result, *metadata, tuple(row[0] for row in additions), exclusions, len(native), matched, evidence)

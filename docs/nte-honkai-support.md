@@ -72,8 +72,11 @@ Recovery of new type definitions directly from official clients remains an
 isolated experiment and does not yet replace the current metadata source.
 Its [seeded constructor variant](game-audits/nte.md#retained-schema-constructor-joins)
 can reuse independently witnessed current-client callback identities for new
-inherited/nested types and typed enums; unresolved identities and changes to
-existing definitions remain outside that append-only experiment.
+inherited/nested types and typed enums. A separate immutable candidate lifecycle
+also refreshes fully resolved existing definitions, with explicit unresolved
+layouts and frozen parameter identities. Enum member changes and complete
+normal-worker update/recovery acceptance remain open; Setup does not adopt these
+candidates.
 Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.

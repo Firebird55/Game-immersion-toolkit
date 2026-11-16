@@ -105,6 +105,43 @@ def test_one_owner_or_repeated_occurrence_cannot_certify_constructor_identity():
     assert any('unwitnessed_native_constructor' in row.reasons for row in result.excluded)
 
 
+def refresh_fixture():
+    original, client, _, changed = fixture()
+    rows = [(name, parent, [(n, d, shape) for _, n, d, shape in fields])
+            for name, parent, _, fields in shapes(original).values()]
+    rows.append(('NewCaption', 'Base', [('Positions', 1, (8, (9, 'Vector')))]))
+    return seed(rows), client, changed
+
+
+def test_refresh_replaces_changed_known_layout_only_in_new_candidate():
+    original, client, _ = refresh_fixture()
+    result = seeded.refresh_seeded_native_types(original, client.bytes())
+    assert result.refreshed == ('NewCaption',) and not result.appended
+    assert len(shapes(original)['NewCaption'][3]) == 1
+    assert len(shapes(result.data)['NewCaption'][3]) == 2
+    assert shapes(result.data)['Existing0'] == shapes(original)['Existing0']
+    assert seeded.append_seeded_native_types(original, client.bytes()).data == original
+
+
+def test_unresolved_changed_known_layout_is_explicit_and_cannot_replace_seed():
+    original, client, changed = refresh_fixture()
+    callback(client, changed, 2, client.code + 64)
+    result = seeded.refresh_seeded_native_types(original, client.bytes())
+    assert result.data == original and not result.refreshed
+    assert any(row.name == 'NewCaption' and 'unwitnessed_native_constructor' in row.reasons
+               for row in result.excluded)
+
+
+def test_changed_type_does_not_certify_its_own_added_callback():
+    original, client, _ = refresh_fixture()
+    # Only one unchanged witness remains after removing the other one's name.
+    retained = [(name, parent, [(n, d, shape) for _, n, d, shape in fields])
+                for name, parent, _, fields in shapes(original).values() if name != 'Existing1']
+    result = seeded.refresh_seeded_native_types(seed(retained), client.bytes())
+    assert not result.refreshed and not result.callbacks
+    assert any(row.name == 'NewCaption' for row in result.excluded)
+
+
 @pytest.mark.parametrize('drift', [
     lambda fields: [('RenamedPosition', *fields[0][1:]), fields[1]],
     lambda fields: [('Position', 2, fields[0][2]), fields[1]],

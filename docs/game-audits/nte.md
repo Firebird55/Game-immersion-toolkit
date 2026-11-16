@@ -624,12 +624,62 @@ NTE/asset/language tests passed**, including **55 owned native-schema cases**.
 This is
 metadata/authoring evidence, not a new narrative or playback coverage count.
 
-This API is not called by Setup. It does not refresh changed existing seed
+This append-only API is not called by Setup. It does not refresh changed existing seed
 definitions, discover new enum names/values, obtain archive/localization keys,
 resolve every newly introduced callback, or prove an autonomous preparation,
 activation or recovery lifecycle. Those remain required before normal publisher
 preparation can adopt generated metadata. No game data, client bytes or generated
 mapping is committed.
+
+#### Immutable native metadata candidates
+
+A separate `refresh_seeded_native_types` entry point can rebuild a fully
+resolved existing definition inside a **new candidate**. Only unchanged exact
+seed/native definitions may witness callbacks; a changed type cannot certify
+its own added field. All current fields, dimensions, primitive/container wire
+shapes and named parent/struct/enum targets must resolve before replacement.
+FName-only spelling differences with the same unique fields and wire layout
+do not cause replacement. Unresolved existing layouts are reported explicitly,
+instead of silently treating the old definition as current. The retained seed,
+historical metadata and recordings are never rewritten.
+
+The same original 1.4.9 and 1.5.4 clients with the same fixed 1.4 seed produce
+**zero** and **42** refreshed existing definitions respectively, alongside the
+previous one and 300 additions. All **342** current additions/replacements agree
+with the independent held-out current mapping on parent, slot, dimension and
+wire shapes: 280 have exact field spelling and 62 differ only in FName casing.
+The unchanged managed reader again produces equal parsed values for all four
+current original authoring exports. Of 136 obvious existing field-list or
+parent-presence changes, **94** remain unresolved. The candidate also reports
+other unsupported/unverified retained types; 42 refreshed types do not imply
+complete schema coverage.
+
+`backend/nte_native_metadata.py` adds an isolated lifecycle for these candidates.
+It preserves the **complete** original resource inventory, including executable
+and library descriptors outside the content root. Source candidates use PE file
+suffixes; there is no executable-name, game-path or version allowlist. Available
+sources require complete publisher file size and MD5 verification before PE
+parsing, and exactly one structurally witnessed positive source. Sources not
+inspected remain listed explicitly. Native source downloads, when requested,
+use the publisher's exact original file/package range and whole-file checksum.
+This is bounded data parsing, with no client execution or hooks.
+
+Each generation has immutable original-manifest, native-file, fixed-seed,
+generator, reader, updater-format, archive-parameter and localization-parameter
+identities. Its schema, receipt and complete inventory become visible together
+after atomic directory publication. Reopening a retained generation requires
+neither discovery nor networking; no latest/current pointer is written. Owned
+tests cover renamed/relocated and packaged sources, ambiguity, checksum failures,
+interruption/retry, corrupt retained output and preservation of old generations.
+There are **69 targeted native-schema/lifecycle tests** at this stage.
+
+This candidate API remains outside normal Setup and publisher preparation.
+Enum member discovery, unresolved existing/new layouts, original derivation of
+rotated archive/localization parameters, a complete native-source selection
+contract, and full normal-worker record/audio/update/recovery evidence remain
+required. The live original manifests distinguish Global **1.5.4** from mainland
+**1.5.6**, with different client hashes; Global native evidence is not mainland
+proof. Candidates are explicitly marked ineligible for production activation.
 
 ### Remaining acceptance
 
