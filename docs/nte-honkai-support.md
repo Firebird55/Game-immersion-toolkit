@@ -43,7 +43,11 @@ dialogue layout. Neither game has an extra chatter/cinematic OCR channel yet.
 The matcher requires an exact supported subtitle and a verified voice mapping;
 unmapped text, response choices, and newer unsupported chapters are skipped.
 
-In **Capture setup**, select **Zero voice** for NTE movies with player variants.
+In **Capture setup**, select **Zero voice** for NTE dialogue and movies with
+protagonist variants. Fixed female/male branches use their authored bank media;
+an unconfigured choice does not select a default. Missing media in the other
+branch does not block the configured branch. A caption also used by an unresolved
+conversation or choice remains ambiguous until its context is verified.
 There is no automatic/default gender choice. Fixed voices still capture without
 this selection. For a centered 16:9 game picture inside a taller or wider window,
 choose **Game picture area → Centered 16:9 picture inside black bars**. Leave
