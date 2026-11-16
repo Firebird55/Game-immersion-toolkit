@@ -76,7 +76,8 @@ internal static class NteReader
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
                     var cue = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "CUE4Parse");
                     var events = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                    ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true);
+                    ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true,
+                        expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString());
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
                 }
                 else if (args[0] == "inventory")
@@ -201,12 +202,13 @@ internal static class NteReader
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
-        HashSet<string> voiceEvents, bool readMovies = false)
+        HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null)
     {
+        expectedSchema ??= "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58";
         var profile = Path.Combine(destination, "dialogue.usmap");
-        if (new FileInfo(profile).Length > 8 * 1024 * 1024 ||
+        if (!Regex.IsMatch(expectedSchema, "\\A[0-9a-fA-F]{64}\\z") || new FileInfo(profile).Length > 8 * 1024 * 1024 ||
             !Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(profile))).Equals(
-                "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58", StringComparison.OrdinalIgnoreCase))
+                expectedSchema, StringComparison.OrdinalIgnoreCase))
             throw new UnsupportedGameFormatException();
         var type = cue.GetType("CUE4Parse.MappingsProvider.Usmap.FileUsmapTypeMappingsProvider", true)!;
         provider.GetType().GetProperty("MappingsContainer")!.SetValue(provider, Activator.CreateInstance(type, [profile, StringComparer.Ordinal]));

@@ -1,5 +1,102 @@
 # Neverness to Everness audit
 
+## Publisher Setup and immutable voice snapshots
+
+Checked November 16, 2026. The Windows publisher route now connects the ordinary
+language-preparation adapter and voice service to original regional resources,
+without an installed game. Setup offers Global and mainland China alongside
+the installed fallback. Text availability follows the selected edition; a
+missing study-text language produces an actionable state rather than borrowing
+another region's localization.
+
+`backend/nte_publisher.py` records one immutable snapshot containing the selected
+branch, release, resource/section identities, reader identity and exact archive,
+localization and type-metadata revisions. All PAK locations are inventoried,
+including patch deletions. Numeric `_P` precedence follows the referenced
+Unreal/CUE rule; equal-priority overlapping claims fail rather than choosing a
+filename. The current global import context and all nonempty checked IoStore
+indexes are registered, including containers holding dependencies outside the
+table directories. Package bytes are downloaded only when needed.
+[Read-order reference](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/UE4/VirtualFileSystem/AbstractVfsReader.cs)
+
+The pipeline reads original localization, dialogue aliases, sequence clocks,
+both movie tables, SRT cues and the selected dub's event banks. Translation rows
+must match the source namespace, key and source hash. Stale rows are excluded;
+missing and partial translations are reported. Media selection uses authored
+bank events, language IDs and numeric Wwise sources. Unresolved or ambiguous
+performances stay unavailable. Ordinary preparation does not download all WEMs;
+playback retrieves the requested original from that immutable snapshot.
+
+### Current regional preparation and playback
+
+The source-development Windows adapter prepared Global **1.5.4** and mainland
+**1.5.6** through the normal route. The following inventories include UI strings and cinematic/player
+variants; they are not chapter totals or completion percentages. The playback
+column describes the independently checked Blackbird sample, not playback of
+every indexed recording.
+
+| Edition / study and original dub | Prepared records | Resolved voice records | Sample WEM bytes | Voice-service playback after offline restart |
+| --- | ---: | ---: | ---: | --- |
+| Global / English | 122,386 | 19,398 | 22,148 | Passed |
+| Global / Japanese | 122,366 | 19,308 | 43,538 | Passed |
+| Global / Korean | 122,305 | 19,323 | 23,066 | Passed |
+| Global / Simplified Chinese and Mandarin | 122,364 | 19,540 | 15,472 | Passed |
+| Mainland / Simplified Chinese and Mandarin | 122,381 | 19,540 | 15,472 | Passed |
+
+The WEM hashes match the independently checked original recordings below. The
+ordinary voice service produced MP3 audio, reopened the prepared snapshot with
+publisher networking prohibited and produced identical decoded PCM. Mandarin
+preparation transferred 30,670,848 additional publisher range bytes against an
+already partly warmed shared metadata cache; that is not a cold-install cost.
+An earlier English run took 488 seconds. Batching small compressed banks reduced
+the subsequent warmed English preparation to 197 seconds, with no publisher
+range transfers. These timings use the development machine and different cache
+states; they do not isolate a controlled performance benchmark.
+
+The mainland preparation began with an empty publisher-resource cache and
+already prepared reader tools. It read 28,973 Chinese event banks and reported
+the requested English translation as unavailable. The selected mainland
+localization resources supply Chinese study text; the route does not substitute
+Global English text into that different generation. Other mainland study-text
+languages remain edition-dependent. Earlier four-dub mainland acquisition
+probes below are separate from this normal Chinese-study playback check.
+
+### Type-data updates and retained history
+
+Publisher preparation selects compatible public type data from the immutable
+commit of the [NTE-usmap index](https://github.com/555me/NTE-usmap/blob/1b92d5267092dac6bcfec605bcaf6ae05b664746/index.json),
+instead of requiring the installed reader's fixed 1.4 profile. The current run
+used `mapping/HT-1.5-153.usmap`, SHA-256
+`b198e62ad29a1f6d2141797edfcef2cfa6c832bdf07d82df1f96a98e62144120`.
+The helper checks the selected type-data digest before parsing. Community index
+entries cannot choose arbitrary repositories: the reader derives the
+immutable URL from the allowlisted repository and path. This consumes data only.
+New compatible mappings can be adopted without a toolkit release. Historical
+snapshots retain their exact metadata and never substitute the latest profile.
+
+Shared publisher HTTP handling revalidates metadata with conditional requests
+when validators are available. Preparation rechecks the complete selected
+regional discovery before returning an index. A changed release or edition
+fails before activation. The existing preparation manager owns staging and
+atomic activation; saved indices and historical originals keep their source
+identities. Synthetic regressions cover an actual changed text/voice fixture,
+stale translations, mid-preparation changes, historical playback without current
+discovery, conflicting overlays and partial batch decompression.
+
+### Remaining acceptance
+
+The three voiced `DeadNumber` movie aliases still need an authored StringTable
+ownership binding. Complete chapters, conditional/bark/phone/comic presentations,
+all cue windows, real upstream-only update adoption, download-cost/resume/metered
+behavior and each claimed native host remain open in #88. The live Windows
+source flow and separate compiler-free authored-helper checks are distinct
+evidence; neither proves full frozen-image, Linux, macOS or Android acceptance.
+No release is made as part of this change.
+
+The dated acquisition stages below retain the evidence and limits of each
+earlier implementation stage. Their former Setup gaps are superseded only by
+the specific current preparation/playback results above.
+
 ## November 16, 2026 · Verified regional archive metadata
 
 The former GitHub-issue provider currently returns no usable archive entry.

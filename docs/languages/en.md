@@ -71,11 +71,11 @@ Windows Setup can prepare dialogue from Kuro Games' Global release without a gam
 
 ## Neverness to Everness
 
-[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-10-25 · [Coverage notes](../nte-languages.md)
+[Official language listing](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-16 · [Coverage notes](../nte-languages.md)
 
-Installed game in Setup. Separate Global and mainland publisher file checks.
+Publisher Setup for the selected edition's available text and original voices
 
-Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.
+Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.
 
 <details>
 <summary>Language details</summary>

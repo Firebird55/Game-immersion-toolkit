@@ -109,6 +109,24 @@ def test_private_format_metadata_is_separate_from_missing_native_runtime(tmp_pat
     assert len(prepared) == 1
 
 
+def test_nte_publisher_requires_both_managed_tables_and_package_decoding_without_sdk_discovery(tmp_path, monkeypatch):
+    from backend import nte_toolchain, wuthering_release_pak
+    layout = included_runtime(tmp_path, monkeypatch)
+    monkeypatch.setattr(nte_toolchain, 'resolve', lambda: object())
+    monkeypatch.setattr(wuthering_release_pak, '_ooz_runtime', lambda: (layout.resource_root / 'node', layout.resource_root / 'ooz'))
+    monkeypatch.setattr(game_tools.shutil, 'which', lambda *_: pytest.fail('Bundled Setup searched for developer tools'))
+    assert game_tools.missing_tools(layout.application_root, 'nte', publisher=True) == []
+    game_tools.prepare_tools(layout.application_root, 'nte', publisher=True)
+    def absent():
+        raise PreparationFailure('bundle_toolchain_unavailable', 'Missing package decoder')
+    monkeypatch.setattr(wuthering_release_pak, '_ooz_runtime', absent)
+    assert game_tools.missing_tools(layout.application_root, 'nte', publisher=True) == ['Publisher package decoder']
+    with pytest.raises(PreparationFailure, match='Publisher package decoder'):
+        game_tools.prepare_tools(layout.application_root, 'nte', publisher=True)
+    monkeypatch.setattr(nte_toolchain, 'resolve', absent)
+    assert len(game_tools.missing_tools(layout.application_root, 'nte', publisher=True)) == 2
+
+
 @pytest.mark.parametrize('operation', ['wuwa-prepare', 'wuwa-run', 'cyberpunk-prepare', 'cyberpunk-run'])
 def test_unbundled_external_extractors_refuse_before_any_acquisition_or_run(tmp_path, monkeypatch, operation):
     from backend import bundle_tools, cyberpunk_assets, cyberpunk_toolchain, wuthering_assets

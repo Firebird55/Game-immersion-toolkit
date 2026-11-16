@@ -14,6 +14,7 @@ export default {
  "Global": ["Wereldwijd","全球版","全球版"],
  "Mainland China": ["Chinees vasteland","中国大陆版","中國大陸版"],
  "Publisher Setup for Global dialogue and original voices": ["Global-dialogen en originele stemmen van de uitgever","可从发行商准备全球版台词与原版配音","可從發行商準備全球版台詞與原版配音"],
+ "Publisher Setup for the selected edition's available text and original voices": ["Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever","从发行商获取所选版本可用的文本与原版配音","從發行商取得所選版本可用的文字與原版配音"],
  "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.": ["Dialoogscènes, bewegende strips, berichten, speltips en getimede aanwijzingen uit de Global-launcher.","全球版启动器中的对话场景、动态漫画、消息、游戏提示和带时间轴的线索录音。","全球版啟動器中的對話場景、動態漫畫、訊息、遊戲提示和帶時間軸的線索錄音。"],
  "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings.": ["De instellingen halen Global-dialoogscènes, bewegende strips, berichten, tips en opnamen van aanwijzingen op bij de uitgever.","设置可从发行商获取全球版对话场景、动态漫画、消息、提示和线索录音。","設定可從發行商取得全球版對話場景、動態漫畫、訊息、提示和線索錄音。"],
  "Installed game in Setup. Separate Global and mainland publisher file checks.": ["In de instellingen is een geïnstalleerde game nodig. De uitgeversbestanden van Global en het Chinese vasteland worden apart gecontroleerd.","设置中需要已安装的游戏。可分别核对全球版和中国大陆版的发行商文件。","設定中需要已安裝的遊戲。可分別核對全球版和中國大陸版的發行商檔案。"],

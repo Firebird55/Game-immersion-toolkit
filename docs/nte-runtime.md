@@ -1,6 +1,6 @@
 # NTE compiler-free archive runtime
 
-Updated 2026-10-31. The desktop adapter can execute the owned self-contained
+Updated 2026-11-16. The desktop adapter can execute the owned self-contained
 NTE bridge with its actual verified dependency directory. It no longer rejects
 NTE solely because it is running from a bundle. This closes a runtime dispatch
 gap; it does not approve an incomplete candidate for distribution.
@@ -14,13 +14,23 @@ every file against the outer application inventory, rejects extra libraries,
 links and incompatible platforms, and retains supplier evidence as inert notices.
 An approval-like manifest field cannot replace the required binary identities.
 
-NTE uses `inventory`, `index`, `voice` and `voices`. The same helper also provides
-the bounded [Wuthering operations](wuthering-runtime.md). Inputs must be an
-explicit installed-game folder; output must be inside private data/work/cache
+NTE uses `inventory`, `index`, `voice`, `voices` and `publisher-tables`. The same helper also provides
+the bounded [Wuthering operations](wuthering-runtime.md). Installed operations
+use an explicit game folder. Publisher authoring uses an empty private context
+and nonce-protected loopback streams supplied by the checked PAK/IoStore reader;
+it does not require an installed client. The type-data digest is verified before
+parsing and travels on stdin with the archive metadata and stream descriptors.
+Output must be inside private data/work/cache
 storage and outside the game, application and dependency folders. Archive
 metadata travels on stdin. The child receives a restricted loader environment
 without system .NET discovery, profiling hooks, compiler paths or account values.
 No executable download, SDK discovery or compilation occurs in the bundled path.
+
+Publisher readiness requires both the managed authoring reader and the owned
+package decompressor. Source preparation stages outputs outside the helper's
+immutable tool directory. The [publisher audit](game-audits/nte.md#publisher-setup-and-immutable-voice-snapshots)
+separates real source-development preparation/playback from authored compiler-free
+transport checks and the remaining full native-image acceptance.
 
 Existing selected text locales, all four official voice-language identifiers,
 authored event/media bindings, movie timing and explicit Zero variants remain

@@ -43,15 +43,15 @@
       "zzz": "globalZzzDialogue",
       "endfield": "regionalNarrative",
       "wuwa": "globalDialogue",
-      "nte": "installedWithRegionalAudit"
+      "nte": "regionalNteDialogue"
     },
     "windowsPreparation": {
       "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
       "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional base and chapter voice packs and selected movie clips" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue and original voices" },
-      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings." },
-      "installedWithRegionalAudit": { "withoutInstall": false, "label": "Installed game in Setup. Separate Global and mainland publisher file checks." }
+      "regionalNteDialogue": { "withoutInstall": true, "label": "Publisher Setup for the selected edition's available text and original voices" },
+      "globalZzzDialogue": { "withoutInstall": true, "label": "Global launcher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.", "pairLabel": "Publisher Setup for Global dialogue scenes, motion comics, messages, tips and clue recordings." }
     }
   },
   "languages": {
@@ -236,16 +236,16 @@
         "ru"
       ],
       "unverified": {},
-      "notes": "Both Chinese scripts share Mandarin voices. Empty localization resources and ambiguous performance variants do not supply translations or original voices.",
-      "coverage": "Ordinary dialogue and cinematic asset samples decode in all four dubs. All five study locales have synthetic OCR checks. Sampled mobile movie cards pass, but wrapped subtitles and some movie variants still miss. Full chapter and branch coverage is unverified.",
-      "supportPolicy": "Expected support for compatible locale formats; prepare from installed assets. Sampling is not required for every language.",
+      "notes": "Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.",
+      "coverage": "Windows publisher preparation reads current original dialogue, sequence and movie tables and selected voice banks without a game installation. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Wrapped subtitles, some movie variants and full chapter/branch coverage remain incomplete.",
+      "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates follow the current manifest, public type metadata and authored tables; unresolved bindings remain explicit.",
       "expectedTargets": [
         "fr",
         "de",
         "es-ES",
         "ru"
       ],
-      "reviewedAt": "2026-10-25"
+      "reviewedAt": "2026-11-16"
     },
     {
       "id": "pragmata",

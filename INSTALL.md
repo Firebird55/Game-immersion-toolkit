@@ -51,7 +51,7 @@ installation.
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
-| Neverness to Everness (NTE) | Contains Client/WindowsNoEditor/HT, or the nested client folder | Selected official voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
+| Neverness to Everness (NTE) | Optional: selected publisher edition, or Client/WindowsNoEditor/HT in an installed client | Publisher text and original voices, or selected installed voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, select Global or Mainland China and prepare the desired dub. The regional audio index selects released base and chapter packages |
 | Genshin Impact | Optional GenshinImpact or YuanShen client folder | Without a folder, select Global or Mainland China in Publisher edition to retrieve the matching HoYoPlay release and original dub. Existing setups default to mainland China |
 | Arknights: Endfield | Optional Endfield.exe and Endfield_Data/StreamingAssets/VFS folder | Without a folder, select Global (GRYPHLINE) or Mainland China (Hypergryph) in Publisher edition. Setup follows narrative and voice updates from that edition. Known film timings carry forward when the current timeline, voice banks and recording still match |
@@ -80,7 +80,7 @@ No game archives, audio packages, extracted voices, catalog data or captured cli
 
 Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, prepared language tables about every two minutes. A moved game can be selected and refreshed without restarting the companion.
 
-The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE movie bindings check their fixed upstream sources daily, on detected game changes, and immediately on explicit refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
+The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE publisher preparation follows the selected regional manifest, original movie/dialogue tables and compatible public type metadata. Installed NTE movie catalogs retain their separate upstream refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
 
 ## Capture and optional reading accounts
 

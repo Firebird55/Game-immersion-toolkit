@@ -134,6 +134,33 @@ def test_stored_size_cannot_exceed_both_compressed_and_aligned_lengths(tmp_path,
         archive.read('HT/Content/settings.ini')
 
 
+def test_bank_batch_preserves_member_boundaries_and_rejects_partial_decode(tmp_path, monkeypatch):
+    samples = [('a.bnk', b'owned bank A' * 30, 128, True, False),
+               ('plain.bnk', b'owned plain bank', 0, False, False),
+               ('b.bnk', b'owned bank B' * 70, 256, False, True),
+               ('removed.bnk', None, 0, False, False)]
+    archive, _ = open_archive(package(samples), tmp_path, monkeypatch)
+    # Synthetic Zlib blocks stand in for an independently supplied batch codec;
+    # this contract checks framing/boundaries rather than re-testing the codec.
+    archive.methods = tuple('Oodle' if m == 'Zlib' else m for m in archive.methods)
+    calls = []
+    def decode(blocks):
+        calls.append(blocks)
+        return b''.join(zlib.decompress(data) for data, _ in blocks)
+    monkeypatch.setattr(archive, '_oodle', decode)
+    names = ['HT/Content/' + row[0] for row in samples[:3]]
+    assert archive.read_many(names) == [row[1] for row in samples[:3]]
+    assert len(calls) == 1
+    with pytest.raises(PreparationFailure):
+        archive.read_many(names + ['HT/Content/removed.bnk'])
+    assert len(calls) == 1
+    monkeypatch.setattr(archive, '_oodle', lambda _: b'incomplete output')
+    with pytest.raises(PreparationFailure):
+        archive.read_many(names)
+    with pytest.raises(PreparationFailure):
+        archive.read_many(names * 100)
+
+
 @pytest.mark.parametrize('encrypted_index', [True, False])
 @pytest.mark.parametrize('wide_numbers', [True, False])
 def test_all_supported_entry_encodings_and_single_block_length_exception(tmp_path, monkeypatch, encrypted_index, wide_numbers):

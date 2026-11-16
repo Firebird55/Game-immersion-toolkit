@@ -14,7 +14,11 @@ from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
-from .game_tools import download
+from .publisher_http import download as _download
+
+
+def download(url, *, limit=64 * 1024**2):
+    return _download(url, limit)
 
 LIMIT = 16 * 1024**2
 HOSTS = {'nte-global': 'ntecdn1.perfectworld.com', 'nte-cn': 'yhcdn1.wmupd.com'}

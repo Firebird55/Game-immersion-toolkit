@@ -61,14 +61,19 @@ PRAGMATA refresh extracts base/patch overlays into a new temporary directory,
 so files removed by a patch cannot survive from a previous extraction. An empty
 index or a game change during extraction rejects the refresh before publication.
 
-NTE reads English/Chinese localization, subtitle cue times and original Mandarin
-media locally; its movie-to-voice binding tables come from
-[NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets).
+NTE publisher preparation reads the selected region's original localization,
+dialogue/sequence/movie tables, subtitle cues and localized voice banks. Its
+immutable snapshots include compatible public type metadata, so normal content
+and type-data updates do not require a toolkit release. Missing regional text,
+stale translations and unresolved bindings are reported separately. Saved voices
+retain their exact publisher snapshot. The installed fallback's movie-to-voice
+binding tables retain the separate [NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets)
+catalog route. See the [current publisher evidence](game-audits/nte.md#publisher-setup-and-immutable-voice-snapshots).
 Honkai's bilingual text hashes and authored event references come from
 [HonkaiImpactData](https://github.com/nairieberry/HonkaiImpactData), then are checked
 against installed Mandarin banks and sources.
 
-NTE movie bindings and Honkai catalogs now check those fixed sources' default
+Installed NTE movie bindings and the historical Honkai catalogs check those fixed sources' default
 branches once a day while the companion runs. A detected game-file change or
 explicit **Refresh game data** checks immediately. Every refresh resolves one
 immutable commit first and reads all required files from that commit. Complete

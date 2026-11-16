@@ -110,7 +110,7 @@ def test_matching_metadata_cannot_hide_a_broken_table(tmp_path, monkeypatch, gam
     value.build_language(game, 'nl', ('en',))
 
 
-@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail", "wuwa", "zzz"])
+@pytest.mark.parametrize("game", ["endfield", "genshin", "starrail", "wuwa", "zzz", "nte"])
 def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot(tmp_path, monkeypatch, game):
     from pathlib import Path
     from backend.game_assets import asset_adapter
@@ -150,7 +150,7 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained
     assert value.locale_index(game, 'ja').ready and len(commands) == 1
     with pytest.raises(ValueError, match='installed game folder'):
-        value.build_language('nte', 'ja', ('en',))
+        value.build_language('beyond', 'ja', ('en',))
 
 
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):

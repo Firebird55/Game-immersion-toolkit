@@ -62,7 +62,7 @@ FOLDER_HINTS = {
     "cyberpunk": "Choose the installation root containing bin/x64 and archive/pc/content.",
     "wuwa": "Leave the folder empty to use Kuro Games' Global Windows release, or choose the installed Client folder.",
     "witcher3": "Choose the installation root containing bin and content.",
-    "nte": "Choose the Neverness to Everness folder containing Client, or Client/WindowsNoEditor/HT itself.",
+    "nte": "Leave the folder empty to use the selected publisher edition, or choose your installed Neverness to Everness folder containing Client.",
 }
 VOICE_HINTS = {
     "riseofthetombraider": "Install the selected spoken language through Steam Properties, wait for its download, then prepare the language. Regional and DLC pack availability is shown separately.",
@@ -78,7 +78,7 @@ VOICE_HINTS = {
     "cyberpunk": "Install your selected learning language's official voice pack through the game launcher, then prepare it in Languages.",
     "wuwa": "Choose your language to fetch its original voices from the Global publisher. For an installed game, install the matching voice pack.",
     "witcher3": "Install the selected study language's official speech pack through your game launcher, then prepare it in Languages.",
-    "nte": "Download the selected original voice pack, choose Prepare game tools, then prepare its dialogue and cinematic bindings in Languages.",
+    "nte": "Choose the publisher edition and language to fetch its available official text and original voices. Installed games can use their matching voice pack.",
 }
 
 
