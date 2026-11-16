@@ -62,6 +62,8 @@ ARCHIVE_CUTS = {
     'fmv_e0m1_3_13': (118900, 119850),
     'fmv_e0m1_3_14': (120100, 124800),
     'fmv_e0m1_3_15': (126200, 131900),
+    'timeline_e1m1_1_01': (0, 2400),
+    'timeline_e1m1_1_03': (18700, 22400),
 }
 
 
@@ -125,7 +127,7 @@ def export(cache, caption, destination):
             wem = Path(folder) / 'original.wem'
             wem.write_bytes(audio)
             movie = Path(folder) / 'original.wav'
-            subprocess.run([str(decoder), '-o', str(movie), str(wem)], check=True, timeout=90,
+            subprocess.run([str(decoder), '-o', str(movie), '-i', str(wem)], check=True, timeout=90,
                            stdout=subprocess.DEVNULL)
         else:
             movie = _movie(cache)

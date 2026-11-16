@@ -1,6 +1,6 @@
 # Original Global Technical Alpha soundtracks
 
-Checked November 15, 2026. A publicly archived January 2024 Global client contains the original English aircraft, bedside and Talos-II briefing recordings. Each independently matches KyoStinV's Global Technical Test playthrough. Acquisition used HTTP byte ranges and read-only package parsing, without installing or executing the archived client. [Client archive](https://archive.org/details/arknights-endfield-technical-alphawith-hotfix) · [Archive file identities](https://archive.org/metadata/arknights-endfield-technical-alphawith-hotfix) · [Global gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE)
+Checked November 16, 2026. A publicly archived January 2024 Global client contains the original English and Mandarin aircraft, bedside, Talos-II briefing and motorcycle ambush recordings. All eight performances have independent gameplay evidence. Acquisition used HTTP byte ranges and read-only package parsing, without installing or executing the archived client. [Client archive](https://archive.org/details/arknights-endfield-technical-alphawith-hotfix) · [Archive file identities](https://archive.org/metadata/arknights-endfield-technical-alphawith-hotfix) · [Global gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE)
 
 ## Acquisition and integrity
 
@@ -57,6 +57,58 @@ English text/cuts remain open below.
 
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
+## Original motorcycle ambush scene
+
+The same verified English package contains media **52120711**, a
+1,355,937-byte original WEM with SHA-256
+`0f4f62358e0efc1731744f662b327092977db9980dbebb5132f6d9ead40ae30c`.
+One playback pass lasts **23.962 s**. The WEM carries a loop flag; the
+research decode explicitly disabled looping rather than measuring repeated
+playback and the decoder's fade-out as part of the scene.
+
+Seven separate 1.5-second excerpts at source times 0.5, 2, 5, 10, 15, 19
+and 21 s all match the Global walkthrough with the same **1,153.1999 s**
+offset. Their normalized correlations are 0.953, 0.914, 0.778, 0.772,
+0.672, 0.621 and 0.782 at 8 kHz, filtered at 320–3,500 Hz. These include
+the opening calls, intervening effects and the final instruction. The three
+displayed captions have the historical IDs `timeline_e1m1_1_01` through
+`_03`. Their parent `timeline_e1m1_1` is the command's scene label; it is
+not a claimed archive filename or a current-release event binding.
+[Ambush and opening calls](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1153s)
+· [Final instruction](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1172s)
+
+The Mandarin counterpart is media **375522099**, with 1,376,668 bytes and
+SHA-256 `9ee710f45f91ea64209d1bd563bbf773057374dbeb65e2cb45ccc16d0f9f7839`.
+Both original Wwise 140 banks bind event `1475494453` through Play action
+`909589639` and Sound object `411909712` to the respective localized media.
+The same bank comparison independently recovers the already verified
+aircraft, bedside and briefing pairs. The English bank-package SHA-256 is
+`6546be152af280a1cc107cb44ec1c919b992ae69e3f2a5470db48020809ced49`;
+the Mandarin bank-package SHA-256 is
+`fe882430d1ceac06bb6fa474f70e80eeafe3a7216ab2f1993eb15fa3e39d56c3`.
+
+The Mandarin recording independently matches part 4 of the November 2023
+mainland walkthrough. All seven source excerpts above locate the same
+**90.4733 s** offset, with correlations 0.927, 0.940, 0.873, 0.727, 0.664,
+0.453 and 0.779. Native Chinese captions reproduce the first call around
+1:31, the second around 1:35 and Perlica's instruction around 1:51.
+[Mainland ambush](https://www.bilibili.com/video/BV1tu4y187be/?p=4&t=91)
+· [Perlica's instruction](https://www.bilibili.com/video/BV1tu4y187be/?p=4&t=111)
+
+The normal archive command retrieves either complete original scene without
+a game installation, verifies the existing package hash and checks the
+individual WEM hash. Both live commands recovered the declared bytes from
+their respective verified package caches and decoded to 23.962 s without
+looping. The two verified Mandarin caption exports are described below.
+The second Mandarin call, English per-caption text and spoken boundaries,
+and the exact relationship to each movie file remain open. No translated
+transcript, silence override or guessed movie filename is introduced.
+
+```text
+python scripts/endfield_film_voice.py --archive-film timeline_e1m1_1 --locale en --cache private-cache --wem motorcycle-ambush-en.wem
+python scripts/endfield_film_voice.py --archive-film timeline_e1m1_1 --locale zh-Hans --cache private-cache --wem motorcycle-ambush-zh.wem
+```
+
 ## Mandarin recordings
 
 The separate Chinese streamed package ends in `3F4A536996369BBDA4AA64B4AD5996D2.chk`. The complete 105,863,503-byte member passed its ZIP CRC check. Its SHA-256 is `51be530994d9bbc2f6e8253a63f9129a4477a6510a3c8b112b59b8b95bfed1eb`.
@@ -80,7 +132,7 @@ The respective Mandarin WEM SHA-256 values are
 
 ## Installation-free acquisition
 
-The film command can list and retrieve the six verified original WEMs. It reads the selected locale's compressed package range from the archive, verifies the expanded package size and SHA-256, then resolves the original media ID and checks the recording's SHA-256. A verified package is cached for the other two films in that dub. A truncated response, changed bytes or an unexpected HTTP range fails before an output recording is written. Traditional Chinese selects the same Mandarin recordings.
+The film command can list and retrieve eight verified original WEMs: four scenes in English and Mandarin. It reads the selected locale's compressed package range from the archive, verifies the expanded package size and SHA-256, then resolves the original media ID and checks the recording's SHA-256. A verified package is cached for other scenes in that dub. A truncated response, changed bytes or an unexpected HTTP range fails before an output recording is written. Traditional Chinese selects the same Mandarin recordings.
 
 ```text
 python scripts/endfield_film_voice.py --archive-film list --locale en --cache private-cache
@@ -109,6 +161,31 @@ python scripts/endfield_film_voice.py --test-caption fmv_e0m1_3_02 --locale zh-H
 python scripts/endfield_film_voice.py --test-caption fmv_e0m1_1_02 --locale zh-Hans --cache private-cache --mp3 aircraft-reply.mp3
 ```
 
-The list contains 45 captions: eighteen bedside, six aircraft and the existing twenty-one publisher briefing captions. Original voice decoding requires the prepared VGMStream tool, and MP3 encoding requires FFmpeg. The five remaining aircraft cuts and English archive text/cuts remain open.
+The list contains 47 captions: eighteen bedside, six aircraft, twenty-one briefing captions and the two motorcycle ambush captions below. Original voice decoding requires the prepared VGMStream tool, and MP3 encoding requires FFmpeg. The five remaining aircraft cuts, one bedside cut and English archive text/cuts remain open.
 
 All 24 aircraft and bedside captions were exported through this command without a game installation. Each resulting MP3 decoded successfully with FFmpeg. The regression fixture also checks that a failed original-voice decode preserves an existing destination and that aircraft and bedside exports request their own WEM.
+
+### Two Mandarin motorcycle ambush cuts
+
+The original Chinese subtitle table supplies `timeline_e1m1_1_01` and
+`timeline_e1m1_1_03`, independently visible in the mainland gameplay above.
+Their exports use the original Mandarin WEM at **0.000–2.400 s** and
+**18.700–22.400 s**. Independent speech recognition locates the first call
+at 0.76–1.66 s and the final instruction at 19.10–21.92 s. Character
+alignment of the original game wording puts them at 0.826–1.753 s and
+19.345–21.954 s, with mean token probabilities 0.595 and 0.728. The exports
+retain the initial reaction, lead-in and decay; they do not copy subtitle
+display times. The decoder disables the WEM's loop flag before cutting.
+[Alignment model used for private research](https://huggingface.co/parseh/aligner-zh/tree/920ed68179700a9380364a119744e046e04fb14d)
+
+Both cuts exported through the normal command from the verified archive
+cache and decoded as nonzero 2.400 s and 3.700 s PCM. The text remains the
+checksum-pinned original subtitle data. The intervening `02` caption is
+visible but its speech could not be confirmed: recognition disagrees with
+the caption, and forced character alignment has a mean probability of
+0.055. It remains excluded even though the original text is available.
+
+```text
+python scripts/endfield_film_voice.py --test-caption timeline_e1m1_1_01 --locale zh-Hans --cache private-cache --mp3 ambush-call.mp3
+python scripts/endfield_film_voice.py --test-caption timeline_e1m1_1_03 --locale zh-Hans --cache private-cache --mp3 ambush-instruction.mp3
+```

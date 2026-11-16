@@ -28,7 +28,7 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 The three HoYoPlay readers retry the individual immutable manifest or chunk
 after a network interruption and check its published digest before caching it.
 
-For Endfield's historical Technical Alpha, the [archive acquisition command](game-audits/endfield-alpha-archive.md) retrieves six verified original scene recordings from a public client archive. This covers the English and Mandarin aircraft, bedside and briefing soundtracks. Fifteen Mandarin bedside captions have individual exports. Further caption coverage requires text bindings and cuts.
+For Endfield's historical Technical Alpha, the [archive acquisition command](game-audits/endfield-alpha-archive.md) retrieves eight verified original scene recordings from a public client archive: aircraft, bedside, briefing and motorcycle ambush in English and Mandarin. The explicit Mandarin list exports 47 verified caption cuts. Further caption coverage requires original text bindings and spoken boundaries; the historical source remains separate from current game-data refreshes.
 
 | Game | Inputs used by desktop preparation | Verified online distribution and remaining coverage |
 | --- | --- | --- |
