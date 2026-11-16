@@ -34,20 +34,34 @@ def _source_suffix(data: bytes, audio=None, game=None) -> str:
     return '.fsb' if data[:4] in {b'FSB4', b'FSB5'} else '.wem'
 
 
-def _audio_options(audio, wav):
+def _audio_options(audio, wav, *, decoded_origin_ms=None):
     """Apply authored timing and channel gains; never guess a dialogue stem."""
     trim, filters = [], []
     mix = audio.get('channel_mix')
     timed = 'start_ms' in audio or 'end_ms' in audio
-    if timed or mix is not None:
+    if timed or mix is not None or decoded_origin_ms is not None:
         with wave.open(str(wav)) as stream:
             duration_ms = stream.getnframes() / stream.getframerate() * 1000
             channels = stream.getnchannels()
+            if decoded_origin_ms is not None:
+                start, end = audio.get('start_ms'), audio.get('end_ms')
+                if (type(decoded_origin_ms) is not int or type(start) is not int or type(end) is not int
+                        or not 0 <= start < end or decoded_origin_ms != start or end - start > 300000
+                        or stream.getframerate() != 48000 or channels not in (1, 2)
+                        or stream.getsampwidth() != 2 or stream.getcomptype() != 'NONE'
+                        or stream.getnframes() != (end - start) * 48
+                        or Path(wav).stat().st_size != 44 + (end - start) * 48 * channels * 2):
+                    raise ValueError('Decoded voice window does not exactly match its original interval')
         if timed:
             start, end = audio.get('start_ms'), audio.get('end_ms')
+            if decoded_origin_ms is not None:
+                # The adapter returned exactly the requested PCM interval. Keep
+                # its immutable source clocks, and avoid trimming that PCM twice.
+                start, end = 0, end - start
             if type(start) is not int or type(end) is not int or not 0 <= start < end <= duration_ms + 1:
                 raise ValueError('Original movie voice timing is outside its source; refresh game data')
-            trim = ['-ss', str(start / 1000), '-t', str((end - start) / 1000)]
+            if decoded_origin_ms is None:
+                trim = ['-ss', str(start / 1000), '-t', str((end - start) / 1000)]
         if mix is not None:
             if not isinstance(mix, list) or not 1 <= len(mix) == channels <= 12 or any(
                 not isinstance(pair, list) or len(pair) != 2 or any(
@@ -186,13 +200,14 @@ class LocalVoiceAssetService(VoiceDecoder):
             options = {"check": True, "capture_output": True, "timeout": 90,
                        "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
             custom_decode = getattr(self._adapter, 'decode_voice_source', None)
+            decoded_origin_ms = None
             if custom_decode:
-                custom_decode(data, audio, wav, self.decoder, scratch)
+                decoded_origin_ms = custom_decode(data, audio, wav, self.decoder, scratch)
             elif self.game in {"beyond", "heavyrain"}:
                 wav.write_bytes(data)
             else:
                 subprocess.run([str(self.require_decoder()), "-i", "-o", str(wav), str(wem)], **options)
-            trim = _audio_options(audio, wav)
+            trim = _audio_options(audio, wav, decoded_origin_ms=decoded_origin_ms)
             subprocess.run([str(ffmpeg_executable()), "-hide_banner", "-loglevel", "error", "-y",
                             "-i", str(wav), *trim, "-codec:a", "libmp3lame", "-q:a", "2", str(mp3)], **options)
             if mp3.stat().st_size < 100:
@@ -233,9 +248,13 @@ class LocalVoiceAssetService(VoiceDecoder):
         with tempfile.TemporaryDirectory(prefix=f'{self.game}-batch-', dir=self.output_dir) as value:
             scratch = Path(value)
             extractor = self.tools_dir / self._extractor
+            custom_decode = getattr(self._adapter, 'decode_voice_source', None)
             source_ids, originals, indexes = {}, [], []
             for audio in audios:
-                source = json.dumps({k: v for k, v in audio.items() if k not in {'start_ms', 'end_ms', 'gain_db'}}, sort_keys=True)
+                # A custom decoder can return only the requested window. Such
+                # inputs cannot share one decoded PCM across different clocks.
+                excluded = {'gain_db'} if custom_decode else {'start_ms', 'end_ms', 'gain_db'}
+                source = json.dumps({k: v for k, v in audio.items() if k not in excluded}, sort_keys=True)
                 if source not in source_ids:
                     source_ids[source] = len(originals); originals.append(audio)
                 indexes.append(source_ids[source])
@@ -255,11 +274,12 @@ class LocalVoiceAssetService(VoiceDecoder):
             del payloads
             options = {'check': True, 'capture_output': True, 'timeout': 90 * len(requests),
                        'creationflags': getattr(subprocess, 'CREATE_NO_WINDOW', 0)}
-            custom_decode = getattr(self._adapter, 'decode_voice_source', None)
+            decoded_origins = [None] * len(inputs)
             if custom_decode:
                 for index, source in enumerate(inputs):
                     decode_scratch = scratch / f'decode-{index}'; decode_scratch.mkdir()
-                    custom_decode(source.read_bytes(), originals[index], Path(str(source) + '.wav'), self.decoder, decode_scratch)
+                    decoded_origins[index] = custom_decode(source.read_bytes(), originals[index],
+                        Path(str(source) + '.wav'), self.decoder, decode_scratch)
             elif self.game in {'beyond', 'heavyrain'}:
                 for wem in inputs:
                     Path(str(wem) + '.wav').write_bytes(wem.read_bytes())
@@ -272,7 +292,7 @@ class LocalVoiceAssetService(VoiceDecoder):
             outputs = []
             for index, (source_index, audio) in enumerate(zip(indexes, audios)):
                 wem = inputs[source_index]
-                trim = _audio_options(audio, str(wem) + '.wav')
+                trim = _audio_options(audio, str(wem) + '.wav', decoded_origin_ms=decoded_origins[source_index])
                 mp3 = scratch / f'{index}.mp3'; outputs.append(mp3)
                 command += ['-map', f'{source_index}:a:0', *trim, '-codec:a', 'libmp3lame', '-q:a', '2', '-threads', '1', str(mp3)]
             subprocess.run(command, **options)
