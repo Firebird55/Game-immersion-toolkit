@@ -19,7 +19,7 @@ import threading
 import time
 from urllib.parse import unquote, urlsplit
 
-from .prepared_library import MAX_LIBRARY
+from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
 
 MAX_FRAME = 10 * 1024**2
@@ -91,7 +91,8 @@ class AndroidHost:
             'capture_source': 'remote-stream' if self.native else 'authored-observations',
             'message': 'Private prepared libraries and original audio are processed on this Android device.',
             'protected_accounts': False, 'ocr': 'bundled-mlkit' if self.native else 'not-attached',
-            'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096}
+            'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
+            'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS}
 
     def accept_ocr(self, generation, sequence, raw):
         with self.session.lock:

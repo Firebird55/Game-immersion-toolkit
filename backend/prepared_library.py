@@ -22,10 +22,13 @@ from .languages import audio_locale
 from .multilingual_index import MultilingualTextIndex
 
 FORMAT = 'toolkit-prepared-library-v1'
-MAX_LIBRARY = 16 * 1024**3
-MAX_TEXT = 128 * 1024**2
+MAX_LIBRARY = 64 * 1024**3
+MAX_TEXT = 512 * 1024**2
+MAX_MANIFEST = 256 * 1024**2
 MAX_AUDIO = 128 * 1024**2
-MAX_ROWS = 250000
+# Current publisher snapshots already exceed 250k entries. Leave bounded
+# headroom for player branches and ordinary updates without changing the app.
+MAX_ROWS = 1000000
 SHA = re.compile(r'[0-9a-f]{64}')
 CLIP = re.compile(r'audio/([0-9a-f]{64})\.(mp3|wav)')
 
@@ -81,8 +84,9 @@ def _snapshot(raw, audio):
         if not isinstance(row, dict) or set(row) - allowed:
             raise ValueError('Unsupported prepared dialogue fields')
         record = LocalDialogue(**row)
-        identity = (record.text_id, record.player_voice, record.source_text,
-                    json.dumps(record.texts, sort_keys=True), json.dumps(record.audio, sort_keys=True))
+        # Keep full authored context/branch identity without retaining a second
+        # serialized copy of every translation in the validation set.
+        identity = hashlib.sha256(json.dumps(row, sort_keys=True, separators=(',', ':')).encode()).digest()
         if (identity in identities or record.source_locale != value['source_locale']
                 or record.source_text != (record.texts or {}).get(value['source_locale'])
                 or record.audio_locale != audio_locale(value['source_locale'], value['game'])):
@@ -114,8 +118,12 @@ class PreparedLibraryStore:
             raise ValueError('Invalid private library generation')
         directory = self.root / revision
         _no_links(directory)
-        raw = (directory / 'textmap.json').read_bytes()
-        if hashlib.sha256(raw).hexdigest() != pointer.get('text_sha256'):
+        text = directory / 'textmap.json'
+        if text.stat().st_size > MAX_TEXT:
+            raise ValueError('Prepared library text exceeds its bound')
+        with text.open('rb') as source:
+            digest = hashlib.file_digest(source, 'sha256').hexdigest()
+        if digest != pointer.get('text_sha256'):
             raise ValueError('Prepared library text changed')
         return directory
 
@@ -125,7 +133,7 @@ class PreparedLibraryStore:
             raise ValueError('Library exceeds its storage limit')
         with zipfile.ZipFile(path) as archive:
             entries, total = _safe_entries(archive, MAX_LIBRARY)
-            if entries.get('manifest.json') is None or entries['manifest.json'].file_size > 4 * 1024**2:
+            if entries.get('manifest.json') is None or entries['manifest.json'].file_size > MAX_MANIFEST:
                 raise ValueError('Library manifest is missing or oversized')
             manifest = _json(archive.read('manifest.json'))
             if manifest.get('format') != FORMAT:
@@ -157,8 +165,13 @@ class PreparedLibraryStore:
                         raise ValueError('A prepared library file is corrupt')
                 raw = (stage / 'textmap.json').read_bytes()
                 payload = _snapshot(raw, files)
-                index = MultilingualTextIndex(payload['game'], stage)
-                if not index.ready or index.entry_count != len(payload['records']):
+                game, rows = payload['game'], len(payload['records'])
+                text_digest = hashlib.sha256(raw).hexdigest()
+                # Validation and production indexing need not keep two complete
+                # decoded publisher tables (plus raw bytes) alive together.
+                del payload, raw
+                index = MultilingualTextIndex(game, stage)
+                if not index.ready or index.entry_count != rows:
                     raise ValueError('The shared matcher rejected the prepared library')
                 if cancelled():
                     raise InterruptedError('Library import cancelled')
@@ -175,7 +188,7 @@ class PreparedLibraryStore:
                                     raise ValueError('The existing library generation is corrupt')
                     else:
                         stage.rename(complete)
-                    pointer = {'revision': revision, 'text_sha256': hashlib.sha256(raw).hexdigest()}
+                    pointer = {'revision': revision, 'text_sha256': text_digest}
                     pending = self.pointer.with_suffix('.pending')
                     pending.write_text(json.dumps(pointer), encoding='utf8')
                     pending.replace(self.pointer)
@@ -241,13 +254,18 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
         'textmap.json': {'size': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}}}
     for name, clip in audio.items():
         manifest['files'][name] = {'size': clip.stat().st_size, 'sha256': CLIP.fullmatch(name)[1]}
+    manifest_raw = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode()
+    if (len(manifest_raw) > MAX_MANIFEST
+            or len(raw) + len(manifest_raw) + sum(item['size'] for name, item in manifest['files'].items()
+                if name != 'textmap.json') + 4096 + 512 * len(manifest['files']) > MAX_LIBRARY):
+        raise ValueError('Prepared library exceeds its bounded storage capacity')
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     pending = destination.with_suffix(destination.suffix + '.pending')
     _no_links(pending)
     try:
         with zipfile.ZipFile(pending, 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
-            archive.writestr('manifest.json', json.dumps(manifest, sort_keys=True, separators=(',', ':')))
+            archive.writestr('manifest.json', manifest_raw)
             archive.writestr('textmap.json', raw)
             for name, clip in audio.items():
                 digest, size = hashlib.sha256(), 0
@@ -259,6 +277,8 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
                         digest.update(block);output.write(block)
                 if digest.hexdigest() != manifest['files'][name]['sha256'] or size != manifest['files'][name]['size']:
                         raise ValueError('Prepared audio changed during export')
+        if pending.stat().st_size > MAX_LIBRARY:
+            raise ValueError('Prepared library exceeds its bounded storage capacity')
         with publish_guard() as mark_committed:
             guard()
             pending.replace(destination)

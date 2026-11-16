@@ -27,6 +27,29 @@ def fixture_library(root, *, text='Follow the river beyond the bridge.', identit
     return write_prepared_library(payload, root / 'private.zip', {identity: clip}), payload
 
 
+def test_full_publisher_inventory_and_next_update_reach_the_shared_matcher(tmp_path):
+    # The publisher finite-source inventory already has 409,552 IDs. A normal
+    # update adding one cannot require a new app or silently truncate records.
+    # All dialogue/audio here is authored; no publisher file is redistributed.
+    count = 409553
+    _, payload = fixture_library(tmp_path / 'input', game='genshin')
+    spoken = {**payload['records'][0], 'text_id': f'genshin:{count - 1}'}
+    silent = {**spoken, 'audio': None, 'voice_status': 'unvoiced',
+        'source_text': 'This authored page contains no voice.', 'english': 'This authored page contains no voice.',
+        'chinese': '这是一段无配音文字。',
+        'texts': {'en': 'This authored page contains no voice.', 'zh-Hans': '这是一段无配音文字。'}}
+    payload['records'] = [{**silent, 'text_id': f'genshin:{number}'} for number in range(count - 1)] + [spoken]
+    archive = write_prepared_library(payload, tmp_path / 'full-inventory.zip',
+        {spoken['text_id']: tmp_path / 'input' / 'tone.wav'})
+    del payload
+    store = PreparedLibraryStore(tmp_path / 'library')
+    active = []
+    store.import_archive(archive, activate=lambda _directory, index: active.append(index))
+    assert active[0].entry_count == count
+    matches = active[0].match_line_groups([spoken['source_text']], 88)
+    assert [match.text_id for match in matches] == [spoken['text_id']]
+
+
 def test_shared_confirmation_rejects_late_frames_and_keeps_audio_after_restart_update(tmp_path):
     archive, payload = fixture_library(tmp_path / 'input')
     session = PreparedCaptureSession(tmp_path / 'application')

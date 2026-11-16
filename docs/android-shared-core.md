@@ -36,6 +36,14 @@ Import validates checksums, bounds, the complete `LocalDialogue` contract and th
 actual production index before publishing a pointer. Previous generations remain
 available to saved history/favorites and recordings. Long validation does not
 hold the capture lock. Only final publication/activation is serialized.
+The format allows up to one million dialogue records, 512 MiB of UTF-8 text,
+256 MiB of checksum manifest, 128 MiB per clip and 64 GiB per library. The earlier
+250,000-record prototype cap excluded ordinary publisher inventories; the new
+bounded capacity leaves room for current ZZZ/Genshin inventories and normal
+updates. These are format ceilings, not a claim that every phone has sufficient
+memory/storage. Import streams files, frees its validation table before building
+the shared index and checks actual free storage before staging. Target memory,
+large-library indexing and fuzzy performance still need device measurements.
 
 The earlier `proxy-mobile-bundle-v1` browser export is a different format. It
 omits some production status/context metadata. It is not silently treated as a
