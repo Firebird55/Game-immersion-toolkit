@@ -180,7 +180,7 @@ class MobileExportManager:
             self._picker_message = ''
             return True
 
-    def preview(self, game, include_audio=True, destination_folder=None):
+    def preview(self, game, include_audio=True, destination_folder=None, prepared_library=False):
         if game not in GAMES:
             raise ValueError('Unsupported game')
         if not self.guard():
@@ -189,10 +189,12 @@ class MobileExportManager:
         data = runtime_data_root(self.root)
         from .language_preparation import selected_snapshot
         legacy_zzz = game == 'zzz' and not (data / 'languages/zzz').is_dir()
+        if prepared_library and legacy_zzz:
+            raise ValueError('Prepare the selected game language before exporting an Android library.')
         inputs = ([data / 'voice-assets/manifest.json', data / 'voice-assets/learned-manifest.json']
                   if legacy_zzz else [selected_snapshot(self.root, game)[0]])
         signature = tuple((str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in inputs if p.is_file())
-        key = (game, signature)
+        key = (game, signature, prepared_library)
         with self._lock:
             cached = self._estimates.get(key)
         if cached is None:
@@ -205,7 +207,7 @@ class MobileExportManager:
                 count = len(entries)
             elif inputs[0].is_file():
                 records = json.loads(inputs[0].read_text(encoding='utf-8')).get('records', [])
-                count = len(records) if game == 'hito' else sum(bool(r.get('audio')) and not r.get('requires_previous', False)
+                count = len(records) if game == 'hito' or prepared_library else sum(bool(r.get('audio')) and not r.get('requires_previous', False)
                                                                for r in records)
             # A range is intentionally explicit: source codecs and movie trims
             # make exact MP3 byte counts unknowable before conversion.
@@ -220,6 +222,8 @@ class MobileExportManager:
         # A previous completed export is a better starting point than typical sizes.
         output = self.output_folder(folder, game)
         try:
+            if prepared_library:
+                raise ValueError('Legacy browser sizes do not estimate the full Android contract.')
             completed, catalog_path = latest_export(output, game)
             if catalog_path.is_file():
                 files = list(completed.glob('*.zip')) if include_audio else [catalog_path]
@@ -307,14 +311,15 @@ class MobileExportManager:
                 if self._process is process and self._cancel.is_set():
                     self._status.update(state='cancelled', message='Export cancelled. Completed clips are saved; export again to resume.')
 
-    def start(self, game, include_audio=True, destination_folder=None):
+    def start(self, game, include_audio=True, destination_folder=None, prepared_library=False):
         with self._lock:
             if self._quiescing:
                 return False
             self._finish_picker()
             if self._thread and self._thread.is_alive() or self._picker or self._status['state'] in ACTIVE:
                 return False
-            preview = self.preview(game, include_audio, destination_folder)
+            preview = (self.preview(game, include_audio, destination_folder, True) if prepared_library
+                       else self.preview(game, include_audio, destination_folder))
             folder, _ = self._validate_folder(preview['destinationFolder'])
             output = self.output_folder(folder, game)
             output.mkdir(parents=True, exist_ok=True)
@@ -327,21 +332,25 @@ class MobileExportManager:
             self._cancel = threading.Event()
             self._status = {'state': 'preparing', 'game': game, 'progress': 0,
                 'message': 'Checking local game library', 'estimate': preview, 'outputFolder': str(output)}
-            self._thread = threading.Thread(target=self._run, args=(game, include_audio, output), daemon=True)
+            worker_args = (game, include_audio, output, True) if prepared_library else (game, include_audio, output)
+            self._thread = threading.Thread(target=self._run, args=worker_args, daemon=True)
             self._thread.start()
             return True
 
-    def _worker_args(self, game, include_audio, output):
+    def _worker_args(self, game, include_audio, output, prepared_library=False):
         args = child_command('mobile-export', ['--root', str(self.root),
                 '--game', game, '--output', str(output)])
         if self.account_signature is not None:
             args += ['--account-signature', self.account_signature, '--source-locale', self.source_locale]
+        if prepared_library:
+            args.append('--prepared-library')
         return args if include_audio else [*args, '--catalog-only']
 
-    def _run(self, game, include_audio, output):
+    def _run(self, game, include_audio, output, prepared_library=False):
         process = None
         try:
-            args = self._worker_args(game, include_audio, output)
+            args = (self._worker_args(game, include_audio, output, True) if prepared_library
+                    else self._worker_args(game, include_audio, output))
             with self._lock:
                 if not self.guard():
                     self._cancel.set()

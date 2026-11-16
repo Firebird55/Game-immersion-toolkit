@@ -1917,6 +1917,7 @@ def automatic_export_action(game: str, payload: AutomaticExportOptions, request:
 class MobileExportOptions(BaseModel):
     model_config = ConfigDict(extra="forbid")
     include_audio: bool = True
+    prepared_library: bool = False
     destination_folder: str | None = None
     game: str | None = Field(default=None, min_length=1, max_length=24)
 
@@ -1941,7 +1942,9 @@ def mobile_export(game: str, payload: MobileExportOptions, request: Request,
         raise HTTPException(404, "Unsupported game")
     try:
         with export_scope(request, game):
-            return {"started": runtime.mobile_exports.start(game, payload.include_audio, payload.destination_folder)}
+            args = (game, payload.include_audio, payload.destination_folder)
+            return {"started": runtime.mobile_exports.start(*args, True) if payload.prepared_library
+                    else runtime.mobile_exports.start(*args)}
     except (ValueError, OSError):
         raise HTTPException(400, "Choose a writable private export folder outside game files and source repositories.") from None
 
@@ -1954,7 +1957,9 @@ def mobile_export_preview(game: str, payload: MobileExportOptions, request: Requ
         raise HTTPException(404, "Unsupported game")
     try:
         with export_scope(request, game):
-            return runtime.mobile_exports.preview(game, payload.include_audio, payload.destination_folder)
+            args = (game, payload.include_audio, payload.destination_folder)
+            return (runtime.mobile_exports.preview(*args, True) if payload.prepared_library
+                    else runtime.mobile_exports.preview(*args))
     except (ValueError, OSError):
         raise HTTPException(400, "Choose an absolute folder outside game files and source repositories. Refresh game data if its estimate is unavailable.") from None
 

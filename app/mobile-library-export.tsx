@@ -34,7 +34,7 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       void fetch(`${desktopApiBase()}/api/setup/games/${game}/mobile-export/preview`, { method: 'POST', signal: controller.signal,
         headers: { 'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup',
           ...(status?.scope ? {'X-Proxy-Transcript-Export-Scope':status.scope} : {}) },
-        body: JSON.stringify({ include_audio: includeAudio, destination_folder: folder }) })
+        body: JSON.stringify({ include_audio: includeAudio, destination_folder: folder, prepared_library: true }) })
         .then(async response => { const value = await response.json() as Estimate & { detail?: string }; if (!response.ok) throw new Error(value.detail || 'Estimate unavailable.'); return value; })
         .then(value => { if (!controller.signal.aborted) setEstimate(value); })
         .catch(reason => { if (!controller.signal.aborted) setEstimateError(reason.message); })
@@ -50,7 +50,7 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
   const completedHere = completed && !!status.outputFolder && !!status.destinationFolder && normalizePath(status.destinationFolder) === normalizePath(folder);
   const visibleStatus = thisJob && status?.state !== 'idle';
   return <section className="toolkit-export-card" aria-label={uiText("Mobile library export")}>
-    <div className="toolkit-card-heading"><Smartphone size={20} /><div><h3>{uiText("Mobile library")}</h3><p>{uiText("Take")} {title}  {uiText("transcripts and voices to your phone.")}</p></div></div>
+    <div className="toolkit-card-heading"><Smartphone size={20} /><div><h3>{uiText("Android library")}</h3><p>{uiText("Take")} {title}  {uiText("transcripts and voices to your phone.")}</p></div></div>
     <label className="toolkit-setup-checkbox toolkit-export-option"><input type="checkbox" checked={includeAudio} disabled={active || textOnly}
       onChange={event => setVoices(event.target.checked)} /><span><strong>{uiText("Original game voices")}</strong><small>{textOnly ? uiText("This game supports text only.") : uiText("Include playable audio. Uncheck for a smaller catalog-only export.")}</small></span></label>
     <div className="toolkit-destination">
@@ -79,7 +79,7 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
     {active && !thisJob && <p role="status">{uiText("Another game is exporting. Cancel it below or wait for completion.")}</p>}
     <div className="toolkit-setup-actions toolkit-export-actions">
       <Button disabled={busy || !ready || languageMissing || active || !estimate || estimating || !!estimateError || status?.browseActive}
-        onClick={() => void action(`/api/setup/games/${game}/mobile-export`, { include_audio: includeAudio, destination_folder: folder }, 'Export started. You can close Setup while it runs.')}><Download />{thisJob && status?.state === 'cancelled' ? uiText("Resume export") : uiText("Export mobile library")}</Button>
+        onClick={() => void action(`/api/setup/games/${game}/mobile-export`, { include_audio: includeAudio, destination_folder: folder, prepared_library: true }, 'Export started. You can close Setup while it runs.')}><Download />{thisJob && status?.state === 'cancelled' ? uiText("Resume export") : uiText("Export Android library")}</Button>
       {active && <Button variant="outline" disabled={stopping} onClick={() => void action('/api/setup/mobile-export/cancel', {game}, 'Stopping export…')}><Square size={14} />{stopping ? uiText("Stopping…") : uiText("Cancel export")}</Button>}
     </div>
     {languageMissing && <p className="toolkit-setup-note">{uiText("Select and prepare a learning language in Languages before exporting.")}</p>}
@@ -90,9 +90,9 @@ export function MobileLibraryExport({ game, title, ready, textOnly, busy, status
       {completed && <><p>{status.coverage?.dialogue.toLocaleString()} {uiText("bilingual lines ·")}{status.coverage?.exportedVoices.toLocaleString()} {uiText("voice-backed lines")}</p>
         <label>{uiText("Copy this library file to your phone")}<code className="toolkit-export-path">{status.bundle ?? status.folder}</code></label>
         <p className="toolkit-setup-note">{status.bytes != null ? `${gb(status.bytes)} to transfer. ` : ''}{uiText("One ZIP includes the catalog and voices. Keep it zipped.")}</p></>}
-      {status.state === 'cancelled' && <p className="toolkit-setup-note">{uiText("Completed clips are kept. Resume with the same save folder to reuse them.")}</p>}
+      {status.state === 'cancelled' && <p className="toolkit-setup-note">{uiText("Your previous completed library is kept. Start another export when ready.")}</p>}
       {status.state === 'error' && <p className="toolkit-setup-error">{status.message}</p>}
     </div>}
-    <details className="toolkit-export-help"><summary>{uiText("Play on your phone")}</summary><ol><li>{uiText("Copy the single Mobile Library ZIP to Files on your phone. Keep it zipped.")}</li><li>{uiText("Open the mobile page, open your library, paste the VDO.Ninja viewer link and tap Start playing.")}</li><li>{uiText("The PC can be off during play. Reopen the same library file after reloading the website.")}</li></ol></details>
+    <details className="toolkit-export-help"><summary>{uiText("Play on your phone")}</summary><ol><li>{uiText("Copy the Android Library ZIP to Files on your phone. Keep it zipped.")}</li><li>{uiText("Open the Android app and choose Import library.")}</li><li>{uiText("The imported library and saved recordings remain available with the PC off.")}</li></ol></details>
   </section>;
 }

@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--game', required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--catalog-only', action='store_true')
+    parser.add_argument('--prepared-library', action='store_true')
     parser.add_argument('--account-signature')
     parser.add_argument('--source-locale')
     parser.add_argument('--translation-locale')
@@ -74,9 +75,15 @@ def main():
                     raise ValueError('Game changed during preparation.')
                 temporary.replace(source)
                 atomic_json(marker, {'identity': identity, 'sha256': file_digest(source)})
+        extra = {'full_contract': True} if args.prepared_library else {}
         records, voice, check, service = prepare_source(args.root, args.game, work_folder(args.output) / 'decoded',
             expected_account_signature=args.account_signature, expected_source_locale=args.source_locale,
-            source_path=source, translation_locale=args.translation_locale)
+            source_path=source, translation_locale=args.translation_locale, **extra)
+        if args.prepared_library:
+            from .prepared_mobile_export import export_library as export_prepared
+            export_prepared(records, args.output, voice=voice, check=check,
+                            include_audio=not args.catalog_only, progress=progress)
+            return 0
         progress({'state': 'exporting', 'estimatedCatalogBytes': sum(len(encoded(r)) + 1 for r in records),
                   'total': len(records), 'message': 'Converting verified dialogue and voices'})
         export_library(args.game, records, args.output, voice=voice, check=check,

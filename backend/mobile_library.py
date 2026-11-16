@@ -321,7 +321,7 @@ def export_library(game, records, output, *, voice=None, include_audio=True, che
     return result
 
 
-def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None):
+def prepare_source(root, game, decode_dir, *, expected_account_signature=None, expected_source_locale=None, source_path=None, translation_locale=None, full_contract=False):
     """Adapt owned indexes and decoders without touching the user's transcript/audio history."""
     root, decode_dir = Path(root), Path(decode_dir)
     from .media_tools import vgmstream_executable
@@ -337,6 +337,8 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         if not account_check():
             raise ValueError('Account changed before export preparation.')
     if source_path is None and game == "zzz" and not (data / 'languages/zzz').is_dir():
+        if full_contract:
+            raise ValueError('Prepare the selected game language before exporting an Android library.')
         if expected_source_locale not in (None, 'zh-Hans'):
             raise ValueError('The selected language table is unavailable; prepare it before exporting.')
         from .voice_assets import VoiceAssetService
@@ -388,6 +390,8 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         source, accounts, account = (Path(source_path), None, None) if source_path else selected_snapshot(root, game)
         directory = source.parent
         payload = json.loads(source.read_text(encoding="utf-8"))
+        if full_contract and payload.get('format') != 2:
+            raise ValueError('Rebuild the selected language table before exporting an Android library.')
         inputs = [source]
         target = None
         if payload.get('format') != 2 and expected_source_locale not in (None, 'zh-Hans'):
@@ -460,7 +464,7 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             else:
                 source_check = lambda: service._adapter.fingerprint(source_install) == payload["fingerprint"]
         records = []
-        for item in payload["records"]:
+        for item in (() if full_contract else payload["records"]):
             if item.get("requires_previous"):
                 # The standalone phone matcher does not retain a confirmed
                 # scene occurrence between scans.
@@ -524,6 +528,17 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
         if game in {'cyberpunk', 'wuwa', 'nte', 'honkai3', 'witcher3'}:
             voice.batch_key = lambda row: encoded(service._entries[row['textId']]).decode('utf8')
 
+    if full_contract:
+        # The browser adapter above intentionally filters context-dependent and
+        # text-only rows. Android runs the maintained matcher and needs the
+        # original complete contract, including conditions and player variants.
+        snapshot = dict(payload)
+        snapshot['records'] = [dict(row) for row in payload['records']]
+        def original_voice(row, number):
+            if not service or not hasattr(service, 'extract_prepared'):
+                raise ValueError('Exact prepared voice export is unavailable for this game.')
+            return decode_dir / service.extract_prepared(row, number)
+        return snapshot, original_voice, check, service
     return records, voice, check, service
 
 

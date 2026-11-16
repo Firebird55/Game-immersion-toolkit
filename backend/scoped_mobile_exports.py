@@ -83,14 +83,15 @@ class ScopedMobileExports:
         manager, token, locale = self._manager(game)
         return {**manager.status(), 'scope': token, 'sourceLocale': locale, 'selectedGame': game or self.context()[2]}
 
-    def preview(self, game, include_audio=True, destination_folder=None):
+    def preview(self, game, include_audio=True, destination_folder=None, prepared_library=False):
         manager, _, locale = self._manager(game)
         if locale == 'unconfigured':
             raise ValueError('Select and prepare a learning language before exporting.')
         self._require_table(manager.scope[0], game, locale)
-        return manager.preview(game, include_audio, destination_folder)
+        return (manager.preview(game, include_audio, destination_folder, True) if prepared_library
+                else manager.preview(game, include_audio, destination_folder))
 
-    def start(self, game, include_audio=True, destination_folder=None):
+    def start(self, game, include_audio=True, destination_folder=None, prepared_library=False):
         with self.accounts.lock, self.lock:
             if self._paused:
                 return False
@@ -101,7 +102,8 @@ class ScopedMobileExports:
             if any((other._thread and other._thread.is_alive()) or other._picker or other._status['state'] in ACTIVE
                    for other in self.managers.values()):
                 return False
-            return manager.start(game, include_audio, destination_folder)
+            return (manager.start(game, include_audio, destination_folder, True) if prepared_library
+                    else manager.start(game, include_audio, destination_folder))
 
     def browse(self, folder=None, *, game=None):
         with self.accounts.lock, self.lock:
