@@ -23,6 +23,8 @@ public final class MainActivity extends Activity {
     private WebView reader;
     private ValueCallback<Uri[]> picker;
     private String origin;
+    private boolean foreground;
+    private long lifecycleRevision;
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
@@ -178,12 +180,13 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onStop() {
+        foreground = false;lifecycleRevision++;
         CookieManager.getInstance().flush();
         pauseReaderMedia();
         if (reader != null) {
             reader.onPause();
         }
-        worker.execute(() -> Python.getInstance().getModule("backend.android_host").callAttr("pause"));
+        pauseCapture();
         super.onStop();
     }
     private void pauseReaderMedia() {
@@ -191,10 +194,24 @@ public final class MainActivity extends Activity {
     }
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (!hasFocus) pauseReaderMedia();
+        if (!hasFocus) {
+            lifecycleRevision++;pauseReaderMedia();pauseCapture();
+        } else resumeReader();
+    }
+    private void pauseCapture() {
+        if (!worker.isShutdown()) worker.execute(() -> Python.getInstance().getModule("backend.android_host").callAttr("pause"));
+    }
+    private void resumeReader() {
+        final long revision = ++lifecycleRevision;
+        // Resume hints wait behind every earlier native pause fence. Never
+        // deliver an old queued resume after a newer stop/focus loss.
+        if (!worker.isShutdown()) worker.execute(() -> runOnUiThread(() -> {
+            if (reader != null && foreground && hasWindowFocus() && revision == lifecycleRevision && !isDestroyed())
+                reader.evaluateJavascript("window.dispatchEvent(new Event('toolkit-host-resume'))", null);
+        }));
     }
     @Override protected void onStart() {
-        super.onStart();if (reader != null) reader.onResume();
+        super.onStart();foreground = true;if (reader != null) reader.onResume();resumeReader();
     }
     @Override protected void onDestroy() {
         if (picker != null) { picker.onReceiveValue(null); picker = null; }

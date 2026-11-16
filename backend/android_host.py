@@ -23,13 +23,15 @@ from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
 
 MAX_FRAME = 10 * 1024**2
+UUID_PATTERN = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _host = None
 _host_lock = threading.RLock()
 
 
 class AndroidHost:
     def __init__(self, root, frontend, native=None, *, port=0):
-        self.session = PreparedCaptureSession(root)
+        self.receiver_owner = None
+        self.session = PreparedCaptureSession(root, on_invalidate=self._release_receiver)
         self.frontend = Path(frontend).absolute()
         self.native = native
         self.cookie = secrets.token_hex(32)
@@ -37,6 +39,10 @@ class AndroidHost:
         self.import_lock = threading.RLock()
         self.import_jobs = {}
         self.frame_geometry = None
+        self.receiver_revisions = {}
+        self.receiver_owner = None
+        self.document_epoch = secrets.token_hex(16)
+        self.document_started = False
         self.server = ThreadingHTTPServer(('127.0.0.1', port), self._handler())
         self.server.daemon_threads = True
         self.origin = f'http://127.0.0.1:{self.server.server_port}'
@@ -92,7 +98,93 @@ class AndroidHost:
             'message': 'Private prepared libraries and original audio are processed on this Android device.',
             'protected_accounts': False, 'ocr': 'bundled-mlkit' if self.native else 'not-attached',
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
-            'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS}
+            'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS,
+            'document_epoch': self.document_epoch, 'receiver_control': True, 'receiver_protocol': 'leased-frames-v1'}
+
+    def _release_receiver(self):
+        self.receiver_owner = None
+
+    def _active_receiver(self):
+        # Caller holds the same session lock used by frame admission, pause,
+        # settings, import publication and asynchronous OCR confirmation.
+        if self.receiver_owner and (self.receiver_owner['generation'] != self.session.generation or not self.session.running):
+            self.receiver_owner = None
+        return self.receiver_owner
+
+    def _receiver_conflict(self, state, detail):
+        return {'state': state, 'detail': detail, 'generation': self.session.generation,
+            'running': self.session.running}, 409
+
+    def control_receiver(self, value, document_epoch):
+        if (not isinstance(value, dict) or set(value) - {'id', 'revision', 'action', 'expected_generation'}
+                or not isinstance(value.get('id'), str) or not UUID_PATTERN.fullmatch(value['id'])
+                or type(value.get('revision')) is not int or not 0 < value['revision'] <= 2**53 - 1
+                or value.get('action') not in {'start', 'stop'}):
+            raise ValueError('Invalid screen receiver control')
+        identity, revision, action = value['id'], value['revision'], value['action']
+        if action == 'start' and (type(value.get('expected_generation')) is not int
+                or not 0 <= value['expected_generation'] <= 2**53 - 1):
+            raise ValueError('A current screen generation is required')
+        with self.session.lock:
+            if not isinstance(document_epoch, str) or not secrets.compare_digest(document_epoch, self.document_epoch):
+                return self._receiver_conflict('receiver_document_changed', 'The reader document changed; reconnect from the current screen')
+            owner = self._active_receiver()
+            entry = self.receiver_revisions.get(identity)
+            if entry is None:
+                if len(self.receiver_revisions) >= 128:
+                    return self._receiver_conflict('receiver_registry_full', 'Reopen the app before connecting another screen receiver')
+                entry = self.receiver_revisions[identity] = {'revision': 0, 'retired': False}
+            if entry['retired']:
+                return self._receiver_conflict('receiver_document_retired', 'This screen receiver belongs to a replaced reader document')
+            if revision <= entry['revision']:
+                return self._receiver_conflict('receiver_revision_stale', 'A newer screen receiver action already won')
+            entry['revision'] = revision
+            if action == 'start':
+                if owner and owner['id'] != identity:
+                    return self._receiver_conflict('receiver_owned', 'Another screen receiver is active')
+                if value['expected_generation'] != self.session.generation:
+                    return self._receiver_conflict('receiver_generation_changed', 'The screen source changed; refresh its current generation')
+                generation = self.session.start()
+                self.receiver_owner = {'id': identity, 'revision': revision, 'generation': generation}
+            elif owner and owner['id'] == identity:
+                self.session.stop('Screen receiver stopped')
+                self.receiver_owner = None
+            return {'generation': self.session.generation, 'receiver_id': identity,
+                'receiver_revision': revision, 'running': self.session.running}, 200
+
+    def replace_document(self):
+        with self.session.lock:
+            if self.document_started or self.receiver_revisions or self.session.running:
+                self.session.stop('Reader document replaced; reconnect the screen source')
+                self.receiver_owner = None
+                for entry in self.receiver_revisions.values():
+                    entry['retired'] = True
+                self.document_epoch = secrets.token_hex(16)
+            self.document_started = True
+            return self.document_epoch
+
+    def pause(self):
+        with self.session.lock:
+            self.session.stop('App paused; reconnect the screen source to continue')
+            self.receiver_owner = None
+
+    def submit_frame(self, raw, generation, sequence, receiver_id, receiver_revision, document_epoch):
+        with self.session.lock:
+            owner = self._active_receiver()
+            if owner:
+                if (receiver_id != owner['id'] or receiver_revision != str(owner['revision'])
+                        or document_epoch != self.document_epoch or generation != owner['generation']):
+                    return self._receiver_conflict('receiver_frame_stale', 'The screen receiver changed')
+            elif receiver_id is not None or receiver_revision is not None:
+                return self._receiver_conflict('receiver_frame_stale', 'This screen receiver is no longer active')
+            elif document_epoch is not None and document_epoch != self.document_epoch:
+                return self._receiver_conflict('receiver_document_changed', 'The reader document changed')
+            if generation != self.session.generation or not self.session.running:
+                return self._receiver_conflict('receiver_generation_changed', 'Screen source changed')
+            if not raw or sequence < 0 or self.native is None or self.session.index is None:
+                raise ValueError('Native frame OCR is unavailable or the image is invalid')
+            self.native.submit(raw, generation, sequence, self.session.index.source_locale)
+            return {'accepted': True, 'generation': generation, 'frame': sequence}, 202
 
     def accept_ocr(self, generation, sequence, raw):
         with self.session.lock:
@@ -181,6 +273,7 @@ class AndroidHost:
                 if size > limit:
                     raise ValueError('Request is too large')
                 raw = self.rfile.read(size)
+                self.request_bytes_read += len(raw)
                 if len(raw) != size:
                     raise InterruptedError('Request was interrupted')
                 return raw
@@ -198,12 +291,21 @@ class AndroidHost:
                     if self.command == 'PATCH':
                         self._json(host.session.update_settings(json.loads(self._body(1024**2))));return
                 if path == '/api/capture/start' and self.command == 'POST':
-                    generation = host.session.start()
-                    self._json({**host.session.snapshot(), 'generation': generation});return
+                    with host.session.lock:
+                        if host._active_receiver():
+                            self._json(*host._receiver_conflict('receiver_owned', 'Use the active screen receiver controls'));return
+                        generation = host.session.start()
+                        self._json({**host.session.snapshot(), 'generation': generation});return
+                if path == '/api/capture/receiver' and self.command == 'POST':
+                    self._json(*host.control_receiver(json.loads(self._body(4096)),
+                        self.headers.get('X-Toolkit-Document-Epoch')));return
                 if path in {'/api/capture/stop', '/api/capture/source'} and self.command == 'POST':
                     self._body(4096)
-                    host.session.stop('Screen source changed' if path.endswith('source') else 'Capture paused')
-                    self._json({**host.session.snapshot(), 'generation': host.session.generation});return
+                    with host.session.lock:
+                        if host._active_receiver():
+                            self._json(*host._receiver_conflict('receiver_owned', 'Use the active screen receiver controls'));return
+                        host.session.stop('Screen source changed' if path.endswith('source') else 'Capture paused')
+                        self._json({**host.session.snapshot(), 'generation': host.session.generation});return
                 if path == '/api/library/import' and self.command == 'POST':
                     if self.headers.get('Transfer-Encoding') or not self.headers.get('Content-Length', '').isdigit():
                         raise ValueError('A bounded library length is required')
@@ -224,6 +326,7 @@ class AndroidHost:
                                     if not block:
                                         raise InterruptedError('Library upload interrupted')
                                     destination.write(block);remaining -= len(block)
+                                    self.request_bytes_read += len(block)
                             self._json(host.session.import_library(upload, cancelled=job['cancel'].is_set,
                                 publish_guard=lambda: host.publish_import(job)));return
                     finally:
@@ -237,13 +340,11 @@ class AndroidHost:
                 if path == '/api/capture/frame' and self.command == 'POST':
                     generation, sequence = (int(self.headers.get(name, '-1')) for name in ('X-Toolkit-Generation', 'X-Toolkit-Frame'))
                     raw = self._body(MAX_FRAME)
-                    if generation != host.session.generation or not host.session.running:
-                        self._json({'detail': 'Screen source changed', 'generation': host.session.generation}, 409);return
-                    if self.headers.get('Content-Type') not in {'image/jpeg', 'image/png'} or not raw or sequence < 0 or host.native is None:
+                    if self.headers.get('Content-Type') not in {'image/jpeg', 'image/png'}:
                         raise ValueError('Native frame OCR is unavailable or the image is invalid')
-                    locale = host.session.index.source_locale
-                    host.native.submit(raw, generation, sequence, locale)
-                    self._json({'accepted': True, 'generation': generation, 'frame': sequence}, 202);return
+                    self._json(*host.submit_frame(raw, generation, sequence,
+                        self.headers.get('X-Toolkit-Receiver-Id'), self.headers.get('X-Toolkit-Receiver-Revision'),
+                        self.headers.get('X-Toolkit-Document-Epoch')));return
                 line_match = re.fullmatch(r'/api/lines/([1-9][0-9]*)/(favorite|audio)', path)
                 if line_match:
                     identity, operation = int(line_match[1]), line_match[2]
@@ -295,15 +396,26 @@ class AndroidHost:
                     self._json({'detail': 'Reader resource not found'}, 404);return
                 raw = file.read_bytes()
                 if file.suffix == '.html':
-                    raw = raw.replace(b'<head>', b'<head><meta name="toolkit-host-platform" content="android">')
+                    document = path in {'/', '/index.html'} and self.headers.get('Sec-Fetch-Dest', 'document') == 'document'
+                    epoch = host.replace_document() if document else host.document_epoch
+                    raw = raw.replace(b'<head>', ('<head><meta name="toolkit-host-platform" content="android">'
+                        '<meta name="toolkit-document-epoch" content="' + epoch + '">').encode())
                 self._headers(200, len(raw), mimetypes.guess_type(file.name)[0] or 'application/octet-stream', cookie=path == '/')
                 self.wfile.write(raw)
             def _dispatch(self):
+                self.request_bytes_read = 0
                 try:
                     self._handle()
                 except (ValueError, KeyError, TypeError, OSError, InterruptedError):
                     self.close_connection = True
                     try:
+                        # Closing a small unread upload can reset TCP before a
+                        # Windows client receives the error. Drain only bounded
+                        # remaining bytes, never a rejected multi-GiB library.
+                        length = self.headers.get('Content-Length', '')
+                        remaining = int(length) - self.request_bytes_read if length.isascii() and length.isdigit() and len(length) <= 20 else 0
+                        if 0 < remaining <= 65536:
+                            self.rfile.read(remaining)
                         self._json({'detail': 'The local request did not complete. Check the current library before retrying.'}, 400)
                     except OSError:
                         pass
@@ -331,7 +443,7 @@ def start(root, frontend, native=None):
 def pause():
     with _host_lock:
         if _host:
-            _host.session.stop('App paused; reconnect the screen source to continue')
+            _host.pause()
 
 
 def bootstrap_cookie():

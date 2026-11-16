@@ -17,16 +17,17 @@ from .endfield_caption_context import EndfieldCaptionContext
 from .languages import study_language
 from .models import AppSettings, CaptureSnapshot
 from .multilingual_index import MultilingualTextIndex
-from .prepared_library import CLIP, MAX_AUDIO, PreparedLibraryStore, _no_links
+from .prepared_library import CLIP, SHA, MAX_AUDIO, PreparedLibraryStore, _no_links
 from .storage import TranscriptStore
 
 
 class PreparedCaptureSession:
-    def __init__(self, root):
+    def __init__(self, root, *, on_invalidate=lambda: None):
         self.root = Path(root).absolute()
         _no_links(self.root)
         self.root.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
+        self.on_invalidate = on_invalidate
         self.settings = SettingsStore(self.root / 'settings.json')
         self.history = TranscriptStore(self.root / 'transcript.db')
         self.libraries = PreparedLibraryStore(self.root / 'libraries')
@@ -81,6 +82,7 @@ class PreparedCaptureSession:
         with self.lock:
             self.running = False
             self.generation += 1
+            self.on_invalidate()
             self.last_frame, self.last_time = -1, None
             self.processed_channels.clear()
             self.trackers.clear(); self.contexts.clear()
@@ -245,6 +247,7 @@ class PreparedCaptureSession:
                 phase='reading' if self.running else 'stopped', message=self.message, last_ocr=self.last_ocr)
             capture_payload = capture.model_dump(mode='json')
             capture_payload['source_generation'] = self.generation
+            capture_payload['library_revision'] = self.directory.name if self.directory and SHA.fullmatch(self.directory.name) else None
             return {'context': {'runtime_id': self.runtime_id, 'state_version': self.state_version, 'account_generation': 0},
                 'status': {'capture': capture_payload,
                     'textmaps': index.status() if index else {'ready': False, 'entry_count': 0, 'audio_count': 0, 'message': self.message},
