@@ -160,7 +160,7 @@ def _archive_metadata(install: Path, stamp: str) -> str:
 
 
 def _stage_table_schema(cache: Path, destination: Path) -> None:
-    """The private cache contains format metadata. All actual row values come from the installed release."""
+    """Cache format metadata; actual row values come from the selected original release."""
     cached = cache / (TABLE_SCHEMA_SHA256 + '.usmap')
     limit = 8 * 1024 * 1024
     try:
@@ -186,9 +186,9 @@ def _stage_table_schema(cache: Path, destination: Path) -> None:
     (destination / 'dialogue.usmap').write_bytes(data)
 
 
-def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None) -> None:
+def _reader_invocation(install: Path, executable: Path, destination: Path, mode: str):
     if destination.resolve().is_relative_to(install.resolve()):
-        raise ValueError("Reader outputs must stay outside the game installation")
+        raise ValueError("Reader outputs must stay outside the selected source context")
     from .runtime_bundle import discover_layout
     layout = discover_layout()
     if layout.mode == 'bundle':
@@ -203,6 +203,43 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
         working_directory = executable.resolve().parent / 'upstream'
         invocation = [str(sdk), str(executable.resolve()), mode, str(install.resolve()), str(working_directory), str(destination.resolve())]
         environment = None
+    return invocation, environment, working_directory
+
+
+def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
+                         *, schema_cache: Path | None = None, inventory=False):
+    """Read authoring from checked publisher streams, never an installed game."""
+    from .nte_publisher_stream import Broker
+    mode = 'inventory' if inventory else 'publisher-tables'
+    outputs = ('inventory.json',) if inventory else ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json')
+    if any((destination / name).exists() for name in outputs):
+        raise ValueError('NTE publisher extraction requires a fresh staging directory')
+    invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)
+    if not inventory:
+        if schema_cache is None:
+            raise ValueError('NTE publisher authoring requires verified type metadata')
+        _stage_table_schema(schema_cache, destination)
+    with Broker(containers) as broker:
+        request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors}
+        try:
+            result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
+                timeout=600, cwd=working_directory, env=environment,
+                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except (OSError, subprocess.SubprocessError):
+            raise PreparationFailure('game_metadata_unavailable',
+                'The NTE publisher reader could not finish. Retry preparation; the previous index is retained.') from None
+        if broker.failures:
+            failure = broker.failures[0]
+            code = failure.code if isinstance(failure, PreparationFailure) else 'game_metadata_unavailable'
+            raise PreparationFailure(code,
+                'NTE publisher resources could not be verified. Retry preparation; the previous index is retained.') from None
+    if result.returncode or not all((destination / name).is_file() for name in outputs):
+        raise PreparationFailure('unsupported_game_format',
+            'The NTE publisher dialogue format is unsupported or incomplete. Retry preparation; the previous index is retained.')
+
+
+def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None) -> None:
+    invocation, environment, working_directory = _reader_invocation(install, executable, destination, mode)
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     stamp = fingerprint(install)
     root = install / "Client/WindowsNoEditor/HT/Content"

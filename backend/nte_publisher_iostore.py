@@ -71,7 +71,7 @@ class Container:
         self.locations = tuple((int.from_bytes(raw[i:i + 5], 'big'),
                                 int.from_bytes(raw[i + 5:i + 10], 'big'))
                                for i in range(offsets, offsets + count * 10, 10))
-        check(all(n <= MEMBER_LIMIT and 0 <= at <= block_count * self.block_size - n
+        check(all(0 <= at <= block_count * self.block_size - n
                   for at, n in self.locations))
         seeds = struct.unpack_from('<I', raw, 84)[0]
         overflow = struct.unpack_from('<I', raw, 96)[0]
@@ -217,6 +217,7 @@ class Container:
         if match is None:
             raise KeyError(path)
         offset, size = self.locations[match[1]]
+        check(size <= MEMBER_LIMIT)
         if not size:
             return b''
         first, stop = offset // self.block_size, (offset + size + self.block_size - 1) // self.block_size

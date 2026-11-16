@@ -201,3 +201,28 @@ def test_replaced_recording_does_not_replace_historical_cached_bytes(monkeypatch
     assert new.root != old.root
     assert new.read('HT/b.uasset') == b'D' * 15
     assert old_open().read('HT/b.uasset') == b'B' * 15
+
+
+def test_large_unselected_chunk_does_not_hide_small_authoring_resources(monkeypatch, tmp_path):
+    # A real publisher container also inventories a multi-GB non-authoring
+    # chunk. Keep the read cap, but do not reject its entire directory.
+    original, _ = fixture(encrypted=False)
+    header = bytearray(original[:144])
+    directory_size = struct.unpack_from('<I', header, 48)[0]
+    directory = original[-48 - directory_size:-48]
+    count = 130
+    struct.pack_into('<I', header, 28, count)
+    struct.pack_into('<I', header, 44, 4 * 1024**2)
+    offsets = (0).to_bytes(5, 'big') + (40).to_bytes(5, 'big') + (0).to_bytes(5, 'big') + (513 * 1024**2).to_bytes(5, 'big')
+    block = b'A' * 64
+    blocks = b''.join((i * 64).to_bytes(5, 'little') + (64).to_bytes(3, 'little') * 2 + b'\0'
+                      for i in range(count))
+    toc = (bytes(header) + bytes(24) + offsets + blocks + struct.pack('<I', 4) + b'signsign' +
+           hashlib.sha1(block).digest() * count + directory + bytes(48))
+    open_container, _, ranges = prepare(monkeypatch, tmp_path, toc=toc, ucas=block * count)
+    container = open_container()
+    assert container.read('HT/a.uasset') == b'A' * 40
+    before = list(ranges)
+    with pytest.raises(PreparationFailure):
+        container.read('HT/b.uasset')
+    assert ranges == before
