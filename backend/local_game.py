@@ -79,10 +79,15 @@ class LocalDialogue:
     requires_previous: bool = False
     text_binding_unresolved: bool = False
     unresolved_text_locales: list[str] | None = None
+    # Only the adapter can establish that this is authored, displayed dialogue.
+    # Generic localization/UI entries must never opt into text-only capture.
+    text_capture_verified: bool = False
 
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
+        if type(self.text_capture_verified) is not bool:
+            raise ValueError('Invalid authored text capture evidence')
         if type(self.text_binding_unresolved) is not bool or (
                 self.unresolved_text_locales is not None and
                 (not isinstance(self.unresolved_text_locales, list) or

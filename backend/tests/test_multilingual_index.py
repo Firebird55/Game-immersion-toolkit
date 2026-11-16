@@ -5,6 +5,20 @@ import pytest
 from backend.multilingual_index import MultilingualTextIndex
 
 
+@pytest.mark.parametrize('status', ['unknown', 'unavailable', 'unvoiced'])
+def test_authored_capture_evidence_preserves_missing_voice_classification(status):
+    from dataclasses import asdict
+    from backend.local_game import LocalDialogue
+    row = LocalDialogue('test:caption', 'A visible caption.', '', voice_status=status)
+    assert not row.text_capture_verified
+    verified = LocalDialogue(**{**asdict(row), 'text_capture_verified': True})
+    assert verified.text_capture_verified and verified.voice_status == status
+    assert verified.audio is None
+    for invalid in (1, 'true', None):
+        with pytest.raises(ValueError, match='authored text capture evidence'):
+            LocalDialogue(**{**asdict(row), 'text_capture_verified': invalid})
+
+
 @pytest.mark.parametrize('scope', [None, 'line', 'context', 'paragraph'])
 def test_authored_full_track_always_has_paragraph_scope_in_all_indexes(tmp_path, scope):
     from backend.local_game import LocalDialogue
