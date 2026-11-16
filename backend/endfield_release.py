@@ -197,6 +197,10 @@ class Catalog:
         from . import endfield_film_update
         return endfield_film_update.cues(self.tools, self.stamp, dub)
 
+    def context_cues(self, dub):
+        from . import endfield_film_context
+        return endfield_film_context.cues(self.tools, self.stamp, dub)
+
     def mission_predecessors(self):
         from .endfield_mission_dialogue import predecessors
         return predecessors(self.tools, self.stamp)

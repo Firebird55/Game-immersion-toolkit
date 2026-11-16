@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 19
+LANGUAGE_INDEX_VERSION = 20
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -597,9 +597,11 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     films = endfield_online.film_records(catalog, tables, source_locale)
     if online:
         for film in films:
-            film['audio']['snapshot'] = stamp
+            if film['audio']:
+                film['audio']['snapshot'] = stamp
     rows.extend(films)
-    coverage['voiced'] += len(films)
+    for film in films:
+        coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
     if current != stamp:
         raise PreparationFailure('game_files_changed',
@@ -623,7 +625,9 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
                         'these lines remain unavailable and another language is never substituted.')
     if unknown:
         warnings.append(f'{unknown:,} Endfield narrative lines have unverified voice status and are excluded from silent capture.')
-    warnings.append(f'{len(films)} verified publisher film captions are available for the selected revision. '
+    warnings.append(f'{sum(row["voice_status"] == "voiced" for row in films)} publisher film captions have verified '
+                    'original audio for the selected revision. Whole-scene context recordings are labeled separately. '
+                    'Other authored captions retain their unresolved audio status. '
                     'Other movies and image-only panels have incomplete coverage. '
                     'The third-party metadata snapshot may lag the installed game.')
     if online:

@@ -86,7 +86,7 @@ English text and archive cuts remain explicitly incomplete in the
 
 ## Text provenance and remaining acceptance
 
-Reader revision 19 marks text from the original conversation, radio, narration
+Reader revisions 19–20 mark text from the original conversation, radio, narration
 and supported narrative tables, plus verified cinematic tracks, with
 `text_capture_verified`. Arbitrary localization values receive no such flag.
 This records subtitle ownership separately from `voice_status`: unknown and
@@ -94,19 +94,77 @@ unavailable audio retain their original state and no reaction becomes sentence
 audio. The shared capture policy must honor this provenance through its
 separate missing-audio opt-in and exact, unambiguous matching safeguards.
 
-The current English worker has 53,675 records: 26,044 voiced, 18,619 unvoiced,
-8,827 unavailable and 185 unknown. Those totals describe prepared authored
+The revision-20 English worker has 53,709 records: 26,076 voiced, 18,619 unvoiced,
+8,827 unavailable and 187 unknown. Those totals describe prepared authored
 tables, not proof that every record is currently reachable story content.
 The unavailable/unknown records include 8,134 conversations, 605 radio records,
-271 narration records and two voice-message cells. Their text must not disappear
+271 narration records, two voice-message cells and two cinematic captions. Their text must not disappear
 merely because their audio is unresolved.
 
-Current timed film/scene preparation supplies 467 English, 483 Japanese,
-459 Korean and 483 Mandarin clips per script choice. Saved bindings retain
+Current film/scene preparation retains 467 English, 483 Japanese,
+459 Korean and 483 Mandarin line clips per script choice. Saved bindings retain
 release, dub, protagonist, recording identity and clock. Exact individual-word
 cuts are not a closing requirement; a correctly identified original context
 clip containing the complete utterance is acceptable when clearly labeled.
 Subtitle display clocks alone do not establish a complete spoken interval.
+
+### Complete original context recordings
+
+A fresh census of the readable localized movie and scene tracks found 108
+additional current performance/caption pairs beyond those line clips. Their
+recording/caller, dub, protagonist and original bytes were checked separately.
+Revision 20 adds **100 context bindings**, retaining the other eight captions
+with unknown audio rather than assigning the wrong recording.
+
+| Study selection | Existing line clips | New original context recordings | Authored captions with unknown audio | Accounted current performance/caption pairs |
+| --- | ---: | ---: | ---: | ---: |
+| English | 467 | 32 | 2 | 501 |
+| Japanese | 483 | 12 | 2 | 497 |
+| Korean | 459 | 38 | 2 | 499 |
+| Mandarin, each Chinese script | 483 | 18 | 2 | 503 |
+
+Context exports contain the **complete original scene recording**, observed at
+14.5–224.5 seconds. They are labeled `context`, never a precise or short sentence
+cut. Overlapping captions and repeated text can share this complete source only
+when every occurrence has the same unambiguous original recording. A caption
+that remains on screen after the speech track ends does not truncate that
+recording. Player-marked text selects the matching protagonist. A missing game
+translation does not remove available study text or fabricate a replacement.
+
+All five ordinary publisher language workers completed. The 53,675 previously
+prepared English records retain exactly the same texts, audio bindings, voice
+states, protagonist selections and predecessors. Eight representative context
+exports cover overlap, repetition, lingering text, both protagonists and all
+five study selections. Their MP3s decode to nonzero PCM of the expected full
+source length. A fresh process blocked networking, discovery and context
+rebuilding, exported into new folders, and reproduced all eight PCM hashes.
+The new immutable context cache is separate from the existing line-clip cache;
+existing saved line exports do not require a new context census.
+
+The eight unresolved pairs are the two protagonist performances of
+`cutscene_e0m0_5_03` in all four dubs. The selected original voice recording
+contains digital silence during its English and Mandarin caption windows, and
+only sparse ±1 least-significant-bit decoder noise in Japanese and Korean.
+It contains different, later sentences and cannot be offered as this line's
+voice. The current scene's separate effects event has six original media
+sources; the bounded source check did not establish a spoken binding for this
+caption. Missing speech detection is not proof of silence. These entries remain
+**unknown**, with their original text and verified subtitle provenance. No
+per-caption silence override or reaction substitution was added.
+
+The same ordinary worker also prepared current **Mainland China 1.6.4** English
+and Mandarin. It selected that edition's own release descriptor and original
+sources, producing the same 501 English and 503 Mandarin accounted cinematic
+pairs, including the same two unresolved captions per selection. English has
+53,709 total records and Mandarin 54,968. This verifies current regional source
+preparation; it does not claim every regional device/playback flow was exercised.
+
+With revision-20 code and format metadata held fixed, the retained official
+1.5.3 discovery descriptor was replayed once more. Its normal English worker
+completed in 31.172 seconds with 48,291 records: 22,920 voiced, 17,189 unvoiced,
+7,995 unavailable and 187 unknown. Live 1.6.4 again retains every old ID and adds
+5,418 records, including 3,156 voiced records; five existing English texts change.
+The earlier changed-recording and restart proof remains independently recorded.
 
 The version rehearsal verifies changed English text, two changed original
 recordings, a new voiced line, offline restart and retention of older recordings.
@@ -118,7 +176,8 @@ preparation in 28.219 seconds and produced all 53,675 current records with the
 same text, audio bindings and voice states as the earlier current preparation.
 Running-device scheduled activation remains distinct from worker/cache evidence.
 Current-content acceptance still needs the shared missing-audio capture/export
-route, representative end-to-end captures for that route, regional differences
-accounted for against the selected mainland release, and any current cinematic
-caption excluded for an unresolved recording/clock to be explicitly inventoried.
+route and representative end-to-end captures for that route. The eight cinematic
+audio exceptions above remain explicit. This census covers tracks accepted by
+the strict original-config/director reader; it does not prove that every other
+client scene format or physical capture layout has been exercised.
 This report does **not** claim #86 is closed.

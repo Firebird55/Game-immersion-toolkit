@@ -111,7 +111,7 @@ def film_records(catalog, tables, locale):
             live = catalog.updated_cues(LANGUAGES[locale])
     else:
         return []
-    if not accepted and not live:
+    if not accepted and not live and not hasattr(catalog, 'context_cues'):
         return []
     refs = catalog.file('TableCfg/TextTable.json')
     rows = []
@@ -129,7 +129,8 @@ def film_records(catalog, tables, locale):
             continue
         key = str(reference['id'])
         texts = {code: display_text(values.get(key)) for code, values in tables.items()}
-        if not all(texts.values()):
+        texts = {code: value for code, value in texts.items() if value}
+        if not texts.get(locale):
             continue
         entry = live.get((film, caption))
         if entry:
@@ -147,6 +148,10 @@ def film_records(catalog, tables, locale):
                      'text_capture_verified': True,
                      'dialogue_kind': 'cinematic', 'channels': ['cinematic'],
                      'player_voice': 'female' if film.startswith('f_') else 'male' if film.startswith('m_') else None})
+    if hasattr(catalog, 'context_cues'):
+        from .endfield_film_context import records
+        rows.extend(records(catalog, tables, locale, refs,
+                            {(row['audio']['film'], row['audio']['caption']) for row in rows}))
     return rows
 
 
@@ -162,6 +167,13 @@ def extract(audio, tools):
     if locale not in LANGUAGES:
         _invalid()
     dub = LANGUAGES[locale]
+    if audio.get('context_source') is True:
+        from . import endfield_film_context, endfield_release
+        stamp = audio.get('snapshot')
+        source = endfield_film_context.cues(tools, stamp, dub).get((audio.get('film'), audio.get('caption')))
+        if not source or audio != endfield_film_context.audio(stamp, audio['film'], audio['caption'], locale, source):
+            _invalid()
+        return endfield_release.media(tools, stamp, dub, source[0], source[1])
     if 'recording_sha256' in audio:
         from . import endfield_film_update, endfield_release
         stamp = audio.get('snapshot')

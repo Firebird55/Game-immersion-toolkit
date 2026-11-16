@@ -10,7 +10,7 @@ rows and four unresolved literal-`None` performers. Generic reactions remain
 separate from sentence audio. A fresh scan of all 5,561 current level scripts
 and 28 runtime string pools found no historical `fmv_` movie-call argument.
 The unfinished historical archive cuts are not current subtitle blockers by
-themselves. Reader revision 19 records authored-text provenance without
+themselves. Reader revisions 19–20 record authored-text provenance without
 reclassifying missing or unknown audio. Shared capture/export and the remaining
 current/regional acceptance gates are explicit in that report.
 

@@ -73,6 +73,9 @@ Endfield's general reactions are separate from sentence recordings. A sigh or
 captions use the unvoiced option; unresolved or missing audio keeps its own
 status. See the [current subtitle inventory](docs/game-audits/endfield-current-subtitle-acceptance.md)
 for the current radio classifications and historical-film boundaries.
+Some Endfield captions use the complete original scene recording, explicitly
+labeled as context. Observed context recordings run from 14.5 to 224.5 seconds;
+they include the full performance rather than an exact individual-sentence cut.
 
 Setup shows saved/automatically detected folders, missing voice packs and tools, index readiness, progress and the last check. **Browse game folders** opens the Windows picker; pasted paths are validated before saving. **Use automatic detection** removes only that game's override. **Install game tools** prepares missing dependencies; **Repair game tools** retries their verified downloads. Preparation runs in the background and failures can be retried.
 

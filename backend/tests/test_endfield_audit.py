@@ -629,6 +629,24 @@ def test_missing_pack_has_actionable_warning_and_never_becomes_silent(tmp_path, 
     assert any('third-party' in warning for warning in result['coverage_warnings'])
 
 
+def test_publisher_keeps_an_authored_cinematic_caption_without_a_sentence_recording(tmp_path, monkeypatch):
+    from backend import endfield_release, endfield_online
+    catalog = Catalog()
+    catalog.stamp = 'stable'
+    monkeypatch.setattr(endfield_release, 'prepare', lambda *_args: catalog)
+    monkeypatch.setattr(endfield_release, 'discover', lambda *_args: ('stable', b''))
+    monkeypatch.setattr(endfield_release, 'voice_entries', lambda *_args: {})
+    unknown = {'text_id': 'endfield:film:scene:caption', 'source_locale': 'en',
+               'source_text': 'An authored caption.', 'texts': {'en': 'An authored caption.'},
+               'english': 'An authored caption.', 'chinese': '', 'audio_locale': 'en',
+               'audio': None, 'voice_status': 'unknown', 'text_capture_verified': True,
+               'dialogue_kind': 'cinematic', 'channels': ['cinematic']}
+    monkeypatch.setattr(endfield_online, 'film_records', lambda *_args: [unknown])
+    result = endfield.index_language(None, tmp_path, 'en', ())
+    assert result['records'][-1] == unknown
+    assert result['voice_coverage']['unknown'] == 1
+
+
 def test_present_pack_diagnostics_do_not_blame_metadata_gaps_on_installation(tmp_path, monkeypatch):
     patch_index(monkeypatch, tmp_path, Catalog({
         'DialogTextTable': {'missing_metadata': {'dialogText': ref(1), 'audioOverride': 'missing'},
