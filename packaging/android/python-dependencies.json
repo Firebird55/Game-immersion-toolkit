@@ -1,0 +1,98 @@
+{
+  "schema": "toolkit-android-python-build-v1",
+  "python": "3.12",
+  "python_target": "3.12.15-0",
+  "android_api": 24,
+  "page_size": 16384,
+  "rust_version": "1.95.0",
+  "ndk_revision": "27.3.13750724",
+  "ndk": {
+    "source": "https://dl.google.com/android/repository/android-ndk-r27d-windows.zip",
+    "size": 781506724,
+    "official_sha1": "56607cbccd3642d4a1991f6bb3114a00f884f426",
+    "sha256": "82094f53e66a76b6a9ec4fc35a5076091a92de3b91d13c5d4a7cfdb226304c59"
+  },
+  "targets": {
+    "arm64-v8a": {
+      "artifact": "target-3.12.15-0-arm64-v8a.zip",
+      "source": "https://repo.maven.apache.org/maven2/com/chaquo/python/target/3.12.15-0/target-3.12.15-0-arm64-v8a.zip",
+      "bytes": 7376620,
+      "sha256": "bcc3cb4edcff25c8c3103cf45ea35b66ef0a728bb2b3e7731d3c045093ff6d39",
+      "rust_target": "aarch64-linux-android",
+      "elf_machine": 183
+    },
+    "x86_64": {
+      "artifact": "target-3.12.15-0-x86_64.zip",
+      "source": "https://repo.maven.apache.org/maven2/com/chaquo/python/target/3.12.15-0/target-3.12.15-0-x86_64.zip",
+      "bytes": 7619831,
+      "sha256": "83a977b2b4b1bdb9c8a5a65571bf0ff865777ec8cfcc593de6696a6aaf859a60",
+      "rust_target": "x86_64-linux-android",
+      "elf_machine": 62
+    }
+  },
+  "sources": {
+    "pydantic_core": {
+      "artifact": "pydantic_core-2.50.1.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/a6/24/af4ec4be49fbc810f35b0bdcacc3d433b56bbfa469fd3bfd4ae116cd9bf1/pydantic_core-2.50.1.tar.gz",
+      "sha256": "e50d7b94baac6c7d09927fa5ca5800a0c7ee5015c7fcff65beb3a1931b5a6e09",
+      "bytes": 513515,
+      "cargo_lock_sha256": "ac24753c2ed315f8dc22d6470fa868970e3705a0888d879704e872d53f21452d"
+    },
+    "rapidfuzz": {
+      "artifact": "rapidfuzz-3.14.6.tar.gz",
+      "source": "https://files.pythonhosted.org/packages/18/97/226c43b7b5d957bc3840ed52ea99eed261f99834c4619be7a4742cbaeafa/rapidfuzz-3.14.6.tar.gz",
+      "sha256": "e13a8160d017b499ec7a2fa9d0ce1ae2e7377080815785819f966fb235d4eb60",
+      "bytes": 57955060
+    }
+  },
+  "wheels": {
+    "pydantic-2.14.1-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/35/ea/a56b9fe5066f3537b7882f77e9c5dfb26d8c2eefdaed9b5fc73d57b4dc22/pydantic-2.14.1-py3-none-any.whl",
+      "sha256": "9195d967ec791692a04438115466764fb8b9a27b31f14a760437694f40d6b454",
+      "bytes": 488106
+    },
+    "opencc_python_reimplemented-0.1.7-py2.py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/30/6b/055b7806f320cc8f2cdf23c5f70221c0dc1683fca9ffaf76dfc2ad4b91b6/opencc_python_reimplemented-0.1.7-py2.py3-none-any.whl",
+      "sha256": "41b3b92943c7bed291f448e9c7fad4b577c8c2eae30fcfe5a74edf8818493aa6",
+      "bytes": 481813
+    },
+    "annotated_types-0.8.0-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/99/91/8acff4f5e50511b911bbccb72b8628a49c68ce14148cd9f6431094859a90/annotated_types-0.8.0-py3-none-any.whl",
+      "sha256": "f072f4d804ea359e4eaf198b1af7a8b0943881a87f31bb764f8bf219bb9419e0",
+      "bytes": 13427
+    },
+    "typing_inspection-0.4.4-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl",
+      "sha256": "65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147",
+      "bytes": 14750
+    },
+    "typing_extensions-4.16.0-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "bytes": 45571
+    }
+  },
+  "build_tools": {
+    "scikit_build_core-0.11.6-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/43/49/ec16b3db6893db788ae35f98506ff5a9c25dca7eb18cc38ada8a4c1dc944/scikit_build_core-0.11.6-py3-none-any.whl",
+      "sha256": "ce6d8fe64e6b4c759ea0fb95d2f8a68f60d2df31c2989838633b8ec930736360"
+    },
+    "pathspec-0.12.1-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl",
+      "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+    },
+    "packaging-26.3-py3-none-any.whl": {
+      "source": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+      "sha256": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+    }
+  },
+  "runtime_requirements": [
+    "pydantic==2.14.1",
+    "pydantic_core==2.50.1",
+    "RapidFuzz==3.14.6",
+    "opencc-python-reimplemented==0.1.7",
+    "annotated-types==0.8.0",
+    "typing-inspection==0.4.4",
+    "typing_extensions==4.16.0"
+  ]
+}

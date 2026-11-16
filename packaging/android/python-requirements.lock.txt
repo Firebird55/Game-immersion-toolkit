@@ -1,0 +1,9 @@
+# Shared desktop matching, models and transcript dependencies; Python 3.12.
+# Resolve only from the checksum-verified offline Android wheelhouse.
+pydantic==2.14.1
+pydantic_core==2.50.1
+RapidFuzz==3.14.6
+opencc-python-reimplemented==0.1.7
+annotated-types==0.8.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
