@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 21
+LANGUAGE_INDEX_VERSION = 25
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -194,9 +194,13 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
         for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
             if not lines.get(locale):
                 continue
+            if row.get('authored_speech_disabled'):
+                path = None
             source = 'voice/' + VOICE_LOCALES[locale] + '/' + path.replace('\\', '/').lower() if path else None
             audio = entries.get(f'{voice_hash(source):016x}') if source else None
-            if audio:
+            if row.get('authored_speech_disabled'):
+                voice_status = 'unvoiced'
+            elif audio:
                 voice_status = 'voiced'
             elif not source and row.get('radio_text_only'):
                 voice_status = 'unvoiced'
@@ -234,6 +238,18 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 'text_capture_verified': row.get('text_capture_verified') is True,
                 'channels': row.get('channels', ['dialogue'])})
     _guard_speaker_anchors(result)
+    # Equivalent written steps can be repeated by different operator stages.
+    # Their complete official texts share an identity only for predecessor
+    # lookup, never for a spoken recording or an unknown/missing performance.
+    equivalents = {}
+    for record in result:
+        if record['dialogue_kind'] == 'tutorial_step' and record['voice_status'] == 'unvoiced' and record['audio'] is None:
+            equivalents.setdefault(tuple(sorted(record['texts'].items())), []).append(record)
+    for records in equivalents.values():
+        if len(records) > 1:
+            members = sorted(record['text_id'] for record in records)
+            for record in records:
+                record['member_text_ids'] = members
     return result
 
 
@@ -301,6 +317,18 @@ def authored_dialogues(catalog, *, radio_evidence=None):
         for child, parent in catalog.mission_predecessors().items():
             if child in dialogs and parent in dialogs:
                 dialogs[child]['previous_mission_id'] = parent
+    if hasattr(catalog, 'top_dialogues'):
+        for identity, previous in _mapping(catalog.top_dialogues()).items():
+            if identity not in dialogs or previous is not None and previous not in dialogs:
+                _unsupported()
+            dialogs[identity]['channels'] = ['dialogue', 'cinematic']
+            if previous:
+                dialogs[identity]['previous_mission_id'] = previous
+    if hasattr(catalog, 'disabled_dialogues'):
+        for identity in catalog.disabled_dialogues():
+            if identity not in dialogs:
+                _unsupported()
+            dialogs[identity]['authored_speech_disabled'] = True
     for identity, row in radio_dialogues(catalog, evidence=radio_evidence).items():
         if identity in dialogs:
             _unsupported()
@@ -481,6 +509,50 @@ def narrative_dialogues(catalog, warnings):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, channel, status)
 
+    # The original InstructionBook/WikiGuide/DungeonCharTutorialStepHud
+    # controllers render these body fields as written explanations. Video,
+    # artwork, headings, skill labels and any separate audio stay independent.
+    for name, field, kind in (
+        ('InstructionBook', 'content', 'instruction'),
+        ('WikiTutorialPageTable', 'content', 'tutorial'),
+    ):
+        for identity, row in _table(catalog, name, warnings).items():
+            add(f'{name}:{identity}', _mapping(row).get(field), kind, 'tip')
+
+    # Only the actual current dungeon-stage references select step text.
+    # Retained unused definitions are not evidence of a displayed instruction.
+    steps = _table(catalog, 'DungeonCharTutorialStepTable', warnings)
+    step_ids, step_predecessors = set(), {}
+    for tutorial in _table(catalog, 'DungeonCharTutorialTable', warnings).values():
+        stages = _mapping(tutorial).get('tutorialStageData')
+        if not isinstance(stages, list):
+            _unsupported()
+        for stage in stages:
+            references = _mapping(stage).get('stepIds')
+            if not isinstance(references, list) or not all(isinstance(value, str) and value for value in references):
+                _unsupported()
+            step_ids.update(references)
+            previous = None
+            for identity in references:
+                step_predecessors.setdefault(identity, set()).add(previous)
+                previous = identity
+    missing_steps = 0
+    for identity in sorted(step_ids):
+        if identity not in steps:
+            missing_steps += 1
+            continue
+        add(f'DungeonCharTutorialStepTable:{identity}', _mapping(steps[identity]).get('stepDesc'),
+            'tutorial_step', 'tip')
+        previous = step_predecessors[identity]
+        if len(previous) == 1 and None not in previous and next(iter(previous)) in steps:
+            dialogs[f'DungeonCharTutorialStepTable:{identity}']['previous_mission_id'] = (
+                'DungeonCharTutorialStepTable:' + next(iter(previous)))
+    if missing_steps:
+        warnings.append(f'Endfield dungeon tutorials reference {missing_steps:,} missing step bodies.')
+    if len(steps.keys() - step_ids):
+        warnings.append(f'{len(steps.keys() - step_ids):,} Endfield tutorial-step definitions have no current stage reference; '
+                        'their text is not prepared.')
+
     # DialogSkipPopUp displays the authored summary as text when a player
     # skips a scene. Several scenes may reference the same summary identity.
     summary_ids = _table(catalog, 'DialogSummaryMapTable', warnings).values()
@@ -510,8 +582,11 @@ def narrative_dialogues(catalog, warnings):
             content_type = row.get('contentType')
             if type(content_type) is not int:
                 _unsupported()
-            if content_type == 1:
-                add(f'SNSDialogTable:{identity}:{number}', row.get('content'), 'message', 'dialogue')
+            if content_type in (1, 7):
+                # Native SNSDialogContentType.System=7 uses the separate
+                # SNSContentSystemMsg written-content widget, not voice/media.
+                add(f'SNSDialogTable:{identity}:{number}', row.get('content'),
+                    'message_system' if content_type == 7 else 'message', 'dialogue')
             elif content_type == 5:
                 parameters = row.get('contentParam')
                 if not isinstance(parameters, list) or not all(isinstance(value, str) for value in parameters):
@@ -673,6 +748,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         **({'source_mode': 'publisher', 'publisher_region': region} if online else {}),
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
+        'publisher_top_dialogue_cues': sum(row['dialogue_kind'] == 'conversation' and 'cinematic' in row['channels'] for row in rows),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 

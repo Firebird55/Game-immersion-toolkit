@@ -17,6 +17,11 @@ from .preparation_errors import PreparationFailure
 
 ROOT = 'Client/WindowsNoEditor/HT/Content/'
 SCHEMA = 1
+# Frozen existing format descriptions, proved against original archive indices
+# and localization in both supplied generations. No latest source is followed
+# for the original-native recipe. Rotated parameters remain explicit failures.
+NATIVE_ARCHIVE = ('7f3fb1dee733d36338766467b0c54cbd47d58851', 'aba72c557c302444c85c89a0789a4cac04a7a3e7f56b6324330c897db2a00566')
+NATIVE_LOCALIZATION = ('d45c24674d84c3c2c61ae5315a37a80dac97e04f', '855abc7dbf3b39f5a7cf04ac5c613a3281992afb8cdb4c4f844722f816b7ea34')
 
 
 def _json(value):
@@ -37,6 +42,20 @@ def snapshot(tools, stamp):
     for name, info in result['files'].items():
         pak.check(isinstance(name, str) and name.startswith(ROOT) and '..' not in name and '\\' not in name)
         pak._file(release.File(**info), 1024**4)
+    if 'publisher_files' in result:
+        from . import nte_native_provider as native
+        original = native.discovery(result)
+        pak.check({name: row for name, row in original['files'].items() if name.startswith(ROOT)} == result['files'])
+        reference = result.get('type_schema', {})
+        if reference.get('kind') == native.KIND:
+            pak.check(set(reference) == {'kind', 'generator', 'validator', 'inventory_sha256', 'seed_sha256',
+                                        'reader_sha256', 'baseline_inventory_sha256', 'baseline_native_sha256'})
+            for key in ('inventory_sha256', 'seed_sha256', 'reader_sha256', 'baseline_inventory_sha256', 'baseline_native_sha256'):
+                pak.check(isinstance(reference[key], str) and re.fullmatch('[0-9a-f]{64}', reference[key]))
+            for key in ('generator', 'validator'):
+                pak.check(isinstance(reference[key], str) and re.fullmatch('[a-z0-9-]{1,128}', reference[key]))
+            pak.check(reference['inventory_sha256'] == hashlib.sha256(native.metadata._json(original)).hexdigest()
+                      and reference['reader_sha256'] == result['reader'])
     return result
 
 
@@ -62,18 +81,21 @@ def _discovery(region):
     branch, version, files, sections = release.discover(region)
     selected = {name: asdict(item) for name, item in files.items() if name.startswith(ROOT)}
     pak.check(selected)
-    return {'region': region, 'branch': branch, 'version': version, 'files': selected, 'sections': sections}
+    return {'region': region, 'branch': branch, 'version': version, 'files': selected, 'sections': sections,
+            'publisher_files': {name: asdict(item) for name, item in files.items()}}
 
 
 @lru_cache(maxsize=2)
 def _current(tools, period, region):
     from . import nte_assets
+    from . import nte_native_provider as native
     value = _discovery(region)
     cache = Path(tools) / 'nte-publisher/format'
-    archive = metadata.load(cache=cache)
-    localization = metadata.load_localization(cache=cache)
-    types = type_metadata.load(value['version'], cache / 'types')
-    value.update(schema=SCHEMA, reader=_reader_identity(), type_schema=types.reference,
+    reader = _reader_identity()
+    archive = metadata.load(revision=NATIVE_ARCHIVE[0], digest=NATIVE_ARCHIVE[1], cache=cache)
+    localization = metadata.load_localization(revision=NATIVE_LOCALIZATION[0], digest=NATIVE_LOCALIZATION[1], cache=cache)
+    types = native.source_reference(native.discovery(value), reader)
+    value.update(schema=SCHEMA, reader=reader, type_schema=types,
                  index_schema=nte_assets.LANGUAGE_INDEX_VERSION,
                  archive=[archive.revision, archive.digest], localization=[localization.revision, localization.digest])
     raw = _json(value)
@@ -260,9 +282,14 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         context = catalog.cache / 'empty-context'
         context.mkdir(parents=True, exist_ok=True)
         progress('Reading original NTE dialogue and movie authoring')
-        assets.run_publisher_reader(context, executable, staging, catalog.containers(),
-            catalog.format.parameters[region], schema_cache=catalog.cache / 'schemas',
-            table_schema=type_metadata.load(value['version'], catalog.cache / 'format/types', reference=value['type_schema']))
+        native_proof = None
+        if value['type_schema'].get('kind') == 'nte-original-native-v1':
+            from . import nte_native_provider as native
+            native_proof = native.read_authoring(catalog, executable, staging, progress)
+        else:
+            assets.run_publisher_reader(context, executable, staging, catalog.containers(),
+                catalog.format.parameters[region], schema_cache=catalog.cache / 'schemas',
+                table_schema=type_metadata.load(value['version'], catalog.cache / 'format/types', reference=value['type_schema']))
         movie_catalog = json.loads((staging / 'movie-tables.json').read_bytes())
         bindings = movie_bindings(catalog_rows(movie_catalog), movie_namespaces(movie_catalog, required=True))
         subtitles = {b['subtitle']: catalog.read(b['subtitle']).decode('utf-8-sig')
@@ -313,7 +340,10 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
             pak.check(location)
             row['audio'].update(publisher=stamp, archive=location[0])
     expected = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections')}
-    if 'nte-' + selected_region(tools, 'nte') != region or _discovery(region) != expected:
+    if 'publisher_files' in value: expected['publisher_files'] = value['publisher_files']
+    observed = _discovery(region)
+    if 'publisher_files' not in value: observed = {key: observed[key] for key in expected}
+    if 'nte-' + selected_region(tools, 'nte') != region or observed != expected:
         raise PreparationFailure('game_files_changed', 'NTE publisher resources changed during preparation. Retry; the previous completed index is retained.')
     warnings = assets.coverage_warnings(records, publisher=True)
     warnings.extend(f'{count:,} {code} translation entries did not match the selected source revision and were excluded.' for code, count in rejected.items())
@@ -321,10 +351,13 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     warnings.extend(f'NTE {code} translations cover {len(rows):,} of {source_count:,} matching text keys in this snapshot.'
                     for code, rows in tables.items() if code != assets.TEXT_LOCALES[source_locale] and len(rows) < source_count)
     missing = [target for target, locale in resolved.items() if locale not in available]
-    return {'format': 2, 'game': 'nte', 'install': None, 'source_mode': 'publisher', 'source_region': region[4:],
+    result = {'format': 2, 'game': 'nte', 'install': None, 'source_mode': 'publisher', 'source_region': region[4:],
             'fingerprint': stamp, 'source_locale': source_locale, 'records': records,
             'missing_translation_locales': missing, 'coverage_warnings': warnings,
             'message': f'{len(records):,} official {source_locale} lines; {sum(bool(r.get("audio")) for r in records):,} original voices'}
+    if native_proof is not None:
+        result.update(type_schema=native_proof[0], native_schema_validation=native_proof[1])
+    return result
 
 
 @lru_cache(maxsize=2)

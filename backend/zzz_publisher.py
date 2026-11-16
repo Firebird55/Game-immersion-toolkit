@@ -195,6 +195,7 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         coverage['comic_paths'] = comic_plan['scenePaths']
         coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
         coverage['scene_paths'] = plan['scenePaths']
+        coverage['perform_presentations'] = plan['performPresentations']
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
         if 'hotfix' in build:
             coverage['auxiliary_update_resources'] = zzz_hotfix.silence_evidence(cache, build)
@@ -317,4 +318,6 @@ def build_language(data_dir, source_locale, target_locales, progress):
                 ('/' + build['hotfix']['revisions']['design'] if 'hotfix' in build else ''),
             'records': rows, 'coverage': coverage,
             'missing_translation_locales': [target for target, locale in targets.items() if locale not in available],
-            'coverage_warnings': [SCOPE], 'message': f"{len(rows):,} {REGIONS[region]} ZZZ dialogue entries in {source_locale}. {SCOPE}"}
+            'coverage_warnings': [SCOPE, 'Movie and timeline subtitle coverage is incomplete. '
+                'Their configured references are inventoried separately from verified current dialogue.'],
+            'message': f"{len(rows):,} {REGIONS[region]} ZZZ dialogue entries in {source_locale}. {SCOPE}"}

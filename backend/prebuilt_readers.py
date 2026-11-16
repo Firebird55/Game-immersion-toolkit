@@ -16,13 +16,24 @@ from pathlib import PureWindowsPath
 import re
 import stat
 import struct
+import zipfile
 
 from .node_tools import host_platform
 from .preparation_errors import PreparationFailure
 from .runtime_bundle import RuntimeBundleError, discover_layout, relative_resource
 
 SCHEMA = 'proxy-prebuilt-dotnet-reader-v1'
-ENTRIES = {'probe': 'ToolkitReaderProbe.exe', 'nte': 'NteReader.exe'}
+ENTRIES = {'probe': 'ToolkitReaderProbe.exe', 'nte': 'NteReader.exe', 'starrail': 'StarRailMetadata.exe'}
+STARRAIL_SOFTWARE = {
+    'metadata_source_sha256': '785a58e58a24c5365ff166552b5daebe9e793ceecdfe7ca8a4227af43c1a54a3',
+    'decoder_source_sha256': '49fbf2fe9811e0fc20cd4a51812649e7987d4086e19940a0085dcf33a37badde',
+    'decoder_package_sha256': 'd31613617e3ddf91239bbc94a8c587849b4236e8f8a2a2ba59ea2397a1487c7a',
+    'decoder_assembly_sha256': '34672d65461f87fe24acbf06c9d06766a05a26d5876c3c0345a588042a0f4db8',
+}
+STARRAIL_NOTICES = {
+    'notices/HSRGlobalMetadata-LICENSE.txt': 'eb0b846f244524f7773e9263095230aea95ecb4f561f625656562cb4cf6923f8',
+    'notices/Iced-LICENSE.txt': '93a47598376fd3f276b631e75149340087153c6ff1635a53c5790249e9124e2d',
+}
 SDK = '10.0.403'
 RUNTIME = '10.0.14'
 SHA = re.compile(r'[a-f0-9]{64}')
@@ -110,9 +121,12 @@ def _x64_image(data):
 
 
 def _source_names(kind):
-    stem = 'ToolkitReaderProbe' if kind == 'probe' else 'NteReader'
-    return {'scripts/game-readers/' + stem + suffix for suffix in ('.cs', '.csproj')} | {
+    stem = Path(ENTRIES[kind]).stem
+    names = {'scripts/game-readers/' + stem + suffix for suffix in ('.cs', '.csproj')} | {
         'packaging/game-readers/inputs.json', 'packaging/game-readers/global.json', 'scripts/build-game-reader-helpers.ps1', 'scripts/verify-dotnet-sdk.py'}
+    if kind == 'starrail':
+        names |= {'packaging/starrail-reader/inputs.json', 'packaging/starrail-reader/probe.py', 'scripts/prepare-starrail-reader.py'}
+    return names
 
 
 @dataclass(frozen=True)
@@ -133,6 +147,14 @@ class PrebuiltReader:
         if self.kind != 'nte':
             raise _failure('Runtime identity is a fixed operation of the owned NTE bridge only.')
         return [str(self.executable), '--runtime-identity']
+
+    def original_metadata_command(self, operation, *paths):
+        """Only bounded data operations; no native loader or compiler command."""
+        if (self.kind != 'starrail' or operation not in {'metadata', 'disassemble'}
+                or len(paths) != (2 if operation == 'metadata' else 3)
+                or any(not Path(path).is_absolute() for path in paths)):
+            raise _failure('The original metadata helper requires a supported operation and absolute private paths.')
+        return [str(self.executable), operation, *(str(path) for path in paths)]
 
 
 def reader_environment(environ=None, *, platform=None):
@@ -197,7 +219,8 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
                 or value.get('platform') != platform or value.get('sdk_version') != SDK
                 or value.get('runtime_version') != RUNTIME or value.get('source_commit') != layout.source_commit
                 or value.get('source_dirty') is not False
-                or value.get('purpose') != ('authored-probe-only' if kind == 'probe' else 'owned-bridge-only')):
+                or value.get('purpose') != ('authored-probe-only' if kind == 'probe' else
+                                             'original-metadata-data-only' if kind == 'starrail' else 'owned-bridge-only')):
             raise ValueError()
         files = value['files']
         if not isinstance(files, dict) or not files or len(files) > 2048 or executable not in files:
@@ -281,6 +304,46 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
                     raise ValueError()
         if receipt['sdk_installed_files'].get('dotnet' + target['extension']) != receipt['dotnet_executable_sha256']:
             raise ValueError()
+        if kind == 'starrail':
+            if receipt.get('software_inputs') != STARRAIL_SOFTWARE or value.get('software_inputs') != STARRAIL_SOFTWARE:
+                raise ValueError()
+            software_files = {'Iced.dll': STARRAIL_SOFTWARE['decoder_assembly_sha256'],
+                'corresponding-source/iced-source.zip': STARRAIL_SOFTWARE['decoder_source_sha256'],
+                **STARRAIL_NOTICES}
+            if any(files.get(name, {}).get('sha256') != digest for name, digest in software_files.items()):
+                raise ValueError()
+            # Exact corresponding owned source travels with the GPL executable.
+            # Its content is checked against the same source identity used for
+            # compilation; the ZIP is never unpacked into the user's data.
+            source_zip = path.parent / 'corresponding-source/owned-source.zip'
+            if source_zip.stat().st_size > 2 * 1024 * 1024:
+                raise ValueError()
+            with zipfile.ZipFile(source_zip) as archive:
+                entries = archive.infolist()
+                if (len(entries) != len(sources) or {entry.filename for entry in entries} != set(sources)
+                        or any(entry.file_size > 1024 * 1024 for entry in entries)
+                        or sum(entry.file_size for entry in entries) > 2 * 1024 * 1024
+                        or any(hashlib.sha256(archive.read(entry)).hexdigest() != sources[entry.filename] for entry in entries)):
+                    raise ValueError()
+                policy = json.loads(archive.read('packaging/starrail-reader/inputs.json'), object_pairs_hook=_unique_json)
+            if policy['metadata']['sha256'] != STARRAIL_SOFTWARE['metadata_source_sha256']:
+                raise ValueError()
+            selected = policy['metadata']['files']
+            if not isinstance(selected, dict) or not 0 < len(selected) <= 256:
+                raise ValueError()
+            for name, digest in selected.items():
+                relative_resource(name)
+                if not name.endswith('.cs') or not SHA.fullmatch(str(digest)):
+                    raise ValueError()
+            selected = {'HSRGlobalMetadata/' + name: digest for name, digest in selected.items()}
+            selected['LICENSE'] = STARRAIL_NOTICES['notices/HSRGlobalMetadata-LICENSE.txt']
+            with zipfile.ZipFile(path.parent / 'corresponding-source/hsr-metadata-source.zip') as archive:
+                entries = archive.infolist()
+                if (len(entries) != len(selected) or {e.filename for e in entries} != set(selected)
+                        or any(e.file_size > 1024 * 1024 for e in entries)
+                        or sum(e.file_size for e in entries) > 4 * 1024 * 1024
+                        or any(hashlib.sha256(archive.read(e)).hexdigest() != selected[e.filename] for e in entries)):
+                    raise ValueError()
         for name in (executable, *native_files):
             _native_image((path.parent / name).read_bytes(), platform)
         if platform != 'win-x64' and os.name != 'nt' and not os.access(path.parent / executable, os.X_OK):
@@ -293,11 +356,13 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
                  'build-receipt.json', 'restore-lock.json'}
         if kind == 'probe':
             owned.add('probe-resource.txt')
+        if kind == 'starrail':
+            owned.add('Iced.dll')
         if any('/' not in name and name not in owned and item['sha256'] not in native_hashes for name, item in files.items()):
             raise ValueError()
         source_identity = _identity(sources)
         return PrebuiltReader(kind, path.parent / executable, source_identity, value)
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, RuntimeBundleError) as error:
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, zipfile.BadZipFile, RuntimeBundleError) as error:
         raise _failure('The prebuilt reader resources are missing or incompatible. Re-extract a verified candidate; no SDK or download was started.') from error
 
 

@@ -10,7 +10,7 @@ const tags = {'zh-Hans':'', 'zh-Hant':'_CHT', en:'_EN', ja:'_JA', ko:'_KO', de:'
   fr:'_FR', 'es-ES':'_ES', 'pt-BR':'_PT', th:'_TH', ru:'_RU', vi:'_VI', id:'_ID'};
 
 // Design tables have a root object with a vector of row objects in field zero.
-export function* tableStrings(data, columns, {vectors = [], maxColumns} = {}) {
+export function* tableStrings(data, columns, {vectors = [], integers = [], maxColumns} = {}) {
   function field(table, index) {
     const vtable = table - data.readInt32LE(table);
     const bytes = data.readUInt16LE(vtable), width = data.readUInt16LE(vtable + 2);
@@ -43,6 +43,7 @@ export function* tableStrings(data, columns, {vectors = [], maxColumns} = {}) {
     }
     yield columns.map(index => {
       const at = field(row, index);
+      if (integers.includes(index)) return at === null ? 0 : data.readUInt32LE(at);
       if (!vectors.includes(index)) return at === null ? '' : string(at);
       if (at === null) return [];
       const vector = indirect(at), count = data.readUInt32LE(vector);
@@ -50,6 +51,37 @@ export function* tableStrings(data, columns, {vectors = [], maxColumns} = {}) {
       return Array.from({length:count}, (_, i) => string(vector + 4 + i * 4));
     });
   }
+}
+
+export function performPresentationInventory(rows) {
+  // The original Perform table also configures movies and timeline keys. They
+  // must not disappear from coverage merely because sceneAssetPaths only
+  // acquires conversation/comic assets. A configured row is not proof of a
+  // reachable current scene, a subtitle, a player branch, or an audio binding.
+  const ids = new Set(), typeCounts = new Map();
+  const families = {movie: {perform_type:5, ids:[], source_keys:new Set()},
+    timeline: {perform_type:6, ids:[], source_keys:new Set()}};
+  for (const row of rows) {
+    if (!Array.isArray(row) || row.length !== 4) throw Error('Invalid released ZZZ Perform row');
+    const [id, type, first, alternate] = row;
+    if (!Number.isInteger(id) || id <= 0 || id > 0xffffffff || ids.has(id)
+        || !Number.isInteger(type) || type < 0 || type > 0xffffffff
+        || [first, alternate].some(value => typeof value !== 'string' || value.length > 1024)) {
+      throw Error('Invalid or duplicate released ZZZ Perform identity');
+    }
+    ids.add(id);
+    typeCounts.set(type, (typeCounts.get(type) || 0) + 1);
+    for (const family of Object.values(families)) if (type === family.perform_type) {
+      family.ids.push(id);
+      for (const key of [first, alternate]) if (key) family.source_keys.add(key);
+    }
+  }
+  return {source:'original PerformTemplateTb', configured_rows:ids.size,
+    type_counts:Object.fromEntries([...typeCounts].sort(([a],[b]) => a-b)),
+    unacquired_presentations:Object.fromEntries(Object.entries(families).map(([kind, family]) =>
+      [kind, {perform_type:family.perform_type, configured_rows:family.ids.length,
+        distinct_source_keys:family.source_keys.size, perform_ids:family.ids.sort((a,b) => a-b),
+        acquisition:'not-implemented', current_use:'unclassified'}]))};
 }
 
 function designTables(files, work, wanted, unpack) {
@@ -219,12 +251,14 @@ function scenePlan(work, input, reader) {
   const key = String(reader.xxHash64('performtemplatetb'));
   const tables = designTables(input.design, work, new Set([key]), reader.unpackMhyFile);
   if (!tables.has(key)) throw Error('Released ZZZ Perform table is missing');
-  const scenes = [...tableStrings(tables.get(key), [2, 3])];
+  const rows = [...tableStrings(tables.get(key), [0, 1, 2, 3], {integers:[0, 1]})];
+  const scenes = rows.map(row => row.slice(2));
   const dialogue = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'dialogue'), reader);
   const comics = releasedRanges(work, input.catalogs, sceneAssetPaths(scenes, 'comic'), reader, 'comic');
   const voiceDirectory = catalogRanges(work, input.catalogs,
     new Set([reader.xxHash64('assets/napresources/data/audio/voicedata.json')]), reader, false);
-  return {...dialogue, comics, voiceDirectory:voiceDirectory.ranges};
+  return {...dialogue, comics, voiceDirectory:voiceDirectory.ranges,
+    performPresentations:performPresentationInventory(rows)};
 }
 
 // Unity v21 AssetBundle (class 142): preloads, container and main asset, runtime

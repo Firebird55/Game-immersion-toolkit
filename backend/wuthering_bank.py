@@ -116,14 +116,14 @@ def _children(reader):
     return children
 
 
-def _node(kind, data):
+def _node(kind, data, *, common=False):
     reader = _Reader(data)
     media = None
     if kind == 2:
         _check(reader.take(5) == b'\x01\0\x14\0\x02')  # Streamed Opus WEM.
         media = reader.uint()
         reader.take(8)  # Source cache identifier and in-memory size.
-        _check(media and reader.byte() == 9)  # Language-specific, non-prefetch.
+        _check(media and reader.byte() == (8 if common else 9))  # Exact depot ownership.
     else:
         _check(kind in (6, 7))
     parent, delay, gain, muted = _base(reader)
@@ -173,7 +173,7 @@ def media_candidates(bank):
         return frozenset()
 
 
-def scene_sources(bank, event, localized_media):
+def _sources(bank, event, localized_media, *, common=False):
     """Return proven sources in the selected dub, or no bindings on ambiguity.
 
     localized_media must come from actual members of that original dub depot.
@@ -209,7 +209,7 @@ def scene_sources(bank, event, localized_media):
                 _check(current not in path)
                 path.append(current)
                 node_kind, node_data = nodes[current]
-                parent, node_delay, media, children, states, node_gain, node_muted = _node(node_kind, node_data)
+                parent, node_delay, media, children, states, node_gain, node_muted = _node(node_kind, node_data, common=common)
                 gain += node_gain
                 muted = muted or node_muted
                 if current == key:
@@ -227,9 +227,19 @@ def scene_sources(bank, event, localized_media):
                 destination = struct.unpack_from('<I', action, 2)[0]
                 if destination not in path:
                     continue
-                _check(destination == target and len(action) == 18
-                       and action[:2] == b'\x03\x04' and action[6:10] == b'\0\0\0\x04'
-                       and struct.unpack_from('<II', action, 10) == (wwise_hash(event), 30))
+                _check(destination == target)
+                play = _Reader(action)
+                _check(play.take(2) == b'\x03\x04' and play.uint() == target and play.byte() == 0)
+                count = play.byte()
+                _check(count in (0, 1) if common else count == 0)
+                if count:
+                    _check(play.byte() == 58)  # Wwise-172 action DelayTime, integer ms.
+                    action_delay = play.uint()
+                    _check(action_delay <= 300000)
+                    delay += action_delay
+                _check(play.byte() == 0 and play.byte() == 4
+                       and play.uint() == wwise_hash(event) and play.uint() == 30)
+                play.finish()
                 matches += 1
             _check(matches == 1)
             sources.append(SceneSource(source_media, gender, delay, muted or gain <= -96))
@@ -239,3 +249,30 @@ def scene_sources(bank, event, localized_media):
         return tuple(sorted(sources, key=lambda source: source.gender or ''))
     except (ValueError, KeyError, StopIteration, struct.error, TypeError):
         return ()
+
+
+def scene_sources(bank, event, localized_media):
+    """Scene-clock sources must belong to the actual selected voice depot."""
+    return _sources(bank, event, localized_media)
+
+
+def song_sources(bank, event, common_media):
+    """Single shared song synchronized by MusicSubtitle's source play position.
+
+    A start delay changes wall time, not that source position. This separate
+    contract never permits a delayed action in the ordinary scene-clock reader.
+    Music tracks/playlists and player/state-dependent sources remain unresolved.
+    """
+    try:
+        nodes = _nodes(bank)
+        kind, data = nodes[wwise_hash(event)]
+        _check(kind == 4)
+        reader = _Reader(data)
+        _check(reader.take(7) == bytes(7))
+        actions = [nodes[reader.uint()] for _ in range(reader.byte())]
+        reader.finish()
+        _check(sum(kind == 3 and data[:2] == b'\x03\x04' for kind, data in actions) == 1)
+    except (ValueError, KeyError, TypeError, struct.error):
+        return ()
+    sources = _sources(bank, event, common_media, common=True)
+    return sources if len(sources) == 1 and sources[0].gender is None else ()

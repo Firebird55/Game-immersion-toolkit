@@ -154,6 +154,215 @@ current subtitled performance would reopen the relevant item. Historical
 English text and archive cuts remain explicitly incomplete in the
 [archive guide](endfield-alpha-archive.md).
 
+## Written instructions and tutorials
+
+The original current `InstructionBookCtrl`, `WikiGuideCtrl`,
+`WikiGuideTipsCtrl`, `WikiGuideMediaCell` and `DungeonCharTutorialStepHudCtrl`
+were retrieved from the same release's Lua manifest, completely MD5-checked and
+decoded as data, never executed. The first three views render the authored
+written body independently of titles and illustrative media. The training HUD
+selects its `stepDesc` through the current dungeon-stage `stepIds`; its icon and
+short `iconDesc` labels are separate fields.
+
+Revision 22 adds these finite current-format inventories:
+
+| Written presentation | Current authored bodies | Selection and treatment |
+| --- | ---: | --- |
+| Instruction books | 131 | Original `content`, separately from the heading |
+| Guide explanations | 631 | Original page `content`; all pages have current tutorial references; input-specific pages retain their own identity |
+| Operator-training steps | 498 | All current step definitions are referenced by the 29 dungeon tutorial entries; original `stepDesc`, separately from the skill label |
+
+These **1,260 bodies per study selection** are written, unvoiced presentations,
+using the existing opt-in full-frame text reader on the tip channel. They do not
+borrow a video, background track or combat bark as sentence audio. Their exact
+official translations come from the same localization tables; an absent
+translation is not synthesized. New compatible page IDs, body fields and stage
+references are discovered through the current original tables, not an ID list.
+Missing stage references produce an explicit warning; retained unreferenced step
+definitions are not treated as displayed training instructions. A changed
+required structure rejects preparation while retaining the previous snapshot.
+
+The ordinary installation-free Global 1.6.4 workers prepare **54,969 English,
+56,228 Simplified Chinese, 54,950 Traditional Chinese, 55,060 Japanese and 54,948
+Korean records**. Every previous record retains its complete texts, translations,
+audio reference, voice state and player/predecessor binding. A single old
+conversation's speaker OCR anchor is conservatively removed in each selection:
+a newly represented unnamed instruction has the same rendered caption. A name
+elsewhere in the frame must not turn that written explanation into speech.
+Saved recordings retain their original identity and source.
+
+A fresh, network-forbidden complete-index replay tests every new full body.
+Aliases count only when **all official texts and the unvoiced state agree**:
+
+| Study selection | Instruction bodies matched | Guide bodies matched | Training-step bodies matched | Standalone bodies still guarded |
+| --- | ---: | ---: | ---: | ---: |
+| English | 125 / 131 | 630 / 631 | 462 / 498 | 43 |
+| Simplified Chinese | 131 / 131 | 626 / 631 | 469 / 498 | 34 |
+| Traditional Chinese | 131 / 131 | 626 / 631 | 469 / 498 | 34 |
+| Japanese | 131 / 131 | 626 / 631 | 492 / 498 | 11 |
+| Korean | 131 / 131 | 626 / 631 | 498 / 498 | 5 |
+
+The [remaining standalone-body cases](endfield-tutorial-capture-guards-1.6.4.csv)
+need reliable presentation context or rendering support; a populated prepared
+row is not a complete capture pass. This replay does not change the existing
+radio result: 133 of 134 residual rows still match per selection under their
+applicable opt-ins/authored context, and each selection's two unknown cinematic
+captions retain their original state and complete-text guard.
+
+With revision-22 reader and unchanged format metadata frozen, an explicitly
+**replayed** original 1.5.3 descriptor prepares 49,438 English records, compared
+with live 1.6.4's 54,969. Every old ID remains, 5,531 records are added including
+3,156 voiced and **113 new written bodies**; six existing written explanations
+change alongside the five previously documented English changes. All previously
+prepared baseline texts/audio/states also remain equal to the retained
+revision-21 baseline apart from recognition anchors. This extends the existing
+changed-recording/restart proof; it does not claim a new physical-device test.
+
+The [publisher's update notes](https://endfield.gryphline.com/en-us/news/0751)
+independently identify current Basic Training and Operator Guide content. Those
+notes establish presentation availability, not exact runtime OCR or media
+coverage. These inventories are authored-body denominators, not a claim that
+every tutorial was unlocked or played on a physical device. Exact matching and
+ambiguity guards still apply to repeated or short explanations. Video sound,
+image-only text, input-glyph rendering and every physical layout remain separate
+acceptance work. No tutorial audio or story-wide completeness is inferred from
+the count of written bodies.
+
+## Written Baker system messages
+
+Revision 23 follows the native `SNSDialogContentType.System` presentation,
+separately from ordinary text, voice, image and video cells. The selected
+original Windows client's metadata defines **System = 7**; the same field/default
+inventory independently reproduces the existing Text = 1 and Voice = 5 controls.
+The current MD5-checked `SNSContentSystemMsg` Lua widget renders the cell's
+`content` as written text. This source was decoded as data, never executed.
+An original text reference in an image cell is not enough to call it a displayed
+caption; those other media widgets retain their own rendering rules.
+
+All **117 current authored system-message bodies** are now prepared in every
+study selection under the existing unvoiced capture option. They retain their
+official localized text, have no sentence-audio reference and do not borrow the
+cell's parameter or a background voice. The normal publisher workers prepare
+55,086 English, 56,345 Simplified Chinese, 55,067 Traditional Chinese, 55,177
+Japanese and 55,065 Korean records. Every prior revision-22 record remains
+unchanged, including its recognition anchors and original audio state.
+
+Fresh network-forbidden complete-index matching resolves 102 of the 117 English
+bodies, 104 in each Chinese script, 110 Japanese and 104 Korean. These counts
+include aliases only when all official texts and the unvoiced state agree. The
+[remaining standalone system-message cases](endfield-system-message-capture-guards-1.6.4.csv)
+remain guarded; indexing the native text is not a full capture pass. The shared
+minimum-text and ambiguity rules were not weakened for short system labels.
+
+The same frozen revision-23 reader prepares 49,550 English records from the
+explicitly replayed original 1.5.3 descriptor and 55,086 from live 1.6.4. All old
+IDs remain. The 5,536 additions include 3,156 voiced rows and 118 written bodies
+(113 tutorials/instructions and five system messages). The six written-text
+changes above are retained. Previously verified recordings keep their exact
+source references; this text-only extension does not claim a new audio/device
+acceptance run. Runtime-generated notices, actor-name substitution, unsupported
+media contents and the remaining presentation/capture guards stay explicit.
+
+## Original top captions and training-step order
+
+Revision 24 reads each current dialogue graph's original `_showAtTop`
+declaration. The current `DialogTimelineCtrl` renders those captions through
+its separate `topTrunkText`/`topTrunkNode` view; its original encoded Lua is
+MD5-checked (`0d86f5c6732969ce9dc5388b3413c1c0`) and decoded only as data.
+The controller and source graphs are not executed. Ordinary voiced top captions
+therefore enter full-frame capture without enabling unvoiced-text capture.
+The normal bottom dialogue region remains independently available.
+
+An offline census read all **3,093 original current dialogue graphs**, with
+18,835 distinct trunk references. Fifteen nodes explicitly use the top layout.
+The strict selector accepts 12 IDs, producing **13 prepared records** because
+one has both protagonist performances. Three other top nodes enable an emotion
+voice route and retain the existing conservative layout restriction pending
+separate route acceptance. Custom text, disabled speech, actor-action groups,
+radio and alternate-voice cases do not acquire this new top-caption route.
+This finite graph inventory is not proof that every other client presentation
+or indirect world trigger has been inventoried.
+
+Only original, unique and unbranched same-layout edges supply a preceding top
+caption. Referenced operator-training stages independently supply their exact
+`stepIds` order. A step used with different predecessors gets no guessed order.
+Written steps can share predecessor aliases only when all their official texts
+and unvoiced state agree. A confirmed later occurrence replaces a canonical
+first-row alias only when every other complete source field also agrees,
+including translations, audio, branch, category and capture channels.
+Menus, changed capture scope and stale observations clear these contexts.
+Short text and ambiguity safeguards remain unchanged.
+
+All five ordinary publisher workers complete with the revision-23 record totals
+above. Every previous text, translation, recording reference, voice status and
+OCR anchor remains exactly equal. Only 13 capture-channel declarations,
+359 predecessor fields and 312 English/326 other-selection step-alias fields
+change. A fresh network-forbidden complete-index replay checks each current
+training stage in authored order, with two stable exact observations per step:
+
+| Study selection | Training bodies matched with stage context | Remaining guarded bodies |
+| --- | ---: | ---: |
+| English | 472 / 498 | 26 |
+| Simplified Chinese | 478 / 498 | 20 |
+| Traditional Chinese | 478 / 498 | 20 |
+| Japanese | 496 / 498 | 2 |
+| Korean | 498 / 498 | 0 |
+
+These counts include aliases only when all official texts and the unvoiced state
+agree. The [remaining ordered-stage cases](endfield-training-context-guards-1.6.4.csv)
+stay guarded. The instruction-book and guide-body standalone limits above remain
+separate. All 12 selected top captions match independently for each protagonist
+in every study selection. Synthetic production-capture tests additionally check
+the top screen position, written-step progression, repeated occurrence and menu
+reset. This is not physical OCR, device or playback acceptance.
+
+With the same revision-24 source and format metadata frozen, the explicitly
+replayed original 1.5.3 descriptor prepares 49,550 English records; live 1.6.4
+prepares 55,086. Every old ID survives, with 5,536 added records including
+3,156 voiced records and the same 11 changed English texts. Both generations
+discover the same 13 selected top-caption records. The existing changed-voice,
+offline restart and retained-recording proof remains separate; this metadata
+change does not claim a new physical scheduled-activation trial.
+
+## Explicitly disabled original dialogue speech
+
+Revision 25 honors a unique original dialogue caller's literal
+`disablePlayVoice = true`. The original Windows metadata identifies this field
+in `DialogPlayTrunkActionData`. Static reading of `DialogManager._PlayVoice`
+shows its branch skipping both actual `VoiceManager.SpeakNarrative` calls.
+The same metadata lookup independently reproduces the top-layout getter field.
+All four current, MD5-checked original IFix files were parsed as data; their
+replacement signatures do not patch this controller or its action-data type.
+No native client, Lua or patch code was executed, and no negative speech
+detector result supplies this classification.
+
+The full 3,093-graph census contains exactly two unique simple callers with
+that declaration: `dlg_c37m3_40_010` and `dlg_sm2l2m4_3_012`. Both display only
+punctuation. The first retains an original WEM in the released tables/packages;
+the second has no usable recording. Their actual caller disables speech in
+both cases, so both now use **unvoiced** state. Scripted actor actions/groups,
+alternate routes, custom text and repeated references stay outside this strict
+rule. The source selector follows current graph paths and content hashes;
+new compatible IDs do not require an ID override or newer community snapshot.
+
+All five ordinary current publisher workers retain their previous record
+totals, texts, translations, capture layouts, predecessors and recognition
+anchors. Exactly these two voice states change per selection: one voiced and
+one unavailable record become unvoiced, and the disabled retained WEM is no
+longer offered as the caption's sentence recording. All other audio bindings
+and states remain exactly equal. Existing saved recordings and older snapshots
+are retained. Punctuation-only text remains guarded by the existing minimum;
+unvoiced capture remains opt-in.
+
+The same frozen revision-25 reader replays original 1.5.3 discovery and prepares
+49,550 English records, against live 1.6.4's 55,086. Every old ID remains, with
+5,536 new records and the same 11 changed English texts. The updated new-voice
+count is **3,155**: the later retained-but-disabled recording is correctly
+excluded. The old generation contains only the second disabled caller, whose
+prior unavailable state becomes unvoiced. No other prior audio or capture
+metadata changes. This corrects source ownership; physical gameplay and the
+remaining presentation/device acceptance gates remain separate.
+
 ## Text provenance and remaining acceptance
 
 Reader revisions 19–20 mark text from the original conversation, radio, narration

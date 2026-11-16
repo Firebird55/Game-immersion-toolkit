@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from '../scripts/zzz-dialogue.mjs';
 import {sceneAssetPaths} from '../scripts/scene-catalog.mjs';
-import {clueIntervals, comicDependencyIds, ongoingRows, recordedMessages, tableStrings, tableVoice, tipRows, voiceDirectoryObject} from '../scripts/zzz-publisher-dialogue.mjs';
+import {clueIntervals, comicDependencyIds, ongoingRows, performPresentationInventory, recordedMessages, tableStrings, tableVoice, tipRows, voiceDirectoryObject} from '../scripts/zzz-publisher-dialogue.mjs';
 
 test('publisher message inventory follows authored sources and suppresses conflicting rows', () => {
   const source = 'VO_Message/Actor/Message_Performance_75';
@@ -41,6 +41,37 @@ test('released design tables follow row offsets and reject truncated or nontermi
   assert.throws(() => [...tableStrings(bytes, [0])], /string/);
   bytes.writeUInt32LE(0, 24);
   assert.throws(() => [...tableStrings(bytes, [0])], /reference/);
+});
+
+test('Perform integer identities do not become invalid string pointers or silently omitted presentation rows', () => {
+  const bytes = Buffer.alloc(48);
+  bytes.writeUInt32LE(12);
+  bytes.writeUInt16LE(6, 4); bytes.writeUInt16LE(8, 6); bytes.writeUInt16LE(4, 8);
+  bytes.writeInt32LE(8, 12); bytes.writeUInt32LE(4, 16);
+  bytes.writeUInt32LE(1, 20); bytes.writeUInt32LE(16, 24);
+  bytes.writeUInt16LE(8, 32); bytes.writeUInt16LE(8, 34); bytes.writeUInt16LE(4, 36);
+  bytes.writeInt32LE(8, 40); bytes.writeUInt32LE(0xffffffff, 44);
+  assert.deepEqual([...tableStrings(bytes, [0, 1, 2, 3], {integers:[0,1]})], [[0xffffffff, 0, '', '']]);
+  assert.throws(() => [...tableStrings(bytes.subarray(0, 46), [0], {integers:[0]})], /bounds/);
+});
+
+test('new movie and timeline keys remain explicitly unacquired without being counted as active or voiced', () => {
+  const rows = [[7, 3, 'Data/ScriptConfig/Perform/Data/GalGame/Scene.asset', ''],
+    [402, 5, 'Procedure/FutureMovie.usm', 'Procedure/FutureMovie_Alternate.usm'],
+    [105, 6, 'FutureTimeline', 'FutureTimeline'], [106, 6, 'FutureTimeline', 'OtherTimeline'],
+    [800, 29, '', '']];
+  const before = structuredClone(rows);
+  const result = performPresentationInventory(rows);
+  assert.equal(result.configured_rows, 5);
+  assert.deepEqual(result.type_counts, {3:1, 5:1, 6:2, 29:1});
+  assert.deepEqual(result.unacquired_presentations.movie, {perform_type:5, configured_rows:1,
+    distinct_source_keys:2, perform_ids:[402], acquisition:'not-implemented', current_use:'unclassified'});
+  assert.deepEqual(result.unacquired_presentations.timeline, {perform_type:6, configured_rows:2,
+    distinct_source_keys:2, perform_ids:[105,106], acquisition:'not-implemented', current_use:'unclassified'});
+  assert.deepEqual(rows, before);
+  assert.throws(() => performPresentationInventory([...rows, rows[0]]), /duplicate/);
+  assert.throws(() => performPresentationInventory([[0, 6, 'Future', '']]), /identity/);
+  assert.throws(() => performPresentationInventory([[500, 6, 'Future', null]]), /identity/);
 });
 
 const uint = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };

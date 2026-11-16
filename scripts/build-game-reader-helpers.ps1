@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('probe','nte','endfield')][string]$Kind='probe',
+    [ValidateSet('probe','nte','endfield','starrail')][string]$Kind='probe',
     [Parameter(Mandatory=$true)][string]$OutputRoot,
     [Parameter(Mandatory=$true)][string]$EvidenceRoot,
     [Parameter(Mandatory=$true)][string]$Dotnet,
@@ -42,6 +42,15 @@ function Assert-NoLinks([string]$Path) {
 }
 # Check the caller's raw path ancestry before Resolve-Path can erase a junction.
 Assert-NoLinks $OutputRoot; Assert-NoLinks $EvidenceRoot; Assert-NoLinks $Dotnet
+if($Kind -eq 'starrail') {
+    if(-not $PreparedRoot) {throw 'Pinned Star Rail software source preparation is required.'}
+    Assert-NoLinks $PreparedRoot
+    $PreparedRoot=(Resolve-Path -LiteralPath $PreparedRoot).Path
+    & $Python (Join-Path $PSScriptRoot 'prepare-starrail-reader.py') --verify --output $PreparedRoot
+    if($LASTEXITCODE -ne 0){throw 'The Star Rail software source preparation differs from its pinned inputs.'}
+    $starRailPins=Get-Content -LiteralPath (Join-Path $SourceRoot 'packaging/starrail-reader/inputs.json') -Raw | ConvertFrom-Json
+    $softwareInputs=[ordered]@{metadata_source_sha256=$starRailPins.metadata.sha256;decoder_source_sha256=$starRailPins.decoder.sha256;decoder_package_sha256=$starRailPins.decoder.package.sha256;decoder_assembly_sha256=$starRailPins.decoder.package.dll_sha256}
+}
 if($Kind -eq 'endfield') {
     if(-not $PreparedRoot) {throw 'Private Endfield source preparation is required.'}
     Assert-NoLinks $PreparedRoot
@@ -107,11 +116,12 @@ foreach ($name in @('NUGET_PACKAGES','DOTNET_CLI_HOME','DOTNET_CLI_TELEMETRY_OPT
 $feed=Join-Path $EvidenceRoot 'nuget-feed'
 $intermediate=Join-Path $EvidenceRoot ('helper-build-'+$Kind+'-'+[guid]::NewGuid().ToString('N'))
 $target=Join-Path $OutputRoot $Kind
-$entry=if($Kind -eq 'probe'){'ToolkitReaderProbe'}elseif($Kind -eq 'nte'){'NteReader'}else{'EndfieldReader'}
+$entry=if($Kind -eq 'probe'){'ToolkitReaderProbe'}elseif($Kind -eq 'nte'){'NteReader'}elseif($Kind -eq 'starrail'){'StarRailMetadata'}else{'EndfieldReader'}
 $project=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.csproj')
 $ownedSource=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.cs')
 $sourcePaths=@($project,$ownedSource,(Join-Path $PolicyRoot 'inputs.json'),(Join-Path $PolicyRoot 'global.json'),(Join-Path $PSScriptRoot 'verify-dotnet-sdk.py'),$PSCommandPath)
 if($Kind -eq 'endfield'){$sourcePaths+=@((Join-Path $PolicyRoot 'blocked-inputs.json'),(Join-Path $SourceRoot 'scripts/endfield-reader-sources.json'))}
+if($Kind -eq 'starrail'){$sourcePaths+=@((Join-Path $SourceRoot 'packaging/starrail-reader/inputs.json'),(Join-Path $SourceRoot 'packaging/starrail-reader/probe.py'),(Join-Path $PSScriptRoot 'prepare-starrail-reader.py'))}
 $sourceInputs=[ordered]@{}
 foreach($path in $sourcePaths) { $sourceInputs[[IO.Path]::GetRelativePath($SourceRoot,$path).Replace('\','/')]=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
 try {
@@ -150,6 +160,7 @@ try {
     # VBCSCompiler process surviving this owned build-host invocation.
     $properties=@('-p:RuntimeFrameworkVersion=10.0.14','-p:TargetLatestRuntimePatch=false','-p:SelfContained=true','-p:UseAppHost=true','-p:DisableTransitiveFrameworkReferenceDownloads=true','-p:UseSharedCompilation=false','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$obj+'/'),('-p:BaseOutputPath='+$bin+'/'),('-p:NuGetLockFilePath='+$lock),'-p:RestorePackagesWithLockFile=true')
     if($Kind -eq 'endfield'){$properties+=('-p:EndfieldSource='+(Join-Path $PreparedRoot 'source'))}
+    if($Kind -eq 'starrail'){$properties+=('-p:StarRailSource='+$PreparedRoot)}
     Push-Location -LiteralPath $PolicyRoot
     try {
         & $Dotnet restore $project --runtime $RuntimeIdentifier --configfile $config @properties --nologo > (Join-Path $intermediate 'restore.log') 2>&1
@@ -159,6 +170,10 @@ try {
         & $Dotnet publish $project --no-restore --runtime $RuntimeIdentifier --self-contained true -c Release -o $target @properties '-p:PublishSingleFile=false' '-p:PublishTrimmed=false' '-p:DebugType=None' '-p:DebugSymbols=false' '-p:ContinuousIntegrationBuild=true' --nologo > (Join-Path $intermediate 'publish.log') 2>&1
         if ($LASTEXITCODE -ne 0) { Build-DiagnosticCodes (Join-Path $intermediate 'publish.log'); throw 'Self-contained helper publication failed; quarantined output is retained.' }
     } finally { Pop-Location }
+    if($Kind -eq 'starrail') {
+        & $Python (Join-Path $SourceRoot 'packaging/starrail-reader/probe.py') --executable (Join-Path $target ($entry+$extension)) --work-root $EvidenceRoot
+        if($LASTEXITCODE -ne 0){throw 'The original metadata helper failed its authored data contract.'}
+    }
     $ownedFiles=@($extension,'.dll','.runtimeconfig.json','.deps.json') | ForEach-Object {$entry+$_}
     foreach($required in (@($ownedFiles)+@('System.Private.CoreLib.dll')+$nativeFiles)) {
         if(-not (Test-Path -LiteralPath (Join-Path $target $required))) { throw 'A required self-contained runtime file is missing.' }
@@ -173,6 +188,21 @@ try {
     $notices=Join-Path $target 'notices'; New-Item -ItemType Directory -Path $notices | Out-Null
     Copy-Item -LiteralPath (Join-Path $SourceRoot 'LICENSE') -Destination (Join-Path $notices 'PROJECT-LICENSE.txt')
     if($Kind -eq 'endfield'){Copy-Item -LiteralPath (Join-Path $PreparedRoot 'upstream-LICENSE.txt') -Destination (Join-Path $notices 'ENDFIELDSTUDIO-LICENSE.txt')}
+    if($Kind -eq 'starrail') {
+        Copy-Item -LiteralPath (Join-Path $PreparedRoot 'notices/HSRGlobalMetadata-LICENSE.txt') -Destination $notices
+        Copy-Item -LiteralPath (Join-Path $PreparedRoot 'notices/Iced-LICENSE.txt') -Destination $notices
+        $corresponding=Join-Path $target 'corresponding-source'
+        New-Item -ItemType Directory -Path $corresponding | Out-Null
+        Copy-Item -LiteralPath (Join-Path $PreparedRoot 'corresponding-source/hsr-metadata-source.zip') -Destination $corresponding
+        Copy-Item -LiteralPath (Join-Path $PreparedRoot 'corresponding-source/iced-source.zip') -Destination $corresponding
+        $ownedArchive=[IO.Compression.ZipFile]::Open((Join-Path $corresponding 'owned-source.zip'),[IO.Compression.ZipArchiveMode]::Create)
+        try {
+            foreach($path in $sourcePaths) {
+                $name=[IO.Path]::GetRelativePath($SourceRoot,$path).Replace('\','/')
+                [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($ownedArchive,$path,$name,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            }
+        } finally {$ownedArchive.Dispose()}
+    }
     foreach ($name in @('LICENSE.txt','ThirdPartyNotices.txt')) {
         $matching=@($sdkFiles.Keys | Where-Object {$_ -notmatch '/' -and $_ -ieq $name})
         if($matching.Count -ne 1) { throw 'The original SDK archive must contain one full license and third-party notice.' }
@@ -202,18 +232,25 @@ try {
         } finally { $zip.Dispose() }
     }
     foreach($path in $sourcePaths) {if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $sourceInputs[[IO.Path]::GetRelativePath($SourceRoot,$path).Replace('\','/')]) {throw 'Helper source changed during publication.'}}
+    if($Kind -eq 'starrail') {
+        & $Python (Join-Path $PSScriptRoot 'prepare-starrail-reader.py') --verify --output $PreparedRoot
+        if($LASTEXITCODE -ne 0){throw 'Star Rail software source preparation changed during publication.'}
+        if((Get-FileHash -LiteralPath (Join-Path $target 'Iced.dll') -Algorithm SHA256).Hash.ToLowerInvariant() -ne $softwareInputs.decoder_assembly_sha256){throw 'The collected decoder differs from the pinned managed assembly.'}
+    }
     if((& git -C $SourceRoot rev-parse HEAD).Trim() -ne $actualSource) {throw 'The source commit changed during helper publication.'}
     if($Kind -eq 'endfield') {
         foreach($item in $selected.files.PSObject.Properties){if((Get-FileHash -LiteralPath (Join-Path $PreparedRoot ('source/'+$item.Name.Replace('AnimeStudio.Endfield/',''))) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $item.Value){throw 'A selected upstream source changed during private publication.'}}
     }
     $receipt=[ordered]@{schema='proxy-dotnet-helper-build-receipt-v1';source_commit=$actualSource;source_dirty=$sourceDirty;source_inputs=$sourceInputs;sdk=$sdkPin;sdk_version=$version;runtime_version='10.0.14';sdk_installed_files=$sdkFiles;runtime_packages=$runtimePackages;runtime_package_files=$packageFiles;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant()}
     if($Kind -eq 'endfield'){$receipt.upstream_source_inputs=$upstreamInputs}
+    if($Kind -eq 'starrail'){$receipt.software_inputs=$softwareInputs}
     [IO.File]::WriteAllText((Join-Path $target 'build-receipt.json'),(ConvertTo-Json -InputObject $receipt -Depth 20)+"`n",[Text.UTF8Encoding]::new($false))
     # Every shipped framework/native file must match an exact pinned package
     # member. The owned assembly/apphost/config and notices have separate owners.
     foreach($path in @(Get-ChildItem -LiteralPath $target -File)) {
         if($path.Name -in (@($ownedFiles)+@('probe-resource.txt','build-receipt.json','restore-lock.json'))) {continue}
         $hash=(Get-FileHash -LiteralPath $path.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+        if($Kind -eq 'starrail' -and $path.Name -ceq 'Iced.dll' -and $hash -eq $softwareInputs.decoder_assembly_sha256){continue}
         if(-not @($packageFiles.Values | Where-Object {$_ -eq $hash}).Count) {throw 'A collected runtime file is not part of either pinned runtime/apphost package.'}
     }
     $files=[ordered]@{}
@@ -231,6 +268,7 @@ try {
     try {$buildId=([BitConverter]::ToString($algorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes($json)))).Replace('-','').ToLowerInvariant()} finally {$algorithm.Dispose()}
     $manifest=[ordered]@{schema='proxy-prebuilt-dotnet-reader-v1';kind=$Kind;entry=($entry+$extension);platform=$platform;sdk_version=$version;runtime_version='10.0.14';source_commit=$actualSource;source_dirty=$sourceDirty;purpose=$(if($Kind -eq 'probe'){'authored-probe-only'}else{'owned-bridge-only'});source_inputs=$sourceInputs;build_id=$buildId;files=$canonicalFiles;sdk_archive=$sdkPin;runtime_packages=$runtimePackages;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant();redistribution_review='pending-exact-output';game_reader_acceptance='not-established';r19_complete=$false;doctor_exit=$doctorExit}
     $manifestName='helper-manifest.json'
+    if($Kind -eq 'starrail'){$manifest.software_inputs=$softwareInputs;$manifest.purpose='original-metadata-data-only'}
     if($Kind -eq 'endfield') {
         $manifest.schema='proxy-blocked-game-helper-v1';$manifest.purpose='blocked-private-game-reader'
         $manifest.Remove('entry');$manifest.runtime_entrypoints=@();$manifest.runtime_collection_allowed=$false
