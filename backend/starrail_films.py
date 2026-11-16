@@ -152,10 +152,11 @@ def _reviewed_take(tools, scene, movies, text_hash, locale, sources):
             return audio
 
 
-def _movie_take(catalog, scene, movies, text_hash, locale, cache):
+def _movie_take(catalog, scene, movies, text_hash, locale, cache, player_voice=None):
     from . import starrail_movie_audio as movie_audio, starrail_movie_metadata as metadata
     source = getattr(catalog, 'movie_audio_source', None)
-    if not source or not source[2] or len(movies) != 1 or movies[0]['player_voice'] is not None:
+    movies = [movie for movie in movies if movie['player_voice'] == player_voice]
+    if not source or not source[2] or len(movies) != 1:
         return None
     dub = audio_locale(locale)
     movie = movies[0]
@@ -186,6 +187,7 @@ def _movie_take(catalog, scene, movies, text_hash, locale, cache):
 
 
 def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
+    from .starrail_assets import _player_row
     takes = _takes(tools, catalog, locale, entries)
     scripts = list(catalog.caption_scripts())
     movies, suppressed = _movie_sources(catalog, scripts, locale)
@@ -204,13 +206,21 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
             check(type(text_hash) is int and all(type(v) in (int, float) and math.isfinite(v) for v in (start, end))
                   and 0 <= start < end)
             start_ms, end_ms = round(start * 1000), round(end * 1000)
-            for suffix, gender, audio, duration in takes.get(scene, [('', None, None, None)]):
+            movie_sources = movies.get(scene, [])
+            # VideoConfig authors both protagonist files independently. Keep a
+            # missing counterpart visible, and never reuse the other movie's
+            # audio merely because the captions and display clocks are shared.
+            variants = [('_m', 'male', None, None), ('_f', 'female', None, None)] if any(
+                movie['player_voice'] is not None for movie in movie_sources) else [('', None, None, None)]
+            for suffix, gender, audio, duration in takes.get(scene, variants):
                 link = {'id': f'film-{scene}-{n}{suffix}', 'hash': text_hash, 'player_voice': gender,
                         'dialogue_kind': 'cutscene_caption', 'voice_status': 'unavailable', 'channels': ['cinematic']}
                 rows = records('starrail', [link], tables, locale, {})
                 if not rows:
                     continue
                 row, = rows
+                if gender:
+                    row = _player_row(row, gender)
                 row['film_caption'] = {'scene': scene, 'start_ms': start_ms, 'end_ms': end_ms,
                                        'movies': movies.get(scene, [])}
                 if audio and duration is not None and 0 <= start_ms < end_ms <= duration:
@@ -219,7 +229,7 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
                 elif original := _reviewed_take(tools, scene, movies.get(scene, []), text_hash, locale, reviewed):
                     row['audio'] = original
                     row['voice_status'] = 'voiced'
-                elif original := _movie_take(catalog, scene, movies.get(scene, []), text_hash, locale, movie_cache):
+                elif original := _movie_take(catalog, scene, movie_sources, text_hash, locale, movie_cache, gender):
                     row['audio'] = original
                     row['voice_status'] = 'voiced'
                 result.append(row)
