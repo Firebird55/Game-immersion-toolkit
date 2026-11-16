@@ -151,6 +151,20 @@ caller/presentation is not established by that absence. Broader graph discovery
 and safe capture-context integration remain open. No game Blueprint is executed,
 and neither the source assets nor the private diagnostic helper is published.
 
+A further bounded inspection of the original `ST_Legend_Celebration` owner
+finds **1,879 entries and no per-key metadata**. Its `FStringTable` contains
+only the namespace, entries and empty `KeysToMetaData`; owner properties are
+empty, while the object GUID, custom game data and sparse serialized fields
+are null. These fields therefore supply no additional speaker, presentation
+or voice binding for either copy of the question.
+
+The neighboring NPC010/NPC011 nodes explicitly declare `OwnerName` and
+`OverrideSpeakerName`, referring to `ST_ActorName/NPC_035_Name`. The spoken
+Player021 node declares `bIsSelfTalk=true` without its own such reference.
+This flag alone cannot assign a speaker or silence to the conflicting
+Protect001 entry. The missing caller and safe capture-context integration
+remain unresolved; no caption alias or capture-guard override is introduced.
+
 ### Type-data updates and retained history
 
 Publisher preparation selects compatible public type data from the immutable
