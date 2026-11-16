@@ -77,6 +77,11 @@ also refreshes fully resolved existing definitions, with explicit unresolved
 layouts and frozen parameter identities. Enum member changes and complete
 normal-worker update/recovery acceptance remain open; Setup does not adopt these
 candidates.
+An isolated required-closure gate now distinguishes original native equivalence,
+baseline custom serializers and frozen managed-reader contracts. Its original
+baseline can be retrieved without a game installation; current and historical
+candidate-backed worker/playback trials remain separate from default automatic
+source adoption.
 Complete chapter/presentation and
 cross-platform acceptance remain open. The installed results below describe an
 earlier reviewed client.

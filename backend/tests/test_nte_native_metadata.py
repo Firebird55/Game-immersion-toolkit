@@ -131,3 +131,25 @@ def test_original_acquisition_passes_exact_publisher_range_and_checks_complete_f
     with pytest.raises(ValueError):
         metadata.stage_original(value, name, bad, save=wrong)
     assert list(bad.iterdir()) == []
+
+
+def test_required_validation_retains_baseline_provenance_and_never_rewrites_generation(tmp_path, monkeypatch):
+    from backend import nte_native_baseline as baseline
+    from backend.tests.test_nte_native_baseline import source
+    raw, manifest = source(monkeypatch)
+    def save(_region, _branch, _item, path): path.write_bytes(raw)
+    retained = baseline.load(tmp_path / 'baseline', fetch=lambda *_, **__: manifest, save=save)
+    seed, value, name, original, dependencies = setup(tmp_path, monkeypatch)
+    cache = tmp_path / 'candidates'
+    candidate = metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies)
+    generation = cache / candidate.schema.reference['generation']
+    before = {p.name: p.read_bytes() for p in generation.iterdir()}
+    result, identity = metadata.check_required(candidate.schema.reference, cache, seed, retained, original, ['Vector'])
+    assert result.eligible
+    receipt = cache / 'validations' / (identity + '.json')
+    assert receipt.is_file() and b'"production_eligible":false' in receipt.read_bytes()
+    assert before == {p.name: p.read_bytes() for p in generation.iterdir()}
+    original.write_bytes(b'x' * original.stat().st_size)
+    with pytest.raises(ValueError):
+        metadata.check_required(candidate.schema.reference, cache, seed, retained, original, ['Vector'])
+    assert len(list((cache / 'validations').iterdir())) == 1

@@ -211,3 +211,39 @@ def load(reference, cache):
     source = inventory(json.loads(raw_source))
     _check(receipt['native_file'] == source['files'][receipt['native_path']])
     return Candidate(Schema(dict(reference), data), receipt)
+
+
+def check_required(reference, cache, seed_usmap, baseline, original, requested, *, reader_classes=None):
+    """Retain a required-closure validation without activating a candidate.
+
+    Baseline provenance is retrievable from the fixed original publisher
+    identity. Lookup/class evidence belongs to an actual completed invocation
+    of the fixed managed reader; no newer community mapping is consulted.
+    """
+    from . import nte_native_baseline as provenance
+    from .nte_required_schema import validate
+    candidate = load(reference, cache)
+    _check(isinstance(seed_usmap, bytes) and _sha(seed_usmap) == SEED_SHA256)
+    _check(isinstance(baseline, provenance.AuthenticatedNative) and isinstance(baseline.identity, dict)
+           and isinstance(baseline.data, bytes)
+           and all(baseline.identity.get(key) == value for key, value in provenance.BASELINE.items())
+           and _sha(baseline.data) == baseline.identity['native_sha256']
+           and baseline.identity.get('source_manifest_sha256') == baseline.identity['inventory_sha256'])
+    raw = _original(original, release.File(**candidate.receipt['native_file']))
+    _check(_sha(raw) == candidate.receipt['native_sha256'])
+    result = validate(seed_usmap, candidate.schema.data, baseline.data, raw, requested, reader_classes=reader_classes)
+    receipt = {'schema': reference, 'baseline': baseline.identity,
+               'reader_sha256': candidate.receipt['dependencies']['reader'],
+               'requested_types': sorted(set(requested)), 'reader_classes': reader_classes or {},
+               'report': asdict(result), 'required_schema_eligible': result.eligible,
+               'production_eligible': False}
+    encoded = _json(receipt)
+    _check(len(encoded) <= MAX_RECEIPT)
+    identity = _sha(encoded)
+    path = Path(cache) / 'validations' / (identity + '.json')
+    if path.exists():
+        _check(path.is_file() and path.stat().st_size == len(encoded) and path.read_bytes() == encoded)
+    else:
+        from .game_tools import _atomic_file
+        _atomic_file(path, encoded)
+    return result, identity

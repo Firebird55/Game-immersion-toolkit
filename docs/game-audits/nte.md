@@ -681,6 +681,86 @@ required. The live original manifests distinguish Global **1.5.4** from mainland
 **1.5.6**, with different client hashes; Global native evidence is not mainland
 proof. Candidates are explicitly marked ineligible for production activation.
 
+#### Required closure and original baseline validation
+
+The next isolated contract validates **the types the reader actually requests**,
+including dynamic `InstancedStruct` contents. It does not use a fixed list of
+current game types or require every unrelated native type to be recoverable.
+An instrumented equivalent of the fixed managed reader observed 24 original
+authoring tables, six row types and 21 actual mapping lookups on both original
+Global generations. Their recursive closure contains 26 structs and two enums.
+These are measured results, not an allowlist in `backend/nte_required_schema.py`.
+The 94 unresolved obvious changed definitions and 290 excluded new types do not
+intersect that observed required closure.
+
+The validator distinguishes complete current native field/order/dimension/wire
+equivalence from reusable identities for new fields. Unchanged existing fields
+retain their independently conflict-checked seed identities; changed/new required
+types need fully resolved new candidate definitions and independent constructor
+witnesses. Missing, ambiguous or stale required definitions fail the check.
+FName-only comparisons require unique fields and an exact field-name anchor.
+Required enum values must agree with original native arrays or with the unchanged
+original-baseline array plus its frozen retained description; new MAX members
+are never invented. Namespace-style enum declarations are supported. The two
+required original enum arrays agree across these generations.
+
+For existing custom serializers, the check compares the original baseline and
+current native operations, flags, size, alignment and complete property
+descriptors. A changed custom contract fails explicitly. Actual managed engine
+export classes use a separate frozen-reader format contract, tied to the reader
+identity and runtime class evidence; an empty retained schema terminal is also
+reported separately. Neither is mislabeled as native descriptor equivalence.
+On both observed generations the required closure passes using only the frozen
+seed, original baseline/client and actual lookup/class evidence. Newer mappings
+are not validation inputs.
+
+`backend/nte_native_baseline.py` gives that baseline a cold, installation-free
+retrieval path: the exact publisher 1.4.9 resource-list ZIP, its verified complete
+inventory and its native file have immutable hashes. Selection uses publisher
+file identity, not an executable/project path. The existing original range
+reader retrieves the declared file/package range and verifies the entire file;
+the baseline additionally requires its fixed SHA-256. The authenticated inventory
+is retained with its own hash so a new process can reopen the baseline without
+fetching updater-format software. The measured native replay reused an existing,
+whole-file-verified original; owned cold-cache fixtures exercise retrieval and
+packaged ranges. No private research path is a production prerequisite.
+
+Required-check receipts are immutable and separate from the generated schema
+directory. They retain baseline publisher provenance, actual requested types,
+managed class evidence, reader identity and per-type validation state. There is
+no current pointer. **88 targeted native-schema/provenance/closure cases** cover
+required versus unrelated drift, missing dynamic types, custom-contract changes,
+stale enum values, ambiguous descriptors, insufficient new-type witnesses,
+interrupted publication and retained-cache authentication.
+
+With explicitly supplied candidate snapshots, the normal language worker
+prepared **126,168 English-study records** on Global 1.5.4, including **27,864**
+resolved voices. Every record field agrees with the independent current control
+except its own immutable publisher snapshot identity. A corrected Global 1.4.9
+Japanese-study trial with the **same current reader and index schema 10** produced
+**117,575 records**, including **25,685** resolved voices. Its older retained
+community `HT-1.4-146` description omits native `bUseVerticalCaptions` fields from
+two required sequence types; its zero sequence-event/group output is therefore
+not a complete expected-output oracle for this original client.
+
+The normal voice service verified 61 current English clips (48 caption keys,
+seven originals) and 70 older Japanese clips (35 keys, ten originals), including
+authored protagonist branches and gains. Durations match authored windows,
+decoded PCM is nonzero, and fresh output after service restart is identical with
+publisher discovery and byte ranges prohibited. A corrupt candidate supplied to
+the real language worker fails while preserving the previous complete prepared
+index byte-for-byte. These are selected playback and supplied-version worker
+trials, not complete chapter coverage or a live autonomous update transition.
+After both preparations and the failed-candidate trial, two selected clips from
+each generation also reopened through the normal voice service with publisher
+discovery and byte ranges prohibited, matching their previous PCM hashes.
+
+The default provider remains unchanged. Before adoption, the ordinary managed
+helper must retain its lookup/class evidence, source acquisition must choose and
+authenticate original native inputs coherently, and the required-closure gate
+must run before activation. New required enum/constructor acquisition and rotated
+archive/localization parameters remain explicit format/source dependencies.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats

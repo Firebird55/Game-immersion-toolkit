@@ -87,6 +87,12 @@ the original seed and all historical metadata. It retains the complete original
 manifest and explicit frozen reader/format/parameter identities. Enum values are
 not refreshed. These experiments are outside normal preparation; current metadata
 sources and independent key acquisition remain separate update dependencies.
+A required-closure validator can separately check the actual reader's requested
+types against current original descriptors and a retrievable, authenticated
+publisher baseline. It rejects stale required layouts/enums and changed custom
+serializer contracts, while preserving unrelated and historical data. This gate
+has supplied-version worker/playback evidence; the default provider does not yet
+collect and adopt that evidence automatically.
 Fixed protagonist branches retain their authored source-text
 and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated
