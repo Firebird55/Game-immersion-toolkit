@@ -142,8 +142,8 @@ def test_pinned_metadata_cache_validates_complete_digest_and_never_executes_data
 
 def test_normal_caption_preparation_uses_spoken_windows_and_rejects_changed_track(tmp_path, monkeypatch):
     from backend import starrail_films as films
-    scene, video, locale, digest = next(key for key in films.MOVIE_AUDIO_CUTS if key[2] == 'en')
-    text_hash = next(iter(films.MOVIE_AUDIO_CUTS[scene, video, locale, digest]))
+    scene, video, locale, digest, text_hash = 'FixtureMovie', 24, 'en', 'c' * 64, 77
+    monkeypatch.setattr(films, 'MOVIE_AUDIO_CUTS', {(scene, video, locale, digest): {text_hash: (200, 6550)}})
     tables = {'en': {str(text_hash): 'Fixture sentence', '9': 'Unreviewed sentence'}}
     source = {'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
               'ExcelOutput/VideoConfig.json': [{'VideoID': video, 'VideoPath': 'Scene.usm',
@@ -165,6 +165,63 @@ def test_normal_caption_preparation_uses_spoken_windows_and_rejects_changed_trac
     changed, _ = films.caption_rows(tmp_path, c, tables, 'en', {})
     assert changed['audio'] is None and c.movie_audio_incomplete
     assert first['audio']['recording_sha256'] == digest
+
+
+def test_protagonist_movies_require_each_branch_recording_and_keep_missing_counterpart(tmp_path, monkeypatch):
+    from backend import starrail_films as films
+    male_hash, female_hash = 'c' * 64, 'd' * 64
+    scene, video, caption = 'PlayerMovie', 24, 77
+    monkeypatch.setattr(films, 'MOVIE_AUDIO_CUTS', {
+        (scene, video, 'en', male_hash): {caption: (100, 900)},
+        (scene, video, 'en', female_hash): {caption: (200, 1100)},
+    })
+    source = {'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
+              'ExcelOutput/VideoConfig.json': [{'VideoID': video, 'VideoPath': 'Player.usm',
+                  'IsPlayerInvolved': True, 'CaptionPath': f'Config/CutSceneCaption/{scene}_Caption.json'}]}
+    male = SimpleNamespace(name='Player_m.usm', size=99, digest='a' * 32)
+    female = SimpleNamespace(name='Player_f.usm', size=101, digest='b' * 32)
+    scripts = [(scene + '_Caption.json', {'CaptionList': [
+        {'CaptionTextID': {'Hash': caption}, 'StartTime': .333, 'EndTime': .633}]})]
+    c = SimpleNamespace(file=source.__getitem__, movie_files={'player_m.usm': male, 'player_f.usm': female},
+                        caption_scripts=lambda: scripts, movie_audio_source=(tmp_path, 'publisher', '1' * 40))
+    hashes = {male.name: male_hash, female.name: female_hash}
+    reads = []
+    monkeypatch.setattr(metadata, 'load', lambda *_: object())
+    def binding(directory, stamp, movie, locale, formats):
+        reads.append(movie.name)
+        return {'publisher': stamp, 'locale': locale, 'movie': movie.name,
+                'recording_sha256': hashes[movie.name]}, 2000
+    monkeypatch.setattr(audio, 'binding', binding)
+    def prepare():
+        return films.caption_rows(tmp_path, c, {
+            'en': {str(caption): 'Fixture {M#brother}{F#sister}'},
+            'ja': {str(caption): '{M#兄}{F#姉}の例'}}, 'en', {})
+    first, second = prepare()
+    assert (first['player_voice'], second['player_voice']) == ('male', 'female')
+    assert (first['text_id'], second['text_id']) == (
+        f'starrail:film-{scene}-0_m', f'starrail:film-{scene}-0_f')
+    assert first['audio']['movie'] == male.name and first['audio']['start_ms'] == 100
+    assert second['audio']['movie'] == female.name and second['audio']['start_ms'] == 200
+    assert reads == [male.name, female.name]
+    assert first['source_text'] == 'Fixture brother' and first['texts']['ja'] == '兄の例'
+    assert second['source_text'] == 'Fixture sister' and second['texts']['ja'] == '姉の例'
+    # A changed take cannot borrow the other protagonist's reviewed window.
+    hashes[male.name] = female_hash + '0'
+    changed, retained = prepare()
+    assert changed['audio'] is None and retained['audio'] == second['audio']
+    assert c.movie_audio_incomplete
+    del c.movie_files['player_m.usm']
+    missing, retained = prepare()
+    assert missing['player_voice'] == 'male' and missing['voice_status'] == 'unavailable'
+    assert retained['audio'] == second['audio']
+    # Two plausible files for one player remain ambiguous independently.
+    c.movie_files['player_m.usm'] = male
+    other = SimpleNamespace(name='Other_m.usm', size=80, digest='e' * 32)
+    c.movie_files['other_m.usm'] = other
+    source['ExcelOutput/VideoConfig.json'].append(
+        source['ExcelOutput/VideoConfig.json'][0] | {'VideoID': 25, 'VideoPath': 'Other.usm'})
+    ambiguous, retained = prepare()
+    assert ambiguous['audio'] is None and retained['audio'] == second['audio']
 
 
 def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path, monkeypatch):

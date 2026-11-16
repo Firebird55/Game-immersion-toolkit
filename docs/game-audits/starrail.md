@@ -1,5 +1,87 @@
 # Honkai: Star Rail dialogue audit
 
+## Protagonist movie clips · November 16, 2026
+
+The normal movie reader now resolves the selected Trailblazer's authored
+movie file independently. Each branch must have its own verified original
+recording and reviewed spoken window. A missing counterpart stays unavailable;
+two plausible movies for the same player remain ambiguous. Source text and
+translations use that branch's existing gender-template renderer. Schema 22
+refreshes older prepared indexes without changing their saved recordings.
+
+Both Global 4.7 Boarding movies were fetched from the released publisher
+VideoV routes and checked against the complete declared size and MD5:
+`CS_Chap00_Act310_m.usm` has 34,690,432 bytes and MD5
+`dde5d9622f780ff537e673a90909d89b`; the female movie retains the previously
+verified 34,696,032 bytes and MD5 `dae38a58976a0e370a1eebff21a73da9`.
+The directory names each of the four dubs explicitly. All eight original ADX
+streams decode to 28.715 seconds; this does not verify every caption in every
+dub. [Original male movie](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap00_Act310_m.usm)
+· [Original female movie](https://autopatchos.starrails.com/asb/V4.7Live/output_17006872_6d1b44a7ab74_04464e14b93253/client/Windows/Video/CS_Chap00_Act310_f.usm)
+
+| Boarding caption hash | Dub | Recording-relative export window | Applicable movies |
+| --- | --- | --- | --- |
+| `12917693302615549427` | English | 8.500–10.400 s | Male and female, separately verified |
+| `6728848531281631178` | English | 21.750–23.150 s | Male and female, separately verified |
+| `11614536872574131062` | Japanese | 4.300–6.200 s | Male and female, separately verified |
+| `12917693302615549427` | Japanese | 8.600–10.850 s | Male and female, separately verified |
+
+The four original recording SHA-256 identities are:
+
+| Dub / movie | Original ADX SHA-256 |
+| --- | --- |
+| English / male | `7a457f3fa183b50f94c88ed2c17545826812ba8beedd89ce806c1199aaf14dd8` |
+| English / female | `001c4dd819a2055b36d8276e19c72aa8419429fb2e594f0fa9b4c6c45725be28` |
+| Japanese / male | `520161aa3a50e13d4042ef1e0c71ad2d27cc0cc408ad170b7bc2a39095e17b16` |
+| Japanese / female | `982fae1cb161c3fa4afd86a51e976d68ce72b0a95670668a1a924d64ae1fd9e7` |
+
+Unprompted speech recognition on the original English mix recovers the two
+exported lines. A second model independently recovers their wording. The song
+obscures Japanese dialogue in unseparated recognition. A private comparison
+subtracting the median of the four original dub mixes recovers the first two
+Japanese phrases from the publisher text. This is timing research only:
+exports retain the original mix, and all text comes from the released caption
+and localization tables. Corresponding male/female original excerpts correlate
+at 0.997/0.958 for the English exports and 0.996/0.983 for Japanese at
+16 kHz, filtered at 400–3,400 Hz. Neither branch borrows the other's ADX.
+
+A fresh search independently located Aruki's June 6, 2023 Japanese-dub
+recording. Four separated original excerpts at 4.3, 8.6, 19.1 and 21.1 seconds
+match the upload at consistent offsets of 0.9959–0.9964 seconds, with
+correlations 0.463, 0.768, 0.541 and 0.246 at 8 kHz, filtered at
+320–3,500 Hz. These identify the scene and original mix; publisher stream
+labels establish the dub. The Japanese second export retains the complete
+phrase beyond its 10.083-second subtitle disappearance. Other Boarding
+captions and Korean/Mandarin cuts remain unresolved. Short or ambiguous
+caption capture still needs separately verified context.
+[Independently found Boarding gameplay](https://www.youtube.com/watch?v=e3_kpHh_nqE&t=5s)
+
+Silent Galaxy additionally exports Japanese hashes `10860693209200705991`
+and `14960296995890117809` at 41.650–48.800 and 48.800–52.650 seconds.
+Independent small/medium recognition recovers the final two original Japanese
+lines; their shared boundary retains the second line's introductory reaction
+after the preceding sentence. The original recording hash remains
+`1101f64927bfc5cc5874b16564fc01c1a80153398ab8c6f56bcaba0ad13d58d9`,
+already matched by six independent gameplay excerpts below. This brings movie
+clips to eight English and five Japanese Silent Galaxy entries, plus the
+eight Boarding protagonist bindings above. Unreviewed captions remain unavailable.
+
+Normal installation-free English preparation produced 306,752 records and
+98,695 voiced rows; Japanese produced 306,743 and 100,172. Their movie subsets
+contain twelve and nine original clips respectively. Totals include unavailable
+movie variants and other UI/presentations; they are not a full story or capture
+acceptance claim. All 21 clips exported through the normal Windows
+source-development voice service with networking prohibited throughout service
+startup and export. Closing/reopening the service into fresh output folders
+reconverted all 21 to identical nonzero PCM, with the declared clip durations.
+These warm-cache checks do not establish cold acquisition costs. Broader
+changed-game-data and native-host acceptance remain open.
+
+Preparation builds both player choices, so the two complete Boarding source
+movies together require 69,386,464 bytes before metadata and other dialogue
+resources. It does not fetch only the currently selected player movie. Saved
+original ADX tracks are reused for subsequent exports.
+
 ## Released 4.6 chapter packages rechecked · November 15, 2026
 
 The two Japanese chapter packages and the second Korean chapter package are
