@@ -90,12 +90,15 @@ def test_reads_guid_interval_from_pragmata_timeline(tmp_path: Path) -> None:
     ]
 
 
-def fixed_bank(path: Path, child_kind=2, randomized=False) -> None:
+def fixed_bank(path: Path, child_kind=2, randomized=False, *, version=150, stream_type=1) -> None:
     def node(oid, parent, kind, media=0, props=None):
         props = props or {}
         data = struct.pack('<I', oid)
         if kind == 2:
-            data += struct.pack('<IBIIB', 262145, 1, media, 4096, 1)
+            data += struct.pack('<IBI', 262145, stream_type, media)
+            if version == 154:
+                data += struct.pack('<I', 0x12345678)
+            data += struct.pack('<IB', 4096, 1)
         data += b'\0\0\0\0' + struct.pack('<IIB', 0, parent, 0)
         data += bytes([len(props)]) + bytes(props) + struct.pack(f'<{len(props)}f', *props.values())
         data += b'\x01\x00' + bytes(8) if randomized and oid == 11 else b'\0'
@@ -107,7 +110,41 @@ def fixed_bank(path: Path, child_kind=2, randomized=False) -> None:
                (3, struct.pack('<IHI', 20, 0x0403, 10)),
                (4, struct.pack('<IBI', 30, 1, 20))]
     hirc = struct.pack('<I', len(objects)) + b''.join(struct.pack('<BI', k, len(d)) + d for k, d in objects)
-    path.write_bytes(b'BKHD' + struct.pack('<II', 4, 150) + b'HIRC' + struct.pack('<I', len(hirc)) + hirc)
+    path.write_bytes(b'BKHD' + struct.pack('<II', 4, version) + b'HIRC' + struct.pack('<I', len(hirc)) + hirc)
+
+
+@pytest.mark.parametrize('version', [145, 150, 154])
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_codec_source_headers_preserve_exact_media_volume_and_delay(tmp_path, version, stream_type):
+    # v154 stream type 1 is format coverage, not a native NTE playback claim.
+    path = tmp_path / 'owned.bnk'
+    fixed_bank(path, version=version, stream_type=stream_type)
+    layers = read_bank_play_layers(path, allowed_versions=(version,))[30]
+    assert [row['media_id'] for row in layers] == [101, 102]
+    assert [row['gain_db'] for row in layers] == [-5, -2]
+    assert [row['delay_seconds'] for row in layers] == pytest.approx([.3, .2])
+    if version != 150:
+        with pytest.raises(ValueError, match='version'):
+            read_bank_play_layers(path)
+
+
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_truncated_v154_source_bank_cannot_supply_a_partial_voice(tmp_path, stream_type):
+    path = tmp_path / 'owned-truncated.bnk'
+    fixed_bank(path, version=154, stream_type=stream_type)
+    path.write_bytes(path.read_bytes()[:-1])
+    with pytest.raises(ValueError, match='Truncated'):
+        read_bank_play_layers(path, allowed_versions=(154,))
+
+
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_truncated_v154_codec_header_is_rejected_inside_a_complete_hirc_chunk(tmp_path, stream_type):
+    path = tmp_path / 'owned-incomplete-source.bnk'
+    source = struct.pack('<IIBII', 10, 262145, stream_type, 123, 0x12345678) + b'\0\1'
+    hirc = struct.pack('<IBI', 1, 2, len(source)) + source
+    path.write_bytes(b'BKHD' + struct.pack('<II', 4, 154) + b'HIRC' + struct.pack('<I', len(hirc)) + hirc)
+    with pytest.raises((ValueError, IndexError, struct.error)):
+        read_bank_play_layers(path, allowed_versions=(154,))
 
 
 def test_fixed_layers_preserve_inherited_volume_and_delay(tmp_path):

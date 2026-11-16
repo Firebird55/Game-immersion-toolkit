@@ -456,6 +456,68 @@ ambiguity. Twelve compiled owned-reader fixtures and 96 focused Python checks
 passed; packaged compiler-free and full hosted acceptance remain separate.
 [Selected publisher manifest](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
 
+### Wwise source headers and timed-media limits, index schema 10
+
+The shared fixed-event reader now consumes the Wwise 154 codec `cacheID`
+before media size for all three storage values. Earlier versions 145/150 keep
+their former layout and default version restrictions. Storage metadata is
+opt-in for NTE; other callers retain their existing result shape, and internal
+storage fields are not copied into saved audio bindings. The independent
+[pinned Wwise parser](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wparser.py#L249)
+also declares this version-dependent field independently of storage type.
+
+The current 508 original bank files contain 867 storage-2 and 56 storage-0
+codec sources; no native storage-1 example was available. Header correction
+changes 28 bank/dub cases across seven events and leaves 480 unchanged. The
+original localized `AkAudioEvent` load metadata explicitly references all 56
+separate WEM files, with matching event, bank and language identities and
+non-streaming media declarations. These banks declare that they do not contain
+media, so absent `DIDX`/`DATA` chunks do not imply a missing recording. The raw
+event census consequently resolves at least one branch in 436 cases; 72 cases
+remain unresolved and four captionless-scene banks remain absent. These are
+graph results, not additional playable caption coverage.
+
+Loading the correct recording does not establish its subtitle clock. An initial
+prototype exposed 104 timed bindings before export rejected an original
+English source lasting 58,081 ms against a caption ending at 60,000 ms. All 104
+remain withheld, including windows that fit inside their recording. The inspected
+sequence settings and first-level shot assets do not establish the runtime
+voice caller, recording ownership or a common caption/voice origin. Nothing is
+clamped, guessed from text or classified as silent from this mismatch.
+
+NTE cinematic binding therefore retains the previously reviewed storage-2 route;
+storage 0/1 remains unavailable for timed captions pending its authored clock
+contract. Storage 2 alone is not a universal timing guarantee. Whole recordings
+with an exact ordinary-dialogue owner can still use the corrected header.
+Multi-layer events cannot become partially voiced by discarding an unsuitable
+layer. Random/history containers and unsupported switches remain unresolved.
+Owned fixtures cover all three storage values, explicit protagonist selection,
+mixed-layer rejection, unchanged saved-binding fields and malformed headers.
+Storage-1 coverage is a format fixture only, without native validation.
+
+The final guarded normal preparation passed all five Global 1.5.4 study-text
+flows and the separate mainland 1.5.6 Mandarin flow. Each rebuilt record set
+matches schema 9 exactly except for its new immutable publisher snapshot ID:
+text IDs, translations, voices, gains, windows and statuses are preserved, and
+none of the 104 unproven bindings is promoted. Mainland still reports its absent
+English translation separately. Each flow exported the same 61 reviewed clips
+and reproduced identical nonzero PCM after a fresh-output restart with discovery
+and byte-range networking prohibited: **366 pairs across 732 conversions**.
+Further offline replay preserved all 54 saved schema-8 clips, four schema-7
+current/historical clips and 54 schema-9 clips across six flows, matching prior
+PCM in **112 retained conversions**. These checks preserve authored display
+cuts; they do not establish full utterance inclusion for every cinematic cue.
+Two initial mainland attempts failed at the publisher TLS handshake; a subsequent
+unchanged normal attempt completed discovery, preparation and its final updater
+recheck before the successful playback/offline run.
+
+The affected shared-parser, PRAGMATA, NTE, Endfield and Wuthering checks pass
+**519 tests**. Initial frozen-runtime fixture runs rejected a temporary folder
+inside a source checkout; rerunning with a separate writable test root passed
+without relaxing that guard. Generated documentation, links and the public
+publication scan also pass. Full hosted and native-device acceptance remain
+separate.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats

@@ -15,7 +15,8 @@ from backend.pragmata_audio import read_bank_play_layers
 def bank(version=135, bank_id=77, language=None, event=None, dynamic=False, multi=False, bits=1):
     language = nte.wwise_hash(honkai.MANDARIN) if language is None else language
     event = nte.wwise_hash("VO_Synthetic_1") if event is None else event
-    sound = struct.pack("<IIBIIB", 10, 262145, 1, 123, 200, bits)
+    sound = (struct.pack("<IIBIIIB", 10, 262145, 1, 123, 0x12345678, 200, bits) if version == 154 else
+             struct.pack("<IIBIIB", 10, 262145, 1, 123, 200, bits))
     if version == 154:
         sound += b"\0\0\0\0" + struct.pack("<IIB", 0, 0, 0) + b"\0\0"
     objects = [(5 if dynamic else 2, sound), (3, struct.pack("<IHI", 20, 0x0403, 10)),

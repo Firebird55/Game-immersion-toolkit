@@ -1,16 +1,18 @@
 """Only synthetic authored cues, localization and deterministic Wwise branches."""
 import struct
+import json
 
 import pytest
 
 from backend.nte_cinematics import movie_bindings, movie_namespaces, movie_records, subtitle_cues, timed_sequence_cues, SRT_ROOT
 from backend.nte_assets import wwise_hash
+from backend import nte_assets
 from backend.pragmata_audio import read_bank_play_layers
 
 
-def synthetic_switch(path, group='Sex_Switch', continuous=False, fade=False, *, event_name='Play_Vo_CG_Synthetic', language='Chinese', gain=-6):
+def synthetic_switch(path, group='Sex_Switch', continuous=False, fade=False, *, event_name='Play_Vo_CG_Synthetic', language='Chinese', gain=-6, stream_type=2):
     def sound(oid, media):
-        source = struct.pack('<IIBIIIB', oid, 262145, 2, media, 987, 100, 1)
+        source = struct.pack('<IIBIIIB', oid, 262145, stream_type, media, 0x12345678, 100, 1)
         # Empty effects/metadata, bus/parent, flags, properties/ranges.
         return source + bytes(4) + struct.pack('<IIB', 0, 30, 0) + bytes(2)
     node = struct.pack('<I', 30) + bytes(4) + struct.pack('<IIB', 0, 0, 0)
@@ -31,19 +33,78 @@ def synthetic_switch(path, group='Sex_Switch', continuous=False, fade=False, *, 
 
 
 @pytest.mark.parametrize('gender,media', [('female', 123), ('male', 456)])
-def test_prefetch_cache_and_explicit_sex_switch_choose_only_authored_branch(tmp_path, gender, media):
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_codec_cache_and_explicit_sex_switch_choose_only_authored_branch(tmp_path, gender, media, stream_type):
     path = tmp_path / 'synthetic.bnk'
-    event = synthetic_switch(path)
+    event = synthetic_switch(path, stream_type=stream_type)
     assert read_bank_play_layers(path, allowed_versions=(154,)) == {}
     result = read_bank_play_layers(path, allowed_versions=(154,), switch_states={wwise_hash('Sex_Switch'): wwise_hash(gender)})
     assert result[event] == [{'media_id': media, 'gain_db': -6., 'delay_seconds': 0.}]
 
 
 @pytest.mark.parametrize('changes', [{'group':'Other'}, {'continuous':True}, {'fade':True}])
-def test_unverified_dynamic_playback_is_not_given_a_default_branch(tmp_path, changes):
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_unverified_dynamic_playback_is_not_given_a_default_branch(tmp_path, changes, stream_type):
     path = tmp_path / 'synthetic.bnk'
-    synthetic_switch(path, **changes)
+    synthetic_switch(path, stream_type=stream_type, **changes)
     assert read_bank_play_layers(path, allowed_versions=(154,), switch_states={wwise_hash('Sex_Switch'): wwise_hash('female')}) == {}
+
+
+def storage_cache(path, stream_type, *, cinematic=True, mixed=False):
+    event = 'Play_Vo_CG_StorageFixture'
+    (path / 'banks').mkdir()
+    bank = path / 'banks' / (event + '.bnk')
+    synthetic_switch(bank, event_name=event, stream_type=stream_type)
+    if mixed:
+        def source(oid, media, storage):
+            return (struct.pack('<IIBIIIB', oid, 262145, storage, media, 0x12345678, 4096, 1) +
+                    bytes(4) + struct.pack('<IIB', 0, 30, 0) + bytes(2))
+        layer = struct.pack('<I', 30) + bytes(4) + struct.pack('<IIB', 0, 0, 0) + bytes(2)
+        objects = [(2, source(10, 123, 2)), (2, source(11, 456, 0)), (9, layer),
+                   (3, struct.pack('<IHI', 20, 0x0403, 30)), (4, struct.pack('<IBI', wwise_hash(event), 1, 20))]
+        hirc = struct.pack('<I', len(objects)) + b''.join(struct.pack('<BI', kind, len(data)) + data for kind, data in objects)
+        header = struct.pack('<3I', 154, wwise_hash(event), wwise_hash('Chinese'))
+        bank.write_bytes(b'BKHD' + struct.pack('<I', len(header)) + header + b'HIRC' + struct.pack('<I', len(hirc)) + hirc)
+    text = {'ns': 'ST_Owned', 'key': 'Owned_Cue', 'value': '独立测试字幕。'}
+    (path / 'localization.json').write_text(json.dumps({'zh-CN': [text]}), encoding='utf8')
+    (path / 'media.json').write_text(json.dumps([nte_assets.MEDIA_ROOT + str(mid) + '.wem' for mid in [123, 456]]))
+    (path / 'dialogue-events.json').write_text(json.dumps({'owned_cue': [event.lower()]}))
+    if cinematic:
+        (path / 'sequence-cues.json').write_text(json.dumps({'events': {'owned': [event]}, 'groups': {'owned': [
+            dict(ns='ST_Owned', key='Owned_Cue', start_ms=100, end_ms=900, starts=[], ends=[])]}}))
+    return bank, event
+
+
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_cinematic_storage_requires_supported_clock_without_leaking_internal_metadata(tmp_path, stream_type):
+    storage_cache(tmp_path, stream_type)
+    rows = nte_assets.build_records(tmp_path, source_locale='zh-Hans')
+    if stream_type == 2:
+        assert len(rows) == 2 and all(row['voice_status'] == 'voiced' for row in rows)
+        assert {row['audio']['start_ms'] for row in rows} == {100}
+        assert {row['audio']['end_ms'] for row in rows} == {900}
+        assert {row['audio']['gain_db'] for row in rows} == {-6}
+        assert all('storage_type' not in row['audio'] for row in rows)
+    else:
+        assert len(rows) == 2
+        assert all(not row['audio'] and row['voice_status'] == 'unavailable' and row['dialogue_kind'] == 'cinematic' for row in rows)
+
+
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_exact_whole_recording_binding_preserves_its_schema_for_all_storage_formats(tmp_path, stream_type):
+    storage_cache(tmp_path, stream_type, cinematic=False)
+    rows = nte_assets.build_records(tmp_path, source_locale='zh-Hans')
+    assert len(rows) == 2 and all(row['voice_status'] == 'voiced' for row in rows)
+    assert all('storage_type' not in row['audio'] and 'start_ms' not in row['audio'] for row in rows)
+
+
+def test_unsuitable_layer_cannot_disappear_from_a_partially_playable_cinematic_mix(tmp_path):
+    bank, event = storage_cache(tmp_path, 0, mixed=True)
+    layers = read_bank_play_layers(bank, allowed_versions=(154,), include_storage_type=True)[wwise_hash(event)]
+    assert {row['storage_type'] for row in layers} == {0, 2}
+    rows = nte_assets.build_records(tmp_path, source_locale='zh-Hans')
+    assert len(rows) == 1 and not rows[0]['audio'] and rows[0]['voice_status'] == 'unavailable'
+    assert rows[0]['dialogue_kind'] == 'cinematic'
 
 
 def test_movie_cue_joins_owned_namespace_key_and_exact_original_timing():
@@ -166,8 +227,9 @@ def test_sequence_clock_uses_dub_override_and_blocks_overlapping_unowned_or_repe
         timed_sequence_cues(payload, 'en')
 
 
-def test_unknown_switch_value_does_not_fall_back_to_female(tmp_path):
+@pytest.mark.parametrize('stream_type', [0, 1, 2])
+def test_unknown_switch_value_does_not_fall_back_to_female(tmp_path, stream_type):
     path = tmp_path / 'synthetic.bnk'
-    synthetic_switch(path)
+    synthetic_switch(path, stream_type=stream_type)
     assert read_bank_play_layers(path, allowed_versions=(154,),
                                  switch_states={wwise_hash('Sex_Switch'):wwise_hash('Other')}) == {}

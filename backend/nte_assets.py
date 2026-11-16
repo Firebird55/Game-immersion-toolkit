@@ -30,7 +30,7 @@ TABLE_SCHEMA_SHA256 = '7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0b
 TABLE_SCHEMA_URL = ('https://raw.githubusercontent.com/555me/NTE-usmap/'
                     '1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap')
 MEDIA_ROOT = "HT/Content/WwiseAudio/Media/Chinese/"
-LANGUAGE_INDEX_VERSION = 9
+LANGUAGE_INDEX_VERSION = 10
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 TEXT_LOCALES = {'en': 'en', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-Hant', 'ja': 'ja', 'ko': 'ko',
     'fr': 'fr', 'de': 'de', 'es-ES': 'es', 'pt-BR': 'pt-BR', 'ru': 'ru', 'th': 'th', 'vi': 'vi', 'id': 'id'}
@@ -412,13 +412,14 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
         if struct.unpack_from("<I", data, 12)[0] != wwise_hash(event):
             continue
         try:
-            layers = read_bank_play_layers(path, allowed_versions=(154,)).get(wwise_hash(event), [])
+            layers = read_bank_play_layers(path, allowed_versions=(154,), include_storage_type=True).get(wwise_hash(event), [])
         except (ValueError, IndexError, struct.error):
             continue
         variants = [(None, layers)]
         if not layers:
             try:
                 variants = [(gender, read_bank_play_layers(path, allowed_versions=(154,),
+                             include_storage_type=True,
                              switch_states={wwise_hash('Sex_Switch'): wwise_hash(gender)}).get(wwise_hash(event), []))
                             for gender in ['female', 'male']]
             except (ValueError, IndexError, struct.error):
@@ -434,7 +435,10 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
                     audio = {"depot": depot, "event": event, 'gain_db': layer['gain_db'],
                              **({'locale': 'zh-Hans' if source_locale == 'zh-Hant' else source_locale} if source_locale else {})}
             events.setdefault(event.lower(), []).append({'player_voice': gender, 'audio': audio})
-            if audio and layer['delay_seconds'] == 0:
+            # Storage 0/1 media may load correctly without sharing the caption
+            # clock. Keep those cinematic bindings unresolved until their
+            # authored owner/clock contract is supported; do not filter layers.
+            if audio and layer['delay_seconds'] == 0 and layer.get('storage_type') == 2:
                 cinema_events.setdefault(event.lower(), []).append({'player_voice': gender,
                     'audio': audio})
     pairs_by_key = {}
