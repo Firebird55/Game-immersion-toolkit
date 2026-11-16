@@ -25,6 +25,11 @@ def encode(node, value):
         elif node.interpretation == 'bool':
             value = node.false_value ^ 1 if value else node.false_value
         return word(node, value)
+    if isinstance(node, original.Empty):
+        assert value == {}
+        return b''
+    if isinstance(node, original.Tagged):
+        return encode(node.tag, value['tag']) + encode(dict(node.cases)[value['tag']], value['value'])
     if isinstance(node, original.Text):
         text, result = value.encode('utf-8'), bytearray()
         for at in range(0, len(text), 8):
@@ -363,6 +368,104 @@ def test_authored_empty_talk_array_is_no_caption_and_never_unvoiced(tmp_path):
     assert len(snapshot['records']) == 4
     assert all(row['voice_status'] != 'unvoiced' for row in snapshot['records'])
     assert 'genshin:1004' not in {row['text_id'] for row in snapshot['records']}
+
+
+def projected_fixture(generation=0, suffix=b'unused synthetic gameplay fields'):
+    value, assets, group, descriptors = indexed_fixture(generation)
+    spec, inventory, objects, options = value
+    word = spec.inventory.count
+    text = original.Text(original.Word(16, (('add', 3 + generation),)),
+                         0x1122334455667788 + generation)
+    nested = original.Record((original.Field('label', text, 1),
+                              original.Field('numbers', original.Array(word, word), 4)),
+                             original.Word(8, (('xor', 5 + generation),)))
+    tagged = original.Tagged(original.Word(8, (('xor', 0x21 + generation),)),
+                              ((2, original.Empty()), (9, nested)))
+    record = original.Record((original.Field('prelude', original.Array(word, tagged)), group.fields[1]))
+    prefix = {'prelude': [{'tag': 2, 'value': {}},
+                          {'tag': 9, 'value': {'label': '前置🙂', 'numbers': [7, 11]}}],
+              'talks': [descriptors[n] for n in (101, 102, 103)]}
+    identity = (9 << 40) | 0x0102030405
+    raw = encode(record, prefix) + suffix
+    assets[identity] = replace(assets[identity], payload=raw, sha256=hashlib.sha256(raw).hexdigest())
+    projection = original.IndexedGroupPrefix(record)
+    source = replace(spec.source_indices[0], group_contract=projection)
+    spec = replace(spec, source_indices=(source, *spec.source_indices[1:]))
+    return (spec, inventory, objects, options), assets, prefix
+
+
+def test_native_index_owned_prefix_retains_whole_digest_and_exact_consumption(tmp_path):
+    value, assets, prefix = projected_fixture()
+    snapshot = prepare(tmp_path / 'prefix.json', value)
+    identity = (9 << 40) | 0x0102030405
+    contract = value[0].source_indices[0].group_contract
+    source = assets[identity]
+    proof, = snapshot['original_dialogue']['prefix_projections']
+    assert proof == {'asset_index': identity, 'sha256': source.sha256,
+                     'catalog_sha256': source.catalog_sha256, 'kind': 'index-owned-group-prefix',
+                     'consumed_bytes': len(encode(contract.record, prefix)),
+                     'whole_payload_bytes': len(source.payload)}
+    assert proof['consumed_bytes'] < proof['whole_payload_bytes']
+    assert len(snapshot['records']) == 5 and snapshot['original_dialogue']['inventory_rows'] == 5
+    with pytest.raises(ValueError):
+        original.decode_original(source.payload, contract.record)
+    with pytest.raises(ValueError):
+        original.decode_original(source.payload, contract)
+    with pytest.raises(ValueError):
+        original.InventoryRoute(2, 'Data/Group/', 'id', 'group', contract)
+
+
+def test_changed_prefix_operands_and_unused_tail_preserve_authored_caption_identity(tmp_path):
+    path = tmp_path / 'prefix.json'
+    first = prepare(path, projected_fixture()[0])
+    changed_tail = prepare(path, projected_fixture(suffix=b'changed unused native gameplay fields')[0])
+    assert first['records'] == changed_tail['records']
+    assert first['metadata_revision'] != changed_tail['metadata_revision']
+    assert first['original_dialogue']['prefix_projections'] != changed_tail['original_dialogue']['prefix_projections']
+    refreshed = prepare(path, projected_fixture(1)[0])
+    assert refreshed['fingerprint'] != changed_tail['fingerprint']
+    assert refreshed['original_dialogue']['profile_sha256'] != changed_tail['original_dialogue']['profile_sha256']
+    assert {row['text_id'] for row in refreshed['records']} == {row['text_id'] for row in first['records']}
+    assert refreshed['records'][0]['audio']['source'].endswith('sample-1-0.wem')
+
+
+@pytest.mark.parametrize('failure', ['unknown_tag', 'truncated_prefix', 'unknown_member'])
+def test_incomplete_native_prefix_cannot_replace_snapshot(tmp_path, failure):
+    path = tmp_path / 'prefix.json'
+    prepare(path, projected_fixture()[0])
+    before = path.read_bytes()
+    value, assets, prefix = projected_fixture(1)
+    identity = (9 << 40) | 0x0102030405
+    record = value[0].source_indices[0].group_contract.record
+    payload = encode(record, prefix)
+    if failure == 'unknown_tag':
+        # The first collection item has an explicit tag. No arbitrary skip,
+        # null interpretation or alternate factory reader may consume it.
+        tag = record.fields[0].value.value.tag
+        payload = payload[:4] + encode(tag, 99) + payload[5:]
+    elif failure == 'truncated_prefix':
+        payload = payload[:-1]
+    else:
+        prefix['talks'][0]['id'] = 999
+        payload = encode(record, prefix)
+    assets[identity] = replace(assets[identity], payload=payload, sha256=hashlib.sha256(payload).hexdigest())
+    with pytest.raises(ValueError):
+        prepare(path, value)
+    assert path.read_bytes() == before
+
+
+def test_tagged_native_factory_requires_unique_known_tags_and_strict_eof():
+    contract = original.Tagged(original.Word(8), ((0, original.Empty()),
+        (3, original.Record((original.Field('number', original.Word(16)),)))))
+    assert original.decode_original(b'\0', contract) == {'tag': 0, 'value': {}}
+    assert original.decode_original(b'\x03\x34\x12', contract) == {'tag': 3, 'value': {'number': 0x1234}}
+    for payload in (b'\x02', b'\x03\x34', b'\x00\x12'):
+        with pytest.raises(ValueError):
+            original.decode_original(payload, contract)
+    with pytest.raises(ValueError):
+        original.decode_original(b'\0', replace(contract, cases=((0, original.Empty()), (0, original.Empty()))))
+    with pytest.raises(ValueError):
+        original.IndexedGroupPrefix(original.Record((original.Field('unknown', original.Word()),)))
 
 
 def test_complete_authored_inventory_and_ordinary_voice_service(tmp_path, monkeypatch):

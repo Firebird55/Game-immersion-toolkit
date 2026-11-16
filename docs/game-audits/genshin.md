@@ -103,6 +103,15 @@ silently replace an inventory Talk. Compound group routes retain the two typed
 inventory values in their authored order, including native zero/default values;
 both group root IDs must agree. An omitted native dialogue array means there
 are no captions in that object, without manufacturing an unvoiced line.
+An explicit `IndexedGroupPrefix` source contract follows the separate native
+index-owned loading path: it consumes every field through the authored Talk
+array while retaining the whole asset digest, catalog digest, whole byte count
+and consumed prefix byte count in the snapshot. Its identity belongs to the
+original dictionary, independently of an internal ID serialized later. It is
+available only for indexed groups; ordinary groups still require matching root
+IDs. The whole-object decoder retains exact EOF. Native tagged factories also
+require explicit, unique cases, including proved zero-byte readers; unknown
+tags cannot select a different reader or skip a payload.
 It reads the original voice Lut,
 loads each referenced Items group and joins the exact original UUID hash,
 argument and trigger. Duplicate event keys, UUID hash collisions and missing
@@ -175,7 +184,20 @@ referencing 17,443 unique Talk payloads; all referenced Talks passed matching-ID
 and EOF checks, yielding 68,208 nodes before repeated group contexts. The other
 NPC objects contain 1,859 nodes and the cutscene objects contain 708. The original
 MainQuest and MainQuestBrief dictionaries each enumerate 4,543 resources; their
-complete dialogue-prefix decoding remains open.
+source identities remain distinct.
+
+All **4,543 MainQuest resources** now pass the product grammar's bounded
+native-owned prefix projection through their Talk array. This includes all 74
+resources with interaction dictionaries and all 29 with guide dictionaries.
+The actually encountered native factory cases, nested records, strings and
+collection bounds are consumed; unused scalar bits are not treated as IDs.
+The original loader takes a dictionary key, obtains its full UInt64 asset
+reference, reads the typed MainQuest and consumes that Talk array. Its internal
+MainQuest ID occurs after this prefix and is not fabricated from an earlier
+field. Every projected descriptor resolved to a known inventory Talk with a
+matching ID and complete EOF: **23,801 Talks and 321,344 nodes**, the same set
+already counted under direct Quest paths. This does not assert complete
+MainQuest/SubQuest decoding, gameplay reachability or autonomous preparation.
 
 Gadget loading uses the first two authored extra-load IDs in order. They are
 not a Scene ID inferred from a dialogue number. The 1,506 inventory rows with
@@ -219,6 +241,10 @@ Resource-index tests additionally cover changed native operands, full indexed
 enumeration without filename probes, group-key namespace collisions, wrong
 indexed roots, absent assets, truncated dictionaries, unknown indexed inventory
 kinds, compound-ID disagreement and authored empty Talk arrays.
+Indexed-prefix tests cover nested tagged cases, zero-byte cases, exact prefix
+consumption, whole-source identity changes from unused trailing gameplay data,
+changed native operands, strict whole-object refusal and failed-update retention
+for unknown tags, truncated prefixes and unknown Talk membership.
 These tests do not establish real native inventory discovery.
 
 Normal Setup still uses its matching text extraction. The explicit API does not
