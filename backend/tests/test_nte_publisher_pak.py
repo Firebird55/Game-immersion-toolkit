@@ -20,7 +20,7 @@ def string(value, wide=False):
 
 
 def package(rows, *, encrypted_index=True, mount='../../../HT/', folder='Content/', declared_padding=False,
-            extra_index_bytes=b'', wide_numbers=False):
+            extra_index_bytes=b'', wide_numbers=False, aligned_stored=False, stored_extra=0):
     """rows: (name, payload, compression block size, encrypted, nonencoded)."""
     cipher = AES.new(KEY, AES.MODE_ECB)
     body, encoded, nonencoded, positions = bytearray(64), bytearray(), [], []
@@ -36,6 +36,9 @@ def package(rows, *, encrypted_index=True, mount='../../../HT/', folder='Content
         blocks = [zlib.compress(payload[i:i + block_size]) for i in range(0, len(payload), block_size)] if method else []
         lengths = [len(block) for block in blocks]
         stored = sum(lengths) if method else len(payload)
+        if method and encrypted and aligned_stored:
+            stored = sum((n + 15) // 16 * 16 for n in lengths)
+        stored += stored_extra
         offset = len(body)
         header_size = 53 + (4 + 16 * len(blocks) if method else 0)
         # Deliberately unusable duplicate header. The index is authoritative.
@@ -110,6 +113,25 @@ def open_archive(data, tmp_path, monkeypatch, *, region='nte-global'):
     monkeypatch.setattr(release, 'read_range', read)
     source = pak.SignedSource(region, 'PC_150', item, sigitem, tmp_path)
     return pak.Archive(source, CATALOG), requests
+
+
+@pytest.mark.parametrize('block_size', [128, 4096])
+@pytest.mark.parametrize('explicit', [False, True])
+def test_encrypted_compressed_members_accept_declared_padding_without_decoding_it(tmp_path, monkeypatch, block_size, explicit):
+    # Publisher config members count AES padding in stored size, whereas other
+    # members declare only compressed bytes. Block lengths remain authoritative.
+    payload = b'owned configuration text\n' * 20
+    data = package([('settings.ini', payload, block_size, True, explicit)], aligned_stored=True)
+    archive, _ = open_archive(data, tmp_path, monkeypatch)
+    assert archive.read('HT/Content/settings.ini') == payload
+
+
+def test_stored_size_cannot_exceed_both_compressed_and_aligned_lengths(tmp_path, monkeypatch):
+    data = package([('settings.ini', b'owned text' * 100, 4096, True, False)],
+                   aligned_stored=True, stored_extra=1)
+    archive, _ = open_archive(data, tmp_path, monkeypatch)
+    with pytest.raises(PreparationFailure):
+        archive.read('HT/Content/settings.ini')
 
 
 @pytest.mark.parametrize('encrypted_index', [True, False])

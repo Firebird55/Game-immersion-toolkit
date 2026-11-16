@@ -112,6 +112,13 @@ an older recording. The overlay helper requires evidenced mount priority
 from its caller; it does not guess precedence from PAK filenames.
 [Engine deletion semantics](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/PakFile/FPakFile/GetPakEntry/2?application_version=5.5)
 
+Encrypted compressed members can declare either the sum of compressed block
+lengths or the sum including AES padding. The reader accepts those two forms,
+checks physical bounds and decodes only each block's actual compressed bytes.
+The Global 1.5.4 base/patch engine and game configuration resources exercise
+the aligned-size form; all eight selected resources were recovered through
+the checked reader. Synthetic checks retain rejection of inconsistent sizes.
+
 Archive metadata can also be reopened by its exact source commit and SHA-256,
 including from a checksum-verified private cache without a network connection.
 It never substitutes the latest parameters for an explicitly historical source.

@@ -295,9 +295,12 @@ class Archive:
             check(e.offset + e.header_size + length <= self.index_offset)
             data = self.source.read(e.offset + e.header_size, length)
             return (self.cipher.decrypt(data) if e.encrypted else data)[:e.size]
+        stored_sizes = {sum(n for _, n in e.blocks)}
+        if e.encrypted:
+            stored_sizes.add(sum((n + 15) // 16 * 16 for _, n in e.blocks))
         check(e.method < len(self.methods) and 0 < e.block_size <= MEMBER_LIMIT and
               len(e.blocks) == (e.size + e.block_size - 1) // e.block_size and
-              sum(n for _, n in e.blocks) == e.stored)
+              e.stored in stored_sizes)
         end = e.offset + e.header_size
         for offset, size in e.blocks:
             length = (size + 15) // 16 * 16 if e.encrypted else size
