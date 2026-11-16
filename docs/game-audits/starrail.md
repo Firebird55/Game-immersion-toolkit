@@ -72,8 +72,38 @@ table proof below. A supplied description must match the actual launcher
 `GameAssembly.dll` MD5; another client's description cannot silently replace it.
 Bootstrap paths are supplied inputs too: the private probe resolves native
 `Load` literals against the original launcher inventory, and synthetic renames
-use the same standalone API. The explicit ClientConfig field-layout description
-remains supplied input.
+use the same standalone API.
+
+The owned `starrail_native_description` API now derives the ClientConfig layout
+from matching original metadata and decoded native instructions. It identifies
+the binary reader through the unique dominant owner of no-argument primitive
+calls in `VersionData.Deserialize`, then joins public config field names/types
+and offsets to the native return stores in serialization order. String arrays
+require count, allocation, indexed string-store and loop-branch evidence. Every
+public field must be accounted for once, with consistent object registers,
+primitive kinds and store widths. Missing, duplicate, unsupported or ambiguous
+evidence fails closed. The implementation bounds method evidence to 8,192
+instructions and a 64-KiB span, and config metadata to 256 fields. It contains
+no release, address, field-offset or nine-field order list.
+
+The same frozen owned API derives all nine fields for 4.6 and 4.7, despite their
+different native offsets and parser bodies. Both original files consume exactly
+201 bytes and yield the same canonical decoded-value SHA-256
+`9e904d4efe0c9bde40b083d82fe0f0a3921669906f4d2dd1bd03babb0e131536`.
+This replay downloads no new native bytes and retains the whole-file versus
+Sophon-chunk integrity distinction above. Synthetic evidence covers relocated
+fields, new scalar fields, conflicting primitive owners, incomplete stores,
+malformed bounds, missing array evidence and clobbered scalar returns.
+
+This API takes metadata and disassembly as inputs; it does not authenticate or
+generate them, load a native library, or prove arbitrary native control flow.
+The retained `HSRGlobalMetadata` helper at frozen revision
+`bb66f7c59d73cadcd026d817a011598ea23c5313` has fixed metadata codecs and string-key
+formulas. Its successful extraction for these inputs does not prove recovery
+after a key/layout change. A compiler-free, provenance-checked helper lifecycle,
+automatic metadata codec derivation from original native data, and descriptions
+for the additional catalog tables remain prerequisites for enabling production
+discovery. No additional third-party helper or binary is shipped by this change.
 
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone

@@ -1,8 +1,9 @@
 """Isolated original-source discovery; production preparation does not call this.
 
 The caller supplies descriptions derived from the matching original native
-client, including ClientConfig's layout. Native helper acquisition, automatic
-description generation and its production lifecycle are not enabled here.
+client. starrail_native_description derives ClientConfig's layout from supplied
+metadata/disassembly. Native helper acquisition, automatic description generation
+and its production lifecycle are not enabled here.
 """
 import base64
 import hashlib
