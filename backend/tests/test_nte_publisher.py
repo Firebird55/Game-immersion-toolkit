@@ -163,7 +163,8 @@ def test_normal_adapter_prepares_updates_and_replays_its_original_snapshot_witho
         assets.extract_voice(None, forged, executable, online.root / 'unused')
 
 
-def test_player_update_keeps_each_historical_branch_without_reusing_the_new_male_recording(online, monkeypatch):
+@pytest.mark.parametrize('swap', [False, True])
+def test_player_update_keeps_each_historical_branch_without_reusing_new_recordings(online, monkeypatch, swap):
     from backend.tests.test_nte_cinematics import synthetic_switch
     source = online.root / 'owned-switch.bnk'
     synthetic_switch(source, event_name='Play_Vo_Line', language='English')
@@ -172,8 +173,9 @@ def test_player_update_keeps_each_historical_branch_without_reusing_the_new_male
     for generation, resources in enumerate(online.originals.values(), 1):
         bank_path = next(name for name in resources if name.endswith('.bnk'))
         resources[bank_path] = source.read_bytes()
-        resources[online.media] = original(b'owned unchanged female')
-        resources[online.media.replace('/123.wem', '/456.wem')] = original(b'owned male revision ' + bytes([generation]))
+        resources[online.media] = original(b'owned male' if swap and generation == 2 else b'owned female')
+        male = b'owned female' if generation == 2 else b'owned male'
+        resources[online.media.replace('/123.wem', '/456.wem')] = original(male if swap else b'owned male revision ' + bytes([generation]))
     first = assets.index_language(None, online.root, 'en', ['fr'])
     online.current[0] = list(online.states)[1]
     second = assets.index_language(None, online.root, 'en', ['fr'])
@@ -186,7 +188,11 @@ def test_player_update_keeps_each_historical_branch_without_reusing_the_new_male
     executable = online.tools / 'NteReader.dll'
     recordings = [{r['player_voice']: assets.extract_voice(None, r['audio'], executable, online.root / 'unused')
                    for r in payload['records']} for payload in [first, second]]
-    assert recordings[0]['female'] == recordings[1]['female']
+    if swap:
+        assert recordings[0]['female'] == recordings[1]['male']
+        assert recordings[0]['male'] == recordings[1]['female']
+    else:
+        assert recordings[0]['female'] == recordings[1]['female']
     assert recordings[0]['male'] != recordings[1]['male']
     assert recordings[0]['female'] != recordings[0]['male']
 

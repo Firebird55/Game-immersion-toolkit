@@ -140,6 +140,42 @@ def test_competing_chunk_writer_accepts_only_identical_verified_bytes(tmp_path, 
     assert writes == ['0.chunk']
 
 
+@pytest.mark.skipif(__import__('os').name != 'nt', reason='Windows file-sharing behavior')
+@pytest.mark.parametrize('identical', [True, False])
+def test_windows_reader_lock_during_duplicate_download_preserves_verified_cache(tmp_path, monkeypatch, identical):
+    import ctypes
+    from ctypes import wintypes
+    data = package([('large.wem', bytes(range(256)) * 1024, 0, False, False)])
+    archive, _ = open_archive(data, tmp_path, monkeypatch)
+    source, network = archive.source, release.read_range
+    api = ctypes.WinDLL('kernel32', use_last_error=True)
+    api.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                               wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    api.CreateFileW.restype = wintypes.HANDLE
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    handles = []
+    def downloading(*args):
+        content = network(*args)
+        path = source.root / '0.chunk'
+        path.write_bytes(content if identical else b'x' * len(content))
+        handle = api.CreateFileW(str(path), 0x80000000, 1, None, 3, 0x80, None)
+        assert handle != ctypes.c_void_p(-1).value, ctypes.get_last_error()
+        handles.append(handle)
+        return content
+    monkeypatch.setattr(release, 'read_range', downloading)
+    try:
+        if identical:
+            assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        else:
+            with pytest.raises(PermissionError):
+                source.read(0, pak.CHUNK)
+    finally:
+        for handle in handles:
+            assert api.CloseHandle(handle)
+    assert len(handles) == 1
+
+
 @pytest.mark.parametrize('block_size', [128, 4096])
 @pytest.mark.parametrize('explicit', [False, True])
 def test_encrypted_compressed_members_accept_declared_padding_without_decoding_it(tmp_path, monkeypatch, block_size, explicit):
