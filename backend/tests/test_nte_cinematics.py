@@ -3,7 +3,7 @@ import struct
 
 import pytest
 
-from backend.nte_cinematics import movie_bindings, movie_records, subtitle_cues, timed_sequence_cues, SRT_ROOT
+from backend.nte_cinematics import movie_bindings, movie_namespaces, movie_records, subtitle_cues, timed_sequence_cues, SRT_ROOT
 from backend.nte_assets import wwise_hash
 from backend.pragmata_audio import read_bank_play_layers
 
@@ -74,6 +74,49 @@ def test_movie_binding_cannot_choose_music_or_an_escaped_asset_path():
     assert movie_bindings([row])[0]['subtitle'] == SRT_ROOT+'Synthetic.srt'
     assert movie_bindings([{**row,'PlayVoice':{'AssetPathName':row['PlayVoice']['AssetPathName'].replace('Play_Vo','Play_Sfx')}}]) == []
     assert movie_bindings([{**row,'Path':{'FilePath':row['Path']['FilePath'].replace('Synthetic','../escaped')}}]) == []
+
+
+def test_original_registry_can_add_a_movie_alias_without_a_toolkit_alias_update():
+    row = {'StringTableID': 'OwnedFutureAlias',
+           'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/OwnedMovie.mp4'},
+           'PlayVoice': {'AssetPathName': '/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_Owned.Play_Vo_CG_Owned'}}
+    owners = movie_namespaces({'StringTableNamespaces.json': {'OwnedFutureAlias': 'Different.Authored.Namespace'}})
+    binding, = movie_bindings([row], owners)
+    assert binding['namespace'] == 'Different.Authored.Namespace'
+    assert movie_bindings([row]) == []
+    # FName aliases are insensitive to case; the original namespace is exact.
+    assert movie_bindings([{**row, 'StringTableID': 'OWNEDFUTUREALIAS'}], owners) == [binding]
+    srt = '1\n00:00:01,000 --> 00:00:02,000\nOwnedLine\n'
+    events = {'play_vo_cg_owned': [{'player_voice': None, 'audio': {'depot': 'Owned/voice.wem'}}]}
+    records = movie_records([binding], {binding['subtitle']: srt},
+        {('Different.Authored.Namespace', 'OwnedLine'): 'An independently owned caption.'},
+        {('Different.Authored.Namespace', 'OwnedLine'): '独立测试字幕。'}, events)
+    assert len(records) == 1 and records[0]['audio']['start_ms'] == 1000
+    assert movie_records([binding], {binding['subtitle']: srt},
+        {('WrongOwner', 'OwnedLine'): 'Another caption.'},
+        {('WrongOwner', 'OwnedLine'): '其他测试字幕。'}, events) == []
+
+
+def test_missing_or_conflicting_registry_owners_cannot_borrow_legacy_aliases():
+    assert movie_namespaces({}) is None
+    with pytest.raises(ValueError, match='ownership'):
+        movie_namespaces({}, required=True)
+    owners = movie_namespaces({'StringTableNamespaces.json': {
+        'Sequence': None, 'Future': 'Owned.One', 'FUTURE': 'Owned.Two', 'fUtUrE': 'Owned.One'}})
+    assert owners == {'sequence': None, 'future': None}
+    row = {'StringTableID': 'Sequence',
+           'Path': {'FilePath': '../../../Projects/HT/Content/Movies/FFMpeg/Story/Owned.mp4'},
+           'PlayVoice': {'AssetPathName': '/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_Owned.Play_Vo_CG_Owned'}}
+    assert movie_bindings([row], owners) == []
+    assert movie_bindings([row], {}) == []
+
+
+@pytest.mark.parametrize('registry', [[], {'Future': True}, {'Future': ''}, {'Future': 'x' * 513},
+                                     {'Future': 'Invalid\0Namespace'}, {'': 'Owned'},
+                                     {'invalid\nname': 'Owned'}])
+def test_changed_movie_registry_shapes_are_not_silently_accepted(registry):
+    with pytest.raises(ValueError, match='registry'):
+        movie_namespaces({'StringTableNamespaces.json': registry})
 
 
 @pytest.mark.parametrize(('table', 'namespace'), [

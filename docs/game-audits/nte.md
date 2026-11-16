@@ -293,10 +293,75 @@ of a new live rollout. Scheduled rechecks, manual recovery, interruption,
 download-cost controls and native/device acceptance remain separate. The
 duplicate-caption capture ambiguity is unchanged.
 
+### Movie text ownership from the original registry, index schema 8
+
+The selected Global 1.5.4 release's original `DT_TextTable` explicitly maps
+movie aliases to StringTable objects. The reader now resolves each named object
+and reads its actual `TableNamespace`; it does not derive ownership from the
+alias or asset basename. The current registry has 19 aliases. A useful real
+counterexample is `VehicleData`: its asset is named `ST_VehicleData`, while its
+namespace is `NewStringTable`.
+
+The registry maps `DeadNumber` to the original `ST_Main_Exe01` StringTable.
+This establishes text ownership for the three already-declared voice events
+`HM_U01C09_003a`, `HM_U01C09_003b` and `HM_U01C09_004`. They have 19, 10 and
+13 distinct subtitle keys. The middle event has independently resolved female
+and male Wwise branches, giving **52 cue/voice bindings for 42 caption keys**
+per tested dub. These are not 52 distinct sentences or protagonist voices.
+[Selected publisher manifest](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
+
+Registry rows and exact owner namespaces refresh from the selected game's data.
+Compatible updates can therefore add aliases without a hardcoded toolkit alias
+change. Missing owners and conflicting case-insensitive aliases remain
+unresolved; malformed paths, types and bounds are rejected. An explicit missing
+owner cannot inherit one of the retained legacy aliases. The installed reader
+also prefers its original movie tables and namespace registry when present.
+Schema 8 and the changed reader identity invalidate earlier preparation caches,
+while saved snapshots continue to refer to their own original resources.
+
+Normal installation-free preparation produced:
+
+| Edition / study text and dub | Prepared records | Resolved voice records | New DeadNumber cue/voice bindings |
+| --- | ---: | ---: | ---: |
+| Global / English | 126,165 | 27,855 | 52 |
+| Global / Japanese | 126,471 | 27,663 | 52 |
+| Global / Korean | 126,106 | 27,834 | 52 |
+| Global / Simplified Chinese / Mandarin | 126,194 | 28,071 | 52 |
+| Global / Traditional Chinese / Mandarin | 126,193 | 28,055 | 52 |
+| Mainland 1.5.6 / Simplified Chinese / Mandarin | 126,209 | 28,071 | 52 |
+
+All 52 clips in every flow exported through the normal voice service. After
+closing/restarting into fresh output folders with publisher discovery and
+byte-range networking prohibited, all 312 paired clips reproduced identical
+nonzero PCM across 624 conversions. Both Chinese scripts use the same Mandarin
+originals. The original banks independently establish the four source recordings
+per dub, including both branches of `003b`, and their gains of −6, −1 and −8 dB
+for `003a`, `003b` and `004` respectively.
+The mainland flow follows its own release and retains the requested English
+translation as unavailable. The same updated reader/tools also reopened two
+schema-7 Japanese snapshots, current 1.5.4 and historical 1.4.9, into fresh output
+folders with publisher networking prohibited. Both protagonist performances in
+each retained identical PCM to their earlier checked exports.
+
+The three original SRTs contain 19/10/13 cues and span 10.430–140.520,
+62.680–184.130 and 10.450–144.240 seconds. Only their `_w.srt` files occur in
+the selected resource inventory; no separate `_m.srt` clock is substituted.
+Every decoded export duration agrees with its authored window within 3 ms.
+These are original authored display-clock cuts, not independent verification
+of every utterance's full acoustic lead-in and decay. Such boundaries, capture
+context and complete narrative coverage remain open.
+
+Six compiled, independently authored C# cases exercise the real registry helper,
+including a namespace different from both asset and object names, cached owner
+reuse, missing/conflicting owners, escaped paths and malformed or excessive
+metadata. They are source-development reflection fixtures, not actual
+UEExtractor/game-data or packaged native acceptance.
+
 ### Remaining acceptance
 
-The three voiced `DeadNumber` movie aliases still need an authored StringTable
-ownership binding. Complete chapters, conversation/choice context, more complex
+Additional movie formats and full spoken boundaries remain unresolved despite
+the three verified `DeadNumber` namespace bindings above. Complete chapters,
+conversation/choice context, more complex
 conditional/bark/phone/comic presentations,
 all cue windows, full live-device upstream-only update adoption beyond the
 qualified startup replay, download-cost/resume/metered

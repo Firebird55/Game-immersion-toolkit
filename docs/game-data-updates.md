@@ -66,14 +66,17 @@ dialogue/sequence/movie tables, subtitle cues and localized voice banks. Its
 immutable snapshots include compatible public type metadata, so normal content
 and type-data updates do not require a toolkit release. Missing regional text,
 stale translations and unresolved bindings are reported separately. Saved voices
-retain their exact publisher snapshot. NTE index schema 7 rebuilds older prepared
-maps to include fixed protagonist branches and their authored source-text and
-translation variants in ordinary dialogue. Unsupported source variants remain
+retain their exact publisher snapshot. NTE index schema 8 rebuilds older prepared
+maps with the original movie-alias registry and each referenced StringTable's
+exact namespace. Compatible game updates can add aliases without a toolkit
+alias-list change. Fixed protagonist branches retain their authored source-text
+and translation variants in ordinary dialogue. Unsupported source variants remain
 unavailable/unknown, and unresolved target variants are omitted. A repeated
 caption with unknown ownership remains unresolved; a successful voice download
-alone does not prove automatic caption matching. The installed fallback's movie-to-voice
-binding tables retain the separate [NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets)
-catalog route. See the [current publisher evidence](game-audits/nte.md#publisher-setup-and-immutable-voice-snapshots).
+alone does not prove automatic caption matching. The installed fallback retains
+the separate [NTE_Assets](https://github.com/Waifus-Grace/NTE_Assets) catalog seed
+and prefers the installed release's original movie tables and registry when
+available. See the [current publisher evidence](game-audits/nte.md#publisher-setup-and-immutable-voice-snapshots).
 Honkai's bilingual text hashes and authored event references come from
 [HonkaiImpactData](https://github.com/nairieberry/HonkaiImpactData), then are checked
 against installed Mandarin banks and sources.

@@ -30,7 +30,7 @@ TABLE_SCHEMA_SHA256 = '7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0b
 TABLE_SCHEMA_URL = ('https://raw.githubusercontent.com/555me/NTE-usmap/'
                     '1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap')
 MEDIA_ROOT = "HT/Content/WwiseAudio/Media/Chinese/"
-LANGUAGE_INDEX_VERSION = 7
+LANGUAGE_INDEX_VERSION = 8
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 TEXT_LOCALES = {'en': 'en', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-Hant', 'ja': 'ja', 'ko': 'ko',
     'fr': 'fr', 'de': 'de', 'es-ES': 'es', 'pt-BR': 'pt-BR', 'ru': 'ru', 'th': 'th', 'vi': 'vi', 'id': 'id'}
@@ -525,7 +525,7 @@ def refresh_catalog(data_dir: Path, force=False) -> dict:
 
 
 def index_install(install: Path, data_dir: Path, progress=lambda _message: None) -> dict:
-    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, CATALOG_REVISION
+    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, movie_namespaces, CATALOG_REVISION
     from .game_catalogs import read_snapshot
     snapshot = read_snapshot('nte', data_dir)
     bindings = movie_bindings(catalog_rows(snapshot['catalog']) if snapshot else load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
@@ -544,6 +544,9 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
             staging = Path(value)
             run_reader(install, executable, staging, "index", cinema_events=sorted({r['event'] for r in bindings}),
                        schema_cache=data_dir / 'schemas')
+            if (staging / 'movie-tables.json').is_file():
+                original = json.loads((staging / 'movie-tables.json').read_bytes())
+                bindings = movie_bindings(catalog_rows(original), movie_namespaces(original, required=True))
             records = build_records(staging, bindings)
             if fingerprint(install) != stamp:
                 raise PreparationFailure('game_files_changed', 'NTE files changed during preparation. Finish the game update and retry; the previous index is retained.')
@@ -566,7 +569,7 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
 
 def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
     from .languages import resolve_locale
-    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, CATALOG_REVISION
+    from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, movie_namespaces, CATALOG_REVISION
     from .game_catalogs import read_snapshot
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported NTE study/audio locale')
@@ -591,6 +594,9 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
             run_reader(install, tool, staging, 'index', cinema_events=sorted({r['event'] for r in bindings}),
                        locales=[TEXT_LOCALES[locale] for locale in sorted(selected)], voice_language=VOICE_LOCALES[source_locale],
                        schema_cache=data_dir / 'schemas')
+            if (staging / 'movie-tables.json').is_file():
+                original = json.loads((staging / 'movie-tables.json').read_bytes())
+                bindings = movie_bindings(catalog_rows(original), movie_namespaces(original, required=True))
             localization = json.loads((staging / 'localization.json').read_text(encoding='utf8'))
             available = {locale for locale in selected if TEXT_LOCALES[locale] in localization}
             rows = build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale})

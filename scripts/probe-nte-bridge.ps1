@@ -112,6 +112,12 @@ try {
         [IO.File]::WriteAllText((Join-Path $sequenceInstall 'owned-fixture.json'),$marker)
         Require-Code (Invoke-Bridge @('inventory',$sequenceInstall,$tools,(Join-Path $temporary ('sequence-output-'+$case))) ((Request) | ConvertTo-Json -Compress)) 0
     }
+    foreach($case in @('valid','escape','missing-property','too-many','wrong-owner','namespace-overflow')) {
+        $registryInstall=Join-Path $temporary ('registry-'+$case); New-Item -ItemType Directory -Path $registryInstall | Out-Null
+        $marker=@{schema='proxy-owned-nte-fixture-v1';localization_version=3;movie_registry_case=$case} | ConvertTo-Json -Compress
+        [IO.File]::WriteAllText((Join-Path $registryInstall 'owned-fixture.json'),$marker)
+        Require-Code (Invoke-Bridge @('inventory',$registryInstall,$tools,(Join-Path $temporary ('registry-output-'+$case))) ((Request) | ConvertTo-Json -Compress)) 0
+    }
     foreach($destination in @($install,$tools,$application)) {Require-Code (Invoke-Bridge @('inventory',$install,$tools,$destination) ((Request) | ConvertTo-Json -Compress)) 1}
     $request=Request; $request.depot='../escape.wem'
     Require-Code (Invoke-Bridge @('voice',$install,$tools,(Join-Path $temporary 'bad-depot')) ($request | ConvertTo-Json -Compress)) 1

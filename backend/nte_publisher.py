@@ -240,7 +240,7 @@ def _localization(catalog, locales, source_locale, destination):
 def build_language(tools, source_locale, targets, progress=lambda _message: None):
     from . import nte_assets as assets
     from .languages import resolve_locale
-    from .nte_cinematics import catalog_rows, movie_bindings
+    from .nte_cinematics import catalog_rows, movie_bindings, movie_namespaces
     from .publisher_regions import selected_region
     tools = Path(tools)
     if source_locale not in assets.SUPPORTED_LOCALES:
@@ -263,7 +263,8 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         assets.run_publisher_reader(context, executable, staging, catalog.containers(),
             catalog.format.parameters[region], schema_cache=catalog.cache / 'schemas',
             table_schema=type_metadata.load(value['version'], catalog.cache / 'format/types', reference=value['type_schema']))
-        bindings = movie_bindings(catalog_rows(json.loads((staging / 'movie-tables.json').read_bytes())))
+        movie_catalog = json.loads((staging / 'movie-tables.json').read_bytes())
+        bindings = movie_bindings(catalog_rows(movie_catalog), movie_namespaces(movie_catalog, required=True))
         subtitles = {b['subtitle']: catalog.read(b['subtitle']).decode('utf-8-sig')
                      for b in bindings if catalog.location(b['subtitle'])}
         _atomic_file(staging / 'cinema-subtitles.json', _json(subtitles))

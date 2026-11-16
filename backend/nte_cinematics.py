@@ -40,6 +40,32 @@ def load_catalog(directory: Path) -> list[dict]:
     return rows
 
 
+def movie_namespaces(catalog: dict, *, required=False) -> dict[str, str | None] | None:
+    """Read registry aliases resolved through each original UStringTable owner.
+
+    Absence is supported only for the retained pre-reader catalog format.
+    An explicitly missing or conflicting owner never inherits a legacy alias.
+    """
+    name = 'StringTableNamespaces.json'
+    if name not in catalog:
+        if required:
+            raise ValueError('The NTE reader did not provide original movie text ownership.')
+        return None
+    source = catalog[name]
+    if not isinstance(source, dict) or len(source) > 4096:
+        raise ValueError('Unsupported NTE movie text registry.')
+    result = {}
+    def valid(value):
+        return isinstance(value, str) and 0 < len(value) <= 512 and not any(
+            ord(char) < 32 or 127 <= ord(char) <= 159 for char in value)
+    for alias, namespace in source.items():
+        if not valid(alias) or namespace is not None and not valid(namespace):
+            raise ValueError('Unsupported NTE movie text registry.')
+        key = alias.casefold()
+        result[key] = namespace if key not in result or result[key] == namespace else None
+    return result
+
+
 def catalog_rows(catalog: dict) -> list[dict]:
     rows = []
     for relative in CATALOG_FILES:
@@ -49,16 +75,17 @@ def catalog_rows(catalog: dict) -> list[dict]:
                 len(table[0]['Rows']) > 100_000 or not all(isinstance(r, dict) for r in table[0]['Rows'].values())):
             raise ValueError('Unsupported NTE movie catalog schema')
         rows.extend(table[0]['Rows'].values())
-    if not movie_bindings(rows):
+    if not movie_bindings(rows, movie_namespaces(catalog)):
         raise ValueError('NTE catalog has no supported authored movie voice bindings')
     return rows
 
 
-def movie_bindings(rows: list[dict]) -> list[dict]:
+def movie_bindings(rows: list[dict], namespaces: dict[str, str | None] | None = None) -> list[dict]:
     result = []
+    owners = {key.casefold(): value for key, value in MOVIE_NAMESPACES.items()} if namespaces is None else namespaces
     for row in rows:
         table_id = row.get('StringTableID')
-        namespace = MOVIE_NAMESPACES.get(table_id) if isinstance(table_id, str) else None
+        namespace = owners.get(table_id.casefold()) if isinstance(table_id, str) else None
         if not namespace:
             continue
         movie = row.get('Path', {}).get('FilePath', '')
