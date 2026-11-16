@@ -1,114 +1,20 @@
-name: Online companion
+name: Connected reader diagnostics
+
+# The standalone hosted gaming application is retired. Keep an explicit,
+# unpublished diagnostic for the supported desktop-to-iOS browser reader.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'public/mobile-capture/**'
-      - 'mobile/**'
-      - 'lib/interface-language.tsx'
-      - 'scripts/ocr-packs-e2e.mjs'
-      - 'scripts/ocr-worker-compat.js'
-      - 'scripts/companion-e2e.mjs'
-      - 'scripts/mobile-reader-layout-e2e.mjs'
-      - 'scripts/mobile-games-e2e.mjs'
-      - 'scripts/mobile-publication.mjs'
-      - 'scripts/webrtc-runtime-probe.mjs'
-      - 'vendor/lexirise-components/**'
-      - 'scripts/build-browser-reader.mjs'
-      - 'services/lexirise-gateway/**'
-      - 'tests/mobile-*.test.mjs'
-      - 'scripts/build-mobile-preview.mjs'
-      - 'scripts/serve-mobile-capture.mjs'
-      - 'scripts/mobile-capture-e2e.mjs'
-      - 'scripts/mobile-source-e2e.mjs'
-      - 'scripts/mobile-vdo-source-e2e.mjs'
-      - 'scripts/mobile-recovery-e2e.mjs'
-      - 'services/pairing/**'
-      - 'tests/mobile-recovery.test.mjs'
-      - 'scripts/mobile-library-e2e.mjs'
-      - 'scripts/mobile-update-e2e.mjs'
-      - 'scripts/mobile-layout-e2e.mjs'
-      - 'scripts/mobile-assets.mjs'
-      - 'scripts/mobile-ocr-integrity.json'
-      - 'scripts/prepare-mobile-assets.mjs'
-      - 'tests/mobile-library.test.mjs'
-      - 'tests/mobile-pairing-qr.test.mjs'
-      - 'tests/mobile-media-fixtures.mjs'
-      - 'tests/fixtures/mobile-native-chinese.png'
-      - 'package.json'
-      - 'package-lock.json'
-      - 'tests/mobile-capture.test.mjs'
-      - '.github/workflows/mobile-preview.yml'
   workflow_dispatch:
-    inputs:
-      check:
-        description: Choose the full site checks or focused Windows offline diagnostics
-        type: choice
-        default: site
-        options: [site, offline]
+
 permissions:
   contents: read
+
 concurrency:
-  group: mobile-pages-${{ github.ref }}-${{ inputs.check || 'site' }}
+  group: connected-reader-diagnostics-${{ github.ref }}
   cancel-in-progress: true
+
 jobs:
-  offline-check:
-    if: inputs.check == 'offline'
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci --ignore-scripts
-      - uses: actions/cache@v6
-        with:
-          path: ~/AppData/Local/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('node_modules/playwright/package.json') }}
-      - run: npx playwright install chromium firefox webkit
-      - run: npm run build
-      - name: Check Windows offline cache and updates after production build
-        run: node scripts/mobile-update-e2e.mjs
-  webkit-transcript:
-    if: inputs.check != 'offline'
+  connected-reader:
     runs-on: macos-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci --ignore-scripts
-      - run: node scripts/prepare-mobile-assets.mjs
-      - run: npx playwright install chromium webkit
-      - name: Check WebKit UI and native transcript transport capability
-        env:
-          MOBILE_TEST_BROWSERS: webkit
-        run: node scripts/companion-e2e.mjs
-      - name: Check native screen frames, OCR and recovery in WebKit
-        env:
-          MOBILE_TEST_BROWSERS: webkit
-        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
-      - name: Retain owned native WebKit fixture diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-webkit-diagnostics
-          path: |
-            output/playwright/mobile-source-*.png
-            output/playwright/mobile-source-*-failure.json
-          retention-days: 3
-  preview:
-    if: inputs.check != 'offline'
-    # Keep the WebKit build and its system libraries on the same Ubuntu image.
-    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -118,87 +24,17 @@ jobs:
         with:
           node-version: '24'
           cache: npm
-      - name: Install locked browser and OCR dependencies
-        run: npm ci --ignore-scripts
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install locked development dependencies
+        run: |
+          npm ci --ignore-scripts
+          python -m pip install -r requirements.lock.txt -r packaging/desktop/build-requirements.lock.txt
+      - run: npx playwright install chromium firefox webkit
+      - name: Verify the shared desktop reader over its actual LAN gateway
+        run: node scripts/desktop-lan-e2e.mjs
       - run: npm run audit:public
-      - name: Check capture and library logic
-        run: node scripts/prepare-mobile-assets.mjs && node --test tests/mobile-publication.test.mjs tests/mobile-capture.test.mjs tests/mobile-library.test.mjs tests/mobile-pairing-qr.test.mjs tests/mobile-recovery.test.mjs tests/mobile-vault.test.mjs tests/mobile-gateway.test.mjs tests/mobile-transcript.test.mjs tests/mobile-frame-source.test.mjs tests/mobile-vdo-source.test.mjs tests/mobile-receiver-source.test.mjs
-      - uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-ubuntu-24.04-${{ runner.arch }}-${{ hashFiles('node_modules/playwright/package.json') }}
-      - name: Use the primary Ubuntu package mirror
+      - name: Record the scoped result
         run: |
-          for sources in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list; do
-            if [ -f "$sources" ]; then
-              sudo sed -i 's|://azure.archive.ubuntu.com/ubuntu|://archive.ubuntu.com/ubuntu|g' "$sources"
-            fi
-          done
-      - name: Install browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-      - name: Package public preview files
-        id: package
-        run: node scripts/build-mobile-preview.mjs
-      - name: Check normal companion UI, vault and transcript sharing
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/companion-e2e.mjs
-      - name: Check published native frames, OCR and automatic recovery
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-vdo-source-e2e.mjs && node scripts/mobile-source-e2e.mjs
-      - name: Check games guide, combinations, links and offline navigation
-        env:
-          MOBILE_PREVIEW_DIR: ${{ steps.package.outputs.directory }}
-        run: node scripts/mobile-games-e2e.mjs
-      - name: Check optional OCR pack lifecycle
-        run: node scripts/ocr-packs-e2e.mjs
-      - name: Retain owned browser-fixture diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mobile-test-diagnostics
-          path: |
-            output/playwright/mobile-library-*.png
-            output/playwright/mobile-reader-*.png
-            output/playwright/mobile-lookup-*.png
-            output/playwright/mobile-layout-overflow-*.png
-            output/playwright/games-guide-overflow-*.png
-            output/playwright/mobile-source-*.png
-            output/playwright/mobile-source-*-failure.json
-          retention-days: 3
-      - name: Retain reviewed static build
-        uses: actions/upload-artifact@v7
-        with:
-          name: companion-${{ github.sha }}
-          path: ${{ steps.package.outputs.directory }}
-          retention-days: 7
-      - uses: actions/upload-pages-artifact@v5
-        if: github.ref == 'refs/heads/main'
-        with:
-          path: ${{ steps.package.outputs.directory }}
-      - name: Record tested version
-        run: |
-          printf '### Tested mobile preview\n\nCommit: `%s`\n\nAllowlisted browser/OCR assets packaged; no game libraries or user data. HTTPS deployment runs when repository variable MOBILE_PREVIEW_ENABLED is true and GitHub Pages is configured.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
-  publish:
-    if: github.ref == 'refs/heads/main' && github.repository == 'Firebird55/Game-immersion-toolkit' && vars.MOBILE_PREVIEW_ENABLED == 'true'
-    needs: [preview, webkit-transcript]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - name: Publish HTTPS preview
-        id: deployment
-        uses: actions/deploy-pages@v4
-      - name: Record deployment URL
-        env:
-          PREVIEW_URL: ${{ steps.deployment.outputs.page_url }}
-        run: |
-          printf '### Mobile preview\n\n%s\n\nCommit: `%s`\n\nOpen on iPad and phone, then tap **Reload latest** before pairing.\n' "$PREVIEW_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '### Connected desktop reader\n\nCommit: `%s`\n\nThe desktop-hosted reader was exercised in Chromium, Firefox and WebKit against authored API/audio fixtures. This workflow publishes no website or application and makes no physical iOS or Android acceptance claim.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

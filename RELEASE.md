@@ -34,6 +34,10 @@ global setting when a per-language effective target exists. See
 docs/languages-and-accounts.md for setup and storage behavior.
 
 ## Optional Lexirise compatibility diagnostic
+
+The independent hosted gaming page is retired. The desktop's **Share** address
+still serves the connected iPhone/iPad reader. Android replacement development
+does not by itself deliver an installable release; see [migration](docs/android-migration.md).
 Public Lexirise compatibility reviews and `npm run lexirise:watch` are not routine
 development or release requirements. Run them only when explicitly requested,
 per the owner's 2026-11-02 instruction in AGENTS.md.

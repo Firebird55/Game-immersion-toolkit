@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {mkdtempSync,mkdirSync,writeFileSync,renameSync,rmSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,renameSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {dirname,join} from 'node:path';
 import {changedFiles,selectChecks,scenarioPlan,executeChecks} from '../scripts/check-changed.mjs';
@@ -34,15 +34,28 @@ test('shared interface and support catalog select their consumer checks',()=>{
 });
 
 test('frame sources and publication execute the frame pipeline and retained pairing scenarios',()=>{
- for(const file of ['public/mobile-capture/frame-source.mjs','public/mobile-capture/vdo-source.mjs','public/mobile-capture/receiver-source.mjs','public/mobile-capture/mobile-ui.mjs','public/mobile-capture/index.html','tests/mobile-vdo-source.test.mjs','tests/mobile-receiver-source.test.mjs','tests/fixtures/mobile-native-chinese.png','scripts/mobile-source-e2e.mjs','scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','.github/workflows/mobile-preview.yml']) {
+ for(const file of ['public/mobile-capture/frame-source.mjs','public/mobile-capture/vdo-source.mjs','public/mobile-capture/receiver-source.mjs','public/mobile-capture/mobile-ui.mjs','public/mobile-capture/index.html','tests/mobile-vdo-source.test.mjs','tests/mobile-receiver-source.test.mjs','tests/fixtures/mobile-native-chinese.png','scripts/mobile-source-e2e.mjs','scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs']) {
   const checks=selectChecks([file]),scenarios=scenarioPlan([file],checks),commands=[];
   assert.deepEqual(checks,['mobile'],file);
   executeChecks(checks,{scenarios,runCommand:(_command,args)=>commands.push(args),platform:'darwin',splitBrowsers:false});
   for(const name of ['mobile-source-e2e','mobile-vdo-source-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-layout-e2e'])
    assert.ok(commands.some(args=>args.includes(`scripts/${name}.mjs`)),file+' requires '+name);
  }
- for(const file of ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs','.github/workflows/mobile-preview.yml'])
+ for(const file of ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs'])
   assert.ok(scenarioPlan([file]).browser.includes('mobile-update-e2e'));
+});
+
+test('retired Pages workflow cannot publish and still checks the desktop-connected reader',()=>{
+ const file='.github/workflows/mobile-preview.yml';
+ const workflow=readFileSync(new URL('../'+file,import.meta.url),'utf8');
+ assert.match(workflow,/workflow_dispatch:/);
+ assert.doesNotMatch(workflow,/^\s+(?:push|pull_request|pages):|deploy-pages|configure-pages|upload-pages-artifact|id-token:\s*write/m);
+ assert.match(workflow,/node scripts\/desktop-lan-e2e\.mjs/);
+ assert.match(workflow,/runs-on:\s*macos-latest/);
+ assert.deepEqual(selectChecks([file]),['desktop']);
+ const scenarios=scenarioPlan([file]);
+ assert.ok(scenarios.browser.includes('desktop-lan-e2e'));
+ assert.ok(!scenarios.browser.includes('mobile-source-e2e'));
 });
 
 

@@ -10,7 +10,8 @@ export function selectChecks(files, full = false) {
   for (const file of files) {
     if (['scripts/check-changed.mjs','scripts/check-evidence.mjs','scripts/check-browser-suite.mjs','scripts/python-runtime.mjs','scripts/e2e-preview.mjs','scripts/build-identity.mjs','scripts/check-ci-gate.mjs'].includes(file)) { selected.add('full'); continue; }
     if (['scripts/dev-doctor.mjs','tests/check-selection.test.mjs','tests/check-evidence.test.mjs','tests/dev-doctor.test.mjs','tests/python-runtime.test.mjs','tests/e2e-preview.test.mjs','tests/build-identity.test.mjs','tests/ci-gate.test.mjs'].includes(file)) { selected.add('selector'); continue; }
-    if (['.github/workflows/mobile-preview.yml','tests/fixtures/mobile-native-chinese.png'].includes(file)) { selected.add('mobile'); continue; }
+    if (file === '.github/workflows/mobile-preview.yml') { selected.add('desktop'); continue; }
+    if (file === 'tests/fixtures/mobile-native-chinese.png') { selected.add('mobile'); continue; }
     if (file === 'tests/fixtures/mobile-native-chinese.md') { selected.add('docs'); continue; }
     if (['scripts/language-account-e2e.mjs','scripts/browser-e2e.mjs'].includes(file)) { selected.add('desktop'); continue; }
     if (file === 'scripts/python-tests.mjs') { selected.add('python'); continue; }
@@ -57,12 +58,12 @@ export function scenarioPlan(files, checks = selectChecks(files)) {
   const browser = new Set(), windows = new Set();
   if (checks.includes('desktop')) browser.add('language-account-e2e');
   if (files.includes('scripts/browser-e2e.mjs')) browser.add('browser-e2e');
-  if (files.some(file => ['backend/desktop_gateway.py','lib/desktop-endpoints.ts','lib/desktop-address.mjs','app/desktop-sharing.tsx','mobile/desktop-connection.jsx','scripts/desktop-lan-e2e.mjs','scripts/companion-router.mjs'].includes(file))) browser.add('desktop-lan-e2e');
+  if (files.some(file => ['.github/workflows/mobile-preview.yml','backend/desktop_gateway.py','lib/desktop-endpoints.ts','lib/desktop-address.mjs','app/desktop-sharing.tsx','mobile/desktop-connection.jsx','scripts/desktop-lan-e2e.mjs','scripts/companion-router.mjs'].includes(file))) browser.add('desktop-lan-e2e');
   if (checks.includes('mobile')) for (const name of ['companion-e2e','mobile-reader-layout-e2e','mobile-games-e2e','ocr-packs-e2e']) browser.add(name);
   // A source change must exercise actual frames through the receiver as well as
   // the retained QR/PC transport; selecting only layout checks misses lifecycle bugs.
   const frameInputs = /^(public\/mobile-capture\/(frame-source|vdo-source|receiver-source|mobile-ui|ocr-pipeline|capture|index|style)\.|tests\/mobile-(frame-source|vdo-source|receiver-source|source)|scripts\/mobile-(vdo-source|source)-e2e\.mjs$)/;
-  const publicationInputs = ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs','.github/workflows/mobile-preview.yml'];
+  const publicationInputs = ['scripts/build-mobile-preview.mjs','scripts/mobile-publication.mjs','tests/mobile-publication.test.mjs'];
   if (files.some(file => frameInputs.test(file) || file === 'tests/fixtures/mobile-native-chinese.png' || publicationInputs.includes(file))) {
     for (const name of ['mobile-vdo-source-e2e','mobile-source-e2e','mobile-capture-e2e','mobile-recovery-e2e','mobile-layout-e2e']) browser.add(name);
   }

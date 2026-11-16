@@ -1,8 +1,29 @@
-# Connect your game on mobile
+# Mobile capture and the Android replacement
 
-Open the [mobile companion](https://firebird55.github.io/Game-immersion-toolkit/)
-on the receiving phone or tablet. **Play** is the default screen. The PC can be
-off when using a local library and VDO.Ninja.
+The independent hosted gaming application has been retired. Its old GitHub
+Pages address is no longer an application entry point. The replacement Android
+app is being implemented with the desktop toolkit's maintained core and reader
+components; an installable, verified release is not yet available.
+
+The retained iPhone/iPad role is a browser connected to the running desktop:
+open **Share** in the desktop toolkit, open its local-network address on the
+phone or tablet, then enter the displayed connection code. The desktop owns
+capture, matching, original audio and history. This route does not require
+GitHub Pages or the retired Cloudflare pairing/gateway services.
+
+An iPhone/iPad may also act as an explicitly started game-screen sender for the
+Android receiver when that app's transport is delivered and verified. Independent
+iOS OCR/library processing and two-iOS-device toolkit sessions are retired.
+See [Android migration and retained data](android-migration.md).
+
+## Historical browser workflow
+
+The instructions below describe the retired implementation and remain only for
+understanding existing private browser data and old acceptance evidence. They
+are not current onboarding or a claim that the Android app is complete.
+
+<details>
+<summary>Retired browser capture, pairing and storage behavior</summary>
 
 ## Two iOS devices with native VDO.Ninja
 
@@ -80,3 +101,5 @@ and options. It restores the input but never connects automatically. Unchecking
 removes the saved copy; **Forget link** removes it and stops the active connection.
 Credentials and viewer links are excluded from libraries, diagnostics and static
 service-worker caches. Encrypted passphrase mode remains available.
+
+</details>

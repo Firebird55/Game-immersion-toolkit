@@ -1,9 +1,24 @@
-# Play on mobile with one library file
+# Private libraries for the Android replacement
 
-The [mobile companion](https://firebird55.github.io/Game-immersion-toolkit/)
-reads your private library from Files. Your PC prepares it from your installed
-game and can be off during play. Game libraries never belong in GitHub, Pages
-or toolkit releases.
+Keep the original private Mobile Library ZIPs. The hosted browser gaming app
+has been retired; the Android replacement is in development and has no verified
+release yet. Android will import the prepared library into its own app storage
+and process it locally, so a prepared session can work with the PC off. This
+requires actual app import/playback acceptance and does not establish offline
+screen-relay transport. Game libraries never belong in GitHub or toolkit releases.
+
+Browser IndexedDB/OPFS data is private to its browser origin. A native Android
+app cannot silently access it. Do not clear old browser storage or uninstall an
+old installed browser app before preserving data you need. Re-importing the
+original ZIP is the supported library handoff; it does not automatically migrate
+browser history, favorites, credentials or remembered stream links.
+
+See [migration scope and retained data](android-migration.md). The following
+legacy browser instructions are retained as historical data-format and recovery
+references, not current hosted-app onboarding.
+
+<details>
+<summary>Legacy export/import and browser-storage reference</summary>
 
 ## Export on Windows
 
@@ -153,3 +168,5 @@ Catalog coverage and recognition vary by game, scene, font and subtitle layout.
 See [Games & Languages](https://firebird55.github.io/Game-immersion-toolkit/games.html).
 Physical iPhone Files/provider and native broadcast endurance remain explicit
 acceptance checks; desktop WebKit is not a physical iPhone pass.
+
+</details>

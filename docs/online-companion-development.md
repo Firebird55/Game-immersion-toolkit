@@ -1,5 +1,12 @@
 # Online companion development and verification
 
+**Historical browser implementation:** the standalone hosted gaming application
+and its deployment flow are retired. The sections below preserve its architecture
+and old acceptance boundaries during migration; they are not current deployment
+instructions. Use [Android migration](android-migration.md) and
+[current development guidance](mobile-development.md). The desktop-connected
+iOS reader remains supported through the desktop's local-network gateway.
+
 The production bookmark stays at
 https://firebird55.github.io/Game-immersion-toolkit/ . Only checked `main` builds
 deploy there. `codex/` branches run validation and retain static review artifacts.

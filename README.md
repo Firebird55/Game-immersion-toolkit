@@ -7,7 +7,7 @@
 
 Follow official game dialogue, replay original voices, and learn with reading tools on Windows, phone or tablet.
 
-**[Download for Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · **[Open online companion](https://firebird55.github.io/Game-immersion-toolkit/)** · [Installation & help](docs/languages/install-en.md)
+**[Download for Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · [Installation & help](docs/languages/install-en.md)
 
 ![Game immersion toolkit](public/proxy-transcript.png)
 
@@ -47,7 +47,7 @@ Follow official game dialogue, replay original voices, and learn with reading to
 | [Persona 5 Royal](docs/languages/en.md#persona5royal) | English · Japanese | 9 |
 | [Deus Ex: Human Revolution - Director's Cut](docs/languages/en.md#deusexhrdc) | English · French · Italian · German · European Spanish | 5 |
 
-[Language details](docs/languages/en.md) · [Open online companion](https://firebird55.github.io/Game-immersion-toolkit/games.html)
+[Language details](docs/languages/en.md)
 
 You do not need to export every language pack. Readers reuse the game’s authored identifiers and locale format. Choose the original voice and an official translation in Setup. For games prepared from installed files, install the selected voice pack first. Missing assets or translations remain unavailable.
 
