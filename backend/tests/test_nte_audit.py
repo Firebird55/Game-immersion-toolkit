@@ -161,3 +161,36 @@ def test_ambiguous_voice_key_preserves_separate_text_without_guessing_the_voice(
     rows = assets.build_records(tmp_path, source_locale='en')
     assert len(rows) == 2
     assert all(row['audio'] is None and row['voice_status'] == 'unavailable' for row in rows)
+
+
+def test_reader_refresh_rebuilds_legacy_installed_cache_and_preserves_old_data(tmp_path, monkeypatch):
+    from backend import game_catalogs
+    data = tmp_path / 'data'
+    data.mkdir()
+    stamp = 'a' * 64
+    previous = [{'text_id': 'nte:Owned:Obsolete', 'english': 'An older owned fixture.',
+                 'chinese': '旧合成字幕。', 'audio': None}]
+    fresh = [{'text_id': 'nte:Owned:Fresh', 'english': 'A fresh owned fixture.',
+              'chinese': '新合成字幕。', 'audio': None}]
+    # This is the persisted pre-revision cache format, not the new cache key.
+    legacy_id = hashlib.sha256((stamp + nte_cinematics.CATALOG_REVISION).encode()).hexdigest()[:16]
+    legacy = data / 'index-cache' / legacy_id / 'complete.json'
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text(json.dumps(previous), encoding='utf-8')
+    old_bytes = legacy.read_bytes()
+    monkeypatch.setattr(game_catalogs, 'read_snapshot', lambda *_: None)
+    monkeypatch.setattr(nte_cinematics, 'load_catalog', lambda *_: [])
+    monkeypatch.setattr(assets, 'fingerprint', lambda *_: stamp)
+    monkeypatch.setattr(assets, 'ensure_extractor', lambda *_: data / 'OwnedReader.dll')
+    calls = []
+    monkeypatch.setattr(assets, 'run_reader', lambda *_args, **_options: calls.append(True))
+    monkeypatch.setattr(assets, 'build_records', lambda *_args, **_options: fresh)
+    assert assets.index_install(tmp_path / 'game', data)['records'] == fresh
+    assert calls == [True] and legacy.read_bytes() == old_bytes
+    # Stable game/reader data reuses the newly verified generation.
+    assert assets.index_install(tmp_path / 'game', data)['records'] == fresh
+    assert calls == [True]
+    # A later reader change can add bindings without any physical game change.
+    monkeypatch.setattr(assets, 'LANGUAGE_INDEX_VERSION', assets.LANGUAGE_INDEX_VERSION + 1)
+    assert assets.index_install(tmp_path / 'game', data)['records'] == fresh
+    assert calls == [True, True] and legacy.read_bytes() == old_bytes

@@ -533,7 +533,8 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
     executable = ensure_extractor(data_dir / "tools")
     # New movie bindings must invalidate extracted event caches even when the
     # game files themselves have not changed. Voice staleness remains physical.
-    cache_id = hashlib.sha256((stamp + (snapshot['digest'] if snapshot else CATALOG_REVISION)).encode()).hexdigest()
+    cache_id = hashlib.sha256(json.dumps([stamp, snapshot['digest'] if snapshot else CATALOG_REVISION,
+                                        LANGUAGE_INDEX_VERSION]).encode()).hexdigest()
     cache = data_dir / "index-cache" / cache_id[:16]
     if (cache / "complete.json").is_file():
         records = json.loads((cache / "complete.json").read_text(encoding="utf-8"))
