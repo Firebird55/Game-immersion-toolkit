@@ -102,7 +102,7 @@ export function authoredDialogueFromCab(bytes, unsupported = {}) {
           const voiceFields = ['externalVoiceKey', 'voiceKey', 'ExternalVoiceKey'].filter(key => Object.hasOwn(f, key));
           const sources = voiceFields.map(key => f[key]).filter(value => typeof value === 'string' && value);
           const source = sources.length === 1 && sentenceSource(sources[0]) ? sources[0] : '';
-          const otherAudio = ['soundEvent', 'SoundEvent', 'soundKey'].some(key => Boolean(f[key])) ||
+          const otherAudio = ['soundEvent', 'SoundEvent', 'soundKey', 'audioKey'].some(key => Boolean(f[key])) ||
             ['audioEventItems', 'AudioEventItems'].some(key => f[key]?.arrayLength > 0) ||
             Object.keys(f).some(key => /voice/i.test(key) && !voiceFields.includes(key) && Boolean(f[key]));
           links.push({text_id: dialogue, source, dialogue_kind: /Narrator|SwitchScene/.test(type) ? 'narration' : 'conversation',

@@ -131,6 +131,26 @@ test('narration and in-level dialogue retain their types and future objects are 
   assert.deepEqual(unsupported, {'MoleMole.GalGame.FutureStoryNode, Logic': 1});
 });
 
+test('narration audio keys prevent silence without becoming sentence recordings', () => {
+  const rows = authoredDialogueFromCab(cab([
+    object('GalSwitchSceneNode', [text('dialogueKey', 'Effect_Transition'),
+      text('voiceKey', ''), text('audioKey', 'VO_Galgame/VO_Effect/Effect_Example')], 1),
+    object('GalSubNarratorNode', [text('dialogueKey', 'Effect_Narration'),
+      text('externalVoiceKey', ''), text('audioKey', 'GalGame_Example_SFX_01')], 2),
+    object('SwitchSceneConfig', [text('dialogueKey', 'Empty_Transition'),
+      nil('voiceKey'), text('audioKey', '')], 3),
+    object('GalWhiteSwitchSceneNode', [text('dialogueKey', 'Null_Transition'),
+      text('voiceKey', ''), nil('audioKey')], 4),
+    object('GalSubNarratorNode', [text('dialogueKey', 'Voiced_Narration'),
+      text('externalVoiceKey', 'GalGame_Example_Voice_01'), text('audioKey', 'GalGame_Example_SFX_01')], 5),
+  ]));
+  assert.deepEqual(rows.map(row => [row.text_id, row.source, row.voice_status]), [
+    ['Effect_Transition', '', 'unknown'], ['Effect_Narration', '', 'unknown'],
+    ['Empty_Transition', '', 'unvoiced'], ['Null_Transition', '', 'unvoiced'],
+    ['Voiced_Narration', 'GalGame_Example_Voice_01', 'unavailable'],
+  ]);
+});
+
 test('publisher clues retain per-dub millisecond intervals and omit conflicting clocks', () => {
   const rows = [
     ['VO_Clue/X/Clue_X', 'English(EN)', 'Clue_Line', '00:00:01:33', '00:00:03:1'],

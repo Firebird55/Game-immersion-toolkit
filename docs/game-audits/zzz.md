@@ -1,5 +1,31 @@
 # Zenless Zone Zero dialogue audit
 
+## November 16, 2026 · Narration with a separate audio key
+
+The shared installed/publisher story reader now retains an unresolved audio
+state when a narration or scene-transition object has an empty sentence-voice
+field but a populated `audioKey`. The previous silence check covered
+`soundKey`, sound events and event lists, but omitted this separate field.
+An effects path or mixed recording does not establish a sentence performance,
+and is not exported as that caption's voice.
+
+A comparison against the original cached Global 3.3.0 publisher scene selection
+read 30,736 Unity files and 235,183 typed dialogue references before
+deduplication. Exactly 26 references changed from `unvoiced` to `unknown`;
+all 61,904 nonempty sentence-source references and all text identities were
+retained unchanged. One example is `Galgame_Chapter0_05_28`, whose transition
+names `VO_Galgame/VO_Effect/Galgame_Special_05` separately from its empty
+`voiceKey`. This is authored-format evidence, not a new playback verification
+or a claim that the effect contains a spoken sentence.
+[Selected publisher manifest](https://autopatchos.zenlesszonezero.com/pclauncher/manifests/cxi9qfgtcu0w/20260928/3.3.0/KjHGqRMV1ck0/manifest_023518ab349f7365_9e52d5132ba03a37ec0161c5cedbaafc)
+
+Reader revision 12 refreshes earlier prepared language indexes. Empty/null
+auxiliary audio keys still permit an otherwise proven text-only record; an
+independently bound sentence voice remains available when a separate sound
+effect is also present. The synthetic regression covers those controls without
+embedding game dialogue. This correction does not resolve the missing current
+hotfix discovery, remaining scene callers or film/audio joins.
+
 ## November 13, 2026 · Launcher dialogue in Windows Setup
 
 Leaving the game folder empty prepares the selected study locale from the Global
@@ -410,7 +436,7 @@ was needed. The nine `VO_Message` entries all matched the installed Chinese pack
 | Normal and visual-novel conversations | `GalPlayStoryNode`, `GalPlaySubStoryNode`, `MainCityChatPlayStoryNode`; `dialogueKey`, `externalVoiceKey`/`voiceKey` | Typed reader supports voiced and explicitly silent records. `GalGame`, `Chat` and `ChatAudio` asset families are selected. |
 | ChatPlus conversations | `PlayChatPlusStoryNode`; capitalized `DialogueKey` and `ExternalVoiceKey` | Supported independently of the older lowercase schema. Installed samples verified the difference. |
 | Illustrated, no-avatar and group dialogue | `GalPlayPictureStoryNode`, `GalPlayNoAvatarStoryNode`, `GalPlayStoryMultiSpeakerNode` | Supported through the owning typed object's text and voice fields; the initial voice-regression comparison exposed these additional forms. |
-| Narration and scene-transition text | `GalSubNarratorNode`, `GalSwitchSceneNode`, `GalWhiteSwitchSceneNode`, `SwitchSceneConfig` | Preserved as `narration`; empty authored voice fields establish silence, while missing fields remain unknown. |
+| Narration and scene-transition text | `GalSubNarratorNode`, `GalSwitchSceneNode`, `GalWhiteSwitchSceneNode`, `SwitchSceneConfig` | Preserved as `narration`; empty authored sentence-voice fields establish silence only without an auxiliary audio key or event. Missing voice fields and unresolved auxiliary audio remain unknown. |
 | Conversations during gameplay | `MainCityChatInLevelPlayStoryNode` | Supported with the gameplay channel as well as dialogue capture. |
 | Dialogue response choices | `TransitionDisplayItem`, `MainCityChatTransitionDisplayItem`; `textKey` | Preserved as `choice`. Voice status stays `unknown`: the absence of a voice property alone does not certify silence. |
 | City, NPC, Trust and Quality Time bubbles | `GalBubbleStoryNode`; `Text`, `Voice`; `Bubble`, `BubbleStory`, `BubbleNpc` families | Empty/null authored voice is `unvoiced`. Nonempty values may be short reaction pools; those remain `unknown`, with no fabricated sentence audio. |
