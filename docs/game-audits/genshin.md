@@ -1,5 +1,46 @@
 # Genshin Impact narrative audit
 
+## Shared recordings with Traveler text conditions · November 16, 2026
+
+Ordinary dialogue and reminders now render their authored M/F text fragments
+and localized Traveler/sibling pronouns independently of the voice condition.
+A shared recording can accompany two different displayed captions or
+translations. The reader retains that original shared binding and selects
+the text for the configured Traveler. Conditional fragments without an
+opposite tag retain the surrounding text for that opposite branch.
+
+The recording conflict check compares the original authored templates before
+rendering. The two renderings of one template do not falsely disable each
+other, while different original sentences pointing at one concrete recording
+remain unavailable. Unsupported or empty source branches stay in the
+inventory as diagnostics without audio. Unsupported translations are omitted;
+they are never copied from the other Traveler. Historical recovery also
+requires the exact rendered text and player condition, and cannot restore a
+recording to an unresolved source branch. Index schema 19 and archive reader
+4 refresh the affected maps without modifying existing recordings.
+
+Normal source-development Windows publisher preparation was rerun with no
+game folder, on the same Global 7.2 launcher snapshot and matching immutable
+`bd35e243fa436f141f015cf221a6e19d0c34b7ca` extraction. It retained 476,560
+records: 186,679 voiced, 20,510 unavailable, 263,227 unknown and 6,144 unvoiced.
+These totals include player text variants and UI; they are not unique
+recordings or complete story acceptance. Six unresolved source variants
+remain diagnostic records. No voiced source retains an unrendered M/F or
+SEXPRO marker.
+
+For Dialog `30220315`, the full prepared index matches each rendered English
+caption only for its selected Traveler. Both variants export the same authored
+original WEM through LocalVoiceAssetService. Each decoded MP3 contains 655,648
+nonzero PCM bytes with SHA-256
+`ffd1f8bc7658f2d6a0184e775954eaaa8410754fa329624a0d51378c8484f91b`.
+Fresh conversions after reopening the service, with discovery and package
+networking prohibited, reproduce that PCM. This verifies one shared English
+performance and its caption selection, not both protagonists' full narrative
+or all dubs/platforms. The existing regional launcher snapshot, installation
+fallback and unresolved active hotfix route remain unchanged.
+[Original dialogue graph](https://github.com/DimbreathBot/AnimeGameData/blob/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Talk/Quest/302203.json)
+· [Matching original voice declarations](https://github.com/DimbreathBot/AnimeGameData/tree/bd35e243fa436f141f015cf221a6e19d0c34b7ca/BinOutput/Voice)
+
 ## Kachina's English profile recording · November 15, 2026
 
 Fetter `100024` belongs to Kachina, avatar `10000100`, and is titled

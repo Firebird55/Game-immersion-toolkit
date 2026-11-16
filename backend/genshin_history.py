@@ -11,7 +11,7 @@ from . import genshin_publisher as publisher
 from .hoyo_dialogue import audio_locale
 from .voice_assets import voice_hash
 
-ARCHIVE_READER = 'v3:'
+ARCHIVE_READER = 'v4:'
 
 ARCHIVES = {
     '5.5.0': {
@@ -114,8 +114,10 @@ def retained_performances(data_dir, stamp, region, locale, links, rows, ambiguou
     current = []
     missing = []
     for row in rows:
+        if row.get('text_binding_unresolved'):
+            continue
         link = sources.get(row['text_id'])
-        if not link and row['player_voice'] and row['text_id'].startswith('genshin:fetter-'):
+        if not link and row['player_voice']:
             link = sources.get(row['text_id'].removesuffix(':' + row['player_voice']))
         if not link:
             continue

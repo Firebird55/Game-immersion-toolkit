@@ -247,6 +247,66 @@ def test_traveler_and_sibling_pronouns_use_original_localized_words_and_exclude_
     assert game._official_variants('#'+own+'的{M#妹妹}{F#哥哥}。', words) == {'M':'他的妹妹。','F':'她的哥哥。'}
     assert game._official_variants('#'+own, {'INFO_MALE_PRONOUN_HE':'他'}) == {'M':'他'}
     assert game._official_variants('#'+own.replace('PLAYERAVATAR','UNREVIEWED'), words) == {}
+    assert game._official_variants('#{M#Sir, }welcome.', {}) == {'M': 'Sir, welcome.', 'F': 'welcome.'}
+
+
+def test_shared_ordinary_recording_renders_text_conditions_without_hiding_other_conflicts():
+    source = r'English(US)\VO_Test\shared.wem'
+    links = [{'id': '71', 'hash': '81', 'source': source, 'player_voice': None}]
+    entries = {voice_hash(source): {'publisher': 'snapshot', 'package': 'test.pck'}}
+    tables = {'en': {'81': '#Tell {M#him}{F#her} to wait.'}, 'ja': {'81': '待ってください。'}}
+    templates = {}
+    rows = game._render_player_text(game.common.records('genshin', links, tables, 'en', entries),
+                                    'en', authored_templates=templates)
+    assert [(r['text_id'], r['source_text']) for r in rows] == [
+        ('genshin:71:female', 'Tell her to wait.'), ('genshin:71:male', 'Tell him to wait.')]
+    assert rows[0]['audio'] == rows[1]['audio']
+    warnings = []
+    game._exclude_conflicting_performances(rows, warnings, authored_templates=templates)
+    assert not warnings and all(row['voice_status'] == 'voiced' for row in rows)
+    other = {**rows[0], 'text_id': 'genshin:72', 'source_text': 'A different original sentence.'}
+    game._exclude_conflicting_performances(rows + [other], warnings, authored_templates=templates)
+    assert all(row['audio'] is None for row in rows + [other])
+    assert len(warnings) == 1
+
+
+def test_shared_ordinary_voice_keeps_independent_translation_conditions():
+    source = r'English(US)\VO_Test\neutral.wem'
+    rows = game.common.records('genshin', [{'id': '71', 'hash': '81', 'source': source}],
+        {'en': {'81': 'Welcome back.'}, 'zh-Hans': {'81': '#欢迎{M#先生}{F#女士}。'}}, 'en',
+        {voice_hash(source): {'publisher': 'snapshot', 'package': 'test.pck'}})
+    female, male = game._render_player_text(rows, 'en')
+    assert female['source_text'] == male['source_text'] == 'Welcome back.'
+    assert female['texts']['zh-Hans'] == '欢迎女士。'
+    assert male['texts']['zh-Hans'] == '欢迎先生。'
+    assert female['audio'] == male['audio']
+
+
+@pytest.mark.parametrize('text', ['#{M#Resolved}{F#Unclosed', '#{M#}{F#Resolved}',
+    '#{PLAYERAVATAR#SEXPRO[INFO_MALE_PRONOUN_UNKNOWN|INFO_FEMALE_PRONOUN_UNKNOWN]}'])
+def test_unresolved_gender_source_stays_in_inventory_without_its_recording(text):
+    from backend.local_game import LocalDialogue
+    source = r'English(US)\VO_Test\one.wem'
+    original, = game.common.records('genshin', [{'id': '71', 'hash': '81', 'source': source}],
+        {'en': {'81': text}}, 'en', {voice_hash(source): {'publisher': 'snapshot', 'package': 'test.pck'}})
+    rows = game._render_player_text([original], 'en')
+    assert len(rows) == 2
+    unresolved = [r for r in rows if r.get('text_binding_unresolved')]
+    assert unresolved
+    for row in unresolved:
+        assert row['source_text'] == text and row['audio'] is None
+        assert row['voice_status'] == 'unavailable' and row['unresolved_text_locales'] == ['en']
+        LocalDialogue(**row)
+
+
+def test_unresolved_gender_translation_is_omitted_without_disabling_known_source():
+    source = r'English(US)\VO_Test\one.wem'
+    original, = game.common.records('genshin', [{'id': '71', 'hash': '81', 'source': source}],
+        {'en': {'81': 'Welcome.'}, 'ja': {'81': '#{M#有効}{F#未完了'}}, 'en',
+        {voice_hash(source): {'publisher': 'snapshot', 'package': 'test.pck'}})
+    rows = game._render_player_text([original], 'en')
+    assert all(r['source_text'] == 'Welcome.' and r['audio'] and 'ja' not in r['texts']
+               and r['unresolved_text_locales'] == ['ja'] for r in rows)
 
 
 def test_one_concrete_original_cannot_verify_conflicting_sentence_texts():

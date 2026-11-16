@@ -133,6 +133,11 @@ App updates prepare a separate replacement while the current companion keeps tra
 
 ## Honkai: Star Rail, Genshin Impact and Arknights: Endfield
 
+Genshin index schema 19 rebuilds ordinary dialogue and reminders with their
+authored Traveler text and translation variants, including shared recordings.
+Archive reader 4 retains the exact rendered historical identity. Unresolved
+source branches cannot acquire audio through historical recovery.
+
 Language preparation resolves one immutable revision of the fixed game-data
 source. Subtitle tables, dialogue identifiers and voice source paths stay on that
 revision for the complete candidate build. Genshin includes Medium and split

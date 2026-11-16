@@ -166,6 +166,28 @@ def test_genshin_archived_data_retries_and_cannot_displace_a_newer_preparation(t
     assert missing[0]['audio']['original_publisher'] == later
 
 
+def test_genshin_history_retains_rendered_shared_text_branches_by_exact_authored_identity(tmp_path, monkeypatch):
+    from backend import genshin_assets as game, genshin_history as history
+    source, identity, original, wem, _ = fixture(tmp_path, monkeypatch, '1.0.0', b'original')
+    links = [{'id': '42', 'hash': '81', 'source': source}]
+    entries = {identity: publisher.inventory(tmp_path, original, 'en')[identity]}
+    old = game._render_player_text(game.common.records('genshin', links,
+        {'en': {'81': '#Please wait for {M#him}{F#her}.'}}, 'en', entries), 'en')
+    assert all(publisher.extract(row['audio'], tmp_path / 'tools') == wem for row in old)
+    assert history.retained_performances(tmp_path, original, 'cn', 'en', links, old, set()) == 0
+    _, _, latest, _, _ = fixture(tmp_path, monkeypatch, '2.0.0', b'latest')
+    missing = [{**row, 'audio': None, 'voice_status': 'unavailable'} for row in old]
+    assert history.retained_performances(tmp_path, latest, 'cn', 'en', links, missing, set()) == 2
+    assert all(row['audio']['original_publisher'] == original for row in missing)
+    assert all(publisher.extract(row['audio'], tmp_path / 'tools') == wem for row in missing)
+    unresolved = [{**row, 'audio': None, 'voice_status': 'unavailable', 'text_binding_unresolved': True}
+                  for row in old]
+    assert history.retained_performances(tmp_path, latest, 'cn', 'en', links, unresolved, set()) == 0
+    rewritten = [{**row, 'audio': None, 'voice_status': 'unavailable',
+                  'source_text': 'An independently rewritten sentence.'} for row in old]
+    assert history.retained_performances(tmp_path, latest, 'cn', 'en', links, rewritten, set()) == 0
+
+
 def test_genshin_regions_retain_their_own_originals_offline(tmp_path, monkeypatch):
     clips = []
     for channel in ('genshin-global', 'genshin-cn'):
