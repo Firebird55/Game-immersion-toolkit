@@ -1,5 +1,14 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Publisher metadata recovery
+
+Ordinary preparation retains only native-package-verified archive parameters and
+the existing SHA-pinned catalogue-format source in protected local tool storage.
+A real fresh-process Global English worker prepared the same complete 144,022
+records with both third-party providers unavailable. Unknown rotated parameters
+and the changed-content two-generation trial remain open; cached known inputs
+are not a derivation mechanism. [Recovery evidence and exact limits](wuwa-publisher-recovery.md).
+
 ## November 16, 2026 · Shared-song captions
 
 Publisher preparation adds the original MusicSubtitle presentation and verified

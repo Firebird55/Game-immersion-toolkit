@@ -103,23 +103,50 @@ def launcher(region='global', *, excluded=()):
 
 
 @lru_cache(maxsize=1)
-def _format():
-    raw = download(FORMAT_URL, limit=40 * 1024)
-    pak.check(hashlib.sha256(raw).hexdigest() == FORMAT_SHA)
+def _format(tools=None):
+    from . import wuthering_metadata as metadata
+    raw = metadata.format_source(tools, FORMAT_SHA) if tools is not None else None
+    if raw is None:
+        raw = download(FORMAT_URL, limit=40 * 1024)
+        pak.check(hashlib.sha256(raw).hexdigest() == FORMAT_SHA)
+        if tools is not None:
+            metadata.remember_format(tools, raw, FORMAT_SHA)
     return tuple(base64.b64decode(re.search(b'const ENTRY_' + name + b': &str = "([^"]+)";', raw)[1], validate=True)
                  for name in (b'KEY', b'IV'))
 
 
-def _archive_parameters():
-    data = json.loads(download(PUBLIC_METADATA_URL, limit=512 * 1024))
-    return tuple(bytes.fromhex(value) for value in dict.fromkeys(re.findall(r'0x([0-9a-fA-F]{64})', json.dumps(data))))
+def _archive_parameters(tools=None):
+    from . import wuthering_metadata as metadata
+    from .preparation_errors import PreparationFailure
+    retained = metadata.parameters(tools) if tools is not None else ()
+    try:
+        data = json.loads(download(PUBLIC_METADATA_URL, limit=512 * 1024))
+        values = tuple(bytes.fromhex(value) for value in dict.fromkeys(
+            re.findall(r'0x([0-9a-fA-F]{64})', json.dumps(data))))
+        pak.check(0 < len(values) <= 4096)
+        return tuple(dict.fromkeys((*retained, *values)))
+    except (OSError, ValueError, TypeError) as error:
+        if retained:
+            return retained
+        raise PreparationFailure('game_metadata_unavailable',
+            'Wuthering archive metadata is unavailable and no package-verified local parameters remain. '
+            'Retry when the metadata source is reachable; the previous index and recordings are retained.') from error
 
 
-def _json(raw):
+def _package(tools, info, params):
+    from . import wuthering_metadata as metadata
+    package = pak.Package(*info, tools, params)
+    parameter = getattr(package, 'verified_parameter', None)
+    if parameter is not None:
+        metadata.remember_parameter(tools, parameter)
+    return package
+
+
+def _json(raw, tools=None):
     text = raw.decode('utf-8-sig')
     if text.lstrip().startswith('{'):
         return json.loads(text)
-    key, iv = _format()
+    key, iv = _format(tools)
     cipher = base64.b64decode(text.strip(), validate=True)
     return json.loads(unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher), 16))
 
@@ -131,10 +158,10 @@ def _manifest(url, sha, cache=None):
     if path is not None and path.is_file() and path.stat().st_size <= LIMIT:
         raw = path.read_bytes()
         if hashlib.sha1(raw).hexdigest() == digest:
-            return _json(raw)
+            return _json(raw, cache)
     raw = download(url, limit=LIMIT)
     pak.check(hashlib.sha1(raw).hexdigest() == digest)
-    index = _json(raw)
+    index = _json(raw, cache)
     if path is not None:
         _atomic_file(path, raw)
     return index
@@ -196,8 +223,8 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     domain = CHANNELS[region][2]
     bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
     size, digest = launcher_files[bootstrap]
-    params = _archive_parameters()
-    base = pak.Package(launcher_root + '/' + bootstrap, size, digest, cache, params)
+    params = _archive_parameters(cache)
+    base = _package(cache, (launcher_root + '/' + bootstrap, size, digest), params)
     config = base.member('Client/Config/Kuro/KuroPublicConfig.ini')
     pak.check(config is not None)
     lines = config.decode('utf-8-sig').splitlines()
@@ -208,7 +235,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     for prefix in prefixes[0].split(';'):
         if re.fullmatch(r'https://aki-config-[a-z0-9-]+\.aki-game2?\.' + domain, prefix):
             try:
-                source = _json(download(f'{prefix}/{routes[0]}/index.json', limit=LIMIT))['default']
+                source = _json(download(f'{prefix}/{routes[0]}/index.json', limit=LIMIT), cache)['default']
                 break
             except OSError as error:
                 network_error = error
@@ -235,7 +262,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
         if network_error is not None:
             raise network_error
         raise ValueError('No available regional Kuro resource CDN.')
-    platform = _json(config_data)
+    platform = _json(config_data, cache)
     release = platform['PackageVersion']
     pak.check(re.fullmatch(VERSION, release) and release.split('.')[:2] == launcher_version.split('.')[:2])
     versions, files, products = _resource_inventory(root, release, platform['ResVersions'], cache)
@@ -245,7 +272,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
             video_url = root + 'VideoConfig_' + tier + '.json'
             pointer = download(video_url, limit=LIMIT)
             video_pointers[video_url] = pointer
-            cfg = _json(pointer)
+            cfg = _json(pointer, cache)
             index = _manifest(root + release + '/Video/VideoManifest_' + tier + '.json', cfg['IndexSha1'], cache)
             for scene, row in index['VideoInfos']['PakMap'].items():
                 if scene == '__kr_map__' and row is None:
@@ -333,7 +360,7 @@ def _packages(snapshot, channel, layer):
 
 def _locations(tools, packages, params, *, wanted=(), prefix=None):
     def scan(info):
-        package = pak.Package(*info, tools, params)
+        package = _package(tools, info, params)
         return info, package.locations(wanted=wanted, prefix=prefix)
 
     found = {}
@@ -352,7 +379,7 @@ def _locations(tools, packages, params, *, wanted=(), prefix=None):
 def _voice_locations(tools, stamp, code):
     from .wuthering_assets import EXTERNAL_ROOT
     snapshot = _snapshot(tools, stamp)
-    params = _voice_parameters(stamp)
+    params = _voice_parameters(stamp, tools)
     result = {}
     for layer in ('BaseFiles', 'PatchFiles'):
         result.update(_locations(tools, _packages(snapshot, code, layer), params, prefix=EXTERNAL_ROOT + code + '_'))
@@ -360,13 +387,13 @@ def _voice_locations(tools, stamp, code):
 
 
 @lru_cache(maxsize=3)
-def _voice_parameters(stamp):
-    return _archive_parameters()
+def _voice_parameters(stamp, tools=None):
+    return _archive_parameters(tools)
 
 
 @lru_cache(maxsize=4)
 def _voice_package(tools, stamp, info):
-    return pak.Package(*info, tools, _voice_parameters(stamp))
+    return _package(tools, info, _voice_parameters(stamp, tools))
 
 
 def _table(tools, info, position, name, params):
@@ -379,7 +406,7 @@ def _table(tools, info, position, name, params):
         data = cached[32:]
         if data.startswith(b'SQLite format 3\0') and hashlib.sha256(entry + data).digest() == cached[:32]:
             return data
-    data = pak.Package(*info, tools, params).extract(position)
+    data = _package(tools, info, params).extract(position)
     pak.check(data.startswith(b'SQLite format 3\0'))
     _atomic_file(path, hashlib.sha256(entry + data).digest() + data)
     return data
@@ -636,9 +663,9 @@ def extract(tools, audio, locale=None):
     if depot.startswith(assets.EXTERNAL_ROOT):
         reference = _voice_locations(tools, stamp, code).get(depot)
     elif audio.get('music_context') is True:
-        reference = _shared_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp), {depot}).get(depot)
+        reference = _shared_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp, tools), {depot}).get(depot)
     else:
-        reference = _movie_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp), code, {depot}).get(depot)
+        reference = _movie_locations(tools, _snapshot(tools, stamp), _voice_parameters(stamp, tools), code, {depot}).get(depot)
     if reference is None:
         raise ValueError('The released dub does not contain this exact original voice.')
     return _source_bytes(tools, stamp, depot, reference)
@@ -655,7 +682,7 @@ def voice(cache, products, locale, stem, params):
         matches = []
         for key, (url, size, digest) in products.items():
             if key.startswith(f'{locale}/{layer}/') and key.endswith('.pak'):
-                data = pak.Package(url, size, digest, cache, params).member(target)
+                data = _package(cache, (url, size, digest), params).member(target)
                 if data is not None:
                     matches.append(data)
         if matches:

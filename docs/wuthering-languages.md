@@ -65,3 +65,9 @@ installed voice-pack or native playback coverage. Browser checks exercise
 Japanese study text, original audio controls, desktop/mobile widths and
 Chromium/Firefox zoom/DPR emulation. No complete gameplay chapter coverage is
 claimed from these asset and synthetic checks.
+
+Publisher preparation retains verified archive metadata in protected local tool
+storage so previously supported packages can be prepared after a metadata-source
+outage. A first preparation or an unknown changed archive parameter may still
+need investigation; this is not a claim of autonomous key derivation.
+[Recovery evidence and update limits](game-audits/wuwa-publisher-recovery.md).
