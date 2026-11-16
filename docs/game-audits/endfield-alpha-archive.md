@@ -79,6 +79,18 @@ The seven Mandarin cuts remain excluded from sentence export.
 · [Bedside introduction](https://www.bilibili.com/video/BV1az4y1P7BN/?p=1&t=662)
 · [Motorcycle call](https://www.bilibili.com/video/BV1az4y1P7BN/?p=1&t=908)
 
+A further November 16 check used a different Mandarin recognizer,
+[the independently published Paraformer model](https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-2024-03-09/tree/906992d326ebf0c5171cde675aa0902be9e5bc6c),
+on the original mixes and the private vocal-separation research outputs.
+It reproduces the already supported bedside `15` wording and the final
+motorcycle instruction. It also recovers the opening clause of bedside
+`20` at 131.5–141 s, but its name and closing words disagree across
+channel and filtering checks. It does not reliably reproduce the five
+remaining aircraft captions or the second motorcycle call. These results
+narrow the listening research; they do not verify complete sentence
+boundaries. The seven cuts remain excluded, and recognition output is
+not substituted for the original game text.
+
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
 ## Original motorcycle ambush scene
