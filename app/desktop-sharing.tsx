@@ -37,7 +37,7 @@ export function DesktopSharing({game}: {game: string}) {
         <label>Connection code <output>{connection.code}</output></label>
         <p>The code refreshes every ten minutes. Connected devices stay connected for 24 hours.</p>
       </> : connection && <p>You’re connected to this desktop. Use Share on the desktop to connect another device.</p>}
-      <a href={'/mobile-capture/?pc=1&game='+game} target="_blank" rel="noopener noreferrer">More connection options</a>
+      <p>The desktop processes the game. Keep it running while this device reads the transcript.</p>
     </div>
   </details>;
 }

@@ -97,10 +97,12 @@ For mobile use, **Setup → Games & Languages → Keep mobile library updated**
 maintains one private ZIP per selected voice language and translation while the
 companion runs. Choose an existing local folder, preferably synchronized with
 your phone through a cloud-storage application. The first-run wizard uses the
-same controls. Manual exports remain available. Open the ZIP with **Keep on this
-device** enabled in the [public mobile companion](https://firebird55.github.io/Game-immersion-toolkit/).
+same controls. Manual exports remain available. Keep the private ZIP for the
+Android replacement; the independent hosted browser gaming application is
+retired. Android import and device acceptance are still in development.
 See [mobile library setup, recovery and physical device checks](docs/mobile-library.md).
-The PC can be off during play; the game device must supply a working screen stream.
+The Android replacement must support local preparation-independent playback with
+the PC off; this is a required acceptance result, not a delivered app claim.
 
 In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with the prepared study or translation subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
 

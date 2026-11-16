@@ -7,7 +7,7 @@
 
 在 Windows、手機或平板上閱讀官方遊戲對話、重播原版配音，並使用閱讀工具學習語言。
 
-**[下載 Windows 版](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · **[開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/)** · [安裝與說明](docs/languages/install-zh-Hant.md)
+**[下載 Windows 版](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · [安裝與說明](docs/languages/install-zh-Hant.md)
 
 ![Game immersion toolkit](public/proxy-transcript.png)
 
@@ -47,7 +47,7 @@
 | [Persona 5 Royal](docs/languages/zh-Hant.md#persona5royal) | 英文 · 日文 | 9 |
 | [Deus Ex: Human Revolution - Director's Cut](docs/languages/zh-Hant.md#deusexhrdc) | 英文 · 法文 · 義大利文 · 德文 · 西班牙文（西班牙） | 5 |
 
-[語言詳細資訊](docs/languages/zh-Hant.md) · [開啟線上伴隨應用程式](https://firebird55.github.io/Game-immersion-toolkit/games.html)
+[語言詳細資訊](docs/languages/zh-Hant.md)
 
 無需逐一匯出所有語言包。讀取器重用遊戲原有識別碼和語言格式。在設定中選擇原版配音和官方譯文。若從已安裝的遊戲檔案準備資料，請先安裝所選語音包。缺少的檔案或翻譯仍會顯示為無法使用。
 

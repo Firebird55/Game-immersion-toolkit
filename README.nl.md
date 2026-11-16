@@ -7,7 +7,7 @@
 
 Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmiddelen op Windows, telefoon of tablet.
 
-**[Downloaden voor Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · **[Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/)** · [Installatie en hulp](docs/languages/install-nl.md)
+**[Downloaden voor Windows](https://github.com/Firebird55/Game-immersion-toolkit/releases/latest)** · [Installatie en hulp](docs/languages/install-nl.md)
 
 ![Game immersion toolkit](public/proxy-transcript.png)
 
@@ -47,7 +47,7 @@ Volg officiële gamedialogen, speel originele stemmen af en leer met leeshulpmid
 | [Persona 5 Royal](docs/languages/nl.md#persona5royal) | Engels · Japans | 9 |
 | [Deus Ex: Human Revolution - Director's Cut](docs/languages/nl.md#deusexhrdc) | Engels · Frans · Italiaans · Duits · Spaans (Spanje) | 5 |
 
-[Taaldetails](docs/languages/nl.md) · [Online companion openen](https://firebird55.github.io/Game-immersion-toolkit/games.html)
+[Taaldetails](docs/languages/nl.md)
 
 Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkelijke game-ID’s en het taalformaat. Kies in de instellingen de originele stem en een officiële vertaling. Gebruik je geïnstalleerde gamebestanden, installeer dan eerst het gekozen stempakket. Ontbrekende bestanden of vertalingen blijven niet beschikbaar.
 

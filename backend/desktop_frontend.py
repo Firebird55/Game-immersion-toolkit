@@ -39,8 +39,7 @@ CSP = (
     "style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' https: data: blob:; "
     "media-src 'self' https: blob: http://127.0.0.1:8766; frame-src https://vdo.ninja; "
     "connect-src 'self' http://127.0.0.1:8766 ws://127.0.0.1:8766 https://api.lexirise.app "
-    "https://cdn.jsdelivr.net https://game-immersion-pairing.boazbrak.workers.dev "
-    "wss://game-immersion-pairing.boazbrak.workers.dev https://game-immersion-lexirise.boazbrak.workers.dev; "
+    "https://cdn.jsdelivr.net; "
     "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 )
 

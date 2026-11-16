@@ -36,9 +36,10 @@ run full checks and packaging on GitHub-hosted Windows. Atomic release pushes
 delegate comprehensive main-branch checks to the tag for the same commit while
 retaining documentation/publication checks. Normal branch pushes do not duplicate
 PR checks. Manual **Checks and release** runs exercise the comprehensive gate
-and validate the extracted candidate on a branch without publishing. Pages
-retains browser smoke tests, macOS/WebKit transport verification and publication
-validation; the release gate owns the full browser matrix.
+and validate the extracted candidate on a branch without publishing. The manual
+**Connected reader diagnostics** workflow checks the retained desktop LAN reader
+in Chromium, Firefox and WebKit without publishing a site. The release gate owns
+the full browser matrix. The standalone Pages gaming flow is retired.
 
 Release checks build the frontend once, then use that build in separate desktop,
 setup, capture, offline-storage and OCR jobs. Every required group must pass before
@@ -47,11 +48,12 @@ unchanged browser builds only when source fingerprints and output hashes match.
 Checks record elapsed time under ignored `output/checks/`; a cache hit is not a
 clean-build timing promise.
 
-For a Windows offline failure, run **Online companion** manually with
-`check: offline` on the relevant branch. It exercises cache activation, offline
-reloads and updates without unrelated matrices. Firefox owns a fresh profile and tests
-reopening after a browser restart. Browser caches follow the pinned Playwright
-version. Log the failing operation before browser cleanup can obscure it.
+For a legacy browser-cache failure, run `node scripts/mobile-update-e2e.mjs`
+locally on the relevant branch. That retained fixture exercises cache activation,
+offline reloads and updates; it is not an active hosted application or Android
+acceptance check. Firefox owns a fresh profile and tests reopening after a browser
+restart. Browser caches follow the pinned Playwright version. Log the failing
+operation before browser cleanup can obscure it.
 
 Frame-source changes select native-frame and receiver/OCR/reader scenarios, plus
 applicable pairing/recovery checks. `scripts/mobile-vdo-source-e2e.mjs` uses

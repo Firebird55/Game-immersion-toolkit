@@ -1,30 +1,33 @@
-# Online companion development and deployment
+# Android and connected-reader development
 
-The [public companion](https://firebird55.github.io/Game-immersion-toolkit/) keeps
-its existing bookmark. Only checked `main` builds replace production. Task
-branches validate and upload review artifacts; pushing a `codex/` branch cannot
-replace the public site. A failed check keeps the prior deployment live.
+The independent hosted gaming application is retired. The former GitHub Pages
+workflow has no deployment trigger, Pages permission or publishing job. It can
+be invoked explicitly to check the supported desktop-connected reader in
+Chromium, Firefox and WebKit. It never makes the retired website available.
 
-1. Work on a `codex/` branch. Edit the React shell in `mobile/` and lifecycle
-   modules in `public/mobile-capture/`. Run `node scripts/prepare-mobile-assets.mjs`
-   to bundle the reader, then `npm run mobile:dev` to serve the local allowlist.
-2. Run shared consumer checks, `npm run mobile:check`,
-   `npm run check` and `npm run audit:public`. Commit each verified logical change.
-   Public Lexirise compatibility reviews are optional and run only when explicitly
-   requested; see [the runbook](../RELEASE.md#optional-lexirise-compatibility-diagnostic).
-3. Push the branch and inspect the **Online companion** review artifact and checks.
-4. Deploy any gateway change first using `npm run gateway:deploy`; verify health,
-   CORS, authorization failure handling and mocked account operations.
-5. Merge verified changes into `main`. The Pages workflow gates publication on
-   desktop checks, browser checks and the public-data audit. It publishes only
-   generated static allowlisted assets, through GitHub Pages OIDC.
-6. Monitor Actions and verify the public build commit. Release desktop integration
-   from clean `main` through [the runbook](../RELEASE.md), then verify downloaded
-   checksums and source provenance.
+The Android replacement reuses the desktop core and maintained React reader.
+Native capture/transport, protected storage, file selection and lifecycle belong
+behind platform adapters. A WebView pointing to the old hosted application is
+not the Android implementation. Dependencies and shared-core hosting must pass
+an actual installable prototype before broader device-support claims.
+
+Work on a `codex/` branch. Follow [development checks](development-checks.md),
+run the affected desktop/mobile contracts and publication audit, and commit each
+verified logical change. Shared component changes belong upstream, followed by
+version publication and synchronization of both consumers. Public Lexirise
+compatibility reviews remain optional; see [the runbook](../RELEASE.md).
+
+The supported iPhone/iPad reader is served by the running desktop's local-network
+gateway. `node scripts/desktop-lan-e2e.mjs` exercises the actual gateway and shared
+reader against authored APIs and audio. Browser success remains separate from
+physical iOS and Android evidence. The old browser-controller sources and tests
+are retained as private development/migration fixtures while Android integration
+is in progress; they are not a supported hosted or standalone-iOS product.
 
 No personal data, game libraries, recordings or credentials may enter artifacts.
-Do not add credentials to workflow secrets. The gateway and pairing service are
-separate Workers; desktop services/data stay on the PC. No cluster is required.
+Do not add credentials or signing keys to workflow secrets. Retired Cloudflare
+Workers are separate from the desktop's local gateway; removing them does not
+remove the retained desktop reader. No cluster is required.
 
-Use [developer verification](online-companion-development.md) for architecture,
-protocol, credential storage, test commands and physical-device limitations.
+See [Android migration](android-migration.md), [desktop platforms](desktop-platforms.md)
+and the historical [browser architecture](online-companion-development.md).
