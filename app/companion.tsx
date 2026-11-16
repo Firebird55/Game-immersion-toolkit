@@ -7,6 +7,9 @@ import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSe
 import { settingsAdapter } from './lexirise-settings';
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {DesktopSharing} from './desktop-sharing';
+import {AndroidSetup} from './android-setup';
+import {useNativeHost} from '../lib/native-host';
+import {canCaptureDeviceFrames} from '../lib/native-host-policy.mjs';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -98,6 +101,7 @@ type Settings = Record<`${Exclude<GameId, 'zzz' | 'pragmata'>}_region`, CaptureR
   capture_missing_audio?: boolean;
 };
 type CaptureStatus = {
+  source_generation?: number;
   visible_text_ids: string[];
   running: boolean;
   phase: string;
@@ -413,6 +417,7 @@ const TranscriptRow = memo(function TranscriptRow({
 
 function CompanionClient() {
  const {t: uiText}=useInterfaceLanguage();
+  const nativeHost = useNativeHost();
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [online, setOnline] = useState(false);
@@ -912,7 +917,7 @@ function CompanionClient() {
       <header className="topbar">
         <div>
           <h1>Game immersion toolkit</h1>
-          {!archivedHistory && <DesktopSharing game={selectedGame} />}
+          {!archivedHistory && !nativeHost.android && <DesktopSharing game={selectedGame} />}
         </div>
       <div className="game-tabs">
         <div className="reading-controls" aria-label={uiText("Reading options")}>
@@ -936,7 +941,12 @@ function CompanionClient() {
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
 
-      {!archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
+      {nativeHost.android && <AndroidSetup key={lexirise.account ?? 'legacy'} online={online}
+        capabilities={nativeHost.capabilities} error={nativeHost.error} libraryReady={!!mapStatus?.ready}
+        onChanged={game => {if (game) setSelectedGame(game); void loadSnapshot();}}
+        onAccount={() => {setReadingMode('lexirise'); setAccountSection('connection'); setAccountSettingsOpen(true);}} />}
+
+      {!nativeHost.android && !archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
         <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
         <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
       </div>}
@@ -1051,7 +1061,7 @@ function CompanionClient() {
             variant="outline"
             className={capture?.running ? "capture-toggle is-running" : "capture-toggle"}
             onClick={toggleCapture}
-            disabled={archivedHistory || !online || !status}
+            disabled={archivedHistory || !online || !status || (nativeHost.android && !capture?.running && !canCaptureDeviceFrames(nativeHost.capabilities))}
           >
             <Pause className="capture-pause-icon" />
             <Play className="capture-play-icon" />
@@ -1060,11 +1070,11 @@ function CompanionClient() {
           </Button>
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
+          {!nativeHost.android && <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
-            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />
-          <details className="update-disclosure">
+            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />}
+          {!nativeHost.android && <details className="update-disclosure">
             <summary aria-label={uiText('Game language updates')}><RefreshCw size={16} className={updateStatus && ['checking','updating'].includes(updateStatus.state) ? 'is-spinning' : ''} />{uiText('Updates')}</summary>
             <div className="update-popover">
               {!archivedHistory && updateStatus && ['checking','updating','retrying','error'].includes(updateStatus.state) && <section className={`update-progress is-${updateStatus.state}`} aria-label={uiText("Automatic data update status")}>
@@ -1080,7 +1090,7 @@ function CompanionClient() {
       </section>}
               {(!updateStatus || !['checking','updating','retrying','error'].includes(updateStatus.state)) && <p>{uiText('Up to date')}</p>}
             </div>
-          </details>
+          </details>}
           {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
             <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
               setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
@@ -1107,7 +1117,7 @@ function CompanionClient() {
             </DialogDescription>
           </DialogHeader>
 
-          <p>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</p>
+          <p>{nativeHost.android ? 'Capture adjustments are saved on this device. Import a prepared library to choose its study language and original voice.' : <>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</>}</p>
           {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
             onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
           </label>}
