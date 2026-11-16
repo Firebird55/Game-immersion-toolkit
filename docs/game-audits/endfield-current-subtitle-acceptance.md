@@ -37,13 +37,13 @@ observations of their actual authored predecessor in all five selections.
 Their audio stays unavailable. Default-off behavior, complete-text guards and
 the two unknown cinematic captions per selection were also checked.
 
-| Study selection | Residual radio rows captured with the applicable opt-ins/context | Still guarded |
+| Study selection | Residual radio rows matched with the applicable opt-ins/authored predecessor | Still guarded |
 | --- | ---: | ---: |
 | English | 133 / 134 | 1 |
 | Japanese | 133 / 134 | 1 |
 | Korean | 132 / 134 | 2 |
-| Simplified Chinese | 131 / 134 | 3 |
-| Traditional Chinese | 131 / 134 | 3 |
+| Simplified Chinese | 132 / 134 | 2 |
+| Traditional Chinese | 132 / 134 | 2 |
 
 These remaining rows are explicitly accounted for, not a full capture pass:
 
@@ -51,13 +51,13 @@ These remaining rows are explicitly accounted for, not a full capture pass:
   predecessor. Its short reaction-like caption cannot identify one current row.
 - `radio_m1m76_2_001` remains ambiguous in Korean and both Chinese scripts and
   likewise has no authored predecessor.
-- `radio_e10m1_11_002` is confirmed unvoiced but remains below the standalone
-  short-caption minimum in both Chinese scripts. It has predecessor
-  `radio_e10m1_11_001`; the new missing-audio predecessor policy does not extend
-  the separate unvoiced policy.
 
-The smallest remaining matching work is an equally strict authored-pair route
-for that unvoiced successor, plus additional authored presentation/speaker
+The confirmed unvoiced `radio_e10m1_11_002` now resolves after stable observations
+of `radio_e10m1_11_001` in both Chinese scripts through the existing unvoiced
+option. It works with missing-audio capture disabled, and remains excluded when
+unvoiced capture is disabled. Neither its state nor the existing toggle changed.
+
+The smallest remaining matching work is additional authored presentation/speaker
 context for the two rows without predecessors. Broad fuzzy matching or a
 generic voice must not be substituted. One captured identity per selection is
 an alias with the same complete official text, translations and audio state.
