@@ -30,37 +30,75 @@ No further per-row search for full sentence recordings is required by this
 reaction mechanism unless new evidence identifies an actually missing spoken
 subtitle.
 
-The full revision-20 prepared indexes were then checked through the separate
+The full revision-21 prepared indexes were checked through the separate
 missing-audio policy and the production preceding-caption controller. Both
 `radio_sm2l7m1_5_002` and `radio_gm01m16_3_002` resolve after two stable
 observations of their actual authored predecessor in all five selections.
 Their audio stays unavailable. Default-off behavior, complete-text guards and
 the two unknown cinematic captions per selection were also checked.
 
-| Study selection | Residual radio rows matched with the applicable opt-ins/authored predecessor | Still guarded |
+| Study selection | Residual radio rows matched with the applicable opt-ins/authored predecessor or visible speaker | Still guarded |
 | --- | ---: | ---: |
 | English | 133 / 134 | 1 |
 | Japanese | 133 / 134 | 1 |
-| Korean | 132 / 134 | 2 |
-| Simplified Chinese | 132 / 134 | 2 |
-| Traditional Chinese | 132 / 134 | 2 |
+| Korean | 133 / 134 | 1 |
+| Simplified Chinese | 133 / 134 | 1 |
+| Traditional Chinese | 133 / 134 | 1 |
 
 These remaining rows are explicitly accounted for, not a full capture pass:
 
 - `radio_gm01m12_1_001` remains ambiguous in every selection and has no authored
-  predecessor. Its short reaction-like caption cannot identify one current row.
-- `radio_m1m76_2_001` remains ambiguous in Korean and both Chinese scripts and
-  likewise has no authored predecessor.
+  predecessor. Its short reaction-like caption and punctuation-only anonymous
+  speaker label cannot identify one current row.
+- `radio_m1m76_2_001` now resolves in all five selections when its official
+  Endministrator label is visible with the complete caption. Korean and both
+  Chinese scripts remain ambiguous when only the sentence is visible; another
+  authored radio line has the same sentence with Chen Qianyu as its speaker.
+  No preceding line is required by the speaker/caption pair.
 
 The confirmed unvoiced `radio_e10m1_11_002` now resolves after stable observations
 of `radio_e10m1_11_001` in both Chinese scripts through the existing unvoiced
 option. It works with missing-audio capture disabled, and remains excluded when
 unvoiced capture is disabled. Neither its state nor the existing toggle changed.
 
-The smallest remaining matching work is additional authored presentation/speaker
-context for the two rows without predecessors. Broad fuzzy matching or a
+The smallest remaining matching work is additional authored presentation
+context for the anonymous row without a predecessor. Broad fuzzy matching or a
 generic voice must not be substituted. One captured identity per selection is
 an alias with the same complete official text, translations and audio state.
+
+### Original speaker/caption context
+
+The selected release's original `UI/Panels/Radio/RadioCtrl.lua` was fetched from
+its own Lua VFS manifest and completely MD5-checked (`6677e5dc35b46c7d800bdc301006edd0`,
+6,328 encoded bytes). It was decoded as data, never executed. Its display method
+resolves `actorName` and `radioText` separately, then puts the name immediately
+above the caption; an empty name uses the separate centered-text layout.
+
+Revision 21 retains a complete official name-plus-caption OCR anchor. Competing
+conversation/radio rows retain their own authored name/caption pairs, so equal
+captions or equal speakers do not select a performance by table order. Only
+literal names with identifying text are eligible: anonymous punctuation and
+unresolved dynamic-name placeholders supply no anchor. Exact complete-text,
+player and unavailable/unvoiced guards remain in effect. A choice, film or other
+caption without an authored identifying speaker vetoes the same named-caption
+anchor; a nearby name must not remove that ambiguity. This derives from the
+current tables rather than a list of radio IDs; subsequent compatible content
+can supply its own names and captions.
+
+All five **ordinary installation-free publisher workers** completed against the
+same current original release: 53,709 English, 54,968 Simplified Chinese, 53,690
+Traditional Chinese, 53,800 Japanese and 53,688 Korean records. Every prior row
+retains all fields other than the additional OCR anchors, including its complete
+texts, translations, recording, audio state, branch and predecessor. A fresh
+network-forbidden replay of all 134 residual rows per selection matches 133,
+including the named short caption above. Existing predecessor controls,
+unvoiced-only capture and the two unknown cinematic captions per selection pass
+the same replay. The source-only replay separately reuses the retained verified
+voice index; it does not claim a fresh offline publisher-index acquisition.
+
+The remaining anonymous row is still guarded, and no generic reaction becomes
+sentence audio. These are source/worker/matcher checks; physical capture of
+every display layout and #86 closure are not claimed.
 
 This 134-row subset is not the entire radio inventory. The current table has
 **3,403 groups and 5,714 raw rows**. Protagonist expansion and localization yield:
@@ -206,12 +244,15 @@ also misses those known controls, so its negative result is not evidence of
 silence. This is an actual current caption with **unknown original speech
 ownership**, not a completed spoken binding or certified unvoiced line.
 
-With revision-20 code and format metadata held fixed, the retained official
+With revision-21 code and the same frozen format metadata, the retained official
 1.5.3 discovery descriptor was replayed once more. Its normal English worker
-completed in 31.172 seconds with 48,291 records: 22,920 voiced, 17,189 unvoiced,
+completed in 23.172 seconds with 48,291 records: 22,920 voiced, 17,189 unvoiced,
 7,995 unavailable and 187 unknown. Live 1.6.4 again retains every old ID and adds
 5,418 records, including 3,156 voiced records; five existing English texts change.
 The earlier changed-recording and restart proof remains independently recorded.
+Every old baseline row, and every live revision-21 worker row above, matches
+the retained revision-20 evidence in all fields apart from the additional OCR
+anchors. The new anchors do not replace historical texts or recording references.
 
 The version rehearsal verifies changed English text, two changed original
 recordings, a new voiced line, offline restart and retention of older recordings.
@@ -222,8 +263,8 @@ cached English table, then interrupted its official HTTPS response after
 preparation in 28.219 seconds and produced all 53,675 current records with the
 same text, audio bindings and voice states as the earlier current preparation.
 Running-device scheduled activation remains distinct from worker/cache evidence.
-Current-content acceptance still needs the remaining short-caption matching
-cases above and representative physical/end-to-end captures. The eight cinematic
+Current-content acceptance still needs the remaining anonymous short-caption
+case above and representative physical/end-to-end captures. The eight cinematic
 audio exceptions above remain explicit. This census covers tracks accepted by
 the strict original-config/director reader; it does not prove that every other
 client scene format or physical capture layout has been exercised.

@@ -7,13 +7,13 @@ from pathlib import Path
 import re
 
 from .dialogue_catalog import DialogueCatalog, selected_tables
-from .languages import audio_locale, resolve_locale
+from .languages import audio_locale, normalize_text, resolve_locale
 from .preparation_errors import PreparationFailure
 from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 20
+LANGUAGE_INDEX_VERSION = 21
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -182,6 +182,15 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
         texts = {code: display_text(table.get(str(row.get('dialogText', {}).get('id')), ''))
                  for code, table in tables.items()}
         texts = {code: value for code, value in texts.items() if value}
+        # The released radio widget renders actorName immediately above radioText.
+        # Keep that authored pair as a complete OCR anchor, including competing
+        # conversation rows so a shared caption/name never selects one by order.
+        # A punctuation-only anonymous name supplies no identifying text.
+        speaker_id = row.get('actorName', {}).get('id') if isinstance(row.get('actorName'), dict) else None
+        speakers = {code: display_text(table.get(str(speaker_id), ''))
+                    for code, table in tables.items()} if speaker_id is not None else {}
+        speakers = {code: value for code, value in speakers.items()
+                    if len(normalize_text(value, code)) >= 2 and not re.search(r'[{}\[\]]', value)}
         for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
             if not lines.get(locale):
                 continue
@@ -210,17 +219,41 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 if not source:
                     radio.update(_radio_reaction(row, paths, locale, entries))
             previous = row.get('previous_radio_id') or row.get('previous_mission_id')
+            anchors = ({code: [speaker + ' ' + lines[code]] for code, speaker in speakers.items()
+                        if code in lines}
+                       if row.get('dialogue_kind') in ('radio', 'conversation') else {})
             result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
                 **({'previous_text_id': 'endfield:' + previous} if previous else {}),
                 'source_locale': locale, 'source_text': lines[locale], 'texts': lines,
+                **({'ocr_texts': anchors} if anchors else {}),
                 'english': lines.get('en', ''), 'chinese': lines.get('zh-Hans', ''),
                 'audio_locale': audio_locale(locale), 'audio': {**audio, 'source': source, 'locale': audio_locale(locale)} if audio else None,
                 'player_voice': gender or {'endminm': 'male', 'endminf': 'female'}.get(row.get('actorNameId')),
                 'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
                 'text_capture_verified': row.get('text_capture_verified') is True,
                 'channels': row.get('channels', ['dialogue'])})
+    _guard_speaker_anchors(result)
     return result
+
+
+def _guard_speaker_anchors(rows):
+    # A choice, film or unsupported speaker presentation with the same caption
+    # may be visible beneath a name elsewhere in the frame. An unowned name
+    # must not bypass that caption's existing ambiguity guard.
+    unnamed = {}
+    for row in rows:
+        for locale, text in row['texts'].items():
+            if not row.get('ocr_texts', {}).get(locale):
+                unnamed.setdefault(locale, set()).add(normalize_text(text, locale))
+    for row in rows:
+        if 'ocr_texts' in row:
+            anchors = {locale: values for locale, values in row['ocr_texts'].items()
+                       if normalize_text(row['texts'][locale], locale) not in unnamed.get(locale, ())}
+            if anchors:
+                row['ocr_texts'] = anchors
+            else:
+                row.pop('ocr_texts')
 
 
 def _unsupported():
@@ -600,6 +633,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             if film['audio']:
                 film['audio']['snapshot'] = stamp
     rows.extend(films)
+    _guard_speaker_anchors(rows)
     for film in films:
         coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
