@@ -80,6 +80,18 @@ $apk=Join-Path $sourceRoot 'packaging/android/app/build/outputs/apk/debug/app-de
 $audit=Join-Path $BuildRoot 'apk-audit.json'
 & $Python (Join-Path $PSScriptRoot 'verify-android-apk.py') $apk --output $audit
 if($LASTEXITCODE -ne 0){throw 'The Android APK failed its closed native/shared-core audit.'}
+$nativeAudit=Get-Content -LiteralPath $audit -Raw | ConvertFrom-Json
+foreach($abi in $policy.abis) {
+    $nativeReceipt=$receipt.native.PSObject.Properties[$abi].Value
+    $cores=@($nativeAudit.native_files.PSObject.Properties | Where-Object { $_.Name.StartsWith('assets/chaquopy/requirements-'+$abi+'.imy/pydantic_core/_pydantic_core') })
+    if($cores.Count -ne 1 -or $cores[0].Value.sha256 -ne $nativeReceipt.native_sha256) {throw 'The packaged native core differs from its verified wheel.'}
+    $rapid=$receipt.rapidfuzz_native.PSObject.Properties[$abi].Value
+    if(-not $rapid -or -not $rapid.modules) {throw 'The native RapidFuzz build receipt is missing.'}
+    foreach($module in $rapid.modules.PSObject.Properties) {
+        $name='assets/chaquopy/requirements-'+$abi+'.imy/'+$module.Name
+        if($nativeAudit.native_files.PSObject.Properties[$name].Value.sha256 -ne $module.Value.sha256) {throw 'Packaged RapidFuzz differs from its verified source-built wheel.'}
+    }
+}
 & (Join-Path $SdkRoot ('build-tools/'+$policy.build_tools+'/apksigner.bat')) verify --verbose --print-certs $apk > (Join-Path $BuildRoot 'apk-signature.txt')
 if($LASTEXITCODE -ne 0){throw 'The APK signature is invalid.'}
 & (Join-Path $SdkRoot ('build-tools/'+$policy.build_tools+'/zipalign.exe')) -c -P 16 4 $apk

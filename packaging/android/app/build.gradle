@@ -91,6 +91,7 @@ tasks.register('prepareToolkitReader') {
 }
 tasks.named('preBuild') { dependsOn 'prepareToolkitPython', 'prepareToolkitReader' }
 tasks.configureEach {
+    if (name.endsWith('PythonRequirements')) inputs.file(new File(wheelhouse, 'python-wheels-receipt.json'))
     if (name.endsWith('PythonSources')) dependsOn 'prepareToolkitPython'
     if (name.startsWith('merge') && name.endsWith('Assets')) dependsOn 'prepareToolkitReader'
 }

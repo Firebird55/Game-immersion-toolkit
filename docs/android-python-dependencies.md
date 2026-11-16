@@ -21,11 +21,28 @@ extension. Original MIT and locked Rust dependency license documents travel in
 the wheel. Native ELF checks reject a desktop/wrong-ABI library, wrong Python
 dependency, unexpected shared library or a load segment without 16-KiB alignment.
 
-RapidFuzz **3.14.6** already supplies portable Python algorithms. Its official
-build backend produces the pure wheel with `wheel.cmake=false`; no new fuzzy
-algorithm or compatibility shim is introduced. Exact and fuzzy production
-matching still require device performance/identity checks; a cross-build alone
-does not establish that a target interpreter loaded the extension.
+RapidFuzz **3.14.6** supplies both Python and C++ implementations of the same
+algorithms. The original Python wheel remains in the wheelhouse, and the source
+builder now compiles its native C++ modules for both Android ABIs using the same
+authenticated NDK and actual target Python headers/library. C++ headers come
+from the original source archive's bundled RapidFuzz/Taskflow dependencies; their
+original notices travel with the wheels. No new matching algorithm is added.
+
+The pure implementation was measured at about 0.895 seconds for one authored
+50,000-key lookup on the development desktop, before multiple frame channels and
+locales. This is inadequate evidence for large mobile libraries. Native module
+presence, actual target imports and a target 50,000-key performance gate are now
+required by candidate validation. Exact scores and production identities remain
+shared. A cross-build alone does not establish runtime performance.
+
+Build-host CMake 3.24 or later is required; its actual version/binary digest is
+recorded in the receipt. It is a host generator, not an APK runtime dependency.
+The recipe disables package-registry use/export and online CMake dependency
+fetching. Because the original Chaquopy `libpython3.12.so` has no SONAME, its
+imported CMake target must use `IMPORTED_NO_SONAME`; otherwise the linker embeds
+an absolute build-host path in `DT_NEEDED`. ELF validation rejects that failure.
+The generated host-interpreter filename suffix is normalized only after the
+actual native ABI/Python linkage/alignment checks pass.
 
 ## Build-host invocation
 

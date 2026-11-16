@@ -179,12 +179,19 @@ public final class MainActivity extends Activity {
 
     @Override protected void onStop() {
         CookieManager.getInstance().flush();
+        pauseReaderMedia();
         if (reader != null) {
-            reader.evaluateJavascript("document.querySelectorAll('audio,video').forEach(function(x){x.pause()})", null);
             reader.onPause();
         }
         worker.execute(() -> Python.getInstance().getModule("backend.android_host").callAttr("pause"));
         super.onStop();
+    }
+    private void pauseReaderMedia() {
+        if (reader != null) reader.evaluateJavascript("window.dispatchEvent(new Event('toolkit-host-pause'));document.querySelectorAll('audio,video').forEach(function(x){x.pause()})", null);
+    }
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (!hasFocus) pauseReaderMedia();
     }
     @Override protected void onStart() {
         super.onStart();if (reader != null) reader.onResume();

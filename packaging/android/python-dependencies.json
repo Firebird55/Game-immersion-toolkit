@@ -4,6 +4,8 @@
   "python_target": "3.12.15-0",
   "android_api": 24,
   "page_size": 16384,
+  "rapidfuzz_implementation": "original-cpp-and-python",
+  "cmake_minimum": "3.24",
   "rust_version": "1.95.0",
   "ndk_revision": "27.3.13750724",
   "ndk": {

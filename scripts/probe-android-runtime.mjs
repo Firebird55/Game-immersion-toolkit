@@ -30,8 +30,10 @@ adb('install', '-r', apk);
 // Nothing in first launch may depend on a PC, model download or hosted reader.
 adb('root');adb('wait-for-device');
 assert.equal(adb('shell', 'id', '-u'), '0');
-adb('shell', 'iptables', '-I', 'OUTPUT', '!', '-d', '127.0.0.0/8', '-j', 'REJECT');
-adb('shell', 'ip6tables', '-I', 'OUTPUT', '!', '-d', '::1/128', '-j', 'REJECT');
+// Keep root-owned ADB transport working while denying app/system-service
+// egress. Bundled OCR must not acquire models through Play Services either.
+adb('shell', 'iptables', '-I', 'OUTPUT', '!', '-d', '127.0.0.0/8', '-m', 'owner', '!', '--uid-owner', '0', '-j', 'REJECT');
+adb('shell', 'ip6tables', '-I', 'OUTPUT', '!', '-d', '::1/128', '-m', 'owner', '!', '--uid-owner', '0', '-j', 'REJECT');
 adb('shell', 'svc', 'wifi', 'disable');
 adb('shell', 'svc', 'data', 'disable');
 adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true');
@@ -41,6 +43,11 @@ assert.deepEqual(core.results, expected.results);
 assert.equal(core.native_media_completed, true);
 assert.equal(core.native_ocr.confirmed_text_id, 'authored:bridge');
 assert.equal(core.native_ocr.original_audio_available, true);
+assert.equal(core.runtime.pydantic_core, '2.50.1');
+assert.equal(core.runtime.rapidfuzz, '3.14.6');
+assert.match(core.runtime.fuzzy_scorer, /rapidfuzz\.fuzz_cpp/);
+assert.equal(core.runtime.fuzzy_extractor, 'rapidfuzz.process_cpp_impl');
+assert.ok(core.runtime.authored_fuzzy_50000_ms < 250, 'Native fuzzy lookup must remain bounded on the target');
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -89,6 +96,25 @@ const snapshot = await until(() => page.evaluate(async () => {
 assert.equal(snapshot.lines[0].text_id, 'authored:bridge');
 assert.equal(snapshot.lines[0].has_audio, true);
 const lineId = snapshot.lines[0].id;
+await page.evaluate(() => {
+  // Observe real WebView media objects created by the production play button.
+  // No fake media implementation, timing or completion signal is substituted.
+  const NativeAudio = window.Audio;
+  window.__toolkitObservedAudio = [];
+  const ObservedAudio = function(...args) {
+    const element = new NativeAudio(...args);window.__toolkitObservedAudio.push(element);return element;
+  };
+  ObservedAudio.prototype = NativeAudio.prototype;Object.setPrototypeOf(ObservedAudio, NativeAudio);
+  window.Audio = ObservedAudio;
+});
+await page.getByRole('button', {name: 'Play current voice line', exact: true}).first().click();
+await until(() => page.evaluate(() => window.__toolkitObservedAudio.some(audio => !audio.paused && !audio.ended)), 'actual shared reader clip playback');
+adb('shell', 'input', 'keyevent', 'KEYCODE_HOME');
+await delay(1200);
+adb('shell', 'am', 'start', '-W', '-n', component);
+assert.equal(await page.evaluate(() => window.__toolkitObservedAudio.length > 0 &&
+  window.__toolkitObservedAudio.every(audio => audio.paused && !audio.getAttribute('src'))), true,
+  'Backgrounding must stop and release the actual detached shared reader Audio');
 await page.evaluate(async id => {
   const response = await fetch(`/api/lines/${id}/favorite`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: '{"favorite":true}'});
   if (!response.ok) throw new Error('Authored favorite failed');
@@ -123,6 +149,7 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,
   shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
+  shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

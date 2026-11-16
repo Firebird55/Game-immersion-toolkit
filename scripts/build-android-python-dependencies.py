@@ -211,19 +211,93 @@ def native_wheel(source, native, output, abi, notices):
                   dist + 'WHEEL': f'Wheel-Version: 1.0\nGenerator: toolkit-android-python\nRoot-Is-Purelib: false\nTag: {tag}\n'.encode(),
                   dist + 'licenses/LICENSE': (source / 'LICENSE').read_bytes()})
     files.update({dist + 'licenses/' + name: raw for name, raw in notices.items()})
+    return package_wheel(files, dist, output / ('pydantic_core-2.50.1-' + tag + '.whl'))
+
+
+def package_wheel(files, dist, target):
     records = io.StringIO(newline='')
     writer = csv.writer(records, lineterminator='\n')
     for name, raw in sorted(files.items()):
         writer.writerow((name, 'sha256=' + base64.urlsafe_b64encode(hashlib.sha256(raw).digest()).decode().rstrip('='), len(raw)))
     writer.writerow((dist + 'RECORD', '', ''))
     files[dist + 'RECORD'] = records.getvalue().encode()
-    target = output / ('pydantic_core-2.50.1-' + tag + '.whl')
     pending = target.with_suffix('.whl.pending')
     with zipfile.ZipFile(pending, 'w', compression=zipfile.ZIP_STORED) as archive:
         for name, raw in sorted(files.items()):
             archive.writestr(zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0)), raw)
     pending.replace(target)
     return target
+
+
+def rapidfuzz_native(source, pure_wheel, work, output, ndk, target, abi, environment):
+    """Build upstream C++ modules; never substitute a second matching algorithm."""
+    cmake = shutil.which('cmake')
+    if not cmake:
+        raise ValueError('CMake 3.24 or later is a build-host prerequisite')
+    version = subprocess.check_output([cmake, '--version'], text=True).splitlines()[0].split()[-1]
+    minimum = tuple(int(part) for part in json.loads(POLICY.read_text())['cmake_minimum'].split('.'))
+    if tuple(int(part) for part in version.split('.')[:2]) < minimum:
+        raise ValueError('CMake 3.24 or later is a build-host prerequisite')
+    directory = work / 'rapidfuzz-native' / abi
+    directory.mkdir(parents=True, exist_ok=True)
+    python = work / 'python-target' / abi
+    host = 'windows-x86_64' if os.name == 'nt' else 'linux-x86_64'
+    compiler = ndk / 'toolchains/llvm/prebuilt' / host / 'bin'
+    # The official Chaquopy libpython has no SONAME. CMake must link -lpython,
+    # otherwise its imported target records a build-host path in DT_NEEDED.
+    hook = work / 'rapidfuzz-native' / 'python-import.cmake'
+    hook.write_text('cmake_language(DEFER CALL set_property TARGET Python::Module PROPERTY IMPORTED_NO_SONAME TRUE)\n'
+                    'cmake_language(DEFER CALL set_property TARGET Python::Module PROPERTY IMPORTED_NO_SONAME_RELEASE TRUE)\n')
+    flags = '-g0 -ffile-prefix-map=' + work.as_posix() + '=/build/android-python'
+    command = [cmake, '-S', str(source), '-B', str(directory), '-G', 'MinGW Makefiles' if os.name == 'nt' else 'Unix Makefiles',
+        '-DCMAKE_TOOLCHAIN_FILE=' + (ndk / 'build/cmake/android.toolchain.cmake').as_posix(),
+        '-DANDROID_ABI=' + abi, '-DANDROID_PLATFORM=android-24', '-DANDROID_STL=c++_static',
+        '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_PROJECT_INCLUDE=' + hook.as_posix(),
+        '-DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=ON', '-DCMAKE_FIND_USE_PACKAGE_REGISTRY=OFF',
+        '-DCMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY=OFF', '-DCMAKE_DISABLE_FIND_PACKAGE_Taskflow=ON',
+        '-DCMAKE_DISABLE_FIND_PACKAGE_rapidfuzz=ON', '-DFETCHCONTENT_FULLY_DISCONNECTED=ON',
+        '-DPython_EXECUTABLE=' + Path(sys.executable).as_posix(),
+        '-DPython_INCLUDE_DIR=' + (python / 'include/python3.12').as_posix(),
+        '-DPython_LIBRARY=' + (python / 'jniLibs' / abi / 'libpython3.12.so').as_posix(),
+        '-DCMAKE_C_FLAGS=' + flags, '-DCMAKE_CXX_FLAGS=' + flags,
+        '-DCMAKE_MODULE_LINKER_FLAGS=-Wl,-z,max-page-size=16384',
+        '-DCMAKE_INSTALL_PREFIX=' + (directory / 'install').as_posix()]
+    if os.name == 'nt':
+        command.append('-DCMAKE_MAKE_PROGRAM=' + (ndk / 'prebuilt/windows-x86_64/bin/make.exe').as_posix())
+    run(command, environment=environment, directory=work, log=work / ('rapidfuzz-' + abi + '-configure.log'))
+    run([cmake, '--build', str(directory), '--parallel', '2'], environment=environment,
+        directory=work, log=work / ('rapidfuzz-' + abi + '-native.log'))
+    run([cmake, '--install', str(directory)], environment=environment,
+        directory=work, log=work / ('rapidfuzz-' + abi + '-install.log'))
+    modules, proof = {}, {}
+    for file in sorted((directory / 'install/rapidfuzz').rglob('*.so')):
+        subprocess.run([str(compiler / ('llvm-strip.exe' if os.name == 'nt' else 'llvm-strip')),
+                        '--strip-unneeded', str(file)], env=environment, check=True)
+        relative = file.relative_to(directory / 'install')
+        # FindPython uses the build interpreter for metadata. Normalize its
+        # filename suffix only after verifying the actual target ELF bytes.
+        name = relative.with_name(relative.name.split('.')[0] + '.so').as_posix()
+        raw = file.read_bytes()
+        contract = elf_contract(raw, target['elf_machine'])
+        if name in modules:
+            raise ValueError('Duplicate native RapidFuzz module')
+        modules[name] = raw;proof[name] = {**contract, 'sha256': sha(raw)}
+    required = {'rapidfuzz/' + name + '.so' for name in ('utils_cpp', 'fuzz_cpp', 'process_cpp_impl',
+        'distance/_initialize_cpp', 'distance/metrics_cpp')}
+    if not required <= set(modules) or len(modules) != (8 if abi == 'x86_64' else 5):
+        raise ValueError('Incomplete upstream native RapidFuzz modules')
+    with zipfile.ZipFile(pure_wheel) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()
+                 if not name.endswith(('.dist-info/RECORD', '.dist-info/WHEEL'))}
+    dist = next(name.rsplit('/', 1)[0] + '/' for name in files if name.endswith('.dist-info/METADATA'))
+    tag = 'cp312-cp312-android_24_' + abi.replace('-', '_')
+    files.update(modules)
+    files[dist + 'WHEEL'] = f'Wheel-Version: 1.0\nGenerator: toolkit-original-android-source\nRoot-Is-Purelib: false\nTag: {tag}\n'.encode()
+    for name in ('taskflow', 'rapidfuzz-cpp'):
+        files[dist + 'licenses/' + name + '/LICENSE'] = (source / 'extern' / name / 'LICENSE').read_bytes()
+    wheel = package_wheel(files, dist, output / ('rapidfuzz-3.14.6-' + tag + '.whl'))
+    return {'wheel': wheel.name, 'sha256': sha(wheel.read_bytes()), 'modules': proof,
+            'cmake_version': version, 'cmake_binary_sha256': sha(Path(cmake).read_bytes())}
 
 
 def run(command, *, environment, directory, log):
@@ -300,12 +374,15 @@ def build(work, output, ndk, *, download=False, abis=None):
     with zipfile.ZipFile(rapid) as archive:
         if any(name.endswith(('.so', '.pyd', '.dll')) for name in archive.namelist()):
             raise ValueError('RapidFuzz must use the same upstream portable Python implementation')
+    rapid_native = {abi: rapidfuzz_native(work / 'source/rapidfuzz-3.14.6', rapid, work,
+        output, ndk, pins['targets'][abi], abi, environment) for abi in abis or pins['targets']}
     requirements = output / 'requirements-android.lock.txt'
     requirements.write_text('\n'.join(pins['runtime_requirements']) + '\n')
     result = {'schema': 'toolkit-android-python-wheels-v1', 'policy_sha256': sha(POLICY.read_bytes()),
               'python': pins['python'], 'rust_version': pins['rust_version'], 'ndk_revision': pins['ndk_revision'],
               'ndk_compiler_inventory_sha256': ndk_proof,
-              'native': native_results, 'files': {path.name: sha(path.read_bytes()) for path in sorted(output.glob('*.whl'))},
+              'native': native_results, 'rapidfuzz_native': rapid_native,
+              'files': {path.name: sha(path.read_bytes()) for path in sorted(output.glob('*.whl'))},
               'target_runtime_acceptance': 'not-established-by-cross-compilation'}
     (output / 'python-wheels-receipt.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n')
     return result

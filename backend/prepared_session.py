@@ -51,7 +51,9 @@ class PreparedCaptureSession:
         if directory is None:
             return
         payload = json.loads((directory / 'textmap.json').read_text(encoding='utf8'))
-        index = MultilingualTextIndex(payload['game'], directory)
+        game = payload['game']
+        del payload
+        index = MultilingualTextIndex(game, directory)
         if not index.ready:
             raise ValueError('The shared matcher could not open this library')
         self._activate_prepared(directory, index)

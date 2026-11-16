@@ -45,6 +45,7 @@ def test_target_elf_is_data_and_matches_android_python_dependency_contract(machi
 @pytest.mark.parametrize('data', [
     b'MZ' + bytes(1022), authored_elf(machine=62), authored_elf(alignment=4096),
     authored_elf(python='libpython3.13.so'), authored_elf()[:600],
+    authored_elf(python='F:/owned-build/libpython3.12.so'),
 ])
 def test_wrong_host_abi_page_size_python_or_truncated_binary_never_enters_wheel(data):
     with pytest.raises(ValueError):

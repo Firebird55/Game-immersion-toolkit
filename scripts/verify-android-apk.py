@@ -26,7 +26,7 @@ def native(data, abi):
 
 
 def verify(path):
-    result, abis, python_abis = {}, set(), set()
+    result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None or len(set(archive.namelist())) != len(archive.namelist()):
             raise ValueError('Corrupt or duplicate APK members')
@@ -47,8 +47,14 @@ def verify(path):
                             result[name + '/' + member] = native(requirements.read(member), abi)
                             if '/_pydantic_core' in member:
                                 python_abis.add(abi)
+                            if member.startswith('rapidfuzz/'):
+                                rapidfuzz_abis.setdefault(abi, set()).add(member)
         if abis != {'arm64-v8a', 'x86_64'} or python_abis != abis:
             raise ValueError('Both full Android core ABIs are required')
+        required = {'rapidfuzz/' + name + '.so' for name in ('utils_cpp', 'fuzz_cpp', 'process_cpp_impl',
+            'distance/_initialize_cpp', 'distance/metrics_cpp')}
+        if any(not required <= rapidfuzz_abis.get(abi, set()) for abi in abis):
+            raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/reader.bundle'))) as reader:
             frontend = json.loads(reader.read('desktop-manifest.json'))

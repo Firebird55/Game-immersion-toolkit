@@ -6,6 +6,8 @@ from pathlib import Path
 import struct
 import tempfile
 import wave
+import sys
+import time
 
 from .prepared_library import write_prepared_library
 from .prepared_session import PreparedCaptureSession
@@ -13,12 +15,14 @@ from .prepared_session import PreparedCaptureSession
 TEXT = 'Follow the river beyond the bridge.'
 
 
-def _library(root, text=TEXT, identity='authored:bridge'):
+def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2):
     root.mkdir(parents=True, exist_ok=True)
     clip = root / 'authored-tone.wav'
     with wave.open(str(clip), 'wb') as output:
         output.setparams((1, 2, 16000, 0, 'NONE', 'NONE'))
-        output.writeframes(b''.join(struct.pack('<h', round(6000 * math.sin(2 * math.pi * 440 * i / 16000))) for i in range(3200)))
+        if not 0 < duration <= 10:
+            raise ValueError('Authored fixture duration is outside its bound')
+        output.writeframes(b''.join(struct.pack('<h', round(6000 * math.sin(2 * math.pi * 440 * i / 16000))) for i in range(round(16000 * duration))))
     row = dict(text_id=identity, english=text, chinese='沿河走过桥。', source_locale='en',
         source_text=text, texts={'en': text, 'zh-Hans': '沿河走过桥。'}, audio_locale='en',
         audio={'authored-fixture': True}, voice_status='voiced', dialogue_kind='conversation')
@@ -72,8 +76,19 @@ def run(root):
     if any(value is False for value in results.values()):
         raise ValueError('Shared lifecycle fixture failed')
     encoded = json.dumps(results, sort_keys=True, separators=(',', ':')).encode()
+    from rapidfuzz import fuzz, process
+    import rapidfuzz
+    import pydantic_core
+    choices = ['A publisher authored dialogue near the mountain checkpoint ' + str(number) for number in range(50000)]
+    started = time.perf_counter()
+    process.extract('A publisher auth0red dialogue near the mountain checkpoint 49999', choices,
+        scorer=fuzz.ratio, score_cutoff=88, limit=2)
+    fuzzy_ms = (time.perf_counter() - started) * 1000
     return json.dumps({'schema': 'toolkit-android-shared-core-probe-v1', 'results': results,
         'result_sha256': hashlib.sha256(encoded).hexdigest(), 'fixture': 'authored-text-and-generated-tone',
+        'runtime': {'python': sys.version.split()[0], 'pydantic_core': pydantic_core.__version__,
+            'rapidfuzz': rapidfuzz.__version__, 'fuzzy_scorer': fuzz.ratio.__module__,
+            'fuzzy_extractor': process.extract.__module__, 'authored_fuzzy_50000_ms': fuzzy_ms},
         'private_audio_path': str(restarted.audio_path(identity))}, sort_keys=True)
 
 

@@ -88,7 +88,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Write identical authored desktop reference and import fixture
         run: |
-          python -c "import json;from pathlib import Path;from backend.android_probe import run,_library;p=Path('output/android-candidate');v=json.loads(run(p/'desktop-probe'));v.pop('private_audio_path');(p/'desktop-core-proof.json').write_text(json.dumps(v,sort_keys=True)+'\n');_library(p/'authored-input').replace(p/'authored-library.zip')"
+          python -c "import json;from pathlib import Path;from backend.android_probe import run,_library;p=Path('output/android-candidate');v=json.loads(run(p/'desktop-probe'));v.pop('private_audio_path');(p/'desktop-core-proof.json').write_text(json.dumps(v,sort_keys=True)+'\n');_library(p/'authored-input',duration=8).replace(p/'authored-library.zip')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
