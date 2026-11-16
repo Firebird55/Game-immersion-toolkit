@@ -57,6 +57,7 @@ def test_archive_acquisition_checks_ranges_package_and_recording_before_cache_re
 def test_unknown_archive_language_or_film_never_downloads(tmp_path, monkeypatch):
     monkeypatch.setattr(archive.urllib.request, 'urlopen', lambda *a, **kw: pytest.fail('Downloaded unknown media'))
     assert archive.inventory('zh-Hant') == archive.inventory('zh-Hans')
-    for locale, film in [('ja', 'fmv_e0m1_1'), ('en', '../other')]:
+    # A newly verified English scene must not borrow another locale's media.
+    for locale, film in [('ja', 'fmv_e0m1_1'), ('en', '../other'), ('zh-Hans', 'timeline_e1m1_1')]:
         with pytest.raises(ValueError):
             archive.recording(tmp_path, film, locale)

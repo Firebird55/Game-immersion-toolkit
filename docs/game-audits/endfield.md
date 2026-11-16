@@ -6,6 +6,14 @@ The film command retrieves the original English and Mandarin aircraft, bedside a
 
 Eighteen Mandarin bedside captions and six aircraft captions now have individual original-audio exports, alongside the existing twenty-one Mandarin publisher briefing captions. One other bedside caption, five aircraft caption cuts and English text/cuts remain open. [Supported caption IDs and commands](endfield-alpha-archive.md#mandarin-archive-caption-exports)
 
+On November 16 seven separate excerpts identified the original English
+motorcycle ambush mix in the same archive. The command now retrieves that
+23.962-second scene as `timeline_e1m1_1` without a game installation. Its
+three captions have gameplay checkpoints, but their English text bindings
+and individual spoken windows remain open. This is an explicit historical
+lookup, separate from the current game's automatic source refresh.
+[Original scene, checksum and command](endfield-alpha-archive.md#original-english-motorcycle-ambush-scene)
+
 ## Current resource refresh · November 15, 2026
 
 The Global publisher advanced its initial and main resources from

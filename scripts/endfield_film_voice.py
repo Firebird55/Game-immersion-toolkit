@@ -16,7 +16,7 @@ def main():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument('event', nargs='?', help='Authored Wwise event from the selected game release')
     source.add_argument('--test-caption', help='Mandarin Technical Test caption ID, or "list" for its transcript')
-    source.add_argument('--archive-film', help='Original Technical Alpha film ID, or "list" for verified recordings')
+    source.add_argument('--archive-film', help='Original Technical Alpha film/scene ID, or "list" for verified recordings')
     parser.add_argument('--cache', type=Path, required=True, help='Private publisher cache')
     parser.add_argument('--locale', choices=endfield_assets.SUPPORTED_LOCALES, required=True)
     parser.add_argument('--region', choices=endfield_release.CHANNELS, default='global')

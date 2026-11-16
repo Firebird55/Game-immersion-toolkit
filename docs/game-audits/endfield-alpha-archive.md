@@ -1,6 +1,6 @@
 # Original Global Technical Alpha soundtracks
 
-Checked November 15, 2026. A publicly archived January 2024 Global client contains the original English aircraft, bedside and Talos-II briefing recordings. Each independently matches KyoStinV's Global Technical Test playthrough. Acquisition used HTTP byte ranges and read-only package parsing, without installing or executing the archived client. [Client archive](https://archive.org/details/arknights-endfield-technical-alphawith-hotfix) · [Archive file identities](https://archive.org/metadata/arknights-endfield-technical-alphawith-hotfix) · [Global gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE)
+Checked November 16, 2026. A publicly archived January 2024 Global client contains the original English aircraft, bedside and Talos-II briefing recordings, plus the English motorcycle ambush scene. Each independently matches KyoStinV's Global Technical Test playthrough. Acquisition used HTTP byte ranges and read-only package parsing, without installing or executing the archived client. [Client archive](https://archive.org/details/arknights-endfield-technical-alphawith-hotfix) · [Archive file identities](https://archive.org/metadata/arknights-endfield-technical-alphawith-hotfix) · [Global gameplay](https://www.youtube.com/watch?v=5wJdbAkjKlE)
 
 ## Acquisition and integrity
 
@@ -57,6 +57,39 @@ English text/cuts remain open below.
 
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
+## Original English motorcycle ambush scene
+
+The same verified English package contains media **52120711**, a
+1,355,937-byte original WEM with SHA-256
+`0f4f62358e0efc1731744f662b327092977db9980dbebb5132f6d9ead40ae30c`.
+One playback pass lasts **23.962 s**. The WEM carries a loop flag; the
+research decode explicitly disabled looping rather than measuring repeated
+playback and the decoder's fade-out as part of the scene.
+
+Seven separate 1.5-second excerpts at source times 0.5, 2, 5, 10, 15, 19
+and 21 s all match the Global walkthrough with the same **1,153.1999 s**
+offset. Their normalized correlations are 0.953, 0.914, 0.778, 0.772,
+0.672, 0.621 and 0.782 at 8 kHz, filtered at 320–3,500 Hz. These include
+the opening calls, intervening effects and the final instruction. The three
+displayed captions have the historical IDs `timeline_e1m1_1_01` through
+`_03`. Their parent `timeline_e1m1_1` is the command's scene label; it is
+not a claimed archive filename or a current-release event binding.
+[Ambush and opening calls](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1153s)
+· [Final instruction](https://www.youtube.com/watch?v=5wJdbAkjKlE&t=1172s)
+
+The normal archive command retrieves this complete original scene without
+a game installation, verifies the existing package hash and checks the
+individual WEM hash. The live command recovered the declared 1,355,937 bytes
+from the verified cache, and a non-looping decode reproduced the 23.962 s
+recording. English per-caption text and spoken boundaries, the corresponding
+Mandarin scene and its exact relationship to each movie file remain open.
+No translated transcript, scene-specific silence or guessed movie filename
+is introduced.
+
+```text
+python scripts/endfield_film_voice.py --archive-film timeline_e1m1_1 --locale en --cache private-cache --wem motorcycle-ambush-en.wem
+```
+
 ## Mandarin recordings
 
 The separate Chinese streamed package ends in `3F4A536996369BBDA4AA64B4AD5996D2.chk`. The complete 105,863,503-byte member passed its ZIP CRC check. Its SHA-256 is `51be530994d9bbc2f6e8253a63f9129a4477a6510a3c8b112b59b8b95bfed1eb`.
@@ -80,7 +113,7 @@ The respective Mandarin WEM SHA-256 values are
 
 ## Installation-free acquisition
 
-The film command can list and retrieve the six verified original WEMs. It reads the selected locale's compressed package range from the archive, verifies the expanded package size and SHA-256, then resolves the original media ID and checks the recording's SHA-256. A verified package is cached for the other two films in that dub. A truncated response, changed bytes or an unexpected HTTP range fails before an output recording is written. Traditional Chinese selects the same Mandarin recordings.
+The film command can list and retrieve seven verified original WEMs: four English scenes and three Mandarin scenes. It reads the selected locale's compressed package range from the archive, verifies the expanded package size and SHA-256, then resolves the original media ID and checks the recording's SHA-256. A verified package is cached for other scenes in that dub. A truncated response, changed bytes or an unexpected HTTP range fails before an output recording is written. Traditional Chinese selects the same Mandarin recordings. The English-only motorcycle scene is not listed or substituted in Mandarin.
 
 ```text
 python scripts/endfield_film_voice.py --archive-film list --locale en --cache private-cache

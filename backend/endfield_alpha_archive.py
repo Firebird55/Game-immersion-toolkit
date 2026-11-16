@@ -22,6 +22,8 @@ RECORDINGS = {
         'fmv_e0m1_1': (575989014, 'b3044d65ddbb58041382d868fe4df4421fb2f49be9b5a0ba289595b253bf0377'),
         'fmv_e0m1_3': (646125757, '40d8055a4eba246962f2f052941df42c768c9cea2958c86befb4fe0715b58c55'),
         'fmv_e0m1_4': (351625180, '710760c0684563f5169ece2c1cec6daed5b78cbb70452b4ba9a4d0f65fe83ab4'),
+        # Scene label from the three historical subtitle IDs, not a PCK filename.
+        'timeline_e1m1_1': (52120711, '0f4f62358e0efc1731744f662b327092977db9980dbebb5132f6d9ead40ae30c'),
     },
     'zh-Hans': {
         'fmv_e0m1_1': (1046408181, 'cc5acb17c7789874963fc93ef5d1fddd8aed90b9aaed2b15ef4dd5b53ad7bccc'),
