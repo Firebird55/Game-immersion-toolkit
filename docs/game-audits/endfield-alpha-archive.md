@@ -117,6 +117,34 @@ narrow the listening research; they do not verify complete sentence
 boundaries. The seven cuts remain excluded, and recognition output is
 not substituted for the original game text.
 
+### Additional mainland recording with all seven pending captions
+
+A further November 16 search located the first part of the November 2023
+Technical Test recording by 缺德的德鲁伊. Comparing the verified original
+Mandarin WEMs with the first 1,150 seconds of that upload independently
+identifies the aircraft, bedside and motorcycle mixes. Each 1.5-second
+source excerpt recovers the same recording-to-upload offset within its scene.
+The comparison uses 8 kHz mono PCM filtered at 320–3,500 Hz and rejects
+target windows with insufficient energy before normalizing correlations.
+
+| Original scene | Excerpt starts in the original WEM (s) | Offset in upload (s) | Correlations |
+| --- | --- | ---: | --- |
+| Aircraft | 4, 20, 26, 67, 76, 81, 84 | 19.0015 | 0.886–0.998 |
+| Bedside | 56, 80, 117, 129, 134, 137 | 671.9543 | 0.962–0.992 |
+| Motorcycle ambush | 0.5, 5, 10, 19, 21 | 1045.9849 | 0.546–0.992 |
+
+Direct frame checks recover the five pending aircraft captions `07`–`11`
+at approximately **1:25, 1:28, 1:30, 1:40 and 1:43**. Bedside `20` is
+visible at **13:25**, and motorcycle `timeline_e1m1_1_02` at **17:31**.
+Their native Chinese text matches the archived subtitle entries. These
+are visible-caption checkpoints and whole-mix matches, not verified spoken
+cut boundaries. All seven cuts remain excluded from sentence export. The
+toolkit continues to acquire the original archive WEM, independently of
+this player's recording.
+[Aircraft](https://www.bilibili.com/video/BV1dM411S7yu/?p=1&t=85)
+· [Bedside introduction](https://www.bilibili.com/video/BV1dM411S7yu/?p=1&t=805)
+· [Motorcycle call](https://www.bilibili.com/video/BV1dM411S7yu/?p=1&t=1051)
+
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
 ## Original motorcycle ambush scene
