@@ -36,8 +36,76 @@ changed metadata without a toolkit change, malformed ranges, damaged indexes
 and an unavailable metadata API. This removes the missing fresh metadata
 source; it does not yet connect the online file lists to complete localization,
 dialogue-table and per-line voice acquisition. Full online Setup, current
-text/voice coherence and the presentation/update/platform work in #88 remain
+release-wide text/voice coverage and the presentation/update/platform work in #88 remain
 open. No real parameter values or game files are distributed.
+
+## November 16, 2026 · Publisher text, four-dub sample and runtime videos
+
+A separate read-only source probe recovered the English localization directly
+from the published **Global PC_150 / 1.5.4** snapshot. It did not use an
+installed game or a community text export. The resource-list SHA-256 is
+`13c0469b1eb5f5994b309c763eacf24aba6f340840709df44681a01beebd5a7c`.
+The selected member is `HT/Content/Localization/Game/en/game.locres` in
+`pakchunk0-Windows_0_P.pak`.
+[Publisher resource list](https://ntecdn1.perfectworld.com/clientRes/PC_150/Version/Windows/version/1.5.4/ResList.bin.zip)
+
+The authenticated encoded index supplies the compression-block lengths.
+The duplicated entry header does not supply usable block offsets or a
+matching member hash in this sample. Reading its offsets instead of the
+encoded index would give inconsistent ranges. The existing pinned Oodle
+decoder recovered **18,445,451 bytes** from 9,751,183 compressed bytes.
+The locres SHA-256 is
+`1810d431b0710c9c4ab1a28d34e5b75564a354a8141f40c96479506719e1506d`.
+Parsing the NTE 10100 string-array format recovered **121,528 English
+entries in 195 namespaces**, including UI; these are not dialogue counts.
+`ST_Main_BlackBird` contains 2,438 entries. Public format parameters were
+read as data from the pinned reference, without executing downloaded code
+or including their values in the repository.
+[Encoded entries](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/UE4/Pak/Objects/FPakEntry.cs)
+· [Locres format](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/UE4/Localization/FTextLocalizationResource.cs)
+· [NTE string-array format](https://github.com/FabianFG/CUE4Parse/blob/4d2301a8eb129f593f1c76ff82612400801f1a94/CUE4Parse/GameTypes/NTE/Encryption/NevernessToEvernessLocresEncryption.cs)
+
+The publisher also supplies a companion `.sig` file for each of the twenty
+game-content PAKs. The complete companion file passed its manifest MD5.
+Its chunk table then verified **150 contiguous 64 KiB blocks** covering the
+English locres range, totalling 9,830,400 bytes. The small patch PAK also
+matched its companion's single chunk CRC. Integrity evidence here is the
+manifest-verified companion and its per-block CRCs; the large PAKs were read
+selectively. This does not claim independent RSA-signature validation.
+[Publisher chunk-check format](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/PakFile/FPakSignatureFile?lang=en-US)
+
+The same snapshot supplied the named bank
+`Play_Vo_BBlackbird01_NPC1064_007` in all four original voice languages.
+Each bank's Wwise 154 event and language IDs match its declared name and
+locale. The existing bank reader resolves one source with zero gain and
+delay. Complete companion files passed publisher MD5 checks, and the bank
+and recording ranges passed their chunk CRCs before decompression. Each
+original WEM decoded to nonzero PCM with the prepared voice decoder.
+
+| Original language | Media ID | WEM bytes | Decoded duration | WEM SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| Mandarin | 58185411 | 15,472 | 1.204603 s | `9fb5c7242fa13a63b467e14962b6845e85f9c4af3c56fd3b839ea3d74c828be7` |
+| Japanese | 875594697 | 43,538 | 5.137392 s | `a80a4880c245fd541aae7f47d0ee92f766fe9764346a22aa680b7d991aab4c16` |
+| English | 529528553 | 22,148 | 1.864989 s | `df9fea4eb39d2227cd77726255b5fd2192c30905ca1f484dd5a4eef84ed588ee` |
+| Korean | 523829702 | 23,066 | 1.821338 s | `320071d81087d3361194c6c37e03f7fd253cc17c5038ab1adc30fceee9229e0c` |
+
+These are installation-free source probes, separate from normal Setup.
+The owned publisher archive reader, immutable historical parameter lookup,
+complete locale/patch selection and normal voice-service integration still
+need implementation. Full dialogue aliases, sequence/movie bindings,
+rolling updates and platform acceptance remain open.
+
+### The five Global HPW resources are video files
+
+All five `.hpw` resources in this Global 1.5.4 snapshot were downloaded and
+checked against their complete publisher MD5s. Restoring their byte encoding
+and top-level box identifiers yields valid MP4 containers with `ftyp`,
+`moov`, `free` and `mdat` boxes. Each has exactly one H.264 video track and
+zero audio or subtitle tracks. Three last 4.000000 s; two last 2.366667 s.
+They do not supply the missing sentence audio or localization overlays.
+The earlier description of HPW files as hotpatches was unsupported. This
+result covers these five files; other HPW inventories and referenced story
+movies still require their own checks.
 
 ## November 13, 2026 · Regional update and Blackbird dialogue
 
@@ -118,7 +186,7 @@ remain explicit remaining work.
 
 ## Installed evidence
 
-The installation contains 20 PAK files, 22 UTOC/UCAS pairs and 178 HPW hotpatch
+The installation contains 20 PAK files, 22 UTOC/UCAS pairs and 178 HPW runtime
 files. Fresh native extraction enumerated 805,652 unique virtual paths, including
 113,044 localization rows in each of English and Simplified Chinese. Both
 localization resources have locres version 3. The initial key-selected extraction

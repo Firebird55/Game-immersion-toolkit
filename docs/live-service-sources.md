@@ -23,12 +23,14 @@ python scripts/live_game_sources.py wuwa-global --cache private-cache --previous
 | `zzz-global`, `zzz-cn` | The two 3.3.0 launchers each list 313 dub PCKs with identical full paths, sizes and MD5s. The individual Global [dialogue command](../scripts/probe-zzz-publisher.py) can fetch an authored line and original dubs. |
 | `endfield-global` | Both 1.6.4 resource indexes. [Radio and film commands](game-audits/endfield.md) resolve original performances from the current dub. |
 | `wuwa-global` | The 3.7.1 base leads to the active 3.7.19 story data, four independently versioned dub manifests and 231 movies per quality tier. The command compares 1,549 released file entries and can download an exact external WEM. |
-| `nte-global`, `nte-cn` | Regional branch chain and the publisher-verified decoded resource list, including file ranges inside packages. Global PC_140 1.4.11 lists 552 files and mainland PC_150 1.5.4 lists 366. The command downloads individual files by exact name and MD5. A second command matches the mainland publisher manifest to 121,753 Chinese strings in 195 namespaces. Fresh per-line audio still needs game archive metadata. |
+| `nte-global`, `nte-cn` | Regional branch chain and the publisher-verified decoded resource list, including file ranges inside packages. Global PC_140 1.4.11 lists 552 files and mainland PC_150 1.5.4 lists 366. The command downloads individual files by exact name and MD5. A second command matches the mainland publisher manifest to 121,753 Chinese strings in 195 namespaces. Later metadata and direct publisher probes are recorded below. |
 
 The three HoYoPlay readers retry the individual immutable manifest or chunk
 after a network interruption and check its published digest before caching it.
 
 For Endfield's historical Technical Alpha, the [archive acquisition command](game-audits/endfield-alpha-archive.md) retrieves eight verified original scene recordings from a public client archive: aircraft, bedside, briefing and motorcycle ambush in English and Mandarin. The explicit Mandarin list exports 47 verified caption cuts. Further caption coverage requires original text bindings and spoken boundaries; the historical source remains separate from current game-data refreshes.
+
+NTE's [November 16 source probes](game-audits/nte.md#november-16-2026--publisher-text-four-dub-sample-and-runtime-videos) recovered 121,528 English entries from the Global 1.5.4 publisher PAK and one original Blackbird recording in each of the four dubs. Companion files passed publisher MD5 checks and their chunk CRCs verified the selected data ranges. The five inspected Global HPW resources are short video-only MP4 containers, rather than a source of sentence audio or text overlays. Normal installation-free Setup and complete story/update coverage remain open.
 
 | Game | Inputs used by desktop preparation | Verified online distribution and remaining coverage |
 | --- | --- | --- |
