@@ -64,6 +64,36 @@ def test_unrecognized_recording_format_has_no_authorized_clock():
     assert films._duration(track()[:70]) is None
 
 
+def test_resolved_caption_names_keep_resource_ids_and_scope_new_player_branches(tmp_path):
+    filename, identity = 'New_Episode-2_Caption.json', 'design_54c6a61d50e11224'
+    script = {'CaptionList': [{'CaptionTextID': {'Hash': 69}, 'StartTime': .5, 'EndTime': 1.5}]}
+    video = {'VideoID': 9001, 'VideoPath': 'OwnedMovie.usm',
+             'CaptionPath': 'Config/CutSceneCaption/' + filename}
+    sources = {'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
+               'ExcelOutput/VideoConfig.json': [video]}
+    movie = SimpleNamespace(name='OwnedMovie.usm', digest='a' * 32, size=99)
+    catalog = SimpleNamespace(file=sources.__getitem__, movie_files={'ownedmovie.usm': movie},
+                              caption_scripts=lambda: [(filename, script)], caption_identities={filename: identity})
+    def prepare():
+        return films.caption_rows(tmp_path, catalog, {'en': {'69': 'Owned fixture caption'}}, 'en', {})
+    row, = prepare()
+    assert row['text_id'] == 'starrail:film-' + identity + '-0'
+    assert row['film_caption']['scene'] == 'New_Episode-2'
+    assert row['film_caption']['movies'][0]['video_id'] == 9001
+    # Discovering an actual movie and display clocks alone cannot authorize a
+    # spoken cut. Newly evidenced player alternatives remain separate.
+    assert row['audio'] is None and row['voice_status'] == 'unavailable'
+    video['IsPlayerInvolved'] = True
+    catalog.movie_files = {'ownedmovie_m.usm': SimpleNamespace(name='OwnedMovie_m.usm', digest='b' * 32, size=100)}
+    male, female = prepare()
+    assert [(r['text_id'], r['player_voice']) for r in [male, female]] == [
+        ('starrail:film-' + identity + '-0_m', 'male'), ('starrail:film-' + identity + '-0_f', 'female')]
+    assert all(r['audio'] is None and r['voice_status'] == 'unavailable' for r in [male, female])
+    catalog.caption_identities[filename] = '../invalid'
+    with pytest.raises(ValueError):
+        prepare()
+
+
 def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(tmp_path):
     prefix = 'Config/CutSceneCaption/'
     primary, alternate = prefix + 'Song_1_Caption.json', prefix + 'Song_2_Caption.json'

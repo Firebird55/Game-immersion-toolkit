@@ -32,6 +32,14 @@ published or installed original voice. Conflicting sources are skipped.
 
 Split subtitle tables are merged with their Main tables at one immutable metadata revision. A whole movie audio track is never substituted for an individual caption.
 
+Film subtitles also follow their authored paths into the publisher's current
+resource directory, including files missing from the community caption folder.
+New filenames and repacked resources are discovered during preparation without
+a toolkit update. Their movie and player associations stay separate from audio
+verification: subtitle display times do not establish when the words are spoken.
+The [caption audit](game-audits/starrail.md#declared-caption-resources-resolved--november-16-2026)
+records the verified paths, language coverage and remaining gaps.
+
 Some written descriptions accompany a short character greeting or reaction.
 That audio does not establish a recording of the written words. Unnamed
 entries with candidate audio but no primary sentence voice remain unresolved; the toolkit

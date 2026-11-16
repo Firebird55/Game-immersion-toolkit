@@ -5,7 +5,7 @@ from . import hoyo_dialogue as common
 from .dialogue_catalog import DialogueCatalog, selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 23
+LANGUAGE_INDEX_VERSION = 24
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -340,6 +340,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'Captions without a timed localized recording, image-only messages and event-only formats have incomplete coverage. Missing voice metadata is not proof of silence.']
     if any(link.get('unresolved_multi_voice') for link in links):
         result['coverage_warnings'].append('Some unnamed text entries have candidate audio without a verified recording of their written words. They remain unresolved.')
+    if getattr(catalog, 'unresolved_caption_paths', ()):
+        result['coverage_warnings'].append('Some declared film subtitle files could not be verified in the selected publisher release. They remain unresolved.')
     if install is None:
         if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region, data_dir / 'tools'):
             raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
