@@ -57,11 +57,11 @@ def _audio_options(audio, wav):
             filters.append('pan=stereo|' + '|'.join(
                 f'c{side}=' + '+'.join(f'{pair[side]:.9g}*c{index}' for index, pair in enumerate(mix))
                 for side in (0, 1)))
-        if timed:
-            gain = audio.get('gain_db', 0)
-            if type(gain) not in (int, float) or not math.isfinite(gain) or not -60 <= gain <= 24:
-                raise ValueError('Invalid original movie voice gain')
-            filters.append(f'volume={gain:.6f}dB')
+    if timed or 'gain_db' in audio:
+        gain = audio.get('gain_db', 0)
+        if type(gain) not in (int, float) or not math.isfinite(gain) or not -60 <= gain <= 24:
+            raise ValueError('Invalid original voice gain')
+        filters.append(f'volume={gain:.6f}dB')
     return trim + (['-af', ','.join(filters)] if filters else [])
 
 

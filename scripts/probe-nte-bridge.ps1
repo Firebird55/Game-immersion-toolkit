@@ -106,6 +106,12 @@ try {
         Require-Code (Invoke-Bridge @('voices',$install,$tools,$batch) ($request | ConvertTo-Json -Compress)) 0
         if([Convert]::ToHexString([IO.File]::ReadAllBytes((Join-Path $batch '1.wem'))) -ne [Convert]::ToHexString([byte[]](255..0))){throw 'Actual NTE batch voice bytes differ.'}
     }
+    foreach($case in @('nulls','string','number','boolean','array')) {
+        $sequenceInstall=Join-Path $temporary ('sequence-'+$case); New-Item -ItemType Directory -Path $sequenceInstall | Out-Null
+        $marker=@{schema='proxy-owned-nte-fixture-v1';localization_version=3;sequence_case=$case} | ConvertTo-Json -Compress
+        [IO.File]::WriteAllText((Join-Path $sequenceInstall 'owned-fixture.json'),$marker)
+        Require-Code (Invoke-Bridge @('inventory',$sequenceInstall,$tools,(Join-Path $temporary ('sequence-output-'+$case))) ((Request) | ConvertTo-Json -Compress)) 0
+    }
     foreach($destination in @($install,$tools,$application)) {Require-Code (Invoke-Bridge @('inventory',$install,$tools,$destination) ((Request) | ConvertTo-Json -Compress)) 1}
     $request=Request; $request.depot='../escape.wem'
     Require-Code (Invoke-Bridge @('voice',$install,$tools,(Join-Path $temporary 'bad-depot')) ($request | ConvertTo-Json -Compress)) 1

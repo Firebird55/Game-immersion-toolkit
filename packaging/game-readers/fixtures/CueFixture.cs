@@ -157,6 +157,7 @@ public sealed class FixtureProvider : IDisposable
             throw;
         }
         if (marker["schema"].GetString() != "proxy-owned-nte-fixture-v1") throw new InvalidDataException();
+        VerifySequenceFixture(marker);
         version = marker["localization_version"].GetByte();
         for (int i = 0; i < 100; i++) Files[$"Owned/Dummy/{i}"] = 0;
         foreach (var locale in texts.Keys) Files[$"Owned/Localization/{locale}/game.locres"] = 0;
@@ -170,6 +171,37 @@ public sealed class FixtureProvider : IDisposable
         Files["HT/Content/SrtFile/FFMpeg/Story/owned.srt"] = 0;
         UnloadedVfs.Add(new FixtureVfs());
         initialized = true;
+    }
+    static void VerifySequenceFixture(Dictionary<string, JsonElement> marker)
+    {
+        if (!marker.TryGetValue("sequence_case", out var selected)) return;
+        var kind = selected.GetString();
+        object Sequence(string name) => new {
+            CaptionsID = name,
+            Settings = new { PlayRate = 1, StartTime = 0, bRandomStartTime = false },
+            VoiceSource = new { AssetPathName = $"/Game/WwiseAudio/Events/CG/Owned/Play_Vo_CG_{name}.Play_Vo_CG_{name}" }
+        };
+        object? slot = kind switch {
+            "nulls" => null, "string" => "owned invalid slot", "number" => 7,
+            "boolean" => true, "array" => Array.Empty<object>(), _ => throw new InvalidDataException()
+        };
+        var row = JsonSerializer.SerializeToElement(new {
+            SequenceInfo = new object?[] { null, Sequence("owned_first"), slot, Sequence("owned_last"), null }
+        });
+        const string table = "HT/Content/DataTable/DT_StorySequenceData.uasset";
+        Func<string, IEnumerable<(string, JsonElement)>> rows = name =>
+            name == table ? new[] { ("owned_row", row) } : throw new InvalidDataException();
+        Func<string, object> export = _ => throw new InvalidDataException();
+        var voices = new HashSet<string>();
+        var method = System.Reflection.Assembly.GetEntryAssembly()!.GetType("NteReader", true)!
+            .GetMethod("ReadNteSequences", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        try {
+            method.Invoke(null, new object[] { new HashSet<string> { table }, rows, export, voices, "unused-owned-output" });
+        }
+        catch (System.Reflection.TargetInvocationException error) when
+            (kind != "nulls" && error.InnerException?.GetType().Name == "UnsupportedGameFormatException") { return; }
+        if (kind != "nulls" || !voices.SetEquals(new[] { "Play_Vo_CG_owned_first", "Play_Vo_CG_owned_last" }))
+            throw new InvalidDataException();
     }
     public void SubmitKey(Guid guid, FixtureKey key)
     {

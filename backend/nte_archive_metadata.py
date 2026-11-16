@@ -105,6 +105,24 @@ def _source(repository, source_path, fallback_revision, *, fetch=None, revision=
     return raw, revision, actual_digest, fallback
 
 
+def _cache_source(cache, revision, digest, raw):
+    path = cache / f'{revision}-{digest}.txt'
+    def identical():
+        try:
+            return path.is_file() and path.stat().st_size == len(raw) and path.read_bytes() == raw
+        except OSError:
+            return False
+    if identical():
+        return
+    try:
+        _atomic_file(path, raw)
+    except PermissionError:
+        # Concurrent preparation can publish the same verified immutable source
+        # while another Windows reader denies replacement of that exact file.
+        if not identical():
+            raise
+
+
 def load(*, fetch=None, revision=None, digest=None, cache=None):
     raw, revision, actual_digest, fallback = _source(REPOSITORY, SOURCE_PATH, FALLBACK_REVISION,
         fetch=fetch, revision=revision, digest=digest, cache=cache)
@@ -119,7 +137,7 @@ def load(*, fetch=None, revision=None, digest=None, cache=None):
             parameters[region] = value.lower()
         check(parameters)
         if cache is not None:
-            _atomic_file(cache / f'{revision}-{actual_digest}.txt', raw)
+            _cache_source(cache, revision, actual_digest, raw)
     except (OSError, ValueError, TypeError) as error:
         raise PreparationFailure('game_metadata_unavailable',
             'The NTE archive format source is unavailable or incompatible. '
@@ -143,7 +161,7 @@ def load_localization(*, fetch=None, revision=None, digest=None, cache=None):
     parameters = re.findall(rb'0x[0-9a-fA-F]{64}', raw)
     check(len(parameters) == 1)
     if cache is not None:
-        _atomic_file(cache / f'{revision}-{actual_digest}.txt', raw)
+        _cache_source(cache, revision, actual_digest, raw)
     return LocalizationCatalog(revision, actual_digest, parameters[0].decode('ascii').lower(), fallback)
 
 

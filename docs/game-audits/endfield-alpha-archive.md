@@ -147,6 +147,40 @@ this player's recording.
 
 The complete archived bedside movie was also retrieved. Its SHA-256 is `5c9e47bb0af3c55a10858c3715c22099f86499ba85281090b27f384f5e4ab23f`, with 61,960,960 bytes. The internal CRI directory identifies `fmv_e0m1_3.usm`. Traversal of the complete file found one CRID directory and 4,355 video packets, with zero audio packets. The separate Wwise recording above supplies its English soundtrack.
 
+### Further independent Technical Test recording
+
+A further November 16 search located Yang Yan's November 10, 2023 Technical
+Test playthrough. Independent original-waveform comparisons recover the three
+scene mixes in its first part. The first aircraft search covered 1,150 seconds;
+the motorcycle search then covered the complete 1,862-second part because that
+scene occurs after the initial search window.
+
+| Original scene | Independently matched source excerpts (s) | Recording-to-upload offset (s) | Correlations |
+| --- | --- | ---: | --- |
+| Aircraft | 67, 81 | 143.6906 | 0.923, 0.994 |
+| Bedside | 56, 117, 129, 134 | 794.7839 | 0.631, 0.973, 0.708, 0.608 |
+| Motorcycle ambush | 0.5, 5, 10 | 1171.5452 | 0.990, 0.906, 0.807 |
+
+The comparison uses the original Mandarin WEMs and the same 8 kHz,
+320–3,500 Hz waveform procedure above. Other aircraft excerpts at 4, 20,
+26, 76 and 84 seconds recover the same offset but weaker correlations.
+The bedside excerpt at 137 seconds does not recover a reliable corresponding
+match and is not counted. Commentary overlaps parts of the recording; this
+source does not independently validate every utterance.
+
+Direct frames show aircraft captions `07`, `08` and `09` at approximately
+**3:29**, **3:32** and **3:35**. A one-second frame scan starting at 3:44
+also recovers `10` and the brief `11`. Bedside `20` is visible at **15:28**;
+the motorcycle's second call is visible at **19:35**. Their original Chinese
+text matches the archived subtitle entries. These remain caption checkpoints
+and scene identities, not verified full spoken intervals. All seven pending
+Mandarin cuts remain excluded from sentence export. Acquisition continues to
+use the verified original archive independently of this gameplay recording.
+[Aircraft](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=209)
+· [Final aircraft captions](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=224)
+· [Bedside introduction](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=928)
+· [Motorcycle call](https://www.bilibili.com/video/BV1ac411X7YD/?p=1&t=1175)
+
 ## Original motorcycle ambush scene
 
 The same verified English package contains media **52120711**, a

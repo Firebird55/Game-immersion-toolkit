@@ -116,6 +116,18 @@ class SignedSource:
                 return data
         return None
 
+    def _store(self, index, data):
+        # Another preparation/playback process may have published this same
+        # immutable chunk while the request was in flight. Windows readers can
+        # deny replacing it; accept only its verified, byte-identical contents.
+        if self._cached(index) == data:
+            return
+        try:
+            _atomic_file(self.root / f'{index}.chunk', data)
+        except PermissionError:
+            if self._cached(index) != data:
+                raise
+
     def read(self, position, size):
         check(type(position) is int and type(size) is int and 0 < size <= MEMBER_LIMIT and
               0 <= position <= self.item.size - size)
@@ -139,7 +151,7 @@ class SignedSource:
             check(all(self._valid(index + i, part) for i, part in enumerate(blocks)))
             # No part of this response is activated before every chunk passes.
             for i, part in enumerate(blocks):
-                _atomic_file(self.root / f'{index + i}.chunk', part)
+                self._store(index + i, part)
             parts.extend(blocks)
             index = stop
         start = position - first * CHUNK

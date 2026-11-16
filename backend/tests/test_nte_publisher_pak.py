@@ -115,6 +115,67 @@ def open_archive(data, tmp_path, monkeypatch, *, region='nte-global'):
     return pak.Archive(source, CATALOG), requests
 
 
+@pytest.mark.parametrize('identical', [True, False])
+def test_competing_chunk_writer_accepts_only_identical_verified_bytes(tmp_path, monkeypatch, identical):
+    data = package([('large.wem', bytes(range(256)) * 1024, 0, False, False)])
+    archive, requests = open_archive(data, tmp_path, monkeypatch)
+    source = archive.source
+    assert source._cached(0) is None
+    atomic = pak._atomic_file
+    writes = []
+    def competing(path, value):
+        writes.append(path.name)
+        atomic(path, value if identical else b'x' * len(value))
+        raise PermissionError('Owned competing writer shares this cache file')
+    monkeypatch.setattr(pak, '_atomic_file', competing)
+    if not identical:
+        with pytest.raises(PermissionError):
+            source.read(0, pak.CHUNK)
+        assert source._cached(0) is None
+    else:
+        assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        before = len(requests)
+        assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        assert len(requests) == before
+    assert writes == ['0.chunk']
+
+
+@pytest.mark.skipif(__import__('os').name != 'nt', reason='Windows file-sharing behavior')
+@pytest.mark.parametrize('identical', [True, False])
+def test_windows_reader_lock_during_duplicate_download_preserves_verified_cache(tmp_path, monkeypatch, identical):
+    import ctypes
+    from ctypes import wintypes
+    data = package([('large.wem', bytes(range(256)) * 1024, 0, False, False)])
+    archive, _ = open_archive(data, tmp_path, monkeypatch)
+    source, network = archive.source, release.read_range
+    api = ctypes.WinDLL('kernel32', use_last_error=True)
+    api.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+                               wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    api.CreateFileW.restype = wintypes.HANDLE
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    handles = []
+    def downloading(*args):
+        content = network(*args)
+        path = source.root / '0.chunk'
+        path.write_bytes(content if identical else b'x' * len(content))
+        handle = api.CreateFileW(str(path), 0x80000000, 1, None, 3, 0x80, None)
+        assert handle != ctypes.c_void_p(-1).value, ctypes.get_last_error()
+        handles.append(handle)
+        return content
+    monkeypatch.setattr(release, 'read_range', downloading)
+    try:
+        if identical:
+            assert source.read(0, pak.CHUNK) == data[:pak.CHUNK]
+        else:
+            with pytest.raises(PermissionError):
+                source.read(0, pak.CHUNK)
+    finally:
+        for handle in handles:
+            assert api.CloseHandle(handle)
+    assert len(handles) == 1
+
+
 @pytest.mark.parametrize('block_size', [128, 4096])
 @pytest.mark.parametrize('explicit', [False, True])
 def test_encrypted_compressed_members_accept_declared_padding_without_decoding_it(tmp_path, monkeypatch, block_size, explicit):

@@ -77,10 +77,19 @@ class LocalDialogue:
     dialogue_kind: str | None = None
     previous_text_id: str | None = None
     requires_previous: bool = False
+    text_binding_unresolved: bool = False
+    unresolved_text_locales: list[str] | None = None
 
     def __post_init__(self):
         status = dialogue_voice_status(self.audio, self.voice_status)
         dialogue_capture_channels(self.channels)
+        if type(self.text_binding_unresolved) is not bool or (
+                self.unresolved_text_locales is not None and
+                (not isinstance(self.unresolved_text_locales, list) or
+                 any(not isinstance(locale, str) or not locale for locale in self.unresolved_text_locales))):
+            raise ValueError('Invalid unresolved text binding metadata')
+        if self.text_binding_unresolved and self.audio:
+            raise ValueError('Unresolved study text cannot bind an original recording')
         object.__setattr__(self, 'audio_scope', dialogue_audio_scope(self.audio, self.audio_scope))
         if self.requires_previous and not self.previous_text_id:
             raise ValueError('Conditional dialogue requires an authored predecessor')

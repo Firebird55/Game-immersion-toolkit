@@ -154,6 +154,55 @@ def test_original_movie_cut_is_exact_and_invalid_cues_never_encode(tmp_path, mon
         service.close()
 
 
+@pytest.mark.parametrize('batch', [False, True])
+@pytest.mark.parametrize('gain', [-6, float('nan'), True, 25, -61])
+def test_whole_original_voice_keeps_authored_gain_and_rejects_invalid_gain_before_encoding(tmp_path, monkeypatch, batch, gain):
+    data = tmp_path / 'cache'; data.mkdir()
+    decoder = tmp_path / 'decoder'; decoder.touch()
+    original = b'RIFF' + bytes(100)
+    (data / 'textmap.json').write_text(json.dumps({'install': str(tmp_path), 'fingerprint': 'verified',
+        'records': [{'text_id': 'fixture', 'audio': {'depot': 'original', 'gain_db': gain}}]}))
+    adapter = SimpleNamespace(fingerprint=lambda _: 'verified', extract_voice=lambda *_: original,
+                              extract_voices=lambda _root, audios, *_: [original for _ in audios])
+    monkeypatch.setattr(module, 'asset_adapter', lambda _: (adapter, 'synthetic'))
+    monkeypatch.setattr(module, 'ffmpeg_executable', lambda: 'encoder')
+    encoded = []
+    def run(args, **_):
+        if str(args[0]) == str(decoder):
+            if '-o' in args:
+                sources, destinations = [Path(args[-1])], [Path(args[args.index('-o') + 1])]
+            else:
+                sources = [Path(p) for p in args[2:]]
+                destinations = [Path(str(source) + '.wav') for source in sources]
+            for source, destination in zip(sources, destinations):
+                assert source.read_bytes() == original
+                with wave.open(str(destination), 'wb') as stream:
+                    stream.setnchannels(1); stream.setsampwidth(2); stream.setframerate(8000)
+                    stream.writeframes(bytes(32000))
+        else:
+            for i, argument in enumerate(args):
+                if argument == '-i':
+                    assert Path(args[i + 1]).is_file()
+            encoded.append(args)
+            Path(args[-1]).write_bytes(bytes(200))
+    monkeypatch.setattr(module.subprocess, 'run', run)
+    service = module.LocalVoiceAssetService('nte', data, decoder, tmp_path / 'clips')
+    try:
+        def extract():
+            return service.extract_batch([('fixture', 1, '')]) if batch else service.extract('fixture', 1)
+        if gain == -6 and type(gain) is int:
+            extract()
+            assert len(encoded) == 1
+            assert encoded[0][encoded[0].index('-af') + 1] == 'volume=-6.000000dB'
+            assert '-ss' not in encoded[0] and '-t' not in encoded[0]
+        else:
+            with pytest.raises(ValueError, match='gain'):
+                extract()
+            assert not encoded
+    finally:
+        service.close()
+
+
 @pytest.mark.parametrize('game', ['beyond', 'heavyrain'])
 def test_quantic_original_wav_is_trimmed_without_external_wem_decoder(tmp_path, monkeypatch, game):
     data = tmp_path / 'cache'; data.mkdir()
