@@ -38,6 +38,11 @@ Include the official speaker label in the capture area when it is shown above a
 short radio caption. The reader can use the complete name and caption together;
 the same sentence from another speaker remains separate. Anonymous labels such
 as `???` do not identify a recording or resolve an ambiguous translation.
+Written instruction-book bodies, guide-page explanations and referenced
+operator-training steps also use the unvoiced-text option. Their text is read
+across the full game frame; a bottom subtitle crop is not required. Illustrative
+videos, images, headings and short skill labels are separate from these written
+bodies. A tutorial video is not offered as the voice of its accompanying text.
 The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.

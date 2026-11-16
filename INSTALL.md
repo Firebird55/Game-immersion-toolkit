@@ -137,6 +137,9 @@ Honkai: Star Rail, Genshin Impact and Arknights: Endfield support English, both
 Chinese scripts, Japanese and Korean as study languages, paired with every
 listed official translation. See [Star Rail](docs/starrail-languages.md),
 [Genshin](docs/genshin-languages.md) and [Endfield](docs/endfield-languages.md).
+For Endfield's written instructions, guide pages and operator-training steps,
+enable unvoiced-text capture. These use the publisher's original text without a
+game folder; illustrative media is not a recording of the written explanation.
 
 For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
 For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.

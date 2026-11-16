@@ -154,6 +154,80 @@ current subtitled performance would reopen the relevant item. Historical
 English text and archive cuts remain explicitly incomplete in the
 [archive guide](endfield-alpha-archive.md).
 
+## Written instructions and tutorials
+
+The original current `InstructionBookCtrl`, `WikiGuideCtrl`,
+`WikiGuideTipsCtrl`, `WikiGuideMediaCell` and `DungeonCharTutorialStepHudCtrl`
+were retrieved from the same release's Lua manifest, completely MD5-checked and
+decoded as data, never executed. The first three views render the authored
+written body independently of titles and illustrative media. The training HUD
+selects its `stepDesc` through the current dungeon-stage `stepIds`; its icon and
+short `iconDesc` labels are separate fields.
+
+Revision 22 adds these finite current-format inventories:
+
+| Written presentation | Current authored bodies | Selection and treatment |
+| --- | ---: | --- |
+| Instruction books | 131 | Original `content`, separately from the heading |
+| Guide explanations | 631 | Original page `content`; all pages have current tutorial references; input-specific pages retain their own identity |
+| Operator-training steps | 498 | All current step definitions are referenced by the 29 dungeon tutorial entries; original `stepDesc`, separately from the skill label |
+
+These **1,260 bodies per study selection** are written, unvoiced presentations,
+using the existing opt-in full-frame text reader on the tip channel. They do not
+borrow a video, background track or combat bark as sentence audio. Their exact
+official translations come from the same localization tables; an absent
+translation is not synthesized. New compatible page IDs, body fields and stage
+references are discovered through the current original tables, not an ID list.
+Missing stage references produce an explicit warning; retained unreferenced step
+definitions are not treated as displayed training instructions. A changed
+required structure rejects preparation while retaining the previous snapshot.
+
+The ordinary installation-free Global 1.6.4 workers prepare **54,969 English,
+56,228 Simplified Chinese, 54,950 Traditional Chinese, 55,060 Japanese and 54,948
+Korean records**. Every previous record retains its complete texts, translations,
+audio reference, voice state and player/predecessor binding. A single old
+conversation's speaker OCR anchor is conservatively removed in each selection:
+a newly represented unnamed instruction has the same rendered caption. A name
+elsewhere in the frame must not turn that written explanation into speech.
+Saved recordings retain their original identity and source.
+
+A fresh, network-forbidden complete-index replay tests every new full body.
+Aliases count only when **all official texts and the unvoiced state agree**:
+
+| Study selection | Instruction bodies matched | Guide bodies matched | Training-step bodies matched | Standalone bodies still guarded |
+| --- | ---: | ---: | ---: | ---: |
+| English | 125 / 131 | 630 / 631 | 462 / 498 | 43 |
+| Simplified Chinese | 131 / 131 | 626 / 631 | 469 / 498 | 34 |
+| Traditional Chinese | 131 / 131 | 626 / 631 | 469 / 498 | 34 |
+| Japanese | 131 / 131 | 626 / 631 | 492 / 498 | 11 |
+| Korean | 131 / 131 | 626 / 631 | 498 / 498 | 5 |
+
+The [remaining standalone-body cases](endfield-tutorial-capture-guards-1.6.4.csv)
+need reliable presentation context or rendering support; a populated prepared
+row is not a complete capture pass. This replay does not change the existing
+radio result: 133 of 134 residual rows still match per selection under their
+applicable opt-ins/authored context, and each selection's two unknown cinematic
+captions retain their original state and complete-text guard.
+
+With revision-22 reader and unchanged format metadata frozen, an explicitly
+**replayed** original 1.5.3 descriptor prepares 49,438 English records, compared
+with live 1.6.4's 54,969. Every old ID remains, 5,531 records are added including
+3,156 voiced and **113 new written bodies**; six existing written explanations
+change alongside the five previously documented English changes. All previously
+prepared baseline texts/audio/states also remain equal to the retained
+revision-21 baseline apart from recognition anchors. This extends the existing
+changed-recording/restart proof; it does not claim a new physical-device test.
+
+The [publisher's update notes](https://endfield.gryphline.com/en-us/news/0751)
+independently identify current Basic Training and Operator Guide content. Those
+notes establish presentation availability, not exact runtime OCR or media
+coverage. These inventories are authored-body denominators, not a claim that
+every tutorial was unlocked or played on a physical device. Exact matching and
+ambiguity guards still apply to repeated or short explanations. Video sound,
+image-only text, input-glyph rendering and every physical layout remain separate
+acceptance work. No tutorial audio or story-wide completeness is inferred from
+the count of written bodies.
+
 ## Text provenance and remaining acceptance
 
 Reader revisions 19–20 mark text from the original conversation, radio, narration

@@ -13,7 +13,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 21
+LANGUAGE_INDEX_VERSION = 22
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -480,6 +480,42 @@ def narrative_dialogues(catalog, warnings):
     ):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, channel, status)
+
+    # The original InstructionBook/WikiGuide/DungeonCharTutorialStepHud
+    # controllers render these body fields as written explanations. Video,
+    # artwork, headings, skill labels and any separate audio stay independent.
+    for name, field, kind in (
+        ('InstructionBook', 'content', 'instruction'),
+        ('WikiTutorialPageTable', 'content', 'tutorial'),
+    ):
+        for identity, row in _table(catalog, name, warnings).items():
+            add(f'{name}:{identity}', _mapping(row).get(field), kind, 'tip')
+
+    # Only the actual current dungeon-stage references select step text.
+    # Retained unused definitions are not evidence of a displayed instruction.
+    steps = _table(catalog, 'DungeonCharTutorialStepTable', warnings)
+    step_ids = set()
+    for tutorial in _table(catalog, 'DungeonCharTutorialTable', warnings).values():
+        stages = _mapping(tutorial).get('tutorialStageData')
+        if not isinstance(stages, list):
+            _unsupported()
+        for stage in stages:
+            references = _mapping(stage).get('stepIds')
+            if not isinstance(references, list) or not all(isinstance(value, str) and value for value in references):
+                _unsupported()
+            step_ids.update(references)
+    missing_steps = 0
+    for identity in sorted(step_ids):
+        if identity not in steps:
+            missing_steps += 1
+            continue
+        add(f'DungeonCharTutorialStepTable:{identity}', _mapping(steps[identity]).get('stepDesc'),
+            'tutorial_step', 'tip')
+    if missing_steps:
+        warnings.append(f'Endfield dungeon tutorials reference {missing_steps:,} missing step bodies.')
+    if len(steps.keys() - step_ids):
+        warnings.append(f'{len(steps.keys() - step_ids):,} Endfield tutorial-step definitions have no current stage reference; '
+                        'their text is not prepared.')
 
     # DialogSkipPopUp displays the authored summary as text when a player
     # skips a scene. Several scenes may reference the same summary identity.
