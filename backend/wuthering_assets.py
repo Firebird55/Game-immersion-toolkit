@@ -25,12 +25,13 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 7
+LANGUAGE_INDEX_VERSION = 8
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
 COVERAGE_WARNINGS = [
     'Story-flow text, choices, messages, movie captions and readable records are indexed; presentation-specific OCR coverage is incomplete.',
     'Some film audio replays the complete scene, labeled as context. Other films still need verified audio bindings.',
+    'Shared-song audio uses its original sung language. Translated lyrics remain text with unavailable audio when that study language has no matching vocal.',
     'Combat and ambient audio events, embedded movie audio and dynamic voice filenames still lack complete per-line bindings.',
     'Floating 2D/3D caption text is indexed. Entity-only bubbles, legacy numeric subtitles, songs and event-specific text still have gaps.',
 ]
@@ -520,13 +521,21 @@ def _validate_voice(audio):
     if code is None or not isinstance(depot, str):
         raise ValueError('Invalid original voice locale or reference')
     media = re.fullmatch(r'Client/Content/Aki/WwiseAudio_Generated/Media/' + code + r'/([1-9][0-9]{0,9})\.wem', depot)
+    if audio.get('music_context') is True:
+        media = re.fullmatch(r'Client/Content/Aki/WwiseAudio_Generated/Media/([1-9][0-9]{0,9})\.wem', depot)
+        if audio.get('source_clock') != 'play_position' or audio.get('scene_context') is not True:
+            raise ValueError('Invalid original song source clock')
     if audio.get('publisher') and media and int(media[1]) <= 0xffffffff:
         if audio.get('scene_context') is True:
             frames, channels = audio.get('source_frames'), audio.get('source_channels')
             scene, event = audio.get('scene'), audio.get('event')
+            valid_scene = (isinstance(scene, str) and (
+                0 < len(scene) <= 512 and scene.isprintable() and bool(scene.strip())
+                if audio.get('music_context') is True else
+                bool(re.fullmatch(r'[A-Za-z0-9_]{1,128}', scene))))
             if (type(frames) is int and 0 < frames <= 48000 * 300
                     and type(channels) is int and channels in (1, 2)
-                    and isinstance(scene, str) and re.fullmatch(r'[A-Za-z0-9_]{1,128}', scene)
+                    and valid_scene
                     and isinstance(event, str) and re.fullmatch(r'[A-Za-z0-9_]{1,256}', event)
                     and 'start_ms' not in audio and 'end_ms' not in audio
                     and 'playback_scope' not in audio):

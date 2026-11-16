@@ -49,7 +49,7 @@ installation.
 | Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips and timed clue recordings in the selected dub. For other dialogue, select the installed files and matching voice pack |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
-| Wuthering Waves | Contains Client, or Client itself | Download the Chinese voice pack inside the game |
+| Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty for publisher preparation |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Optional: selected publisher edition, or Client/WindowsNoEditor/HT in an installed client | Publisher text and original voices, or selected installed voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, select Global or Mainland China and prepare the desired dub. The regional audio index selects released base and chapter packages |

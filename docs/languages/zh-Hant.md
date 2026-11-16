@@ -47,7 +47,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 可從發行商準備全球版台詞、原版配音和已核實的場景上下文片段
 
-Windows Setup can prepare dialogue and verified film contexts from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Context audio is labeled separately from individual lines.
+Windows Setup can prepare dialogue, verified film contexts and shared-song captions from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Song audio follows its original sung language; translated lyrics without that vocal retain unavailable audio. Context audio is labeled separately from individual lines.
 
 <details>
 <summary>語言詳細資訊</summary>

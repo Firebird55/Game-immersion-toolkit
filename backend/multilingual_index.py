@@ -462,7 +462,9 @@ class MultilingualTextIndex:
         """
         from .steam_games import STEAM_GAMES
         spec = STEAM_GAMES.get(self.game)
-        if self.game != 'endfield' and (not spec or not spec.floating_dialogue):
+        songs = self.game == 'wuwa' and self.snapshot_metadata.get(
+            'publisher_song_voices', self.snapshot_metadata.get('publisher_song_cues', 0))
+        if self.game != 'endfield' and not songs and (not spec or not spec.floating_dialogue):
             return []
         with self.lock:
             hits = self.match_lines(lines, exact_only=True, channel=None, multiple=True)
@@ -472,6 +474,8 @@ class MultilingualTextIndex:
                     top = hit.dialogue_kind == 'conversation' and 'cinematic' in self._capture_channels.get(hit.text_id, ())
                     if not hit.text_id.startswith('endfield:film:') and not top:
                         continue
+                if self.game == 'wuwa' and (not hit.text_id.startswith('wuwa:music:') or hit.dialogue_kind != 'music_subtitle'):
+                    continue
                 text = hit.source_ocr
                 minimum = 6 if re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]', text) else 12
                 if (hit.voice_status == 'voiced' and len(normalize_text(text)) >= minimum

@@ -1,5 +1,17 @@
 # Wuthering Waves dialogue audit
 
+## November 16, 2026 · Shared-song captions
+
+Publisher preparation adds the original MusicSubtitle presentation and verified
+whole-source contexts for 18 English song captions and 30 Mandarin captions per
+Chinese script. Their vocal language follows the authored Original/Translation
+relation rather than the selected UI/dub. Japanese/Korean translations retain
+unavailable audio; no translated singing or silence is invented. Song labels
+above the ordinary subtitle lane use exact full-frame recognition and authored
+predecessors for short successors. The source table has **282 rows in eighteen
+groups**, correcting the earlier 281-row total without a source change. Remaining
+graphs/current-use questions are explicit. [Original sources, gameplay/OCR, capture and update limits](wuwa-music-subtitles.md).
+
 ## November 16, 2026 · Verified complete-scene audio contexts
 
 Publisher preparation now emits explicitly labeled `context` audio for native
@@ -82,10 +94,11 @@ This does not establish that their complete utterances cannot fit in a bounded
 context: the original late-source comparisons below remain valid. Generic
 authored groups, complex callers and clocks still need their joins. Native
 MusicSubtitle adds another distinct presentation: the current table contains
-281 rows in eighteen groups, and its runtime synchronizes captions to the
+282 rows in eighteen groups, and its runtime synchronizes captions to the
 actual source playback position. Five no-VideoSound films invoke that manager
 from original movie frame events; M0395 instead posts its exact Global event at
-frame zero. These callers are inventoried but not yet promoted. Frozen-version
+frame zero. The shared-song section above adds two proven direct-source cases;
+the other caller/graph joins remain open. Frozen-version
 update/recovery acceptance, remaining presentations and regional/platform
 coverage are still open. No original audio, frames or native dumps are published.
 
