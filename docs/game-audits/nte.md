@@ -832,6 +832,41 @@ then reproduced identical fresh PCM with publisher discovery and ranges
 prohibited. Source and native provenance remain edition-specific even where
 generated schema bytes agree.
 
+### Original dialogue caller inventory and native class investigation
+
+A further original Global 1.5.4 `AssetRegistry.bin` read identifies **2,196**
+`DlgDialogue` assets by their declared class. All exist in the selected publisher
+index, with 32,353,708 aggregate declared package bytes. A bounded private read
+completed all 2,196 assets, 54,281 exports, 49,867 node slots and 52,265 edges.
+It transferred 6,352,032 additional publisher-range bytes against warmed research
+caches; that is not a cold acquisition estimate. These are authored graph
+inventories, not independent spoken-line or complete-story counts.
+
+The enlarged actual-reader lookup set requires 75 types and 13 enums. The current
+schema validator refuses ten required definitions. In particular, the current
+native `DlgTurnRotation` definition has two fields absent from the retained
+description, including a new enum field. Successful JSON extraction alone does
+not establish that these layouts are current, so no additional predecessor or
+comic capture is enabled by this investigation.
+
+The bounded experimental `backend/nte_native_classes.py` reader joins original
+class-registration names to complete class property descriptors through an exact
+`StaticClass` pointer. Parent registrations, counts, pointer ranges and writable
+zero-initialized registration storage are checked without loading client code.
+It reads **11,121** class declarations from original Global 1.4.9 and **11,566**
+from original Global 1.5.4, including the six required dialogue classes missing
+from the earlier struct-only scanner. Twelve owned fixtures cover relocation,
+class parents, BSS bounds, ambiguous names, malformed pointers and aggregate
+limits. Class-aware generation and required-layout validation remain separate
+work before this API can supply ordinary graph preparation.
+
+Earlier Blueprint property dumps also omitted stored script expressions by
+default. A private data-only read now parses all 111 function bodies in 32 media
+and sequence assets and all 89 function bodies in the bounded 177-asset
+celebration caller set, each ending with `EX_EndOfScript`. This supplies new
+caller evidence; it does not establish silence or lack of use for a string
+absent from those sets. The unresolved duplicate-caption guard remains intact.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats
