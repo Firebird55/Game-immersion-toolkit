@@ -125,6 +125,29 @@ not confirm the strongest first-caption candidates: English scores
 a particular reaction performer or a permanent text-only state. All nine
 rows with unresolved configured interjections remain open.
 
+### Additional An Yu sources and audio qualification
+
+A further November 16 search located three more independent uploads. Frame
+checks identify the same three publisher captions, in the order listed above.
+The Android platform attribution below is the uploader's description, not
+toolkit device-acceptance evidence.
+
+| Upload | Published | First caption | Second caption | Third caption |
+| --- | --- | --- | --- | --- |
+| WantAndroidGames, Android gameplay | September 30, 2026 | [5:15](https://www.youtube.com/watch?v=fX33ZOiwXC4&t=315s) | [5:27](https://www.youtube.com/watch?v=fX33ZOiwXC4&t=327s) | [5:32](https://www.youtube.com/watch?v=fX33ZOiwXC4&t=332s) |
+| Hanks Playing Games | May 26, 2026 | [2:36](https://www.youtube.com/watch?v=W1utQxT-OzY&t=156s) | [3:30](https://www.youtube.com/watch?v=W1utQxT-OzY&t=210s) | [3:36](https://www.youtube.com/watch?v=W1utQxT-OzY&t=216s) |
+| NeoBuns | May 28, 2026 | [11:18](https://www.youtube.com/watch?v=lcRkiu1fkDI&t=678s) | [11:23](https://www.youtube.com/watch?v=lcRkiu1fkDI&t=683s) | [11:27](https://www.youtube.com/watch?v=lcRkiu1fkDI&t=687s) |
+
+These are caption checkpoints, not spoken boundaries. A whole-upload speech
+scan recovered no usable independent dialogue control in any of the three.
+Searching the available English and Japanese configured-reaction references
+also yielded no verified performer. Neither check establishes whether a
+different dub, a quiet voice setting or the game's own playback conditions
+explain the absence. These uploads are retained as caption/layout evidence;
+their negative audio results do not strengthen the claim of a text-only row.
+The earlier English, Japanese and Mandarin waveform controls remain the
+qualified voice observations. No actor or silence override is added.
+
 ### Independent Landbreaker control
 
 A further *Where Art Thou My Love* playthrough displays the Angry and Lazy
@@ -136,6 +159,34 @@ movement sounds continue. This is a Japanese playback observation,
 not a verified Landbreaker voice binding.
 [Japanese control](https://www.youtube.com/watch?v=trE3BE09sCk&t=47s)
 · [Both Landbreaker captions](https://www.youtube.com/watch?v=trE3BE09sCk&t=76s)
+
+### Further Spray and Clean playback
+
+A newly located August 15 upload by Black Gato Acer shows Chen's exact
+`radio_m1m73_5_001` and `_002` captions at about **5:11** and **5:17**.
+The dub is independently Japanese: the original publisher recordings
+`au_dlg_commvo_fiona_negative_02`, `positive_05` and `sigh_02` match the
+earlier Fiona captions at **1:41.360**, **2:25.648** and **3:10.096**,
+with normalized correlations **0.953**, **0.826** and **0.801**. These are
+three distinct configured reactions, not full recordings of their displayed
+sentences. The same events in the other three dubs reach at most 0.281 in
+these search windows.
+[First Fiona control](https://www.youtube.com/watch?v=II2KdLwqA0Y&t=101s)
+· [Second control](https://www.youtube.com/watch?v=II2KdLwqA0Y&t=145s)
+· [Third control](https://www.youtube.com/watch?v=II2KdLwqA0Y&t=190s)
+· [First Chen caption](https://www.youtube.com/watch?v=II2KdLwqA0Y&t=311s)
+· [Second Chen caption](https://www.youtube.com/watch?v=II2KdLwqA0Y&t=317s)
+
+The Chen searches cover 5:02–5:16 and 5:10–5:24, including short reaction
+references down to 30 ms. Comparing 477 measurable Japanese references for
+the configured emotion 29 produces maxima of 0.363 and 0.400. Separate
+frequency-band checks do not confirm those candidates: above 700 Hz the
+first reaches at most 0.067 and the second 0.131 at their proposed positions.
+Speech detection finds no speech over the two captions, and unprompted
+transcription recovers no corresponding words. This is another observation
+with independently verified game voices; it still supplies neither an
+authored Chen performer nor proof of permanent silence. Both Chen rows,
+and all nine unresolved reaction rows, remain open.
 
 ## Four rows without a configured interjection
 
