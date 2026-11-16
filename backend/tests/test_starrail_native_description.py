@@ -89,3 +89,56 @@ def test_incomplete_or_ambiguous_native_evidence_is_rejected(mutation):
 def test_malformed_or_ambiguous_primitive_metadata(instructions, methods):
     with pytest.raises(ValueError):
         native.primitive_readers(instructions, methods, 0)
+
+
+def key_evidence(multiplier=0x123456789ABC, addition=0x765432101234, step=0xABCDEF123456,
+                 index='rax', key='rdx', temporary='r11', negative_bits=19, positive_bits=24):
+    mask_register = {'rax': 'eax', 'r8': 'r8d'}[index]
+    instructions = [
+        ('shr', f'ecx, {hex(negative_bits)}'), ('shr', f'edx, {hex(positive_bits)}'),
+        ('test', 'r13d, r13d'), ('mov', f'ecx, {hex((1 << negative_bits) - 1)}'),
+        ('mov', f'{mask_register}, {hex((1 << positive_bits) - 1)}'),
+        ('cmovs', f'{mask_register}, ecx'), ('and', f'{mask_register}, r13d'),
+        ('movabs', f'{temporary}, {hex(multiplier)}'), ('imul', f'{temporary}, {index}'),
+        ('movabs', f'{key}, {hex(addition)}'), ('add', f'{key}, {temporary}'),
+        ('ret', ''), ('movabs', f'{temporary}, {hex(step)}'),
+        ('imul', f'{temporary}, r10'), ('add', f'{key}, {temporary}'), ('jmp', '0x1')]
+    return [(i + 1, operation, operands) for i, (operation, operands) in enumerate(instructions)]
+
+
+@pytest.mark.parametrize('values', [
+    {}, {'multiplier': 0xFEDCBA9876543210, 'addition': 5, 'step': 0x123,
+         'index': 'r8', 'key': 'r15', 'temporary': 'rbx', 'negative_bits': 21, 'positive_bits': 26},
+])
+def test_string_operands_masks_and_registers_change_without_key_list(values):
+    instructions = key_evidence(**values)
+    description = native.string_key(instructions)
+    assert description == {
+        'multiply': values.get('multiplier', 0x123456789ABC), 'add': values.get('addition', 0x765432101234),
+        'step': values.get('step', 0xABCDEF123456),
+        'negative_index_mask': (1 << values.get('negative_bits', 19)) - 1,
+        'positive_index_mask': (1 << values.get('positive_bits', 24)) - 1}
+    assert native.string_key([list(row) for row in instructions]) == description
+
+
+@pytest.mark.parametrize('mutation', ['mask', 'sign', 'index', 'shift', 'seed', 'step', 'ambiguous', 'width'])
+def test_string_key_rejects_missing_or_ambiguous_data_flow(mutation):
+    instructions = key_evidence()
+    if mutation == 'mask':
+        instructions[3] = (4, 'mov', 'ecx, 0x123')
+    elif mutation == 'sign':
+        instructions[5] = (6, 'cmovns', 'eax, ecx')
+    elif mutation == 'index':
+        instructions[6] = (7, 'and', 'eax, r14d')
+    elif mutation == 'shift':
+        instructions[0] = (1, 'nop', '')
+    elif mutation == 'seed':
+        instructions[10] = (11, 'add', 'rsi, r11')
+    elif mutation == 'step':
+        instructions[14] = (15, 'add', 'rsi, r11')
+    elif mutation == 'ambiguous':
+        instructions += [(i + 100, op, args) for i, op, args in instructions]
+    elif mutation == 'width':
+        instructions[7] = (8, 'movabs', 'r11, 0x10000000000000000')
+    with pytest.raises(ValueError):
+        native.string_key(instructions)

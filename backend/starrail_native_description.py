@@ -22,7 +22,8 @@ def _instructions(value):
         _check(isinstance(row, (list, tuple)) and len(row) == 3)
         address, operation, operands = row
         _check(type(address) is int and previous < address < 1 << 64
-               and isinstance(operation, str) and re.fullmatch('[a-z][a-z0-9]{0,23}', operation)
+               and isinstance(operation, str)
+               and re.fullmatch(r'(?:(?:lock|rep|repe|repne|bnd) )?[a-z][a-z0-9]{0,23}', operation)
                and isinstance(operands, str) and len(operands) <= 512)
         previous = address
     _check(value[-1][0] - value[0][0] <= 65536)
@@ -128,3 +129,68 @@ def client_schema(metadata_block, instructions, readers):
     _check(len(stores) == len(fields) and {offset for offset, _, _ in stores} == set(fields)
            and len({register for _, register, _ in stores}) == 1)
     return [field for _, _, field in stores]
+
+
+def string_key(instructions):
+    """Describe the evidenced masked-index scalar string codec, data only.
+
+    The caller must establish this function's ownership through original native
+    references. This recognizes a strict instruction/data-flow shape and returns
+    its operands, without a known-key list or a claim of general decompilation.
+    Metadata header/record layouts and helper lifecycle remain separate inputs.
+    """
+    instructions = _instructions(instructions)
+    registers = {'r' + name for name in ('ax', 'bx', 'cx', 'dx', 'si', 'di', 'bp', 'sp')}
+    registers.update(f'r{i}' for i in range(8, 16))
+    aliases = dict(zip(('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'esp'),
+                       ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp')))
+    aliases.update({f'r{i}d': f'r{i}' for i in range(8, 16)})
+
+    def literal(row):
+        _, operation, operands = row
+        match = re.fullmatch(r'([a-z0-9]+), (0x[0-9a-f]+|[0-9]+)', operands)
+        if operation in {'mov', 'movabs'} and match:
+            value = int(match[2], 0)
+            _check(value < 1 << 64)
+            return match[1], value
+        return None
+
+    seeds, steps = [], []
+    for i in range(len(instructions) - 3):
+        multiplier = literal(instructions[i])
+        if multiplier is None or multiplier[0] not in registers:
+            continue
+        _, operation, operands = instructions[i + 1]
+        multiply = re.fullmatch(multiplier[0] + r', ([a-z0-9]+)', operands)
+        if operation != 'imul' or not multiply or multiply[1] not in registers:
+            continue
+        addition = literal(instructions[i + 2])
+        if addition and addition[0] in registers and tuple(instructions[i + 3][1:]) == (
+                'add', f'{addition[0]}, {multiplier[0]}'):
+            seeds.append((i, multiplier[1], addition[1], addition[0], multiply[1]))
+        # Scalar tail advances the same seed by step * already-read blocks.
+        _, operation, operands = instructions[i + 2]
+        advance = re.fullmatch(r'([a-z0-9]+), ' + multiplier[0], operands)
+        if operation == 'add' and advance and advance[1] in registers:
+            steps.append((multiplier[1], advance[1]))
+    _check(len(seeds) == 1)
+    at, multiplier, addition, key_register, index_register = seeds[0]
+    step_values = {value for value, target in steps if target == key_register}
+    _check(len(step_values) == 1 and at >= 5)
+    prefix = instructions[at - 5:at]
+    negative, positive = literal(prefix[1]), literal(prefix[2])
+    _check(negative is not None and positive is not None
+           and negative[0] in aliases and positive[0] in aliases)
+    index = re.fullmatch(r'([a-z0-9]+), \1', prefix[0][2])
+    _check(prefix[0][1] == 'test' and index is not None and index[1] in aliases
+           and aliases[positive[0]] == index_register)
+    _check(tuple(prefix[3][1:]) == ('cmovs', f'{positive[0]}, {negative[0]}')
+           and tuple(prefix[4][1:]) == ('and', f'{positive[0]}, {index[1]}'))
+    for mask in (negative[1], positive[1]):
+        _check(0 < mask < 1 << 31 and mask & (mask + 1) == 0)
+        _check(any(operation == 'shr' and re.fullmatch(
+            r'[a-z0-9]+, (?:' + hex(mask.bit_length()) + '|' + str(mask.bit_length()) + ')', operands)
+                   for _, operation, operands in instructions))
+    _check(negative[1] < positive[1] and multiplier != 0 and next(iter(step_values)) != 0)
+    return {'negative_index_mask': negative[1], 'positive_index_mask': positive[1],
+            'multiply': multiplier, 'add': addition, 'step': next(iter(step_values))}
