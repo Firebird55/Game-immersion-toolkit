@@ -535,6 +535,50 @@ passes the authenticated 213,538,488-byte module. This uses existing cached data
 it is not a fresh source-generation check, a complete new network plan, a new
 whole-APK verification or Android/device acceptance.
 
+## Dialogue-container and dynamic-key ownership checkpoint
+
+Two separately approved footer-only probes now bind the original
+`Default_Lua_2872_P.pak` and `Delay_Base_Bin_2872_P.pak` metadata to their original
+BuildPatch carriers. Both complete decoded-chunk SHA-1 checks and strict
+HEAD/ETag/If-Match/post-HEAD generation checks pass. The selected output is only
+221 footer bytes per package. The Lua footer has the evidenced encrypted v12
+zero-GUID format; the Bin footer uses the same framing with a nonzero encryption
+GUID. The default-key reader deliberately does not try that nonzero GUID. It
+requires an independently evidenced source producer, not a guessed default key
+or a package-format-change/impossibility conclusion.
+
+One additional approved 1,030,282-byte carrier supplies the Lua main index;
+its complete plaintext SHA-1 passes with the native-derived default material.
+The 720,944-byte full directory is reconstructed entirely from two retained,
+authenticated carriers with zero new network bytes. Its expected SHA-1 comes
+directly from the verified main-index descriptor. The owned reader reaches
+directory/index EOF and validates all 14,688 directory/compact-entry references.
+It reads no script, configuration-table, full member-header or audio bodies in
+this phase. Neither resource counts nor hashed script paths establish active
+dialogue, full-package integrity or a text/voice binding.
+
+These footer/main-index acquisitions total 2,974,109 new body bytes, including
+941,200 explicitly disclosed bytes to reobtain the previously discarded
+Framework carrier. All three authenticated compressed carriers are retained for
+exact subsequent metadata reuse. Related original source, selected metadata,
+receipts and private probe scripts total 5,027,322 bytes within the approved
+5 MiB phase cap; other carrier contents are not extracted as members. An invalid
+41-hex manual transcription was rejected before directory decryption, explicitly
+corrected against the original 20-byte descriptor, and preserved in the private
+receipt. Subsequent comparisons use parsed digest bytes directly.
+
+The already retained Global updater supplies a concrete official dynamic-key
+route: version/platform `PACDKCINFO_` parameters, followed by native Base64
+keychain creation, group refresh/deserialization and registration. Its referenced
+`PaperKVMgr` calls `/v1/gameconfig/parameter` through the original URL/signature
+builder and remote-JSON consumer. That builder consumes
+`UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
+explicitly overrides the baseline SDK configuration from these native fields;
+launcher values and baseline SDK values therefore cannot be substituted without
+proving ownership. The actual regional settings producer, exact signature
+dataflow and dynamic-chain deserializer remain open. No request using guessed
+client material, community key, Lua VM or original game execution is made.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
