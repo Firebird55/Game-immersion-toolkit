@@ -211,3 +211,92 @@ def test_late_update_finishes_cache_without_stealing_selected_source_across_rest
         assert host.session.direct_descriptor['revision'] == 'authored-two'
         assert provider.downloads == 2
     finally: host.close()
+
+
+def test_fresh_host_resumes_interrupted_original_from_managed_bytes_without_capture_or_download(tmp_path):
+    fixture_library(tmp_path / 'authored')
+    raw = (tmp_path / 'authored/tone.wav').read_bytes()
+    voice = LocalVoice(raw); voice.release = threading.Event(); provider = LocalProvider(voice)
+    frontend = tmp_path / 'reader'; frontend.mkdir(); (frontend / 'index.html').write_text('<head></head>')
+    root = tmp_path / 'application'
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': provider})
+    install(host)
+    generation = host.session.start()
+    host.session.observe(generation, 1, [TEXT], now=1)
+    identity = host.session.observe(generation, 2, [TEXT], now=1.1)[0]['id']
+    assert voice.entered.wait(2)
+    previous = host.session
+    host.close(); voice.release.set()
+    until = time.monotonic() + 3
+    while previous.recording_jobs and time.monotonic() < until: time.sleep(.01)
+    assert not previous.history.get(identity).has_audio
+    # No reference to the previous provider's original bytes is required.
+    fresh = LocalProvider(LocalVoice(b''))
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': fresh})
+    try:
+        until = time.monotonic() + 3
+        while not host.session.history.get(identity).has_audio and time.monotonic() < until:
+            host.snapshot(); time.sleep(.01)
+        assert host.session.history.get(identity).has_audio
+        assert not host.session.running and host.receiver_owner is None
+        assert request(host, 'GET', f'/api/lines/{identity}/audio')[1] == raw
+        assert fresh.voice.calls == 1 and fresh.downloads == 0
+    finally: host.close()
+
+
+def test_delete_preservation_blocks_new_capture_and_snapshot_decode_until_safe_commit(tmp_path):
+    fixture_library(tmp_path / 'authored')
+    raw = (tmp_path / 'authored/tone.wav').read_bytes()
+    voice = LocalVoice(raw); voice.release = threading.Event(); provider = LocalProvider(voice)
+    frontend = tmp_path / 'reader'; frontend.mkdir(); (frontend / 'index.html').write_text('<head></head>')
+    host = AndroidHost(tmp_path / 'application', frontend, game_data_providers={'zzz': provider})
+    result = []; worker = None
+    try:
+        install(host)
+        generation = host.session.start()
+        host.session.observe(generation, 1, [TEXT], now=1)
+        identity = host.session.observe(generation, 2, [TEXT], now=1.1)[0]['id']
+        assert voice.entered.wait(2); host.session.stop(); voice.release.set()
+        until = time.monotonic() + 3
+        while host.session.recording_jobs and time.monotonic() < until: time.sleep(.01)
+        assert not host.session.history.get(identity).has_audio
+        voice.entered.clear(); voice.release = threading.Event()
+        revision = game(host)['revision']
+        worker = threading.Thread(target=lambda: result.append(action(host, 'DELETE', '/zzz/data', {'revision': revision})))
+        worker.start(); assert voice.entered.wait(2)
+        status, value = request(host, 'POST', '/api/capture/start', headers=headers(host))
+        assert status == 409 and value['code'] == 'game_data_busy'
+        for _ in range(3): host.snapshot()
+        assert host.session.source_transition and not host.session.recording_jobs
+        voice.release.set(); worker.join(3)
+        assert not worker.is_alive() and result[0][0] == 200
+        assert host.session.index is None and not host.session.source_transition
+        assert request(host, 'GET', f'/api/lines/{identity}/audio')[1] == raw
+    finally:
+        voice.release.set()
+        if worker: worker.join(3)
+        host.close()
+
+
+def test_unexpected_native_decoder_failure_is_bounded_until_explicit_retry(tmp_path):
+    fixture_library(tmp_path / 'authored'); raw = (tmp_path / 'authored/tone.wav').read_bytes()
+    voice = LocalVoice(raw); provider = LocalProvider(voice)
+    def fail(*_, **__):
+        voice.calls += 1
+        raise RuntimeError('Authored native bridge failure; never expose provider diagnostics')
+    voice.resolve = fail
+    frontend = tmp_path / 'reader'; frontend.mkdir(); (frontend / 'index.html').write_text('<head></head>')
+    host = AndroidHost(tmp_path / 'application', frontend, game_data_providers={'zzz': provider})
+    try:
+        install(host)
+        generation = host.session.start()
+        host.session.observe(generation, 1, [TEXT], now=1)
+        identity = host.session.observe(generation, 2, [TEXT], now=1.1)[0]['id']
+        until = time.monotonic() + 3
+        while identity not in host.session.recording_errors and time.monotonic() < until: time.sleep(.01)
+        for _ in range(5):
+            line = host.snapshot()['lines'][0]
+            assert line['original_audio_expected'] and not line['audio_pending'] and not line['has_audio']
+            assert 'provider diagnostics' not in json.dumps(line)
+        assert voice.calls == 1
+    finally: host.close()

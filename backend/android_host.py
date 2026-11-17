@@ -150,6 +150,7 @@ class AndroidHost:
             ctx.check()
             if source is None:
                 if session.index and session.index.game == ctx.game:
+                    session.source_transition = True
                     session.stop('Preserving saved original recordings before deletion')
             else:
                 active = {'schema': 'active-game-data-v1', 'game': ctx.game,
@@ -170,13 +171,17 @@ class AndroidHost:
                     raise
                 return
         # A decoder can take time; pause/account selection remain responsive.
-        session.preserve_game_recordings(ctx.game, source_for, cancelled=ctx.cancelled)
-        with session.lock:
-            ctx.check()
-            active = _read(session.root / 'active-game-data.json')
-            if active and active.get('game') == ctx.game:
-                _write(session.root / 'active-game-data.json', {'schema': 'active-game-data-v1', 'game': None})
-            session.deactivate_source(ctx.game)
+        try:
+            session.preserve_game_recordings(ctx.game, source_for, cancelled=ctx.cancelled)
+            with session.lock:
+                ctx.check()
+                active = _read(session.root / 'active-game-data.json')
+                if active and active.get('game') == ctx.game:
+                    _write(session.root / 'active-game-data.json', {'schema': 'active-game-data-v1', 'game': None})
+                session.deactivate_source(ctx.game)
+        finally:
+            with session.lock:
+                session.source_transition = False
 
     def _ensure_game_restore(self):
         session = self.session
@@ -191,6 +196,8 @@ class AndroidHost:
                         or not isinstance(active['directory'], str) or re.fullmatch('[0-9a-f]{64}', active['directory']) is None
                         or not isinstance(active['source'], dict) or active['source'].get('directory') != active['directory']):
                     raise ValueError('Invalid active game source')
+                if session.direct_descriptor == active['source'] and session.index is not None:
+                    return  # Already validated/active; do not compile a second full corpus.
             with self.game_restore_lock:
                 if session in self.game_restored:
                     return

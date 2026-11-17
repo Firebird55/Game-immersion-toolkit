@@ -31,10 +31,21 @@ class LocalProvider(Provider):
     def __init__(self, voice): super().__init__(); self.voice = voice
     def download(self, plan, ctx):
         result = super().download(plan, ctx)
-        return SnapshotSource(result.snapshot_path, result.restore_handle, PROOF,
+        handle = result.restore_handle
+        if ctx.request.content_mode == 'text-audio':
+            ctx.consume_bytes(len(self.voice.raw), kind='audio')
+            (ctx.directory / 'original.wav').write_bytes(self.voice.raw)
+            handle = {**handle, 'audio_sha256': hashlib.sha256(self.voice.raw).hexdigest()}
+        return SnapshotSource(result.snapshot_path, handle, PROOF,
             self.voice if ctx.request.content_mode == 'text-audio' else None)
     def restore(self, handle, ctx):
         result = super().restore(handle, ctx)
+        if ctx.request.content_mode == 'text-audio':
+            # A fresh provider can recover actual original bytes from only its
+            # private managed directory and immutable receipt, without RAM/PC.
+            raw = (ctx.directory / 'original.wav').read_bytes()
+            assert hashlib.sha256(raw).hexdigest() == handle['audio_sha256']
+            self.voice.raw = raw
         return SnapshotSource(result.snapshot_path, handle, PROOF,
             self.voice if ctx.request.content_mode == 'text-audio' else None)
 

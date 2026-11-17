@@ -43,6 +43,7 @@ class PreparedCaptureSession:
         self.recording_jobs = set()
         self.recording_errors = set()
         self.direct_descriptor = self.direct_voice = self.original_source_for = None
+        self.source_transition = False
         self.runtime_id = secrets.token_hex(16)
         self.state_version = self.generation = 0
         self.session_id = secrets.token_hex(16)
@@ -179,9 +180,9 @@ class PreparedCaptureSession:
                             and self.recordings.reference(identity)[0] == reference):
                         self.history.update_audio(identity, 'official-retained/' + path.name, True)
                         self.state_version += 1
-            except (OSError, ValueError, GameDataError):
+            except Exception as error:
                 with self.lock:
-                    if not cancelled():
+                    if not cancelled() and not (isinstance(error, GameDataError) and error.code == 'recording_busy'):
                         if len(self.recording_errors) >= 128:
                             self.recording_errors.clear()
                         self.recording_errors.add(identity)
@@ -216,6 +217,8 @@ class PreparedCaptureSession:
 
     def start(self):
         with self.lock:
+            if self.source_transition:
+                raise GameDataError('game_data_busy', 'Wait for game data maintenance to finish.', 409)
             if self.index is None:
                 raise ValueError('Download game data in Settings before starting capture')
             self.stop()
@@ -463,6 +466,11 @@ class PreparedCaptureSession:
         if not line.has_audio and self.recordings.matches(line.id, self._recording_stamp(line)):
             value['original_audio_expected'] = True
             value['audio_pending'] = line.id not in self.recording_errors
+            if (value['audio_pending'] and not self.source_transition and self.index is not None
+                    and line.game == self.index.game):
+                # Opening saved history resumes an interrupted local conversion;
+                # it neither starts capture nor authorizes a publisher transfer.
+                self._queue_original(line.id)
         if line.has_audio:
             value['audio_source'] = 'original'
         return value

@@ -90,6 +90,14 @@ using the installed identity even when a newer estimate exists. Requests are
 serialized with only the newest queued choice retained; account retirement
 invalidates callbacks. Selecting a game never pastes or restarts a screen link.
 
+Opening stamped saved history resumes an interrupted local conversion after a
+fresh host starts, without a stream connection or another download. A fresh
+provider restores original bytes from the managed source and immutable receipt;
+it does not depend on the previous process's memory. Decoder failures settle as
+unavailable until an explicit retry, rather than retrying on every poll. During
+delete preservation, the session rejects new capture starts and automatic local
+conversion retries so no late line can escape the retained-recording inventory.
+
 Retained clips live outside the deletable game-data cache. Delete first stops the
 active source and preserves every still-referenced original, without holding the
 OCR lock. If a decoder is busy or an original cannot be retained, deletion fails
