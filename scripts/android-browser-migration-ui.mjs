@@ -53,9 +53,16 @@ export async function importBrowserHistoryThroughUi(page, until, nativeLineId, s
   await until(() => authoredReceiverLibraryReady(page), 'ordinary reader library scope before migration');
   const baseline = await snapshot(page), total = baseline.status.session.total_line_count + migrationRows;
   const file = {name: 'authored-browser-history.json', mimeType: 'application/json', buffer: authoredBrowserHistoryBackup()};
-  const setup = page.locator('details.android-device-setup');
-  if (!await setup.evaluate(element => element.open)) await setup.locator(':scope > summary').click();
-  await page.getByText('Import old browser history', {exact: true}).click();
+  const openMigration = async () => {
+    await page.getByRole('button', {name: 'Settings', exact: true}).click();
+    await page.getByText('Previous browser history', {exact: true}).click();
+    await page.getByText('Import old browser history', {exact: true}).click();
+  };
+  const closeMigration = async () => {
+    await page.getByRole('dialog', {name: 'Zenless Zone Zero settings', exact: true})
+      .getByRole('button', {name: 'Close', exact: true}).click();
+  };
+  await openMigration();
   if (selectBackup) await selectBackup(file.buffer);
   else await page.getByLabel('Browser history backup', {exact: true}).setInputFiles(file);
   await page.getByText('22 lines · 1 favorites · 1 excerpts.', {exact: false}).waitFor();
@@ -63,15 +70,18 @@ export async function importBrowserHistoryThroughUi(page, until, nativeLineId, s
   assert.equal((await snapshot(page)).status.session.total_line_count, total - migrationRows);
   await page.getByRole('button', {name: 'Import history and favorites', exact: true}).click();
   await page.getByText('History imported: 22 new lines, 0 already imported. Original browser data is unchanged.', {exact: true}).waitFor();
+  await closeMigration();
   const archive = await importedTab(page);
   await archive.getByText('保留的电脑历史。', {exact: true}).waitFor();
   await archive.getByText('Imported browser excerpt', {exact: true}).waitFor();
   await page.getByRole('button', {name: 'Previous 10', exact: true}).click();
   await archive.getByText('保存された旧文章 11。', {exact: true}).waitFor();
   await verifyMigratedHistory(page, until, total, nativeLineId);
+  await openMigration();
   await page.getByLabel('Browser history backup', {exact: true}).setInputFiles(file);
   await page.getByRole('button', {name: 'Import history and favorites', exact: true}).click();
   await page.getByText('History imported: 0 new lines, 22 already imported. Original browser data is unchanged.', {exact: true}).waitFor();
+  await closeMigration();
   await verifyMigratedHistory(page, until, total, nativeLineId);
   return total;
 }

@@ -58,11 +58,17 @@ def presentation_lines(value, width, height):
 
 class AndroidHost:
     def __init__(self, root, frontend, native=None, *, port=0, enable_accounts=False, account_transport=None,
-            authored_accounts=False, game_data_providers=None):
+            authored_accounts=False, game_data_providers=None, authored_game_data=False):
         self.root = Path(root).absolute()
         self.receiver_owner = None
         self.account_sessions = None
         self.authored_accounts = bool(authored_accounts)
+        self.authored_game_data = bool(authored_game_data)
+        if authored_game_data:
+            if game_data_providers is not None or self.root.name not in {'authored-game-data-ui', 'authored-account-ui'}:
+                raise ValueError('Authored game data requires its isolated DEBUG root.')
+            from .android_authored_game_data import providers as authored_providers
+            game_data_providers = authored_providers(native)
         protection = native
         if authored_accounts:
             if native is None or account_transport is not None:
@@ -308,6 +314,7 @@ class AndroidHost:
             'message': recovery['message'] if recovery else 'Manage original game data in Settings on this device.',
             'protected_accounts': self.account_sessions is not None,
             'authored_account_fixture': self.authored_accounts,
+            'authored_game_data_fixture': self.authored_game_data,
             'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
             'account_recovery': recovery,
             'ocr': 'bundled-mlkit' if self.native else 'not-attached',
@@ -910,7 +917,7 @@ class AndroidHost:
         return Handler
 
 
-def start(root, frontend, native=None, enable_accounts=False, authored_accounts=False):
+def start(root, frontend, native=None, enable_accounts=False, authored_accounts=False, authored_game_data=False):
     global _host
     with _host_lock:
         if _host is None:
@@ -921,11 +928,12 @@ def start(root, frontend, native=None, enable_accounts=False, authored_accounts=
             if type(port) is not int or port != 0 and not 1024 <= port <= 65535:
                 raise ValueError('Invalid app-local reader origin')
             _host = AndroidHost(root, frontend, native, port=port, enable_accounts=enable_accounts,
-                authored_accounts=authored_accounts)
+                authored_accounts=authored_accounts, authored_game_data=authored_game_data)
             pending = pointer.with_suffix('.pending')
             pending.write_text(json.dumps({'port': _host.server.server_port}), encoding='utf8')
             pending.replace(pointer)
-        if (_host.authored_accounts != bool(authored_accounts) or Path(root).absolute() != _host.root
+        if (_host.authored_accounts != bool(authored_accounts) or _host.authored_game_data != bool(authored_game_data)
+                or Path(root).absolute() != _host.root
                 or bool(_host.account_sessions) != bool(enable_accounts or authored_accounts)):
             raise ValueError('The native startup mode cannot change within this process.')
         return _host.origin + '/'

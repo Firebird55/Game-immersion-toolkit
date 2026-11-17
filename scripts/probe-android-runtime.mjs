@@ -14,6 +14,7 @@ import {selectAuthoredAndroidDocument} from './android-authored-document-picker.
 import {verifyAuthoredReaderInsets} from './android-authored-reader-insets.mjs';
 import {assertNativeDataDecoder} from './android-native-decoder-proof.mjs';
 import {waitForAuthoredAdbRoot} from './android-authored-adb.mjs';
+import {prepareAuthoredGameData} from './android-authored-game-data-ui.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -140,7 +141,7 @@ addEventListener('message',async event=>{
 </script>`;
 let {browser, page} = await connectReader();
 await page.route('https://vdo.ninja/**', route => route.fulfill({contentType: 'text/html', body: senderFixture}));
-const originalOrigin = new URL(page.url()).origin;
+let originalOrigin = new URL(page.url()).origin;
 assert.equal(await page.locator('meta[name="toolkit-host-platform"]').getAttribute('content'), 'android');
 const normalStartup = await page.evaluate(async () => ({platform: await (await fetch('/api/platform')).json(),
   snapshot: await (await fetch('/api/snapshot')).json(), accounts: await (await fetch('/api/lexirise/accounts')).json()}));
@@ -155,22 +156,25 @@ writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
   source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, ...insets,
   fixture: 'authored-emulator-reader-before-personal-data', physical_device_acceptance: 'not-established',
 }, null, 2) + '\n');
-await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip',
-  bytes: readFileSync(join(directory, 'authored-library.zip')),
-  trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
-await diagnostics?.capture('before prepared-library React activation', 'android-receiver-before-library-ready.json');
-await until(() => authoredReceiverLibraryReady(page), 'actual shared reader prepared-library activation');
-await diagnostics?.capture('after prepared-library React activation', 'android-receiver-after-library-ready.json');
+// Only this explicit DEBUG process installs the generated source. Normal
+// startup above still used the real publisher registry and no imported data.
+await browser.close();
+adb('shell', 'am', 'force-stop', packageName);
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitAuthoredGameData', 'true');
+({browser, page} = await connectReader());
+await page.route('https://vdo.ninja/**', route => route.fulfill({contentType: 'text/html', body: senderFixture}));
+originalOrigin = new URL(page.url()).origin;
+await prepareAuthoredGameData(page, until, {bothModes: true});
+const fixtureAccountGeneration = await page.evaluate(async () => (await (await fetch('/api/snapshot')).json()).context.account_generation);
 await page.evaluate(async generation => {
   const response = await fetch('/api/settings', {method: 'PATCH', headers: {'Content-Type': 'application/json',
     'X-Toolkit-Account-Generation': String(generation)},
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
   if (!response.ok) throw new Error('Authored full-frame calibration failed: ' + response.status + ' ' + (await response.text()).slice(0, 512));
-}, normalAccountGeneration);
-const connectScreen = page.getByRole('button', {name: 'Connect screen', exact: true});
-await page.getByLabel('Private viewer link or stream code', {exact: true}).fill('https://vdo.ninja/?view=authored');
-await until(() => connectScreen.isEnabled(), 'actual native receiver after library activation');
-await connectScreen.click();
+}, fixtureAccountGeneration);
+const screenLink = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
+await until(() => screenLink.isEnabled(), 'actual native receiver after direct preparation');
+await screenLink.fill('https://vdo.ninja/?view=authored');
 const snapshot = await until(() => page.evaluate(async () => {
   const value = await (await fetch('/api/snapshot')).json();return value.lines.length ? value : null;
 }), 'native frame OCR into the actual reader transcript');
@@ -179,9 +183,10 @@ assert.equal(snapshot.lines[0].has_audio, true);
 assert.equal(snapshot.status.capture.running, true);
 const firstGeneration = snapshot.status.capture.source_generation;
 assert.ok(Number.isSafeInteger(firstGeneration));
-await page.getByRole('button', {name: 'Stop screen', exact: true}).click();
-await until(() => page.evaluate(async () => !(await (await fetch('/api/snapshot')).json()).status.capture.running), 'actual receiver Stop');
-await connectScreen.click();
+assert.equal(await page.getByRole('button', {name: 'Stop screen', exact: true}).count(), 0);
+await screenLink.fill('');
+await until(() => page.evaluate(async () => !(await (await fetch('/api/snapshot')).json()).status.capture.running), 'cleared link releases actual receiver');
+await screenLink.fill('https://vdo.ninja/?view=authored');
 await until(() => page.evaluate(async previous => {
   const capture=(await (await fetch('/api/snapshot')).json()).status.capture;
   return capture.running && capture.source_generation > previous;
@@ -218,16 +223,17 @@ await page.evaluate(async ({id, generation}) => {
   localStorage.setItem('proxy-transcript-reading-options', JSON.stringify({fontSize: 31, pinyin: 'all'}));
 }, {id: lineId, generation: snapshot.context.account_generation});
 await page.reload();
-assert.equal(await page.getByLabel('Private viewer link or stream code', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
-await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'production reading mode bootstrap');
+assert.equal(await page.getByLabel('Paste vdo.ninja link to start', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
+await page.getByRole('button', {name: 'Connect Lexirise', exact: true}).waitFor();
+assert.equal(await page.getByRole('combobox', {name: 'Reading', exact: true}).count(), 0);
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'production playback preference');
 await page.screenshot({path: join(output, 'android-shared-reader.png')});
 await browser.close();
 adb('shell', 'am', 'force-stop', packageName);
-adb('shell', 'am', 'start', '-W', '-n', component); // No self-test rerun; actual app data must survive.
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitAuthoredGameData', 'true'); // No self-test rerun; actual app data must survive.
 ({browser, page} = await connectReader());
 assert.equal(new URL(page.url()).origin, originalOrigin);
-await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'reading mode after process death');
+await page.getByRole('button', {name: 'Connect Lexirise', exact: true}).waitFor();
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'playback preference after process death');
 const restarted = await page.evaluate(async () => ({snapshot: await (await fetch('/api/snapshot')).json(),
   font: getComputedStyle(document.querySelector('.companion-shell')).getPropertyValue('--lexirise-font-size').trim(),
@@ -242,20 +248,20 @@ const migratedTotal = await importBrowserHistoryThroughUi(page, until, lineId, b
     trigger: () => page.getByLabel('Browser history backup', {exact: true}).click()}));
 await browser.close();
 adb('shell', 'am', 'force-stop', packageName);
-adb('shell', 'am', 'start', '-W', '-n', component);
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitAuthoredGameData', 'true');
 ({browser, page} = await connectReader());
 const retainedNormalSnapshot = await verifyMigratedHistory(page, until, migratedTotal, lineId);
 await browser.close();
 const accountAcceptance = await nativeAccountAcceptance({adb, component, packageName, connectReader, until,
   output, library: join(directory, 'authored-library.zip'), senderFixture});
-// Exercise a genuine package-manager update without re-importing the library.
+// Exercise a genuine package-manager update without preparing the source again.
 // Core/self-test data live in isolated authored probe folders; the real reader
 // history below must survive unchanged. The signing key is temporary CI debug material;
 // durable owner signing is verified separately on the protected host.
 adb('shell', 'am', 'force-stop', packageName);
 adb('install', '-r', updateApk);
 assert.ok(new RegExp(`versionCode=${update.version_code}(?:\\s|$)`).test(adb('shell', 'dumpsys', 'package', packageName)), 'The target must actually install the newer APK');
-adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true');
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true', '--ez', 'toolkitAuthoredGameData', 'true');
 const upgradedCore = await authoredCore(update.version_code, core.self_test_run_id);
 ({browser, page} = await connectReader());
 assertProtectedStorage(upgradedCore.native_protected_storage);
@@ -264,7 +270,8 @@ assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(joi
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);
-await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'reading mode after APK update');
+await page.getByRole('button', {name: 'Connect Lexirise', exact: true}).waitFor();
+assert.equal(await page.getByRole('combobox', {name: 'Reading', exact: true}).count(), 0);
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'playback preference after APK update');
 const upgraded = await page.evaluate(async id => {
   const range = await fetch(`/api/lines/${id}/audio`, {headers: {Range: 'bytes=0-43'}});
@@ -302,9 +309,10 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
   offline_apk_update_retained_data: true, update_signing: 'same-run-debug-identity-not-owner-key',
   native_keystore_retained_across_apk_update: true,
-  normal_protected_accounts_available: true, normal_unconfigured_library_works_offline: true,
+  normal_protected_accounts_available: true, authored_direct_game_data_flow_offline: true,
+  normal_publisher_preparation_acceptance: 'not-established',
   ordinary_startup_browser_history_migration: true,
-  actual_android_saf_zip_and_json_selection: true,
+  actual_android_saf_history_json_selection: true,
   system_insets_and_rotation: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

@@ -7,6 +7,9 @@ import {resolve, join} from 'node:path';
 import {createInterface} from 'node:readline';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium, firefox} from 'playwright';
+import {exerciseAccountUi} from './android-authored-account-ui.mjs';
+import {prepareAuthoredGameData} from './android-authored-game-data-ui.mjs';
+import {importBrowserHistoryThroughUi} from './android-browser-migration-ui.mjs';
 
 const frontend=resolve(process.argv[2] ?? 'output/android-account-ui-frontend');
 const output=resolve(process.argv[3] ?? 'output/checks/android-account-ui');
@@ -14,7 +17,7 @@ mkdirSync(output,{recursive:true});
 const proofs=[];
 async function until(operation,label) {
  const end=Date.now()+30000;
- while(Date.now()<end) {if(await operation())return;await delay(100);}
+ while(Date.now()<end) {const value=await operation();if(value)return value;await delay(100);}
  throw Error('The authored UI did not establish '+label);
 }
 for(const [name,engine] of Object.entries({chromium,firefox})) {
@@ -31,92 +34,35 @@ for(const [name,engine] of Object.entries({chromium,firefox})) {
   await page.context().addCookies([{name:'toolkit_session',value:cookie,url:origin,httpOnly:true,sameSite:'Strict'}]);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(origin);
-  await page.getByRole('button',{name:'Lexirise account',exact:true}).click();
-  const register=async(key,label)=>{
-   await page.getByRole('button',{name:'Add account securely',exact:true}).click();
-   await page.getByLabel('Lexirise API key',{exact:true}).fill(key);
-   await page.getByLabel('Account label (optional)',{exact:true}).fill(label);
-   await page.getByRole('button',{name:'Verify and save',exact:true}).click();
-   await page.waitForFunction(label=>document.querySelector('select[aria-label="Active Lexirise account"]')?.selectedOptions[0]?.textContent===label,label);
-   return page.getByRole('combobox',{name:'Active Lexirise account',exact:true}).inputValue();
-  };
-  const first=await register('lx_first_authored_account_fixture_only','First authored owner');
-  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
-  await page.getByLabel('Private toolkit library',{exact:true}).setInputFiles(library);
-  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).status.textmaps.ready),'completed library import');
+  // Unconnected use prepares through the same UI without an account or ZIP.
+  await prepareAuthoredGameData(page,until,{bothModes:true});
   service.stdin.write(JSON.stringify({action:'capture'})+'\n');
-  const captured=await next();
-  assert.equal(captured.captured,1,JSON.stringify(captured));
+  assert.equal((await next()).captured,1);
   await page.getByRole('button',{name:'Play current voice line',exact:true}).waitFor();
   const initial=await page.evaluate(async()=>await(await fetch('/api/snapshot')).json());
-  assert.equal(initial.lines.length,1);
-  const firstGeneration=initial.context.account_generation;
-  const firstLine=initial.lines[0].id;
-  // The actual UI favorite request must carry the account scope.
+  assert.equal(initial.lexirise.configured,false);
   await page.getByRole('button',{name:'Favorite current line',exact:true}).click();
-  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).lines[0]?.favorite),'saved favorite');
-  await page.getByRole('button',{name:'Capture setup',exact:true}).click();
-  const captureSettings=page.getByRole('dialog',{name:'Capture setup',exact:true});
-  await captureSettings.getByLabel('Include unvoiced dialogue',{exact:true}).check();
-  assert.equal(await captureSettings.getByRole('button',{name:'Update TextMaps',exact:true}).count(),0);
-  await captureSettings.getByRole('button',{name:'Save capture settings',exact:true}).click();
-  await captureSettings.waitFor({state:'hidden'});
-  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).status.settings.capture_unvoiced),'owner capture preferences');
-  await page.getByRole('button',{name:'Account settings',exact:true}).click();
-  await page.getByRole('button',{name:'Find or create game deck',exact:true}).click();
-  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).lexirise.decks?.zzz),'persisted owner destination');
-  await page.getByText('Selected: Zenless Zone Zero',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
-  await page.locator('.current-line .lexirise-send').click();
-  await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
-  await until(()=>page.evaluate(async()=>Object.keys((await(await fetch('/api/snapshot')).json()).lexirise.sent).length===1),'scoped original-audio export');
-  await page.getByRole('button',{name:'Account settings',exact:true}).click();
-  const second=await register('lx_second_authored_account_fixture_only','Second authored owner');
-  assert.notEqual(first,second);
-  const other=await page.evaluate(async()=>await(await fetch('/api/snapshot')).json());
-  assert.equal(other.lines.length,0);
-  assert.equal(other.status.textmaps.ready,false);
-  assert.equal(other.status.settings.capture_unvoiced,false);
-  assert.deepEqual(other.lexirise.sent,{});
-  assert.ok(other.context.account_generation>firstGeneration);
-  assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).count(),0);
-  // A delayed first-owner callback cannot mutate the new owner's settings.
-  const stale=await page.evaluate(async generation=>{
-   const response=await fetch('/api/settings',{method:'PATCH',headers:{'Content-Type':'application/json','X-Toolkit-Account-Generation':String(generation)},body:JSON.stringify({stable_frames:9})});
-   return response.status;
-  },firstGeneration);
-  assert.equal(stale,409);
-  await page.getByRole('combobox',{name:'Active Lexirise account',exact:true}).selectOption(first);
-  await until(()=>page.evaluate(async identity=>(await(await fetch('/api/lexirise/accounts')).json()).active===identity,first),'restored first account');
-  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
-  await page.locator('.transcript-line').filter({hasText:'Follow the river beyond the bridge.'}).first().waitFor();
-  const restored=await page.evaluate(async()=>await(await fetch('/api/snapshot')).json());
-  assert.equal(restored.lines.length,1);
-  assert.equal(restored.lines[0].favorite,true);
-  assert.notEqual(restored.lines[0].id,firstLine);
-  assert.ok(restored.context.account_generation>other.context.account_generation);
-  assert.equal(restored.status.settings.stable_frames,2);
-  assert.equal(restored.status.settings.capture_unvoiced,true);
-  assert.ok(Object.hasOwn(restored.lexirise.sent,'line:'+restored.lines[0].id));
-  service.stdin.write(JSON.stringify({action:'corrupt'})+'\n');
-  assert.equal((await next()).locked,true);
-  await until(()=>page.getByRole('button',{name:'Open library',exact:true}).isDisabled(),'locked import capability');
-  await until(async()=>await page.locator('.transcript-line').count()===0,'hidden locked private history');
-  await page.getByRole('button',{name:'Lexirise account',exact:true}).click();
-  await page.getByLabel('Lexirise API key',{exact:true}).fill('lx_first_authored_account_fixture_only');
-  await page.getByRole('button',{name:'Verify and restore local data',exact:true}).click();
-  await until(()=>page.evaluate(async identity=>{
-   const accounts=await(await fetch('/api/lexirise/accounts')).json();
-   const platform=await(await fetch('/api/platform')).json();
-   return accounts.active===identity&&!accounts.recovery&&!platform.account_recovery&&platform.library_import;
-  },first),'verified recovery');
-  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
-  await page.locator('.transcript-line').filter({hasText:'Follow the river beyond the bridge.'}).first().waitFor();
-  await until(async()=>!(await page.getByRole('button',{name:'Open library',exact:true,includeHidden:true}).isDisabled()),'refreshed import capability');
-  service.stdin.write(JSON.stringify({action:'verify_recovery'})+'\n');
-  assert.equal((await next()).old_store_preserved,true);
+  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).lines[0]?.favorite),'unconnected favorite');
+  await importBrowserHistoryThroughUi(page,until,initial.lines[0].id);
+  await page.reload();
+  await page.getByRole('button',{name:'Connect Lexirise',exact:true}).waitFor();
+  assert.equal(await page.getByRole('combobox',{name:'Reading',exact:true}).count(),0);
+  await exerciseAccountUi(page, {library, until,
+   capture: async () => {
+    service.stdin.write(JSON.stringify({action:'capture'})+'\n');
+    assert.equal((await next()).captured,1);
+   },
+   corrupt: async () => {
+    service.stdin.write(JSON.stringify({action:'corrupt'})+'\n');
+    assert.equal((await next()).locked,true);
+   },
+   preserved: async () => {
+    service.stdin.write(JSON.stringify({action:'verify_recovery'})+'\n');
+    return (await next()).old_store_preserved;
+   },
+  });
   assert.deepEqual(errors,[]);
-  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,account_switch:'A-B-A',separate_libraries:true,history_favorite_retained:true,stale_generation_rejected:true,recovery_preserves_original_store:true,recovery_refreshes_capabilities:true,scoped_settings_and_original_audio_export:true});
+  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,shared_ui_direct_game_preparation:true,account_switch:'A-B-A',separate_direct_sources:true,history_favorite_retained:true,stale_generation_rejected:true,recovery_preserves_original_store:true,recovery_refreshes_capabilities:true,scoped_settings_and_original_audio_export:true});
  } catch(error) {
   if(page) {
    writeFileSync(join(root,'authored-page.txt'),await page.locator('body').innerText());

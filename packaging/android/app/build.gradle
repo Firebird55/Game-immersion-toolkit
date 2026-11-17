@@ -26,7 +26,7 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'prepared_library.py', 'prepared_session.py', 'android_host.py', 'android_probe.py', 'android_protected_storage.py',
     'android_accounts.py', 'android_account_api.py', 'accounts.py', 'lexirise.py', 'lexirise_settings.py',
     'reading.py', 'runtime_readers.py', 'grammar.py', 'protected_storage.py', 'export_lock.py', 'atomic_files.py',
-    'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_account_recovery.py',
+    'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_authored_game_data.py', 'android_account_recovery.py',
     'native_frame_admission.py', 'browser_history_migration.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
     'publisher_transport.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']

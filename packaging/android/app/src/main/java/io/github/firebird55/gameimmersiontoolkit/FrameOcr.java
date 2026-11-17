@@ -41,6 +41,7 @@ public final class FrameOcr {
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
     public void assertAuthoredAccounts() { if (!BuildConfig.DEBUG) throw new IllegalStateException(); }
+    public void assertAuthoredGameData() { if (!BuildConfig.DEBUG) throw new IllegalStateException(); }
     private synchronized NativeX64Decoder dataDecoder() {
         if (dataDecoder == null) dataDecoder = new NativeX64Decoder(context);
         return dataDecoder;

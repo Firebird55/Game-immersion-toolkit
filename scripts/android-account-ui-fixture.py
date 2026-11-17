@@ -11,6 +11,9 @@ from backend.android_probe import TEXT, _library
 
 
 class AuthoredNative:
+    def assertAuthoredGameData(self):
+        pass
+
     def assertAuthoredAccounts(self):
         pass
 
@@ -28,7 +31,7 @@ def forbidden(*args, **kwargs):
 httpx.HTTPTransport.handle_request = forbidden
 root, frontend = map(Path, sys.argv[1:3])
 library = _library(root / 'authored-input', duration=8)
-host = AndroidHost(root / 'application', frontend, AuthoredNative(), authored_accounts=True)
+host = AndroidHost(root / 'authored-account-ui', frontend, AuthoredNative(), authored_accounts=True, authored_game_data=True)
 corrupted_store = None
 print(json.dumps({'origin': host.origin, 'library': str(library), 'cookie': host.cookie}), flush=True)
 try:
