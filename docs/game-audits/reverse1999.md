@@ -73,6 +73,38 @@ LZMA2 and, for executable files, an x86 filter. Large solid folders make efficie
 selective extraction an open engineering issue. Header inspection is not proof
 that a selected asset's full publisher MD5 has been verified.
 
+A separately authorized range, bytes 32 through 16,385,589 of original archive
+part 0, supplies the complete first LZMA2 resource folder: 16,385,558 compressed
+bytes and 61,658,292 expanded bytes. Its decoded files pass their header-sourced
+CRCs. The selected original `resources.assets` is 613,192 bytes, with observed
+SHA256 `ca87f392cca30daf2b8e43f7c69226778522d7d0c1b5d4c5f7e3e908b9d3827a`.
+This is still a partial archive read, not verification against the publisher's
+whole-archive MD5 or an independently located resource-catalog hash.
+
+`backend/reverse1999_bootstrap.py` now parses the evidenced stripped-type-tree
+Unity serialized-file version 22 using only the standard library. Structural
+inspection of that original resource finds 1,445 objects, including build ID
+**73**, optional-voice branch **109** and resource version **111.0.1065**. The
+embedded appversion is `0.0.1`; it must not replace the public launcher 3.9.0
+identity. Reading these fields dynamically avoids freezing a voice branch.
+The production consumption API requires an independently verified resource
+SHA256 and release revision. That independent hash locator remains open, so
+current research inspection does not enable production preparation.
+The serialization layout was cross-checked against the format reader author's
+[serialized-file implementation](https://github.com/K0lb3/UnityPy/blob/master/UnityPy/files/SerializedFile.py)
+and [object table implementation](https://github.com/K0lb3/UnityPy/blob/master/UnityPy/files/ObjectReader.py),
+then confirmed with the original resource bytes; UnityPy is not a runtime
+dependency of this reader.
+
+The publisher GameConfig asset named `bluepoch` contains an opaque 2,176-byte
+payload. Original key/decoder derivation is still required. Packing or one failed
+request is not evidence that official derivation is impossible. No community key
+fallback or game-key literal has been added. The reader never evaluates game Lua
+or executes game native/managed assemblies. It rejects altered serialization,
+overlapping objects, duplicate/missing fields and mismatched source identities;
+the returned bootstrap record omits its GameConfig payload from its diagnostic
+representation.
+
 The launcher archive inventory is **not the in-game hotfix catalog**. Static
 protocol research identifies separate patch-version and optional voice queries.
 An initial optional-voice request without the game-generated metadata header
