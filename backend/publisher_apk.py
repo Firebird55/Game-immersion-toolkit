@@ -10,12 +10,6 @@ import hashlib
 import hmac
 import struct
 
-from Crypto.Hash import SHA256
-from Crypto.PublicKey import RSA
-from Crypto.Signature import pkcs1_15
-from Crypto.Util.asn1 import DerSequence
-
-
 CHUNK = 1024**2
 MAX_METADATA = 1024**2
 V2 = 0x7109871a
@@ -26,7 +20,7 @@ RSA_SHA256 = 0x0103
 
 def _require(condition):
     if not condition:
-        raise ValueError('Official publisher APK integrity or signing format changed.')
+        raise ValueError('Official publisher APK integrity or signing profile could not be verified.')
 
 
 class _Reader:
@@ -61,11 +55,76 @@ class Signer:
     signed_zero_tail: bool = False
 
 
-def signing_metadata(block: bytes, *, allow_signed_zero_tail=False) -> tuple[Signer, ...]:
+def _der_items(raw, tag, maximum=32):
+    """Read one bounded definite DER container, preserving exact encoded fields."""
+    _require(type(raw) is bytes and 2 <= len(raw) <= MAX_METADATA)
+
+    def item(at):
+        start = at
+        _require(at + 2 <= len(raw))
+        identity, size = raw[at], raw[at + 1]
+        _require(identity & 31 != 31)
+        at += 2
+        if size & 128:
+            width = size & 127
+            _require(1 <= width <= 3 and at + width <= len(raw) and raw[at] != 0)
+            size = int.from_bytes(raw[at:at + width], 'big')
+            _require(size >= 128)
+            at += width
+        _require(size <= len(raw) - at)
+        end = at + size
+        return (identity, raw[at:end], raw[start:end]), end
+
+    outer, end = item(0)
+    _require(outer[0] == tag and end == len(raw))
+    # Parse children against only the parent's content, never adjacent bytes.
+    raw = outer[1]
+    values, at = [], 0
+    while at < len(raw):
+        _require(len(values) < maximum)
+        value, at = item(at)
+        values.append(value)
+    return values
+
+
+def _positive_integer(item):
+    tag, raw, _ = item
+    _require(tag == 2 and bool(raw) and not raw[0] & 128)
+    _require(len(raw) == 1 or raw[0] != 0 or raw[1] & 128)
+    value = int.from_bytes(raw, 'big')
+    _require(value > 0)
+    return value
+
+
+def _certificate_public_key(certificate, public):
+    certificate_fields = _der_items(certificate, 0x30, 3)
+    _require(len(certificate_fields) == 3 and
+             [item[0] for item in certificate_fields] == [0x30, 0x30, 3])
+    tbs = _der_items(certificate_fields[0][2], 0x30, 16)
+    has_version = bool(tbs) and tbs[0][0] == 0xa0
+    at = 6 if has_version else 5
+    _require(len(tbs) > at and tbs[at][0] == 0x30 and tbs[at][2] == public)
+    spki = _der_items(public, 0x30, 2)
+    _require(len(spki) == 2 and [item[0] for item in spki] == [0x30, 3])
+    rsa_oid = b'\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01'
+    _require(spki[0][1] in (rsa_oid, rsa_oid + b'\x05\x00'))
+    _require(spki[1][1][:1] == b'\0')
+    numbers = _der_items(spki[1][1][1:], 0x30, 2)
+    _require(len(numbers) == 2)
+    modulus, exponent = map(_positive_integer, numbers)
+    _require(2048 <= modulus.bit_length() <= 4096 and
+             3 <= exponent <= 2**32 - 1 and exponent % 2 == 1)
+    return (modulus.bit_length() + 7) // 8
+
+
+def signing_metadata(block: bytes, *, allow_signed_zero_tail=False, crypto=None) -> tuple[Signer, ...]:
     """Verify signed metadata only. This does NOT verify APK content integrity.
 
     Currently only the evidenced v2 RSA/PKCS1-SHA256 profile is accepted. New
     algorithms, v3 or attributes fail closed instead of silently downgrading.
+    Hosts may inject the explicit publisher crypto capability. The compatibility
+    default lazily uses the locked desktop reference; no Crypto module is needed
+    to import this reader or to use an explicitly supplied Android capability.
     A source may explicitly permit exactly four signed zero tail bytes: AOSP's
     v2 verifier checks all raw signedData bytes but does not check its remaining
     bytes after the three canonical fields. No other extension is accepted.
@@ -115,14 +174,12 @@ def signing_metadata(block: bytes, *, allow_signed_zero_tail=False) -> tuple[Sig
         _require([item[0] for item in digests] == [item[0] for item in signatures] == [RSA_SHA256])
         _require(len(digests[0][1]) == 32)
         try:
-            cert = DerSequence().decode(certificates[0], strict=True)
-            tbs = DerSequence().decode(cert[0], strict=True)
-            has_version = isinstance(tbs[0], bytes) and tbs[0][:1] == b'\xa0'
-            spki = tbs[6 if has_version else 5]
-            _require(spki == public)
-            key = RSA.import_key(public)
-            _require(key.size_in_bits() >= 2048 and not key.has_private())
-            pkcs1_15.new(key).verify(SHA256.new(signed), signatures[0][1])
+            size = _certificate_public_key(certificates[0], public)
+            _require(len(signatures[0][1]) == size)
+            if crypto is None:
+                from .publisher_crypto import DesktopPublisherCrypto
+                crypto = DesktopPublisherCrypto()
+            _require(crypto.rsa_verify_sha256(public, signed, signatures[0][1]) is True)
         except (ValueError, TypeError, IndexError) as error:
             raise ValueError('Official publisher APK signer metadata failed verification.') from error
         result.append(Signer(digests[0][1], hashlib.sha256(certificates[0]).hexdigest(), zero_tail))
@@ -138,7 +195,7 @@ class ApkLayout:
     eocd: bytes
     allow_signed_zero_tail: bool = False
 
-    def validate(self):
+    def validate(self, *, crypto=None):
         _require(type(self.total) is int and 0 < self.total <= 4 * 1024**3)
         _require(type(self.signing_offset) is int and 0 <= self.signing_offset < self.total)
         _require(0 < len(self.central_directory) <= MAX_METADATA and
@@ -150,7 +207,7 @@ class ApkLayout:
                  cd_offset == self.signing_offset + len(self.signing_block) and
                  cd_offset + cd_size + len(self.eocd) == self.total and
                  comment == len(self.eocd) - 22)
-        return signing_metadata(self.signing_block, allow_signed_zero_tail=self.allow_signed_zero_tail)
+        return signing_metadata(self.signing_block, allow_signed_zero_tail=self.allow_signed_zero_tail, crypto=crypto)
 
 
 class _ChunkDigest:
@@ -177,7 +234,7 @@ class _ChunkDigest:
         return hashlib.sha256(b'\x5a' + struct.pack('<I', len(self.digests)) + b''.join(self.digests)).digest()
 
 
-def verify_stream(stream, layout: ApkLayout, *, member=None, member_sink=None, progress=None):
+def verify_stream(stream, layout: ApkLayout, *, member=None, member_sink=None, progress=None, crypto=None):
     """Hash the complete APK, retaining only an optional exact compressed member.
 
     ``member=(offset,size)`` must be separately validated against ZIP central and
@@ -185,7 +242,7 @@ def verify_stream(stream, layout: ApkLayout, *, member=None, member_sink=None, p
     verification makes any captured member unusable; callers own cleanup.
     ``progress`` observes fully processed bytes and can persist a private receipt.
     """
-    signers = layout.validate()
+    signers = layout.validate(crypto=crypto)
     if member is not None:
         start, size = member
         _require(type(start) is int and type(size) is int and 0 <= start <= layout.signing_offset and
