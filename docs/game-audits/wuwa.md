@@ -1,5 +1,53 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Remaining event and recognition causes
+
+A fresh native-caption census distinguishes unsupported scene event graphs
+from missing individual recordings. Across all five study locales, every
+configured cue in `M2_12_06` (17), `M2_12_07` (36) and `M2_12_13` (17) already
+has an individual original voice binding. Of ten `M2_12_22` cues, only two lack
+selected-dub audio; both have native `GlobalLanguage` configurations and remain
+unavailable. They are not certified silent or localized spoken performances.
+Of two `M2_12_22_1` cues, one lexical caption, `Main_Rinascita_2_12_6828_2`,
+remains unresolved. Its authored movie cue spans 29–31 seconds, but that display
+interval does not authorize a guessed voice cut. These configured counts do
+not establish reachability of every historical scene in a current save.
+
+The remaining event posts clean localized Rover sources alongside separate
+common music and sound effects. Its complete inherited sound-effect path also
+contains an active, non-rendered effect whose definition is outside the event
+bank. A private parser prototype therefore still rejects the event. Neither
+the unposted music ancestor's unresolved selector nor the external effect is
+treated as known. No production graph guard or coverage total changed.
+
+The standard-surround cohort's **8/4/6/8/8** unresolved recognition variants
+represent six base identities, each counted separately for Rover gender:
+
+| Caption identity | Affected study locales | Actual recognition boundary |
+| --- | --- | --- |
+| `Character_ZheZhi_64_7` | All five | Reused short text has real choice/unknown vetoes. Its recognized native predecessor is only 233 ms earlier, but cannot remove those vetoes. |
+| `Main_Rinascita_2_12_70_1` | English, Korean, both Chinese scripts | First movie cue has no native predecessor; competing choice/unknown uses remain. |
+| `Main_Rinascita_2_12_70_2` | English, both Chinese scripts | Reused short text; its preceding cue is itself unresolved. Real competing records remain. |
+| `Main_Rinascita_2_12_70_3` | English, both Chinese scripts | The same predecessor/competing-record boundary continues. |
+| `Main_Linaxita_2_9_560_4` | Japanese | Real choice/unknown vetoes and a 31.5-second authored predecessor gap. |
+| `Main_Rinascita_2_12_70_12` | Korean | A different voiced native player-name template can accept the observed prefix as a name. Its recognized predecessor is 7.733 seconds earlier, beyond the existing three-second context bound. |
+
+These are lexical captions with available scene sources, not evidence of
+generic reactions or absent film audio. A research-only predecessor replay
+preserved every actual conflicting candidate and veto. No context lifetime,
+template precedence or choice guard was weakened, and no additional captures
+are counted. Native binding, recognition and spoken performance remain
+separate acceptance questions.
+
+The unknown-key investigation also tested periodic bytewise XOR/add masks
+of periods 1, 2, 4, 8 and 16 over fifteen archive parameters already verified
+against original packages, in raw and reversed-DWORD byte orders. Synthetic
+positive/mutation controls passed; the two previously authenticated cached PE
+objects contained no matching representation. This bounded passive negative
+result uses no new network bytes or native execution. It does not derive a
+new key, cover the unacquired executable prefix or establish autonomous recovery
+after an unknown rotation. That update limitation remains open.
+
 ## November 17, 2026 · Standard surround film sources and global performance veto
 
 Whole-film contexts now accept the evidenced **standard 5.1 side-speaker**
