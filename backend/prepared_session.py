@@ -108,6 +108,7 @@ class PreparedCaptureSession:
                 index.publisher_generation = descriptor['revision']
                 index.publisher_request_sha256 = hashlib.sha256(json.dumps(request.json(), sort_keys=True,
                     separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+                index.target_locale = request.target_locales[0] if request.target_locales else ''
                 self._activate_prepared(Path(directory), index)
             except Exception:
                 (self.directory, self.index, self.records_by_id, self.context_kinds,

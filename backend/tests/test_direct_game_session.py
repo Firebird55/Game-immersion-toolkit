@@ -257,6 +257,24 @@ def test_same_caption_explicit_audio_addition_keeps_old_text_and_gets_new_origin
     finally: service.close(); session.stop()
 
 
+@pytest.mark.parametrize('targets,expected_locale,expected_text', [
+    (['zh-Hans'], 'zh-Hans', '沿着河流走过桥。'),
+    ([], '', ''),
+])
+def test_direct_source_binds_actual_requested_translation_before_publication(tmp_path, targets, expected_locale, expected_text):
+    service, session, owner, voice, raw = rig(tmp_path)
+    try:
+        planned = service.plan('zzz', {**REQUEST, 'target_locales': targets, 'content_mode': 'text'})['game']
+        service.download('zzz', {'plan_id': planned['plan_id'], 'revision': planned['revision']})
+        assert finish(service)['state'] == 'ready'
+        assert session.index.target_locale == expected_locale
+        identity = capture(session)
+        line = session.history.get(identity)
+        assert line.translation_locale == expected_locale and line.translation_text == expected_text
+        assert line.source_locale == 'en' and line.source_text == TEXT
+    finally: service.close(); session.stop()
+
+
 def test_same_id_new_publisher_generation_uses_new_recording_and_keeps_favorite(tmp_path):
     service, session, owner, voice, raw = rig(tmp_path)
     try:
