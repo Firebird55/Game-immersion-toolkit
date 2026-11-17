@@ -136,6 +136,17 @@ test('lock parser evaluates platform markers, normalizes later and fails closed 
   assert.throws(() => parsePythonLock('package>=1.0', 'win32'), /Unsupported/);
   assert.throws(() => parsePythonLock('package==1.0; python_version > "3.9"', 'win32'), /Unsupported/);
 });
+
+test('machine-qualified pins use the measured Python architecture and reject unsupported expressions', () => {
+  const text = 'decoder==1.0; sys_platform == "win32" and platform_machine == \'AMD64\'\n';
+  assert.deepEqual(parsePythonLock(text, 'win32', 'AMD64'), [{name: 'decoder', version: '1.0'}]);
+  assert.deepEqual(parsePythonLock(text, 'win32', 'ARM64'), []);
+  assert.deepEqual(parsePythonLock(text, 'linux', 'x86_64'), []);
+  assert.throws(() => parsePythonLock(text, 'win32'), /architecture is unavailable/);
+  assert.throws(() => parsePythonLock(text.replace(' and ', ' or '), 'win32', 'AMD64'), /Unsupported/);
+  assert.throws(() => parsePythonLock(text.replace('platform_machine ==', 'platform_machine !='), 'win32', 'AMD64'), /Unsupported/);
+  assert.throws(() => parsePythonLock('decoder==1.0; platform_machine == "AMD64"', 'win32', 'AMD64'), /Unsupported/);
+});
 test('doctor args and selected scenarios preserve the selector scope', () => {
   assert.deepEqual(parseDoctorArgs(['--base', 'origin/main', '--json', '--full']), {json: true, full: true, base: 'origin/main'});
   assert.throws(() => parseDoctorArgs(['--base'])); assert.throws(() => parseDoctorArgs(['--install']));

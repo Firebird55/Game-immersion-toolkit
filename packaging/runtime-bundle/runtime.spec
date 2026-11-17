@@ -1,8 +1,10 @@
 # Executed after the native builder has validated its exact installed inputs.
 # A runtime profile is a construction choice, never a release approval.
 import json
+from importlib.metadata import distribution
 import os
 from pathlib import Path
+import platform
 import sys
 
 root = Path(SPECPATH).parents[1]
@@ -75,6 +77,17 @@ if runtime:
                 'rapidocr_onnxruntime', 'pyclipper', 'shapely', 'zstandard']
     if sys.platform == 'win32':
         packages += ['windows_capture', 'pyaudiowpatch', 'oneocr']
+        if platform.machine().lower() in {'amd64', 'x86_64'}:
+            # A frozen software decoder, never an original game library.
+            # __init__ imports all architecture modules; retain its whole
+            # Python package, exact capstone/lib/capstone.dll and BSD notice.
+            packages += ['capstone']
+            capstone_distribution = distribution('capstone')
+            # These are original wheel metadata. Installer-generated files
+            # such as direct_url.json can expose a private local wheel cache.
+            for name in ('METADATA', 'WHEEL', 'LICENSE.TXT'):
+                data.append((str(capstone_distribution.locate_file(
+                    'capstone-5.0.7.dist-info/' + name)), 'capstone-5.0.7.dist-info'))
     elif sys.platform == 'linux':
         packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
         hidden += ['keyring.backends.SecretService', 'jaraco.classes',

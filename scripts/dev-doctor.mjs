@@ -29,14 +29,23 @@ export function prerequisitePlan(checks, scenarios) {
     assets: application || engines.size > 0, engines: [...engines].sort(), windows: scenarios.windows.length > 0};
 }
 
-// The lock currently contains exact pins and sys_platform markers. Refuse new
+// The lock contains exact pins, sys_platform and a conjunctive machine marker. Refuse new
 // syntax until its semantics are supported; never silently drop a requirement.
-export function parsePythonLock(text, platform) {
+export function parsePythonLock(text, platform, machine) {
   return text.split(/\r?\n/).map(line => line.trim()).filter(line => line && !line.startsWith('#')).flatMap(line => {
-    const match = /^([A-Za-z0-9_.-]+)==([A-Za-z0-9.+!-]+)(?:\s*;\s*sys_platform\s*(==|!=)\s*(['"])([A-Za-z0-9_-]+)\4)?$/.exec(line);
+    const match = /^([A-Za-z0-9_.-]+)==([A-Za-z0-9.+!-]+)(?:\s*;\s*(.+))?$/.exec(line);
     if (!match) throw Error('Unsupported requirement syntax');
-    const [, name, version, operator, , target] = match;
-    if (operator && ((platform === target) !== (operator === '=='))) return [];
+    const [, name, version, marker] = match;
+    if (marker) {
+      const condition = /^sys_platform\s*(==|!=)\s*(['"])([A-Za-z0-9_-]+)\2(?:\s+and\s+platform_machine\s*==\s*(['"])([A-Za-z0-9_-]+)\4)?$/.exec(marker);
+      if (!condition) throw Error('Unsupported requirement syntax');
+      const [, operator, , target, , architecture] = condition;
+      if ((platform === target) !== (operator === '==')) return [];
+      if (architecture) {
+        if (typeof machine !== 'string' || !machine) throw Error('Python architecture is unavailable');
+        if (machine !== architecture) return [];
+      }
+    }
     return [{name, version}];
   });
 }
@@ -44,7 +53,7 @@ export function parsePythonLock(text, platform) {
 export function probePython({command, root, env, spawn = spawnSync}) {
   // No application, native runtime or package imports: distribution metadata is
   // enough to compare the pinned dependency versions without starting services.
-  const code = `import sys\nsys.dont_write_bytecode = True\nimport json\nfrom importlib.metadata import distributions\nprint(json.dumps({'version': '.'.join(map(str, sys.version_info[:3])), 'platform': sys.platform, 'packages': {d.metadata['Name']: d.version for d in distributions() if d.metadata['Name']}}))`;
+  const code = `import sys\nsys.dont_write_bytecode = True\nimport json\nimport platform\nfrom importlib.metadata import distributions\nprint(json.dumps({'version': '.'.join(map(str, sys.version_info[:3])), 'platform': sys.platform, 'machine': platform.machine(), 'packages': {d.metadata['Name']: d.version for d in distributions() if d.metadata['Name']}}))`;
   const result = spawn(command, ['-B', '-c', code], {cwd: root, env: {...env, PYTHONDONTWRITEBYTECODE: '1'}, encoding: 'utf8', timeout: 20000, maxBuffer: 1024 * 1024, windowsHide: true});
   if (result.error || result.status !== 0) return {available: false};
   try { return {available: true, ...JSON.parse(result.stdout)}; } catch { return {available: false}; }
@@ -125,7 +134,7 @@ export async function runDoctor({root = process.cwd(), env = process.env, platfo
         // discovery. Browser-only Python scenarios need only runtime packages.
         const locks = ['requirements.lock.txt'];
         if (checks.some(check => ['full', 'python'].includes(check))) locks.push('packaging/desktop/build-requirements.lock.txt');
-        const pinned = locks.flatMap(path => parsePythonLock(read(join(root, path), 'utf8'), probe.platform));
+        const pinned = locks.flatMap(path => parsePythonLock(read(join(root, path), 'utf8'), probe.platform, probe.machine));
         const installed = new Map(Object.entries(probe.packages).map(([name, version]) => [normalize(name), version]));
         const missing = [], mismatched = [];
         for (const {name, version: wanted} of pinned) {

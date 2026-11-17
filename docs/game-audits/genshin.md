@@ -72,6 +72,55 @@ field values exist as keys in all 15 independently parsed original locale tables
 (225 matches); the accessor itself does not perform localization lookup.
 No mirror rows were used to derive or parse those records.
 
+## Experimental native reader foundations · November 17, 2026
+
+The [native metadata reader](../../backend/genshin_native_metadata.py),
+[contract builder](../../backend/genshin_native_contracts.py) and
+[Voice owner analysis](../../backend/genshin_native_voice.py) now derive inspected
+read contracts from supplied original executable and metadata bytes. Original
+client code remains inert data. Current method addresses, type/member indices,
+arithmetic operands, registration arrays and field offsets are discovered from
+those inputs. Retained layouts describe formats and bounded instruction forms;
+the repository contains no original game bytes, texts or codec keys.
+
+This experimental analysis requires a Windows amd64 host and the exact pinned
+Capstone 5.0.7 software decoder. Its native DLL and complete BSD notice are
+verified before loading. The [software receipt](../../packaging/native-codecs/genshin-capstone-5.0.7-windows-amd64.json)
+records the original wheel and every member digest; runtime collection retains
+the package, DLL and original license metadata. It excludes installer-generated
+local-wheel URLs. Other hosts refuse this experimental analysis while retaining
+the existing provider.
+
+On the held Global 7.2 originals, complete metadata parsing recovered 89,748
+types, 741,021 methods, 445,462 fields and 555,919 parameters. Subsequent
+development probes derive all 314,558 usage lists, 788,698 references and 87,253
+strict UTF-8 literals. Their generated TalkExcel contract reads all 45,699 rows
+with exact EOF and agrees with independently held original controls, opened
+after parsing. The original Talk100001, Talk100002 and GlobalDialog objects also
+pass exact EOF through the actual allocated type's native virtual reader.
+The original Lut contract reads all 154,113 rows; two Items groups containing
+17 entries exercise nested strings, booleans, protected scalars and dictionaries.
+The downstream development probes explicitly reuse a private metadata
+intermediate. They are not a complete end-to-end source acceptance run.
+
+The analysis follows authored root-array registration, separate raw/decoded
+presence flags, native transformations after initial field stores, and typed
+protected-value setters. Voice field roles follow actual input comparisons,
+event-key construction, group-cache consumers and original source-name copies.
+The UUID role follows the converter's original ASCII case-folding/FNV-1 code.
+The configuration registry's byte type tag does not establish a Voice API call.
+Likewise, formatting a localization key does not prove every subsequent UI
+presentation or player-role decision.
+
+These foundations do not yet assemble and activate a complete automatic
+`NativeDialogueProfile` in normal preparation. Canonical profile integration,
+complete descriptor/source routing, original package acquisition and its codec
+closure, regional validation, and old/current update plus recovery acceptance
+remain open. The 219 source-unbound inventory rows and direct-Global/player-role
+questions remain explicit. Ten existing unused Action variants remain ordinary
+update gaps when new content uses them; current-prefix success cannot classify
+them as future format changes. Normal Setup continues using its existing source.
+
 ## Explicit original Talk preparation API · November 17, 2026
 
 The [original dialogue reader](../../backend/genshin_original_dialogue.py)
