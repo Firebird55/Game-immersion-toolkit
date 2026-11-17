@@ -447,14 +447,20 @@ concatenates the original `Voice/` and `.wem` literals, then passes that relativ
 path, `true` and the explicit language to GetExternalSourceInfo. That final
 914-byte body preserves a nonempty explicit language as format argument zero
 and the relative path as argument one. Only an empty language calls
-GetCurrentLanguage. The formatting string itself is read from the instance
-readonly `AudioManager.s_ExternalSourceFormat`; its value is not yet derived,
-so no exact template or new archive hash binding is inferred. Every body is
+GetCurrentLanguage. The formatting string is read from the instance readonly
+`AudioManager.s_ExternalSourceFormat`. The pinned metadata writer's field-flag
+mapping confirms Static is clear, InitOnly set and Literal clear; the `s_`
+prefix is not treated as storage evidence. Its unique top-level instance
+constructor is then bounded to 1,924 original bytes and proves the exact
+`{0}/{1}` literal store to that receiver's field. This closes the archive
+path-format chain without selecting the copyright switch or establishing that
+its recordings exist in the unexamined hotfix directories. Every body is
 bounded by the original PE unwind directory and the whole original DLL MD5 is
 rechecked first. No client instruction or setter is executed. This archive
 chain does not establish the Fate story playback rule. Production selection
 must preserve the user's explicit copyright variant and separate study/audio
-languages; the unresolved preference details and format value are retained.
+languages; the unresolved preference details and package availability remain
+explicit. No rule for Fate story playback is derived from this archive route.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
