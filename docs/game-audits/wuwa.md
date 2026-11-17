@@ -1,5 +1,24 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Observed player names in saved presentation
+
+Saved transcript DTOs now render an observed player nickname in the original
+single `{PlayerName}` slot. This happens only at the transcript read boundary,
+after an exact, unambiguous Wuthering match. A unique raw word span must fit the
+substantial official fixed text, with only OCR whitespace gaps tolerated. The
+raw spelling is preserved, including case and Unicode width. This does not
+reconstruct a nickname from normalized OCR or apply to other games or native
+replacement grammars. Ambiguous spans, rich/punctuated names, combining folds
+and changed surrounding characters keep the original token conservatively.
+
+Canonical SQLite text, index files, text identities and original audio bindings
+remain unchanged. Add/read/reopen, duplicate admission and audio-update tests
+check this boundary. Replaying the independently obtained English gameplay OCR
+observation renders **Rayne** in the saved source and translation while retaining
+the original indexed and stored template. This is a replay of the already
+verified image observation, not another physical-capture or native-OCR claim.
+Desktop and portable consumers use the same transcript boundary.
+
 ## November 17, 2026 · Fixed independent scene states
 
 The localized scene reader now handles an exact immediate Wwise-172 SetState
