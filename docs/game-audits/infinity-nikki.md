@@ -353,13 +353,34 @@ the exact current CN Framework archive reads all 175 members and verifies all
 1,154,031 decoded bytes using the toolkit's existing source-built desktop codec.
 That replay does not establish an Android codec or a complete game provider.
 
+The current Global Loc index exposed two independent compact-entry flags that
+the original Framework sample could not distinguish: the native decoder uses
+bit 22 for the compressed-size field's width and bit 29 for member encryption.
+Both were set in the verified Framework members. The owned reader now follows
+the original decoder's separate width load and flag capture; synthetic fixtures
+exercise all four independent width/encryption combinations and full-entry
+checks. This is a reader correction, not a publisher format-change conclusion.
+The Loc footer, main index and full-directory index have passed complete
+manifest-chunk and plaintext-index hashes without downloading the entire
+280,653,147-byte PAK. The reader enumerates 183,718 locations, including 180,246
+game locres files across the twelve original locale folders (`de`, `en`, `es`,
+`fr`, `id`, `it`, `ja-JP`, `ko`, `pt`, `th`, `zh`, `zh-Hant`). These are resource
+counts, not an active story denominator. No locres body or original voice has
+been extracted by that index-only proof. All retained carrier/cache bytes are
+counted; an unused 8,584,496-byte path-hash index was not fetched.
+
 `backend/infinity_nikki_lua_metadata.py` parses the source-owned updater's
 prototype, constant and debug framing without a Lua VM. Its original 0x53 tag
 does not imply stock Lua 5.3 framing. Four current updater chunks parse to exact
 EOF: 387,434 bytes and 644 prototypes. Synthetic fixtures cover source inheritance,
 changed generations, all observed constant kinds including nonfinite number bit
-patterns, bounded recursion/counts and malformed or truncated data. Parsed
-strings remain metadata, not automatically trusted download destinations.
+patterns, bounded recursion/counts and malformed or truncated data. Lua string
+constants may contain arbitrary bytes: invalid UTF-8 stays opaque bytes instead
+of causing a false format-change failure. Source/debug names keep their text
+validation. Parsed strings remain metadata, not automatically trusted download
+destinations. The four current Global updater chunks also parse to exact EOF;
+original utility chunks independently demonstrate the need for opaque binary
+constants. No original VM runs.
 
 The original updater's captured URL templates lead to the current Global
 `CloudDir/PaperHttpChunkInstall.manifest`. Its complete 41,972,123-byte JSON

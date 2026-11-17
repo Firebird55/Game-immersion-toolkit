@@ -63,7 +63,7 @@ def fixture(*, encrypted=True, index_encrypted=True, wide=False, long_fields=Fal
         payload += header
         for block in blocks if packed else [plain]:
             payload += encrypt(block) if encrypted and block else block
-        bits = ((0 if long_fields else 7 << 29) | int(encrypted) << 22 |
+        bits = ((0 if long_fields else (3 << 30) | (1 << 22)) | int(encrypted) << 29 |
                 int(packed) << 23 | count << 6 | int(packed))
         encoded += number(bits, 'I')
         kind = 'q' if long_fields else 'I'
@@ -162,6 +162,22 @@ class OriginalPakTests(unittest.TestCase):
         self.assertNotEqual(old.locations[path], new.locations[path])
         self.assertEqual(new.read(path, decompress=codec), rows[-1][1])
         self.assertNotEqual(old_rows[-1][1], rows[-1][1])
+
+    def test_native_size_width_and_encryption_flags_are_independent(self):
+        # In the original Framework both bits were set. These distinct cases
+        # exercise Nikki's native decoder branches instead of that ambiguity.
+        for encrypted in (False, True):
+            for long_fields in (False, True):
+                with self.subTest(encrypted=encrypted, wide=long_fields):
+                    raw, rows = fixture(encrypted=encrypted, long_fields=long_fields)
+                    pak, _ = archive(raw)
+                    name = 'X6Game/Content/Script/packed.lua'
+                    position = pak.locations[name]
+                    bits = struct.unpack_from('<I', pak.encoded, position)[0]
+                    self.assertEqual(bool(bits & (1 << 22)), not long_fields)
+                    self.assertEqual(bool(bits & (1 << 29)), encrypted)
+                    self.assertEqual(pak.entry(name).encrypted, encrypted)
+                    self.assertEqual(pak.read(name, decompress=codec), rows[-1][1])
 
     def test_uncompressed_and_empty_members_do_not_invoke_a_codec(self):
         raw, rows = fixture(compressed=False)

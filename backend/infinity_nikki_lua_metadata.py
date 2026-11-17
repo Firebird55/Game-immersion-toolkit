@@ -59,9 +59,13 @@ class _Reader:
                 return value
         raise ValueError('The original updater integer has no bounded terminator.')
 
-    def string(self):
+    def string_bytes(self):
         count = self.unsigned(65536)
-        return self.take(count - 1).decode('utf-8') if count else None
+        return self.take(count - 1) if count else None
+
+    def string(self):
+        value = self.string_bytes()
+        return value.decode('utf-8') if value is not None else None
 
     def prototype(self, parent=None, depth=0):
         self.functions += 1
@@ -86,8 +90,15 @@ class _Reader:
             elif kind == 19:
                 value = struct.unpack('<q', self.take(8))[0]
             elif kind in (4, 20):
-                value = self.string()
+                value = self.string_bytes()
                 _check(value is not None)
+                # Lua constants can contain arbitrary bytes. Preserve those
+                # opaquely; only valid UTF-8 is exposed to textual metadata
+                # consumers. Source/debug names retain their text checks.
+                try:
+                    value = value.decode('utf-8')
+                except UnicodeDecodeError:
+                    pass
             else:
                 raise ValueError('The original updater constant type is not supported.')
             constants.append(value)
