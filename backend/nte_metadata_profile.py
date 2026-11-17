@@ -225,7 +225,15 @@ def check_materials(recipe, native, materials, cache):
         path = Path(cache)/'format/community/sources/localization'/(ref['sha256']+'.data')
         _check(path.is_file() and 0 < path.stat().st_size <= SOURCE_LIMIT
                and _sha(path.read_bytes()) == ref['sha256'])
-    if 'updater_metadata' in recipe:
+    if 'original_updater' in recipe:
+        from . import nte_updater_source as official
+        _check(materials['updater'] == recipe['original_updater'])
+        official.check_reference(recipe['original_updater'], Path(cache)/'format',
+            original={**{key: recipe[key] for key in ('region', 'branch', 'version')},
+                      'sha256': recipe['sections']['ResList.bin'][1]},
+            result=({name: release.File(**item) for name, item in recipe['publisher_files'].items()},
+                    recipe['sections']['ResList.bin']))
+    elif 'updater_metadata' in recipe:
         _check(materials['updater'] == recipe['updater_metadata'])
         value = recipe['updater_metadata']
         community.check_receipt({'source': value['source'], 'proof_sha256': value['proof_sha256']},

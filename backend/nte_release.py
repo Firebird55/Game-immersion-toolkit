@@ -188,7 +188,15 @@ def _candidate_parameters(candidate, region, primary):
 
 
 def _manifest(archive, region, branch, version, sections, checksum, cache, metadata_out,
-              *, allow_community_fallback=False):
+              *, allow_community_fallback=False, official_cache=None):
+    if region == 'nte-global' and official_cache is not None:
+        from . import nte_updater_source as official
+        inputs = official.plan(region, fetch=download)
+        result, reference = official.approve(inputs, official_cache, archive, region, branch, version,
+                                             sections, checksum, fetch=download)
+        if metadata_out is not None:
+            metadata_out.update(reference)
+        return result
     try:
         return files(archive, region, version, sections, checksum)
     except UpdaterParameterMismatch:
@@ -223,7 +231,7 @@ def _json_manifest(result):
                       sort_keys=True, separators=(',', ':')).encode()
 
 
-def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False):
+def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None):
     branch, version, root, cfg = release_config(region)
     raw = download(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
     sections = {}
@@ -237,7 +245,7 @@ def discover(region, *, community_cache=None, metadata_out=None, allow_community
         previous[tag] = [int(size), revision]
     items, previous['ResList.bin'] = _manifest(raw, region, branch, version, sections,
         cfg.findtext('Extra/listHash'), community_cache, metadata_out,
-        allow_community_fallback=allow_community_fallback)
+        allow_community_fallback=allow_community_fallback, official_cache=official_cache)
     return branch, version, items, previous
 
 

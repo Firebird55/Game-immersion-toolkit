@@ -9,9 +9,6 @@ from dataclasses import dataclass
 import re
 import struct
 
-from .nte_native_schema import _PE
-
-
 def check(value):
     if not value:
         raise ValueError('Unsupported original NTE updater instruction metadata')
@@ -151,11 +148,35 @@ def decode(data: bytes, address: int) -> Instruction:
         address + position + rip_displacement if rip_displacement is not None else None, tuple(prefixes))
 
 
-class Image(_PE):
+class Image:
     def __init__(self, data):
-        check(len(data) <= 32 * 1024**2)
-        super().__init__(data)
-        optional = self.unpack('I', 60)[0] + 24
+        check(isinstance(data, bytes) and 64 <= len(data) <= 32 * 1024**2 and data[:2] == b'MZ')
+        self.data = data
+        pe = self.unpack('I', 60)[0]
+        check(self.read(pe, 4) == b'PE\0\0')
+        machine, count = self.unpack('HH', pe + 4)
+        optional_size = self.unpack('H', pe + 20)[0]
+        optional = pe + 24
+        check(machine == 0x8664 and 1 <= count <= 96 and optional_size >= 112 + 4 * 8
+              and self.unpack('H', optional)[0] == 0x20b)
+        self.read(optional, optional_size + count * 40)
+        self.base = self.unpack('Q', optional + 24)[0]
+        image_size, headers = self.unpack('II', optional + 56)
+        check(0 < headers <= len(data) and self.base + image_size < 2**64)
+        self.sections = []
+        for index in range(count):
+            entry = optional + optional_size + index * 40
+            _, rva, size, offset = self.unpack('IIII', entry + 8)
+            flags = self.unpack('I', entry + 36)[0]
+            if not size:
+                continue
+            self.read(offset, size)
+            check(offset >= headers and rva + size <= image_size)
+            start = self.base + rva
+            check(all(start + size <= other or other + length <= start for other, length, _, _ in self.sections)
+                  and all(offset + size <= other or other + length <= offset for _, length, other, _ in self.sections))
+            self.sections.append((start, size, offset, flags))
+        check(self.sections)
         table, size = self.unpack('II', optional + 112 + 3 * 8)
         check(0 < size <= 12 * 100_000 and size % 12 == 0)
         offset = self.pointer(self.base + table, size)
@@ -169,6 +190,22 @@ class Image(_PE):
             self.functions.append((self.base + start, self.base + end))
         self.starts = [start for start, _ in self.functions]
         self.decoded = {}
+
+    def read(self, offset, size):
+        check(type(offset) is int and type(size) is int and 0 <= offset <= len(self.data)
+              and 0 <= size <= len(self.data) - offset)
+        return self.data[offset:offset + size]
+
+    def unpack(self, fmt, offset):
+        return struct.unpack('<' + fmt, self.read(offset, struct.calcsize('<' + fmt)))
+
+    def pointer(self, address, size=1, *, code=False):
+        for start, length, offset, flags in self.sections:
+            if start <= address and size <= start + length - address:
+                if code:
+                    return offset + address - start if flags & 0x20000000 else None
+                return offset + address - start if flags & 0x40000000 and not flags & 0x20000000 else None
+        return None
 
     def owner(self, address):
         index = bisect_right(self.starts, address) - 1

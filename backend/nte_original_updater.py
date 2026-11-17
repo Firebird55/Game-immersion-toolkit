@@ -176,7 +176,7 @@ def _getter(image, target):
                 and preceding.opcode == (0x89,) and preceding.base_register == 4 and preceding.displacement == 32
                 and preceding.destination == 1 and _move(destination, 1, 3)):
             continue
-        check(rows[index + 5].call is not None)
+        check(index + 5 < len(rows) and rows[index + 5].call is not None)
         suffixes.append((image.data_bytes(row.rip, length.immediate), row.rip))
     check(len(suffixes) == 1)
     return field_row.displacement, context, suffixes[0], target

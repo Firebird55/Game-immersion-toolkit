@@ -165,7 +165,7 @@ def test_cn_candidate_uses_its_own_allowlisted_source_and_original_proof(tmp_pat
         community.remember(wrong, out['original'], 'publisher-manifest', b'owned verified bytes', tmp_path)
 
 
-def test_optin_research_recipe_binds_fallback_and_final_discovery_reuses_it(tmp_path, monkeypatch):
+def test_historical_optin_recipe_reopens_without_new_source_or_community_lookup(tmp_path, monkeypatch):
     fixture(monkeypatch)
     # Follow the original branch redirect rather than assuming publish_PC is final.
     actual = release.download
@@ -176,6 +176,13 @@ def test_optin_research_recipe_binds_fallback_and_final_discovery_reuses_it(tmp_
             return f'<Config><ResConfig>{target}</ResConfig></Config>'.encode()
         return actual(url, limit=limit)
     monkeypatch.setattr(release, 'download', download)
+    # Construct the retained pre-official-source recipe with its original API.
+    # New ordinary preparation must not bypass the official bootstrap this way.
+    original_discover = release.discover
+    def historical_discovery(region, **options):
+        options.pop('official_cache', None)
+        return original_discover(region, **options)
+    monkeypatch.setattr(release, 'discover', historical_discovery)
     monkeypatch.setattr(publisher, '_reader_identity', lambda: 'f'*64)
     monkeypatch.setattr(publisher.metadata, 'load', lambda **_: SimpleNamespace(revision='b'*40, digest='c'*64))
     monkeypatch.setattr(publisher.metadata, 'load_localization', lambda **_: SimpleNamespace(revision='d'*40, digest='e'*64))
@@ -185,8 +192,6 @@ def test_optin_research_recipe_binds_fallback_and_final_discovery_reuses_it(tmp_
         assert value['updater_metadata']['source']['family'] == 'updater-global'
         assert publisher.snapshot(tmp_path, stamp) == value
         monkeypatch.setattr(community, 'download', lambda *_: pytest.fail('Current source proof should be reused'))
-        assert publisher._discovery('nte-global', parameter_cache=tmp_path/'nte-publisher/format/community',
-                                    allow_community_fallback=True)['updater_metadata'] == value['updater_metadata']
         original = publisher._path(tmp_path, stamp).read_bytes()
         # Retained playback/source lookup reads the immutable recipe, not discovery.
         monkeypatch.setattr(release, 'download', lambda *_a, **_k: pytest.fail('Historical recipe performed discovery'))

@@ -62,6 +62,13 @@ def snapshot(tools, stamp, *, _recipe=False):
                   and isinstance(proof['proof_sha256'], str) and re.fullmatch('[0-9a-f]{64}', proof['proof_sha256']))
         community.original(proof['original'])
         pak.check(all(proof['original'][key] == result[key] for key in ('region', 'branch', 'version')))
+    if 'original_updater' in result:
+        from . import nte_updater_source as official
+        identity = result['sections']['ResList.bin']
+        items = {name: release.File(**info) for name, info in result.get('publisher_files', result['files']).items()}
+        official.check_reference(result['original_updater'], Path(tools)/'nte-publisher/format',
+            original={**{key: result[key] for key in ('region', 'branch', 'version')}, 'sha256': identity[1]},
+            result=(items, identity))
     for name, info in result['files'].items():
         pak.check(isinstance(name, str) and name.startswith(ROOT) and '..' not in name and '\\' not in name)
         pak._file(release.File(**info), 1024**4)
@@ -111,12 +118,14 @@ def _discovery(region, *, parameter_cache=None, allow_community_fallback=False):
     else:
         branch, version, files, sections = release.discover(region,
             community_cache=parameter_cache, metadata_out=updater,
+            **({'official_cache': Path(parameter_cache).parent} if region == 'nte-global' else {}),
             **({'allow_community_fallback': True} if allow_community_fallback else {}))
     selected = {name: asdict(item) for name, item in files.items() if name.startswith(ROOT)}
     pak.check(selected)
     return {'region': region, 'branch': branch, 'version': version, 'files': selected, 'sections': sections,
             'publisher_files': {name: asdict(item) for name, item in files.items()},
-            **({'updater_metadata': updater} if updater else {})}
+            **({('original_updater' if updater.get('kind') == 'nte-original-updater-approval-v1' else 'updater_metadata'):
+                updater} if updater else {})}
 
 
 @lru_cache(maxsize=2)
@@ -421,6 +430,8 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     if 'publisher_files' in value: expected['publisher_files'] = value['publisher_files']
     if 'updater_metadata' in value:
         expected['updater_metadata'] = value['updater_metadata']
+    if 'original_updater' in value:
+        expected['original_updater'] = value['original_updater']
     observed = _discovery(region, parameter_cache=catalog.cache/'format/community',
                          **({'allow_community_fallback': True} if _allows_community(value) else {}))
     if 'publisher_files' not in value: observed = {key: observed[key] for key in expected}
@@ -445,7 +456,7 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         pak.check(native_proof is not None and catalog.keyring is not None)
         native = profiles.native_evidence(value, native_proof, catalog.cache)
         materials = {'archive': catalog.keyring.bindings, 'localization': catalog.localization_keys.bindings,
-                     'updater': value.get('updater_metadata') or {
+                     'updater': value.get('original_updater') or value.get('updater_metadata') or {
                          'global': list(release.GLOBAL_FORMAT),
                          **({'mainland': list(release.CN_FORMAT)} if region == 'nte-cn' else {})}}
         resolved = profiles.publish(tools, stamp, value, result, native, materials)
@@ -475,6 +486,8 @@ def validate_prepared(tools, payload, *, recheck=False):
         expected = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections', 'publisher_files')}
         if 'updater_metadata' in value:
             expected['updater_metadata'] = value['updater_metadata']
+        if 'original_updater' in value:
+            expected['original_updater'] = value['original_updater']
         if observed != expected:
             raise PreparationFailure('game_files_changed',
                 'NTE publisher resources changed during preparation. Retry; the previous completed library is retained.')

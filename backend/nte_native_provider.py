@@ -109,7 +109,12 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     cache = catalog.cache/'native-candidates'
     profile_path = catalog.cache/'native-epochs'/catalog.stamp/'profile.json'
     prior = _profile(profile_path, reference, catalog.stamp, cache)
-    baseline = baseline_source.load(catalog.cache/'native-baseline')
+    if 'original_updater' in value:
+        from . import nte_updater_source as official
+        baseline_parameters = official.parameters_for_reference(value['original_updater'], catalog.cache/'format')
+        baseline = baseline_source.load(catalog.cache/'native-baseline', parameters=baseline_parameters)
+    else:
+        baseline = baseline_source.load(catalog.cache/'native-baseline')
     mapping_seed = seed(catalog.cache/'native-seed')
     registry = _registry(catalog) if graphs else None
     containers = catalog.containers()
@@ -123,7 +128,9 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     candidates = metadata.sources(original)
     dependencies = {'reader': value['reader'], 'archive_parameters': value['archive'][1],
                     'localization_parameters': value['localization'][1],
-                    'updater_format': (hashlib.sha256(metadata._json(value['updater_metadata'])).hexdigest()
+                    'updater_format': (hashlib.sha256(metadata._json(value['original_updater'])).hexdigest()
+                        if 'original_updater' in value else
+                        hashlib.sha256(metadata._json(value['updater_metadata'])).hexdigest()
                         if 'updater_metadata' in value else
                         (release.CN_FORMAT if catalog.region == 'nte-cn' else release.GLOBAL_FORMAT)[1])}
     charged, attempts = 0, 0

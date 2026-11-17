@@ -74,14 +74,40 @@ all 374 retained original typed file descriptors. Wrong app ID, key, IV,
 checksum, version, optional section, cipher descriptor and field ownership were
 rejected in the relevant source trials. The retained Global 1.4.9 encrypted list
 also reproduced all 552 original descriptors and native padding. Its historical
-plaintext checksum declaration was not retained, so that trial instead binds the
-complete original ciphertext/manifest hashes and inventory equivalence.
+plaintext checksum declaration is retained in the initial baseline description;
+the corrected replay also passed that checksum. The historical configuration was
+not fetched again. Reusing a current-derived parameter with that historical
+artifact does not establish support for a future key rotation.
 
-This is an original-source API checkpoint. Ordinary cold preparation, immutable
-source receipts, source-change recovery and final pointer checks still require
-integration before changing the default updater source. These Global results do
-not establish mainland key derivation, archive/localization keys, new required
-schema constructors, universal SDK/bootstrap rotation or direct Android use.
+The ordinary Global publisher route now requires retained, publisher-verified
+SDK/configuration inputs. Discovery and background fingerprint checks read only
+bounded metadata; missing inputs produce `bootstrap_required`, retain the prior
+library and never silently query community keys. The separately authorized game
+download stage plans their exact compressed and decoded costs, authenticates ZIP
+and member checksums, and rechecks the original launcher pointers. Its output is
+an intermediate preparation stage, never a ready text/audio library.
+
+The actual shared download service replay planned and accounted for 2,801,941
+bytes: 2,679,910 SDK/configuration payload bytes and 122,031 metadata verification
+bytes. All responses came from retained originals, with zero network traffic.
+The service retained 7,416,070 local bytes, requested a new content plan and did
+not activate an index. Both text modes, changed source, interrupted publication
+and owner-switch cases are covered by synthetic service/transport fixtures.
+
+Completed desktop materializations bind the original resource list, immutable
+SDK/configuration receipts and native derivation evidence to the existing
+profile/record approval. Historical verification is offline. Missing or swapped
+receipts fail without provisional playback; final source-pointer changes reject
+publication. Source code and keys are not executed or stored in the receipt.
+
+The bounded content plan and context-owned reader adapter remain separate work.
+These Global results do not establish mainland key derivation, archive or
+localization key rotation, new required schema constructors, a changed launcher
+root/native ABI, universal SDK rotation, or direct Android preparation. A cold
+future update whose new envelope parameter cannot open the initial native
+baseline still needs an authenticated original initial-parameter description;
+there is no implicit community substitute. Android needs its own managed/native
+reader hosting and codec closure; Windows binaries are not an Android route.
 
 ## Controlled update metadata and device boundary
 

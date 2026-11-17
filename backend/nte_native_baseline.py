@@ -32,7 +32,7 @@ class AuthenticatedNative:
     identity: dict
 
 
-def load(cache, *, fetch=None, save=None) -> AuthenticatedNative:
+def load(cache, *, fetch=None, save=None, parameters=None) -> AuthenticatedNative:
     """Authenticate the fixed original manifest and its selected native file.
 
     A cold installation-free cache can retrieve both from the original CDN.
@@ -61,14 +61,16 @@ def load(cache, *, fetch=None, save=None) -> AuthenticatedNative:
         with ZipFile(io.BytesIO(raw)) as archive:
             members = [row for row in archive.infolist() if row.filename == 'ResList.bin']
             _check(len(members) == 1 and 0 < members[0].file_size <= release.LIMIT)
-            xml = release._xml(archive.read(members[0]), reference['region'], reference['xml_md5'])
+            xml = release._xml(archive.read(members[0]), reference['region'], reference['xml_md5'],
+                               **({'parameters': parameters} if parameters is not None else {}))
         _check(xml.get('version') == reference['version'] and xml.get('tag') == 'baseTag')
         sections = {'baseTag': reference['version']}
         for section in xml.findall('BaseVersion'):
             tag, version = section.get('tag'), section.get('version')
             _check(tag not in sections)
             sections[tag] = version
-        files, _ = release.files(raw, reference['region'], reference['version'], sections, reference['xml_md5'])
+        files, _ = release.files(raw, reference['region'], reference['version'], sections, reference['xml_md5'],
+                                 **({'parameters': parameters} if parameters is not None else {}))
         discovery = metadata.inventory({key: reference[key] for key in ('region', 'branch', 'version')}
                                        | {'files': files, 'sections': sections})
         decoded = metadata._json(discovery)

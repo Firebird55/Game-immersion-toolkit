@@ -1,0 +1,114 @@
+"""Context-owned original NTE bootstrap; never mistake it for a ready library.
+
+The following content stage still needs an explicit owned-reader adapter and a
+bounded archive plan. No downloaded game/SDK code is executed by this provider.
+"""
+from pathlib import Path
+
+from . import nte_updater_source as source
+from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage
+from .private_data_paths import _no_links
+from .publisher_transport import PublisherTransport
+
+
+STUDY = frozenset(('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko'))
+TARGETS = STUDY | {'fr', 'de', 'es-ES', 'ru'}
+STAGE = 'nte-original-updater-stage-v1'
+
+
+class NteGameDataProvider:
+    title = 'Neverness to Everness'
+
+    def __init__(self, *, platform, native=None, opener=None):
+        if platform not in {'windows', 'android', 'linux', 'macos'}:
+            raise ValueError('Unsupported NTE host platform')
+        self.platform, self.native, self.opener = platform, native, opener
+
+    def _cache(self, ctx):
+        cache = Path(ctx.cache_directory)/'tools/nte-publisher/format'
+        try:
+            _no_links(cache)
+        except ValueError as error:
+            raise GameDataError('unsafe_game_cache', 'Game downloads need an ordinary private cache directory.') from error
+        return cache
+
+    def plan(self, request, ctx):
+        ctx.check()
+        if request.source_locale not in STUDY or set(request.target_locales) - TARGETS:
+            raise GameDataError('unsupported_game_languages', 'Choose a supported NTE study language and translation languages.')
+        if request.region != 'global':
+            return GameDataPlan('nte-mainland-source-pending', None, None, stage='compatibility',
+                message='Mainland NTE compatibility preparation still needs its original source integration.')
+        cache = self._cache(ctx)
+        transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
+        metadata = {}
+        def fetch(url, *, limit):
+            body, _ = transport.fetch_bytes(url, limit=limit, kind='metadata')
+            metadata[url] = len(body)
+            return body
+        inputs = source.plan(fetch=fetch)
+        ctx.check()
+        costs = inputs.costs(cache)
+        if costs['compressed_bytes'] == 0:
+            source.resolve_retained(inputs, cache)
+            return GameDataPlan('nte-content-'+inputs.identity, None, None,
+                handle={'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity},
+                stage='content', message='Official NTE compatibility information is verified. A bounded game-content reader plan is still required on this device.')
+        handle = {'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity,
+                  'verification_bytes': metadata, 'request': request.json()}
+        return GameDataPlan('nte-bootstrap-'+inputs.identity,
+            costs['compressed_bytes'] + sum(metadata.values()), costs['decoded_bytes'] + 64 * 1024,
+            handle=handle, download_is_upper_bound=True, runtime_available=True, stage='compatibility',
+            message='Download official NTE compatibility information, then check the game-content download size.')
+
+    def download(self, plan, ctx):
+        ctx.check()
+        handle = plan.handle
+        if (plan.stage != 'compatibility' or not isinstance(handle, dict)
+                or set(handle) != {'schema', 'inputs', 'inputs_sha256', 'verification_bytes', 'request'}
+                or handle['schema'] != STAGE or handle['request'] != ctx.request.json()):
+            raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
+        inputs = source._inputs(handle['inputs'])
+        if inputs.identity != handle['inputs_sha256'] or plan.revision != 'nte-bootstrap-'+inputs.identity:
+            raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
+        metadata = handle['verification_bytes']
+        if (not isinstance(metadata, dict) or set(metadata) != {source.VERSION_URL, inputs.manifest_url}
+                or any(type(count) is not int or not 0 < count <= source.MAX_MANIFEST for count in metadata.values())):
+            raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
+        cache = self._cache(ctx)
+        transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
+        artifacts = {item.url: item for item in inputs.artifacts}
+        transferred = 0
+        def fetch(url, *, limit):
+            nonlocal transferred
+            ctx.check()
+            if url in artifacts:
+                item = artifacts[url]
+                body, receipt = transport.fetch_bytes(url, limit=item.packed_size, kind='asset',
+                    expected_size=item.packed_size, digests={'md5': item.packed_md5})
+            elif url in metadata:
+                body, receipt = transport.fetch_bytes(url, limit=metadata[url], kind='metadata', expected_size=metadata[url])
+            else:
+                raise GameDataError('game_source_changed', 'NTE update information changed. Check the download size again.', 409)
+            ctx.check()
+            transferred += receipt.bytes
+            return body
+        # Serialize publication with the same account/delete/cancellation guard
+        # used for transfers. Artifacts stay immutable and do not activate an index.
+        with ctx.transfer_lock:
+            ctx.check()
+            source.resolve(inputs, cache, fetch=fetch)
+            ctx.check()
+            source.recheck(inputs, fetch=fetch)
+            ctx.check()
+        ctx.progress('verifying', transferred, plan.download_bytes, 'Official NTE compatibility information verified.')
+        return PreparationStage({'schema': STAGE, 'inputs_sha256': inputs.identity},
+            'Official NTE compatibility information is downloaded. Check the remaining game-content preparation.')
+
+    def restore(self, handle, ctx):
+        ctx.check()
+        raise GameDataError('incomplete_game_source', 'NTE compatibility information alone is not a prepared game library.')
+
+
+def create_provider(*, platform, native=None):
+    return NteGameDataProvider(platform=platform, native=native)
