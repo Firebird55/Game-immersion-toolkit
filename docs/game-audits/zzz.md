@@ -1,5 +1,41 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Current Global preparation and context playback in four dubs
+
+The frozen reader 19 completed normal publisher preparation independently for
+each official spoken language, without an installation. Requested translations
+were present in all four preparations, and runtime source hashes stayed equal
+before and after every worker. After the bounded source acquisition, the
+Japanese, Mandarin and Korean workers forbade new package transfers; ordinary
+publisher discovery and the original cached source readers remained in use.
+
+| Source dub | Prepared records | Context captions | Whole-film events | Worker seconds |
+| --- | ---: | ---: | ---: | ---: |
+| English | 297,159 | 902 | 131 | 152.359 |
+| Mandarin | 297,184 | 905 | 131 | 152.141 |
+| Japanese | 289,967 | 896 | 131 | 159.328 |
+| Korean | 266,702 | 897 | 129 | 145.547 |
+
+These selected-dub binding totals are not the active-current-presentation
+denominator. Different languages retain their own source/translation joins and
+unresolved uses; an English total is not substituted for another locale.
+
+Five further normal-snapshot C330 contexts passed original MP3 extraction and
+decoded PCM comparison in two separate fresh processes with every network path
+forbidden: B/G in Japanese and Korean, plus G in Mandarin. Each spans 40.257208
+seconds, each has distinct nonzero PCM, and all five hashes remain identical
+after restart. Together with the English checks below, this verifies actual
+installation-free context playback in all four spoken languages. The earlier
+Mandarin B probe stopped on an intentionally uncached source chunk; no download
+or incomplete clip was accepted. Its original source remains resolvable on
+demand and is not classified as unvoiced.
+
+The independent mainland text route remains verified by the earlier reader 17
+checks. These new four-dub context checks use Global sources and do not stand in
+for equivalent mainland context/update acceptance. Other timeline formats,
+the three composite alternate-event graphs, current-use classification and
+frozen actual-generation update/recovery acceptance still keep #85 open.
+
 ## November 17, 2026 · Shared dependency banks remain separate from voice media
 
 Reader revision 19 resolves an original common-bank dependency that the selected
