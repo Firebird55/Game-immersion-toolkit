@@ -84,9 +84,10 @@ def test_runtime_lock_selects_current_windows_entries_without_host_marker_defaul
             unconditional[normalized(item.name)] = next(iter(item.specifier)).version
     selected = windows_runtime_requirements(lock)
     assert {name: version for name, version in selected.items() if name in unconditional} == unconditional
-    assert set(selected) - set(unconditional) == {'windows-capture', 'oneocr', 'pyaudiowpatch'}
+    assert set(selected) - set(unconditional) == {'windows-capture', 'oneocr', 'pyaudiowpatch', 'capstone'}
     assert selected['windows-capture'] == '2.0.1' and selected['oneocr'] == '1.0.12'
     assert selected['pyaudiowpatch'] == '0.2.12.9'
+    assert selected['capstone'] == '5.0.7'
 
 
 @pytest.mark.parametrize('line', [
@@ -97,6 +98,9 @@ def test_runtime_lock_selects_current_windows_entries_without_host_marker_defaul
     "owned==1.0; python_version == '3.12'",
     "owned==1.0; sys_platform == 'win32' and os_name == 'nt'",
     "owned==1.0; sys_platform == 'win32' or sys_platform == 'darwin'",
+    "owned==1.0; sys_platform == 'win32' and platform_machine == 'arm64'",
+    "owned==1.0; sys_platform == 'linux' and platform_machine == 'AMD64'",
+    "owned==1.0; platform_machine == 'AMD64'",
     'owned>=1.0', 'owned===1.0', 'owned==1.*', 'owned[extra]==1.0',
     'owned @ https://example.test/owned.whl', 'owned==1.0,!=1.1', 'not a requirement',
 ])
@@ -286,6 +290,10 @@ def test_actual_utf8_wheel_notice_metadata_can_be_recorded_as_json(tmp_path, mon
 @pytest.mark.parametrize('optimization', [0, 1, 2])
 def test_pip_recompiled_wheel_cache_requires_matching_verified_source(tmp_path, monkeypatch, optimization):
     module = recorder(monkeypatch)
+    # This fixture models pip's wheel-local cache. A task-wide redirected
+    # pycache prefix must not relocate it outside the authored supplier tree.
+    monkeypatch.setattr(sys, 'pycache_prefix', None)
+    monkeypatch.setattr(sys, 'dont_write_bytecode', True)
     prefix = tmp_path / 'environment'; prefix.mkdir()
     source = prefix / 'owned.py'
     source.write_bytes(b'"authored module"\nassert True\nOWNED = True\n')

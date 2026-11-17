@@ -68,7 +68,11 @@ def test_expected_codec_output_requires_exact_path_and_native_bytes(tmp_path, mo
 
 
 @pytest.mark.parametrize('modern', [False, True])
-def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch, modern):
+@pytest.mark.parametrize('decoder_metadata', [False, True])
+def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_explicit_data(tmp_path, monkeypatch, modern, decoder_metadata):
+    import platform
+    monkeypatch.setattr(sys, 'platform', 'win32')
+    monkeypatch.setattr(platform, 'machine', lambda: 'AMD64')
     _module, value, _source, evidence, _output, _target = codec_output(tmp_path, monkeypatch)
     if modern:
         value['schema'] = 'proxy-desktop-observed-build-v1'
@@ -76,8 +80,12 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
     inputs = tmp_path / 'inputs.json'; inputs.write_text(json.dumps(value))
     monkeypatch.setenv('PROXY_RUNTIME_BUILD_INPUTS', str(inputs))
     monkeypatch.setenv('PROXY_RUNTIME_EVIDENCE_ROOT', str(evidence))
+    metadata = tmp_path / 'capstone-5.0.7.dist-info'; metadata.mkdir()
+    for name in ('METADATA', 'WHEEL', 'LICENSE.TXT', 'direct_url.json', 'INSTALLER'):
+        (metadata / name).write_bytes(b'authored package metadata fixture')
     hooks = SimpleNamespace(collect_data_files=lambda *_a, **_k: [], collect_dynamic_libs=lambda *_a, **_k: [],
-        collect_submodules=lambda *_a, **_k: [], copy_metadata=lambda *_a, **_k: [])
+        collect_submodules=lambda *_a, **_k: [], copy_metadata=lambda name:
+            [(str(metadata), metadata.name)] if decoder_metadata and name == 'capstone' else [])
     monkeypatch.setitem(sys.modules, 'PyInstaller.utils.hooks', hooks)
     # This contract owns codec DATA placement. Real provenance source/refusal
     # behavior is covered with authored archives in test_native_collection_provenance.
@@ -106,6 +114,8 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         member = 'codecs/xiph-flac/' + name
         assert actual[member] == (str(evidence / member), 'DATA')
     assert 'codecs/xiph-flac/notices/COPYING.GPL' in actual
+    expected_metadata = {metadata.name + '/' + name for name in ('METADATA', 'WHEEL', 'LICENSE.TXT')} if decoder_metadata else set()
+    assert {name for name in actual if name.startswith('capstone-')} == expected_metadata
     if modern:
-        assert not any(rows for rows in analyses), 'Immutable resource distributions must not enter Analysis.'
-        assert set(actual) == {item['path'] for item in value['resources']}
+        assert all(Path(origin).parent == metadata for rows in analyses for origin, _ in rows), 'Immutable resource distributions must not enter Analysis.'
+        assert set(actual) == {item['path'] for item in value['resources']} | expected_metadata

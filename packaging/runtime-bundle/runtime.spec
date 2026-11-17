@@ -1,7 +1,6 @@
 # Executed after the native builder has validated its exact installed inputs.
 # A runtime profile is a construction choice, never a release approval.
 import json
-from importlib.metadata import distribution
 import os
 from pathlib import Path
 import platform
@@ -82,12 +81,18 @@ if runtime:
             # __init__ imports all architecture modules; retain its whole
             # Python package, exact capstone/lib/capstone.dll and BSD notice.
             packages += ['capstone']
-            capstone_distribution = distribution('capstone')
             # These are original wheel metadata. Installer-generated files
             # such as direct_url.json can expose a private local wheel cache.
-            for name in ('METADATA', 'WHEEL', 'LICENSE.TXT'):
-                data.append((str(capstone_distribution.locate_file(
-                    'capstone-5.0.7.dist-info/' + name)), 'capstone-5.0.7.dist-info'))
+            # Use the same collector seam as other package metadata, retaining
+            # only the exact required members rather than its entire directory.
+            for origin, destination in copy_metadata('capstone'):
+                if Path(destination).name != 'capstone-5.0.7.dist-info':
+                    raise ValueError('The pinned static decoder metadata is unavailable.')
+                for name in ('METADATA', 'WHEEL', 'LICENSE.TXT'):
+                    member = Path(origin) / name
+                    if not member.is_file():
+                        raise ValueError('The pinned static decoder metadata is incomplete.')
+                    data.append((str(member), destination))
     elif sys.platform == 'linux':
         packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
         hidden += ['keyring.backends.SecretService', 'jaraco.classes',

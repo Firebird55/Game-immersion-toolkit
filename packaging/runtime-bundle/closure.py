@@ -76,11 +76,16 @@ def windows_runtime_requirements(path):
             raise ClosureError('Runtime dependencies must use exact version pins without extras or URLs.')
         if item.marker:
             marker = re.fullmatch(r'sys_platform (==|!=) "(win32|linux|darwin)"', str(item.marker))
-            if not marker:
+            if str(item.marker) == 'sys_platform == "win32" and platform_machine == "AMD64"':
+                # Reviewed Capstone input for this function's fixed CPython
+                # Windows-x64 target, independent of the review host's CPU.
+                selected = True
+            elif marker:
+                selected = marker[2] == 'win32'
+                if marker[1] == '!=':
+                    selected = not selected
+            else:
                 raise ClosureError('Unsupported runtime target marker policy.')
-            selected = marker[2] == 'win32'
-            if marker[1] == '!=':
-                selected = not selected
             if not selected:
                 continue
         name = normalized(item.name)
