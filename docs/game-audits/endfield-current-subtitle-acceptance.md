@@ -317,6 +317,18 @@ audio is scheduled for these confirmed written instructions. These checks
 exercise the real desktop route with source-positioned OCR fixtures; the real
 public-image OCR result above remains negative.
 
+The unchanged revision-32 reader also replays the retained official 1.5.3
+discovery descriptor using that release's own JSON, controllers and prefabs.
+It derives 27 title owners, 129 ordered stages and 221 goal-role references;
+the live release derives 29, 143 and 246 respectively. Thus changed original
+hashes and added owners/stages are discovered by ordinary preparation. No
+current JSON or layout is substituted into the historical snapshot. All
+49,550 historical records remain exactly unchanged; the current English
+snapshot has 55,086 records, including 5,536 additions and 3,155 new voiced
+records. Eleven existing English texts change. This replay requests no new
+original recordings. Worker/cache and source-positioned capture evidence remain
+separate from running-device activation and native gameplay acceptance.
+
 ## Original top captions and training-step order
 
 Revision 24 reads each current dialogue graph's original `_showAtTop`
