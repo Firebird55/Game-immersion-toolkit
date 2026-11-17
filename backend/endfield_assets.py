@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 
@@ -13,7 +14,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 26
+LANGUAGE_INDEX_VERSION = 27
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -120,6 +121,24 @@ def audio_id_paths(audio_dialog):
     return {identity: path for identity, row in _mapping(audio_dialog).items() if (path := _audio_source(row))}
 
 
+def primary_voice_durations(audio_dialog, locale):
+    """Mirror the original primary voice lookup and positive-duration test.
+
+    Emotion voices are a fallback only after this lookup fails. File existence
+    alone cannot establish which branch the original voice controller takes.
+    """
+    field = {'en': 'wavDurationEN', 'zh-Hans': 'wavDuration', 'zh-Hant': 'wavDuration',
+             'ja': 'wavDurationJP', 'ko': 'wavDurationKR'}[locale]
+    result = {}
+    for identity, row in _mapping(audio_dialog).items():
+        path = _audio_source(row)
+        duration = row.get(field)
+        if (path and identity == _voice_table_id(Path(path).stem)
+                and type(duration) in (int, float) and math.isfinite(duration) and duration > 0):
+            result[path] = duration
+    return result
+
+
 def _performances(row, paths, audio_ids, texts):
     override = row.get('audioOverride', '')
     source = audio_ids.get(row['audio_id']) if 'audio_id' in row else paths.get(override)
@@ -173,7 +192,8 @@ def _radio_reaction(row, paths, locale, entries):
     return {**info, 'radio_reaction_status': status}
 
 
-def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None, radio_details=False):
+def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None, coverage=None, radio_details=False,
+                     primary_durations=None):
     result = []
     for identity, row in dialogs.items():
         if row.get('dialogue_kind') == 'readable' and any('<image' in table.get(str(row['dialogText']['id']), '').lower()
@@ -198,6 +218,11 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 path = None
             source = 'voice/' + VOICE_LOCALES[locale] + '/' + path.replace('\\', '/').lower() if path else None
             audio = entries.get(f'{voice_hash(source):016x}') if source else None
+            channels = row.get('channels', ['dialogue'])
+            if row.get('requires_primary_voice_duration') and not (audio and (primary_durations or {}).get(path)):
+                # No full-frame spoken admission when the controller may take
+                # its unresolved emotion fallback, even if a WEM is present.
+                channels = [channel for channel in channels if channel != 'cinematic']
             if row.get('authored_speech_disabled'):
                 voice_status = 'unvoiced'
             elif audio:
@@ -237,7 +262,7 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                 **({'original_speaker_id': row['original_speaker_id']} if row.get('original_speaker_id') else {}),
                 'voice_status': voice_status, 'dialogue_kind': row.get('dialogue_kind', 'conversation'),
                 'text_capture_verified': row.get('text_capture_verified') is True,
-                'channels': row.get('channels', ['dialogue'])})
+                'channels': channels})
     _guard_speaker_anchors(result)
     # Equivalent written steps can be repeated by different operator stages.
     # Their complete official texts share an identity only for predecessor
@@ -323,6 +348,7 @@ def authored_dialogues(catalog, *, radio_evidence=None):
             if identity not in dialogs or previous is not None and previous not in dialogs:
                 _unsupported()
             dialogs[identity]['channels'] = ['dialogue', 'cinematic']
+            dialogs[identity]['requires_primary_voice_duration'] = True
             if previous:
                 dialogs[identity]['previous_mission_id'] = previous
     if hasattr(catalog, 'disabled_dialogues'):
@@ -709,7 +735,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     dialogs = authored_dialogues(catalog, radio_evidence=radio_evidence(catalog, audio_dialog) if online else None)
     dialogs.update(narrative_dialogues(catalog, warnings))
     coverage = {name: 0 for name in ('voiced', 'unvoiced', 'unknown', 'missing_source_metadata', 'missing_locale_recording')}
-    rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage)
+    rows = dialogue_records(dialogs, paths, tables, source_locale, entries, audio_ids=audio_ids, coverage=coverage,
+                            primary_durations=primary_voice_durations(audio_dialog, source_locale))
     films = endfield_online.film_records(catalog, tables, source_locale)
     if online:
         for film in films:

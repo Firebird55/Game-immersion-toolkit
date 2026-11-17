@@ -454,6 +454,44 @@ the game's root triggers or physical gameplay acceptance.
 
 ## Compact current capture and audio endpoint
 
+Revision 27 completes the source-declared top-caption family: all **15 current
+IDs / 16 protagonist-expanded records** enter the voiced full-frame route.
+The three previously excluded `enableEmotionVoice` declarations have their own
+original sentence recordings. Static original `DialogManager._PlayVoice` data
+shows that the primary `DialogTextData.audioOverride` lookup runs first;
+`VoiceUtils.TryGetVoiceDuration` must find voice metadata and a duration greater
+than zero. A successful lookup skips the complete emotion fallback branch.
+The original duration getter reads the selected Mandarin, English, Japanese or
+Korean field. The current original patch inventory changes neither controller
+nor voice utility. No client or patch code is executed for this proof.
+
+Preparation now requires the exact authored primary filename, its matching
+`AudioDialog` ID, a finite positive duration in the selected dub and that dub's
+original recording before admitting any top caption to full-frame voiced
+capture. Missing metadata, invalid/zero duration, placeholders and missing
+media do not gain this route. The bottom mission selector keeps its existing
+emotion-route restrictions. No caption-ID allowlist or borrowed generic sound
+is used. Normal updates re-evaluate the current graph, metadata and packages.
+
+All five ordinary current publisher workers keep their complete record totals,
+texts, recordings, voice states, OCR anchors, recording digests and member
+identities. Exactly three capture-channel fields and two authored predecessor
+fields change. A network-forbidden replay uses each complete current language
+index and the actual `CaptureService` with synthetic top-position OCR boxes:
+**15 / 15 captions per protagonist in every study selection**, each after two
+stable observations, with unvoiced and missing-audio capture disabled. This is
+production capture-policy evidence, not native OCR or physical playback.
+
+The same frozen revision-27 reader prepares 49,550 English records from the
+explicitly replayed original 1.5.3 descriptor and 55,086 from live 1.6.4. Both
+generations admit 16 expanded top records using their own primary metadata.
+Every old ID, recording reference, voice state, OCR anchor, digest and member
+identity survives. The current generation adds 5,536 records including 3,155
+voiced rows and keeps the same 11 existing English-text changes. Original
+package directories are revalidated through the normal publisher reader;
+this remains a frozen two-generation rehearsal rather than future-update or
+physical scheduled-activation acceptance.
+
 These finite checked families are not a claim that every indirect trigger,
 readable layout, operator menu or other narrative presentation has passed.
 Counts use prepared captions/performance pairs rather than unlocked player
@@ -463,7 +501,7 @@ content. Chinese script choices share the original Mandarin sources.
 | --- | ---: | ---: | ---: | ---: | ---: | --- |
 | Current cinematic original audio bound | 499 / 501 | 501 / 503 | 501 / 503 | 495 / 497 | 497 / 499 | Two boss-caption performances per selection retain unknown speech ownership |
 | Original residual radio subset captured | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | One anonymous short caption; generic reactions stay separate |
-| Source-declared top captions admitted automatically, per protagonist | 12 / 15 | 12 / 15 | 12 / 15 | 12 / 15 | 12 / 15 | Three emotion-route declarations still need separate top-layout acceptance |
+| Source-declared top captions admitted automatically, per protagonist | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | Exact primary binding and positive selected-dub duration required; physical acceptance separate |
 | Instruction bodies captured | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies remain guarded |
 | Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
 | Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |

@@ -73,6 +73,9 @@ Endfield's general reactions are separate from sentence recordings. A sigh or
 captions use the unvoiced option; unresolved or missing audio keeps its own
 status. See the [current subtitle inventory](docs/game-audits/endfield-current-subtitle-acceptance.md)
 for the current radio classifications and historical-film boundaries.
+Top-of-screen Endfield captions use full-frame voiced capture when the current
+publisher data supplies their exact original recording and positive duration
+in the selected dub. A generic emotion fallback is kept separate.
 Some Endfield captions use the complete original scene recording, explicitly
 labeled as context. Observed context recordings run from 14.5 to 224.5 seconds;
 they include the full performance rather than an exact individual-sentence cut.

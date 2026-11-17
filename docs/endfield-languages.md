@@ -49,7 +49,9 @@ bodies. A tutorial video is not offered as the voice of its accompanying text.
 Written Baker system notices use the same unvoiced option; voice-message cells
 keep their separate original-audio route.
 Voiced top-of-screen dialogue uses the original layout declaration and full-frame
-capture. Operator-training steps can use the immediately preceding authored step
+capture. Its exact primary recording and positive duration must be present in
+the selected dub; a generic emotion fallback is not substituted for the sentence.
+Operator-training steps can use the immediately preceding authored step
 to identify a short instruction. Keep the complete instruction visible; a new
 menu or interrupted sequence clears that context. Remaining ambiguous cases stay
 guarded in the current subtitle inventory.

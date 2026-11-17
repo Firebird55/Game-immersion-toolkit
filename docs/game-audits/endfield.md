@@ -68,6 +68,16 @@ publisher preparation and frozen old/current preparation validate this metadata
 without a game installation. The [source callers, original-byte proof and compact remaining-work table](endfield-current-subtitle-acceptance.md#original-operator-recordings-and-source-callers)
 separate recording availability from capture and physical acceptance.
 
+Revision 27 completes all 15 source-declared top captions (16 records after
+protagonist expansion). Original voice-controller data establishes that three
+emotion-enabled declarations use their complete primary sentence recording
+when the selected dub has valid voice metadata and positive duration. Every
+top caption now requires that exact primary binding, finite positive selected
+duration and original media before full-frame voiced admission. All 15 match
+for both protagonists in all study selections through the production capture
+policy. General reaction sounds remain separate. See the
+[current endpoint and original-controller proof](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller
