@@ -72,7 +72,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py backend/tests/test_prepared_training_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_native_receipt.py backend/tests/test_android_crypto_probe.py backend/tests/test_android_publisher_crypto_bundle.py backend/tests/test_publisher_crypto.py backend/tests/test_publisher_apk.py
+          python -m pytest -q backend/tests/test_android_workflow_acquisition.py backend/tests/test_android_build_native_receipt.py backend/tests/test_android_crypto_probe.py backend/tests/test_android_publisher_crypto_bundle.py backend/tests/test_publisher_crypto.py backend/tests/test_publisher_apk.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -103,7 +103,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build reviewed Zstandard ABIs and compose immutable software cohorts
         run: |
-          python -c "import importlib.util,json;from pathlib import Path;p=Path('scripts/build-android-python-dependencies.py');s=importlib.util.spec_from_file_location('software_inputs',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/zstandard-native.json').read_text());m.acquire(Path('output/android-zstandard'),{'artifact':'zstandard-0.25.0.tar.gz',**v},download=True)"
+          python -c "import importlib.util,json;from pathlib import Path;p=Path('scripts/build-android-python-dependencies.py');s=importlib.util.spec_from_file_location('software_inputs',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/zstandard-native.json').read_text());d=Path('output/android-zstandard');d.mkdir(parents=True,exist_ok=True);m.acquire(d,{'artifact':'zstandard-0.25.0.tar.gz',**v},download=True)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/build-android-zstandard.py --work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --ndk-archive output/android-dependencies/android-ndk-r27d-windows.zip --python-archives output/android-dependencies
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -113,7 +113,7 @@ jobs:
         run: npm run desktop:build -- --output-root output/android-frontend
       - name: Acquire the authenticated original publisher cryptography source
         run: |
-          python -c "import importlib.util,json;from pathlib import Path;s=importlib.util.spec_from_file_location('software_inputs','scripts/build-android-python-dependencies.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/publisher-crypto-native.json').read_text())['source'];m.acquire(Path('output/android-crypto-source'),{'artifact':'pycryptodome-3.24.1.tar.gz',**v},download=True)"
+          python -c "import importlib.util,json;from pathlib import Path;s=importlib.util.spec_from_file_location('software_inputs','scripts/build-android-python-dependencies.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/publisher-crypto-native.json').read_text())['source'];d=Path('output/android-crypto-source');d.mkdir(parents=True,exist_ok=True);m.acquire(d,{'artifact':'pycryptodome-3.24.1.tar.gz',**v},download=True)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Construct signed debug candidate without a release identity
         run: |
