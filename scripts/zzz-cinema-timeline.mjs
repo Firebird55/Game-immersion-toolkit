@@ -115,3 +115,25 @@ export function cinemaSubtitleLinks(result, namespace) {
     ...subtitle,source:'',cinematic_event:subtitle.event,dialogue_kind:'cutscene',
     channels:['cinematic'],voice_status:subtitle.event?'unavailable':'unknown'}));
 }
+
+export function cinemaTextSourceInventory(captions, texts) {
+  if (!Array.isArray(captions) || captions.length > 5_000_000 ||
+      !texts || typeof texts !== 'object' || Array.isArray(texts)) throw Error('Invalid ZZZ subtitle text sources');
+  const ids = new Set();
+  for (const caption of captions) {
+    if (typeof caption?.text_id !== 'string' ||
+        !/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(caption.text_id)) throw Error('Invalid ZZZ subtitle source identity');
+    ids.add(caption.text_id);
+  }
+  const blank = [], missing = [];
+  for (const id of ids) {
+    if (!Object.hasOwn(texts, id)) missing.push(id);
+    else if (typeof texts[id] !== 'string') throw Error('Invalid ZZZ subtitle source text');
+    else if (!texts[id].trim()) blank.push(id);
+  }
+  // Presence is measured after the original overwrite table. An authored blank
+  // keeps its null sentence join; it does not establish silence or a fallback.
+  return {references:captions.length, distinct_text_ids:ids.size,
+    nonblank_text_ids:ids.size - blank.length - missing.length,
+    authored_blank_ids:blank.sort(), missing_text_ids:missing.sort()};
+}

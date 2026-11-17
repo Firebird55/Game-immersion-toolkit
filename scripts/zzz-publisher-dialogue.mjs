@@ -5,7 +5,7 @@ import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, sce
 import {comicVoicePairs, uniqueComicLinks} from './comic-links.mjs';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from './zzz-dialogue.mjs';
 import {AUTO_META_CONFIG_ASSET, autoPresentationConfig, typedPresentationObjects, presentationDictionary, timelineOwners} from './zzz-presentation-config.mjs';
-import {cinemaSubtitleTimeline, cinemaSubtitleLinks} from './zzz-cinema-timeline.mjs';
+import {cinemaSubtitleTimeline, cinemaSubtitleLinks, cinemaTextSourceInventory} from './zzz-cinema-timeline.mjs';
 
 const utf8 = new TextDecoder('utf-8', {fatal: true});
 const tags = {'zh-Hans':'', 'zh-Hant':'_CHT', en:'_EN', ja:'_JA', ko:'_KO', de:'_DE',
@@ -524,6 +524,7 @@ function catalogue(work, input, reader) {
     ...clips.map(clip => ({...clip, dialogue_kind:'narration', voice_status:'unavailable', channels:['dialogue', 'cinematic']}))];
   const ids = new Set(all.map(link => link.text_id));
   writeFileSync(join(work, 'links.json'), JSON.stringify(all), {flag:'wx'});
+  const cinemaTextSources = {subtitle_track_locale:cinemaLinks[0]?.locale ?? null, text_locale_lookups:{}};
   for (const locale of locales) {
     const values = Object.create(null);
     for (const suffix of suffixes) {
@@ -538,11 +539,13 @@ function catalogue(work, input, reader) {
         values[id] = value;
       }
     }
+    cinemaTextSources.text_locale_lookups[locale] = cinemaTextSourceInventory(cinemaLinks, values);
     writeFileSync(join(work, 'texts-' + locale + '.json'), JSON.stringify(values), {flag:'wx'});
   }
   const knownTimelines = new Set(input.knownTimelineKeys || []);
   return {recorded_messages:recorded.messages.size, ambiguous_messages:recorded.unresolved,
     cinema_timelines:cinemaTimelines, cinema_subtitle_references:cinemaLinks.length, unsupported_cinema_timelines:cinemaUnsupported,
+    cinema_text_sources:cinemaTextSources,
     typed_timeline_callers:{keys:timelineKeys.size, original_owners:[...timelineKeys].filter(key => knownTimelines.has(key)).length,
       unresolved_keys:[...timelineKeys].filter(key => !knownTimelines.has(key)).sort(), current_use:'unclassified'},
     scene_records:links.length, comic_bindings:comics.length, ongoing_records:ongoing.length, tip_records:tips.length, clue_intervals:clips.length, unsupported_nodes:unsupported};

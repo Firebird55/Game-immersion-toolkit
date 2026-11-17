@@ -1,5 +1,39 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original blank subtitle segments versus missing text keys
+
+Reader revision 22 inventories selected subtitle-track references against each
+requested locale's effective original TextMap, after its overwrite table. It
+reports distinct nonblank, explicitly blank and absent keys separately. The
+inventory retains the original track locale separately from translation lookup
+locales, including when Mandarin tracks use Traditional Chinese text. It does
+not create a sentence row or a voice assignment for blank text, classify it as
+unvoiced, or borrow a neighboring/English sentence. New keys and normal data
+overwrites change these results without a scene-ID list or reader update.
+
+The three earlier Japanese questions are resolved at the original source:
+`C260_EP000_200`, `C270_EP010_110` and `C270_EP010_140` are present in the current
+Japanese base TextMap, each containing exactly one U+0020 space. None is replaced
+by the current Japanese overwrite table. Their null sentence joins therefore
+reflect explicitly blank Japanese segments, not missing locale records. This
+does not establish that their surrounding original audio is silent.
+
+Fresh normal Global Japanese preparation completed in **156.672 seconds** with
+the current publisher descriptor, both matching base and hotfix data, no new
+package transfers and ten unchanged runtime hashes. Its supported Japanese
+subtitle tracks contain **2,730 references / 1,959 distinct text IDs**:
+**1,938 nonblank, 21 explicitly blank and zero absent Japanese keys**. These
+are source joins for the selected original tracks, not the complete active
+presentation denominator. Every one of the previous **289,967 record
+dictionaries**, including all original audio bindings, stays identical; the
+**954 context captions / 134 events** are retained.
+
+Two fresh normal voice-service processes with all network access forbidden also
+reproduced the existing Japanese Roxy line (16.981333 seconds) and C330 G context
+(40.257208 seconds), with the same PCM hashes as their earlier reader results.
+Other timeline formats/callers, current-use classification, player conflicts
+and the broader regional/dub update trials remain open.
+
 ## November 17, 2026 · Frozen original-generation update and recovery acceptance
 
 The unchanged reader 21 and helper/software dependencies passed a retained
@@ -92,9 +126,10 @@ ten runtime source hashes unchanged before/after each worker:
 
 Only the new C270 audio/status/context fields changed; every other record
 dictionary stayed identical to reader 20 and no record ID was added or removed.
-Original Japanese references `C270_EP010_110` and `C270_EP010_140` lack prepared
-source-text joins, alongside the earlier `C260_EP000_200`. They are not merged
-into another dub, classified as unvoiced or counted as covered text. Original
+Original Japanese references `C270_EP010_110`, `C270_EP010_140` and the earlier
+`C260_EP000_200` have explicitly blank original TextMap segments, as verified in
+the reader 22 source inventory above. They keep null sentence joins and are not
+merged into another dub, classified as unvoiced or counted as covered text. Original
 bank/source/routing checks passed independently in all four dubs. The other
 three C270 dubs have current metadata/format proof; actual new C270 playback was
 checked in English, alongside the earlier actual context playback in every dub.
@@ -111,8 +146,8 @@ processes from `autopatchcn.juequling.com`, using the CN descriptor. Both span
 40.257208 seconds, have distinct nonzero PCM and retain their hashes on restart.
 
 These totals still do not establish the complete active-current-presentation
-denominator. Other timeline layouts/callers, player conflicts, the three
-Japanese source-text joins and broader regional/dub update acceptance remain
+denominator. Other timeline layouts/callers, player conflicts and broader
+regional/dub update acceptance remain
 open. New initialization/routing checks reject unsupported
 controls; they do not turn missing recordings into silence.
 
