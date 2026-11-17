@@ -34,11 +34,13 @@ def _hash(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
-def _file_hash(path):
+def _file_hash(path, *, check=lambda: None):
+    check()
     _check(not path.is_symlink())
     digest = hashlib.sha256()
     with path.open('rb') as stream:
         for part in iter(lambda: stream.read(1024**2), b''):
+            check()
             digest.update(part)
     return digest.hexdigest()
 
