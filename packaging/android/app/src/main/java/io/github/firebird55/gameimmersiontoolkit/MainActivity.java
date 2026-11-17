@@ -35,7 +35,7 @@ public final class MainActivity extends Activity {
         TextView loading = new TextView(this);
         loading.setText("Opening Game Immersion Toolkit…");
         loading.setPadding(32, 48, 32, 32);
-        setContentView(loading);
+        showInsetSurface(loading);
         worker.execute(() -> {
             try {
                 if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitSelfTest", false)) {
@@ -241,8 +241,15 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
+        showInsetSurface(reader);
+        CookieManager.getInstance().setCookie(origin, sessionCookie, accepted -> {
+            if (reader != null && !isFinishing() && !isDestroyed()) reader.loadUrl(address);
+        });
+    }
+
+    private void showInsetSurface(android.view.View content) {
         android.widget.FrameLayout surface = new android.widget.FrameLayout(this);
-        surface.addView(reader, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        surface.addView(content, new android.widget.FrameLayout.LayoutParams(-1, -1));
         if (android.os.Build.VERSION.SDK_INT >= 30) {
             surface.setOnApplyWindowInsetsListener((view, insets) -> {
                 android.graphics.Insets safe = insets.getInsets(android.view.WindowInsets.Type.systemBars()
@@ -255,9 +262,6 @@ public final class MainActivity extends Activity {
         }
         setContentView(surface);
         surface.requestApplyInsets();
-        CookieManager.getInstance().setCookie(origin, sessionCookie, accepted -> {
-            if (reader != null && !isFinishing() && !isDestroyed()) reader.loadUrl(address);
-        });
     }
 
     @Override protected void onActivityResult(int request, int result, Intent intent) {
