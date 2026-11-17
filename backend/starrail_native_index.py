@@ -33,6 +33,9 @@ class NativeIndex:
             _check(offset + size <= self.native.stat().st_size)
             self.sections.append((rva, size, offset))
         self.blocks, self.methods, self.owners, self.owner_methods = {}, {}, {}, {}
+        self.method_definitions = {}
+        self.exception_directory = struct.unpack_from('<2I', header, pe + 24 + 112 + 3 * 8)
+        self.native_ranges = None
         self.scopes = {}
         self.all_blocks, ambiguous = [], set()
         lines = []
@@ -72,6 +75,11 @@ class NativeIndex:
                     _check(rva < 1 << 32)
                     record = {'owner': scope,
                               'signature': line.split('{}')[0].strip()}
+                    token = int(match[3], 16)
+                    _check(token >> 24 == 6 and token & 0xffffff)
+                    definition = (token & 0xffffff) - 1
+                    _check(definition not in self.method_definitions)
+                    self.method_definitions[definition] = (rva, record)
                     self.methods.setdefault(rva, []).append(record)
                     self.owner_methods.setdefault(scope, []).append((rva, record['signature']))
         with (prepared.outputs / 'dump.cs').open(encoding='utf-8-sig') as stream:
@@ -95,6 +103,7 @@ class NativeIndex:
             self.literals[address] = row['Value']
         self.cache = {}
         self.graph_cache = {}
+        self.linear_cache = {}
         self.scopes = {identity: ''.join(lines) for identity, lines in self.scopes.items()}
 
     def offset(self, start, length):
@@ -165,6 +174,73 @@ class NativeIndex:
                     _check(address <= target < end or target in self.methods)
             self.graph_cache[address] = result, hashlib.sha256(self.read(address, end - address)).hexdigest()
         return self.graph_cache[address]
+
+    def native_bounds(self, address):
+        """Use the original x64 exception directory for an unmanaged body."""
+        if self.native_ranges is None:
+            start, size = self.exception_directory
+            _check(start > 0 and 0 < size <= 64 * 1024**2 and size % 12 == 0)
+            step = 1024**2
+            raw = b''.join(self.read(start + offset, min(step, size - offset))
+                           for offset in range(0, size, step))
+            previous = -1
+            for first, end, unwind in struct.iter_unpack('<III', raw):
+                _check(previous < first < end and unwind > 0)
+                previous = first
+            self.native_ranges = raw
+        raw = self.native_ranges
+        lo, hi = 0, len(raw) // 12
+        while lo < hi:
+            middle = (lo + hi) // 2
+            if struct.unpack_from('<I', raw, middle * 12)[0] <= address:
+                lo = middle + 1
+            else:
+                hi = middle
+        _check(lo > 0)
+        first, end, _ = struct.unpack_from('<III', raw, (lo - 1) * 12)
+        _check(first <= address < end and end - first <= 65536)
+        self.offset(first, end - first)
+        return first, end
+
+    def native_extent(self, address):
+        first, end = self.native_bounds(address)
+        _check(first == address)
+        return end
+
+    def linear_body(self, address, *, unmanaged=False):
+        """Decode a complete bounded constructor or original unmanaged body.
+
+        A larger constructor is divided only at decoder-proven instruction
+        boundaries. Trying at most the x64 maximum instruction width handles a
+        boundary fragment; an invalid instruction within a chunk still fails.
+        No partial result enters the cache and no instruction is executed.
+        """
+        key = (address, unmanaged)
+        if key not in self.linear_cache:
+            end = self.native_extent(address) if unmanaged else self.raw_extent(address)
+            at, rows = address, []
+            _check(end - address <= 1024**2)
+            while at < end:
+                count = min(8192, end - at)
+                for trim in range(min(15, count)):
+                    try:
+                        decoded, = self.prepared.disassemble([{'offset': self.offset(at, count - trim),
+                            'address': self.base + at, 'bytes': count - trim}])
+                    except ValueError:
+                        if trim == min(15, count) - 1:
+                            raise
+                        continue
+                    break
+                _check(decoded and len(decoded) <= 8192)
+                previous = self.base + at - 1
+                for position, operation, operands in decoded:
+                    _check(type(position) is int and previous < position < self.base + at + count - trim)
+                    previous = position
+                    rows.append((position - self.base, operation, operands))
+                _check(decoded[0][0] == self.base + at and len(rows) <= 262144)
+                at += count - trim
+            self.linear_cache[key] = rows, hashlib.sha256(self.read(address, end - address)).hexdigest()
+        return self.linear_cache[key]
 
     def instruction_sizes(self, address):
         instructions, _ = self.body(address)

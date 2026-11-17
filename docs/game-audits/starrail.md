@@ -291,13 +291,43 @@ resource index revision/digest/size tuples equal the independently verified
 current Global generation. This proves regional bootstrap discovery and native
 description preparation, not regional playback or ordinary worker acceptance.
 
-Original mission action resources are a separate remaining integration task.
-Three sampled authored `PerformanceVideo` paths resolve through the original
-`JsonToBinaryPath` rule to `BakedConfig/Config/Level/Mission/.../Act/...bytes`.
-Their bounded original HTTPS ranges contain binary configuration, not JSON.
-These samples do not authenticate the entire containing package or implement
-its polymorphic task reader. Caption-only binary proofs cannot substitute for
-mission predicate and dub-branch ownership.
+The owned native-usage API now resolves the missing polymorphic factory bridge.
+It discovers the typed task/predicate registries from original metadata, follows
+their actual static storage into the dispatcher, and proves reader/index/table/
+return ownership across its native control-flow graph. Original exception
+callees are considered non-returning only when their bounded bodies prove that
+every reachable exit traps. This prevents invented fallthrough paths between
+compiler cold blocks. The PE exception directory supplies native bounds; the
+named `.pdata` section is not assumed to contain readable records.
+
+Registration is joined to the freshly generated literal-table identity. Native
+arithmetic operands establish the original usage-list and usage-pair codecs,
+including their offsets and final-list index. The resulting explicit method
+definition joins do not use declaration order, copied runtime pointers, a newer
+data publication, a version list or supplied addresses/keys. The same owned
+extractor succeeds for Global 4.6 (3,967 task slots and 648 predicate slots) and
+Global/CN 4.7 (4,086 and 660 slots). Each version retains 12 explicit empty task
+slots and two empty predicate slots. These are dispatch slots, not dialogue
+availability or unvoiced classifications. Generic-method specs still require a
+separate proved binding contract if a requested factory uses one.
+
+Original mission action decoding remains a provider integration task, with a
+bounded positive for its real conditional-caption dependency. Authored
+`PerformanceVideo` paths resolve through the original `JsonToBinaryPath` rule
+to `BakedConfig/Config/Level/Mission/.../Act/...bytes`. The whole containing
+package `73b3d10f574211fe5df50448d5b2ecb7` (134,240,610 bytes) is now MD5
+verified, using existing publisher range bodies without a new transfer. The
+selected text/table/config source set totals 1,138,529,119 bytes; this is separate
+from the CN native-input proof.
+
+The 114-byte original `Act104371098` body decodes to exact EOF using its original
+native field order and explicit factory bindings. A frozen JSON extraction is a
+post-decode verification oracle only. The existing film consumer selects the
+default caption for Mandarin and the authored `_2` caption for English,
+Japanese and Korean in this single-action probe. That positive does not yet
+implement the generic production mission reader or establish ordinary setup
+worker acceptance. Caption-only proofs cannot substitute for mission predicate
+and dub-branch ownership.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

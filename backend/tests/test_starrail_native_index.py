@@ -23,7 +23,7 @@ def fixture(tmp_path):
     for index, name, rva in [(1, 'Repeated.Name', 0x1000), (2, 'Repeated.Name', 0x1010),
                              (3, 'Unique.Owner', 0x1020), (4, '', 0x1030)]:
         blocks.append(f'// TypeDefIndex: {index}\n// Full Name: {name}\n'
-                      f'    public void Read() {{}} // VA: 0x{0x180000000+rva:X}, RVA: 0x{rva:X}, Token: 0x1\n')
+                      f'    public void Read() {{}} // VA: 0x{0x180000000+rva:X}, RVA: 0x{rva:X}, Token: 0x{0x6000000+index:X}\n')
     (outputs / 'dump.cs').write_text(''.join(blocks))
     (outputs / 'stringliterals.json').write_text(json.dumps([{'Address': '0x2000', 'Value': 'authored.bytes'}]))
     return SimpleNamespace(inputs=inputs, outputs=outputs,
@@ -64,11 +64,11 @@ def test_nested_methods_keep_their_own_field_and_constructor_scope(tmp_path):
     prepared = fixture(tmp_path)
     path = prepared.outputs / 'dump.cs'
     text = path.read_text().replace('// TypeDefIndex: 4',
-        '    private static void .cctor() {} // VA: 0x180001040, RVA: 0x1040, Token: 0x1\n'
+        '    private static void .cctor() {} // VA: 0x180001040, RVA: 0x1040, Token: 0x6000010\n'
         '    public class Child : object { // Token: 0x2\n'
         '        public string Name // Offset: 0x88, Token: 0x3\n'
-        '        public void SetUrls(string[]) {} // VA: 0x180001050, RVA: 0x1050, Token: 0x4\n'
-        '        private static void .cctor() {} // VA: 0x180001060, RVA: 0x1060, Token: 0x5\n'
+        '        public void SetUrls(string[]) {} // VA: 0x180001050, RVA: 0x1050, Token: 0x6000011\n'
+        '        private static void .cctor() {} // VA: 0x180001060, RVA: 0x1060, Token: 0x6000012\n'
         '    }\n// TypeDefIndex: 4')
     path.write_text(text)
     index = NativeIndex(prepared)
@@ -90,3 +90,37 @@ def test_long_unrelated_constructor_can_be_prefiltered_without_widening_decoder_
     index.ordered[-1] = 0x1000 + 16 * 1024**2 + 1
     with pytest.raises(ValueError):
         index.raw_extent(0x1000)
+
+
+def test_unmanaged_bounds_use_exception_directory_and_reject_interior_entry_or_bad_order(tmp_path):
+    prepared = fixture(tmp_path)
+    path = prepared.inputs / 'GameAssembly.dll'
+    raw = bytearray(path.read_bytes())
+    struct.pack_into('<2I', raw, 0x80 + 24 + 112 + 3 * 8, 0x10c0, 24)
+    struct.pack_into('<6I', raw, 0x4c0, 0x1020, 0x1030, 0x10e0, 0x1040, 0x1050, 0x10e0)
+    path.write_bytes(raw)
+    index = NativeIndex(prepared)
+    assert index.native_extent(0x1020) == 0x1030
+    assert index.native_bounds(0x1025) == (0x1020, 0x1030)
+    assert index.method_definitions[2][0] == 0x1020
+    for address in (0x1025, 0x1035):
+        with pytest.raises(ValueError):
+            index.native_extent(address)
+    struct.pack_into('<I', raw, 0x4cc, 0x1010)
+    path.write_bytes(raw)
+    with pytest.raises(ValueError):
+        NativeIndex(prepared).native_extent(0x1020)
+
+
+def test_failed_linear_decode_never_caches_an_incomplete_body(tmp_path):
+    prepared = fixture(tmp_path)
+    calls = []
+    def decode(ranges):
+        calls.append(ranges[0]['bytes'])
+        raise ValueError('authored invalid interior instruction')
+    prepared.disassemble = decode
+    index = NativeIndex(prepared)
+    with pytest.raises(ValueError):
+        index.linear_body(0x1020)
+    assert calls == list(range(16, 1, -1))
+    assert not index.linear_cache
