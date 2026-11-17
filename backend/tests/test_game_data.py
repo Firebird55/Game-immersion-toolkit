@@ -95,6 +95,33 @@ def download(service):
     return service.download('zzz', {'plan_id': value['plan_id'], 'revision': value['revision']})
 
 
+@pytest.mark.parametrize('changed', [
+    {'content_mode': 'text-audio'}, {'source_locale': 'ja'},
+    {'target_locales': ['ko']}, {'region': 'cn'},
+])
+def test_same_revision_new_selection_never_borrows_previous_requests_readiness(tmp_path, changed):
+    from dataclasses import replace
+    provider = Provider(); activations = []
+    service = GameDataService(tmp_path, {'zzz': provider}, on_activate=lambda ctx, _source: activations.append(ctx.request.json()))
+    text = {**REQUEST, 'content_mode': 'text'}
+    try:
+        initial = service.plan('zzz', text)['game']
+        service.download('zzz', {'plan_id': initial['plan_id'], 'revision': initial['revision']})
+        assert finish(service)['state'] == 'ready'
+        original_plan = provider.plan
+        provider.plan = lambda request, ctx: replace(original_plan(request, ctx), download_bytes=None,
+            runtime_available=False, message='Requested selection is not prepared yet.')
+        proposed = service.plan('zzz', {**text, **changed})['game']
+        assert proposed['revision'] == initial['revision'] == proposed['installed_revision']
+        assert proposed['state'] == 'update_available' and not proposed['can_download']
+        assert proposed['installed_request'] == text and proposed['job'] is None
+        assert proposed['message'] == 'Requested selection is not prepared yet.'
+        service.activate('zzz', {'revision': proposed['installed_revision']})
+        assert activations == [text, text]  # Still the accepted old text, never the proposed audio/language.
+        assert row(service)['state'] == 'update_available'
+    finally: service.close()
+
+
 def test_unknown_size_cannot_transfer_and_all_eight_games_are_reported(tmp_path):
     provider = Provider(); provider.unknown = True
     service = GameDataService(tmp_path, {'zzz': provider})
