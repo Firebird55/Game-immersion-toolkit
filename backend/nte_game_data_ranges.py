@@ -4,6 +4,7 @@ Each range is derived by the existing archive parser using a complete original
 SIG. This stage acquires only missing authenticated bytes, never a ready library.
 """
 from pathlib import Path
+from types import SimpleNamespace
 
 from . import nte_game_data_content as content, nte_publisher_pak as pak
 from . import nte_release as release
@@ -76,17 +77,81 @@ def _inspect(handle, ctx, reader):
     sources = _sources(handle, ctx, missing)
     names.update((source, name) for name, source in sources.items())
     catalog = _format(ctx)
+    archives = {}
     for name, source in sources.items():
         ctx.check()
         try:
-            pak.Archive(source, catalog, oodle=reader.oodle)
+            archives[name] = pak.Archive(source, catalog, oodle=reader.oodle)
         except RequiredRange:
             pass
-    return sources, wanted
+    if wanted:
+        return sources, wanted, {'purpose': 'indexes', 'members': []}
+    members = _members(handle['request'], archives)
+    missing = {}
+    for member in members:
+        ctx.check(); source = sources[member['pak']]
+        first = member['offset']//pak.CHUNK
+        stop = (member['offset']+member['stored_bytes']+pak.CHUNK-1)//pak.CHUNK
+        for index in range(first, stop):
+            # Inspect retained compressed blocks only for integrity/cache cost;
+            # no selected member read, decompression, UE parse or online lookup.
+            if source._cached(index) is None:
+                missing.setdefault(member['pak'], set()).add(index)
+    for name, blocks in sorted(missing.items()):
+        ordered = sorted(blocks); i = 0
+        while i < len(ordered):
+            end = i+1
+            while (end < len(ordered) and ordered[end] == ordered[end-1]+1
+                   and end-i < pak.TRANSFER//pak.CHUNK):
+                end += 1
+            wanted.append({'pak': name, 'first': ordered[i], 'stop': ordered[end-1]+1})
+            i = end
+    return sources, wanted, {'purpose': 'selected-text-metadata', 'members_sha256': content._identity(members),
+                             'members_count': len(members)}
+
+
+def _members(request, archives):
+    from .nte_assets import TEXT_LOCALES
+    from .nte_publisher import _overlay
+    from .nte_native_provider import registry_location
+    locations = _overlay(archives, lambda archive: archive.locations)
+    def live(name):
+        row = locations.get(name.casefold())
+        return row if row and row[1].entry(row[2]) is not None else None
+    prefix = 'HT/Content/Localization/Game/'
+    # No recognized text layout is still an unfinished source, never Ready.
+    if not any(row[2].startswith(prefix) for row in locations.values()):
+        return []
+    source = prefix+TEXT_LOCALES[request['source_locale']]+'/Game.locres'
+    if live(source) is None:
+        raise GameDataError('missing_text_pack', 'This NTE edition does not provide the selected study text.', 409)
+    selected = {prefix+TEXT_LOCALES[locale]+'/Game.locres'
+                for locale in (request['source_locale'], *request['target_locales'])}
+    selected.update(row[2] for row in locations.values()
+        if row[2].startswith('HT/Content/SrtFile/FFMpeg/Story/') and row[2].endswith('.srt') and live(row[2]))
+    try:
+        _, registry = registry_location(SimpleNamespace(locations=locations, location=live))
+    except ValueError as error:
+        raise GameDataError('nte_registry_unavailable',
+            'The original NTE dialogue inventory is missing or ambiguous. Your previous library is retained.', 409) from error
+    selected.add(registry)
+    result = []
+    for path in sorted(selected):
+        row = live(path)
+        if row is None:  # An absent target translation is not invented.
+            continue
+        owner, archive, original = row
+        entry, start, length = archive.stored_range(original)
+        if length:
+            result.append({'pak': owner, 'path': original, 'offset': start,
+                           'stored_bytes': length, 'raw_bytes': entry.size})
+    if not 0 < len(result) <= 4096:
+        raise _failure()
+    return result
 
 
 def _cost(sources, records):
-    if not isinstance(records, list) or not 0 < len(records) <= 128:
+    if not isinstance(records, list) or not 0 < len(records) <= 4096:
         raise _failure()
     total = 0; seen = set()
     for row in records:
@@ -117,7 +182,7 @@ def _batch(sources, records):
 
 def plan(handle, ctx, reader):
     try:
-        sources, wanted = _pending(handle, ctx, reader)
+        sources, wanted, selection = _pending(handle, ctx, reader)
     except GameDataError as error:
         if error.code != 'nte_initial_description_required':
             raise
@@ -128,25 +193,27 @@ def plan(handle, ctx, reader):
             stage='content', message='Original NTE package indexes are verified. Selected text and audio preparation still needs a bounded content plan.')
     wanted = _batch(sources, wanted)
     payload = _cost(sources, wanted)
-    packet = {'schema': STAGE, 'indices': handle, 'ranges': wanted}
+    packet = {'schema': STAGE, 'indices': handle, 'ranges': wanted, 'selection': selection}
     checks = sum(row['bytes'] for row in handle['verification'].values())
     return GameDataPlan('nte-ranges-'+content._identity(packet), payload+2*checks, payload+128*1024,
         handle=packet, download_is_upper_bound=True, runtime_available=True, stage='archive-index-ranges',
-        message='Download verified NTE package indexes, then check the selected text and audio size.')
+        message=('Download verified NTE package indexes, then check the selected text and audio size.'
+            if selection['purpose'] == 'indexes' else
+            'Download selected NTE text and dialogue information, then check the remaining preparation.'))
 
 
 def download(plan, ctx, reader, transport):
     packet = plan.handle
-    if (not isinstance(packet, dict) or set(packet) != {'schema', 'indices', 'ranges'}
+    if (not isinstance(packet, dict) or set(packet) != {'schema', 'indices', 'ranges', 'selection'}
             or packet['schema'] != STAGE or plan.stage != 'archive-index-ranges'
             or plan.revision != 'nte-ranges-'+content._identity(packet)):
         raise _failure()
     handle = packet['indices']; cache, host = content.validate_handle(handle, ctx, reader)
     if not all(content._retained(cache, spec) for spec in handle['files']):
         raise _failure()
-    sources, wanted = _pending(handle, ctx, reader)
+    sources, wanted, selection = _pending(handle, ctx, reader)
     wanted = _batch(sources, wanted)
-    if wanted != packet['ranges']:
+    if wanted != packet['ranges'] or selection != packet['selection']:
         raise _failure()
     checks = handle['verification']
     total = _cost(sources, wanted)+2*sum(row['bytes'] for row in checks.values())
@@ -180,6 +247,9 @@ def download(plan, ctx, reader, transport):
             ctx.check()
         transferred += receipt.bytes
     recheck(); ctx.check()
-    ctx.progress('verifying', transferred, plan.download_bytes, 'Original NTE package index ranges verified.')
-    return PreparationStage({'schema': STAGE, 'inventory_sha256': content._identity(handle['inventory'])},
-        'Original NTE package index ranges are downloaded. Check the remaining game-content size.')
+    ctx.progress('verifying', transferred, plan.download_bytes, 'Original NTE package ranges verified.')
+    return PreparationStage({'schema': STAGE, 'inventory_sha256': content._identity(handle['inventory']),
+        'plan_sha256': content._identity(packet), 'ranges_sha256': content._identity(wanted),
+        'selection': selection, 'reader': reader.identity, 'transferred_bytes': transferred,
+        'official_verification_sha256': content._identity(checks)},
+        'Original NTE package ranges are downloaded. Check the remaining game-content size.')

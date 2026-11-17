@@ -296,6 +296,35 @@ offline replay of frozen official sources, not a fresh server/rotation trial.
 The selected package/text/audio stage and independent Android acceptance remain
 unfinished.
 
+The following PAK metadata stage selects the requested study/translation locres,
+the existing Story SRT presentation route and the unique live AssetRegistry
+owner. It uses authenticated index entry layouts to quote stored ranges; planning
+does not read/decode a selected member. Retained compressed blocks are checked
+only to determine the remaining transfer. Other text locales and all voice-bank
+and WEM members are excluded from this stage in both content modes. The eventual
+text-and-audio route still needs its separate authored voice selection.
+
+A frozen-original Global 1.5.4 Japanese/Mandarin-target replay selected **47**
+metadata members. Its **41,074,650-byte** plan completed through 13 checked
+shared-transport responses using existing retained blocks only, with no network
+or bank/WEM/other-locale member reads. The stage receipt binds the plan, selected
+owners, exact ranges, reader and official-pointer checks. A correctly rehashed
+but false selected-member identity fails before transfer, preserves the previous
+stage receipt, and permits a healthy retry. Integrity-block rounding is included
+in the quote; incidental bytes in required container blocks are not claimed to
+be selected dialogue. This metadata stage is not complete UE/table extraction
+or a ready language library.
+
+Its unchanged initial archive description is the immutable
+[UnrealExporter source](https://raw.githubusercontent.com/luk-gg/UnrealExporter/7f3fb1dee733d36338766467b0c54cbd47d58851/UnrealExporter/aes.txt),
+SHA-256 `aba72c557c302444c85c89a0789a4cac04a7a3e7f56b6324330c897db2a00566`.
+This is an explicit fixed initial compatibility dependency, not a newly extracted
+description fetched for each game update. The exact cold-miss state is:
+“The application needs its initial NTE compatibility information before preparing
+these packages.” No latest community lookup is attempted. Keeping this fixed
+description does not establish official archive/localization key rotation;
+changed incompatible keys remain a separate open gate.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary
