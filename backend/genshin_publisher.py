@@ -47,6 +47,14 @@ class ReleaseCatalog(DialogueCatalog):
             return self.official_source.file(relative)
         return super().file(relative, optional=optional)
 
+    def directory_text(self, relative, suffix='.txt'):
+        source = getattr(self, 'official_source', None)
+        if source is not None and relative.startswith('Readable/'):
+            result = source.directory_text(relative, suffix=suffix)
+            source.original_readables_active = True
+            return result
+        return super().directory_text(relative, suffix=suffix)
+
     def _bytes(self, name, url, limit=128 * 1024 * 1024):
         path = PurePosixPath(name)
         source = urlsplit(url)

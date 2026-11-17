@@ -86,6 +86,7 @@ class Source:
         self.manual_rows, self.manual_receipt = None, None
         self.localization_rows, self.localization_receipt = None, None
         self.readable_inventories, self.readable_receipts = {}, {}
+        self.original_readables_active = False
         self.stamp = descriptor(build)[0]
         self.package_receipts = {}
         check('hotfix' in build)
@@ -355,9 +356,12 @@ class Source:
         if self.manual_receipt is not None:
             receipt['original_tables'] = {'ManualTextMapConfigData': self.manual_receipt}
         if getattr(self, 'localization_receipt', None) is not None:
-            receipt['staged_original_readables'] = {'schema': 'genshin-original-readable-source-v1',
-                'scope': 'localization-owned-readable-text', 'replaces_legacy_readables': False,
-                'table': self.localization_receipt, 'locales': dict(self.readable_receipts)}
+            active = getattr(self, 'original_readables_active', False)
+            value = {'schema': 'genshin-original-readable-source-v2' if active else 'genshin-original-readable-source-v1',
+                'scope': 'localization-owned-readable-text', 'table': self.localization_receipt,
+                'locales': dict(self.readable_receipts)}
+            value['legacy_directory_replaced' if active else 'replaces_legacy_readables'] = active
+            receipt['original_readables' if active else 'staged_original_readables'] = value
         return receipt
 
 

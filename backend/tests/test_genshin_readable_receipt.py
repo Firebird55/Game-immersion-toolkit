@@ -73,3 +73,25 @@ def test_new_receipt_validation_remains_standalone_stdlib_and_old_receipts_stay_
             region=payload['publisher_region'], metadata_revision=payload['metadata_revision'])
         assert result['coverage']['Readable'] == 'community-not-converted'
     assert 'staged_original_readables' not in old['source_receipt']['original_text']
+
+
+@pytest.mark.parametrize('change', [None, 'staged-schema', 'not-consumed', 'missing-locale', 'mixed-fields', 'false-origin'])
+def test_consumed_original_route_requires_its_own_schema_and_every_selected_locale(change):
+    payload = staged(); source = payload['source_receipt']['original_text']
+    value = source.pop('staged_original_readables')
+    source['original_readables'] = value
+    value['schema'] = 'genshin-original-readable-source-v2'
+    value['legacy_directory_replaced'] = True
+    value.pop('replaces_legacy_readables')
+    payload['source_receipt']['coverage']['Readable'] = 'original-publisher'
+    assert set(source['locales']) == {'EN'}
+    if change == 'staged-schema': value['schema'] = 'genshin-original-readable-source-v1'
+    elif change == 'not-consumed': value['legacy_directory_replaced'] = False
+    elif change == 'missing-locale': value['locales'].clear()
+    elif change == 'mixed-fields': source['staged_original_readables'] = copy.deepcopy(value)
+    elif change == 'false-origin': payload['source_receipt']['coverage']['Readable'] = 'community-not-converted'
+    rehash(payload['source_receipt'])
+    if change is None:
+        assert validate(payload)['coverage']['Readable'] == 'original-publisher'
+    else:
+        with pytest.raises(ValueError): validate(payload)

@@ -49,10 +49,14 @@ switches. A bounded publisher trial read 1,939 Japanese and 1,939 English text
 objects from two complete verified packages (3,230,787 compressed bytes), with
 exact postparse control matches. It feeds the existing paragraph consumer and
 provides a selected-package refinement including the complete native/metadata
-inputs. It leaves the legacy Readable catalog unchanged: eight source-missing
-Book references, two SpriteText image paths and six unbound legacy files per
-locale remain separate qualifications. The staged receipt does not activate
-this route or mark Readable coverage complete. Subtitle bodies remain open.
+inputs. The existing `original_text` opt-in now routes Readable requests through
+this source; the default provider is unchanged. All 8,276 accepted Readable
+records match in every field with the same voice-overlap guard. The six unbound
+legacy files contain only empty/newline data and contribute no paragraphs;
+their current-use status remains unknown. Eight source-missing Book references
+and two SpriteText image paths remain separate qualifications. A consumed-source
+receipt requires every selected locale and marks its text origin explicitly;
+earlier staged receipts are not relabeled. Subtitle bodies remain open.
 
 This adds no Android execution claim. The new Python readers use the same
 original executable/complete metadata environment and bounded static x64

@@ -127,6 +127,26 @@ def test_text_only_refined_plan_includes_source_containers_without_reading_docum
     assert plan['staged_readables']['replaces_legacy_readables'] is False
 
 
+def test_only_explicit_original_catalog_routes_readables_and_never_falls_back(monkeypatch):
+    from backend.genshin_publisher import ReleaseCatalog
+    from backend.dialogue_catalog import DialogueCatalog
+    calls = []
+    monkeypatch.setattr(DialogueCatalog, 'directory_text', lambda self, relative, suffix='.txt':
+                        calls.append(('legacy', relative)) or [('legacy', 'retained')])
+    catalog = object.__new__(ReleaseCatalog)
+    assert catalog.directory_text('Readable/JP') == [('legacy', 'retained')]
+    original = SimpleNamespace(directory_text=lambda relative, suffix: calls.append(('original', relative))
+                               or [('Book7_JP.txt', '確認する。')])
+    catalog.official_source = original
+    assert catalog.directory_text('Readable/JP') == [('Book7_JP.txt', '確認する。')]
+    assert original.original_readables_active is True
+    assert catalog.directory_text('Subtitle/JP', suffix='.srt') == [('legacy', 'retained')]
+    original.directory_text = lambda *args, **kwargs: (_ for _ in ()).throw(ValueError('new original shape failed'))
+    before = len(calls)
+    with pytest.raises(ValueError, match='original shape failed'): catalog.directory_text('Readable/JP')
+    assert len(calls) == before
+
+
 @pytest.mark.parametrize('change', ['duplicate', 'fallback', 'bad-utf8'])
 def test_bad_or_missing_text_is_never_promoted_to_an_ordinary_translation(tmp_path, monkeypatch, change):
     f = fixture(tmp_path, monkeypatch)

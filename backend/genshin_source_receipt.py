@@ -17,12 +17,13 @@ def sha(value, length=64):
     return isinstance(value, str) and re.fullmatch('[a-f0-9]{' + str(length) + '}', value)
 
 
-def validate_readables(value, source, *, publisher, region):
-    """Optional staged GI evidence; pure data, with no coverage promotion."""
+def validate_readables(value, source, *, publisher, region, active=False):
+    """GI-only evidence; old staged data retains its original coverage label."""
     codes = {'CHS', 'CHT', 'EN', 'JP', 'KR', 'FR', 'DE', 'ES', 'PT', 'RU', 'TH', 'VI', 'ID', 'IT', 'TR'}
-    check(isinstance(value, dict) and set(value) == {'schema', 'scope', 'replaces_legacy_readables', 'table', 'locales'}
-          and value.get('schema') == 'genshin-original-readable-source-v1'
-          and value.get('scope') == 'localization-owned-readable-text' and value.get('replaces_legacy_readables') is False
+    mode_field = 'legacy_directory_replaced' if active else 'replaces_legacy_readables'
+    check(isinstance(value, dict) and set(value) == {'schema', 'scope', mode_field, 'table', 'locales'}
+          and value.get('schema') == ('genshin-original-readable-source-v2' if active else 'genshin-original-readable-source-v1')
+          and value.get('scope') == 'localization-owned-readable-text' and value.get(mode_field) is active
           and region in {'global', 'cn'} and source.get('publisher') == publisher
           and source.get('codec_description', {}).get('policy') == 'official-native-blb-parameters-v1')
     table = value.get('table')
@@ -64,6 +65,8 @@ def validate_readables(value, source, *, publisher, region):
           and proof['method_sha256s'] == sorted(set(proof['method_sha256s'])) and all(sha(m) for m in proof['method_sha256s']))
     locales = value.get('locales')
     check(isinstance(locales, dict) and set(locales) <= codes)
+    if active:
+        check(locales and set(locales) == set(source.get('locales', {})))
     for code, item in locales.items():
         check(isinstance(item, dict) and set(item) == {'locale', 'files', 'total_utf8_bytes', 'source_missing', 'sprite_text_images'}
               and item.get('locale') == code and isinstance(item.get('files'), list) and 0 < len(item['files']) <= 50_000
@@ -107,6 +110,8 @@ def validate(receipt, *, publisher, region, metadata_revision):
     coverage = {'TextMap': 'original-publisher', 'Readable': 'community-not-converted', 'Subtitle': 'community-not-converted'}
     if isinstance(receipt.get('original_text'), dict) and 'original_tables' in receipt['original_text']:
         coverage['ManualTextMap'] = 'original-publisher'
+    if isinstance(receipt.get('original_text'), dict) and 'original_readables' in receipt['original_text']:
+        coverage['Readable'] = 'original-publisher'
     check(receipt.get('coverage') == coverage)
     body = {key: value for key, value in receipt.items() if key != 'sha256'}
     check(receipt.get('sha256') == hashlib.sha256(canonical(body)).hexdigest())
@@ -251,7 +256,10 @@ def validate(receipt, *, publisher, region, metadata_revision):
               and 0 < package['publisher_bytes'] <= 160 * 1024**2 and type(package.get('decoded_bytes')) is int
               and 0 < package['decoded_bytes'] <= 512 * 1024**2)
     if 'staged_original_readables' in source:
+        check('original_readables' not in source)
         validate_readables(source['staged_original_readables'], source, publisher=publisher, region=region)
+    if 'original_readables' in source:
+        validate_readables(source['original_readables'], source, publisher=publisher, region=region, active=True)
     return receipt
 
 
@@ -265,5 +273,7 @@ def make(catalog, publisher, region):
                             'Subtitle': 'community-not-converted'}}
     if 'original_tables' in receipt['original_text']:
         receipt['coverage']['ManualTextMap'] = 'original-publisher'
+    if 'original_readables' in receipt['original_text']:
+        receipt['coverage']['Readable'] = 'original-publisher'
     receipt['sha256'] = hashlib.sha256(canonical(receipt)).hexdigest()
     return validate(receipt, publisher=publisher, region=region, metadata_revision=catalog.revision)
