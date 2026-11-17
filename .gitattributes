@@ -33,3 +33,4 @@ packaging/genshin-reader/upstream/BlbUtils.cs text eol=lf
 packaging/genshin-reader/AnimeStudio-LICENSE.txt text eol=lf
 # This complete original wheel notice uses CRLF and is an exact-byte input.
 packaging/native-codecs/licenses/capstone-LICENSE.txt -text whitespace=cr-at-eol
+packaging/native-codecs/licenses/xxhash-LICENSE.txt -text whitespace=cr-at-eol

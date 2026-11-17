@@ -80,19 +80,20 @@ if runtime:
             # A frozen software decoder, never an original game library.
             # __init__ imports all architecture modules; retain its whole
             # Python package, exact capstone/lib/capstone.dll and BSD notice.
-            packages += ['capstone']
-            # These are original wheel metadata. Installer-generated files
-            # such as direct_url.json can expose a private local wheel cache.
-            # Use the same collector seam as other package metadata, retaining
-            # only the exact required members rather than its entire directory.
-            for origin, destination in copy_metadata('capstone'):
-                if Path(destination).name != 'capstone-5.0.7.dist-info':
-                    raise ValueError('The pinned static decoder metadata is unavailable.')
-                for name in ('METADATA', 'WHEEL', 'LICENSE.TXT'):
-                    member = Path(origin) / name
-                    if not member.is_file():
-                        raise ValueError('The pinned static decoder metadata is incomplete.')
-                    data.append((str(member), destination))
+            packages += ['capstone', 'xxhash']
+            # Retain only reviewed wheel metadata through the ordinary collector
+            # seam; never include installer-generated local source locators.
+            for package, expected, members in (
+                    ('capstone', 'capstone-5.0.7.dist-info', ('METADATA', 'WHEEL', 'LICENSE.TXT')),
+                    ('xxhash', 'xxhash-4.1.0.dist-info', ('METADATA', 'WHEEL', 'licenses/LICENSE'))):
+                for origin, destination in copy_metadata(package):
+                    if Path(destination).name != expected:
+                        raise ValueError('The pinned static parameter metadata is unavailable.')
+                    for name in members:
+                        member = Path(origin) / name
+                        if not member.is_file():
+                            raise ValueError('The pinned static parameter metadata is incomplete.')
+                        data.append((str(member), str(Path(destination) / Path(name).parent)))
     elif sys.platform == 'linux':
         packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
         hidden += ['keyring.backends.SecretService', 'jaraco.classes',
