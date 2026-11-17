@@ -89,6 +89,19 @@ metadata without a game installation. Public gameplay supplies separate real
 OCR evidence; current physical/native acceptance remains open. See the
 [world-dialogue proof and limits](endfield-current-subtitle-acceptance.md#original-world-dialogue-presentation).
 
+The current boss-caption follow-up verifies both protagonist resources, all
+four localized subtitle tracks and the original current-gender selector. All
+eight primary recordings are silent or contain only one-LSB decoder noise
+during their own caption window, while later voice controls remain audible.
+The separate effects bank retains distinct output routes, authored gains,
+states and a Stop dependency; a heard effects component is not proof of a
+complete sentence recording. These eight pairs remain unknown. Separately,
+82 original NPC override calls reference 31 current graphs with 199 prepared
+text rows per selection: 56 primary voices and 143 missing original primary
+metadata entries. Root activation of those NPC graphs remains unproved. See
+the [current caller and dub evidence](endfield-current-subtitle-acceptance.md#current-caller-protagonist-and-dub-proof-for-the-boss-caption)
+and the [finite endpoint distinctions](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller
