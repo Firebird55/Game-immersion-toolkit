@@ -156,6 +156,17 @@ version 150, DIDX/DATA/HIRC chunks and embedded RIFF/WEM Vorbis audio (mono,
 authored text/event ownership, every bank layout, audio decoding/playback and
 native Android acceptance remain unverified. No recording is published.
 
+A separate research query for the client-described `res-HD` group returned one
+publisher ZIP, version 109.130, 599,736,462 bytes, original MD5
+`91221a5ef9a48a3f5d20585b3e92fded`. One bounded 65,557-byte tail read contains its
+complete 3,573-byte central directory: 47 MP4 files under `videos/HD/`, two
+directories and `res-HD.json`. It contains no indexed English bank or text-config
+path. No member payload was downloaded and member CRCs/whole-ZIP MD5 were not
+verified. **This group does not establish an English base acquisition route**;
+that hypothesis stops. The group name came from the pinned format description,
+while host/branch and the actual response came from original publisher data.
+It is not added as a new final runtime feed or an automatic text-only download.
+
 ## Bounded initialization research and stopping points
 
 The already acquired official installer prefix contains a complete NSIS header.
@@ -196,11 +207,24 @@ the original 7z header. Neither guessed complete URL is an established official
 download route. These failures do not demonstrate corruption, a package format
 change, an authentication requirement or the absence of every official route.
 
+The original `RuntimeInitializeOnLoads.json` and `ScriptingAssemblies.json` were
+also read from the existing resource-folder bytes and checked against their 7z
+file CRCs. Their Unity/Steam/render initialization and assembly inventories do
+not supply a self-contained content-key derivation or base/hotfix schema. They
+are static metadata; none of the listed initialization methods was executed.
+
 ## Text versus text and audio planning
 
-`backend/reverse1999_provider.py` implements a conservative publisher-discovery
-stage for the shared Android/PC data protocol. The host supplies bounded,
-accounted metadata transport; it has no default unaccounted network client.
+`backend/reverse1999_game_data.py` exposes the shared host factory
+`create_provider(platform=..., native=...)`; `reverse1999_provider.py` implements
+its conservative publisher-discovery stage. The ordinary factory uses the shared
+`PublisherTransport` with explicit original hosts, bounded GET/JSON POST metadata
+and context byte accounting. Tests inject that transport's opener explicitly;
+no global monkeypatch or unaccounted default network client is needed. Transport
+network failures can use the existing original publisher backup; consent and
+semantic failures cannot silently switch sources. Android, Windows, Linux and
+macOS host factories share this data-only stage; this is not native game/audio
+acceptance on each host.
 Requests, private handles and revision identities distinguish `content_mode`
 values `text` and `text-audio`. Old handles without the mode require repair;
 this adapter does not modify saved history.
@@ -258,10 +282,11 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-The 64 owned synthetic fixtures currently exercise public metadata decoding,
+The 69 owned synthetic fixtures currently exercise public metadata decoding,
 ordinary-version and voice-branch refresh, announcement-insensitive launcher
 fingerprints, original archive ownership and totals, bootstrap boundaries,
 mandatory/optional voice distinctions, update order, malformed/oversized data,
-network fallback, content-mode isolation, incomplete-stage nonactivation and
+network fallback, shared transport byte accounting, cancellation before a
+connection, content-mode isolation, incomplete-stage nonactivation and
 HTTP response integrity. No game text, recordings, keys or executable files are
 test fixtures. No installed-game or physical-device playback is claimed.
