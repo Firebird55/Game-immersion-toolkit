@@ -59,6 +59,22 @@ def test_text_rows_retain_evidence_and_unknown_captions_without_bank_or_media_re
     assert index.match_lines(['An interface label.'], exact_only=True) is None
 
 
+@pytest.mark.parametrize('locale,text', [('en', 'Watch the western entrance.'),
+    ('zh-Hans', '请守住西侧入口。'), ('zh-Hant', '請守住西側入口。'),
+    ('ja', '西側の入口を守って。'), ('ko', '서쪽 입구를 지켜.')])
+def test_text_source_binding_retains_every_existing_study_locale_without_reading_its_dub(tmp_path, locale, text):
+    staging(tmp_path)
+    (tmp_path/'localization.json').write_text(json.dumps({assets.TEXT_LOCALES[locale]: [
+        {'ns': 'ST_MainDialogue', 'key': 'One', 'value': text}]}), encoding='utf-8')
+    member = f'HT/Content/WwiseAudio/Event/{assets.VOICE_LOCALES[locale]}/Play_Vo_One.bnk'
+    (tmp_path/'voice-bank-paths.json').write_text(json.dumps([member]), encoding='utf-8')
+    row, = assets.build_records(tmp_path, source_locale=locale, content_mode='text')
+    assert row['source_text'] == text and row['voice_status'] == 'voiced'
+    assert row['audio'] is None and row['audio_omitted_by_request']
+    assert row['source_voice_binding']['member'] == member
+    assert row['source_voice_binding']['locale'] == row['audio_locale']
+
+
 def test_text_publisher_adapter_does_not_prefetch_or_read_dub_banks(online, monkeypatch):
     from backend import nte_publisher as publisher
     observed = []
