@@ -1044,3 +1044,15 @@ older valid index. The bounded two-container plaintext alternative was negative
 and stopped, without a new key or source-hunt claim. See the
 [independent authored-table validation](endfield-official-parameters.md#independent-authored-table-validation--november-17)
 for exact source controls and remaining canonical admission gates.
+
+The normal preparation/updater now includes that bounded authored-validation
+stage, preserving its compact reference through navigation and container work.
+A later approved official download completes all 761 selected original tables
+for the five study scripts. Its genuine source receipt supports an actual
+81,601,489-byte facts artifact; no snapshot or playable media is activated.
+The all-five-target English projection has 54,682 rows: the earlier two-locale
+projection's 97 affected identities expand into 194 authored gender variants,
+with all original identities retained as members and no other identity delta.
+See the [ordinary continuation evidence](endfield-official-parameters.md#ordinary-authored-validation-continuation--november-17)
+for exact wire/disk quotes, actual transfer/recovery proof and the distinct
+source-fixture, original-client-provenance and native-admission qualifications.

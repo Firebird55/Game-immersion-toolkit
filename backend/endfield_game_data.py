@@ -122,11 +122,21 @@ class EndfieldGameDataProvider:
         identity, declaration = self._latest(request, transport)
         if (isinstance(continuation, dict) and continuation.get('client') == identity and
                 continuation.get('request') == request.json()):
+            if continuation.get('stage') == 'original-authored-tables-validated':
+                resume = continuation.get('resume')
+                if (not isinstance(resume, dict) or resume.get('client') != identity or
+                        resume.get('request') != request.json() or
+                        resume.get('stage') not in {'original-text-tables-downloaded', 'original-text-navigation-pending',
+                            'original-text-navigation-verified', 'original-presentation-containers-downloaded'}):
+                    raise Error('invalid_local_state', 'Endfield authored validation has no exact original continuation.')
+                continuation = resume
             if continuation.get('stage') == 'original-audio-native-source-downloaded':
                 return self._plan_control(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-audio-master-verified':
                 return self._plan_text(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-text-tables-downloaded':
+                if 'authored_validation' not in continuation:
+                    return self._plan_authored(request, ctx, identity, transport, continuation)
                 return self._plan_navigation(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-text-navigation-pending':
                 return self._plan_navigation(request, ctx, identity, transport, continuation)
@@ -134,9 +144,15 @@ class EndfieldGameDataProvider:
                 return self._plan_bundles(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-presentation-containers-downloaded':
                 from .endfield_resource_source import discover
+                from .endfield_text_source import Catalog
                 generation = discover(ctx, identity, transport)
                 if continuation['source']['generation_sha256'] != hashlib.sha256(_json_bytes(generation)).hexdigest():
                     return self._restart_resources(request, ctx, identity, transport, continuation['tables']['source'], generation)
+                common = self._common(self._text_bootstrap(ctx, identity, transport, continuation['tables']['source']))
+                Catalog(ctx, identity, common, continuation['tables']['text'])
+                if ('authored_validation' not in continuation['tables'] or
+                        self._restore_authored(ctx, identity, common, generation, continuation['tables']) is None):
+                    return self._plan_authored(request, ctx, identity, transport, continuation, common=common, generation=generation)
                 raise Error('source_not_prepared',
                     'Endfield complete original text and selected presentation containers are retained. Official AES/header provenance and canonical presentation decoding still precede a capture-ready library; existing data is retained.')
             if continuation.get('stage') == 'client-bootstrap-downloaded':
@@ -198,6 +214,8 @@ class EndfieldGameDataProvider:
             return self._download_control(plan, ctx)
         if plan.stage == 'original-text-tables':
             return self._download_text(plan, ctx)
+        if plan.stage == 'original-authored-table-validation':
+            return self._download_authored(plan, ctx)
         if plan.stage in {'original-text-manifest', 'original-text-navigation-indices'}:
             return self._download_navigation(plan, ctx)
         if plan.stage == 'original-presentation-containers':
@@ -391,6 +409,9 @@ class EndfieldGameDataProvider:
         generation = generation if generation is not None else discover(ctx, identity, transport)
         if generation != catalog.generation:
             return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
+        if ('authored_validation' not in tables_stage or
+                self._restore_authored(ctx, identity, common, generation, tables_stage) is None):
+            return self._plan_authored(request, ctx, identity, transport, continuation, common=common, generation=generation)
         content, _ = navigation_plan(ctx, identity, common, generation, transport)
         handle = {'schema': 1, 'stage': content['stage'], 'client': identity, 'request': request.json(),
                   'tables': tables_stage, 'navigation': content}
@@ -453,6 +474,9 @@ class EndfieldGameDataProvider:
         generation = discover(ctx, identity, transport)
         if generation != catalog.generation:
             return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
+        if ('authored_validation' not in tables_stage or
+                self._restore_authored(ctx, identity, common, generation, tables_stage) is None):
+            return self._plan_authored(request, ctx, identity, transport, continuation, common=common, generation=generation)
         try:
             content, _ = bundle_plan(ctx, identity, common, generation, continuation['navigation'], transport)
         except Error as error:
@@ -490,6 +514,72 @@ class EndfieldGameDataProvider:
         return Stage({'schema': 1, 'stage': result['stage'], 'client': identity,
             'request': ctx.request.json(), 'tables': tables_stage, 'source': result},
             'Endfield complete selected original presentation containers are retained. Official AES/header provenance and canonical presentation decoding are still required; no game library is active.')
+
+    def _restore_authored(self, ctx, identity, common, generation, tables_stage):
+        from .endfield_authored_source import restore
+        Error, _, _, _ = _contracts()
+        try:
+            return restore(ctx, identity, common, generation, tables_stage['authored_validation'], tables_stage['text'])
+        except Error as error:
+            if error.code != 'invalid_local_state':
+                raise
+            return None  # Quote regeneration from the original tables, not a hidden repair.
+
+    def _plan_authored(self, request, ctx, identity, transport, continuation, *, common=None, generation=None):
+        from .endfield_bootstrap_source import SMALL_TOTAL
+        from .endfield_resource_source import discover, DETAIL_LIMIT
+        from .endfield_text_source import Catalog
+        from .endfield_authored_source import plan as authored_plan
+        Error, Plan, _, _ = _contracts()
+        tables_stage = continuation if continuation['stage'] == 'original-text-tables-downloaded' else continuation['tables']
+        try:
+            common = common if common is not None else self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield authored tables need their original common-parameter owner.') from error
+        catalog = Catalog(ctx, identity, common, tables_stage['text'])
+        generation = generation if generation is not None else discover(ctx, identity, transport)
+        if generation != catalog.generation:
+            return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
+        content = authored_plan(ctx, identity, common, generation, tables_stage['text'], transport)
+        rechecks = 2 * (LAUNCHER_LIMIT + DETAIL_LIMIT + sum(row['index_bytes'] for row in generation['layers'].values()) + SMALL_TOTAL + 16)
+        handle = {'schema': 1, 'stage': content['stage'], 'client': identity, 'request': request.json(),
+                  'resume': continuation, 'validation': content}
+        return Plan(revision='endfield-resources-' + hashlib.sha256(_json_bytes(generation)).hexdigest(),
+            download_bytes=content['wire_index_recheck_bytes'] + rechecks,
+            required_disk_bytes=content['required_disk_bytes'], handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage=content['stage'],
+            message='Quoted complete original text-index rechecks and bounded local authored-table validation. Local output allowance is disk work, not publisher transfer. Graph/UI/film/header and media admission remain open; no library is active.')
+
+    def _download_authored(self, plan, ctx):
+        from .endfield_resource_source import discover
+        from .endfield_authored_source import download
+        Error, _, Stage, _ = _contracts()
+        continuation = plan.handle.get('resume')
+        current = self._plan(ctx.request, ctx, continuation)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original authored source or quoted work changed. Check its size again.')
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        tables_stage = continuation if continuation['stage'] == 'original-text-tables-downloaded' else continuation['tables']
+        common = self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        try:
+            reference = download(ctx, identity, common, current.handle['validation'], transport,
+                recheck=lambda: (self._latest(ctx.request, transport)[0], discover(ctx, identity, transport)))
+        except Error as error:
+            if error.code not in {'publisher_text_changed', 'invalid_local_state'}:
+                raise
+            # Re-enter the already evidenced upstream source. A valid changed
+            # index behind the same generation/header must not loop forever on
+            # the superseded text receipt or replace an older usable library.
+            return Stage(tables_stage['source'],
+                'Endfield original text ownership or retained tables changed. Check a new complete text-source size before acquiring anything; existing library and recordings are retained.')
+        tables_stage = {**tables_stage, 'authored_validation': reference}
+        resume = tables_stage if continuation['stage'] == 'original-text-tables-downloaded' else {**continuation, 'tables': tables_stage}
+        return Stage({'schema': 1, 'stage': reference['stage'], 'client': identity,
+            'request': ctx.request.json(), 'resume': resume},
+            'Endfield original ordinary texts and configured voice references are validated. Graph/UI/film/header and recording admission remain unfulfilled; existing data is retained and no library is active.')
 
 
 def create_provider(*, platform, native=None, transport_factory=None):

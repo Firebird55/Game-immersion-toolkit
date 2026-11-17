@@ -280,15 +280,11 @@ def test_bad_manifest_or_index_owner_never_publishes_complete_navigation(origina
 
 @pytest.mark.parametrize('mode', ['text', 'text-audio'])
 def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stages(tmp_path, monkeypatch, mode):
-    from backend import endfield_game_data as game, endfield_resource_source
-    from backend.tests.test_endfield_text_source import Fixture as TextFixture
+    from backend.tests.test_endfield_authored_source import provider_fixture
     from backend.game_data_protocol import PreparationStage, SnapshotSource
-    original, text = Fixture(tmp_path, mode), TextFixture(tmp_path, mode)
-    original.common.directories[18] = text.common.directories[18]
-    text.generation = original.generation
+    provider, original, navigation = provider_fixture(tmp_path, monkeypatch, mode)
     try:
-        text_plan, text_index = text.plan()
-        reference = text.download(text_plan, text_index)
+        reference = original.retained()
         bootstrap = {'schema': 1, 'stage': 'client-bootstrap-downloaded', 'client': original.client,
                      'request': original.request.json(), 'receipt_sha256': 'b' * 64}
         source_stage = bootstrap if mode == 'text' else {
@@ -297,17 +293,13 @@ def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stag
             'generation': original.generation, 'witness': {'explicit_source': 'fixture'}}
         tables_stage = {'schema': 1, 'stage': 'original-text-tables-downloaded', 'client': original.client,
                         'request': original.request.json(), 'source': source_stage, 'text': reference}
-        provider = game.create_provider(platform='windows')
         # Only native/bootstrap ownership is simulated; real text receipts,
-        # original MD5/typed readers, transport, budgets and all stages remain.
-        monkeypatch.setattr(provider, '_runtime', lambda: None)
-        monkeypatch.setattr(provider, '_latest', lambda *_: (original.client, None))
-        monkeypatch.setattr(provider, '_transport', lambda request, ctx: original.transport(ctx))
-        monkeypatch.setattr(provider, '_text_bootstrap', lambda *_: NS())
-        monkeypatch.setattr(provider, '_common', lambda *_: original.common)
-        monkeypatch.setattr(endfield_resource_source, 'discover', lambda *_: original.generation)
+        # original MD5/SparkBuffer readers, source discovery, HTTP, budgets and
+        # the new mandatory authored stage all run through the normal provider.
         continuation = tables_stage
-        for expected in ('original-text-manifest', 'original-text-navigation-indices'):
+        old = tmp_path / 'old-library.json'; old.write_bytes(b'old complete library')
+        recording = tmp_path / 'old-recording.wav'; recording.write_bytes(b'old exact recording')
+        for expected in ('original-authored-table-validation', 'original-text-manifest', 'original-text-navigation-indices'):
             ctx = original.context()
             ctx.stage_handle = continuation
             quoted = provider.plan(original.request, ctx)
@@ -317,7 +309,12 @@ def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stag
             result = provider.download(quoted, downloading)
             assert isinstance(result, PreparationStage) and not isinstance(result, SnapshotSource)
             assert 0 < downloading.consumed <= quoted.download_bytes
-            assert result.restore_handle['tables'] == tables_stage
+            if expected == 'original-authored-table-validation':
+                assert result.restore_handle['stage'] == 'original-authored-tables-validated'
+                tables_stage = result.restore_handle['resume']
+                assert tables_stage['authored_validation']['receipt_sha256']
+            else:
+                assert result.restore_handle['tables'] == tables_stage
             continuation = result.restore_handle
         assert continuation['stage'] == 'original-text-navigation-verified'
         ctx = original.context()
@@ -329,12 +326,13 @@ def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stag
         retained = provider.download(container_plan, downloading)
         assert isinstance(retained, PreparationStage) and not isinstance(retained, SnapshotSource)
         assert retained.restore_handle['stage'] == 'original-presentation-containers-downloaded'
-        assert len(original.container_requests) == 1
+        assert len(navigation.asset_calls) == 1
         assert 0 < downloading.consumed <= container_plan.download_bytes
         ctx.stage_handle = retained.restore_handle
         with pytest.raises(GameDataError, match='AES/header'):
             provider.plan(original.request, ctx)
-        assert not any('/Audio' in url or url.endswith('.dll') for url, _ in original.calls)
+        assert old.read_bytes() == b'old complete library' and recording.read_bytes() == b'old exact recording'
+        assert not any('/Audio' in url or url.endswith('.dll') for url in original.calls)
         ctx.stage_handle = tables_stage
         calls = len(original.calls)
         def missing_owner(_): raise ValueError('Authored missing original owner')
@@ -344,4 +342,3 @@ def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stag
         assert error.value.code == 'unsupported_original_metadata' and len(original.calls) == calls
     finally:
         original.service.close()
-        text.service.close()
