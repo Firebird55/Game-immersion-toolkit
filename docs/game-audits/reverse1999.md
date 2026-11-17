@@ -363,6 +363,54 @@ original request-production edge; downloading all seven DEX files blindly is
 not accepted as the next step. The game's APK URL and original configuration
 initializer remain unresolved.
 
+### Store-client signing identity: separate from package integrity
+
+A subsequent, separately bounded metadata stage follows the exact public
+`https://pub.taptapdada.com/api/changelog` GET authored in the retained original
+dispatch JavaScript. Its complete 1,297-byte JSON response supplies Android
+version code `296161002`, matching the original store manifest. It contains no
+package URL, length, checksum or signing identity. Display-version punctuation
+differs between the JSON and manifest and is not treated as byte equality.
+
+The original manifest also declares an HTTPS `autoVerify` intent filter for
+`dispatch.taptap.cn`. Its protocol-derived
+[Digital Asset Links document](https://dispatch.taptap.cn/.well-known/assetlinks.json)
+returns 330 bytes of strict JSON naming exact package `com.taptap` and this
+SHA-256 signing-certificate fingerprint:
+
+`4fd67062300d3d9d6c384f7e4e512df4a9a32d165fcb3526428c8e9e3d4e44b7`
+
+One further approved same-owner HTTP range reads only the 694-byte local ZIP
+block for `META-INF/GAMECENT.RSA`. Exact local-header fields, raw DEFLATE EOF,
+915-byte expanded length and member CRC 3529842923 pass. Passive CMS decoding
+finds one certificate and one signer; both match that original domain-declared
+fingerprint. Certificate identity alone does not authenticate a DEX member.
+
+Three separately approved exact ranges then acquire only the `.SF` local block
+and the original `MANIFEST.MF` local header/body: 477,504 additional bytes.
+Their local fields, DEFLATE EOF, expanded lengths (527,105 and 526,981 bytes)
+and complete original member CRCs pass. Detached CMS verification over the
+**exact `.SF` bytes** succeeds with the domain-pinned signer. The signed
+`SHA-256-Digest-Manifest` matches the complete original manifest, whose 6,205
+named entries include `classes.dex`. The retained original Android manifest's
+SHA-256 also matches its authenticated member entry. The authenticated expected
+`classes.dex` SHA-256 is:
+
+`9e64a00c5855302d1d795562355cb1238925742b440a899e3562d2d1f6fd873b`
+
+This proves a signed expected digest, **not verification of the still-unread
+DEX, a computed whole-APK checksum or Android's complete installation-signature
+acceptance**. Trust is explicitly the original HTTPS Digital Asset Links
+declaration; no certificate-chain revocation check is claimed. The store signer
+does not authenticate the game's different APK descriptor or establish a game
+key.
+
+This stage transfers 479,825 bytes in six requests. No DEX/native body is read
+and no client code is executed. A later separately bounded downloader-consumer
+investigation must first verify its acquired member against that signed digest.
+The manifest does not locate the declared components in a particular DEX;
+primary-DEX placement remains a hypothesis, not permission to read all seven.
+
 ### Community key candidate: research only
 
 The original author repository
