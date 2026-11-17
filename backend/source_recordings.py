@@ -16,8 +16,7 @@ import threading
 
 from .game_data import _write, _read
 from .game_data_protocol import GAME_TITLES, GameDataError, private_handle
-from .prepared_library import MAX_AUDIO
-from .private_data_paths import _no_links
+from .private_data_paths import MAX_AUDIO, _no_links
 
 SHA = re.compile(r'[0-9a-f]{64}')
 CLIP = re.compile(r'([0-9a-f]{64})\.(mp3|wav)')
