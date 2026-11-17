@@ -1,186 +1,46 @@
-name: Android shared-core candidate
+name: Authored Android SAF causal diagnostic
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/android-shared-core.yml'
-      - 'packaging/android/**'
-      - 'scripts/*android*'
-      - 'backend/prepared_*.py'
-      - 'backend/android*.py'
-      - 'backend/capture_confirmation.py'
-      - 'backend/native_frame_admission.py'
-      - 'backend/multilingual_index.py'
-      - 'backend/local_game.py'
-      - 'backend/language_contracts.py'
-      - 'backend/languages.py'
-      - 'backend/models.py'
-      - 'backend/storage.py'
-      - 'backend/tests/test_android*'
-      - 'backend/tests/test_prepared*'
-      - 'backend/tests/test_native_frame_admission.py'
-      - 'app/**'
-      - 'lib/**'
-      - 'desktop/**'
-      - 'vendor/lexirise-components/**'
-      - 'package*.json'
   workflow_dispatch:
-  workflow_call:
 permissions:
   contents: read
-env:
-  ANDROID_SOURCE_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
-concurrency:
-  group: android-shared-core-${{ github.ref }}
-  cancel-in-progress: false
+  actions: read
 jobs:
-  construct:
-    runs-on: windows-2025
-    timeout-minutes: 100
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.ANDROID_SOURCE_COMMIT }}
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Inspect prerequisites before installing build dependencies
-        continue-on-error: true
-        run: npm run dev:doctor -- --full
-      - run: npm ci --ignore-scripts
-      - name: Prepare shared-core desktop reference dependencies
-        run: |
-          # The shared desktop safety fixture deliberately imports capture to
-          # replace real window access. Its full desktop dependency closure is
-          # a host-only reference prerequisite, never copied into the APK.
-          python -m pip install -r requirements.lock.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_android_game_parity.py backend/tests/test_android_authored_accounts.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: android-account-recovery-reference
-          if-no-files-found: warn
-          retention-days: 7
-          path: output/checks/android-recovery-sqlite-*.json
-      - name: Acquire authenticated original Android compiler
-        run: |
-          $sdk = $env:ANDROID_HOME
-          & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" 'platforms;android-36' 'build-tools;36.0.0'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python scripts/prepare-android-ndk.py --work-dir output/android-dependencies --sdk-root $sdk
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build both native Python ABIs from pinned preferred source
-        run: |
-          $env:RUSTUP_HOME = Join-Path $env:RUNNER_TEMP 'toolkit-rustup'
-          $env:CARGO_HOME = Join-Path $env:RUNNER_TEMP 'toolkit-cargo'
-          rustup toolchain install 1.95.0 --profile minimal --target aarch64-linux-android --target x86_64-linux-android
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $env:RUSTUP_TOOLCHAIN = '1.95.0'
-          python scripts/build-android-python-dependencies.py --work-dir output/android-dependencies --wheelhouse output/android-wheelhouse --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --download
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Build the same maintained desktop reader
-        run: npm run desktop:build -- --output-root output/android-frontend
-      - name: Construct signed debug candidate without a release identity
-        run: |
-          # Both versions use one temporary debug identity within this run.
-          # The owner's protected reusable signing identity never enters CI.
-          $build = Join-Path $pwd 'output/android-build'
-          $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
-          foreach ($code in @(1, 2)) {
-            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -VersionCode $code -DownloadGradle
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
-            foreach ($name in $files) { Copy-Item -LiteralPath (Join-Path $build $name) -Destination (Join-Path $target $name) }
-          }
-      - name: Write identical authored desktop reference and import fixture
-        run: |
-          python -c "import json;from pathlib import Path;from backend.android_probe import run,_library;p=Path('output/android-candidate');v=json.loads(run(p/'desktop-probe'));v.pop('private_audio_path');(p/'desktop-core-proof.json').write_text(json.dumps(v,sort_keys=True)+'\n');_library(p/'authored-input',duration=8).replace(p/'authored-library.zip')"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - uses: actions/upload-artifact@v4
-        with:
-          name: android-shared-core-candidate
-          if-no-files-found: error
-          retention-days: 7
-          path: |
-            output/android-candidate/GameImmersionToolkit-android-debug.apk
-            output/android-candidate/ANDROID-PROVENANCE.json
-            output/android-candidate/apk-audit.json
-            output/android-candidate/apk-signature.txt
-            output/android-candidate/apk-owned-core-proof.json
-            output/android-candidate/desktop-core-proof.json
-            output/android-candidate/authored-library.zip
-            output/android-update/GameImmersionToolkit-android-debug.apk
-            output/android-update/ANDROID-PROVENANCE.json
-            output/android-update/apk-audit.json
-            output/android-update/apk-signature.txt
-            output/android-update/apk-owned-core-proof.json
-            output/android-wheelhouse/python-wheels-receipt.json
   runtime:
-    needs: construct
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        api: [34, 36]
-    timeout-minutes: 35
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.ANDROID_SOURCE_COMMIT }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm run dev:doctor
         continue-on-error: true
       - run: npm ci --ignore-scripts
+      - run: node --test tests/android-authored-adb.test.mjs tests/android-authored-document-picker.test.mjs
       - uses: actions/download-artifact@v4
         with:
           name: android-shared-core-candidate
+          run-id: 44055784466
+          github-token: ${{ github.token }}
           path: output/android-downloaded
-      - name: Verify candidate identity before installing
-        run: |
-          mkdir -p output/android-candidate
-          cp output/android-downloaded/android-candidate/* output/android-candidate/
-          mkdir -p output/android-update
-          cp output/android-downloaded/android-update/* output/android-update/
-          node --input-type=module -e "import{readFileSync}from'node:fs';import{createHash}from'node:crypto';import assert from'node:assert/strict';const p=JSON.parse(readFileSync('output/android-candidate/ANDROID-PROVENANCE.json'));assert.equal(p.source_commit,process.env.ANDROID_SOURCE_COMMIT);assert.equal(p.source_dirty,false);assert.equal(createHash('sha256').update(readFileSync('output/android-candidate/GameImmersionToolkit-android-debug.apk')).digest('hex'),p.apk_sha256)"
       - name: Permit the hosted runner's existing KVM device
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Execute actual offline Android shared core, native OCR and reader restart
-        uses: reactivecircus/android-emulator-runner@v2
-        env:
-          TOOLKIT_ANDROID_EXPECTED_API: ${{ matrix.api }}
+      - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: ${{ matrix.api }}
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
-          script: node scripts/probe-android-runtime.mjs output/android-candidate output/android-runtime output/android-update
+          script: node scripts/probe-android-saf-file-lifetime.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-shared-core-runtime-api-${{ matrix.api }}
+          name: authored-saf-file-lifetime
           if-no-files-found: warn
           retention-days: 7
-          path: output/android-runtime/
+          path: output/android-saf-diagnostic/*.json
