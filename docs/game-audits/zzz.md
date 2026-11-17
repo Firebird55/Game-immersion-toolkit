@@ -38,6 +38,15 @@ silence. Source ownership of 168 whole-film event names is positive evidence,
 but their original bank/media acquisition is still required before those
 captions can expose playable context audio.
 
+The final committed-source Global replay repeated those exact record results in
+153.172 seconds. Independent mainland-China Japanese preparation completed in
+179.125 seconds with **289,967 records**, adding **1,940** film captions while all
+288,027 prior record dictionaries remained identical. Its new captions are
+1,526 `unavailable` and 414 `unknown`. Mainland independently selected the same
+408 override paths / 404 catalog matches, but different source packing required
+its own authenticated containers; no Global source equality was assumed. This
+verifies both editions' normal text route, not cinematic audio playback.
+
 Two bounded bank-registry checks are finished negatives. The original native
 literal's `AudioResourceData.bytes` path is absent from the current catalog.
 The original built-in `resources.assets` metadata contains 48 typed TextAssets;
@@ -49,7 +58,7 @@ payloads were not downloaded or searched as a substitute for source ownership.
 The app-local closed reader includes the new parser and allows its staged files
 through normal preparation. Synthetic fixtures cover all four dub namespaces,
 language isolation, ownership, external/cyclic structures, edited clips and
-multiple-event ambiguity. Mainland normal replay, original cinematic bank/media
+multiple-event ambiguity. Original cinematic bank/media
 resolution, remaining layouts/current callers, four missing override paths,
 player variants and frozen actual-generation update/recovery acceptance keep
 #85 open. No publisher assets, native bytes, captions or recordings are shipped.
