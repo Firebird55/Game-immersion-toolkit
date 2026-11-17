@@ -7,8 +7,8 @@ from backend import nte_native_schema as native, nte_seeded_schema as seeded
 from backend.tests.test_nte_native_schema import PE, pack, rich_seed
 
 
-def seed(rows):
-    names = ['Mood', 'Calm', 'Alert']
+def seed(rows, *, enum_members=((0, 'Calm'), (1, 'Alert'))):
+    names = list(dict.fromkeys(['Mood', *(name for _, name in enum_members)]))
     def add(name):
         if name is not None and name not in names:
             names.append(name)
@@ -24,7 +24,8 @@ def seed(rows):
     def wire(shape):
         return bytes([shape[0]]) + b''.join(wire(part) if isinstance(part, tuple) else named(part) for part in shape[1:])
     body = pack('I', len(names)) + b''.join(pack('H', len(n)) + n.encode() for n in names)
-    body += pack('I', 1) + named('Mood') + pack('HQ', 2, 0) + named('Calm') + pack('Q', 1) + named('Alert')
+    body += pack('I', 1) + named('Mood') + pack('H', len(enum_members))
+    body += b''.join(pack('Q', value) + named(name) for value, name in enum_members)
     body += pack('I', len(rows))
     for name, parent, fields in rows:
         body += named(name) + named(parent) + pack('HH', sum(row[1] for row in fields), len(fields))

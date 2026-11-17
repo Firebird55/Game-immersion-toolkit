@@ -214,7 +214,7 @@ class _PE:
         value = self.data[offset:end]
         return value.decode('ascii') if re.fullmatch(rb'[A-Za-z_][A-Za-z0-9_]*', value) else None
 
-    def native(self, *, with_callbacks=False):
+    def native(self, *, with_callbacks=False, with_layout=False):
         results, matches, properties = [], 0, 0
         for _, length, section, flags in sorted(self.sections, key=lambda item: item[2]):
             if flags & 0x20000000 or not flags & 0x40000000:
@@ -258,7 +258,8 @@ class _PE:
                         enum = bool(callback)
                     fields.append((field_name, generator, dimension, callback if with_callbacks else enum))
                 else:
-                    results.append((name, parent, ops, struct_flags, tuple(fields)))
+                    row = (name, parent, ops, struct_flags, tuple(fields))
+                    results.append(row + (size, align) if with_layout else row)
                     _check(len(results) <= MAX_NATIVE)
         return results
 

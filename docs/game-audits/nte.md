@@ -165,18 +165,19 @@ This flag alone cannot assign a speaker or silence to the conflicting
 Protect001 entry. The missing caller and safe capture-context integration
 remain unresolved; no caption alias or capture-guard override is introduced.
 
-### Type-data updates and retained history
+### Earlier community type-data route and retained history
 
-Publisher preparation selects compatible public type data from the immutable
+The earlier publisher preparation selected compatible public type data from the immutable
 commit of the [NTE-usmap index](https://github.com/555me/NTE-usmap/blob/1b92d5267092dac6bcfec605bcaf6ae05b664746/index.json),
-instead of requiring the installed reader's fixed 1.4 profile. The current run
+instead of requiring the installed reader's fixed 1.4 profile. That initial run
 used `mapping/HT-1.5-153.usmap`, SHA-256
 `b198e62ad29a1f6d2141797edfcef2cfa6c832bdf07d82df1f96a98e62144120`.
-The helper checks the selected type-data digest before parsing. Community index
-entries cannot choose arbitrary repositories: the reader derives the
-immutable URL from the allowlisted repository and path. This consumes data only.
-New compatible mappings can be adopted without a toolkit release. Historical
-snapshots retain their exact metadata and never substitute the latest profile.
+The helper checked the selected type-data digest before parsing. Community index
+entries could not choose arbitrary repositories: the reader derived the
+immutable URL from the allowlisted repository and path. This consumed data only.
+The original-native route below now generates current metadata without that
+community-index lookup. Historical snapshots retain their exact metadata and
+never substitute the latest profile.
 
 Shared publisher HTTP handling revalidates metadata with conditional requests
 when validators are available. Preparation rechecks the complete selected
@@ -680,6 +681,156 @@ contract, and full normal-worker record/audio/update/recovery evidence remain
 required. The live original manifests distinguish Global **1.5.4** from mainland
 **1.5.6**, with different client hashes; Global native evidence is not mainland
 proof. Candidates are explicitly marked ineligible for production activation.
+
+#### Required closure and original baseline validation
+
+The next isolated contract validates **the types the reader actually requests**,
+including dynamic `InstancedStruct` contents. It does not use a fixed list of
+current game types or require every unrelated native type to be recoverable.
+An instrumented equivalent of the fixed managed reader observed 24 original
+authoring tables, six row types and 21 actual mapping lookups on both original
+Global generations. Their recursive closure contains 26 structs and two enums.
+These are measured results, not an allowlist in `backend/nte_required_schema.py`.
+The 94 unresolved obvious changed definitions and 290 excluded new types do not
+intersect that observed required closure.
+
+The validator distinguishes complete current native field/order/dimension/wire
+equivalence from reusable identities for new fields. Unchanged existing fields
+retain their independently conflict-checked seed identities; changed/new required
+types need fully resolved new candidate definitions and independent constructor
+witnesses. Missing, ambiguous or stale required definitions fail the check.
+FName-only comparisons require unique fields and an exact field-name anchor.
+Required enum values must agree with original native arrays or with the unchanged
+original-baseline array plus its frozen retained description; new MAX members
+are never invented. Namespace-style enum declarations are supported. The two
+required original enum arrays agree across these generations.
+
+For existing custom serializers, the check compares the original baseline and
+current native operations, flags, size, alignment and complete property
+descriptors. A changed custom contract fails explicitly. Actual managed engine
+export classes use a separate frozen-reader format contract, tied to the reader
+identity and runtime class evidence; an empty retained schema terminal is also
+reported separately. Neither is mislabeled as native descriptor equivalence.
+On both observed generations the required closure passes using only the frozen
+seed, original baseline/client and actual lookup/class evidence. Newer mappings
+are not validation inputs.
+
+`backend/nte_native_baseline.py` gives that baseline a cold, installation-free
+retrieval path: the exact publisher 1.4.9 resource-list ZIP, its verified complete
+inventory and its native file have immutable hashes. Selection uses publisher
+file identity, not an executable/project path. The existing original range
+reader retrieves the declared file/package range and verifies the entire file;
+the baseline additionally requires its fixed SHA-256. The authenticated inventory
+is retained with its own hash so a new process can reopen the baseline without
+fetching updater-format software. The measured native replay reused an existing,
+whole-file-verified original; owned cold-cache fixtures exercise retrieval and
+packaged ranges. No private research path is a production prerequisite.
+
+Required-check receipts are immutable and separate from the generated schema
+directory. They retain baseline publisher provenance, actual requested types,
+managed class evidence, reader identity and per-type validation state. There is
+no current pointer. **88 targeted native-schema/provenance/closure cases** cover
+required versus unrelated drift, missing dynamic types, custom-contract changes,
+stale enum values, ambiguous descriptors, insufficient new-type witnesses,
+interrupted publication and retained-cache authentication.
+
+With explicitly supplied candidate snapshots, the normal language worker
+prepared **126,168 English-study records** on Global 1.5.4, including **27,864**
+resolved voices. Every record field agrees with the independent current control
+except its own immutable publisher snapshot identity. A corrected Global 1.4.9
+Japanese-study trial with the **same current reader and index schema 10** produced
+**117,575 records**, including **25,685** resolved voices. Its older retained
+community `HT-1.4-146` description omits native `bUseVerticalCaptions` fields from
+two required sequence types; its zero sequence-event/group output is therefore
+not a complete expected-output oracle for this original client.
+
+The normal voice service verified 61 current English clips (48 caption keys,
+seven originals) and 70 older Japanese clips (35 keys, ten originals), including
+authored protagonist branches and gains. Durations match authored windows,
+decoded PCM is nonzero, and fresh output after service restart is identical with
+publisher discovery and byte ranges prohibited. A corrupt candidate supplied to
+the real language worker fails while preserving the previous complete prepared
+index byte-for-byte. These are selected playback and supplied-version worker
+trials, not complete chapter coverage or a live autonomous update transition.
+After both preparations and the failed-candidate trial, two selected clips from
+each generation also reopened through the normal voice service with publisher
+discovery and byte ranges prohibited, matching their previous PCM hashes.
+
+At this isolated-validation stage the default provider remained unchanged.
+Before adoption, the ordinary managed
+helper must retain its lookup/class evidence, source acquisition must choose and
+authenticate original native inputs coherently, and the required-closure gate
+must run before activation. New required enum/constructor acquisition and rotated
+archive/localization parameters remain explicit format/source dependencies.
+
+#### Original-native publisher preparation
+
+The normal provider now has an original-native metadata path. Its source
+fingerprint retains the complete official inventory, including non-content
+entries, plus a fixed seed/baseline, generator, validator and owned-reader
+identity. Large native acquisition and schema work happen in the language
+worker. The worker generates candidate definitions from authenticated originals,
+refreshes changed existing enum literals from original arrays, extracts authoring,
+and validates that invocation's required closure before returning any prepared
+index. It does not query a current community mapping index or newer usmap.
+Historical legacy mapping references remain readable and keep their identities.
+
+The owned reader's schema-usage output is opt-in. It records actual mapping
+lookups and runtime engine export classes, the exact schema SHA-256 and a fresh
+request nonce. A complete marker is written only after successful extraction;
+the pinned supplier's explicit failed-instanced-struct read/load warnings also
+prevent that marker. Legitimate authored null slots remain supported. Legacy,
+installed NTE and Wuthering reader output contracts do not change.
+
+An original baseline-manifest entry supplies a lineage hint. Renamed or failed
+owners use a generic PE candidate order, capped at 16 files and 768 MiB of
+declared current-source bytes, separately from the fixed baseline. Complete
+publisher files are authenticated before parsing. A partial plugin cannot
+publish authoring without passing the actual required closure. Each completed
+source epoch retains immutable resolved metadata and validation receipts; the
+final inventory check includes native entries. Initial setup may need the whole
+original PC client executable as metadata input, without installing or executing
+the game. Verified checksums permit reuse on later preparations.
+
+Existing archive and localization descriptions are frozen at explicitly pinned
+source revisions/digests and checked against original data. A rotated key or
+unsupported new required constructor remains an explicit source investigation;
+it is not automatically relabeled as a new package format. The normal failure
+path retains the previous complete index and its originals.
+
+The same normal provider and current owned reader prepared Global 1.4.9 and
+1.5.4 with identical Japanese-study/Chinese-target selection, using supplied
+version-addressed official discovery. Neither `_current` nor the type loader was
+replaced by a candidate shim. The results contain **117,575** and **126,472**
+records and preserve every record field from the earlier candidate-backed
+trials except their own immutable publisher identities. The locale-controlled
+delta has **9,558 added** and **661 removed** IDs; common IDs contain **930**
+changed source captions, **87** changed Chinese translations and **95** changed
+audio references. These text totals include UI; they are update evidence, not a
+substitute for the presentation inventory.
+
+The actual 1.5.4 originals retain the two changed Japanese protagonist
+performances: female media grows from 21,871 to 24,138 bytes and male media shrinks
+in the opposite direction. Both encoded originals and decoded PCM differ by
+generation. Two added main-story protagonist clips also decode successfully.
+After both normal preparations, all four old/current replacement performances
+and both new clips replay through the normal voice service with discovery and
+byte ranges prohibited, matching their source-specific PCM hashes. An injected
+required-layout failure through the same provider/worker preserves the previous
+complete index byte-for-byte. This remains a supplied-version update trial;
+complete subtitle-presentation and platform acceptance are still tracked below.
+
+The separately acquired original mainland 1.5.6 native file has publisher MD5
+`8876eee326786fa8df0b48ce520351f4` and SHA-256
+`64ed3cae0b5fc61f3b56cdd933b4807cb23f0ec7913590db60d1a8642de2dfec`.
+The same normal provider prepared **126,212** Chinese-study records with **28,080**
+resolved voices, agreeing with every prior record field except the immutable
+snapshot identity. Its actual required closure passed from mainland native data;
+Global evidence was not substituted. The normal voice service verified **61**
+mainland clips, 48 caption keys and seven originals with authored gains/branches,
+then reproduced identical fresh PCM with publisher discovery and ranges
+prohibited. Source and native provenance remain edition-specific even where
+generated schema bytes agree.
 
 ### Remaining acceptance
 

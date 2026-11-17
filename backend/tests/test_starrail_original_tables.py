@@ -4,6 +4,7 @@ Existing caption tests do not exercise localized DesignV package tails or the
 native dialogue/text row format. Fixtures here contain only authored data.
 """
 import hashlib
+import math
 import struct
 
 import pytest
@@ -45,7 +46,7 @@ def package(resources, folder=''):
     return digest, bytes(body), record + entries + struct.pack('>H', len(folder)) + folder + b'\x80'
 
 
-def source(tmp_path, monkeypatch, groups):
+def source(tmp_path, monkeypatch, groups, *, descriptions=None):
     parts = [package(*group) for group in groups]
     index = struct.pack('>4I', 255, 4, len(parts), sum(len(group[0]) for group in groups))
     index += b''.join(record for _, _, record in parts)
@@ -57,7 +58,7 @@ def source(tmp_path, monkeypatch, groups):
         reads.append(asset.url)
         return bodies[asset.digest][start:start + length]
     monkeypatch.setattr(original.hotfix.AudioFile, 'read', read)
-    return original.OriginalTables(tmp_path, {}), bodies, reads
+    return original.OriginalTables(tmp_path, {}, descriptions=descriptions), bodies, reads
 
 
 def test_original_locale_packages_and_updated_voice_ids_need_no_mirror(tmp_path, monkeypatch):
@@ -102,6 +103,67 @@ def test_original_locale_packages_and_updated_voice_ids_need_no_mirror(tmp_path,
 def test_unknown_or_malformed_dialogue_cannot_publish_a_catalog(bad):
     with pytest.raises(ValueError):
         original.decode_table(bad, original.SCHEMAS['TalkSentenceConfig'], 'TalkSentenceID')
+
+
+def description():
+    return {'fields': [['SectionID', 'u32'], ['Index', 'u32'], ['Replies', 'u32[]'],
+                       ['Labels', 'string[]'], ['Position', 'f32[]'], ['Mode', 's32']],
+            'identity': ['SectionID', 'Index'], 'hash_byte_prefix': True,
+            'enums': {'Mode': {'3': 'Text'}}}
+
+
+def test_supplied_native_table_description_arrays_prefix_and_composite_identity(tmp_path, monkeypatch):
+    first = uint(63) + uint(7) + uint(1) + sint(2) + uint(9) + uint(10)
+    first += sint(2) + string('Speaker') + string('Choice')
+    first += sint(3) + struct.pack('<3f', 1.25, -2.0, -0.0) + sint(3)
+    second = uint(35) + uint(7) + uint(2) + sint(99)
+    data = b'\x25' + sint(2) + first + second
+    reader, _, _ = source(tmp_path, monkeypatch, [
+        ([('BakedConfig/ExcelOutput/FutureEventRows.bytes', data)], '')],
+        descriptions={'FutureEventRows': description()})
+    rows = reader.file('ExcelOutput/FutureEventRows.json')
+    assert rows[0] == {'SectionID': 7, 'Index': 1, 'Replies': [9, 10],
+                       'Labels': ['Speaker', 'Choice'], 'Position': [1.25, -2.0, -0.0], 'Mode': 'Text'}
+    assert math.copysign(1, rows[0]['Position'][2]) == -1
+    assert rows[1] == {'SectionID': 7, 'Index': 2, 'Replies': [], 'Labels': [], 'Position': [], 'Mode': 99}
+    with pytest.raises(ValueError):
+        reader.table('TalkSentenceConfig')  # A supplied generation cannot mix in an old fallback.
+
+
+def test_unkeyed_rows_are_preserved_and_compound_keys_are_checked():
+    schema = (('SectionID', 'u32'), ('Index', 'u32'))
+    data = sint(2) + uint(3) + uint(5) + uint(6) + uint(3) + uint(5) + uint(6)
+    assert len(original.decode_table(data, schema, [])) == 2
+    with pytest.raises(ValueError):
+        original.decode_table(data, schema, ['SectionID', 'Index'])
+
+
+@pytest.mark.parametrize(('kind', 'data'), [
+    ('u32[]', sint(-1)), ('u32[]', sint(2_000_001)), ('u32[]', sint(2) + uint(1)),
+    ('string[]', sint(1) + string('x')[:-1]), ('f32[]', sint(1) + b'\0\0\0'),
+    ('f32[]', sint(1) + struct.pack('<f', float('nan'))),
+    ('f32[]', sint(1) + struct.pack('<f', float('inf'))),
+])
+def test_native_array_bounds_and_finite_float_contract(kind, data):
+    with pytest.raises(ValueError):
+        original.decode_table(sint(1) + uint(1) + data, (('Values', kind),), [])
+
+
+@pytest.mark.parametrize('mutation', ['unknown_key', 'unknown_kind', 'array_identity', 'bad_enum', 'unknown_enum_field'])
+def test_supplied_descriptions_reject_unknown_and_malformed_fields(mutation):
+    value = description()
+    if mutation == 'unknown_key':
+        value['future'] = True
+    elif mutation == 'unknown_kind':
+        value['fields'][0][1] = 'object'
+    elif mutation == 'array_identity':
+        value['identity'] = ['Replies']
+    elif mutation == 'bad_enum':
+        value['enums']['Mode'] = {'01': 'Text'}
+    elif mutation == 'unknown_enum_field':
+        value['enums']['Other'] = {'1': 'Text'}
+    with pytest.raises(ValueError):
+        original._description(value)
 
 
 @pytest.mark.parametrize('bad', [

@@ -22,6 +22,42 @@ residual radio rows match per selection. One anonymous short caption remains
 guarded; named context does not invent its identity or a sentence recording.
 See the [original speaker and complete-index evidence](endfield-current-subtitle-acceptance.md#original-speakercaption-context).
 
+Revision 22 additionally covers written instruction-book bodies, guide-page
+explanations and referenced operator-training step descriptions. Original current
+UI controllers render these fields separately from video, artwork, headings and
+skill labels. All five ordinary publisher workers add 1,260 written bodies while
+preserving every previous text, translation, recording and voice state. They
+remain text-only under the existing unvoiced capture option. Original 1.5.3 to
+live 1.6.4 preparation with the same revision-22 reader retains every old ID and
+adds 113 written bodies, with six older explanations changed. Baseline discovery
+is explicitly replayed. See the [written-body inventory and limits](endfield-current-subtitle-acceptance.md#written-instructions-and-tutorials).
+
+Revision 23 also retains all 117 current written Baker system-message bodies.
+Original native enum/default data and the separate `SNSContentSystemMsg` widget
+establish this presentation; a nonempty text reference in an image/video cell
+does not establish a displayed body. Both this written message category and
+ordinary text use unvoiced capture, separately from the existing voice-message
+route. [Original-source boundary and current preparation](endfield-current-subtitle-acceptance.md#written-baker-system-messages).
+
+Revision 24 additionally follows original top-caption layout declarations and
+the exact stage order of operator-training steps. The current graph inventory
+contains 15 top-layout nodes; the strict source selector adds full-frame voiced
+capture for 12 IDs/13 protagonist-expanded records and keeps three emotion-route
+cases separate. Authored training context improves complete-index matching to
+472 English, 478 per Chinese script, 496 Japanese and 498 Korean bodies out of
+498. Previous text/audio/state/recognition anchors remain unchanged. Normal
+updates discover compatible new IDs and changed graph digests without an ID
+allowlist. See the [source inventory, guards and frozen two-generation replay](endfield-current-subtitle-acceptance.md#original-top-captions-and-training-step-order).
+
+Revision 25 additionally respects two unique dialogue callers whose original
+data explicitly disables speech. Static original-controller and current patch
+inventories establish that playback is skipped; retained WEM presence is not a
+spoken binding for these punctuation-only captions. Exactly one voiced and one
+unavailable row become unvoiced per selection, with every other original field
+and audio binding retained. Frozen old/current preparation keeps all old IDs
+and now counts 3,155 new voiced records after the disabled source is excluded.
+See the [original caller proof and limits](endfield-current-subtitle-acceptance.md#explicitly-disabled-original-dialogue-speech).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller
@@ -725,8 +761,9 @@ claim is made.
 Reading references provide a second coverage check: ReadingPopUpTable resolves
 745 entries to rich content and 31 to radio, with one unresolved; PrtsReading
 resolves 28 entries to rich content with eight unresolved; all 80 PrtsDocument
-entries resolve to rich content. InstructionBook/tutorial text, inventory stats,
-generic UI strings and friend chat are outside narrative capture.
+entries resolve to rich content. The initial audit excluded InstructionBook and
+tutorial text; revision 22 covers their written bodies as described above.
+Inventory stats, generic UI strings and friend chat remain outside narrative capture.
 
 ## Installed audio and language result
 

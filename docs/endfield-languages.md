@@ -30,6 +30,9 @@ gender-specific translations when the game supplies them. Scene summaries shown
 when skipping dialogue use the existing unvoiced-text capture option. Radio
 captions whose original data explicitly disables the performer use that same
 option. A missing actor field or recording does not establish silence. The
+same unvoiced option covers simple original dialogue callers that explicitly
+disable speech. Their original text and older saved recordings remain available.
+The
 separate **Include subtitles without available audio** option preserves verified
 authored captions with unknown or unavailable audio, subject to complete,
 unambiguous text and player selection. General reactions stay separate from
@@ -38,6 +41,18 @@ Include the official speaker label in the capture area when it is shown above a
 short radio caption. The reader can use the complete name and caption together;
 the same sentence from another speaker remains separate. Anonymous labels such
 as `???` do not identify a recording or resolve an ambiguous translation.
+Written instruction-book bodies, guide-page explanations and referenced
+operator-training steps also use the unvoiced-text option. Their text is read
+across the full game frame; a bottom subtitle crop is not required. Illustrative
+videos, images, headings and short skill labels are separate from these written
+bodies. A tutorial video is not offered as the voice of its accompanying text.
+Written Baker system notices use the same unvoiced option; voice-message cells
+keep their separate original-audio route.
+Voiced top-of-screen dialogue uses the original layout declaration and full-frame
+capture. Operator-training steps can use the immediately preceding authored step
+to identify a short instruction. Keep the complete instruction visible; a new
+menu or interrupted sequence clears that context. Remaining ambiguous cases stay
+guarded in the current subtitle inventory.
 The
 [publisher-source audit](game-audits/endfield.md#publisher-resources-and-story-coverage-november-8-2026)
 records the 1,179 paired lines, remaining voice gaps and cinematic coverage.

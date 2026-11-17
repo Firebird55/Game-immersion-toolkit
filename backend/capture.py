@@ -118,6 +118,9 @@ class CaptureService:
         self._endfield_radio = EndfieldCaptionContext()
         self._endfield_conversation = EndfieldCaptionContext()
         self._endfield_film = EndfieldCaptionContext()
+        self._endfield_top_dialogue = EndfieldCaptionContext()
+        self._endfield_tutorial = EndfieldCaptionContext()
+        self._wuwa_music = EndfieldCaptionContext()
         self._genshin_dialogue = EndfieldCaptionContext()
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
@@ -837,7 +840,11 @@ class CaptureService:
         missing_lines = getattr(index, 'match_missing_audio_lines', None)
         spec = STEAM_GAMES.get(game)
         has_film_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_film_cues', 0)
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or (spec and spec.floating_dialogue) else None
+        has_top_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_top_dialogue_cues', 0)
+        has_song_cues = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get('publisher_song_cues', 0)
+        has_song_voices = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get(
+            'publisher_song_voices', has_song_cues)
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_song_voices or (spec and spec.floating_dialogue) else None
         voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
@@ -853,6 +860,10 @@ class CaptureService:
         if not enabled or scope != self._unvoiced_scope:
             if game == 'endfield':
                 self._endfield_film.reset()
+                self._endfield_top_dialogue.reset()
+                self._endfield_tutorial.reset()
+            if game == 'wuwa':
+                self._wuwa_music.reset()
             for key in list(self._unvoiced_trackers):
                 if key.startswith(prefix):
                     del self._unvoiced_trackers[key]
@@ -864,6 +875,10 @@ class CaptureService:
         image = self._ocr_image(self._capture(window.bounds), window)
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
+            return outcome
+        if has_song_cues and response.get('dialogue_menu'):
+            self._wuwa_music.reset()
+            self._unvoiced_scope = None
             return outcome
         silent_enabled = silent_enabled and self.settings.get().capture_unvoiced
         missing_enabled = missing_enabled and getattr(self.settings.get(), 'capture_missing_audio', False)
@@ -880,14 +895,40 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
-        if game == 'endfield' and voice_enabled:
+        if (voice_enabled and game == 'endfield') or (has_song_cues and (voice_enabled or missing_enabled)):
+            context = self._endfield_film if game == 'endfield' else self._wuwa_music
             if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                self._endfield_film.reset()
+                context.reset()
             else:
-                hit = self._endfield_film.observe(index, groups, matches.values(), channel='cinematic',
+                hit = context.observe(index, groups, matches.values(), channel='cinematic',
+                    kind='music_subtitle' if has_song_cues else 'cinematic',
+                    prefer_authored_occurrence=bool(has_song_cues),
                     scope=(scope, self.session_id, index.player_voice, index.target_locale),
                     now=seen_at, stable_frames=settings.stable_frames)
                 if hit and self._capturable_match(hit):
+                    if has_song_cues:
+                        matches = {identity: old for identity, old in matches.items()
+                                   if old.source_ocr != hit.source_ocr
+                                   or not index.equivalent_caption_occurrence(old, hit)}
+                    matches[hit.text_id] = hit
+        if game == 'endfield':
+            contexts = []
+            if has_top_cues and voice_enabled:
+                contexts.append((self._endfield_top_dialogue, 'conversation', 'cinematic'))
+            if silent_enabled:
+                contexts.append((self._endfield_tutorial, 'tutorial_step', 'tip'))
+            for context, kind, channel in contexts:
+                if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
+                    context.reset()
+                    continue
+                hit = context.observe(index, groups, matches.values(), channel=channel, kind=kind,
+                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
+                    now=seen_at, stable_frames=settings.stable_frames, prefer_authored_occurrence=True)
+                if hit and self._capturable_match(hit):
+                    for identity, other in list(matches.items()):
+                        if (identity != hit.text_id and other.source_ocr == hit.source_ocr
+                                and index.equivalent_caption_occurrence(other, hit)):
+                            del matches[identity]
                     matches[hit.text_id] = hit
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
@@ -999,6 +1040,8 @@ class CaptureService:
                     context.reset()
                 if game == 'endfield':
                     self._endfield_film.reset()
+                    self._endfield_top_dialogue.reset()
+                    self._endfield_tutorial.reset()
             else:
                 scope = (epoch, self.session_id, window.handle, window.bounds, crop_bounds,
                     index.source_locale, index.target_locale, index.player_voice, index._signature,

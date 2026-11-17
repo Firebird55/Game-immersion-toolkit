@@ -1,5 +1,59 @@
 # Zenless Zone Zero dialogue audit
 
+## November 16, 2026 · Previously omitted movie and timeline references
+
+Reader revision 15 keeps the original Perform presentation inventory in normal
+publisher preparation. The conversation/comic range selector previously removed
+other presentation forms before coverage reporting. The bounded table reader now
+retains their original integer identities, numeric type counts and distinct
+default/alternate source keys; it does not infer a player gender from a column.
+New IDs and keys are inventoried without a per-scene list. Duplicate identities
+or malformed rows fail preparation instead of publishing a partial denominator.
+
+The selected original Global table contains **30,964 configured rows**. Its movie
+form has **247 rows / 346 distinct source keys**; its timeline form has **802 rows
+/ 903 keys**. Their acquisition is explicitly `not-implemented` and current use
+is `unclassified`. These are configuration references, **not** counts of missing
+spoken subtitles or proof that every retained test/historical scene is active.
+They remain separate from the 333 unmatched conversation/bubble paths. The
+existing dialogue, comic and voice-directory range plan remains identical after
+removing this additional inventory field. No voice assignment, unvoiced
+classification, caption text or recording is added by this change.
+
+The normal installation-free English preparation was replayed against fresh
+publisher discovery with this inventory enabled. It produced 295,204 records;
+every existing prepared record remained identical, including its voice status
+and source fields. This verifies inventory propagation through normal Setup,
+not acquisition of the still-unimplemented movie or timeline presentations.
+
+Independent source checks make the next ownership boundary concrete. The
+original cached conversation selection contains 52 typed
+`MainCityChatPlayTimelineNode` callers and 43 `TimelinePair` nodes with 23 distinct
+authored timeline keys. Those keys are not yet joined to original timeline
+resources. Bare-key hashes do not establish an asset or bundle match in the
+selected catalog; no guessed path prefix is accepted. The current updater lists
+2,195 movie resources, while its launcher base lists 1,137. Of the configured
+movie source variants, 281 distinct exact paths occur in that current inventory.
+That exact path membership establishes availability, not a subtitle or voice
+binding. A fully checked 4,225,984-byte original prologue sample contains only
+video chunks, so its audio or subtitles cannot be invented by demultiplexing it.
+
+The complete original 123,144,944-byte metadata input has now passed its whole
+MD5 and SHA256 in addition to the 98 original chunk checks. Original path literals
+identify five registry/configuration assets that independently match the current
+catalog. Their typed objects are readable, but the checked registries do not yet
+supply the missing timeline-key ownership relationship. A complete bounded scan
+of the original native `.upx0` section adds no new direct header/body-pointer user
+beyond the already identified type helper; that negative scan is not proof that
+a metadata/string decoder does not exist. Subsequent static review identified
+the original type helper's packed-name decoder and reproduced its strict UTF-8
+output from the authenticated metadata. That provides original declaration
+names for further loader research; it is not yet a production metadata reader.
+Original loader mapping, current-use
+classification, film text/audio joins and autonomous update acceptance remain
+open. No game/client code was executed, and none of these private inputs is
+redistributed.
+
 ## November 16, 2026 · Selected mainland publisher in normal Windows Setup
 
 Reader revision 14 adds **Global / Mainland China** to Publisher edition with

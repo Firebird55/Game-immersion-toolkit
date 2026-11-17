@@ -10,6 +10,7 @@ import json
 import math
 import os
 import re
+import secrets
 import shutil
 import struct
 import subprocess
@@ -218,11 +219,15 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
 
 
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
-                         *, schema_cache: Path | None = None, inventory=False, table_schema=None):
+                         *, schema_cache: Path | None = None, inventory=False, table_schema=None, capture_schema_usage=False):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
     outputs = ('inventory.json',) if inventory else ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
+    if capture_schema_usage:
+        if inventory or table_schema is None:
+            raise ValueError('NTE schema usage requires an explicit publisher table schema')
+        outputs += ('schema-usage.json',)
     if any((destination / name).exists() for name in outputs):
         raise ValueError('NTE publisher extraction requires a fresh staging directory')
     invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)
@@ -239,8 +244,11 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             (destination / 'dialogue.usmap').write_bytes(data)
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors}
+        nonce = secrets.token_hex(16) if capture_schema_usage else None
         if not inventory:
             request['type_schema_sha256'] = TABLE_SCHEMA_SHA256 if table_schema is None else table_schema.reference['sha256']
+            if capture_schema_usage:
+                request.update(capture_schema_usage=True, schema_usage_nonce=nonce)
         try:
             result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
                 timeout=600, cwd=working_directory, env=environment,
@@ -256,6 +264,34 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
     if result.returncode or not all((destination / name).is_file() for name in outputs):
         raise PreparationFailure('unsupported_game_format',
             'The NTE publisher dialogue format is unsupported or incomplete. Retry preparation; the previous index is retained.')
+    if capture_schema_usage:
+        return read_schema_usage(destination, table_schema.reference['sha256'], nonce)
+
+
+def read_schema_usage(destination, schema_sha256, nonce):
+    """Accept only complete lookup/class evidence from this reader invocation."""
+    path = destination / 'schema-usage.json'
+    try:
+        if not path.is_file() or not 0 < path.stat().st_size <= 16*1024**2:
+            raise ValueError()
+        value = json.loads(path.read_bytes())
+        if (not isinstance(value, dict) or set(value) != {'schema', 'complete', 'nonce', 'schema_sha256', 'lookups', 'classes'}
+                or value['schema'] != 'nte-schema-usage-v1' or value['complete'] is not True
+                or value['nonce'] != nonce or value['schema_sha256'] != schema_sha256
+                or not isinstance(value['lookups'], list) or not 0 < len(value['lookups']) <= 100_000
+                or any(not isinstance(n, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,255}', n) for n in value['lookups'])
+                or len(set(value['lookups'])) != len(value['lookups']) or not isinstance(value['classes'], dict)
+                or len(value['classes']) > 100_000):
+            raise ValueError()
+        for name, implementation in value['classes'].items():
+            if (not isinstance(name, str) or not isinstance(implementation, str) or len(implementation) > 512
+                    or not re.fullmatch(r'CUE4Parse\.UE4\.Assets\.Exports\.(?:[A-Za-z_][A-Za-z0-9_]*\.)*U[A-Za-z_][A-Za-z0-9_]*', implementation)
+                    or implementation.rsplit('.', 1)[-1] != 'U'+name):
+                raise ValueError()
+        return value
+    except (OSError, ValueError, TypeError):
+        raise PreparationFailure('game_metadata_unavailable',
+            'The NTE reader could not verify its required format metadata. The previous completed index is retained.') from None
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None) -> None:
