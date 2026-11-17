@@ -806,9 +806,17 @@ def _source_bytes(tools, stamp, depot, reference=None):
         return data
     if reference is None:
         return None
+    from . import wuthering_source_cache
+    data = wuthering_source_cache.cached(tools, depot, reference)
+    if data is not None:
+        binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
+        path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
+        _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
+        return data
     info, position = reference
     data = _voice_package(tools, stamp, info).extract(position)
     _validate_wem(data)
+    wuthering_source_cache.remember(tools, depot, reference, data)
     binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
     path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
     _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
