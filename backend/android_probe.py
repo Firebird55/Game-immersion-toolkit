@@ -8,6 +8,8 @@ import tempfile
 import wave
 import sys
 import time
+import sqlite3
+from contextlib import closing
 
 from .prepared_library import write_prepared_library
 from .prepared_session import PreparedCaptureSession
@@ -85,7 +87,16 @@ def run(root):
         emitted = imported.observe(scope, 2, [observed], now=1.1)
         if waited or len(emitted) != 1 or emitted[0]['text_id'] != identity or emitted[0]['game'] != game:
             raise ValueError('The packaged shared core did not capture the authored ' + game + ' fixture')
+        displayed = emitted[0]['source_text']
+        with closing(sqlite3.connect(imported.history.path.as_uri() + '?mode=ro', uri=True)) as database:
+            canonical = database.execute('SELECT english FROM transcript_lines WHERE id=?', (emitted[0]['id'],)).fetchone()[0]
+        if displayed != observed or canonical != official or imported.index._records[0]['source_text'] != official:
+            raise ValueError('Prepared presentation changed canonical publisher identity for ' + game)
+        reopened = PreparedCaptureSession(work / ('game-' + game))
+        if reopened.history.get(emitted[0]['id']).source_text != observed:
+            raise ValueError('Prepared presentation did not survive the authored ' + game + ' restart')
         games[game] = {'text_id': emitted[0]['text_id'], 'voice_status': emitted[0]['voice_status'],
+            'displayed_source': displayed, 'canonical_source': canonical,
             'original_audio_sha256': hashlib.sha256(imported.audio_path(emitted[0]['id']).read_bytes()).hexdigest()}
     results['prepared_games'] = games
     if any(value is False for value in results.values()):
