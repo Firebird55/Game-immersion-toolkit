@@ -248,9 +248,44 @@ wrong publisher and changed client fail without replacing a previous source
 pointer. Authored tests use the real shared context/transport and simulate only
 the publisher signature positive; the actual original Windows signature remains
 the separate cached-source proof above. No new original transfer or cold-member
-acquisition is claimed. The ordinary provider still needs to connect its
-client-bootstrap continuation, this helper and full AKPK controls to a persistent
-master witness; its presence is not a ready dialogue library or audio source.
+acquisition is claimed.
+
+The ordinary `endfield_game_data` provider now connects its exact approved
+client-bootstrap continuation to this native-member stage. The private stage
+handle and receipt hash are copied into the next approved plan; download reopens
+that exact client/request path, not a directory-discovered substitute. All large
+cached tables require their source URL/range/size/SHA ownership and are held as
+immutable checked bytes. Missing owner ranges are bounded to 64 KiB each and
+1 MiB per artifact through the explicit context transport. Source metadata is
+data throughout; no original instructions run. Authored tests exercise the
+ordinary two-stage provider with the real context/transport, including download
+contexts whose `stage_handle` is absent. The final import and signature positives
+in that synthetic test are simulated; real original ownership/signature remain
+the independent frozen proofs above.
+
+A separate zero-network replay now runs the actual provider's import-owner
+recognizer through the new bootstrap reader over the retained original 1.6.4
+tables: eight source hardlinks reference 106,097,620 bytes without a second large
+physical copy, and 42 small cached-original ranges total 5,048 bytes. It derives
+the same actual module/entrypoint and leaves every original source file
+unchanged. Its approved-stage envelope is a constructed private replay fixture;
+this is real cached-content/reader evidence, not a new cold bootstrap download,
+full native-file hash, source activation or Android execution claim.
+
+The native stage's quote additionally includes the provider's bounded launcher
+revalidation. It returns another `PreparationStage`, never a snapshot. After
+that stage the provider reports the unimplemented package-control/text stage
+explicitly, rather than repeating a large client download or claiming readiness.
+Text mode likewise stops at the remaining text-resource stage and never enters
+the native audio branch. Full AKPK controls still need connection to a persistent
+master witness, and ordinary text-resource preparation remains incomplete.
+
+The factory and common/Lua parameter modules no longer import desktop tool setup
+just to obtain a cache writer. A small lazy adapter reuses the shared pure
+private writer; a fresh-process test rejects imports of desktop tools, runtime
+paths, prepared-library/ZIP setup and native decoder/hash/crypto packages during
+factory/parameter import. This is import-closure evidence, not native Android
+execution or preparation acceptance.
 
 ## Android portability audit
 

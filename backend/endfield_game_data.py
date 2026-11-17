@@ -102,10 +102,44 @@ class EndfieldGameDataProvider:
             raise Error(error.code, str(error)) from error
 
     def plan(self, request, ctx):
+        return self._plan(request, ctx, getattr(ctx, 'stage_handle', None))
+
+    def _original_import(self, bootstrap):
+        from .endfield_client_source import Metadata
+        from .endfield_native_import import managed_import
+        return managed_import(Metadata(bootstrap.artifact(METADATA)),
+                              Image(bootstrap.artifact('GameAssembly.dll')))
+
+    def _plan(self, request, ctx, continuation):
         self._runtime()
         Error, Plan, _, _ = _contracts()
         transport = self._transport(request, ctx)
         identity, declaration = self._latest(request, transport)
+        if (isinstance(continuation, dict) and continuation.get('client') == identity and
+                continuation.get('request') == request.json()):
+            if continuation.get('stage') == 'original-audio-native-source-downloaded':
+                raise Error('source_not_prepared',
+                    'Endfield original audio source is verified. Original package-control and text-decryption preparation still need implementation; existing data is retained.')
+            if continuation.get('stage') == 'client-bootstrap-downloaded':
+                from .endfield_bootstrap_source import Bootstrap
+                bootstrap = Bootstrap(ctx, identity, transport, continuation)
+                if request.content_mode == 'text':
+                    raise Error('source_not_prepared',
+                        'Endfield original client metadata is downloaded. Original text-resource preparation still needs implementation; no audio is downloaded and existing data is retained.')
+                try:
+                    original_import = self._original_import(bootstrap)
+                except (ValueError, KeyError, TypeError) as error:
+                    raise Error('unsupported_original_metadata',
+                        'Endfield original client import ownership could not be established. Existing data is retained.') from error
+                from .endfield_native_source import OriginalNativeSource
+                original = OriginalNativeSource(ctx, identity, transport).plan(original_import)
+                handle = {'schema': 1, 'stage': 'original-audio-native-member', 'client': identity,
+                          'request': request.json(), 'bootstrap': continuation, 'source_plan': original}
+                return Plan(revision='endfield-client-' + identity_stamp(identity),
+                    download_bytes=original['download_bytes'] + LAUNCHER_LIMIT,
+                    required_disk_bytes=original['required_disk_bytes'], handle=handle,
+                    download_is_upper_bound=True, runtime_available=True, stage=handle['stage'],
+                    message='Original audio native member plus bounded source rechecks; package controls and text preparation still follow. This stage activates no game data.')
         headers, artifacts, receipts = {}, {}, {'declaration': declaration.json()}
         for artifact, size in ((METADATA, 256), ('GameAssembly.dll', 4096)):
             data, receipt = transport.fetch_bytes(identity['url'] + '/' + artifact, limit=size,
@@ -140,6 +174,8 @@ class EndfieldGameDataProvider:
     def download(self, plan, ctx):
         self._runtime()
         Error, _, Stage, _ = _contracts()
+        if plan.stage == 'original-audio-native-member':
+            return self._download_native(plan, ctx)
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
@@ -168,11 +204,39 @@ class EndfieldGameDataProvider:
         result = {'schema': 1, 'stage': 'client-bootstrap-downloaded', 'request': ctx.request.json(),
                   'client': identity, 'ranges': completed,
                   'authentication': 'official HTTPS range receipts; not complete native artifact hashes'}
-        from .game_tools import _atomic_file
-        _atomic_file(root / 'receipt.json', _json_bytes(result))
+        from .game_data import _write
+        _write(root / 'receipt.json', result)
         return Stage({'schema': 1, 'stage': result['stage'], 'client': identity,
                       'request': ctx.request.json(), 'receipt_sha256': hashlib.sha256(_json_bytes(result)).hexdigest()},
                      'Original Endfield client metadata is downloaded. Parameter/index verification and another content-size check are still required; no game text or audio is active.')
+
+    def _download_native(self, plan, ctx):
+        Error, _, Stage, _ = _contracts()
+        # The service exposes stage_handle during planning only. Reopen solely
+        # the exact private continuation bound into this approved plan.
+        continuation = plan.handle.get('bootstrap')
+        current = self._plan(ctx.request, ctx, continuation)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original source or download approval changed. Check its size again.')
+        from .endfield_bootstrap_source import Bootstrap
+        from .endfield_native_source import OriginalNativeSource
+        from .endfield_native_import import Import
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        # Revalidate the bootstrap receipt and large source bytes through the
+        # same owner recognizer, instead of trusting an entrypoint from a handle.
+        bootstrap = Bootstrap(ctx, identity, transport, continuation)
+        original_import = self._original_import(bootstrap)
+        if original_import != Import(**current.handle['source_plan']['import']):
+            raise Error('unverified_original_import', 'Endfield original import changed during native source preparation.')
+        _, source = OriginalNativeSource(ctx, identity, transport).acquire(current.handle['source_plan'], original_import,
+            recheck=lambda: self._latest(ctx.request, transport)[0])
+        return Stage({'schema': 1, 'stage': 'original-audio-native-source-downloaded',
+            'request': ctx.request.json(), 'client': identity, 'bootstrap': continuation,
+            'source_receipt_sha256': hashlib.sha256(_json_bytes(source)).hexdigest()},
+            'Endfield original audio native source is verified. Original package controls and text preparation are still required; no dialogue or voice library is active.')
 
     def restore(self, handle, ctx):
         Error, _, _, _ = _contracts()
