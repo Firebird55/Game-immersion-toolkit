@@ -415,6 +415,7 @@ class OriginalMember:
     text_id: str
     audio: dict
     span: Span
+    player_voice: str | None = None
 
 
 def _riff(raw):
@@ -425,20 +426,60 @@ def _riff(raw):
 
 class OriginalVoices:
     """Frozen checked membership; has performs neither I/O nor decoding."""
-    def __init__(self, store, members, *, decoder=None, encoder=None):
-        from .media_tools import vgmstream_executable, ffmpeg_executable
+    def __init__(self, store, members, *, decoder=None, encoder=None, layout=None):
+        from .native_codecs import packaged_codec_executable
+        from .hoyo_dialogue import audio_locale, voice_namespace
+        from .voice_assets import voice_hash
         self.store = store
-        self.decoder = Path(decoder) if decoder is not None else vgmstream_executable()
-        self.encoder = Path(encoder) if encoder is not None else ffmpeg_executable()
+        self.layout = layout
+        self._explicit_decoder, self._explicit_encoder = decoder is not None, encoder is not None
+        self.decoder = Path(decoder) if decoder is not None else packaged_codec_executable('vgmstream', layout=layout)
+        self.encoder = Path(encoder) if encoder is not None else packaged_codec_executable('ffmpeg', layout=layout)
         self.members = {}
+        verified_directories = {}
         for member in members:
             if (not isinstance(member, OriginalMember) or not isinstance(member.text_id, str)
                     or not member.text_id or not isinstance(member.audio, dict) or not member.audio
-                    or member.audio.get('movie') or member.text_id in self.members):
+                    or member.audio.get('movie') or member.text_id in self.members
+                    or not isinstance(member.span, Span)
+                    or member.player_voice is not None and member.player_voice not in ('male', 'female')):
                 _fail()
             frozen = json.loads(json.dumps(member.audio, allow_nan=False))
+            locale = frozen.get('locale')
+            if not isinstance(locale, str) or locale not in {'en', 'ja', 'ko', 'zh-Hans'} or audio_locale(locale) != locale:
+                _fail('The original recording has no supported authored dub.')
+            language = voice_namespace('starrail', locale)
+            if not member.span.owner.name.startswith(language + '/'):
+                _fail('The original recording owner belongs to another dub.')
+            if source := frozen.get('source'):
+                if (not isinstance(source, str) or len(source) > 4096 or '\x00' in source
+                        or re.split(r'[/\\]', source, maxsplit=1)[0].casefold() != language.casefold()
+                        or frozen.get('file_id') != f'{voice_hash(source):016x}'):
+                    _fail('The authored external recording reference changed.')
+                if member.span.owner not in verified_directories:
+                    directory, = directories((member.span.owner,), store, locale)
+                    verified_directories[member.span.owner] = directory
+                directory = verified_directories[member.span.owner]
+                if directory.external.get(voice_hash(source)) != member.span:
+                    _fail('The authored external recording does not match its original directory.')
+            elif event := frozen.get('audio_event'):
+                reference = {key: frozen.get(key) for key in ('bank_package', 'bank_digest', 'bank_offset', 'bank_size')}
+                expected = {'bank_package': member.span.owner.name, 'bank_digest': member.span.owner.md5,
+                            'bank_offset': member.span.start, 'bank_size': member.span.length}
+                if (not isinstance(event, str) or re.fullmatch('[A-Za-z0-9_]{1,512}', event) is None
+                        or type(frozen.get('event_media')) is not int or not 0 < frozen['event_media'] < 2**32
+                        or identity(reference) != identity(expected)):
+                    _fail('The authored audio event does not match its original member.')
+                variant = frozen.get('event_variant') or ''
+                if not isinstance(variant, str):
+                    _fail()
+                for gender in ('male', 'female'):
+                    if (variant == gender or variant.startswith(gender + '-part-')) and member.player_voice != gender:
+                        _fail('The authored player recording branch changed.')
+            else:
+                _fail('The original recording has no supported authored reference.')
             raw = store.read(member.span); _riff(raw)
-            self.members[member.text_id] = (identity(frozen), OriginalMember(member.text_id, frozen, member.span), hashlib.sha256(raw).hexdigest())
+            self.members[member.text_id] = (identity(frozen), OriginalMember(member.text_id, frozen, member.span, member.player_voice), hashlib.sha256(raw).hexdigest())
 
     def has(self, row):
         if (not isinstance(row, Mapping) or not isinstance(row.get('text_id'), str)
@@ -448,7 +489,8 @@ class OriginalVoices:
         if found is None:
             return False
         try:
-            return found[0] == identity(row['audio'])
+            return (row.get('audio_locale') == found[1].audio['locale']
+                    and row.get('player_voice') == found[1].player_voice and found[0] == identity(row['audio']))
         except (TypeError, ValueError, RecursionError):
             return False
 
@@ -487,6 +529,13 @@ class OriginalVoices:
         destination = Path(destination); _no_links(destination)
         if destination.suffix.lower() not in {'.wav', '.mp3'}:
             _fail('The original voice destination must be WAV or MP3.')
+        # Recheck the closed runtime before executing it; never repair it or
+        # select another executable through PATH/imageio/source SDK behavior.
+        from .native_codecs import packaged_codec_executable
+        if not self._explicit_decoder:
+            self.decoder = packaged_codec_executable('vgmstream', layout=self.layout)
+        if not self._explicit_encoder:
+            self.encoder = packaged_codec_executable('ffmpeg', layout=self.layout)
         if self.decoder is None or not Path(self.decoder).is_file() or self.encoder is None or not Path(self.encoder).is_file():
             _fail('The delivered original voice codecs are unavailable on this device.')
         _, member, expected = self.members[row['text_id']]

@@ -290,6 +290,28 @@ bounds. The offline voice predicate retains its no-I/O contract. These cache and
 quote operations do not bypass the remaining normal lookup/bootstrap, recording
 materialization, movie-key or platform-runtime gates.
 
+The isolated frozen-`9d504d7c` intake now also completes the selected localized,
+state and streamed-original stages. The 1,335 localized covering ranges use
+178,220,387 bytes; 201 additional state banks use 4,553,522 bytes in 131 ranges;
+1,380 missing original spans use 81,042,988 bytes in 1,099 contiguous ranges.
+Every complete bank/section and authored Play target validates. The 3,678
+AudioEvent names yield 3,712 recording candidates including authored player and
+sequence branches; all candidates are locally present with complete RIFF length
+checks. This is the supported AudioEvent subset, not all dialogue voices.
+The same supported catalog separately declares 94,962 unique external
+VoiceConfig paths, with 93,397 unique current-header bindings. Those originals,
+normal lookup/bootstrap integration, codec acceptance and movie parameters are
+not supplied by the AudioEvent intake. No new ready snapshot or voice-status
+promotion occurs, and complete-PCK MD5 is not inferred from these ranges.
+
+The offline adapter now selects codecs only through the bundle's closed
+`packaged_codec_executable` contract, verifying that closure again before local
+execution. It does not discover PATH/imageio tools, build software or download
+dependencies. Membership also freezes the authored dub, player branch and
+external/event reference; changed row locale/player/reference cannot certify a
+recording. External hashes must match the verified original PCK directory.
+Actual decoded-PCM acceptance remains separate from the preceding RIFF checks.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport

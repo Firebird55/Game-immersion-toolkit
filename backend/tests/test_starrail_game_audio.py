@@ -251,7 +251,7 @@ def voices(fixture, tmp_path):
     decoder, encoder = tmp_path / 'decoder', tmp_path / 'encoder'
     decoder.write_bytes(b'inert executable path fixture'); encoder.write_bytes(b'inert executable path fixture')
     source = audio.OriginalVoices(store, (member,), decoder=decoder, encoder=encoder)
-    return source, member, {'text_id': member.text_id, 'voice_status': 'voiced', 'audio': binding.copy()}
+    return source, member, {'text_id': member.text_id, 'voice_status': 'voiced', 'audio_locale': 'en', 'audio': binding.copy()}
 
 
 def test_has_never_reads_decodes_or_fetches_and_requires_exact_binding(fixture, tmp_path, monkeypatch):
@@ -261,6 +261,8 @@ def test_has_never_reads_decodes_or_fetches_and_requires_exact_binding(fixture, 
     monkeypatch.setattr(source, '_run', lambda *a: pytest.fail('has must not decode'))
     assert source.has(MappingProxyType(row))
     assert not source.has(row | {'audio': row['audio'] | {'locale': 'ja'}})
+    assert not source.has(row | {'audio_locale': 'ja'})
+    assert not source.has(row | {'player_voice': 'female'})
     assert not source.has(row | {'text_id': 'starrail:other'})
     assert not source.has(row | {'voice_status': 'unvoiced'})
     assert not source.has(row | {'text_id': []})
@@ -302,12 +304,43 @@ def test_mutating_materialized_member_and_its_receipt_cannot_rebind_original(fix
 
 def test_missing_original_or_movie_parameter_input_never_certifies_member(fixture, tmp_path):
     _, _, owner, store, _, _, _ = fixture
-    member = audio.OriginalMember('starrail:missing', {'locale': 'en'}, audio.Span(owner, 80, 20))
-    with pytest.raises(GameDataError, match='not verified locally'):
+    member = audio.OriginalMember('starrail:missing', {'locale': 'en', 'source': 'English/voice/Owned.wem',
+        'file_id': f'{voice_hash("English/voice/Owned.wem"):016x}'}, audio.Span(owner, 80, 20))
+    with pytest.raises(GameDataError):
         audio.OriginalVoices(store, (member,))
     movie = audio.OriginalMember('starrail:movie', {'movie': 'Original.usm'}, member.span)
     with pytest.raises(GameDataError):
         audio.OriginalVoices(store, (movie,))
+
+
+def test_original_decoder_defaults_use_only_packaged_runtime_contract(fixture, tmp_path, monkeypatch):
+    from backend import native_codecs, media_tools
+    source, member, row = voices(fixture, tmp_path)
+    layout = object(); calls = []
+    def packaged(tool, *, layout):
+        calls.append((tool, layout))
+        return source.decoder if tool == 'vgmstream' else source.encoder
+    monkeypatch.setattr(native_codecs, 'packaged_codec_executable', packaged)
+    monkeypatch.setattr(media_tools, 'vgmstream_executable', lambda *a, **k: pytest.fail('No source/PATH decoder discovery'))
+    monkeypatch.setattr(media_tools, 'ffmpeg_executable', lambda *a, **k: pytest.fail('No PATH/imageio encoder discovery'))
+    actual = audio.OriginalVoices(source.store, (member,), layout=layout)
+    assert actual.has(row) and calls == [('vgmstream', layout), ('ffmpeg', layout)]
+    monkeypatch.setattr(native_codecs, 'packaged_codec_executable', lambda *a, **k: None)
+    with pytest.raises(GameDataError, match='codecs are unavailable'):
+        actual.resolve(row, tmp_path / 'never.wav', cancelled=lambda: False)
+    assert not (tmp_path / 'never.wav').exists()
+
+
+def test_wrong_dub_reference_or_authored_player_cannot_certify_an_original(fixture, tmp_path):
+    source, member, row = voices(fixture, tmp_path)
+    wrong = audio.OriginalMember(member.text_id, member.audio | {'locale': 'ja'}, member.span)
+    with pytest.raises(GameDataError, match='another dub'):
+        audio.OriginalVoices(source.store, (wrong,), decoder=source.decoder, encoder=source.encoder)
+    wrong = audio.OriginalMember(member.text_id, member.audio | {'file_id': '0' * 16}, member.span)
+    with pytest.raises(GameDataError, match='reference changed'):
+        audio.OriginalVoices(source.store, (wrong,), decoder=source.decoder, encoder=source.encoder)
+    assert not source.has(row | {'audio_locale': 'ja'})
+    assert not source.has(row | {'player_voice': 'female'})
 
 
 def test_orphaned_member_without_original_header_cannot_start_server_generation(fixture):
