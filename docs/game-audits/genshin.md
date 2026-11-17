@@ -1271,6 +1271,19 @@ The exact incoming `VideoSubtitles` path, generic map duplicate semantics and
 the complete installation-free append/location-selection contract remain open;
 the default provider is unchanged.
 
+The original native-input preparation now has a bounded local initial-dispatch
+stage. It resolves the named static field, initializer and original literal
+through the maintained metadata/native readers, without revision-specific
+addresses, indices or a saved key extraction. Fresh original-file replay and
+the ordinary Windows stage both succeeded with no new game bytes or network;
+the latter retained the accepted library and reopened its private receipt.
+An independently bounded official metadata request accepted this initial value
+while retaining frozen RSA/template controls. These are initial-value proofs,
+not complete bootstrap independence: original RSA and request-template
+ownership, response-signature verification, possible later overrides, another
+actual client generation and the Android BLB closure remain open. The stage
+does not emit a partial dialogue snapshot or activate a descriptor.
+
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and
 the explicit official-manifest preflight size bounds.

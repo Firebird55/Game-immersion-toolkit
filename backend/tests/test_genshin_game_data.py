@@ -123,9 +123,114 @@ def test_original_stage_counts_shared_chunks_and_never_becomes_a_snapshot(tmp_pa
     ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
     ctx.stage_handle = result.restore_handle
     next_plan = source.plan(ctx.request, ctx)
+    assert next_plan.stage == 'original-bootstrap-seed' and next_plan.runtime_available
+    assert next_plan.download_bytes == 0 and next_plan.required_disk_bytes == 1024**2
+    assert len(calls) == before + 1  # Current launcher discovery only, no payload.
+
+
+def seed_fixture(tmp_path, monkeypatch):
+    source, ctx, calls, objects, originals, build = fixture(tmp_path, monkeypatch)
+    plan = source.plan(ctx.request, ctx)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
+    source.download(plan, ctx)
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    plan = source.plan(ctx.request, ctx)
+    reads = []
+    def initial_seed(executable, metadata, *, expected_owner):
+        from backend.genshin_native_dispatch import InitialSeed, SCHEMA
+        assert executable == originals[provider._names('global')[0]]
+        assert metadata == originals[provider._names('global')[1]]
+        assert expected_owner == {'executable_sha256': hashlib.sha256(executable).hexdigest(),
+                                  'metadata_sha256': hashlib.sha256(metadata).hexdigest()}
+        reads.append(expected_owner)
+        value = '123456789abcdef0'
+        return InitialSeed(value, {'schema': SCHEMA, **expected_owner,
+            'value_sha256': hashlib.sha256(value.encode()).hexdigest(),
+            'later_override_excluded': False, 'complete_dispatch_bootstrap': False})
+    monkeypatch.setattr(source.runtime, 'initial_seed', initial_seed)
+    return source, ctx, calls, plan, reads
+
+
+def test_original_seed_stage_has_no_transfer_and_reopens_source_owned_private_receipt(tmp_path, monkeypatch):
+    source, ctx, calls, plan, reads = seed_fixture(tmp_path, monkeypatch)
+    previous = tmp_path / 'accepted-library'; previous.write_bytes(b'complete prior library')
+    before = len(calls)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', 0, 0
+    result = source.download(plan, ctx)
+    assert isinstance(result, PreparationStage) and result.restore_handle['phase'] == 'original-bootstrap-seed'
+    assert reads and len(calls) == before and ctx.consumed == 0
+    assert '123456789abcdef0' not in json.dumps(result.restore_handle)
+    receipts = list((ctx.cache_directory / 'genshin-original/global/bootstrap-seeds').glob('*.json'))
+    assert len(receipts) == 1 and json.loads(receipts[0].read_bytes())['owner'] == plan.handle['seed_owner']
+    assert previous.read_bytes() == b'complete prior library'
+    monkeypatch.setattr(source.runtime, 'initial_seed', lambda *a, **k: pytest.fail('Receipt restart extracted again'))
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    ctx.stage_handle = result.restore_handle
+    next_plan = source.plan(ctx.request, ctx)
     assert next_plan.stage == 'original-content-reader' and not next_plan.runtime_available
     assert next_plan.download_bytes is next_plan.required_disk_bytes is None
-    assert len(calls) == before + 1  # Current launcher discovery only, no payload.
+    assert all(word in next_plan.message for word in ('RSA', 'signature', 'overrides'))
+    assert len(calls) == before + 1  # Current publisher identity, never seed/content/audio transfer.
+    receipt = json.loads(receipts[0].read_bytes()); receipt['value'] = '0' * 16
+    receipt['proof']['value_sha256'] = hashlib.sha256(receipt['value'].encode()).hexdigest()
+    receipts[0].write_text(json.dumps(receipt))
+    assert source.plan(ctx.request, ctx).stage == 'original-bootstrap-seed'
+
+
+@pytest.mark.parametrize('change', ['absent', 'request', 'build', 'digest'])
+def test_seed_cache_cannot_replace_the_verified_stage_receipt(tmp_path, monkeypatch, change):
+    source, ctx, _, plan, _ = seed_fixture(tmp_path, monkeypatch)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', 0, 0
+    result = source.download(plan, ctx)
+    ctx.stage_handle = json.loads(json.dumps(result.restore_handle))
+    if change == 'absent':
+        ctx.stage_handle = None
+    elif change == 'request':
+        ctx.stage_handle['request']['source_locale'] = 'en'
+    elif change == 'build':
+        ctx.stage_handle['revision'] = 'other-original-build'
+    else:
+        ctx.stage_handle['receipt_sha256'] = '0' * 64
+    ctx.phase, ctx.budget, ctx.consumed = 'plan', 8 * 1024**2, 0
+    assert source.plan(ctx.request, ctx).stage == 'original-bootstrap-seed'
+
+
+@pytest.mark.parametrize('failure', ['reader', 'cancel', 'receipt', 'stale-source', 'wrong-owner', 'wrong-size'])
+def test_seed_failure_retains_previous_stage_and_library_without_unplanned_fetch(tmp_path, monkeypatch, failure):
+    source, ctx, calls, plan, reads = seed_fixture(tmp_path, monkeypatch)
+    previous = ctx.directory / 'original-native-inputs.json'; saved = previous.read_bytes()
+    library = tmp_path / 'accepted-library'; library.write_bytes(b'complete prior library')
+    original_reader = source.runtime.initial_seed
+    def failing(*args, **kwargs):
+        result = original_reader(*args, **kwargs)
+        if failure == 'reader':
+            raise ValueError('Authored unsupported owner')
+        if failure == 'cancel':
+            ctx.stopped = True
+        if failure == 'receipt':
+            result.proof['metadata_sha256'] = '0' * 64
+        return result
+    monkeypatch.setattr(source.runtime, 'initial_seed', failing)
+    if failure == 'stale-source':
+        row = plan.handle['ledger']['files'][0]
+        (ctx.cache_directory / 'genshin-original/global/sources' / row['md5']).write_bytes(b'changed owner')
+    elif failure == 'wrong-owner':
+        plan.handle['seed_owner']['sources'][0]['sha256'] = '0' * 64
+    elif failure == 'wrong-size':
+        plan = replace(plan, download_bytes=1)
+    before = len(calls)
+    ctx.phase, ctx.budget, ctx.consumed = 'download', 0, 0
+    with pytest.raises(GameDataError):
+        source.download(plan, ctx)
+    assert previous.read_bytes() == saved and library.read_bytes() == b'complete prior library'
+    assert len(calls) == before and ctx.consumed == 0
+    assert not list((ctx.cache_directory / 'genshin-original/global').rglob('*.pending'))
+    assert not list((ctx.cache_directory / 'genshin-original/global/bootstrap-seeds').glob('*.json'))
+    if failure in {'reader', 'receipt', 'cancel'}:
+        monkeypatch.setattr(source.runtime, 'initial_seed', original_reader)
+        ctx.stopped = False
+        result = source.download(plan, ctx)
+        assert result.restore_handle['phase'] == 'original-bootstrap-seed' and len(calls) == before
 
 
 @pytest.mark.parametrize('platform', ['android', 'linux', 'macos', 'windows'])
