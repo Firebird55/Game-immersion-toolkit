@@ -10,6 +10,9 @@ export function authoredPickerNode(xml, label) {
   for (const match of xml.matchAll(/<node\s+([^>]+)>/g)) {
     const attributes = Object.fromEntries([...match[1].matchAll(/([\w-]+)="([^"]*)"/g)].map(value => [value[1], value[2]]));
     if (attributes.text !== label && attributes['content-desc'] !== label) continue;
+    // DocumentsUI can expose the current Downloads breadcrumb behind its
+    // drawer. Only the actual root-list label selects the Downloads root.
+    if (label === 'Downloads' && attributes['resource-id'] !== 'android:id/title') continue;
     if (attributes.enabled !== 'true') continue;
     const bounds = /^\[(\d+),(\d+)\]\[(\d+),(\d+)\]$/.exec(attributes.bounds ?? '');
     if (!bounds) continue;
