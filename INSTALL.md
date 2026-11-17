@@ -148,7 +148,10 @@ operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.
 Repeated Endfield operator captions can share a verified original recording
 when all official texts and capture conditions agree. Other variants keep their
-context safeguards.
+context safeguards. For spoken world conversations with NPC options visible,
+keep the complete bottom caption, speaker and upper-right Auto/Skip controls
+visible. Reliable full-frame OCR can distinguish that conversation from the
+operator archive; incomplete controls or uncertain OCR keep the guard active.
 
 For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
 For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.

@@ -92,6 +92,9 @@ class MultilingualTextIndex:
                 raise ValueError('Prepared language table is empty; rebuilding is required')
             locale = payload['source_locale']
             study_language(locale)
+            if self.game == 'endfield' and 'publisher_world_dialogue_ui' in payload:
+                from .endfield_presentation import validate_world_dialogue_ui
+                payload['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(payload['publisher_world_dialogue_ui'])
             lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             player_frame_veto = {}
             missing_audio_lookup = {}
@@ -303,11 +306,33 @@ class MultilingualTextIndex:
             parents = {row['text_id'] for row in self._mission_predecessors.get(key, ())}
             return frozenset(matches) if matches <= parents else frozenset()
 
-    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False,
-                    previous_text_id=None):
-        hits, ambiguous = [], []
+    def match_endfield_world_caption(self, spans, image_size):
+        """A stateless source-owned world view can distinguish its profile copy."""
+        if self.game != 'endfield':
+            return None
+        from .endfield_presentation import observe_world_caption, world_ui_signature
         with self.lock:
-            sources = [display_text(' '.join(lines))] if previous_text_id else candidates(lines)
+            metadata = self.snapshot_metadata.get('publisher_world_dialogue_ui')
+            signature = self._signature
+        proof = observe_world_caption(metadata, spans, image_size)
+        if proof is None:
+            return None
+        with self.lock:
+            if (signature != self._signature or
+                    proof.ui_signature != world_ui_signature(self.snapshot_metadata.get('publisher_world_dialogue_ui'))):
+                return None
+            return self.match_lines([proof.caption], exact_only=True, channel='dialogue',
+                                    _endfield_world_speaker=proof.original_speaker_id)
+
+    def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False,
+                    previous_text_id=None, _endfield_world_speaker=None):
+        hits, ambiguous = [], []
+        if (_endfield_world_speaker is not None and
+                (self.game != 'endfield' or previous_text_id is not None or not exact_only or channel != 'dialogue')):
+            return [] if multiple else None
+        with self.lock:
+            sources = ([display_text(' '.join(lines))]
+                       if previous_text_id or _endfield_world_speaker is not None else candidates(lines))
             predecessors = {previous_text_id, *self._predecessor_aliases.get(previous_text_id, ())}
             if self.game == 'genshin' and previous_text_id:
                 variant = re.fullmatch(r'(genshin:[0-9]+):(male|female)', previous_text_id)
@@ -392,6 +417,17 @@ class MultilingualTextIndex:
                                        for conflicts in [values.get(locale, {}).get(key, set())])):
                             ambiguous.append(source)
                             continue
+                    if _endfield_world_speaker is not None:
+                        # All existing caption, channel, player, predecessor and
+                        # missing/unknown vetoes above still govern this frame.
+                        # Only a verified world speaker's voiced profile peer is
+                        # excluded; no takes, translations or member IDs merge.
+                        if not any(row.get('dialogue_kind') == 'conversation' and row['voice_status'] == 'voiced'
+                                   and row.get('original_speaker_id') == _endfield_world_speaker for row in rows):
+                            continue
+                        rows = [row for row in rows if not (row.get('dialogue_kind') == 'operator_voice'
+                                and row['voice_status'] == 'voiced'
+                                and row.get('original_speaker_id') == _endfield_world_speaker)]
                     # Silent prompts can repeat in different scenes with different
                     # official translations. Audio=None is not one shared identity.
                     def identity(row):
@@ -410,6 +446,12 @@ class MultilingualTextIndex:
                             ambiguous.append(source)
                         continue
                     row = rows[0]
+                    if _endfield_world_speaker is not None:
+                        choices = [r for r in rows if r.get('dialogue_kind') == 'conversation'
+                                   and r.get('original_speaker_id') == _endfield_world_speaker]
+                        if not choices:
+                            continue
+                        row = choices[0]
                     target = resolve_locale(self.target_locale, row['texts'])
                     hits.append(TextMatch(game=self.game, text_id=row['text_id'], english=row.get('english') or row['source_text'],
                         chinese=row.get('chinese', ''), source_ocr=source, score=score, kind='exact' if score == 100 else 'fuzzy',

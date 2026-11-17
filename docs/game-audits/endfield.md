@@ -78,6 +78,17 @@ for both protagonists in all study selections through the production capture
 policy. General reaction sounds remain separate. See the
 [current endpoint and original-controller proof](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
 
+Revision 29 additionally identifies the original bottom world-dialogue view
+from its localized Auto/Skip controls, visible original actor and complete
+caption, with valid OCR geometry and reliable line confidence. It captures all
+198 friendship utterances in every study selection through the production
+capture service, including when NPC choices coexist. Caption-only ambiguity,
+different takes, short-caption guards and all predecessor/menu resets remain.
+The ordinary current and frozen old publisher readers derive their own UI
+metadata without a game installation. Public gameplay supplies separate real
+OCR evidence; current physical/native acceptance remains open. See the
+[world-dialogue proof and limits](endfield-current-subtitle-acceptance.md#original-world-dialogue-presentation).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

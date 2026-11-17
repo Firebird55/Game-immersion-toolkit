@@ -217,6 +217,10 @@ class Catalog:
         from .endfield_recording_identity import character_speakers
         return character_speakers(self.tools, self.stamp)
 
+    def world_dialogue_ui(self, dialogs, tables):
+        from .endfield_presentation_source import cues
+        return cues(self, dialogs, tables)
+
 
 def prepare(tools, region='global'):
     stamp, raw = discover(region)

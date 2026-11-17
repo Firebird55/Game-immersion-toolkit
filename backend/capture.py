@@ -844,7 +844,8 @@ class CaptureService:
         has_song_cues = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get('publisher_song_cues', 0)
         has_song_voices = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get(
             'publisher_song_voices', has_song_cues)
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_song_voices or (spec and spec.floating_dialogue) else None
+        has_world_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_world_dialogue_ui')
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_world_cues or has_song_voices or (spec and spec.floating_dialogue) else None
         voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
@@ -930,6 +931,12 @@ class CaptureService:
                                 and index.equivalent_caption_occurrence(other, hit)):
                             del matches[identity]
                     matches[hit.text_id] = hit
+        if has_world_cues and voice_enabled:
+            # This direct complete-caption route never feeds predecessor
+            # contexts. NPC choices elsewhere in the frame remain separate.
+            hit = index.match_endfield_world_caption(response.get('lines', []), image.size)
+            if hit and self._capturable_match(hit):
+                matches[hit.text_id] = hit
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():

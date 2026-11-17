@@ -14,7 +14,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 27
+LANGUAGE_INDEX_VERSION = 29
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -747,6 +747,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if online:
         from .endfield_recording_identity import annotate
         annotate(catalog, rows, VOICE_LOCALES[source_locale], progress)
+    world_ui = None
+    if online and hasattr(catalog, 'world_dialogue_ui'):
+        try:
+            world_ui = catalog.world_dialogue_ui(dialogs, tables)
+        except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+            warnings.append('Endfield world-dialogue UI ownership could not be verified for this release. '
+                            'Repeated operator-profile captions retain their ambiguity guards. Refresh preparation '
+                            'after the publisher resources are complete; changed presentation formats need reader support.')
     for film in films:
         coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
@@ -787,6 +795,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'publisher_top_dialogue_cues': sum(row['dialogue_kind'] == 'conversation' and 'cinematic' in row['channels'] for row in rows),
+        **({'publisher_world_dialogue_ui': world_ui} if world_ui else {}),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 

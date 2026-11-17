@@ -426,9 +426,10 @@ forbidden and ordinary voiced capture, now gives:
 
 The last column covers all annotated conversation/archive groups, including
 friendship groups, rather than an additional disjoint inventory. The
-[remaining friendship cases](endfield-operator-capture-guards-1.6.4.csv) need
-actual presentation context or further recording/translation evidence. They
-are not relabeled silent or assigned an unverified alternate recording.
+[caption-only friendship guards](endfield-operator-capture-guards-1.6.4.csv)
+retain actual recording or official-translation differences. Revision 29 adds
+the separately verified world-dialogue presentation below; it does not merge
+these recordings or change bare-caption matching.
 
 With the same revision-26 code and format metadata frozen, explicitly replayed
 original 1.5.3 discovery prepares 49,550 English records; live 1.6.4 prepares
@@ -453,6 +454,61 @@ caller families are separate. This is source-call evidence, not execution of
 the game's root triggers or physical gameplay acceptance.
 
 ## Compact current capture and audio endpoint
+
+### Original world-dialogue presentation
+
+Revision 29 distinguishes a spoken bottom world caption from an operator's
+voice-archive copy using the released game's own UI and controller data.
+Preparation reads three original UI prefabs and three original Lua controllers
+as data. It verifies the separate speaker/body view, upper-right Auto/Skip
+controls and the profile's mutually exclusive role-information/voice-information
+views. It derives localized control labels and original visible actor names
+from the current publisher tables. No original game or Lua code is executed.
+
+The stateless full-frame route requires Auto and Skip in their expected relative
+positions, one separately visible original actor, the complete centered bottom
+caption, valid physical OCR boxes and confidence of at least 0.8 for every used
+line. Missing controls, unreliable body lines, profile overlays, response-only
+text and changed geometry fail closed. NPC choices may remain visible beside
+the spoken caption. Their menu detection still resets dialogue context; this
+route neither consumes nor establishes a predecessor. All short-caption,
+predecessor, missing-audio, unknown-audio and competing-presentation vetoes remain.
+Only a voiced operator-archive peer with the same original actor is excluded
+after world ownership is proved. Different conversation takes stay ambiguous.
+
+All five ordinary current publisher workers retain every revision-27 record
+field, original recording and translation. Their new UI descriptors contain
+only their actually prepared text locales and 33 original actors per locale.
+With every current record and archive peer retained, a network-forbidden replay
+of the actual production capture service captures **198 / 198 friendship
+captions in every study selection**, after two stable observations, with NPC
+choices present and the menu flag set. The finite proof uses exact synthetic
+OCR spans; each row also rejects missing Skip, unreliable body confidence,
+profile overlays and response-only bottom text. Bare-caption counts in the
+table above remain unchanged.
+
+Separately, the pinned bundled OCR was run offline on public gameplay images
+from the [GameWith trust guide](https://gamewith.net/akendfield/72609). At the
+production OCR size, the complete world image supplies genuine Auto-Play, Skip,
+actor and wrapped-caption boxes/confidences. The complete production index and
+capture service choose the exact original Ardelia conversation and schedule its
+recording while NPC choices are visible. The smaller image misses Skip and is
+rejected; the actual profile image is rejected. These older public images are
+layout/OCR evidence, not current physical gameplay or native-device acceptance.
+
+The same frozen revision-29 reader also derives the original UI descriptor from
+explicitly replayed publisher 1.5.3: its six source digests differ from current
+1.6.4 and its prepared locales contain 31 actors. All 49,550 old records retain
+every revision-27 field; live 1.6.4 keeps 55,086, including the same 5,536 added
+records, 3,155 added voiced rows and 11 changed English texts. No additional
+original recordings are downloaded for this rehearsal. UI labels, actor names,
+bindings and recordings are re-derived after normal updates. Unsupported UI or
+controller changes omit this extra route and retain the existing guarded index.
+The bounded descriptor and pure presentation classifier are shared contracts
+for portable preparation; native confidence and device acceptance remain
+separate requirements.
+
+### Source-declared top captions
 
 Revision 27 completes the source-declared top-caption family: all **15 current
 IDs / 16 protagonist-expanded records** enter the voiced full-frame route.
@@ -506,9 +562,10 @@ content. Chinese script choices share the original Mandarin sources.
 | Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
 | Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |
 | Baker system bodies captured | 102 / 117 | 104 / 117 | 104 / 117 | 110 / 117 | 104 / 117 | Short/repeated system text retains guards |
-| Friendship NPC captions captured | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Other recording or official-text variants need context |
+| Friendship NPC captions, caption alone | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Recording/translation differences retain guards |
+| Friendship NPC captions, verified world UI | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | Complete localized controls, actor, caption, geometry and reliable confidence; current physical acceptance separate |
 
-All friendship recordings are prepared; the last row measures capture
+All friendship recordings are prepared; the last two rows measure capture
 disambiguation. The cinematic row measures original audio ownership, not a
 physical capture pass. Other prepared conversation, radio, choice, story-panel,
 message, readable, operator archive and bark inventories retain their existing
