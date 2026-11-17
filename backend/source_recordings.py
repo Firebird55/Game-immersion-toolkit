@@ -41,7 +41,7 @@ class OriginalRecordings:
         self._lock = threading.Lock()
         self._working = set()
 
-    def register(self, line_id, descriptor, row):
+    def register(self, line_id, descriptor, row, *, line_stamp=None):
         """Save the exact admitted authored occurrence, never an OCR guess."""
         identity = _identity(line_id)
         descriptor, row = private_handle(descriptor), private_handle(row)
@@ -56,8 +56,15 @@ class OriginalRecordings:
             raise ValueError('The saved original reference exceeds its limit')
         reference = hashlib.sha256(encoded).hexdigest()
         _write(self.root / 'references' / (reference + '.json'), value)
-        _write(self.root / 'lines' / (identity + '.json'), {'reference': reference})
+        if line_stamp is not None and (not isinstance(line_stamp, str) or SHA.fullmatch(line_stamp) is None):
+            raise ValueError('Invalid immutable transcript stamp')
+        _write(self.root / 'lines' / (identity + '.json'), {'reference': reference, 'line_sha256': line_stamp})
         return reference
+
+    def matches(self, line_id, stamp):
+        pointer = _read(self.root / 'lines' / (_identity(line_id) + '.json'))
+        return bool(isinstance(pointer, dict) and isinstance(stamp, str) and SHA.fullmatch(stamp)
+            and pointer.get('line_sha256') == stamp)
 
     def reference(self, line_id):
         pointer = _read(self.root / 'lines' / (_identity(line_id) + '.json'))

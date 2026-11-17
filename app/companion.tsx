@@ -10,6 +10,8 @@ import {nativeAccountHeaders, nativeAccountQuery} from '../lib/native-account-sc
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {DesktopSharing} from './desktop-sharing';
 import {GameDataSettings} from './game-data-settings';
+import {LIVE_GAME_IDS, validateGameDataList} from '../lib/game-data-client.mjs';
+import {createGameSourceSelection} from '../lib/game-source-selection.mjs';
 import {BrowserHistoryMigration} from './browser-history-migration';
 import {AndroidReceiver} from './android-receiver';
 import {useNativeHost} from '../lib/native-host';
@@ -150,6 +152,7 @@ type TranscriptLine = {
   dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
+  original_audio_expected?: boolean;
   audio_source?: 'original' | 'recording';
   audio_scope?: 'line' | 'context' | 'paragraph';
   speaker_english?: string | null;
@@ -165,7 +168,7 @@ function voicePlaybackLabel(line: TranscriptLine) {
     : line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.audio_pending !== undefined || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.original_audio_expected === true || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
 }
 function isRequestedTextOnly(line: TranscriptLine) {return !!line.audio_omitted_by_request && !!line.text_capture_verified;}
 function isMissingAudioLine(line: TranscriptLine) {
@@ -435,6 +438,7 @@ function CompanionClient() {
     setTranscriptTab(tab);
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
+  const explicitGame = useRef<string | null>(null);
   const archivedHistory = selectedGame === 'hito';
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
@@ -470,6 +474,7 @@ function CompanionClient() {
   }, [nativeHost.android, lexirise.account, requestGeneration]);
   // A generation distinguishes A → B → A from an outstanding request for A.
   const accountScope = useRef({ account: 'legacy', generation: 0, ready: false });
+  const localScopeReady = useRef(false);
   const requestOwner = accountScope.current.generation;
   const settingsAdapter = useMemo(() => createSettingsAdapter(requestGeneration,
     () => accountScope.current.generation === requestOwner), [requestGeneration, requestOwner]);
@@ -513,6 +518,24 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const loadSnapshot = useCallback(() => pollOwner.current?.request() ?? Promise.resolve(), []);
+  const gameSelection = useMemo(() => createGameSourceSelection({
+    current: () => localScopeReady.current && accountScope.current.generation === requestOwner,
+    activate: async (game: string) => {
+      const headers = nativeAccountHeaders(requestGeneration, {'Content-Type': 'application/json',
+        'X-Proxy-Transcript': 'setup', 'X-Proxy-Transcript-Account': lexirise.account ?? 'legacy'});
+      const response = await fetch(`${API_URL}/api/game-data`, {cache: 'no-store', headers});
+      if (!response.ok) throw Error('Game data selection is unavailable.');
+      const row = validateGameDataList(await response.json()).games.find((value: {id: string}) => value.id === game);
+      if (!row?.can_activate || !row.installed_revision) return;
+      if (!localScopeReady.current || accountScope.current.generation !== requestOwner) return;
+      const activated = await fetch(`${API_URL}/api/game-data/${game}/activate`, {method: 'POST', headers,
+        body: JSON.stringify({revision: row.installed_revision})});
+      if (!activated.ok) throw Error('Game data selection is unavailable.');
+    },
+    committed: () => {void loadSnapshot();},
+    failed: () => setStudyMessage('This game could not be selected. Refresh Settings.'),
+  }), [requestOwner, requestGeneration, lexirise.account, loadSnapshot]);
+  useEffect(() => () => gameSelection.dispose(), [gameSelection]);
 
   useEffect(() => {
     let accountContext = '';
@@ -520,6 +543,8 @@ function CompanionClient() {
     const events = new StateEvents<StateEvent>();
     const retireAccount = () => {
       accountScope.current.generation++;
+      localScopeReady.current = false;
+      explicitGame.current = null;
       accountScope.current.ready = false;
       setLexirise({ configured: false, sent: {} });
       setStudyMessage('');
@@ -563,6 +588,7 @@ function CompanionClient() {
         return merged;
       });
       accountScope.current.account = value.lexirise.account ?? 'legacy';
+      localScopeReady.current = true;
       accountScope.current.ready = value.lexirise.configured;
       if (nativeHost.android) setNativeGeneration(value.context.account_generation);
       setLexirise(value.lexirise);
@@ -737,7 +763,8 @@ function CompanionClient() {
     const active = status?.capture.active_game;
     if (active && activeGameAvailable && active !== lastActiveGame.current) {
       lastActiveGame.current = active;
-      if (gamePicker.games.some(game => game.id === active)) setSelectedGame(active);
+      if ((!explicitGame.current || explicitGame.current === active)
+          && gamePicker.games.some(game => game.id === active)) setSelectedGame(active);
       setHistoryPage(0);
     }
   }, [activeGameAvailable, status?.capture.active_game]);
@@ -1008,7 +1035,13 @@ function CompanionClient() {
 
       <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
-        onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
+        onGameChange={game => {
+          explicitGame.current = game;
+          setSelectedGame(game as GameId); setHistoryPage(0);
+          if (game !== 'zzz') setSetupChannel('dialogue');
+          if (LIVE_GAME_IDS.includes(game)) void gameSelection.select(game);
+          else gameSelection.cancel();
+        }} />
 
       {nativeHost.android && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}

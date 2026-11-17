@@ -169,3 +169,46 @@ def test_explicit_text_switch_still_preserves_previously_downloaded_saved_origin
         assert result['game']['retained_bytes'] == len(raw)
         assert session.audio_path(identity).read_bytes() == raw
     finally: voice.release.set(); service.close(); session.stop()
+
+
+def test_real_sqlite_prefix_upgrade_cannot_reuse_older_saved_original_reference(tmp_path):
+    from backend.models import TextMatch
+    session = PreparedCaptureSession(tmp_path / 'profile')
+    _, payload = fixture_library(tmp_path / 'source')
+    row = payload['records'][0]
+    descriptor = {'game': 'zzz', 'ready': True, 'request': {'content_mode': 'text-audio'}}
+    partial = TextMatch(text_id='authored:partial', english='What is reinforcing the seal supposed to mean?',
+        chinese='加固封印究竟是什么意思？', source_ocr='What is reinforcing the seal supposed to mean?',
+        source_locale='zh-Hans', source_text='加固封印究竟是什么意思？', voice_status='voiced', score=100, kind='exact')
+    first, _ = session.history.add_or_upgrade_recent(partial, session.session_id)
+    session.recordings.register(first.id, descriptor, row, line_stamp=session._recording_stamp(first))
+    assert session._recording_line(first.id) is not None
+    complete = partial.model_copy(update={'text_id': 'authored:complete',
+        'english': partial.english + ' Was that supposed to be a warning about the forest?',
+        'source_text': partial.source_text + '这难道是关于森林的警告吗？',
+        'chinese': partial.chinese + '这难道是关于森林的警告吗？',
+        'source_ocr': partial.source_ocr + ' Was that supposed to be a warning about the forest?',
+        'audio_omitted_by_request': True, 'source_voice_binding': {'authored': 'new-occurrence'},
+        'text_capture_verified': True})
+    replaced, upgraded = session.history.add_or_upgrade_recent(complete, session.session_id)
+    assert upgraded and replaced.id == first.id and session.history.count() == 1
+    assert session._recording_line(first.id) is None
+    assert not session._line(replaced).get('original_audio_expected')
+    session.original_source_for = lambda _: pytest.fail('Upgraded text borrowed older recording')
+    session._queue_original(first.id)
+    session.preserve_game_recordings('zzz', session.original_source_for, cancelled=lambda: False)
+    assert not session.recording_jobs and session.audio_path(first.id) is None
+    assert session.history.get(first.id).is_requested_text_only
+
+
+def test_transcript_stamp_keeps_favorites_but_rejects_changed_text_binding(tmp_path):
+    service, session, owner, voice, raw = rig(tmp_path)
+    try:
+        download(service); finish(service); identity = capture(session); wait_audio(session, identity)
+        original = session.history.get(identity)
+        session.history.set_favorite(identity, True)
+        assert session._recording_line(identity) is not None
+        assert session.audio_path(identity).read_bytes() == raw
+        changed = original.model_copy(update={'source_text': 'A different occurrence'})
+        assert not session.recordings.matches(identity, session._recording_stamp(changed))
+    finally: service.close(); session.stop()

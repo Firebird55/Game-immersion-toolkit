@@ -122,13 +122,13 @@ class PreparedCaptureSession:
         for identity in self.recordings.lines(game):
             if cancelled():
                 raise GameDataError('recording_cancelled', 'Original recording preparation stopped.', 409)
-            if self.history.get(identity) is None:
+            if self._recording_line(identity) is None:
                 continue
             path = self.recordings.materialize(identity, source_for, cancelled=cancelled)
             with self.lock:
                 if cancelled():
                     raise GameDataError('recording_cancelled', 'Original recording preparation stopped.', 409)
-                if path and self.history.get(identity):
+                if path and self._recording_line(identity):
                     self.history.update_audio(identity, 'official-retained/' + path.name, True)
 
     def deactivate_source(self, game):
@@ -156,6 +156,8 @@ class PreparedCaptureSession:
     def _queue_original(self, identity):
         if self.original_source_for is None or len(self.recording_jobs) >= 128:
             return
+        if self._recording_line(identity) is None:
+            return
         saved = self.recordings.reference(identity)
         if saved is None:
             return
@@ -173,7 +175,7 @@ class PreparedCaptureSession:
             try:
                 path = self.recordings.materialize(identity, source_for, cancelled=cancelled)
                 with self.lock:
-                    if (not cancelled() and path and self.history.get(identity)
+                    if (not cancelled() and path and self._recording_line(identity)
                             and self.recordings.reference(identity)[0] == reference):
                         self.history.update_audio(identity, 'official-retained/' + path.name, True)
                         self.state_version += 1
@@ -270,6 +272,18 @@ class PreparedCaptureSession:
         path = self.directory / name
         _no_links(path)
         return path if path.is_file() and path.stat().st_size <= MAX_AUDIO else None
+
+    @staticmethod
+    def _recording_stamp(line):
+        # SQLite can upgrade a recent caption in place. A local integer id is
+        # insufficient voice identity; favorites/audio progress are mutable.
+        value = line.model_dump(mode='json', exclude={'favorite', 'has_audio', 'voiced', 'audio_source', 'audio_pending'})
+        return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
+            ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+
+    def _recording_line(self, identity):
+        line = self.history.get(identity)
+        return line if line and self.recordings.matches(identity, self._recording_stamp(line)) else None
 
     def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
             nte_layout=None, presentation_lines=None, frame_size=None, admission=None):
@@ -406,7 +420,7 @@ class PreparedCaptureSession:
                         if self.direct_descriptor is not None:
                             row = self._source_row(hit)
                             if row and row.get('audio') and self._has_original(hit):
-                                self.recordings.register(line.id, self.direct_descriptor, row)
+                                self.recordings.register(line.id, self.direct_descriptor, row, line_stamp=self._recording_stamp(line))
                                 self._queue_original(line.id)
                             clip = None
                         else:
@@ -425,6 +439,8 @@ class PreparedCaptureSession:
         with self.lock:
             relative = self.history.audio_path(line_id)
             if relative and relative.startswith('official-retained/'):
+                if self._recording_line(line_id) is None:
+                    return None
                 path = self.recordings.path(line_id)
                 return path if path and relative == 'official-retained/' + path.name else None
             if not relative or not relative.startswith('official-prepared/'):
@@ -444,7 +460,8 @@ class PreparedCaptureSession:
 
     def _line(self, line):
         value = line.model_dump(mode='json')
-        if not line.has_audio and self.recordings.reference(line.id):
+        if not line.has_audio and self.recordings.matches(line.id, self._recording_stamp(line)):
+            value['original_audio_expected'] = True
             value['audio_pending'] = line.id not in self.recording_errors
         if line.has_audio:
             value['audio_source'] = 'original'

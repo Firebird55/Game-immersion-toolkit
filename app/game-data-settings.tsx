@@ -10,7 +10,7 @@ import catalog from '../public/mobile-capture/games-data.json';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import './game-data-settings.css';
 
-export type GameDataRow = {id: string; title: string; state: string; revision: string | null; region: string; content_mode: 'text' | 'text-audio';
+export type GameDataRow = {id: string; title: string; state: string; revision: string | null; installed_revision: string | null; can_activate: boolean; region: string; content_mode: 'text' | 'text-audio';
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
  job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; message: string};

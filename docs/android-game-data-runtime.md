@@ -76,6 +76,20 @@ hash-checked before its transcript receives playable audio. Generation changes
 cancel pending work and prevent late history/audio publication. Unknown or omitted
 voice intent is never relabeled unvoiced.
 
+Each recording pointer also binds a digest of the complete immutable transcript
+content. SQLite may upgrade a recent caption in place, so a local integer ID is
+insufficient to authorize its older recording. Queueing, completion, playback and
+delete preservation all check that digest; favorites and audio progress do not
+alter it. The native DTO marks expected original audio only after that check.
+The ordinary `audio_pending: false` default cannot make an unknown UI label a
+readable caption.
+
+Source selection uses local snapshot readiness, independently from Lexirise
+authentication. The shared picker only activates data after an explicit choice,
+using the installed identity even when a newer estimate exists. Requests are
+serialized with only the newest queued choice retained; account retirement
+invalidates callbacks. Selecting a game never pastes or restarts a screen link.
+
 Retained clips live outside the deletable game-data cache. Delete first stops the
 active source and preserves every still-referenced original, without holding the
 OCR lock. If a decoder is busy or an original cannot be retained, deletion fails
