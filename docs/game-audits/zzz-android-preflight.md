@@ -22,10 +22,17 @@ offline. This warm-source Windows proof is not Android execution or a cold
 whole-source download. The later PC text-and-audio producer now implements
 explicit selected-dub index/header/bank/complete-recording stages, with a
 verified bundled-codec requirement before bulk transfer. It reached the actual
-current Japanese recording quote while preserving Text A; the 4,615,417,381
-missing original bytes have not yet been downloaded, so full-corpus Audio Ready
-is unproved. Seven cached original Windows controls pass the actual owned
-decoder API. None of these desktop capabilities supplies an Android ABI bridge.
+current Japanese recording quote while preserving Text A. The follow-up actual
+production run downloaded all 3,948 selected original chunks, exactly
+4,615,417,381 compressed bytes, and reached Audio Ready for 289,967 retained
+records with 77,702 admitted audio rows. A controlled stop reused its first
+authenticated chunk; ordinary retry and final live revalidation matched the
+same generation. Fresh offline restoration retained all text/translation maps,
+and an original sentence plus C330 B/G contexts passed owned decoding and saved
+MP3 replay in a separate process. Unknown/unavailable bindings remain explicit.
+Seven earlier Windows controls also pass the owned decoder API. These are
+bounded Windows source controls, separate from installer delivery, complete
+story coverage and an Android ABI bridge.
 
 `zzz_pc_sources` binds official dispatch and updater transport to the consent
 context, charges whole SDK chunks/updater containers and prohibits network on
