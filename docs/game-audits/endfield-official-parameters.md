@@ -171,6 +171,44 @@ change does not establish their future rotation autonomy. Historical descriptors
 without the new client identity retain their original frozen provenance and
 remain readable; they are not silently relabeled as native-derived.
 
+### Implemented native-source prerequisites — November 17
+
+The bounded `endfield_client_archive.Archive` reader consumes the launcher's
+declared split artifacts through an injected range reader. It validates ZIP64
+terminal/directory ownership, unique member names, nonoverlapping member bounds,
+the selected local header, bounded Deflate output and the complete member CRC.
+These controls do not claim a whole-part MD5 or the still-undecoded GameFiles
+per-member hash. No game library is loaded or executed.
+
+`endfield_native_import.managed_import` derives the current module and entrypoint
+from the metadata-owned two-argument Wwise wrapper, PInvoke flags, lazy dispatch
+slot and original static StringView descriptor. `NativeImage` resolves that
+exact current export, its bounded direct wrappers and chained-unwind-owned
+continuations. Neither a version address nor a generated export-name list is a
+product input. Authored changing-name/address fixtures cover the positive path;
+changed ABI, ownership, branches, forwarders and cycles fail closed.
+
+`endfield_publisher_signature.verify` is an explicit Windows capability. It
+locks the original data file against writes/deletion, rejects a final reparse
+point and uses only Windows system WinTrust/Crypt32 software to require a trusted
+offline Authenticode signature by the publisher. It does not claim fresh online
+revocation checks or Android/Linux/macOS signature support. An unsigned authored
+PE fails the actual Windows API check. Existing prepared data is retained when
+the verifier capability is unavailable.
+
+A zero-network replay of the new readers derives the real 1.6.4 import, reads
+all 1,782 cached original directory entries, selects the same native member and
+revalidates its complete 3,587,464-byte output CRC and publisher signature. The
+compressed native payload was not retained, so the acquisition-time Deflate
+check is not claimed as newly replayed. The selected transform has three
+chained spans totaling 682 bytes and 183 instructions; its earlier 135-byte
+record was only the primary span, not the complete function. All twelve
+multiply occurrences and three initial-XOR occurrences agree across its
+complete owned paths. Values remain private. This prerequisite checkpoint does
+not yet activate a production AKPK master: semantic discovery, original package
+controls, acquisition receipts, preflight and failure-retention integration must
+form one coherent subsequent route. Other timeline/AES masters remain open.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
