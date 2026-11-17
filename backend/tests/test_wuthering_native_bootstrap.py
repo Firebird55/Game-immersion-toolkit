@@ -230,14 +230,18 @@ def test_known_default_parallel_resource_scans_do_not_publish_bootstrap_owners(t
         # Prime the exact directory cache that all six real Package readers use.
         package = release._package(tmp_path, ('https://owned.aki-game.net/primed.pak', len(data), resource_digest), inputs)
         cached = tmp_path / 'kuro-package-index' / resource_digest / hashlib.sha1(package.directory).hexdigest()
-        original_read, guard = Path.read_bytes, threading.Lock()
+        original_read, guard, readers = Path.read_bytes, threading.Lock(), threading.Barrier(6)
         def competing_read(path):
+            denied = False
             if path == cached:
                 with guard:
                     identity = threading.get_ident()
                     if identity not in denied_threads:
                         denied_threads.add(identity)
-                        raise sharing_error(32 if blocked_read == 'win32' else None)
+                        denied = True
+            if denied:
+                readers.wait(timeout=5)
+                raise sharing_error(32 if blocked_read == 'win32' else None)
             return original_read(path)
         # Exercise the Windows policy deterministically on every CI platform.
         monkeypatch.setattr(pak, 'os', SimpleNamespace(name='nt'))
