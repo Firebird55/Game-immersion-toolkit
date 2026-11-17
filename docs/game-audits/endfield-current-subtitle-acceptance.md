@@ -6,6 +6,65 @@ Historical Technical Test reconstruction is a separate archive feature.
 The [publisher-version rehearsal](endfield.md#publisher-version-rehearsal-with-changed-text-and-voices--november-16-2026)
 keeps the older release, reader and format metadata fixed.
 
+## Finite current-use conclusion · November 17, 2026
+
+Exactly **one demonstrated active audio family** remains unresolved:
+`cutscene_e0m0_5_03`, **“Æternity hath come.”** The current prologue caller,
+original protagonist selection and an actual gameplay occurrence establish its
+use. Its two protagonist caption rows correspond to **two protagonists × four
+original dubs = eight performance/caption pairs**. These are the same two
+unknown cinematic rows per study selection, not two additional gaps plus eight
+boss variants. Both Chinese script choices share the Mandarin performances.
+
+One final bounded pass revalidates only the cached original scene sources,
+eight primary recordings, selected effects bank and existing gameplay alignment.
+The primary recordings have no speech in the caption window, with later voiced
+positive controls. The separate original `au_sfx_cs_e0m0_5` event has three Play
+actions and one Stop action: four sources use the System output, including two
+authored at −96 dB, while two use a different output. Its external Stop target
+and active runtime state values are not established by the selected source
+closure. One original source correlates with a gameplay component at 0.664;
+the two-source fit still has a residual-to-game RMS ratio of 0.748. These facts
+do not establish the complete utterance or a correctly specified audible
+context render. No new download, speech-recognition run or native/game-code
+execution is part of this pass. All eight bindings retain **unknown** audio;
+no later line, guessed mix, separate-device signal or silence classification is
+substituted.
+
+The following remain **nonblocking research inventories**, because their
+individual current use is unproven in the retained evidence:
+
+| Reference inventory | Current-use boundary |
+| --- | --- |
+| 28 retained film configurations | Historical configurations and text references do not establish a current caller. |
+| 13 missing registry graphs | A registry entry does not establish an active subtitle occurrence. |
+| 143 primary-metadata absences in 31 referenced NPC graphs | References establish neither root activation nor spoken silence. |
+| Eight dynamic dialogue producers | Indirect source references do not establish their actual current activation. |
+| Remaining anonymous/generic-reaction radio references | An unresolved performer or reaction is not a missing sentence recording without a demonstrated spoken occurrence. |
+| Guarded Si/Tangtang training, repeated guide/platform and option-linked Baker references | Their conditional recognition guards remain; individual current gameplay occurrences are not established. |
+
+These references are **not confirmed cut content or confirmed unvoiced
+presentations**. A newly demonstrated active occurrence can reopen its concrete
+case. Fiona's observed generic reaction remains separate from the displayed
+wording; no sentence recording or preceding line is invented for it.
+
+Revision 32 completes all five ordinary current publisher workers while
+preserving every revision-31 record field, audio reference, voice state and
+world/Baker descriptor. The same reader derives 27 training owners, 129 stages
+and 221 goal references from the older release's own metadata, and 29, 143 and
+246 from the current release. Actual desktop capture against the complete
+current indices accepts 62 additional **source-positioned OCR fixtures** and
+rejects 372 fresh-history negative cases. The two real public training images
+still have incomplete genuine OCR and remain negative acceptance evidence.
+Worker, fixture and update results do not establish native gameplay,
+all-device or physical regional acceptance.
+
+The recommendation is to keep **#86 open only for the demonstrated active
+prologue audio exception** above. Further broad source, gameplay, native or
+generic-reaction searches are not a closing requirement. Resume that one
+mechanism when a new authoritative, cue-specific voice or event-context
+reference can establish its complete publisher-source binding.
+
 ## Original 89-group radio inventory
 
 The current original `RadioTable`, actor/emotion tables, complete voice metadata
@@ -772,10 +831,11 @@ All friendship recordings are prepared; the two friendship rows measure capture
 disambiguation. The cinematic row measures original audio ownership, not a
 physical capture pass. Other prepared conversation, radio, choice, story-panel,
 message, readable, operator archive and bark inventories retain their existing
-limits. Finite active-caller closure and representative physical/end-to-end
-capture, scheduled activation and regional acceptance remain open. #86 stays
-open; historical films without a current caller are not substituted for those
-current acceptance requirements.
+limits. Representative physical/end-to-end capture, scheduled activation and
+regional acceptance remain separate qualifications of this evidence. These
+source counts do not establish them. The dated finite current-use conclusion
+above identifies the one demonstrated active audio exception keeping #86 open;
+reference-only research inventories do not add further closing blockers.
 
 These are finite **source-family denominators**, rather than one established
 active-only denominator for the whole game. The 1,005 literal-call graph IDs,
@@ -959,9 +1019,11 @@ cached English table, then interrupted its official HTTPS response after
 preparation in 28.219 seconds and produced all 53,675 current records with the
 same text, audio bindings and voice states as the earlier current preparation.
 Running-device scheduled activation remains distinct from worker/cache evidence.
-Current-content acceptance still needs the remaining anonymous short-caption
-case above and representative physical/end-to-end captures. The eight cinematic
-audio exceptions above remain explicit. This census covers tracks accepted by
+The anonymous short-caption case remains a nonblocking reference guard until
+its individual current use is demonstrated. The eight cinematic pairs form the
+one demonstrated active audio exception described in the dated conclusion;
+their audio remains unknown. This census covers tracks accepted by
 the strict original-config/director reader; it does not prove that every other
 client scene format or physical capture layout has been exercised.
-This report does **not** claim #86 is closed.
+Keep #86 open for that one active prologue mechanism, without extending the
+closing scope to unproven references or treating them as cut or unvoiced.
