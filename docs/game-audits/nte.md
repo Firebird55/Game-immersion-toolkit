@@ -842,8 +842,8 @@ It transferred 6,352,032 additional publisher-range bytes against warmed researc
 caches; that is not a cold acquisition estimate. These are authored graph
 inventories, not independent spoken-line or complete-story counts.
 
-The enlarged actual-reader lookup set requires 75 types and 13 enums. The current
-schema validator refuses ten required definitions. In particular, the current
+The enlarged actual-reader lookup set requires 75 types and 13 enums. The initial
+struct-only schema validator refused ten required definitions. In particular, the current
 native `DlgTurnRotation` definition has two fields absent from the retained
 description, including a new enum field. Successful JSON extraction alone does
 not establish that these layouts are current, so no additional predecessor or
@@ -857,8 +857,80 @@ It reads **11,121** class declarations from original Global 1.4.9 and **11,566**
 from original Global 1.5.4, including the six required dialogue classes missing
 from the earlier struct-only scanner. Twelve owned fixtures cover relocation,
 class parents, BSS bounds, ambiguous names, malformed pointers and aggregate
-limits. Class-aware generation and required-layout validation remain separate
-work before this API can supply ordinary graph preparation.
+limits.
+
+The subsequent opt-in class-aware generator uses the same fixed semantic seed
+and each authenticated original client. It refreshes supported existing class
+and struct fields and appends supported new definitions. New enum properties
+without semantic callback witnesses retain their original underlying integer,
+without invented enum names or literals. The pinned managed codec preserves 19
+boundary cases across seven supported integer widths, including zero defaults;
+unsigned 64-bit fallback is rejected because the codec narrows through signed
+64-bit conversion. Numeric preservation supplies no playback-order semantics.
+
+The owned helper now has an opt-in complete registry/graph extraction contract.
+The original registry is a signed pak member, separately hash-bound to the
+invocation because the package streams expose IoStore assets. It discovers
+dialogue classes dynamically and reads their actual StringTable owners. The
+current original trial again completed all 2,196 graphs and 54,281 exports,
+including 60 table references, three retained as unresolved owners. It used
+36,720 additional verified range bytes against warmed caches. The same invocation's
+actual 62 schema lookups have a fully eligible 75-type/13-enum closure under the
+new opt-in validator; no newer mapping or held-out export supplied eligibility.
+
+An unchanged opaque `SoftObjectPath` seed leaf is permitted only as an indirect
+dependency: the actual frozen helper must attest its concrete codec using a
+zero-value factory with no package/schema fallback, with no actual lookup of
+that type. Exact original baseline/current NoExport flags, absent operations,
+size/alignment, complete property metadata, semantic references and package
+owner groups must agree. Accessors, replication callbacks, a real lookup or any
+drift fail validation. Old metadata recipes and historical references remain
+immutable and readable.
+
+The conservative direct-edge parser withholds entry conditions/events, choice
+edges, proxies/selectors, media configurations, unresolved integer order fields,
+reused predecessor occurrences and targets with multiple incoming edges. It
+does not traverse omitted nodes. Actual namespace/key joins identify 3,061
+direct pairs in this current inventory; thirteen already voiced Japanese records
+have an eligible existing binding at both ends. A full-index replay across both
+player voices adds two previously unmatched observations through an independently
+stable predecessor (one distinct caption under both player selections); sixteen observations already matched ordinarily and two
+remain unresolved because the predecessor is ambiguous. These are finite format
+and matching trials, not additional story percentages. Context expires, resets
+on interruptions/scope changes and cannot advance or refresh itself from a
+context-dependent match. Shared and full-frame UI vetoes remain unchanged.
+
+`ParticipantsData` contains cached participant names, distinct from the node's
+active entry conditions/events. The original native descriptions and values
+agree with the upstream cache structure and rebuild method. Future child-edge
+conditions do not gate entry into the current speech node. [Participant cache
+definition](https://github.com/NotYetGames/DlgSystem/blob/master/Source/DlgSystem/DlgDialogueParticipantData.h),
+[cache rebuild](https://github.com/NotYetGames/DlgSystem/blob/master/Source/DlgSystem/DlgDialogue.cpp#L628).
+
+The normal current Japanese worker completed 126,472 records and 27,672 original
+voice bindings with this graph recipe; all existing voice-status counts remain
+unchanged. A cold IoStore-block-cache old-generation trial completed 117,575
+records, 25,685 voices and thirteen predecessor annotations in 1,153.156 seconds.
+It retained original native/TOC/global/pak prerequisites, so this is not a fully
+empty-machine timing. The trial transferred 47,173,168 verified original range
+bytes in 2,487 requests, below its 64 MiB cap. Earlier serial cold reads exceeded
+the reader deadline: an acquisition timeout is now kept distinct from explicit
+native derivation or required-closure rejection and cannot trigger downloads of
+unrelated native candidates. Previous completed profiles/indexes remain retained.
+
+An independent owned inventory invocation binds its complete unique package
+claims to the original registry hash and an invocation nonce. It selects dialogue
+and StringTable text-owner packages, with original overlay/size checks. Prefetch
+uses at most eight concurrent requests, 128 MiB of selected package bytes and
+64 MiB of new compressed blocks. Only adjacent selected blocks coalesce within
+the existing transfer limit; unrelated packages and unsigned gaps are excluded.
+Every block is checksum-verified before atomic cache publication. The following
+ordinary extraction still supplies its own complete schema-usage evidence.
+
+Class-aware graph preparation remains opt-in pending the complete current cold,
+original-audio, retention and recovery trials. It is not the default
+publisher path and does not establish the remaining cinematic clocks, comic
+presentation or museum bubble ownership.
 
 Earlier Blueprint property dumps also omitted stored script expressions by
 default. A private data-only read now parses all 111 function bodies in 32 media

@@ -31,6 +31,7 @@ from .window_capture import BackgroundCapture
 from .runtime_handoff import CaptureHandoff
 from .voice_assets import VoiceAssetService
 from .zzz_dialogue_context import ZzzDialogueContext
+from .nte_dialogue_context import NteDialogueContext
 from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
 
@@ -122,6 +123,7 @@ class CaptureService:
         self._endfield_tutorial = EndfieldCaptionContext()
         self._wuwa_music = EndfieldCaptionContext()
         self._genshin_dialogue = EndfieldCaptionContext()
+        self._nte_dialogue = NteDialogueContext()
         self._caption_context = []
         self._caption_context_tracker = StableMatchTracker()
         self._zzz_dialogue_context = ZzzDialogueContext()
@@ -145,6 +147,7 @@ class CaptureService:
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
             self._zzz_dialogue_context.reset()
+            self._nte_dialogue.reset()
             self._zzz_cutscene_context.reset()
             changes["visible_text_ids"] = []
         with self._snapshot_lock:
@@ -424,6 +427,7 @@ class CaptureService:
         if profile.id != self.snapshot().active_game:
             self._zzz_cutscene_context.reset()
             self._zzz_dialogue_context.reset()
+            self._nte_dialogue.reset()
             self._quantic_context_scope = None
             self._caption_context.clear()
             self._caption_context_tracker = StableMatchTracker()
@@ -1037,6 +1041,13 @@ class CaptureService:
                  index.match_lines(lines, threshold=max(84.0, settings.fuzzy_threshold)))
         monotonic_now = time.monotonic()
         contextual = None
+        if game == 'nte' and hasattr(index, 'source_locale'):
+            match = self._nte_dialogue.match(index, lines, match,
+                enabled=not main_response.get('dialogue_menu') and not getattr(self, '_excluded_screen', None),
+                scope=(epoch, self.session_id, window.handle, window.bounds, crop_bounds,
+                    index.source_locale, index.target_locale, index.player_voice, index._signature,
+                    getattr(self, 'context_scope', lambda: None)()),
+                now=monotonic_now, stable_frames=settings.stable_frames)
         if game in {'endfield', 'genshin'} and hasattr(index, 'source_locale'):
             if game == 'endfield':
                 contexts = ((self._endfield_radio, 'radio'), (self._endfield_conversation, 'conversation'))

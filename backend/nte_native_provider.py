@@ -19,6 +19,7 @@ KIND = 'nte-original-native-v1'
 MAX_SOURCE_BYTES = 768 * 1024**2
 MAX_SOURCE_FILES = 16
 OUTPUTS = ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
+DIALOGUE_GRAPHS = False  # Activation requires complete old/current/recovery trials.
 
 
 def discovery(snapshot):
@@ -26,10 +27,13 @@ def discovery(snapshot):
                               | {'files': snapshot['publisher_files']})
 
 
-def source_reference(value, reader):
+def source_reference(value, reader, *, dialogue_graphs=None):
     normalized = metadata.inventory(value)
     metadata._digest(reader)
-    return {'kind': KIND, 'generator': metadata.ENUM_GENERATOR, 'validator': required.VALIDATOR,
+    graphs = DIALOGUE_GRAPHS if dialogue_graphs is None else dialogue_graphs
+    metadata._check(isinstance(graphs, bool))
+    return {'kind': KIND, 'generator': metadata.CLASS_GENERATOR if graphs else metadata.ENUM_GENERATOR,
+            'validator': required.CLASS_VALIDATOR if graphs else required.VALIDATOR,
             'inventory_sha256': hashlib.sha256(metadata._json(normalized)).hexdigest(),
             'seed_sha256': metadata.SEED_SHA256, 'reader_sha256': reader,
             'baseline_inventory_sha256': baseline_source.BASELINE['inventory_sha256'],
@@ -62,6 +66,7 @@ def _profile(path, source, snapshot, cache):
                     and value['source'] == source and value['snapshot'] == snapshot)
     candidate = metadata.load(value['candidate'], cache)
     metadata._check(candidate.receipt['source_manifest_sha256'] == source['inventory_sha256']
+                    and candidate.receipt['generator'] == source['generator']
                     and candidate.receipt['dependencies']['reader'] == source['reader_sha256']
                     and candidate.receipt['baseline_sha256'] == source['baseline_native_sha256']
                     and candidate.receipt['native_path'] == value['native_path'])
@@ -70,6 +75,15 @@ def _profile(path, source, snapshot, cache):
     metadata._check(receipt.is_file() and receipt.stat().st_size <= metadata.MAX_RECEIPT
                     and hashlib.sha256(receipt.read_bytes()).hexdigest() == value['validation'])
     return value
+
+
+def _registry(catalog):
+    names = [row[2] for row in catalog.locations.values()
+             if row and row[2].endswith('/AssetRegistry.bin') and catalog.location(row[2])]
+    metadata._check(len(names) == 1)
+    _, archive, path = catalog.location(names[0])
+    metadata._check(0 < archive.entry(path).size <= 256*1024**2)
+    return catalog.read(path)
 
 
 def read_authoring(catalog, executable, staging, progress=lambda _: None):
@@ -84,13 +98,22 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     value = catalog.snapshot
     metadata._check(value['reader'] == _reader_identity())
     original = discovery(value)
-    reference = source_reference(original, value['reader'])
+    graphs = value['type_schema'].get('generator') == metadata.CLASS_GENERATOR
+    reference = source_reference(original, value['reader'], dialogue_graphs=graphs)
     metadata._check(value['type_schema'] == reference)
     cache = catalog.cache/'native-candidates'
     profile_path = catalog.cache/'native-epochs'/catalog.stamp/'profile.json'
     prior = _profile(profile_path, reference, catalog.stamp, cache)
     baseline = baseline_source.load(catalog.cache/'native-baseline')
     mapping_seed = seed(catalog.cache/'native-seed')
+    registry = _registry(catalog) if graphs else None
+    containers = catalog.containers()
+    if graphs:
+        from .nte_graph_prefetch import prefetch
+        with tempfile.TemporaryDirectory(prefix='native-inventory-', dir=staging.parent) as temporary:
+            packages = assets.read_dialogue_inventory(catalog.cache/'empty-context', executable, Path(temporary),
+                containers, catalog.format.parameters[catalog.region], registry)
+        prefetch(containers, packages, progress)
     candidates = metadata.sources(original)
     dependencies = {'reader': value['reader'], 'archive_parameters': value['archive'][1],
                     'localization_parameters': value['localization'][1],
@@ -109,16 +132,23 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
             else:
                 path = metadata.stage_original(original, name, catalog.cache/'native-originals')
             candidate = metadata.prepare(original, mapping_seed, {name: path}, cache,
-                                         dependencies=dependencies, baseline=baseline)
+                                         dependencies=dependencies, baseline=baseline, native_classes=graphs)
             with tempfile.TemporaryDirectory(prefix='native-tables-', dir=staging.parent) as temporary:
                 output = Path(temporary)
                 usage = assets.run_publisher_reader(catalog.cache/'empty-context', executable, output,
-                    catalog.containers(), catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
-                    table_schema=candidate.schema, capture_schema_usage=True)
+                    containers, catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
+                    table_schema=candidate.schema, capture_schema_usage=True,
+                    capture_dialogue_graphs=graphs, dialogue_registry=registry)
+                if graphs and usage['schema'] != 'nte-schema-usage-v2':
+                    raise ValueError('Missing current graph codec evidence')
                 report, validation = metadata.check_required(candidate.schema.reference, cache, mapping_seed,
-                    baseline, path, usage['lookups'], reader_classes=usage['classes'])
+                    baseline, path, usage['lookups'], reader_classes=usage['classes'],
+                    reader_codecs=usage.get('codecs') if graphs else None)
                 if not report.eligible:
-                    raise ValueError('Unsupported required native layout')
+                    # An explicit complete required-closure rejection may
+                    # identify a partial native owner. I/O/reader failures
+                    # supply no such evidence and must never reach fallback.
+                    continue
                 resolved = {'source': reference, 'snapshot': catalog.stamp, 'candidate': candidate.schema.reference,
                             'native_path': name, 'validation': validation}
                 encoded = metadata._json(resolved)
@@ -126,12 +156,21 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
                     metadata._check(profile_path.read_bytes() == encoded)
                 else:
                     _atomic_file(profile_path, encoded)
-                for filename in OUTPUTS:
+                for filename in (*OUTPUTS, *(('dialogue-graphs.json',) if graphs else ())):
                     metadata._check(not (staging/filename).exists())
                     (staging/filename).write_bytes((output/filename).read_bytes())
+                if graphs:
+                    metadata._check(not (staging/'dialogue.usmap').exists())
+                    (staging/'dialogue.usmap').write_bytes(candidate.schema.data)
                 return candidate.schema.reference, validation
-        except (OSError, ValueError, TypeError, KeyError, PreparationFailure):
+        except metadata.NativeDerivationRejected:
             continue
+        except PreparationFailure:
+            raise
+        except (OSError, ValueError, TypeError, KeyError):
+            raise PreparationFailure('game_metadata_unavailable',
+                'Original NTE metadata could not be read or verified. Retry preparation; '
+                'the previous completed index is retained.') from None
     raise PreparationFailure('game_metadata_unavailable',
         'Original NTE format metadata could not be verified within the bounded source search. '
         'The previous completed index is retained.')

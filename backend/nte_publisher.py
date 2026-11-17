@@ -332,7 +332,9 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
                 write_batch()
         _atomic_file(staging / 'media.json', _json(media))
         available = {locale for locale in locales if tables.get(assets.TEXT_LOCALES[locale])}
-        records = assets.build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale})
+        from .nte_native_metadata import CLASS_GENERATOR
+        records = assets.build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale},
+                                       dialogue_graphs=value['type_schema'].get('generator') == CLASS_GENERATOR)
     pak.check(records)
     for row in records:
         if row.get('audio'):

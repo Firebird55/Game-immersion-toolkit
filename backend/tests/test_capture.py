@@ -227,6 +227,7 @@ def test_unprepared_language_blocks_capture_before_ocr_but_allows_preview(monkey
     service._tracker = StableMatchTracker(2)
     service._zzz_cutscene_context = module.ZzzCutsceneContext()
     service._zzz_dialogue_context = module.ZzzDialogueContext()
+    service._nte_dialogue = module.NteDialogueContext()
     service.language_setup = lambda game: False
     service.snapshot = lambda: SimpleNamespace(active_game=None)
     service._caption_context = []

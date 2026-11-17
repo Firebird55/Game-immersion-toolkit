@@ -12,39 +12,55 @@ from backend.nte_type_metadata import Schema
 from backend.preparation_errors import PreparationFailure
 
 
-def fixture(tmp_path, monkeypatch, *, partial=True):
+def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False):
     monkeypatch.setattr(publisher, '_reader_identity', lambda: 'f'*64)
     names = ['Client/Plugin.dll', 'Client/RenamedApplication.exe']
     files = {name: asdict(release.File(100+index, str(index+1)*32, 100+index, str(index+1)*32, 0))
              for index, name in enumerate(names)}
     snapshot = dict(region='nte-global', branch='PC_9', version='9.0.1', sections={}, publisher_files=files,
                     reader='f'*64, archive=['archive', 'a'*64], localization=['localization', 'b'*64])
-    snapshot['type_schema'] = provider.source_reference(provider.discovery(snapshot), snapshot['reader'])
+    snapshot['type_schema'] = provider.source_reference(provider.discovery(snapshot), snapshot['reader'], dialogue_graphs=graphs)
     catalog = SimpleNamespace(snapshot=snapshot, cache=tmp_path/'cache', stamp='nte-'+'1'*64,
                               region='nte-global', format=SimpleNamespace(parameters={'nte-global': 'owned'}), containers=lambda: [])
     staging = tmp_path/'staging'; staging.mkdir()
     baseline = SimpleNamespace(identity={'native_path': names[0], 'native_md5': 'e'*32})
     monkeypatch.setattr(provider.baseline_source, 'load', lambda *_: baseline)
     monkeypatch.setattr(provider, 'seed', lambda *_: b'owned-seed')
+    if graphs:
+        monkeypatch.setattr(provider, '_registry', lambda _: b'checked-original-registry')
+        from backend import nte_graph_prefetch
+        monkeypatch.setattr(provider.assets, 'read_dialogue_inventory', lambda *_: {'HT/Content/Owned.uasset': 20})
+        def prefetch(containers, packages, _progress):
+            assert containers == [] and packages == {'HT/Content/Owned.uasset': 20}
+        monkeypatch.setattr(nte_graph_prefetch, 'prefetch', prefetch)
     calls, candidates = [], {}
     monkeypatch.setattr(metadata, 'stage_original', lambda _v, name, _c: tmp_path/name.rsplit('/', 1)[-1])
     def prepare(_original, _seed, sources, cache, **kwargs):
         name = next(iter(sources)); calls.append(name)
         digest = hashlib.sha256(name.encode()).hexdigest()
-        reference = {'native_generator': metadata.ENUM_GENERATOR, 'generation': digest, 'sha256': digest}
+        assert kwargs['native_classes'] is graphs
+        reference = {'native_generator': metadata.CLASS_GENERATOR if graphs else metadata.ENUM_GENERATOR,
+                     'generation': digest, 'sha256': digest}
         result = metadata.Candidate(Schema(reference, name.encode()), {
             'source_manifest_sha256': snapshot['type_schema']['inventory_sha256'], 'dependencies': {'reader': snapshot['reader']},
-            'baseline_sha256': snapshot['type_schema']['baseline_native_sha256'], 'native_path': name})
+            'baseline_sha256': snapshot['type_schema']['baseline_native_sha256'], 'native_path': name,
+            'generator': reference['native_generator']})
         candidates[digest] = result
         return result
     monkeypatch.setattr(metadata, 'prepare', prepare)
     monkeypatch.setattr(metadata, 'load', lambda ref, _c: candidates[ref['generation']])
     def extract(_context, _exe, output, *_args, **kwargs):
         assert kwargs['capture_schema_usage'] is True
+        assert kwargs['capture_dialogue_graphs'] is graphs
+        assert kwargs['dialogue_registry'] == (b'checked-original-registry' if graphs else None)
         for name in provider.OUTPUTS: (output/name).write_text('{}')
-        return {'lookups': ['RequiredDynamic'], 'classes': {}}
+        if graphs: (output/'dialogue-graphs.json').write_text('{"owned":true}')
+        return {'schema': 'nte-schema-usage-v2' if graphs else 'nte-schema-usage-v1',
+                'lookups': ['RequiredDynamic'], 'classes': {},
+                **({'codecs': {'OwnedPath': 'CUE4Parse.UE4.Objects.Owned.FOwnedPath'}} if graphs else {})}
     monkeypatch.setattr(provider.assets, 'run_publisher_reader', extract)
     def check(ref, cache, *_args, **kwargs):
+        assert kwargs['reader_codecs'] == ({'OwnedPath': 'CUE4Parse.UE4.Objects.Owned.FOwnedPath'} if graphs else None)
         candidate = candidates[ref['generation']]
         eligible = not partial or candidate.receipt['native_path'] == names[1]
         data = b'{"owned":true}'; identity = hashlib.sha256(data).hexdigest()
@@ -64,6 +80,16 @@ def test_manifest_lineage_is_only_a_hint_and_partial_plugin_cannot_publish_autho
     assert all((staging/name).is_file() for name in provider.OUTPUTS)
 
 
+def test_opt_in_graph_recipe_validates_complete_invocation_and_retains_immutable_profile(tmp_path, monkeypatch):
+    catalog, staging, _, _ = fixture(tmp_path, monkeypatch, graphs=True)
+    schema, validation = provider.read_authoring(catalog, tmp_path/'reader', staging)
+    assert schema['native_generator'] == metadata.CLASS_GENERATOR
+    assert (staging/'dialogue-graphs.json').read_bytes() == b'{"owned":true}'
+    second = tmp_path/'second'; second.mkdir()
+    assert provider.read_authoring(catalog, tmp_path/'reader', second) == (schema, validation)
+    assert not provider.DIALOGUE_GRAPHS
+
+
 def test_all_unsupported_required_layouts_leave_no_resolved_profile_or_partial_outputs(tmp_path, monkeypatch):
     catalog, staging, _, _ = fixture(tmp_path, monkeypatch)
     monkeypatch.setattr(metadata, 'check_required', lambda *_a, **_k: (SimpleNamespace(eligible=False), 'a'*64))
@@ -71,6 +97,43 @@ def test_all_unsupported_required_layouts_leave_no_resolved_profile_or_partial_o
         provider.read_authoring(catalog, tmp_path/'reader', staging)
     assert list(staging.iterdir()) == []
     assert not (catalog.cache/'native-epochs'/catalog.stamp/'profile.json').exists()
+
+
+@pytest.mark.parametrize('stage', ['acquisition', 'reader', 'integrity'])
+def test_io_timeout_or_integrity_failure_never_attempts_an_unrelated_native_source(tmp_path, monkeypatch, stage):
+    catalog, staging, names, calls = fixture(tmp_path, monkeypatch)
+    attempts = []
+    if stage == 'acquisition':
+        def failed(_value, name, _cache):
+            attempts.append(name); raise OSError('Owned acquisition timeout')
+        monkeypatch.setattr(metadata, 'stage_original', failed)
+    elif stage == 'reader':
+        def failed(*_args, **_kwargs):
+            raise PreparationFailure('game_metadata_unavailable', 'Owned publisher stream timed out; retry preparation.')
+        monkeypatch.setattr(provider.assets, 'run_publisher_reader', failed)
+    else:
+        def failed(*_args, **_kwargs): raise ValueError('Owned source authentication failure')
+        monkeypatch.setattr(metadata, 'check_required', failed)
+    with pytest.raises(PreparationFailure) as error:
+        provider.read_authoring(catalog, tmp_path/'reader', staging)
+    assert error.value.code == 'game_metadata_unavailable'
+    assert (attempts if stage == 'acquisition' else calls) == [names[0]]
+    assert not list(staging.iterdir())
+    assert not (catalog.cache/'native-epochs'/catalog.stamp/'profile.json').exists()
+
+
+def test_explicit_native_derivation_rejection_can_try_the_next_original_owner(tmp_path, monkeypatch):
+    catalog, staging, names, calls = fixture(tmp_path, monkeypatch)
+    prepare = metadata.prepare
+    rejected = []
+    def selected(*args, **kwargs):
+        name = next(iter(args[2]))
+        if name == names[0]:
+            rejected.append(name); raise metadata.NativeDerivationRejected('Owned non-schema source')
+        return prepare(*args, **kwargs)
+    monkeypatch.setattr(metadata, 'prepare', selected)
+    provider.read_authoring(catalog, tmp_path/'reader', staging)
+    assert rejected == [names[0]] and calls == [names[1]]
 
 
 def test_declared_native_byte_and_file_budgets_do_not_accept_a_partial_plugin(tmp_path, monkeypatch):

@@ -190,7 +190,9 @@ class MultilingualTextIndex:
                         key = normalize_text(display_text(value), language)
                         if missing_audio and key not in eligible_missing_keys.get(language, ()):
                             continue
-                        if len(key) >= 2 or key and row.get('previous_text_id'):
+                        # NTE's isolated narrow-panel context reads full records;
+                        # predecessor metadata must not widen its ordinary lane.
+                        if len(key) >= 2 or key and row.get('previous_text_id') and self.game != 'nte':
                             destination.setdefault(language, {}).setdefault(key, []).append(row)
                     if not missing_audio and row.get('member_text_ids') and (anchors := row.get('ocr_texts', {}).get(language)):
                         last = anchors[0]

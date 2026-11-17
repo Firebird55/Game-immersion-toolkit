@@ -27,7 +27,7 @@ internal static class NteReader
                     game_execution_approved = false }));
                 return local ? 0 : 2;
             }
-            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "publisher-tables" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
+            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "publisher-tables" or "publisher-dialogue-inventory" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
             var destination = Path.GetFullPath(args[3]);
@@ -58,7 +58,7 @@ internal static class NteReader
             if (archiveKeys.Length is < 1 or > 512 || archiveKeys.Any(key => key == null || key.Length != 66 ||
                 !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit))) throw new ArgumentException();
             var filter = wuwa ? WuwaFilter(request.RootElement.GetProperty("filter").GetString()!, args[0] == "wuwa-list") : null;
-            var publisher = args[0] == "publisher-tables" || args[0] == "inventory" &&
+            var publisher = args[0] is "publisher-tables" or "publisher-dialogue-inventory" || args[0] == "inventory" &&
                 request.RootElement.TryGetProperty("publisher_streams", out _);
             var provider = CreateProvider(assembly, install, wuwa ? "GAME_WutheringWaves" : "GAME_NevernessToEverness", archiveKeys!,
                 publisher ? request.RootElement.GetProperty("publisher_streams") : null);
@@ -69,6 +69,29 @@ internal static class NteReader
                 Directory.CreateDirectory(destination);
                 if (wuwa)
                     ReadWuwa(provider, save, destination, filter!, args[0] == "wuwa-list");
+                else if (args[0] == "publisher-dialogue-inventory")
+                {
+                    var names = ((IEnumerable)Property(provider, "Files")).Cast<object>()
+                        .Select(pair => (string)Property(pair, "Key")).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var cue = AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == "CUE4Parse");
+                    var sha = request.RootElement.GetProperty("dialogue_registry_sha256").GetString();
+                    var nonce = request.RootElement.GetProperty("inventory_nonce").GetString();
+                    if (nonce is null || !Regex.IsMatch(nonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
+                    var index = Property(provider, "Files");
+                    var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true);
+                    var packages = new SortedDictionary<string, long>(StringComparer.Ordinal);
+                    long total = 0;
+                    foreach (var name in sources)
+                    {
+                        var file = index.GetType().GetProperty("Item")!.GetValue(index, [name])!;
+                        var size = Convert.ToInt64(Property(file, "Size")); total += size;
+                        if (size is < 1 or > 4*1024*1024 || total > 128*1024*1024) throw new UnsupportedGameFormatException();
+                        packages.Add(name, size);
+                    }
+                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(new {
+                        schema="nte-original-dialogue-inventory-v1", complete=true, registry_sha256=sha, nonce=nonce,
+                        package_count=packages.Count, packages=packages }));
+                }
                 else if (args[0] == "publisher-tables")
                 {
                     var files = (IEnumerable)Property(provider, "Files");
@@ -83,7 +106,9 @@ internal static class NteReader
                         if (usageNonce is null || !Regex.IsMatch(usageNonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
                     }
                     ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true,
-                        expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString(), usageNonce: usageNonce);
+                        expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString(), usageNonce: usageNonce,
+                        readGraphs: request.RootElement.TryGetProperty("capture_dialogue_graphs", out var graphs) && graphs.GetBoolean(),
+                        registrySha: request.RootElement.TryGetProperty("dialogue_registry_sha256", out var registrySha) ? registrySha.GetString() : null);
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
                 }
                 else if (args[0] == "inventory")
@@ -208,7 +233,8 @@ internal static class NteReader
         catch { Console.SetOut(output); Console.WriteLine("Game reader failed; check the game files and reader version"); return 1; }
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
-        HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null, string? usageNonce = null)
+        HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null, string? usageNonce = null,
+        bool readGraphs = false, string? registrySha = null)
     {
         expectedSchema ??= "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58";
         var profile = Path.Combine(destination, "dialogue.usmap");
@@ -326,8 +352,123 @@ internal static class NteReader
             });
             File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
         }
+        if (readGraphs)
+        {
+            if (usage is null) throw new UnsupportedGameFormatException();
+            ReadNteDialogueGraphs(provider, cue, files, destination, index, load, converter, ExportNamed, registrySha);
+        }
         if (usage is not null)
-            WriteSchemaUsage(destination, expectedSchema, usageNonce!, usage, exportClasses, schemaLog!);
+        {
+            if (schemaLog!.HasFailures) throw new UnsupportedGameFormatException();
+            // Probes belong to the frozen codec contract, not extraction
+            // lookups or parse-failure evidence from original packages.
+            usage.Enabled = false;
+            schemaLog.Dispose();
+            var codecs = FrozenSchemaCodecs(cue, mappings, provider, usage);
+            WriteSchemaUsage(destination, expectedSchema, usageNonce!, usage, exportClasses, schemaLog, codecs);
+        }
+    }
+
+    static SortedSet<string> NteDialogueSources(object provider, Assembly cue, HashSet<string> files,
+        string destination, string? registrySha, bool includeStringTables = false)
+    {
+        // AssetRegistry is a checked original pak member; publisher package
+        // streams expose IoStore assets only. The caller stages this member.
+        var registryPath = Path.Combine(destination, "dialogue-registry.bin");
+        if (registrySha is null || !Regex.IsMatch(registrySha, "\\A[0-9a-f]{64}\\z") ||
+            new FileInfo(registryPath).Length is < 1 or > 256*1024*1024) throw new UnsupportedGameFormatException();
+        var bytes = File.ReadAllBytes(registryPath);
+        if (Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() != registrySha) throw new UnsupportedGameFormatException();
+        using var archive = (IDisposable)Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.Readers.FByteArchive", true)!,
+            [registryPath, bytes, Property(provider, "Versions")])!;
+        var registry = Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.AssetRegistry.FAssetRegistryState", true)!, [archive])!;
+        var entries = (Array)registry.GetType().GetField("PreallocatedAssetDataBuffers")!.GetValue(registry)!;
+        if (entries.Length is < 1 or > 2_000_000) throw new UnsupportedGameFormatException();
+        var sources = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var item in entries)
+        {
+            object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
+            var assetClass = Field("AssetClass").ToString();
+            if (assetClass != "DlgDialogue" && !(includeStringTables && assetClass == "StringTable")) continue;
+            var package = Field("PackageName").ToString()!;
+            if (!package.StartsWith("/Game/", StringComparison.Ordinal) || package.Contains('\\') ||
+                package[6..].Split('/').Any(p => p is "" or "." or "..")) throw new UnsupportedGameFormatException();
+            var path = "HT/Content/" + package[6..] + ".uasset";
+            if (!files.Contains(path) || !sources.Add(path) || sources.Count > 8192) throw new UnsupportedGameFormatException();
+        }
+        if (sources.Count == 0) throw new UnsupportedGameFormatException();
+        return sources;
+    }
+
+    static void ReadNteDialogueGraphs(object provider, Assembly cue, HashSet<string> files, string destination,
+        object index, MethodInfo load, MethodInfo converter, Func<string, string, object> exportNamed, string? registrySha)
+    {
+        var sources = NteDialogueSources(provider, cue, files, destination, registrySha);
+        long totalSize = 0;
+        var namespaces = new SortedDictionary<string, string?>(StringComparer.Ordinal);
+        var tableReferences = new SortedSet<string>(StringComparer.Ordinal);
+        void References(JsonElement value)
+        {
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                if (value.TryGetProperty("TableId", out var table) && table.ValueKind == JsonValueKind.String)
+                {
+                    var reference = table.GetString()!;
+                    if (reference.Length > 1024 || tableReferences.Count > 4096) throw new UnsupportedGameFormatException();
+                    tableReferences.Add(reference);
+                }
+                foreach (var property in value.EnumerateObject()) References(property.Value);
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+                foreach (var child in value.EnumerateArray()) References(child);
+        }
+        var pathOut = Path.Combine(destination, "dialogue-graphs.json");
+        using var output = new FileStream(pathOut, FileMode.CreateNew);
+        using var writer = new Utf8JsonWriter(output);
+        writer.WriteStartObject(); writer.WriteString("schema", "nte-original-dialogue-graphs-v1");
+        writer.WriteNumber("graph_count", sources.Count); writer.WriteStartArray("graphs");
+        int totalExports = 0;
+        foreach (var path in sources)
+        {
+            var file = index.GetType().GetProperty("Item")!.GetValue(index, [path])!;
+            var size = Convert.ToInt64(Property(file, "Size")); totalSize += size;
+            if (size is < 1 or > 4*1024*1024 || totalSize > 128*1024*1024) throw new UnsupportedGameFormatException();
+            var package = load.Invoke(provider, [file])!;
+            var exports = (Array)Property(package, "ExportsLazy"); totalExports += exports.Length;
+            if (exports.Length is < 1 or > 4096 || totalExports > 200_000) throw new UnsupportedGameFormatException();
+            writer.WriteStartObject(); writer.WriteString("asset", path); writer.WriteStartArray("exports");
+            foreach (var slot in exports)
+            {
+                var json = (string)converter.Invoke(null, [Property(slot!, "Value")])!;
+                if (json.Length > 16*1024*1024) throw new UnsupportedGameFormatException();
+                using var parsed = JsonDocument.Parse(json);
+                References(parsed.RootElement); parsed.RootElement.WriteTo(writer);
+            }
+            writer.WriteEndArray(); writer.WriteEndObject(); writer.Flush();
+            if (output.Position > 256*1024*1024) throw new UnsupportedGameFormatException();
+        }
+        writer.WriteEndArray();
+        foreach (var reference in tableReferences)
+        {
+            namespaces[reference] = null;
+            var match = Regex.Match(reference, @"^/Game/([\w/-]+)\.([A-Za-z0-9_]+)$");
+            if (!match.Success || match.Groups[1].Value.Split('/').Any(p => p is "" or "." or ".."))
+                continue; // Preserve invalid authored references as unresolved.
+            var path = "HT/Content/" + match.Groups[1].Value + ".uasset";
+            if (!files.Contains(path)) continue;
+            var original = exportNamed(path, match.Groups[2].Value);
+            if (original.GetType().Name != "UStringTable") throw new UnsupportedGameFormatException();
+            var json = (string)converter.Invoke(null, [original])!;
+            if (json.Length > 16*1024*1024) throw new UnsupportedGameFormatException();
+            using var parsed = JsonDocument.Parse(json);
+            var ns = parsed.RootElement.GetProperty("StringTable").GetProperty("TableNamespace").GetString()!;
+            if (string.IsNullOrEmpty(ns)) continue;
+            if (ns.Length > 512 || ns.Any(char.IsControl)) throw new UnsupportedGameFormatException();
+            namespaces[reference] = ns;
+        }
+        writer.WritePropertyName("namespaces"); JsonSerializer.Serialize(writer, namespaces);
+        writer.WriteEndObject(); writer.Flush();
+        if (output.Position > 256*1024*1024) throw new UnsupportedGameFormatException();
     }
 
     static Dictionary<string, string?> ReadNteMovieNamespaces(HashSet<string> files,
@@ -687,13 +828,63 @@ internal static class NteReader
         }
     }
 
+    internal static Dictionary<string, string> FrozenSchemaCodecs(Assembly cue, object mappings, object provider,
+        SchemaUsageComparer usage)
+    {
+        var types = (IDictionary)Property(mappings, "MappingsForGame").GetType().GetField("Types")!
+            .GetValue(Property(mappings, "MappingsForGame"))!;
+        if (types.Count > 100_000) throw new UnsupportedGameFormatException();
+        var byteArchive = cue.GetType("CUE4Parse.UE4.Readers.FByteArchive", true)!;
+        var assetArchive = cue.GetType("CUE4Parse.UE4.Assets.Readers.FAssetArchive", true)!;
+        var script = cue.GetType("CUE4Parse.UE4.Assets.Objects.FScriptStruct", true)!;
+        var fallback = cue.GetType("CUE4Parse.UE4.Assets.Objects.FStructFallback", true)!;
+        var constructor = script.GetConstructors().Single(c => c.GetParameters().Length == 4);
+        var readType = Nullable.GetUnderlyingType(constructor.GetParameters()[3].ParameterType)!
+            ?? constructor.GetParameters()[3].ParameterType;
+        var zero = Enum.Parse(readType, "ZERO");
+        var versions = Property(provider, "Versions");
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (DictionaryEntry pair in types)
+        {
+            var name = (string)pair.Key;
+            if (name.Length is 0 or > 256 || !Regex.IsMatch(name, @"^[A-Za-z_][A-Za-z0-9_]*$"))
+                continue;
+            if (usage.Names.ContainsKey(name)) continue;
+            try
+            {
+                var bytes = Activator.CreateInstance(byteArchive, ["owned-codec-probe", Array.Empty<byte>(), versions])!;
+                var archive = Activator.CreateInstance(assetArchive, [bytes, null, 0, null])!;
+                var value = constructor.Invoke([archive, name, null, zero]);
+                var concrete = script.GetField("StructType")!.GetValue(value)!.GetType();
+                var implementation = concrete.FullName!;
+                if (Convert.ToInt64(Property(archive, "Position")) == 0 && concrete.Assembly == cue &&
+                    !fallback.IsAssignableFrom(concrete) && implementation.StartsWith("CUE4Parse.", StringComparison.Ordinal) &&
+                    implementation.Length <= 512 && Regex.IsMatch(implementation, @"^[A-Za-z_][A-Za-z0-9_.]*$"))
+                    result[name] = implementation;
+            }
+            catch (TargetInvocationException error) when (error.InnerException is not OutOfMemoryException)
+            {
+                // An unknown/ordinary fallback needs package/schema state.
+                // A failed empty probe supplies no custom-codec evidence.
+            }
+        }
+        return result;
+    }
+
     internal static void WriteSchemaUsage(string destination, string schema, string nonce, SchemaUsageComparer usage,
-        Dictionary<string, string> classes, SchemaParseLog log)
+        Dictionary<string, string> classes, SchemaParseLog log, Dictionary<string, string>? codecs = null)
     {
         if (log.HasFailures) throw new UnsupportedGameFormatException();
-        File.WriteAllText(Path.Combine(destination, "schema-usage.json"), JsonSerializer.Serialize(new {
-            schema = "nte-schema-usage-v1", complete = true, nonce,
-            schema_sha256 = schema.ToLowerInvariant(), lookups = usage.Names.Keys.Order(StringComparer.Ordinal).ToArray(), classes }));
+        var packet = new Dictionary<string, object> {
+            ["schema"] = codecs is null ? "nte-schema-usage-v1" : "nte-schema-usage-v2",
+            ["complete"] = true, ["nonce"] = nonce, ["schema_sha256"] = schema.ToLowerInvariant(),
+            ["lookups"] = usage.Names.Keys.Order(StringComparer.Ordinal).ToArray(), ["classes"] = classes };
+        if (codecs is not null)
+        {
+            packet["codecs_origin"] = "zero-without-package-v1";
+            packet["codecs"] = codecs;
+        }
+        File.WriteAllText(Path.Combine(destination, "schema-usage.json"), JsonSerializer.Serialize(packet));
     }
 
     internal sealed class SchemaParseLog : IDisposable

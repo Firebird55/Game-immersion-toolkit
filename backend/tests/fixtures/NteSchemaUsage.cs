@@ -29,6 +29,17 @@ internal static class UsageFixture
         using var report = JsonDocument.Parse(File.ReadAllText(Path.Combine(good, "schema-usage.json")));
         Check(report.RootElement.GetProperty("complete").GetBoolean());
         Check(report.RootElement.GetProperty("nonce").GetString() == new string('b', 32));
+        var codecs = Path.Combine(root, "codecs"); Directory.CreateDirectory(codecs);
+        var actualLookups = comparer.Names.Keys.Order(StringComparer.Ordinal).ToArray();
+        using (var capture = NteReader.SchemaParseLog.Capture())
+        {
+            NteReader.WriteSchemaUsage(codecs, new string('a', 64), new string('d', 32), comparer, classes, capture,
+                new Dictionary<string, string> { ["CustomPath"] = "CUE4Parse.UE4.Objects.UObject.FCustomPath" });
+        }
+        using var codecReport = JsonDocument.Parse(File.ReadAllText(Path.Combine(codecs, "schema-usage.json")));
+        Check(codecReport.RootElement.GetProperty("schema").GetString() == "nte-schema-usage-v2");
+        Check(codecReport.RootElement.GetProperty("codecs_origin").GetString() == "zero-without-package-v1");
+        Check(codecReport.RootElement.GetProperty("lookups").EnumerateArray().Select(x => x.GetString()).SequenceEqual(actualLookups));
         foreach (var prefix in new[] { "Failed to read FInstancedStruct", "Failed to load FInstancedStruct" })
         {
             var bad = Path.Combine(root, prefix.Contains("read") ? "read" : "load"); Directory.CreateDirectory(bad);
