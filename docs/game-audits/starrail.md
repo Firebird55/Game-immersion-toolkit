@@ -328,6 +328,13 @@ bank intake remains a separately frozen proof; state/sequence materialization,
 the full external-member stage and canonical audio snapshot publication are
 not yet connected by this change.
 
+On frozen source `a954cde7`, the production lookup API also reconstructs the
+actual 4.7 index from three existing publisher-MD5-verified Sophon chunks with
+transport forbidden. The complete 4,461,388-byte lookup passes publisher MD5
+`0351cd314a0a291b77df6c5b63a9c76f` and contains 29,371 event records, including
+5,511 state-map references. This validates the actual source/index API, rather
+than a fresh launcher request, the complete cold factory or Ready audio.
+
 The offline adapter now selects codecs only through the bundle's closed
 `packaged_codec_executable` contract, verifying that closure again before local
 execution. It does not discover PATH/imageio tools, build software or download
