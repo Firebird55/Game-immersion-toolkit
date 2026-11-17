@@ -11,15 +11,18 @@ import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import './game-data-settings.css';
 
 export type GameDataRow = {id: string; title: string; state: string; revision: string | null; installed_revision: string | null; can_activate: boolean; region: string; content_mode: 'text' | 'text-audio';
+ installed_request?: null | {region:string; source_locale:string; target_locales:string[]; content_mode:'text'|'text-audio'};
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
  job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; message: string};
  can_plan: boolean; can_download: boolean; can_delete: boolean; message: string};
 
-export function GameDataSettings({game, targetLanguage, online, account, onChanged, onGames, children}: {
+export function GameDataSettings({game, targetLanguage, online, account, onChanged, onGames, children, buttonLabel = 'Settings', pollClosed = true}: {
  game: string; targetLanguage: string; online: boolean; account: string; onChanged: () => void;
  onGames?: (rows: GameDataRow[]) => void;
  children?: ReactNode;
+ buttonLabel?: string;
+ pollClosed?: boolean;
 }) {
  const generation = useNativeAccountGeneration();
  const [open, setOpen] = useState(false), [rows, setRows] = useState<GameDataRow[]>([]);
@@ -61,7 +64,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
  }
 
  useEffect(() => {
-  if (!online || generation === null) return;
+  if (!online || generation === null || !open && !pollClosed) return;
   let current = true, timer: ReturnType<typeof setTimeout>;
   const refresh = async () => {
    if (mutationPending.current) {if (current) timer = setTimeout(refresh, 1500); return;}
@@ -77,15 +80,16 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   void refresh(); return () => {current = false; clearTimeout(timer);};
   // Requests belong to this immutable account-generation component.
   // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [online, generation, open]);
+ }, [online, generation, open, pollClosed]);
 
- async function mutate(action: 'plan' | 'download' | 'delete') {
+ async function mutate(action: 'plan' | 'download' | 'delete' | 'activate') {
   if (!row || mutationPending.current) return;
   const owner = ++epoch.current; mutationPending.current = true; setPending(true); setError('');
   try {
    const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
    const value = await request(`/${encodeURIComponent(game)}/${action === 'delete' ? 'data' : action}`, action === 'delete' ? 'DELETE' : 'POST',
-    action === 'plan' ? selection : action === 'download' ? {plan_id: row.plan_id, revision: row.revision} : {revision: row.revision});
+    action === 'plan' ? selection : action === 'download' ? {plan_id: row.plan_id, revision: row.revision}
+      : {revision: action === 'activate' ? row.installed_revision : row.revision});
    const updated = validateGameDataRow(value.game) as GameDataRow;
    if (updated.id !== game) throw Error('Game changed. Refresh Settings.');
    if (!live.current || owner !== epoch.current) return;
@@ -99,7 +103,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
  const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
  const busy = pending || row?.state === 'downloading' || row?.state === 'planning';
  return <>
-  <Button variant="outline" onClick={() => setOpen(true)}>Settings</Button>
+  <Button variant="outline" onClick={() => setOpen(true)}>{buttonLabel}</Button>
   <Dialog open={open} onOpenChange={setOpen}><DialogContent className="setup-dialog game-data-settings"><DialogHeader>
    <DialogTitle>{row?.title || info?.name || game} settings</DialogTitle>
    <DialogDescription>Choose text only or text with the available original audio, then check the download size.</DialogDescription>
@@ -118,11 +122,13 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
     <input type="checkbox" disabled={busy} checked={targets.includes(code)} onChange={event => setTargets(previous => event.target.checked ? [...previous, code] : previous.filter(value => value !== code))}/>{languageName(code, 'en')}
    </label>)}</fieldset>
    <dl><dt>Downloaded data</dt><dd>{formatGameBytes(row.installed_bytes)}</dd>
+    {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
     <dt>{row.download_is_upper_bound ? 'Download size, up to' : 'Download size'}</dt><dd>{formatGameBytes(row.download_bytes)}</dd>
     <dt>Additional storage needed</dt><dd>{formatGameBytes(row.required_disk_bytes)}</dd>
     {row.retained_bytes > 0 && <><dt>Saved recordings kept with history</dt><dd>{formatGameBytes(row.retained_bytes)}</dd></>}
    </dl>
    <div className="toolkit-setup-actions">
+    <Button variant="outline" disabled={!online || busy || !row.can_activate} onClick={() => void mutate('activate')}>Use downloaded data</Button>
     <Button variant="outline" disabled={!online || busy || !row.can_plan || !source} onClick={() => void mutate('plan')}>Check download size</Button>
     <Button disabled={!online || busy || !canDownloadGame(row, selection)} onClick={() => void mutate('download')}>{row.installed_bytes > 0 && row.state !== 'not_downloaded' ? 'Update' : 'Download'}</Button>
     <Button variant="outline" disabled={!online || busy || !row.can_delete} onClick={() => setConfirmDelete(true)}>Delete downloaded data</Button>

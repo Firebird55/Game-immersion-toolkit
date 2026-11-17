@@ -17,6 +17,7 @@ import {AndroidReceiver} from './android-receiver';
 import {useNativeHost} from '../lib/native-host';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
+import { ToolkitSetup } from './toolkit-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -518,10 +519,11 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const loadSnapshot = useCallback(() => pollOwner.current?.request() ?? Promise.resolve(), []);
+  const publisherGeneration = nativeHost.android ? requestGeneration : pollOwner.current?.context?.account_generation ?? null;
   const gameSelection = useMemo(() => createGameSourceSelection({
     current: () => localScopeReady.current && accountScope.current.generation === requestOwner,
     activate: async (game: string) => {
-      const headers = nativeAccountHeaders(requestGeneration, {'Content-Type': 'application/json',
+      const headers = nativeAccountHeaders(publisherGeneration, {'Content-Type': 'application/json',
         'X-Proxy-Transcript': 'setup', 'X-Proxy-Transcript-Account': lexirise.account ?? 'legacy'});
       const response = await fetch(`${API_URL}/api/game-data`, {cache: 'no-store', headers});
       if (!response.ok) throw Error('Game data selection is unavailable.');
@@ -534,7 +536,7 @@ function CompanionClient() {
     },
     committed: () => {void loadSnapshot();},
     failed: () => setStudyMessage('This game could not be selected. Refresh Settings.'),
-  }), [requestOwner, requestGeneration, lexirise.account, loadSnapshot]);
+  }), [requestOwner, publisherGeneration, lexirise.account, loadSnapshot]);
   useEffect(() => () => gameSelection.dispose(), [gameSelection]);
 
   useEffect(() => {
@@ -1175,10 +1177,17 @@ function CompanionClient() {
           </Button>}
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          <GameDataSettings key={`${requestGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`} game={selectedGame}
-            targetLanguage={gamePicker.target} online={online} account={lexirise.account ?? 'legacy'} onChanged={() => void loadSnapshot()}>
-            {nativeHost.android && nativeHost.capabilities?.history_migration && <details><summary>Previous browser history</summary><BrowserHistoryMigration onChanged={() => void loadSnapshot()} /></details>}
-          </GameDataSettings>
+          {!archivedHistory && LIVE_GAME_IDS.includes(selectedGame) &&
+              <NativeAccountContext.Provider value={publisherGeneration}>
+                <GameDataSettings key={`${pollOwner.current?.context?.runtime_id}:${publisherGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`}
+                  online={online} game={selectedGame} targetLanguage={gamePicker.target}
+                  account={lexirise.account ?? 'legacy'} buttonLabel={nativeHost.android ? 'Settings' : 'Game data'} pollClosed={nativeHost.android} onChanged={() => void loadSnapshot()}>
+                  {nativeHost.android && nativeHost.capabilities?.history_migration && <details><summary>Previous browser history</summary><BrowserHistoryMigration onChanged={() => void loadSnapshot()} /></details>}
+                </GameDataSettings>
+              </NativeAccountContext.Provider>}
+          {!nativeHost.android && <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
+            onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
+            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />}
           {!nativeHost.android && <details className="update-disclosure">
             <summary aria-label={uiText('Game language updates')}><RefreshCw size={16} className={updateStatus && ['checking','updating'].includes(updateStatus.state) ? 'is-spinning' : ''} />{uiText('Updates')}</summary>
             <div className="update-popover">

@@ -1,5 +1,8 @@
 # Faster development checks
 
+Publisher download host behavior and remaining native gates are recorded in
+[desktop publisher preparation](desktop-game-data-runtime.md).
+
 Use `npm run check:changed` for working changes. For a branch, fetch the actual
 PR target and add `-- --base <target-remote>/<target-branch>`. A fork targeting
 this upstream repository normally uses `upstream/main`; `origin/main` is correct

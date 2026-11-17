@@ -24,3 +24,12 @@ test('selection uses downloaded identity even when a later estimate or error exi
  assert.throws(()=>validateGameDataRow({...value,installed_revision:null}));
  assert.throws(()=>validateGameDataRow({...value,can_activate:'yes'}));
 });
+
+test('downloaded contents retain their own bounded selection while a different mode is proposed', () => {
+ const installed={region:'global',source_locale:'ja',target_locales:['en'],content_mode:'text'};
+ const value={...row(),state:'update_available',revision:'same',installed_revision:'same',content_mode:'text-audio',installed_request:installed};
+ assert.equal(validateGameDataRow(value).installed_request.content_mode,'text');
+ for(const changed of [{content_mode:'unknown'},{source_locale:'bad\nlocale'},{target_locales:[null]}])
+  assert.throws(()=>validateGameDataRow({...value,installed_request:{...installed,...changed}}));
+ assert.throws(()=>validateGameDataRow({...value,installed_revision:null}));
+});
