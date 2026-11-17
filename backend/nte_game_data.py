@@ -6,6 +6,7 @@ bounded archive plan. No downloaded game/SDK code is executed by this provider.
 from pathlib import Path
 
 from . import nte_updater_source as source
+from . import nte_updater_baseline as baseline
 from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage
 from .private_data_paths import _no_links
 from .publisher_transport import PublisherTransport
@@ -14,6 +15,26 @@ from .publisher_transport import PublisherTransport
 STUDY = frozenset(('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko'))
 TARGETS = STUDY | {'fr', 'de', 'es-ES', 'ru'}
 STAGE = 'nte-original-updater-stage-v1'
+
+
+def _artifacts(inputs):
+    # The frozen historical pair is often identical to the current pair. A
+    # shared artifact is planned/acquired once, including after a launcher update.
+    return {item.identity: item for plan in (inputs, baseline.inputs()) for item in plan.artifacts}.values()
+
+
+def _costs(inputs, cache):
+    missing = _missing(inputs, cache)
+    return {'compressed_bytes': sum(item.packed_size for item in missing),
+            'decoded_bytes': sum(item.size for item in missing)}
+
+
+def _missing(inputs, cache):
+    missing = [item for item in _artifacts(inputs) if source.retained(cache, item) is None]
+    if len({item.url for item in missing}) != len(missing):
+        raise GameDataError('historical_source_changed',
+            'A required older NTE compatibility download changed. Your previous library is retained.')
+    return missing
 
 
 class NteGameDataProvider:
@@ -48,13 +69,15 @@ class NteGameDataProvider:
             return body
         inputs = source.plan(fetch=fetch)
         ctx.check()
-        costs = inputs.costs(cache)
+        costs = _costs(inputs, cache)
         if costs['compressed_bytes'] == 0:
             source.resolve_retained(inputs, cache)
+            baseline.parameters(cache)
             return GameDataPlan('nte-content-'+inputs.identity, None, None,
                 handle={'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity},
                 stage='content', message='Official NTE compatibility information is verified. A bounded game-content reader plan is still required on this device.')
         handle = {'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity,
+                  'baseline_inputs_sha256': baseline.inputs().identity,
                   'verification_bytes': metadata, 'request': request.json()}
         return GameDataPlan('nte-bootstrap-'+inputs.identity,
             costs['compressed_bytes'] + sum(metadata.values()), costs['decoded_bytes'] + 64 * 1024,
@@ -65,11 +88,12 @@ class NteGameDataProvider:
         ctx.check()
         handle = plan.handle
         if (plan.stage != 'compatibility' or not isinstance(handle, dict)
-                or set(handle) != {'schema', 'inputs', 'inputs_sha256', 'verification_bytes', 'request'}
+                or set(handle) != {'schema', 'inputs', 'inputs_sha256', 'baseline_inputs_sha256', 'verification_bytes', 'request'}
                 or handle['schema'] != STAGE or handle['request'] != ctx.request.json()):
             raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
         inputs = source._inputs(handle['inputs'])
-        if inputs.identity != handle['inputs_sha256'] or plan.revision != 'nte-bootstrap-'+inputs.identity:
+        if (inputs.identity != handle['inputs_sha256'] or plan.revision != 'nte-bootstrap-'+inputs.identity
+                or handle['baseline_inputs_sha256'] != baseline.inputs().identity):
             raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
         metadata = handle['verification_bytes']
         if (not isinstance(metadata, dict) or set(metadata) != {source.VERSION_URL, inputs.manifest_url}
@@ -77,7 +101,9 @@ class NteGameDataProvider:
             raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
         cache = self._cache(ctx)
         transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
-        artifacts = {item.url: item for item in inputs.artifacts}
+        artifacts = {item.url: item for item in _missing(inputs, cache)}
+        if sum(item.packed_size for item in artifacts.values()) + sum(metadata.values()) != plan.download_bytes:
+            raise GameDataError('download_plan_changed', 'Check the NTE download size again.', 409)
         transferred = 0
         def fetch(url, *, limit):
             nonlocal transferred
@@ -98,6 +124,7 @@ class NteGameDataProvider:
         with ctx.transfer_lock:
             ctx.check()
             source.resolve(inputs, cache, fetch=fetch)
+            baseline.acquire(cache, fetch=fetch)
             ctx.check()
             source.recheck(inputs, fetch=fetch)
             ctx.check()

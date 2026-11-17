@@ -231,3 +231,34 @@ def test_activation_recheck_compares_the_exact_original_updater_approval(tmp_pat
     observed['original_updater'] = {**reference, 'proof_sha256': 'b'*64}
     with pytest.raises(ValueError, match='changed'):
         publisher.validate_prepared(tmp_path, {'publisher_snapshot': 'owned-complete'}, recheck=True)
+
+
+def test_context_owned_discovery_never_uses_global_download_or_parameter_hooks(tmp_path, monkeypatch):
+    import base64
+    from backend import nte_release as release
+    original = Originals(); plan = source.plan(fetch=original.fetch)
+    source.resolve(plan, tmp_path, fetch=original.fetch)
+    archive, checksum = resource_manifest()
+    entry = 'https://ntecdn1.perfectworld.com/clientRes/publish_PC/Version/Windows/config.xml'
+    root = 'https://ntecdn1.perfectworld.com/clientRes/PC_100/Version/Windows'
+    pointer = base64.b64encode(json.dumps({'branchName': 'PC_100'}).encode()).decode()
+    cfg = ('<Config><ResVersion>1.2.3</ResVersion><BaseVerson><Res Tag="baseTag" version="1.2.3" '
+           'ResSize="5"/></BaseVerson><Extra><listHash>'+checksum+'</listHash></Extra></Config>').encode()
+    declared = {entry: ('<Config><ResConfig>'+pointer+'</ResConfig></Config>').encode(),
+                root+'/config.xml': cfg, root+'/version/1.2.3/ResList.bin.zip': archive}
+    reads = []
+    def fetch(url, *, limit):
+        reads.append(url)
+        if url not in declared:
+            return original.fetch(url, limit=limit)
+        assert len(declared[url]) <= limit
+        return declared[url]
+    def forbidden(*_a, **_k): pytest.fail('Discovery escaped the context-owned transport')
+    monkeypatch.setattr(release, 'download', forbidden)
+    monkeypatch.setattr(release, '_parameters', forbidden)
+    proof = {}
+    branch, version, files, _ = release.discover('nte-global', official_cache=tmp_path,
+                                                metadata_out=proof, fetch=fetch)
+    assert (branch, version, len(files)) == ('PC_100', '1.2.3', 1)
+    assert reads[:3] == list(declared)
+    assert proof['kind'] == source.APPROVAL

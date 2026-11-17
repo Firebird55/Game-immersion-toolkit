@@ -1,6 +1,9 @@
 """Real shared service/transport bootstrap; no game library readiness claim."""
 import time
+import hashlib
+import io
 from xml.etree import ElementTree
+from zipfile import ZipFile
 
 import pytest
 
@@ -9,9 +12,24 @@ from backend.game_data_protocol import GameDataError
 from backend.nte_game_data import NteGameDataProvider, create_provider
 from backend.tests.test_nte_updater_source import Originals
 from backend.tests.test_publisher_transport import Response
+from backend import nte_updater_baseline as baseline, nte_updater_source as updater_source
+from backend.tests.test_nte_original_updater import authored_sdk
 
 
 REQUEST = {'region': 'global', 'source_locale': 'ja', 'target_locales': ['en'], 'content_mode': 'text'}
+
+
+def originals(monkeypatch):
+    """A genuinely frozen authored historical pair, independent of later current."""
+    original = Originals()
+    fixed = updater_source.plan(fetch=original.fetch)
+    monkeypatch.setattr(baseline, 'inputs', lambda: fixed)
+    digests = {}
+    for item in fixed.artifacts:
+        with ZipFile(io.BytesIO(original.bodies[item.url])) as archive:
+            digests[item.role] = hashlib.sha256(archive.read(item.member)).hexdigest()
+    monkeypatch.setattr(baseline, 'MEMBER_SHA256', digests)
+    return original
 
 
 def opener(original, calls):
@@ -39,8 +57,8 @@ def finish(service):
 
 
 @pytest.mark.parametrize('mode', ['text', 'text-audio'])
-def test_shared_service_plans_exact_bootstrap_then_returns_a_nonready_stage(tmp_path, mode):
-    original = Originals(); calls = []; activations = []
+def test_shared_service_plans_exact_bootstrap_then_returns_a_nonready_stage(tmp_path, mode, monkeypatch):
+    original = originals(monkeypatch); calls = []; activations = []
     provider = NteGameDataProvider(platform='windows', opener=opener(original, calls))
     service = GameDataService(tmp_path, {'nte': provider}, on_activate=lambda *_: activations.append(True))
     request = {**REQUEST, 'content_mode': mode}
@@ -64,8 +82,8 @@ def test_shared_service_plans_exact_bootstrap_then_returns_a_nonready_stage(tmp_
         service.close()
 
 
-def test_source_change_after_planning_never_publishes_a_ready_library(tmp_path):
-    original = Originals(); calls = []; activations = []
+def test_source_change_after_planning_never_publishes_a_ready_library(tmp_path, monkeypatch):
+    original = originals(monkeypatch); calls = []; activations = []
     provider = NteGameDataProvider(platform='android', opener=opener(original, calls))
     service = GameDataService(tmp_path, {'nte': provider}, on_activate=lambda *_: activations.append(True))
     try:
@@ -79,8 +97,8 @@ def test_source_change_after_planning_never_publishes_a_ready_library(tmp_path):
         service.close()
 
 
-def test_owner_switch_stops_before_any_sdk_payload(tmp_path):
-    original = Originals(); calls = []; owner = ['first']
+def test_owner_switch_stops_before_any_sdk_payload(tmp_path, monkeypatch):
+    original = originals(monkeypatch); calls = []; owner = ['first']
     provider = NteGameDataProvider(platform='windows', opener=opener(original, calls))
     service = GameDataService(tmp_path, {'nte': provider}, owner_guard=lambda: owner[0])
     try:
@@ -100,6 +118,54 @@ def test_canonical_factory_preserves_mainland_and_native_reader_gates(tmp_path):
     try:
         plan = service.plan('nte', {**REQUEST, 'region': 'cn'})['game']
         assert plan['download_bytes'] is None and not plan['can_download']
+        assert not (tmp_path/'nte/current.json').exists()
+    finally:
+        service.close()
+
+
+def test_rotated_current_sdk_plans_and_keeps_the_independent_frozen_historical_pair(tmp_path, monkeypatch):
+    old = originals(monkeypatch)
+    current = Originals('1.2.3.5', authored_sdk().replace(b'fixture!', b'changed!'))
+    current.bodies.update(old.bodies)
+    calls = []
+    service = GameDataService(tmp_path, {'nte': NteGameDataProvider(platform='windows', opener=opener(current, calls))})
+    try:
+        plan = service.plan('nte', REQUEST)['game']
+        assert not any(url.endswith('.zip') for url in calls)
+        metadata = len(current.version_body) + len(ElementTree.tostring(current.root))
+        assert plan['download_bytes'] == sum(len(raw) for raw in current.bodies.values()) + metadata
+        service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+        completed = finish(service)
+        assert completed['job']['status'] == 'needs_plan' and completed['state'] != 'ready'
+        assert len([url for url in calls if url.endswith('.zip')]) == 4
+        cache = tmp_path/'nte/cache/tools/nte-publisher/format'
+        old_key, _ = baseline.parameters(cache)
+        selected = updater_source.plan(fetch=current.fetch)
+        assert updater_source.resolve_retained(selected, cache).key != old_key
+        assert not (tmp_path/'nte/current.json').exists()
+    finally:
+        service.close()
+
+
+def test_frozen_original_member_sha_is_checked_before_native_parameter_parsing(tmp_path, monkeypatch):
+    original = originals(monkeypatch)
+    updater_source.resolve(baseline.inputs(), tmp_path, fetch=original.fetch)
+    monkeypatch.setitem(baseline.MEMBER_SHA256, 'sdk', '0'*64)
+    monkeypatch.setattr(updater_source, 'resolve_retained', lambda *_: pytest.fail('Parsed a foreign frozen SDK'))
+    with pytest.raises(ValueError):
+        baseline.parameters(tmp_path)
+
+
+def test_conflicting_historical_download_address_is_a_typed_blocker_before_transfer(tmp_path, monkeypatch):
+    originals(monkeypatch)
+    current = Originals(sdk=authored_sdk().replace(b'fixture!', b'changed!'))
+    calls = []
+    service = GameDataService(tmp_path, {'nte': NteGameDataProvider(platform='windows', opener=opener(current, calls))})
+    try:
+        with pytest.raises(GameDataError) as rejected:
+            service.plan('nte', REQUEST)
+        assert rejected.value.code == 'historical_source_changed'
+        assert not any(url.endswith('.zip') for url in calls)
         assert not (tmp_path/'nte/current.json').exists()
     finally:
         service.close()

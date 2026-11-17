@@ -110,8 +110,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     profile_path = catalog.cache/'native-epochs'/catalog.stamp/'profile.json'
     prior = _profile(profile_path, reference, catalog.stamp, cache)
     if 'original_updater' in value:
-        from . import nte_updater_source as official
-        baseline_parameters = official.parameters_for_reference(value['original_updater'], catalog.cache/'format')
+        from . import nte_updater_baseline as initial
+        baseline_parameters = initial.parameters(catalog.cache/'format')
         baseline = baseline_source.load(catalog.cache/'native-baseline', parameters=baseline_parameters)
     else:
         baseline = baseline_source.load(catalog.cache/'native-baseline')

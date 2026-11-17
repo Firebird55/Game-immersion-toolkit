@@ -100,13 +100,44 @@ profile/record approval. Historical verification is offline. Missing or swapped
 receipts fail without provisional playback; final source-pointer changes reject
 publication. Source code and keys are not executed or stored in the receipt.
 
+The ordinary installation-free Japanese worker also completed against the
+original Global 1.5.4 inventory with the same Japanese/Mandarin target selection
+as the retained control: 126,472 records and 27,718 voiced rows. Every prepared
+record matched that control except its new immutable publisher identity. Actual
+shared-index loading, profile validation and the final original-source recheck
+passed. The trial used no network, community updater description, protected
+updater key cache, newer mapping or game installation. Its existing frozen
+archive/localization descriptions and initial schema seed remain separate
+dependencies. A real original recording passed WEM extraction, MP3 decoding and
+identical PCM after a fresh offline voice-service restart. Removing either the
+materialization approval or original updater approval disabled cached playback;
+restoring the exact receipt recovered it.
+An injected change to the current SDK declaration made the ordinary worker stop
+with `bootstrap_required` before any asset fetch. The previous complete dataset
+remained byte-identical and its actual index stayed ready. Restoring original
+metadata recovered the final source recheck; this is a source-recovery test, not
+a second complete reader rebuild or an observed publisher key rotation.
+
+The exact 1.4.9 native baseline has an independent frozen original-input contract:
+the publisher-checksummed launcher 1.0.8.1102_4 SDK/configuration pair verified in
+this audit. These are compatible decoder inputs, not a claim that this launcher
+version shipped with 1.4.9. Their original URLs, sizes, MD5 and member SHA256 are
+pinned without parameter literals. A fresh baseline replay using only that pair
+passed the complete retained XML checksum, 552-file inventory and native SHA256.
+Current updater parameters continue to come from current official metadata.
+The download stage budgets both pairs and deduplicates identical artifacts;
+the current pair and baseline pair are identical in this measured generation.
+An authored changed-current-key fixture keeps the fixed pair independent and
+accounts for all four payloads before transfer. Changed historical addresses or
+missing originals block preparation while retaining the old library. No actual
+publisher key rotation has been observed in these trials.
+
 The bounded content plan and context-owned reader adapter remain separate work.
 These Global results do not establish mainland key derivation, archive or
 localization key rotation, new required schema constructors, a changed launcher
-root/native ABI, universal SDK rotation, or direct Android preparation. A cold
-future update whose new envelope parameter cannot open the initial native
-baseline still needs an authenticated original initial-parameter description;
-there is no implicit community substitute. Android needs its own managed/native
+root/native ABI, universal SDK rotation, or direct Android preparation. Cold
+baseline recovery relies on the continued availability of its pinned original
+inputs, with no implicit community substitute. Android needs its own managed/native
 reader hosting and codec closure; Windows binaries are not an Android route.
 
 ## Controlled update metadata and device boundary

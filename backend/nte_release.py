@@ -146,14 +146,15 @@ def files(archive, region, version, sections, checksum, *, parameters=None):
     return result, [len(raw), hashlib.sha256(raw).hexdigest()]
 
 
-def release_config(region):
+def release_config(region, *, fetch=None):
+    fetch = fetch or download
     host = HOSTS[region]
     branch = 'publish_PC'
     visited = set()
     while branch not in visited and len(visited) < 12:
         visited.add(branch)
         root = 'https://' + host + '/clientRes/' + branch + '/Version/Windows'
-        cfg = ElementTree.fromstring(download(root + '/config.xml', limit=256 * 1024))
+        cfg = ElementTree.fromstring(fetch(root + '/config.xml', limit=256 * 1024))
         next_branch = cfg.findtext('ResConfig')
         if next_branch:
             next_branch = json.loads(base64.b64decode(next_branch, validate=True)).get('branchName')
@@ -188,12 +189,13 @@ def _candidate_parameters(candidate, region, primary):
 
 
 def _manifest(archive, region, branch, version, sections, checksum, cache, metadata_out,
-              *, allow_community_fallback=False, official_cache=None):
+              *, allow_community_fallback=False, official_cache=None, fetch=None):
     if region == 'nte-global' and official_cache is not None:
         from . import nte_updater_source as official
-        inputs = official.plan(region, fetch=download)
+        read = fetch or download
+        inputs = official.plan(region, fetch=read)
         result, reference = official.approve(inputs, official_cache, archive, region, branch, version,
-                                             sections, checksum, fetch=download)
+                                             sections, checksum, fetch=read)
         if metadata_out is not None:
             metadata_out.update(reference)
         return result
@@ -231,9 +233,10 @@ def _json_manifest(result):
                       sort_keys=True, separators=(',', ':')).encode()
 
 
-def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None):
-    branch, version, root, cfg = release_config(region)
-    raw = download(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
+def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None, fetch=None):
+    read = fetch or download
+    branch, version, root, cfg = (release_config(region) if fetch is None else release_config(region, fetch=read))
+    raw = read(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
     sections = {}
     previous = {}
     for item in cfg.findall('BaseVerson/Res'):
@@ -245,7 +248,8 @@ def discover(region, *, community_cache=None, metadata_out=None, allow_community
         previous[tag] = [int(size), revision]
     items, previous['ResList.bin'] = _manifest(raw, region, branch, version, sections,
         cfg.findtext('Extra/listHash'), community_cache, metadata_out,
-        allow_community_fallback=allow_community_fallback, official_cache=official_cache)
+        allow_community_fallback=allow_community_fallback, official_cache=official_cache,
+        **({'fetch': read} if fetch is not None else {}))
     return branch, version, items, previous
 
 

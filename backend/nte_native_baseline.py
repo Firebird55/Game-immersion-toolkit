@@ -2,7 +2,7 @@
 
 This is an original publisher resource identity, not a bundled client or a new
 third-party description per game update. Files are never loaded as executable
-code. Normal publisher preparation does not call this experimental API yet.
+code. Publisher preparation verifies this baseline before required-schema checks.
 """
 from dataclasses import dataclass, field
 import hashlib
