@@ -144,6 +144,12 @@ class _Context:
             if maximum is None or self.consumed + count > maximum:
                 raise GameDataError('transfer_budget_exceeded', 'The game source exceeded the approved download size.')
             self.consumed += count
+            if self.job is not None:
+                # This old job owns already received bytes, even when the
+                # following scope check fails. Only transfer accounting writes
+                # this counter; phase callbacks cannot rewind it. Do not take
+                # the publication lock while holding the transfer lock.
+                self.job['downloaded_bytes'] = self.consumed
             self.check()
 
     def remaining_bytes(self, *, kind='asset'):
@@ -159,7 +165,9 @@ class _Context:
             raise GameDataError('invalid_download_progress', 'The game source reported invalid progress.')
         if self.job:
             with self.service.lock:
-                self.job.update(phase=phase, downloaded_bytes=downloaded_bytes, total_bytes=total_bytes, message=message)
+                # Phase work may have its own smaller total. The public wire
+                # counter and total remain the actual charged bytes/quote.
+                self.job.update(phase=phase, total_bytes=self.budget, message=message)
 
 
 class GameDataService:
