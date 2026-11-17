@@ -1,5 +1,39 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Fixed independent scene states
+
+The localized scene reader now handles an exact immediate Wwise-172 SetState
+alongside an otherwise static voice graph. It validates the original action's
+bus flag, empty property/range bundles, group and target fields and retains the
+fixed state evidence. A Rover-group change, delayed/randomized action, malformed
+state, chained PlayEvent, or any state-driven source/ancestor property or RTPC
+remains unresolved. Shared-song graphs still reject extra state actions. No
+state or scene ID allowlist selects the supported cases.
+
+The ordinary source path adds six current scenes: C0030, M0296, M0297, M0319,
+M0372 and M0373. Actual untouched banks in all four dubs agree with independent
+WWiser field interpretation. All 44 associated originals passed package/member
+checksums and native decoder metadata: one 48-kHz stereo stream, equal source and
+playback frames, longest 121.909 seconds. Acquisition used 16,600,604 bytes in
+112 original ranges within the coordinated 20-MiB bound. No client code ran.
+
+All five ordinary language workers preserve every prior voice and every other
+record unchanged while adding 49 context variants for 30 caption identities.
+Film totals are now **1,270 variants for 882 identities, 120 original sources and
+77 scenes per study locale**. These are accounted source presentations, not a
+claim of all current chapters or all 1,353 movie display cues. Seven of the 106
+localized movie roots still need their chained-event/delayed graph joins.
+Unsupported surround layouts, remaining music/other presentations, regional
+validation and unknown-key derivation remain open.
+
+Production single exports and bounded batches exercised all eleven new
+source/Rover combinations in each study locale, retaining exact complete WAV
+frames. A fresh process with all network access forbidden reproduced the same
+55 source variants and MP3 hashes. The two Chinese scripts share identical
+Mandarin originals/PCM/MP3; each of the eleven source/Rover groups has distinct
+PCM in all four actual dubs. The six-minute film bound and five-minute song and
+interval/matching bounds remain unchanged.
+
 ## November 17, 2026 · Native player-name recognition
 
 Exact subtitle matching now recognizes the original `{PlayerName}` slot. The

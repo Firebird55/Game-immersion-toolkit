@@ -2,6 +2,7 @@
 
 Only original root Play actions and an explicit player_rover_gender state
 select sources. This establishes ownership and source delay, not spoken cuts.
+Exact immediate unrelated states are retained without selecting a source.
 Unsupported effects, random timing, state properties and RTPCs fail closed.
 """
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ class SceneSource:
     gender: str | None
     delay_ms: int
     authored_mute: bool = False
+    fixed_states: tuple[tuple[int, int], ...] = ()
 
 
 class _Reader:
@@ -193,12 +195,28 @@ def _sources(bank, event, localized_media, *, common=False):
         _check(0 < count < 128)
         actions = [nodes[reader.uint()] for _ in range(count)]
         reader.finish()
-        # Chained PlayEvent and SetState actions can introduce additional audio
-        # or change branch selection outside this graph. Do not ignore them.
-        _check(all(kind == 3 and len(data) >= 7
-                   and struct.unpack_from('<H', data)[0] in (0x0403, 0x0102, 0x0103)
-                   and struct.unpack_from('<I', data, 2)[0] != 0
-                   for kind, data in actions))
+        # Fixed immediate unrelated states cannot select these stateless source
+        # paths. Every source/ancestor still rejects state properties and RTPCs;
+        # the only supported selection group remains explicit Rover gender.
+        # Chained events, delays, randomized state actions and song states fail.
+        fixed_states = []
+        for action_kind, action_data in actions:
+            _check(action_kind == 3 and len(action_data) >= 7)
+            action_type = struct.unpack_from('<H', action_data)[0]
+            _check(struct.unpack_from('<I', action_data, 2)[0] != 0)
+            if action_type == 0x1204:
+                _check(not common)
+                state = _Reader(action_data)
+                state.take(2)
+                target = state.uint()
+                _check(state.take(3) == bytes(3))  # Not a bus; no delay/ranges.
+                group, value = state.uint(), state.uint()
+                _check(group and value == target and group != wwise_hash('player_rover_gender'))
+                state.finish()
+                fixed_states.append((group, value))
+            else:
+                _check(action_type in (0x0403, 0x0102, 0x0103))
+        fixed_states = tuple(fixed_states)
         sources = []
         for key, (kind, data) in nodes.items():
             if kind != 2 or len(data) < 9 or struct.unpack_from('<I', data, 5)[0] not in members:
@@ -224,6 +242,8 @@ def _sources(bank, event, localized_media, *, common=False):
             target = path[1] if gender else key
             matches = 0
             for _, action in actions:
+                if action[:2] == b'\x04\x12':
+                    continue  # Validated above; it cannot choose this path.
                 destination = struct.unpack_from('<I', action, 2)[0]
                 if destination not in path:
                     continue
@@ -242,7 +262,7 @@ def _sources(bank, event, localized_media, *, common=False):
                 play.finish()
                 matches += 1
             _check(matches == 1)
-            sources.append(SceneSource(source_media, gender, delay, muted or gain <= -96))
+            sources.append(SceneSource(source_media, gender, delay, muted or gain <= -96, fixed_states))
         _check(len(sources) in (1, 2) and len(set(sources)) == len(sources)
               and ({source.gender for source in sources} == {None} if len(sources) == 1
                    else {source.gender for source in sources} == {'male', 'female'}))
