@@ -13,8 +13,19 @@ from urllib.parse import urlencode, urlsplit
 
 import zstandard
 
-from .game_tools import _atomic_file
-from .publisher_http import download
+
+def _atomic_file(path, data):
+    # The same maintained cache writer is available in the native core. Do not
+    # import desktop discovery/tool preparation merely to publish verified data.
+    from .game_data import _write_bytes
+    return _write_bytes(path, data)
+
+
+def download(*args, **kwargs):
+    # Retain the legacy desktop entrypoint, while context-owned callers never
+    # import or invoke this unaccounted default transport.
+    from .publisher_http import download as legacy_download
+    return legacy_download(*args, **kwargs)
 
 GLOBAL = ('sg-hyp-api.hoyoverse.com', 'VYTpXlbWo8', 'sg-public-api.hoyoverse.com')
 CHINA = ('hyp-api.mihoyo.com', 'jGHBHlcOq1', 'api-takumi.mihoyo.com')
