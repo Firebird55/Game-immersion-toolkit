@@ -69,8 +69,8 @@ def _files(build, cache, fetch):
     return files
 
 
-def _cached(cache, digest, size):
-    path = _safe(cache / 'chunks' / digest)
+def _valid_file(path, digest, size):
+    path = _safe(path)
     try:
         if not path.is_file() or path.stat().st_size != size:
             return False
@@ -78,6 +78,21 @@ def _cached(cache, digest, size):
             return hashlib.file_digest(stream, 'md5').hexdigest() == digest
     except OSError:
         return False
+
+
+def _cached(cache, digest, size):
+    return _valid_file(cache / 'chunks' / digest, digest, size)
+
+
+def _record_stage(ctx, result, message):
+    raw = json.dumps(result, sort_keys=True, separators=(',', ':')).encode()
+    ctx.check()
+    pending = _safe(ctx.directory / 'bootstrap-source.pending')
+    destination = _safe(ctx.directory / 'bootstrap-source.json')
+    pending.write_bytes(raw)
+    ctx.check()
+    pending.replace(destination)
+    return PreparationStage(result, message)
 
 
 def _quote(files, native, cache):
@@ -146,9 +161,17 @@ class ZzzGameDataProvider:
             cache = _cache(ctx)
             fetch = self._fetch(ctx, kind='metadata')
             build = sophon.release('zzz-' + request.region, fetch=fetch)
-            files = _files(build, cache, fetch)
             revision = _revision(build)
             handle = {'schema': SCHEMA, 'game': 'zzz', 'request': selection, 'build': build, 'revision': revision}
+            spec = tuple(build['manifests']['game'])
+            if not (0 < spec[2] <= sophon.MAX_MANIFEST and 0 < spec[3] <= sophon.MAX_MANIFEST):
+                raise GameDataError('zzz_manifest_bounds', 'The original ZZZ manifest exceeds the supported source bounds.')
+            if (not _valid_file(cache / 'manifests' / spec[4], spec[4], spec[3])
+                    and spec[2] > ctx.remaining_bytes(kind='metadata')):
+                return GameDataPlan(revision, spec[2], spec[3] * 2 + 1024**2,
+                    handle=handle, runtime_available=True, stage='official-manifest',
+                    message='Download the original ZZZ manifest first, then check the remaining source size.')
+            files = _files(build, cache, fetch)
             available = _runtime()
             if available:
                 try:
@@ -172,13 +195,22 @@ class ZzzGameDataProvider:
         selection = _selection(ctx.request)
         handle = plan.handle
         if (handle.get('schema') != SCHEMA or handle.get('game') != 'zzz' or handle.get('request') != selection
-                or plan.stage != 'official-bootstrap' or not plan.runtime_available
+                or plan.stage not in ('official-manifest', 'official-bootstrap') or not plan.runtime_available
                 or handle.get('build', {}).get('channel') != 'zzz-' + ctx.request.region
                 or plan.revision != handle.get('revision') or plan.revision != _revision(handle['build'])):
             raise GameDataError('game_data_plan_changed', 'Check the selected ZZZ download again.', 409)
         with ctx.transfer_lock:
             ctx.check()
             cache, build = _cache(ctx), handle['build']
+            if plan.stage == 'official-manifest':
+                spec = tuple(build['manifests']['game'])
+                if plan.download_bytes != spec[2] or plan.required_disk_bytes != spec[3] * 2 + 1024**2:
+                    raise GameDataError('game_data_plan_changed', 'Check the ZZZ manifest download size again.', 409)
+                _files(build, cache, self._fetch(ctx, kind='asset', allowed={spec[0] + '/' + spec[1]}))
+                return _record_stage(ctx, {'schema': SCHEMA, 'game': 'zzz', 'request': selection,
+                    'revision': plan.revision, 'build': build, 'phase': 'official-manifest',
+                    'manifest_md5': spec[4], 'manifest_bytes': spec[3]},
+                    'Original ZZZ manifest verified. Check the next download size to continue.')
             # Existing metadata must still be authentic. Its repair is another
             # estimate, not an unplanned connection charged to source payloads.
             try:
@@ -197,14 +229,8 @@ class ZzzGameDataProvider:
                       'build': build, 'bootstrap_proof': proof}
             # Only inert source identity/provenance is persisted; no RSA object,
             # plaintext XML, decoded seed/config, callable or host path escapes.
-            raw = json.dumps(result, sort_keys=True, separators=(',', ':')).encode()
-            ctx.check()
-            pending = _safe(ctx.directory / 'bootstrap-source.pending')
-            destination = _safe(ctx.directory / 'bootstrap-source.json')
-            pending.write_bytes(raw)
-            ctx.check()
-            pending.replace(destination)
-            return PreparationStage(result, 'Original ZZZ bootstrap verified. Dialogue preparation still needs a supported reader.')
+            return _record_stage(ctx, result,
+                'Original ZZZ bootstrap verified. Dialogue preparation still needs a supported reader.')
 
     def restore(self, handle, ctx):
         ctx.check()

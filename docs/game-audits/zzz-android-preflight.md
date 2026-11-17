@@ -51,11 +51,22 @@ authentic raw inputs were already cached; that stage's service transition has
 controlled fixture coverage. Previous-ready-generation retention across a
 stage transition is not proved by this source probe.
 
-The current bootstrap plan also needs its original manifest and header reads
-to fit the shared 8 MiB planning-metadata allowance. A future larger manifest
-currently fails safely; a separate consented manifest-acquisition stage before
-the detailed bootstrap estimate is not implemented. Such source growth is not
-automatically a package-format change or permission for a community fallback.
+Original manifest growth no longer needs to fit the shared 8 MiB planning
+allowance. The provider first reads the small official HYP descriptor and, if
+the declared manifest exceeds the remaining metadata allowance, quotes an
+explicit `official-manifest` download stage. That stage authenticates and parses
+the original manifest without acquiring client bodies. A following plan can
+use the verified manifest to quote the detailed bootstrap sources. Controlled
+tests cover the consent boundary and a declared manifest larger than 8 MiB;
+this is not a claim that a current original manifest has that size. This normal
+source growth needs neither new community parameters nor a toolkit update.
+
+The pure service retention fix is also consumed: controlled tests exercise the
+actual ZZZ manifest and bootstrap stages with a prior ready library. Both
+stages preserve the accepted ready pointer; local restore succeeds during the
+transition and after a fresh offline service restart. The prior library in
+that fixture is authored, so this is a service/provider retention check rather
+than a new real-game historical update proof.
 
 The publisher's explicit text-only source path now skips separate voice
 inventories, banks, directory objects and registry parsing while preserving

@@ -25,6 +25,7 @@ from backend.tests.test_zzz_native_key_data import image, initializer
 
 class Context:
     game = 'zzz'
+    stage_handle = None
     def __init__(self, root, request, phase='plan', budget=MAX_METADATA_BYTES):
         self.request, self.phase, self.budget, self.consumed = request, phase, budget, 0
         self.cache_directory, self.directory = root / 'cache', root / phase
@@ -98,13 +99,13 @@ def publisher(region, version='3.3.0', key=None):
     return objects, bodies, chunks, key
 
 
-def provider(objects, calls, platform='android'):
+def provider(objects, calls, platform='android', provider_type=game.ZzzGameDataProvider):
     def factory(ctx, *, hosts):
         def open(request, **kwargs):
             calls.append((ctx.phase, request.full_url))
             return Response(request.full_url, objects[request.full_url])
         return PublisherTransport(ctx, hosts=hosts, opener=open)
-    return game.ZzzGameDataProvider(platform=platform, native=object(), transport_factory=factory)
+    return provider_type(platform=platform, native=object(), transport_factory=factory)
 
 
 @pytest.mark.parametrize('region', ['global', 'cn'])
@@ -236,3 +237,74 @@ def test_cache_ancestor_refuses_before_any_descendant_metadata_access(tmp_path, 
     monkeypatch.setattr(Path, 'exists', exists)
     with pytest.raises(GameDataError, match='ordinary private files'):
         game._safe(child)
+
+
+def test_manifest_growth_has_an_explicit_consented_stage_before_detailed_plan(tmp_path):
+    objects, _, _, _ = publisher('global')
+    api_bytes = sum(len(body) for url, body in objects.items() if '/hyp/' in url or '/getBuild?' in url)
+    manifest_url = next(url for url in objects if '/manifest_' in url)
+    declared = len(objects[manifest_url])
+    calls = []; reader = provider(objects, calls)
+    request = GameDataRequest('global', 'en')
+    initial = Context(tmp_path, request, budget=api_bytes + declared - 1)
+    plan = reader.plan(request, initial)
+    assert plan.stage == 'official-manifest' and plan.runtime_available
+    assert plan.download_bytes == declared and all(url != manifest_url for _, url in calls)
+    result = reader.download(plan, Context(tmp_path, request, 'download', declared))
+    assert isinstance(result, PreparationStage) and result.restore_handle['phase'] == 'official-manifest'
+    assert [url for phase, url in calls if phase == 'download'] == [manifest_url]
+    following = Context(tmp_path, request)
+    following.stage_handle = result.restore_handle
+    assert reader.plan(request, following).stage == 'official-bootstrap'
+
+
+def test_greater_than_eight_mib_manifest_size_is_quoted_without_body_io(tmp_path):
+    objects, _, _, _ = publisher('cn')
+    url = next(url for url in objects if '/getBuild?' in url)
+    response = json.loads(objects[url])
+    for row in response['data']['manifests']:
+        row['manifest']['compressed_size'] = MAX_METADATA_BYTES + 4096
+    objects[url] = json.dumps(response).encode()
+    calls = []; request = GameDataRequest('cn', 'ja')
+    plan = provider(objects, calls).plan(request, Context(tmp_path, request))
+    assert plan.stage == 'official-manifest' and plan.download_bytes == MAX_METADATA_BYTES + 4096
+    assert len(calls) == 2 and all('/hyp/' in address or '/getBuild?' in address for _, address in calls)
+
+
+def test_real_service_old_ready_survives_actual_zzz_manifest_and_bootstrap_stages(tmp_path, monkeypatch):
+    from backend import game_data as service_module
+    from backend.tests.test_game_data import Provider as Baseline, REQUEST, finish
+    baseline = Baseline()
+    objects, _, _, _ = publisher('global', '3.4.0')
+    calls = []
+    class Transition(game.ZzzGameDataProvider):
+        def restore(self, handle, ctx):
+            if handle.get('revision') == baseline.revision:return baseline.restore(handle, ctx)
+            return super().restore(handle, ctx)
+    actual = provider(objects, calls, provider_type=Transition)
+    service = GameDataService(tmp_path / 'host', {'zzz': baseline})
+    try:
+        first = service.plan('zzz', REQUEST)['game']
+        service.download('zzz', {'plan_id': first['plan_id'], 'revision': first['revision']})
+        assert finish(service)['state'] == 'ready'
+        original = tmp_path / 'host/zzz/current.json'
+        original_bytes = original.read_bytes()
+        service.providers['zzz'] = actual
+        api_bytes = sum(len(body) for url, body in objects.items() if '/hyp/' in url or '/getBuild?' in url)
+        manifest_size = len(objects[next(url for url in objects if '/manifest_' in url)])
+        monkeypatch.setattr(service_module, 'MAX_METADATA_BYTES', api_bytes + manifest_size - 1)
+        planned = service.plan('zzz', REQUEST)['game']
+        service.download('zzz', {'plan_id': planned['plan_id'], 'revision': planned['revision']})
+        assert finish(service)['job']['status'] == 'needs_plan'
+        assert original.read_bytes() == original_bytes and service.restore('zzz') is not None
+        monkeypatch.setattr(service_module, 'MAX_METADATA_BYTES', MAX_METADATA_BYTES)
+        following = service.plan('zzz', REQUEST)['game']
+        service.download('zzz', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        assert finish(service)['job']['status'] == 'needs_plan'
+        assert original.read_bytes() == original_bytes and service.restore('zzz') is not None
+        service.close()
+        offline = GameDataService(tmp_path / 'host', {'zzz': actual})
+        try:
+            assert offline.restore('zzz') is not None
+        finally:offline.close()
+    finally:service.close()
