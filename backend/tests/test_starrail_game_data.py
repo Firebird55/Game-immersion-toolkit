@@ -18,7 +18,11 @@ REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Han
 
 
 def fixture(tmp_path, monkeypatch, *, platform='windows', generation=1):
+    from types import SimpleNamespace
     provider = game.create_provider(platform=platform)
+    # These tests isolate original format/service I/O. Resolver behavior has
+    # separate tests below; no installed SDK or private cache supplies it.
+    monkeypatch.setattr(provider, '_reader', lambda directory: SimpleNamespace(identity='b' * 64))
     base = 'https://autopatchos.starrails.com/test/1.2.3/' + str(generation)
     original, objects, raw = {}, {}, b''
     chunk_urls = []
@@ -88,7 +92,7 @@ def test_exact_original_chunk_estimate_and_whole_inputs_never_become_ready_text(
             assert path.read_bytes() == data
         assert not list(tmp_path.rglob('textmap.json'))
         next_plan = service.plan('starrail', REQUEST)['game']
-        assert not next_plan['can_download'] and next_plan['download_bytes'] is None
+        assert next_plan['download_bytes'] == 0 and next_plan['state'] != 'ready'
         with pytest.raises(GameDataError, match='archives'):
             provider.restore({}, type('Context', (), {'check': lambda self: None})())
     finally:
@@ -126,6 +130,7 @@ def test_cached_chunks_reconstruct_corrupt_whole_input_without_network_asset_tra
 
 def test_android_metadata_estimate_does_not_authorize_unavailable_runtime_or_audio(tmp_path, monkeypatch):
     provider, _, _, chunks, calls, _ = fixture(tmp_path, monkeypatch, platform='android')
+    monkeypatch.setattr(provider, '_reader', lambda *a: pytest.fail('Android must not select a desktop runtime'))
     service = GameDataService(tmp_path, {'starrail': provider})
     try:
         row = service.plan('starrail', REQUEST)['game']
@@ -135,6 +140,61 @@ def test_android_metadata_estimate_does_not_authorize_unavailable_runtime_or_aud
         assert not set(chunks) & set(calls)
     finally:
         service.close()
+
+
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_missing_default_reader_gates_original_inputs_before_any_large_asset(tmp_path, monkeypatch, mode):
+    provider, _, _, chunks, calls, _ = fixture(tmp_path, monkeypatch)
+    def missing(directory):
+        raise GameDataError('starrail_reader_unavailable', 'The verified reader is unavailable.')
+    monkeypatch.setattr(provider, '_reader', missing)
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        row = service.plan('starrail', REQUEST | {'content_mode': mode})['game']
+        assert row['download_bytes'] > 0 and not row['can_download']
+        assert 'Repair or re-extract' in row['message']
+        with pytest.raises(GameDataError):
+            service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
+        assert not set(chunks) & set(calls)
+    finally:
+        service.close()
+
+
+def test_reader_removed_after_quote_fails_before_unquoted_rechecks_or_assets(tmp_path, monkeypatch):
+    provider, _, _, _, calls, _ = fixture(tmp_path, monkeypatch)
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        row = service.plan('starrail', REQUEST)['game']
+        def missing(directory):
+            raise GameDataError('starrail_reader_unavailable', 'The verified reader is unavailable.')
+        monkeypatch.setattr(provider, '_reader', missing); before = len(calls)
+        service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
+        assert finish(service)['job']['status'] == 'failed' and len(calls) == before
+    finally:
+        service.close()
+
+
+def test_default_runtime_uses_verified_prebuilt_closure_without_sdk_or_cache_fallback(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import prebuilt_readers
+    native = object(); provider = game.create_provider(platform='windows', native=native)
+    assert provider.native is native
+    executable = tmp_path / 'delivered' / 'StarRailMetadata.exe'
+    calls = []
+    def resolve(kind):
+        calls.append(kind)
+        return SimpleNamespace(executable=executable, source_identity='a' * 64, manifest={'build_id': 'b' * 64})
+    monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', resolve)
+    monkeypatch.setattr(game.metadata, 'helper', lambda *a, **k: pytest.fail('No SDK or mutable-cache helper fallback'))
+    helper = provider._reader(tmp_path / 'untrusted-cache')
+    assert calls == ['starrail'] and helper.command == (str(executable),)
+    assert helper.identity == game.metadata._identity({'source': 'a' * 64, 'build': 'b' * 64})
+    def missing(kind):
+        raise ValueError('private-resource-location')
+    monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', missing)
+    with pytest.raises(GameDataError) as error:
+        provider._reader(tmp_path)
+    assert error.value.code == 'starrail_reader_unavailable' and 'private-resource-location' not in str(error.value)
 
 
 def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch):

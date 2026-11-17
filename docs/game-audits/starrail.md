@@ -176,6 +176,16 @@ mission paths and original caption overrides then select the next exact whole
 packages. Each is checked against its complete publisher MD5. No arbitrary
 configuration scan or package/version ID list selects the inventory.
 
+The ordinary PC factory resolves that immutable prebuilt closure automatically
+when `native=None`; it does not select an SDK through PATH or use the source
+helper cache. Missing, corrupt or incompatible resources produce an actionable
+repair/re-extract gate before the large original-input download is available.
+The download rechecks the reader before even its manifest recheck, so removal
+after a quote cannot strand new native asset downloads. Explicit test boundary
+injection remains separate, and Android does not attempt a desktop helper.
+Maintainer source-SDK preparation is an independent explicit operation, not a
+fallback in this application path.
+
 Only the final `text-snapshot` step can publish a `SnapshotSource`; every earlier
 step remains a `PreparationStage`. The final receipt binds the helper, native
 generation, whole original packages, request/content mode and snapshot SHA256.

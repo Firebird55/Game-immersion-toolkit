@@ -206,7 +206,18 @@ class StarRailProvider:
 
     @staticmethod
     def _reader(directory):
-        return metadata.helper(directory / 'tools', allow_build=False)
+        # The canonical application resolves only its immutable delivered
+        # closure. Source-SDK preparation remains an explicit maintainer tool;
+        # neither a mutable helper cache nor PATH can select this runtime.
+        from .prebuilt_readers import prebuilt_reader
+        from .runtime_bundle import RuntimeBundleError
+        try:
+            reader = prebuilt_reader('starrail')
+        except (OSError, ValueError, RuntimeBundleError) as error:
+            raise GameDataError('starrail_reader_unavailable',
+                'The verified Star Rail reader is unavailable. Repair or re-extract this toolkit build, then check the download size again. Your existing library is retained.', 409) from error
+        return metadata.Helper((str(reader.executable),),
+            metadata._identity({'source': reader.source_identity, 'build': reader.manifest['build_id']}))
 
     def _text_context(self, ctx, build, reader, *, discover, offline=False):
         from . import starrail_native_preparation as native, starrail_original_discovery as discovery
@@ -248,7 +259,7 @@ class StarRailProvider:
         directory = self._directory(ctx, request.region)
         try:
             reader = self._reader(directory)
-        except (OSError, ValueError):
+        except (OSError, ValueError, GameDataError):
             return GameDataPlan(build['version'], None, None, stage='metadata-runtime', runtime_available=False,
                 message='The delivered Star Rail metadata reader is unavailable on this device. Your previous library is retained.')
         transport = self._transport(ctx); fetch = self._metadata_fetch(ctx, transport)
@@ -327,6 +338,11 @@ class StarRailProvider:
         if self.platform == 'android':
             return GameDataPlan(revision, download, disk, handle, stage='metadata-runtime', runtime_available=False,
                 message='Star Rail preparation is not available on Android yet. The shown size is an original metadata estimate.')
+        try:
+            self._reader(directory)
+        except (OSError, ValueError, GameDataError):
+            return GameDataPlan(revision, download, disk, handle, stage='metadata-runtime', runtime_available=False,
+                message='The verified Star Rail reader is unavailable. Repair or re-extract this toolkit build, then check the download size again. Your existing library is retained.')
         if complete:
             return self._text_plan(request, ctx, build, selected)
         return GameDataPlan(revision, download, disk, handle, stage='original-native-inputs', runtime_available=True,
@@ -344,6 +360,9 @@ class StarRailProvider:
             raise GameDataError('starrail_plan_changed', 'Check the Star Rail download size again.')
         _valid_request(ctx.request); ctx.check()
         directory = self._directory(ctx, ctx.request.region)
+        # A reader removed after the quote cannot strand a new large native
+        # download. Revalidate it before even the manifest recheck can fetch.
+        self._reader(directory)
         transport = self._transport(ctx)
         def fetch_metadata(url, *, limit):
             return transport.fetch_bytes(url, limit=limit, kind='metadata')[0]
