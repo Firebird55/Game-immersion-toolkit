@@ -236,6 +236,70 @@ the complete raw signature and rejects partial, nonzero, repeated or unsigned
 tails. It does not accept unknown attributes or a stripped v3 declaration. This
 is a source-integrity subset, not complete Android installation acceptance.
 
+## Original updater framework and PAK boundary
+
+A further bounded, generation-pinned metadata probe identified the APK's
+STORED embedded OBB and its 70 ZIP entries using 74,676 bytes. This is not a new
+whole-OBB CRC or APK-v2 check. The exact original Lua framework PAK (525,276
+bytes) and companion signature (564 bytes) were subsequently obtained in
+526,114 bytes including local-header metadata. Both complete inner ZIP-member
+lengths/CRCs passed; source URL, strong ETag and length matched the previously
+verified APK generation before/after the request.
+
+The framework uses a v12 encrypted PAK index with the default zero key GUID.
+Following the actual native footer/index consumer, zero-GUID getter, delegate
+storage/setter and startup registration identifies its original key callback.
+Reading that callback's two authored vector loads as data resolves this index's
+key without scanning for candidate keys. The consumer explicitly enables an
+additional XOR on the first/last byte of each AES block. Reimplementing that
+exact transformation passes the original main/directory index SHA-1 checks.
+This is a separate source chain from the metadata-wrapper derivation.
+
+The startup-bound signing callback supplies a public RSA-4096 key. Its byte
+ordering follows Epic's [IEngineCrypto contract](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/Core/IEngineCrypto).
+The complete v1 companion signature has valid PKCS#1 type-1 padding, and the
+recovered payload's final SHA-1 matches the nine CRC32 words, exactly as the
+original native consumer checks. All nine 64 KiB PAK chunks match that signed
+checksum list. This verifies the signature on the list; CRC32 is not a
+collision-resistant whole-PAK hash. No new independent whole-OBB or APK hash is
+claimed for these later partial ranges.
+
+The original entry schema has two 20-byte hash fields. Its 175 framework script
+entries total 1,154,031 decoded bytes; every uncompressed SHA-1 matches. The
+existing pinned source-built Oodle decoder processes the compressed data; no
+original game library or Lua VM runs. Script headers recover original source
+names from the otherwise hashed filenames. Only the identified updater sources
+are retained for deeper static metadata analysis. Their framing follows Lua
+5.4-style sizes/varints despite the original `0x53` tag; assuming a standard
+Lua 5.3 bytecode reader would be incorrect.
+
+The actual `PaperHotUpdateMgr` constants establish resource-inventory URI
+templates under the current SDK-provided resource root, including
+`HashFiles/{Platform}/{Version}/PaperHashFiles_{Version}.json`, `.bin`,
+`PaperHashFiles_{Version}.{FastPatchVersion}.bin` and
+`PaperFilePakHashMap_{Version}.bin`. The original chunk-install route also
+names `HttpChunkInstall/{Platform}/{Version}`, `CloudDir` and
+`PaperHttpChunkInstall.manifest`. Their downstream response formats and active
+selection branches still require verification; a literal URI template is not
+a completed downloader or current-content inventory.
+
+Exactly four source-derived Global HEAD/prefix probes (eight requests, 128 body
+bytes total) confirm those current inventory objects exist with strong ETags.
+The observed base JSON is 427,186,330 bytes; the base binary is 75,806,853 bytes,
+the selected hotfix binary is 1,428,020 bytes and the file/PAK map is 17,115,624
+bytes. The binary prefixes have an original `0x20240418` marker, flag/declared
+expanded-length fields and Oodle framing. These are metadata sizes, not selected
+dialogue/audio sizes. Only prefixes have been acquired; no complete resource
+inventory or decoded binary schema is claimed by these probes.
+
+The PAK callback/entry/bytecode work is presently original-source research;
+address-independent production PAK material extraction, owned format readers
+and their regression fixtures remain required. No key values or source assets
+are committed. Fresh production native-owner acquisition also needs an explicit
+text-only-compatible plan: the embedded OBB contains a 78,866,565-byte movie PAK.
+The research APK integrity stream must not silently become a runtime text-only
+download plan that transports those assets.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
