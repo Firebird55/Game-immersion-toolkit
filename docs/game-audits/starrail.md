@@ -6,10 +6,14 @@ Normal Star Rail preparation now selects `starrail_original_provider`: original
 regional bootstrap, all 21 required original tables, original mission/caption
 configurations and the thirteen official text locales. It does not fetch a
 community TextMap or transcript snapshot. Existing frozen metadata software
-supplies current required native descriptions. Controlled community keys,
-schema and authored bindings are permitted dependencies; text, translations and
-recordings must still come from the publisher. A complete controlled schema
-fallback for an unsupported future native codec remains unfinished.
+supplies current required native descriptions. Text, translations and recordings
+must come from the publisher. Keys must first be derived from official inputs;
+a maintained community-key fallback requires evidence that the official route
+is unavailable or impossible. Packed code or unfinished parser work is not that
+evidence. The existing movie-key refresh still uses community parameters and
+does not meet this official-first lifecycle boundary. Automatic recovery from a
+changed required metadata codec, and a controlled schema fallback, also remain
+unfinished. Source/provenance improvements below do not close those gaps.
 
 Reader revision 26 rebuilds older prepared libraries. A saved game folder remains
 a preference and a source for historical local playback; a new publisher
