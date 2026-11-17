@@ -55,7 +55,8 @@ def validate_original_recording_metadata(digest, speaker, status, scope):
             re.fullmatch(r'[A-Za-z0-9_.:-]{1,256}', speaker) is None):
         raise ValueError('Invalid original speaker identity')
     if digest is not None and (not isinstance(digest, str) or
-            re.fullmatch(r'[0-9a-f]{64}', digest) is None or not speaker or status != 'voiced' or scope != 'line'):
+            re.fullmatch(r'[0-9a-f]{64}', digest) is None or not speaker
+            or status not in {'voiced', 'unavailable'} or scope != 'line'):
         raise ValueError('Invalid original recording identity')
 
 
@@ -63,9 +64,12 @@ def original_recording_context(row):
     """Preserve every capture condition when two original exports share bytes."""
     digest, speaker = row.get('original_recording_sha256'), row.get('original_speaker_id')
     validate_original_recording_metadata(digest, speaker, row.get('voice_status'), row.get('audio_scope', 'line'))
-    if digest is None:
+    audio = row.get('audio')
+    # A portable export can retain verified source provenance even when its
+    # decoded clip is missing. That provenance never makes missing playback
+    # one equivalent recording, nor bypasses the unavailable-caption guards.
+    if digest is None or row.get('voice_status') != 'voiced' or not isinstance(audio, dict) or not audio:
         return None
-    audio = row['audio']
     context = {name: value for name, value in row.items() if name not in {'text_id', 'audio'}}
     # These two authored presentations can expose the same original utterance.
     # All other source fields, including full translations, predecessor/member

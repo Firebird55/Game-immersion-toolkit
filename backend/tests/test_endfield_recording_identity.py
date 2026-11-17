@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import pytest
 
 from backend import endfield_recording_identity as identity, endfield_release as release
-from backend.local_game import LocalDialogue
+from backend.local_game import LocalDialogue, original_recording_context
+from backend.models import TextMatch
 from backend.multilingual_index import MultilingualTextIndex
 from backend.tests.test_endfield_mission_dialogue import graph, trunk
 from backend.voice_assets import voice_hash
@@ -158,9 +159,39 @@ def test_portable_exports_keep_full_text_and_encoding_identity(tmp_path):
     assert not index_for(tmp_path / 'encoding', rows).match_lines([rows[0]['source_text']], exact_only=True)
 
 
+def test_missing_portable_clip_keeps_source_provenance_without_recording_equivalence(tmp_path):
+    rows = pair()
+    for row in rows:
+        row.update(audio=None, voice_status='unavailable', original_recording_sha256='a' * 64)
+        preserved = LocalDialogue(**row)
+        assert preserved.original_recording_sha256 == 'a' * 64
+        assert preserved.original_speaker_id == row['original_speaker_id']
+        assert original_recording_context(row) is None
+    rows[1]['texts']['zh-Hans'] = '另一种官方译文。'
+    index = index_for(tmp_path / 'missing', rows)
+    assert index.audio_count == 0
+    assert not index.match_lines([rows[0]['source_text']], exact_only=True)
+    # Opting into missing-audio capture does not turn a source hash into a
+    # shared None/playback identity or erase different official translations.
+    assert not index.match_missing_audio_lines([rows[0]['source_text']])
+    hits = [TextMatch(game='endfield', text_id=row['text_id'], english=row['english'], chinese=row['chinese'],
+                     source_ocr=row['source_text'], score=100, kind='exact', voice_status='unavailable',
+                     dialogue_kind=row['dialogue_kind']) for row in rows]
+    assert not index.equivalent_caption_occurrence(*hits)
+
+
+@pytest.mark.parametrize('audio', [None, {}, [], 'missing'])
+def test_source_hash_without_a_usable_voiced_audio_binding_has_no_export_context(audio):
+    row = {**pair()[0], 'audio': audio, 'original_recording_sha256': 'a' * 64}
+    assert original_recording_context(row) is None
+
+
 @pytest.mark.parametrize('digest,speaker,status,scope', [
     ('A' * 64, 'chr_0001_example', 'voiced', 'line'), ('bad', 'chr_0001_example', 'voiced', 'line'),
     ('a' * 64, None, 'voiced', 'line'), ('a' * 64, 'chr_0001_example', 'unvoiced', 'line'),
+    ('a' * 64, 'chr_0001_example', 'unknown', 'line'),
+    ('bad', 'chr_0001_example', 'unavailable', 'line'),
+    ('a' * 64, 'chr_0001_example', 'unavailable', 'context'),
     ('a' * 64, 'chr_0001_example', 'voiced', 'context'),
 ])
 def test_invalid_original_recording_metadata_is_rejected(digest, speaker, status, scope):
