@@ -27,6 +27,7 @@ def fixture(tmp_path, monkeypatch, mode):
                   for item in native.identity['artifacts']]}}
     native.resource_version = '300-1'
     native.control_data = None
+    native.text_index = native.text_data = None
     native.control_requests = []
     monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
     class Response:
@@ -52,12 +53,17 @@ def fixture(tmp_path, monkeypatch, mode):
         if '/index_' in request.full_url:
             return Response(request.full_url, b'authored original generation index' * 3, 200)
         if request.full_url.endswith('.blc'):
+            if '/VFS/00000018/' in request.full_url:
+                assert native.text_index is not None
+                return Response(request.full_url, native.text_index, 200)
             from backend.tests.test_endfield_akpk_contract import declaration
             return Response(request.full_url, declaration(native.control_data), 200)
         if request.full_url.endswith('.chk'):
-            native.control_requests.append(request.full_url)
+            text_source = '/VFS/00000018/' in request.full_url
+            if not text_source:
+                native.control_requests.append(request.full_url)
             low, high = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
-            raw = native.control_data
+            raw = native.text_data if text_source else native.control_data
             return Response(request.full_url, raw[low:high + 1], 206, f'bytes {low}-{high}/{len(raw)}')
         artifact = next(name for name in tables.data if request.full_url == native.identity['url'] + '/' + name)
         low, high = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
@@ -123,7 +129,9 @@ def test_text_bootstrap_never_enters_audio_source_or_repeats_large_client_downlo
         monkeypatch.setattr(provider, '_original_import', lambda _: pytest.fail('Text must not acquire original audio runtime'))
         with pytest.raises(GameDataError) as error:
             provider.plan(native.request, planning)
-        assert error.value.code == 'source_not_prepared'
+        # This fixture has no original common initializer. Text now proceeds
+        # directly to that required proof, without entering the audio route.
+        assert error.value.code == 'unsupported_original_metadata'
         assert not native.calls
     finally:
         native.service.close()
@@ -136,7 +144,11 @@ def test_full_provider_quotes_selected_control_and_only_explicitly_publishes_its
     from backend.endfield_akpk_contract import Candidate
     from backend.tests.test_endfield_vfs import PARAMETERS, package
     provider, native = fixture(tmp_path, monkeypatch, 'text-audio')
-    common = NS(key=PARAMETERS.key, directories=PARAMETERS.directories, protocol=3)
+    common = NS(key=PARAMETERS.key, directories={**PARAMETERS.directories, 18: '00000018'}, protocol=3)
+    from backend.tests.test_endfield_text_source import catalog
+    from backend.tests.test_endfield_release import text_table
+    native.text_index, native.text_data = catalog([(name, text_table(name, 1, text)) for name, text in (
+        ('TextTable', 'Authored reference'), ('I18nTextTable_EN', 'Owned English'), ('I18nTextTable_JP', '日本語'))])
     native.control_data = package()
     # Only original code/source candidates are authored seams. Real metadata
     # readers, generation/index/MD5/bank gates, persistent witness, shared
@@ -179,9 +191,15 @@ def test_full_provider_quotes_selected_control_and_only_explicitly_publishes_its
             assert witness.restore(downloading, reference, native.identity, result.restore_handle['generation']) == PARAMETERS
             assert 'key' not in reference and 'multiplier' not in reference
             planning.stage_handle = result.restore_handle
-            with pytest.raises(GameDataError) as error:
-                provider.plan(native.request, planning)
-            assert error.value.code == 'source_not_prepared'
+            text_plan = provider.plan(native.request, planning)
+            assert text_plan.stage == 'original-text-tables'
+            text_downloading = native.context('download', text_plan.download_bytes)
+            text_result = provider.download(text_plan, text_downloading)
+            assert isinstance(text_result, PreparationStage) and not isinstance(text_result, SnapshotSource)
+            assert text_result.restore_handle['stage'] == 'original-text-tables-downloaded'
+            assert text_result.restore_handle['source']['witness'] == reference
+            assert 0 < text_downloading.consumed <= text_plan.download_bytes
+            assert len(native.control_requests) == 1  # No extra audio during text acquisition.
         assert old.read_bytes() == b'previous exact source remains active'
     finally:
         native.service.close()

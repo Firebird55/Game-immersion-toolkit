@@ -125,14 +125,15 @@ class EndfieldGameDataProvider:
             if continuation.get('stage') == 'original-audio-native-source-downloaded':
                 return self._plan_control(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-audio-master-verified':
+                return self._plan_text(request, ctx, identity, transport, continuation)
+            if continuation.get('stage') == 'original-text-tables-downloaded':
                 raise Error('source_not_prepared',
-                    'Endfield original audio parameters are verified. Original text-resource and playback preparation still need implementation; existing data is retained.')
+                    'Endfield complete original text tables are downloaded. Canonical dialogue snapshot and selected-audio materialization still need preparation; existing data is retained.')
             if continuation.get('stage') == 'client-bootstrap-downloaded':
+                if request.content_mode == 'text':
+                    return self._plan_text(request, ctx, identity, transport, continuation)
                 from .endfield_bootstrap_source import Bootstrap
                 bootstrap = Bootstrap(ctx, identity, transport, continuation)
-                if request.content_mode == 'text':
-                    raise Error('source_not_prepared',
-                        'Endfield original client metadata is downloaded. Original text-resource preparation still needs implementation; no audio is downloaded and existing data is retained.')
                 try:
                     original_import = self._original_import(bootstrap)
                 except (ValueError, KeyError, TypeError) as error:
@@ -185,6 +186,8 @@ class EndfieldGameDataProvider:
             return self._download_native(plan, ctx)
         if plan.stage == 'original-audio-package-control':
             return self._download_control(plan, ctx)
+        if plan.stage == 'original-text-tables':
+            return self._download_text(plan, ctx)
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
@@ -303,6 +306,61 @@ class EndfieldGameDataProvider:
     def restore(self, handle, ctx):
         Error, _, _, _ = _contracts()
         raise Error('source_not_prepared', 'Endfield client metadata is a preparation stage, not a restorable game library.')
+
+    def _text_bootstrap(self, ctx, identity, transport, continuation):
+        from .endfield_bootstrap_source import Bootstrap
+        if ctx.request.content_mode == 'text':
+            stage = continuation
+        elif ctx.request.content_mode == 'text-audio' and continuation.get('stage') == 'original-audio-master-verified':
+            stage = continuation['native']['bootstrap']
+        else:
+            Error, _, _, _ = _contracts()
+            raise Error('invalid_local_state', 'Endfield text/audio preparation needs its explicit original source stage.')
+        return Bootstrap(ctx, identity, transport, stage)
+
+    def _plan_text(self, request, ctx, identity, transport, continuation):
+        from .endfield_bootstrap_source import SMALL_TOTAL
+        from .endfield_resource_source import discover
+        from .endfield_text_source import plan as text_plan
+        Error, Plan, _, _ = _contracts()
+        bootstrap = self._text_bootstrap(ctx, identity, transport, continuation)
+        try:
+            common = self._common(bootstrap)
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield original text common parameters could not be derived. Existing data is retained.') from error
+        generation = discover(ctx, identity, transport)
+        if request.content_mode == 'text-audio' and continuation.get('generation') != generation:
+            raise Error('publisher_object_changed', 'Endfield changed after original audio verification. Recheck the selected original source.', 409)
+        content, _ = text_plan(ctx, identity, common, generation, transport)
+        handle = {'schema': 1, 'stage': content['stage'], 'client': identity,
+                  'request': request.json(), 'source': continuation, 'text': content}
+        return Plan(revision='endfield-resources-' + hashlib.sha256(_json_bytes(generation)).hexdigest(),
+            download_bytes=content['download_bytes'] + 2 * LAUNCHER_LIMIT + 2 * SMALL_TOTAL,
+            required_disk_bytes=content['required_disk_bytes'], handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage=handle['stage'],
+            message='Selected original translation tables and the complete shared TableCfg catalog, including non-narrative overhead, plus bounded source rechecks. This stage activates no dialogue library.')
+
+    def _download_text(self, plan, ctx):
+        Error, _, Stage, _ = _contracts()
+        continuation = plan.handle.get('source')
+        current = self._plan(ctx.request, ctx, continuation)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original text source or quoted transfer changed. Check its size again.')
+        from .endfield_resource_source import discover
+        from .endfield_text_source import plan as text_plan, download
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        common = self._common(self._text_bootstrap(ctx, identity, transport, continuation))
+        quoted, index = text_plan(ctx, identity, common, current.handle['text']['generation'], transport)
+        if quoted != current.handle['text']:
+            raise Error('publisher_size_changed', 'Endfield original text index or verified cache changed before download.')
+        reference = download(ctx, identity, common, quoted, index, transport,
+            recheck=lambda: (self._latest(ctx.request, transport)[0], discover(ctx, identity, transport)))
+        return Stage({'schema': 1, 'stage': reference['stage'], 'client': identity,
+            'request': ctx.request.json(), 'source': continuation, 'text': reference},
+            'Endfield complete selected original text tables are verified. Canonical dialogue snapshot and selected-audio materialization still follow; no library is active.')
 
 
 def create_provider(*, platform, native=None, transport_factory=None):

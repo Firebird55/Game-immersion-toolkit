@@ -277,8 +277,9 @@ revalidation. It returns another `PreparationStage`, never a snapshot. Its next
 step now quotes a selected original bank control and connects the complete-data
 gate to the private witness below. The provider reports the remaining
 text-resource/playback stage explicitly, rather than repeating a large client
-download or claiming readiness. Text mode stops at its remaining text-resource
-stage and never enters the native audio or bank-control branch.
+download or claiming readiness. Text mode now proceeds directly to its separately
+quoted text-resource stage and never enters the native audio or bank-control
+branch.
 
 `endfield_akpk_witness.activate` now implements provider-local, explicitly
 referenced material. It rebuilds both candidates from the exact checked
@@ -327,6 +328,49 @@ private writer; a fresh-process test rejects imports of desktop tools, runtime
 paths, prepared-library/ZIP setup and native decoder/hash/crypto packages during
 factory/parameter import. This is import-closure evidence, not native Android
 execution or preparation acceptance.
+
+### Context-owned original text-table stage — November 17
+
+`endfield_text_source` now plans the current complete typed block-18 TableCfg
+catalog through the explicit preparation context/transport and original common
+parameters. It keeps all shared tables, including the explicitly disclosed
+non-narrative overhead, and only the requested I18n table bodies. Plan reads no
+table payloads or dedicated audio metadata. Both content modes use this same
+text source; text starts directly from the checked bootstrap, while text/audio
+retains its separately verified, same-generation original audio witness.
+
+Before subtracting cached bytes, the reader checks each whole original file's
+size, authored MD5 and embedded SparkBuffer root/type structure. The cold/warm
+quote includes payload, bounded metadata rechecks and temporary publication
+storage. Only an approved download may acquire table ranges. Every new whole
+table must pass the same checks, and client/resource generation must remain
+unchanged before publishing an explicit immutable source receipt. The offline
+catalog requires that exact receipt and original index; it never searches or
+updates legacy tool profiles. Corruption, interruption, cancellation, budget
+failure, changed selection/index/generation and invalid cached files retain the
+previous complete source. Partial verified files can be reused after a new plan.
+
+The retained actual 1.6.4 / 11775769-12 index has 770 entries. EN with JA
+translation selects 758 tables totaling 56,186,183 original payload bytes.
+Fifty-three already retained selected files pass complete original MD5 and
+SparkBuffer checks: 43,410,364 bytes can be reused, leaving 12,775,819 payload
+bytes. This private replay performs no new network/asset transfer. The other
+705 selected files are quoted, not claimed downloaded or parsed. Its resource
+index JSON bodies were not retained: metadata rechecks use the explicitly
+conservative 8-MiB bound per retained original resource-index identity, rather
+than invented actual lengths or a claimed live rediscovery. Production discovery
+records the actual complete index lengths for its quote.
+
+All 607 scoped Endfield tests pass with the actual shared service/transport from
+an immutable dependency checkpoint. Authored HTTP fixtures exercise direct
+text preparation and bootstrap → native member → package witness → text-table
+continuation, actual context budgets, cold/warm quotes and failed-update
+retention. Original native candidate/signature positives remain the separate
+cached-source controls above. This stage still returns `PreparationStage`, not
+`SnapshotSource`: complete current canonical dialogue construction, presentation
+dependencies, selected-dub materialization and host/device acceptance remain
+open. No full current catalog download, Android execution or end-user Ready
+state is claimed by these source checks.
 
 ### Remaining AES/header source boundary — November 17
 
