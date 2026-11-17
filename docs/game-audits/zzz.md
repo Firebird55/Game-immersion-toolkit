@@ -1,5 +1,32 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original Perform route and unresolved current use
+
+Static inspection of authenticated original source now connects the NPC bubble
+performer's stored IDs and mapping to its concrete selector, a typed GalScript
+loader, and the generated `PerformTemplateTb` lookup. The table loader uses the
+original numeric TextAsset name matching the existing table-name hash. Its
+player-dependent string getters delegate to original FlatBuffers vtable bytes
+8 and 10, which are columns 2 and 3 respectively. The selected path is passed
+to the original typed asset loader; a null asset or absent `storySections`
+rejects this route. No original game code was executed.
+
+An independent read using those two original vtable positions matches the
+toolkit's extracted paths for **all 30,964 current Global Perform rows**,
+including **all 313 owners of the 333 unresolved paths**. Their column mapping
+is therefore confirmed. Through the existing catalogue-path normalization,
+286 owners have a missing column-2 path, 312 have a missing column-3 path and
+285 have both; there are 333 distinct missing paths. These are catalogue
+availability counts, not successful or failed native gameplay executions.
+
+All 313 owner rows also exist unchanged in the authentic retained launcher-base
+generation, whose original catalogue contains none of the same 333 paths. This
+establishes retained configuration rather than newly introduced row changes;
+it does not establish that those rows are unused, unreachable or unvoiced.
+The current upstream ID sources and the original asset loader's complete path
+resolution/fallback behavior remain unresolved. This NPC mechanism alone does
+not classify the Chat, ChatPlus, GalGame or other presentation mechanisms.
+
 ## November 17, 2026 · Original blank subtitle segments versus missing text keys
 
 Reader revision 22 inventories selected subtitle-track references against each
