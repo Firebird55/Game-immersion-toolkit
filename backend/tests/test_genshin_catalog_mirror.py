@@ -36,6 +36,27 @@ def test_primary_outage_uses_matching_mirror_title_and_still_checks_independent_
         publisher._catalog(tmp_path, cn, 'cn')
 
 
+@pytest.mark.parametrize('same_id', [False, True])
+def test_primary_repeated_release_title_is_ambiguous_even_across_pages(monkeypatch, same_id):
+    title = 'OSRELWin9.4.0_R1_S2_D3'
+    pages = [[{'title': title, 'id': 'a' * 40}] + [{'title': 'other', 'id': 'c' * 40}] * 49,
+             [{'title': title, 'id': ('a' if same_id else 'b') * 40}]]
+    monkeypatch.setattr(dialogue_catalog, 'download', lambda *a, **k: json.dumps(pages.pop(0)).encode())
+    with pytest.raises(PreparationFailure):
+        dialogue_catalog.matching_release_commit('genshin', title)
+
+
+@pytest.mark.parametrize('relative,url', [
+    ('../outside.json', 'https://raw.githubusercontent.com/DimbreathBot/AnimeGameData/' + 'b' * 40 + '/outside.json'),
+    ('TextMap/TextMapEN.json', 'https://raw.githubusercontent.com/DimbreathBot/AnimeGameData/master/TextMap/TextMapEN.json'),
+    ('TextMap/TextMapEN.json', 'https://unapproved.invalid/' + 'b' * 40 + '/TextMap/TextMapEN.json')])
+def test_release_catalog_refuses_unallowlisted_paths_before_cache_or_network(tmp_path, monkeypatch, relative, url):
+    cat = publisher.ReleaseCatalog('genshin', tmp_path, revision='b' * 40)
+    monkeypatch.setattr(dialogue_catalog, 'download', lambda *a, **k: pytest.fail('Unreviewed source was contacted'))
+    with pytest.raises(ValueError):
+        cat._bytes(relative, url)
+
+
 @pytest.mark.parametrize('directory,extension', [('BinOutput/Talk', '.json'), ('BinOutput/Voice', '.json'),
                          ('BinOutput/Avatar', '.json'), ('Readable/EN', '.txt'), ('Subtitle/CHS', '.srt')])
 def test_current_release_fixed_files_and_directories_fall_back_once_and_reopen_offline(tmp_path, monkeypatch, directory, extension):

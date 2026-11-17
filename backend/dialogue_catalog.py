@@ -28,13 +28,16 @@ def matching_release_commit(game, title):
     from .preparation_errors import PreparationFailure
     _, repository, branch = SOURCES[game]
     api = f'https://gitlab.com/api/v4/projects/{quote(repository, safe="")}/repository'
+    matches = []
     for page in range(1, 6):
         rows = json.loads(download(f'{api}/commits?ref_name={branch}&per_page=50&page={page}', limit=2 * 1024**2))
         for row in rows:
             if row['title'] == title and re.fullmatch('[0-9a-f]{40}', row['id']):
-                return row['id']
+                matches.append(row['id'])
         if len(rows) < 50:
             break
+    if len(matches) == 1:
+        return matches[0]
     raise PreparationFailure('publisher_unavailable',
         'The matching translation snapshot is unavailable. Retry after the catalog updates.')
 

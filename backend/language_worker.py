@@ -47,6 +47,10 @@ def write_payload(game, payload, locale, targets, output):
     adapter, _ = asset_adapter(game)
     if payload.get('format') != 2 or payload.get('game') != game or payload.get('source_locale') != locale or not payload.get('records'):
         raise ValueError('Incomplete official language snapshot')
+    if game == 'genshin' and 'source_receipt' in payload:
+        from .genshin_source_receipt import validate
+        validate(payload['source_receipt'], publisher=payload.get('fingerprint'), region=payload.get('publisher_region'),
+                 metadata_revision=payload.get('metadata_revision'))
     counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
     categories = {}
     for record in payload['records']:

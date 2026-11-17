@@ -1089,6 +1089,52 @@ same event line the four Global 4.8 sources decoded to 5.619 seconds in English,
 
 ## Verification
 
+### Original TextMap source checkpoint — November 17, 2026
+
+The explicit `original_text=True` publisher/preparation API now connects official
+hotfix package acquisition, a complete design catalog, named original data
+objects and the existing original TextMap decoder. It authenticates complete
+publisher package sizes/MD5 values and the launcher-owned executable as data.
+Bounded unwind-range template discovery found two equivalent compiled readers
+and one numeric contract in the current original executable. Every matching
+method hash is retained; this is format discovery, not semantic method ownership.
+No native game code executes.
+
+The container helper compiles only an exact frozen MIT `BlbUtils` implementation
+and an owned adapter. The original upstream `CryptoHelper` is excluded from Git
+and the helper executable. An allowlisted immutable community description supplies
+bounded numerical arrays as private input data. A failed original-container read
+can request one controlled description refresh. Installed bundles resolve a closed
+helper apphost and its included .NET runtime; only source checkouts use a build
+SDK. The helper contract retains full upstream and runtime notices. UnityPy and
+Unity texture/mesh loading are not dependencies of this route.
+
+The actual current replay parsed all 15 official locale inventories: 15,360
+shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was
+disabled and comparisons with retained original outputs happened after parsing.
+A separate ordinary acquisition-API replay read all 1,024 English shards and
+854,601 rows from the cached original generation, including automatic native
+template recovery, with no new game bytes. Synthetic regressions cover changed
+parameters/shard counts, full identity ownership, shortened-name ambiguity,
+truncation, missing shards, wrong editions/titles/hotfixes, immutable helper
+retries, complete receipts, failed-generation retention and offline reopen.
+
+This remains an explicit source route: **the normal provider is unchanged**.
+Whole ordinary dialogue/voice preparation, old-to-new original content/audio
+acceptance and packaged-runtime collection/native acceptance are still required
+before activation. The generation receipt expressly distinguishes original
+TextMap content from the existing community Readable/Subtitle text routes; those
+two routes must obtain original publisher bytes before all text can be called
+publisher-sourced. Existing verified snapshots keep their original provenance.
+An unknown compiled reader shape needs a controlled compatible parameter
+description or supported decoder; a normal compiler/key change is not silently
+treated as a new package format. Two missing original voice identities and
+conditional/direct-Global dialogue qualifications remain explicit.
+
+The pinned generic source and full MIT license are recorded in
+[the input policy](../../packaging/genshin-reader/inputs.json). The public code
+and synthetic fixtures contain no original codec arrays, game bytes or dialogue.
+
 Synthetic regressions cover schema drift, global fallback precedence, conflicts,
 parallel card arrays, reminder hash collisions, player variants, missing versus
 explicitly silent voices, version mismatch, typed modalities, paragraph alignment

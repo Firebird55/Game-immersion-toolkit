@@ -48,6 +48,34 @@ def native_method(spec, *, interleaved=False):
         + native_mix(spec, spec.text_xor, interleaved=interleaved) + b'\x5d\xc3')
 
 
+def compiled_ranges(methods):
+    from backend.genshin_native_x64 import Image
+    image = Image.__new__(Image)
+    image.data = b''.join(methods)
+    image.sections = {'code': (0, len(image.data), 0, len(image.data))}
+    image.function_starts, image.function_ends = [], []
+    at = 0
+    for method in methods:
+        image.function_starts.append(at)
+        at += len(method)
+        image.function_ends.append(at)
+    return image
+
+
+def test_template_discovery_retains_every_equivalent_method_without_selecting_an_owner():
+    spec = parameters()
+    methods = [b'\x90' * 1024, native_method(spec), native_method(spec, interleaved=True)]
+    descriptions = original.discover_native_parameters(compiled_ranges(methods))
+    assert len(descriptions) == 2
+    assert {row.fingerprint() for row in descriptions} == {spec.fingerprint()}
+    assert [row.method_sha256 for row in descriptions] == sorted(hashlib.sha256(method).hexdigest() for method in methods[1:])
+
+
+def test_different_native_parameter_contracts_are_ambiguous_even_when_both_compile_shapes_match():
+    with pytest.raises(ValueError):
+        original.discover_native_parameters(compiled_ranges([native_method(parameters()), native_method(parameters(1))]))
+
+
 def shard(spec, strings=(), aliases=()):
     """Encode toy payloads independently of the production reader."""
     mask = (1 << 64) - 1
