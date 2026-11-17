@@ -205,9 +205,30 @@ chained spans totaling 682 bytes and 183 instructions; its earlier 135-byte
 record was only the primary span, not the complete function. All twelve
 multiply occurrences and three initial-XOR occurrences agree across its
 complete owned paths. Values remain private. This prerequisite checkpoint does
-not yet activate a production AKPK master: semantic discovery, original package
-controls, acquisition receipts, preflight and failure-retention integration must
-form one coherent subsequent route. Other timeline/AES masters remain open.
+not yet activate a production AKPK master. Other timeline/AES masters remain open.
+
+The subsequent `endfield_akpk_contract.derive` candidate recognizer follows the
+current export's original output-pointer contract into the package loader,
+binds the standard/custom package magic to its single flag assignment and the
+flag-guarded transform call, then checks all three complete byte/word paths'
+common multiply/XOR declarations and format operations. No function address or
+master value is a product input. This is a static candidate contract, not an
+instruction interpreter or an activation gate on its own.
+
+`endfield_akpk_controls.validate` requires a complete original VFS file MD5 and
+size from its CRC/schema-checked selected-locale index before decoding anything.
+It then validates the custom package index, every complete bank and its section
+bounds. Parameters are returned only after those controls pass. A zero-network
+replay of that product candidate/control path passes the two actual 1.5.3 and
+1.6.4 default-bank packages: all 1,263 and 1,359 complete bank hashes agree with
+the prior fixed-format reader on the same original MD5-bound files. Each package
+rejects changed multiplier, changed XOR and wrong word-byte order. These selected
+controls contain no embedded media; this is not a new playback or key-rotation
+claim. Eighteen authored regressions additionally cover changing master fields,
+divergent paths, wrong original ownership/hash and changed internal structures.
+Context-owned acquisition receipts, selected-mode preflight, persistent witness
+publication and update/failure-retention integration still need one coherent
+ordinary preparation route; these helpers do not bypass those remaining gates.
 
 ## Android portability audit
 
