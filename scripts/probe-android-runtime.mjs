@@ -7,6 +7,7 @@ import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
 import {createAuthoredRuntimeDiagnostics, authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
+import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './android-authored-account-ui.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -212,6 +213,8 @@ assert.equal(restarted.snapshot.lines.length, 1);
 assert.equal(restarted.snapshot.lines[0].favorite, true);
 assert.equal(restarted.snapshot.lines[0].has_audio, true);
 await browser.close();
+const accountAcceptance = await nativeAccountAcceptance({adb, component, packageName, connectReader, until,
+  output, library: join(directory, 'authored-library.zip'), senderFixture});
 // Exercise a genuine package-manager update without re-importing the library.
 // Core/self-test data live in isolated authored probe folders; the real reader
 // history below must survive unchanged. The signing key is temporary CI debug material;
@@ -240,6 +243,7 @@ assert.deepEqual(upgraded.snapshot.lines, restarted.snapshot.lines);
 assert.equal(upgraded.audio_status, 206);assert.equal(upgraded.audio_bytes, 44);
 assert.equal(upgraded.font, '31px');assert.equal(upgraded.options.pinyin, 'all');
 await browser.close();
+await verifyNativeAccountsAfterUpdate({adb, component, packageName, connectReader, until, output}, accountAcceptance);
 writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema: 'toolkit-android-runtime-proof-v1',
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,

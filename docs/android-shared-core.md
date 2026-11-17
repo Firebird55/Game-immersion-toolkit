@@ -229,6 +229,26 @@ It disables network before first launch and force-stops/restarts the app to
 check the actual shared reader's mode, playback speed, font and pinyin settings,
 history and original clips. A green archive/build audit is not a substitute for
 this runtime job. Until the job passes, target runtime acceptance is unverified.
+The isolated continuity checkpoint `3e7ba322` passed the actual emulator workflow
+in [run 44028898025](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44028898025),
+including native OCR into the shared reader, real audio/background handling,
+offline restart and a same-signer APK update. This does not establish acceptance
+of newer account/game cohorts or physical devices.
+
+The workflow also has an explicit authored-account scenario. It launches the
+existing DEBUG-only startup mode in its separate app-private root and Android
+Keystore alias, and uses the immutable two-owner mock transport. Actual shared
+UI controls import a generated library, capture through the native frame/OCR
+path, favorite a line, save owner preferences and export its original recording
+to the mock service. A→B→A checks reject stale import/settings/receiver/audio
+requests and retire real detached playback. A guarded fixture corrupts only the
+isolated authored credential store, then requires explicit verified-owner UI
+recovery while preserving the unreadable store, library, transcript and voice.
+Restart and APK-update checks reopen the recovered protected store. Normal
+startup retains accounts disabled and the existing offline/native checks remain
+mandatory. An authored File payload exercises the import handler; physical SAF
+picker and real-account writes are not established by this scenario. Its native
+acceptance requires a successful matching workflow run and runtime proof.
 The native shared fixture executes prepared import, production matching,
 confirmation and original clip lookup for all six live-service games, including
 an actual Wuthering PlayerName template. The APK audit additionally checks its
