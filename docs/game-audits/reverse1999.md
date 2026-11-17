@@ -542,6 +542,24 @@ It remains evidence for the reported base 3.6.5, not proof of the website's
 current 3.9/hotfix content. Any native-header read needs a separately bounded
 plan; no opaque Global code scan, key fallback or Ready state follows.
 
+A subsequent separately approved **single** native-folder prefix request is
+capped at 262,144 compressed bytes and stops after exactly 423,856 decoded
+bytes. It actually receives 180,224 bytes, checks the complete preceding baselib
+CRC 2294769330, and retains only the bounded input plus a 4,096-byte GameAssembly
+prefix. Only PE directory/section metadata is inspected. Its headers occupy
+1,024 bytes; the following 3,072 section bytes are not analysed or executed.
+The AMD64 module again has zero CLI/security directories and the opaque
+`.Sgxm0` / `.Sgxm1` / `.tvm0` / `.rsrc2` section pattern alongside its empty
+metadata file. This bounded probe establishes no readable alternative consumer.
+
+**The regional native line stops at that boundary.** No literals, keys,
+disassembly, resources, entrypoint or further module bytes are inspected. The
+complete archive MD5 and GameAssembly CRC remain unverified; the generic Unity
+baselib CRC is not game-key proof. The conservative regional ledger finishes
+this branch at 42 requests / 952,032 bytes, below 1 MiB. The result does not
+prove that every official key derivation route is impossible and does not
+authorize a community-key fallback or prepared game.
+
 ### Publisher-linked game APK descriptor and transfer stopping point
 
 The existing mainland publisher response also explicitly links to
