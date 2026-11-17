@@ -31,10 +31,16 @@ source framing, padding, hashes and callback output sizes.
 `wuwa_game_data.create_provider(platform, native)` now implements the canonical
 GameDataService planning/download interface for desktop and Android. It uses
 the shared budget, account/cancellation fences and actual ETag/range transport,
-the existing ZIP/AXML reader, canonical streaming APK-v2 verifier and bounded
+the single shared APK ZIP reader, Wuwa AXML ownership reader, canonical
+streaming APK-v2 verifier and bounded
 Deflate/CRC/ELF reader. It does not call a desktop preparation subprocess or an
 invented native preparation callback. Missing cryptographic support is an
-explicit runtime error.
+explicit runtime error. The canonical Windows/Linux/macOS host names pass
+through unchanged; the older direct `desktop` alias maps only to the process
+host. Android obtains the maintained host's explicit `publisherCrypto()`
+capability and validates it through the shared crypto interface. An absent,
+invalid or failed Android capability stops before publisher metadata or asset
+requests. It cannot silently select desktop cryptography.
 
 The first plan reads bounded original metadata and quotes the complete APK
 carrier transfer plus the selected compressed module, decoded module and
@@ -126,9 +132,26 @@ synthetic registered native output while transport, cryptography packages,
 protected storage and other backend imports are denied. The ordinary native
 orchestrator retains all source-owner, protected-cache, revision, package-index
 and revocation checks. Moving these pure functions does not authorize a
-candidate or bypass those checks. The staged provider's ZIP/cryptographic import
-boundary and the unresolved release-manifest ENTRY key/IV gate remain separate
-work.
+candidate or bypass those checks.
+
+The staged provider now consumes these pure functions directly and delegates ZIP
+metadata to `publisher_apk_zip`, also used by ordinary acquisition. Its explicit
+crypto capability is passed to metadata and whole-stream verification; no runtime
+object enters a persisted handle. An isolated eleven-module package completes a
+synthetic signed APK stage through the real transport and readers with desktop,
+registry, `Crypto`, `certifi` and Java imports denied. That test supplies an
+explicit public-RSA fixture capability; it is not Android/JNI execution. Retained
+format-gate checks remain local even when that capability is unavailable.
+
+A zero-transfer replay of retained original Wuwa signing metadata through the
+reviewed canonical verifier matches the previously recorded certificate identity
+and payload digest metadata. The canonical ZIP walker separately replays
+257,581 retained original metadata bytes and produces the exact earlier selected
+entry, local-header witnesses and signing layout. Neither replay repeats
+whole-carrier integrity, establishes an independent certificate pin or proves
+Android package-install acceptance.
+Actual native runtime packaging/device validation and the unresolved
+release-manifest ENTRY key/IV gate remain separate work.
 
 ## Finite evidence
 
@@ -143,6 +166,6 @@ in that narrow arithmetic check describe its already-retained inputs; they
 are not valid reservations for a cold complete game download.
 
 This is original-index/preflight evidence, not Android Oodle/audio playback or
-a complete cold on-device update. Device-native runtime integration, protected
+a complete cold on-device update. Device-native runtime packaging and validation, protected
 storage, full selected-language download/update/cancellation/delete and actual
 device playback remain required before claiming independent Android support.

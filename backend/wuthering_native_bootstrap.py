@@ -17,14 +17,14 @@ import threading
 import time
 import urllib.error
 import urllib.request
-import zlib
 
 import certifi
 
 from .export_lock import ExportLock
 from .atomic_files import replace
 from .preparation_errors import PreparationFailure
-from .publisher_apk import ApkLayout, verify_stream
+from .publisher_apk import verify_stream
+from .publisher_apk_zip import ApkMetadata
 from .wuthering_bootstrap_source import (
     POLICY, CATALOGUE, MAX_METADATA, MAX_MODULE, default_output,
     _check, _hash, _file_hash, _canonical, _url, reference, identity,
@@ -142,80 +142,20 @@ def _read(url, maximum):
     return raw
 
 
-class _Zip:
+class _Zip(ApkMetadata):
+    """Bind the single maintained metadata reader to ordinary publisher IO."""
     def __init__(self, url, total, etag):
-        self.url, self.total, self.etag = url, total, etag
-        self.metadata_bytes = 0
-        self.witnesses = []
-        tail = self.range(max(0, total - 65557), min(65557, total))
-        at = tail.rfind(b'PK\x05\x06')
-        _check(at >= 0 and at + 22 <= len(tail))
-        self.eocd = tail[at:]
-        disk, cd_disk, on_disk, entries, size, offset, comment = struct.unpack_from('<4H2IH', self.eocd, 4)
-        _check(disk == cd_disk == 0 and 0 < entries == on_disk < 65535 and comment == len(self.eocd) - 22 and
-               0 < size <= 1024**2 and offset + size + len(self.eocd) == total)
-        tail_start = total - len(tail)
-        missing = max(0, min(offset + size, tail_start) - offset)
-        self.cd = self.range(offset, missing) if missing else b''
-        self.cd += tail[max(offset, tail_start) - tail_start:offset + size - tail_start]
-        _check(len(self.cd) == size)
-        self.entries = {}
-        pos = 0
-        for _ in range(entries):
-            _check(self.cd[pos:pos + 4] == b'PK\x01\x02' and pos + 46 <= len(self.cd))
-            flags, method = struct.unpack_from('<HH', self.cd, pos + 8)
-            crc, packed, plain = struct.unpack_from('<III', self.cd, pos + 16)
-            nl, xl, cl = struct.unpack_from('<HHH', self.cd, pos + 28)
-            local, = struct.unpack_from('<I', self.cd, pos + 42)
-            _check(pos + 46 + nl + xl + cl <= len(self.cd))
-            name = self.cd[pos + 46:pos + 46 + nl].decode('utf8' if flags & 2048 else 'cp437')
-            _check(name not in self.entries and not name.startswith('/') and '..' not in name.split('/') and local + 30 + packed < offset)
-            self.entries[name] = dict(flags=flags, method=method, crc=crc, packed=packed, plain=plain, local=local)
-            pos += 46 + nl + xl + cl
-        _check(pos == len(self.cd))
-        footer = self.range(offset - 24, 24)
-        block_size, = struct.unpack_from('<Q', footer)
-        _check(footer[8:] == b'APK Sig Block 42' and 24 <= block_size <= 1024**2)
-        signing = offset - block_size - 8
-        block = self.range(signing, block_size - 16) + footer
-        self.layout = ApkLayout(total, signing, block, self.cd, self.eocd, allow_signed_zero_tail=True)
-        self.layout.validate()
+        self.url, self.etag = url, etag
+        super().__init__(self._read_range, total, allow_signed_zero_tail=True,
+                         maximum_metadata=MAX_METADATA)
 
-    def range(self, start, count):
-        _check(0 < count <= MAX_METADATA and 0 <= start <= self.total - count and self.metadata_bytes + count <= MAX_METADATA)
+    def _read_range(self, start, count):
         with _open(self.url, headers={'Range': f'bytes={start}-{start + count - 1}', 'If-Range': self.etag}) as response:
             _check(response.status == 206 and response.geturl() == self.url and response.headers.get('ETag') == self.etag and
                    response.headers.get('Content-Range') == f'bytes {start}-{start + count - 1}/{self.total}')
             raw = response.read(count + 1)
         _check(len(raw) == count)
-        self.metadata_bytes += count
         return raw
-
-    def member(self, name, *, read=False, maximum=MAX_MODULE):
-        e = self.entries[name]
-        _check(e['flags'] & ~2048 == 0 and e['method'] in (0, 8) and 0 < e['plain'] <= maximum)
-        header = self.range(e['local'], 30)
-        _check(header[:4] == b'PK\x03\x04')
-        flags, method = struct.unpack_from('<HH', header, 6)
-        crc, packed, plain, nl, xl = struct.unpack_from('<IIIHH', header, 14)
-        _check((flags, method, crc, packed, plain) == (e['flags'], e['method'], e['crc'], e['packed'], e['plain']) and nl <= 4096)
-        extra = self.range(e['local'] + 30, nl + xl + (packed if read else 0))
-        _check(extra[:nl] == name.encode('utf8'))
-        offset = e['local'] + 30 + nl + xl
-        self.witnesses.append((e['local'], header + extra))
-        if not read:
-            return offset, packed
-        raw = extra[nl + xl:]
-        value = _inflate_bytes(raw, plain) if method == 8 else raw
-        _check(len(value) == plain and zlib.crc32(value) & 0xffffffff == crc)
-        return value
-
-
-def _inflate_bytes(raw, maximum):
-    decoder = zlib.decompressobj(-15)
-    value = decoder.decompress(raw, maximum + 1)
-    _check(len(value) <= maximum and decoder.eof and not decoder.unused_data and not decoder.unconsumed_tail)
-    return value
 
 
 def _acquire(tools, progress=lambda _message: None, *, existing=()):
@@ -239,7 +179,7 @@ def _acquire(tools, progress=lambda _message: None, *, existing=()):
     archive = _Zip(url, total, etag)
     manifest = archive.member('AndroidManifest.xml', read=True, maximum=2 * 1024**2)
     name = _library(manifest)
-    offset, packed = archive.member(name)
+    offset, packed = archive.member(name, maximum=MAX_MODULE)
     entry = archive.entries[name]
     _check(entry['method'] == 8)
     progress(f'Verifying the official bootstrap download ({total:,} bytes).')
