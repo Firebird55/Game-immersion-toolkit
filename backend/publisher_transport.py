@@ -25,6 +25,7 @@ MAX_URL = 16 * 1024
 CHUNK = 64 * 1024
 CONTENT_RANGE = re.compile(r'bytes ([0-9]{1,16})-([0-9]{1,16})/([0-9]{1,16})')
 HASHES = {'md5', 'sha1', 'sha256', 'sha512'}
+STRONG_ETAG = re.compile(r'"[\x21\x23-\x7e]{0,1022}"')
 
 
 def source_url(value, hosts):
@@ -62,11 +63,15 @@ class TransferReceipt:
     sha256: str
     publisher_digests: dict
     original_range: tuple[int, int, int] | None
+    response_etag: str | None = None
 
     def json(self):
-        return {'source_url_sha256': self.source_url_sha256, 'bytes': self.bytes, 'sha256': self.sha256,
+        result = {'source_url_sha256': self.source_url_sha256, 'bytes': self.bytes, 'sha256': self.sha256,
                 'publisher_digests': dict(self.publisher_digests),
                 'original_range': list(self.original_range) if self.original_range is not None else None}
+        if self.response_etag is not None:
+            result['response_etag'] = self.response_etag
+        return result
 
 
 def _integer(value, *, minimum=0):
@@ -114,11 +119,16 @@ class PublisherTransport:
         if body is not None and (not isinstance(body, bytes) or len(body) > 64 * 1024):
             raise ValueError('Publisher request data exceeds its bound')
         request_headers = {'User-Agent': 'GameImmersionToolkit', 'Accept-Encoding': 'identity'}
+        expected_etag = None
         for key, value in (headers or {}).items():
             if (not isinstance(key, str) or not isinstance(value, str) or not key or len(key) > 128
                     or len(value) > 8192 or any(ord(c) < 32 or ord(c) == 127 for c in key + value)
                     or key.lower() in {'host', 'content-length', 'range', 'accept-encoding'}):
                 raise ValueError('Invalid explicit publisher request header')
+            if key.lower() == 'if-match':
+                if expected_etag is not None or STRONG_ETAG.fullmatch(value) is None:
+                    raise ValueError('If-Match requires one actual strong publisher ETag')
+                expected_etag = value
             request_headers[key] = value
         if original_range is not None:
             if (not isinstance(original_range, tuple) or len(original_range) != 3
@@ -140,6 +150,7 @@ class PublisherTransport:
         request = Request(url, data=body, headers=request_headers, method=method)
         hashes = {name: hashlib.new(name) for name in set(expected) | {'sha256'}}
         count = 0
+        response_etag = None
         resolved_range = original_range
         try:
             with self.open(request, timeout=self.timeout) as response:
@@ -149,6 +160,13 @@ class PublisherTransport:
                     raise GameDataError('publisher_response_invalid', 'The game server returned an incomplete download response.')
                 if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
                     raise GameDataError('publisher_response_invalid', 'The game download encoding changed unexpectedly.')
+                tags = response.headers.get_all('ETag', [])
+                if len(tags) > 1:
+                    raise GameDataError('publisher_response_invalid', 'The game server returned ambiguous file identity.')
+                if tags and STRONG_ETAG.fullmatch(tags[0]) is not None:
+                    response_etag = tags[0]
+                if expected_etag is not None and response_etag != expected_etag:
+                    raise GameDataError('publisher_object_changed', 'The original game file changed. Check the download again.', 409)
                 lengths = response.headers.get_all('Content-Length', [])
                 if len(lengths) > 1 or lengths and re.fullmatch(r'[0-9]{1,16}', lengths[0]) is None:
                     raise GameDataError('publisher_response_invalid', 'The game download size is inconsistent.')
@@ -212,7 +230,7 @@ class PublisherTransport:
         actual = {name: digest.hexdigest() for name, digest in hashes.items()}
         if any(actual[name] != value for name, value in expected.items()):
             raise GameDataError('publisher_checksum_mismatch', 'The original game download failed its checksum.')
-        return TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, resolved_range)
+        return TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, resolved_range, response_etag)
 
     def fetch_bytes(self, url, *, limit, kind='metadata', expected_size=None, digests=None, original_range=None,
                     headers=None, method='GET', body=None):
