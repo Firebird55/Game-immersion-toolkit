@@ -94,7 +94,8 @@ def test_resolved_caption_names_keep_resource_ids_and_scope_new_player_branches(
         prepare()
 
 
-def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(tmp_path):
+@pytest.mark.parametrize('performance_id', [12301, 12399])
+def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(tmp_path, performance_id):
     prefix = 'Config/CutSceneCaption/'
     primary, alternate = prefix + 'Song_1_Caption.json', prefix + 'Song_2_Caption.json'
     path = 'Config/Level/Mission/123/Act/Act12301.json'
@@ -103,7 +104,7 @@ def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(t
             'Predicate': {'$type': 'RPG.GameCore.ByCurrentAudioLanguage', 'AudioLanguage': 'CN'},
             'SuccessTaskList': [task], 'FailedTaskList': [task | {'OverrideCaptionPath': alternate}]}
     source = {'ExcelOutput/VideoConfig.json': [{'VideoID': 34, 'VideoPath': 'Song.usm', 'CaptionPath': primary}],
-              'ExcelOutput/PerformanceVideo.json': [{'PerformanceID': 12301, 'PerformancePath': path}],
+              'ExcelOutput/PerformanceVideo.json': [{'PerformanceID': performance_id, 'PerformancePath': path}],
               'ExcelOutput/CutSceneConfig.json': [], 'ExcelOutput/VoiceConfig.json': [],
               path: {'OnStartSequece': [{'TaskList': [rule]}]}}
     file = SimpleNamespace(name='Song.usm', digest='a'*32, size=99, task_ids=(123,))
@@ -123,6 +124,16 @@ def test_mission_selects_caption_track_by_spoken_language_after_normal_updates(t
     assert set(routes) == {'Song_1'} and not suppressed
     file.task_ids = (567,)
     assert films._movie_sources(catalog, scripts, 'ja') == (routes, set())
+
+
+def test_omitted_original_task_arrays_do_not_require_an_invented_action():
+    path = 'Config/Level/Mission/123/Act/Act456.json'
+    catalog = SimpleNamespace(file={
+        'ExcelOutput/PerformanceVideo.json': [{'PerformanceID': 789, 'PerformancePath': path}],
+        path: {'OnStartSequece': [{}, {'TaskList': [{'$type': 'RPG.GameCore.PredicateTaskList',
+            'Predicate': {'$type': 'RPG.GameCore.ByCurrentAudioLanguage', 'AudioLanguage': 'CN'}}]}]}
+    }.__getitem__)
+    assert films._mission_captions(catalog, {123}, 34, 'Caption.json', 'en') == (set(), set())
 
 
 def test_tutorial_uses_authored_movie_owner_and_missing_text_cannot_invent_audio(tmp_path):

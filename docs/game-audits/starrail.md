@@ -311,8 +311,9 @@ slots and two empty predicate slots. These are dispatch slots, not dialogue
 availability or unvoiced classifications. Generic-method specs still require a
 separate proved binding contract if a requested factory uses one.
 
-Original mission action decoding remains a provider integration task, with a
-bounded positive for its real conditional-caption dependency. Authored
+The standalone `starrail_original_configs` reader now decodes original mission
+actions and cinematic/tutorial captions, using `starrail_native_configs` for
+their field order, enum labels, factory joins and constructor defaults. Authored
 `PerformanceVideo` paths resolve through the original `JsonToBinaryPath` rule
 to `BakedConfig/Config/Level/Mission/.../Act/...bytes`. The whole containing
 package `73b3d10f574211fe5df50448d5b2ecb7` (134,240,610 bytes) is now MD5
@@ -320,14 +321,32 @@ verified, using existing publisher range bodies without a new transfer. The
 selected text/table/config source set totals 1,138,529,119 bytes; this is separate
 from the CN native-input proof.
 
-The 114-byte original `Act104371098` body decodes to exact EOF using its original
-native field order and explicit factory bindings. A frozen JSON extraction is a
-post-decode verification oracle only. The existing film consumer selects the
-default caption for Mandarin and the authored `_2` caption for English,
-Japanese and Korean in this single-action probe. That positive does not yet
-implement the generic production mission reader or establish ordinary setup
-worker acceptance. Caption-only proofs cannot substitute for mission predicate
-and dub-branch ownership.
+The current original movie index identifies 266 caption videos with mission
+task owners. Their 153 mission IDs select 203 distinct authored action paths;
+all 203 decode to exact EOF with 19 lazily derived schemas. The bodies total
+8,393 bytes within the whole authenticated package above. Replaying the existing
+film consumer against those original tables and configurations succeeds for
+all 1,330 video/study-choice evaluations. Its conditional video selects the
+default `_1` caption for both Chinese study choices and the authored `_2` caption
+for English, Japanese and Korean. Two original performance rows explicitly
+alias another Act filename; the consumer now follows their authored paths
+instead of requiring the performance ID to equal the filename's numeric suffix.
+The same reader derives the original `VideoCaptionConfig` and `VideoCaption`
+schemas and consumes all 328 paths declared by the three cinematic/tutorial
+tables plus active mission overrides: 1,955 cues, no missing resource and no
+failed decode. All those bodies are in the same verified package. This counts
+declared caption data, not 328 independently verified active presentations.
+
+Literal defaults are joined to the same allocated object passed to the typed
+reader and returned by its factory. Ordered byte stores preserve packed bools
+and floating-point defaults; partial register writes cannot invent unknown upper
+bits. The path recipe proves the original string-builder prefix/stem/suffix
+arguments rather than classifying a matching literal as a path rule. No client
+constructor, Lua or native code is executed. Unknown factories, masks, schemas,
+unproved writes and malformed bounds fail preparation instead of producing an
+empty configuration. A frozen JSON extraction served only as a post-decode
+oracle for the earlier single-action probe. These standalone APIs are not yet
+selected by the ordinary provider and do not establish setup worker acceptance.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
