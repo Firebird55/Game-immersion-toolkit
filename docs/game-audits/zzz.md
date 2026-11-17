@@ -31,13 +31,23 @@ conflicting events**, **42 still lack a supported unique event**, and the same
 **four older CS records** remain outside the explicit tracks. These are source
 states, not 193 newly verified recordings or an active-story denominator.
 
-The two unique C055 lines now join their exact original Japanese registry,
-event banks and complete media identities. That metadata check acquired only
-two approved publisher-authenticated carrier chunks, 2,570,602 compressed bytes,
-including co-resident data, with ordinary live generation checks before and
-after. Complete media acquisition, owned decoding and normal-worker acceptance
-remain separate from this format checkpoint; the existing prepared library is
-retained throughout.
+The two unique C055 lines join their exact original Japanese registry, event
+banks and complete media identities. The November 18 follow-up acquired six
+approved, publisher-authenticated carrier chunks: two for bank metadata and four
+for the complete selected recordings. Their totals are **7,379,744 compressed
+bytes / 7,567,317 expanded bytes**, counting all co-resident data. Ordinary live
+generation checks before and after each phase used **558,308 official metadata
+response bytes** and retained the same published source generation.
+
+The production payload and local-original resolver admit the two unique caption
+IDs against their authored events, without a scene override. Both complete
+Japanese sources decode through the owned codec closure into **72-second film
+contexts**, with nonzero PCM verified independently from each resulting MP3.
+A separate process retains both saved MP3 hashes with no provider or network
+lookup. The seven shared captions remain ambiguous between the two authored
+variants. This is a targeted nine-record source/decoder control; it does not
+replace the existing prepared library, certify the other 191 event candidates,
+or claim a new full-library normal-worker Ready result.
 
 ## November 17, 2026 · Canonical Japanese audio materialization and offline acceptance
 
