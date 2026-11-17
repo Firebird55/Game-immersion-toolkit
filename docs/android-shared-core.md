@@ -104,6 +104,21 @@ these methods; [Google documents their range and unavailable-zero behavior](http
 This supplies input for a separately validated game presentation classifier;
 the evidence lane alone does not authorize a new text/voice binding.
 
+`AccountProtection` supplies a native-only AndroidKeystore AES-256-GCM blob
+primitive with randomized nonces, app/blob-format-bound associated data, a
+non-exportable OS key and bounded authenticated envelopes. Missing keys or
+tampered blobs fail without plaintext/key-file fallback. The Python platform
+adapter accepts the maintained account store's protection-call shape; it does
+not import desktop credentials or enable account HTTP routes. The debug native
+self-test uses a separate authored alias and saved ciphertext, checks new-instance
+reopening, tamper rejection, randomized output and key non-exportability, and
+reports whether a previously saved blob reopened. A process restart/upgrade must
+be established by the runtime harness, not the new-instance check alone.
+`protected_accounts` remains false until maintained account services, request
+pinning and transcript/library isolation are actually integrated. Provider-backed
+storage follows the [Android Keystore system](https://developer.android.com/privacy-and-security/keystore);
+no claim of hardware backing is made for an emulator or untested device.
+
 Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 
 ```text

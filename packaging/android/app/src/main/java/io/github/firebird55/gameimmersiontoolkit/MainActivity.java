@@ -60,6 +60,7 @@ public final class MainActivity extends Activity {
                             ocr.authoredProbe()).toString()));
                     report.put("native_preview", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_preview", ocr).toString()));
+                    report.put("native_protected_storage", new org.json.JSONObject(AccountProtection.authoredProbe(getApplicationContext())));
                     try (FileOutputStream output = new FileOutputStream(new File(getFilesDir(), "android-core-proof.json"))) {
                         output.write(report.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }

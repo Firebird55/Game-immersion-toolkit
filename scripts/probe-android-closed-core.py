@@ -20,6 +20,7 @@ if sys.version_info[:2] != (3,12) or 'backend' in sys.modules:
 origin=Path(sys.argv[1]).resolve()
 sys.path.insert(0,str(origin))
 import backend.android_host
+import backend.android_protected_storage
 from backend.android_probe import run
 result=json.loads(run(sys.argv[2]))
 result.pop('private_audio_path',None)

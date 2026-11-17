@@ -34,7 +34,9 @@ public final class FrameOcr {
     private final AtomicReference<Frame> pending = new AtomicReference<>();
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final HashMap<String, TextRecognizer> models = new HashMap<>();
-    public FrameOcr(Context context) { }
+    private final AccountProtection protectedAccounts;
+    public FrameOcr(Context context) { protectedAccounts = new AccountProtection(context); }
+    public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     private BitmapFactory.Options dimensions(byte[] bytes) {
         if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) throw new IllegalArgumentException();
         BitmapFactory.Options bounds = new BitmapFactory.Options();bounds.inJustDecodeBounds = true;
