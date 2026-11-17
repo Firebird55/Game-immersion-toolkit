@@ -259,6 +259,14 @@ The authored protected-account UI/recovery scenario passed on actual Android in
 at `cc0bf061`. Normal account activation is a later cohort and needs its own
 matching runtime proof; real account writes and physical devices remain separate.
 
+The normal-startup cohort additionally uses the real browser-history exporter
+whitelist to create a bounded, mixed-language authored backup. Actual shared UI
+controls preview without changing existing rows, import, page to older history,
+show the oldest favorite and repeat the import without duplicates. Native
+process-restart and APK-update checks must retain both that history and the
+original voiced favorite. This exercises the import path; it does not establish
+physical mobile bookmark execution or restore recordings absent from the backup.
+
 Recovery reference evidence distinguishes the actual Windows build host
 (Python 3.12.10 / SQLite 3.49.1) from the local reference interpreter
 (Python 3.12.2 / SQLite 3.43.1) and embedded Android Python 3.12.15. The newer

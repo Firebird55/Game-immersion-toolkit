@@ -8,6 +8,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
 import {createAuthoredRuntimeDiagnostics, authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
 import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './android-authored-account-ui.mjs';
+import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} from './android-browser-migration-ui.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -223,6 +224,12 @@ assert.equal(restarted.snapshot.status.capture.running, false);
 assert.equal(restarted.snapshot.lines.length, 1);
 assert.equal(restarted.snapshot.lines[0].favorite, true);
 assert.equal(restarted.snapshot.lines[0].has_audio, true);
+const migratedTotal = await importBrowserHistoryThroughUi(page, until, lineId);
+await browser.close();
+adb('shell', 'am', 'force-stop', packageName);
+adb('shell', 'am', 'start', '-W', '-n', component);
+({browser, page} = await connectReader());
+const retainedNormalSnapshot = await verifyMigratedHistory(page, until, migratedTotal, lineId);
 await browser.close();
 const accountAcceptance = await nativeAccountAcceptance({adb, component, packageName, connectReader, until,
   output, library: join(directory, 'authored-library.zip'), senderFixture});
@@ -250,9 +257,19 @@ const upgraded = await page.evaluate(async id => {
     options: JSON.parse(localStorage.getItem('proxy-transcript-reading-options'))};
 }, lineId);
 assert.equal(upgraded.snapshot.status.capture.running, false);
-assert.deepEqual(upgraded.snapshot.lines, restarted.snapshot.lines);
+assert.deepEqual(upgraded.snapshot.lines, retainedNormalSnapshot.lines);
 assert.equal(upgraded.audio_status, 206);assert.equal(upgraded.audio_bytes, 44);
 assert.equal(upgraded.font, '31px');assert.equal(upgraded.options.pinyin, 'all');
+await verifyMigratedHistory(page, until, migratedTotal, lineId);
+writeFileSync(join(output, 'android-browser-migration-runtime-proof.json'), JSON.stringify({
+  schema: 'toolkit-android-browser-history-runtime-v1', fixture: 'real-exporter-projection-of-authored-mixed-history',
+  source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, updated_apk_sha256: update.apk_sha256,
+  normal_startup: true, native_android_execution: true, rows: migrationRows, preview_preserves_existing_rows: true,
+  real_ui_import: true, paged_history: true, oldest_favorite_visible: true, repeat_idempotent: true,
+  original_native_favorite_and_voice_retained: true, imported_audio_not_invented: true,
+  offline_process_restart: true, apk_update_retained_data: true,
+  physical_mobile_bookmark_acceptance: 'not-established', release_eligibility: false,
+}, null, 2) + '\n');
 await browser.close();
 await verifyNativeAccountsAfterUpdate({adb, component, packageName, connectReader, until, output}, accountAcceptance);
 writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema: 'toolkit-android-runtime-proof-v1',
@@ -267,5 +284,6 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   offline_apk_update_retained_data: true, update_signing: 'same-run-debug-identity-not-owner-key',
   native_keystore_retained_across_apk_update: true,
   normal_protected_accounts_available: true, normal_unconfigured_library_works_offline: true,
+  ordinary_startup_browser_history_migration: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');
