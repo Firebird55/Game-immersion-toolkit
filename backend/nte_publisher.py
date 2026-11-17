@@ -48,8 +48,11 @@ def snapshot(tools, stamp):
         pak.check({name: row for name, row in original['files'].items() if name.startswith(ROOT)} == result['files'])
         reference = result.get('type_schema', {})
         if reference.get('kind') == native.KIND:
-            pak.check(set(reference) == {'kind', 'generator', 'validator', 'inventory_sha256', 'seed_sha256',
-                                        'reader_sha256', 'baseline_inventory_sha256', 'baseline_native_sha256'})
+            fields = {'kind', 'generator', 'validator', 'inventory_sha256', 'seed_sha256',
+                      'reader_sha256', 'baseline_inventory_sha256', 'baseline_native_sha256'}
+            pak.check(set(reference) == fields | ({'authoring'} if 'authoring' in reference else set()))
+            if 'authoring' in reference:
+                pak.check(reference['authoring'] == 'nte-original-authoring-v1')
             for key in ('inventory_sha256', 'seed_sha256', 'reader_sha256', 'baseline_inventory_sha256', 'baseline_native_sha256'):
                 pak.check(isinstance(reference[key], str) and re.fullmatch('[0-9a-f]{64}', reference[key]))
             for key in ('generator', 'validator'):

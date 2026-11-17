@@ -96,6 +96,44 @@ def test_usage_is_opt_in_and_preserves_legacy_four_output_contract(tmp_path, mon
         assert not (tmp_path/'schema-usage.json').exists()
 
 
+@pytest.mark.parametrize('bad', [None, 'stale-nonce', 'wrong-registry', 'missing-packet'])
+def test_original_authoring_is_opt_in_and_requires_a_complete_current_packet(tmp_path, monkeypatch, bad):
+    from backend import nte_publisher_stream
+    from backend.tests.test_nte_authoring import packet as authoring_packet
+    class Broker:
+        descriptors, failures = [], []
+        def __init__(self, _): pass
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+    monkeypatch.setattr(nte_publisher_stream, 'Broker', Broker)
+    monkeypatch.setattr(assets, '_reader_invocation', lambda *_: (['owned'], None, tmp_path))
+    registry = b'owned original registry'
+    def run(_command, **kwargs):
+        request = json.loads(kwargs['input'])
+        assert request['capture_original_authoring'] is True and request['capture_dialogue_graphs'] is True
+        assert request['dialogue_registry_sha256'] == hashlib.sha256(registry).hexdigest()
+        for name in ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json', 'dialogue-graphs.json'):
+            (tmp_path/name).write_text('{}')
+        usage = packet() | {'schema_sha256': request['type_schema_sha256'], 'nonce': request['schema_usage_nonce']}
+        (tmp_path/'schema-usage.json').write_text(json.dumps(usage))
+        original = authoring_packet() | {'schema_sha256': request['type_schema_sha256'],
+            'nonce': request['schema_usage_nonce'], 'registry_sha256': request['dialogue_registry_sha256']}
+        if bad == 'stale-nonce': original['nonce'] = 'f'*32
+        elif bad == 'wrong-registry': original['registry_sha256'] = 'f'*64
+        if bad != 'missing-packet': (tmp_path/'original-authoring.json').write_text(json.dumps(original))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(assets.subprocess, 'run', run)
+    data = seed('Known'); mapping = Schema({'sha256': hashlib.sha256(data).hexdigest()}, data)
+    def extract():
+        return assets.run_publisher_reader(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned-format',
+            schema_cache=tmp_path/'cache', table_schema=mapping, capture_schema_usage=True,
+            capture_dialogue_graphs=True, capture_original_authoring=True, dialogue_registry=registry)
+    if bad:
+        with pytest.raises(PreparationFailure): extract()
+    else:
+        assert extract()['complete'] is True
+
+
 @pytest.mark.parametrize('bad', [None, 'nonce', 'hash', 'incomplete', 'count', 'case', 'path', 'size', 'budget'])
 def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocation(tmp_path, monkeypatch, bad):
     from backend import nte_publisher_stream
