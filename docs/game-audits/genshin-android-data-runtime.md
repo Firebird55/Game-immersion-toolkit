@@ -43,6 +43,24 @@ All 42,098 current rows were decoded independently before any reference
 comparison. This table supplies authored protagonist pronouns; replacing it
 does not convert the separate Readable or Subtitle bodies.
 
+The staged Readable API now derives and strictly decodes the complete original
+Localization table, its native slot representation and all fifteen locale
+switches. A bounded publisher trial read 1,939 Japanese and 1,939 English text
+objects from two complete verified packages (3,230,787 compressed bytes), with
+exact postparse control matches. It feeds the existing paragraph consumer and
+provides a selected-package refinement including the complete native/metadata
+inputs. It leaves the legacy Readable catalog unchanged: eight source-missing
+Book references, two SpriteText image paths and six unbound legacy files per
+locale remain separate qualifications. The staged receipt does not activate
+this route or mark Readable coverage complete. Subtitle bodies remain open.
+
+This adds no Android execution claim. The new Python readers use the same
+original executable/complete metadata environment and bounded static x64
+decoder as the existing native reader. Full metadata/member memory use, the
+Android BLB codec, packaged decoder and actual local preparation/recovery still
+need device acceptance. The optional receipt validation remains stdlib-only;
+the portable prepared-library path imports no publisher or native reader.
+
 ## Reusable data contracts and platform dependencies
 
 | Part | Reusable contract | Android work still needed |

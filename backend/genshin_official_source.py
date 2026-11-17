@@ -84,6 +84,8 @@ class Source:
         self.parameters, self.parameter_receipt = parameters, parameter_receipt
         self.native_input = native_input
         self.manual_rows, self.manual_receipt = None, None
+        self.localization_rows, self.localization_receipt = None, None
+        self.readable_inventories, self.readable_receipts = {}, {}
         self.stamp = descriptor(build)[0]
         self.package_receipts = {}
         check('hotfix' in build)
@@ -212,6 +214,135 @@ class Source:
         self.manual_receipt = {'owner': owner, 'proof': proof}
         return rows
 
+    def localization(self):
+        """Complete original path inventory, with a revision-owned native schema."""
+        from . import genshin_original_localization as localized
+        if self.localization_rows is not None:
+            return self.localization_rows
+        native_path, native = self.native_input or official_native(self.directory, self.build, self.publisher)
+        metadata_path, metadata = _official_file(self.directory, self.build, self.publisher,
+            metadata_name(self.build['channel']), ('global-metadata.dat',), 'metadata-', MAX_METADATA)
+        index = asset_identity(localized.PATH)
+        location = self.catalog.locate(index)
+        payload = self.objects(location.package).resolve(self.catalog, index, location.bundle)
+        software = {path.name: digest(path) for path in Path(__file__).parent.glob('genshin_native*.py')}
+        for name in ('genshin_original_dialogue.py', 'genshin_original_excel.py', 'genshin_original_localization.py',
+                     'genshin_official_source.py'):
+            software[name] = digest(Path(__file__).with_name(name))
+        owner = {'publisher': self.stamp, 'native_sha256': native['sha256'], 'metadata': metadata,
+                 'manifest_sha256': identity(self.build['manifests']['game']), 'software_sha256': software,
+                 'payload_sha256': hashlib.sha256(payload).hexdigest(), 'asset_index': index,
+                 'bundle': location.bundle, 'catalog_sha256': self.catalog.sha256}
+        cache = self.directory / ('localization-' + identity(owner) + '.private-json'); _no_links(cache)
+        try:
+            check(cache.stat().st_size <= 32 * 1024**2)
+            saved = json.loads(cache.read_bytes()); check(saved['owner'] == owner)
+            rows = localized.validate_rows(saved['rows'])
+            proof = localized.validate_proof(saved['proof'], rows, payload)
+        except (OSError, ValueError, TypeError, KeyError):
+            rows, proof = localized.read_localization(native_path.read_bytes(), metadata_path.read_bytes(), payload)
+            _atomic_file(cache, json.dumps({'owner': owner, 'rows': rows, 'proof': proof},
+                                          ensure_ascii=False, sort_keys=True).encode())
+        self.localization_rows, self.localization_receipt = rows, {'owner': owner, 'proof': proof}
+        return rows
+
+    def readable_inventory(self, code):
+        """Resolve authored paths before any requested document package is fetched."""
+        from .genshin_original_localization import CODES
+        check(code in CODES)
+        if code in self.readable_inventories:
+            return self.readable_inventories[code]
+        files, seen, unavailable, images = [], set(), [], []
+        prefix = 'ART/UI/Readable/' + code + '/'
+        for row in self.localization():
+            path = row['paths'][code] or row['default']
+            if path.startswith('ART/UI/Atlas/SpriteText/'):
+                images.append({'id': row['id'], 'path': path})
+                continue
+            if not path.startswith('ART/UI/Readable/'):
+                continue
+            if not path.startswith(prefix):
+                unavailable.append({'id': row['id'], 'path': path, 'reason': 'publisher-language-fallback'})
+                continue
+            basename = path[len(prefix):]
+            check(basename and '/' not in basename)
+            name = basename + '.txt'
+            check(name not in seen)
+            seen.add(name)
+            index = asset_identity(path)
+            try:
+                location = self.catalog.locate(index)
+            except ValueError:
+                unavailable.append({'id': row['id'], 'path': path, 'reason': 'not-in-current-design-catalog'})
+                continue
+            check(location.package in self.packages)
+            files.append({'name': name, 'path': path, 'localization_id': row['id'], 'asset_index': index,
+                          'bundle': location.bundle, 'package': location.package})
+        check(0 < len(files) <= 50_000 and len(unavailable) <= 50_000 and len(images) <= 50_000)
+        inventory = {'locale': code, 'files': sorted(files, key=lambda row: row['name']),
+                     'source_missing': unavailable, 'sprite_text_images': images}
+        self.readable_inventories[code] = inventory
+        return inventory
+
+    def readable_plan(self, *, content_mode, study_locales, target_locales=(), voice_files=None):
+        """Refine the base quote with complete selected original document packages.
+
+        This API requires the authenticated native/table source already prepared
+        within its base budget. It does not replace a cold discovery upper bound
+        or claim the unbound legacy readable files and other source routes.
+        """
+        from .genshin_download_plan import plan, TEXT_CODES
+        from .genshin_original_localization import PATH
+        studies, targets = tuple(study_locales), tuple(target_locales)
+        check(content_mode in {'text', 'text-audio'} and studies
+              and all(locale in TEXT_CODES for locale in studies + targets)
+              and (content_mode != 'text' or not voice_files))
+        inventories = [self.readable_inventory(code) for code in sorted({TEXT_CODES[locale] for locale in studies + targets})]
+        packages = {row['package'] for inventory in inventories for row in inventory['files']}
+        packages.add(self.catalog.locate(asset_identity(PATH)).package)
+        files = sophon.manifest(self.publisher, self.build['channel'], tuple(self.build['manifests']['game']),
+                                ('.exe', 'global-metadata.dat'))
+        native_name = 'GenshinImpact.exe' if self.build['channel'] == 'genshin-global' else 'YuanShen.exe'
+        metadata_path = metadata_name(self.build['channel'])
+        check(native_name in files and metadata_path in files)
+        native, metadata = files[native_name], files[metadata_path]
+        owner = self.localization_receipt['owner']
+        check(metadata.size == owner['metadata']['bytes'] and metadata.digest == owner['metadata']['publisher_md5'])
+        if self.native_input is not None:
+            check(native.size == self.native_input[1]['bytes'] and native.digest == self.native_input[1]['publisher_md5'])
+        designs = {name: {'remoteName': name, 'fileSize': row['bytes'], 'md5': row['md5']}
+                   for name, row in self.packages.items()}
+        result = plan(self.build, native, voice_files or {}, designs, metadata=metadata, content_mode=content_mode,
+                      study_locales=studies, target_locales=targets, catalog=self.catalog,
+                      catalog_publisher=self.stamp, additional_design_packages=sorted(packages))
+        result['staged_readables'] = {'scope': 'localization-owned-readable-text', 'replaces_legacy_readables': False,
+            'table_sha256': self.localization_receipt['proof']['canonical_sha256'],
+            'locales': {row['locale']: {'files': len(row['files']), 'source_missing': len(row['source_missing']),
+                                      'sprite_text_images': len(row['sprite_text_images'])} for row in inventories}}
+        result['sha256'] = identity({key: value for key, value in result.items() if key != 'sha256'})
+        return result
+
+    def directory_text(self, relative, suffix='.txt'):
+        """Explicit original Readable consumer; the legacy catalog stays separate."""
+        match = re.fullmatch(r'Readable/([A-Z]{2,3})', relative)
+        check(match is not None and suffix == '.txt')
+        code = match[1]
+        inventory = self.readable_inventory(code)
+        objects = {name: self.objects(name) for name in {row['package'] for row in inventory['files']}}
+        files, receipts, total = [], [], 0
+        for row in inventory['files']:
+            payload = objects[row['package']].resolve(self.catalog, row['asset_index'], row['bundle'])
+            total += len(payload)
+            check(len(payload) <= 4 * 1024**2 and total <= 128 * 1024**2)
+            text = payload.decode('utf-8-sig', errors='strict')
+            check('\0' not in text)
+            files.append((row['name'], text))
+            receipts.append([row['name'], row['localization_id'], row['asset_index'], row['bundle'],
+                             len(payload), hashlib.sha256(payload).hexdigest()])
+        self.readable_receipts[code] = {'locale': code, 'files': receipts, 'total_utf8_bytes': total,
+            'source_missing': inventory['source_missing'], 'sprite_text_images': inventory['sprite_text_images']}
+        return tuple(files)
+
     def receipt(self):
         receipt = {'schema': 'genshin-original-text-source-v1', 'publisher': self.stamp,
                 'publisher_descriptor': dict(self.build), 'official_design_index_md5': self.index_md5,
@@ -223,6 +354,10 @@ class Source:
                 'packages': dict(self.package_receipts)}
         if self.manual_receipt is not None:
             receipt['original_tables'] = {'ManualTextMapConfigData': self.manual_receipt}
+        if getattr(self, 'localization_receipt', None) is not None:
+            receipt['staged_original_readables'] = {'schema': 'genshin-original-readable-source-v1',
+                'scope': 'localization-owned-readable-text', 'replaces_legacy_readables': False,
+                'table': self.localization_receipt, 'locales': dict(self.readable_receipts)}
         return receipt
 
 

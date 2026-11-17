@@ -49,25 +49,33 @@ def validate_proof(proof, rows, payload):
     return proof
 
 
-def read_manual(executable, metadata, payload):
-    """Derive and strictly decode the complete currently owned original table."""
+def native_environment(executable, metadata):
+    """Current original metadata/member/usage ownership shared by table readers."""
     from .genshin_native_x64 import Image
     from .genshin_native_registration import Bindings
     from .genshin_native_view import View
     from .genshin_native_usage import table_reader, dispatcher, usage_profile, Usages, slot_arrays
-    from .genshin_native_literals import literal_profile, Literals, path_callers
-    from .genshin_native_contracts import Contracts
-    from .genshin_native_words import Context
-    from . import genshin_original_dialogue as binary
+    from .genshin_native_literals import literal_profile, Literals
 
-    check(isinstance(metadata, bytes) and 512 <= len(metadata) <= MAX_METADATA
-          and isinstance(payload, bytes) and 4 <= len(payload) <= 64 * 1024**2)
+    check(isinstance(metadata, bytes) and 512 <= len(metadata) <= MAX_METADATA)
     view = View(Bindings(Image(executable), metadata))
     anchor = table_reader(view, 'MoleMole.Config', 'TalkExcelConfig')
     dispatch = dispatcher(view, anchor)
     usages = Usages(view, usage_profile(view, dispatch))
     arrays = slot_arrays(view, dispatch, usages)
     literals = Literals(view, usages, literal_profile(view, dispatch))
+    return view, anchor, usages, arrays, literals
+
+
+def read_manual(executable, metadata, payload):
+    """Derive and strictly decode the complete currently owned original table."""
+    from .genshin_native_literals import path_callers
+    from .genshin_native_contracts import Contracts
+    from .genshin_native_words import Context
+    from . import genshin_original_dialogue as binary
+
+    check(isinstance(payload, bytes) and 4 <= len(payload) <= 64 * 1024**2)
+    view, anchor, usages, arrays, literals = native_environment(executable, metadata)
     paths = path_callers(view, literals, arrays, roles=(MANUAL_PATH,))
     definitions = {declared['type']['definition'] for row in paths
                    if any(literal['path'] == MANUAL_PATH for literal in row['literals'])

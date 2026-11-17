@@ -53,6 +53,22 @@ def test_authenticated_same_generation_catalog_narrows_text_packages_before_payl
                     catalog=catalog, catalog_publisher='sophon-' + '0' * 64)
 
 
+def test_additional_owned_sources_are_counted_once_even_after_textmap_catalog_narrowing():
+    build, native, metadata, _voice, designs, catalog = fixtures()
+    arguments = dict(metadata=metadata, content_mode='text', study_locales=('en',), catalog=catalog,
+                     catalog_publisher=descriptor(build)[0])
+    base = quotes.plan(build, native, {}, designs, **arguments)
+    extra = 'blocks/00/12.blk'
+    result = quotes.plan(build, native, {}, designs, additional_design_packages=(extra, extra), **arguments)
+    assert result['selected_design_packages'] == base['selected_design_packages'] + 1
+    assert result['transfer_bytes_upper_bound'] == base['transfer_bytes_upper_bound'] + designs[extra]['fileSize']
+    assert result['additional_design_packages'] == [extra]
+    assert result['metadata_materialization_bytes_exact'] == metadata.size
+    assert all('voice' not in row['parts'] for row in result['objects'])
+    with pytest.raises(ValueError):
+        quotes.plan(build, native, {}, designs, additional_design_packages=('blocks/00/404.blk',), **arguments)
+
+
 def test_shared_chinese_pack_is_counted_once_for_both_official_subtitle_editions():
     build, native, metadata, voice, designs, _ = fixtures()
     once = quotes.plan(build, native, {'zh-Hans': voice['ja']}, designs, metadata=metadata, content_mode='text-audio', study_locales=('zh-Hans',))

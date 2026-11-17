@@ -1136,6 +1136,40 @@ reader software, and the generation receipt labels this table separately.
 This removes that pronoun-table content dependency without relabeling earlier
 snapshots, the other dialogue tables, Readable bodies or Subtitle files.
 
+A separate staged original Readable source now uses the actual reading-dialog
+route: Document localization IDs select original `LocalizationExcelConfigData`
+rows and locale-specific asset paths. The complete current table has 2,278 rows
+and passes strict EOF. Typed native helpers, the original `NativeWrapper` buffer
+layout and every successful presence flag own all bytes of each native record.
+The same original enum's ISO-name switch and asset-slot switch establish all
+fifteen locale mappings and the explicit default; metadata declaration order is
+not used as an enum-value guess. Unknown or conflicting layouts retain the
+previous verified state.
+
+The retained Japanese/English trial resolved and read 1,939 original text assets
+per locale from two whole-MD5-verified publisher packages, totaling 3,230,787 new
+compressed bytes. All 3,878 strict UTF-8 outputs exactly matched frozen controls
+opened only after parsing. The existing paragraph/translation/voice-status
+consumer is reused through the explicit original source API. Its refined plan
+counts the selected complete document packages, shared Localization container,
+and complete official native/metadata chunk ledger; text-only mode adds no audio
+bank. This refinement requires the already-budgeted native source stage and is
+not a replacement for a cold discovery upper bound or a whole-game quote.
+
+This route **does not replace the accepted legacy Readable directory**. Eight
+Book references per selected locale lack current design-catalog membership;
+two localized SpriteText image paths remain separate from text assets. Six
+frozen legacy files per locale have no Localization row: one Book and five
+Weapon files. Their absence is not evidence of cut or unvoiced content. They
+remain an explicit unbound inventory, and the legacy library is preserved.
+The staged receipt binds native/schema/software/table/body identities without
+promoting Readable coverage or relabeling old snapshots. Subtitle acquisition,
+other original dialogue bindings, ordinary update acceptance and Android
+preparation remain separate open gates. The source and fixtures are
+[owned native slots](../../backend/genshin_native_slots.py),
+[locale routing](../../backend/genshin_native_locale_slots.py), and
+[original localization](../../backend/genshin_original_localization.py).
+
 Preparation requires the complete official metadata input. The preflight ledger
 includes all its Sophon chunks and materialized bytes, plus the shared original
 ManualTextMap container; text-only planning still reads no dub manifest or bank.

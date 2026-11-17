@@ -28,7 +28,7 @@ def check(value):
 
 
 def plan(build, native, voice_files, design_files, *, metadata, content_mode, study_locales, target_locales=(),
-         catalog=None, catalog_publisher=None):
+         catalog=None, catalog_publisher=None, additional_design_packages=()):
     """Budget immutable official inputs, deduplicating their actual cache keys.
 
     Metadata and catalog authenticity belong to the publisher acquisition layer.
@@ -50,6 +50,8 @@ def plan(build, native, voice_files, design_files, *, metadata, content_mode, st
     check(type(metadata.size) is int and 512 <= metadata.size <= MAX_METADATA)
     check(isinstance(getattr(metadata, 'chunks', None), tuple) and metadata.chunks)
     check(set(codes) <= CODES and INDEX_PACKAGE in design_files)
+    extra = tuple(additional_design_packages)
+    check(len(extra) <= 4096 and all(isinstance(name, str) and name in design_files for name in extra))
     selected = set(design_files)
     text_kind = 'upper-bound'
     if catalog is not None:
@@ -59,6 +61,7 @@ def plan(build, native, voice_files, design_files, *, metadata, content_mode, st
         selected.add(catalog.locate(asset_identity(MANUAL_PATH)).package)
         check(selected <= design_files.keys())
         text_kind = 'exact'
+    selected.update(extra)
     objects = {}
 
     def add(kind, digest, wire, stored, part):
@@ -133,5 +136,7 @@ def plan(build, native, voice_files, design_files, *, metadata, content_mode, st
         'unquoted_components': ['metadata-api-and-manifest-fetches', 'controlled-binding-archives',
             'dispatch-bootstrap-parameter-source', 'Readable/Subtitle-source-routes',
             'publisher-movie-assets-and-film-audio', 'derived-dialogue-index', 'shared-runtime-codecs', 'historical-audio-retention']}
+    if extra:
+        result['additional_design_packages'] = sorted(set(extra))
     result['sha256'] = hashlib.sha256(json.dumps(result, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return result
