@@ -198,9 +198,14 @@ def _stage_table_schema(cache: Path, destination: Path) -> None:
     (destination / 'dialogue.usmap').write_bytes(data)
 
 
-def _reader_invocation(install: Path, executable: Path, destination: Path, mode: str):
+def _reader_invocation(install: Path, executable: Path, destination: Path, mode: str, *, game_data_reader=None):
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the selected source context")
+    if game_data_reader is not None:
+        from .nte_game_data_runtime import NteGameDataReader
+        if not isinstance(game_data_reader, NteGameDataReader) or executable != game_data_reader.executable:
+            raise ValueError('NTE preparation requires its explicit verified owned reader')
+        return game_data_reader.invocation(install, destination, mode)
     from .runtime_bundle import discover_layout
     layout = discover_layout()
     if layout.mode == 'bundle':
@@ -218,10 +223,30 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
     return invocation, environment, working_directory
 
 
+def _publisher_key_bindings(containers, keys):
+    """Bind only current-original-proved ciphers to their authenticated TOC GUID."""
+    if not isinstance(keys, list):
+        return {}
+    from .nte_archive_metadata import check
+    check(0 < len(keys) <= 8 and len(set(keys)) == len(keys))
+    result = {}
+    for container in containers.values():
+        if not container.encrypted:
+            continue
+        check(container.selected_key in keys and len(container.encryption_guid) == 16)
+        # Unreal FGuid serializes four little-endian uint32 components; its
+        # managed digit representation prints those components in that order.
+        guid = ''.join(f'{part:08x}' for part in struct.unpack('<4I', container.encryption_guid))
+        index = keys.index(container.selected_key)
+        check(guid not in result or result[guid] == index)
+        result[guid] = index
+    return {'archive_key_guids': result}
+
+
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
                          *, schema_cache: Path | None = None, inventory=False, table_schema=None,
                          capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None,
-                         capture_original_authoring=False):
+                         capture_original_authoring=False, game_data_reader=None):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
@@ -246,7 +271,8 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
         raise ValueError('NTE dialogue registry requires graph extraction')
     if any((destination / name).exists() for name in outputs):
         raise ValueError('NTE publisher extraction requires a fresh staging directory')
-    invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)
+    invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode,
+        **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
     if not inventory:
         if schema_cache is None:
             raise ValueError('NTE publisher authoring requires verified type metadata')
@@ -260,6 +286,7 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             (destination / 'dialogue.usmap').write_bytes(data)
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors}
+        request.update(_publisher_key_bindings(containers, archive_metadata))
         nonce = secrets.token_hex(16) if capture_schema_usage else None
         if not inventory:
             request['type_schema_sha256'] = TABLE_SCHEMA_SHA256 if table_schema is None else table_schema.reference['sha256']
@@ -336,7 +363,7 @@ def read_schema_usage(destination, schema_sha256, nonce):
 
 
 def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry,
-                            *, capture_original_authoring=False):
+                            *, capture_original_authoring=False, game_data_reader=None):
     """Read complete registry-selected package claims before bounded prefetch."""
     from .nte_publisher_stream import Broker
     destination = Path(destination)
@@ -345,10 +372,12 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
         raise ValueError('NTE dialogue inventory requires a fresh staging directory and original registry')
     sha, nonce = hashlib.sha256(registry).hexdigest(), secrets.token_hex(16)
     (destination/'dialogue-registry.bin').write_bytes(registry)
-    invocation, environment, working = _reader_invocation(context, executable, destination, 'publisher-dialogue-inventory')
+    invocation, environment, working = _reader_invocation(context, executable, destination, 'publisher-dialogue-inventory',
+        **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors,
                    'dialogue_registry_sha256': sha, 'inventory_nonce': nonce}
+        request.update(_publisher_key_bindings(containers, archive_metadata))
         if capture_original_authoring:
             request['capture_original_authoring'] = True
         try:
@@ -389,7 +418,9 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
             'The previous completed index is retained.') from None
 
 
-def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None) -> None:
+def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None, include_audio=True) -> None:
+    if type(include_audio) is not bool or not include_audio and mode != 'index':
+        raise ValueError('Unsupported NTE audio selection')
     invocation, environment, working_directory = _reader_invocation(install, executable, destination, mode)
     install, executable, destination = install.resolve(), executable.resolve(), destination.resolve()
     stamp = fingerprint(install)
@@ -402,6 +433,8 @@ def run_reader(install: Path, executable: Path, destination: Path, mode: str, de
     # via stdin. A host-protected cache allows playback without a network call.
     key = _archive_metadata(install, stamp)
     request = {"archive_metadata": key}
+    if not include_audio:
+        request['include_audio'] = False
     if mode == 'index' and schema_cache is not None:
         _stage_table_schema(schema_cache, destination)
         request['read_dialogue_tables'] = True
@@ -518,7 +551,10 @@ def coverage_warnings(records: list[dict], *, publisher=False) -> list[str]:
 
 
 def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, source_locale=None, target_locales=(),
-                  dialogue_graphs=False) -> list[dict]:
+                  dialogue_graphs=False, content_mode='text-audio') -> list[dict]:
+    if content_mode not in ('text', 'text-audio'):
+        raise ValueError('Unsupported NTE content mode')
+    text_mode = content_mode == 'text'
     localization = json.loads((cache / "localization.json").read_text(encoding="utf-8"))
     source_code = TEXT_LOCALES[source_locale] if source_locale else 'en'
     if not localization.get(source_code):
@@ -527,12 +563,22 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
     chinese = english if source_locale else {(r["ns"], r["key"]): r["value"] for r in localization['zh-CN']}
     voice_language = VOICE_LOCALES[source_locale] if source_locale else 'Chinese'
     media_root = 'HT/Content/WwiseAudio/Media/' + voice_language + '/'
-    media = set(json.loads((cache / "media.json").read_text(encoding="utf-8")))
+    media = set() if text_mode else set(json.loads((cache / "media.json").read_text(encoding="utf-8")))
+    bank_names = {}
+    if text_mode:
+        paths = json.loads((cache/'voice-bank-paths.json').read_bytes())
+        if (not isinstance(paths, list) or len(paths) > 100_000 or any(
+                not isinstance(path, str) or not path.casefold().startswith(
+                    ('HT/Content/WwiseAudio/Event/'+voice_language+'/').casefold())
+                or not re.fullmatch(r'Play_Vo_[A-Za-z0-9_]+\.bnk', Path(path).name, re.I) for path in paths)):
+            raise ValueError('Invalid original NTE voice-bank name inventory')
+        for path in paths:
+            bank_names.setdefault(Path(path).stem.lower(), set()).add(path)
     events = {}
     cinema_events = {}
     event_inventory = cache / 'voice-events.json'
     authored_events = {name.lower() for name in json.loads(event_inventory.read_text(encoding='utf8'))} if event_inventory.is_file() else set()
-    for path in (cache / "banks").glob("Play_Vo_*.bnk"):
+    for path in (() if text_mode else (cache / "banks").glob("Play_Vo_*.bnk")):
         data = path.read_bytes()
         if len(data) >= 20 and data[:4] == b'BKHD' and struct.unpack_from('<I', data, 8)[0] != 154:
             raise PreparationFailure('unsupported_game_format',
@@ -592,27 +638,52 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
             event = conventional
         else:
             event = declarations[0] if len(declarations) == 1 else ''
-        performances = events.get(event) if len(pairs_by_key[lower]) == 1 and (event == conventional or unique_namespace[lower]) else None
+        unique = len(pairs_by_key[lower]) == 1 and (event == conventional or unique_namespace[lower])
+        performances = events.get(event) if unique else None
         kind, text_only = dialogue_presentation(ns, key)
         for performance in performances or [{'player_voice': None, 'audio': None}]:
             audio, gender = performance['audio'], performance['player_voice']
             status = 'voiced' if audio else ('unavailable' if event in authored_events or any(declarations or ())
                                              else 'unvoiced' if text_only else 'unknown')
+            omission = {}
+            if text_mode:
+                paths = bank_names.get(event, ()) if unique else ()
+                path = next(iter(paths)) if len(paths) == 1 else None
+                binding = ({'event': Path(path).stem, 'member': path,
+                            'locale': 'zh-Hans' if source_locale == 'zh-Hant' else source_locale or 'zh-Hans',
+                            'text_id': f'nte:{ns}:{key}', 'authored_alias': declarations is not None,
+                            'playback_resolved': False} if path else None)
+                status = ('voiced' if binding else 'unknown' if event in authored_events or declarations
+                          else 'unvoiced' if text_only else 'unknown')
+                omission = {'audio_omitted_by_request': True, 'source_voice_binding': binding,
+                            'text_capture_verified': bool(binding or unique and declarations is not None
+                                and len(declarations) == 1 and event or status == 'unvoiced')}
             if display_text(en) and (source_locale or (contains_han(zh) and (audio or status == 'unvoiced'))):
                 suffix = ':' + gender if gender else ''
                 records.append({"text_id": f"nte:{ns}:{key}{suffix}", "english": en, "chinese": zh, "audio": audio,
                                 **({'player_voice': gender} if gender else {}),
-                                'voice_status': status, 'dialogue_kind': kind})
+                                'voice_status': status, 'dialogue_kind': kind, **omission})
     sequences_file = cache / 'sequence-cues.json'
     if cinema_bindings or sequences_file.is_file():
         from .nte_cinematics import movie_records, subtitle_cues, timed_sequence_cues
         try:
-            sequences = timed_sequence_cues(json.loads(sequences_file.read_text(encoding='utf8')),
-                                             source_locale or 'zh-Hans') if sequences_file.is_file() else []
+            sequence_payload = json.loads(sequences_file.read_text(encoding='utf8')) if sequences_file.is_file() else None
+            sequences = (timed_sequence_cues(sequence_payload, source_locale or 'zh-Hans')
+                         if sequence_payload is not None and not text_mode else [])
+            if text_mode and sequence_payload is not None:
+                groups = sequence_payload['groups']
+                if (not isinstance(groups, dict) or any(not isinstance(entries, list)
+                        or any(not isinstance(cue, dict) for cue in entries) for entries in groups.values())):
+                    raise ValueError('Unsupported caption ownership groups')
         except (KeyError, TypeError, ValueError):
             raise PreparationFailure('unsupported_game_format', 'NTE sequence timing or culture data changed. Update the toolkit and retry.') from None
         subtitles = json.loads((cache / 'cinema-subtitles.json').read_text(encoding='utf8')) if cinema_bindings else {}
         cinema_keys = {f"nte:{cue['namespace']}:{cue['key']}" for _, cues in sequences for cue in cues}
+        if text_mode and sequence_payload is not None:
+            for entries in groups.values():
+                for cue in entries:
+                    if isinstance(cue.get('ns'), str) and cue['ns'] and isinstance(cue.get('key'), str) and cue['key']:
+                        cinema_keys.add(f"nte:{cue['ns']}:{cue['key']}")
         for binding in cinema_bindings or ():
             if not subtitles.get(binding['subtitle']):
                 continue
@@ -622,8 +693,8 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
                 raise PreparationFailure('unsupported_game_format',
                     'This NTE update uses an unsupported movie subtitle layout. Update the toolkit, then retry preparation; the previous index is retained.') from None
             cinema_keys.update(f"nte:{binding['namespace']}:{cue['key']}" for cue in cues)
-        movies = movie_records(cinema_bindings or (), subtitles, english, chinese, cinema_events,
-                               require_han=source_locale is None, sequences=sequences)
+        movies = ([] if text_mode else movie_records(cinema_bindings or (), subtitles, english, chinese, cinema_events,
+                               require_han=source_locale is None, sequences=sequences))
         for row in movies:
             row.update(voice_status='voiced', dialogue_kind='cinematic')
         def caption_id(row):
@@ -634,6 +705,13 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
         for row in records:
             identity = caption_id(row)
             if identity in cinema_keys:
+                if text_mode:
+                    # Caption ownership proves displayed text, not that every
+                    # caption in the scene has a spoken recording.
+                    row.update(audio=None, voice_status='unknown', dialogue_kind='cinematic',
+                               source_voice_binding=None, text_capture_verified=True)
+                    retained.append(row)
+                    continue
                 # A caption owned by a film must never play its whole mix.
                 if row['text_id'] in movie_ids or not row.get('player_voice') and identity in movie_roots:
                     continue
@@ -645,6 +723,11 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
     tables = {locale: {(r['ns'], r['key']): r['value'] for r in localization.get(TEXT_LOCALES[locale], [])}
               for locale in locales}
     records = localized_records(records, tables, source_locale)
+    if text_mode:
+        for row in records:
+            if row.get('source_voice_binding'):
+                row['source_voice_binding'] = {**row['source_voice_binding'], 'text_id': row['text_id'],
+                    **({'text_player_branch': row['player_voice']} if row.get('player_voice') else {})}
     if source_locale:
         from .languages import audio_locale
         for row in records:
@@ -654,7 +737,8 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
     if dialogue_graphs:
         from .nte_dialogue_graph import annotate, read_pairs
         try:
-            annotate(records, read_pairs(cache/'dialogue-graphs.json', schema_usmap=(cache/'dialogue.usmap').read_bytes()))
+            annotate(records, read_pairs(cache/'dialogue-graphs.json', schema_usmap=(cache/'dialogue.usmap').read_bytes()),
+                     **({'text_mode': True} if text_mode else {}))
         except (OSError, ValueError, TypeError, KeyError):
             raise PreparationFailure('unsupported_game_format',
                 'The original NTE dialogue graph is incomplete or unsupported. The previous completed index is retained.') from None
@@ -710,22 +794,27 @@ def index_install(install: Path, data_dir: Path, progress=lambda _message: None)
             "message": f"{len(records):,} official bilingual NTE lines; {sum(bool(row.get('audio')) for row in records):,} original Mandarin voices"}
 
 
-def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None) -> dict:
+def index_language(install: Path, data_dir: Path, source_locale: str, target_locales, progress=lambda _message: None,
+                   *, content_mode='text-audio') -> dict:
     from .languages import resolve_locale
     from .nte_cinematics import load_catalog, catalog_rows, movie_bindings, movie_namespaces, CATALOG_REVISION
     from .game_catalogs import read_snapshot
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported NTE study/audio locale')
+    if content_mode not in ('text', 'text-audio'):
+        raise ValueError('Unsupported NTE content mode')
     if install is None:
         from . import nte_publisher
-        return nte_publisher.build_language(data_dir / 'tools', source_locale, target_locales, progress)
+        return nte_publisher.build_language(data_dir / 'tools', source_locale, target_locales, progress,
+            **({'content_mode': content_mode} if content_mode == 'text' else {}))
     snapshot = read_snapshot('nte', data_dir)
     bindings = movie_bindings(catalog_rows(snapshot['catalog']) if snapshot else load_catalog(data_dir / 'movie-catalog' / CATALOG_REVISION))
     targets = {target: resolve_locale(target, TEXT_LOCALES) for target in target_locales}
     selected = {source_locale, *(locale for locale in targets.values() if locale)}
     stamp = fingerprint(install)
     cache_id = hashlib.sha256(json.dumps([stamp, source_locale, sorted(selected),
-        snapshot['digest'] if snapshot else CATALOG_REVISION, LANGUAGE_INDEX_VERSION]).encode()).hexdigest()[:16]
+        snapshot['digest'] if snapshot else CATALOG_REVISION, LANGUAGE_INDEX_VERSION,
+        *(['text'] if content_mode == 'text' else [])]).encode()).hexdigest()[:16]
     cache = data_dir / 'language-cache' / cache_id
     tool = ensure_extractor(data_dir / 'tools')
     if (cache / 'complete.json').is_file():
@@ -736,13 +825,14 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
             staging = Path(value)
             run_reader(install, tool, staging, 'index', cinema_events=sorted({r['event'] for r in bindings}),
                        locales=[TEXT_LOCALES[locale] for locale in sorted(selected)], voice_language=VOICE_LOCALES[source_locale],
-                       schema_cache=data_dir / 'schemas')
+                       schema_cache=data_dir / 'schemas', **({'include_audio': False} if content_mode == 'text' else {}))
             if (staging / 'movie-tables.json').is_file():
                 original = json.loads((staging / 'movie-tables.json').read_bytes())
                 bindings = movie_bindings(catalog_rows(original), movie_namespaces(original, required=True))
             localization = json.loads((staging / 'localization.json').read_text(encoding='utf8'))
             available = {locale for locale in selected if TEXT_LOCALES[locale] in localization}
-            rows = build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale})
+            rows = build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale},
+                                 **({'content_mode': content_mode} if content_mode == 'text' else {}))
             if fingerprint(install) != stamp:
                 raise PreparationFailure('game_files_changed', 'NTE files changed during preparation. Finish the game update and retry; the previous index is retained.')
             if not rows:
@@ -756,12 +846,13 @@ def index_language(install: Path, data_dir: Path, source_locale: str, target_loc
         raise PreparationFailure('game_files_changed', 'NTE files changed during preparation. Finish the game update and retry; the previous index is retained.')
     rows = result['records']; mapped = sum(bool(row.get('audio')) for row in rows)
     missing = [target for target, locale in targets.items() if locale not in result['available']]
-    return {'format': 2, 'game': 'nte', 'source_locale': source_locale, 'install': str(install),
+    return {'format': 2, 'game': 'nte', 'source_locale': source_locale, 'install': str(install), 'content_mode': content_mode,
         'fingerprint': stamp, 'records': rows, 'missing_translation_locales': missing,
         'coverage_warnings': coverage_warnings(rows),
-        'message': f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices' +
+        'message': (f'{len(rows):,} official {source_locale} lines; audio not requested' if content_mode == 'text' else
+                    f'{len(rows):,} official {source_locale} lines; {mapped:,} original voices') +
         (f'; official translations unavailable: {", ".join(missing)}' if missing else '') +
-        ('; install the selected official voice pack' if not mapped else '')}
+        ('; install the selected official voice pack' if not mapped and content_mode != 'text' else '')}
 
 
 def _voice_language(audio):

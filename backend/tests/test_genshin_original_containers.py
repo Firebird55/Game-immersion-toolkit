@@ -87,3 +87,14 @@ def test_identity_is_path_sensitive_and_refuses_host_path_traversal():
     for path in ('../TextMap/EN/0', '/TextMap/EN/0', 'TextMap\\EN\\0', 'TextMap//EN/0'):
         with pytest.raises(ValueError):
             asset_identity(path)
+
+
+@pytest.mark.parametrize('length,expected', [
+    (255, 11248162261283491395), (256, 1994360176020748981),
+    (257, 17223251537915079030), (512, 2125996838163321036),
+    (513, 8577904185090215197), (768, 13204015650555562916),
+    (1024, 284686057055098465),
+])
+def test_native_identity_uses_owned_doubling_buffer_boundaries(length, expected):
+    path = 'A' * (length - len('.MiHoYoBinData'))
+    assert asset_identity(path) == expected

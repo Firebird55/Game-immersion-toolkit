@@ -131,7 +131,8 @@ def test_pinned_metadata_cache_validates_complete_digest_and_never_executes_data
     c = catalog(a)
     documents = dict(zip(metadata.FILES, map(json.dumps, [c.history, c.keys, c.variants])))
     monkeypatch.setattr(metadata, 'latest_revision', lambda: c.revision)
-    monkeypatch.setattr(metadata, 'download', lambda url, **_: documents[url.rsplit('/', 1)[1]].encode())
+    from backend.tests.test_starrail_movie_source import source_fixture
+    source_fixture(monkeypatch, documents, c.revision)
     first = metadata.load(tmp_path)
     assert first.key_for(a) == 7
     monkeypatch.setattr(metadata, 'download', lambda *_a, **_k: pytest.fail('Pinned offline metadata read'))
@@ -225,10 +226,9 @@ def test_protagonist_movies_require_each_branch_recording_and_keep_missing_count
 
 
 def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path, monkeypatch):
-    from backend import starrail_publisher as publisher
+    from backend import starrail_publisher as publisher, starrail_original_provider as original
     state = {'revision': '1' * 40, 'time': 60}
-    monkeypatch.setattr(publisher.sophon, 'release', lambda *_: {'channel': 'starrail-global', 'version': '4.7.0'})
-    monkeypatch.setattr(publisher.hotfix, 'discover', lambda build: build)
+    monkeypatch.setattr(original, 'release', lambda *_: ({'channel': 'starrail-global', 'version': '4.7.0'}, None))
     monkeypatch.setattr(metadata, 'check_latest', lambda *_: (state['revision'], False))
     monkeypatch.setattr(publisher.time, 'monotonic', lambda: state['time'])
     publisher._poll.cache_clear()
@@ -241,6 +241,7 @@ def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path
 
 def test_optional_format_outage_retains_known_revision_and_recovers(tmp_path, monkeypatch):
     from urllib.error import URLError
+    monkeypatch.setattr(metadata, 'load', lambda *_: object())
     monkeypatch.setattr(metadata, 'latest_revision', lambda: '1' * 40)
     assert metadata.check_latest(tmp_path) == ('1' * 40, False)
     def offline():

@@ -28,6 +28,6 @@ def asset_adapter(game):
 
 
 def preparation_fingerprint(adapter, install, tools):
-    if install is None and hasattr(adapter, 'publisher_fingerprint'):
+    if hasattr(adapter, 'publisher_fingerprint') and (install is None or getattr(adapter, 'PUBLISHER_DATA_ONLY', False)):
         return adapter.publisher_fingerprint(tools)
     return adapter.fingerprint(install)

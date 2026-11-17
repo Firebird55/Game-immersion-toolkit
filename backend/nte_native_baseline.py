@@ -2,7 +2,7 @@
 
 This is an original publisher resource identity, not a bundled client or a new
 third-party description per game update. Files are never loaded as executable
-code. Normal publisher preparation does not call this experimental API yet.
+code. Publisher preparation verifies this baseline before required-schema checks.
 """
 from dataclasses import dataclass, field
 import hashlib
@@ -32,14 +32,14 @@ class AuthenticatedNative:
     identity: dict
 
 
-def load(cache, *, fetch=None, save=None) -> AuthenticatedNative:
-    """Authenticate the fixed original manifest and its selected native file.
+def discover(cache, *, fetch=None, parameters=None):
+    """Authenticate the original baseline inventory without acquiring a PE.
 
-    A cold installation-free cache can retrieve both from the original CDN.
+    A cold installation-free cache reads only the small original resource list.
     Existing research paths, game folders and current community indices are not
     inputs. The original entry is selected by fixed publisher identity, never
-    by executable or project filename. Downloads retain their exact package
-    range when the original manifest uses a packaged entry.
+    by executable or project filename. Selected native acquisition is separate
+    and retains its exact publisher package range.
     """
     cache = Path(cache)
     reference = BASELINE
@@ -61,25 +61,34 @@ def load(cache, *, fetch=None, save=None) -> AuthenticatedNative:
         with ZipFile(io.BytesIO(raw)) as archive:
             members = [row for row in archive.infolist() if row.filename == 'ResList.bin']
             _check(len(members) == 1 and 0 < members[0].file_size <= release.LIMIT)
-            xml = release._xml(archive.read(members[0]), reference['region'], reference['xml_md5'])
+            xml = release._xml(archive.read(members[0]), reference['region'], reference['xml_md5'],
+                               **({'parameters': parameters} if parameters is not None else {}))
         _check(xml.get('version') == reference['version'] and xml.get('tag') == 'baseTag')
         sections = {'baseTag': reference['version']}
         for section in xml.findall('BaseVersion'):
             tag, version = section.get('tag'), section.get('version')
             _check(tag not in sections)
             sections[tag] = version
-        files, _ = release.files(raw, reference['region'], reference['version'], sections, reference['xml_md5'])
+        files, _ = release.files(raw, reference['region'], reference['version'], sections, reference['xml_md5'],
+                                 **({'parameters': parameters} if parameters is not None else {}))
         discovery = metadata.inventory({key: reference[key] for key in ('region', 'branch', 'version')}
                                        | {'files': files, 'sections': sections})
         decoded = metadata._json(discovery)
         _check(hashlib.sha256(decoded).hexdigest() == reference['inventory_sha256'])
         _atomic_file(normalized, decoded)
+    if not manifest.exists():
+        _atomic_file(manifest, raw)
+    return discovery
+
+
+def load(cache, *, fetch=None, save=None, parameters=None) -> AuthenticatedNative:
+    """Authenticate the fixed manifest and whole original native data file."""
+    cache, reference = Path(cache), BASELINE
+    discovery = discover(cache, fetch=fetch, parameters=parameters)
     selected = [(name, item) for name, item in metadata.sources(discovery).items()
                 if item.digest == reference['native_md5'] and item.size == reference['native_size']]
     _check(len(selected) == 1)
     name, descriptor = selected[0]
-    if not manifest.exists():
-        _atomic_file(manifest, raw)
     source = metadata.stage_original(discovery, name, cache / 'originals', save=save)
     data = metadata._original(source, descriptor)
     _check(hashlib.sha256(data).hexdigest() == reference['native_sha256'])

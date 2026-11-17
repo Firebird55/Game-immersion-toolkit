@@ -14,7 +14,7 @@ import struct
 import urllib.request
 from urllib.parse import urlsplit, urlunsplit
 
-from .game_tools import _atomic_file
+from .endfield_private_cache import atomic_bytes as _atomic_file
 
 MAX_CLIENT = 512 * 1024**2
 MAX_METADATA = 192 * 1024**2

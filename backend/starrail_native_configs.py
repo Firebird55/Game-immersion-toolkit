@@ -48,6 +48,10 @@ def _constant_write(value, register, previous):
 class Descriptions:
     def __init__(self, index):
         self.index = index
+        # A persistent preparation service opens successive native generations.
+        # Class-wide LRU keys would retain every old index through ``self``.
+        for method, limit in (('enum', 4096), ('description', 4096), ('_paths', 1)):
+            setattr(self, method, lru_cache(maxsize=limit)(getattr(self, method)))
         self.usages = usages.derive(index)
         self.reader = self.usages['reader']
         self.registries = self.usages['registries']
@@ -79,7 +83,6 @@ class Descriptions:
             name = parent[1]
         return chain
 
-    @lru_cache(maxsize=4096)
     def enum(self, name):
         block = self.index.blocks.get(name, '')
         if not re.search(r'^public enum ', block, re.M):
@@ -230,7 +233,6 @@ class Descriptions:
             self.bindings[name] = binding
         return name
 
-    @lru_cache(maxsize=4096)
     def description(self, name):
         _check(name in self.index.blocks)
         if name not in self.bindings:
@@ -272,7 +274,6 @@ class Descriptions:
         defaults = _defaults(fields, values, self.enum)
         return {'fields': [[field['name'], field['type']] for field in ordered], 'defaults': defaults}
 
-    @lru_cache(maxsize=1)
     def _paths(self):
         candidates = [(address, record) for address, records in self.index.methods.items() for record in records
                       if re.fullmatch(r'(?:public|private) static string JsonToBinaryPath\(string\)', record['signature'])]

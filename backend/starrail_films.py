@@ -23,7 +23,23 @@ def _duration(data):
     return samples * 1000 // rate
 
 
-def _takes(tools, catalog, locale, entries):
+def _take_duration(audio, tools):
+    """Read the original timing header without downloading the whole take."""
+    stamp, locale, name = audio['publisher'], audio['locale'], audio['package']
+    identity = voices.voice_hash(audio['source'])
+    check(locale in voices.sophon.VOICE_FIELDS and f'{identity:016x}' == audio['file_id']
+          and re.split(r'[/\\]', audio['source'], maxsplit=1)[0] in voices.voice_namespaces('starrail', locale))
+    directory = tools / 'sophon'
+    entry, = [row for row in voices._table(directory, stamp, locale, name, 'starrail') if row.file_id == identity]
+    asset = voices._archive(directory, stamp, locale, name, 'starrail')
+    count = min(86, entry.size)
+    data = asset.read(directory, entry.offset, count)
+    check(len(data) == count and len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WAVE'
+          and struct.unpack_from('<I', data, 4)[0] + 8 == entry.size)
+    return _duration(data)
+
+
+def _take_authoring(catalog, locale):
     from .starrail_assets import _table
     configs = _table(catalog, 'CutSceneConfig', ('CutSceneName', 'CaptionPath', 'CutScenePath'))
     voices_by_id = {r['VoiceID']: r for r in _table(catalog, 'VoiceConfig', ('VoiceID', 'VoicePath'))}
@@ -44,8 +60,17 @@ def _takes(tools, catalog, locale, entries):
         result[name] = []
         for suffix, gender in variants:
             key = f'{voice_namespace("starrail", locale)}/voice/{source}{suffix}.wem'
+            result[name].append((suffix, gender, key))
+    return result
+
+
+def _takes(tools, catalog, locale, entries):
+    result = {}
+    for name, variants in _take_authoring(catalog, locale).items():
+        result[name] = []
+        for suffix, gender, key in variants:
             audio = audio_binding(key, entries, locale)
-            duration = _duration(voices.extract(audio, tools, 'starrail')) if audio else None
+            duration = _take_duration(audio, tools) if audio else None
             result[name].append((suffix, gender, audio, duration))
     return result
 
@@ -204,12 +229,15 @@ def _movie_take(catalog, scene, movies, text_hash, locale, cache, player_voice=N
         catalog.movie_audio_incomplete = True
 
 
-def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
+def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=(), *, text_only=False):
     from .starrail_assets import _player_row
-    takes = _takes(tools, catalog, locale, entries)
+    check(type(text_only) is bool)
+    takes = ({name: [(suffix, gender, None, None) for suffix, gender, _ in variants]
+              for name, variants in _take_authoring(catalog, locale).items()} if text_only
+             else _takes(tools, catalog, locale, entries))
     scripts = list(catalog.caption_scripts())
     movies, suppressed = _movie_sources(catalog, scripts, locale)
-    reviewed = _reviewed_sources(sentence_rows)
+    reviewed = {} if text_only else _reviewed_sources(sentence_rows)
     seen, identities, result, movie_cache = set(), set(), [], {}
     for filename, script in scripts:
         match = re.fullmatch(r'([A-Za-z0-9_-]+)_Caption\.json', filename)
@@ -251,10 +279,10 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
                 if audio and duration is not None and 0 <= start_ms < end_ms <= duration:
                     row['audio'] = audio | {'start_ms': start_ms, 'end_ms': end_ms}
                     row['voice_status'] = 'voiced'
-                elif original := _reviewed_take(tools, scene, movies.get(scene, []), text_hash, locale, reviewed):
+                elif not text_only and (original := _reviewed_take(tools, scene, movies.get(scene, []), text_hash, locale, reviewed)):
                     row['audio'] = original
                     row['voice_status'] = 'voiced'
-                elif original := _movie_take(catalog, scene, movie_sources, text_hash, locale, movie_cache, gender):
+                elif not text_only and (original := _movie_take(catalog, scene, movie_sources, text_hash, locale, movie_cache, gender)):
                     row['audio'] = original
                     row['voice_status'] = 'voiced'
                 result.append(row)

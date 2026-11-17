@@ -204,8 +204,10 @@ def direct_pairs(graphs, namespaces, *, schema_usmap=None):
         and name.rsplit(':', 1)[-1] not in unresolved_keys for name in pair)}))
 
 
-def annotate(records, pairs):
-    """Attach a direct predecessor only to existing ordinary voiced bindings."""
+def annotate(records, pairs, *, text_mode=False):
+    """Attach an owned predecessor to voiced or intentionally omitted dialogue."""
+    if type(text_mode) is not bool:
+        raise ValueError('Invalid NTE text-only graph selection')
     by_root = {}
     for row in records:
         identity = row['text_id']
@@ -217,7 +219,9 @@ def annotate(records, pairs):
         if not sources or not targets:
             continue
         def eligible(row):
-            return (row.get('voice_status') == 'voiced' and row.get('audio')
+            binding = (row.get('voice_status') == 'voiced' and row.get('audio') or
+                       text_mode and row.get('audio_omitted_by_request') is True and row.get('text_capture_verified') is True)
+            return (binding
                     and row.get('dialogue_kind') == 'conversation' and not row.get('text_binding_unresolved'))
         if not all(eligible(row) for row in [*sources, *targets]):
             continue

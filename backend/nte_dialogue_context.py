@@ -1,7 +1,7 @@
 """Narrow-panel NTE context from one directly preceding original speech node.
 
 This does not alter shared matching or the full-frame UI/unknown-text veto.
-Only a stable independent exact voiced observation establishes an anchor.
+Only a stable independent exact verified observation establishes an anchor.
 Context-dependent observations cannot extend it or traverse another edge.
 """
 from .languages import normalize_text, resolve_locale, study_language
@@ -22,11 +22,15 @@ class NteDialogueContext:
         self.prepared = False
 
     def _prepare(self, index):
+        text_mode = index.snapshot_metadata.get('content_mode') == 'text'
         by_id = {}
         for row in index._records:
             by_id.setdefault(row['text_id'], []).append(row)
         def eligible(row):
-            return (row.get('voice_status') == 'voiced' and row.get('audio')
+            source = (row.get('voice_status') == 'voiced' and row.get('audio') or
+                      text_mode and row.get('audio_omitted_by_request') is True
+                      and row.get('text_capture_verified') is True and not row.get('audio'))
+            return (source
                     and row.get('dialogue_kind') == 'conversation'
                     and 'dialogue' in row.get('channels', ['dialogue'])
                     and not row.get('text_binding_unresolved')
@@ -45,6 +49,9 @@ class NteDialogueContext:
         if not enabled or getattr(index, 'game', None) != 'nte' or not hasattr(index, '_records'):
             self.reset()
             return default
+        metadata = index.snapshot_metadata
+        scope = (scope, metadata.get('content_mode', 'text-audio'),
+                 metadata.get('publisher_snapshot') or metadata.get('fingerprint'))
         if not self.prepared or scope != self.scope or self.observed_at is not None and now < self.observed_at:
             self.reset(); self.scope = scope
             with index.lock:
@@ -60,8 +67,9 @@ class NteDialogueContext:
             self.observed_at = now
             return default
         row = self.rows.get(default.text_id) if default is not None and default.kind == 'exact' else None
-        independent = row is not None and default.voice_status == 'voiced' and key == normalize_text(
-            row['texts'].get(index.source_locale, ''), index.source_locale)
+        independent = (row is not None and default.voice_status == row.get('voice_status', 'unknown')
+            and (not row.get('audio_omitted_by_request') or default.audio_omitted_by_request and default.text_capture_verified)
+            and key == normalize_text(row['texts'].get(index.source_locale, ''), index.source_locale))
         if independent:
             token = row['text_id']
             self.count = self.count+1 if self.pending == token and self.observed_at is not None and now-self.observed_at <= 2 else 1
@@ -86,4 +94,7 @@ class NteDialogueContext:
             source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
             translation_locale=target or index.target_locale, translation_text=row['texts'].get(target, '') if target else '',
             speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
-            voice_status='voiced', dialogue_kind='conversation', audio_scope=row.get('audio_scope', 'line'))
+            voice_status=row.get('voice_status', 'unknown'), dialogue_kind='conversation',
+            audio_scope=row.get('audio_scope', 'line'), text_capture_verified=row.get('text_capture_verified', False),
+            audio_omitted_by_request=row.get('audio_omitted_by_request', False),
+            source_voice_binding=row.get('source_voice_binding'))

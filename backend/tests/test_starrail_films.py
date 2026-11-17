@@ -27,7 +27,7 @@ def test_authored_caption_uses_referenced_voice_and_actor_or_retains_text(tmp_pa
         assert audio['source'] == source and audio['publisher'] == 'release' and audio['locale'] == 'ja'
         assert (path, game) == (tools, 'starrail')
         return track()
-    monkeypatch.setattr(films.voices, 'extract', extract)
+    monkeypatch.setattr(films, '_take_duration', lambda audio, path: films._duration(extract(audio, path, 'starrail')))
     script = {'CaptionList': [{'CaptionTextID': {'Hash': 100}, 'StartTime': 0.5, 'EndTime': 1.125},
                               {'CaptionTextID': {'Hash': 101}, 'EndTime': 2.5}]}
     configs = [{'CutSceneName': 'Movie', 'CaptionPath': 'Config/CutSceneCaption/Movie_Caption.json',
@@ -62,6 +62,33 @@ def test_unrecognized_recording_format_has_no_authorized_clock():
     assert films._duration(track()) == 2000
     assert films._duration(bytes(86)) is None
     assert films._duration(track()[:70]) is None
+
+
+def test_take_clock_reads_only_original_bound_header_and_rejects_foreign_length(tmp_path, monkeypatch):
+    source = 'English/voice/owned_take.wem'
+    identity = voice_hash(source)
+    entry = SimpleNamespace(file_id=identity, offset=222, size=4096)
+    body = bytearray(track())
+    struct.pack_into('<I', body, 4, entry.size - 8)
+    calls = []
+    def read(directory, start, length):
+        assert directory == tmp_path / 'sophon'
+        calls.append((start, length))
+        return bytes(body)
+    monkeypatch.setattr(films.voices, '_table', lambda *_: [entry])
+    monkeypatch.setattr(films.voices, '_archive', lambda *_: SimpleNamespace(read=read))
+    monkeypatch.setattr(films.voices, 'extract', lambda *_: pytest.fail('Timing downloaded whole take'))
+    audio = {'source': source, 'file_id': f'{identity:016x}', 'publisher': 'owned-generation',
+             'locale': 'en', 'package': 'owned.pck'}
+    assert films._take_duration(audio, tmp_path) == films._duration(body) == 2000
+    assert calls == [(entry.offset, 86)]
+    struct.pack_into('<I', body, 4, entry.size)
+    with pytest.raises(ValueError):
+        films._take_duration(audio, tmp_path)
+    struct.pack_into('<I', body, 4, entry.size - 8)
+    del body[-1]
+    with pytest.raises(ValueError):
+        films._take_duration(audio, tmp_path)
 
 
 def test_resolved_caption_names_keep_resource_ids_and_scope_new_player_branches(tmp_path):

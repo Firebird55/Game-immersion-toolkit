@@ -6,6 +6,11 @@ sample recordings from a publisher update server. The two columns below let a
 reader reproduce the online check and see which inputs setup currently needs.
 Release region, resource revision and spoken locale matter when comparing audio.
 
+Additional original-source research is tracked in the
+[Reverse: 1999 report](game-audits/reverse1999.md) and
+[Infinity Nikki report](game-audits/infinity-nikki.md). These describe current
+publisher discovery/bootstrap evidence and remaining acquisition/binding gates.
+
 The [publisher inventory command](../scripts/live_game_sources.py) records the
 active Windows generation without installing a game. Save each region's receipt
 privately, then pass it with `--previous` to see added, changed and removed

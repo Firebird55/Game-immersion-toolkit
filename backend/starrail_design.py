@@ -167,7 +167,7 @@ def _caption_run(directory, asset, entries, anchors, wanted=(), *, package=None,
 
 
 def extra_captions(directory, build, published, declared_paths=(), *, identities=None, unresolved=None,
-                   package_reader=None, decoder=None, resource_id=caption_resource_id):
+                   package_reader=None, decoder=None, resource_id=caption_resource_id, fetch=None):
     known = {_signature(script) for script in published.values()}
     anchors, names, paths = {}, {}, {}
     for filename, script in published.items():
@@ -184,7 +184,8 @@ def extra_captions(directory, build, published, declared_paths=(), *, identities
     local, alternate = hotfix.audio_roots(build)
     result, found, indexed, candidates = {}, set(), set(), []
     verified = False
-    for digest, size, entries, folder in _packages(hotfix.index(directory, build, 'design'), with_folder=True):
+    for digest, size, entries, folder in _packages(hotfix.index(directory, build, 'design',
+            **({'fetch': fetch} if fetch is not None else {})), with_folder=True):
         relevant = {key for key, _, _ in entries if key in paths}
         hotfix.check(indexed.isdisjoint(relevant))
         indexed.update(relevant)

@@ -84,7 +84,7 @@ class SignedSource:
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(item, 1024**4)
         _file(signature, INDEX_LIMIT)
-        self.region, self.branch, self.item = region, branch, item
+        self.region, self.branch, self.item, self.signature = region, branch, item, signature
         self.progress = progress
         self.root = cache / region / item.digest / signature.digest
         path = self.root / 'checksums.sig'
@@ -193,7 +193,9 @@ class Archive:
         check(marker >= 17 and footer[marker:marker + 4] == MAGIC)
         check(struct.unpack_from('<I', footer, marker + 4)[0] == 12 and footer[marker - 1] in (0, 1))
         self.encrypted_index = bool(footer[marker - 1])
-        key = catalog.verified_key(source.read, size, source.region)
+        key = catalog.verified_key(source.read, size, source.region, source=source)
+        self.encryption_guid = footer[marker-17:marker-1]
+        self.selected_key = key
         self.cipher = AES.new(bytes.fromhex(key[2:]), AES.MODE_ECB) if key else None
         check(not self.encrypted_index or self.cipher is not None)
         offset, length = struct.unpack_from('<QQ', footer, marker + 8)

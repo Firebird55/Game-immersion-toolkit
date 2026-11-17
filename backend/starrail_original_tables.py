@@ -159,8 +159,9 @@ class OriginalTables:
     Does not fall back to third-party data. A caller must retain its previous
     complete preparation until every required table/provider succeeds.
     """
-    def __init__(self, directory, build, *, schemas=None, descriptions=None):
+    def __init__(self, directory, build, *, schemas=None, descriptions=None, fetch=None, package_fetch=None):
         self.directory = Path(directory)
+        self.fetch, self.package_fetch = fetch, package_fetch
         self.schemas = dict(SCHEMAS if schemas is None else schemas)
         if descriptions is None:
             hotfix.check({'TalkSentenceConfig', 'VoiceConfig'} <= self.schemas.keys())
@@ -177,7 +178,7 @@ class OriginalTables:
         roots, alternate = hotfix.audio_roots(build)
         self.resources = {}
         for digest, size, entries, folder in design._packages(
-                hotfix.index(self.directory, build, 'design'), with_folder=True):
+                hotfix.index(self.directory, build, 'design', **({'fetch': fetch} if fetch is not None else {})), with_folder=True):
             hotfix.check(0 < size <= 256 * 1024**2)
             name = (folder + '/' if folder else '') + digest + '.bytes'
             asset = hotfix.AudioFile(name, size, digest, roots['design'] + name,
@@ -195,9 +196,14 @@ class OriginalTables:
                 return data
         # Transport range receipts and ETags alone do not verify package MD5.
         # Publish this reusable package only after checking the complete body.
-        step = 16 * 1024**2
-        data = b''.join(asset.read(self.directory, start, min(step, asset.size - start))
-                        for start in range(0, asset.size, step))
+        if self.package_fetch is not None:
+            # Context transports acquire a planned complete original package;
+            # its full publisher MD5 below remains the acceptance boundary.
+            data = self.package_fetch(asset.url, limit=asset.size)
+        else:
+            step = 16 * 1024**2
+            data = b''.join(asset.read(self.directory, start, min(step, asset.size - start))
+                            for start in range(0, asset.size, step))
         hotfix.check(len(data) == asset.size and hashlib.md5(data).hexdigest() == asset.digest)
         _atomic_file(path, data)
         return data

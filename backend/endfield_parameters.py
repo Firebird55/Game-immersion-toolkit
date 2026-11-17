@@ -10,7 +10,7 @@ import re
 from . import endfield_metadata
 from .endfield_client_contract import Candidate, derive
 from .endfield_client_source import Image, Metadata, Ranges, check, identity_stamp, metadata_sections
-from .game_tools import _atomic_file
+from .endfield_private_cache import atomic_bytes as _atomic_file
 
 
 def source_runtime():
@@ -119,6 +119,13 @@ def crypto_parameters(tools, identity):
     check(required <= original.directories.keys(), 'An original required voice block is unavailable.')
     return Parameters(original.key, {k: original.directories[k] for k in required},
                       frozen.multiplier, frozen.xor_constant, protocol=original.protocol)
+
+
+def index_parameters(tools, identity):
+    """Plain tables/Lua/index discovery must not acquire an unused audio seed."""
+    original = candidate(tools, identity)
+    from .endfield_vfs import IndexParameters
+    return IndexParameters(original.key, dict(original.directories), original.protocol)
 
 
 def activate(tools, identity, original, parameters, block, data, *, recheck, suffix='.pck', names=None):

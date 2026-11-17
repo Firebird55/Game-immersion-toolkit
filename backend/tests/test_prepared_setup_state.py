@@ -124,6 +124,18 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
     value.setup_install = lambda _game: None
     monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
     commands = []
+    publisher_checks = []
+    if game == 'nte':
+        from backend import nte_publisher
+        # This test's worker is an authored stand-in for each game. Scope its
+        # source-proof boundary too; real NTE approval rejection is tested below
+        # and the full immutable receipt contract lives in test_nte_metadata_profile.
+        def check_publisher(tools, payload, *, recheck=False):
+            assert tools == tmp_path/game/'tools' and recheck is True
+            assert payload['fingerprint'] == 'owned-publisher-release'
+            assert [row['text_id'] for row in payload['records']] == ['nte:owned:caption']
+            publisher_checks.append(True)
+        monkeypatch.setattr(nte_publisher, 'validate_prepared', check_publisher)
     def run(command, **options):
         commands.append(command)
         assert '--publisher' in command and '--install' not in command
@@ -149,8 +161,49 @@ def test_setup_uses_publisher_without_a_folder_and_reuses_the_published_snapshot
         value.build_language(game, 'ja', ('en',))
     assert caught.value.code == 'metadata_network' and caught.value.previous_snapshot_retained
     assert value.locale_index(game, 'ja').ready and len(commands) == 1
+    assert publisher_checks == ([True] if game == 'nte' else [])
     with pytest.raises(ValueError, match='installed game folder'):
         value.build_language('beyond', 'ja', ('en',))
+
+
+def test_unapproved_nte_worker_replacement_cannot_publish_over_a_real_materialization(tmp_path, monkeypatch):
+    import copy
+    from pathlib import Path
+    from backend import nte_publisher
+    from backend.game_assets import asset_adapter
+    from backend.preparation_errors import PreparationFailure
+    from backend.tests.test_nte_metadata_profile import fixture, materialize
+    args = fixture(tmp_path/'nte', monkeypatch)
+    _, _, _, payload = materialize(args)
+    tools, recipe_id, recipe, *_ = args
+    marker = tools/'nte-publisher'/recipe_id/'release.json'
+    marker.parent.mkdir(parents=True); marker.write_bytes(nte_publisher._json(recipe))
+    adapter, _ = asset_adapter('nte')
+    payload.update(targets_requested=['en'], reader_revision=adapter.LANGUAGE_INDEX_VERSION)
+    nte_publisher.validate_prepared(tools, payload)
+    directory = tmp_path/'languages/nte/ja'; directory.mkdir(parents=True)
+    path = directory/'textmap.json'; path.write_text(json.dumps(payload), encoding='utf-8')
+    previous = path.read_bytes()
+    monkeypatch.setattr(api, 'DATA_DIR', tmp_path)
+    monkeypatch.setattr(adapter, 'publisher_fingerprint', lambda _: recipe_id)
+    value = runtime(tmp_path, locale=None); value.setup_install = lambda _: None
+    current = value.locale_index('nte', 'ja')
+    assert current.load() and current.ready
+    calls = []
+    def run(command, **_options):
+        calls.append(command)
+        changed = copy.deepcopy(payload)
+        changed['records'][0].update(source_text='Unapproved replacement',
+                                     texts={'ja': 'Unapproved replacement', 'en': 'Owned'})
+        Path(command[command.index('--output') + 1]).write_text(json.dumps(changed), encoding='utf-8')
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(api.subprocess, 'run', run)
+    with pytest.raises(PreparationFailure) as caught:
+        value.build_language('nte', 'ja', ('en',), force=True)
+    assert caught.value.code == 'game_metadata_unavailable'
+    assert len(calls) == 1 and path.read_bytes() == previous
+    assert value.locale_index('nte', 'ja').ready
+    nte_publisher.validate_prepared(tools, payload)
 
 
 def test_changed_game_format_failure_keeps_snapshot_and_explains_change(tmp_path, monkeypatch):

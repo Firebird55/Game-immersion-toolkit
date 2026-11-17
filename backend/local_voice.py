@@ -94,6 +94,7 @@ class LocalVoiceAssetService(VoiceDecoder):
         self._install = None
         self._fingerprint = ""
         self._loaded_signature = None
+        self._nte_materialized = False
         self._lock = threading.RLock()
         self._executor = QuiesceableExecutor(max_workers=1, thread_name_prefix=f"{game}-voice")
         self._slots = threading.BoundedSemaphore(8)
@@ -104,11 +105,16 @@ class LocalVoiceAssetService(VoiceDecoder):
             return self._reload_snapshot()
 
     def _reload_snapshot(self) -> bool:
+        strict_nte = self._nte_materialized
         try:
             path = self.data_dir / "textmap.json"
             stat = path.stat()
             signature = (stat.st_mtime_ns, stat.st_size, (self.game in {'beyond', 'heavyrain'} or self.decoder_available()), bool(ffmpeg_executable()))
             if self._loaded_signature == signature:
+                if self._nte_materialized:
+                    if not self._adapter.publisher_snapshot_available(self.tools_dir, self._fingerprint):
+                        raise ValueError('Compatible NTE information for this library is missing or could not be verified. '
+                                         'Prepare or repair the game data, then retry.')
                 return self.ready
             payload = (self._snapshot_index.voice_snapshot((stat.st_size, stat.st_mtime_ns))
                        if self._snapshot_index is not None else None)
@@ -123,6 +129,11 @@ class LocalVoiceAssetService(VoiceDecoder):
             online = self.game in PUBLISHER_GAMES and payload['install'] is None
             install = None if online else Path(payload["install"])
             stamp = payload["fingerprint"]
+            strict_nte = bool(self.game == 'nte' and online and payload.get('publisher_snapshot'))
+            if strict_nte:
+                from . import nte_publisher
+                nte_publisher.validate_prepared(self.tools_dir, payload)
+                stamp = payload['publisher_snapshot']
             if online and hasattr(self._adapter, 'publisher_snapshot_available'):
                 source_available = self._adapter.publisher_snapshot_available(self.tools_dir, stamp)
             else:
@@ -135,9 +146,15 @@ class LocalVoiceAssetService(VoiceDecoder):
                 self._paragraph_ids = paragraphs
                 self.ready = ready
                 self._loaded_signature = signature
+                self._nte_materialized = strict_nte
                 self.last_error = None
         except (OSError, ValueError, KeyError, TypeError) as error:
             self.last_error = str(error)
+            if strict_nte:
+                # Retain the old immutable entries for a repaired retry, but
+                # never present a missing materialization as playable.
+                self.ready = False
+                self._loaded_signature = None
         return self.ready
 
     def status(self) -> dict:
@@ -151,6 +168,9 @@ class LocalVoiceAssetService(VoiceDecoder):
             if self.game not in PUBLISHER_GAMES or not all(audio.get('publisher') for audio in audios):
                 raise ValueError('Original voice installation is unavailable')
             if hasattr(self._adapter, 'publisher_snapshot_available'):
+                if self.game == 'nte' and not self._adapter.publisher_snapshot_available(self.tools_dir, stamp):
+                    raise ValueError('Compatible NTE information for this library is missing or could not be verified. '
+                                     'Prepare or repair the game data, then retry.')
                 matches = getattr(self._adapter, 'publisher_voice_matches', None)
                 if not all(matches(stamp, audio) if matches else audio['publisher'] == stamp for audio in audios):
                     raise ValueError('Original voice belongs to another publisher release.')

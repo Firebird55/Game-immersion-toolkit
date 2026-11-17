@@ -90,7 +90,7 @@ def _registry(catalog):
     return catalog.read(path)
 
 
-def read_authoring(catalog, executable, staging, progress=lambda _: None):
+def read_authoring(catalog, executable, staging, progress=lambda _: None, *, game_data_reader=None):
     """Resolve original native metadata and validate this extraction's closure.
 
     A manifest-derived lineage entry is only a hint. Renamed/failed candidates
@@ -100,7 +100,10 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     """
     from .nte_publisher import _reader_identity
     value = catalog.snapshot
-    metadata._check(value['reader'] == _reader_identity())
+    metadata._check(value['reader'] == (game_data_reader.source_identity if game_data_reader is not None else _reader_identity()))
+    runtime_options = {'game_data_reader': game_data_reader} if game_data_reader is not None else {}
+    if game_data_reader is not None:
+        metadata._check(game_data_reader.source_identity == value['reader'])
     original = discovery(value)
     graphs = value['type_schema'].get('generator') == metadata.CLASS_GENERATOR
     authoring = value['type_schema'].get('authoring') == AUTHORING
@@ -109,7 +112,12 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     cache = catalog.cache/'native-candidates'
     profile_path = catalog.cache/'native-epochs'/catalog.stamp/'profile.json'
     prior = _profile(profile_path, reference, catalog.stamp, cache)
-    baseline = baseline_source.load(catalog.cache/'native-baseline')
+    if 'original_updater' in value:
+        from . import nte_updater_baseline as initial
+        baseline_parameters = initial.parameters(catalog.cache/'format')
+        baseline = baseline_source.load(catalog.cache/'native-baseline', parameters=baseline_parameters)
+    else:
+        baseline = baseline_source.load(catalog.cache/'native-baseline')
     mapping_seed = seed(catalog.cache/'native-seed')
     registry = _registry(catalog) if graphs else None
     containers = catalog.containers()
@@ -117,13 +125,17 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
         from .nte_graph_prefetch import prefetch
         with tempfile.TemporaryDirectory(prefix='native-inventory-', dir=staging.parent) as temporary:
             packages = assets.read_dialogue_inventory(catalog.cache/'empty-context', executable, Path(temporary),
-                containers, catalog.format.parameters[catalog.region], registry,
-                **({'capture_original_authoring': True} if authoring else {}))
+                containers, catalog.reader_keys() if hasattr(catalog, 'reader_keys') else catalog.format.parameters[catalog.region], registry,
+                **({'capture_original_authoring': True} if authoring else {}), **runtime_options)
         prefetch(containers, packages, progress)
     candidates = metadata.sources(original)
     dependencies = {'reader': value['reader'], 'archive_parameters': value['archive'][1],
                     'localization_parameters': value['localization'][1],
-                    'updater_format': (release.CN_FORMAT if catalog.region == 'nte-cn' else release.GLOBAL_FORMAT)[1]}
+                    'updater_format': (hashlib.sha256(metadata._json(value['original_updater'])).hexdigest()
+                        if 'original_updater' in value else
+                        hashlib.sha256(metadata._json(value['updater_metadata'])).hexdigest()
+                        if 'updater_metadata' in value else
+                        (release.CN_FORMAT if catalog.region == 'nte-cn' else release.GLOBAL_FORMAT)[1])}
     charged, attempts = 0, 0
     for name in _order(candidates, baseline.identity['native_path'], prior['native_path'] if prior else None):
         item = candidates[name]
@@ -142,10 +154,10 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
             with tempfile.TemporaryDirectory(prefix='native-tables-', dir=staging.parent) as temporary:
                 output = Path(temporary)
                 usage = assets.run_publisher_reader(catalog.cache/'empty-context', executable, output,
-                    containers, catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
+                    containers, catalog.reader_keys() if hasattr(catalog, 'reader_keys') else catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
                     table_schema=candidate.schema, capture_schema_usage=True,
                     capture_dialogue_graphs=graphs, dialogue_registry=registry,
-                    **({'capture_original_authoring': True} if authoring else {}))
+                    **({'capture_original_authoring': True} if authoring else {}), **runtime_options)
                 if graphs and usage['schema'] != 'nte-schema-usage-v2':
                     raise ValueError('Missing current graph codec evidence')
                 report, validation = metadata.check_required(candidate.schema.reference, cache, mapping_seed,

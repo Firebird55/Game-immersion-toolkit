@@ -1,16 +1,267 @@
 # Neverness to Everness audit
 
-## November 17 update policy
+## Explicit text-only preparation
 
-The owner accepted a controlled community schema/key fallback under the
-[per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026). Original client descriptors plus the fixed retained seed remain the
-primary schema route; the existing old/current trials did not require a newer
-community mapping. Changed updater/archive/localization parameters or required
-types may now use verified immutable community revisions. That fallback still
-needs ordinary-provider integration, exact original-generation verification and
-retention/retry/offline acceptance. The finite current-source audit does not
-complete those remaining update tasks, so #88 stays open.
+November 17, 2026. The NTE provider accepts `content_mode='text'` before
+selecting voice payloads. It reads original localization, subtitle ownership,
+native authoring and authenticated archive indices, but does not prefetch or
+read BNK/WEM members, parse voice banks or construct playable media references.
+Required shared indices and text containers remain unavoidable overhead; this
+does not promise that their compressed blocks contain no incidental audio bytes.
+The existing five study locales and all official translation targets remain
+the supported language choices.
 
+Every resulting row marks intentional audio omission. A unique authored event
+and selected-dub bank-name declaration can retain nonplayable source voice
+evidence. This is not a bank-decoding or recording-playback claim. Missing,
+ambiguous and uninspected voice bindings remain unknown. Caption ownership can
+verify displayed text without proving that a cinematic caption is spoken.
+Confirmed written text retains its original unvoiced status. Exact-text and
+native-predecessor admission retain duplicate, player, source, menu and
+unresolved-binding guards; omission never fabricates a silent recording.
+
+The actual provider and ordinary atomic payload writer passed these independent
+frozen-original trials with the rebuilt managed reader. Network access,
+BNK/WEM member reads, bank prefetch and bank parsing were forbidden throughout.
+
+| Original generation | Study locale | Prepared text rows | Verified text rows | Playable audio |
+| --- | --- | ---: | ---: | ---: |
+| Global 1.4.9 | Japanese | 113,664 | 24,871 | 0 |
+| Global 1.5.4 | Japanese | 122,200 | 26,858 | 0 |
+| Mainland 1.5.6 | Mandarin | 121,394 | 26,412 | 0 |
+
+The current Global output retains every canonical text identity from the
+earlier 126,472-row audio-enabled output. Its 4,272 fewer rows reflect paired
+bank-performance variants that are not inspected for a text request. These
+inventories count prepared source rows, not chapters or demonstrated gameplay.
+Actual shared-index loading and materialization validation passed, including
+exact matches that preserve voiced, unknown and unvoiced status. An injected
+reader timeout retained the complete text library and immutable approval;
+healthy retry reproduced both exactly without networking or audio access.
+The NTE test group passed 572 tests and the managed reader compiled without
+warnings or errors. With the shared desktop capture change, actual CaptureService
+replays against all three complete indices published voiced and unknown rows
+without any voice lookup, repair or audio queue. The current Japanese replay
+also resolved a repeated caption through its original direct speech predecessor.
+These use synthetic OCR geometry, not a native OCR/gameplay claim. The combined
+capture/omission/context group passed 46 checks. Shared request/UI integration,
+direct Android preparation and official bootstrap/key-rotation support remain
+separate implementation gates.
+
+## Official updater-envelope derivation
+
+November 17, 2026 source follow-up. The official landing/download metadata led to
+the publisher's signed installer. Its complete Authenticode image digest,
+offline Windows trust policy and signer-bound timestamp passed; fresh revocation
+status was not checked. The installer configuration names the official
+[launcher version metadata](https://ntecdn1.perfectworld.com/hd/publish_PC/launcher/Version.ini).
+That metadata identifies the original file manifest, PatcherSDK and PatcherConfig
+payloads with complete checksums and sizes. Only those selected members were
+read, with ZIP CRC and full publisher MD5 checks. The current SDK also passed
+offline Windows trust validation. No publisher executable or DLL was executed.
+
+The new data-only native API follows the original `PatcherXML0` consumer, cipher
+descriptor, parameter setter and JSON `appId` field ownership. It derives the
+suffix, IV and padding from those original bindings. Release addresses, context
+field offsets, key values and versions are not inputs to the locator. The parser
+uses existing Python dependencies and adds no Iced/native helper dependency.
+Fifteen authored-PE checks cover relocation, changed context layout, ambiguous
+markers, altered ownership, unsupported instruction forms and updated constants.
+
+On the actual original SDK, the generic API opened the current Global 1.5.4
+resource list against its publisher-declared plaintext checksum and reproduced
+all 374 retained original typed file descriptors. Wrong app ID, key, IV,
+checksum, version, optional section, cipher descriptor and field ownership were
+rejected in the relevant source trials. The retained Global 1.4.9 encrypted list
+also reproduced all 552 original descriptors and native padding. Its historical
+plaintext checksum declaration is retained in the initial baseline description;
+the corrected replay also passed that checksum. The historical configuration was
+not fetched again. Reusing a current-derived parameter with that historical
+artifact does not establish support for a future key rotation.
+
+The ordinary Global publisher route now requires retained, publisher-verified
+SDK/configuration inputs. Discovery and background fingerprint checks read only
+bounded metadata; missing inputs produce `bootstrap_required`, retain the prior
+library and never silently query community keys. The separately authorized game
+download stage plans their exact compressed and decoded costs, authenticates ZIP
+and member checksums, and rechecks the original launcher pointers. Its output is
+an intermediate preparation stage, never a ready text/audio library.
+
+The actual shared download service replay planned and accounted for 2,801,941
+bytes: 2,679,910 SDK/configuration payload bytes and 122,031 metadata verification
+bytes. All responses came from retained originals, with zero network traffic.
+The service retained 7,416,070 local bytes, requested a new content plan and did
+not activate an index. Both text modes, changed source, interrupted publication
+and owner-switch cases are covered by synthetic service/transport fixtures.
+
+Completed desktop materializations bind the original resource list, immutable
+SDK/configuration receipts and native derivation evidence to the existing
+profile/record approval. Historical verification is offline. Missing or swapped
+receipts fail without provisional playback; final source-pointer changes reject
+publication. Source code and keys are not executed or stored in the receipt.
+
+The ordinary installation-free Japanese worker also completed against the
+original Global 1.5.4 inventory with the same Japanese/Mandarin target selection
+as the retained control: 126,472 records and 27,718 voiced rows. Every prepared
+record matched that control except its new immutable publisher identity. Actual
+shared-index loading, profile validation and the final original-source recheck
+passed. The trial used no network, community updater description, protected
+updater key cache, newer mapping or game installation. Its existing frozen
+archive/localization descriptions and initial schema seed remain separate
+dependencies. A real original recording passed WEM extraction, MP3 decoding and
+identical PCM after a fresh offline voice-service restart. Removing either the
+materialization approval or original updater approval disabled cached playback;
+restoring the exact receipt recovered it.
+An injected change to the current SDK declaration made the ordinary worker stop
+with `bootstrap_required` before any asset fetch. The previous complete dataset
+remained byte-identical and its actual index stayed ready. Restoring original
+metadata recovered the final source recheck; this is a source-recovery test, not
+a second complete reader rebuild or an observed publisher key rotation.
+
+The exact 1.4.9 native baseline has an independent frozen original-input contract:
+the publisher-checksummed launcher 1.0.8.1102_4 SDK/configuration pair verified in
+this audit. These are compatible decoder inputs, not a claim that this launcher
+version shipped with 1.4.9. Their original URLs, sizes, MD5 and member SHA256 are
+pinned without parameter literals. A fresh baseline replay using only that pair
+passed the complete retained XML checksum, 552-file inventory and native SHA256.
+Current updater parameters continue to come from current official metadata.
+The download stage budgets both pairs and deduplicates identical artifacts;
+the current pair and baseline pair are identical in this measured generation.
+An authored changed-current-key fixture keeps the fixed pair independent and
+accounts for all four payloads before transfer. Changed historical addresses or
+missing originals block preparation while retaining the old library. No actual
+publisher key rotation has been observed in these trials.
+
+The next Windows stage now uses an explicit context-owned adapter for the
+existing verified app-local NteReader and dependency inventory. It does not
+invoke source compilation, SDK discovery or tool downloads. A reviewed local
+maintainer build used only the retained pinned SDK/runtime packages; its source
+receipt is clean and matches the current C# bridge. The actual apphost reported
+its app-local .NET 10.0.14 runtime. This is a reader/runtime proof, not a complete
+desktop application or Android build acceptance claim.
+
+The original native/SIG/TOC stage plans complete manifest-owned members before
+any large transfer and checks original metadata both before and after them.
+For the frozen Global generation its cold estimate was 671,251,388 bytes:
+555,786,448 native bytes, 115,046,930 index bytes and verification overhead,
+covering 44 original members. Existing verified originals were then reused as
+immutable local hardlinks. With one actual original SIG withheld from that
+cache, the shared service and transport planned and accounted for exactly
+831,738 bytes. No publisher network traffic, voice members or client-code
+execution occurred. The stage returned `needs_plan`, with no index activation.
+Whole global UCAS data is not selected merely from its filename; its later
+eligibility requires an authenticated parsed TOC. Synthetic fixtures cover both
+content modes, changed-source rejection before assets and corrupt-range failure.
+
+Authenticated archive footer/index/block planning and the final context-owned
+offline preparation remain open. No intermediate native/index stage is a ready
+game library. Android rejects the Windows capability before importing its reader
+modules. A separate managed/native host is still required there.
+These Global results do not establish mainland key derivation, archive or
+localization key rotation, new required schema constructors, a changed launcher
+root/native ABI, universal SDK rotation, or direct Android preparation. Cold
+baseline recovery relies on the continued availability of its pinned original
+inputs, with no implicit community substitute. Android needs its own managed/native
+reader hosting and codec closure; Windows binaries are not an Android route.
+
+## Controlled update metadata and device boundary
+
+November 17, 2026 follow-up. Publisher bytes remain the source of all study
+text, translations and audio. Original native descriptors with the retained
+initial schema remain the first preparation route. A working primary route
+does not query newer community descriptions. The latest owner policy requires
+an official key/bootstrap derivation first. Maintained community key fallback
+needs evidence that no available official derivation can supply it; packed
+code, missing parser work or one failed probe are insufficient. Community text
+or audio snapshots are excluded.
+
+The retained hybrid implementation is an explicit research opt-in, disabled
+in ordinary preparation until that official-first admission is established.
+Its updater-envelope fallback is restricted to the selected regional updater
+description. Its archive fallback proves each key against the complete original
+encrypted PAK index and its declared SHA1. Localization fallback requires a
+complete known-format original member, including every encrypted string marker,
+namespace, key, source hash and index. A malformed/new layout, acquisition
+timeout or corrupt original does not initiate a metadata search. Plaintext or
+empty localization cannot prove an unused key. Sources are fixed to the
+allowlisted repository/path, resolved to an immutable commit and SHA256; source
+code is parsed as data and never executed.
+
+Discovery identities are separate from completed-library identities. A completed
+library binds the exact original inventory, reader, original native source,
+validated required schema, selected descriptions, original-member proofs and
+prepared text/audio bindings. Its approval and completed marker are immutable;
+the marker is published last. Desktop activation rechecks the original source
+and normalized prepared records before replacing the prior library. Historical
+playback reads its retained profile and proofs without asking for latest
+metadata. Missing or exchanged evidence disables that materialization and
+offers repair; it cannot fall back to a provisional discovery identity.
+
+IoStore key ownership uses the authenticated TOC GUID and keys already proved
+against PAK indices in the same original generation. Publisher reader requests
+bind each GUID to its specific proved key; installed NTE and Wuthering keep
+their existing contracts. Conflicting keys for the same GUID are rejected,
+including an ambiguous default GUID. This is an explicit limitation, rather
+than an assumption that an arbitrary base key also opens every patch. New
+required constructors and unsupported changed frozen codecs remain an explicit
+schema-compatibility boundary. Neither the research fallback nor the current
+fixed bootstrap keys establish autonomous official key rotation or new required
+constructor support. These remain open dependency work, independent of the
+completed finite current-presentation audit below.
+
+The source-development checkpoint passed **653 affected checks** with one
+Windows link-privilege skip. The updated managed reader compiled without warnings
+or errors, and the pinned real CUE reader confirmed the nonzero GUID byte/digit
+conversion. Frozen-original normal preparation passed Global **1.4.9 Japanese**
+(117,575 records; 25,731 voiced), Global **1.5.4 Japanese** (126,472; 27,718)
+and independent mainland **1.5.6 Mandarin** (126,212; 28,130). These are supplied
+generation/locale inventories, not chapter counts or every-dub device acceptance.
+All three completed datasets also passed actual shared-index loading followed
+by the desktop materialization check; its derived status/scope/channel fields
+preserved approval without adding desktop imports to the shared index.
+Each resulting materialization reopened its actual original WEM through the
+ordinary voice service without publisher networking, produced matching decoded
+PCM after a fresh service restart, rejected a removed approval receipt and
+recovered after restoring that exact receipt. A reader-timeout injection in the ordinary worker
+preserved the completed Japanese library and marker; a healthy normal retry
+produced the same snapshot. The historical package trial required 32,352 bytes
+of additional original, TOC/block-verified ranges before its offline run.
+
+A separately approved 3,299-byte original Global `config.xml` still identified
+PC_150/1.5.4 and explicitly named an updater branch. This is a first-party owner
+hint, not a recovered encryption key. Bounded inspection of three retained
+original clients found their localization split marker but did not prove its
+consumer/key derivation. Absence of simple literal or RIP-relative matches is
+not proof that official derivation is impossible. No community-default or
+uninspectable-constructor acceptance follows from those negative checks.
+
+### Direct Android preparation is a separate implementation gate
+
+The Windows result does not establish direct preparation on Android. These are
+the actual runtime boundaries; a Windows executable or a prepared PC library
+does not satisfy the owner's independent-device requirement.
+
+| Work | Current implementation | Android status |
+| --- | --- | --- |
+| Regional discovery and original ranges | `nte_release`, HTTPS manifests and bounded content-addressed reads | Python logic; direct Android execution not accepted yet |
+| PAK/IoStore integrity and AES | `nte_publisher_pak`, `nte_publisher_iostore`, PyCryptodome | Selection/integrity logic is Python; Android crypto/runtime packaging remains required |
+| PAK/IoStore Oodle expansion | `wuthering_release_pak._oodle` and `_ooz_runtime`, pinned Node and `ooz-wasm` | Desktop subprocess boundary; needs an approved Android codec host |
+| Original PE/schema derivation | `nte_native_schema`, seeded/class/required validators; Python and `zstandard` | Data-only inspection; Android extension/runtime acceptance pending |
+| UE packages, tables and Blueprint authoring | Toolkit-owned .NET 10 `NteReader`, pinned UEExtractor/CUE4Parse and managed codecs; checked loopback streams | Managed hosting/trimming/AOT and complete extraction need device proof; no Windows binaries in an APK |
+| Wwise event/bank selection | Existing Python authored event/media readers | Logic can be reused; Android end-to-end acceptance pending |
+| Actual original WEM playback | Desktop vgmstream and FFmpeg | Requires licensed native Android decoder/encoder integration and playback proof |
+
+The original manifest supplies file sizes, packed-object sizes, offsets and
+digests. A download planner can therefore separate cached bytes from new exact
+SIG/TOC/native-file costs. Small authenticated index probes then determine PAK
+index and member ranges; the existing registry prefetch already produces a
+complete selected block-run plan before transferring those package blocks.
+Its limits are 128 MiB of selected package bytes and 64 MiB of new compressed
+transfer, with at most eight concurrent requests. Original native candidate
+inspection is independently capped at 16 files and 768 MiB; cold retained
+baseline and runtime costs must also appear in the plan. These are safety
+bounds, not a measured phone download size. The shared Download/Delete/used-size
+interface and Android direct-preparation acceptance remain separate open work.
 
 ## Publisher Setup and immutable voice snapshots
 

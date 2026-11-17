@@ -241,7 +241,7 @@ def test_normal_group_uses_changed_official_key_and_directory_for_archive_reads(
     stamp = release._stamp(encoded)
     release._atomic_file(tmp_path / 'endfield-releases' / stamp, encoded)
     monkeypatch.setattr(parameters, 'candidate', lambda *_: candidate)
-    monkeypatch.setattr(endfield_metadata, 'parameters', lambda *_: PARAMETERS)
+    monkeypatch.setattr(endfield_metadata, 'parameters', lambda *_: pytest.fail('Index discovery acquired an audio seed'))
     monkeypatch.setattr(release, 'latest_client', lambda *_: ({}, client))
     requested = []
     def fetch(url, **_):
@@ -250,6 +250,7 @@ def test_normal_group_uses_changed_official_key_and_directory_for_archive_reads(
         return updated
     monkeypatch.setattr(release, 'download', fetch)
     base, files = release.group(tmp_path, stamp, 102)
-    assert base.parameters == Parameters(new_key, directories, PARAMETERS.multiplier, PARAMETERS.xor_constant)
+    from backend.endfield_vfs import IndexParameters
+    assert base.parameters == IndexParameters(new_key, directories)
     assert release._source(tmp_path, base, files[0]).parameters.key == new_key
     assert parameters._active(tmp_path, client)[0] == candidate and len(requested) == 1

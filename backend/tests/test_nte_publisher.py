@@ -128,7 +128,7 @@ def online(monkeypatch, tmp_path):
 
     monkeypatch.setattr(publisher, 'Catalog', Catalog)
     monkeypatch.setattr(publisher, '_current', lambda *_: (current[0], states[current[0]]))
-    monkeypatch.setattr(publisher, '_discovery', lambda _: {k: states[current[0]][k] for k in ('region', 'branch', 'version', 'files', 'sections')})
+    monkeypatch.setattr(publisher, '_discovery', lambda _, **_kwargs: {k: states[current[0]][k] for k in ('region', 'branch', 'version', 'files', 'sections')})
     monkeypatch.setattr(publisher.metadata, 'load_localization', lambda **_: SimpleNamespace(parameter=None))
     monkeypatch.setattr(publisher.type_metadata, 'load', lambda *args, **_: SimpleNamespace(reference={'sha256': 'f' * 64}, data=b'owned schema'))
     monkeypatch.setattr(assets, 'ensure_extractor', lambda path: path / 'NteReader.dll')
@@ -217,7 +217,7 @@ def test_native_only_publisher_change_is_checked_before_returning_an_index(onlin
     path = online.tools/'nte-publisher'/stamp/'release.json'; path.parent.mkdir(parents=True); path.write_bytes(raw)
     online.states[stamp] = value; online.originals[stamp] = online.originals[old]; online.current[0] = stamp
     changed = [False]
-    def observed(_):
+    def observed(_, **_kwargs):
         result = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections', 'publisher_files')}
         if changed[0]:
             result['publisher_files'] = dict(value['publisher_files']) | {native: {**value['publisher_files'][native], 'digest': 'b'*32}}

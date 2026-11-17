@@ -44,6 +44,7 @@ def fixture(monkeypatch, *, region='global', failed=None):
         def __init__(self, tables, configs, movies, *, revision, build):
             assert (tables, configs, movies) == ('original-tables', 'original-configs', {'original-movie': 'owned-index-entry'})
             self.revision = revision
+            self.build = build
         def file(self, path):
             state['calls'].append(path)
             if failed == 'table' and path.endswith('VoiceConfig.json'):
@@ -66,12 +67,24 @@ def test_provider_joins_matching_original_generations_before_publishing_descript
     assert catalog.revision == 'original-catalog-native-generation-one'
     assert catalog.movie_audio_source == (tmp_path / 'tools/sophon', stamp, 'a' * 40)
     assert state['calls'][:3] == ['launcher', 'native', 'dispatch']
-    assert set(state['calls'][8:-1]) == {'ExcelOutput/' + name + '.json' for name in provider.TABLES}
+    assert state['calls'][3:6] == ['index-design', 'index-audio', 'index-video']
+    assert set(state['calls'][6:-1]) == {'ExcelOutput/' + name + '.json' for name in provider.TABLES}
     assert state['calls'][-1] == 'captions'
     assert (tmp_path / 'tools/sophon/releases' / stamp).is_file()
-    assert provider.current(tmp_path / 'tools', stamp, region)
+    assert provider.current(tmp_path / 'tools', stamp, region, format_revision='a' * 40)
     state['version'] = 'changed-original-index'
     assert not provider.current(tmp_path / 'tools', stamp, region)
+
+
+def test_movie_description_revision_and_outage_state_are_part_of_the_source_generation(tmp_path, monkeypatch):
+    fixture(monkeypatch)
+    first, _ = provider.prepare(tmp_path, format_revision='a' * 40)
+    second, catalog = provider.prepare(tmp_path, format_revision='b' * 40, format_metadata_stale=True)
+    assert second != first and catalog.movie_format_metadata_stale
+    assert provider.current(tmp_path / 'tools', second, format_revision='b' * 40, format_metadata_stale=True)
+    assert not provider.current(tmp_path / 'tools', second, format_revision='b' * 40)
+    with pytest.raises(ValueError):
+        provider.prepare(tmp_path, format_metadata_stale='yes')
 
 
 @pytest.mark.parametrize('failed', ['dispatch', 'table', 'caption'])
@@ -94,3 +107,23 @@ def test_original_provider_never_needs_a_latest_third_party_format_publication(t
     assert catalog.movie_audio_source[2] is None
     with pytest.raises(ValueError):
         provider.prepare(tmp_path, format_revision='latest')
+
+
+def test_text_mode_uses_original_caption_inventory_without_audio_index_or_movie_keys(tmp_path, monkeypatch):
+    state = fixture(monkeypatch)
+    stamp, catalog = provider.prepare(tmp_path, content_mode='text')
+    assert 'index-design' in state['calls'] and 'index-video' in state['calls']
+    assert 'index-audio' not in state['calls'] and catalog.movie_audio_source[2] is None
+    assert provider.current(tmp_path / 'tools', stamp, content_mode='text')
+    assert not provider.current(tmp_path / 'tools', stamp)
+    with pytest.raises(ValueError):
+        provider.prepare(tmp_path, content_mode='text', format_revision='a' * 40)
+
+
+def test_staged_catalog_construction_does_not_publish_a_partial_release(tmp_path, monkeypatch):
+    state = fixture(monkeypatch)
+    build, generation = provider.release(tmp_path / 'tools')
+    stamp, catalog = provider.catalog_source(tmp_path / 'tools', build, generation, content_mode='text')
+    assert not (tmp_path / 'tools/sophon/releases' / stamp).exists()
+    assert 'captions' not in state['calls']
+    assert not any(call.startswith('ExcelOutput/') for call in state['calls'])

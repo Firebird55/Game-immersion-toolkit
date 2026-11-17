@@ -1,5 +1,149 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Context-bound audio ownership and download planning
+
+The audio catalogue now accepts an explicit authenticated reader instead of
+using process-global publisher discovery. It reuses the existing language,
+bank, Stop-routing, complete-stream and equal-priority ambiguity checks.
+The associated audio source planner charges complete original SDK transport
+chunks for selected ranges; updater ranges still require their whole-file
+checksum. Both include co-resident bytes. Local reads cannot repair missing
+sources over the network, and text requests are rejected before audio lookup.
+
+A zero-network metadata audit revalidated every retained authored recording
+against the advertised original packages. The retained caption source and
+current Global descriptor have identical content fields after excluding
+bootstrap provenance; this is source-binding revalidation, not a new caption
+census or fresh mainland discovery.
+
+| Dub | Unique sentence recordings | Unique whole-film contexts | Total unique recordings |
+| --- | ---: | ---: | ---: |
+| English | 76,179 | 134 | 76,313 |
+| Mandarin | 76,276 | 134 | 76,410 |
+| Japanese | 76,131 | 134 | 76,265 |
+| Korean | 76,216 | 132 | 76,348 |
+
+All these joins passed without reading new media or transferring source data.
+Repeated captions can share one recording; neither these counts nor a missing
+binding establish complete story coverage or silence. Region/player branches
+and unresolved authored sources retain their existing qualifications.
+
+Each retained official dub inventory has 78 PCK containers. Cold complete-dub
+container upper bounds, before cache subtraction and separate common-bank
+dependencies, are 4,833,079,893 bytes for English, 4,541,434,172 for Mandarin,
+5,392,590,559 for Japanese and 4,999,332,107 for Korean. The independent retained
+mainland manifests/index list the same original voice containers; that equality
+does not replace an independent live mainland check. No complete pack was
+downloaded for this audit. Exact selected-range plans can reuse shared chunks
+and exclude unrelated media; their costs must be computed from actual owners.
+
+**Canonical text-and-audio preparation remains open.** These reusable source
+and ownership components do not turn the current audio gate into Ready. The
+producer still needs consented materialization, the verified owned codec
+closure, offline restore and retained-recording acceptance through the shared
+service. Android reader/codec execution remains separately unavailable.
+
+## November 17, 2026 · Per-game PC text preparation from official sources
+
+The per-game provider now continues beyond bootstrap on a PC with the verified
+compiler-free reader. Five consented stages select original scene metadata,
+presentation configuration, movie owners, comic roots and final text inputs.
+Each stage quotes complete publisher containers and only subtracts locally
+hash-verified bytes. Small typed ranges do not reduce a required whole-container
+checksum to a fictitious range-download amount. Large metadata indexes have
+their own download stage; a launcher manifest exceeding the planning allowance
+also has an explicit stage rather than requiring a toolkit update.
+
+The actual Global Japanese factory/service/transport run completed all five
+stages, rechecked the live publisher pointer and published a ready text library.
+It used **37 actual official HTTPS requests / 837,481 response bytes**, including
+the publisher's rejected protocol-version controls, and **zero new client,
+BLK, PCK or community bytes**. Previously retained original chunks and containers
+were reused only after their current publisher size/checksum checks. This is
+an actual live metadata/source run with a warm original-data cache, not a cold
+whole-source network test. All **289,967** prior record identities and exact
+text/translation maps were retained; that inventory is not a complete-story claim.
+
+The maintained reader artifact was prepared explicitly during development from
+existing pinned toolkit/software inputs. Its immutable Node/resource inventory
+passes `production_zzz_reader` and nine native Windows reader checks. Production
+preparation uses that verified command without installing tools, compiling,
+finding system Node or executing original client code. No new software download
+was needed. This proves the private Windows resource closure; it does not prove
+Android ABI support or a newly delivered installer.
+
+A fresh local service restored the complete real library offline, and three
+exact original conversation controls matched with audio lookup forbidden.
+After the shared request-identity fix, an explicit retained-response replay of
+the text-and-audio plan reports `update_available` and the unavailable audio
+materialization stage. It keeps the installed text selection and its pointer;
+it cannot activate an unprepared audio selection. That replay adds no new live
+freshness claim. Controlled stage tests also preserve a previous ready generation
+across manifest/bootstrap preparation and failures.
+
+**Complete selected-dub materialization and Android independent preparation
+remain open.** The new PC route produces ready **text only**; text-and-audio is
+an honest unavailable gate, without hidden audio acquisition. Mainland full
+content-stage acceptance, other source-language runs, actual historical RSA
+rotation and a changed-generation update/recovery trial through this new service
+remain separate from the earlier reader/worker evidence below.
+
+## November 17, 2026 · Portable official bootstrap preparation stage
+
+The maintained `zzz_game_data` factory now connects official discovery and
+original bootstrap acquisition to the shared plan/download protocol on the
+supported host platforms. Planning uses metadata-only transport, then quotes
+complete original transport containers before the separate source download.
+The selected request and mode are distinct from the original generation hash.
+No audio pack is acquired at this stage, including in a text request.
+
+This earlier checkpoint is deliberately a bootstrap **stage**, not a ready dialogue library.
+Successful source verification returns `PreparationStage`; the next plan
+reports the missing portable catalogue reader with unknown content sizes and
+download disabled. Synthetic changed-key/source controls and actual shared
+service/transport tests cover this boundary. Android execution, the closed
+reader/dependency closure and complete selected-dub materialization remain
+open in the [platform/preflight audit](zzz-android-preflight.md).
+
+The actual current warm-source factory/service probe independently reaches
+that gate for Global and mainland with four official HoYoPlay requests,
+251,440 API bytes and zero new client bytes. Global text and mainland
+text-and-audio use ordinary live discovery; their opposite modes are explicit
+exact-response replays. Neither mode is reported ready. This does not establish
+Android execution, a cold whole-source download or prior-ready stage retention.
+
+## November 17, 2026 · Explicit text selection in the publisher producer
+
+`zzz_publisher.build_language(..., content_mode='text')` skips selected-dub
+PCK inventories, cinematic bank resolution, the separate voice-directory
+objects and the audio registry. It also omits auxiliary uninterpreted silence
+payload acquisition. Text, translation, scene and subtitle-track inputs retain
+their original validation; co-resident design data is not misreported as an
+independent audio transfer. The legacy language worker retains its existing
+audio behavior; the new per-game provider must pass its explicit request.
+
+Text snapshots keep authored source/event references as non-playable
+`source_voice_binding` metadata, with `audio_omitted_by_request` separate from
+the evidenced voice state. An authored reference without a selected-pack check
+does not become a verified available recording. Confirmed unvoiced rows remain
+unvoiced and keep their separate capture option. Original typed text joins are
+marked verified for exact text capture; duplicate, player and context guards
+still apply. Publisher fingerprints do not depend on the download mode.
+
+A zero-network replay through the actual retained current Japanese catalogue
+retained all **289,967** previous reader-22 record identities and their exact
+text/translation maps. Audio inventory, bank resolution and registry parsing
+were forbidden during this run. This is original-source producer evidence,
+not ordinary live discovery, Android execution, or completed per-game Download
+acceptance. Full selected-dub materialization remains separate work.
+
+The resulting complete payload also passes the normal worker's validation and
+the shared portable matcher on the integrated omission-aware contract. All
+prior text, player, category and channel guards remain equal. Three exact
+original conversation controls capture with audio lookup forbidden and zero
+playable recordings. This is a local shared-core check, not Android ABI/device
+acceptance.
+
 ## November 17, 2026 · Production official native-key locator and protocol discovery
 
 The normal ZZZ bootstrap no longer loads an initial/community master, config or

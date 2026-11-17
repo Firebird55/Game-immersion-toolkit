@@ -47,14 +47,14 @@ def marker(raw):
     return rev, ''.join(f'{word:08x}' for word in words), size
 
 
-def _discover(build, listing):
+def _discover(build, listing, *, fetch=None):
     region = {'starrail-global': 'OS', 'starrail-cn': 'CN'}[build['channel']]
     routes = listing[region + build['version']]
     hotfix = {'routes': {key: routes[field] for key, (field, _) in ROUTES.items()}}
     urls = roots(build | {'hotfix': hotfix})
     def read(item):
         key, (route, stem) = item
-        rev, md5, size = marker(download(urls[route] + stem + '.bytes', limit=66))
+        rev, md5, size = marker((download if fetch is None else fetch)(urls[route] + stem + '.bytes', limit=66))
         check(rev == int(hotfix['routes'][route].split('/output_')[1].split('_')[0]))
         return key, (rev, md5, size)
     with ThreadPoolExecutor(max_workers=4) as pool:
@@ -74,7 +74,7 @@ def discover(build):
     return build | {'hotfix': hotfix}
 
 
-def index(directory, build, name):
+def index(directory, build, name, *, fetch=None):
     route, stem = INDEXES[name]
     _, digest, size = build['hotfix']['indexes'][name]
     check(re.fullmatch('[0-9a-f]{32}', digest) and 0 < size <= 128 * 1024**2)
@@ -84,7 +84,7 @@ def index(directory, build, name):
         if hashlib.md5(data).hexdigest() == digest:
             return data
     url = roots(build)[route] + stem.replace('M_', '') + '_' + digest + '.bytes'
-    data = download(url, limit=size)
+    data = (download if fetch is None else fetch)(url, limit=size)
     check(len(data) == size and hashlib.md5(data).hexdigest() == digest)
     _atomic_file(path, data)
     return data
@@ -106,6 +106,54 @@ class AudioFile:
             raw = path.read_bytes()
             if hashlib.sha256(raw[32:]).digest() == raw[:32]:
                 return raw[32:]
+        # A bank acquired during preparation can contain the requested voice.
+        # Reuse its authenticated cached range on a fresh offline process,
+        # rather than requiring a second request for the contained bytes.
+        candidates = []
+        if path.parent.is_dir():
+            for number, candidate in enumerate(path.parent.iterdir()):
+                if number >= 10000:
+                    break
+                match = re.fullmatch(r'([0-9]{1,20})-([0-9]{1,20})', candidate.name)
+                if not match or candidate.is_symlink() or not candidate.is_file():
+                    continue
+                first, last = map(int, match.groups())
+                span = last - first + 1
+                if (0 <= first <= start <= end <= last < self.size and span <= 64 * 1024**2
+                        and candidate.stat().st_size == span + 32):
+                    candidates.append((span, first, candidate))
+        for span, first, candidate in sorted(candidates):
+            # Exact legacy ranges remain readable above. Containment reuse
+            # additionally needs the original immutable asset/size receipt.
+            receipt = candidate.with_name(candidate.name + '.json')
+            try:
+                check(receipt.stat().st_size <= 1024 and not receipt.is_symlink())
+                owner = json.loads(receipt.read_bytes())
+                check(isinstance(owner, dict) and set(owner) == {
+                    'schema', 'asset_md5', 'asset_size', 'start', 'length', 'sha256'}
+                    and owner['schema'] == 'proxy-starrail-audio-range-v1'
+                    and owner['asset_md5'] == self.digest and type(owner['asset_size']) is int
+                    and owner['asset_size'] == self.size and type(owner['start']) is int
+                    and owner['start'] == first and type(owner['length']) is int and owner['length'] == span
+                    and isinstance(owner['sha256'], str) and re.fullmatch('[0-9a-f]{64}', owner['sha256']))
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            with candidate.open('rb') as stream:
+                expected = stream.read(32)
+                digest = hashlib.sha256()
+                remaining = span
+                while remaining:
+                    data = stream.read(min(remaining, 1024**2))
+                    if not data:
+                        break
+                    digest.update(data)
+                    remaining -= len(data)
+                if remaining or stream.read(1) or digest.digest() != expected or digest.hexdigest() != owner['sha256']:
+                    continue
+                stream.seek(32 + start - first)
+                data = stream.read(length)
+                if len(data) == length:
+                    return data
         urls = (self.url, self.alternate or self.url)
         for attempt, url in enumerate(urls):
             request = Request(url, headers={'Range': f'bytes={start}-{end}', 'Accept-Encoding': 'identity'})
@@ -132,6 +180,15 @@ class AudioFile:
         except PermissionError:
             if not path.is_file() or path.read_bytes() != raw:
                 raise
+        owner = {'schema': 'proxy-starrail-audio-range-v1', 'asset_md5': self.digest, 'asset_size': self.size,
+                 'start': start, 'length': length, 'sha256': raw[:32].hex()}
+        receipt = path.with_name(path.name + '.json')
+        payload = json.dumps(owner, sort_keys=True).encode()
+        try:
+            _atomic_file(receipt, payload)
+        except PermissionError:
+            if not receipt.is_file() or receipt.read_bytes() != payload:
+                raise
         return data
 
 
@@ -156,10 +213,10 @@ def audio_file(urls, relative, patch, name, size, digest):
     return AudioFile(name, size, digest, local[route] + path, alternate[route] + path if alternate else '')
 
 
-def movie_files(directory, build):
+def movie_files(directory, build, *, fetch=None):
     urls, alternates = audio_roots(build)
     result = {}
-    for line in index(directory, build, 'video').splitlines():
+    for line in index(directory, build, 'video', **({'fetch': fetch} if fetch is not None else {})).splitlines():
         row = json.loads(line)
         name = row['Path']
         if not name.lower().endswith('.usm'):
