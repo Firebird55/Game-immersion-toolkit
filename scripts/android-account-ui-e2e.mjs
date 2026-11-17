@@ -79,8 +79,25 @@ for(const [name,engine] of Object.entries({chromium,firefox})) {
   assert.notEqual(restored.lines[0].id,firstLine);
   assert.ok(restored.context.account_generation>other.context.account_generation);
   assert.equal(restored.status.settings.stable_frames,2);
+  service.stdin.write(JSON.stringify({action:'corrupt'})+'\n');
+  assert.equal((await next()).locked,true);
+  await until(()=>page.getByRole('button',{name:'Open library',exact:true}).isDisabled(),'locked import capability');
+  await until(async()=>await page.locator('.transcript-line').count()===0,'hidden locked private history');
+  await page.getByRole('button',{name:'Lexirise account',exact:true}).click();
+  await page.getByLabel('Lexirise API key',{exact:true}).fill('lx_first_authored_account_fixture_only');
+  await page.getByRole('button',{name:'Verify and restore local data',exact:true}).click();
+  await until(()=>page.evaluate(async identity=>{
+   const accounts=await(await fetch('/api/lexirise/accounts')).json();
+   const platform=await(await fetch('/api/platform')).json();
+   return accounts.active===identity&&!accounts.recovery&&!platform.account_recovery&&platform.library_import;
+  },first),'verified recovery');
+  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
+  await page.locator('.transcript-line').filter({hasText:'Follow the river beyond the bridge.'}).first().waitFor();
+  await until(async()=>!(await page.getByRole('button',{name:'Open library',exact:true,includeHidden:true}).isDisabled()),'refreshed import capability');
+  service.stdin.write(JSON.stringify({action:'verify_recovery'})+'\n');
+  assert.equal((await next()).old_store_preserved,true);
   assert.deepEqual(errors,[]);
-  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,account_switch:'A-B-A',separate_libraries:true,history_favorite_retained:true,stale_generation_rejected:true});
+  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,account_switch:'A-B-A',separate_libraries:true,history_favorite_retained:true,stale_generation_rejected:true,recovery_preserves_original_store:true,recovery_refreshes_capabilities:true});
  } catch(error) {
   if(page) {
    writeFileSync(join(root,'authored-page.txt'),await page.locator('body').innerText());

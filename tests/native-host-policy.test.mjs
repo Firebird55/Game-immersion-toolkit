@@ -45,3 +45,12 @@ test('protected accounts require the reviewed generation-bound protocol',()=>{
  assert.equal(value.protected_accounts,true);
  assert.equal(value.account_protocol,'scoped-accounts-v1');
 });
+
+test('credential recovery retains only a complete locked and preserved-data state',()=>{
+ const recovery={state:'credentials_unreadable',data_preserved:true,action:'reenter_verified_account',message:'Re-enter the verified account to restore local data.'};
+ const locked={...report(),protected_accounts:true,account_protocol:'scoped-accounts-v1',library_import:false,capture_source:'unavailable',account_recovery:recovery};
+ assert.deepEqual(parseNativeCapabilities(locked).account_recovery,recovery);
+ for(const patch of [{library_import:true},{capture_source:'remote-stream'},{protected_accounts:false},
+  {account_recovery:{...recovery,data_preserved:false}},{account_recovery:{...recovery,action:'reset'}}])
+  assert.throws(()=>parseNativeCapabilities({...locked,...patch}),/complete device capability/);
+});

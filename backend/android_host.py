@@ -483,7 +483,7 @@ class AndroidHost:
                         with host.session.lock:
                             captured = self.headers.get('X-Toolkit-Account-Generation')
                             if captured is not None:
-                                host.guard_account(captured, selecting=True)
+                                host.guard_account(captured, selecting=True, recovering=True)
                             self._json(host.account_sessions.status());return
                     if self.command != 'POST' or self.headers.get('X-Proxy-Transcript') != 'lexirise':
                         self._json({'detail': 'Use the account selector.'}, 403);return

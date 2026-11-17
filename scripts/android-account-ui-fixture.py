@@ -29,6 +29,7 @@ httpx.HTTPTransport.handle_request = forbidden
 root, frontend = map(Path, sys.argv[1:3])
 library = _library(root / 'authored-input', duration=8)
 host = AndroidHost(root / 'application', frontend, AuthoredNative(), authored_accounts=True)
+corrupted_store = None
 print(json.dumps({'origin': host.origin, 'library': str(library), 'cookie': host.cookie}), flush=True)
 try:
     for raw in sys.stdin:
@@ -44,6 +45,13 @@ try:
             print(json.dumps({'captured': len(lines)}), flush=True)
         elif action == 'close':
             break
+        elif action == 'corrupt':
+            corrupted_store = host.account_sessions.accounts.path
+            corrupted_store.write_bytes(b'authored-corrupt-credential-fixture')
+            print(json.dumps({'locked': host.snapshot()['lexirise']['account'] == 'recovery'}), flush=True)
+        elif action == 'verify_recovery':
+            print(json.dumps({'old_store_preserved': corrupted_store is not None
+                and corrupted_store.read_bytes() == b'authored-corrupt-credential-fixture'}), flush=True)
         else:
             raise ValueError('Unknown authored UI action')
 finally:

@@ -9,7 +9,8 @@ import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
 
 const API = desktopApiBase() + '/api/lexirise/accounts';
 const headers = {'Content-Type': 'application/json', 'X-Proxy-Transcript': 'lexirise'};
-type Accounts = {active: string; profiles: {id: string; name: string}[]};
+type Accounts = {active: string; profiles: {id: string; name: string}[];
+  recovery?: {state: string; action: string; message: string} | null};
 
 async function accountResponse(response: Response, failure: string): Promise<Accounts> {
   if (!response.ok) {
@@ -23,7 +24,7 @@ async function readAccounts(generation?: number | null): Promise<Accounts> {
   const response = await fetch(API, {cache: 'no-store', headers: nativeAccountHeaders(generation)});
   if (!response.ok) throw Error('Could not load saved accounts.');
   const data = await response.json() as Partial<Accounts>;
-  return {active: data.active ?? 'legacy', profiles: data.profiles ?? []};
+  return {active: data.active ?? 'legacy', profiles: data.profiles ?? [], recovery: data.recovery};
 }
 
 export function AccountSwitcher({onChanged}: {onChanged: () => void}) {
@@ -41,7 +42,7 @@ export function AccountSwitcher({onChanged}: {onChanged: () => void}) {
     mounted.current = true;
     let current = true;
     readAccounts(accountGeneration).then(data => {
-      if (current) setAccounts(data);
+      if (current) {setAccounts(data); setAdding(!!data.recovery);}
     }).catch(() => {
       if (current) setMessage('Could not load saved accounts.');
     }).finally(() => {
@@ -101,7 +102,7 @@ export function AccountSwitcher({onChanged}: {onChanged: () => void}) {
     setBusy(true);
     setMessage('Verifying account…');
     try {
-      const response = await fetch(API, {method: 'POST', headers: nativeAccountHeaders(accountGeneration, headers), body, cache: 'no-store', redirect: 'error'});
+      const response = await fetch(API + (accounts.recovery ? '/recover' : ''), {method: 'POST', headers: nativeAccountHeaders(accountGeneration, headers), body, cache: 'no-store', redirect: 'error'});
       const data = await accountResponse(response, 'Could not save the account.');
       setAdding(false);
       changed(data);
@@ -116,13 +117,13 @@ export function AccountSwitcher({onChanged}: {onChanged: () => void}) {
 
   return <fieldset className="settings-key">
     <legend>{accountGeneration === undefined ? uiText('Lexirise accounts on this PC') : 'Lexirise accounts on this device'}</legend>
-    <label className="account-selection">{uiText('Active account')}
+    {accounts.recovery ? <p role="alert">{accounts.recovery.message}</p> : <label className="account-selection">{uiText('Active account')}
       <select aria-label={uiText('Active Lexirise account')} value={accounts.active} disabled={busy || adding}
         onChange={event => void select(event.target.value)}>
         <option value="legacy">{accountGeneration === undefined ? uiText('Existing local credential') : 'Local library without an account'}</option>
         {accounts.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
       </select>
-    </label>
+    </label>}
     {adding ? <form className="account-entry" autoComplete="off" onSubmit={save}>
       <label>{uiText('Lexirise API key')}
         <Input ref={keyInput} type="password" autoFocus required maxLength={512} autoComplete="off"
@@ -132,11 +133,11 @@ export function AccountSwitcher({onChanged}: {onChanged: () => void}) {
         <Input ref={nameInput} maxLength={80} disabled={busy}/>
       </label>
       <div className="settings-key-actions">
-        <button type="submit" disabled={busy}>{uiText('Verify and save')}</button>
+        <button type="submit" disabled={busy}>{accounts.recovery ? 'Verify and restore local data' : uiText('Verify and save')}</button>
         <button type="button" disabled={busy} onClick={() => { setAdding(false); setMessage(''); }}>{uiText('Cancel')}</button>
       </div>
     </form> : <div className="settings-key-actions">
-      <button type="button" disabled={busy} onClick={openForm}>{uiText('Add account securely')}</button>
+      <button type="button" disabled={busy} onClick={openForm}>{accounts.recovery ? 'Recover account securely' : uiText('Add account securely')}</button>
       <button type="button" disabled={busy} onClick={() => void reload()}>{uiText('Reload accounts')}</button>
     </div>}
     <p role="status">{uiText(message)}</p>

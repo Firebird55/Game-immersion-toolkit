@@ -176,6 +176,15 @@ mocks. Registration, import, capture, favorite, separate empty second-owner
 library and A→B→A history restoration pass; stale generation mutations reject.
 This establishes browser/service behavior, not Android Keystore or device OCR.
 
+The same two browser scenarios now corrupt their authored protected store,
+verify that private history and imports lock, explicitly re-enter the verified
+owner and restore the existing library/history/favorite. The original unreadable
+store remains byte-identical after recovery. Account status reads permit the
+locked state while retaining generation checks. Device capabilities refresh
+after account/recovery changes and native resume, so successful recovery restores
+import/screen controls without adopting a replacement document nonce. This
+recovery UI remains separate from actual Android target acceptance.
+
 The API delegates settings, destination ownership/selection, word/grammar
 reading and sentence/original-audio exports to the maintained services. Requests
 pin credentials, local line identity and account session before network work and

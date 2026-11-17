@@ -7,6 +7,7 @@ export type NativeCapabilities = {
   library_import: boolean;
   protected_accounts: boolean;
   account_protocol?: string;
+  account_recovery?: {state: string; data_preserved: boolean; action: string; message: string};
   capture_source: string;
   message: string;
   receiver_protocol?: string;
@@ -17,6 +18,17 @@ export function useNativeHost() {
   const android = hostPlatform() === 'android';
   const [capabilities, setCapabilities] = useState<NativeCapabilities | null>(null);
   const [error, setError] = useState('');
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (!android) return;
+    const refresh = () => setRevision(value => value + 1);
+    window.addEventListener('lexirise-credentials-changed', refresh);
+    window.addEventListener('toolkit-host-resume', refresh);
+    return () => {
+      window.removeEventListener('lexirise-credentials-changed', refresh);
+      window.removeEventListener('toolkit-host-resume', refresh);
+    };
+  }, [android]);
   useEffect(() => {
     if (!android) return;
     const controller = new AbortController();
@@ -31,6 +43,6 @@ export function useNativeHost() {
       }
     })();
     return () => controller.abort();
-  }, [android]);
+  }, [android, revision]);
   return {android, capabilities, error};
 }
