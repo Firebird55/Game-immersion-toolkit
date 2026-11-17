@@ -42,7 +42,7 @@ class Generation:
     identity: str
 
 
-def prepare(directory, build, names):
+def prepare(directory, build, names, *, reader=None, fetch=None):
     """Regenerate every needed description without newer third-party game data.
 
     Descriptor cache publication happens only after complete native ownership,
@@ -51,7 +51,8 @@ def prepare(directory, build, names):
     """
     directory = Path(directory).absolute()
     metadata._check(isinstance(names, (set, frozenset)) and 0 < len(names) <= 256)
-    native = metadata.prepare(directory, build)
+    options = ({'reader': reader} if reader is not None else {}) | ({'fetch': fetch} if fetch is not None else {})
+    native = metadata.prepare(directory, build, **options)
     identity = {'native': native.receipt, 'logic': _logic_identity(), 'tables': sorted(names)}
     receipt = directory / 'native-descriptions.json'
     try:
@@ -62,7 +63,8 @@ def prepare(directory, build, names):
     except (OSError, ValueError, KeyError, TypeError):
         pass
     index = NativeIndex(native)
-    files = sophon.manifest(directory / 'sophon', build['channel'], tuple(build['manifests']['game']), ('.bytes',))
+    files = sophon.manifest(directory / 'sophon', build['channel'], tuple(build['manifests']['game']), ('.bytes',),
+                            **({'fetch': fetch} if fetch is not None else {}))
     value = {'schema': SCHEMA, 'identity': identity, 'routes': routes.derive(index, files),
              'tables': tables.descriptions(index, tables.bindings(index, names))}
     # JSON roundtrip normalizes enum number keys before deriving a cache identity.

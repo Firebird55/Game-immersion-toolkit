@@ -137,15 +137,18 @@ def _endpoint(value, kind, channel):
     return value
 
 
-def _protobuf_get(url):
-    with urlopen(Request(url, headers={'Accept-Encoding': 'identity'}), timeout=30) as response:
-        _check(response.status == 200 and response.geturl() == url)
-        raw = response.read(2 * 1024**2 + 1)
-    _check(len(raw) <= 2 * 1024**2)
+def _protobuf_get(url, *, fetch=None):
+    if fetch is None:
+        with urlopen(Request(url, headers={'Accept-Encoding': 'identity'}), timeout=30) as response:
+            _check(response.status == 200 and response.geturl() == url)
+            raw = response.read(2 * 1024**2 + 1)
+    else:
+        raw = fetch(url, limit=2 * 1024**2)
+    _check(isinstance(raw, bytes) and len(raw) <= 2 * 1024**2)
     return protobuf_fields(base64.b64decode(b''.join(raw.split()), validate=True))
 
 
-def discover(directory, build, description):
+def discover(directory, build, description, *, fetch=None):
     """Resolve current routes from official bootstrap and public dispatch GETs.
 
     No native file is executed, no third-party route feed is queried, and no
@@ -156,7 +159,8 @@ def discover(directory, build, description):
     _check(build.get('channel') in {'starrail-global', 'starrail-cn'})
     directory = Path(directory)
     suffixes = tuple(description['bootstrap_files'][key] for key in ('config', 'version', 'native'))
-    files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), suffixes)
+    options = {'fetch': fetch} if fetch is not None else {}
+    files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), suffixes, **options)
     _check(set(files) == set(suffixes))
     if files[suffixes[2]].digest != description['native_file_md5']:
         raise SourceUnavailable('Derive a description from this original Star Rail client; the previous data is retained.')
@@ -164,7 +168,7 @@ def discover(directory, build, description):
     for name in suffixes[:2]:
         asset = files[name]
         _check(0 < asset.size <= 1024**2)
-        raw = asset.read(directory, 0, asset.size)
+        raw = asset.read(directory, 0, asset.size, **options)
         _check(len(raw) == asset.size and hashlib.md5(raw).hexdigest() == asset.digest)
         blobs.append(raw)
     config = decode_bootstrap(blobs[0], description['client_schema'])
@@ -184,7 +188,7 @@ def discover(directory, build, description):
               'language_type': 1, 'platform_type': 3, 'channel_id': 1, 'sub_channel_id': 1, 'is_new_format': 1}
     # These request constants describe the native Windows public bootstrap.
     # ClientConfig layout and all protobuf field numbers are supplied inputs.
-    rows = _protobuf_get(endpoints[0] + '?' + urlencode(params))
+    rows = _protobuf_get(endpoints[0] + '?' + urlencode(params), **options)
     global_data = description['global_dispatch']
     encoded_regions = [(wire, value) for field, wire, value in rows if field == global_data['region_list_field']]
     _check(all(wire == 2 for wire, _ in encoded_regions))
@@ -198,7 +202,7 @@ def discover(directory, build, description):
     _endpoint(_string(region, global_data['region_fields']['alternate_gateway']), 'gateway', build['channel'])
     params.pop('is_new_format')
     params['dispatch_seed'] = version['DispatchSeed']
-    rows = _protobuf_get(gateway + '?' + urlencode(params))
+    rows = _protobuf_get(gateway + '?' + urlencode(params), **options)
     routes = {}
     for field in description['routes']:
         parsed = urlsplit(_string(rows, field['field']))
@@ -209,12 +213,12 @@ def discover(directory, build, description):
     # Reuse native SRMI marker validation, including route/revision agreement.
     # _discover receives the actual response, never a third-party listing.
     listing = {prefix + actual: {hotfix.ROUTES[key][0]: value for key, value in routes.items()}}
-    return build | {'hotfix': hotfix._discover(build, listing)}
+    return build | {'hotfix': hotfix._discover(build, listing, **options)}
 
 
-def prepare(directory, build, description):
+def prepare(directory, build, description, *, fetch=None):
     """Atomically retain a complete discovery, without storing its request seed."""
-    result = discover(directory, build, description)
+    result = discover(directory, build, description, **({'fetch': fetch} if fetch is not None else {}))
     receipt = {key: result[key] for key in ('channel', 'version', 'hotfix')}
     receipt['native_file_md5'] = description['native_file_md5']
     _atomic_file(Path(directory) / 'starrail-original-discovery' / 'current.json',

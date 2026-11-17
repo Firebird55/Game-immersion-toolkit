@@ -85,8 +85,9 @@ class Helper:
         _run([*self.command, operation, *(str(path) for path in paths)], work)
 
 
-def helper(directory):
+def helper(directory, *, allow_build=True):
     """Resolve a compiler-free apphost, or build fixed software in source mode."""
+    _check(type(allow_build) is bool)
     layout = discover_layout()
     if layout.mode == 'bundle':
         reader = prebuilt_reader('starrail', layout=layout)
@@ -111,6 +112,8 @@ def helper(directory):
             return Helper((str(sdk), str(generation / 'StarRailMetadata.dll')), _identity({'source': identity, 'files': files}))
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    if not allow_build:
+        raise ValueError('The Star Rail metadata helper is not prepared on this device.')
     from .nte_assets import dotnet_sdk
     sdk = dotnet_sdk()
     if not sdk:
@@ -333,12 +336,13 @@ def _input(cache, asset, *, fetch=None):
     return target
 
 
-def prepare(directory, build, *, reader=None):
+def prepare(directory, build, *, reader=None, fetch=None):
     """Authenticate complete original inputs, regenerate metadata atomically."""
     directory = Path(directory).absolute(); _no_links(directory); directory.mkdir(parents=True, exist_ok=True)
     _check(build['channel'] in {'starrail-global', 'starrail-cn'})
     spec = build['manifests']['game']
-    assets = sophon.manifest(directory / 'sophon', build['channel'], tuple(spec), tuple(NAMES.values()))
+    options = {'fetch': fetch} if fetch is not None else {}
+    assets = sophon.manifest(directory / 'sophon', build['channel'], tuple(spec), tuple(NAMES.values()), **options)
     chosen = {}
     for role, basename in NAMES.items():
         matches = [asset for asset in assets.values() if asset.name.rsplit('/', 1)[-1] == basename]
@@ -370,7 +374,7 @@ def prepare(directory, build, *, reader=None):
         stage = Path(temporary); inputs = stage / 'inputs'; inputs.mkdir()
         for role, asset in chosen.items():
             target = inputs / CANONICAL[role]; target.parent.mkdir(parents=True, exist_ok=True)
-            verified = _input(directory, asset)
+            verified = _input(directory, asset, **options)
             try:
                 os.link(verified, target)
             except OSError:

@@ -175,6 +175,15 @@ worker/recovery proof does not remove these independent-service gaps. Shared
 storage accounting and removal can cover the stage's owned cache; they do not
 establish a complete game download estimate or Android preparation.
 
+The owned metadata, native-description, original-bootstrap, index and complete
+DesignV-package APIs now accept an explicit context transport. Supplied contexts
+remain attached to every nested original request; the legacy default transport
+is retained only when no context was supplied. A data-service caller can also
+resolve an already delivered metadata helper with implicit source compilation
+disabled. Complete DesignV packages must still match their publisher MD5 before
+entering the reusable cache. These seams are prerequisites for the remaining
+text stages, not an enabled ready-text or Android path by themselves.
+
 A cache-only plan for current Global 4.7 English with official Chinese
 translations gives these exact original-input amounts, before audio headers,
 event-bank payloads, requested movies, codecs or snapshots:
