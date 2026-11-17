@@ -2,6 +2,7 @@
 import stat
 
 MAX_TEXT = 512 * 1024**2
+MAX_AUDIO = 128 * 1024**2
 MAX_ROWS = 1_000_000
 
 
