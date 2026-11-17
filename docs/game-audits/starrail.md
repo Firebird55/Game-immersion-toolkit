@@ -204,6 +204,31 @@ no voice URL, metadata archive or successful text-only result is advertised as
 downloaded original audio. Shared storage accounting/removal covers owned stage
 and library files, without establishing Android preparation or an audio size.
 
+The PC text-and-audio request can now continue through the original text stages
+to a separate selected-dub archive-inventory quote. Exact AudioV ownership
+selects that official dub's PCKs and neutral event-bank PCKs; another dub is not
+included. The first stage quotes only their 28-byte headers. Only validated
+prefixes can establish a bounded full-directory quote. Every download rechecks
+the native/helper/text-package generation and cached AudioV without fetching
+replacement metadata inside the inventory allowance. These stages return
+`PreparationStage`, never a ready text-and-audio snapshot. Event-bank/member
+selection, requested recording materialization and the genuine movie-key and
+platform-runtime gates still remain before complete audio activation.
+
+The HSR-owned range cache learns an opaque strong ETag from the actual response
+and pins following reads with `If-Match`; it does not turn the publisher's MD5
+into an assumed ETag. Each original range retains generation, URL/owner size,
+bounds, complete received-byte SHA256 and actual response identity. This is
+partial-owner HTTPS provenance, not complete-PCK MD5 verification. A separate
+offline voice adapter freezes exact row/audio bindings and locally checked RIFF
+members. Its `has` predicate performs no file reads, stat calls or decoding.
+Resolution rechecks the original member against its frozen checksum, decodes
+only with already available codecs into caller-owned staging, honors
+cancellation and checks the original again before publication. Missing originals
+or movie parameters cannot certify a voice. Authored-format/shared-service tests
+cover these boundaries; no new real audio transport or Android codec acceptance
+is implied by these tests.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport

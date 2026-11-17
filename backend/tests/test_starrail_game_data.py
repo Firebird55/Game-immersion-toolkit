@@ -257,3 +257,84 @@ def test_pending_source_is_hash_bound_and_never_crosses_request_or_edition():
     foreign = raw | {'build': raw['build'] | {'channel': 'starrail-cn'}}
     with pytest.raises(GameDataError, match='another publisher edition'):
         game._staged_build(SimpleNamespace(stage_handle=foreign | {'receipt_sha256': game._identity(foreign)}), request)
+
+
+def audio_fixture(tmp_path, monkeypatch):
+    """Actual shared service + HTTPS range/cache parsers after native boundary."""
+    from types import SimpleNamespace
+    from backend import starrail_hotfix
+    from backend.tests.test_starrail_game_audio import package
+    provider, _, objects, _, calls, _ = fixture(tmp_path, monkeypatch)
+    request = REQUEST | {'content_mode': 'text-audio'}
+    reader = SimpleNamespace(identity='b' * 64)
+    monkeypatch.setattr(provider, '_reader', lambda directory: reader)
+    monkeypatch.setattr(game.metadata, 'prepare', lambda *a, **k: object())
+    monkeypatch.setattr(game, '_required_text', lambda catalog, request: ('text-snapshot', {}, {}))
+    body = package(); digest = hashlib.md5(body).hexdigest()
+    raw = json.dumps({'Path': 'English/External.pck', 'Md5': digest, 'Size': len(body), 'Patch': True}).encode()
+    routes = {key: folder + '/V1.2Live/output_123_ab_cd' for key, folder in
+              [('design', 'design_data'), ('asb', 'asb'), ('base', 'asb'), ('lua', 'lua')]}
+    hotfix = {'routes': routes, 'indexes': {'audio': [123, hashlib.md5(raw).hexdigest(), len(raw)]}}
+    captured = {}
+    def context(ctx, build, reader, *, discover, offline=False):
+        catalog = SimpleNamespace(build=build | {'content_mode': 'text', 'hotfix': hotfix},
+            tables=SimpleNamespace(directory=provider._directory(ctx, 'global') / 'sophon'))
+        root = starrail_hotfix.roots(catalog.build)['asb']
+        objects[root + 'AudioBlock/AudioV_' + hashlib.md5(raw).hexdigest() + '.bytes'] = raw
+        captured['catalog'] = catalog
+        return 'sophon-' + 'f' * 64, catalog, SimpleNamespace(identity='a' * 64)
+    monkeypatch.setattr(provider, '_text_context', context)
+    monkeypatch.setattr(starrail_hotfix, 'download', lambda *a, **k: pytest.fail('Hidden global audio index transport'))
+    tags = {'value': '"opaque-audio-generation"'}
+    def open_(req, **kwargs):
+        calls.append(req.full_url)
+        if req.get_header('Range'):
+            assert req.get_method() == 'GET' and req.full_url.endswith('/AudioBlock/English/External.pck')
+            start, end = map(int, req.get_header('Range')[6:].split('-'))
+            return Response(body[start:end+1], status=206, url=req.full_url, headers={
+                'Content-Length': str(end-start+1), 'Content-Range': f'bytes {start}-{end}/{len(body)}', 'ETag': tags['value']})
+        return Response(objects[req.full_url], url=req.full_url)
+    monkeypatch.setattr(provider, '_transport', lambda ctx: PublisherTransport(ctx, hosts=game.HOSTS, opener=open_))
+    return provider, request, calls, captured, tags
+
+
+def test_text_audio_inventory_is_explicitly_quoted_and_never_activates_partial_audio(tmp_path, monkeypatch):
+    provider, request, calls, _, _ = audio_fixture(tmp_path, monkeypatch)
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        for expected, transfer in [('original-native-inputs', None), ('audio-inventory-prefixes', 28), ('audio-inventory-headers', 40)]:
+            row = service.plan('starrail', request)['game']
+            if transfer is not None:
+                assert row['download_bytes'] == transfer
+            before = len(calls)
+            service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
+            result = finish(service)
+            assert result['job']['status'] == 'needs_plan' and result['state'] != 'ready'
+            if transfer is not None:
+                assert len(calls) == before + 1
+        final = service.plan('starrail', request)['game']
+        assert not final['can_download'] and final['download_bytes'] is None
+        assert not list(tmp_path.rglob('textmap.json'))
+    finally:
+        service.close()
+
+
+def test_lost_audio_index_between_quote_and_download_fails_without_unquoted_request(tmp_path, monkeypatch):
+    provider, request, calls, captured, _ = audio_fixture(tmp_path, monkeypatch)
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        first = service.plan('starrail', request)['game']
+        service.download('starrail', {'plan_id': first['plan_id'], 'revision': first['revision']})
+        assert finish(service)['job']['status'] == 'needs_plan'
+        row = service.plan('starrail', request)['game']; assert row['download_bytes'] == 28
+        catalog = captured['catalog']
+        (catalog.tables.directory / 'starrail-indexes' / catalog.build['hotfix']['indexes']['audio'][1]).unlink()
+        before = len(calls)
+        service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
+        assert finish(service)['job']['status'] == 'failed'
+        assert len(calls) == before and not list(tmp_path.rglob('textmap.json'))
+        # A new explicit plan repairs metadata under the planning budget.
+        retry = service.plan('starrail', request)['game']; assert retry['download_bytes'] == 28
+        assert len(calls) > before
+    finally:
+        service.close()

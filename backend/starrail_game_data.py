@@ -26,6 +26,7 @@ HOSTS = frozenset({'sg-hyp-api.hoyoverse.com', 'sg-public-api.hoyoverse.com', 'h
                    'api-takumi.mihoyo.com', 'autopatchos.starrails.com', 'autopatchcn.bhsr.com'})
 TEXT_SCHEMA = 'starrail-original-text-source-v1'
 TEXT_PLAN = 'starrail-original-text-plan-v1'
+AUDIO_PLAN = 'starrail-original-audio-plan-v1'
 
 
 def _packages_for(catalog, paths):
@@ -97,7 +98,8 @@ def _text_revision(handle):
     # One publisher/schema generation spans several package estimates. A phase
     # transition is not a new source revision, and Ready must retire its stage.
     identity = {name: handle[name] for name in ('request', 'build', 'helper', 'native')}
-    return handle['build']['version'] + '/text-' + _identity(identity)[:24]
+    mode = 'text-audio' if handle['request']['content_mode'] == 'text-audio' else 'text'
+    return handle['build']['version'] + '/' + mode + '-' + _identity(identity)[:24]
 
 
 def _valid_request(request):
@@ -113,7 +115,7 @@ def _staged_build(ctx, request):
             or stage.get('request') != request.json()):
         return None
     required = {'schema', 'request', 'build', 'files', 'ready', 'receipt_sha256'}
-    allowed = required | {'native', 'packages'}
+    allowed = required | {'native', 'packages', 'audio'}
     # Older input-only receipts did not carry their complete hashable value.
     # Their immutable body cache remains useful through the fresh manifest.
     if set(stage) == {'schema', 'request', 'build', 'files', 'receipt_sha256'}:
@@ -206,15 +208,20 @@ class StarRailProvider:
     def _reader(directory):
         return metadata.helper(directory / 'tools', allow_build=False)
 
-    def _text_context(self, ctx, build, reader, *, discover):
+    def _text_context(self, ctx, build, reader, *, discover, offline=False):
         from . import starrail_native_preparation as native, starrail_original_discovery as discovery
         from . import starrail_original_provider as original
         directory = self._directory(ctx, ctx.request.region)
-        transport = self._transport(ctx); fetch = self._metadata_fetch(ctx, transport)
+        transport = self._transport(ctx)
+        def missing(url, *, limit):
+            raise GameDataError('starrail_audio_inputs_changed', 'The verified original cache changed. Check the download size again.')
+        fetch = missing if offline else self._metadata_fetch(ctx, transport)
         generation = native.prepare(directory, build, original.TABLES, reader=reader, fetch=fetch, allow_generate=False)
         if discover:
             build = discovery.prepare(directory / 'sophon', build, generation.routes, fetch=fetch)
         def package_fetch(url, *, limit):
+            if offline:
+                return missing(url, limit=limit)
             return transport.fetch_bytes(url, limit=limit, kind='asset', expected_size=limit)[0]
         key = directory.absolute(), generation.identity
         with self._description_lock:
@@ -239,9 +246,6 @@ class StarRailProvider:
 
     def _text_plan(self, request, ctx, build, selected):
         directory = self._directory(ctx, request.region)
-        if request.content_mode != 'text':
-            return GameDataPlan(build['version'], None, None, stage='original-audio', runtime_available=False,
-                message='Independent original-audio preparation is not available yet. Text-only preparation has a separate download estimate.')
         try:
             reader = self._reader(directory)
         except (OSError, ValueError):
@@ -260,14 +264,44 @@ class StarRailProvider:
                 message='Prepare the verified original metadata locally before estimating text packages. No further download is included in this step.')
         stamp, catalog, generation = self._text_context(ctx, build, reader, discover='hotfix' not in build)
         phase, packages, missing = _required_text(catalog, request)
+        if phase == 'text-snapshot' and request.content_mode == 'text-audio':
+            return self._audio_plan(ctx, catalog, generation, reader, selected, packages)
         handle = {'schema': TEXT_PLAN, 'request': request.json(), 'build': catalog.build,
                   'files': _file_receipts(selected), 'phase': phase, 'packages': _package_receipts(packages),
                   'helper': reader.identity, 'native': generation.identity}
         disk = sum(asset.size for asset in missing.values()) + (MAX_TEXT if phase == 'text-snapshot' else 0) + MAX_HANDLE_BYTES
+        audio_note = (' Audio is omitted by request.' if request.content_mode == 'text' else
+                      ' Recordings require a separate download estimate before this library can become ready.')
         return GameDataPlan(_text_revision(handle),
             sum(asset.size for asset in missing.values()), disk, handle, stage=phase, runtime_available=True,
-            message=('Prepare the verified original text library. Audio is omitted by request.' if phase == 'text-snapshot'
-                     else 'Download the required original text packages. Additional authored scene packages may need a separate estimate. Audio is omitted by request.'))
+                message=('Prepare the verified original text library.' if phase == 'text-snapshot'
+                     else 'Download the required original text packages. Additional authored scene packages may need a separate estimate.') + audio_note)
+
+    def _audio_inventory(self, ctx, catalog, *, offline=False):
+        from . import starrail_game_audio as audio, starrail_hotfix as hotfix
+        def missing(url, *, limit):
+            raise GameDataError('starrail_audio_inputs_changed', 'The verified audio index changed. Check the download size again.')
+        fetch = missing if offline else self._metadata_fetch(ctx, self._transport(ctx))
+        raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=fetch)
+        selected = audio.owners(catalog.build, raw, ctx.request.source_locale)
+        store = audio.RangeStore(self._directory(ctx, ctx.request.region) / 'original-audio')
+        quote = audio.header_quote(selected, store)
+        receipt = {'audio_index_md5': catalog.build['hotfix']['indexes']['audio'][1],
+            'selection_sha256': audio.identity([owner.json() for owner in selected]),
+            'quote_sha256': quote.digest, 'owner_count': len(selected)}
+        return quote, store, receipt
+
+    def _audio_plan(self, ctx, catalog, generation, reader, selected, packages):
+        quote, _, audio = self._audio_inventory(ctx, catalog)
+        handle = {'schema': AUDIO_PLAN, 'request': ctx.request.json(), 'build': catalog.build,
+            'files': _file_receipts(selected), 'helper': reader.identity, 'native': generation.identity,
+            'packages': _package_receipts(packages), 'phase': quote.phase, 'audio': audio}
+        if not quote.spans:
+            return GameDataPlan(_text_revision(handle), None, None, stage='original-audio-bindings', runtime_available=False,
+                message='The original audio inventory is downloaded. Recordings and movie audio still require verified preparation; your existing library is retained.')
+        return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
+            handle, stage=quote.phase, runtime_available=True,
+            message='Download only the selected official dub archive inventory. Recordings are not included in this step and the library will not become ready yet.')
 
     @staticmethod
     def _directory(ctx, region):
@@ -298,6 +332,8 @@ class StarRailProvider:
 
     def download(self, plan, ctx):
         handle = plan.handle
+        if isinstance(handle, dict) and handle.get('schema') == AUDIO_PLAN:
+            return self._download_audio(plan, ctx)
         if isinstance(handle, dict) and handle.get('schema') == TEXT_PLAN:
             return self._download_text(plan, ctx)
         if (not isinstance(handle, dict) or set(handle) != {'schema', 'request', 'build', 'files'}
@@ -332,7 +368,7 @@ class StarRailProvider:
         handle = plan.handle
         phases = {'native-descriptions', 'text-core', 'text-missions', 'text-captions', 'text-snapshot'}
         if (set(handle) != {'schema', 'request', 'build', 'files', 'phase', 'packages', 'helper', 'native'}
-                or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text'
+                or handle['request'] != ctx.request.json()
                 or handle['phase'] not in phases or plan.stage != handle['phase'] or self.platform == 'android'
                 or handle['build']['channel'] != 'starrail-' + ctx.request.region
                 or plan.revision != _text_revision(handle)):
@@ -372,7 +408,8 @@ class StarRailProvider:
         if plan.required_disk_bytes is None or plan.required_disk_bytes < needed_disk:
             raise GameDataError('starrail_plan_changed', 'Check the original text storage estimate again.')
         if plan.stage == 'text-snapshot':
-            if phase != 'text-snapshot' or missing or plan.download_bytes != 0 or set(actual) != set(handle['packages']):
+            if (ctx.request.content_mode != 'text' or phase != 'text-snapshot' or missing
+                    or plan.download_bytes != 0 or set(actual) != set(handle['packages'])):
                 raise GameDataError('starrail_text_incomplete', 'The original text packages are incomplete. Check their size again.')
             return self._snapshot(ctx, handle, stamp, catalog, generation, packages)
         for asset in planned.values():
@@ -380,7 +417,44 @@ class StarRailProvider:
         ctx.check()
         return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
             'files': handle['files'], 'packages': handle['packages'], 'native': generation.identity, 'ready': False},
-            'Original text packages verified. Check the remaining authored scene estimate next; audio remains omitted.')
+            'Original text packages verified. Check the remaining preparation estimate; recordings are not downloaded by this step.')
+
+    def _download_audio(self, plan, ctx):
+        handle = plan.handle
+        if (set(handle) != {'schema', 'request', 'build', 'files', 'helper', 'native', 'packages', 'phase', 'audio'}
+                or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text-audio'
+                or handle['phase'] not in {'audio-inventory-prefixes', 'audio-inventory-headers'}
+                or plan.stage != handle['phase'] or plan.revision != _text_revision(handle)
+                or self.platform == 'android' or handle['build']['channel'] != 'starrail-' + ctx.request.region):
+            raise GameDataError('starrail_plan_changed', 'Check the original audio inventory size again.')
+        ctx.check(); directory = self._directory(ctx, ctx.request.region)
+        def missing(url, *, limit):
+            raise GameDataError('starrail_audio_inputs_changed', 'The verified original cache changed. Check the audio download size again.')
+        # Every recheck is cache-only. Lost metadata must trigger a new quote;
+        # it cannot consume a small inventory consent with unquoted downloads.
+        selected = _inputs(directory, handle['build'], missing)
+        if _file_receipts(selected) != handle['files'] or not _budget(directory, selected)[2]:
+            raise GameDataError('starrail_inputs_changed', 'The original metadata cache changed. Check the audio size again.')
+        reader = self._reader(directory)
+        if reader.identity != handle['helper']:
+            raise GameDataError('starrail_reader_changed', 'The delivered reader changed. Check the audio size again.')
+        _, catalog, generation = self._text_context(ctx, handle['build'], reader, discover=False, offline=True)
+        phase, packages, absent = _required_text(catalog, ctx.request)
+        if (generation.identity != handle['native'] or phase != 'text-snapshot' or absent
+                or _package_receipts(packages) != handle['packages']):
+            raise GameDataError('starrail_audio_inputs_changed', 'The original text generation changed. Check the audio size again.')
+        quote, store, receipt = self._audio_inventory(ctx, catalog, offline=True)
+        if (quote.phase != plan.stage or receipt != handle['audio'] or plan.download_bytes != quote.download_bytes
+                or plan.required_disk_bytes is None or plan.required_disk_bytes < quote.disk_bytes + MAX_HANDLE_BYTES):
+            raise GameDataError('starrail_audio_plan_changed', 'The original audio inventory or cache changed. Check its size again.')
+        transport = self._transport(ctx)
+        for span in quote.spans:
+            ctx.check(); store.acquire(span, transport)
+        ctx.check()
+        return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
+            'files': handle['files'], 'packages': handle['packages'], 'native': generation.identity,
+            'audio': receipt, 'ready': False},
+            'Original audio inventory verified. Recordings are not downloaded yet; check the next preparation estimate.')
 
     @staticmethod
     def _snapshot(ctx, handle, stamp, catalog, generation, packages):
