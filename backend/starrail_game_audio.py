@@ -311,6 +311,30 @@ def external_members(inventory, sources, locale):
     return result
 
 
+def neutral_bank_quote(inventory, lookup, names, store):
+    """Select only authored events' unique neutral bank owners, without transfers."""
+    from .starrail_events import wwise_hash
+    neutral, hashes = {}, {}
+    for directory in inventory:
+        if not re.fullmatch(r'Banks[0-9]+\.pck', directory.owner.name):
+            continue
+        for key, span in directory.banks.items():
+            neutral[key] = span if key not in neutral else None
+    for name in names:
+        if not isinstance(name, str) or re.fullmatch('[A-Za-z0-9_]{1,512}', name) is None:
+            _fail('The authored original audio event name is unsupported.')
+        hashes.setdefault(wwise_hash(name), set()).add(name.casefold())
+    selected = {}
+    for key, variants in hashes.items():
+        if len(variants) != 1:
+            continue
+        candidates = [bank for bank in lookup.get(key, ()) if neutral.get(bank) is not None]
+        if len(candidates) == 1:
+            selected[key] = neutral[candidates[0]]
+    spans = tuple(sorted(set(selected.values()), key=lambda span: (span.owner.name, span.start, span.length)))
+    return Quote('audio-neutral-banks', tuple(span for span in spans if store.receipt(span) is None)), selected
+
+
 @dataclass(frozen=True)
 class OriginalMember:
     text_id: str

@@ -133,6 +133,23 @@ def test_complete_directory_projection_reads_only_headers_and_preserves_exact_me
     assert audio.external_members(inventory + inventory, ('English/voice/Owned.wem',), 'en') == {}
 
 
+def test_neutral_quote_selects_only_authored_event_owners_and_refuses_duplicate_banks(fixture):
+    from backend.starrail_events import wwise_hash
+    _, _, base, store, _, calls, _ = fixture
+    owner = audio.Owner('Banks7.pck', base.size, base.md5, base.url, base.generation)
+    selected, unrelated = audio.Span(owner, 80, 10), audio.Span(owner, 90, 10)
+    directory = audio.Directory(owner, {}, {11: selected, 22: unrelated}, {})
+    name = 'Ev_owned_fixture'
+    quote, events = audio.neutral_bank_quote((directory,), {wwise_hash(name): (11,), 999: (22,)}, (name,), store)
+    assert quote.phase == 'audio-neutral-banks' and quote.spans == (selected,) and quote.download_bytes == 10
+    assert events == {wwise_hash(name): selected} and not calls
+    conflicting = audio.Directory(owner, {}, {11: unrelated}, {})
+    quote, events = audio.neutral_bank_quote((directory, conflicting), {wwise_hash(name): (11,)}, (name,), store)
+    assert quote.spans == () and events == {}
+    quote, events = audio.neutral_bank_quote((directory,), {wwise_hash(name): (11, 22)}, (name,), store)
+    assert quote.spans == () and events == {}
+
+
 @pytest.mark.parametrize('offset,value', [(0, 2), (12, 1000001)])
 def test_internal_directory_counts_cannot_leave_sections_or_allocate_unbounded_rows(fixture, offset, value):
     owner, store, _ = acquire_headers(fixture)

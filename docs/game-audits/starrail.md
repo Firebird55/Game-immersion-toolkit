@@ -244,9 +244,23 @@ The complete-directory projection also reuses the owned PCK table parsers with
 header-only reads. Section/count bounds, language tables, duplicate external
 identities and header-overlapping members fail before a directory stage can be
 published. Exact authored source hashes select members only in the requested
-dub; conflicting owners remain unresolved. These projection controls currently
-have authored-format test evidence, separate from the preceding actual prefix
-acquisition.
+dub; conflicting owners remain unresolved. These projection controls also pass
+a separate actual intake on frozen `09223251`: all 209 full directories validate
+after exactly 3,383,584 new response-body bytes and 3,494,995 additional retained
+bytes. Their tables contain 97,792 external members, 44,682 bank records (33,532
+neutral and 11,150 localized) and 6,774 streamed members. These are archive
+records, not voiced-sentence counts. No bank/member payload or complete PCK is
+acquired by that trial.
+
+A subsequent cache-only plan reads the complete original 4,461,388-byte
+`SoundBankLookUp.dat`, verifies publisher MD5
+`0351cd314a0a291b77df6c5b63a9c76f` through existing authenticated Sophon chunks,
+and streams the actual current canonical text snapshot's authored event names.
+Its 3,678 names select only 121 unique neutral banks. The exact next quote is
+121 ranges totaling 206,459 bytes; no unfiltered bank scan or acquisition is
+part of the plan. The generic selector retains conflicting/missing owners as
+unresolved and never chooses a bank by ordinal. This is a proposed bank stage,
+separate from normal lookup/bootstrap integration and finished audio preparation.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
