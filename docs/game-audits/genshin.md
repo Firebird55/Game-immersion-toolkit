@@ -1234,6 +1234,43 @@ remain unavailable until their platform selection is established, even when
 they share a bundle. This does not change the default provider or establish the
 missing full incoming paths for `VideoSubtitles`.
 
+The cached original append investigation on 2026-11-17 examined less than 64 KiB
+of owned native method ranges and bounded table references, without executing
+client code. `LoadResourceIndex` reuses the existing index for an append and
+publishes its pointer after successful parsing; mutation of that reused object
+does not establish failure rollback. `SetBundleNum` preserves existing storage
+when sufficiently large and copies it when expanding. `AddBlockInfo` rejects an
+already populated physical bundle slot. The generic map duplicate semantics in
+`AddAssetLocation` and `AddTypeName` remain unresolved. Whole preparation still
+requires its own isolated generation and retention checks.
+
+An independent comparison of the retained Global 7.2 main and data indices
+rechecked their publisher index receipts, complete package checksums, decoded
+payload identities and strict EOF. It retained original selectors, packed
+locations and raw category words, without publishing a combined lookup:
+
+| Original namespace | Main records | Data records | Shared identities |
+| --- | ---: | ---: | ---: |
+| Full asset ID and variants | 925,261 | 257,650 | 0 |
+| Type name and extension | 357 | 0 | 0 |
+| Physical bundle ID | 1,442,195 | 536 | 0 |
+| Block ID, group and raw category | 1,497 | 536 | 0 |
+
+The current disjoint inventories cannot determine precedence for future
+overlaps. Comparison controls retain conflicts in selectors, packed tags,
+physical offsets and type extensions; source-order checks preserve the same
+classification. Production-parser controls reject duplicate identities. Stale
+generation and bad-digest comparison controls do not establish ordinary update
+acceptance. This cached experiment used no network or further native reads.
+All 4,890 exact original Localization subtitle paths across 326 IDs were also
+queried against both authenticated catalogs, retaining full identities and
+variant records: neither catalog had a direct match. The incoming full path
+producer remains unresolved; these absences do not establish active use,
+removed content or voice status.
+The exact incoming `VideoSubtitles` path, generic map duplicate semantics and
+the complete installation-free append/location-selection contract remain open;
+the default provider is unchanged.
+
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and
 the explicit official-manifest preflight size bounds.
