@@ -19,11 +19,11 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 import uuid
 
-from .game_data_protocol import GameDataError
+from .game_data_protocol import GameDataError, MAX_ASSET_BYTES
 
 MAX_URL = 16 * 1024
 CHUNK = 64 * 1024
-CONTENT_RANGE = re.compile(r'bytes (\d+)-(\d+)/(\d+)')
+CONTENT_RANGE = re.compile(r'bytes ([0-9]{1,16})-([0-9]{1,16})/([0-9]{1,16})')
 HASHES = {'md5', 'sha1', 'sha256', 'sha512'}
 
 
@@ -122,10 +122,13 @@ class PublisherTransport:
             request_headers[key] = value
         if original_range is not None:
             if (not isinstance(original_range, tuple) or len(original_range) != 3
-                    or not all(_integer(n) for n in original_range)):
+                    or not all(_integer(n) for n in original_range[:2])
+                    or original_range[2] is not None and not _integer(original_range[2], minimum=1)):
                 raise ValueError('An original range needs offset, size and full owner size')
             offset, size, total = original_range
-            if not size or not total or offset + size > total or size > limit or expected_size not in (None, size):
+            if (not size or size > limit or expected_size not in (None, size)
+                    or total is not None and (offset + size > total or total > MAX_ASSET_BYTES)
+                    or total is None and (kind != 'metadata' or offset != 0 or size > CHUNK)):
                 raise ValueError('Original range leaves its declared file owner')
             expected_size = size
             request_headers['Range'] = f'bytes={offset}-{offset + size - 1}'
@@ -137,6 +140,7 @@ class PublisherTransport:
         request = Request(url, data=body, headers=request_headers, method=method)
         hashes = {name: hashlib.new(name) for name in set(expected) | {'sha256'}}
         count = 0
+        resolved_range = original_range
         try:
             with self.open(request, timeout=self.timeout) as response:
                 source_url(response.geturl(), self.hosts)
@@ -146,15 +150,22 @@ class PublisherTransport:
                 if response.headers.get('Content-Encoding', 'identity').lower() != 'identity':
                     raise GameDataError('publisher_response_invalid', 'The game download encoding changed unexpectedly.')
                 lengths = response.headers.get_all('Content-Length', [])
-                if len(lengths) > 1 or lengths and re.fullmatch(r'\d+', lengths[0]) is None:
+                if len(lengths) > 1 or lengths and re.fullmatch(r'[0-9]{1,16}', lengths[0]) is None:
                     raise GameDataError('publisher_response_invalid', 'The game download size is inconsistent.')
                 declared = int(lengths[0]) if lengths else None
                 if declared is not None and (declared > allowance or expected_size is not None and declared != expected_size):
                     raise GameDataError('publisher_size_changed', 'The game download size changed. Check its size again.')
                 if original_range:
                     value = CONTENT_RANGE.fullmatch(response.headers.get('Content-Range', ''))
-                    if value is None or tuple(map(int, value.groups())) != (offset, offset + size - 1, total):
+                    actual_range = tuple(map(int, value.groups())) if value else None
+                    if (actual_range is None or actual_range[:2] != (offset, offset + size - 1)
+                            or not offset + size <= actual_range[2] <= MAX_ASSET_BYTES
+                            or total is not None and actual_range[2] != total):
                         raise GameDataError('publisher_range_changed', 'The game server returned a different file range.')
+                    # A publisher may omit native member sizes from its outer
+                    # manifest. Only a small initial metadata header may learn
+                    # that size; every subsequent range pins the learned owner.
+                    resolved_range = (offset, size, actual_range[2])
                 elif response.headers.get('Content-Range') is not None:
                     raise GameDataError('publisher_response_invalid', 'The game server returned an unexpected file range.')
                 # Content-Length frames an entire response. Without it, only
@@ -201,7 +212,7 @@ class PublisherTransport:
         actual = {name: digest.hexdigest() for name, digest in hashes.items()}
         if any(actual[name] != value for name, value in expected.items()):
             raise GameDataError('publisher_checksum_mismatch', 'The original game download failed its checksum.')
-        return TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, original_range)
+        return TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, resolved_range)
 
     def fetch_bytes(self, url, *, limit, kind='metadata', expected_size=None, digests=None, original_range=None,
                     headers=None, method='GET', body=None):
