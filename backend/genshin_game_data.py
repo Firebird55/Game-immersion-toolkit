@@ -153,11 +153,22 @@ class GenshinGameDataProvider:
         self.platform, self.runtime, self.transport_factory = platform, native, transport_factory
 
     def _reader(self):
-        if self.platform != 'windows' or not isinstance(self.runtime, GenshinRuntime):
+        if self.platform != 'windows':
             return None
         try:
+            if self.runtime is None:
+                from .runtime_bundle import discover_layout
+                layout = discover_layout()
+                # A source checkout has no accepted installed closure. Do not
+                # call the development helper builder or look for a PATH SDK.
+                if getattr(layout, 'mode', None) != 'bundle':
+                    return None
+                self.runtime = GenshinRuntime(layout)
+                return self.runtime.helper
+            if not isinstance(self.runtime, GenshinRuntime):
+                return None
             return self.runtime.validate()
-        except (ImportError, OSError, ValueError):
+        except (ImportError, OSError, ValueError, RuntimeError):
             return None
 
     def _fetch(self, ctx, *, kind, allowed=None):
@@ -179,7 +190,9 @@ class GenshinGameDataProvider:
         reader = self._reader()
         if reader is None:
             return GameDataPlan('genshin-reader-unavailable', None, None, stage='original-runtime',
-                message='The verified Genshin original-container reader is unavailable on this device.')
+                message=("Install or repair the toolkit's verified Genshin reader before downloading game data."
+                    if self.platform == 'windows' else
+                    'Original Genshin preparation is not available on this device yet.'))
         with ctx.transfer_lock:
             cache = _safe(ctx.cache_directory / 'genshin-original' / request.region)
             build = sophon.release('genshin-' + request.region, fetch=self._fetch(ctx, kind='metadata'))

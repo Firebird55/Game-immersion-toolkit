@@ -191,7 +191,10 @@ The canonical [Genshin factory](../../backend/genshin_game_data.py) implements t
 shared provider contract with explicit context-owned Sophon transport. Its
 Windows `GenshinRuntime(layout)` validates an already installed BLB helper's
 complete resource inventory and the pinned static instruction decoder. It never
-builds or downloads a helper. Android and missing runtimes return an unavailable
+builds or downloads a helper. The normal Windows factory resolves that installed
+bundle lazily when the host supplies no explicit runtime. Source-checkout and
+incomplete bundle layouts remain unavailable; there is no SDK or PATH fallback.
+Android and missing runtimes return an unavailable
 reader gate before transferring large game inputs; the instruction decoder alone
 does not supply an Android BLB reader.
 

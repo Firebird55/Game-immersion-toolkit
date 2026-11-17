@@ -88,7 +88,7 @@ def fixture(tmp_path, monkeypatch, *, region='global', mode='text', wrong_whole=
     monkeypatch.setattr(sophon, 'release', release)
     monkeypatch.setattr(sophon, 'download', lambda *a, **k: pytest.fail('Unaccounted global transport'))
     from backend import prebuilt_readers, genshin_native_x64, genshin_blb
-    layout = object()
+    layout = SimpleNamespace(mode='bundle')
     monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda kind, **kw:
         SimpleNamespace(source_identity='authored-source', manifest={'build_id': 'authored-build'}, executable=Path('frozen-reader'))
         if kind == 'genshin' and kw == {'layout': layout} else pytest.fail('Unexpected runtime resolver'))
@@ -218,3 +218,43 @@ def test_android_factory_and_early_gate_do_not_import_a_desktop_reader(tmp_path,
     request = GameDataRequest('global', 'en')
     ctx = Context(tmp_path, request)
     assert module.create_provider(platform='android').plan(request, ctx).stage == 'original-runtime'
+
+
+def test_normal_windows_factory_lazily_resolves_the_installed_verified_closure(tmp_path, monkeypatch):
+    explicit, ctx, calls, _, _, _ = fixture(tmp_path, monkeypatch)
+    from backend import runtime_bundle
+    discoveries = []
+    def discover():
+        discoveries.append(True)
+        return explicit.runtime.layout
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', discover)
+    ordinary = provider.create_provider(platform='windows')
+    ordinary.transport_factory = explicit.transport_factory
+    assert not discoveries and ordinary.runtime is None
+    plan = ordinary.plan(ctx.request, ctx)
+    assert plan.runtime_available and plan.stage == 'official-native-inputs'
+    assert isinstance(ordinary.runtime, provider.GenshinRuntime) and len(discoveries) == 1
+    assert plan.handle['runtime_identity'] == explicit.runtime.helper.identity
+    ctx.phase, ctx.budget, ctx.consumed = 'download', plan.download_bytes, 0
+    result = ordinary.download(plan, ctx)
+    assert isinstance(result, PreparationStage) and len(discoveries) == 1
+
+
+@pytest.mark.parametrize('missing', ['source-layout', 'broken-layout', 'invalid-helper'])
+def test_default_windows_resolver_never_falls_back_to_a_source_build_or_network(tmp_path, monkeypatch, missing):
+    explicit, ctx, calls, _, _, _ = fixture(tmp_path, monkeypatch)
+    from backend import runtime_bundle, prebuilt_readers
+    def discover():
+        if missing == 'broken-layout':
+            raise runtime_bundle.RuntimeBundleError('authored incomplete bundle')
+        return SimpleNamespace(mode='source') if missing == 'source-layout' else explicit.runtime.layout
+    monkeypatch.setattr(runtime_bundle, 'discover_layout', discover)
+    if missing != 'broken-layout':
+        monkeypatch.setattr(prebuilt_readers, 'prebuilt_reader', lambda *a, **k:
+            (_ for _ in ()).throw(ValueError('authored incomplete helper')) if missing == 'invalid-helper'
+            else pytest.fail('Source layout reached an installed-helper resolver'))
+    ordinary = provider.create_provider(platform='windows')
+    ordinary.transport_factory = explicit.transport_factory
+    result = ordinary.plan(ctx.request, ctx)
+    assert result.stage == 'original-runtime' and not result.runtime_available
+    assert result.download_bytes is None and not calls and ctx.consumed == 0
