@@ -40,6 +40,8 @@ def capture_match_eligible(match, *, capture_unvoiced, capture_missing_audio, ma
         return False
     if match.voice_status == 'unvoiced':
         return capture_unvoiced and match.kind == 'exact'
+    if getattr(match, 'audio_omitted_by_request', False):
+        return match.kind == 'exact' and match.text_capture_verified
     if match.voice_status in {'unknown', 'unavailable'} and match.text_capture_verified:
         return capture_missing_audio and match.kind == 'exact'
     return mapped_voice(match)
