@@ -2,12 +2,13 @@
 
 The original event may also start effects/controller output. Its one selected
 language-specific Sound must be posted directly, with an unconditional mixer
-ancestry. Stop actions, voice switches, effects and timing modifiers stay unknown.
+ancestry. Bus Stops need complete original routing; other controls stay unknown.
 """
 import math
 import struct
 
 from .honkai_assets import BankSource
+from .zzz_bus_routing import separate_stop_buses
 
 
 def _check(condition):
@@ -116,7 +117,7 @@ def _base(payload, start, objects):
 
 
 def _voice_chain(objects, sound):
-    current, child, seen, minimum, routed = sound, None, set(), 0., False
+    current, child, seen, minimum, routed = sound, None, set(), 0., []
     while current:
         _check(current not in seen and current in objects and len(seen) < 128)
         seen.add(current)
@@ -124,7 +125,8 @@ def _voice_chain(objects, sound):
         _check(kind == (2 if child is None else 7))
         reader, parent, bus, gain = _base(payload, 18 if kind == 2 else 4, objects)
         minimum += gain
-        routed |= bool(bus)
+        if bus:
+            routed.append(bus)
         if kind == 7:
             count = reader.uint()
             _check(count <= 10000)
@@ -133,14 +135,30 @@ def _voice_chain(objects, sound):
         reader.end()
         child, current = current, parent
     _check(routed and minimum > -96)
-    return seen
+    return seen, routed
 
 
-def unconditional_voice_layers(objects):
+def _stop_bus(payload):
+    reader = _Reader(payload, 4)
+    _check(reader.number('H') == 0x0102)
+    target = reader.uint()
+    _check(reader.byte() == 1)  # Global Stop targeting an audio bus.
+    properties = reader.byte()
+    _check(properties in (0, 1))
+    if properties:
+        _check(reader.byte() == 0x10 and 0 <= reader.number('i') <= 86400000)  # Transition time only.
+    _check(reader.byte() == 0 and reader.byte() <= 9)  # No random ranges; known fade curve.
+    _check(reader.byte() & ~6 == 0 and reader.count() == 0)  # Known Stop flags, no exceptions.
+    reader.end()
+    return target
+
+
+def unconditional_voice_layers(objects, buses=None):
     """One direct localized take; other Play roots cannot contain another voice.
 
     This deliberately does not simulate controller output, effects or music.
-    A Stop/bus action or conditional voice keeps the event unresolved.
+    Global bus Stops require the original Init-bank routing to exclude the
+    complete voice ancestry. Other controls and conditional voices stay unknown.
     """
     _check(len(objects) <= 10000)
     sounds = {}
@@ -156,9 +174,13 @@ def unconditional_voice_layers(objects):
             _check(2 <= count <= 64 and len(payload) == 5 + count * 4)
             actions = [struct.unpack_from('<I', payload, 5 + index * 4)[0] for index in range(count)]
             _check(len(set(actions)) == count)
-            targets = []
+            targets, stopped = [], []
             for action in actions:
                 action_kind, body = objects.get(action, (0, b''))
+                _check(action_kind == 3 and len(body) >= 6)
+                if struct.unpack_from('<H', body, 4)[0] == 0x0102:
+                    stopped.append(_stop_bus(body))
+                    continue
                 _check(action_kind == 3 and len(body) == 18 and struct.unpack_from('<H', body, 4)[0] == 0x0403
                        and body[10:14] == b'\0\0\0\x04')
                 target = struct.unpack_from('<I', body, 6)[0]
@@ -167,7 +189,9 @@ def unconditional_voice_layers(objects):
             voiced = [target for target in targets if target in sounds and sounds[target][1]]
             _check(len(voiced) == 1)
             voice, = voiced
-            chain = _voice_chain(objects, voice)
+            chain, routed = _voice_chain(objects, voice)
+            if stopped:
+                separate_stop_buses(buses, routed, stopped)
             others = list(targets)
             others.remove(voice)
             _check(not set(others) & chain)

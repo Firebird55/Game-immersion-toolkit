@@ -13,6 +13,7 @@ from .nte_assets import wwise_hash
 from .zzz_assets import VOICE_FOLDERS
 from .zzz_cinematics import event_bank_links
 from .zzz_voice_layers import unconditional_voice_layers
+from .zzz_bus_routing import INITIAL_BANK_FILENAME, bus_parents_from_reader
 
 
 def audio_registry(data):
@@ -61,7 +62,14 @@ def _bank(directory, stamp, locale, name, bank_id, mode='direct'):
     read = lambda start, size: source.read(directory, entry.offset + start, size)
     if mode == 'unconditional_voice_layer':
         objects, embedded = bank_metadata_from_reader(entry.size, read, bank_id, language=namespace)
-        bindings = unconditional_voice_layers(objects)
+        buses = None
+        if any(kind == 3 and len(raw) >= 6 and struct.unpack_from('<H', raw, 4)[0] == 0x0102
+               for kind, raw in objects.values()):
+            try:
+                buses = _initial_buses(directory, stamp, locale)
+            except (ValueError, struct.error):
+                pass  # Other all-Play events in this bank remain independently resolvable.
+        bindings = unconditional_voice_layers(objects, buses)
     elif mode == 'direct':
         bindings, embedded = bank_sources_from_reader(entry.size, read, bank_id, language=namespace, detailed=True)
     else:
@@ -118,6 +126,18 @@ def _inventory(directory, stamp, locale, wanted_banks):
             for identifier in ambiguous[index]:
                 result[index].pop(identifier, None)
     return result
+
+
+@lru_cache(maxsize=128)
+def _initial_buses(directory, stamp, locale):
+    identity = wwise_hash(INITIAL_BANK_FILENAME.rsplit('.', 1)[0])
+    banks, _, common = _inventory(directory, stamp, locale, {identity})
+    if banks or set(common) != {identity}:
+        raise ValueError('Original ZZZ initialization bank is missing or ambiguous.')
+    name, entry = common[identity]
+    source = voice._archive(directory, stamp, locale, name, 'zzz')
+    return bus_parents_from_reader(entry.size,
+        lambda start, size: source.read(directory, entry.offset + start, size), identity)
 
 
 def bindings(data_dir, stamp, locale, links, registry):

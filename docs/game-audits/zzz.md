@@ -1,5 +1,74 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original initialization routing resolves C270 bus Stops
+
+Reader revision 21 follows the original `AudioAssembly.dll` bootstrap: its
+declared `AkBankManager.LoadInitBank` method directly uses the managed literal
+`Init.bnk`. The current initialization bank is selected from the original
+common-package inventory with the same patch priority and ambiguity checks as
+other publisher sources. The filename is a frozen, native-owned format
+bootstrap; no film, event or bus allowlist is added. This static ownership was
+reproduced from authenticated original metadata/native bytes without executing
+the game. Runtime preparation continues to use publisher data and frozen readers.
+
+A dedicated reader follows the Wwise135 [AudioBus parent-routing fields](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wparser.py#L1923)
+in the initialization bank. AudioBus, device and effect object IDs have separate
+namespaces; legitimate cross-kind overlaps do not change the generic voice-bank
+parser. No bank DATA is requested. The [global Stop action fields](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wparser.py#L1212)
+are accepted only with an explicit bus target, known flags/fade curve,
+transition-time-only properties, no randomized delay and no exceptions. Every
+affected bus branch must reach an original root. The localized Sound's complete
+reciprocal mixer ancestry must have exactly one explicit output bus, no auxiliary
+sends and the existing strict gain/state/effect/timing checks. A Stop affecting
+that output or any ancestor rejects the context; missing, cyclic, ambiguous,
+additional-output or other object-kind routing also rejects it.
+
+The current `C270_EP010` and `C270_EP110` Stops affect sibling branches of the
+voice route in the original initialization bank. Their full selected-dub stems
+therefore resolve independently of those Stops. English normal-service MP3
+extraction in two separate fresh processes, with socket connections and every
+publisher/Sophon download path forbidden, produced **61.951083** and **21.066667**
+seconds of nonzero PCM. Both hashes are identical after restart. Their five-second
+timeline trigger windows and 985/549-byte streaming prefetch prefixes are never
+used as complete recordings or utterance cuts. The complete original takes are
+explicitly labeled context audio.
+
+Fresh normal Global preparations completed with no new package transfers and
+ten runtime source hashes unchanged before/after each worker:
+
+| Source dub | Prepared records | Context captions | Whole-film events | Added C270 captions | Worker seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| English | 297,159 | 963 | 134 | 30 | 170.844 |
+| Mandarin | 297,184 | 966 | 134 | 30 | 160.953 |
+| Japanese | 289,967 | 954 | 134 | 28 | 166.344 |
+| Korean | 266,702 | 958 | 132 | 30 | 160.266 |
+
+Only the new C270 audio/status/context fields changed; every other record
+dictionary stayed identical to reader 20 and no record ID was added or removed.
+Original Japanese references `C270_EP010_110` and `C270_EP010_140` lack prepared
+source-text joins, alongside the earlier `C260_EP000_200`. They are not merged
+into another dub, classified as unvoiced or counted as covered text. Original
+bank/source/routing checks passed independently in all four dubs. The other
+three C270 dubs have current metadata/format proof; actual new C270 playback was
+checked in English, alongside the earlier actual context playback in every dub.
+
+Independent mainland Japanese normal preparation completed in **172.984 seconds**
+with **289,967 records, 954 context captions and 134 events**. Its own current
+CN descriptor/inventories selected the resources, translations were present,
+and all ten runtime hashes stayed equal. Existing cache bytes satisfied the
+independently declared hashes with zero additional package network transfer.
+All 289,013 non-context record dictionaries remain identical to mainland reader
+17; exactly 954 earlier film records gained context audio. Both C330 B/G player
+branches also passed original normal-service extraction in two fresh offline
+processes from `autopatchcn.juequling.com`, using the CN descriptor. Both span
+40.257208 seconds, have distinct nonzero PCM and retain their hashes on restart.
+
+These totals still do not establish the complete active-current-presentation
+denominator. Other timeline layouts/callers, player conflicts, the three
+Japanese source-text joins and frozen actual-changed-generation update/recovery
+acceptance remain open. New initialization/routing checks reject unsupported
+controls; they do not turn missing recordings into silence.
+
 ## November 17, 2026 · Unconditional localized stems in a composite film event
 
 Reader revision 20 follows an additional event from the same fully understood

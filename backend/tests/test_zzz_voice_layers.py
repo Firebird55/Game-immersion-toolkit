@@ -16,10 +16,10 @@ def variable(value):
     return bytes(reversed(parts))
 
 
-def base(parent, *, bus=0, gain=None, property_id=0, states=0, randomized=False, rtpc=False):
+def base(parent, *, bus=0, gain=None, property_id=0, states=0, randomized=False, rtpc=False, aux=False):
     data = bytes(3) + struct.pack('<IIB', bus, parent, 0)
     data += bytes(1) if gain is None else struct.pack('<BBf', 1, property_id, gain)
-    data += bytes([int(randomized)]) + bytes(2) + bytes(4) + bytes([0, 1]) + bytes(4)
+    data += bytes([int(randomized), 0, int(aux)]) + bytes(4) + bytes([0, 1]) + bytes(4)
     if states:
         data += bytes([1, 0, 2, 1, 1]) + struct.pack('<IB', 900, 0) + variable(states)
         data += b''.join(struct.pack('<II', 1000 + i, 80) for i in range(states))
@@ -34,6 +34,18 @@ def source(identity, parent, *, localized=True, **options):
 
 def play(identity, target, action=0x0403):
     return struct.pack('<IHI', identity, action, target) + bytes([0, 0, 0, 4]) + struct.pack('<I', 77)
+
+
+def stop_bus(identity=42, target=70, *, bus=True, prop=16, flags=6, exceptions=0):
+    return struct.pack('<IHIBBBiBBBB', identity, 0x0102, target, int(bus), 1, prop, 1000, 0, 4, flags, exceptions)
+
+
+def objects_with_bus_stop(**options):
+    objects = synthetic_objects()
+    objects[42] = (3, stop_bus(**options))
+    event = wwise_hash('Play_ActualLayer')
+    objects[event] = (4, struct.pack('<IBIII', event, 3, 40, 41, 42))
+    return objects
 
 
 def synthetic_objects(event='Play_ActualLayer', *, gain=-3., states=0, state_volume=-5., voice_options=None):
@@ -62,7 +74,7 @@ def test_original_direct_localized_stem_is_independent_of_other_play_roots_and_v
     {'voice_options': {'gain': 1., 'property_id': 2}},
     {'voice_options': {'gain': 1., 'property_id': 15}},
     {'voice_options': {'gain': 1., 'property_id': 36}},
-    {'voice_options': {'randomized': True}}, {'voice_options': {'rtpc': True}},
+    {'voice_options': {'randomized': True}}, {'voice_options': {'rtpc': True}}, {'voice_options': {'aux': True}},
 ])
 def test_inaudible_state_pitch_delay_trim_randomness_and_rtpc_do_not_certify_a_whole_take(options):
     assert unconditional_voice_layers(synthetic_objects(**options)) == {}
@@ -92,3 +104,18 @@ def test_action_player_and_reciprocal_parent_ambiguities_remain_unresolved(case)
         raw = objects[10][1]
         objects[10] = (2, raw[:19] + b'\x01' + raw[20:])
     assert unconditional_voice_layers(objects) == {}
+
+
+def test_global_bus_stop_needs_the_original_separate_routing_graph():
+    objects = objects_with_bus_stop()
+    assert unconditional_voice_layers(objects) == {}
+    assert unconditional_voice_layers(objects, {66: 80, 70: 80, 80: 0}) == {
+        wwise_hash('Play_ActualLayer'): BankSource(123, 0, 104)}
+    assert unconditional_voice_layers(objects, {66: 70, 70: 0}) == {}
+    objects[10] = (2, source(10, 20, bus=99))
+    assert unconditional_voice_layers(objects, {66: 80, 99: 80, 70: 80, 80: 0}) == {}
+
+
+@pytest.mark.parametrize('options', [{'bus': False}, {'prop': 15}, {'flags': 7}, {'exceptions': 1}])
+def test_stop_delay_unknown_flags_and_exceptions_cannot_bypass_original_voice_routing(options):
+    assert unconditional_voice_layers(objects_with_bus_stop(**options), {66: 80, 70: 80, 80: 0}) == {}
