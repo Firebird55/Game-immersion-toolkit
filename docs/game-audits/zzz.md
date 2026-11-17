@@ -1,5 +1,44 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Empty voice-language placeholders in retained story timelines
+
+The current C055 EP020 subtitle sequence belongs to the "Traitor" scene in
+Season 1's epilogue. The publisher declares
+[Bury Your Tears With the Past (A) permanently available](https://www.hoyolab.com/article/37545680);
+a [gameplay recording indexes that scene at 41:38](https://www.youtube.com/watch?v=tGuMB8QIevI&t=2498s).
+The current original timeline assets retain nine Japanese caption IDs, including
+two distinct protagonist lines. This is positive released-story evidence,
+separate from the configuration-only 333-path inventory. The other two inspected
+groups, C210 EP000 and C260 EP010, retain unclassified current use; their names
+or missing bindings do not establish retired or cut content.
+
+The original event was already found, but four empty per-language voice tracks
+made the entire C055 timeline incomplete. Original class declarations and 16
+cached track objects establish the filter-array profile, empty clip/child/marker
+arrays, zero player flags and exact object boundaries. Each exclusion set is the
+complement of its own parent group's authored subtitle language.
+
+Reader 23 accepts these bounded, empty voice-language placeholders without
+changing a recording selection. Active filtered tracks, player exclusions,
+unknown or duplicate language codes, malformed bodies, external references and
+ambiguous events remain guarded. There is no scene-ID exception, filename-based
+player inference or adjacent-line recording guess.
+
+A regression over the same 404 authenticated timeline containers preserves every
+caption, locale, authored clock and event set. Among the 986 previously guarded
+Japanese records, **193 now have a unique authored event candidate**, **747 have
+conflicting events**, **42 still lack a supported unique event**, and the same
+**four older CS records** remain outside the explicit tracks. These are source
+states, not 193 newly verified recordings or an active-story denominator.
+
+The two unique C055 lines now join their exact original Japanese registry,
+event banks and complete media identities. That metadata check acquired only
+two approved publisher-authenticated carrier chunks, 2,570,602 compressed bytes,
+including co-resident data, with ordinary live generation checks before and
+after. Complete media acquisition, owned decoding and normal-worker acceptance
+remain separate from this format checkpoint; the existing prepared library is
+retained throughout.
+
 ## November 17, 2026 · Canonical Japanese audio materialization and offline acceptance
 
 The per-game PC producer now connects the verified catalogue reader to explicit
