@@ -185,6 +185,13 @@ after account/recovery changes and native resume, so successful recovery restore
 import/screen controls without adopting a replacement document nonce. This
 recovery UI remains separate from actual Android target acceptance.
 
+The authored browser/service flow also saves capture preferences, explicitly
+creates the owner's sentence destination and exports the retained original
+recording through the maintained service and immutable mocked remote transport.
+The second owner starts with independent preferences and no export ledger;
+switching back restores the first owner's favorite, settings and qualified
+export reference. No real account is mutated by this acceptance scenario.
+
 The API delegates settings, destination ownership/selection, word/grammar
 reading and sentence/original-audio exports to the maintained services. Requests
 pin credentials, local line identity and account session before network work and

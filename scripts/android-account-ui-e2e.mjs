@@ -55,12 +55,29 @@ for(const [name,engine] of Object.entries({chromium,firefox})) {
   // The actual UI favorite request must carry the account scope.
   await page.getByRole('button',{name:'Favorite current line',exact:true}).click();
   await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).lines[0]?.favorite),'saved favorite');
+  await page.getByRole('button',{name:'Capture setup',exact:true}).click();
+  const captureSettings=page.getByRole('dialog',{name:'Capture setup',exact:true});
+  await captureSettings.getByLabel('Include unvoiced dialogue',{exact:true}).check();
+  assert.equal(await captureSettings.getByRole('button',{name:'Update TextMaps',exact:true}).count(),0);
+  await captureSettings.getByRole('button',{name:'Save capture settings',exact:true}).click();
+  await captureSettings.waitFor({state:'hidden'});
+  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).status.settings.capture_unvoiced),'owner capture preferences');
+  await page.getByRole('button',{name:'Account settings',exact:true}).click();
+  await page.getByRole('button',{name:'Find or create game deck',exact:true}).click();
+  await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).lexirise.decks?.zzz),'persisted owner destination');
+  await page.getByText('Selected: Zenless Zone Zero',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close Lexirise settings',exact:true}).click();
+  await page.locator('.current-line .lexirise-send').click();
+  await page.getByText('Sentence and voice saved in Lexirise · Zenless Zone Zero.',{exact:true}).waitFor();
+  await until(()=>page.evaluate(async()=>Object.keys((await(await fetch('/api/snapshot')).json()).lexirise.sent).length===1),'scoped original-audio export');
   await page.getByRole('button',{name:'Account settings',exact:true}).click();
   const second=await register('lx_second_authored_account_fixture_only','Second authored owner');
   assert.notEqual(first,second);
   const other=await page.evaluate(async()=>await(await fetch('/api/snapshot')).json());
   assert.equal(other.lines.length,0);
   assert.equal(other.status.textmaps.ready,false);
+  assert.equal(other.status.settings.capture_unvoiced,false);
+  assert.deepEqual(other.lexirise.sent,{});
   assert.ok(other.context.account_generation>firstGeneration);
   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).count(),0);
   // A delayed first-owner callback cannot mutate the new owner's settings.
@@ -79,6 +96,8 @@ for(const [name,engine] of Object.entries({chromium,firefox})) {
   assert.notEqual(restored.lines[0].id,firstLine);
   assert.ok(restored.context.account_generation>other.context.account_generation);
   assert.equal(restored.status.settings.stable_frames,2);
+  assert.equal(restored.status.settings.capture_unvoiced,true);
+  assert.ok(Object.hasOwn(restored.lexirise.sent,'line:'+restored.lines[0].id));
   service.stdin.write(JSON.stringify({action:'corrupt'})+'\n');
   assert.equal((await next()).locked,true);
   await until(()=>page.getByRole('button',{name:'Open library',exact:true}).isDisabled(),'locked import capability');
@@ -97,7 +116,7 @@ for(const [name,engine] of Object.entries({chromium,firefox})) {
   service.stdin.write(JSON.stringify({action:'verify_recovery'})+'\n');
   assert.equal((await next()).old_store_preserved,true);
   assert.deepEqual(errors,[]);
-  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,account_switch:'A-B-A',separate_libraries:true,history_favorite_retained:true,stale_generation_rejected:true,recovery_preserves_original_store:true,recovery_refreshes_capabilities:true});
+  proofs.push({engine:name,viewport:'412x915',protected_storage:'authored-desktop-mock',remote_transport:'immutable-authored-mock',native_android_execution:false,account_switch:'A-B-A',separate_libraries:true,history_favorite_retained:true,stale_generation_rejected:true,recovery_preserves_original_store:true,recovery_refreshes_capabilities:true,scoped_settings_and_original_audio_export:true});
  } catch(error) {
   if(page) {
    writeFileSync(join(root,'authored-page.txt'),await page.locator('body').innerText());
