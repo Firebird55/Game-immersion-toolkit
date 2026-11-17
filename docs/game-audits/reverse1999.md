@@ -240,6 +240,64 @@ that private compressed range for exact reuse. These partial reads do not verify
 the whole archive's MD5 or GameAssembly's full file CRC, and do not demonstrate
 that official key derivation is impossible.
 
+## Official Android-owner alternative
+
+A separate metadata-only investigation follows publisher-authored Android links,
+without revisiting the stopped Windows indirect-call route. It uses nine new
+HTTP requests and 822,784 response bytes; no APK, native library or signing-block
+bytes are acquired, and website JavaScript is read as data only.
+
+The Global version-page response's Android link,
+`https://reverse1999.onelink.me/Rh0f/ujn2ppo2`, returns HTTP 301 to Google Play's
+`com.bluepoch.m.en.reverse1999` listing. A bounded 512 KiB listing prefix is
+incomplete and does not establish an APK URL, package checksum or signer. Do not
+infer that the entire store page lacks such metadata from this prefix.
+
+The original mainland version response links to
+`https://d.bluepoch.com/prepage/Reverse1999_Bluepoch_1006.apk` and to the original
+`download.html` page with `Reverse1999_Bluepoch_1020.apk` in its `rbDL` parameter.
+The complete 2,497-byte landing page statically confirms that Android follows
+that parameter. Original site `api.js` also declares the advertising-channel
+`prepage/bdsem/reverse1999_bluepoch_bdsem_200401.apk` link. All three exact APK
+HEAD requests return HTTP 567 with an HTML error type. Their reported lengths
+belong to error pages, **not APK sizes**, and no publisher package checksum or
+signer is established. These failures neither establish permanent source
+unavailability nor authorize an exceptional community key.
+
+The same original mainland response explicitly links to the
+[TapTap application page](https://www.taptap.cn/app/221062). Its complete
+239,932-byte server-rendered page contains this current distributor descriptor:
+
+| Field | Original descriptor value |
+| --- | --- |
+| Application identity | `com.shenlan.m.reverse1999` |
+| Version / code | `4.1.0` / `180` |
+| APK identifier | `1073124` |
+| APK name | `com.shenlan.m.reverse1999-180.apk` |
+| Compressed size | 1,990,140,900 bytes |
+| Distributor MD5 | `b72b01d12251ef65e1a7a4b9d3a6118b` |
+| Declared native ABIs | `arm64-v8a`, `armeabi-v7a` |
+
+This is publisher-linked distribution metadata, not a verified whole-APK hash,
+an independent publisher signing identity, or a manifest of native modules.
+The page supplies no game APK URL. Its original download-button modules hand
+off to the TapTap client; the structured-data `d.taptap.cn/latest` link denotes
+that store client, not Reverse:1999. Existing exact shared API-definition bytes
+were reused only after their full length/MD5 check; no game mappings or keys
+were reused. Those definitions do not supply an Android package-transfer URL.
+The site's original game-website link returns to the publisher landing page.
+No guessed CDN URL, arbitrary API variant or account request follows.
+
+The next bounded source step needs an actual authored APK transfer descriptor.
+Only after that URL, total length and source identity are established can an
+APK-tail/central-directory plan identify the real Unity resource, metadata and
+native-owner entries. Any signing-block read must distinguish reading a
+certificate from verifying package integrity and independently trusting its
+publisher identity. Exact index/module ranges and new byte budgets must be
+derived from the original owner structures before further acquisition. The
+current evidence does not establish an Android `GameConfigAsset` initializer
+or key; no Android source is accepted into the production provider yet.
+
 ## Text versus text and audio planning
 
 `backend/reverse1999_game_data.py` exposes the shared host factory
