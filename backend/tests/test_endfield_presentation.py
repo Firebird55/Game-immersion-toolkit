@@ -50,7 +50,8 @@ def test_world_owns_its_recording_without_aliasing_the_profile_or_replacing_tran
     hit = index.match_endfield_world_caption(frame(), (1920, 1080))
     assert hit and hit.text_id == rows[0]['text_id'] and hit.texts == rows[0]['texts']
     assert index.voice_snapshot(index._signature)['records'] == [
-        {**row, 'audio_scope': 'line'} for row in original]
+        {**row, 'audio_scope': 'line', 'audio_omitted_by_request': False,
+         'source_voice_binding': None} for row in original]
     assert not index.match_lines([rows[0]['source_text']], exact_only=True)
 
 
