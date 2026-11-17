@@ -4,7 +4,10 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import io
 import json
+from pathlib import Path
 import struct
+import threading
+from types import SimpleNamespace
 import zipfile
 import zlib
 
@@ -208,7 +211,8 @@ def test_parallel_source_owner_checks_serialize_without_losing_other_owners(tmp_
     assert len(record['sources']) == 1
 
 
-def test_known_default_parallel_resource_scans_do_not_publish_bootstrap_owners(tmp_path, monkeypatch, protected):
+@pytest.mark.parametrize('blocked_read', [None, 'crt', 'win32'])
+def test_known_default_parallel_resource_scans_do_not_publish_bootstrap_owners(tmp_path, monkeypatch, protected, blocked_read):
     ref, raw = source(tmp_path)
     acquire(monkeypatch, ref, raw)
     data = encrypted_package(bytes(range(32)))
@@ -219,10 +223,32 @@ def test_known_default_parallel_resource_scans_do_not_publish_bootstrap_owners(t
     before = native._registry_path(tmp_path).read_bytes()
     monkeypatch.setattr(native, 'remember_owner', lambda *a: pytest.fail('Redundant resource bootstrap-owner publication'))
     resource_digest = hashlib.sha1(data).hexdigest()
+    denied_threads = set()
+    if blocked_read:
+        from backend import atomic_files
+        from backend.tests.test_wuthering_index_publication import sharing_error
+        # Prime the exact directory cache that all six real Package readers use.
+        package = release._package(tmp_path, ('https://owned.aki-game.net/primed.pak', len(data), resource_digest), inputs)
+        cached = tmp_path / 'kuro-package-index' / resource_digest / hashlib.sha1(package.directory).hexdigest()
+        original_read, guard = Path.read_bytes, threading.Lock()
+        def competing_read(path):
+            if path == cached:
+                with guard:
+                    identity = threading.get_ident()
+                    if identity not in denied_threads:
+                        denied_threads.add(identity)
+                        raise sharing_error(32 if blocked_read == 'win32' else None)
+            return original_read(path)
+        # Exercise the Windows policy deterministically on every CI platform.
+        monkeypatch.setattr(pak, 'os', SimpleNamespace(name='nt'))
+        monkeypatch.setattr(atomic_files, 'os', SimpleNamespace(name='nt', replace=atomic_files.os.replace))
+        monkeypatch.setattr(Path, 'read_bytes', competing_read)
     with ThreadPoolExecutor(max_workers=6) as pool:
         packages = list(pool.map(lambda i: release._package(tmp_path,
             ('https://owned.aki-game.net/resource-' + str(i) + '.pak', len(data), resource_digest), inputs), range(6)))
     assert all(p.verified_default_parameter for p in packages)
+    if blocked_read:
+        assert len(denied_threads) == 6
     assert native._registry_path(tmp_path).read_bytes() == before
 
 
