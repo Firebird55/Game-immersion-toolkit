@@ -39,9 +39,14 @@ exact matches that preserve voiced, unknown and unvoiced status. An injected
 reader timeout retained the complete text library and immutable approval;
 healthy retry reproduced both exactly without networking or audio access.
 The NTE test group passed 572 tests and the managed reader compiled without
-warnings or errors. The shared desktop request/UI/capture integration is a
-separate combined checkpoint; these provider trials do not claim direct Android
-preparation or new official bootstrap/key-rotation support.
+warnings or errors. With the shared desktop capture change, actual CaptureService
+replays against all three complete indices published voiced and unknown rows
+without any voice lookup, repair or audio queue. The current Japanese replay
+also resolved a repeated caption through its original direct speech predecessor.
+These use synthetic OCR geometry, not a native OCR/gameplay claim. The combined
+capture/omission/context group passed 46 checks. Shared request/UI integration,
+direct Android preparation and official bootstrap/key-rotation support remain
+separate implementation gates.
 
 ## Controlled update metadata and device boundary
 
