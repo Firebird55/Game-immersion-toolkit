@@ -507,6 +507,41 @@ configs and installer index establish original regional bootstrap paths, not a
 decryption key or game text/voice bindings. No fallback, prepared snapshot or
 Ready state is enabled.
 
+### One original Korean base-client archive inventory
+
+The next approved metadata-only probe targets only Korean base 3.6.5 archive
+part 0: 4,773,351,938 compressed bytes, publisher MD5
+`db28988fa73b1732b23fcc9ef2af1159`. HEAD agrees on length and returns that value
+as its strong ETag; the complete file is not downloaded or MD5-verified.
+Strict same-owner ranges read a 32-byte 7z start header, 40-byte NextHeader and
+55,877-byte encoded header. Start/NextHeader CRCs and the 931,754-byte decoded
+header CRC agree. This known-size raw-LZMA1 header has no EOS marker: exact
+declared output size/CRC and no unused data establish its format boundary;
+Python's decoder `eof` is explicitly false, not misreported as true.
+
+The index identifies a distinct regional native-file inventory:
+
+| Owner | Korean base metadata | Existing Global metadata |
+| --- | --- | --- |
+| `GameAssembly.dll` | 126,610,944 bytes; CRC 868644893 | 126,319,616 bytes; CRC 84286124 |
+| `global-metadata.dat` | Explicit empty **file**, not a directory | Explicit empty file |
+
+The Korean resource/globalgamemanagers metadata also differs. No standalone
+Assembly-CSharp/libil2cpp file is declared. These are original file-index
+comparisons, not verified whole-module hashes or a readable key-consumer proof.
+The archive's first solid folder contains 5,147 subfiles (4,667,235,457
+compressed / 4,787,591,367 expanded bytes, LZMA2). Its separate native folder
+starts at compressed offset 4,667,235,489, contains 29 subfiles and uses
+LZMA2 with a 32 MiB dictionary plus x86 BCJ (106,060,532 compressed /
+345,341,131 expanded bytes). GameAssembly begins at native-folder decoded offset
+419,760 after baselib. No folder/member body or other nine archives is read.
+
+This inventory transfers 55,949 metadata bytes in three body requests. The
+conservative combined regional ledger becomes 41 requests / 771,808 bytes.
+It remains evidence for the reported base 3.6.5, not proof of the website's
+current 3.9/hotfix content. Any native-header read needs a separately bounded
+plan; no opaque Global code scan, key fallback or Ready state follows.
+
 ### Publisher-linked game APK descriptor and transfer stopping point
 
 The existing mainland publisher response also explicitly links to
