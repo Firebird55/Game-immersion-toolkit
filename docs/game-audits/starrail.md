@@ -618,6 +618,18 @@ establishes missing exact English paths, not an authored locale-absence policy,
 inactive quests or a Japanese fallback. The follow-up retains 223,256 bytes
 including its proof and acquires no bank, WEM, native code or complete PCK.
 
+The exact VoiceConfigRow filename overload called by AudioManager is then checked
+as one bounded original playback edge: the whole publisher DLL MD5 is verified
+first, and the owned unwind range contains 160 bytes. Its ordinary path returns
+VoicePath unchanged unless a nonempty path has IsPlayerInvolved; player-gender
+values 1 and 2 append the original `_m` and `_f` literals respectively. It does
+not inspect VoiceType or rewrite locale/extension components. Existing
+gender-suffixed or suffix-removal hash candidates therefore do not authorize
+new aliases under this rule. The same body also contains an IFix guard and
+patch-slot lookup; no callee body, patch execution or runtime state is inspected.
+This proves the ordinary filename branch, without claiming that current patch
+registration is absent or that a downloaded patch replaces this method.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
