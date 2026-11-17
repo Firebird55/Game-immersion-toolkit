@@ -9,10 +9,12 @@ import os
 from pathlib import Path
 import secrets
 import shutil
+import stat
 import threading
 import time
 
 from .atomic_files import replace as atomic_replace
+from .atomic_files import sharing_retry
 from .game_data_protocol import (GAME_TITLES, MAX_METADATA_BYTES, MAX_ASSET_BYTES,
     GameDataError, GameDataRequest, GameDataPlan, SnapshotSource, PreparationStage,
     SourceProof, bounded_text, private_handle)
@@ -50,6 +52,16 @@ def _read(path):
     return json.loads(path.read_text(encoding='utf8'))
 
 
+def _cache_entries(directory):
+    _no_links(directory)
+    return list(directory.iterdir())
+
+
+def _cache_attributes(item):
+    _no_links(item)
+    return item.stat()
+
+
 def _size(root):
     _no_links(root)
     if not root.exists():
@@ -57,16 +69,20 @@ def _size(root):
     total, count, pending, linked_files = 0, 0, [root], set()
     while pending:
         directory = pending.pop()
-        try: children = list(directory.iterdir())
+        # A worker can remove an owned planning/staging directory during this
+        # census. Windows reports its pending deletion as access denied before
+        # it becomes not-found. Retry briefly; never hide a persistent denial,
+        # and recheck links before each attempt.
+        try: children = sharing_retry(lambda: _cache_entries(directory))
         except FileNotFoundError: continue
         for item in children:
             try:
-                _no_links(item); count += 1
+                attributes = sharing_retry(lambda: _cache_attributes(item))
+                count += 1
                 if count > 1000000:
                     raise GameDataError('cache_file_limit', 'The game cache exceeds its file limit.')
-                if item.is_dir(): pending.append(item)
+                if stat.S_ISDIR(attributes.st_mode): pending.append(item)
                 else:
-                    attributes = item.stat()
                     # Preparation can hardlink a verified input into another
                     # generation. Count that same file once, not each name.
                     # An unavailable inode must never deduplicate unrelated
