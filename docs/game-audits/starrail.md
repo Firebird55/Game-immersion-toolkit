@@ -462,6 +462,27 @@ must preserve the user's explicit copyright variant and separate study/audio
 languages; the unresolved preference details and package availability remain
 explicit. No rule for Fate story playback is derived from this archive route.
 
+The two previously uncached Japanese hotfix directories were then acquired as
+an explicitly separate metadata intake on frozen source `40419611`. Fresh
+28-byte prefixes and conditional directory remainders total 44,208 response
+bytes; 49,305 bytes including receipts/proof are retained. Each request checks
+strict 206, full owner size and actual strong ETag, with If-Match on the
+remainder. The canonical AudioV-derived ownership is used rather than adopting
+legacy SHA-only proxy ranges. Complete directories of 20,820 and 23,388 bytes
+contain 865 and 972 external records. Neither contains any of the 86 authored
+copyright-archive Japanese path hashes. This is directory availability, not
+spoken-recording acceptance, a whole-PCK MD5 verification or an authorization
+to select Japanese. The original discovery receipt is retained/replayed; these
+fresh range requests do not claim a fresh gateway discovery.
+
+A further cache-only metadata inventory identifies 36 common external-container
+candidates in that same AudioV, outside the current selected-dub/neutral-bank
+selection. None has a complete authenticated cached directory. Their names do
+not establish a voice role, and their possible namespace contents have not been
+inspected. Missing Japanese-dub hashes therefore do not establish that the
+original publisher has no recording in any other container. No common-package
+payload was requested or new binding promoted by this inventory.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
