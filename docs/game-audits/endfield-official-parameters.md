@@ -273,13 +273,12 @@ this is real cached-content/reader evidence, not a new cold bootstrap download,
 full native-file hash, source activation or Android execution claim.
 
 The native stage's quote additionally includes the provider's bounded launcher
-revalidation. It returns another `PreparationStage`, never a snapshot. After
-that stage the provider reports the unimplemented package-control/text stage
-explicitly, rather than repeating a large client download or claiming readiness.
-Text mode likewise stops at the remaining text-resource stage and never enters
-the native audio branch. The separately planned package-control download still
-needs connection to the persistent witness below, and ordinary text-resource
-preparation remains incomplete.
+revalidation. It returns another `PreparationStage`, never a snapshot. Its next
+step now quotes a selected original bank control and connects the complete-data
+gate to the private witness below. The provider reports the remaining
+text-resource/playback stage explicitly, rather than repeating a large client
+download or claiming readiness. Text mode stops at its remaining text-resource
+stage and never enters the native audio or bank-control branch.
 
 `endfield_akpk_witness.activate` now implements provider-local, explicitly
 referenced material. It rebuilds both candidates from the exact checked
@@ -301,6 +300,26 @@ are constructed local fixtures: no new cold acquisition, live publisher recheck,
 ordinary end-user activation or Android execution is claimed. Source-hash
 references use the exact UTF-8 private JSON encoding, including non-ASCII signer
 names; an authored continuation regression covers that encoding boundary.
+
+The ordinary provider now discovers the current original initial/main resource
+URLs, complete index hashes and selected-dub VFS index through its explicit
+context transport. That index must pass CRC/typed checks before choosing the
+smallest authored `*_banks.pck` control up to 16 MiB. Package selection is generic;
+it is not a dialogue/recording binding or a bank-ID list. Its full original file
+size and conservative metadata recheck allowance form another approved quote.
+Only the download phase requests the selected range as `kind='audio'`, applies
+any authored outer stream layer and verifies its full original file MD5 before
+the witness's package/bank decode. Text mode makes no dedicated audio-index or
+control request. A changed resource generation stops before the large transfer.
+
+The resulting `original-audio-master-verified` stage carries the explicit witness
+reference and generation; it still does not return `SnapshotSource`. Nineteen
+affected authored tests cover resource ownership, CRC/selection, absent controls,
+content-mode/consent/budget and the ordinary three-stage provider with real
+shared transport/context. Source-code candidates and signature positives are
+simulated in that synthetic pipeline; the separate retained-original data
+proofs above establish those real contents. No new original PCK body or live
+resource-discovery acceptance is claimed by this integration checkpoint.
 
 The factory and common/Lua parameter modules no longer import desktop tool setup
 just to obtain a cache writer. A small lazy adapter reuses the shared pure

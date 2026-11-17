@@ -25,6 +25,9 @@ def fixture(tmp_path, monkeypatch, mode):
         'file_path': native.identity['url'], 'game_files_md5': native.identity['game_files_md5'],
         'packs': [{'url': item['url'], 'md5': item['md5'], 'package_size': str(item['bytes'])}
                   for item in native.identity['artifacts']]}}
+    native.resource_version = '300-1'
+    native.control_data = None
+    native.control_requests = []
     monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
     class Response:
         def __init__(self, url, raw, status, range_=None):
@@ -41,6 +44,21 @@ def fixture(tmp_path, monkeypatch, mode):
             return Response(request.full_url, json.dumps(tables.latest).encode(), 200)
         if request.full_url in {item['url'] for item in native.identity['artifacts']}:
             return native.server(request, **options)
+        if '/get_latest_resources?' in request.full_url:
+            base = native.identity['url'].split('/update/')[0] + '/resource/Windows/'
+            detail = {'resources': [{'name': role, 'path': base + role + '/' + version + '_Authored/files', 'version': version}
+                for role, version in [('main', native.resource_version), ('initial', '200-1')]]}
+            return Response(request.full_url, json.dumps(detail).encode(), 200)
+        if '/index_' in request.full_url:
+            return Response(request.full_url, b'authored original generation index' * 3, 200)
+        if request.full_url.endswith('.blc'):
+            from backend.tests.test_endfield_akpk_contract import declaration
+            return Response(request.full_url, declaration(native.control_data), 200)
+        if request.full_url.endswith('.chk'):
+            native.control_requests.append(request.full_url)
+            low, high = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
+            raw = native.control_data
+            return Response(request.full_url, raw[low:high + 1], 206, f'bytes {low}-{high}/{len(raw)}')
         artifact = next(name for name in tables.data if request.full_url == native.identity['url'] + '/' + name)
         low, high = map(int, request.get_header('Range').removeprefix('bytes=').split('-'))
         raw = tables.data[artifact]
@@ -84,13 +102,13 @@ def test_ordinary_provider_continues_exact_bootstrap_plan_without_download_conte
         module_receipts = list(downloading.cache_directory.glob('endfield-original-native/*/module.json'))
         import hashlib
         assert len(module_receipts) == 1 and result.restore_handle['source_receipt_sha256'] == hashlib.sha256(module_receipts[0].read_bytes()).hexdigest()
-        # The unfinished package/text stage is honest, not another full client
-        # download loop or a false ready-library state.
+        # This synthetic client does not define the real common initializer.
+        # It must not bypass that owner proof or repeat the full bootstrap.
         planning.stage_handle = result.restore_handle
         calls = len(native.calls)
         with pytest.raises(GameDataError) as error:
             provider.plan(native.request, planning)
-        assert error.value.code == 'source_not_prepared' and len(native.calls) == calls
+        assert error.value.code == 'unsupported_original_metadata' and len(native.calls) == calls
     finally:
         native.service.close()
 
@@ -107,5 +125,63 @@ def test_text_bootstrap_never_enters_audio_source_or_repeats_large_client_downlo
             provider.plan(native.request, planning)
         assert error.value.code == 'source_not_prepared'
         assert not native.calls
+    finally:
+        native.service.close()
+
+
+@pytest.mark.parametrize('change_generation', [False, True])
+def test_full_provider_quotes_selected_control_and_only_explicitly_publishes_its_witness(tmp_path, monkeypatch, change_generation):
+    from types import SimpleNamespace as NS
+    from backend import endfield_akpk_witness as witness
+    from backend.endfield_akpk_contract import Candidate
+    from backend.tests.test_endfield_vfs import PARAMETERS, package
+    provider, native = fixture(tmp_path, monkeypatch, 'text-audio')
+    common = NS(key=PARAMETERS.key, directories=PARAMETERS.directories, protocol=3)
+    native.control_data = package()
+    # Only original code/source candidates are authored seams. Real metadata
+    # readers, generation/index/MD5/bank gates, persistent witness, shared
+    # context/transport and every step's byte consent remain in the path.
+    monkeypatch.setattr(provider, '_common', lambda _: common)
+    monkeypatch.setattr(witness, 'managed_import', lambda *_: native.original_import)
+    monkeypatch.setattr(witness, 'common_candidate', lambda *_: common)
+    monkeypatch.setattr(witness, 'NativeImage', lambda _: NS())
+    monkeypatch.setattr(witness, 'audio_candidate', lambda *_: Candidate(5, 7))
+    old = tmp_path / 'previous-library.json'
+    old.write_bytes(b'previous exact source remains active')
+    try:
+        stage = None
+        for expected in ('client-bootstrap', 'original-audio-native-member'):
+            planning = native.context('plan')
+            planning.stage_handle = stage
+            plan = provider.plan(native.request, planning)
+            assert plan.stage == expected
+            stage = provider.download(plan, native.context('download', plan.download_bytes)).restore_handle
+        planning = native.context('plan')
+        planning.stage_handle = stage
+        plan = provider.plan(native.request, planning)
+        assert plan.stage == 'original-audio-package-control'
+        assert plan.handle['control']['payload_bytes'] == len(native.control_data)
+        assert not native.control_requests
+        if change_generation:
+            native.resource_version = '301-2'
+            with pytest.raises(GameDataError) as error:
+                provider.download(plan, native.context('download', plan.download_bytes))
+            assert error.value.code == 'publisher_size_changed'
+            assert not native.control_requests and not list(tmp_path.rglob('endfield-original-akpk/*/*.json'))
+        else:
+            downloading = native.context('download', plan.download_bytes)
+            result = provider.download(plan, downloading)
+            assert isinstance(result, PreparationStage) and not isinstance(result, SnapshotSource)
+            assert result.restore_handle['stage'] == 'original-audio-master-verified'
+            assert len(native.control_requests) == 1
+            assert len(native.control_data) < downloading.consumed <= plan.download_bytes
+            reference = result.restore_handle['witness']
+            assert witness.restore(downloading, reference, native.identity, result.restore_handle['generation']) == PARAMETERS
+            assert 'key' not in reference and 'multiplier' not in reference
+            planning.stage_handle = result.restore_handle
+            with pytest.raises(GameDataError) as error:
+                provider.plan(native.request, planning)
+            assert error.value.code == 'source_not_prepared'
+        assert old.read_bytes() == b'previous exact source remains active'
     finally:
         native.service.close()

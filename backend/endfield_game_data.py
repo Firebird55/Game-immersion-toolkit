@@ -110,6 +110,11 @@ class EndfieldGameDataProvider:
         return managed_import(Metadata(bootstrap.artifact(METADATA)),
                               Image(bootstrap.artifact('GameAssembly.dll')))
 
+    def _common(self, bootstrap):
+        from .endfield_client_source import Metadata
+        from .endfield_client_contract import derive
+        return derive(Metadata(bootstrap.artifact(METADATA)), Image(bootstrap.artifact('GameAssembly.dll')))
+
     def _plan(self, request, ctx, continuation):
         self._runtime()
         Error, Plan, _, _ = _contracts()
@@ -118,8 +123,10 @@ class EndfieldGameDataProvider:
         if (isinstance(continuation, dict) and continuation.get('client') == identity and
                 continuation.get('request') == request.json()):
             if continuation.get('stage') == 'original-audio-native-source-downloaded':
+                return self._plan_control(request, ctx, identity, transport, continuation)
+            if continuation.get('stage') == 'original-audio-master-verified':
                 raise Error('source_not_prepared',
-                    'Endfield original audio source is verified. Original package-control and text-decryption preparation still need implementation; existing data is retained.')
+                    'Endfield original audio parameters are verified. Original text-resource and playback preparation still need implementation; existing data is retained.')
             if continuation.get('stage') == 'client-bootstrap-downloaded':
                 from .endfield_bootstrap_source import Bootstrap
                 bootstrap = Bootstrap(ctx, identity, transport, continuation)
@@ -176,6 +183,8 @@ class EndfieldGameDataProvider:
         Error, _, Stage, _ = _contracts()
         if plan.stage == 'original-audio-native-member':
             return self._download_native(plan, ctx)
+        if plan.stage == 'original-audio-package-control':
+            return self._download_control(plan, ctx)
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
@@ -237,6 +246,59 @@ class EndfieldGameDataProvider:
             'request': ctx.request.json(), 'client': identity, 'bootstrap': continuation,
             'source_receipt_sha256': hashlib.sha256(_json_bytes(source)).hexdigest()},
             'Endfield original audio native source is verified. Original package controls and text preparation are still required; no dialogue or voice library is active.')
+
+    def _plan_control(self, request, ctx, identity, transport, continuation):
+        Error, Plan, _, _ = _contracts()
+        if request.content_mode != 'text-audio':
+            raise Error('audio_not_requested', 'Endfield original audio controls require the audio selection.')
+        from .endfield_bootstrap_source import Bootstrap, SMALL_TOTAL
+        from .endfield_native_source import OriginalNativeSource
+        from .endfield_resource_source import discover, control_plan
+        bootstrap = Bootstrap(ctx, identity, transport, continuation.get('bootstrap'))
+        imported = self._original_import(bootstrap)
+        OriginalNativeSource(ctx, identity, transport).verified(imported, continuation.get('source_receipt_sha256'))
+        try:
+            common = self._common(bootstrap)
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield original common parameters could not be derived. Existing data is retained.') from error
+        generation = discover(ctx, identity, transport)
+        control, _ = control_plan(ctx, identity, common, generation, transport)
+        handle = {'schema': 1, 'stage': control['stage'], 'client': identity, 'request': request.json(),
+                  'native': continuation, 'control': control}
+        return Plan(revision='endfield-resources-' + hashlib.sha256(_json_bytes(generation)).hexdigest(),
+            download_bytes=control['download_bytes'] + 2 * LAUNCHER_LIMIT + 2 * SMALL_TOTAL,
+            required_disk_bytes=control['required_disk_bytes'], handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage=handle['stage'],
+            message='One selected original voice-bank control plus bounded source rechecks. Text/playback preparation still follows; no game library is active.')
+
+    def _download_control(self, plan, ctx):
+        Error, _, Stage, _ = _contracts()
+        native = plan.handle.get('native')
+        current = self._plan(ctx.request, ctx, native)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original package source or quoted transfer changed.')
+        from .endfield_bootstrap_source import Bootstrap
+        from .endfield_resource_source import discover, control_plan, download_control
+        from .endfield_akpk_witness import activate
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        bootstrap = Bootstrap(ctx, identity, transport, native['bootstrap'])
+        common = self._common(bootstrap)
+        control = current.handle['control']
+        # Re-read the small original index through the same typed plan instead
+        # of accepting byte data or package parameters from a client handle.
+        second, index = control_plan(ctx, identity, common, control['generation'], transport)
+        if second != control:
+            raise Error('publisher_size_changed', 'Endfield original bank control changed before its download.')
+        file, payload = download_control(ctx, identity, common, control, index, transport)
+        reference = activate(ctx, bootstrap, native, control['generation'], index, control['block'], file.name, payload,
+            recheck=lambda: (self._latest(ctx.request, transport)[0], discover(ctx, identity, transport)))
+        return Stage({'schema': 1, 'stage': 'original-audio-master-verified', 'client': identity,
+            'request': ctx.request.json(), 'generation': control['generation'], 'witness': reference,
+            'native': native},
+            'Endfield original audio parameters passed their original package controls. Text-resource and playback preparation are still required; no dialogue library is active.')
 
     def restore(self, handle, ctx):
         Error, _, _, _ = _contracts()
