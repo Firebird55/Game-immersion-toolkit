@@ -206,8 +206,7 @@ class RangeStore:
     def available(self, span):
         return self._locate(span) is not None
 
-    def missing(self, spans):
-        """Fresh batch verification; hash a covering body once per estimate."""
+    def _verified_covers(self, spans):
         pending = dict.fromkeys(spans)
         owners = {}
         for span in pending:
@@ -229,10 +228,35 @@ class RangeStore:
                     continue
                 covered = [span for span in requested if span in pending and start <= span.start
                            and span.length <= length-(span.start-start)]
-                if covered and self.receipt(Span(owner, start, length)) is not None:
+                parent = Span(owner, start, length)
+                if covered and (receipt := self.receipt(parent)) is not None:
                     for span in covered:
                         pending.pop(span)
+                    yield parent, covered, receipt
+
+    def missing(self, spans):
+        """Fresh batch verification; hash a covering body once per estimate."""
+        pending = dict.fromkeys(spans)
+        for _, covered, _ in self._verified_covers(pending):
+            for span in covered:
+                pending.pop(span)
         return tuple(pending)
+
+    def inspect(self, spans, *, cancelled=lambda: False):
+        """Certify complete RIFF members without repeatedly reading a cover."""
+        pending = dict.fromkeys(spans); found = {}
+        for parent, covered, receipt in self._verified_covers(pending):
+            OriginalVoices._check(cancelled)
+            raw = self._path(parent).read_bytes()
+            if len(raw) != parent.length or hashlib.sha256(raw).hexdigest() != receipt['sha256']:
+                _fail('The original recording range changed during verification.')
+            for span in covered:
+                OriginalVoices._check(cancelled)
+                start = span.start-parent.start; member = raw[start:start+span.length]
+                _riff(member); found[span] = hashlib.sha256(member).hexdigest(); pending.pop(span)
+        if pending:
+            _fail('The required original Star Rail recording is not verified locally.')
+        return found
 
     def acquire(self, span, transport):
         if self.available(span):
@@ -589,7 +613,7 @@ def _riff(raw):
 
 class OriginalVoices:
     """Frozen checked membership; has performs neither I/O nor decoding."""
-    def __init__(self, store, members, *, decoder=None, encoder=None, layout=None):
+    def __init__(self, store, members, *, decoder=None, encoder=None, layout=None, cancelled=lambda: False):
         from .native_codecs import packaged_codec_executable
         from .hoyo_dialogue import audio_locale, voice_namespace
         from .voice_assets import voice_hash
@@ -600,14 +624,18 @@ class OriginalVoices:
         self.encoder = Path(encoder) if encoder is not None else packaged_codec_executable('ffmpeg', layout=layout)
         self.members = {}
         verified_directories = {}
+        checked, identities = [], set()
         for member in members:
+            self._check(cancelled)
             if (not isinstance(member, OriginalMember) or not isinstance(member.text_id, str)
                     or not member.text_id or not isinstance(member.audio, dict) or not member.audio
-                    or member.audio.get('movie') or member.text_id in self.members
+                    or member.audio.get('movie') or member.text_id in identities
                     or not isinstance(member.span, Span)
                     or member.player_voice is not None and member.player_voice not in ('male', 'female')):
                 _fail()
             frozen = json.loads(json.dumps(member.audio, allow_nan=False))
+            if frozen.get('source') and frozen.get('audio_event'):
+                _fail('The original recording has conflicting authored references.')
             locale = frozen.get('locale')
             if not isinstance(locale, str) or locale not in {'en', 'ja', 'ko', 'zh-Hans'} or audio_locale(locale) != locale:
                 _fail('The original recording has no supported authored dub.')
@@ -641,8 +669,11 @@ class OriginalVoices:
                         _fail('The authored player recording branch changed.')
             else:
                 _fail('The original recording has no supported authored reference.')
-            raw = store.read(member.span); _riff(raw)
-            self.members[member.text_id] = (identity(frozen), OriginalMember(member.text_id, frozen, member.span, member.player_voice), hashlib.sha256(raw).hexdigest())
+            checked.append(OriginalMember(member.text_id, frozen, member.span, member.player_voice))
+            identities.add(member.text_id)
+        originals = store.inspect((member.span for member in checked), cancelled=cancelled)
+        for member in checked:
+            self.members[member.text_id] = (identity(member.audio), member, originals[member.span])
 
     def has(self, row):
         if (not isinstance(row, Mapping) or not isinstance(row.get('text_id'), str)

@@ -360,6 +360,9 @@ def audio_fixture(tmp_path, monkeypatch):
 
 def test_text_audio_inventory_is_explicitly_quoted_and_never_activates_partial_audio(tmp_path, monkeypatch):
     provider, request, calls, _, _ = audio_fixture(tmp_path, monkeypatch)
+    # The inert fixture deliberately has no movie implementation. Complete
+    # archive/index stages cannot turn that fixture into an audio library.
+    monkeypatch.setattr(provider, '_required_movie_audio', lambda *a: True)
     from backend import starrail_events as events, starrail_assets
     from backend.tests.test_starrail_game_audio import lookup_bytes
     raw = lookup_bytes(); encoded = zstandard.ZstdCompressor().compress(raw); digest = hashlib.md5(raw).hexdigest()

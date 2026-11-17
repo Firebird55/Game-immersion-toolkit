@@ -345,8 +345,35 @@ estimate, with fresh checks after mutation; cached individual banks are removed
 before coalescing rather than downloading their surrounding gaps again. Each
 downloaded recording range must contain complete authored RIFFs with matching
 declared lengths. These are production planning/materialization steps, not an
-authorized 14 GB acquisition, a voice-state promotion or audio Ready. Canonical
-audio snapshot/restore and the unresolved film/locale dependencies remain open.
+authorized 14 GB acquisition or an audio Ready claim. Actual frozen source
+`7324fca1` yields 3,535 events with 3,568 recording candidates and leaves 143
+events explicitly at `state-choice-required`. Their required player/streamed
+inputs reuse the authenticated intake without transport. The external result
+remains 93,397 bindings and 1,565 missing paths, with the same 14,389,513,653-byte
+quote. Its batch estimate takes 1.64 seconds in that replay. The older intake's
+cache-generation identity is explicitly replayed; it is not silently adopted
+by the production cache.
+
+The canonical producer now has a guarded audio-snapshot and offline-restore
+path. Publication requires all supported authored source/event references in
+the prepared rows to resolve locally; pending state choices, missing external
+hashes and owned movie audio prevent that phase. Caption configurations without
+an original movie owner remain visible unavailable inventory and do not invent
+silence or a movie requirement. Sequence segmentation uses the matching raw
+official TextMap values, preserving playlist order, protagonist and localized
+speaker lines after display normalization. Every playable row must pass the
+original-member adapter's no-I/O membership check before publication. Its
+batched certification reads each covering body once and records each complete
+member hash; playback still rechecks the exact bytes and closed codecs.
+
+The private snapshot receipt hashes the complete text payload, inert member
+ownership map and source receipt. Offline restore verifies all three, then
+rechecks local original members and their PCK directories without metadata
+helper execution, transport or source rebuilding. Corrupt/missing members,
+changed ownership, unsupported source references and lost runtimes fail closed.
+Synthetic normal-provider snapshot/registry/restore tests exercise this path;
+the full actual current audio snapshot remains gated by the 143 state choices,
+1,565 external gaps, movie dependencies and unacquired full member quote.
 
 On frozen source `a954cde7`, the production lookup API also reconstructs the
 actual 4.7 index from three existing publisher-MD5-verified Sophon chunks with
@@ -412,8 +439,22 @@ callees are not fully described in the managed dump. No preference is read from
 an account or changed, no original code is executed, and no switch value is
 assumed. This establishes an explicit archive variant dependency, not a blanket
 Japanese fallback, an archive media binding, or the Fate story playback rule.
-Production selection must preserve the user's explicit variant choice and
-the separate study-text/audio languages after the playback consumer is proven.
+The subsequent exact AvatarVoiceArchiveEntry.PostVoice body adds 873 original
+bytes: nonempty VoiceAtlas.AudioEvent goes to the event player, whereas the
+AudioID branch passes GetWwiseAudioLanguageKey as AudioManager.PostVoice's final
+argument. Its 666-byte body reads VoiceConfig and the gender-modified filename,
+concatenates the original `Voice/` and `.wem` literals, then passes that relative
+path, `true` and the explicit language to GetExternalSourceInfo. That final
+914-byte body preserves a nonempty explicit language as format argument zero
+and the relative path as argument one. Only an empty language calls
+GetCurrentLanguage. The formatting string itself is read from the instance
+readonly `AudioManager.s_ExternalSourceFormat`; its value is not yet derived,
+so no exact template or new archive hash binding is inferred. Every body is
+bounded by the original PE unwind directory and the whole original DLL MD5 is
+rechecked first. No client instruction or setter is executed. This archive
+chain does not establish the Fate story playback rule. Production selection
+must preserve the user's explicit copyright variant and separate study/audio
+languages; the unresolved preference details and format value are retained.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts

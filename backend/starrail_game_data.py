@@ -27,6 +27,7 @@ HOSTS = frozenset({'sg-hyp-api.hoyoverse.com', 'sg-public-api.hoyoverse.com', 'h
 TEXT_SCHEMA = 'starrail-original-text-source-v1'
 TEXT_PLAN = 'starrail-original-text-plan-v1'
 AUDIO_PLAN = 'starrail-original-audio-plan-v1'
+AUDIO_SOURCE = 'starrail-original-audio-source-v1'
 
 
 def _packages_for(catalog, paths):
@@ -343,15 +344,42 @@ class StarRailProvider:
                     receipt['external_unbound'] = len(unbound)
                     receipt['external_unbound_sha256'] = audio.identity(unbound)
                     receipt['external_bindings_sha256'] = audio.identity({source: span.json() for source, span in external.items()})
+                    if not quote.spans and not event.unresolved and not unbound:
+                        receipt['movie_audio_required'] = self._required_movie_audio(catalog, ctx.request.source_locale)
+                        if not receipt['movie_audio_required']:
+                            quote = audio.Quote('audio-snapshot', ())
             receipt['quote_sha256'] = quote.digest
         return quote, store, receipt, members
+
+    @staticmethod
+    def _required_movie_audio(catalog, locale):
+        from .starrail_films import _movie_sources
+        from .starrail_assets import selected_tables, TEXT_LOCALES
+        from .hoyo_dialogue import display_text
+        import re
+        scripts = list(catalog.caption_scripts())
+        movies, _ = _movie_sources(catalog, scripts, locale)
+        # Config-only captions with no original movie owner remain unresolved
+        # inventory; they do not invent a movie requirement or certify silence.
+        tables = selected_tables(catalog, getattr(catalog, 'text_locales', TEXT_LOCALES), locale, ())
+        for filename, script in scripts:
+            match = re.fullmatch(r'([A-Za-z0-9_-]+)_Caption\.json', filename)
+            if match and movies.get(match[1]) and any(
+                    display_text(tables[locale].get(str(cue['CaptionTextID']['Hash']), ''))
+                    for cue in script['CaptionList']):
+                return True
+        return False
 
     def _audio_plan(self, ctx, catalog, generation, reader, selected, packages):
         quote, _, audio, _ = self._audio_inventory(ctx, catalog)
         handle = {'schema': AUDIO_PLAN, 'request': ctx.request.json(), 'build': catalog.build,
             'files': _file_receipts(selected), 'helper': reader.identity, 'native': generation.identity,
             'packages': _package_receipts(packages), 'phase': quote.phase, 'audio': audio}
-        if not quote.spans:
+        if quote.phase == 'audio-snapshot' and self._audio_runtime_available():
+            return GameDataPlan(_text_revision(handle), 0, 2 * MAX_TEXT + MAX_HANDLE_BYTES,
+                handle, stage=quote.phase, runtime_available=True,
+                message='Prepare the verified text and locally available original recordings. No further download is included.')
+        if not quote.spans and quote.phase != 'audio-snapshot':
             return GameDataPlan(_text_revision(handle), None, None, stage='original-audio-bindings', runtime_available=False,
                 message='The downloaded audio metadata is verified. More recording branches and movie audio need support before this library can be used. Your existing library is retained.')
         if quote.phase not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
@@ -496,7 +524,7 @@ class StarRailProvider:
                 or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text-audio'
                 or handle['phase'] not in {'audio-inventory-prefixes', 'audio-inventory-headers',
                     'audio-event-lookup', 'audio-neutral-banks', 'audio-localized-banks',
-                    'audio-state-banks', 'audio-streamed-members', 'audio-external-members'}
+                    'audio-state-banks', 'audio-streamed-members', 'audio-external-members', 'audio-snapshot'}
                 or plan.stage != handle['phase'] or plan.revision != _text_revision(handle)
                 or self.platform == 'android' or handle['build']['channel'] != 'starrail-' + ctx.request.region):
             raise GameDataError('starrail_plan_changed', 'Check the original audio inventory size again.')
@@ -511,7 +539,7 @@ class StarRailProvider:
         reader = self._reader(directory)
         if reader.identity != handle['helper']:
             raise GameDataError('starrail_reader_changed', 'The delivered reader changed. Check the audio size again.')
-        _, catalog, generation = self._text_context(ctx, handle['build'], reader, discover=False, offline=True)
+        stamp, catalog, generation = self._text_context(ctx, handle['build'], reader, discover=False, offline=True)
         phase, packages, absent = _required_text(catalog, ctx.request)
         if (generation.identity != handle['native'] or phase != 'text-snapshot' or absent
                 or _package_receipts(packages) != handle['packages']):
@@ -523,6 +551,10 @@ class StarRailProvider:
         if plan.stage not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
             raise GameDataError('starrail_audio_runtime_unavailable',
                 'The verified audio reader changed. Repair or re-extract this toolkit build, then check the size again. Your existing library is retained.')
+        if plan.stage == 'audio-snapshot':
+            if quote.spans or plan.required_disk_bytes < 2 * MAX_TEXT + MAX_HANDLE_BYTES:
+                raise GameDataError('starrail_audio_plan_changed', 'Check the original recording storage estimate again.')
+            return self._snapshot_audio(ctx, handle, stamp, catalog, generation, packages, store)
         transport = self._transport(ctx)
         for span in quote.spans:
             ctx.check(); store.acquire(span, transport)
@@ -577,6 +609,8 @@ class StarRailProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
+        if isinstance(handle, dict) and handle.get('schema') == AUDIO_SOURCE:
+            return self._restore_audio(handle, ctx)
         if not isinstance(handle, dict) or handle.get('schema') != TEXT_SCHEMA:
             raise GameDataError('starrail_catalog_not_ready', 'Original input archives cannot restore a ready Star Rail library.', 409)
         if (set(handle) != {'schema', 'request', 'receipt_sha256', 'snapshot_sha256'}
@@ -594,6 +628,92 @@ class StarRailProvider:
                 or value.get('request') != ctx.request.json() or value.get('snapshot_sha256') != handle['snapshot_sha256']):
             raise GameDataError('starrail_restore_corrupt', 'The original text source receipt changed.')
         return SnapshotSource(path, handle, SourceProof('official', handle['receipt_sha256'], True))
+
+    def _snapshot_audio(self, ctx, handle, stamp, catalog, generation, packages, store):
+        from . import starrail_game_snapshot as snapshot, starrail_game_bindings as bindings
+        from . import starrail_game_audio as audio, starrail_events as events
+        from .starrail_assets import index_text_catalog
+        from .language_worker import write_payload
+        ctx.check()
+        payload = index_text_catalog(stamp, catalog, ctx.request.source_locale, ctx.request.target_locales, catalog.tables.directory.parent)
+        sources = [row.get('source_voice_binding') or {} for row in payload['records']]
+        # Every source owner is reconstructed from the same whole AudioV.
+        # No network, mutable schema or installed audio path participates here.
+        from . import starrail_hotfix as hotfix
+        def missing(*a, **k):
+            raise GameDataError('starrail_audio_inputs_changed', 'The verified original audio cache changed. Check its size again.')
+        raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=missing)
+        owners = audio.owners(catalog.build, raw, ctx.request.source_locale)
+        inventory = audio.directories(owners, store, ctx.request.source_locale)
+        assets = sophon.manifest(catalog.tables.directory, catalog.build['channel'],
+            tuple(catalog.build['manifests']['game']), (events.LOOKUP,), fetch=missing)
+        lookup = audio.OriginalLookup(catalog.tables.directory, assets[events.LOOKUP]).read()
+        event = bindings.event_inventory(inventory, lookup,
+            {source['audio_event'] for source in sources if source.get('audio_event')}, store, ctx.request.source_locale)
+        _, external, unbound = bindings.external_quote(inventory,
+            {source['source'] for source in sources if source.get('source')}, store, ctx.request.source_locale)
+        if event.quote.spans or event.unresolved or unbound:
+            raise GameDataError('starrail_audio_incomplete', 'The authored original recordings are incomplete. Your existing library is retained.')
+        from .starrail_assets import authored_links, selected_tables
+        sequence_texts = {}
+        if event.bindings:
+            tables = selected_tables(catalog, catalog.text_locales, ctx.request.source_locale, ctx.request.target_locales)
+            sequence_texts = {'starrail:' + str(link['id']): {locale: table[str(link['hash'])]
+                for locale, table in tables.items() if str(link['hash']) in table}
+                for link in authored_links(catalog, ctx.request.source_locale) if link.get('audio_event')}
+        payload, members = snapshot.render(payload, external, event.bindings, sequence_texts=sequence_texts)
+        voices = audio.OriginalVoices(store, members, cancelled=ctx.cancelled)
+        if any(row.get('audio') and not voices.has(row) for row in payload['records']):
+            raise GameDataError('starrail_audio_incomplete', 'The original recordings could not be verified locally.')
+        payload['publisher_region'] = ctx.request.region
+        path = Path(ctx.directory) / 'textmap.json'; _no_links(path)
+        write_payload('starrail', payload, ctx.request.source_locale, ctx.request.target_locales, path)
+        memberspath = Path(ctx.directory) / 'original-members.json'; _no_links(memberspath)
+        member_raw = json.dumps(snapshot.pack(members), sort_keys=True, separators=(',', ':')).encode()
+        if not 0 < len(member_raw) <= MAX_TEXT or not 0 < path.stat().st_size <= MAX_TEXT:
+            raise GameDataError('starrail_audio_too_large', 'The original recording snapshot exceeds its storage limit.')
+        memberspath.write_bytes(member_raw); ctx.check()
+        receipt = {'schema': AUDIO_SOURCE, 'request': ctx.request.json(), 'build': handle['build'],
+            'native': generation.identity, 'helper': handle['helper'], 'native_files': handle['files'],
+            'whole_original_packages': _package_receipts(packages), 'audio': handle['audio'],
+            'snapshot_sha256': metadata._hash(path), 'members_sha256': metadata._hash(memberspath)}
+        raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+        if len(raw) > MAX_HANDLE_BYTES:
+            raise GameDataError('starrail_receipt_too_large', 'The original recording receipt exceeds its limit.')
+        proofpath = Path(ctx.directory) / 'source-proof.json'; _no_links(proofpath); proofpath.write_bytes(raw)
+        ctx.check(); digest = hashlib.sha256(raw).hexdigest()
+        handle = {'schema': AUDIO_SOURCE, 'request': ctx.request.json(), 'receipt_sha256': digest,
+            'snapshot_sha256': receipt['snapshot_sha256'], 'members_sha256': receipt['members_sha256']}
+        return SnapshotSource(path, handle, SourceProof('official', digest, True), voices)
+
+    def _restore_audio(self, handle, ctx):
+        from . import starrail_game_audio as audio, starrail_game_snapshot as snapshot
+        if (set(handle) != {'schema', 'request', 'receipt_sha256', 'snapshot_sha256', 'members_sha256'}
+                or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text-audio'):
+            raise GameDataError('starrail_restore_changed', 'The original recordings do not match this request.')
+        if self.platform == 'android' or not self._audio_runtime_available():
+            raise GameDataError('starrail_audio_runtime_unavailable', 'The verified original audio reader is unavailable on this device.')
+        paths = {'source-proof.json': (MAX_HANDLE_BYTES, handle['receipt_sha256']),
+            'textmap.json': (MAX_TEXT, handle['snapshot_sha256']),
+            'original-members.json': (MAX_TEXT, handle['members_sha256'])}
+        for name, (limit, digest) in paths.items():
+            path = Path(ctx.directory) / name; _no_links(path)
+            if not path.is_file() or not 0 < path.stat().st_size <= limit or metadata._hash(path) != digest:
+                raise GameDataError('starrail_restore_corrupt', 'The original recording library failed its integrity check.')
+        value = json.loads((Path(ctx.directory) / 'source-proof.json').read_bytes())
+        if (not isinstance(value, dict) or set(value) != {'schema', 'request', 'build', 'native', 'helper',
+                'native_files', 'whole_original_packages', 'snapshot_sha256', 'members_sha256', 'audio'}
+                or value.get('schema') != AUDIO_SOURCE or value.get('request') != ctx.request.json()
+                or value.get('snapshot_sha256') != handle['snapshot_sha256'] or value.get('members_sha256') != handle['members_sha256']):
+            raise GameDataError('starrail_restore_corrupt', 'The original recording source receipt changed.')
+        path = Path(ctx.directory) / 'textmap.json'; payload = json.loads(path.read_bytes())
+        if payload.get('content_mode') != 'text-audio' or payload.get('source_locale') != ctx.request.source_locale:
+            raise GameDataError('starrail_restore_changed', 'The recording snapshot belongs to another request.')
+        members = snapshot.unpack(json.loads((Path(ctx.directory) / 'original-members.json').read_bytes()), payload)
+        store = audio.RangeStore(self._directory(ctx, ctx.request.region) / 'original-audio')
+        voices = audio.OriginalVoices(store, members, cancelled=ctx.cancelled)
+        ctx.check()
+        return SnapshotSource(path, handle, SourceProof('official', handle['receipt_sha256'], True), voices)
 
 
 def create_provider(*, platform, native=None):

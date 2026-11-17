@@ -186,8 +186,13 @@ def test_batch_inventory_hashes_each_cover_once_and_rechecks_after_mutation(fixt
     monkeypatch.setattr(audio, '_hash', hash_)
     assert store.missing(children) == ()
     assert calls == [store._path(parent)]
+    calls.clear()
+    assert store.inspect((parent, parent)) == {parent: hashlib.sha256(package()[80:]).hexdigest()}
+    assert calls == [store._path(parent)]
     store._path(parent).write_bytes(bytes(20))
     assert store.missing(children) == children
+    with pytest.raises(GameDataError, match='not verified locally'):
+        store.inspect((parent,))
 
 
 def test_cache_receipt_boolean_cannot_alias_integer_owner_bounds(fixture):
