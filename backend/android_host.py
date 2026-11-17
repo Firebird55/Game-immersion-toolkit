@@ -106,7 +106,7 @@ class AndroidHost:
     def account_generation(self):
         return self.account_sessions.accounts.generation if self.account_sessions else 0
 
-    def guard_account(self, value, *, session=None, selecting=False):
+    def guard_account(self, value, *, session=None, selecting=False, recovering=False):
         if self.account_sessions is None:
             return 0
         from .android_accounts import AndroidAccountConflict
@@ -114,6 +114,8 @@ class AndroidHost:
             raise AndroidAccountConflict('account_generation_required', 'Refresh the current account before this operation.')
         generation = int(value)
         self.account_sessions._expect(generation)
+        if not recovering:
+            self.account_sessions.require_ready()
         if (not selecting and self.account_sessions.transitioning) or session is not None and session is not self.session:
             raise AndroidAccountConflict('account_selection_pending', 'Wait for the current account selection to finish.')
         return generation
@@ -171,12 +173,14 @@ class AndroidHost:
         self.server.shutdown();self.server.server_close();self.thread.join(timeout=5)
 
     def platform(self):
-        return {'platform': 'android', 'library_import': True,
-            'capture_source': 'remote-stream' if self.native else 'authored-observations',
-            'message': 'Private prepared libraries and original audio are processed on this Android device.',
+        recovery = self.account_sessions.status().get('recovery') if self.account_sessions else None
+        return {'platform': 'android', 'library_import': recovery is None,
+            'capture_source': 'unavailable' if recovery else 'remote-stream' if self.native else 'authored-observations',
+            'message': recovery['message'] if recovery else 'Private prepared libraries and original audio are processed on this Android device.',
             'protected_accounts': self.account_sessions is not None,
             'authored_account_fixture': self.authored_accounts,
             'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
+            'account_recovery': recovery,
             'ocr': 'bundled-mlkit' if self.native else 'not-attached',
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
             'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS,
@@ -195,6 +199,11 @@ class AndroidHost:
 
     def snapshot(self):
         with self.session.lock:
+            if self.account_sessions:
+                self.account_sessions.status()
+                recovery = self.account_sessions.recovery_snapshot()
+                if recovery is not None:
+                    return recovery
             result = self.session.snapshot()
             if self.account_sessions:
                 result['context']['account_generation'] = self.account_generation
@@ -359,6 +368,8 @@ class AndroidHost:
 
     def accept_ocr(self, generation, sequence, raw):
         with self.session.lock:
+            if self.account_sessions:
+                self.account_sessions.status()
             if generation != self.session.generation or not self.session.running:
                 return []
             return self._accept_ocr(generation, sequence, raw)
@@ -467,7 +478,7 @@ class AndroidHost:
                 path = urlsplit(self.path).path
                 if not self._authorize(path):
                     self._json({'detail': 'App-local request required'}, 403);return
-                if path in {'/api/lexirise/accounts', '/api/lexirise/accounts/select'} and host.account_sessions:
+                if path in {'/api/lexirise/accounts', '/api/lexirise/accounts/select', '/api/lexirise/accounts/recover'} and host.account_sessions:
                     if self.command == 'GET' and path == '/api/lexirise/accounts':
                         with host.session.lock:
                             captured = self.headers.get('X-Toolkit-Account-Generation')
@@ -478,7 +489,8 @@ class AndroidHost:
                         self._json({'detail': 'Use the account selector.'}, 403);return
                     value = json.loads(self._body(4096))
                     with host.session.lock:
-                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'), selecting=True)
+                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'), selecting=True,
+                            recovering=path.endswith('/recover'))
                     if path.endswith('/select'):
                         if not isinstance(value, dict) or set(value) != {'id'} or not isinstance(value['id'], str):
                             raise ValueError('Invalid account selection')
@@ -486,7 +498,8 @@ class AndroidHost:
                     if (not isinstance(value, dict) or set(value) - {'key', 'name'} or not isinstance(value.get('key'), str)
                             or not isinstance(value.get('name', ''), str) or len(value.get('name', '')) > 80):
                         raise ValueError('Invalid protected account registration')
-                    self._json(host.account_sessions.register(value['key'], value.get('name', ''), generation));return
+                    action = host.account_sessions.recover if path.endswith('/recover') else host.account_sessions.register
+                    self._json(action(value['key'], value.get('name', ''), generation));return
                 if host.account_sessions:
                     from .android_account_api import dispatch
                     result = dispatch(host, self.command, path, urlsplit(self.path).query, self.headers, self._body)
@@ -512,6 +525,8 @@ class AndroidHost:
                         self.wfile.write(preview[1]);return
                 if path == '/api/settings':
                     if self.command == 'GET':
+                        if host.account_sessions and host.account_sessions.status()['recovery']:
+                            self._json(host.account_sessions.recovery_snapshot()['status']['settings']);return
                         self._json(host.session.settings.get().model_dump(mode='json'));return
                     if self.command == 'PATCH':
                         value = json.loads(self._body(1024**2))

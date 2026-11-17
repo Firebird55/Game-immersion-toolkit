@@ -19,7 +19,7 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'prepared_library.py', 'prepared_session.py', 'android_host.py', 'android_probe.py', 'android_protected_storage.py',
     'android_accounts.py', 'android_account_api.py', 'accounts.py', 'lexirise.py', 'lexirise_settings.py',
     'reading.py', 'runtime_readers.py', 'grammar.py', 'protected_storage.py', 'export_lock.py', 'atomic_files.py',
-    'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py']
+    'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_account_recovery.py']
 
 android {
     namespace 'io.github.firebird55.gameimmersiontoolkit'

@@ -84,3 +84,34 @@ An emulator test must explicitly identify this authored mode and still prove
 account A-to-B-to-A isolation, original audio, stale request rejection and
 restart behavior. Desktop fixture tests or a successful APK construction do not
 establish that Android target result.
+
+## Protected account recovery
+
+When enabled, the native account host detects missing, corrupted, oversized or
+unreadable protected credentials without deleting or replacing the saved blob.
+It exposes a credential-free `credentials_unreadable` recovery state and an
+empty stopped reader. It does not infer the previous account from profile
+folders or display another owner's history. Imports, capture, media, settings
+changes and ordinary account actions remain fenced while recovery is required.
+Runtime detection also invalidates pending imports, source generations, receiver
+ownership and previews. The neutral snapshot remains safe if temporary storage
+is unavailable.
+
+Unlock device protected storage and reopen the app to retry the original
+credentials. Alternatively, an explicit generation-guarded
+`POST /api/lexirise/accounts/recover` accepts the account key and optional name.
+The maintained AccountStore verifies only `GET /v1/me`; it does not write remote
+account data. Authenticated readback of a new protected store, preparation of
+the verified owner's existing profile and an atomic bounded locator publication
+must succeed before activation. Re-enter the same owner to reopen its original
+libraries, transcript database, favorites, settings and voice files. Other saved
+owners must be verified separately; their data stays in place.
+
+Original and earlier protected stores remain unchanged, including after a
+failed or superseded recovery. A candidate that may already be referenced by a
+committed locator is retained after an uncertain I/O failure; reopening resolves
+that state. Recovery attempts and retained store counts are bounded. No native
+key deletion, plaintext fallback, arbitrary profile selection or automatic
+remote writes form part of this recovery path. The visible recovery UI and
+actual Android target acceptance are separate integration work; normal
+production account activation remains disabled until its UI fences are ready.
