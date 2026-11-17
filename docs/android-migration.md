@@ -115,3 +115,15 @@ key deletion, plaintext fallback, arbitrary profile selection or automatic
 remote writes form part of this recovery path. The visible recovery UI and
 actual Android target acceptance are separate integration work; normal
 production account activation remains disabled until its UI fences are ready.
+
+Native OCR completion may take longer than the confirmation gap on a slow
+device. A bounded native admission ledger can retain an independently exact,
+eligible caption candidate while authenticated images continue arriving within
+three seconds of each other in the same receiver, document, generation and
+session. Each completed image consumes one opaque receipt; recent admissions
+and a maximum 35-second callback age are both required. The ledger retains at
+most 128 IDs and never stores images or stream addresses. It does not extend
+publisher predecessor contexts, fuzzy confirmation, menu observations or the
+ordinary three-second behavior of callers without native receipts. Unit and
+HTTP fixtures exercise serialized four-second OCR; this source checkpoint alone
+does not establish Android target or physical-device acceptance.

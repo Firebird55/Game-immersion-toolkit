@@ -19,6 +19,7 @@ from .nte_dialogue_context import NteDialogueContext
 from .caption_layout import NativeNteCaption
 from .languages import study_language
 from .models import AppSettings, CaptureSnapshot
+from .native_frame_admission import NativeFrameReceipt
 from .multilingual_index import MultilingualTextIndex
 from .prepared_library import CLIP, SHA, MAX_AUDIO, PreparedLibraryStore, _no_links
 from .storage import TranscriptStore
@@ -42,6 +43,9 @@ class PreparedCaptureSession:
         self.processed_channels = set()
         self.last_time = None
         self.trackers = {}
+        self._independent_exact = set()
+        self._continuation_checks = set()
+        self._admission_key = None
         self.contexts = {}
         self.floating_contexts = {}
         self.nte_context = NteDialogueContext()
@@ -92,6 +96,7 @@ class PreparedCaptureSession:
             self.processed_channels.clear()
             self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
             self.nte_context.reset()
+            self._independent_exact.clear();self._continuation_checks.clear();self._admission_key = None
             self.message = message
             self.state_version += 1
 
@@ -148,7 +153,7 @@ class PreparedCaptureSession:
         return path if path.is_file() and path.stat().st_size <= MAX_AUDIO else None
 
     def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
-            nte_layout=None, presentation_lines=None, frame_size=None):
+            nte_layout=None, presentation_lines=None, frame_size=None, admission=None):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -166,8 +171,25 @@ class PreparedCaptureSession:
             now = time.monotonic() if now is None else now
             if not isinstance(now, (int, float)) or not math.isfinite(now):
                 raise ValueError('Invalid observation clock')
+            admission_key = None
+            if admission is not None:
+                if type(admission) is not NativeFrameReceipt:
+                    raise ValueError('An opaque native admission receipt is required')
+                admission_key = admission.authorize(self, generation, sequence)
+            continuous = admission_key is not None and admission_key is self._admission_key
+            if admission_key is not self._admission_key:
+                self.trackers.clear();self._independent_exact.clear();self._continuation_checks.clear()
+                self.contexts.clear();self.floating_contexts.clear()
+                self.nte_context.reset()
+                self._admission_key = admission_key
             if self.last_time is not None and not 0 <= now - self.last_time <= 3:
-                self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
+                # OCR completion can be slower than the independently admitted
+                # live images. Only direct exact confirmations may survive;
+                # temporal publisher contexts always retain their old expiry.
+                retain = self._independent_exact if continuous and not dialogue_menu else set()
+                self.trackers = {key: tracker for key, tracker in self.trackers.items() if key in retain}
+                self._continuation_checks = set(self.trackers)
+                self.contexts.clear(); self.floating_contexts.clear()
                 self.nte_context.reset()
             if dialogue_menu:
                 self.contexts.clear();self.floating_contexts.clear()
@@ -188,6 +210,8 @@ class PreparedCaptureSession:
                     for key in list(self.trackers):
                         if key[0] == 'fullframe':
                             del self.trackers[key]
+                    self._independent_exact = {key for key in self._independent_exact if key[0] != 'fullframe'}
+                    self._continuation_checks = {key for key in self._continuation_checks if key[0] != 'fullframe'}
                     return []
                 matches = self.index.match_full_frame_voice_lines(groups) if policy.voice_enabled else []
                 if policy.silent_enabled:
@@ -197,6 +221,7 @@ class PreparedCaptureSession:
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
             matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+            direct_exact = {text_id for text_id, hit in matches.items() if hit.kind == 'exact'} if not dialogue_menu else set()
             scope = (generation, channel, self.index.source_locale, self.index.target_locale,
                 self.index.player_voice, self.index._signature,
                 settings.capture_unvoiced, settings.capture_missing_audio)
@@ -229,6 +254,15 @@ class PreparedCaptureSession:
                 if hit and eligible(hit):
                     matches[hit.text_id] = hit
             emitted = []
+            # A preserved old direct hit cannot become a fuzzy/context-derived
+            # confirmation merely because both resolve to the same text ID.
+            for key in tuple(self._continuation_checks):
+                if key[0] == channel:
+                    if key[1] not in direct_exact:
+                        self.trackers.pop(key, None)
+                    self._continuation_checks.discard(key)
+            self._independent_exact = {key for key in self._independent_exact if key[0] != channel}
+            self._independent_exact.update((channel, text_id) for text_id in direct_exact)
             for key, tracker in list(self.trackers.items()):
                 if key[0] == channel and key[1] not in matches:
                     tracker.observe(None)
