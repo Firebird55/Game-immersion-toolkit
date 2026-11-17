@@ -59,14 +59,20 @@ def _bank(directory, stamp, locale, name, bank_id, mode='direct'):
         raise ValueError('Original ZZZ cinematic bank is missing or ambiguous.')
     entry, = matches
     source = voice._archive(directory, stamp, locale, name, 'zzz')
-    read = lambda start, size: source.read(directory, entry.offset + start, size)
+    return _read_bank(entry, lambda start, size: source.read(directory, start, size),
+                      bank_id, namespace, mode, lambda: _initial_buses(directory, stamp, locale))
+
+
+def _read_bank(entry, source_read, bank_id, namespace, mode, initial_buses):
+    """The same owned bank parser over a caller-bound, authenticated reader."""
+    read = lambda start, size: source_read(entry.offset + start, size)
     if mode == 'unconditional_voice_layer':
         objects, embedded = bank_metadata_from_reader(entry.size, read, bank_id, language=namespace)
         buses = None
         if any(kind == 3 and len(raw) >= 6 and struct.unpack_from('<H', raw, 4)[0] == 0x0102
                for kind, raw in objects.values()):
             try:
-                buses = _initial_buses(directory, stamp, locale)
+                buses = initial_buses()
             except (ValueError, struct.error):
                 pass  # Other all-Play events in this bank remain independently resolvable.
         bindings = unconditional_voice_layers(objects, buses)
@@ -98,16 +104,21 @@ def _dependency(directory, stamp, locale, name, bank_id):
 
 
 def _inventory(directory, stamp, locale, wanted_banks):
+    files = voice._files(directory, stamp, locale, 'zzz')
+    return _inventory_from_files(files, locale, wanted_banks,
+        lambda name: _tables(directory, stamp, locale, name))
+
+
+def _inventory_from_files(files, locale, wanted_banks, tables):
     namespace = voice_namespace('zzz', locale).lower()
     folder = '/Audio/Windows/Full/' + VOICE_FOLDERS[locale] + '/'
-    files = voice._files(directory, stamp, locale, 'zzz')
     result = [{}, {}, {}]
     for layer in ('StreamingAssets', 'Persistent'):
         current, ambiguous = [{}, {}, {}], [set(), set(), set()]
         for name in sorted(name for name in files if name.split('/')[1] == layer and
                            (folder in name or name.rpartition('/')[0].endswith('/Audio/Windows/Full'))):
             common = folder not in name
-            languages, banks, sounds = _tables(directory, stamp, locale, name)
+            languages, banks, sounds = tables(name)
             for index, table in enumerate((banks, sounds)):
                 for (identifier, language), entry in table.items():
                     if common:
@@ -140,7 +151,7 @@ def _initial_buses(directory, stamp, locale):
         lambda start, size: source.read(directory, entry.offset + start, size), identity)
 
 
-def bindings(data_dir, stamp, locale, links, registry):
+def bindings(data_dir, stamp, locale, links, registry, *, catalogue=None):
     """Only unanimous authored cinema uses can acquire a whole-film context."""
     uses = defaultdict(list)
     for link in links:
@@ -173,7 +184,12 @@ def bindings(data_dir, stamp, locale, links, registry):
     if not wanted:
         return {}
     directory = data_dir / 'tools/sophon'
-    banks, sounds, dependencies = _inventory(directory, stamp, locale, wanted)
+    inventory = ((lambda wanted: _inventory(directory, stamp, locale, wanted)) if catalogue is None else catalogue.inventory)
+    dependency = ((lambda name, identifier: _dependency(directory, stamp, locale, name, identifier))
+                  if catalogue is None else catalogue.dependency)
+    bank = ((lambda name, identifier, mode: _bank(directory, stamp, locale, name, identifier, mode))
+            if catalogue is None else catalogue.bank)
+    banks, sounds, dependencies = inventory(wanted)
     complete = {event for event in events if registry.get(event) and registry[event] <= banks.keys() | dependencies.keys()}
     wanted = set().union(*(registry[event] for event in complete))
     verified_dependencies = set()
@@ -181,7 +197,7 @@ def bindings(data_dir, stamp, locale, links, registry):
         if identifier not in wanted or identifier in banks:
             continue
         try:
-            _dependency(directory, stamp, locale, name, identifier)
+            dependency(name, identifier)
             verified_dependencies.add(identifier)
         except (ValueError, struct.error):
             continue
@@ -193,7 +209,7 @@ def bindings(data_dir, stamp, locale, links, registry):
             if identifier not in wanted_mode:
                 continue
             try:
-                parsed[identifier] = (name, *_bank(directory, stamp, locale, name, identifier, mode))
+                parsed[identifier] = (name, *bank(name, identifier, mode))
             except (ValueError, struct.error):
                 # A changed or unsupported hierarchy is unresolved, never silent.
                 continue
@@ -231,7 +247,8 @@ def bindings(data_dir, stamp, locale, links, registry):
             for identity, event in events_by_text.items() if len(candidates[wwise_hash(event)]) == 1}
 
 
-def extract(audio, tools):
+def recording(audio, tools, *, catalogue=None):
+    """Validate the full original event-to-media join before selecting bytes."""
     locale, stamp = audio['locale'], audio['publisher']
     event, media_id = audio.get('event', ''), int(audio['file_id'], 16)
     mode = audio.get('event_mode', 'direct')
@@ -248,26 +265,36 @@ def extract(audio, tools):
     folder = '/Audio/Windows/Full/' + VOICE_FOLDERS[locale] + '/'
     if any(folder not in audio[key] for key in ('package', 'event_package')):
         raise ValueError('ZZZ cinematic context crosses original voice locales.')
-    event_sources, _ = _bank(directory, stamp, locale, audio['event_package'], audio['event_bank'], mode)
+    bank = ((lambda name, identifier, mode='direct': _bank(directory, stamp, locale, name, identifier, mode))
+            if catalogue is None else catalogue.bank)
+    tables = ((lambda name: _tables(directory, stamp, locale, name)) if catalogue is None else catalogue.tables)
+    event_sources, _ = bank(audio['event_package'], audio['event_bank'], mode)
     source = event_sources.get(wwise_hash(event))
     if source is None or source.media_id != media_id:
         raise ValueError('Original ZZZ cinematic event no longer identifies this recording.')
     if audio.get('media_bank') is not None:
         if source.stream_type != 0:
             raise ValueError('Original ZZZ streamed source cannot use a bank prefix.')
-        _, embedded = _bank(directory, stamp, locale, audio['package'], audio['media_bank'])
+        _, embedded = bank(audio['package'], audio['media_bank'])
         entry = embedded[media_id]
         if entry.size != source.memory_size:
             raise ValueError('Original ZZZ bank recording size has changed.')
     else:
-        languages, _, sounds = _tables(directory, stamp, locale, audio['package'])
+        languages, _, sounds = tables(audio['package'])
         namespace = voice_namespace('zzz', locale).lower()
         entry, = [value for (identifier, language), value in sounds.items()
                   if identifier == media_id and languages[language] == namespace]
         if not (source.stream_type == 1 and 0 < source.memory_size < entry.size
                 or source.stream_type == 2 and source.memory_size == 0):
             raise ValueError('Original ZZZ source does not identify a complete streamed recording.')
-    data = voice._archive(directory, stamp, locale, audio['package'], 'zzz').read(directory, entry.offset, entry.size)
+    return audio['package'], entry
+
+
+def extract(audio, tools, *, catalogue=None):
+    name, entry = recording(audio, tools, catalogue=catalogue)
+    data = (voice._archive(tools / 'sophon', audio['publisher'], audio['locale'], name, 'zzz').read(
+                tools / 'sophon', entry.offset, entry.size) if catalogue is None
+            else catalogue.read(name, entry.offset, entry.size))
     if len(data) < 12 or data[:4] != b'RIFF' or data[8:12] != b'WAVE' or len(data) != struct.unpack_from('<I', data, 4)[0] + 8:
         raise ValueError('Original ZZZ cinematic context is incomplete.')
     return data

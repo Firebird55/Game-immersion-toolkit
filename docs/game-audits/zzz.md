@@ -1,5 +1,48 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Context-bound audio ownership and download planning
+
+The audio catalogue now accepts an explicit authenticated reader instead of
+using process-global publisher discovery. It reuses the existing language,
+bank, Stop-routing, complete-stream and equal-priority ambiguity checks.
+The associated audio source planner charges complete original SDK transport
+chunks for selected ranges; updater ranges still require their whole-file
+checksum. Both include co-resident bytes. Local reads cannot repair missing
+sources over the network, and text requests are rejected before audio lookup.
+
+A zero-network metadata audit revalidated every retained authored recording
+against the advertised original packages. The retained caption source and
+current Global descriptor have identical content fields after excluding
+bootstrap provenance; this is source-binding revalidation, not a new caption
+census or fresh mainland discovery.
+
+| Dub | Unique sentence recordings | Unique whole-film contexts | Total unique recordings |
+| --- | ---: | ---: | ---: |
+| English | 76,179 | 134 | 76,313 |
+| Mandarin | 76,276 | 134 | 76,410 |
+| Japanese | 76,131 | 134 | 76,265 |
+| Korean | 76,216 | 132 | 76,348 |
+
+All these joins passed without reading new media or transferring source data.
+Repeated captions can share one recording; neither these counts nor a missing
+binding establish complete story coverage or silence. Region/player branches
+and unresolved authored sources retain their existing qualifications.
+
+Each retained official dub inventory has 78 PCK containers. Cold complete-dub
+container upper bounds, before cache subtraction and separate common-bank
+dependencies, are 4,833,079,893 bytes for English, 4,541,434,172 for Mandarin,
+5,392,590,559 for Japanese and 4,999,332,107 for Korean. The independent retained
+mainland manifests/index list the same original voice containers; that equality
+does not replace an independent live mainland check. No complete pack was
+downloaded for this audit. Exact selected-range plans can reuse shared chunks
+and exclude unrelated media; their costs must be computed from actual owners.
+
+**Canonical text-and-audio preparation remains open.** These reusable source
+and ownership components do not turn the current audio gate into Ready. The
+producer still needs consented materialization, the verified owned codec
+closure, offline restore and retained-recording acceptance through the shared
+service. Android reader/codec execution remains separately unavailable.
+
 ## November 17, 2026 · Per-game PC text preparation from official sources
 
 The per-game provider now continues beyond bootstrap on a PC with the verified
