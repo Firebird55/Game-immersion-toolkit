@@ -442,7 +442,12 @@ Japanese fallback, an archive media binding, or the Fate story playback rule.
 The subsequent exact AvatarVoiceArchiveEntry.PostVoice body adds 873 original
 bytes: nonempty VoiceAtlas.AudioEvent goes to the event player, whereas the
 AudioID branch passes GetWwiseAudioLanguageKey as AudioManager.PostVoice's final
-argument. Its 666-byte body reads VoiceConfig and the gender-modified filename,
+argument. The table adapter now preserves this event-first precedence even if
+a future row supplies both fields; an unused AudioID with NoVoice cannot turn
+the event into certified silence. The complete official 4.7 VoiceAtlas has
+5,555 rows, including 1,869 AudioID and 3,686 AudioEvent rows, with no overlap,
+so current counts are unchanged. Its 666-byte body reads VoiceConfig and the
+gender-modified filename,
 concatenates the original `Voice/` and `.wem` literals, then passes that relative
 path, `true` and the explicit language to GetExternalSourceInfo. That final
 914-byte body preserves a nonempty explicit language as format argument zero

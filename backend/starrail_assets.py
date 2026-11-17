@@ -231,7 +231,9 @@ def authored_links(catalog, locale):
         identity = f"voice-atlas-{row.get('AvatarID')}-{row.get('VoiceID')}"
         text_hash = _hash(row.get('Voice_M'))
         kind = 'battle_voice' if row.get('IsBattleVoice') else 'character_voice'
-        if row.get('AudioID'):
+        # AvatarVoiceArchiveEntry.PostVoice uses a nonempty event first. An
+        # AudioID (including NoVoice) is only the fallback when it is empty.
+        if row.get('AudioID') and not row.get('AudioEvent'):
             links.extend(_voice_links(identity, text_hash, row['AudioID'], by_voice, locale, kind))
         elif text_hash:
             # AudioEvent is a Wwise event, not a VoiceConfig ID or media path.
