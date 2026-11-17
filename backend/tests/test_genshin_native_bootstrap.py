@@ -365,6 +365,51 @@ def test_native_contract_uses_authored_order_and_presence_polarity(branch, heade
 
 
 @requires_decoder
+@pytest.mark.parametrize('bits,spilled', [(32, False), (32, True), (64, False), (64, True)])
+@pytest.mark.parametrize('branch,present', [('79', True), ('78', False)])
+@pytest.mark.parametrize('high_bit_xor', [False, True])
+def test_zero_comparison_owns_register_or_spilled_header_sign(bits, spilled, branch, present, high_bit_xor):
+    from backend.genshin_native_contracts import Contracts
+    from backend.genshin_original_dialogue import decode_original
+    prefix = '48' if bits == 64 else ''
+    # A wide XOR immediate is sign extended; exercise a real polarity change.
+    immediate = 0x80000000 if high_bit_xor else 0
+    key = ((1 << bits) - (1 << 31)) if high_bit_xor else 0
+    raw = bytes.fromhex('4889ce' + prefix + '8b5c0820' + prefix + '81f3') + struct.pack('<I', immediate)
+    if spilled:
+        raw += bytes.fromhex(prefix + '895c24f8' + prefix + '837c24f800')
+    else:
+        raw += bytes.fromhex(prefix + '83fb00')
+    raw += bytes.fromhex(branch + '078b540820895610c3')
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    fields = [{'name': '_id', 'authored_offset_word': 16, 'type': {'kind': 9}}]
+    view = SimpleNamespace(image=SimpleNamespace(base=0x1000, instructions=lambda rva: seq),
+                           field_offsets=lambda definition: fields)
+    contract = Contracts(view, 1).record(0, 0)
+    flag = (1 << (bits - 1)) if present else 0
+    pack = '<Q' if bits == 64 else '<I'
+    assert decode_original(struct.pack(pack, flag ^ key) + struct.pack('<I', 91), contract) == {'id': 91}
+    assert decode_original(struct.pack(pack, flag ^ key ^ (1 << (bits - 1))), contract) == {'id': 0}
+    with pytest.raises(ValueError):
+        decode_original(struct.pack(pack, flag ^ key) + b'\x01', contract)
+
+
+@requires_decoder
+def test_unowned_comparison_cannot_silently_omit_a_successful_field_read():
+    from backend.genshin_native_contracts import Contracts
+    # One understood flag followed by a nonzero signed comparison. Its second
+    # serialized input must not disappear from an otherwise valid contract.
+    raw = bytes.fromhex('4889ce8b5c0820f6c30174078b54082089561083fb0179078b540820895614c3')
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    fields = [{'name': '_id', 'authored_offset_word': 16, 'type': {'kind': 9}},
+              {'name': '_other', 'authored_offset_word': 20, 'type': {'kind': 9}}]
+    view = SimpleNamespace(image=SimpleNamespace(base=0x1000, instructions=lambda rva: seq),
+                           field_offsets=lambda definition: fields)
+    with pytest.raises(ValueError, match='no owned presence flag'):
+        Contracts(view, 1).record(0, 0)
+
+
+@requires_decoder
 def test_word_length_can_use_the_original_read_instruction_flags():
     from backend.genshin_native_words import Context
     seq = list(native.decoder().disasm(bytes.fromhex('66bf110066037c0820890e7400c3'), 0x1000))

@@ -130,7 +130,7 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
             if source is not None and 0 <= ops[1].imm < source[2]:
                 outgoing[destination] = source[0], source[1] + ops[1].imm, source[2] - ops[1].imm, source[3] >> ops[1].imm
             handled = True
-        elif mnemonic in ('bt', 'test') and len(ops) == 2:
+        elif mnemonic in ('bt', 'test', 'cmp') and len(ops) == 2:
             source = value(ins, ops[0], outgoing)
             outgoing.pop(('condition',), None)
             if source is not None:
@@ -142,6 +142,10 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
                     if mask > 0 and mask & (mask - 1) == 0 and mask.bit_length() <= width:
                         outgoing[('condition',)] = (operations, shift + mask.bit_length() - 1, 'zero', bool(inverted & mask))
                 elif mnemonic == 'test' and key(ins, ops[1]) == key(ins, ops[0]):
+                    outgoing[('condition',)] = (operations, shift + width - 1, 'sign', bool(inverted >> (width - 1) & 1))
+                elif mnemonic == 'cmp' and ops[1].type == CS_OP_IMM and ops[1].imm == 0:
+                    # Subtracting zero preserves the sign bit, including when
+                    # the authored header was spilled to a stack slot.
                     outgoing[('condition',)] = (operations, shift + width - 1, 'sign', bool(inverted >> (width - 1) & 1))
             handled = True
         elif mnemonic.startswith('j'):
@@ -263,6 +267,9 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
         _check(len(polarities) == 1)
         rows.append({'bit': bit, 'domain': domain, 'key': field_key, 'present_when_set': polarities.pop(), 'representative': min(candidates),
                      'reads': tuple(owned_reads), 'ref_calls': tuple(owned_refs)})
+    owned_inputs = {at for row in rows for at in row['reads']}
+    _check(set(reads) & context.returning_nodes() <= owned_inputs,
+           'An original field input has no owned presence flag.')
     domains = {r['domain'] for r in rows}
     nonraw = domains - {()}
     _check(len(nonraw) <= 1, 'The native reader uses incompatible non-raw header domains.')
