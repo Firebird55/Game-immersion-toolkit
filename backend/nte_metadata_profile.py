@@ -80,6 +80,10 @@ def dataset_sha256(payload):
     name the exact resolved snapshot. No record text or source binding is dropped.
     """
     header = {key: payload.get(key) for key in ('game', 'source_locale', 'source_region')}
+    mode = payload.get('content_mode', 'text-audio')
+    _check(mode in ('text', 'text-audio'))
+    if mode == 'text':
+        header['content_mode'] = mode
     digest = hashlib.sha256(_json(header))
     rows = payload.get('records')
     _check(isinstance(rows, list) and 0 < len(rows) <= 1_000_000)
@@ -91,7 +95,20 @@ def dataset_sha256(payload):
         if audio is not None:
             _check(isinstance(audio, dict))
             row['audio'] = {**audio, 'publisher': recipe}
-        row['voice_status'] = dialogue_voice_status(audio, row.get('voice_status'))
+        omitted = row.get('audio_omitted_by_request', False)
+        binding = row.get('source_voice_binding')
+        _check(not omitted or mode == 'text')
+        _check(mode != 'text' or not audio)
+        row['voice_status'] = dialogue_voice_status(audio, row.get('voice_status'),
+            audio_omitted_by_request=omitted, source_voice_binding=binding)
+        if omitted:
+            row.update(audio_omitted_by_request=True, source_voice_binding=binding)
+        else:
+            # Newly added consumer defaults must not invalidate immutable
+            # libraries approved before the optional omission fields existed.
+            row.pop('audio_omitted_by_request', None)
+            if binding is None:
+                row.pop('source_voice_binding', None)
         row['audio_scope'] = dialogue_audio_scope(audio, row.get('audio_scope', 'line'))
         row['channels'] = sorted(dialogue_capture_channels(row.get('channels')))
         raw = _json(row)

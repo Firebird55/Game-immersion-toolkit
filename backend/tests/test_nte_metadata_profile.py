@@ -220,3 +220,41 @@ def test_real_index_normalization_preserves_the_desktop_activation_approval(tmp_
     assert candidate['publisher_snapshot'] == stamp and candidate['fingerprint'] == recipe_id
     index._records[0]['audio']['publisher'] = recipe_id
     with pytest.raises(PreparationFailure): publisher.validate_prepared(tools, candidate)
+
+
+def test_text_mode_approval_binds_omission_and_nonplayable_authored_source(tmp_path, monkeypatch):
+    args = fixture(tmp_path, monkeypatch)
+    payload = args[3]
+    payload['content_mode'] = 'text'
+    row = payload['records'][0]
+    row.update(audio=None, voice_status='voiced', audio_omitted_by_request=True,
+               source_voice_binding={'event': 'Play_Vo_Owned', 'locale': 'ja'},
+               text_capture_verified=True)
+    stamp, header, profile, materialized = materialize(args)
+    assert materialized['records'][0]['audio'] is None
+    assert materialized['records'][0]['voice_status'] == 'voiced'
+    changed = copy.deepcopy(materialized)
+    changed['content_mode'] = 'text-audio'
+    with pytest.raises(PreparationFailure): profiles.validate_payload(changed, profile, header, stamp)
+    changed = copy.deepcopy(materialized)
+    changed['records'][0]['source_voice_binding']['locale'] = 'en'
+    with pytest.raises(PreparationFailure): profiles.validate_payload(changed, profile, header, stamp)
+
+
+def test_new_consumer_defaults_do_not_mutate_an_existing_audio_approval(tmp_path, monkeypatch):
+    args = fixture(tmp_path, monkeypatch)
+    stamp, header, profile, payload = materialize(args)
+    payload['content_mode'] = 'text-audio'
+    payload['records'][0].update(audio_omitted_by_request=False, source_voice_binding=None)
+    profiles.validate_payload(payload, profile, header, stamp)
+
+
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_profile_publication_rejects_mode_and_playback_disagreement(tmp_path, monkeypatch, mode):
+    args = fixture(tmp_path, monkeypatch)
+    args[3]['content_mode'] = mode
+    if mode == 'text-audio':
+        args[3]['records'][0].update(audio=None, voice_status='voiced', audio_omitted_by_request=True,
+                                     source_voice_binding={'event': 'Play_Vo_Owned'})
+    with pytest.raises(PreparationFailure): profiles.publish(*args)
+    assert not list((args[0]/'nte-publisher').glob('nte-*/release.json'))
