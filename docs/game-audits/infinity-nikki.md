@@ -467,6 +467,10 @@ package-format change or official-source impossibility.
 `backend/publisher_apk_zip.py` now locates classic single-disk APK entries through
 a bounded exact-range callback. It has no network, extraction or execution
 effects and delegates signer metadata to the single `publisher_apk.py` verifier.
+Its optional keyword-only `crypto` capability is passed only to validation and
+is never serialized into a layout or handle. The exact shared portable verifier
+also passes the cached original RSA-2048 signer metadata with strict framing;
+that offline check does not revalidate the whole APK's content digest.
 Selected local headers, original encoded names, compression/CRC/size fields and
 carrier bounds must agree; ZIP64, encrypted/descriptor selected entries and
 unsupported compression are explicit gates. Small metadata-member inflation is

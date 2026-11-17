@@ -29,7 +29,7 @@ class ApkMetadata:
     and forwarded only to canonical ApkLayout; no second signer parser exists.
     """
     def __init__(self, read_range, total, *, allow_signed_zero_tail=False,
-                 maximum_metadata=DEFAULT_METADATA):
+                 maximum_metadata=DEFAULT_METADATA, crypto=None):
         _check(callable(read_range) and type(total) is int and 22 <= total <= MAX_OWNER and
                type(maximum_metadata) is int and 0 < maximum_metadata <= 8 * 1024**2 and
                type(allow_signed_zero_tail) is bool)
@@ -83,7 +83,7 @@ class ApkMetadata:
             block = self.range(signing, block_size - 16) + footer
             self.layout = ApkLayout(total, signing, block, self.cd, self.eocd,
                                     allow_signed_zero_tail=allow_signed_zero_tail)
-            self.layout.validate()
+            self.layout.validate(crypto=crypto)
             _check(all(e['local'] + 30 + e['packed'] <= signing for e in self.entries.values()))
         except (UnicodeError, struct.error) as error:
             raise ValueError('Could not read the original APK directory fields.') from error

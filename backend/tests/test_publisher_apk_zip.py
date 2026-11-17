@@ -192,6 +192,27 @@ class ApkMetadataTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             apk.verify_stream(io.BytesIO(broken), archive.layout)
 
+    def test_explicit_crypto_is_used_for_metadata_and_separate_whole_verification(self):
+        from backend.publisher_crypto import DesktopPublisherCrypto
+        calls = []
+        reference = DesktopPublisherCrypto()
+        class Crypto:
+            def rsa_verify_sha256(self, public, data, signature):
+                calls.append((len(public), len(data), len(signature)))
+                return reference.rsa_verify_sha256(public, data, signature)
+        raw = self.fixture()
+        crypto = Crypto()
+        archive, _ = self.reader(raw, crypto=crypto)
+        self.assertEqual(len(calls), 1)
+        self.assertTrue(apk.verify_stream(io.BytesIO(raw), archive.layout,
+                                        crypto=crypto)['whole_apk_v2_integrity_verified'])
+        self.assertEqual(len(calls), 2)
+        class Reject:
+            def rsa_verify_sha256(self, *_):
+                return False
+        with self.assertRaises(ValueError):
+            self.reader(raw, crypto=Reject())
+
 
 if __name__ == '__main__':
     unittest.main()
