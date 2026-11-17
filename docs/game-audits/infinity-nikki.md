@@ -3,8 +3,9 @@
 Audited November 17, 2026. Implementation ticket:
 [#145](https://github.com/Firebird55/Game-immersion-toolkit/issues/145).
 This is an incomplete new integration. The discovery reader follows current
-official regional launcher pointers; it does not yet prepare game dialogue on
-PC or Android. No game-data playback, installed-pack validation, full-story
+official regional launcher pointers and the Global anonymous SDK's base/hotfix
+manifest pointers; it does not yet prepare game dialogue on PC or Android.
+No game-data playback, installed-pack validation, full-story
 denominator or autonomous game update has passed for this game.
 
 ## Official regions and language evidence
@@ -62,14 +63,28 @@ The decoded Global production host is `https://passport.infoldgames.com`, with
 independent test and preproduction hosts excluded from production discovery.
 The normal patch-list request uses POST with `channel`, `region` and `env`;
 launcher-package checks also include launcher identifiers and version. The SDK
-transport adds application metadata, a form signature and encoded payload.
-Bounded anonymous probes reached the expected JSON service but returned
-`code: 1002, info: args_error`. A successful anonymous manifest request and
-complete transport encoding remain unresolved. Failed probes do not establish
-that official derivation is impossible, and do not justify a community-key
-fallback. These observations do not prove the game's own package format,
-regional voice bindings or availability of original recordings. No keys or
-client payloads belong in this repository.
+transport adds application metadata, a form signature and encoded payload. The
+owned reader reproduces the timestamp/identity-derived DES/AES, ECB/CBC and
+HEX/Base64 transport choices. Its live anonymous request passed with `code: 0`
+and a successfully decoded response. No account, installed game, community key,
+protected key cache or real device diagnostics were used. Earlier partial
+transport probes returning `args_error` are superseded by this successful test.
+
+The response selected base manifest `PC_Smallest_Version_2828_O.json` and hotfix
+`BuildVersion_2872.24.json` on separate original Global CDNs. The 629-byte base
+manifest names a 1,093,871,896-byte original 7z bootstrap, with its 32-character
+MD5 and an extraction-space field. The 9,806-byte hotfix descriptor confirms
+IoStore and CMS, Windows, Region 1 / Channel 3 / Role 0, and base/default version
+2872. These are source observations, not a whole-current-story count. No game
+archive body was downloaded. The 7z's size and extraction hint are not a
+selected-dialogue size plan.
+
+Fresh cold preparation still needs an owned authenticated NSIS/Qt-resource
+bootstrap on both runtimes, followed by original bootstrap/hotfix inventories,
+actual text/voice package readers and required-file selection. The successful
+metadata request does not prove full current-story, regional voice bindings or
+availability of original recordings. No keys or client payloads belong in this
+repository.
 
 The upfront dialogue download/storage estimate remains **unknown**. Neither the
 installer's size nor the publisher's whole-game free-space recommendation is a
@@ -93,8 +108,11 @@ Sounds with no on-screen subtitle do not block subtitle coverage.
 
 ## Remaining acceptance work
 
-1. Discover current independent Global/mainland game inventories, original
-   text/binding/voice containers, integrity fields and all voice locales.
+1. Complete fresh official Global/mainland bootstrap and current game
+   inventories, original text/binding/voice containers, integrity fields and all
+   voice locales. Global anonymous manifest-pointer discovery is implemented;
+   independent mainland SDK acquisition and downstream resource inventories
+   remain open.
 2. Implement bounded manifest-based size planning and download/deletion through
    the shared game-data manager on PC and fully independent Android. Preserve
    history, recordings and user settings when deleting prepared game data.

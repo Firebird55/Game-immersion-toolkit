@@ -1,6 +1,8 @@
 import base64
 import hashlib
+import hmac
 import json
+from urllib.parse import parse_qs
 from urllib.request import Request
 
 import pytest
@@ -144,3 +146,113 @@ def test_mainland_resolution_requires_a_final_regional_cdn_without_reading_respo
     else:
         with pytest.raises(ValueError):
             publisher.discover_launcher('cn')
+
+
+def sdk_fixture(aes, cbc):
+    return {'appConfig': {'appId': '123456' + ('5' if cbc else '4'), 'clientId': '5678',
+        'sdkChannel': '1', 'hostEnv': 2, 'channelEnv': 'prod', 'region': 4,
+        'appKey': ['', '', 'ownedFixtureKey42'], 'aesKey': ['', '', ('1' if aes else '2') + 'ownedCipherSeed'],
+        'bffHost': ['', '', 'https://passport.infoldgames.com']}}
+
+
+def fixture_cipher(app, instant, aes, cbc):
+    from Crypto.Cipher import AES, DES
+    # Independently constructed original-format wire fixture, containing no game data.
+    label = app['aesKey'][2] + ('#AES' if aes else '#DES') + ('#CBC' if cbc else '#ECB')
+    label += '#PKCS7Padding' + ('#HEX' if instant % 2 == 0 else '#BASE64')
+    label += '#' + app['appId'] + '#' + str(instant)
+    key = hashlib.md5(label.encode()).hexdigest().encode()
+    klass = AES if aes else DES
+    if not aes:
+        key = key[:8]
+    return (klass.new(key, klass.MODE_CBC, key[:klass.block_size]) if cbc
+            else klass.new(key, klass.MODE_ECB)), klass.block_size
+
+
+def sdk_response(app, instant, aes, cbc, value):
+    raw = json.dumps(value, separators=(',', ':')).encode()
+    cipher, block = fixture_cipher(app, instant, aes, cbc)
+    pad = block - len(raw) % block
+    sealed = cipher.encrypt(raw + bytes([pad]) * pad)
+    data = sealed.hex().upper() if instant % 2 == 0 else base64.b64encode(sealed).decode()
+    return json.dumps({'code': 0, 'info': 'OK', 'data': data}).encode()
+
+
+class SDKResponse:
+    status = 200
+    def __init__(self, raw):
+        self.raw = raw
+        self.headers = {'Content-Length': str(len(raw))}
+    def __enter__(self): return self
+    def __exit__(self, *_args): pass
+    def geturl(self): return 'https://passport.infoldgames.com/v1/accessories/gameconfig/patchlist'
+    def read(self, size): return self.raw[:size]
+
+
+@pytest.mark.parametrize('aes,cbc', [(False, False), (False, True), (True, False), (True, True)])
+@pytest.mark.parametrize('instant', [100, 101])
+def test_anonymous_sdk_transport_follows_source_cipher_modes_without_account_or_host_data(aes, cbc, instant):
+    config, identity = sdk_fixture(aes, cbc), encoded_config()[1]
+    app = config['appConfig']
+    packet = {'game_config_apk': {'apk_version': '9000'}, 'game_config_patch': {'id': 12}}
+    def open_request(request, **_kwargs):
+        assert request.get_method() == 'POST'
+        assert not any(key.lower() in ('authorization', 'cookie') for key in request.headers)
+        fields = parse_qs(request.data.decode())
+        signature_source = '&'.join(key + '=' + fields[key][0] for key in sorted(fields) if key not in ('sign', 'data'))
+        assert fields['sign'] == [hmac.new(b'ownedFixtureKey42', signature_source.encode(), hashlib.md5).hexdigest()]
+        cipher, block = fixture_cipher(app, instant, aes, cbc)
+        sealed = bytes.fromhex(fields['data'][0]) if instant % 2 == 0 else base64.b64decode(fields['data'][0])
+        raw = cipher.decrypt(sealed)
+        assert 0 < raw[-1] <= block
+        assert json.loads(raw[:-raw[-1]]) == {'DOID': '', 'os_platform': '3', 'sdk_channel': '1',
+                                               'channel': '1', 'region': 4, 'env': 'prod'}
+        return SDKResponse(sdk_response(app, instant, aes, cbc, packet))
+    assert publisher.discover_patchlist(config, identity, opener=open_request, now=instant) == packet
+
+
+def test_two_manifest_generations_are_fetched_anew_and_not_replaced_by_cached_success():
+    config, identity = sdk_fixture(False, False), encoded_config()[1]
+    current = {'generation': '9000', 'fail': False}
+    def open_request(_request, **_kwargs):
+        if current['fail']:
+            raise OSError('Synthetic network interruption')
+        value = {'game_config_apk': {'apk_version': current['generation']}, 'game_config_patch': {}}
+        return SDKResponse(sdk_response(config['appConfig'], 100, False, False, value))
+    first = publisher.discover_patchlist(config, identity, opener=open_request, now=100)
+    current['generation'] = '9001'
+    second = publisher.discover_patchlist(config, identity, opener=open_request, now=100)
+    assert first['game_config_apk']['apk_version'] == '9000'
+    assert second['game_config_apk']['apk_version'] == '9001'
+    current['fail'] = True
+    with pytest.raises(OSError):
+        publisher.discover_patchlist(config, identity, opener=open_request, now=100)
+
+
+@pytest.mark.parametrize('case', ['error', 'duplicate', 'oversize', 'short', 'redirect', 'bad-padding'])
+def test_sdk_rejects_failure_ambiguous_truncated_redirected_or_unbounded_metadata(case):
+    config, identity = sdk_fixture(False, False), encoded_config()[1]
+    def open_request(_request, **_kwargs):
+        raw = sdk_response(config['appConfig'], 100, False, False,
+                           {'game_config_apk': {}, 'game_config_patch': {}})
+        if case == 'error': raw = b'{"code":1002,"info":"args_error"}'
+        if case == 'duplicate': raw = raw.replace(b'"code":', b'"code":1,"code":')
+        if case == 'oversize': raw = b' ' * (publisher.MAX_RESPONSE + 1)
+        if case == 'bad-padding':
+            value = json.loads(raw)
+            value['data'] = value['data'][:-16] + '00' * 8
+            raw = json.dumps(value).encode()
+        response = SDKResponse(raw)
+        if case == 'short': response.headers['Content-Length'] = str(len(raw) + 1)
+        if case == 'redirect': response.geturl = lambda: 'https://example.invalid/manifest'
+        return response
+    with pytest.raises(ValueError):
+        publisher.discover_patchlist(config, identity, opener=open_request, now=100)
+
+
+def test_sdk_never_dispatches_a_test_or_foreign_host_from_a_changed_launcher_config():
+    config, identity = sdk_fixture(False, False), encoded_config()[1]
+    config['appConfig']['bffHost'][2] = 'https://example.invalid'
+    def forbidden(*_args, **_kwargs): raise AssertionError('Foreign request was dispatched.')
+    with pytest.raises(ValueError):
+        publisher.discover_patchlist(config, identity, opener=forbidden, now=100)

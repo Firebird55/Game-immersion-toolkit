@@ -1,23 +1,28 @@
 """Read the publisher's regional launcher pointers without executing a launcher.
 
-This is discovery infrastructure, not a game-data provider. A launcher URL or
-installer size cannot stand in for the current game's resource manifest, its
-dialogue download size, or verified text/voice bindings.
+This is discovery infrastructure, not a dialogue-data provider. It follows the
+official anonymous SDK to current base/hotfix manifest pointers. A launcher URL,
+manifest pointer or installer size cannot stand in for a required dialogue
+download size or verified text/voice bindings.
 """
 from dataclasses import dataclass
 import base64
 import hashlib
 from html.parser import HTMLParser
 import json
+import hmac
 import re
+import time
 import urllib.request
-from urllib.parse import unquote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
+import uuid
 
 from .publisher_http import download
 
 
 MAX_PAGE = 512 * 1024
 MAX_CONFIG = 64 * 1024
+MAX_RESPONSE = 128 * 1024
 REGIONS = {
     'global': ('https://infinitynikki.infoldgames.com/en/home',
                'x6oversea-game-package.infoldgames.com'),
@@ -44,6 +49,16 @@ def _unique_object(pairs):
     return result
 
 
+def _identity(raw):
+    _require(isinstance(raw, bytes) and len(raw) <= 4096)
+    value = json.loads(raw.decode('utf-8-sig'), object_pairs_hook=_unique_object)
+    app, version, timestamp = (value[key] for key in ('launcherAppId', 'version', 'time'))
+    _require(isinstance(app, str) and re.fullmatch(r'[0-9]{1,16}', app))
+    _require(isinstance(version, str) and re.fullmatch(r'[0-9]{1,8}(?:\.[0-9]{1,8}){2,3}', version))
+    _require(isinstance(timestamp, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}', timestamp))
+    return app, version, timestamp
+
+
 def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
     """Decode data resources from an independently authenticated launcher member.
 
@@ -55,11 +70,7 @@ def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
     _require(isinstance(encoded, bytes) and 0 < len(encoded) <= MAX_CONFIG)
     _require(isinstance(identity, bytes) and len(identity) <= 4096)
     try:
-        value = json.loads(identity.decode('utf-8-sig'), object_pairs_hook=_unique_object)
-        app, version, timestamp = (value[key] for key in ('launcherAppId', 'version', 'time'))
-        _require(isinstance(app, str) and re.fullmatch(r'[0-9]{1,16}', app))
-        _require(isinstance(version, str) and re.fullmatch(r'[0-9]{1,8}(?:\.[0-9]{1,8}){2,3}', version))
-        _require(isinstance(timestamp, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}', timestamp))
+        app, version, timestamp = _identity(identity)
         seed = app + version.replace('.', '_') + timestamp.replace('-', '/').replace(' ', '-')
         key = hashlib.md5(seed.encode('ascii')).hexdigest().encode('ascii')
         raw = base64.b64decode(encoded, validate=True)
@@ -74,6 +85,92 @@ def decode_launcher_config(encoded: bytes, identity: bytes) -> dict:
         return config
     except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, RecursionError) as error:
         raise ValueError('Infinity Nikki launcher config resources cannot be read.') from error
+
+
+def _transport_cipher(app, timestamp):
+    """Reproduce the signed SDK's per-request cipher, never a saved asset key."""
+    from Crypto.Cipher import AES, DES
+    seed = app['aesKey'][2]
+    use_aes, use_cbc, use_hex = ord(seed[0]) % 2 != 0, ord(app['appId'][-1]) % 2 != 0, ord(timestamp[-1]) % 2 == 0
+    label = (seed + ('#AES' if use_aes else '#DES') + ('#CBC' if use_cbc else '#ECB') +
+             '#PKCS7Padding' + ('#HEX' if use_hex else '#BASE64') + '#' + app['appId'] + '#' + timestamp)
+    key = hashlib.md5(label.encode('ascii')).hexdigest().encode('ascii')
+    algorithm = AES if use_aes else DES
+    if not use_aes:
+        key = key[:8]
+    cipher = (algorithm.new(key, algorithm.MODE_CBC, key[:algorithm.block_size]) if use_cbc
+              else algorithm.new(key, algorithm.MODE_ECB))
+    return cipher, algorithm.block_size, use_hex
+
+
+def _production_app(config):
+    app = config['appConfig']
+    _require(isinstance(app, dict) and app['hostEnv'] == 2 and app['channelEnv'] == 'prod')
+    for name in ('appId', 'clientId', 'sdkChannel'):
+        _require(isinstance(app[name], str) and re.fullmatch(r'[0-9]{1,16}', app[name]))
+    for name in ('appKey', 'aesKey'):
+        _require(isinstance(app[name], list) and len(app[name]) == 3 and
+                 isinstance(app[name][2], str) and re.fullmatch(r'[A-Za-z0-9]{1,128}', app[name][2]))
+    _require(isinstance(app['bffHost'], list) and len(app['bffHost']) == 3 and
+             app['bffHost'][2] == 'https://passport.infoldgames.com')
+    _require(type(app['region']) is int and 0 <= app['region'] <= 100)
+    return app
+
+
+def discover_patchlist(config: dict, identity: bytes, *, opener=None, now=None) -> dict:
+    """Read current Global config anonymously using authenticated source resources.
+
+    The caller supplies its publisher-authenticated launcher data resources.
+    No account, game folder, community extraction, saved key or real device
+    diagnostics are read. This stage returns publisher manifest pointers, not a
+    dialogue catalog or an installed/download size estimate. Mainland transport
+    is not claimed before independently verifying its launcher resources.
+    """
+    try:
+        app = _production_app(config)
+        _, version, _ = _identity(identity)
+        instant = int(time.time()) if now is None else now
+        _require(type(instant) is int and 0 <= instant < 2**63)
+        timestamp = str(instant)
+        metadata = {'app_id': app['appId'], 'client_id': app['clientId'], 'clientid': app['clientId'],
+                    'lang': 'en', 'sign_type': 'hmac', 'timestamp': timestamp}
+        encode = lambda value: quote(value, safe='-._~')
+        form = '&'.join(key + '=' + encode(value) for key, value in sorted(metadata.items()))
+        signature = hmac.new(app['appKey'][2].encode('ascii'), form.encode('ascii'), hashlib.md5).hexdigest()
+        payload = json.dumps({'DOID': '', 'os_platform': '3', 'sdk_channel': app['sdkChannel'],
+            'channel': app['sdkChannel'], 'region': app['region'], 'env': app['channelEnv']},
+            sort_keys=True, separators=(',', ':')).encode('utf-8')
+        cipher, block, use_hex = _transport_cipher(app, timestamp)
+        pad = block - len(payload) % block
+        encrypted = cipher.encrypt(payload + bytes([pad]) * pad)
+        encoded = encrypted.hex().upper() if use_hex else base64.b64encode(encrypted).decode('ascii')
+        url = app['bffHost'][2] + '/v1/accessories/gameconfig/patchlist'
+        request = urllib.request.Request(url, data=(form + '&sign=' + signature + '&data=' + encode(encoded)).encode('ascii'),
+            headers={'Accept-Encoding': 'identity', 'User-Agent': 'GameImmersionToolkit/1',
+                'Content-Type': 'application/x-www-form-urlencoded', 'X-SDK-VERSION': '0.0.1',
+                'X-SDK-PLATFORM': 'pclauncher', 'X-SDK-CHANNEL': app['sdkChannel'],
+                'X-SDK-DEVICE-ID': str(uuid.uuid4()), 'X-SDK-OS-VERSION': '10',
+                'X-SDK-APP-VERSION': version, 'X-SDK-DEVICE-BRAND': 'Microsoft', 'X-SDK-DEVICE-MODEL': 'PC'})
+        open_request = opener or urllib.request.build_opener(_NoRedirect()).open
+        with open_request(request, timeout=45) as response:
+            _require(response.status == 200 and response.geturl() == url)
+            raw = response.read(MAX_RESPONSE + 1)
+            length = response.headers.get('Content-Length')
+            _require(len(raw) <= MAX_RESPONSE and (length is None or length.isdecimal() and int(length) == len(raw)))
+        reply = json.loads(raw.decode('utf-8'), object_pairs_hook=_unique_object)
+        _require(isinstance(reply, dict) and type(reply.get('code')) is int and reply['code'] == 0 and isinstance(reply['data'], str))
+        encrypted = bytes.fromhex(reply['data']) if use_hex else base64.b64decode(reply['data'], validate=True)
+        _require(0 < len(encrypted) <= MAX_CONFIG and len(encrypted) % block == 0)
+        cipher, _, _ = _transport_cipher(app, timestamp)
+        body = cipher.decrypt(encrypted)
+        pad = body[-1]
+        _require(0 < pad <= block and body[-pad:] == bytes([pad]) * pad)
+        value = json.loads(body[:-pad].decode('utf-8'), object_pairs_hook=_unique_object)
+        _require(isinstance(value, dict) and isinstance(value.get('game_config_apk'), dict)
+                 and isinstance(value.get('game_config_patch'), dict))
+        return value
+    except (UnicodeError, KeyError, TypeError, RecursionError) as error:
+        raise ValueError('Infinity Nikki anonymous publisher manifest metadata cannot be read.') from error
 
 
 class _NextData(HTMLParser):
