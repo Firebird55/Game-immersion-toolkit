@@ -54,7 +54,9 @@ async function connectReader() {
   const pid = await until(() => adb('shell', 'pidof', packageName).split(/\s+/)[0], 'app process');
   adb('forward', 'tcp:9222', `localabstract:webview_devtools_remote_${pid}`);
   await until(async () => (await fetch('http://127.0.0.1:9222/json/version')).ok, 'actual Android WebView CDP');
-  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  // Android WebView owns its default context and cannot implement browser-level
+  // download/context overrides. Attach without changing that existing context.
+  const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', {noDefaults: true});
   const page = await until(() => browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:')), 'local shared reader');
   await page.locator('.companion-shell').waitFor({timeout: 60_000});
   return {browser, page};
