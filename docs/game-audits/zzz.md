@@ -1,5 +1,16 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17 update policy
+
+The owner selected independent official-server updates under the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026).
+Current production still downloads mutable community dispatcher/gateway settings.
+Replacing those inputs from authenticated official files remains a blocker for
+#85. The earlier changed-content/recovery trial froze code and readers, but did
+not freeze or record every community bootstrap response; it does not prove
+independent bootstrap or parameter rotation. The finite current-use boundary
+for the 333 configuration-only references remains separate.
+
+
 ## November 17, 2026 · Current preparation, acceptance and configuration-only research
 
 The 333 unresolved paths below are **configuration-only references whose
@@ -165,9 +176,11 @@ through normal snapshot-scoped voice services with identical PCM per generation.
 One explicit-source adapter batch also extracted the A/B versions of the same
 media ID and the new B original together without confusing generations. This
 does not claim that one UI catalog combines historical snapshots. Runtime source
-hashes stayed fixed throughout; no game installation or updated community data
-was used. This closes this Global Japanese update/recovery trial, while complete
-current subtitle coverage and equivalent trials for other regions/dubs remain open.
+hashes stayed fixed throughout and no game installation was used. The later
+bootstrap audit found that community settings responses were not frozen by this
+trial. It proves the recorded Global Japanese content/recovery behavior, not
+independent bootstrap or key rotation. Current subtitle coverage and equivalent
+regional/dub trials remain separate.
 
 The interrupted-transfer trial also exposed an incorrect generic reader warning.
 Premature remote EOF, an incomplete HTTP read, a connection reset or a read

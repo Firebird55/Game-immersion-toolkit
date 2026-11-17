@@ -1,5 +1,15 @@
 # Wuthering Waves dialogue audit
 
+## November 17 update policy
+
+The owner retained the independent-update target in the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026).
+Official KeyLists/PakData provide verified UUID-specific key updates. Initial
+discovery still consults live community archive parameters, and changed
+bootstrap/default keys or manifest parameters have no official-client recovery
+route yet. The cold one-package index proof and frozen content-update trial do
+not establish complete cold bootstrap or default-key rotation. #87 stays open.
+
+
 ## November 17, 2026 · Reader 13 source repair and finite remaining scope
 
 The original `M2_12_22_1` caller and complete event graph now establish the

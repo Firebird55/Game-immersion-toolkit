@@ -1,5 +1,16 @@
 # Genshin Impact narrative audit
 
+## November 17 update policy
+
+The owner accepted official publisher content/audio with controlled community
+binding, schema and key metadata under the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026). A matching immutable
+community revision may change without a toolkit release. Full reconstruction
+of every native table is no longer a closure requirement. Normal preparation
+still needs original publisher-text integration, verified generation
+compatibility, provenance and failed-update/offline acceptance; original-reader utilities alone do not prove those
+ordinary-provider requirements. Subtitle and original-audio gaps remain in #83.
+
+
 ## Original TextMap utility · November 16, 2026
 
 The experimental [original TextMap reader](../../backend/genshin_original_textmap.py)

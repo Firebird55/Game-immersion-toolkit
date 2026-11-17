@@ -1,5 +1,17 @@
 # Neverness to Everness audit
 
+## November 17 update policy
+
+The owner accepted a controlled community schema/key fallback under the
+[per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026). Original client descriptors plus the fixed retained seed remain the
+primary schema route; the existing old/current trials did not require a newer
+community mapping. Changed updater/archive/localization parameters or required
+types may now use verified immutable community revisions. That fallback still
+needs ordinary-provider integration, exact original-generation verification and
+retention/retry/offline acceptance. The finite current-source audit does not
+complete those remaining update tasks, so #88 stays open.
+
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

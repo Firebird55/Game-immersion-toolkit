@@ -1,5 +1,17 @@
 # Honkai: Star Rail dialogue audit
 
+## November 17 update policy
+
+The owner accepted official publisher content/audio with controlled community
+binding, schema and key metadata under the [per-game update policy](../live-service-completion.md#per-game-update-policy--november-17-2026). Community revisions
+may advance without a toolkit release after exact publisher-generation checks.
+Universal native reconstruction is no longer a closure requirement; original
+reader work remains useful where supported. Original publisher-text integration, fallback provenance,
+retention/retry/offline acceptance and actual available film/tutorial audio
+bindings remain required in #84. The unresolved movie parameters are not waived
+by this policy.
+
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global

@@ -59,8 +59,10 @@ still have incomplete genuine OCR and remain negative acceptance evidence.
 Worker, fixture and update results do not establish native gameplay,
 all-device or physical regional acceptance.
 
-The recommendation is to keep **#86 open only for the demonstrated active
-prologue audio exception** above. Further broad source, gameplay, native or
+The demonstrated active coverage exception keeps **#86 open**. The separate
+[independent-update requirement](../live-service-completion.md#per-game-update-policy--november-17-2026)
+also remains open for changed master-parameter and VFS mapping recovery; the
+content trial does not prove that recovery. Further broad source, gameplay, native or
 generic-reaction searches are not a closing requirement. Resume that one
 mechanism when a new authoritative, cue-specific voice or event-context
 reference can establish its complete publisher-source binding.
