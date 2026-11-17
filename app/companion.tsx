@@ -196,7 +196,7 @@ type StatusPayload = {
   session: { id: string; line_count: number; total_line_count: number };
 };
 type CompanionSnapshot = {context:StateContext; status:StatusPayload; lines:TranscriptLine[]; lexirise:LexiriseStatus};
-type TranscriptTab = 'history' | 'favorites';
+type TranscriptTab = 'history' | 'favorites' | 'imported';
 function newestFirst(left: TranscriptLine, right: TranscriptLine) {
   return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
 }
@@ -399,9 +399,10 @@ const TranscriptRow = memo(function TranscriptRow({
       {readingMode === 'lexirise' ? <ReadingText id={line.id} text={line.source_text??line.chinese} sourceLanguage={line.source_language??'zh'} sentenceTranslation={line.translation_text??line.english} options={readingOptions} current onSummary={setReadingSummary} /> : <StableText className="current-chinese" lang={line.source_locale ?? line.source_language ?? 'zh-Hans'} text={line.source_text??line.chinese} />}
     </div>
     <div className="line-meta">
+      {line.match_kind === 'browser_migration' && <small>{line.dialogue_kind === 'browser_history_excerpt' ? 'Imported browser excerpt' : 'Imported browser history'}</small>}
       {line.audio_scope === 'context' && <small>{uiText("Context clip")}</small>}
       {isMissingAudioLine(line) && <small>{uiText(missingAudioLabel(line))}</small>}
-      <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>
+      {line.match_kind !== 'browser_migration' && <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>}
       <div className="line-actions">
         <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`${voicePlaybackLabel(line)}: ${line.english}`} title={voicePlaybackLabel(line)}><Volume2 size={16} /></button>
         <button type="button" className={line.favorite ? "is-favorite" : ''} onClick={() => onToggleFavorite(line)} aria-label={line.favorite ? uiText("Remove from favorites") : uiText("Favorite line")} title={line.favorite ? uiText("Remove favorite") : uiText("Keep forever")}><Star size={16} fill={line.favorite ? "currentColor" : "none"} /></button>
@@ -439,6 +440,10 @@ function CompanionClient() {
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
   const transcriptTabRef = useRef<TranscriptTab>('history');
   const [historyPage, setHistoryPage] = useState(0);
+  const [importedFavorites, setImportedFavorites] = useState(false);
+  const [importedPage, setImportedPage] = useState<{owner: number | null | undefined; game: GameId; page: number;
+    favorites: boolean; total: number; rows: TranscriptLine[]} | null>(null);
+  const [importedError, setImportedError] = useState('');
   const changeTranscriptTab = useCallback((tab: TranscriptTab, resetHistory = false) => {
     if (resetHistory || transcriptTabRef.current !== tab) setHistoryPage(0);
     transcriptTabRef.current = tab;
@@ -791,14 +796,44 @@ function CompanionClient() {
     () => lines.filter((line) => line.game === selectedGame && line.favorite),
     [lines, selectedGame],
   );
-  const historyPageCount = Math.max(1, Math.ceil(historyLines.length / HISTORY_PAGE_SIZE));
+  const importedCurrent = importedPage?.owner === requestGeneration && importedPage?.game === selectedGame
+    && importedPage?.page === historyPage && importedPage?.favorites === importedFavorites ? importedPage : null;
+  const pageTotal = transcriptTab === 'imported' ? importedCurrent?.total ?? 0 : historyLines.length;
+  const historyPageCount = Math.max(1, Math.ceil(pageTotal / HISTORY_PAGE_SIZE));
   const currentHistoryPage = Math.min(historyPage, historyPageCount - 1);
   const visibleTranscriptLines = transcriptTab === 'favorites'
     ? favoriteLines
-    : historyLines.slice(
+    : transcriptTab === 'imported' ? importedCurrent?.rows ?? [] : historyLines.slice(
         currentHistoryPage * HISTORY_PAGE_SIZE,
         (currentHistoryPage + 1) * HISTORY_PAGE_SIZE,
       );
+  useEffect(() => {
+    if (transcriptTab !== 'imported' || !online || !nativeHost.capabilities?.history_migration) return;
+    const controller = new AbortController(), owner = requestGeneration;
+    setImportedError('');
+    void (async () => {
+      try {
+        const query = new URLSearchParams({game: selectedGame, page: String(historyPage), favorites: String(importedFavorites)});
+        const response = await fetch(`${API_URL}/api/history/migration/lines?${query}`, {
+          headers: nativeAccountHeaders(owner), signal: controller.signal, cache: 'no-store'});
+        const value = await response.json() as {total: number; rows: TranscriptLine[]; account_generation: number};
+        if (!response.ok || !Number.isSafeInteger(value.total) || value.total < 0
+            || value.account_generation !== owner || !Array.isArray(value.rows) || value.rows.length > HISTORY_PAGE_SIZE
+            || value.rows.some(line => !Number.isSafeInteger(line.id) || line.id <= 0 || line.game !== selectedGame
+              || line.match_kind !== 'browser_migration')) throw Error('Imported history is unavailable. Refresh this account and retry.');
+        if (!controller.signal.aborted) {
+          const lastPage = Math.max(0, Math.ceil(value.total / HISTORY_PAGE_SIZE) - 1);
+          if (historyPage > lastPage) setHistoryPage(lastPage);
+          setImportedPage({owner, game: selectedGame, page: historyPage,
+            favorites: importedFavorites, total: value.total, rows: value.rows});
+        }
+      } catch (failure) {
+        if (!controller.signal.aborted) setImportedError(failure instanceof Error ? failure.message : 'Imported history is unavailable.');
+      }
+    })();
+    return () => controller.abort();
+  }, [transcriptTab, online, nativeHost.capabilities?.history_migration, requestGeneration, selectedGame,
+    historyPage, importedFavorites, lines]);
   useEffect(() => {
     const reader = historyList.current;
     if (reader && window.scrollY > reader.offsetTop) window.scrollTo({top: reader.offsetTop});
@@ -1050,7 +1085,12 @@ function CompanionClient() {
       </section>}
 
       {archivedHistory && <p role="status">Hito’s World capture is disabled. Your saved history and favorites remain available.</p>}
-      <section className="transcript" aria-label={transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}>
+      <section className="transcript" aria-label={transcriptTab === 'imported' ? 'Imported browser history' : transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}>
+        {transcriptTab === 'imported' && <div><h2>Imported browser history</h2>
+          <label><input type="checkbox" checked={importedFavorites} onChange={event => {
+            setImportedFavorites(event.currentTarget.checked);setHistoryPage(0);
+          }} /> Imported favorites only</label>
+          {importedError && <p role="status">{importedError}</p>}</div>}
         <div className="line-list">
           {visibleTranscriptLines.length ? visibleTranscriptLines.map((line) => (
             <TranscriptRow
@@ -1067,12 +1107,12 @@ function CompanionClient() {
             />
           )) : (
             <div className="transcript-empty">
-              <h2>{transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}</h2>
+              <h2>{transcriptTab === 'imported' ? importedCurrent ? 'No imported lines in this view.' : 'Loading imported history…' : transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}</h2>
               {transcriptTab === 'favorites' && <p>{uiText('Favorite a line with the star button and it will stay here between sessions.')}</p>}
             </div>
           )}
         </div>
-        {transcriptTab === 'history' && historyLines.length > HISTORY_PAGE_SIZE && (
+        {(transcriptTab === 'history' || transcriptTab === 'imported') && pageTotal > HISTORY_PAGE_SIZE && (
           <nav className="history-pagination" aria-label={uiText("Transcript history pages")}>
             <button
               type="button"
@@ -1081,7 +1121,7 @@ function CompanionClient() {
             >
               {uiText("Newer 10")}</button>
             <span>
-              {currentHistoryPage * HISTORY_PAGE_SIZE + 1}–{Math.min((currentHistoryPage + 1) * HISTORY_PAGE_SIZE, historyLines.length)} {uiText("of")}{historyLines.length}
+              {currentHistoryPage * HISTORY_PAGE_SIZE + 1}–{Math.min((currentHistoryPage + 1) * HISTORY_PAGE_SIZE, pageTotal)} {uiText("of")}{pageTotal}
             </span>
             <button
               type="button"
@@ -1105,6 +1145,9 @@ function CompanionClient() {
             <Star size={16} fill={transcriptTab === 'favorites' ? 'currentColor' : 'none'} />
             {uiText(transcriptTab === 'favorites' ? 'History' : 'Favorites')}
           </Button>
+          {nativeHost.android && nativeHost.capabilities?.history_migration && <Button variant="outline"
+            aria-pressed={transcriptTab === 'imported'} onClick={() => changeTranscriptTab(transcriptTab === 'imported' ? 'history' : 'imported', true)}>
+            {transcriptTab === 'imported' ? 'Recent history' : 'Imported history'}</Button>}
           <label className="playback-speed">
             <Volume2 size={16} />
             <span>{uiText("Speed")}</span>

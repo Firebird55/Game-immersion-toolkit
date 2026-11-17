@@ -8,6 +8,7 @@ import {type NativeCapabilities} from '../lib/native-host';
 import {useNativeAccountGeneration} from '../lib/native-account-context';
 import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
 import './android-setup.css';
+import {BrowserHistoryMigration} from './browser-history-migration';
 
 function importReply(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw Error('The app returned an invalid import response.');
@@ -110,6 +111,7 @@ export function AndroidSetup({online, capabilities, error, libraryReady, onChang
         {capabilities?.protected_accounts && <Button variant="outline" onClick={onAccount}>Lexirise account</Button>}
       </div>
       <p role="status">{message || error || capabilities?.message || 'Checking this app’s device features…'}</p>
+      {online && capabilities?.history_migration && <BrowserHistoryMigration key={accountGeneration} onChanged={onChanged} />}
       {capabilities?.capture_source === 'authored-observations' && <p className="toolkit-setup-note">This prototype verifies prepared dialogue with test observations. A game-screen source has not been verified for this build.</p>}
       {capabilities && !capabilities.protected_accounts && <p className="toolkit-setup-note">Account connection is unavailable in this app build. Local reading remains available.</p>}
       <p className="toolkit-setup-note">Desktop browser extensions do not run inside this app. Your independent reading mode and local reading preferences remain available.</p>

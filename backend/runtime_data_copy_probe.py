@@ -65,7 +65,10 @@ TABLE_COLUMNS = {
     'data/lexirise/reading-cache-v2.db': {'cache': ('kind', 'key', 'value', 'at'),
         'grammar_choices': ('slug', 'proficiency')},
 }
-OPTIONAL_TABLE_COLUMNS = {'data/transcript-v2.db': {'sqlite_stat1': ('tbl', 'idx', 'stat')}}
+OPTIONAL_TABLE_COLUMNS = {'data/transcript-v2.db': {
+    'sqlite_stat1': ('tbl', 'idx', 'stat'),
+    'browser_history_imports': ('source_key', 'line_id'),
+}}
 ROW_FIELDS = ('id', 'game', 'text_id', 'english', 'chinese', 'source_ocr', 'source_language',
     'source_locale', 'source_text', 'translation_locale', 'translation_text', 'audio_locale',
     'texts', 'voice_status', 'dialogue_kind', 'favorite', 'voiced', 'has_audio')
@@ -270,7 +273,7 @@ def verify_authored_snapshot(snapshot, target, expected, *, retained=None, gramm
             _verify_store(connection, name, expected, grammar_probe=grammar_probe)
 
 
-def _verify_store(connection, name, expected, *, grammar_probe=False):
+def _verify_store(connection, name, expected, *, grammar_probe=False, archive_expected=()):
     tables = TABLE_COLUMNS[name]
     actual = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     known = {**tables, **OPTIONAL_TABLE_COLUMNS.get(name, {})}
@@ -285,6 +288,11 @@ def _verify_store(connection, name, expected, *, grammar_probe=False):
         rows = [_row(TranscriptStore._row_to_line(row).model_dump(mode='json'))
                 for row in connection.execute('SELECT * FROM transcript_lines ORDER BY id')]
         if rows != expected:
+            raise DataCopyFailure('authored-rows-differ')
+        archive_rows = ([tuple(row) for row in connection.execute(
+            'SELECT source_key,line_id FROM browser_history_imports ORDER BY source_key')]
+            if 'browser_history_imports' in actual else [])
+        if archive_rows != sorted(archive_expected):
             raise DataCopyFailure('authored-rows-differ')
     if grammar_probe and name == 'data/lexirise/reading-cache-v2.db':
         rows = [tuple(row) for row in connection.execute('SELECT slug,proficiency FROM grammar_choices ORDER BY slug')]

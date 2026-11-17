@@ -20,7 +20,8 @@ const sourceTrees = ['app', 'components', 'desktop', 'hooks', 'lib', 'mobile', '
 const sourceFiles = ['package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts', '.openai/hosting.json',
   'LICENSE', 'THIRD_PARTY_NOTICES.md', POLICY, GUARD, 'scripts/build-desktop-frontend.mjs', 'scripts/build-identity.mjs', 'scripts/prepare-mobile-assets.mjs',
   'scripts/build-browser-reader.mjs', 'scripts/dependency-notices.mjs', 'scripts/mobile-assets.mjs',
-  'scripts/mobile-publication.mjs', 'scripts/mobile-ocr-integrity.json', 'scripts/ocr-worker-compat.js'];
+  'scripts/mobile-publication.mjs', 'scripts/mobile-ocr-integrity.json', 'scripts/ocr-worker-compat.js',
+  'scripts/export-browser-history.js'];
 const mimeTypes = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json',
   '.wasm': 'application/wasm', '.gz': 'application/gzip', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8',

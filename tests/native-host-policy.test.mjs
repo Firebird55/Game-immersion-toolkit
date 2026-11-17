@@ -4,6 +4,15 @@ import {hostPlatform, parseNativeCapabilities, canCaptureDeviceFrames} from '../
 
 const report = () => ({platform:'android',library_import:true,protected_accounts:false,capture_source:'authored-observations',message:'Prepared library prototype'});
 
+test('history import is absent for older hosts and cannot bypass credential recovery',()=>{
+  assert.equal(parseNativeCapabilities(report()).history_migration,false);
+  assert.equal(parseNativeCapabilities({...report(),history_migration:true}).history_migration,true);
+  assert.throws(()=>parseNativeCapabilities({...report(),history_migration:'true'}),/complete device capability/);
+  assert.throws(()=>parseNativeCapabilities({...report(),history_migration:true,protected_accounts:true,
+    account_protocol:'scoped-accounts-v1',library_import:false,capture_source:'unavailable',
+    account_recovery:{state:'credentials_unreadable',data_preserved:true,action:'reenter_verified_account',message:'Authored recovery'}}),/complete device capability/);
+});
+
 test('native controls require the exact owned Android marker and never replace an ordinary desktop reader',()=>{
   assert.equal(hostPlatform(undefined),'desktop');
   for (const marker of ['android-app','Android','ios',''])

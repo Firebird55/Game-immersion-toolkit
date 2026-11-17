@@ -5,6 +5,7 @@ import {hostPlatform, parseNativeCapabilities} from './native-host-policy.mjs';
 export type NativeCapabilities = {
   platform: string;
   library_import: boolean;
+  history_migration?: boolean;
   protected_accounts: boolean;
   account_protocol?: string;
   account_recovery?: {state: string; data_preserved: boolean; action: string; message: string};
