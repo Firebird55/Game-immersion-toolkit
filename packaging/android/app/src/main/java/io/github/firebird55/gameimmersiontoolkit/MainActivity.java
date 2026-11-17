@@ -120,7 +120,12 @@ public final class MainActivity extends Activity {
                 if (message != null) {
                     java.util.regex.Matcher match = java.util.regex.Pattern.compile("(?:^|\\n)([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))(?=:|\\n|$)").matcher(message);
                     String type = null;while (match.find()) type=match.group(1);
-                    if (type != null) value.put("python_exception_type", type);
+                    if (java.util.Arrays.asList("RuntimeError", "ValueError", "TypeError", "AttributeError", "ImportError",
+                            "ModuleNotFoundError", "FileNotFoundError", "PermissionError", "OSError", "AssertionError",
+                            "KeyError", "IndexError", "JSONDecodeError", "TimeoutError", "InterruptedError", "UnicodeError",
+                            "UnicodeDecodeError", "MemoryError", "OverflowError", "NameError", "UnboundLocalError").contains(type)) {
+                        value.put("python_exception_type", type);
+                    }
                 }
             }
             output=file.startWrite();output.write(value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
