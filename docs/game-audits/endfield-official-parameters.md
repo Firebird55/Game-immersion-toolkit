@@ -125,6 +125,24 @@ remain readable; they are not silently relabeled as native-derived.
 
 ## Android portability audit
 
+The first `endfield_game_data.create_provider` integration is a bounded client-
+metadata bootstrap, not a completed content provider. Through the shared
+context-owned publisher transport it reads only the launcher declaration and
+4,352 original header bytes during planning. Exact PE/IL2CPP table ranges and
+their publisher-response owner lengths determine the subsequent download and
+disk estimate. Download rechecks the entire plan and client declaration, uses
+only pinned-owner ranges and returns `PreparationStage`; it never returns
+`SnapshotSource`, a voice source or a publisher-content proof. Another original
+parameter/index verification and selected-content estimate is still needed.
+
+Both `text` and `text-audio` selections bind the request identity and transfer
+zero audio in this stage. These necessary shared client tables are stated
+metadata overhead, not a text-only audio download. A changed mode, client,
+range, stage or estimate stops before large transfer. An interrupted stage
+does not replace an existing library. Independent Android/Linux/macOS runtime
+closure remains unsupported by this initial adapter and fails before source
+I/O; supplying an unreviewed native object does not bypass that gate.
+
 The shared Android engine is native CPython 3.12.15 through Chaquopy 17.2.0,
 targeting arm64-v8a and x86_64. It is not a browser/WASM interpreter. The current
 prepared-capture module set contains the pure presentation helpers, not the full
