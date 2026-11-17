@@ -1,5 +1,66 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Production official native-key locator and protocol discovery
+
+The normal ZZZ bootstrap no longer loads an initial/community master, config or
+protected key cache. It obtains version/channel/seed/endpoints from the selected
+official client's original TextAssets and its gateway key from the official
+`GameAssembly.dll` data. The new standard-Python reader plans the PE section
+from current headers and recognizes the evidenced constant-array/XOR/XML data
+format. It contains no client RVA, version or key. It neither loads the DLL nor
+executes/emulates client instructions, and needs no Capstone runtime.
+
+Key-data acquisition is a separate download-stage operation with manifest-based
+complete-chunk size bounds. The reader uses 4 MiB windows with 64 KiB overlap;
+it does not materialize the whole client or require a growing section to fit a
+single memory buffer. Candidates need valid private/CRT parameters and a unique
+join to the actual original gateway ciphertext. Keys stay ephemeral; source
+descriptors contain only source identities, bounds, hashes and accepted public
+protocol identifiers.
+
+The official request dictionary establishes the field names. Separate bounded
+official-server negotiation discovers accepted `channel_id` and `rsa_ver`
+values. Current Global and mainland servers accept dispatch with `version` and
+`channel_id`, and gateway with `version`, `seed`, `channel_id` and `rsa_ver`.
+The previously supplied language/platform/sub-channel/default-server settings
+are not inputs to this minimal route. Numeric values accepted by the server
+are labeled **server compatibility evidence**, independently of authored native
+constants. Recommended realm selection follows the publisher's list order;
+there is no externally supplied fixed geographic server name.
+
+Fresh bootstrap-state production `_settings`/negotiation runs passed on both
+current 3.3.0 editions with community and initial/protected key inputs prohibited.
+They independently use different original regional client files and dynamically
+located sections. Verified original chunks were reused; this is not a complete
+cold-network claim. The separate new CN source acquisition verified one header
+chunk plus 16 exact key-section chunks: **16,385,000 compressed bytes** and
+**24,163,604 expanded bytes**, including all co-resident bytes. The same generic
+reader worked for both without adding CN addresses or versions.
+
+The final source snapshot also passed the complete ordinary live HoYoPlay
+release, dispatch, gateway and base-revision route twice per edition. All four
+discoveries used normal production functions, with no supplied types or keys;
+both final publisher fingerprints stayed equal. The run used **28 official
+requests / 550,670 API response bytes**, zero new client chunks and no community
+requests. Only original source caches were prefilled, not bootstrap secrets.
+
+Both current servers negotiate channel **1** and RSA version **3**. Wrong RSA
+identities return the publisher's observed code 74; the encrypted missing-channel
+control returns 70. Synthetic fixtures additionally change the private key,
+RSA size, source offsets/RVAs, XOR mask, declaration order, channel and protocol
+identities. These controls are distinct from **an actual historical RSA key
+rotation**, which has not been demonstrated with two original generations.
+Unsupported carrier/protocol changes fail safely; they do not authorize a
+community-key fallback or silently publish a partial candidate.
+
+This closes the former mandatory external bootstrap-parameter dependency for
+the implemented current PC data route. It does not close Android source-runtime,
+full selected-dub download, content-mode or complete game-data service acceptance.
+The required `text` mode must avoid audio package fetch/resolve entirely;
+`text-audio` must prepare the selected official dub before reporting ready.
+Those adapters and platform acceptance remain tracked separately in the
+[Android/preflight audit](zzz-android-preflight.md).
+
 ## November 17, 2026 · Current preparation, acceptance and configuration-only research
 
 The 333 unresolved paths below are **configuration-only references whose
@@ -114,11 +175,9 @@ receipts; both parsed responses equal the earlier private controls and return
 success. This phase required **zero new transport**. No key, native bytes or
 response configuration is redistributed.
 
-This establishes an official source and its data format, not implemented
-automatic recovery. Production still needs a generation-independent locator
-and bounded acquisition for the original native initializer, plus official
-renewal of the remaining query/default-region parameters. Existing request
-success must not conceal these dependencies.
+At that research checkpoint this established an official source and data
+format, with the production locator still outstanding. The later production
+checkpoint above records its implementation and its remaining limits.
 
 The new requirement also includes on-device Android preparation. The accepted
 Android prepared-library runtime does not yet contain the ZZZ publisher,
@@ -164,7 +223,7 @@ chunks. Obtaining mainland's own bootstrap objects separately required three
 fully authenticated chunks / **1,051,908 compressed bytes**. These are source
 development results, not native packaging or a future-update guarantee.
 
-**Full independence remains open.** `GameDispatchURLTemplate`,
+**Historical boundary of checkpoint 6485905b:** `GameDispatchURLTemplate`,
 `GameGatewayURLTemplate`, `GameDispatchDefaultName` and the gateway's
 `DispatcherKey` still use frozen initial parameters. The current successful
 requests and synthetic seed/endpoint rotation do not establish renewal of a
@@ -173,7 +232,9 @@ retained-A-to-current-B text/audio recovery trial also did not freeze the then
 mutable community bootstrap documents, so it cannot close this separate gap.
 The original native request owner has been identified for bounded static
 investigation; no game code is executed. Known unsupported bootstrap changes
-must leave the previous prepared selection and historical audio intact.
+must leave the previous prepared selection and historical audio intact. The
+later production locator/protocol checkpoint above replaces that normal ZZZ
+initial-seed dependency; the historical measurements remain scoped as recorded.
 
 ## November 17, 2026 · Original blank subtitle segments versus missing text keys
 

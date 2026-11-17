@@ -26,6 +26,9 @@ MAX_FILE = 256 * 1024**2
 MAX_INDEX = 32 * 1024**2
 MAX_STREAM_FILE = 8 * 1024**3
 VERIFY_BLOCK_SIZE = 1024**2
+MAX_QUERY_IDENTIFIERS = 256
+MAX_NEGOTIATION_REQUESTS = 512
+MAX_NEGOTIATION_BYTES = 4 * 1024**2
 INDEXES = {'design': ('design', 'data_version'), 'catalog': ('resource', 'res_version'),
            'audio': ('resource', 'audio_version'), 'base': ('resource', 'base_revision'),
            'silence': ('silence', 'silence_version')}
@@ -72,54 +75,142 @@ def _query(template, *values):
     return template, headers
 
 
-def _settings(region='global', build=None):
+def _settings(region='global', build=None, *, cache_dir=None):
     from .hoyo_dispatch_metadata import load, provenance
+    from .zzz_native_key_data import KeyCandidate
     check(region in ('global', 'cn'))
-    config, decoder = load('zzz', region, build=build)
-    names = ('GameDispatchChannelName', 'GameDispatchURLTemplate', 'GameGatewayURLTemplate',
-             'GameDispatchDefaultName', 'ProtoDispatchKey')
+    config, decoder = load('zzz', region, build=build, cache_dir=cache_dir)
+    names = ('GameDispatchChannelName', 'ProtoDispatchKey')
     values = {name: decoder.text(config[name]) for name in names}
     endpoints = config['GameDispatchArrayURL']
     check(isinstance(endpoints, list) and 0 < len(endpoints) <= 8)
     values['endpoints'] = [decoder.text(value) for value in endpoints]
     values['bootstrap_provenance'] = provenance(config)
-    # The public launcher metadata contains a second wrapped data object for
-    # the gateway decoder and its authored platform/area. Never persist it.
-    packed = decoder.decode(decoder.text(config['DispatcherKey']))
-    check(16 <= len(packed) <= 16 * 1024)
-    identity, area = struct.unpack_from('<hh', packed, len(packed) - 4)
-    check(0 < identity <= 128 and 0 < area <= 128)
-    width = (identity + area) * 2
-    start = len(packed) - 4 - width
-    check(start >= 32 and width <= start)
-    tail = bytearray(packed[start:-4])
-    for index in range(width):
-        offset = 0x10 | (start % (width - index))
-        check(offset < start)
-        tail[index] ^= packed[offset]
-    check(tail[:identity * 2].decode('utf-16le') == 'StandaloneWindows64'
-          and tail[identity * 2:].decode('utf-16le') == {'global': 'oversea', 'cn': 'cn'}[region])
-    check(packed[0] == 0x30)
-    size = packed[1]
-    count = size & 127
-    if size < 128:
-        end = 2 + size
-    else:
-        check(0 < count <= 4 and 2 + count <= start and packed[2] != 0)
-        end = 2 + count + int.from_bytes(packed[2:2 + count], 'big')
-    check(end == start)
-    from Crypto.PublicKey import RSA
-    key = RSA.import_key(packed[:end])
-    check(key.has_private() and 1024 <= key.size_in_bits() <= 4096)
-    return values, key
+    keys = config.get('_official_gateway_keys')
+    check(values['bootstrap_provenance'].get('policy') == 'official-current-client-data'
+          and isinstance(keys, tuple) and 0 < len(keys) <= 32
+          and all(isinstance(item, KeyCandidate) for item in keys))
+    return values, keys
+
+
+def _gateway_reply(envelope, candidates):
+    """Join official ciphertext to exactly one original native key candidate."""
+    from .hoyo_dispatch_metadata import _json
+    from Crypto.Cipher import PKCS1_v1_5
+    check(isinstance(envelope, dict) and isinstance(envelope.get('content'), str)
+          and isinstance(envelope.get('sign'), str))
+    encrypted = base64.b64decode(envelope['content'], validate=True)
+    check(0 < len(encrypted) <= 512 * 1024)
+    results = []
+    for candidate in candidates:
+        key = candidate.key
+        width = key.size_in_bytes()
+        if len(encrypted) % width:
+            continue
+        try:
+            cipher = PKCS1_v1_5.new(key)
+            chunks = [cipher.decrypt(encrypted[pos:pos + width], b'')
+                      for pos in range(0, len(encrypted), width)]
+            if not all(chunks):
+                continue
+            reply = _json(b''.join(chunks))
+            if isinstance(reply, dict) and type(reply.get('retcode')) is int:
+                results.append((reply, candidate))
+        except (ValueError, UnicodeError):
+            continue
+    check(len(results) <= 1)
+    return results[0] if results else None
+
+
+def _negotiate(values, build):
+    """Discover accepted numeric protocol identities from official responses.
+
+    Native source establishes the field names and RSA key data. These accepted
+    values are separately labeled server compatibility, not native constants.
+    No protected/key cache, community config or fixed default realm is read.
+    """
+    version = values['GameDispatchChannelName'] + build['version']
+    endpoints = [_endpoint(value, channel=build['channel']) for value in values['endpoints']]
+    check(0 < len(endpoints) <= 8)
+    consumed, attempts, known_version = 0, 0, None
+
+    def request(endpoint, fields, maximum):
+        nonlocal consumed, attempts
+        attempts += 1
+        remaining = MAX_NEGOTIATION_BYTES - consumed
+        check(attempts <= MAX_NEGOTIATION_REQUESTS and remaining > 1)
+        template = '?' + '&'.join(name + '=' + value for name, value in fields.items())
+        query, headers = _query(template)
+        raw = _request(endpoint + query, headers, min(maximum, remaining - 1))
+        check(isinstance(raw, bytes) and len(raw) < remaining)
+        consumed += len(raw)
+        from .hoyo_dispatch_metadata import _json
+        return _json(raw)
+
+    identities = (*range(1, MAX_QUERY_IDENTIFIERS + 1), 0)
+    for channel in identities:
+        for number, endpoint in enumerate(endpoints):
+            try:
+                listing = request(endpoint, {'version': version, 'channel_id': str(channel)}, 128 * 1024)
+                break
+            except (URLError, TimeoutError, ConnectionError):
+                if number == len(endpoints) - 1:
+                    raise
+        check(isinstance(listing, dict) and type(listing.get('retcode')) is int)
+        if listing['retcode'] == -1:
+            continue
+        regions = listing.get('region_list')
+        check(listing['retcode'] == 0 and isinstance(regions, list) and 0 < len(regions) <= 16)
+        usable = []
+        for row in regions:
+            check(isinstance(row, dict) and type(row.get('retcode')) is int)
+            if row['retcode'] != 0:
+                continue
+            check(isinstance(row.get('name'), str) and re.fullmatch('[A-Za-z0-9_]{1,64}', row['name'])
+                  and type(row.get('is_recommend')) is bool)
+            usable.append(row | {'dispatch_url': _endpoint(row.get('dispatch_url'), gateway=True,
+                                                           channel=build['channel'])})
+        check(usable and len({row['name'] for row in usable}) == len(usable))
+        # The source publishes an ordered list. Prefer its recommended entries;
+        # geographic server names are not an external bootstrap identity.
+        ordered = [row for row in usable if row['is_recommend']] or usable
+        rejected_channel = False
+        for row in ordered:
+            versions = (known_version,) if known_version is not None else identities
+            for rsa_version in versions:
+                envelope = request(row['dispatch_url'], {'version': version,
+                    'seed': values['ProtoDispatchKey'], 'channel_id': str(channel),
+                    'rsa_ver': str(rsa_version)}, 1024 * 1024)
+                check(isinstance(envelope, dict))
+                if envelope.get('retcode') == 74:
+                    continue  # Publisher's observed unsupported RSA identity.
+                result = _gateway_reply(envelope, values['gateway_keys'])
+                if result is None:
+                    continue
+                reply, candidate = result
+                known_version = rsa_version
+                if reply['retcode'] == 70:
+                    rejected_channel = True
+                    break  # Observed encrypted rejection of a channel identity.
+                check(reply['retcode'] == 0 and isinstance(reply.get('cdn_conf_ext'), dict))
+                proof = dict(values['bootstrap_provenance'])
+                proof['accepted_query'] = {'source': 'official-server-negotiation',
+                    'channel_id': channel, 'rsa_ver': rsa_version, 'realm': row['name'],
+                    'realm_policy': 'publisher-recommended-list-order', 'key': candidate.proof}
+                return reply, proof
+            if rejected_channel:
+                break
+        check(rejected_channel)
+    raise ValueError('The official ZZZ bootstrap identities are unavailable within the bounded protocol.')
 
 
 def _endpoint(url, *, gateway=False, channel='zzz-global'):
     edition = EDITIONS[channel]
+    check(isinstance(url, str) and 0 < len(url) <= 1024)
     parsed = urlsplit(url)
     domain = re.escape(edition['domain'])
-    host = (rf'prod-gf-[a-z]{{2,8}}\.{domain}' if gateway else
-            rf'globaldp-prod-{edition["dispatch"]}0[1-9]\.{domain}')
+    host = (rf'prod-gf-[a-z0-9-]{{1,48}}\.{domain}' if gateway else
+            rf'globaldp-prod-{edition["dispatch"]}[0-9]{{1,3}}\.{domain}')
     check(parsed.scheme == 'https' and re.fullmatch(host, parsed.netloc)
           and parsed.path == ('/query_gateway' if gateway else '/query_dispatch')
           and not parsed.query and not parsed.fragment)
@@ -150,39 +241,14 @@ def _spec(row):
     return {'name': name, 'size': size, 'hash': digest}
 
 
-def discover(build):
+def discover(build, *, bootstrap_cache=None):
     check(build['channel'] in EDITIONS and re.fullmatch(r'[1-9][0-9]*\.[0-9]+\.[0-9]+', build['version']))
     edition = EDITIONS[build['channel']]
-    values, key = _settings(edition['region'], build)
+    values, keys = (_settings(edition['region'], build) if bootstrap_cache is None else
+                    _settings(edition['region'], build, cache_dir=bootstrap_cache))
     prefix = edition['prefix']
     check(values['GameDispatchChannelName'] == prefix)
-    query, headers = _query(values['GameDispatchURLTemplate'], prefix, build['version'])
-    check(headers['version'] == prefix + build['version'])
-    endpoints = [_endpoint(value, channel=build['channel']) for value in values['endpoints']]
-    for number, endpoint in enumerate(endpoints):
-        try:
-            listing = json.loads(_request(endpoint + query, headers, 128 * 1024))
-            break
-        except (URLError, TimeoutError, ConnectionError):
-            if number == len(endpoints) - 1:
-                raise
-    regions = listing.get('region_list')
-    check(listing.get('retcode') == 0 and isinstance(regions, list) and 0 < len(regions) <= 16)
-    matches = [row for row in regions if row.get('name') == values['GameDispatchDefaultName']]
-    check(len(matches) == 1 and matches[0].get('retcode') == 0)
-    endpoint = _endpoint(matches[0]['dispatch_url'], gateway=True, channel=build['channel'])
-    query, headers = _query(values['GameGatewayURLTemplate'], prefix, build['version'], values['ProtoDispatchKey'])
-    check(headers['version'] == prefix + build['version'])
-    envelope = json.loads(_request(endpoint + query, headers, 1024 * 1024))
-    encrypted = base64.b64decode(envelope['content'], validate=True)
-    width = key.size_in_bytes()
-    check(0 < len(encrypted) <= 512 * 1024 and len(encrypted) % width == 0)
-    from Crypto.Cipher import PKCS1_v1_5
-    cipher = PKCS1_v1_5.new(key)
-    chunks = [cipher.decrypt(encrypted[pos:pos + width], b'') for pos in range(0, len(encrypted), width)]
-    check(all(chunks))
-    reply = json.loads(b''.join(chunks))
-    check(reply.get('retcode') == 0)
+    reply, bootstrap_provenance = _negotiate(values | {'gateway_keys': keys}, build)
     # Discard unrelated gateway/account configuration, including client secrets.
     config = reply['cdn_conf_ext']
     roots, indexes, revisions = {}, {}, {}
@@ -205,8 +271,7 @@ def discover(build):
     check(str(config['game_res']['audio_revision']).isdecimal())
     hotfix = {'roots': roots, 'indexes': indexes, 'revisions': revisions,
               'audio_revision': str(config['game_res']['audio_revision'])}
-    if 'bootstrap_provenance' in values:
-        hotfix['bootstrap_provenance'] = values['bootstrap_provenance']
+    hotfix['bootstrap_provenance'] = bootstrap_provenance
     raw = _index_bytes(build | {'hotfix': hotfix}, 'base')
     base = raw.decode('ascii')
     check(re.fullmatch('[1-9][0-9]*_[0-9a-f]{6,64}', base))

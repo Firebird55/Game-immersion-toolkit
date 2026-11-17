@@ -12,6 +12,7 @@ from Crypto.PublicKey import RSA
 from backend import hoyo_publisher_voice as voice, language_worker, sophon_assets, zzz_assets, zzz_hotfix as live, zzz_publisher
 from backend.xxhash64 import xxhash64
 from backend.voice_assets import voice_hash
+from backend.zzz_native_key_data import KeyCandidate
 
 
 @pytest.fixture(autouse=True)
@@ -56,19 +57,19 @@ def snapshot(revision, bodies, channel='zzz-global'):
 
 @pytest.mark.parametrize('unavailable', [False, True])
 @pytest.mark.parametrize('channel', ['zzz-global', 'zzz-cn'])
-def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monkeypatch, unavailable, channel):
+@pytest.mark.parametrize('accepted_channel,accepted_rsa', [(1, 3), (4, 7)])
+def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monkeypatch, unavailable, channel,
+                                                                          accepted_channel, accepted_rsa):
     key = RSA.generate(1024)
     edition = live.EDITIONS[channel]
     server = 'prod_gf_eu' if channel == 'zzz-global' else 'prod_gf_cn'
-    values = {'GameDispatchChannelName': edition['prefix'], 'GameDispatchDefaultName': server,
-              'GameDispatchURLTemplate': '?version={0}{1}&channel_id=1&platform=3',
-              'GameGatewayURLTemplate': '?version={0}{1}&language=1&seed={2}',
-              'ProtoDispatchKey': 'owned-fixture',
+    values = {'GameDispatchChannelName': edition['prefix'], 'ProtoDispatchKey': 'owned-fixture',
+              'bootstrap_provenance': {'policy': 'official-current-client-data'},
               'endpoints': [f'https://globaldp-prod-{edition["dispatch"]}0{number}.{edition["domain"]}/query_dispatch'
                             for number in (1, 2)]}
     def settings(region, build=None):
         assert region == edition['region']
-        return values, key
+        return values, (KeyCandidate(key, {'profile': 'owned-fixture'}),)
     monkeypatch.setattr(live, '_settings', settings)
     base = b'1000_abcdef'
     bodies = {name: (base if name == 'base' else b'owned fixture') for name in live.INDEXES}
@@ -91,9 +92,15 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
         if unavailable and url.startswith(values['endpoints'][0]):
             raise URLError('owned unavailable endpoint')
         if '/query_dispatch?' in url:
+            if int(headers['channel_id']) != accepted_channel:
+                return encoded({'retcode': -1})
             return encoded({'retcode': 0, 'region_list': [{'retcode': 0, 'name': server,
+                'is_recommend': True,
                 'dispatch_url': f'https://{server.replace("_", "-")}.{edition["domain"]}/query_gateway'}]})
         if '/query_gateway?' in url:
+            assert set(headers) == {'version', 'seed', 'channel_id', 'rsa_ver'}
+            if int(headers['rsa_ver']) != accepted_rsa:
+                return encoded({'retcode': 74})
             return encoded({'content': base64.b64encode(encrypted).decode(), 'sign': 'not-an-authentication-proof'})
         assert url.endswith('/base_revision')
         return base
@@ -101,13 +108,15 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
     build = live.discover({k: v for k, v in first.items() if k != 'hotfix'})
     assert build['hotfix']['revisions'] == {'design': '2000', 'resource': '2000', 'silence': '1111'}
     assert build['hotfix']['audio_revision'] == '1555'
+    accepted = build['hotfix']['bootstrap_provenance']['accepted_query']
+    assert accepted['channel_id'] == accepted_channel and accepted['rsa_ver'] == accepted_rsa
     assert 'client_secret_key' not in json.dumps(build)
     assert seen[-2][1]['version'] == edition['prefix'] + '9.0.0' and seen[-2][1]['seed'] == 'owned-fixture'
     assert not any('account' in name for _, headers in seen for name in headers)
     values['endpoints'] = ['https://untrusted.example/query_dispatch']
     with pytest.raises(ValueError):
         live.discover({k: v for k, v in first.items() if k != 'hotfix'})
-    assert len(seen) == (4 if unavailable else 3)
+    assert len(seen) == accepted_channel * (2 if unavailable else 1) + accepted_rsa + 1
 
 
 def test_known_inventory_fields_allow_the_publishers_string_size_and_extra_metadata():
@@ -121,6 +130,70 @@ def test_known_inventory_fields_allow_the_publishers_string_size_and_extra_metad
     for suffix in ('&host=other', '&cookie=value', '&version=duplicate', '&bad-name=value'):
         with pytest.raises(ValueError):
             live._query('?version={0}' + suffix, 'OSPRODWin9.0.0')
+
+
+def _owned_envelope(key, value):
+    body = encoded(value)
+    cipher = PKCS1_v1_5.new(key.public_key())
+    width = key.size_in_bytes() - 11
+    encrypted = b''.join(cipher.encrypt(body[i:i + width]) for i in range(0, len(body), width))
+    return {'content': base64.b64encode(encrypted).decode(), 'sign': 'owned-control-only'}
+
+
+def _official_protocol_values(key):
+    return {'GameDispatchChannelName': 'OSPRODWin', 'ProtoDispatchKey': 'owned-fixture',
+            'endpoints': ['https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch'],
+            'bootstrap_provenance': {'policy': 'official-current-client-data'},
+            'gateway_keys': (KeyCandidate(key, {'profile': 'owned-control'}),)}
+
+
+def test_original_ciphertext_selects_its_key_without_assuming_the_first_native_candidate():
+    wrong, right = RSA.generate(1024), RSA.generate(1024)
+    candidates = (KeyCandidate(wrong, {'id': 'other-source'}), KeyCandidate(right, {'id': 'actual-source'}))
+    payload = {'retcode': 0, 'cdn_conf_ext': {}, 'client_secret_key': 'authored-control'}
+    result, selected = live._gateway_reply(_owned_envelope(right, payload), candidates)
+    assert result == payload and selected is candidates[1]
+    assert live._gateway_reply(_owned_envelope(right, payload), candidates[:1]) is None
+
+
+def test_encrypted_channel_rejection_retains_discovered_rsa_identity_for_next_official_channel(monkeypatch):
+    key = RSA.generate(1024)
+    values = _official_protocol_values(key)
+    seen = []
+    def request(url, fields, maximum):
+        channel = int(fields['channel_id'])
+        if '/query_dispatch?' in url:
+            return encoded({'retcode': 0, 'region_list': [{'retcode': 0, 'is_recommend': True,
+                'name': 'prod_gf_new', 'dispatch_url': 'https://prod-gf-new.zenlesszonezero.com/query_gateway'}]})
+        version = int(fields['rsa_ver'])
+        seen.append((channel, version))
+        if version != 3:
+            return encoded({'retcode': 74})
+        return encoded(_owned_envelope(key, {'retcode': 70} if channel == 1 else
+                                             {'retcode': 0, 'cdn_conf_ext': {}}))
+    monkeypatch.setattr(live, '_request', request)
+    reply, proof = live._negotiate(values, {'channel': 'zzz-global', 'version': '9.0.0'})
+    assert reply['retcode'] == 0 and proof['accepted_query']['channel_id'] == 2
+    assert proof['accepted_query']['rsa_ver'] == 3
+    assert seen == [(1, 1), (1, 2), (1, 3), (2, 3)]
+    assert 'accepted_query' not in values['bootstrap_provenance']
+
+
+def test_protocol_discovery_stops_at_its_request_budget_without_community_or_old_key_fallback(monkeypatch):
+    key = RSA.generate(1024)
+    values = _official_protocol_values(key)
+    monkeypatch.setattr(live, 'MAX_NEGOTIATION_REQUESTS', 2)
+    seen = []
+    def request(url, fields, maximum):
+        seen.append(url)
+        if '/query_dispatch?' in url:
+            return encoded({'retcode': 0, 'region_list': [{'retcode': 0, 'is_recommend': True,
+                'name': 'prod_gf_new', 'dispatch_url': 'https://prod-gf-new.zenlesszonezero.com/query_gateway'}]})
+        return encoded({'retcode': 74})
+    monkeypatch.setattr(live, '_request', request)
+    with pytest.raises(ValueError):
+        live._negotiate(values, {'channel': 'zzz-global', 'version': '9.0.0'})
+    assert len(seen) == 2 and 'accepted_query' not in values['bootstrap_provenance']
 
 
 @pytest.mark.parametrize('path', ['../outside.blk', '/absolute.blk', 'Blocks/1.blk?x', 'Blocks/../1.blk'])

@@ -9,6 +9,9 @@ import pytest
 
 from backend import hoyo_dispatch_metadata as metadata, hoyo_zzz_bootstrap as original
 from backend.tests.test_hoyo_bootstrap_assets import asset_file
+from backend.tests.test_zzz_native_key_data import initializer, image
+from backend import zzz_hotfix
+from Crypto.PublicKey import RSA
 
 
 def build(region, version):
@@ -95,3 +98,53 @@ def test_invalid_new_official_config_cannot_replace_prior_parameters(monkeypatch
 def test_zzz_cannot_request_a_changing_community_fallback(tmp_path):
     with pytest.raises(ValueError):
         metadata.load_pinned('zzz', 'global', 'a' * 40, {}, cache_dir=tmp_path)
+
+
+@pytest.mark.parametrize('region', ['global', 'cn'])
+def test_normal_loader_and_settings_derive_rotated_native_key_without_initial_cache(monkeypatch, tmp_path, region):
+    monkeypatch.setattr(metadata, 'initial_seed', lambda *a, **k: pytest.fail('No initial/community input allowed'))
+    monkeypatch.setattr(metadata, 'fetch', lambda *a, **k: pytest.fail('Community network forbidden'))
+    for generation, version in enumerate(('3.3.0', '3.4.0')):
+        key = RSA.generate(1024)
+        seed = '0123456789abcdef' if generation == 0 else 'fedcba9876543210'
+        bodies = {original.RESOURCE: asset_file(document(region, version, seed)),
+                  original.NATIVE_RESOURCE: image(b'\x90' * (generation * 713) + initializer(key, 0xa3 + generation),
+                                                  rva=0x400000 + generation * 0x27000)}
+        files = {name: SimpleNamespace(size=len(raw), digest=hashlib.md5(raw).hexdigest(),
+                 chunks=((0, len(raw), len(raw) // 2, 'owned-container', hashlib.md5(raw).hexdigest()),),
+                 read=lambda directory, start, length, raw=raw: raw[start:start + length])
+                 for name, raw in bodies.items()}
+        monkeypatch.setattr(original.sophon, 'manifest', lambda *args: files)
+        config, decoder = metadata.load('zzz', region, build=build(region, version), cache_dir=tmp_path)
+        proof = metadata.provenance(config)
+        assert proof['policy'] == 'official-current-client-data' and proof['frozen_parameters'] == []
+        assert decoder.text(config['ProtoDispatchKey']) == seed
+        assert len(config['_official_gateway_keys']) == 1
+        assert config['_official_gateway_keys'][0].key.n == key.n
+        values, keys = zzz_hotfix._settings(region, build(region, version), cache_dir=tmp_path)
+        assert values['ProtoDispatchKey'] == seed and keys[0].key.n == key.n
+        assert seed not in json.dumps(proof) and 'RSAKeyValue' not in json.dumps(proof)
+        assert not list(tmp_path.rglob('config_*.json'))
+
+
+def test_native_key_preflight_plans_complete_containers_without_reading_their_payload(monkeypatch, tmp_path):
+    key = RSA.generate(1024)
+    raw = image(initializer(key))
+    reads = []
+    def read(directory, start, length):
+        reads.append((start, length))
+        assert start + length <= 0x800
+        return raw[start:start + length]
+    asset = SimpleNamespace(size=len(raw), digest=hashlib.md5(raw).hexdigest(), read=read,
+        chunks=((0, 0x800, 1000, 'header', 'a' * 32),
+                (0x800, len(raw) - 0x800, 750, 'whole-key-container', 'c' * 32)))
+    monkeypatch.setattr(original.sophon, 'manifest', lambda *args: {original.NATIVE_RESOURCE: asset})
+    _, plan, proof = original.native_source_plan(build('global', '3.3.0'), tmp_path)
+    assert plan['offset'] == 0x800 and proof['download_bytes_upper_bound'] == 750
+    assert proof['cache_bytes_upper_bound'] == len(raw) - 0x800
+    assert reads and all(start + length <= plan['offset'] for start, length in reads)
+
+
+def test_normal_zzz_load_requires_an_official_release_instead_of_a_seed_fallback(tmp_path):
+    with pytest.raises(ValueError):
+        metadata.load('zzz', 'global', cache_dir=tmp_path)

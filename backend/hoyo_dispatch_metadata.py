@@ -1,9 +1,8 @@
-"""Frozen bootstrap seeds and explicit, provenance-bearing publisher policies.
+"""Explicit official/client-data and provenance-bearing hybrid policies.
 
-ZZZ renews its seed/version/endpoints from original official TextAssets. Its
-remaining initial gateway crypto/request shape is labeled separately. Genshin
-may explicitly use a coherent immutable community snapshot; that is not an
-official-source claim. Decoded keys never enter provenance or snapshots.
+ZZZ obtains its bootstrap and gateway key data from official client objects.
+Genshin may explicitly use a coherent immutable community snapshot; that is not
+an official-source claim. Decoded keys never enter provenance or snapshots.
 """
 import base64
 import binascii
@@ -122,6 +121,15 @@ class Decoder:
         return raw
 
 
+class OfficialFields:
+    """Plain original UTF-8 fields; no master, envelope or key-cache input."""
+    def decode(self, value):
+        return _base64(value)
+
+    def text(self, value):
+        return self.decode(value).decode('utf-8')
+
+
 def _cache(cache_dir):
     if cache_dir is not None:
         return Path(cache_dir)
@@ -204,11 +212,12 @@ def load(game, region, *, build=None, cache_dir=None):
     """Return one coherent source under the game's explicit bootstrap policy."""
     CONFIGS[game, region]  # Validate the edition before any I/O.
     if game == 'zzz':
-        config, decoder = initial_seed(game, region, cache_dir=cache_dir)
-        if build is not None:
-            from .hoyo_zzz_bootstrap import renew
-            config = renew(config, build, region, _cache(cache_dir) / 'official' / ('zzz-' + region))
-        return config, decoder
+        check(build is not None)
+        from .hoyo_zzz_bootstrap import official
+        config = official(build, region, _cache(cache_dir) / 'official' / ('zzz-' + region))
+        # Official fields are ordinary Base64 UTF-8, without the community
+        # envelope/master. Decoder performs no RSA import on this plain path.
+        return config, OfficialFields()
     # A changing hybrid source is resolved once. Both documents then come from
     # that same immutable commit, avoiding a mixed master/config generation.
     raw = fetch(f'https://api.github.com/repos/{REPOSITORY}/commits/main', limit=64 * 1024)
