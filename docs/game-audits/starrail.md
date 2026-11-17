@@ -137,13 +137,29 @@ original global metadata MD5 is `ba110cdff0a1c2588333f7f2071e3ec6`, both checked
 against the official 4.7 manifest. No native code is executed or downloaded by
 this replay. Actual key bytes and native code remain private.
 
-This string-key result still uses frozen semantic header slots, record layout
-and the evidenced scalar codec shape. A separate bounded native probe recovers
-arithmetic operands agreeing with 21 of the helper's 28 semantic header fields,
-with zero conflicting recovered expressions; seven fields, table-record codecs
-and string-literal codecs remain unresolved. It does not establish relocated
-slot ownership, an actual changed-key release, configurable helper decoding or
-normal-worker recovery. Production metadata preparation remains disabled.
+This string-key result still uses frozen semantic header roles, record layout
+and the evidenced scalar codec shape. A subsequent owned diagnostic follows
+register aliases and direct control-flow joins through 109 cached original
+runtime bodies, each SHA-256 checked against the complete official native file.
+It recovers 26 of the helper's 28 header scalar expressions without a slot/key
+allowlist in extraction. The separately derived literal-table/data consumer
+supplies the remaining two expressions and verifies 26 original filename
+literals covering all 21 required tables. Their union agrees with all 28 frozen
+semantic descriptions, with zero conflicts. Branch-state intersections, call
+clobbers and unsupported operations prevent unrelated register values from
+becoming header operands; nine synthetic data-flow cases pass. Indirect branches
+stop the affected diagnostic path.
+
+The same original initialization/consumer chain independently supplies the
+generic-class record stride, instantiation-index field, generic-instantiation
+stride and registration member. This resolves the prior generic dictionary gap:
+all 99 tested original field-name/offset/type bindings across the five bootstrap,
+dispatch and core-table types now match. Type-definition semantic field roles
+and remaining record arithmetic, primitive type tags and generic-instantiation
+count/pointer layout still use frozen descriptions. These bounded diagnostics
+do not establish complete source-owner acquisition, relocated semantic roles,
+an actual changed-key release, configurable helper decoding or normal-worker
+recovery. A complete autonomous changed-codec fallback remains unfinished.
 
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone
@@ -254,9 +270,21 @@ ordinary prebuilt resource resolver, including corresponding sources, notices
 and exact runtime package members. Its self-contained apphost regenerates fresh
 Global 4.7 metadata without an installed SDK or runtime, with output hashes equal
 to the initial control. See the [helper delivery proof](../../packaging/starrail-reader/README.md)
-for its exact source and build identities. Complete ordinary two-version worker,
-full desktop candidate and other-platform acceptance remain separate. The GPL
-metadata decoder continues to use its frozen software
+for its exact source and build identities.
+
+A further ordinary-provider trial uses that exact delivered 403 helper through
+the production prebuilt resolver and metadata preparation API. All nine current
+helper-source input hashes exactly match the build manifest. It executes metadata
+generation freshly, then makes 142 managed disassembly calls to regenerate the
+21 table descriptions and prepare 333 caption scripts through the unchanged
+original provider. The dump and literal-map hashes again match the 302 control.
+New retained output totals 202,106,766 bytes; the largest observed per-call
+temporary JSON is 106,513 bytes. Network access is forbidden for this trial: the
+previously validated Global 4.7 discovery receipt is an explicit replay, not a
+fresh dispatch request. The full language snapshot is not persisted by this
+trial. Complete ordinary two-version worker, full desktop candidate and
+other-platform acceptance remain separate. The GPL metadata decoder continues
+to use its frozen software
 profiles; the separately demonstrated owned native-key derivation is not yet a
 complete metadata-profile recovery fallback. A newer third-party game-data
 publication is not needed for this frozen software path.
@@ -450,21 +478,71 @@ The original named `_OnCmdGetVideoVersionKeyScRsp` handler now directly joins
 that successful response to the two registries. Native protobuf tag branches,
 primitive reads and stores prove an ID plus three uint64 values per record;
 the response status and both list roles are independently joined to their
-consumers. The output playback struct is explicitly initialized to zero, but
-the input context used after a registry miss is loaded separately from static
-storage. Its initializer and native derivation remain under investigation;
-zero-initialized output alone does not establish the fallback key values.
+consumers. The fallback playback output struct is explicitly initialized to
+zero. This does not establish the separate three-ulong input context used when
+a registry lookup misses: the factory first loads that context from static
+storage. A subsequent static check joins its own initializer's 24-byte zero
+stores to the same addresses loaded by both film factories. A bounded whole-image
+RIP-relative load/store/address scan finds only these initial stores and the two
+factories' loads; the three raw static-field-offset candidates are unrelated
+instructions. This establishes the inspected static fallback path, not the
+absence of every possible indirect or later runtime write. An empty registry
+alone therefore does not establish the complete runtime input lifecycle.
+
+The original `GetSecretKeyInfo` response consumer independently supplies another
+movie-formula input: it parses the enum-2 item's string as an unsigned 64-bit
+integer, applies the native XOR expression and stores the result in the factory's
+global scalar state. Its ordinary constructor does not populate that state.
+Together with the per-ID triple consumers above, this identifies concrete
+response-fed inputs without acquiring their values. A complete allowed source
+for those inputs and the remaining runtime initialization path are still open.
+
+The original runtime-type-handle dictionary independently registers this
+response type as command 69. The handler's runtime type check and the dictionary
+constructor use the same original type global. This proves a response command;
+no request command or authentication policy is inferred from it.
 
 Tracing the original cached `SendGetVideoVersionKeyCsReq` delegate through its
 actual static-field accesses and original runtime-method usage records reaches
 a native function that returns immediately unless its IFix patch branch is
 active. Its name therefore proves neither an outgoing request nor an
-authentication requirement. The smallest missing input proof is a complete,
-successful publisher response bound to the same regional client/resource
-generation, obtained through an evidenced allowed route. Its two lists must
-then validate against the corresponding original video/loop tables before
-deriving playback parameters. No such new response was acquired, and no
-account-session or game-protocol operation was attempted.
+authentication requirement. Using the registry-update route would require a
+complete, successful publisher response bound to the same regional client/
+resource generation, obtained through an evidenced allowed route. Its two lists
+must then validate against the corresponding original video/loop tables before
+deriving playback parameters. Whether this response is necessary depends on the
+separate default input context and formula above. No such new response was
+acquired, and no account-session or game-protocol operation was attempted.
+
+A subsequent Global 4.7 static check also derives the original public IFix
+update URL and revision from the gateway parser/writer. The IFix-specific data
+constructor takes that URL from `ServerDispatchData`; its relative-path getter,
+native path initializer and actual download-item URL builder join it with
+`client/Windows` and the authored filename. This reaches the published
+`M_IFixV.bytes` marker at revision `17148223`, without trying candidate paths.
+Its 62-byte format-2 body is a complete official HTTPS response. The original
+version reader explicitly supports this layout and format 3's additional uint32;
+the existing production marker parser remains unchanged.
+
+The complete 70-byte index passes the marker-advertised MD5
+`8468d49a5041da52c8511494a4ae6345`. The original UTF-8/comma row parser and typed
+path/hash/size getters bind its sole carrier, `win-Assembly-CSharp.patch.bytes`,
+to 27,725 bytes and MD5 `390e117e8ce07b79ec7b5479fdb30790`. The complete carrier
+passes that size/MD5 and has SHA-256
+`67ec126a01f4dd116f4f97be7dffe7f8744fce949697c0dbc5b55e50429f31df`.
+Total new transfer is 27,857 bytes. No other carrier was fetched.
+
+Static metadata parsing consumes the carrier's complete framing to EOF: 91 type
+references, 128 method references, 51 field references, 26 opaque instruction
+blocks and nine patch targets. Its three additional sections are empty; the
+diagnostic rejects nonempty instances of those sections. The targets concern
+idle animation, staff-roll UI, photograph checks and a roller-coaster puzzle.
+They do not replace the identified movie-key request stub. Instruction blocks
+remain uninterpreted and no original patch, VM or client code is executed.
+This establishes the current public IFix source contract. An allowed source for
+a registry-update response remains unproved, and the independent default-context
+path remains under investigation. Neither an account-only requirement nor
+regional IFix equivalence is established.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

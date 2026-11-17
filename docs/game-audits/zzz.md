@@ -1,5 +1,86 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original blank subtitle segments versus missing text keys
+
+Reader revision 22 inventories selected subtitle-track references against each
+requested locale's effective original TextMap, after its overwrite table. It
+reports distinct nonblank, explicitly blank and absent keys separately. The
+inventory retains the original track locale separately from translation lookup
+locales, including when Mandarin tracks use Traditional Chinese text. It does
+not create a sentence row or a voice assignment for blank text, classify it as
+unvoiced, or borrow a neighboring/English sentence. New keys and normal data
+overwrites change these results without a scene-ID list or reader update.
+
+The three earlier Japanese questions are resolved at the original source:
+`C260_EP000_200`, `C270_EP010_110` and `C270_EP010_140` are present in the current
+Japanese base TextMap, each containing exactly one U+0020 space. None is replaced
+by the current Japanese overwrite table. Their null sentence joins therefore
+reflect explicitly blank Japanese segments, not missing locale records. This
+does not establish that their surrounding original audio is silent.
+
+Fresh normal Global Japanese preparation completed in **156.672 seconds** with
+the current publisher descriptor, both matching base and hotfix data, no new
+package transfers and ten unchanged runtime hashes. Its supported Japanese
+subtitle tracks contain **2,730 references / 1,959 distinct text IDs**:
+**1,938 nonblank, 21 explicitly blank and zero absent Japanese keys**. These
+are source joins for the selected original tracks, not the complete active
+presentation denominator. Every one of the previous **289,967 record
+dictionaries**, including all original audio bindings, stays identical; the
+**954 context captions / 134 events** are retained.
+
+Two fresh normal voice-service processes with all network access forbidden also
+reproduced the existing Japanese Roxy line (16.981333 seconds) and C330 G context
+(40.257208 seconds), with the same PCM hashes as their earlier reader results.
+Other timeline formats/callers, current-use classification, player conflicts
+and the broader regional/dub update trials remain open.
+
+## November 17, 2026 · Frozen original-generation update and recovery acceptance
+
+The unchanged reader 21 and helper/software dependencies passed a retained
+launcher-base A replay followed by ordinary live Global B discovery and its final
+publisher-pointer checks. A is explicitly a retained launcher descriptor, not a
+recorded older hotfix-gateway response. Normal preparation produced 284,986
+Japanese A records and 289,967 current B records. Among common IDs, 4,980 Japanese
+texts changed; 609 also changed an available English or Chinese translation.
+One selected stored Japanese/English pair verifies both actual text changes.
+These counts compare the prepared generations, not the active presentation denominator.
+
+Original `PartnerTalk_GalGame_PartnerRoxy_106200002_045` keeps the same media ID
+across A/B while its original WEM bytes and decoded PCM change. Normal voice
+services produced 15.253208 and 16.981333 seconds respectively. A separately
+verified newly voiced B entry, `Main_ChatAudio_Chapter240_324000001_20`, is absent
+from A and produces 2.570917 seconds. Three other common-ID original sources
+also have changed WEM and PCM; no re-encoding-only change is used as evidence.
+
+The real preparation child and production downloader were exercised with an
+authenticated original-payload transport replay. An interrupted current package
+after 2,097,275 bytes never published partial data. A second full preparation
+completed live pointer checks, then hit an actual Windows no-delete-sharing lock
+at snapshot replacement. Both failures retained A's prepared selection,
+translation target, settings, transcripts (including preserved Chinese history)
+and saved original clip. Releasing the lock and retrying the normal worker
+published B successfully. Package bytes came from authenticated retained caches;
+the B discovery and final gateway checks used the live publisher service.
+
+Two fresh processes with all network paths forbidden reopened the transcript
+store, retained the saved A clip, and reproduced old, changed and new originals
+through normal snapshot-scoped voice services with identical PCM per generation.
+One explicit-source adapter batch also extracted the A/B versions of the same
+media ID and the new B original together without confusing generations. This
+does not claim that one UI catalog combines historical snapshots. Runtime source
+hashes stayed fixed throughout; no game installation or updated community data
+was used. This closes this Global Japanese update/recovery trial, while complete
+current subtitle coverage and equivalent trials for other regions/dubs remain open.
+
+The interrupted-transfer trial also exposed an incorrect generic reader warning.
+Premature remote EOF, an incomplete HTTP read, a connection reset or a read
+timeout now produces `metadata_download_interrupted` with connection/retry
+instructions. It does not advise updating the toolkit or verifying an installed
+game. Local-cache truncation, invalid hashes, oversized/non-byte payloads and
+source/schema/ownership failures retain their separate validation behavior.
+Staged downloads still cannot replace a complete cache before full verification;
+the preparation controller retains the previous snapshot and automatic retry.
+
 ## November 17, 2026 · Original initialization routing resolves C270 bus Stops
 
 Reader revision 21 follows the original `AudioAssembly.dll` bootstrap: its
@@ -45,9 +126,10 @@ ten runtime source hashes unchanged before/after each worker:
 
 Only the new C270 audio/status/context fields changed; every other record
 dictionary stayed identical to reader 20 and no record ID was added or removed.
-Original Japanese references `C270_EP010_110` and `C270_EP010_140` lack prepared
-source-text joins, alongside the earlier `C260_EP000_200`. They are not merged
-into another dub, classified as unvoiced or counted as covered text. Original
+Original Japanese references `C270_EP010_110`, `C270_EP010_140` and the earlier
+`C260_EP000_200` have explicitly blank original TextMap segments, as verified in
+the reader 22 source inventory above. They keep null sentence joins and are not
+merged into another dub, classified as unvoiced or counted as covered text. Original
 bank/source/routing checks passed independently in all four dubs. The other
 three C270 dubs have current metadata/format proof; actual new C270 playback was
 checked in English, alongside the earlier actual context playback in every dub.
@@ -64,9 +146,9 @@ processes from `autopatchcn.juequling.com`, using the CN descriptor. Both span
 40.257208 seconds, have distinct nonzero PCM and retain their hashes on restart.
 
 These totals still do not establish the complete active-current-presentation
-denominator. Other timeline layouts/callers, player conflicts, the three
-Japanese source-text joins and frozen actual-changed-generation update/recovery
-acceptance remain open. New initialization/routing checks reject unsupported
+denominator. Other timeline layouts/callers, player conflicts and broader
+regional/dub update acceptance remain
+open. New initialization/routing checks reject unsupported
 controls; they do not turn missing recordings into silence.
 
 ## November 17, 2026 · Unconditional localized stems in a composite film event

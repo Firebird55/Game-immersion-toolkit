@@ -1,5 +1,6 @@
 """Whole-source streaming verification with checked cached byte ranges."""
 import ctypes
+from http.client import IncompleteRead
 import io
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend import zzz_hotfix as live
+from backend.preparation_errors import public_failure
 from backend.xxhash64 import xxhash64
 
 
@@ -88,25 +90,47 @@ def test_preserved_size_and_mtime_tampering_cannot_supply_changed_range_bytes(tm
         asset.read(tmp_path, 0, 3)
 
 
-@pytest.mark.parametrize('failure', ['truncated', 'overlong', 'wrong-hash', 'interrupted'])
+@pytest.mark.parametrize('failure', ['truncated', 'overlong', 'wrong-hash', 'interrupted', 'timeout', 'incomplete-read', 'wrong-type', 'empty-bytearray'])
 def test_failed_stream_never_replaces_existing_cache_or_leaves_partial_files(tmp_path, monkeypatch, failure):
     raw = bytes(range(96))
     asset = file(raw)
     path = cache_path(tmp_path, asset)
     path.parent.mkdir()
     path.write_bytes(b'preserve previous cache bytes')
-    payload = {'truncated': raw[:-1], 'overlong': raw + b'x', 'wrong-hash': b'x' * len(raw), 'interrupted': raw}[failure]
+    payload = {'truncated': raw[:-1], 'overlong': raw + b'x', 'wrong-hash': b'x' * len(raw)}.get(failure, raw)
     class Interrupted(Response):
         def read(self, size=-1):
             if self.tell() >= 17:
+                if failure == 'timeout':
+                    raise TimeoutError('owned timed-out transfer')
+                if failure == 'incomplete-read':
+                    raise IncompleteRead(b'owned partial block', 17)
+                if failure == 'wrong-type':
+                    return 'invalid transport bytes'
+                if failure == 'empty-bytearray':
+                    return bytearray()
                 raise ConnectionResetError('owned interrupted transfer')
             return super().read(size)
-    response = Interrupted(payload) if failure == 'interrupted' else Response(payload)
+    response = Interrupted(payload) if failure in ('interrupted', 'timeout', 'incomplete-read', 'wrong-type', 'empty-bytearray') else Response(payload)
     monkeypatch.setattr(live, '_stream_response', lambda *_: response)
-    with pytest.raises((ValueError, ConnectionResetError)):
+    with pytest.raises(ValueError) as caught:
         asset.read(tmp_path, 0, 5)
+    interrupted = failure in ('truncated', 'interrupted', 'timeout', 'incomplete-read')
+    assert isinstance(caught.value, live.PublisherDownloadInterrupted) == interrupted
+    public = public_failure(caught.value)
+    assert public['code'] == ('metadata_download_interrupted' if interrupted else 'reader_failed')
+    if interrupted:
+        assert public['retry_seconds'] == 120 and 'retry' in public['message']
+        assert 'update the toolkit' not in public['message'].lower() and 'verify game files' not in public['message'].lower()
     assert path.read_bytes() == b'preserve previous cache bytes'
     assert list(path.parent.iterdir()) == [path] and response.closed
+
+
+def test_truncated_local_verification_is_not_reported_as_an_interrupted_download():
+    with pytest.raises(ValueError) as caught:
+        tuple(live._blocks(io.BytesIO(b'owned incomplete local bytes'), 40))
+    assert not isinstance(caught.value, live.PublisherDownloadInterrupted)
+    assert public_failure(caught.value)['code'] == 'reader_failed'
 
 
 @pytest.mark.parametrize('identical', [False, True])

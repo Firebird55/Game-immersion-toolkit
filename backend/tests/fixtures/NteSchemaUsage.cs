@@ -54,8 +54,54 @@ internal static class UsageFixture
             }
             Check(ReferenceEquals(prior, Serilog.Log.Logger));
         }
+        CheckOriginalSequenceOwners(root);
         Console.WriteLine(JsonSerializer.Serialize(new { exact_ordinal = true, actual_missing_lookup_recorded = true,
-            authored_null_allowed = true, failed_read_and_load_refuse_complete_marker = true, prior_logger_restored = true }));
+            authored_null_allowed = true, failed_read_and_load_refuse_complete_marker = true, prior_logger_restored = true,
+            original_sequence_owners_and_clocks = true }));
+    }
+    public sealed class OwnedStringData
+    {
+        public string TableNamespace = "Owned.Future.Namespace";
+        public System.Collections.IDictionary KeysToEntries = new Dictionary<string,string> { ["OwnedKey"] = "Owned words" };
+    }
+    public sealed class UStringTable { public OwnedStringData StringTable { get; } = new(); }
+    static void CheckOriginalSequenceOwners(string root)
+    {
+        var method = typeof(NteReader).GetMethod("ReadNteSequenceTables",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        foreach (var kind in new[] { "valid", "null-slots", "duplicate-sequence", "duplicate-caption", "muted", "loop", "offset", "rate", "random" })
+        {
+            var output = Path.Combine(root, "original-sequence-"+kind); Directory.CreateDirectory(output);
+            var info = new {
+                CaptionsID = "OwnedGroup", VoiceSource = new { AssetPathName =
+                    "/Game/WwiseAudio/Events/CG/Future/Play_Vo_Owned.Play_Vo_Owned", SubPathString = "" },
+                Settings = new { PlayRate = kind == "rate" ? 2 : 1, StartTime = kind == "offset" ? 1 : 0,
+                    bRandomStartTime = kind == "random", LoopCount = new { Value = kind == "loop" ? -1 : 0 } }
+            };
+            object?[] slots = kind == "duplicate-sequence" ? [info, info] : kind == "null-slots" ? [null, info, null] : [info];
+            var sequence = JsonSerializer.SerializeToElement(new { bMuteSoundAndShowUI = kind == "muted", SequenceInfo = slots });
+            var captions = JsonSerializer.SerializeToElement(new { Captions = new[] { new {
+                Text = new { Key = "OwnedKey", TableId = "/Game/Arbitrary/StringPackage.DifferentExport" },
+                StartTime = 1000, EndTime = 2000, CultureStartTimes = Array.Empty<object>(), CultureEndTimes = Array.Empty<object>() } } });
+            Func<string,IEnumerable<(string,JsonElement)>> rows = name => name switch {
+                "future-sequence-owner" => [("OwnedSequenceRow", sequence)],
+                "future-caption-owner" => [("OwnedGroup", captions)],
+                "sibling-caption-owner" => [("OwnedGroup", captions)], _ => throw new Exception("Unexpected table") };
+            Func<string,object> export = _ => throw new Exception("Used a basename instead of the exact authored export");
+            int reads = 0;
+            Func<string,string,object> named = (path,name) => {
+                Check(path == "HT/Content/Arbitrary/StringPackage.uasset" && name == "DifferentExport"); reads++; return new UStringTable(); };
+            string[] captionTables = kind == "duplicate-caption" ? ["future-caption-owner", "sibling-caption-owner"] : ["future-caption-owner"];
+            method.Invoke(null, [new HashSet<string> { "HT/Content/Arbitrary/StringPackage.uasset" }, rows, export,
+                new HashSet<string>(), output, new[] { "future-sequence-owner" }, captionTables, true, named]);
+            using var result = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(output,"sequence-cues.json")));
+            var groups = result.RootElement.GetProperty("groups");
+            if (kind is "valid" or "null-slots") {
+                Check(groups.EnumerateObject().Count() == 1 && reads == 1);
+                Check(groups.GetProperty("OwnedGroup")[0].GetProperty("ns").GetString() == "Owned.Future.Namespace");
+            }
+            else Check(!groups.EnumerateObject().Any());
+        }
     }
 }
 

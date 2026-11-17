@@ -191,7 +191,7 @@
       "unverified": {},
       "notes": "Windows Setup can prepare dialogue, verified film contexts and shared-song captions from Kuro Games' Global release without a game folder. Both Chinese scripts share Mandarin audio. Choose Rover voice for gender-specific performances. Song audio follows its original sung language; translated lyrics without that vocal retain unavailable audio. Context audio is labeled separately from individual lines.",
       "coverage": "The current Global source provides 1,357 context variants across 86 native film scenes per study locale, plus verified whole-song contexts for 18 English and 30 Mandarin captions per Chinese script. Supported surround film sources retain their complete recordings and play in stereo. Shared global performances never become a translated study-language voice. Song labels above the ordinary subtitle lane use exact full-frame recognition and authored predecessors for short successors. Complete film sources remain within six minutes; shared songs remain within five minutes. Short or conflicting caption recognition, longer films, other surround layouts, complex event graphs, remaining MusicSubtitle groups and other presentations still have gaps. Current-source playback does not establish complete chapter, regional or platform coverage.",
-      "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Empty or unavailable translations are reported separately.",
+      "supportPolicy": "Prepare a selected language from the publisher's Global resource manifests or an installed PC edition. Publisher preparation follows official key updates; a changed initial archive key can still block setup. Empty or unavailable translations are reported separately.",
       "reviewedAt": "2026-11-17"
     },
     {
@@ -237,8 +237,8 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.",
-      "coverage": "Windows publisher preparation reads current original dialogue graphs, sequence/movie tables and selected voice banks without a game installation. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete.",
-      "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates derive required types from original clients with a fixed retained seed and follow current authored tables; no newer community mapping is required. Unresolved bindings remain explicit and failed preparation retains the previous completed library.",
+      "coverage": "Windows publisher preparation reads current original dialogue graphs, native-type-discovered authoring tables and selected voice banks without a game installation, including Ride-Along voices. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete.",
+      "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates derive required types from original clients with a fixed retained seed and discover supported authoring tables by native type and exact export; no newer community mapping is required. Unresolved bindings remain explicit and failed preparation retains the previous completed library.",
       "expectedTargets": [
         "fr",
         "de",

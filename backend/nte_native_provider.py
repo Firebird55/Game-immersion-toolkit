@@ -20,6 +20,8 @@ MAX_SOURCE_BYTES = 768 * 1024**2
 MAX_SOURCE_FILES = 16
 OUTPUTS = ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
 DIALOGUE_GRAPHS = True
+ORIGINAL_AUTHORING = True
+AUTHORING = 'nte-original-authoring-v1'
 
 
 def discovery(snapshot):
@@ -27,17 +29,19 @@ def discovery(snapshot):
                               | {'files': snapshot['publisher_files']})
 
 
-def source_reference(value, reader, *, dialogue_graphs=None):
+def source_reference(value, reader, *, dialogue_graphs=None, original_authoring=None):
     normalized = metadata.inventory(value)
     metadata._digest(reader)
     graphs = DIALOGUE_GRAPHS if dialogue_graphs is None else dialogue_graphs
-    metadata._check(isinstance(graphs, bool))
+    authoring = ORIGINAL_AUTHORING and graphs if original_authoring is None else original_authoring
+    metadata._check(isinstance(graphs, bool) and isinstance(authoring, bool) and (not authoring or graphs))
     return {'kind': KIND, 'generator': metadata.CLASS_GENERATOR if graphs else metadata.ENUM_GENERATOR,
             'validator': required.CLASS_VALIDATOR if graphs else required.VALIDATOR,
             'inventory_sha256': hashlib.sha256(metadata._json(normalized)).hexdigest(),
             'seed_sha256': metadata.SEED_SHA256, 'reader_sha256': reader,
             'baseline_inventory_sha256': baseline_source.BASELINE['inventory_sha256'],
-            'baseline_native_sha256': baseline_source.BASELINE['native_sha256']}
+            'baseline_native_sha256': baseline_source.BASELINE['native_sha256'],
+            **({'authoring': AUTHORING} if authoring else {})}
 
 
 def seed(cache):
@@ -99,7 +103,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     metadata._check(value['reader'] == _reader_identity())
     original = discovery(value)
     graphs = value['type_schema'].get('generator') == metadata.CLASS_GENERATOR
-    reference = source_reference(original, value['reader'], dialogue_graphs=graphs)
+    authoring = value['type_schema'].get('authoring') == AUTHORING
+    reference = source_reference(original, value['reader'], dialogue_graphs=graphs, original_authoring=authoring)
     metadata._check(value['type_schema'] == reference)
     cache = catalog.cache/'native-candidates'
     profile_path = catalog.cache/'native-epochs'/catalog.stamp/'profile.json'
@@ -112,7 +117,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
         from .nte_graph_prefetch import prefetch
         with tempfile.TemporaryDirectory(prefix='native-inventory-', dir=staging.parent) as temporary:
             packages = assets.read_dialogue_inventory(catalog.cache/'empty-context', executable, Path(temporary),
-                containers, catalog.format.parameters[catalog.region], registry)
+                containers, catalog.format.parameters[catalog.region], registry,
+                **({'capture_original_authoring': True} if authoring else {}))
         prefetch(containers, packages, progress)
     candidates = metadata.sources(original)
     dependencies = {'reader': value['reader'], 'archive_parameters': value['archive'][1],
@@ -138,7 +144,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
                 usage = assets.run_publisher_reader(catalog.cache/'empty-context', executable, output,
                     containers, catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
                     table_schema=candidate.schema, capture_schema_usage=True,
-                    capture_dialogue_graphs=graphs, dialogue_registry=registry)
+                    capture_dialogue_graphs=graphs, dialogue_registry=registry,
+                    **({'capture_original_authoring': True} if authoring else {}))
                 if graphs and usage['schema'] != 'nte-schema-usage-v2':
                     raise ValueError('Missing current graph codec evidence')
                 report, validation = metadata.check_required(candidate.schema.reference, cache, mapping_seed,
@@ -156,7 +163,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
                     metadata._check(profile_path.read_bytes() == encoded)
                 else:
                     _atomic_file(profile_path, encoded)
-                for filename in (*OUTPUTS, *(('dialogue-graphs.json',) if graphs else ())):
+                for filename in (*OUTPUTS, *(('dialogue-graphs.json',) if graphs else ()),
+                                 *(('original-authoring.json',) if authoring else ())):
                     metadata._check(not (staging/filename).exists())
                     (staging/filename).write_bytes((output/filename).read_bytes())
                 if graphs:

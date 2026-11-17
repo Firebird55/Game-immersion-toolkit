@@ -10,6 +10,9 @@ from pathlib import Path
 import re
 import tempfile
 import time
+import ssl
+import urllib.error
+import urllib.request
 from urllib.parse import urlsplit
 
 from Crypto.Cipher import AES
@@ -39,6 +42,30 @@ VERSION = r'[0-9]+\.[0-9]+\.[0-9]+'
 
 def download(url, *, limit):
     return download_bytes(url, limit=limit, opener=pak.open_publisher_url)
+
+
+class _NoKeyRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        raise ValueError('The original publisher key endpoint redirected. Retry discovery.')
+
+
+def _native_key_download(url, *, limit):
+    """Keep original key-update requests on their discovered publisher host."""
+    def read(context):
+        handler = urllib.request.HTTPSHandler(context=context)
+        opener = urllib.request.build_opener(_NoKeyRedirect, handler)
+        request = urllib.request.Request(url, headers={'User-Agent': 'GameImmersionToolkit/1'})
+        with opener.open(request, timeout=90) as response:
+            pak.check(response.status == 200 and response.geturl() == url)
+            data = response.read(limit + 1)
+        pak.check(len(data) <= limit)
+        return data
+    try:
+        return read(pak._publisher_tls())
+    except urllib.error.URLError as error:
+        if not isinstance(error.reason, ssl.SSLCertVerificationError):
+            raise
+        return read(None)  # Separate verified system trust; never disable TLS.
 
 
 def kuro_bytes(url):
@@ -115,16 +142,26 @@ def _format(tools=None):
                  for name in (b'KEY', b'IV'))
 
 
-def _archive_parameters(tools=None):
+def _archive_parameters(tools=None, historical=False):
     from . import wuthering_metadata as metadata
     from .preparation_errors import PreparationFailure
-    retained = metadata.parameters(tools) if tools is not None else ()
+    record = metadata._parameter_record(tools) if tools is not None else None
+    retained, owners, defaults = record if record is not None else ((), (), ())
+    native = {value for _, value in owners}
+    # Historical descriptors preserve independently verified legacy origins.
+    # Current native descriptors permit only a separately proven default owner.
+    excluded = native - set(retained if historical else defaults)
+    retained = tuple(value for value in retained if value not in excluded)
+    if tools is not None and record is None and not metadata.empty_parameter_cache(tools):
+        raise PreparationFailure('game_metadata_unavailable',
+            'The protected Wuthering archive parameter cache is invalid. Restore the cache or retry '
+            'preparation with valid original inputs; the previous index and recordings are retained.')
     try:
         data = json.loads(download(PUBLIC_METADATA_URL, limit=512 * 1024))
         values = tuple(bytes.fromhex(value) for value in dict.fromkeys(
             re.findall(r'0x([0-9a-fA-F]{64})', json.dumps(data))))
         pak.check(0 < len(values) <= 4096)
-        return tuple(dict.fromkeys((*retained, *values)))
+        return tuple(dict.fromkeys((*retained, *(value for value in values if value not in excluded))))
     except (OSError, ValueError, TypeError) as error:
         if retained:
             return retained
@@ -135,10 +172,21 @@ def _archive_parameters(tools=None):
 
 def _package(tools, info, params):
     from . import wuthering_metadata as metadata
-    package = pak.Package(*info, tools, params)
+    native = getattr(params, 'native', None)
+    options = {'verified_default_parameters': metadata.default_parameters(tools)}
+    if native is not None:
+        options.update(native_parameters=native, verified_native_parameters=metadata.native_parameters(tools))
+    package = pak.Package(*info, tools, params, **options)
     parameter = getattr(package, 'verified_parameter', None)
     if parameter is not None:
-        metadata.remember_parameter(tools, parameter)
+        native_guid = getattr(package, 'verified_native_guid', None)
+        remembered = metadata.remember_parameter(tools, parameter, native_guid=native_guid,
+                                                default_verified=getattr(package, 'verified_default_parameter', False))
+        if native_guid is not None and not remembered:
+            from .preparation_errors import PreparationFailure
+            raise PreparationFailure('publisher_key_cache_failed',
+                'The verified Wuthering publisher-key ownership could not be retained safely. '
+                'Check protected toolkit storage, then retry; the previous index and recordings are kept.')
     return package
 
 
@@ -220,6 +268,7 @@ def _resource_inventory(root, release, channels, cache):
 
 
 def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=True, region='global'):
+    from . import wuthering_metadata as metadata
     domain = CHANNELS[region][2]
     bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
     size, digest = launcher_files[bootstrap]
@@ -283,12 +332,23 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
                     pak.check(name == f'Video_{scene}-{tier.upper()}-WindowsNoEditor.' + prefix.lower())
                     files['Video/' + tier + '/' + name] = _file(name, row[prefix + 'Size'], row[prefix + 'Hash'])
     pointers = {root + 'config.json': config_data, **video_pointers}
+    from . import wuthering_publisher_keys as publisher_keys
+    mix = source.get('MixUri')
+    pak.check(isinstance(mix, str) and re.fullmatch(r'[A-Za-z0-9]{16,80}', mix))
+    params = publisher_keys.current(cache, cdn['url'] + mix + '/Windows/', release, region,
+                                    params, _native_key_download, lambda raw: _json(raw, cache), pointers,
+                                    verified_defaults=metadata.default_parameters(cache))
     verify_pointers(pointers)
     return versions, files, products, params, pointers
 
 
 def verify_pointers(pointers):
-    if any(download(url, limit=LIMIT) != previous for url, previous in pointers.items()):
+    def current(url):
+        if re.search(r'/KeyList(?:_[0-9]+\.[0-9]+\.[0-9]+)?\.json$', url):
+            from .wuthering_publisher_keys import KEYLIST_LIMIT
+            return _native_key_download(url, limit=KEYLIST_LIMIT)
+        return download(url, limit=LIMIT)
+    if any(current(url) != previous for url, previous in pointers.items()):
         raise ValueError('Kuro updated the active resource manifests. Retry.')
 
 
@@ -336,6 +396,9 @@ def _current(tools, period, region='global'):
                 raise network_error
     descriptor = {'schema': 1, 'base': base, 'root': root, 'products': products,
                   'launcher': version, 'versions': versions}
+    native_sources = getattr(params, 'sources', ())
+    if native_sources:
+        descriptor['native_key_sources'] = list(native_sources)
     if region != 'global':
         descriptor['region'] = region
     raw = json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()
@@ -388,7 +451,27 @@ def _voice_locations(tools, stamp, code):
 
 @lru_cache(maxsize=3)
 def _voice_parameters(stamp, tools=None):
-    return _archive_parameters(tools)
+    if tools is None:
+        return _archive_parameters()
+    return _parameters_for_snapshot(tools, _snapshot(tools, stamp))
+
+
+def _parameters_for_snapshot(tools, snapshot):
+    from . import wuthering_metadata as metadata
+    from .preparation_errors import PreparationFailure
+    if 'native_key_sources' not in snapshot:
+        return _archive_parameters(tools, True)
+    try:
+        baseline = _archive_parameters(tools)
+    except PreparationFailure as error:
+        if (error.code != 'game_metadata_unavailable' or 'native_key_sources' not in snapshot
+                or not metadata.empty_parameter_cache(tools)):
+            raise
+        baseline = ()
+    from . import wuthering_publisher_keys as publisher_keys
+    return publisher_keys.restore(tools, snapshot['native_key_sources'], snapshot.get('region', 'global'),
+                                  baseline, lambda raw: _json(raw, tools),
+                                  verified_defaults=metadata.default_parameters(tools))
 
 
 @lru_cache(maxsize=4)
@@ -614,7 +697,7 @@ def build_retained_language(tools, stamp, source_locale, targets, progress=lambd
     region = snapshot.get('region', 'global')
     if region not in CHANNELS or selected_region(tools, 'wuwa') != region:
         raise ValueError('The retained Wuthering catalogue belongs to another publisher region.')
-    payload = _build_snapshot_language(tools, stamp, snapshot, _archive_parameters(tools),
+    payload = _build_snapshot_language(tools, stamp, snapshot, _parameters_for_snapshot(tools, snapshot),
                                        source_locale, targets, progress, decoder=decoder, region=region)
     if _snapshot(tools, stamp) != snapshot or selected_region(tools, 'wuwa') != region:
         raise ValueError('The retained Wuthering catalogue or selected region changed during preparation.')
@@ -657,14 +740,7 @@ def _build_snapshot_language(tools, stamp, snapshot, params, source_locale, targ
             'message': f'{len(records):,} official {source_locale} lines; {mapped:,} original voices'}
 
 
-def _source_bytes(tools, stamp, depot, reference=None):
-    """Reuse an exact original source during preparation and later playback.
-
-    A manifest-owned reference authenticates every new transfer. Snapshot and
-    full depot path bind cached bytes, keeping retained older recordings usable
-    without consulting the newest publisher inventory.
-    """
-    tools = Path(tools)
+def _cached_source(tools, stamp, depot):
     directory = _descriptor_path(tools, stamp).parent / 'clips'
     key = hashlib.sha256(depot.encode()).hexdigest()
     binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
@@ -677,11 +753,64 @@ def _source_bytes(tools, stamp, depot, reference=None):
                 return cached[32:]
             except ValueError:
                 pass
+    return None
+
+
+def _same_catalogue_source(tools, stamp, depot):
+    """A key-input-only descriptor change does not change original media.
+
+    Both immutable descriptor hashes and every remaining field must agree.
+    This deliberately does not infer cross-version member equivalence.
+    """
+    try:
+        current = dict(_snapshot(tools, stamp))
+    except FileNotFoundError:
+        # The lower-level explicit-reference cache primitive also serves owned
+        # callers before descriptor publication. Missing metadata permits no
+        # migration; the original reference still authenticates a new transfer.
+        return None
+    current.pop('native_key_sources', None)
+    for path in (Path(tools) / 'wuwa-publisher').glob('wuwa-*/release.json'):
+        previous = path.parent.name
+        if previous == stamp or not re.fullmatch('wuwa-[0-9a-f]{64}', previous):
+            continue
+        try:
+            old = dict(_snapshot(tools, previous))
+        except (OSError, ValueError, TypeError, KeyError):
+            continue  # Invalid older cache metadata establishes no equivalence.
+        old.pop('native_key_sources', None)
+        if old == current:
+            data = _cached_source(tools, previous, depot)
+            if data is not None:
+                return data
+    return None
+
+
+def _source_bytes(tools, stamp, depot, reference=None):
+    """Reuse an exact original source during preparation and later playback.
+
+    A manifest-owned reference authenticates every new transfer. Snapshot and
+    full depot path bind cached bytes, keeping retained older recordings usable
+    without consulting the newest publisher inventory. Native key-input-only
+    changes can reuse a validated identical catalogue without a media download.
+    """
+    tools = Path(tools)
+    cached = _cached_source(tools, stamp, depot)
+    if cached is not None:
+        return cached
+    data = _same_catalogue_source(tools, stamp, depot)
+    if data is not None:
+        binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
+        path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
+        _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
+        return data
     if reference is None:
         return None
     info, position = reference
     data = _voice_package(tools, stamp, info).extract(position)
     _validate_wem(data)
+    binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
+    path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
     _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
     return data
 

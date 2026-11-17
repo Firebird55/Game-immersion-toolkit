@@ -18,7 +18,10 @@ namespace CUE4Parse.UE4.AssetRegistry
     {
         public string AssetClass;
         public string PackageName;
-        public FixtureAssetData(string assetClass, string packageName) { AssetClass = assetClass; PackageName = packageName; }
+        public string AssetName;
+        public Dictionary<string, string> TagsAndValues;
+        public FixtureAssetData(string assetClass, string packageName, string assetName, Dictionary<string, string> tags)
+        { AssetClass = assetClass; PackageName = packageName; AssetName = assetName; TagsAndValues = tags; }
     }
     public sealed class FAssetRegistryState
     {
@@ -31,7 +34,9 @@ namespace CUE4Parse.UE4.AssetRegistry
             using var data = JsonDocument.Parse(archive.Bytes);
             if (data.RootElement.GetProperty("schema").GetString() != "owned-registry-fixture-v1") throw new InvalidDataException();
             PreallocatedAssetDataBuffers = data.RootElement.GetProperty("assets").EnumerateArray().Select(row =>
-                new FixtureAssetData(row.GetProperty("assetClass").GetString()!, row.GetProperty("packageName").GetString()!)).ToArray();
+                new FixtureAssetData(row.GetProperty("assetClass").GetString()!, row.GetProperty("packageName").GetString()!,
+                    row.TryGetProperty("assetName", out var name) ? name.GetString()! : "Unused",
+                    row.TryGetProperty("tags", out var tags) ? JsonSerializer.Deserialize<Dictionary<string,string>>(tags.GetRawText())! : new())).ToArray();
         }
     }
 }
@@ -231,6 +236,7 @@ public sealed class FixtureProvider : IDisposable
         VerifySequenceFixture(marker);
         VerifyMovieRegistryFixture(marker);
         VerifyDialogueRegistryFixture(marker);
+        VerifyOriginalTableRegistryFixture(marker);
         VerifyFrozenCodecsFixture(marker);
         version = marker["localization_version"].GetByte();
         for (int i = 0; i < 100; i++) Files[$"Owned/Dummy/{i}"] = 0;
@@ -370,6 +376,51 @@ public sealed class FixtureProvider : IDisposable
                 throw new InvalidDataException("Registry authentication must precede parsing.");
             if (kind != "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true)
                 throw new InvalidDataException("A rejected registry must dispose its archive.");
+        }
+    }
+    void VerifyOriginalTableRegistryFixture(Dictionary<string, JsonElement> marker)
+    {
+        if (!marker.TryGetValue("original_table_case", out var selected)) return;
+        var kind = selected.GetString();
+        object Claim(string name, string structure, string package = "/Game/FutureFolder/RenamedPackage", string assetClass = "DataTable") =>
+            new { assetClass, packageName = package, assetName = name, tags = new Dictionary<string,string> { ["RowStructure"] = structure } };
+        var assets = new List<object> {
+            Claim("DifferentExport", "/Script/HTGame.BubbleVoiceMsgDetail"),
+            Claim("SiblingExport", "/Script/HTGame.MediaFFmpegInfo"),
+            Claim("NotSupported", "/Script/HTGame.UnimplementedFormat"),
+            Claim("WrongClass", "/Script/HTGame.BubbleVoiceMsgDetail", assetClass: "Other") };
+        if (kind == "duplicate") assets.Add(Claim("DifferentExport", "/Script/HTGame.BubbleVoiceMsgDetail"));
+        else if (kind == "case-collision") assets.Add(Claim("differentexport", "/Script/HTGame.BubbleVoiceMsgDetail"));
+        else if (kind == "escape") assets.Add(Claim("Escaped", "/Script/HTGame.BubbleVoiceMsgDetail", "/Game/../Escaped"));
+        else if (kind == "bad-object") assets.Add(Claim("Bad/Object", "/Script/HTGame.BubbleVoiceMsgDetail"));
+        else if (kind == "empty") assets.Clear();
+        else if (kind is not ("valid" or "missing" or "hash")) throw new InvalidDataException();
+        var destination = Path.Combine(install, "owned-original-table-registry"); Directory.CreateDirectory(destination);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { schema = "owned-registry-fixture-v1", assets });
+        File.WriteAllBytes(Path.Combine(destination, "dialogue-registry.bin"), bytes);
+        var sha = kind == "hash" ? new string('0',64) : Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+        var files = new HashSet<string> { "HT/Content/FutureFolder/RenamedPackage.uasset" };
+        if (kind == "missing") files.Clear();
+        var method = System.Reflection.Assembly.GetEntryAssembly()!.GetType("NteReader", true)!
+            .GetMethod("NteOriginalTableClaims", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive = null;
+        try {
+            var claims = ((System.Collections.IEnumerable)method.Invoke(null, new object[] {
+                this, typeof(FixtureProvider).Assembly, files, destination, sha })!).Cast<object>().ToArray();
+            string Read(object claim, string name) => (string)claim.GetType().GetProperty(name)!.GetValue(claim)!;
+            if (kind != "valid" || claims.Length != 2 ||
+                Read(claims[0], "object_name") != "DifferentExport" || Read(claims[0], "role") != "voice" ||
+                Read(claims[1], "object_name") != "SiblingExport" || Read(claims[1], "role") != "movie" ||
+                claims.Any(c => Read(c, "path") != files.Single()) ||
+                CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true)
+                throw new InvalidDataException("Original table discovery lost its exact export owners.");
+        }
+        catch (System.Reflection.TargetInvocationException error) when (kind != "valid" &&
+            error.InnerException?.GetType().Name == "UnsupportedGameFormatException") {
+            if (kind == "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive is not null)
+                throw new InvalidDataException("Authentication must precede table discovery.");
+            if (kind != "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true)
+                throw new InvalidDataException("Original table discovery did not dispose its rejected source.");
         }
     }
     void VerifyFrozenCodecsFixture(Dictionary<string, JsonElement> marker)

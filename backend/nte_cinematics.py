@@ -68,8 +68,16 @@ def movie_namespaces(catalog: dict, *, required=False) -> dict[str, str | None] 
 
 def catalog_rows(catalog: dict) -> list[dict]:
     rows = []
-    for relative in CATALOG_FILES:
-        table = catalog[Path(relative).name]
+    names = catalog.get('OriginalMovieTables.json')
+    if 'OriginalMovieTables.json' not in catalog:
+        names = [Path(relative).name for relative in CATALOG_FILES]
+    elif (not isinstance(names, list) or not 0 < len(names) <= 256 or
+          any(not isinstance(name, str) or name not in catalog or name in
+              ('OriginalMovieTables.json', 'StringTableNamespaces.json') for name in names) or
+          len(set(names)) != len(names)):
+        raise ValueError('Unsupported original NTE movie table inventory')
+    for name in names:
+        table = catalog[name]
         if (not isinstance(table, list) or len(table) != 1 or not isinstance(table[0], dict) or
                 table[0].get('Type') != 'DataTable' or not isinstance(table[0].get('Rows'), dict) or
                 len(table[0]['Rows']) > 100_000 or not all(isinstance(r, dict) for r in table[0]['Rows'].values())):

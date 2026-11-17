@@ -45,7 +45,8 @@ def test_publisher_overlay_wins_and_a_corrupt_replacement_cannot_fall_back(monke
     data = b'RIFF\x06\0\0\0WAVEok'
     seen = []
     class Reader:
-        def __init__(self, url, *_):
+        def __init__(self, url, *_, verified_default_parameters):
+            assert verified_default_parameters == ()
             seen.append(url)
             self.url = url
         def member(self, path):
@@ -165,7 +166,8 @@ def test_online_wuthering_tombstone_masks_base_and_duplicate_paths_fail_closed(m
     monkeypatch.setattr(live, '_snapshot', lambda *_: {'products': info})
     monkeypatch.setattr(live, '_voice_parameters', lambda stamp, tools=None: ())
     class Package:
-        def __init__(self, url, *args):
+        def __init__(self, url, *args, verified_default_parameters):
+            assert verified_default_parameters == ()
             self.url = url
         def locations(self, *, wanted, prefix):
             assert prefix == EXTERNAL_ROOT + 'en_'
@@ -181,7 +183,8 @@ def test_online_wuthering_tables_reuse_immutable_member_and_repair_damaged_cache
     payload = b'SQLite format 3\0example'
     reads = []
     class Package:
-        def __init__(self, _url, _size, digest, *_):
+        def __init__(self, _url, _size, digest, *_, verified_default_parameters):
+            assert verified_default_parameters == ()
             self.digest = digest
         def extract(self, position):
             reads.append((self.digest, position))

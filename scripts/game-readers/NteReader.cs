@@ -79,6 +79,8 @@ internal static class NteReader
                     if (nonce is null || !Regex.IsMatch(nonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
                     var index = Property(provider, "Files");
                     var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true);
+                    if (request.RootElement.TryGetProperty("capture_original_authoring", out var authoring) && authoring.GetBoolean())
+                        foreach (var table in NteOriginalTableClaims(provider, cue, names, destination, sha)) sources.Add(table.path);
                     var packages = new SortedDictionary<string, long>(StringComparer.Ordinal);
                     long total = 0;
                     foreach (var name in sources)
@@ -108,7 +110,8 @@ internal static class NteReader
                     ReadNteDialogueTables(provider, cue, names, destination, events, readMovies: true,
                         expectedSchema: request.RootElement.GetProperty("type_schema_sha256").GetString(), usageNonce: usageNonce,
                         readGraphs: request.RootElement.TryGetProperty("capture_dialogue_graphs", out var graphs) && graphs.GetBoolean(),
-                        registrySha: request.RootElement.TryGetProperty("dialogue_registry_sha256", out var registrySha) ? registrySha.GetString() : null);
+                        registrySha: request.RootElement.TryGetProperty("dialogue_registry_sha256", out var registrySha) ? registrySha.GetString() : null,
+                        readOriginalAuthoring: request.RootElement.TryGetProperty("capture_original_authoring", out var authoring) && authoring.GetBoolean());
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(events.Order()));
                 }
                 else if (args[0] == "inventory")
@@ -234,7 +237,7 @@ internal static class NteReader
     }
     static void ReadNteDialogueTables(object provider, Assembly cue, HashSet<string> files, string destination,
         HashSet<string> voiceEvents, bool readMovies = false, string? expectedSchema = null, string? usageNonce = null,
-        bool readGraphs = false, string? registrySha = null)
+        bool readGraphs = false, string? registrySha = null, bool readOriginalAuthoring = false)
     {
         expectedSchema ??= "7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58";
         var profile = Path.Combine(destination, "dialogue.usmap");
@@ -284,8 +287,45 @@ internal static class NteReader
             return export;
         }
         object Export(string name) => ExportNamed(name, Path.GetFileNameWithoutExtension(name));
+        var originalTables = new SortedDictionary<string, OriginalTable>(StringComparer.Ordinal);
+        if (readOriginalAuthoring)
+        {
+            if (!readGraphs || usage is null) throw new UnsupportedGameFormatException();
+            long rowCount = 0;
+            foreach (var claim in NteOriginalTableClaims(provider, cue, files, destination, registrySha))
+            {
+                var table = ExportNamed(claim.path, claim.object_name);
+                if (table.GetType().Name != "UDataTable") throw new UnsupportedGameFormatException();
+                var json = (string)converter.Invoke(null, [table])!;
+                if (json.Length > 64*1024*1024) throw new UnsupportedGameFormatException();
+                using var parsed = JsonDocument.Parse(json);
+                var header = parsed.RootElement;
+                var structure = header.GetProperty("Properties").GetProperty("RowStruct");
+                var split = claim.row_structure.LastIndexOf('.');
+                if (header.GetProperty("Type").GetString() != "DataTable" ||
+                    header.GetProperty("Name").GetString() != claim.object_name ||
+                    header.GetProperty("Package").GetString() != claim.package ||
+                    structure.GetProperty("ObjectPath").GetString() != claim.row_structure[..split] ||
+                    structure.GetProperty("ObjectName").GetString() != "Class'" + claim.row_structure[(split+1)..] + "'")
+                    throw new UnsupportedGameFormatException();
+                var rows = header.GetProperty("Rows");
+                if (rows.ValueKind != JsonValueKind.Object || rows.EnumerateObject().Count() > 100_000)
+                    throw new UnsupportedGameFormatException();
+                rowCount += rows.EnumerateObject().Count();
+                if (rowCount > 500_000 || rows.EnumerateObject().Any(p => p.Name.Length is 0 or > 512 ||
+                    p.Name.Any(char.IsControl) || p.Value.ValueKind != JsonValueKind.Object) ||
+                    rows.EnumerateObject().Select(p => p.Name).Distinct(StringComparer.Ordinal).Count() != rows.EnumerateObject().Count())
+                    throw new UnsupportedGameFormatException();
+                originalTables.Add(claim.path + "\0" + claim.object_name, claim with { rows = rows.Clone() });
+            }
+        }
         IEnumerable<(string, JsonElement)> Rows(string name)
         {
+            if (originalTables.TryGetValue(name, out var original))
+            {
+                foreach (var row in original.rows.EnumerateObject()) yield return (row.Name, row.Value);
+                yield break;
+            }
             var table = Export(name);
             if (table.GetType().Name != "UDataTable") throw new UnsupportedGameFormatException();
             var rows = (IDictionary)Property(table, "RowMap");
@@ -300,9 +340,11 @@ internal static class NteReader
             }
         }
         var aliases = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
-        var tables = files.Where(n => n.StartsWith("HT/Content/DataTable/", StringComparison.Ordinal) &&
+        string[] Role(string role) => originalTables.Where(p => p.Value.role == role).Select(p => p.Key).ToArray();
+        var tables = readOriginalAuthoring ? Role("voice") : files.Where(n => n.StartsWith("HT/Content/DataTable/", StringComparison.Ordinal) &&
             Regex.IsMatch(Path.GetFileName(n), @"^(DialogSoundTable|BubbleVoiceMsgTable)(_[A-Za-z0-9_]+)?\.uasset$")).Order().ToArray();
-        if (tables.Length > 128 || !tables.Contains("HT/Content/DataTable/DialogSoundTable.uasset")) throw new UnsupportedGameFormatException();
+        if (tables.Length is < 1 or > 128 || !readOriginalAuthoring && !tables.Contains("HT/Content/DataTable/DialogSoundTable.uasset"))
+            throw new UnsupportedGameFormatException();
         foreach (var name in tables)
         {
             foreach (var (identity, record) in Rows(name))
@@ -322,16 +364,21 @@ internal static class NteReader
             }
         }
         File.WriteAllText(Path.Combine(destination, "dialogue-events.json"), JsonSerializer.Serialize(aliases));
-        ReadNteSequences(files, Rows, Export, voiceEvents, destination);
+        if (readOriginalAuthoring)
+            ReadNteSequenceTables(files, Rows, Export, voiceEvents, destination, Role("sequence"), Role("caption"), true, ExportNamed);
+        else ReadNteSequences(files, Rows, Export, voiceEvents, destination);
         if (readMovies)
         {
             var movies = new Dictionary<string, object>();
-            foreach (var name in new[] { "DT_MediaFFmpegInfo", "DT_MediaFFmpegInfo_Quest" })
+            var moviePaths = readOriginalAuthoring ? Role("movie") : new[] { "DT_MediaFFmpegInfo", "DT_MediaFFmpegInfo_Quest" }
+                .Select(name => "HT/Content/DataTable/Skill/" + name + ".uasset").Where(files.Contains).ToArray();
+            var movieKeys = new List<string>();
+            foreach (var path in moviePaths)
             {
-                var path = "HT/Content/DataTable/Skill/" + name + ".uasset";
-                if (!files.Contains(path)) continue;
                 var rows = Rows(path).ToDictionary(row => row.Item1, row => row.Item2.Clone(), StringComparer.Ordinal);
-                movies[name + ".json"] = new[] { new { Type = "DataTable", Rows = rows } };
+                var key = readOriginalAuthoring ? path.Replace('\0', '#') : Path.GetFileNameWithoutExtension(path) + ".json";
+                movies[key] = new[] { new { Type = "DataTable", Rows = rows } };
+                movieKeys.Add(key);
                 foreach (var row in rows.Values)
                 {
                     if (!row.TryGetProperty("PlayVoice", out var voice) || voice.ValueKind != JsonValueKind.Object ||
@@ -341,7 +388,8 @@ internal static class NteReader
                     if (voiceEvent is not null) voiceEvents.Add(voiceEvent);
                 }
             }
-            movies["StringTableNamespaces.json"] = ReadNteMovieNamespaces(files, Rows, (path, name) =>
+            if (readOriginalAuthoring) movies["OriginalMovieTables.json"] = movieKeys;
+            JsonElement StringOwner(string path, string name)
             {
                 var table = ExportNamed(path, name);
                 if (table.GetType().Name != "UStringTable") throw new UnsupportedGameFormatException();
@@ -349,7 +397,10 @@ internal static class NteReader
                 if (json.Length > 16 * 1024 * 1024) throw new UnsupportedGameFormatException();
                 using var parsed = JsonDocument.Parse(json);
                 return parsed.RootElement.Clone();
-            });
+            }
+            movies["StringTableNamespaces.json"] = readOriginalAuthoring
+                ? ReadNteMovieRegistryRows(Role("text_registry").SelectMany(Rows), files, StringOwner)
+                : ReadNteMovieNamespaces(files, Rows, StringOwner);
             File.WriteAllText(Path.Combine(destination, "movie-tables.json"), JsonSerializer.Serialize(movies));
         }
         if (readGraphs)
@@ -367,10 +418,67 @@ internal static class NteReader
             var codecs = FrozenSchemaCodecs(cue, mappings, provider, usage);
             WriteSchemaUsage(destination, expectedSchema, usageNonce!, usage, exportClasses, schemaLog, codecs);
         }
+        if (readOriginalAuthoring)
+        {
+            var data = JsonSerializer.SerializeToUtf8Bytes(new {
+                schema = "nte-original-authoring-v1", complete = true, nonce = usageNonce,
+                registry_sha256 = registrySha, schema_sha256 = expectedSchema,
+                table_count = originalTables.Count, tables = originalTables.Values });
+            if (data.Length > 64*1024*1024) throw new UnsupportedGameFormatException();
+            File.WriteAllBytes(Path.Combine(destination, "original-authoring.json"), data);
+        }
     }
 
-    static SortedSet<string> NteDialogueSources(object provider, Assembly cue, HashSet<string> files,
-        string destination, string? registrySha, bool includeStringTables = false)
+    // These are supported native formats, not current asset filenames. A new
+    // table using one of these formats is discovered in the original registry.
+    static readonly Dictionary<string, string> OriginalTableRoles = new(StringComparer.Ordinal) {
+        ["/Script/HTGame.MessageDialogSoundData"] = "voice",
+        ["/Script/HTGame.BubbleVoiceMsgDetail"] = "voice",
+        ["/Script/HTGame.StorySequenceAndVedioData"] = "sequence",
+        ["/Script/HTGame.VoiceCaptionData"] = "caption",
+        ["/Script/HTGame.MediaFFmpegInfo"] = "movie",
+        ["/Script/HTGame.TextTableData"] = "text_registry"
+    };
+    record OriginalTable(string path, string package, string object_name, string row_structure, string role, JsonElement rows);
+
+    static List<OriginalTable> NteOriginalTableClaims(object provider, Assembly cue, HashSet<string> files,
+        string destination, string? registrySha)
+    {
+        var result = new List<OriginalTable>();
+        var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
+        {
+            object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
+            if (Field("AssetClass").ToString() != "DataTable") continue;
+            string? structure = null;
+            foreach (var pair in (IEnumerable)Field("TagsAndValues"))
+                if (Property(pair!, "Key").ToString() == "RowStructure")
+                {
+                    if (structure is not null) throw new UnsupportedGameFormatException();
+                    structure = Property(pair!, "Value").ToString();
+                }
+            if (structure is null || !OriginalTableRoles.TryGetValue(structure, out var role)) continue;
+            var package = Field("PackageName").ToString()!;
+            var objectName = Field("AssetName").ToString()!;
+            var path = NtePackagePath(package);
+            if (!Regex.IsMatch(objectName, "\\A[A-Za-z_][A-Za-z0-9_]{0,255}\\z") || !files.Contains(path) ||
+                !identities.Add(path + "\0" + objectName) || result.Count >= 256)
+                throw new UnsupportedGameFormatException();
+            result.Add(new(path, package, objectName, structure, role, default));
+        }
+        if (result.Count == 0) throw new UnsupportedGameFormatException();
+        return result.OrderBy(t => t.path, StringComparer.Ordinal).ThenBy(t => t.object_name, StringComparer.Ordinal).ToList();
+    }
+
+    static string NtePackagePath(string package)
+    {
+        if (!package.StartsWith("/Game/", StringComparison.Ordinal) || package.Length > 1024 ||
+            !Regex.IsMatch(package[6..], "\\A[A-Za-z0-9_/-]+\\z") ||
+            package[6..].Split('/').Any(p => p is "" or "." or "..")) throw new UnsupportedGameFormatException();
+        return "HT/Content/" + package[6..] + ".uasset";
+    }
+
+    static Array NteRegistry(object provider, Assembly cue, string destination, string? registrySha)
     {
         // AssetRegistry is a checked original pak member; publisher package
         // streams expose IoStore assets only. The caller stages this member.
@@ -384,8 +492,15 @@ internal static class NteReader
         var registry = Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.AssetRegistry.FAssetRegistryState", true)!, [archive])!;
         var entries = (Array)registry.GetType().GetField("PreallocatedAssetDataBuffers")!.GetValue(registry)!;
         if (entries.Length is < 1 or > 2_000_000) throw new UnsupportedGameFormatException();
+        return entries;
+    }
+
+    static SortedSet<string> NteDialogueSources(object provider, Assembly cue, HashSet<string> files,
+        string destination, string? registrySha, bool includeStringTables = false)
+    {
         var sources = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (var item in entries)
+        var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
         {
             object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
             var assetClass = Field("AssetClass").ToString();
@@ -394,7 +509,11 @@ internal static class NteReader
             if (!package.StartsWith("/Game/", StringComparison.Ordinal) || package.Contains('\\') ||
                 package[6..].Split('/').Any(p => p is "" or "." or "..")) throw new UnsupportedGameFormatException();
             var path = "HT/Content/" + package[6..] + ".uasset";
-            if (!files.Contains(path) || !sources.Add(path) || sources.Count > 8192) throw new UnsupportedGameFormatException();
+            var name = Field("AssetName").ToString()!;
+            if (name.Length is 0 or > 256 || name.Any(char.IsControl) || !files.Contains(path) ||
+                !owners.Add(path+"\0"+name) || owners.Count > 100_000) throw new UnsupportedGameFormatException();
+            sources.Add(path);
+            if (sources.Count > 8192) throw new UnsupportedGameFormatException();
         }
         if (sources.Count == 0) throw new UnsupportedGameFormatException();
         return sources;
@@ -475,11 +594,16 @@ internal static class NteReader
         Func<string, IEnumerable<(string, JsonElement)>> rows, Func<string, string, JsonElement> owner)
     {
         const string registry = "HT/Content/DataTable/DT_TextTable.uasset";
+        return ReadNteMovieRegistryRows(files.Contains(registry) ? rows(registry) : [], files, owner);
+    }
+
+    static Dictionary<string, string?> ReadNteMovieRegistryRows(IEnumerable<(string, JsonElement)> rows,
+        HashSet<string> files, Func<string, string, JsonElement> owner)
+    {
         var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
         var owners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!files.Contains(registry)) return result;
         int count = 0;
-        foreach (var (alias, row) in rows(registry))
+        foreach (var (alias, row) in rows)
         {
             if (++count > 4096 || alias.Length is 0 or > 512 || alias.Any(char.IsControl) ||
                 row.ValueKind != JsonValueKind.Object || !row.TryGetProperty("TextTable", out var table) || table.ValueKind != JsonValueKind.Object ||
@@ -535,11 +659,21 @@ internal static class NteReader
         Func<string, object> export, HashSet<string> voiceEvents, string destination)
     {
         const string folder = "HT/Content/DataTable/";
+        ReadNteSequenceTables(files, rows, export, voiceEvents, destination,
+            new[] {"DT_StorySequenceData", "DT_StorySequenceData_World"}.Select(n => folder+n+".uasset").Where(files.Contains),
+            files.Contains(folder+"DT_VoiceCaptionDataTable.uasset") ? [folder+"DT_VoiceCaptionDataTable.uasset"] : [], false);
+    }
+
+    static void ReadNteSequenceTables(HashSet<string> files, Func<string, IEnumerable<(string, JsonElement)>> rows,
+        Func<string, object> export, HashSet<string> voiceEvents, string destination,
+        IEnumerable<string> sequenceTables, IEnumerable<string> captionTables, bool preserveOwners,
+        Func<string, string, object>? namedExport = null)
+    {
         var events = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        foreach (var name in new[] {"DT_StorySequenceData", "DT_StorySequenceData_World"})
+        var claims = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var name in sequenceTables)
         {
-            if (!files.Contains(folder + name + ".uasset")) continue;
-            foreach (var (_, row) in rows(folder + name + ".uasset"))
+            foreach (var (_, row) in rows(name))
             foreach (var info in row.GetProperty("SequenceInfo").EnumerateArray())
             {
                 // Optional slots can be empty in released sequence tables.
@@ -548,36 +682,53 @@ internal static class NteReader
                 if (!info.TryGetProperty("CaptionsID", out var id)) continue;
                 var group = id.GetString()!;
                 if (string.IsNullOrEmpty(group) || group == "None") continue;
+                claims[group] = claims.GetValueOrDefault(group) + 1;
                 var settings = info.GetProperty("Settings");
                 var path = info.GetProperty("VoiceSource").GetProperty("AssetPathName").GetString()!;
                 var voiceEvent = NteCinematicVoice(path);
                 var regularClock = settings.GetProperty("PlayRate").GetDouble() == 1 &&
                     settings.GetProperty("StartTime").GetDouble() == 0 && !settings.GetProperty("bRandomStartTime").GetBoolean();
+                if (preserveOwners)
+                    regularClock &= !row.GetProperty("bMuteSoundAndShowUI").GetBoolean() &&
+                        settings.GetProperty("LoopCount").GetProperty("Value").GetInt32() == 0 &&
+                        info.GetProperty("VoiceSource").GetProperty("SubPathString").GetString() == "";
                 if (!events.TryGetValue(group, out var names)) events[group] = names = new(StringComparer.Ordinal);
                 names.Add(regularClock && voiceEvent is not null ? voiceEvent : "");
                 if (regularClock && voiceEvent is not null) voiceEvents.Add(voiceEvent);
             }
         }
-        const string captionsFile = folder + "DT_VoiceCaptionDataTable.uasset";
-        if (!files.Contains(captionsFile)) return;
         var strings = new Dictionary<string, object>();
         var groups = new Dictionary<string, List<object>>();
+        var captionOwners = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var captionsFile in captionTables)
         foreach (var (group, row) in rows(captionsFile))
         {
             if (!events.TryGetValue(group, out var names) || names.Count != 1 || names.Contains("")) continue;
+            // Identical event names do not merge two authored performances.
+            if (preserveOwners && (claims[group] != 1 || !captionOwners.Add(group)))
+            {
+                groups.Remove(group); events[group].Add(""); continue;
+            }
             groups[group] = new List<object>();
             foreach (var cue in row.GetProperty("Captions").EnumerateArray())
             {
                 var text = cue.GetProperty("Text");
                 var key = text.TryGetProperty("Key", out var textKey) ? textKey.GetString() : null;
                 var owner = text.TryGetProperty("TableId", out var tableRef) ? tableRef.GetString() : null;
-                var match = Regex.Match(owner ?? "", @"^/Game/(Text/(?:[A-Za-z0-9_]+/)*(ST_[A-Za-z0-9_]+))\.\2$");
+                var match = preserveOwners ? Regex.Match(owner ?? "", @"^/Game/([A-Za-z0-9_/-]+)\.([A-Za-z_][A-Za-z0-9_]*)$") :
+                    Regex.Match(owner ?? "", @"^/Game/(Text/(?:[A-Za-z0-9_]+/)*(ST_[A-Za-z0-9_]+))\.\2$");
                 string? ns = null;
                 var assetPath = "HT/Content/" + match.Groups[1].Value + ".uasset";
-                if (!string.IsNullOrEmpty(key) && match.Success && files.Contains(assetPath))
+                if (!string.IsNullOrEmpty(key) && match.Success && files.Contains(assetPath) &&
+                    !match.Groups[1].Value.Split('/').Any(p => p is "" or "." or ".."))
                 {
-                    if (!strings.TryGetValue(assetPath, out var stringTable))
-                        strings[assetPath] = stringTable = Property(export(assetPath), "StringTable");
+                    var identity = preserveOwners ? assetPath + "\0" + match.Groups[2].Value : assetPath;
+                    if (!strings.TryGetValue(identity, out var stringTable))
+                    {
+                        var original = preserveOwners ? namedExport!(assetPath, match.Groups[2].Value) : export(assetPath);
+                        if (preserveOwners && original.GetType().Name != "UStringTable") throw new UnsupportedGameFormatException();
+                        strings[identity] = stringTable = Property(original, "StringTable");
+                    }
                     var entries = (IDictionary)stringTable.GetType().GetField("KeysToEntries")!.GetValue(stringTable)!;
                     if (entries.Contains(key)) ns = (string)stringTable.GetType().GetField("TableNamespace")!.GetValue(stringTable)!;
                 }
@@ -587,7 +738,10 @@ internal static class NteReader
                     ends = cue.GetProperty("CultureEndTimes").Clone() });
             }
         }
-        File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
+        // Retain the historical no-caption fixture behavior for the installed
+        // reader; publisher authoring always emits its complete empty packet.
+        if (captionTables.Any() || preserveOwners)
+            File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
     }
     static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys, JsonElement? publisherStreams = null)
     {

@@ -3,6 +3,7 @@ import hashlib
 import json
 from pathlib import Path
 import threading
+import uuid
 
 from .export_lock import ExportLock
 
@@ -40,21 +41,84 @@ def _write(path, data):
         return False
 
 
-def parameters(tools):
+def _parameter_record(tools):
     try:
         value = json.loads(_read(_path(tools, 'verified-parameters')) or b'null')
-        if (not isinstance(value, dict) or value.get('schema') != 1
+        if (not isinstance(value, dict) or type(value.get('schema')) is not int or value['schema'] != 1
                 or not isinstance(value.get('parameters'), list) or len(value['parameters']) > 1024):
-            return ()
+            return None
         result = tuple(bytes.fromhex(item) for item in value['parameters'])
-        return result if all(len(item) == 32 for item in result) else ()
-    except (ValueError, TypeError):
-        return ()
+        owned = value.get('native_parameters', [])
+        if not all(len(item) == 32 for item in result) or not isinstance(owned, list) or len(owned) > 1024:
+            return None
+        native = []
+        for item in owned:
+            identity = uuid.UUID(item['uuid'])
+            parameter = bytes.fromhex(item['parameter'])
+            if not identity.int or str(identity) != item['uuid'] or len(parameter) != 32:
+                return None
+            native.append((identity, parameter))
+        defaults = value.get('default_parameters', [])
+        if not isinstance(defaults, list) or len(defaults) > 1024:
+            return None
+        defaults = tuple(bytes.fromhex(item) for item in defaults)
+        if any(len(item) != 32 or item not in result for item in defaults):
+            return None
+        if len(set(result) | {parameter for _, parameter in native}) > 1024:
+            return None
+        return result, tuple(native), defaults
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return None
 
 
-def remember_parameter(tools, parameter):
+def baseline_parameters(tools):
+    record = _parameter_record(tools)
+    return record[0] if record is not None else ()
+
+
+def native_parameters(tools):
+    record = _parameter_record(tools)
+    return record[1] if record is not None else ()
+
+
+def default_parameters(tools):
+    record = _parameter_record(tools)
+    return record[2] if record is not None else ()
+
+
+def parameters(tools):
+    record = _parameter_record(tools)
+    return tuple(dict.fromkeys((*record[0], *(value for _, value in record[1])))) if record is not None else ()
+
+
+def empty_parameter_cache(tools):
+    """Distinguish no legacy inputs from a present, unreadable envelope.
+
+    Only absence or an explicitly protected empty baseline permits the native
+    UUID-only route after the legacy metadata source becomes unavailable.
+    """
+    path = _path(tools, 'verified-parameters')
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    record = _parameter_record(tools)
+    if record is None:
+        return False
+    legacy, native, defaults = record
+    owned = {value for _, value in native} - set(defaults)
+    return not any(value not in owned for value in legacy)
+
+
+def remember_parameter(tools, parameter, *, native_guid=None, default_verified=False):
     """Call only after the original encrypted PAK directories passed SHA checks."""
     if not isinstance(parameter, bytes) or len(parameter) != 32:
+        return False
+    if native_guid is not None and not isinstance(native_guid, uuid.UUID):
+        return False
+    if type(default_verified) is not bool or native_guid is not None and (not native_guid.int or default_verified):
         return False
     path = _path(tools, 'verified-parameters')
     with _GATE:
@@ -66,13 +130,30 @@ def remember_parameter(tools, parameter):
         if not acquired:
             return False
         try:
-            previous = parameters(tools)
-            if parameter in previous:
+            record = _parameter_record(tools)
+            if record is None and not empty_parameter_cache(tools):
+                return False  # Never overwrite a present corrupt provenance record.
+            baseline, native, defaults = record if record is not None else ((), (), ())
+            if (native_guid is None and not default_verified and parameter not in baseline and parameter not in defaults
+                    and any(item == parameter for _, item in native)):
+                return False  # Equal bytes cannot turn native ownership into a legacy/default proof.
+            if (native_guid is None and parameter in baseline and (not default_verified or parameter in defaults)
+                    or native_guid is not None and (native_guid, parameter) in native):
                 return True
-            if len(previous) >= 1024:
+            if native_guid is None:
+                baseline = tuple(dict.fromkeys((*baseline, parameter)))
+                if default_verified:
+                    defaults = tuple(dict.fromkeys((*defaults, parameter)))
+            else:
+                native = (*native, (native_guid, parameter))
+            if len(native) > 1024 or len(set(baseline) | {item for _, item in native}) > 1024:
                 return False
-            value = {'schema': 1, 'parameters': [item.hex() for item in (*previous, parameter)]}
-            return _write(path, json.dumps(value, separators=(',', ':')).encode())
+            value = {'schema': 1, 'parameters': [item.hex() for item in baseline],
+                     'native_parameters': [{'uuid': str(identity), 'parameter': item.hex()} for identity, item in native],
+                     'default_parameters': [item.hex() for item in defaults]}
+            if not _write(path, json.dumps(value, separators=(',', ':')).encode()):
+                return False
+            return _parameter_record(tools) == (baseline, native, defaults)
         finally:
             lock.close()
 
