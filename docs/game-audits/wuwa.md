@@ -1,5 +1,49 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Frozen changed-content update and restart acceptance
+
+One clean toolkit revision, its backend/lock hashes, native decoder runtime and
+frozen third-party input prepared **Global 3.7.19 → current Global 3.8.11** without
+a game installation. The older input is the authentic retained publisher
+catalogue, explicitly labeled as replay. The current input uses ordinary live
+discovery and its final pointer/launcher/region checks. This is an update from a
+retained prepared library; it does not claim that the former live first-discovery
+root still advertises the old version.
+
+The decoder-enabled retained preparation produces **133,032 records**, including
+47,751 voices. The unchanged ordinary current worker produces **144,086 records**.
+All five official study text tables and their first halves were read. The actual
+base dialogue diff contains 2,393 added voiced records. Three new main-story
+captions, `Main_YYMRDHS_101_12`, `_14` and `_15`, have native narrative references,
+unique full-index matches and original member paths absent from the old voice
+inventory. They matched, stabilized, stored and fetched their previously cold
+English originals through the normal voice service, with their official Chinese
+translations. Single exports and a batch reproduce the same audio hashes.
+
+The existing `STNPC_XFDJPYNPCZX_130_2` has a genuine Chinese translation correction
+while its English caption and original PCM stay unchanged. The new index adopts
+that correction, and the earlier saved transcript/MP3 preserves its old content.
+A real failed file replacement after complete current-source validation preserves
+the entire old index, prepared selection and history. A normal retry adopts the
+new source. A fresh process with every network entry point forbidden re-matches
+all three new captions, reproduces their single/batch MP3 hashes and replays the
+old original PCM unchanged. An actual ordinary offline refresh fails honestly
+while preserving the complete current index, locale/targets and recordings.
+
+Acquisition remained bounded to authenticated originals: sixteen canonical
+tables total 303,501,312 plaintext bytes and 303,502,160 network bytes including
+native headers; the unchanged retained enrichment reads 170 complete sources
+using 111,199,278 bytes; four waveform references plus five old/current/new voice
+members use 288,229 bytes. The metadata ledger stays below 130 MiB, including its
+conservative prior-read reserve. No assets or recordings are redistributed.
+
+These capture observations replay official text through the real full index,
+stability, transcript and voice components; they do not establish image OCR or
+physical capture for these new captions. This finite Global English/Chinese
+trial establishes genuine changed-content uptake and failure/restart retention.
+Unknown rotated-key derivation, regional first-discovery recovery, remaining
+film/music/presentation bindings and all-locale/platform acceptance remain open.
+
 ## November 17, 2026 · Explicit retained-catalogue verification
 
 An explicitly requested retained catalogue now uses the same table, original
@@ -21,8 +65,8 @@ entire parsed payload equal to the pre-extraction result. This warm-cache run
 used 189,074 range bytes and 67.7 seconds. Existing process-dependent dictionary
 key ordering can change independent JSON file bytes; writing the same actual
 payload through the shared writer reproduces the previous bytes exactly. The
-actual changed-content, retained-old to current discovery trial is tracked
-separately from this refactor equality check.
+actual changed-content, retained-old to current discovery trial above is
+separate from this refactor equality check.
 
 ## November 17, 2026 · Authenticated index reuse across releases
 
@@ -176,7 +220,8 @@ Ordinary preparation retains only native-package-verified archive parameters and
 the existing SHA-pinned catalogue-format source in protected local tool storage.
 A real fresh-process Global English worker prepared the same complete 144,022
 records with both third-party providers unavailable. Unknown rotated parameters
-and the changed-content two-generation trial remain open; cached known inputs
+remain open; the later frozen changed-content trial above covers retained old
+catalogue to normal current discovery. Cached known inputs
 are not a derivation mechanism. [Recovery evidence and exact limits](wuwa-publisher-recovery.md).
 
 ## November 16, 2026 · Shared-song captions
