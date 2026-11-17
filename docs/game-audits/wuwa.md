@@ -1,5 +1,149 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Remaining event and recognition causes
+
+A fresh native-caption census distinguishes unsupported scene event graphs
+from missing individual recordings. Across all five study locales, every
+configured cue in `M2_12_06` (17), `M2_12_07` (36) and `M2_12_13` (17) already
+has an individual original voice binding. Of ten `M2_12_22` cues, only two lack
+selected-dub audio; both have native `GlobalLanguage` configurations and remain
+unavailable. They are not certified silent or localized spoken performances.
+Of two `M2_12_22_1` cues, one lexical caption, `Main_Rinascita_2_12_6828_2`,
+remains unresolved. Its authored movie cue spans 29–31 seconds, but that display
+interval does not authorize a guessed voice cut. These configured counts do
+not establish reachability of every historical scene in a current save.
+
+The remaining event posts clean localized Rover sources alongside separate
+common music and sound effects. Its complete inherited sound-effect path also
+contains an active, non-rendered effect whose definition is outside the event
+bank. A private parser prototype therefore still rejects the event. Neither
+the unposted music ancestor's unresolved selector nor the external effect is
+treated as known. No production graph guard or coverage total changed.
+
+The standard-surround cohort's **8/4/6/8/8** unresolved recognition variants
+represent six base identities, each counted separately for Rover gender:
+
+| Caption identity | Affected study locales | Actual recognition boundary |
+| --- | --- | --- |
+| `Character_ZheZhi_64_7` | All five | Reused short text has real choice/unknown vetoes. Its recognized native predecessor is only 233 ms earlier, but cannot remove those vetoes. |
+| `Main_Rinascita_2_12_70_1` | English, Korean, both Chinese scripts | First movie cue has no native predecessor; competing choice/unknown uses remain. |
+| `Main_Rinascita_2_12_70_2` | English, both Chinese scripts | Reused short text; its preceding cue is itself unresolved. Real competing records remain. |
+| `Main_Rinascita_2_12_70_3` | English, both Chinese scripts | The same predecessor/competing-record boundary continues. |
+| `Main_Linaxita_2_9_560_4` | Japanese | Real choice/unknown vetoes and a 31.5-second authored predecessor gap. |
+| `Main_Rinascita_2_12_70_12` | Korean | A different voiced native player-name template can accept the observed prefix as a name. Its recognized predecessor is 7.733 seconds earlier, beyond the existing three-second context bound. |
+
+These are lexical captions with available scene sources, not evidence of
+generic reactions or absent film audio. A research-only predecessor replay
+preserved every actual conflicting candidate and veto. No context lifetime,
+template precedence or choice guard was weakened, and no additional captures
+are counted. Native binding, recognition and spoken performance remain
+separate acceptance questions.
+
+The unknown-key investigation also tested periodic bytewise XOR/add masks
+of periods 1, 2, 4, 8 and 16 over fifteen archive parameters already verified
+against original packages, in raw and reversed-DWORD byte orders. Synthetic
+positive/mutation controls passed; the two previously authenticated cached PE
+objects contained no matching representation. This bounded passive negative
+result uses no new network bytes or native execution. It does not derive a
+new key, cover the unacquired executable prefix or establish autonomous recovery
+after an unknown rotation. That update limitation remains open.
+
+## November 17, 2026 · Standard surround film sources and global performance veto
+
+Whole-film contexts now accept the evidenced **standard 5.1 side-speaker**
+layout, using the original Wwise Opus header as authority. The reader requires
+codec `0x3041`, version 1, mapping 1, standard channel type 1 and explicit
+speaker mask `0x60f`. The native channel count, source frames and decoder's
+unchanged six-channel input/output and speaker mask must all agree. Six channels
+alone do not establish a layout. Ambisonic, unassigned, other masks, subsongs,
+channel reductions and inconsistent metadata remain unavailable. The existing
+song, interval and waveform-matching paths remain mono/stereo with their
+five-minute limits; whole-film contexts retain their separate six-minute cap.
+[Pinned decoder format reader](https://github.com/vgmstream/vgmstream/blob/r2117/src/meta/wwise.c).
+
+The complete PCM16 source is retained in explicit **FL, FR, FC, LFE, SL, SR**
+order. Playback/export uses a disclosed stereo presentation: the corresponding
+front channel contributes one third, center and corresponding side each
+contribute `sqrt(1/2)/3`, and LFE contributes one sixth to both sides. Every
+channel contributes and each output's total gain stays below one. This is
+neither an isolated dialogue stem nor a reconstruction of the game's bus
+effects. The original WEM and native decoder layout are checked again at
+extraction; the ordinary WAV header's missing mask cannot supply that proof.
+[Speaker mask and PCM order](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ksmedia/ns-ksmedia-ksaudio_channel_config).
+
+The first ordinary worker exposed a necessary semantic guard. Two movie
+captions belong to Dragon of Dirge, whose original PlotAudio configurations set
+`GlobalLanguage`. Native `GetExternalSourcesMediaName` then selects `gl`,
+independently of the configured dub. A localized full-scene track cannot make
+that shared creature performance a recording speaking its translated words.
+The reader now applies this **generic native global-performance veto**, using
+the complete authenticated PlotAudio image and native SQLite key/collation
+semantics. These captions retain unavailable audio and their existing text;
+they are not classified as silent. Missing authentication cannot establish a
+localized role, and a normal update adding a global configuration revokes the
+fallback. There is no scene/recording allowlist or production ASR classifier.
+
+Independent Japanese/female-Rover gameplay shows both Dragon captions and the
+neighboring human speaker. Four original waveform controls before and after the
+two cues establish one upload offset with a 2.34-ms spread. The bounded replay
+used 278,378 storyboard bytes, 131,072 header bytes and exactly 5,028,345 segment
+bytes, without downloading the complete fifty-minute video. Creature-audio
+context is authentic; spoken-word correspondence in the selected study language
+is not inferred from it.
+[First Dragon caption](https://www.youtube.com/watch?v=EZZO9D5uSBQ&t=1757s).
+
+The current source admits **83 additional context variants for 42 identities,
+15 original sources and eight scenes per study locale**. This includes four
+lexical M0357 identities in both Rover branches; its ellipsis stays unavailable.
+Film-context totals are **1,357 variants, 926 identities, 137 original sources
+and 86 scenes**, with reader revision 12. Every previous voiced record remains
+unchanged; the two global-performance captions are excluded from these added
+voices. All current original bytes were already cached, so this change requires
+no additional publisher media transfer. Actual caption recognition and source
+playback are accounted separately; this is not a full film-coverage claim.
+
+All five ordinary publisher workers and full indexes were exercised. Controlled
+native-text capture, including stability and transcript storage, gives the
+following results for this added cohort:
+
+| Study locale | Complete prepared records | Unique captured variants | Unresolved recognition |
+| --- | ---: | ---: | ---: |
+| English | 144,129 | 75 / 83 | 8 |
+| Japanese | 144,181 | 79 / 83 | 4 |
+| Korean | 144,027 | 77 / 83 | 6 |
+| Simplified Chinese | 145,781 | 75 / 83 | 8 |
+| Traditional Chinese | 144,879 | 75 / 83 | 8 |
+
+The unresolved entries remain in the denominator. These include short/repeated
+captions and real conflicting records; knowing the audio source does not resolve
+them. A complete caption with an unconfigured or missing Rover branch also
+retains its ambiguity, so sentence splitting cannot borrow an unrelated shorter
+recording. Configured valid branches remain eligible.
+
+One actual single export for each of fifteen sources per study locale, and two
+ordinary batches per locale, preserve all native six-channel PCM frames before
+the explicit stereo presentation. A fresh process with every network entry
+point forbidden reproduces all seventy-five MP3 hashes, capture results and
+batch outputs. Both Chinese scripts share their original Mandarin bytes. The
+Mandarin M0293 male source has 4,723,201 frames; its MP3 decoder retains forty-six
+additional trailing codec-pad frames, with no native PCM truncation. The other
+tested MP3s decode to their exact source frame counts.
+
+Real-image replay of the three independent Dragon/human-control frames is
+separate from that controlled-text trial. The final full Japanese index retains
+both global-performance captions as unavailable and produces no ordinary voice
+hit. The neighboring Roccia caption matches its individual original voice with
+a fuzzy score of 99.408 after 360p OCR. This is neither injected OCR nor physical
+window capture, and it does not claim exact recognition of all movie captions.
+
+Synthetic checks exercise every input channel with impulses and independent
+frequencies through the real export filter, verify complete frame counts and
+full-scale headroom, and reject native/decoder layout mismatches. The exact
+six-channel PCM remains authoritative; lossy MP3 may retain bounded trailing
+codec padding. Native global-role addition, altered/partial table proof,
+unconfigured or missing Rover branches, songs and sentence intervals retain
+their independent safety boundaries.
+
 ## November 17, 2026 · State-only events and complete M3_10_08B context
 
 The original scene reader now follows an immediate same-bank PlayEvent only

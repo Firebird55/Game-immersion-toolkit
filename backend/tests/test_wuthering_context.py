@@ -40,6 +40,11 @@ def record(locale='en', *, text='The whole associated utterance remains in its a
 
 
 def assign(root, rows, sources=None, shapes=None, locale='en', **proof):
+    if 'plot_audio_sha256' not in proof:
+        path = root / 'db_plot_audio.db'
+        if not path.exists():
+            complete_plot_table(root)
+        proof['plot_audio_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
     context.assign_contexts(root, rows, locale,
         {'play_owned_scene': sources or (SceneSource(101, None, 0),)},
         shapes if shapes is not None else {101: (2, 123457)}, **proof)
@@ -89,7 +94,8 @@ def test_native_muted_carrier_is_not_promoted_by_its_real_source_and_short_durat
     assert sources == (SceneSource(101, None, 0, True),)
     rows = [record()]
     original = copy.deepcopy(rows)
-    context.assign_contexts(tmp_path, rows, 'en', {'owned_scene': sources}, {101: (2, 123457)})
+    context.assign_contexts(tmp_path, rows, 'en', {'owned_scene': sources}, {101: (2, 123457)},
+                            plot_audio_sha256=complete_plot_table(tmp_path))
     assert rows == original and rows[0]['voice_status'] == 'unavailable'
 
 
@@ -116,7 +122,7 @@ def test_separately_posted_caption_voice_cannot_be_replaced_by_scene_soundtrack(
         db.execute('UPDATE videocaption SET BinData=?',
                    (flat_blob({2: 30, 3: 60, 4: 'caption', 11: 1}),))
     rows = [record()]
-    assign(tmp_path, rows)
+    assign(tmp_path, rows, plot_audio_sha256=None)
     assert rows[0]['audio'] is None
 
 
@@ -160,7 +166,7 @@ def test_absence_uses_native_sql_key_collation_and_never_python_case_assumptions
 
 def test_partial_or_unattested_table_is_never_treated_as_an_absence_inventory(tmp_path):
     flagged_scene(tmp_path);complete_plot_table(tmp_path)
-    rows=[record()];assign(tmp_path,rows)
+    rows=[record()];assign(tmp_path,rows,plot_audio_sha256=None)
     assert rows[0]['audio'] is None
 
 
@@ -189,6 +195,67 @@ def test_ordinary_update_that_adds_config_invalidates_old_absence_without_negati
     with pytest.raises(PreparationFailure):assign(tmp_path,[record()],plot_audio_sha256=digest)
     current=[record()];assign(tmp_path,current,plot_audio_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
     assert current[0]['audio'] is None
+
+
+@pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
+@pytest.mark.parametrize('shape', [(2, 123457), (6, 123457, 0x60f)])
+def test_global_native_performance_cannot_borrow_localized_whole_scene_speech(tmp_path, locale, shape):
+    scene_db(tmp_path)
+    digest = complete_plot_table(tmp_path, identity='caption', data=flat_blob({0:'caption',2:'creature_shared',3:1}))
+    rows = [record(locale)]
+    original = copy.deepcopy(rows)
+    assign(tmp_path, rows, locale=locale, shapes={101:shape}, plot_audio_sha256=digest)
+    assert rows == original  # No translated words, silence or locale recording invented.
+
+
+@pytest.mark.parametrize('shape', [(2, 123457), (6, 123457, 0x60f)])
+def test_unflagged_caption_also_requires_complete_authenticated_language_role_inventory(tmp_path, shape):
+    from backend.preparation_errors import PreparationFailure
+    scene_db(tmp_path)
+    digest = complete_plot_table(tmp_path)
+    rows = [record()]
+    assign(tmp_path, rows, shapes={101:shape}, plot_audio_sha256=None)
+    assert rows[0]['audio'] is None
+    with pytest.raises(PreparationFailure):
+        assign(tmp_path, [record()], shapes={101:shape}, plot_audio_sha256='f'*64)
+    assign(tmp_path, rows, shapes={101:shape}, plot_audio_sha256=digest)
+    assert rows[0]['audio_scope'] == 'context'
+
+
+@pytest.mark.parametrize('collation,blocked', [('BINARY',False),('NOCASE',True)])
+def test_global_performance_veto_uses_native_config_key_collation(tmp_path, collation, blocked):
+    scene_db(tmp_path)
+    digest = complete_plot_table(tmp_path, identity='CaPtIoN',
+        data=flat_blob({0:'CaPtIoN',2:'shared',3:1}), collation=collation)
+    rows = [record()]
+    assign(tmp_path, rows, plot_audio_sha256=digest)
+    assert (rows[0]['audio'] is None) is blocked
+
+
+def test_normal_update_adding_global_role_revokes_context_after_new_full_table_proof(tmp_path):
+    from backend.preparation_errors import PreparationFailure
+    scene_db(tmp_path)
+    digest = complete_plot_table(tmp_path)
+    previous = [record()]
+    assign(tmp_path, previous, plot_audio_sha256=digest)
+    assert previous[0]['audio']
+    path = tmp_path/'db_plot_audio.db'
+    with closing(sqlite3.connect(path)) as db, db:
+        db.execute('INSERT INTO PlotAudio VALUES (?,?)', ('caption',flat_blob({0:'caption',2:'shared',3:1})))
+    with pytest.raises(PreparationFailure):
+        assign(tmp_path, [record()], plot_audio_sha256=digest)
+    current = [record()]
+    assign(tmp_path, current, plot_audio_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    assert current[0]['audio'] is None and current[0]['voice_status'] == 'unavailable'
+
+
+@pytest.mark.parametrize('data', [None,b''])
+def test_empty_native_role_cannot_establish_localized_film_speech(tmp_path, data):
+    scene_db(tmp_path)
+    digest = complete_plot_table(tmp_path, identity='caption',data=data)
+    rows = [record()]
+    assign(tmp_path, rows, plot_audio_sha256=digest)
+    assert rows[0]['audio'] is None
 
 
 def test_proven_config_absence_does_not_default_rover_or_fill_missing_native_branch(tmp_path):

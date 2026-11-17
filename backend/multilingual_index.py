@@ -55,6 +55,7 @@ class MultilingualTextIndex:
         self.dialogue_coverage = {}
         self._signature = None
         self.snapshot_metadata = {}
+        self._sns_compiled = None
         if autoload:
             self.load()
 
@@ -95,6 +96,11 @@ class MultilingualTextIndex:
             if self.game == 'endfield' and 'publisher_world_dialogue_ui' in payload:
                 from .endfield_presentation import validate_world_dialogue_ui
                 payload['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(payload['publisher_world_dialogue_ui'])
+            if self.game == 'endfield' and 'publisher_sns_dialogue_ui' in payload:
+                from .endfield_sns_presentation import validate_sns_dialogue_ui
+                payload['publisher_sns_dialogue_ui'] = validate_sns_dialogue_ui(payload['publisher_sns_dialogue_ui'])
+                if payload['publisher_sns_dialogue_ui']['revision'] != payload.get('fingerprint'):
+                    raise ValueError('Original Baker UI and prepared records have different revisions')
             lookup, unvoiced_lookup, context_pairs, capture_channels, full_frame_veto = {}, {}, {}, {}, {}
             player_frame_veto = {}
             missing_audio_lookup = {}
@@ -204,6 +210,11 @@ class MultilingualTextIndex:
             if self.game == 'wuwa':
                 from .wuthering_text_templates import PlayerNameTemplates
                 names = PlayerNameTemplates(payload['records'])
+            if self.game == 'endfield' and 'publisher_sns_dialogue_ui' in payload:
+                from .endfield_sns_presentation import compile_sns_chains
+                for display_locale in payload['publisher_sns_dialogue_ui']['locales']:
+                    compile_sns_chains(payload['publisher_sns_dialogue_ui'], payload['records'], locale,
+                                       self.player_voice, display_locale=display_locale)
             with self.lock:
                 self._wuwa_name_templates = names
                 self.source_locale, self._records, self._lookup = locale, payload['records'], lookup
@@ -325,6 +336,77 @@ class MultilingualTextIndex:
                 return None
             return self.match_lines([proof.caption], exact_only=True, channel='dialogue',
                                     _endfield_world_speaker=proof.original_speaker_id)
+
+    def match_endfield_sns_dialogue(self, spans, image_size, *, direct=(), dialogue_menu=False):
+        """Resolve each complete written body at its own observed source position."""
+        if self.game != 'endfield' or not self.ready or not self.capture_unvoiced or dialogue_menu:
+            return []
+        from .endfield_sns_presentation import (
+            compile_sns_chains, observe_sns_dialogue, sns_record_signature, sns_ui_signature)
+        try:
+            direct = tuple(direct)
+            with self.lock:
+                metadata = self.snapshot_metadata.get('publisher_sns_dialogue_ui')
+                ui_signature = sns_ui_signature(metadata)
+                signature = self._signature
+                key = (signature, ui_signature, self.source_locale, self.player_voice)
+                if self._sns_compiled is None or self._sns_compiled[0] != key:
+                    self._sns_compiled = (key, tuple(compile_sns_chains(
+                        metadata, self._records, self.source_locale, self.player_voice, display_locale=locale)
+                        for locale in metadata['locales']))
+                compiled = self._sns_compiled[1]
+            observations = [observation for display in compiled for observation in observe_sns_dialogue(
+                display, spans, image_size, dialogue_menu=dialogue_menu)]
+            if not observations:
+                return []
+            with self.lock:
+                if (signature != self._signature or ui_signature != sns_ui_signature(
+                        self.snapshot_metadata.get('publisher_sns_dialogue_ui'))):
+                    return []
+                rows = {row['text_id']: row for row in self._records}
+                positions = {}
+                for observation in observations:
+                    positions.setdefault(observation.line_range, []).append(observation)
+                # Different cell partitions or translations at the same physical
+                # position remain ambiguous, including overlapping long bodies.
+                conflicts = {first for first in positions for second in positions
+                             if first != second and first[0] < second[1] and second[0] < first[1]}
+                result, used = [], set()
+                for position, choices in sorted(positions.items()):
+                    if position in conflicts:
+                        continue
+                    signatures = {sns_record_signature(rows[choice.text_id]) for choice in choices}
+                    if len(signatures) != 1:
+                        continue
+                    observation = min(choices, key=lambda choice: choice.text_id)
+                    row = rows[observation.text_id]
+                    existing = next((hit for hit in direct
+                        if hit.kind == 'exact' and hit.voice_status == 'unvoiced'
+                        and hit.source_locale == self.source_locale and hit.text_id in rows
+                        and sns_record_signature(rows[hit.text_id]) in signatures
+                        and normalize_text(hit.source_ocr, self.source_locale)
+                            == normalize_text(observation.source_ocr, self.source_locale)), None)
+                    if existing is not None:
+                        hit = existing
+                    else:
+                        if row.get('dialogue_kind') != 'message_system':
+                            continue  # Context reorders existing ordinary hits; it never admits new ones.
+                        target = resolve_locale(self.target_locale, row['texts'])
+                        hit = TextMatch(game=self.game, text_id=row['text_id'], english=row.get('english') or row['source_text'],
+                            chinese=row.get('chinese', ''), source_ocr=observation.source_ocr, score=100, kind='exact',
+                            source_language=study_language(self.source_locale), source_locale=self.source_locale,
+                            source_text=row['source_text'], audio_locale=row['audio_locale'], texts=row['texts'],
+                            translation_locale=target or self.target_locale,
+                            translation_text=row['texts'].get(target, '') if target else '',
+                            speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
+                            voice_status=row['voice_status'], dialogue_kind=row['dialogue_kind'],
+                            text_capture_verified=row['text_capture_verified'], audio_scope=row['audio_scope'])
+                    if hit.text_id not in used:
+                        result.append(hit)
+                        used.add(hit.text_id)
+                return result
+        except (ValueError, KeyError, TypeError, OverflowError):
+            return []
 
     def match_lines(self, lines, threshold=88, exact_only=False, channel='dialogue', context_groups=(), multiple=False,
                     previous_text_id=None, _endfield_world_speaker=None):

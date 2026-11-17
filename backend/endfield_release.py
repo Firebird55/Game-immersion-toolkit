@@ -221,6 +221,10 @@ class Catalog:
         from .endfield_presentation_source import cues
         return cues(self, dialogs, tables)
 
+    def sns_dialogue_ui(self, records, tables):
+        from .endfield_sns_source import cues
+        return cues(self, records, tables)
+
 
 def prepare(tools, region='global'):
     stamp, raw = discover(region)

@@ -1,6 +1,7 @@
 """Match numbered PlotAudio performances against their authored localized film track."""
 import re
 import json
+import math
 import struct
 import subprocess
 import tempfile
@@ -17,6 +18,46 @@ MAX_SECONDS = 300
 # Caption clocks are metadata; their frame domain is independent of the
 # bounded whole-track decoder and of authorized exported audio intervals.
 MAX_CAPTION_FRAMES = 2**31 - 1
+STANDARD_SURROUND_MASK = 0x60f  # FL, FR, FC, LFE, SL, SR in decoded speaker order.
+
+
+def standard_surround_mix():
+    """Disclosed stereo presentation; preserve every standard 5.1 speaker.
+
+    This is not a dialogue stem or a reconstruction of the game's bus effects.
+    Each side has positive contributions and a total gain below one, including
+    LFE retention. The original six-channel PCM remains intact before export.
+    """
+    side = math.sqrt(.5) / 3
+    return [[1 / 3, 0], [0, 1 / 3], [side, side], [1 / 6, 1 / 6], [side, 0], [0, side]]
+
+
+def _standard_surround_source(wem):
+    """Read explicit native speaker ownership, never infer it from six channels."""
+    if (len(wem) < 12 or wem[:4] != b'RIFF' or wem[8:12] != b'WAVE'
+            or struct.unpack_from('<I', wem, 4)[0] + 8 != len(wem)):
+        return None
+    offset, chunks = 12, {}
+    while offset + 8 <= len(wem) and len(chunks) < 128:
+        kind, size = struct.unpack_from('<4sI', wem, offset)
+        if kind in chunks or size > len(wem) - offset - 8:
+            return None
+        chunks[kind] = memoryview(wem)[offset + 8:offset + 8 + size]
+        offset += 8 + size
+        # The native final data chunk may end without an odd-byte RIFF pad.
+        if offset < len(wem):
+            offset += size % 2
+    fmt, seek = chunks.get(b'fmt ', b''), chunks.get(b'seek', b'')
+    if (offset != len(wem) or len(fmt) != 36 or not chunks.get(b'data')
+            or struct.unpack_from('<HHI', fmt) != (0x3041, 6, 48000)
+            or struct.unpack_from('<HHH', fmt, 12) != (0, 0, 18)
+            or struct.unpack_from('<I', fmt, 20)[0] != (STANDARD_SURROUND_MASK << 12 | 1 << 8 | 6)
+            or fmt[34] != 1 or fmt[35] != 1):
+        return None
+    frames, packets = struct.unpack_from('<II', fmt, 24)
+    if not frames or not packets or len(seek) != packets * 2:
+        return None
+    return 6, frames, STANDARD_SURROUND_MASK
 
 
 @dataclass(frozen=True)
@@ -27,12 +68,18 @@ class PcmWindow:
     pcm: bytes
 
 
-def _source_format(metadata):
+def _source_format(metadata, surround=None):
     if not isinstance(metadata, dict):
         return None
     rate, channels, frames = (metadata.get(key) for key in ('sampleRate', 'channels', 'numberOfSamples'))
     mixing, stream = metadata.get('mixingInfo'), metadata.get('streamInfo')
-    if (type(rate) is not int or rate != 48000 or type(channels) is not int or channels not in (1, 2)
+    standard_surround = (surround is not None and surround == (channels, frames, STANDARD_SURROUND_MASK)
+                         and type(metadata.get('channelLayout')) is int
+                         and metadata['channelLayout'] == STANDARD_SURROUND_MASK)
+    if surround is not None and not standard_surround:
+        return None
+    if (type(rate) is not int or rate != 48000 or type(channels) is not int
+            or not (channels in (1, 2) or channels == 6 and standard_surround)
             or type(frames) is not int or not 0 < frames <= 2**63 - 1
             or type(metadata.get('playSamples')) is not int or metadata['playSamples'] != frames
             or not isinstance(mixing, dict) or type(mixing.get('inputChannels')) is not int
@@ -41,10 +88,10 @@ def _source_format(metadata):
             or not isinstance(stream, dict) or type(stream.get('total')) is not int or stream['total'] not in (0, 1)
             or type(stream.get('index')) is not int or stream['index'] != 0):
         return None
-    return channels, frames
+    return surround if channels == 6 else (channels, frames)
 
 
-def source_info(wem, decoder, directory):
+def source_info(wem, decoder, directory, *, film_context=False):
     """Probe the exact original source without decoding or choosing a window."""
     try:
         with tempfile.TemporaryDirectory(prefix='wuwa-probe-', dir=directory) as temporary:
@@ -54,7 +101,8 @@ def source_info(wem, decoder, directory):
             probe = subprocess.run([str(decoder), '-m', '-I', '-i', str(source)], check=True,
                                    capture_output=True, timeout=45,
                                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-            return _source_format(json.loads(probe.stdout))
+            surround = _standard_surround_source(wem) if film_context else None
+            return _source_format(json.loads(probe.stdout), surround)
     except (OSError, subprocess.SubprocessError, ValueError) as error:
         from .preparation_errors import PreparationFailure
         raise PreparationFailure('audio_probe_failed',

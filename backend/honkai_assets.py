@@ -128,7 +128,7 @@ def bank_sources(data: bytes, bank_id: int, *, language: str = MANDARIN) -> tupl
     return bank_sources_from_reader(len(data), lambda start, size: data[start:start + size], bank_id, language=language)
 
 
-def bank_sources_from_reader(total, read, bank_id: int, *, language: str = MANDARIN, detailed=False):
+def bank_metadata_from_reader(total, read, bank_id: int, *, language: str = MANDARIN):
     """Parse the same bank metadata without fetching its embedded DATA payload."""
     header = read(0, 20) if total >= 20 else b''
     if len(header) != 20 or header[:4] != b"BKHD" or struct.unpack_from("<3I", header, 8) != (135, bank_id, wwise_hash(language)):
@@ -175,6 +175,11 @@ def bank_sources_from_reader(total, read, bank_id: int, *, language: str = MANDA
         if not data_start or not size or offset + size > data_size:
             raise ValueError("Honkai media exceeds its bank")
         media[media_id] = PackageEntry(data_start + offset, size)
+    return objects, media
+
+
+def bank_sources_from_reader(total, read, bank_id: int, *, language: str = MANDARIN, detailed=False):
+    objects, media = bank_metadata_from_reader(total, read, bank_id, language=language)
     events = {}
     for event_id, (obj_type, payload) in objects.items():
         if obj_type != 4 or len(payload) != 9 or payload[4] != 1:
