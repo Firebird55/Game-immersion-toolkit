@@ -34,8 +34,9 @@ both before and after the same-signer update. No game code or provider payload
 is written to that report.
 
 For a private build, supply the existing SDK, verified Python wheelhouse, shared
-reader frontend, Python/Java programs, original NDK archive and pinned decoder
-source archive to `scripts/build-android-app.ps1`. Its `-NdkArchive` and
+reader frontend, Python/Java programs, original NDK archive, pinned publisher
+crypto source (`-PublisherCryptoSourceArchive`) and pinned decoder source
+archive to `scripts/build-android-app.ps1`. Its `-NdkArchive` and
 `-DecoderSourceArchive` inputs keep those source transfers explicit; a developer
 may opt into the pinned source download with `-DownloadDecoderSource`. An
 existing Gradle cache may be selected with `-GradleUserHome`. Production signing

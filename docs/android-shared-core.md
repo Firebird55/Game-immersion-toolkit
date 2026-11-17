@@ -268,6 +268,7 @@ Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 pwsh scripts/build-android-app.ps1 -SdkRoot <sdk> -Wheelhouse <wheelhouse> \
   -Frontend <verified-desktop-frontend> -BuildRoot <private-build-directory> \
   -Python <build-python> -JavaHome <jdk> -NdkArchive <pinned-original-ndk-archive> \
+  -PublisherCryptoSourceArchive <pinned-pycryptodome-source-archive> \
   -DecoderSourceArchive <pinned-capstone-source-archive> -DownloadGradle
 ```
 

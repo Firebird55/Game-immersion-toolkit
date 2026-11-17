@@ -79,6 +79,10 @@ public final class MainActivity extends Activity {
                                 buffer.toString("UTF-8")).toString()));
                     }
                     selfTestDiagnostic("native-zstandard", "passed", null);
+                    selfTestDiagnostic("native-publisher-crypto", "running", null);
+                    report.put("native_publisher_crypto", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
+                        .callAttr("run_crypto", ocr, authoredCryptoAsset("capi"), authoredCryptoAsset("jca")).toString()));
+                    selfTestDiagnostic("native-publisher-crypto", "passed", null);
                     selfTestDiagnostic("core", "passed", null);
                     selfTestDiagnostic("native-media", "running", null);
                     android.media.MediaPlayer player = new android.media.MediaPlayer();
@@ -119,6 +123,19 @@ public final class MainActivity extends Activity {
                 if (BuildConfig.DEBUG) android.util.Log.e("ToolkitAndroid", "Local host startup failed at " + selfTestPhase + ": " + error.getClass().getName());
             }
         });
+    }
+
+    private String authoredCryptoAsset(String kind) throws Exception {
+        if (!BuildConfig.DEBUG || !(kind.equals("capi") || kind.equals("jca"))) throw new IllegalStateException();
+        try (InputStream input = getAssets().open("publisher-crypto-authored-" + kind + ".bin")) {
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            byte[] chunk = new byte[4096]; int count;
+            while ((count = input.read(chunk)) != -1) {
+                if (buffer.size() + count > 65536) throw new IllegalStateException();
+                buffer.write(chunk, 0, count);
+            }
+            return android.util.Base64.encodeToString(buffer.toByteArray(), android.util.Base64.NO_WRAP);
+        }
     }
 
     private void selfTestDiagnostic(String phase, String state, Throwable error) {

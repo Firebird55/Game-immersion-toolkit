@@ -32,6 +32,9 @@ def binary(value):return struct.pack('>i',-1 if value is None else len(value))+(
 
 
 def authored_vectors(output):
+    output=Path(output).absolute();_no_links(output)
+    for kind in ('capi','jca'):
+        for prefix in ('authored-','publisher-crypto-authored-'):_no_links(output/(prefix+kind+'.bin'))
     reference=DesktopPublisherCrypto();key=bytes(range(32));nonce=bytes(range(12));data=bytes(range(256))*3
     cases=[]
     for position in (0,1,63,64,65,2**32+17,CHACHA_LIMIT-len(data)):
@@ -141,7 +144,17 @@ def prepare(work,bundle,ndk,sdk,java):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    for name in ('work-dir','bundle','ndk-root','sdk-root','java-home'):parser.add_argument('--'+name,type=Path,required=True)
+    parser.add_argument('--work-dir',type=Path,required=True)
+    parser.add_argument('--fixtures-only',action='store_true',help='Prepare only bounded authored APK fixtures; no compiler or device execution.')
+    for name in ('bundle','ndk-root','sdk-root','java-home'):parser.add_argument('--'+name,type=Path)
     args=parser.parse_args()
-    result=prepare(args.work_dir,args.bundle,args.ndk_root,args.sdk_root,args.java_home)
-    print(json.dumps({'schema':result['schema'],'vectors':result['vectors'],'files':result['files']}))
+    if args.fixtures_only:
+        _no_links(args.work_dir);args.work_dir.mkdir(parents=True,exist_ok=True)
+        result=authored_vectors(args.work_dir)
+        for kind in ('capi','jca'):
+            (args.work_dir/('authored-'+kind+'.bin')).replace(args.work_dir/('publisher-crypto-authored-'+kind+'.bin'))
+        print(json.dumps(result))
+    elif all((args.bundle,args.ndk_root,args.sdk_root,args.java_home)):
+        result=prepare(args.work_dir,args.bundle,args.ndk_root,args.sdk_root,args.java_home)
+        print(json.dumps({'schema':result['schema'],'vectors':result['vectors'],'files':result['files']}))
+    else:parser.error('Supply the verified software/tool inputs or --fixtures-only')

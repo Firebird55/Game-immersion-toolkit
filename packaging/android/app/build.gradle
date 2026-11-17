@@ -4,6 +4,12 @@ def repository = rootProject.projectDir.parentFile.parentFile
 def wheelhouse = System.getenv('ANDROID_PYTHON_WHEELHOUSE')
 def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
 def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
+def cryptoBundle = System.getenv('ANDROID_PUBLISHER_CRYPTO')
+def cryptoFixtures = System.getenv('ANDROID_CRYPTO_FIXTURES')
+if (!cryptoBundle || !new File(cryptoBundle, 'assets/publisher-crypto-manifest.json').isFile() ||
+    !cryptoFixtures || !new File(cryptoFixtures, 'publisher-crypto-authored-jca.bin').isFile()) {
+    throw new GradleException('Prepare the reviewed publisher cryptography bundle and authored fixtures first.')
+}
 if (!decoderBundle || !new File(decoderBundle, 'assets/native-decoder-manifest.json').isFile()) {
     throw new GradleException('Build the pinned original-data decoder software closure first.')
 }
@@ -29,7 +35,7 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_authored_game_data.py', 'android_account_recovery.py',
     'native_frame_admission.py', 'browser_history_migration.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
-    'publisher_transport.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
+    'publisher_transport.py', 'publisher_crypto.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
 publisherPolicy.files.each { name, receipt ->
     if (!(name ==~ /backend\/[a-z0-9_]+\.py/)) throw new GradleException('Invalid packaged publisher source path.')
     def source = new File(repository, name)
@@ -80,8 +86,8 @@ android {
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs') } }
-    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so'] } }
+    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs'); jniLibs.srcDir new File(cryptoBundle, 'jniLibs') } }
+    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so', '**/libtoolkit_publisher_crypto.so'] } }
 }
 
 chaquopy {
@@ -106,6 +112,8 @@ tasks.register('prepareToolkitPython', Sync) {
 tasks.register('prepareToolkitReader') {
     inputs.dir(readerFrontend)
     inputs.dir(new File(decoderBundle, 'assets'))
+    inputs.dir(new File(cryptoBundle, 'assets'))
+    inputs.dir(cryptoFixtures)
     inputs.file(publisherPolicyFile)
     inputs.file(new File(wheelhouse, 'zstandard-build-receipt.json'))
     inputs.file(new File(repository, 'packaging/android/python-runtime-extensions.json'))
@@ -117,6 +125,8 @@ tasks.register('prepareToolkitReader') {
         delete(output)
         output.mkdirs()
         copy { from new File(decoderBundle, 'assets'); into output }
+        copy { from new File(cryptoBundle, 'assets'); into output }
+        copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
         copy { from new File(wheelhouse, 'zstandard-build-receipt.json'); into output }
         copy { from new File(repository, 'packaging/android/python-runtime-extensions.json'); into output }

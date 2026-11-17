@@ -117,12 +117,9 @@ def build(work, archive, ndk, ndk_archive):
     return manifest
 
 
-def verify_bundle(work):
-    work = Path(work).absolute();_no_links(work)
+def validate_manifest(value):
+    """One recipe authority for standalone software and packaged APK audits."""
     policy = json.loads((ROOT / 'packaging/android/publisher-crypto-native.json').read_text())
-    path = work / 'assets/publisher-crypto-manifest.json';_no_links(path)
-    if path.stat().st_size > 65536:raise ValueError('Publisher crypto manifest exceeds its bound')
-    value = json.loads(path.read_text())
     inputs = script('build-android-python-dependencies');pins = json.loads(inputs.POLICY.read_text())
     if (value.get('schema') != 'toolkit-android-publisher-crypto-bundle-v1' or value.get('contract') != policy['contract']
             or value.get('recipe') != recipe(policy) or value.get('source_members') != policy['source']['members']
@@ -135,6 +132,16 @@ def verify_bundle(work):
             or value.get('original_client_execution') is not False or value.get('account_keys_reused') is not False
             or set(value.get('libraries',{})) != set(policy['abis'])):
         raise ValueError('The publisher crypto bundle differs from its reviewed recipe')
+    return policy,pins
+
+
+def verify_bundle(work):
+    work = Path(work).absolute();_no_links(work)
+    path = work / 'assets/publisher-crypto-manifest.json';_no_links(path)
+    if path.stat().st_size > 65536:raise ValueError('Publisher crypto manifest exceeds its bound')
+    value = json.loads(path.read_text())
+    policy,pins = validate_manifest(value)
+    inputs = script('build-android-python-dependencies')
     audit = script('verify-android-apk')
     expected = {'assets/publisher-crypto-manifest.json'}
     for abi,row in value['libraries'].items():

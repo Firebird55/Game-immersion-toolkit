@@ -23,7 +23,9 @@ profile; the initializer does not export credentials or silently rotate keys.
 
 Build an owner candidate using the same SDK, verified offline wheelhouse and
 shared frontend arguments as the ordinary Android build, including the mandatory
-`-NdkArchive` and either `-DecoderSourceArchive` or `-DownloadDecoderSource`:
+`-NdkArchive`, `-PublisherCryptoSourceArchive` and either `-DecoderSourceArchive`
+or `-DownloadDecoderSource`. The publisher crypto source must be the authenticated
+original archive pinned by [its native recipe](android-publisher-crypto.md):
 
 ```powershell
 pwsh scripts/build-android-app.ps1 <build-arguments> -Variant ownerCandidate `

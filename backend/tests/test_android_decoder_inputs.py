@@ -102,5 +102,6 @@ def test_every_committed_workflow_build_supplies_authenticated_decoder_inputs():
             if './scripts/build-android-app.ps1 ' in line:
                 invocations.append(line)
                 assert '-NdkArchive ' in line, path.name
+                assert '-PublisherCryptoSourceArchive ' in line, path.name
                 assert '-DecoderSourceArchive ' in line or '-DownloadDecoderSource' in line, path.name
     assert invocations, 'The actual hosted APK build must exercise the pinned decoder closure'

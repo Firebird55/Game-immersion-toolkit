@@ -61,3 +61,8 @@ network calls. The target assertion binds its reported native module hash to
 one of the exact audited APK ABI hashes. This acceptance code is prepared for
 a later coherent APK; no APK or target execution of this new cohort has yet
 been established by these source, wheel or host-reference checks.
+
+The [publisher crypto APK integration](android-publisher-crypto.md#reviewed-apk-build-and-acceptance-integration)
+rebuilt both ABIs with the current shared ELF helper in fresh outputs. Its new
+source-bound receipt and 19-wheel composite preserve all earlier receipts;
+reproducing the same native bytes is not permission to rewrite their recipes.

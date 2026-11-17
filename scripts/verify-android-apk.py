@@ -81,6 +81,40 @@ def verify_publisher_sources(archive, core, repository):
     return policy
 
 
+def verify_publisher_crypto(archive, native_files, repository):
+    raw = archive.read('assets/publisher-crypto-manifest.json')
+    if len(raw) > 65536:raise ValueError('Publisher crypto manifest exceeds its bound')
+    value = json.loads(raw)
+    spec = importlib.util.spec_from_file_location('apk_publisher_crypto', repository / 'scripts/build-android-publisher-crypto.py')
+    software = importlib.util.module_from_spec(spec);spec.loader.exec_module(software)
+    policy,pins = software.validate_manifest(value)
+    inputs = software.script('build-android-python-dependencies')
+    for abi,row in value['libraries'].items():
+        name = 'lib/'+abi+'/'+policy['library'];entry = archive.getinfo(name)
+        actual = archive.read(name)
+        if (row.get('entry') != name or not 1 <= row['bytes'] <= 1024**2 or entry.file_size != row['bytes']
+                or entry.compress_type != zipfile.ZIP_STORED or native_files[name]['sha256'] != row['sha256']
+                or row.get('needed') != ['libc.so']):
+            raise ValueError('The packaged publisher crypto differs from its compiled ABI receipt')
+        inputs.elf_contract(actual,pins['targets'][abi]['elf_machine'],expected_dependencies=('libc.so',))
+    expected = {'publisher-crypto-licenses/LICENSE.rst',
+        *('publisher-crypto-licenses/'+Path(name).name+'.notice' for name in policy['source']['notice_sources'])}
+    if set(value.get('licenses',{})) != expected:raise ValueError('Complete original publisher crypto notices are required')
+    for name,row in value['licenses'].items():
+        actual = archive.read('assets/'+name)
+        if not 1 <= row['bytes'] <= 16384 or len(actual) != row['bytes'] or hashlib.sha256(actual).hexdigest() != row['sha256']:
+            raise ValueError('A complete original publisher crypto notice changed')
+    fixtures = {}
+    for kind,count in (('capi',16),('jca',41)):
+        fixture = archive.read('assets/publisher-crypto-authored-'+kind+'.bin')
+        magic,endian = (b'TPC1','<') if kind == 'capi' else (b'PBJ1','>')
+        if (not 8 <= len(fixture) <= 65536 or fixture[:4] != magic
+                or struct.unpack_from(endian+'I',fixture,4)[0] != count):
+            raise ValueError('The authored publisher crypto fixture envelope changed')
+        fixtures[kind] = {'bytes':len(fixture),'sha256':hashlib.sha256(fixture).hexdigest(),'cases':count}
+    return {**value,'manifest_sha256':hashlib.sha256(raw).hexdigest(),'authored_fixtures':fixtures}
+
+
 def verify_zstandard_package(archive, native_files, repository):
     extension_raw = archive.read('assets/python-runtime-extensions.json')
     if extension_raw != (repository / 'packaging/android/python-runtime-extensions.json').read_bytes():
@@ -139,6 +173,7 @@ def verify(path):
         decoder = verify_decoder(archive, result, repository)
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
+        crypto = verify_publisher_crypto(archive, result, repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():
@@ -166,7 +201,7 @@ def verify(path):
     return {'schema': 'toolkit-android-apk-audit-v1', 'apk_sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest(),
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
-        'native_data_decoder': decoder, 'native_zstandard': zstandard,
+        'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'publisher_source_policy': publishers,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}
 

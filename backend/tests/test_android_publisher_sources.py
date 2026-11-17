@@ -29,7 +29,7 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999'}
-    assert len(policy['files']) == 10 and len(portable_sources()) == 65
+    assert len(policy['files']) == 10 and len(portable_sources()) == 66
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
         module for provider in policy['providers'].values() for module in provider['modules']} | set(policy['context_modules'])
@@ -163,6 +163,6 @@ def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_netwo
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 65 and proof['registry'] == ['nte','reverse1999']
+    assert proof['owned_modules'] == 66 and proof['registry'] == ['nte','reverse1999']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['native_android_execution'] is False

@@ -7,8 +7,8 @@ separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
-Together with the 55 core/host/decoder and authored acceptance modules, this
-policy selects 65 owned modules. The generated acceptance provider is installed
+Together with the 56 core/host/decoder, explicit crypto and authored acceptance modules, this
+policy selects 66 owned modules. The generated acceptance provider is installed
 only by a separately named, explicitly opted-in native DEBUG startup; it never
 changes the production registry or establishes publisher-content coverage.
 These two production factories require only CPython's standard library.

@@ -36,10 +36,11 @@ credentials. Its nonexportable key, aliases, associated data and account root
 are separate from publisher inputs. It is not an AES-ECB/CBC resource decoder,
 RSA service or generic game-key store, and must not be repurposed.
 
-The current `FrameOcr`/`NativeX64Decoder` bridge offers OCR and the pinned
-data-only x64 decoder. It exposes no publisher crypto API. Java's existing
-SHA-256 usage is digest verification only. The 64-source package contains
-neither PyCryptodome nor a publisher crypto native library.
+At the initial 64-source inventory checkpoint, the `FrameOcr`/`NativeX64Decoder`
+bridge offered OCR and the pinned data-only x64 decoder, with no publisher
+crypto API. Java's SHA-256 usage covered digest verification. That package
+contained neither PyCryptodome nor a publisher crypto native library; the
+implemented explicit capability and later 66-source integration are below.
 
 Android's documented `Cipher` transformations include AES, DES and RSA on the
 supported modern versions, and ChaCha20 from API 28. However, the explicit
@@ -242,3 +243,56 @@ target. It does **not** prove JNI calls or manifest loading from a signed APK,
 APK ZIP alignment, API 34 execution, x86_64 execution, a 16-KiB-page device,
 complete game source preparation, or original audio playback. Those remain
 separate acceptance steps and no producer is enabled merely by these results.
+
+## Reviewed APK build and acceptance integration
+
+The next source cohort combines the current direct-preparation acceptance
+provider with this explicit crypto contract: **66 owned Python modules**. The
+additional module is `publisher_crypto`; no global `Crypto` package or desktop
+producer/runtime is copied into Android. The two production discovery/stage
+providers and their remaining content gates are unchanged.
+
+The app builder requires the authenticated original source archive, builds both
+reviewed JNI ABIs, and supplies their closed assets/JNI directories to Gradle.
+The complete original notices and manifest enter the APK. Both owned native
+libraries retain their compiled bytes through packaging; Android Gradle Plugin
+must not strip them after the manifest hashes are calculated. The APK audit
+checks the actual stored ELF members, libc-only dependencies, 16-KiB LOAD
+alignment, exact recipe, both ABIs and complete notice inventory. Signing and
+16-KiB ZIP alignment remain separate mandatory final APK checks.
+
+The DEBUG-only native selftest now opens the exact packaged crypto capability
+and passes freshly generated authored fixtures through **Python → Java →
+JNI/JCA**. Its 16 ChaCha cases include eight positive positioned operations;
+invalid-envelope rejections are not represented as native execution. The 41
+JCA/API cases cover AES/DES block operations, RSA verification and CRT
+decryption, including invalid inputs and valid empty plaintext. Fixture private
+numbers are generated test inputs, never real account/publisher credentials.
+They remain in generated software fixtures and are excluded from diagnostics.
+
+The report contains only booleans, counts, input hashes and the native loader's
+verified provenance. The runtime assertion requires matching fixture hashes in
+the report, actual APK audit and candidate provenance, plus the actual loaded
+ABI/library/manifest identity. The same assertions run after an APK update.
+The ordinary matcher result identity remains independent of this extra report.
+
+Both Zstandard ABIs were rebuilt from the already cached original source and
+current ELF helper in a new output directory. The new receipt SHA-256 is
+`7bb5fe714ed45412204494e9086a46aa0f19cfa00b90960e66d86e60048c5419`;
+the new 19-wheel composite receipt is
+`199ce4208107e773e8bfd760cacb9d7924ac8243b6a2ea41ce0edb4ce6f1ccda`.
+The compiled native/wheel bytes reproduce the earlier hashes, but the new
+recipe receipt records the current helper rather than relabeling old evidence.
+Earlier receipts and the standalone physical proof remain unchanged.
+
+The freshly rebuilt crypto manifest SHA-256 is
+`2cdd14c6a1705c465a63129b436aa874ba598bb059ea43e8983c0d3d59477464`.
+Its native bytes reproduce the source-specific ABI hashes above; its recipe
+also binds the shared standalone/APK manifest-validation implementation.
+
+Host vector, source-closure, package-tamper and receipt tests establish the
+reviewable build contract. This cohort has **not built an APK or executed
+JNI from one** yet. Actual API 34/36 APK acceptance, physical ARM64 loading,
+publisher HTTPS, original game content and full independent preparation remain
+separate required evidence. The older standalone device result cannot satisfy
+those checks.

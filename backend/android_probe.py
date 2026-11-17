@@ -253,6 +253,92 @@ def run_zstandard(root, vectors_json):
         'cases':results, 'sophon_context_and_offline_cache':True, 'publisher_requests':0})
 
 
+def _crypto_cases(crypto, capi, jca):
+    """Run the same bounded authored vectors on the reference and real APK.
+
+    Positive operations traverse the explicit crypto API; envelope rejections
+    are separate from native execution. No fixture key or plaintext is returned.
+    """
+    import io
+    import struct
+    from .publisher_crypto import MAX_BYTES, RsaPrivateNumbers
+    if any(type(raw) is not bytes or not 8 <= len(raw) <= 65536 for raw in (capi,jca)):
+        raise ValueError('Authored publisher crypto fixture exceeds its bound')
+    def take(stream, size):
+        if not 0 <= size <= 65536:raise ValueError('Invalid authored crypto field length')
+        raw = stream.read(size)
+        if len(raw) != size:raise ValueError('Truncated authored crypto fixture')
+        return raw
+    def number(stream, fmt):return struct.unpack(fmt,take(stream,struct.calcsize(fmt)))[0]
+    def invoke(call, expected):
+        try:result = call()
+        except ValueError:
+            if expected != -2:raise ValueError('The actual crypto runtime rejected a valid authored case') from None
+        else:
+            if expected == -2 or result != expected:raise ValueError('The actual crypto runtime returned different authored bytes')
+    stream = io.BytesIO(capi)
+    if take(stream,4) != b'TPC1' or number(stream,'<I') != 16:raise ValueError('Unexpected authored ChaCha cases')
+    positives = 0
+    for _ in range(16):
+        kl,nl,size,claimed,position,accepted = struct.unpack('<IIIQQI',take(stream,32))
+        if accepted not in (0,1):raise ValueError('Invalid authored crypto result')
+        key,nonce,data = take(stream,kl),take(stream,nl),take(stream,size)
+        expected = take(stream,size) if accepted else -2
+        def chacha():
+            if claimed != len(data) or claimed > MAX_BYTES:raise ValueError('Invalid authored crypto envelope')
+            return crypto.chacha20(key,nonce,data,position=position)
+        invoke(chacha,expected);positives += accepted
+    if stream.read(1) or positives != 8:raise ValueError('Unexpected authored ChaCha inventory')
+    stream = io.BytesIO(jca)
+    if take(stream,4) != b'PBJ1' or number(stream,'>I') != 41:raise ValueError('Unexpected authored JCA cases')
+    operations = {'block':0,'verify':0,'decrypt':0}
+    def field(value, nullable=False):
+        length = number(value,'>i')
+        if nullable and length == -1:return None
+        return take(value,length)
+    for _ in range(41):
+        payload = io.BytesIO(take(stream,number(stream,'>I')))
+        operation = take(payload,number(payload,'>H')).decode('ascii')
+        if operation == 'block':
+            algorithm = take(payload,number(payload,'>H')).decode('ascii')
+            mode = take(payload,number(payload,'>H')).decode('ascii')
+            decrypt = number(payload,'>B')
+            if decrypt not in (0,1):raise ValueError('Invalid authored cipher direction')
+            key,iv,data = field(payload),field(payload,True),field(payload)
+            call = lambda:crypto.block_cipher(algorithm,mode,key,data,iv=iv,decrypt=bool(decrypt))
+        elif operation == 'verify':
+            public,data,signature = field(payload),field(payload),field(payload)
+            call = lambda:bytes([crypto.rsa_verify_sha256(public,data,signature)])
+        elif operation == 'decrypt':
+            numbers = [int.from_bytes(field(payload),'big') for _ in range(5)]
+            data = field(payload)
+            call = lambda:crypto.rsa_decrypt_pkcs1(RsaPrivateNumbers(*numbers),data)
+        else:raise ValueError('Unsupported authored crypto operation')
+        if payload.read(1):raise ValueError('Extra authored operation bytes')
+        length = number(stream,'>i')
+        if length < -2:raise ValueError('Invalid authored crypto result length')
+        expected = -2 if length == -2 else None if length == -1 else take(stream,length)
+        invoke(call,expected);operations[operation] += 1
+    if stream.read(1) or operations != {'block':31,'verify':5,'decrypt':5}:
+        raise ValueError('Unexpected authored JCA inventory')
+    return {'fixture':'authored-packaged-publisher-crypto','passed':True,'capi_cases':16,'jca_cases':41,
+        'chacha_positive_cases':positives,'operations':operations,
+        'fixtures':{kind:{'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'cases':count}
+            for kind,raw,count in (('capi',capi,16),('jca',jca,41))},
+        'publisher_requests':0,'account_keys_reused':False,'original_client_execution':False}
+
+
+def run_crypto(native, capi_base64, jca_base64):
+    import base64
+    from .publisher_crypto import create_publisher_crypto
+    if any(type(raw) is not str or len(raw) > 90000 for raw in (capi_base64,jca_base64)):
+        raise ValueError('Authored publisher crypto input exceeds its bound')
+    try:crypto = create_publisher_crypto(platform='android',native=native.publisherCrypto())
+    except Exception:raise ValueError('The packaged publisher cryptography runtime is unavailable.') from None
+    result = _crypto_cases(crypto,base64.b64decode(capi_base64,validate=True),base64.b64decode(jca_base64,validate=True))
+    return json.dumps({**result,'runtime':crypto._proof})
+
+
 def run_preview(native):
     """Exercise actual Android bitmap/JPEG crops using the shared geometry."""
     from .capture_geometry import picture_bounds, region_bounds

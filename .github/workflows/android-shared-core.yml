@@ -5,11 +5,14 @@ on:
       - '.github/workflows/android-shared-core.yml'
       - 'packaging/android/**'
       - 'scripts/*android*'
+      - 'scripts/prepare-publisher-crypto-probes.py'
       - 'backend/prepared_*.py'
       - 'backend/android*.py'
       - 'backend/capture_confirmation.py'
       - 'backend/native_frame_admission.py'
       - 'backend/genshin_native_x64.py'
+      - 'backend/publisher_crypto.py'
+      - 'backend/publisher_apk.py'
       - 'backend/multilingual_index.py'
       - 'backend/local_game.py'
       - 'backend/language_contracts.py'
@@ -69,7 +72,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py backend/tests/test_prepared_training_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q backend/tests/test_android_crypto_probe.py backend/tests/test_android_publisher_crypto_bundle.py backend/tests/test_publisher_crypto.py backend/tests/test_publisher_apk.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --test tests/android-publisher-crypto-proof.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
@@ -104,6 +111,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build the same maintained desktop reader
         run: npm run desktop:build -- --output-root output/android-frontend
+      - name: Acquire the authenticated original publisher cryptography source
+        run: |
+          python -c "import importlib.util,json;from pathlib import Path;s=importlib.util.spec_from_file_location('software_inputs','scripts/build-android-python-dependencies.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/publisher-crypto-native.json').read_text())['source'];m.acquire(Path('output/android-crypto-source'),{'artifact':'pycryptodome-3.24.1.tar.gz',**v},download=True)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Construct signed debug candidate without a release identity
         run: |
           # Both versions use one temporary debug identity within this run.
@@ -111,7 +122,7 @@ jobs:
           $build = Join-Path $pwd 'output/android-build'
           $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
           foreach ($code in @(1, 2)) {
-            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -VersionCode $code -DownloadGradle -DownloadDecoderSource
+            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -PublisherCryptoSourceArchive (Join-Path $pwd 'output/android-crypto-source/pycryptodome-3.24.1.tar.gz') -VersionCode $code -DownloadGradle -DownloadDecoderSource
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
             New-Item -ItemType Directory -Path $target -Force | Out-Null
