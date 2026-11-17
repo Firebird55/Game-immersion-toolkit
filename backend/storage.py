@@ -33,6 +33,16 @@ CREATE TABLE IF NOT EXISTS transcript_lines (
 )
 """
 
+# Opaque immutable generation and explicit preparation selection must agree
+# before a previous row can suppress/replace a capture. Missing legacy context
+# retains its previous None/None/false behavior.
+_PUBLISHER_SCOPE = """
+AND json_extract(language_context, '$.publisher_generation') IS ?
+AND json_extract(language_context, '$.publisher_request_sha256') IS ?
+AND json_extract(language_context, '$.publisher_occurrence_sha256') IS ?
+AND COALESCE(json_extract(language_context, '$.audio_omitted_by_request'), 0) = ?
+"""
+
 
 class TranscriptConnectionCloseError(RuntimeError):
     """Private failed-close ownership; never a store-detach or retry token."""
@@ -230,7 +240,8 @@ class TranscriptStore:
                         json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                             'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
                             'voice_status', 'dialogue_kind', 'audio_scope', 'text_capture_verified',
-                            'audio_omitted_by_request', 'source_voice_binding')}, ensure_ascii=False),
+                            'audio_omitted_by_request', 'source_voice_binding', 'publisher_generation',
+                            'publisher_request_sha256', 'publisher_occurrence_sha256')}, ensure_ascii=False),
                     ),
                 )
                 row_id = statement.lastrowid
@@ -301,14 +312,16 @@ class TranscriptStore:
         while a subtitle is still visible.
         """
         timestamp = created_at or datetime.now(timezone.utc).astimezone()
+        source_scope = (match.publisher_generation, match.publisher_request_sha256,
+                        match.publisher_occurrence_sha256, int(match.audio_omitted_by_request))
         if match.source_locale != 'zh-Hans' or match.audio_scope in {'paragraph', 'context'}:
             with self._connection_scope() as connection:
                 with self._sql_lifetime.cursor(connection) as statement:
                     duplicate = statement.execute("""SELECT 1 FROM transcript_lines
                     WHERE game=? AND text_id=? AND json_extract(language_context, '$.source_locale')=?
-                    AND json_extract(language_context, '$.source_text')=? AND datetime(created_at)>=datetime(?) LIMIT 1""",
+                    AND json_extract(language_context, '$.source_text')=? AND datetime(created_at)>=datetime(?)""" + _PUBLISHER_SCOPE + " LIMIT 1",
                         (match.game, match.text_id, match.source_locale, match.source_text,
-                         (timestamp-timedelta(seconds=max(0.0,cooldown_seconds))).isoformat())).fetchone()
+                         (timestamp-timedelta(seconds=max(0.0,cooldown_seconds))).isoformat(), *source_scope)).fetchone()
             if duplicate:
                 return None, False
             return self.add(match, session_id, created_at=timestamp, channel=channel), False
@@ -321,9 +334,8 @@ class TranscriptStore:
                     """
                 SELECT * FROM transcript_lines
                 WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
-                ORDER BY id DESC LIMIT 1
-                """,
-                    (match.game, adjacent_cutoff.isoformat()),
+                """ + _PUBLISHER_SCOPE + " ORDER BY id DESC LIMIT 1",
+                    (match.game, adjacent_cutoff.isoformat(), *source_scope),
                 ).fetchone()
             if (
                 adjacent
@@ -340,9 +352,8 @@ class TranscriptStore:
                 WHERE text_id = ? AND english = ?
                   AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans'
                   AND datetime(created_at) >= datetime(?)
-                LIMIT 1
-                """,
-                    (match.text_id, match.english, match.game, cutoff.isoformat()),
+                """ + _PUBLISHER_SCOPE + " LIMIT 1",
+                    (match.text_id, match.english, match.game, cutoff.isoformat(), *source_scope),
                 ).fetchone()
             if duplicate:
                 return None, False
@@ -353,9 +364,8 @@ class TranscriptStore:
                     """
                 SELECT * FROM transcript_lines
                 WHERE game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
-                ORDER BY id DESC LIMIT 8
-                """,
-                    (match.game, fragment_cutoff.isoformat()),
+                """ + _PUBLISHER_SCOPE + " ORDER BY id DESC LIMIT 8",
+                    (match.game, fragment_cutoff.isoformat(), *source_scope),
                 ).fetchall()
             incoming_text = self._prefix_text(match.english)
             for recent in recent_rows:
@@ -377,9 +387,8 @@ class TranscriptStore:
                     """
                 SELECT * FROM transcript_lines
                 WHERE session_id = ? AND game = ? AND COALESCE(json_extract(language_context, '$.source_locale'), 'zh-Hans')='zh-Hans' AND datetime(created_at) >= datetime(?)
-                ORDER BY id DESC LIMIT 1
-                """,
-                    (session_id, match.game, upgrade_cutoff.isoformat()),
+                """ + _PUBLISHER_SCOPE + " ORDER BY id DESC LIMIT 1",
+                    (session_id, match.game, upgrade_cutoff.isoformat(), *source_scope),
                 ).fetchone()
             if previous and not (is_comic or self._row_to_line(previous).is_comic
                                  or self._row_to_line(previous).audio_scope in {'paragraph', 'context'}):
@@ -415,7 +424,8 @@ class TranscriptStore:
                                 json.dumps({key: getattr(match, key) for key in ('source_language', 'source_locale',
                                     'source_text', 'translation_locale', 'translation_text', 'audio_locale', 'texts',
                                     'voice_status', 'dialogue_kind', 'audio_scope', 'text_capture_verified',
-                                    'audio_omitted_by_request', 'source_voice_binding')}, ensure_ascii=False),
+                                    'audio_omitted_by_request', 'source_voice_binding', 'publisher_generation',
+                                    'publisher_request_sha256', 'publisher_occurrence_sha256')}, ensure_ascii=False),
                                 previous["id"],
                             ),
                         )

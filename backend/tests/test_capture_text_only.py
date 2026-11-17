@@ -44,10 +44,19 @@ def test_text_only_desktop_scan_never_resolves_schedules_or_repairs_audio(tmp_pa
         assert not line.has_audio and not line.audio_pending
         assert not service._mapped_voice(index.match_lines([TEXT]))
         assert not service.repair_recorded_line(line)
+        # A trusted new generation with unchanged text must pass both the
+        # in-memory cooldown and database duplicate guard, without audio work.
+        index.publisher_generation = 'authored-updated-generation'
+        index.publisher_request_sha256 = 'a' * 64
+        updated = []
+        for _ in range(3):
+            updated.extend(service._scan_pragmata(window, region, engine, 0, datetime.now(timezone.utc), 'nte').emitted_lines)
+        assert len(updated) == 1 and updated[0].id != line.id
+        assert updated[0].publisher_generation == index.publisher_generation
         await asyncio.sleep(.02)
     try:
         asyncio.run(replay())
-        assert len(published) == 1 and not scheduled
+        assert len(published) == 2 and not scheduled
         assert not published[0].audio_pending
     finally:
         service._executor.shutdown()
