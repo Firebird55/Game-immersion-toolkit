@@ -11,6 +11,7 @@ import json
 import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
+from urllib.parse import urlencode
 import urllib.request
 
 
@@ -19,6 +20,10 @@ MAX_PARTS = 1024
 GLOBAL_SITE = 'https://re1999.bluepoch.com'
 GLOBAL_UPDATE_HOSTS = ('hotupdate-hw.sl916.com', 'hotupdate-bak-hw.sl916.com')
 DOWNLOAD_HOSTS = frozenset(('download.bluepoch.com', 'download-bak.bluepoch.com'))
+OPTIONAL_UPDATE_HOSTS = ('optionalres-hw.sl916.com', 'optionalres-bak-hw.sl916.com')
+OPTIONAL_DOWNLOAD_HOSTS = frozenset(('optionalres-res-hw.sl916.com',
+                                     'optionalres-res-bak-hw.sl916.com'))
+VOICE_LOCALES = {'en': 'en', 'zh': 'zh', 'ja': 'jp', 'ko': 'kr'}
 PROFILE_REFERENCE = ('Peebify-Launcher/peebify-launcher-lite',
                      '0fdb84bf39d27a5128178475ef728ffb6dd22656',
                      'src-tauri/src/backend/game_profiles.rs')
@@ -101,7 +106,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def request(url, *, body=None, language='en', opener=None):
-    hosts = {urlsplit(GLOBAL_SITE).hostname, *GLOBAL_UPDATE_HOSTS}
+    hosts = {urlsplit(GLOBAL_SITE).hostname, *GLOBAL_UPDATE_HOSTS, *OPTIONAL_UPDATE_HOSTS}
     _url(url, hosts)
     payload = None if body is None else json.dumps(body, separators=(',', ':')).encode()
     req = urllib.request.Request(url, data=payload,
@@ -233,3 +238,77 @@ def discover(*, fetch=request):
             'dialogue_download_bytes': None, 'website_page_version': page_version,
             'installer_url': installer, 'responses': responses,
             'profile_reference': PROFILE_REFERENCE, 'dialogue_preparation_implemented': False}
+
+
+def optional_voices(voice_branch, *, locales=('en', 'zh', 'ja', 'ko'), fetch=request):
+    """Read original optional voice ZIP inventories for an evidenced branch.
+
+    The branch comes from original bootstrap data, not a frozen game version.
+    English is the Global base voice: its absence from optional packages is not
+    missing/silent audio. Its independent base acquisition remains unresolved.
+    ZIPs contain both localized banks and videos; sizes have this complete-pack
+    scope, not a dialogue-only selection or final decoded-audio disk estimate.
+    """
+    _check(type(voice_branch) is int and 0 < voice_branch < 10**6, 'Invalid original voice branch.')
+    _check(isinstance(locales, (tuple, list)) and 0 < len(locales) <= len(VOICE_LOCALES)
+           and all(isinstance(locale, str) and locale in VOICE_LOCALES for locale in locales)
+           and len(set(locales)) == len(locales), 'Unsupported or duplicate original voice locale.')
+    native = [VOICE_LOCALES[locale] for locale in locales]
+    query = urlencode({'os_type': 2, 'lang': ','.join(native),
+                       'version': ','.join(f'{voice_branch}.0' for _ in native),
+                       'env_type': 4, 'channel_id': 200})
+    last = None
+    for host in OPTIONAL_UPDATE_HOSTS:
+        try:
+            source_url = 'https://' + host + '/resource/60001/check?' + query
+            raw = fetch(source_url)
+            data = decode_metadata(raw)
+            break
+        except (HTTPError, URLError) as error:
+            last = error
+    else:
+        raise last or ValueError('Publisher optional voice service is unavailable.')
+    _check(set(data) <= set(native), 'Publisher returned an unexpected voice namespace.')
+    packs = {}
+    for locale, language in zip(locales, native):
+        if language not in data:
+            _check(language == 'en', 'Publisher optional voice inventory is missing; retain the previous catalog.')
+            packs[locale] = {'state': 'original-base-pack-required', 'archives': [], 'download_bytes': None}
+            continue
+        info = data[language]
+        _check(isinstance(info, dict), 'Unsupported publisher optional voice schema.')
+        version = _version(info.get('latest_ver'))
+        _check(version.split('.')[0] == str(voice_branch), 'Voice branch changed; refresh original bootstrap first.')
+        bases = []
+        for name in ('download_url', 'download_url_bak'):
+            base = info.get(name)
+            parsed = _url(base, OPTIONAL_DOWNLOAD_HOSTS)
+            _check(not parsed.query and re.fullmatch(r'/uploadzip/60001/4/[0-9]+', parsed.path),
+                   'Optional voice CDN namespace is not owned by this release profile.')
+            bases.append(base)
+        rows = info.get('res')
+        _check(isinstance(rows, list) and 0 < len(rows) <= MAX_PARTS, 'Publisher optional pack list is missing or oversized.')
+        identities, archives = set(), []
+        for position, row in enumerate(rows):
+            _check(isinstance(row, dict), 'Unsupported publisher optional archive entry.')
+            name, digest, order = row.get('name'), row.get('hash'), row.get('order')
+            _check(isinstance(name, str) and len(name) <= 512
+                   and re.fullmatch(r'[A-Za-z0-9_./-]+\.zip', name)
+                   and all(part not in ('', '.', '..') for part in name.split('/'))
+                   and name not in identities, 'Unsafe or duplicate optional archive path.')
+            _check(isinstance(digest, str) and re.fullmatch('[a-f0-9]{32}', digest)
+                   and type(order) is int and 0 < order < 2**31, 'Invalid optional archive digest or update order.')
+            identities.add(name)
+            archives.append({'url': bases[0] + '/' + name, 'backup_url': bases[1] + '/' + name,
+                             'md5': digest, 'size': _positive(row.get('length')),
+                             'order': order, 'ordinal': position})
+        packs[locale] = {'state': 'original-optional-inventory', 'version': version,
+                         'archives': archives, 'download_bytes': sum(row['size'] for row in archives)}
+    identity = {'region': 'global', 'platform': 'Windows', 'voice_branch': voice_branch, 'packs': packs}
+    fingerprint = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return {**identity, 'schema': 'reverse1999-optional-voice-inventory-v1', 'fingerprint': fingerprint,
+            'source_url': source_url, 'source_sha256': hashlib.sha256(raw).hexdigest(),
+            'download_bytes': sum(pack['download_bytes'] or 0 for pack in packs.values()),
+            'size_scope': 'complete-optional-voice-and-video-pack-not-dialogue-selection',
+            'requested_voice_inventory_complete': all(pack['state'] == 'original-optional-inventory' for pack in packs.values()),
+            'expanded_bytes': None, 'dialogue_preparation_implemented': False}

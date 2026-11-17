@@ -96,8 +96,9 @@ and [object table implementation](https://github.com/K0lb3/UnityPy/blob/master/U
 then confirmed with the original resource bytes; UnityPy is not a runtime
 dependency of this reader.
 
-The publisher GameConfig asset named `bluepoch` contains an opaque 2,176-byte
-payload. Original key/decoder derivation is still required. Packing or one failed
+The publisher GameConfig asset named `bluepoch` contains a 2,176-byte payload,
+which the production bootstrap reader preserves as opaque data. Original
+key/decoder derivation is still required. Packing or one failed
 request is not evidence that official derivation is impossible. No community key
 fallback or game-key literal has been added. The reader never evaluates game Lua
 or executes game native/managed assemblies. It rejects altered serialization,
@@ -105,14 +106,55 @@ overlapping objects, duplicate/missing fields and mismatched source identities;
 the returned bootstrap record omits its GameConfig payload from its diagnostic
 representation.
 
-The launcher archive inventory is **not the in-game hotfix catalog**. Static
-protocol research identifies separate patch-version and optional voice queries.
-An initial optional-voice request without the game-generated metadata header
-returned an authorization error. A partial patch query returned `0.0.0`; it is
-not accepted as the live version. Their complete public bootstrap, response
-ownership, ordinary update behavior and selected original download format still
-need verification. Account login, a running game or captured user credentials
-must not become prerequisites.
+The launcher archive inventory is **not the in-game hotfix catalog**. A partial
+patch query returned `0.0.0`; it is not accepted as the live version. Its complete
+public bootstrap, response ownership and ordinary update behavior still need
+verification. Account login, a running game or captured user credentials must
+not become prerequisites.
+
+## Original optional voice inventories
+
+Private research cross-checked the original GameConfig payload against a
+[pinned legacy format reference](https://github.com/hax0r31337/re1999-tools/blob/b2f2d4f27c4effe6ebae8275da732f226a159e69/text-assets.py).
+The decoded original configuration identifies a separate publisher voice service,
+`optionalres-hw.sl916.com`, and its backup. This research is **not official key
+derivation** and has not introduced a community key dependency/fallback into
+production. The official key locator remains open; no game-key literal is
+committed.
+
+An initial request sent to the launcher host had returned an authorization error.
+That is **not evidence of an account/header requirement**: the correct original
+optional-voice host serves the metadata publicly, without credentials or the
+game's `x-sl-info` header. `reverse1999_release.optional_voices` now successfully
+queries it using the current bootstrap voice branch. It requests fresh original
+inventories, validates returned branch identity, original CDN scope, ZIP MD5s,
+sizes and update orders, and keeps the base voice separately unresolved.
+
+| Optional dub | Current original version | ZIP archives | Exact compressed bytes |
+| --- | --- | ---: | ---: |
+| Japanese | 109.131 | 3 | 2,756,808,065 |
+| Korean | 109.130 | 5 | 2,810,706,837 |
+| Mandarin | 109.130 | 3 | 2,816,769,030 |
+| English | Original base pack required | Unresolved | Unknown |
+
+These packs contain localized audio **and videos**. The numbers describe their
+complete archives, not a dialogue selection or final decoded-audio disk use.
+English is the Global default/base voice and was absent from the optional
+response; it must not be classified as unvoiced or substituted with another dub.
+The returned completeness flag stays false when a requested base voice is still
+unresolved. Korean includes ordered cumulative archive layers; preparation must
+apply the publisher's update order and validate the resulting current files.
+The ordinary discovery call returned source fingerprint
+`29576336dc4c4ee3feeff003ee96780f1d4d32055cd07d346a225efe01ba4574`.
+
+Bounded reads of one original Japanese ZIP found a standard central directory
+(802 entries, 74,844 bytes), including 771 BNK files. This allows ordinary ZIP
+seek/deflate readers instead of requiring a Unity runtime for these audio packs.
+One 4,485-byte original story bank passes its ZIP-file CRC and has Wwise bank
+version 150, DIDX/DATA/HIRC chunks and embedded RIFF/WEM Vorbis audio (mono,
+24 kHz). No extra bank decryptor was needed for this example. Full ZIP MD5,
+authored text/event ownership, every bank layout, audio decoding/playback and
+native Android acceptance remain unverified. No recording is published.
 
 ## Finite dialogue coverage boundary
 
@@ -137,8 +179,9 @@ must use authored scene/step context where available.
 
 ## Remaining implementation and acceptance
 
-- Discover current Global/mainland bootstrap and in-game hotfix inventories from
-  original publisher data, including optional dubs absent from a local device.
+- Complete original bootstrap/key/hash discovery and mandatory Global/mainland
+  hotfix/base inventories. Global Japanese, Mandarin and Korean optional
+  inventories are now publicly queryable without a local voice pack.
 - Read the original selected metadata, translations, story layouts and audio
   event/bank/media relationships without evaluating game Lua or binaries.
 - Implement portable archive/bundle/localization readers and original audio
@@ -153,8 +196,9 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-Owned synthetic fixtures currently exercise public metadata decoding,
-ordinary-version refresh, announcement-insensitive fingerprints, original
-archive ownership and totals, malformed/oversized data, network fallback and
-HTTP response integrity. No game text, recordings, keys or executable files are
+The 57 owned synthetic fixtures currently exercise public metadata decoding,
+ordinary-version and voice-branch refresh, announcement-insensitive launcher
+fingerprints, original archive ownership and totals, bootstrap boundaries,
+mandatory/optional voice distinctions, update order, malformed/oversized data,
+network fallback and HTTP response integrity. No game text, recordings, keys or executable files are
 test fixtures. No installed-game or physical-device playback is claimed.
