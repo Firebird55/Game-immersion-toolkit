@@ -44,21 +44,31 @@ def _prefix(url, channel):
     return url.rstrip('/')
 
 
-def release(channel):
+def _download(url, limit, fetch):
+    # Resolve the default at call time: existing desktop/test callers can keep
+    # supplying their bounded downloader without a process-global override.
+    selected = download if fetch is None else fetch
+    _check(callable(selected))
+    raw = selected(url, limit=limit)
+    _check(isinstance(raw, bytes) and len(raw) <= limit)
+    return raw
+
+
+def release(channel, *, fetch=None):
     (launcher, launcher_id, _), game_id, _, _ = CHANNELS[channel]
     url = f'https://{launcher}/hyp/hyp-connect/api/getGameBranches?launcher_id={launcher_id}'
-    listing = json.loads(download(url, limit=2 * 1024**2))
+    listing = json.loads(_download(url, 2 * 1024**2, fetch))
     _check(listing['retcode'] == 0)
     main, = [item['main'] for item in listing['data']['game_branches'] if item['game']['id'] == game_id]
-    return released_build(channel, main)
+    return released_build(channel, main, **({} if fetch is None else {'fetch': fetch}))
 
 
-def released_build(channel, main):
+def released_build(channel, main, *, fetch=None):
     (_, _, downloader), _, platform, _ = CHANNELS[channel]
     _check(main['branch'] == 'main' and re.fullmatch(r'\d+\.\d+\.\d+', main['tag']))
     query = urlencode({key: main[key] for key in ('tag', 'branch', 'password', 'package_id')} | {'plat_app': platform})
     # The temporary branch parameter is used only in this request.
-    reply = json.loads(download(f'https://{downloader}/downloader/sophon_chunk/api/getBuild?{query}', limit=4 * 1024**2))
+    reply = json.loads(_download(f'https://{downloader}/downloader/sophon_chunk/api/getBuild?{query}', 4 * 1024**2, fetch))
     build = reply['data']
     _check(reply['retcode'] == 0 and build['tag'] == main['tag'] and re.fullmatch('[a-zA-Z0-9]+', build['build_id']))
     manifests = {}
@@ -79,7 +89,8 @@ def released_build(channel, main):
     return {'channel': channel, 'version': build['tag'], 'build': build['build_id'], 'manifests': manifests}
 
 
-def _verified(directory, url, compressed, length, digest, maximum):
+def _verified(directory, url, compressed, length, digest, maximum, *, fetch=None):
+    _check(fetch is None or callable(fetch))
     _check(0 < compressed <= maximum and 0 < length <= maximum and re.fullmatch('[0-9a-f]{32}', digest))
     path = directory / digest
     if path.is_file() and path.stat().st_size == length:
@@ -89,7 +100,7 @@ def _verified(directory, url, compressed, length, digest, maximum):
     # Reuse all verified chunks; retry only this immutable object after an
     # interrupted transfer. A full-length checksum failure is a different error.
     try:
-        encoded = download(url, limit=compressed)
+        encoded = _download(url, compressed, fetch)
     except (IncompleteRead, ConnectionError, TimeoutError):
         encoded = b''
     except URLError as error:
@@ -97,7 +108,7 @@ def _verified(directory, url, compressed, length, digest, maximum):
             raise
         encoded = b''
     if len(encoded) < compressed:
-        encoded = download(url, limit=compressed)
+        encoded = _download(url, compressed, fetch)
     _check(len(encoded) == compressed)
     declared = zstandard.frame_content_size(encoded)
     _check(declared in (-1, length))
@@ -147,7 +158,8 @@ class File:
     chunks: tuple
     prefix: str
 
-    def read(self, directory, start, length):
+    def read(self, directory, start, length, *, fetch=None):
+        _check(fetch is None or callable(fetch))
         _check(0 <= start <= self.size - length and 0 < length <= 64 * 1024**2)
         end = start + length
         output = bytearray()
@@ -157,7 +169,8 @@ class File:
             if base + size <= start:
                 continue
             data = _verified(directory / 'chunks', self.prefix + '/' + object_name,
-                             compressed, size, digest, MAX_CHUNK)
+                             compressed, size, digest, MAX_CHUNK,
+                             **({} if fetch is None else {'fetch': fetch}))
             output.extend(data[max(0, start - base):end - base])
         _check(len(output) == length)
         if start == 0 and length == self.size:
@@ -165,12 +178,12 @@ class File:
         return bytes(output)
 
 
-@lru_cache(maxsize=12)
-def manifest(directory: Path, channel, spec, suffixes):
+def _manifest(directory: Path, channel, spec, suffixes, *, fetch=None):
     base, name, compressed, length, digest, prefix = spec
     _check(re.fullmatch('manifest_[0-9a-f]{16}_' + re.escape(digest), name))
     data = _verified(directory / 'manifests', _prefix(base, channel) + '/' + name,
-                     compressed, length, digest, MAX_MANIFEST)
+                     compressed, length, digest, MAX_MANIFEST,
+                     **({} if fetch is None else {'fetch': fetch}))
     prefix = _prefix(prefix, channel)
     result = {}
     for number, body in _fields(memoryview(data)):
@@ -204,3 +217,26 @@ def manifest(directory: Path, channel, spec, suffixes):
         _check(offset == size)
         result[path] = File(path, size, file_digest, tuple(sorted(chunks)), prefix)
     return result
+
+
+@lru_cache(maxsize=12)
+def _cached_manifest(directory, channel, spec, suffixes):
+    return _manifest(directory, channel, spec, suffixes)
+
+
+def manifest(directory: Path, channel, spec, suffixes, *, fetch=None):
+    """Read one original manifest with an optional context-owned transport.
+
+    Context-bound reads revalidate their immutable disk cache instead of putting
+    the context/callable into a module-global LRU or a serialized descriptor.
+    All actual transfers, including retries, use the supplied callable.
+    """
+    _check(fetch is None or callable(fetch))
+    if fetch is None:
+        return _cached_manifest(directory, channel, spec, suffixes)
+    return _manifest(directory, channel, spec, suffixes, fetch=fetch)
+
+
+manifest.cache_clear = _cached_manifest.cache_clear
+manifest.cache_info = _cached_manifest.cache_info
+manifest.cache_parameters = _cached_manifest.cache_parameters
