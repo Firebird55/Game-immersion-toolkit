@@ -9,6 +9,7 @@ from .steam_games import STEAM_GAMES
 class FloatingCaptionPolicy:
     film_cues: bool
     top_cues: bool
+    world_cues: bool
     song_cues: bool
     voice_enabled: bool
     silent_enabled: bool
@@ -26,16 +27,23 @@ def floating_caption_policy(game, index, *, capture_unvoiced, capture_missing_au
     metadata = getattr(index, 'snapshot_metadata', {})
     film = game == 'endfield' and bool(metadata.get('publisher_film_cues', 0))
     top = game == 'endfield' and bool(metadata.get('publisher_top_dialogue_cues', 0))
+    world = False
+    if game == 'endfield' and metadata.get('publisher_world_dialogue_ui'):
+        from .endfield_presentation import validate_world_dialogue_ui
+        try:
+            world = bool(validate_world_dialogue_ui(metadata['publisher_world_dialogue_ui']))
+        except (ValueError, TypeError):
+            pass
     songs = game == 'wuwa' and bool(metadata.get('publisher_song_cues', 0))
     song_voices = game == 'wuwa' and bool(metadata.get('publisher_song_voices', songs))
     spec = STEAM_GAMES.get(game)
-    voice = bool((film or top or song_voices or (spec and spec.floating_dialogue))
+    voice = bool((film or top or world or song_voices or (spec and spec.floating_dialogue))
         and getattr(index, 'match_full_frame_voice_lines', None) and index.ready and index.audio_count)
     silent = bool(capture_unvoiced and getattr(index, 'match_unvoiced_lines', None) and index.ready
         and index.status().get('unvoiced_count', 0))
     missing = bool(capture_missing_audio and getattr(index, 'match_missing_audio_lines', None) and index.ready
         and index.status().get('missing_audio_count', 0))
-    return FloatingCaptionPolicy(film, top, songs, voice, silent, missing)
+    return FloatingCaptionPolicy(film, top, world, songs, voice, silent, missing)
 
 
 def merge_authored_occurrence(index, matches, hit):

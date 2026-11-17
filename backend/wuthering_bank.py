@@ -2,7 +2,8 @@
 
 Only original root Play actions and an explicit player_rover_gender state
 select sources. This establishes ownership and source delay, not spoken cuts.
-Exact immediate unrelated states are retained without selecting a source.
+Exact immediate unrelated states, including state-only child events, are
+retained without selecting a source.
 Unsupported effects, random timing, state properties and RTPCs fail closed.
 """
 from dataclasses import dataclass
@@ -175,6 +176,50 @@ def media_candidates(bank):
         return frozenset()
 
 
+def _fixed_state(data):
+    reader = _Reader(data)
+    _check(reader.take(2) == b'\x04\x12')
+    target = reader.uint()
+    _check(target and reader.take(3) == bytes(3))  # Not a bus; no delay/ranges.
+    group, value = reader.uint(), reader.uint()
+    _check(group and value == target and group != wwise_hash('player_rover_gender'))
+    reader.finish()
+    return group, value
+
+
+def _state_only_event(nodes, data, visited, depth=0):
+    """Prove an immediate same-bank event closure contains only fixed states.
+
+    Audio, stops, delayed actions, nonzero cooldown/instance limits, external
+    events, cycles and repeated event traversal all remain unsupported. A
+    bounded, unshared tree cannot hide an exponential or recursive expansion.
+    """
+    _check(depth < 8)
+    action = _Reader(data)
+    _check(action.take(2) == b'\x03\x21')
+    target = action.uint()
+    _check(target and action.take(3) == bytes(3))
+    action.finish()
+    _check(target not in visited and len(visited) < 16)
+    visited.add(target)
+    kind, data = nodes[target]
+    _check(kind == 4)
+    reader = _Reader(data)
+    _check(reader.take(7) == bytes(7))
+    count = reader.byte()
+    _check(0 < count < 128)
+    actions = [nodes[reader.uint()] for _ in range(count)]
+    reader.finish()
+    result = []
+    for kind, data in actions:
+        _check(kind == 3)
+        if data[:2] == b'\x04\x12':
+            result.append(_fixed_state(data))
+        else:
+            result.extend(_state_only_event(nodes, data, visited, depth + 1))
+    return result
+
+
 def _sources(bank, event, localized_media, *, common=False):
     """Return proven sources in the selected dub, or no bindings on ambiguity.
 
@@ -198,22 +243,20 @@ def _sources(bank, event, localized_media, *, common=False):
         # Fixed immediate unrelated states cannot select these stateless source
         # paths. Every source/ancestor still rejects state properties and RTPCs;
         # the only supported selection group remains explicit Rover gender.
-        # Chained events, delays, randomized state actions and song states fail.
+        # A same-bank immediate state-only event closure follows that same
+        # contract. Audio/event delays and song states still fail.
         fixed_states = []
+        state_events = {wwise_hash(event)}
         for action_kind, action_data in actions:
             _check(action_kind == 3 and len(action_data) >= 7)
             action_type = struct.unpack_from('<H', action_data)[0]
             _check(struct.unpack_from('<I', action_data, 2)[0] != 0)
-            if action_type == 0x1204:
+            if action_type in (0x1204, 0x2103):
                 _check(not common)
-                state = _Reader(action_data)
-                state.take(2)
-                target = state.uint()
-                _check(state.take(3) == bytes(3))  # Not a bus; no delay/ranges.
-                group, value = state.uint(), state.uint()
-                _check(group and value == target and group != wwise_hash('player_rover_gender'))
-                state.finish()
-                fixed_states.append((group, value))
+                if action_type == 0x1204:
+                    fixed_states.append(_fixed_state(action_data))
+                else:
+                    fixed_states.extend(_state_only_event(nodes, action_data, state_events))
             else:
                 _check(action_type in (0x0403, 0x0102, 0x0103))
         fixed_states = tuple(fixed_states)
@@ -242,7 +285,7 @@ def _sources(bank, event, localized_media, *, common=False):
             target = path[1] if gender else key
             matches = 0
             for _, action in actions:
-                if action[:2] == b'\x04\x12':
+                if action[:2] in (b'\x04\x12', b'\x03\x21'):
                     continue  # Validated above; it cannot choose this path.
                 destination = struct.unpack_from('<I', action, 2)[0]
                 if destination not in path:

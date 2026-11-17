@@ -426,9 +426,10 @@ forbidden and ordinary voiced capture, now gives:
 
 The last column covers all annotated conversation/archive groups, including
 friendship groups, rather than an additional disjoint inventory. The
-[remaining friendship cases](endfield-operator-capture-guards-1.6.4.csv) need
-actual presentation context or further recording/translation evidence. They
-are not relabeled silent or assigned an unverified alternate recording.
+[caption-only friendship guards](endfield-operator-capture-guards-1.6.4.csv)
+retain actual recording or official-translation differences. Revision 29 adds
+the separately verified world-dialogue presentation below; it does not merge
+these recordings or change bare-caption matching.
 
 With the same revision-26 code and format metadata frozen, explicitly replayed
 original 1.5.3 discovery prepares 49,550 English records; live 1.6.4 prepares
@@ -452,7 +453,77 @@ scripts still need producer/context tracing. NPC overrides, preloads and other
 caller families are separate. This is source-call evidence, not execution of
 the game's root triggers or physical gameplay acceptance.
 
+A bounded follow-up reads the original ten-field `OverrideNPCDialog` action
+without executing it. All **82** current level-script records have literal
+dialogue parameters and refer to **31 additional current graphs**, distinct
+from the 974 direct-call IDs even after case normalization. The combined source
+call inventory therefore reaches 1,005 graph IDs; it is still not a count of
+activated story scenes. These NPC graphs reference 197 unique trunk IDs,
+represented by 199 prepared rows in every study selection. All text remains
+available. Exactly 56 rows have prepared primary voices; the same 143 IDs in
+every selection have nonempty authored overrides that resolve to neither an
+original `AudioDialog` entry nor a source filename. Those absences are not
+missing downloaded language packs and are not evidence that the text is silent.
+Their root activation remains unknown. No exact eleven-field
+`StartContinuousDialog` record occurs in the 5,561 checked current level
+scripts; other callers of that mechanism are not thereby excluded.
+
 ## Compact current capture and audio endpoint
+
+### Original world-dialogue presentation
+
+Revision 29 distinguishes a spoken bottom world caption from an operator's
+voice-archive copy using the released game's own UI and controller data.
+Preparation reads three original UI prefabs and three original Lua controllers
+as data. It verifies the separate speaker/body view, upper-right Auto/Skip
+controls and the profile's mutually exclusive role-information/voice-information
+views. It derives localized control labels and original visible actor names
+from the current publisher tables. No original game or Lua code is executed.
+
+The stateless full-frame route requires Auto and Skip in their expected relative
+positions, one separately visible original actor, the complete centered bottom
+caption, valid physical OCR boxes and confidence of at least 0.8 for every used
+line. Missing controls, unreliable body lines, profile overlays, response-only
+text and changed geometry fail closed. NPC choices may remain visible beside
+the spoken caption. Their menu detection still resets dialogue context; this
+route neither consumes nor establishes a predecessor. All short-caption,
+predecessor, missing-audio, unknown-audio and competing-presentation vetoes remain.
+Only a voiced operator-archive peer with the same original actor is excluded
+after world ownership is proved. Different conversation takes stay ambiguous.
+
+All five ordinary current publisher workers retain every revision-27 record
+field, original recording and translation. Their new UI descriptors contain
+only their actually prepared text locales and 33 original actors per locale.
+With every current record and archive peer retained, a network-forbidden replay
+of the actual production capture service captures **198 / 198 friendship
+captions in every study selection**, after two stable observations, with NPC
+choices present and the menu flag set. The finite proof uses exact synthetic
+OCR spans; each row also rejects missing Skip, unreliable body confidence,
+profile overlays and response-only bottom text. Bare-caption counts in the
+table above remain unchanged.
+
+Separately, the pinned bundled OCR was run offline on public gameplay images
+from the [GameWith trust guide](https://gamewith.net/akendfield/72609). At the
+production OCR size, the complete world image supplies genuine Auto-Play, Skip,
+actor and wrapped-caption boxes/confidences. The complete production index and
+capture service choose the exact original Ardelia conversation and schedule its
+recording while NPC choices are visible. The smaller image misses Skip and is
+rejected; the actual profile image is rejected. These older public images are
+layout/OCR evidence, not current physical gameplay or native-device acceptance.
+
+The same frozen revision-29 reader also derives the original UI descriptor from
+explicitly replayed publisher 1.5.3: its six source digests differ from current
+1.6.4 and its prepared locales contain 31 actors. All 49,550 old records retain
+every revision-27 field; live 1.6.4 keeps 55,086, including the same 5,536 added
+records, 3,155 added voiced rows and 11 changed English texts. No additional
+original recordings are downloaded for this rehearsal. UI labels, actor names,
+bindings and recordings are re-derived after normal updates. Unsupported UI or
+controller changes omit this extra route and retain the existing guarded index.
+The bounded descriptor and pure presentation classifier are shared contracts
+for portable preparation; native confidence and device acceptance remain
+separate requirements.
+
+### Source-declared top captions
 
 Revision 27 completes the source-declared top-caption family: all **15 current
 IDs / 16 protagonist-expanded records** enter the voiced full-frame route.
@@ -492,6 +563,41 @@ package directories are revalidated through the normal publisher reader;
 this remains a frozen two-generation rehearsal rather than future-update or
 physical scheduled-activation acceptance.
 
+### Original instruction titles and complete written bodies
+
+Revision 30 follows the original `InstructionBookCtrl`'s successful same-book
+lookup: it renders both `title` and `content`. Ordinary preparation resolves
+that book's localized title from the same original catalog and retains
+**title plus complete body** as OCR context for every valid book. The saved
+body, all official translations, IDs, unvoiced status and audio references
+remain unchanged. Missing, unresolved or runtime-substituted titles do not
+enable this route. A book heading never restores a conflicting spoken
+speaker/caption anchor.
+
+The five ordinary current publisher workers each derive 131 title/body
+anchors. Their complete indices match **131 / 131 books in every study
+selection**. Body-only behavior remains unchanged: English matches 125 and
+guards six repeated explanations; the other selections match 131. The six
+English bodies have distinct original event headings and can have different
+official translations, so their bodies alone must remain ambiguous.
+
+Actual `CaptureService` replays use the complete current indices and separate
+positioned title/body OCR boxes, including wrapped bodies. All six formerly
+guarded English books select their own ID and complete translations in every
+selection. Each positive and negative uses fresh transcript history, so
+duplicate suppression cannot conceal a recognition failure. Missing body,
+partial body, and English missing/changed title cases reject the target.
+Unvoiced capture remains opt-in; no audio is requested. This validates capture
+policy with synthetic OCR, rather than native OCR or physical UI acceptance.
+
+With this reader and format metadata frozen, an explicitly replayed original
+1.5.3 descriptor independently derives 113 original title/body anchors among
+49,550 English records. Current 1.6.4 has 55,086 English records, retaining all
+old IDs and the same 5,536 additions, 3,155 added voiced rows and 11 changed
+English texts. Every previous field and OCR alias survives in both generations;
+only the new instruction anchors are added. This rehearsal requests no new
+original recordings and does not establish physical scheduled activation.
+
 These finite checked families are not a claim that every indirect trigger,
 readable layout, operator menu or other narrative presentation has passed.
 Counts use prepared captions/performance pairs rather than unlocked player
@@ -502,13 +608,16 @@ content. Chinese script choices share the original Mandarin sources.
 | Current cinematic original audio bound | 499 / 501 | 501 / 503 | 501 / 503 | 495 / 497 | 497 / 499 | Two boss-caption performances per selection retain unknown speech ownership |
 | Original residual radio subset captured | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | One anonymous short caption; generic reactions stay separate |
 | Source-declared top captions admitted automatically, per protagonist | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | Exact primary binding and positive selected-dub duration required; physical acceptance separate |
-| Instruction bodies captured | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies remain guarded |
+| Instruction bodies captured alone | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies require their original title |
+| Instruction title plus complete body captured | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Original localized title and complete body; unvoiced opt-in; physical acceptance separate |
 | Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
 | Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |
 | Baker system bodies captured | 102 / 117 | 104 / 117 | 104 / 117 | 110 / 117 | 104 / 117 | Short/repeated system text retains guards |
-| Friendship NPC captions captured | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Other recording or official-text variants need context |
+| Friendship NPC captions, caption alone | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Recording/translation differences retain guards |
+| Friendship NPC captions, verified world UI | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | Complete localized controls, actor, caption, geometry and reliable confidence; current physical acceptance separate |
+| NPC-override referenced rows with primary voices prepared | 56 / 199 | 56 / 199 | 56 / 199 | 56 / 199 | 56 / 199 | All 199 text rows represented; 143 lack original primary metadata; root activation unknown |
 
-All friendship recordings are prepared; the last row measures capture
+All friendship recordings are prepared; the two friendship rows measure capture
 disambiguation. The cinematic row measures original audio ownership, not a
 physical capture pass. Other prepared conversation, radio, choice, story-panel,
 message, readable, operator archive and bark inventories retain their existing
@@ -516,6 +625,16 @@ limits. Finite active-caller closure and representative physical/end-to-end
 capture, scheduled activation and regional acceptance remain open. #86 stays
 open; historical films without a current caller are not substituted for those
 current acceptance requirements.
+
+These are finite **source-family denominators**, rather than one established
+active-only denominator for the whole game. The 1,005 literal-call graph IDs,
+31 NPC graphs, friendship graphs and cinematic presentations can overlap and
+must not be added as disjoint story totals. Current caller records establish
+references; root conditions, indirect producers, preloads and other caller
+families still govern actual activation. The boss family below has a checked
+actual gameplay occurrence as well as current original caller and branch data.
+The 143 NPC primary-metadata absences remain a separate referenced-content
+question, not 143 certified active spoken lines or 143 certified silent lines.
 
 ## Text provenance and remaining acceptance
 
@@ -606,6 +725,69 @@ establish the boss caption's spoken wording. The speech-detector configuration
 also misses those known controls, so its negative result is not evidence of
 silence. This is an actual current caption with **unknown original speech
 ownership**, not a completed spoken binding or certified unvoiced line.
+
+### Current caller, protagonist and dub proof for the boss caption
+
+The two unresolved film identities are the male and female presentations of
+one authored caption, not two unrelated story sentences. Across the four dubs
+they form **eight performance/caption pairs**; the two Chinese script choices
+share the Mandarin pairs. The complete readable current cinematic inventory
+contains 2,000 such pairs across the four dubs: 1,892 line bindings, 100 context
+bindings and these eight unknown pairs. This is a readable-source inventory,
+not proof that all 2,000 pairs have active root callers.
+
+A fresh, network-forbidden source check reads 18 exact current scene resources:
+both descriptors, prefabs, master/audio playables, subtitle configurations and
+their four selected localized subtitle tracks. Each prefab's active directors
+bind its matching master, audio and subtitle resources; the original Audio and
+Others control windows both run from 0 to 21.616668 seconds. The caption windows
+are identical for the two protagonists within each dub:
+
+| Original dub | Caption window, seconds | Maximum primary-track PCM magnitude in that window |
+| --- | ---: | ---: |
+| English | 2.48333–6.71667 | 0 |
+| Mandarin | 2.66667–6.78333 | 0 |
+| Japanese | 2.48333–6.65000 | 1 |
+| Korean | 2.56667–6.63333 | 1 |
+
+All eight original WEM digests are revalidated before decoding. Independent
+later voiced controls in each recording have PCM peaks between 5,751 and 8,213.
+This separates the caption-window result from an empty file or broken decoder;
+it does not certify the complete scene mix as unvoiced.
+
+The current prologue level script contains a fully read 21-field
+`PlayCutsceneAction`, action 67, with literal `cutscene_e0m0_5` and
+wait-for-finish enabled. Static original code passes that ID into
+`GameAction.PlayCutscene` and its original cutscene queue data. The actual
+`CutsceneManager.PlayCutscene` calls `GetGenderedCutsceneId` with the current
+narrative gender: the original literals select `f_` for gender 2 and `m_`
+otherwise, checking the chosen resource before fallback. Both current prefabs
+exist. The complete retained current IFix target inventories do not replace
+these selection methods. No native, Lua or patch code is executed. The generic
+queue dispatch and every root activation are not claimed fully reconstructed.
+Together with the independently aligned male gameplay occurrence, this
+establishes the current family and available protagonist/dub sources; it does
+not claim physical playback of every variant.
+
+The separate effects event was also re-extracted from its exact current
+publisher package. Its original bank has three fixed Play actions and one
+Stop action, rather than a selectable random recording. Four media sources
+route to the System output device; two others route to a different output
+device and must remain separate. Two short System sources have authored
+volume of −96 dB. The Stop target lies outside every owned source-node and
+bus-ancestor chain, but remains an explicit external dependency. Original bus
+states, effects and real-time parameters prevent treating all six raw sources
+as an unconditional mix.
+
+One ordinary source positively correlates with the actual caption-window
+gameplay audio at 0.664 using the scene origin established by the two later
+voice controls. This proves a heard scene component. It does not prove that
+the complete utterance belongs to that component, or that an arbitrary raw
+mix reproduces the scene soundtrack. The missing full utterance/context
+ownership therefore remains a real audio blocker for these eight pairs.
+Their text and translations stay supported with **unknown** audio. No later
+sentence, muted alternate source, separate-device signal or negative speech
+detector result is substituted for the boss line.
 
 With revision-21 code and the same frozen format metadata, the retained official
 1.5.3 discovery descriptor was replayed once more. Its normal English worker

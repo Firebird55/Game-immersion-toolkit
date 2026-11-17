@@ -13,7 +13,7 @@ Je hoeft niet elk taalpakket te exporteren. Readers hergebruiken de oorspronkeli
 
 [Officiële taallijst](https://store.epicgames.com/p/zenless-zone-zero-c7c151) · 2026-11-16 · [Dekkingsnotities](../zzz-languages.md)
 
-Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings.
+Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips, timed clues and supported whole-film contexts.
 
 Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption cannot distinguish Wise and Belle. Verified unvoiced comic text can be retained without audio.
 
@@ -71,7 +71,7 @@ Windows Setup can prepare dialogue, verified film contexts and shared-song capti
 
 ## Neverness to Everness
 
-[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-16 · [Dekkingsnotities](../nte-languages.md)
+[Officiële taallijst](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-17 · [Dekkingsnotities](../nte-languages.md)
 
 Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever
 

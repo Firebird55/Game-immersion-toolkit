@@ -17,6 +17,7 @@ from .nte_native_schema import (Exclusion, MAX_NATIVE, MAX_NATIVE_PROPERTIES,
 from .nte_seeded_schema import _enum_names, _join, _native_fields, _seed_shapes
 
 VALIDATOR = 'nte-required-native-v1'
+CLASS_VALIDATOR = 'nte-required-native-classes-v2'
 
 
 @dataclass(frozen=True)
@@ -52,22 +53,28 @@ def _equivalent(actual, expected):
     return not a or any(x[1] == y[1] for x, y in zip(a, b))
 
 
-def _context(raw, seed, targets):
+def _context(raw, seed, targets, *, class_declarations=(), opaque=(), numeric_fields=None, normalize_names=False):
     pe = _PE(raw)
     rows = pe.native(with_callbacks=True, with_layout=True)
+    class_names = {row.name for row in class_declarations}
+    class_parents = {row.name: row.parent for row in class_declarations}
+    rows.extend((row.name, row.parent_callback, row.inner, row.flags, row.descriptors, 0, 0)
+                for row in class_declarations)
     duplicates = Counter(row[0].casefold() for row in rows)
     native = {r[0]: r for r in rows if duplicates[r[0].casefold()] == 1}
     parsed, votes = {}, defaultdict(lambda: defaultdict(set))
     for name, _, _, _, descriptors, _, _ in rows:
         try:
-            parsed[name] = _native_fields(descriptors, pe)
+            parsed[name] = _native_fields(descriptors, pe, opaque=name in opaque)
         except ValueError:
             continue
     for name, parent, ops, flags, _, _, _ in rows:
         old, fields = seed.get(name), parsed.get(name)
         if (old is None or fields is None or duplicates[name.casefold()] != 1
                 or old[2] != sum(row[1] for row in fields) or len(old[3]) != len(fields)
-                or bool(parent) != bool(old[1])):
+                or bool(parent) != bool(old[1])
+                or normalize_names and (len({f[1].casefold() for f in old[3]}) != len(old[3])
+                    or fields and not any(a[0] == b[1] for a, b in zip(fields, old[3])))):
             continue
         # Retained complete definitions can identify their own existing field
         # targets, including custom serializers. This does not authorize new
@@ -75,7 +82,8 @@ def _context(raw, seed, targets):
         # flags, operations, size, alignment and complete field descriptors.
         found, position = [], 0
         for actual, expected in zip(fields, old[3]):
-            if (expected[0] != position or actual[0] != expected[1] or actual[1] != expected[2]
+            same_name = (actual[0].casefold() == expected[1].casefold() if normalize_names else actual[0] == expected[1])
+            if (expected[0] != position or not same_name or actual[1] != expected[2]
                     or not _join(actual[2], expected[3], found, targets)):
                 break
             position += actual[1]
@@ -103,15 +111,29 @@ def _context(raw, seed, targets):
         if name not in native or name not in parsed:
             raise ValueError('missing_or_ambiguous_native_descriptor')
         row, fields = native[name], parsed[name]
-        def wire(node):
+        def wire(node, field, path=()):
             kind, children, mode, pointer = node
-            shape = (kind,) + tuple(wire(child) for child in children)
-            return shape + (target(mode, pointer, minimum),) if mode else shape
+            shape = (kind,) + tuple(wire(child, field, (*path, index)) for index, child in enumerate(children))
+            if not mode:
+                return shape
+            try:
+                value = target(mode, pointer, minimum)
+            except ValueError:
+                retained = seed.get(name)
+                existing = retained and any(field.casefold() == f[1].casefold() for f in retained[3])
+                if (numeric_fields is None or existing or mode != 'enum' or votes.get((mode, pointer))
+                        or modes[pointer] or len(children) != 1 or children[0][0] not in (0, 2, 19, 20, 21, 22, 23)
+                        or children[0][1] or children[0][2]):
+                    raise
+                numeric_fields[(name, field, path)] = (children[0][0], pointer)
+                value = None
+            return shape + (value,)
         result, position = [], 0
         for field_name, dimension, node in fields:
-            result.append((position, field_name, dimension, wire(node)))
+            result.append((position, field_name, dimension, wire(node, field_name)))
             position += dimension
-        return name, target('struct', row[1], minimum) if row[1] else None, position, result
+        parent = class_parents[name] if name in class_names else target('struct', row[1], minimum) if row[1] else None
+        return name, parent, position, result
     ambiguous = {row[0] for row in rows if duplicates[row[0].casefold()] != 1}
     return pe, native, parsed, descriptor, ambiguous
 
@@ -226,7 +248,8 @@ def refresh_original_enums(candidate_usmap, baseline_pe, client_pe):
     return result, tuple(sorted(updates))
 
 
-def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, reader_classes=None):
+def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, reader_classes=None,
+             native_classes=False, reader_codecs=None):
     """Validate the actual reader's recursive required closure, without controls.
 
     Native inputs must already be authenticated against retained original
@@ -242,8 +265,48 @@ def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, 
     seed = _seed_shapes(old_body, old_names, old_ss, old_count)
     candidate = _seed_shapes(body, names, ss, count)
     targets = {'struct': set(seed), 'enum': _enum_names(old_body, old_names, old_ne, old_so)}
-    baseline, native_old, parsed_old, describe_old, ambiguous_old = _context(baseline_pe, seed, targets)
-    current, native, parsed, describe, ambiguous = _context(client_pe, seed, targets)
+    codecs = {} if reader_codecs is None else reader_codecs
+    _check(isinstance(native_classes, bool) and isinstance(codecs, dict) and len(codecs) <= MAX_TYPES)
+    for name, implementation in codecs.items():
+        _check(native_classes and isinstance(name, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', name)
+               and isinstance(implementation, str) and len(implementation) <= 512
+               and re.fullmatch(r'CUE4Parse\.UE4\.(?:[A-Za-z_][A-Za-z0-9_]*\.)*F[A-Za-z_][A-Za-z0-9_]*', implementation)
+               and not implementation.endswith('.FStructFallback') and name not in requested)
+    def unknown(wire):
+        return wire[0] == 255 or any(unknown(child) for child in wire[1:] if isinstance(child, tuple))
+    opaque_names = {name for name in codecs if name in seed and any(unknown(f[3]) for f in seed[name][3])}
+    old_classes, current_classes, numeric = (), (), {} if native_classes else None
+    if native_classes:
+        from .nte_native_classes import descriptors
+        old_classes, current_classes = descriptors(_PE(baseline_pe)), descriptors(_PE(client_pe))
+    options = dict(opaque=opaque_names, numeric_fields=numeric, normalize_names=native_classes)
+    baseline, native_old, parsed_old, describe_old, ambiguous_old = _context(baseline_pe, seed, targets,
+        class_declarations=old_classes, **options)
+    current, native, parsed, describe, ambiguous = _context(client_pe, seed, targets,
+        class_declarations=current_classes, **options)
+    class_old, class_current = {r.name: r for r in old_classes}, {r.name: r for r in current_classes}
+    old_metadata = baseline.native(with_callbacks=True, with_layout=True, with_metadata=True) if codecs else ()
+    new_metadata = current.native(with_callbacks=True, with_layout=True, with_metadata=True) if codecs else ()
+
+    def opaque_contract(name):
+        def owned(rows):
+            matches = [r for r in rows if r[0] == name]
+            if len(matches) != 1:
+                raise ValueError('unproved_opaque_descriptor_owner')
+            row = matches[0]
+            # Package callback addresses vary between builds. Their complete
+            # retained type membership supplies a data-only ownership join.
+            group = frozenset(r[0] for r in rows if r[-1][0] == row[-1][0] and r[0] in seed)
+            if len(group) < 2:
+                raise ValueError('unproved_opaque_descriptor_owner')
+            fields = row[-1][1]
+            if any(f[1] is not None or f[2] or f[-2] or f[-1] for f in fields):
+                raise ValueError('unproved_opaque_property_accessor')
+            return group, row[3], row[5:7], fields
+        before, after = native_old.get(name), native.get(name)
+        if (before is None or after is None or before[2] or after[2]
+                or before[3] != 8 or after[3] != 8 or owned(old_metadata) != owned(new_metadata)):
+            raise ValueError('changed_or_unproved_opaque_descriptor')
     old_enums, current_enums = _enums(baseline), _enums(current)
     seed_enums, candidate_enums = _enum_rows(old_body, old_names, old_ne), _enum_rows(body, names, ne)
     classes = {} if reader_classes is None else reader_classes
@@ -293,6 +356,26 @@ def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, 
                     raise ValueError('missing_required_native_descriptor')
             elif name not in native or name not in native_old and unchanged:
                 raise ValueError('missing_required_native_descriptor')
+            elif native_classes and name in class_current:
+                before, after = class_old.get(name), class_current[name]
+                if before and (before.flags != after.flags or before.cpp_abstract != after.cpp_abstract):
+                    raise ValueError('changed_native_class_flags')
+                if name in native_old and before is None:
+                    raise ValueError('changed_native_descriptor_kind')
+                if not _equivalent(describe(name, 1 if unchanged else 2), row):
+                    raise ValueError('stale_required_layout')
+                if unchanged and (before is None or not _equivalent(describe_old(name), retained)):
+                    raise ValueError('baseline_seed_mismatch')
+                state = 'native_class_equivalent' if unchanged else 'native_class_refreshed'
+            elif name in class_old:
+                raise ValueError('changed_native_descriptor_kind')
+            elif name in opaque_names:
+                if not unchanged:
+                    raise ValueError('changed_or_unproved_opaque_descriptor')
+                opaque_contract(name)
+                if not _equivalent(describe_old(name), retained) or not _equivalent(describe(name), row):
+                    raise ValueError('changed_or_unproved_opaque_descriptor')
+                state = 'baseline_opaque_concrete_codec'
             elif not native[name][2] or not native[name][3] & 1 or native[name][3] & ~0x205:
                 before, after = native_old.get(name), native[name]
                 if (not unchanged or before is None or bool(before[1]) != bool(after[1])
@@ -327,4 +410,4 @@ def validate(seed_usmap, candidate_usmap, baseline_pe, client_pe, requested, *, 
     return RequiredSchema(tuple(sorted(required)), tuple(sorted(enums)), tuple(sorted(evidence)),
                           tuple(Exclusion(name, tuple(sorted(reasons))) for name, reasons in sorted(failures.items())),
                           hashlib.sha256(candidate_usmap).hexdigest(), hashlib.sha256(baseline_pe).hexdigest(),
-                          hashlib.sha256(client_pe).hexdigest())
+                          hashlib.sha256(client_pe).hexdigest(), CLASS_VALIDATOR if native_classes else VALIDATOR)

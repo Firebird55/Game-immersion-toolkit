@@ -1,5 +1,144 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · State-only events and complete M3_10_08B context
+
+The original scene reader now follows an immediate same-bank PlayEvent only
+when its entire bounded child tree contains fully validated, immediate,
+non-Rover SetState leaves. Eight levels and sixteen total event nodes bound
+traversal. Cycles, repeated event traversal, nonzero cooldown/instance limits,
+audio/stop actions, delays, property/range bundles and song-state graphs remain
+rejected. Every voice source/ancestor still rejects state-driven properties and
+RTPCs. Independent WWiser fields agree with all eight original banks across the
+four dubs. No scene or media ID allowlist implements this shape.
+
+The native VideoView posts a separately flagged subtitle voice only when the
+exact `PlotAudioById.GetConfig(CaptionText)` lookup finds a configuration. Its
+missing-key branch only warns and posts nothing. Of twenty-five current flagged
+captions, twenty-three have a config; exactly the two M3_10_08B captions lack it.
+Their complete localized scene soundtrack contains both full sentences. A
+bounded local English diagnostic with the pinned **WSYue-ASR v2 Cantonese
+fine-tune** positively reproduces all their words and a known voiced control.
+This is research-only corroboration, not a multilingual quality/license claim
+or a production ASR dependency; no ASR is needed for routine preparation or cuts.
+
+The publisher reader now attests the exact complete original PlotAudio bytes.
+The scene reader verifies that hash and queries an immutable SQLite image with
+the native `WHERE Id=?` semantics, including its actual collation. Only a truly
+absent configuration can remove the separate-source veto. Existing empty/null,
+unresolved or missing-pack configurations retain it. Missing, changed, truncated
+or unreadable tables fail actionably, and an unattested table cannot establish
+absence. Ordinary content updates query the new table afresh: adding a config
+restores the veto. Other silent/written, scene, locale and player guards remain.
+
+All five ordinary workers add four complete-context variants for two caption
+identities while preserving every prior voiced record and every other record.
+Film totals are now **1,274 variants for 884 identities, 122 original sources and
+78 scenes per study locale**, with reader revision 11. The exact sixteen-member
+native cohort used 5,665,248 bytes including headers. Eight M3_10_08B originals
+are 48-kHz stereo with exactly **2,622,432 frames (54.634 seconds)**; the eight
+M0357 sources are six-channel and remain unavailable under the existing format
+guard. This does not count M0357 as covered. Five delayed/music event graphs
+still need independent ownership/timing proof.
+
+Actual matching/stability/storage and normal single/batch voice exports pass
+all twenty caption/Rover/study-locale variants, keeping every complete source
+frame. A fresh process with networking forbidden reproduces the same MP3 hashes.
+Both Chinese scripts share the same Mandarin PCM/MP3, and all four actual dubs
+have distinct PCM for each Rover branch. Unconfigured players remain refused.
+
+Independent Japanese/female-Rover gameplay corroborates the exact source. Two
+speech-bearing waveform controls give consistent upload offsets within one
+millisecond. Both untouched 360p caption frames pass the pinned PortableOcrEngine
+and the full 144,140-record Japanese index as **exact matches, score 100**; the
+unconfigured player still fails. This is real image replay, not physical window
+capture or word-cut timing. The complete source remains explicitly labeled as
+context. [Independent gameplay at the first caption](https://www.youtube.com/watch?v=Hgy7uIUwp2c&t=99s).
+
+## November 17, 2026 · Frozen changed-content update and restart acceptance
+
+One clean toolkit revision (`d74f5f1`), its backend/lock hashes, native decoder runtime and
+frozen third-party input prepared **Global 3.7.19 → current Global 3.8.11** without
+a game installation. The older input is the authentic retained publisher
+catalogue, explicitly labeled as replay. The current input uses ordinary live
+discovery and its final pointer/launcher/region checks. This is an update from a
+retained prepared library; it does not claim that the former live first-discovery
+root still advertises the old version.
+
+The decoder-enabled retained preparation produces **133,032 records**, including
+47,751 voices. The unchanged ordinary current worker produces **144,086 records**.
+All five official study text tables and their first halves were read. The actual
+base dialogue diff contains 2,393 added voiced records. Three new main-story
+captions, `Main_YYMRDHS_101_12`, `_14` and `_15`, have native narrative references,
+unique full-index matches and original member paths absent from the old voice
+inventory. They matched, stabilized, stored and fetched their previously cold
+English originals through the normal voice service, with their official Chinese
+translations. Single exports and a batch reproduce the same audio hashes.
+
+The existing `STNPC_XFDJPYNPCZX_130_2` has a genuine Chinese translation correction
+while its English caption and original PCM stay unchanged. The new index adopts
+that correction, and the earlier saved transcript/MP3 preserves its old content.
+A real failed file replacement after complete current-source validation preserves
+the entire old index, prepared selection and history. A normal retry adopts the
+new source. A fresh process with every network entry point forbidden re-matches
+all three new captions, reproduces their single/batch MP3 hashes and replays the
+old original PCM unchanged. An actual ordinary offline refresh fails honestly
+while preserving the complete current index, locale/targets and recordings.
+
+Acquisition remained bounded to authenticated originals: sixteen canonical
+tables total 303,501,312 plaintext bytes and 303,502,160 network bytes including
+native headers; the unchanged retained enrichment reads 170 complete sources
+using 111,199,278 bytes; four waveform references plus five old/current/new voice
+members use 288,229 bytes. The metadata ledger stays below 130 MiB, including its
+conservative prior-read reserve. No assets or recordings are redistributed.
+
+These capture observations replay official text through the real full index,
+stability, transcript and voice components; they do not establish image OCR or
+physical capture for these new captions. This finite Global English/Chinese
+trial establishes genuine changed-content uptake and failure/restart retention.
+Unknown rotated-key derivation, regional first-discovery recovery, remaining
+film/music/presentation bindings and all-locale/platform acceptance remain open.
+
+## November 17, 2026 · Explicit retained-catalogue verification
+
+An explicitly requested retained catalogue now uses the same table, original
+voice, film and song preparation core as the current publisher path. Its
+descriptor must match its content hash and selected region before and after
+preparation; its payload is labeled `source_replay: retained_original_catalogue`.
+This internal verification entry point is independent of ordinary Setup, whose
+current discovery, pointer checks and final launcher/region checks remain in
+place. It does not assert that an older live discovery root still works.
+
+Both paths use the ordinary worker's complete locale, original-voice and
+LocalDialogue validation and inventory writer. Publication of the same UTF-8
+JSON payload is now atomic; invalid input or interrupted replacement preserves
+the last complete output. Boundary tests cover descriptor mutation, region
+changes, current pointer/launcher changes and actual failed file replacement.
+
+The actual current English worker still produces all 144,086 records with its
+entire parsed payload equal to the pre-extraction result. This warm-cache run
+used 189,074 range bytes and 67.7 seconds. Existing process-dependent dictionary
+key ordering can change independent JSON file bytes; writing the same actual
+payload through the shared writer reproduces the previous bytes exactly. The
+actual changed-content, retained-old to current discovery trial above is
+separate from this refactor equality check.
+
+## November 17, 2026 · Authenticated index reuse across releases
+
+Released packages may share a plaintext native index under different package
+identities. The selective reader now reuses such a cached object only when its
+size and full SHA-1 match the current original footer or main-index reference.
+It atomically publishes the verified copy under the requesting package. Current
+encrypted-package key selection still runs first, and both complete original
+indices must validate before any parameter can enter protected recovery storage.
+
+Tests cover corrupt, wrong-size and differently named digests, a changed declared
+native hash, atomic-publication interruption and a differently encrypted original
+with the same plaintext indices. A real original encrypted package used only
+528 network bytes for its footer/key sample with the cross-package directory
+object cached. An unknown parameter was still refused with both plaintext
+indices present. This improves cache reuse during ordinary content updates;
+deriving genuinely rotated unknown parameters remains a separate open task.
+
 ## November 17, 2026 · Observed player names in saved presentation
 
 Saved transcript DTOs now render an observed player nickname in the original
@@ -135,7 +274,8 @@ Ordinary preparation retains only native-package-verified archive parameters and
 the existing SHA-pinned catalogue-format source in protected local tool storage.
 A real fresh-process Global English worker prepared the same complete 144,022
 records with both third-party providers unavailable. Unknown rotated parameters
-and the changed-content two-generation trial remain open; cached known inputs
+remain open; the later frozen changed-content trial above covers retained old
+catalogue to normal current discovery. Cached known inputs
 are not a derivation mechanism. [Recovery evidence and exact limits](wuwa-publisher-recovery.md).
 
 ## November 16, 2026 · Shared-song captions

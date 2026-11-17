@@ -110,12 +110,15 @@ def _signature(script):
                   round(row['EndTime'] * 1000)) for row in script['CaptionList'])
 
 
-def _caption_run(directory, asset, entries, anchors, wanted=()):
+def _caption_run(directory, asset, entries, anchors, wanted=(), *, package=None, decoder=None):
     entries = sorted(entries, key=lambda item: item[2])
     page_size = 64 * 1024
     pages, seen = {}, set()
+    hotfix.check(package is None or isinstance(package, bytes) and len(package) == asset.size)
 
     def read(start, size):
+        if package is not None:
+            return package[start:start + size]
         parts = []
         while size > 0:
             page = start // page_size * page_size
@@ -130,8 +133,14 @@ def _caption_run(directory, asset, entries, anchors, wanted=()):
 
     def probe(position, *, allow_empty=False):
         key, length, start = entries[position]
-        if not length or read(start, 1) != b'\x01' or length > 2 * 1024**2:
+        if not length or decoder is None and read(start, 1) != b'\x01' or length > 2 * 1024**2:
             return None
+        if decoder is not None:
+            try:
+                caption = decoder(read(start, length))
+                return caption if allow_empty or _signature(caption) else None
+            except (ValueError, KeyError, TypeError, OverflowError):
+                return None
         return _caption(read(start, length), allow_empty=allow_empty)
 
     for index, (key, _, _) in enumerate(entries):
@@ -157,33 +166,36 @@ def _caption_run(directory, asset, entries, anchors, wanted=()):
                 position += step
 
 
-def extra_captions(directory, build, published, declared_paths=(), *, identities=None, unresolved=None):
+def extra_captions(directory, build, published, declared_paths=(), *, identities=None, unresolved=None,
+                   package_reader=None, decoder=None, resource_id=caption_resource_id):
     known = {_signature(script) for script in published.values()}
     anchors, names, paths = {}, {}, {}
     for filename, script in published.items():
         path = 'Config/' + filename if filename.startswith('BattleCollegeCaption/') else 'Config/CutSceneCaption/' + filename
-        key = caption_resource_id(path)
+        key = resource_id(path)
         hotfix.check(key not in paths or paths[key] == path)
         paths[key], anchors[key] = path, _signature(script)
         if filename.startswith('BattleCollegeCaption/') and identities is not None:
             identities[filename] = f'design_{key:016x}'
     for path in declared_paths:
-        key = caption_resource_id(path)
+        key = resource_id(path)
         hotfix.check(key not in paths or paths[key] == path)
         paths[key], names[key] = path, caption_filename(path)
     local, alternate = hotfix.audio_roots(build)
     result, found, indexed, candidates = {}, set(), set(), []
     verified = False
-    for digest, size, entries in _packages(hotfix.index(directory, build, 'design')):
+    for digest, size, entries, folder in _packages(hotfix.index(directory, build, 'design'), with_folder=True):
         relevant = {key for key, _, _ in entries if key in paths}
         hotfix.check(indexed.isdisjoint(relevant))
         indexed.update(relevant)
         if not relevant:
             continue
-        path = digest + '.bytes'
+        path = (folder + '/' if folder else '') + digest + '.bytes'
         asset = hotfix.AudioFile(path, size, digest, local['design'] + path,
                                  alternate['design'] + path if alternate else '')
-        for key, caption in _caption_run(directory, asset, entries, anchors, names):
+        package = package_reader(asset) if package_reader is not None else None
+        for key, caption in _caption_run(directory, asset, entries, anchors, names,
+                                         package=package, decoder=decoder):
             sig = _signature(caption)
             found.add(key)
             if key in anchors:

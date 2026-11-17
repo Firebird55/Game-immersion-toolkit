@@ -893,6 +893,11 @@ class CaptureService:
             scope=(scope, self.session_id, getattr(index, 'player_voice', None), getattr(index, 'target_locale', None)),
             now=seen_at, stable_frames=settings.stable_frames, capturable=self._capturable_match,
             dialogue_menu=response.get('dialogue_menu', False), excluded=getattr(self, '_excluded_screen', None))
+        if policy.world_cues and policy.voice_enabled:
+            # Complete visible world captions do not feed temporal predecessors.
+            hit = index.match_endfield_world_caption(response.get('lines', []), image.size)
+            if hit and self._capturable_match(hit):
+                matches[hit.text_id] = hit
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():

@@ -33,6 +33,13 @@ class PackageEntry:
     size: int
 
 
+@dataclass(frozen=True)
+class BankSource:
+    media_id: int
+    stream_type: int
+    memory_size: int
+
+
 def packages(install: Path) -> list[Path]:
     paths = [p for layer in ("StreamingAssets", "Persistent") for p in
              (install / "BH3_Data" / layer).rglob("AUDIO*.pck") if p.is_file()]
@@ -48,13 +55,21 @@ def fingerprint(install: Path) -> str:
 def package_tables(path: Path) -> tuple[dict[int, str], dict[tuple[int, int], PackageEntry], dict[tuple[int, int], PackageEntry]]:
     total = path.stat().st_size
     with path.open("rb") as stream:
-        header = stream.read(28)
-        if len(header) != 28 or header[:4] != b"AKPK":
-            raise ValueError("Invalid Honkai audio package")
-        size, endian, language_size, bank_size, sound_size, external_size = struct.unpack_from("<6I", header, 4)
-        if endian != 1 or size != 20 + language_size + bank_size + sound_size + external_size or not 20 <= size <= min(total - 8, 32 * 1024 * 1024):
-            raise ValueError("Unsupported Honkai package table layout")
-        raw = stream.read(language_size + bank_size + sound_size + external_size)
+        def read(offset, length):
+            stream.seek(offset)
+            return stream.read(length)
+        return package_tables_from_reader(total, read)
+
+
+def package_tables_from_reader(total, read):
+    """The same PCK metadata contract over an authenticated publisher reader."""
+    header = read(0, 28)
+    if len(header) != 28 or header[:4] != b"AKPK":
+        raise ValueError("Invalid Honkai audio package")
+    size, endian, language_size, bank_size, sound_size, external_size = struct.unpack_from("<6I", header, 4)
+    if endian != 1 or size != 20 + language_size + bank_size + sound_size + external_size or not 20 <= size <= min(total - 8, 32 * 1024 * 1024):
+        raise ValueError("Unsupported Honkai package table layout")
+    raw = read(28, language_size + bank_size + sound_size + external_size)
     if len(raw) != language_size + bank_size + sound_size + external_size or language_size < 4:
         raise ValueError("Truncated Honkai package tables")
     language_raw = raw[:language_size]
@@ -110,16 +125,27 @@ def bank_sources(data: bytes, bank_id: int, *, language: str = MANDARIN) -> tupl
     Reject switches, random containers, silence generators and multiple actions.
     IDs come from serialized event/action/source fields, never audio ordinals.
     """
-    if len(data) < 20 or data[:4] != b"BKHD" or struct.unpack_from("<3I", data, 8) != (135, bank_id, wwise_hash(language)):
+    return bank_sources_from_reader(len(data), lambda start, size: data[start:start + size], bank_id, language=language)
+
+
+def bank_sources_from_reader(total, read, bank_id: int, *, language: str = MANDARIN, detailed=False):
+    """Parse the same bank metadata without fetching its embedded DATA payload."""
+    header = read(0, 20) if total >= 20 else b''
+    if len(header) != 20 or header[:4] != b"BKHD" or struct.unpack_from("<3I", header, 8) != (135, bank_id, wwise_hash(language)):
         raise ValueError("Unsupported Honkai Chinese voice bank")
     objects, media = {}, {}
     position, didx, data_start, data_size = 0, b"", 0, 0
-    while position + 8 <= len(data):
-        kind, size = struct.unpack_from("<4sI", data, position)
+    while position + 8 <= total:
+        chunk = read(position, 8)
+        if len(chunk) != 8:
+            raise ValueError("Truncated Honkai bank header")
+        kind, size = struct.unpack("<4sI", chunk)
         end = position + 8 + size
-        if end > len(data):
+        if end > total:
             raise ValueError("Truncated Honkai bank")
-        body = data[position + 8:end]
+        body = read(position + 8, size) if kind in (b'HIRC', b'DIDX') and size else b''
+        if kind in (b'HIRC', b'DIDX') and len(body) != size:
+            raise ValueError("Truncated Honkai bank metadata")
         if kind == b"HIRC":
             if len(body) < 4:
                 raise ValueError("Missing Honkai bank objects")
@@ -143,7 +169,7 @@ def bank_sources(data: bytes, bank_id: int, *, language: str = MANDARIN) -> tupl
         elif kind == b"DATA":
             data_start, data_size = position + 8, size
         position = end
-    if position != len(data) or len(didx) % 12:
+    if position != total or len(didx) % 12:
         raise ValueError("Invalid Honkai bank chunk bounds")
     for media_id, offset, size in struct.iter_unpack("<3I", didx):
         if not data_start or not size or offset + size > data_size:
@@ -159,7 +185,8 @@ def bank_sources(data: bytes, bank_id: int, *, language: str = MANDARIN) -> tupl
         sound_type, sound = objects.get(struct.unpack_from("<I", action, 6)[0], (0, b""))
         if sound_type != 2 or len(sound) < 18 or struct.unpack_from("<I", sound, 4)[0] & 0xf != 1 or not sound[17] & 1:
             continue
-        events[event_id] = struct.unpack_from("<I", sound, 9)[0]
+        source = BankSource(struct.unpack_from('<I', sound, 9)[0], sound[8], struct.unpack_from('<I', sound, 13)[0])
+        events[event_id] = source if detailed else source.media_id
     return events, media
 
 

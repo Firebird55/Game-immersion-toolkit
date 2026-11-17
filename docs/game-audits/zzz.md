@@ -1,5 +1,136 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Current Global preparation and context playback in four dubs
+
+The frozen reader 19 completed normal publisher preparation independently for
+each official spoken language, without an installation. Requested translations
+were present in all four preparations, and runtime source hashes stayed equal
+before and after every worker. After the bounded source acquisition, the
+Japanese, Mandarin and Korean workers forbade new package transfers; ordinary
+publisher discovery and the original cached source readers remained in use.
+
+| Source dub | Prepared records | Context captions | Whole-film events | Worker seconds |
+| --- | ---: | ---: | ---: | ---: |
+| English | 297,159 | 902 | 131 | 152.359 |
+| Mandarin | 297,184 | 905 | 131 | 152.141 |
+| Japanese | 289,967 | 896 | 131 | 159.328 |
+| Korean | 266,702 | 897 | 129 | 145.547 |
+
+These selected-dub binding totals are not the active-current-presentation
+denominator. Different languages retain their own source/translation joins and
+unresolved uses; an English total is not substituted for another locale.
+
+Five further normal-snapshot C330 contexts passed original MP3 extraction and
+decoded PCM comparison in two separate fresh processes with every network path
+forbidden: B/G in Japanese and Korean, plus G in Mandarin. Each spans 40.257208
+seconds, each has distinct nonzero PCM, and all five hashes remain identical
+after restart. Together with the English checks below, this verifies actual
+installation-free context playback in all four spoken languages. The earlier
+Mandarin B probe stopped on an intentionally uncached source chunk; no download
+or incomplete clip was accepted. Its original source remains resolvable on
+demand and is not classified as unvoiced.
+
+The independent mainland text route remains verified by the earlier reader 17
+checks. These new four-dub context checks use Global sources and do not stand in
+for equivalent mainland context/update acceptance. Other timeline formats,
+the three composite alternate-event graphs, current-use classification and
+frozen actual-generation update/recovery acceptance still keep #85 open.
+
+## November 17, 2026 · Shared dependency banks remain separate from voice media
+
+Reader revision 19 resolves an original common-bank dependency that the selected
+dub-only inventory previously excluded. Bank 3796863498 is present in the root
+`SoundBank_SFX_14.pck`, in its authenticated `sfx` namespace. It is a media-only
+BKHD/DIDX/DATA bank, not a spoken event or a control hierarchy. Its declared
+requirement comes from the original registry. The implementation discovers
+required common banks from the new release's root package tables, validates
+their identities and bank structure, and never admits their events or media to
+the selected voice candidates. No particular film or bank ID is a code list.
+
+For `Play_vo_C300_EP010`, the independently language-specific English event and
+its complete 740,385-byte recording both reside in the English package. The
+shared dependency therefore no longer prevents that voice binding. Normal
+Global English preparation completed in 152.359 seconds with **297,159 records**
+and **902 context captions from 131 events**. Exactly 12 C300 captions gained
+context audio; all other record dictionaries, including the 890 earlier context
+captions and 295,204 ordinary records, stayed identical. Runtime source hashes
+before and after the normal worker match.
+
+The normal-snapshot C300 context decoded to 56.671833 seconds of nonzero audio
+through the regular voice service in two separate fresh processes, with all
+network access forbidden and identical PCM after restart. That extraction read
+only the original English recording. The exact shared dependency check acquired
+one 1,279,011-byte authenticated source chunk (1,227,953 compressed), requesting
+only bank metadata and skipping DATA. All co-resident source bytes count toward
+that acquisition. These checks do not make the SFX content a speech recording.
+
+The three earlier event names lacking original registry entries remain
+unresolved, as do other layouts, player ownership, current-use classification,
+all-locale playback and the frozen update/recovery acceptance. A missing entry
+still cannot establish that captions are unvoiced or unused.
+
+## November 17, 2026 · Original publisher cinematic bank and media acquisition
+
+Reader revision 18 reads the plain-named original design TextAsset
+`AudioResourceData`. Its payload is FlexBuffers, not a hashed scene-catalog asset
+or a JSON table. The already locked Apache-2.0 FlatBuffers 25.12.19 runtime
+includes this reader and its existing packaged source notices; no additional
+software or community data publication is required. The current original
+registry contains 49,158 event/bank groups. New event and bank identities come
+from each newly selected publisher release, without a toolkit list of films.
+
+Normal preparation joins a completely understood timeline's unique whole-film
+event to its original required banks. The selected dub's authenticated PCK
+tables establish bank and media ownership. The bounded Wwise 135 parser accepts
+only one Play action targeting one language-specific Sound. It reads HIRC/DIDX
+metadata while skipping embedded DATA. Source kind distinguishes embedded
+recordings from complete streamed recordings: a prefetch prefix in a bank is
+never exposed as the whole film. The source layout is independently documented
+by the frozen [Wwise parser format description](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wdefs.py#L1048).
+This is a format reference, not an added runtime dependency. Playback downloads
+the exact selected original media and verifies its complete RIFF/WAVE bounds.
+Persistent packages override base packages; conflicting same-layer sources,
+unsupported hierarchies and mixed caption uses stay unresolved.
+
+The finite current English source check establishes **130 whole-film events /
+893 caption identities** with playable source bindings. Of these, 20 events use
+complete streamed media instead of their short embedded prefetch prefixes.
+Metadata acquisition added 160 authenticated chunks, 201,653,595 expanded bytes
+and 194,498,331 compressed bytes, without downloading a whole PCK or requesting
+bank DATA payloads. Chunk boundaries can contain adjacent payload bytes; that
+does not turn this into a media search.
+
+The denominators remain separate: the typed complete timelines supply 168
+whole-event names across locales, while English captions unanimously select
+134 events. Three selected English events have no current registry entry
+(`Play_vo_C260_EP000`, `Play_vo_C270_EP010`, `Play_vo_C270_EP110`).
+At revision 18, `Play_vo_C300_EP010` required bank 3796863498, absent from the
+selected English bank inventory. The revision 19 check above identifies its
+original shared SFX dependency and resolves the English recording. These
+inventories never certify silence from an absent bank or registry entry.
+Shared captions that select different player events cannot inherit one branch.
+
+Fresh normal Global English preparation completed in 163.968 seconds with
+**297,159 records**, including **890 context captions from 130 events**. All
+295,204 earlier ordinary record dictionaries remained identical, and no record
+was added or removed relative to reader 17. The 893 raw bindings include three
+IDs absent from the prepared English source join: `C310_EP073B_040`,
+`C310_EP073B_070` and `C310_EP073G_040`. These are retained as source gaps rather
+than invented English captions. Source hashes before and after the worker match.
+
+Four actual current normal-snapshot contexts passed the local voice service in
+two separate fresh processes with all network access forbidden. C330 B/G each
+decoded to 40.257208 seconds of nonzero audio, with different PCM per branch.
+Base-embedded `C310_EP080G_010` decoded to 8.426667 seconds and complete streamed
+`C260_EP063_010` to 14.033333 seconds. All four PCM hashes remained identical
+after the process restart. The streamed sample required one separately verified
+926,839-byte launcher chunk (916,490 compressed); no whole PCK was transferred.
+This does not establish a complete ordinary-update trial or all-locale playback. The recordings are
+explicitly labeled `context`, with no invented sentence cuts or inferred B/G
+gender. Other timeline layouts, current-use classification, player ownership,
+the four absent overrides and frozen actual-generation update/recovery
+acceptance remain open. No original assets, audio or native bytes are shipped.
+
 ## November 17, 2026 · Original film subtitle tracks in normal publisher preparation
 
 Reader revision 17 follows explicit `.playable` overrides from the selected

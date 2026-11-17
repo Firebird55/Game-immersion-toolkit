@@ -3,7 +3,10 @@
 A complete scene source preserves full utterances without claiming sentence
 boundaries. Source duration alone never establishes its scene/dub/player owner.
 """
+from contextlib import closing
+import hashlib
 import re
+import sqlite3
 import struct
 
 from . import wuthering_assets as assets
@@ -33,12 +36,40 @@ def full_scene_events(db_root):
     return events
 
 
-def assign_contexts(db_root, records, locale, event_sources, source_shapes):
+def _separate_sources(db_root, plot_audio_sha256):
+    flagged = {assets._string(blob, 4) for blob, in assets._rows(
+        db_root / 'db_cgVedio.db', 'SELECT BinData FROM videocaption')
+        if assets._boolean(blob, 11)}
+    if plot_audio_sha256 is None or not flagged:
+        return flagged
+    from .preparation_errors import PreparationFailure
+    try:
+        raw = (db_root / 'db_plot_audio.db').read_bytes()
+        if (not isinstance(plot_audio_sha256, str) or not re.fullmatch('[0-9a-f]{64}', plot_audio_sha256)
+                or hashlib.sha256(raw).hexdigest() != plot_audio_sha256):
+            raise ValueError('Complete original PlotAudio bytes no longer match their verified input.')
+        # Query the exact verified bytes. Native GetConfig binds CaptionText to
+        # WHERE Id=?; SQLite collation/type semantics must not be replaced by a
+        # Python set comparison. Even an existing empty/null row keeps the veto.
+        with closing(sqlite3.connect(':memory:')) as database:
+            database.deserialize(raw)
+            with closing(database.cursor()) as statement:
+                return {identity for identity in flagged if statement.execute(
+                    'SELECT 1 FROM PlotAudio WHERE Id=? LIMIT 1', (identity,)).fetchone() is not None}
+    except (OSError, ValueError, sqlite3.Error, AttributeError) as error:
+        raise PreparationFailure('game_metadata_unavailable',
+            'The complete official Wuthering dialogue audio metadata could not be verified or read. '
+            'Retry preparation; the previous complete index and recordings are retained.') from error
+
+
+def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, plot_audio_sha256=None):
     """Add complete scene contexts after caller, bank and native source proof.
 
     event_sources comes from scene_sources with real selected-dub members;
     source_shapes comes from probing those exact original bytes. No per-scene
     IDs, guessed recording names, caption-derived cuts or ASR alignment is used.
+    plot_audio_sha256 is supplied only after a complete publisher member read;
+    without it, every separately flagged caption keeps the original veto.
     """
     events = full_scene_events(db_root)
     # build_language_records merges presentation evidence by text identity.
@@ -48,12 +79,10 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes):
         identity for identity, evidence in assets._narrative_refs(db_root).items()
         if any(status == 'unvoiced' or status == 'unknown'
                and kind in {'story_card', 'readable', 'choice', 'message'} for kind, status in evidence)}
-    # VideoView posts these captions' separate PlotAudio external sources.
-    # The simultaneous scene track cannot replace a missing external voice.
-    separate_sources = {
-        assets._string(blob, 4) for blob, in assets._rows(
-            db_root / 'db_cgVedio.db', 'SELECT BinData FROM videocaption')
-        if assets._boolean(blob, 11)}
+    # VideoView posts a flagged external source only when GetConfig finds its
+    # exact key. A present config keeps the veto even if its pack/voice is
+    # missing. Only a complete verified table can establish true absence.
+    separate_sources = _separate_sources(db_root, plot_audio_sha256)
     owners = {}
     for scene, identity, _, _ in caption_cues(db_root, locale):
         owners.setdefault(identity, set()).add(scene)

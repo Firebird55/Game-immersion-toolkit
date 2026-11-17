@@ -60,9 +60,10 @@ def _mission_captions(catalog, task_ids, video_id, default, locale):
         mission = re.fullmatch(r'Config/Level/Mission/(\d+)/Act/Act(\d+)\.json', path)
         if not mission or int(mission[1]) not in task_ids:
             continue
-        check(int(mission[2]) == perf['PerformanceID'])
+        # Performance IDs can alias another authored Act file. The explicit
+        # path and the movie's mission owner establish this join.
         for sequence in catalog.file(path).get('OnStartSequece', []):
-            for task in sequence['TaskList']:
+            for task in sequence.get('TaskList', []):
                 if task.get('$type') == 'RPG.GameCore.PlayVideo' and task.get('VideoID') == video_id:
                     selected.add(task.get('OverrideCaptionPath', default))
                 if task.get('$type') != 'RPG.GameCore.PredicateTaskList':
@@ -71,7 +72,7 @@ def _mission_captions(catalog, task_ids, video_id, default, locale):
                 if predicate.get('$type') != 'RPG.GameCore.ByCurrentAudioLanguage':
                     continue
                 for field in ('SuccessTaskList', 'FailedTaskList'):
-                    plays = [action for action in task[field] if action.get('$type') == 'RPG.GameCore.PlayVideo'
+                    plays = [action for action in task.get(field, []) if action.get('$type') == 'RPG.GameCore.PlayVideo'
                              and action.get('VideoID') == video_id]
                     for action in plays:
                         caption = action.get('OverrideCaptionPath', default)
@@ -218,7 +219,9 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
         check(scene not in seen)
         seen.add(scene)
         identity = getattr(catalog, 'caption_identities', {}).get(filename, scene)
-        check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)) and identity not in identities)
+        legacy = getattr(catalog, 'caption_identity_aliases', {}).get(filename)
+        check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)
+               or identity == legacy and re.fullmatch(r'[A-Za-z0-9_-]+', identity)) and identity not in identities)
         identities.add(identity)
         if scene in suppressed and scene not in takes:
             continue

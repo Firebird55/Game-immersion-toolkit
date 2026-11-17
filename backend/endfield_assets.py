@@ -14,7 +14,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 27
+LANGUAGE_INDEX_VERSION = 30
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -211,6 +211,11 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
                     for code, table in tables.items()} if speaker_id is not None else {}
         speakers = {code: value for code, value in speakers.items()
                     if len(normalize_text(value, code)) >= 2 and not re.search(r'[{}\[\]]', value)}
+        heading = row.get('instruction_title') if row.get('dialogue_kind') == 'instruction' else None
+        headings = ({code: display_text(table.get(str(heading['id']), '')) for code, table in tables.items()}
+                    if isinstance(heading, dict) and type(heading.get('id')) in (int, str) else {})
+        headings = {code: value for code, value in headings.items()
+                    if len(normalize_text(value, code)) >= 2 and not re.search(r'[{}]', value)}
         for gender, path, lines in _performances(row, paths, audio_ids or {}, texts):
             if not lines.get(locale):
                 continue
@@ -251,6 +256,11 @@ def dialogue_records(dialogs, paths, tables, locale, entries, *, audio_ids=None,
             anchors = ({code: [speaker + ' ' + lines[code]] for code, speaker in speakers.items()
                         if code in lines}
                        if row.get('dialogue_kind') in ('radio', 'conversation') else {})
+            # InstructionBookCtrl renders title and complete content from the
+            # same successful book lookup. Keep its heading as recognition
+            # context; the body and its official translations remain unchanged.
+            anchors.update({code: [heading + ' ' + lines[code]] for code, heading in headings.items()
+                            if code in lines})
             result.append({**radio, 'text_id': 'endfield:' + identity + (':' + gender if gender else ''),
                 'member_text_ids': ['endfield:' + identity] if gender else None,
                 **({'previous_text_id': 'endfield:' + previous} if previous else {}),
@@ -283,15 +293,22 @@ def _guard_speaker_anchors(rows):
     # A choice, film or unsupported speaker presentation with the same caption
     # may be visible beneath a name elsewhere in the frame. An unowned name
     # must not bypass that caption's existing ambiguity guard.
-    unnamed = {}
+    unnamed, untitled = {}, {}
     for row in rows:
         for locale, text in row['texts'].items():
-            if not row.get('ocr_texts', {}).get(locale):
-                unnamed.setdefault(locale, set()).add(normalize_text(text, locale))
+            key = normalize_text(text, locale)
+            anchored = bool(row.get('ocr_texts', {}).get(locale))
+            # A book heading is not a speaker. Its presence must not restore a
+            # named voice anchor that the written body previously vetoed.
+            if row.get('dialogue_kind') == 'instruction' or not anchored:
+                unnamed.setdefault(locale, set()).add(key)
+            if row.get('dialogue_kind') != 'instruction' or not anchored:
+                untitled.setdefault(locale, set()).add(key)
     for row in rows:
         if 'ocr_texts' in row:
+            blockers = untitled if row.get('dialogue_kind') == 'instruction' else unnamed
             anchors = {locale: values for locale, values in row['ocr_texts'].items()
-                       if normalize_text(row['texts'][locale], locale) not in unnamed.get(locale, ())}
+                       if normalize_text(row['texts'][locale], locale) not in blockers.get(locale, ())}
             if anchors:
                 row['ocr_texts'] = anchors
             else:
@@ -550,6 +567,10 @@ def narrative_dialogues(catalog, warnings):
     ):
         for identity, row in _table(catalog, name, warnings).items():
             add(f'{name}:{identity}', _mapping(row).get(field), kind, 'tip')
+            if name == 'InstructionBook':
+                title = row.get('title')
+                if isinstance(title, dict) and type(title.get('id')) in (int, str):
+                    dialogs[f'{name}:{identity}']['instruction_title'] = title
 
     # Only the actual current dungeon-stage references select step text.
     # Retained unused definitions are not evidence of a displayed instruction.
@@ -747,6 +768,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
     if online:
         from .endfield_recording_identity import annotate
         annotate(catalog, rows, VOICE_LOCALES[source_locale], progress)
+    world_ui = None
+    if online and hasattr(catalog, 'world_dialogue_ui'):
+        try:
+            world_ui = catalog.world_dialogue_ui(dialogs, tables)
+        except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+            warnings.append('Endfield world-dialogue UI ownership could not be verified for this release. '
+                            'Repeated operator-profile captions retain their ambiguity guards. Refresh preparation '
+                            'after the publisher resources are complete; changed presentation formats need reader support.')
     for film in films:
         coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
@@ -787,6 +816,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'fingerprint': stamp, 'metadata_revision': catalog.revision, 'metadata_revision_title': getattr(catalog, 'revision_title', ''),
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'publisher_top_dialogue_cues': sum(row['dialogue_kind'] == 'conversation' and 'cinematic' in row['channels'] for row in rows),
+        **({'publisher_world_dialogue_ui': world_ui} if world_ui else {}),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 

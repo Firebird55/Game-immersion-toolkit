@@ -214,7 +214,7 @@ class _PE:
         value = self.data[offset:end]
         return value.decode('ascii') if re.fullmatch(rb'[A-Za-z_][A-Za-z0-9_]*', value) else None
 
-    def native(self, *, with_callbacks=False, with_layout=False):
+    def native(self, *, with_callbacks=False, with_layout=False, with_metadata=False):
         results, matches, properties = [], 0, 0
         for _, length, section, flags in sorted(self.sections, key=lambda item: item[2]):
             if flags & 0x20000000 or not flags & 0x40000000:
@@ -238,7 +238,7 @@ class _PE:
                     continue
                 properties += count
                 _check(properties <= MAX_NATIVE_PROPERTIES)
-                fields, seen = [], set()
+                fields, seen, layouts = [], set(), []
                 for index in range(count):
                     address = self.unpack('Q', pointer_offset + index * 8)[0]
                     prop = self.pointer(address, 56)
@@ -257,9 +257,18 @@ class _PE:
                         callback = self.unpack('Q', prop + 56)[0]
                         enum = bool(callback)
                     fields.append((field_name, generator, dimension, callback if with_callbacks else enum))
+                    if with_metadata:
+                        notify = self.unpack('Q', prop + 8)[0]
+                        notify_name = self.name(notify) if notify else None
+                        property_flags = self.unpack('Q', prop + 16)[0]
+                        setter, getter = self.unpack('2Q', prop + 32)
+                        member_offset = self.unpack('H', prop + 50)[0]
+                        layouts.append((field_name, notify_name, bool(notify), property_flags,
+                                        generator, object_flags, dimension, member_offset, setter, getter))
                 else:
                     row = (name, parent, ops, struct_flags, tuple(fields))
-                    results.append(row + (size, align) if with_layout else row)
+                    row = row + (size, align) if with_layout else row
+                    results.append(row + ((outer, tuple(layouts)),) if with_metadata else row)
                     _check(len(results) <= MAX_NATIVE)
         return results
 

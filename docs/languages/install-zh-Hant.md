@@ -23,13 +23,13 @@
 
 在遊戲與語言設定中（首次設定精靈也可使用），Keep mobile library updated 會在桌面 companion 執行時，為所選配音語言和譯文維護各自的 Android Library ZIP。選擇既有的私有資料夾，可與 Android 裝置同步。在 Android 應用程式中匯入每個更新後的 ZIP。預先準備的文字和配音在電腦關機後仍可使用。現有匯出規則和私有瀏覽器資料庫將保留；瀏覽器歷史、收藏和憑證不會自動移轉。Android 替代應用程式仍在開發中；實際驗收情況和剩餘問題請見移轉指南。
 
-在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備全球版或中國大陸版《原神》、全球版或中國大陸版《崩壞：星穹鐵道》的基礎與章節配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版或中國大陸版《鳴潮》的台詞與配音。《原神》也會檢查一般遊戲熱更新；新資料無法核實時會保留原有資料表。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可選擇全球版或中國大陸版，從對應發布資源及其相容更新取得對話場景、動態漫畫、訊息、提示和帶時間軸的線索錄音。
+在 Windows 設定中將遊戲資料夾留空，選擇學習語言，即可準備全球版或中國大陸版《原神》、全球版或中國大陸版《崩壞：星穹鐵道》的基礎與章節配音、全球版或中國大陸版《明日方舟：終末地》的劇情配音或全球版或中國大陸版《鳴潮》的台詞與配音。《原神》也會檢查一般遊戲熱更新；新資料無法核實時會保留原有資料表。《終末地》的過場片段需要經過核實的時間軸。《絕區零》可選擇全球版或中國大陸版，從對應發布資源及其相容更新取得對話場景、動態漫畫、訊息、提示和帶時間軸的線索錄音。《異環》可選擇全球版或中國大陸版並將遊戲資料夾留空；讀取器利用固定保留的基礎描述，從原始用戶端取得所需的目前類型定義。已核實的直接前置台詞可用於比對；複雜媒體時間軸和博物館氣泡仍未完全涵蓋。
 
 | 遊戲 | Windows 設定 |
 | :--- | :--- |
 | Genshin Impact | 可從發行商準備全球版或中國大陸版啟動器資源 |
 | Honkai: Star Rail | 可從發行商準備所選地區的語音、部分影片片段及教學文字 |
-| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
+| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips, timed clues and supported whole-film contexts. |
 | Arknights: Endfield | 可從發行商準備全球版或中國大陸版劇情配音 |
 | Wuthering Waves | 可從發行商準備全球版台詞、原版配音和已核實的場景上下文片段 |
 | Neverness to Everness | 從發行商取得所選版本可用的文字與原版配音 |

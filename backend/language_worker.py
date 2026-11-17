@@ -38,6 +38,13 @@ def build(game, install, directory, locale, targets, output, progress=None):
     adapter, _ = asset_adapter(game)
     options = {'progress': progress} if progress and 'progress' in inspect.signature(adapter.index_language).parameters else {}
     payload = adapter.index_language(install, directory, locale, targets, **options)
+    write_payload(game, payload, locale, targets, output)
+
+
+def write_payload(game, payload, locale, targets, output):
+    """Validate and atomically publish the ordinary worker's exact UTF-8 payload."""
+    from .game_tools import _atomic_file
+    adapter, _ = asset_adapter(game)
     if payload.get('format') != 2 or payload.get('game') != game or payload.get('source_locale') != locale or not payload.get('records'):
         raise ValueError('Incomplete official language snapshot')
     counts = dict.fromkeys(('voiced', 'unvoiced', 'unavailable', 'unknown'), 0)
@@ -56,7 +63,7 @@ def build(game, install, directory, locale, targets, output, progress=None):
     payload['dialogue_inventory'] = {'voice_counts': counts, 'categories': categories}
     payload['reader_revision'] = adapter.LANGUAGE_INDEX_VERSION
     payload['targets_requested'] = sorted(targets)
-    output.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+    _atomic_file(output, json.dumps(payload, ensure_ascii=False).encode('utf-8'))
 
 
 if __name__ == '__main__':

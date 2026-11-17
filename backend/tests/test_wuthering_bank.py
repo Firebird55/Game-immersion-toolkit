@@ -173,3 +173,108 @@ def test_fixed_scene_state_does_not_relax_shared_song_graphs():
     nodes=direct()+[(3,51,fixed_state())]
     nodes[0]=(2,10,nodes[0][2][:17]+b'\x08'+nodes[0][2][18:])
     assert not song_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+def event_node(identity, actions, initial=bytes(7)):
+    return 4, identity, initial + bytes([len(actions)]) + b''.join(map(u32, actions))
+
+
+def call_event(identity, *, tail=bytes(3)):
+    return b'\x03\x21' + u32(identity) + tail
+
+
+def state_event(leaf=None, call=None):
+    return [(3,51,call_event(60) if call is None else call), event_node(60,[52]),
+            (3,52,fixed_state() if leaf is None else leaf)]
+
+
+def test_immediate_same_bank_state_only_event_keeps_both_explicit_player_sources():
+    nodes=gendered()+state_event()
+    assert scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101,102}) == (
+        SceneSource(102,'female',0,False,((701,702),)),SceneSource(101,'male',0,False,((701,702),)))
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+def test_nested_state_only_events_retain_each_fixed_state_without_changing_source_clock():
+    nodes=direct(delay=.5)+[(3,51,call_event(60)),event_node(60,[52,53]),
+        (3,52,fixed_state()),(3,53,call_event(61)),event_node(61,[54]),(3,54,fixed_state(801,802))]
+    assert scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101}) == (
+        SceneSource(101,None,500,False,((701,702),(801,802))),)
+
+
+@pytest.mark.parametrize('leaf', [
+    play(10), b'\x03\x01'+u32(10)+bytes(10),
+    fixed_state(group=wwise_hash('player_rover_gender')), fixed_state(group=0),
+    fixed_state(target=0),fixed_state(target=900),fixed_state(bus=1),
+    fixed_state(props=b'\x01\x3a'+u32(100)+b'\0'),
+    fixed_state(props=b'\0\x01\x3a'+u32(100)+u32(100)),
+    fixed_state()+b'\0',fixed_state()[:-1],
+])
+def test_child_audio_stop_rover_delays_ranges_or_malformed_states_are_never_ignored(leaf):
+    assert not scene_sources(bank(direct()+state_event(leaf),actions=(51,50)), 'owned_scene',{101})
+
+
+@pytest.mark.parametrize('tail', [b'\x01\0\0',b'\0\x01\x3a'+u32(100)+b'\0',
+                                  b'\0\0\x01\x3a'+u32(100)+u32(100),bytes(4),bytes(2)])
+def test_play_event_itself_requires_exact_immediate_no_bus_or_random_properties(tail):
+    nodes=direct()+state_event(call=call_event(60,tail=tail))
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+@pytest.mark.parametrize('change',['missing-event','wrong-event-kind','missing-action','wrong-action-kind',
+                                  'empty-event','cooldown','instance-limit','extra-event-bytes'])
+def test_complete_child_event_metadata_and_references_are_required(change):
+    nodes=direct()+state_event()
+    if change=='missing-event':nodes.pop(-2)
+    elif change=='wrong-event-kind':nodes[-2]=(3,60,nodes[-2][2])
+    elif change=='missing-action':nodes.pop()
+    elif change=='wrong-action-kind':nodes[-1]=(2,52,nodes[-1][2])
+    elif change=='empty-event':nodes[-2]=event_node(60,[])
+    elif change=='cooldown':nodes[-2]=event_node(60,[52],bytes(3)+struct.pack('<f',1))
+    elif change=='instance-limit':nodes[-2]=event_node(60,[52],b'\0\x01'+bytes(5))
+    else:nodes[-2]=(4,60,nodes[-2][2]+b'\0')
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+@pytest.mark.parametrize('cycle',['self','root','two-events','repeated-event'])
+def test_event_cycles_or_shared_repeated_traversal_cannot_expand_or_select_a_source(cycle):
+    nodes=direct()+state_event()
+    if cycle=='self':nodes[-1]=(3,52,call_event(60))
+    elif cycle=='root':nodes[-1]=(3,52,call_event(wwise_hash('owned_scene')))
+    elif cycle=='two-events':nodes[-1]=(3,52,call_event(61));nodes += [event_node(61,[53]),(3,53,call_event(60))]
+    else:nodes[-2]=event_node(60,[52,53,54]);nodes[-1]=(3,52,call_event(61));nodes += [
+        (3,53,call_event(61)),(3,54,fixed_state()),event_node(61,[55]),(3,55,fixed_state(801,802))]
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+@pytest.mark.parametrize('levels,accepted',[(8,True),(9,False)])
+def test_state_event_depth_is_bounded_even_without_a_cycle(levels,accepted):
+    nodes=direct()+[(3,51,call_event(1000))]
+    for offset in range(levels):
+        aid=2000+offset
+        nodes += [event_node(1000+offset,[aid]),
+                  (3,aid,fixed_state() if offset==levels-1 else call_event(1001+offset))]
+    assert bool(scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101}))==accepted
+
+
+@pytest.mark.parametrize('events,accepted',[(15,True),(16,False)])
+def test_total_event_node_budget_is_independent_of_shallow_depth(events,accepted):
+    nodes=direct();actions=[50]
+    for offset in range(events):
+        aid,event,leaf=1000+offset,2000+offset,3000+offset;actions.append(aid)
+        nodes += [(3,aid,call_event(event)),event_node(event,[leaf]),(3,leaf,fixed_state())]
+    assert bool(scene_sources(bank(nodes,actions=actions), 'owned_scene',{101}))==accepted
+
+
+@pytest.mark.parametrize('tail',[bytes.fromhex('00000000000000010000000000000100'),
+                                  bytes.fromhex('00000000000000010000000001000000')])
+def test_child_states_do_not_relax_any_voice_ancestor_state_or_rtpc_guard(tail):
+    assert not scene_sources(bank(direct(tail=tail)+state_event(),actions=(51,50)), 'owned_scene',{101})
+
+
+def test_state_only_child_events_do_not_enable_shared_song_states_or_scene_play_delays():
+    from backend.wuthering_bank import song_sources
+    nodes=direct()+state_event();nodes[0]=(2,10,nodes[0][2][:17]+b'\x08'+nodes[0][2][18:])
+    assert not song_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+    nodes=direct()+state_event();nodes[2]=(3,50,play(10)[:7]+b'\x01\x3a'+u32(100)+play(10)[8:])
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})

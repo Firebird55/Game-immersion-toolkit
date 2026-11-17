@@ -39,6 +39,14 @@ does not establish a displayed body. Both this written message category and
 ordinary text use unvoiced capture, separately from the existing voice-message
 route. [Original-source boundary and current preparation](endfield-current-subtitle-acceptance.md#written-baker-system-messages).
 
+Revision 30 additionally derives each instruction book's original localized
+title and complete body as recognition context. All 131 books match in every
+study selection when that complete pair is visible; six repeated English
+bodies remain guarded without their title. Official bodies, translations and
+voice states are unchanged. The same frozen reader derives 113 book anchors
+from the replayed older release, without an ID list or new recordings.
+[Original title, current capture and two-generation evidence](endfield-current-subtitle-acceptance.md#original-instruction-titles-and-complete-written-bodies).
+
 Revision 24 additionally follows original top-caption layout declarations and
 the exact stage order of operator-training steps. The current graph inventory
 contains 15 top-layout nodes; the strict source selector adds full-frame voiced
@@ -77,6 +85,30 @@ duration and original media before full-frame voiced admission. All 15 match
 for both protagonists in all study selections through the production capture
 policy. General reaction sounds remain separate. See the
 [current endpoint and original-controller proof](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
+
+Revision 29 additionally identifies the original bottom world-dialogue view
+from its localized Auto/Skip controls, visible original actor and complete
+caption, with valid OCR geometry and reliable line confidence. It captures all
+198 friendship utterances in every study selection through the production
+capture service, including when NPC choices coexist. Caption-only ambiguity,
+different takes, short-caption guards and all predecessor/menu resets remain.
+The ordinary current and frozen old publisher readers derive their own UI
+metadata without a game installation. Public gameplay supplies separate real
+OCR evidence; current physical/native acceptance remains open. See the
+[world-dialogue proof and limits](endfield-current-subtitle-acceptance.md#original-world-dialogue-presentation).
+
+The current boss-caption follow-up verifies both protagonist resources, all
+four localized subtitle tracks and the original current-gender selector. All
+eight primary recordings are silent or contain only one-LSB decoder noise
+during their own caption window, while later voice controls remain audible.
+The separate effects bank retains distinct output routes, authored gains,
+states and a Stop dependency; a heard effects component is not proof of a
+complete sentence recording. These eight pairs remain unknown. Separately,
+82 original NPC override calls reference 31 current graphs with 199 prepared
+text rows per selection: 56 primary voices and 143 missing original primary
+metadata entries. Root activation of those NPC graphs remains unproved. See
+the [current caller and dub evidence](endfield-current-subtitle-acceptance.md#current-caller-protagonist-and-dub-proof-for-the-boss-caption)
+and the [finite endpoint distinctions](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
 
 ## Empty radio performers resolved from original code · November 16, 2026
 

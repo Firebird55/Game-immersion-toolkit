@@ -11,8 +11,12 @@ With the game folder empty, choose **Global** or **Mainland China** in
 current in-version text, scene and original-voice inventories as well as its
 matching launcher base. Supported sources include GalGame, chat, bubbles,
 narration, choices, motion comics, phone messages, ongoing dialogue, gameplay tips and
-per-dub clue subtitle intervals. Setup reads the selected voice package indexes
-and downloads matching recordings. Current raw update packages are downloaded
+per-dub clue subtitle intervals, plus supported film subtitle tracks and explicitly
+labeled whole-film context recordings. Original timeline events and the selected
+dub's bank/media tables establish those contexts; subtitle display times do not
+become speech cuts. Unsupported timelines and conflicting player branches remain
+unresolved. Setup reads the selected voice package indexes and bank metadata,
+then downloads matching recordings on playback. Current raw update packages are downloaded
 to a disk cache and hash-checked completely before their individual recordings
 are read; the
 checked Japanese patch package was about 216 MB. Unchanged base recordings use

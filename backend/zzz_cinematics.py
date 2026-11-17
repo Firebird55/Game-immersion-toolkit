@@ -14,14 +14,18 @@ MANDARIN = 'chinese(prc)'
 
 def event_bank_links(resource: dict) -> dict[int, set[int]]:
     values = resource.get('eventReferenceBanks', [])
+    if not isinstance(values, list) or len(values) > 2_000_000 or any(type(value) is not int or not 0 <= value <= 0xffffffff for value in values):
+        raise ValueError('Invalid cinematic event bank identities')
     result, position = {}, 0
     while position < len(values):
         event = values[position]; position += 1
         banks = set()
         while position < len(values) and values[position] != 0:
             banks.add(values[position]); position += 1
-        if position >= len(values) or not banks:
+        if position >= len(values) or not banks or not event:
             raise ValueError('Incomplete cinematic event bank references')
+        if event in result and result[event] != banks:
+            raise ValueError('Ambiguous cinematic event bank references')
         result[event] = banks
         position += 1
     return result
