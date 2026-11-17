@@ -13,7 +13,7 @@ correct audible context render, so every pair retains unknown audio.
 That is the only demonstrated active subtitle/audio exception. Independent
 update preparation also has separate open requirements: the remaining frozen
 crypto masters and standalone Android acquisition/decoding. The new
-[official common-key/directory resolver and Android/preflight audit](endfield-official-parameters.md)
+[official common-key/directory/Lua resolver and Android/preflight audit](endfield-official-parameters.md)
 records the implemented PC route and its exact evidence limits.
 
 The 28 retained

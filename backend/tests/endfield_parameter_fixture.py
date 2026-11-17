@@ -6,7 +6,8 @@ from types import SimpleNamespace as NS
 from backend.endfield_client_contract import VFS, DEFINE
 
 REGISTERS = {name: i + 1 for i, name in enumerate(
-    ['rax', 'rbx', 'rcx', 'rdx', 'r8', 'eax', 'ecx', 'edx', 'dl', 'r8d', 'rdi', 'rip'])}
+    ['rax', 'rbx', 'rcx', 'rdx', 'r8', 'eax', 'ecx', 'edx', 'dl', 'r8d', 'rdi', 'rip',
+     'rsp', 'r9', 'r10', 'r14', 'rsi'])}
 
 
 def register(name):
@@ -141,6 +142,10 @@ class Fixture:
                 if row.literal is None:
                     raise ValueError('No authored literal')
                 return {'text': row.literal, 'index': 0, 'slot': 0}
+            def method_usage(self, row):
+                if not hasattr(row, 'method_spec'):
+                    raise ValueError('No authored MethodSpec')
+                return row.method_spec
         return Owners()
 
     def code_reader(self, *_):

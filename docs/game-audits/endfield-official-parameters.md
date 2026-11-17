@@ -1,7 +1,7 @@
 # Endfield official parameters and independent preparation
 
-Checkpoint: November 17, 2026. This report concerns the common VFS key and
-directory map. It does not resolve the separately retained prologue audio
+Checkpoint: November 17, 2026. This report concerns the common VFS key,
+directory map and Lua XXTEA key. It does not resolve the separately retained prologue audio
 exception or claim that every other cryptographic master is now native-derived.
 
 ## Implemented PC route
@@ -52,6 +52,26 @@ package hash from those partial ranges. The launcher artifact hashes remain in
 the identity, and independent original VFS CRC/schema controls are required.
 Those two evidence levels must remain distinct.
 
+The Lua source route now resolves the original `Beyond.Lua.LuaCypher` owner,
+its typed `KEYS` array, constructor assignments and `GetKey` caller. Concrete
+metadata `MethodSpec` arguments bind the five-string formatting call; local
+operand definitions bind its current array elements and complete delimiter.
+The same owned subtract/modulo converter supplies the decoded 16-byte UTF-8
+key. The reader contains no current fragment values, key literals, method
+indices or revision addresses. Unknown formatting, argument ownership/types,
+field definitions or conversion contracts fail explicitly. This is bounded
+static recognition, without running original instructions or native callbacks.
+
+World-dialogue, Baker and training source preparation all use this release-owned
+Lua route. Before activation, the selected Lua index must already have passed
+the common-key CRC/typed checks. Each complete source file must pass its original
+VFS-declared MD5, XXTEA length/UTF-8 decode and source control. The activation
+boundary independently repeats the decode and rechecks the original launcher
+identity. Private witnesses bind the original file MD5, decrypted SHA-256 and
+selected index SHA-256 to that client. An identical validated witness works
+offline; an invalid candidate or changed client cannot replace it. Existing UI
+ownership validators still decide whether those source files support capture.
+
 Cold source preflight and extraction first check the reviewed native runtime,
 before requesting even native-file headers. An unsupported host or missing
 Capstone/XXH3 closure produces `missing_toolkit_runtime` with an Endfield-specific
@@ -72,6 +92,17 @@ Focused owned fixtures separately exercise actual atomic publication, changed
 fragments/masks/map labels, source identity changes, malformed ranges, wrong
 owners/types, failed updates and offline retention.
 
+The additional production Lua replay derives its key from cached original
+Global 1.6.4 client bytes, then uses the ordinary script route on 13 complete
+original files from 1.5.3 and 13 from 1.6.4. Both original Lua indexes pass
+CRC/typed checks; all 26 complete MD5/decrypted-source controls pass and all 26
+one-bit-key negatives are rejected. Identical source witnesses work offline,
+and the historical descriptor bytes remain unchanged. This replay needs zero
+new network bytes. The bounded native-owner probe previously read 9,757
+additional official range bytes; those ranges retain the partial-file
+authentication qualification above. This is current-native-to-two-resource-
+generation evidence, not extraction from a second historical native client.
+
 These are current-native-client-to-old/current-index controls. They are **not**
 an extraction from a second historical native client, a fresh live-server run,
 five newly repeated full language workers or Android device acceptance. The
@@ -86,7 +117,7 @@ generically. Unknown/unavailable types fail honestly if requested; there are no
 six-entry exceptions or manual label aliases. The original Unity hash callee is
 identified through metadata; its body was not added to the bounded source probe.
 
-AKPK multiplier/XOR masters, Lua XXTEA, custom timeline AES/substitutions/IV and
+AKPK multiplier/XOR masters, custom timeline AES/substitutions/IV and
 header masks still come from the existing immutable format/seed inputs. This
 change does not establish their future rotation autonomy. Historical descriptors
 without the new client identity retain their original frozen provenance and
@@ -108,6 +139,7 @@ not completion of that endpoint.
 | Static x64 decoder | Existing verified Capstone 5.0.7 Windows-amd64 DLL and full BSD notice | Pinned, licensed host libraries for both Android ABIs and a shared verified loader. An ARM-host Capstone can decode x64 instructions; the Windows DLL is not Android evidence. |
 | Directory XXH3 | Verified xxhash 4.1.0 CPython-3.12 Windows-amd64 extension and BSD notice | A matching ABI-reviewed Android extension or another exact licensed fixed-software implementation with the same vectors/contract. The Windows `.pyd` is not portable. |
 | VFS/package cryptography | PyCryptodome ChaCha20 and NumPy range masks, with bounds and CRC/schema validation | Include and verify their Android binary dependencies and the same range semantics. This does not solve the other frozen-master rotations. |
+| Lua source key/XXTEA | Original-client metadata/operand recognizer and bounded pure-Python XXTEA/source validation | Ship the same source readers and verified host decoder; current Windows software pins do not establish Android preparation. No current Lua key data is distributed. |
 | Timeline bundle crypto/decompression | Bounded Python reader and embedded Unity v22 typetrees, with existing fixed format parameters | Ship the import closure and source validators; retain the separate unsupported-master boundary. No community timeline update is needed for compatible authored cues. |
 | Original soundtrack/WEM decode/export | Desktop vgmstream and the selected audio converter; actual film decoding uses a subprocess | A licensed pinned Android codec/bridge for the required Wwise/media formats, same selected-dub/track/context options and duration limits. A Windows executable or PC export does not prove native Android playback. |
 

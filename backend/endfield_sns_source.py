@@ -4,8 +4,8 @@ from functools import lru_cache
 import re
 
 from . import endfield_film_registry as registry, endfield_film_update as assets
-from . import endfield_metadata as metadata, endfield_release as release, endfield_vfs as vfs
-from .endfield_presentation_source import _bindings, _check, _contains, _function, _object, decode_lua
+from . import endfield_release as release, endfield_vfs as vfs
+from .endfield_presentation_source import _bindings, _check, _contains, _function, _object
 from .endfield_sns_presentation import validate_sns_dialogue_ui
 from .game_tools import _atomic_file
 from .languages import normalize_text
@@ -154,17 +154,13 @@ def original_ui(tools, stamp):
         _, _, layouts[role], _ = assets._asset(tools, source, path, classes=(1, 114, 224))
         sources[role] = source[1].content_hashes[1]
     layout_ownership(layouts)
-    root = metadata.cache_root(tools)
-    secret = metadata._one(r'XxteaKey\s*=\s*(?:System\.Text\.)?Encoding.UTF8.GetBytes\("([^"\\]*)"\)',
-                           (root / 'Keys.cs').read_text(encoding='utf-8-sig'))
-    key = secret.encode('utf8')[:16].ljust(16, b'\0')
     base, original = release.group(tools, stamp, 17, frozenset(LUA_PATHS.values()))
     files = {file.name: file for file in original}
     _check(files.keys() == set(LUA_PATHS.values()))
-    scripts = {}
+    from .endfield_lua_parameters import scripts as original_scripts
+    scripts = original_scripts(tools, stamp, {role: (base, files[path]) for role, path in LUA_PATHS.items()})
     for role, path in LUA_PATHS.items():
         file = files[path]
-        scripts[role] = decode_lua(release._whole(tools, base, file, 256 * 1024), key)
         sources[role] = file.content_hashes[1]
     return sources, controller_labels(scripts)
 

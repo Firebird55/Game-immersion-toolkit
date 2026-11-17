@@ -66,15 +66,10 @@ def _immediate(rows, name):
     return values[0]
 
 
-def _fragments(owners, code):
-    check(owners.field_type(VFS, 'CHACHA_KEY') == 'System.String' and
-          owners.field_type(VFS, 'CHACHA_KEYS') == ('array', 'System.String'))
-    rows = code.linear(owners.method(VFS, '.cctor', 0))
-    stores = _stores(owners, rows, VFS)
-    delimiter_at, delimiter_operand = stores[owners.field(VFS, 'CHACHA_KEY')['offset']]
-    check(delimiter_operand.type == 1)
-    delimiter = _literal_before(owners, rows, delimiter_at, rows[delimiter_at].reg_name(delimiter_operand.reg))
-    array_at, array_operand = stores[owners.field(VFS, 'CHACHA_KEYS')['offset']]
+def array_fragments(owners, rows, owner, field):
+    check(owners.field_type(owner, field) == ('array', 'System.String'))
+    stores = _stores(owners, rows, owner)
+    array_at, array_operand = stores[owners.field(owner, field)['offset']]
     check(array_operand.type == 1)
     array_register = array_operand.reg
     entries, setters = {}, set()
@@ -102,7 +97,17 @@ def _fragments(owners, code):
         setters.add(pointer)
     check(1 <= len(entries) <= 128 and set(entries) == set(range(len(entries))) and len(setters) == 1,
           'Incomplete original key-fragment array.')
-    return delimiter, entries
+    return entries
+
+
+def _fragments(owners, code):
+    check(owners.field_type(VFS, 'CHACHA_KEY') == 'System.String')
+    rows = code.linear(owners.method(VFS, '.cctor', 0))
+    stores = _stores(owners, rows, VFS)
+    delimiter_at, delimiter_operand = stores[owners.field(VFS, 'CHACHA_KEY')['offset']]
+    check(delimiter_operand.type == 1)
+    delimiter = _literal_before(owners, rows, delimiter_at, rows[delimiter_at].reg_name(delimiter_operand.reg))
+    return delimiter, array_fragments(owners, rows, VFS, 'CHACHA_KEYS')
 
 
 def _selected_fragments(owners, rows):
@@ -133,11 +138,8 @@ def _selected_fragments(owners, rows):
     return selected
 
 
-def _key(owners, code):
-    delimiter, fragments = _fragments(owners, code)
-    rows = code.linear(owners.method(VFS, 'GetCommonChachaKeyBs', 1))
-    selected = _selected_fragments(owners, rows)
-    check(all(index in fragments for index in selected))
+def masked_conversion(owners, code, rows, encoded, length):
+    """Shared original subtract/modulo conversion, selected by its real caller."""
     candidates = []
     for at, target in calls(rows):
         window = rows[max(0, at - 12):at]
@@ -161,10 +163,18 @@ def _key(owners, code):
           'The original key conversion contract changed.')
     mask_bytes = mask.encode('utf-8')
     check(0 < len(mask_bytes) <= 4096)
-    encoded = ''.join(fragments[index] for index in selected) + delimiter
     decoded = base64.b64decode(encoded, validate=True)
-    check(len(decoded) == 32)
+    check(len(decoded) == length)
     return bytes((value - mask_bytes[index % len(mask_bytes)]) & 255 for index, value in enumerate(decoded))
+
+
+def _key(owners, code):
+    delimiter, fragments = _fragments(owners, code)
+    rows = code.linear(owners.method(VFS, 'GetCommonChachaKeyBs', 1))
+    selected = _selected_fragments(owners, rows)
+    check(all(index in fragments for index in selected))
+    return masked_conversion(owners, code, rows,
+                             ''.join(fragments[index] for index in selected) + delimiter, 32)
 
 
 def _map(owners, code):

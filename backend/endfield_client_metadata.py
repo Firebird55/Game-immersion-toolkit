@@ -161,6 +161,32 @@ class Owners:
         index, slot = references[0]
         return {'index': index, 'slot': slot, 'text': self.metadata.literal(index)}
 
+    def method_usage(self, instruction):
+        """Resolve an authored MethodSpec, including its concrete type arguments."""
+        references = []
+        for operand in instruction.operands:
+            if operand.type == 3 and instruction.reg_name(operand.mem.base) == 'rip':
+                slot = instruction.address + instruction.size + operand.mem.disp
+                value = self.image.q(slot)
+                if value >> 29 == 6 and value & 1:
+                    references.append((value & 0x1fffffff) >> 1)
+        check(len(references) == 1, 'Expected one original generic method usage.')
+        count, table = struct.unpack('<2Q', self.image.data_read(self.registration - 16, 16))
+        index, = references
+        check(0 <= index < count <= 2_000_000)
+        method, class_inst, method_inst = struct.unpack('<3i', self.image.data_read(table + index * 12, 12))
+        check(0 <= method < len(self.metadata.methods) // 32 and class_inst == -1)
+        values = struct.unpack_from('<6I4H', self.metadata.methods, method * 32)
+        count, table = struct.unpack('<2Q', self.image.data_read(self.registration - 64, 16))
+        check(0 <= method_inst < count <= 2_000_000)
+        instance = self.image.q(table + method_inst * 8)
+        number, = struct.unpack('<I', self.image.data_read(instance, 4))
+        check(0 < number <= 8)
+        arguments = self.image.q(instance + 8)
+        return {'owner': self.metadata.type_name(values[1]), 'name': self.metadata.string(values[0]),
+                'parameters': values[-1], 'arguments': tuple(
+                    self.type_at(self.image.q(arguments + n * 8)) for n in range(number))}
+
     def is_owner_usage(self, instruction, owner):
         for operand in instruction.operands:
             if operand.type == 3 and instruction.reg_name(operand.mem.base) == 'rip':
