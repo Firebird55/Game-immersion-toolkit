@@ -382,6 +382,24 @@ destinations. The four current Global updater chunks also parse to exact EOF;
 original utility chunks independently demonstrate the need for opaque binary
 constants. No original VM runs.
 
+A separately bounded four-member format probe retrieves only the English,
+Japanese and Chinese versions of one named dialogue resource plus an English
+settings resource: 2,030,376 complete carrier bytes, 4,361 selected original
+member bytes and 8,068 decoded bytes. All four source chunks and decoded PAK
+members pass their authored SHA-1 checks on frozen corrected-reader code.
+Only the four authorized resources and verified carrier cache are retained.
+`backend/infinity_nikki_locres.py` reads their stock-v3 key tables and string
+pools completely: 150 entries, with identical namespace/key/source-hash
+identities across the three dialogue translations. The source hash describes
+the authored source string, as represented by the engine's
+[localization entry](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/FTextLocalizationResource/FEntry);
+it must not be recomputed from a translated value or discarded when joining
+languages. The owned reader bounds both table regions, preserves Unicode and
+opaque key hashes, rejects duplicate identities and stale-identity joins, and
+uses no client library or Lua VM. A localization row alone is not marked as a
+verified caption, unvoiced dialogue or an original voice binding. Original
+caption/voice consumers and patch-priority semantics remain separate gates.
+
 The original updater's captured URL templates lead to the current Global
 `CloudDir/PaperHttpChunkInstall.manifest`. Its complete 41,972,123-byte JSON
 response has unchanged strong ETag/length before and after and a verified
