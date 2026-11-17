@@ -5,7 +5,7 @@ import {join} from 'node:path';
 import {authoredLibraryIdentity, inspectAuthoredLibrary} from './android-authored-library-check.mjs';
 
 const paths = new Set(['/api/snapshot', '/api/platform', '/api/library/import', '/api/settings',
- '/api/capture/receiver', '/api/capture/frame']);
+ '/api/capture/receiver', '/api/capture/frame', '/api/game-data', '/api/game-data/zzz/plan', '/api/game-data/zzz/download']);
 const states = new Set(['receiver_frame_stale', 'receiver_document_changed', 'receiver_document_retired',
  'receiver_revision_stale', 'receiver_generation_changed', 'receiver_dimensions_changed', 'receiver_owned',
  'receiver_registry_full', 'account_generation_changed', 'account_recovery_required']);
@@ -23,10 +23,9 @@ export function safeMessageMetrics(value) {
 }
 
 export async function authoredReceiverLibraryReady(page) {
- const message = await page.locator('[aria-label="Receive game screen"] [role="status"]').textContent();
- // This status is rendered from the actual libraryReady prop. HTTP import
+ // This enabled state is rendered from actual source readiness. HTTP download
  // completion alone does not prove React committed its new keyed receiver.
- return ['Connect the game device to begin.', 'Screen source stopped.'].includes(message?.trim());
+ return page.getByLabel('Paste vdo.ninja link to start', {exact: true}).isEnabled();
 }
 
 export function safeReceiverState(value) {
@@ -109,9 +108,8 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
     let snapshot = null;
     try {const response = await fetch('/api/snapshot', {signal: controller.signal});if (response.ok) snapshot = await response.json();}
     catch {} finally {clearTimeout(timer);}
-    const message = document.querySelector('[aria-label="Receive game screen"] [role="status"]')?.textContent?.trim();
     return {snapshot, hidden: document.hidden, iframe_count: document.querySelectorAll('.android-screen-viewer iframe').length,
-     library_ready: ['Connect the game device to begin.', 'Screen source stopped.'].includes(message),
+     library_ready: document.querySelector('#android-screen-link')?.disabled === false,
      viewer_link_present: !!document.querySelector('#android-screen-link')?.value,
      image_bitmap_available: typeof createImageBitmap === 'function', metrics: window.__toolkitAuthoredReceiverMetrics};
    }), 5000);

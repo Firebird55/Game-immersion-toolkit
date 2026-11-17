@@ -101,7 +101,7 @@ class WutheringGameDataProvider:
     title = 'Wuthering Waves'
 
     def __init__(self, platform, native=None):
-        if platform not in ('desktop', 'android'):
+        if platform not in ('windows', 'linux', 'macos', 'android', 'desktop'):
             raise ValueError('Unsupported Wuthering preparation platform')
         self.platform = platform
 

@@ -1,5 +1,9 @@
 # Android shared-core host
 
+The [direct preparation acceptance flow](android-direct-preparation-acceptance.md)
+replaces the earlier ZIP-onboarding runtime fixture; its source/browser evidence
+and remaining APK/device boundaries are separate.
+
 Issue [#81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81) requires
 an installed Android host, the existing desktop reader, and shared production
 matching, confirmation and transcript behavior. It does not permit a hosted-page

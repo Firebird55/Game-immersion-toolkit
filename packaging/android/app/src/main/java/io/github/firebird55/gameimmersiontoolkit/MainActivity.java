@@ -49,8 +49,10 @@ public final class MainActivity extends Activity {
                 FrameOcr ocr = new FrameOcr(getApplicationContext());
                 PyObject module = Python.getInstance().getModule("backend.android_host");
                 boolean authoredAccounts = BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitAuthoredAccounts", false);
-                String address = module.callAttr("start", new File(getFilesDir(), authoredAccounts ? "authored-account-ui" : "toolkit").getCanonicalPath(),
-                    web.getCanonicalPath(), ocr, true, authoredAccounts).toString();
+                boolean authoredGameData = BuildConfig.DEBUG && (authoredAccounts || getIntent().getBooleanExtra("toolkitAuthoredGameData", false));
+                String dataRoot = authoredAccounts ? "authored-account-ui" : authoredGameData ? "authored-game-data-ui" : "toolkit";
+                String address = module.callAttr("start", new File(getFilesDir(), dataRoot).getCanonicalPath(),
+                    web.getCanonicalPath(), ocr, true, authoredAccounts, authoredGameData).toString();
                 origin = address.substring(0, address.length() - 1);
                 String sessionCookie = module.callAttr("bootstrap_cookie").toString();
                 selfTestDiagnostic("host", "passed", null);

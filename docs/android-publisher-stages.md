@@ -7,8 +7,11 @@ separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
-Together with the existing 54 core/host/decoder modules, this policy selects 64
-owned modules. These two factories require only CPython's standard library.
+Together with the 55 core/host/decoder and authored acceptance modules, this
+policy selects 65 owned modules. The generated acceptance provider is installed
+only by a separately named, explicitly opted-in native DEBUG startup; it never
+changes the production registry or establishes publisher-content coverage.
+These two production factories require only CPython's standard library.
 One additional context-only module, `sophon_assets`, reads bounded checksummed
 launcher manifests using the reviewed [Zstandard native cohort](android-zstandard.md).
 It does not register another provider. The two factories still import only the

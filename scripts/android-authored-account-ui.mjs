@@ -5,6 +5,7 @@ import {readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {authoredLibraryIdentity} from './android-authored-library-check.mjs';
 import {authoredReceiverLibraryReady, createAuthoredRuntimeDiagnostics} from './android-runtime-diagnostics.mjs';
+import {prepareAuthoredGameData} from './android-authored-game-data-ui.mjs';
 
 const firstKey = 'lx_first_authored_account_fixture_only';
 const secondKey = 'lx_second_authored_account_fixture_only';
@@ -21,6 +22,12 @@ export function authoredCredentialPath(packageName, platform) {
 const snapshot = page => page.evaluate(async () => (await fetch('/api/snapshot')).json());
 const platform = page => page.evaluate(async () => (await fetch('/api/platform')).json());
 
+async function openAccountSettings(page) {
+  const connect = page.getByRole('button', {name: 'Connect Lexirise', exact: true});
+  if (await connect.count()) await connect.click();
+  else await page.getByRole('button', {name: 'Account settings', exact: true}).click();
+}
+
 async function audioHash(page, id) {
   return page.evaluate(async id => {
     const response = await fetch(`/api/lines/${id}/audio`);
@@ -36,6 +43,7 @@ export async function verifyAuthoredOwner(page, identity, expectedAudio, until) 
   await until(() => page.evaluate(async identity => (await (await fetch('/api/lexirise/accounts')).json()).active === identity, identity),
     'authored protected owner reopened');
   await page.locator('.transcript-line').filter({hasText: 'Follow the river beyond the bridge.'}).first().waitFor();
+  await until(async () => (await snapshot(page)).status.textmaps.ready, 'restored original direct-source index');
   const value = await snapshot(page);
   assert.equal(value.lines.length, 1);assert.equal(value.lines[0].favorite, true);
   assert.equal(value.status.textmaps.ready, true);assert.equal(value.status.settings.capture_unvoiced, true);
@@ -49,7 +57,7 @@ export async function verifyAuthoredOwner(page, identity, expectedAudio, until) 
 export async function exerciseAccountUi(page, {library, until, capture, corrupt, preserved}) {
   const expectedLibrary = authoredLibraryIdentity(library);
   assert.equal((await platform(page)).authored_account_fixture, true);
-  await page.getByRole('button', {name: 'Lexirise account', exact: true}).click();
+  await openAccountSettings(page);
   const register = async (key, label) => {
     await page.getByRole('button', {name: 'Add account securely', exact: true}).click();
     await page.getByLabel('Lexirise API key', {exact: true}).fill(key);
@@ -60,11 +68,7 @@ export async function exerciseAccountUi(page, {library, until, capture, corrupt,
   };
   const first = await register(firstKey, 'First authored owner');
   await page.getByRole('button', {name: 'Close Lexirise settings', exact: true}).click();
-  // A bounded File payload uses the actual shared import handler. It does not
-  // claim acceptance of Android's interactive SAF picker on a physical device.
-  await page.getByLabel('Private toolkit library', {exact: true}).setInputFiles({
-    name: 'authored-library.zip', mimeType: 'application/zip', buffer: readFileSync(library)});
-  await until(async () => (await snapshot(page)).status.textmaps.ready, 'authored owner library import');
+  await prepareAuthoredGameData(page, until, {bothModes: true});
   await capture(page);
   await page.getByRole('button', {name: 'Play current voice line', exact: true}).waitFor();
   const initial = await snapshot(page);assert.equal(initial.lines.length, 1);
@@ -130,9 +134,9 @@ export async function exerciseAccountUi(page, {library, until, capture, corrupt,
     'Content-Type': 'application/json', 'X-Toolkit-Account-Generation': String(generation)},
     body: JSON.stringify({stable_frames: 9})})).status, generation), 409, 'Returning to A must not revive its old request scope');
   await corrupt(page);
-  await until(() => page.getByRole('button', {name: 'Open library', exact: true}).isDisabled(), 'locked native library capability');
+  await until(async () => (await platform(page)).capture_source === 'unavailable', 'locked native capture capability');
   await until(async () => await page.locator('.transcript-line').count() === 0, 'locked native history hidden');
-  await page.getByRole('button', {name: 'Lexirise account', exact: true}).click();
+  await openAccountSettings(page);
   await page.getByLabel('Lexirise API key', {exact: true}).fill(firstKey);
   await page.getByRole('button', {name: 'Verify and restore local data', exact: true}).click();
   await until(() => page.evaluate(async identity => {
@@ -151,9 +155,9 @@ export async function connectAuthoredReceiver(page, until) {
     'Content-Type': 'application/json', 'X-Toolkit-Account-Generation': String(generation)},
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}})})).status, generation), 200);
   await until(() => authoredReceiverLibraryReady(page), 'authored native library activation');
-  await page.getByLabel('Private viewer link or stream code', {exact: true}).fill('https://vdo.ninja/?view=authored');
-  const connect = page.getByRole('button', {name: 'Connect screen', exact: true});
-  await until(() => connect.isEnabled(), 'authored native account receiver');await connect.click();
+  const link = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
+  await until(() => link.isEnabled(), 'authored native account receiver');
+  await link.fill('https://vdo.ninja/?view=authored');
   await until(async () => (await snapshot(page)).lines.length === 1, 'authored account native OCR transcript');
 }
 
@@ -211,7 +215,7 @@ export async function verifyNativeAccountsAfterUpdate({adb, component, packageNa
   writeFileSync(join(output, 'android-account-runtime-proof.json'), JSON.stringify({
     schema: 'toolkit-android-authored-account-runtime-v1', fixture: 'two-immutable-mock-owners-and-generated-tone',
     account_switch: 'A-B-A', native_android_execution: true, credential_protection: 'actual-isolated-android-keystore',
-    remote_transport: 'immutable-authored-mock', shared_ui_import: true, native_ocr_capture: true,
+    remote_transport: 'immutable-authored-mock', shared_ui_direct_game_preparation: true, native_ocr_capture: true,
     favorite_and_preferences_retained: true, original_audio_hash_retained: true, mock_audio_export: true,
     stale_account_requests_rejected: true, detached_audio_retired_on_switch: true,
     corrupt_original_store_preserved: true, explicit_verified_owner_recovery: true,

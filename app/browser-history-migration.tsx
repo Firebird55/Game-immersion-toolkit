@@ -73,7 +73,7 @@ export function BrowserHistoryMigration({onChanged}: {onChanged: () => void}) {
   return <details className="toolkit-export-help">
     <summary>Import old browser history</summary>
     <p>Use the history-only JSON export from the old toolkit browser. This adds history and favorites on this device. If you use accounts, select the right one first. Keep the original browser data.</p>
-    <p>Voice files, account keys and private stream links are not included. Re-import a prepared library for future capture and playback. Reading preferences and screen calibration are configured separately in this app.</p>
+    <p>Voice files, account keys and private stream links are not included. Download the game's data in Settings for future capture and playback. Reading preferences and screen calibration are configured separately in this app.</p>
     <details><summary>Export from the old browser</summary>
       <p>On the old device, keep the old toolkit browser data. In a browser that supports JavaScript bookmarks, save a bookmark and replace its address with the complete code below. Open the original toolkit address in that same browser, then run the bookmark to save the history JSON. A normal 404 page at the original address can still retain its browser storage.</p>
       <p>This reads only local history and favorites. It does not send data to a server or unlock credentials. Mobile bookmark execution still needs device verification; keep the original data if your browser blocks it.</p>
