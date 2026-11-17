@@ -123,7 +123,10 @@ def _verified(directory, url, compressed, length, digest, maximum, *, fetch=None
     _check(len(encoded) == compressed)
     declared = zstandard.frame_content_size(encoded)
     _check(declared in (-1, length))
-    data = zstandard.ZstdDecompressor(max_window_size=maximum // 1024).decompress(
+    # The pinned C backend forwards this value as bytes, despite older API
+    # documentation describing KiB. Keep the same expanded/window byte cap.
+    _check(zstandard.get_frame_parameters(encoded).window_size <= maximum)
+    data = zstandard.ZstdDecompressor(max_window_size=maximum).decompress(
         encoded, max_output_size=length, allow_extra_data=False)
     _check(len(data) == length and hashlib.md5(data).hexdigest() == digest)
     try:
