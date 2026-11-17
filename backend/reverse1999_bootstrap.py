@@ -57,7 +57,23 @@ def _type(reader):
     return class_id, script
 
 
-def objects(raw):
+@dataclass(frozen=True)
+class UnityObject:
+    path_id: int
+    class_id: int
+    script_index: int
+    data: bytes = field(repr=False)
+
+
+@dataclass(frozen=True)
+class UnityAssetIndex:
+    unity_version: str
+    objects: tuple[UnityObject, ...]
+    script_references: tuple[tuple[int, int], ...]
+    external_paths: tuple[str, ...]
+
+
+def asset_index(raw):
     """Read Unity 22, little endian, stripped-type-tree data without game code."""
     _require(isinstance(raw, bytes) and 48 <= len(raw) <= LIMIT,
              'Original bootstrap asset exceeds its limit.')
@@ -84,18 +100,28 @@ def objects(raw):
                  'Invalid original bootstrap object ownership or boundaries.')
         identities.add(identity)
         spans.append((offset, offset + size))
-        rows.append((types[index][0], raw[data_start + offset:data_start + offset + size]))
+        rows.append(UnityObject(identity, types[index][0], types[index][1],
+                                raw[data_start + offset:data_start + offset + size]))
     spans.sort()
     _require(all(left[1] <= right[0] for left, right in zip(spans, spans[1:])),
              'Overlapping original bootstrap objects.')
+    script_references = []
     for _ in range(reader.count()):
-        reader.number('i'); reader.align(); reader.number('q')
+        file_id = reader.number('i'); reader.align()
+        script_references.append((file_id, reader.number('q')))
+    external_paths = []
     for _ in range(reader.count(1024)):
-        reader.terminated(); reader.take(16); reader.number('i'); reader.terminated()
+        reader.terminated(); reader.take(16); reader.number('i')
+        external_paths.append(reader.terminated())
     _require(reader.count(1024) == 0, 'Unsupported original bootstrap reference types.')
     reader.terminated()
     _require(reader.position == len(reader.raw), 'Unexpected original bootstrap metadata suffix.')
-    return unity_version, tuple(rows)
+    return UnityAssetIndex(unity_version, tuple(rows), tuple(script_references), tuple(external_paths))
+
+
+def objects(raw):
+    index = asset_index(raw)
+    return index.unity_version, tuple((row.class_id, row.data) for row in index.objects)
 
 
 @dataclass(frozen=True)

@@ -213,6 +213,33 @@ file CRCs. Their Unity/Steam/render initialization and assembly inventories do
 not supply a self-contained content-key derivation or base/hotfix schema. They
 are static metadata; none of the listed initialization methods was executed.
 
+The data-only `reverse1999_unity_owner.py` reader now cross-checks a
+MonoBehaviour's serialized type/script-table entry against its actual `m_Script`
+pointer, resolves the original external-file identity, and reads the referenced
+MonoScript's namespace, class and assembly. Replaying the existing resource bytes
+identifies the encrypted configuration carrier as
+`SLFramework.GameConfigAsset`, assembly `Assembly-CSharp`, owned through
+`globalgamemanagers.assets`. The scene's initial component is
+`ZProj.ProjMain` in the same declared assembly. These are authored type-ownership
+edges, **not a verified method call from startup to the configuration decoder**.
+No fixed scene/object IDs or instance-name match is used by this reader; its
+payload remains opaque. The original 20 archive indexes do not contain a
+standalone `Assembly-CSharp.dll` path. Compiled or embedded code is not ruled out.
+
+A separate typed read of GameAssembly's PE import descriptors, names and thunks
+finds 13 nonzero descriptors for Windows system libraries and Unity `baselib`.
+They establish no static import of another game-specific configuration decoder;
+all referenced import metadata fits the retained 64 KiB window. That hypothesis
+stops without searching unrelated modules. A final bounded entrypoint read
+retains 4 KiB at the PE-authored entrypoint. After 14 statically decoded x64
+instructions, execution would reach an indirect `call r9`; the preceding code
+derives that target from the image base and an external DWORD. Analysis stops at
+this unknown indirect edge, without emulation, further reads or packer
+reconstruction. The new replay received 18,677,760 compressed bytes and retains
+that private compressed range for exact reuse. These partial reads do not verify
+the whole archive's MD5 or GameAssembly's full file CRC, and do not demonstrate
+that official key derivation is impossible.
+
 ## Text versus text and audio planning
 
 `backend/reverse1999_game_data.py` exposes the shared host factory
@@ -286,7 +313,7 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-The 71 owned synthetic fixtures currently exercise public metadata decoding,
+The 85 owned synthetic fixtures currently exercise public metadata decoding,
 ordinary-version and voice-branch refresh, announcement-insensitive launcher
 fingerprints, original archive ownership and totals, bootstrap boundaries,
 mandatory/optional voice distinctions, update order, malformed/oversized data,
