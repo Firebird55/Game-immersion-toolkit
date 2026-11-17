@@ -10,8 +10,6 @@ import {chromium} from 'playwright';
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
 mkdirSync(output, {recursive: true});
-const packageName = 'io.github.firebird55.gameimmersiontoolkit.debug';
-const component = `${packageName}/io.github.firebird55.gameimmersiontoolkit.MainActivity`;
 const adb = (...args) => execFileSync('adb', args, {encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe']}).trim();
 async function until(operation, label, timeout = 90_000) {
   const end = Date.now() + timeout;
@@ -22,6 +20,9 @@ async function until(operation, label, timeout = 90_000) {
   throw new Error(`Android runtime did not establish ${label}`);
 }
 const provenance = JSON.parse(readFileSync(join(directory, 'ANDROID-PROVENANCE.json'), 'utf8'));
+const packageName = provenance.application_id ?? 'io.github.firebird55.gameimmersiontoolkit.debug';
+assert.ok(['io.github.firebird55.gameimmersiontoolkit.debug', 'io.github.firebird55.gameimmersiontoolkit'].includes(packageName));
+const component = `${packageName}/io.github.firebird55.gameimmersiontoolkit.MainActivity`;
 const apk = join(directory, 'GameImmersionToolkit-android-debug.apk');
 assert.equal(createHash('sha256').update(readFileSync(apk)).digest('hex'), provenance.apk_sha256);
 assert.equal(provenance.release_eligibility, false);
@@ -48,6 +49,11 @@ assert.equal(core.runtime.rapidfuzz, '3.14.6');
 assert.match(core.runtime.fuzzy_scorer, /rapidfuzz\.fuzz_cpp/);
 assert.equal(core.runtime.fuzzy_extractor, 'rapidfuzz.process_cpp_impl');
 assert.ok(core.runtime.authored_fuzzy_50000_ms < 250, 'Native fuzzy lookup must remain bounded on the target');
+assert.equal(core.native_preview?.fixture, 'authored-native-black-bars-and-quadrants');
+assert.equal(core.native_preview?.passed, true);
+assert.equal(core.native_preview?.cases.length, 4);
+assert.deepEqual(core.native_preview.cases.map(item => item.source), [[1600, 1200], [1600, 1200], [2400, 1080], [2400, 1080]]);
+assert.ok(core.native_preview.cases.every(item => Number.isInteger(item.bytes) && item.bytes > 0 && item.bytes <= 2 * 1024 ** 2));
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -92,8 +98,8 @@ assert.equal(imported.status, 200);
 assert.equal(imported.data.game, 'zzz');
 await page.evaluate(async () => {
   const response = await fetch('/api/settings', {method: 'PATCH', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({zzz_region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
-  if (!response.ok) throw new Error('Authored full-frame calibration failed');
+    body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
+  if (!response.ok) throw new Error('Authored full-frame calibration failed: ' + response.status + ' ' + (await response.text()).slice(0, 512));
 });
 const connectScreen = page.getByRole('button', {name: 'Connect screen', exact: true});
 await page.getByLabel('Private viewer link or stream code', {exact: true}).fill('https://vdo.ninja/?view=authored');
@@ -168,6 +174,7 @@ await browser.close();
 writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema: 'toolkit-android-runtime-proof-v1',
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,
+  application_id: packageName, version_code: provenance.version_code, variant: provenance.variant,
   shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
   synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
