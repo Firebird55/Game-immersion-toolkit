@@ -220,10 +220,20 @@ class Container:
             check(len(data) == limit - start and all(self._valid(i, part)
                                                    for i, part in zip(range(first, end), parts)))
             for i, part in zip(range(first, end), parts):
-                _atomic_file(self.root / f'{i}.block', part)
+                self._store(i, part)
             result.extend(parts)
             first = end
         return result
+
+    def _store(self, index, data):
+        check(self._valid(index, data))
+        if self._cached(index) == data:
+            return
+        try:
+            _atomic_file(self.root/f'{index}.block', data)
+        except PermissionError:
+            if self._cached(index) != data:
+                raise
 
     def read_stored(self, position, size):
         """A managed seekable stream may read only checksum-covered UCAS bytes."""

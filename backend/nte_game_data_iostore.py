@@ -73,8 +73,8 @@ def plan(handle, selection, ctx, reader):
     packet = {'schema': STAGE, 'indices': handle, 'pak_selection': selection, 'global': name}
     identity = content._identity(packet)
     if retained(source):
-        return GameDataPlan('nte-local-metadata-'+identity, None, None, handle=packet, stage='content',
-            message='Original NTE import data is verified. Local dialogue processing is still required.')
+        from . import nte_game_data_prepare as processing
+        return processing.plan(packet, values, ctx, reader)
     guards = 2*sum(row['bytes'] for row in handle['verification'].values())
     return GameDataPlan('nte-global-metadata-'+identity, source.ucas.size+guards, source.ucas.size+128*1024,
         handle=packet, download_is_upper_bound=True, runtime_available=True, stage='global-import-metadata',

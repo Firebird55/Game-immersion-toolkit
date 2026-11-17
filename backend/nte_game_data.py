@@ -101,6 +101,17 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage == 'dialogue-package-ranges':
+            reader = self._reader(ctx)
+            from . import nte_game_data_packages as packages
+            return packages.download(plan, ctx, reader,
+                PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
+        if plan.stage == 'process-metadata':
+            reader = self._reader(ctx)
+            from . import nte_game_data_prepare as processing
+            # Local processing has a true zero-byte allowance. No publisher
+            # transport is constructed, and no current metadata is requested.
+            return processing.download(plan, ctx, reader)
         if plan.stage == 'global-import-metadata':
             reader = self._reader(ctx)
             from . import nte_game_data_iostore as imports

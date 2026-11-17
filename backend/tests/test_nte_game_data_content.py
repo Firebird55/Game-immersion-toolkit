@@ -25,7 +25,7 @@ from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 
 class Originals:
-    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False):
+    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False, text_tail=False):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -44,6 +44,7 @@ class Originals:
                 'Client/WindowsNoEditor/HT/Content/Paks/Original.pak': archive,
                 'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': toc}
         self.forbidden_assets = set()
+        self.forbid_all_http = False
         self.metadata_archives = {}
         if selected_metadata:
             specs = {
@@ -54,13 +55,18 @@ class Originals:
                 'subtitles': ('Content/SrtFile/FFMpeg/Story/', 'owned.srt'),
                 'voice': ('Content/WwiseAudio/Media/Japanese/', '123.wem')}
             for label, (folder, name) in specs.items():
-                raw = package([(name, (label+' original source\n').encode()*18000, 0, False, False)], folder=folder)
+                payload = (label+' original source\n').encode()*18000
+                if processing and label in ('study', 'target'):
+                    from backend.tests.test_nte_locres import resource
+                    payload = resource([('story', 'owned', label+' text', 7)])
+                    if text_tail and label == 'study': payload += b'!'
+                raw = package([(name, payload, 0, False, False)], folder=folder)
                 owner = 'Client/WindowsNoEditor/HT/Content/Paks/'+label+'.pak'
                 data[owner], data[owner[:-4]+'.sig'] = raw, signature(raw)
                 self.metadata_archives[label] = self.url('PC_100', hashlib.md5(raw).hexdigest(), len(raw))
             from backend.tests.test_nte_publisher_iostore import fixture as iostore
             global_toc, global_ucas = iostore(global_toc=True)
-            ordinary_toc, ordinary_ucas = iostore()
+            ordinary_toc, ordinary_ucas = iostore(content=True)
             data.update({
                 'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': global_toc,
                 'Client/WindowsNoEditor/HT/Content/Paks/global.ucas': global_ucas,
@@ -97,6 +103,11 @@ class Originals:
         pin = ('a'*40, hashlib.sha256(description).hexdigest())
         monkeypatch.setattr(nte_publisher, 'NATIVE_ARCHIVE', pin)
         (cache/(pin[0]+'-'+pin[1]+'.txt')).write_bytes(description)
+        if processing:
+            raw = ('authored initial text parameter 0x'+KEY.hex()).encode()
+            pin = ('b'*40, hashlib.sha256(raw).hexdigest())
+            monkeypatch.setattr(nte_publisher, 'NATIVE_LOCALIZATION', pin)
+            (cache/(pin[0]+'-'+pin[1]+'.txt')).write_bytes(raw)
 
     @staticmethod
     def url(branch, digest, size):
@@ -107,6 +118,7 @@ class Originals:
         self.objects[self.url(branch, digest, len(raw))] = raw
 
     def open(self, request, **_):
+        assert not self.forbid_all_http, 'Local processing attempted publisher HTTP'
         url, selected = request.full_url, request.get_header('Range')
         self.calls.append({'url': url, 'range': selected})
         if selected:
@@ -311,7 +323,7 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
         assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
         assert len([call for call in original.calls if call['range']]) == before+1
         local = service.plan('nte', request)['game']
-        assert not local['can_download'] and local['revision'].startswith('nte-local-metadata-')
+        assert not local['can_download'] and local['revision'].startswith('nte-localization-description-')
         assert not (original.root/'nte/current.json').exists()
     finally:
         service.close()

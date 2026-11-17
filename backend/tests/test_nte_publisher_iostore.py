@@ -30,7 +30,7 @@ def file(data):
 
 
 def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compression=False,
-            second=b'B' * 15, gap=False, global_toc=False):
+            second=b'B' * 15, gap=False, global_toc=False, content=False):
     plain = b'A' * 80 + second
     chunks = [plain[:64], plain[64:], b'C' * 64]
     cipher = AES.new(KEY, AES.MODE_ECB)
@@ -53,8 +53,8 @@ def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compress
         stored.append(value)
         offset += len(value)
     ucas = stored[0] + (bytes(16) if gap else b'') + b''.join(stored[1:])
-    names = ['HT', 'a.uasset', 'A.uasset' if collision else 'b.uasset']
-    directory = (string('../../../') + struct.pack('<I', 2) +
+    names = ['Content' if content else 'HT', 'a.uasset', 'A.uasset' if collision else 'b.uasset']
+    directory = (string('../../../HT/' if content else '../../../') + struct.pack('<I', 2) +
         struct.pack('<4I', INVALID, 1, INVALID, INVALID) +
         struct.pack('<4I', 0, 0 if cycle else INVALID, INVALID, 0) +
         struct.pack('<I', 2) + struct.pack('<3I', 1, 1, 0) +

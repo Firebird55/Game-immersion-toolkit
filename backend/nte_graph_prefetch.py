@@ -34,9 +34,12 @@ class Plan:
     new_bytes: int
 
 
-def plan(containers, packages):
+def plan(containers, packages, *, max_new_bytes='default'):
     from .nte_publisher import _overlay
-    _check(isinstance(containers, dict) and 0 < len(containers) <= 128
+    if max_new_bytes == 'default':
+        max_new_bytes = MAX_NEW_BYTES
+    _check((max_new_bytes is None or type(max_new_bytes) is int and 0 <= max_new_bytes <= MAX_NEW_BYTES)
+           and isinstance(containers, dict) and 0 < len(containers) <= 128
            and all(isinstance(source, Container) for source in containers.values())
            and isinstance(packages, dict) and 0 < len(packages) <= MAX_PACKAGES
            and all(isinstance(name, str) and type(size) is int and 0 < size <= 4*1024**2
@@ -68,7 +71,7 @@ def plan(containers, packages):
                     break
                 size += following.length; stop += 1; cursor += 1
             new_bytes += size
-            _check(new_bytes <= MAX_NEW_BYTES)
+            _check(max_new_bytes is None or new_bytes <= max_new_bytes)
             runs.append((source, first, stop))
     return Plan(len(packages), sum(packages.values()),
                 tuple((source, tuple(sorted(indices))) for source, indices in selected.items()), tuple(runs), new_bytes)

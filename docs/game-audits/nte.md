@@ -347,6 +347,35 @@ The stage retained the selected-metadata identity and remained unfinished local
 processing, with no ready library. Metadata-only inventory additionally forbids
 ordinary package-body access even when those blocks are cached.
 
+The subsequent local metadata job now has an actual **zero-byte** transfer
+allowance and constructs no publisher transport. A frozen-original Japanese/
+Mandarin-target run decoded the acquired locres, checked namespaces, keys,
+source hashes and complete resource EOF, and obtained the strict v2 registry
+inventory through the verified self-contained reader. The 200,358,635-byte
+original registry passed actual EOF verification. Ordinary UCAS package-body
+reads were forbidden throughout inventory preparation. An immutable receipt
+binds the reader, original registry, selected locale owners and normalized
+text/package outputs; missing, swapped or interrupted receipt publication needs
+processing again and cannot activate a library.
+
+Only that retained receipt, authenticated TOCs and cache state are used for the
+following package quote. The actual retained-source run planned and accounted
+**9,515,370 bytes**, including pointer guards, across 2,374 bounded requests and
+2,445 original blocks (9,204,112 stored bytes). All blocks came from existing
+SHA1-verified original caches; no new network acquisition or bank/WEM member
+read occurred. Larger normal package inventories use successive consented
+stages of at most 64 MiB, while the existing prefetch defaults retain their
+limits. Complete native/schema closure validation and language extraction still
+follow this stage; it remains a preparation result, not a ready snapshot.
+
+Local text processing has the separate immutable initial
+[CUE4Parse locres description](https://raw.githubusercontent.com/FabianFG/CUE4Parse/d45c24674d84c3c2c61ae5315a37a80dac97e04f/CUE4Parse/GameTypes/NTE/Encryption/NevernessToEvernessLocresEncryption.cs),
+SHA-256 `855abc7dbf3b39f5a7cf04ac5c613a3281992afb8cdb4c4f844722f816b7ea34`.
+Its exact cold-miss state is: “The application needs its initial NTE text
+compatibility information before local processing.” This fixed prerequisite
+does not establish a future localization-key derivation or permit implicit
+per-update community refreshes.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary
