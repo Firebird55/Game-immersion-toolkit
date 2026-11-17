@@ -440,7 +440,8 @@ function CompanionClient() {
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
   const explicitGame = useRef<string | null>(null);
-  const archivedHistory = selectedGame === 'hito';
+  const archivedHistory = !LIVE_GAME_IDS.includes(selectedGame);
+  const archivedGames = Object.entries(GAME_NAMES).filter(([game]) => !LIVE_GAME_IDS.includes(game));
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -772,18 +773,18 @@ function CompanionClient() {
   }, [activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
-    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+    if (!archivedHistory && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
       setSelectedGame((activeGameAvailable ? status!.capture.active_game : gamePicker.games[0].id) as GameId);
       setHistoryPage(0);
     }
-  }, [gamePicker.target, selectedGame, activeGameAvailable, status?.capture.active_game]);
+  }, [gamePicker.target, selectedGame, archivedHistory, activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
-    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+    if (!archivedHistory && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
       setSelectedGame(gamePicker.games[0].id as GameId);
       setHistoryPage(0);
     }
-  }, [gamePicker.target, selectedGame]);
+  }, [gamePicker.target, selectedGame, archivedHistory]);
 
   const recentLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),
@@ -1045,7 +1046,7 @@ function CompanionClient() {
           else gameSelection.cancel();
         }} />
 
-      {nativeHost.android && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
+      {nativeHost.android && !archivedHistory && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
@@ -1090,7 +1091,7 @@ function CompanionClient() {
         )}
       </section>}
 
-      {archivedHistory && <p role="status">Hito’s World capture is disabled. Your saved history and favorites remain available.</p>}
+      {archivedHistory && <p role="status">{GAME_NAMES[selectedGame]} capture is disabled. Your saved history and favorites remain available.</p>}
       <section className="transcript" aria-label={transcriptTab === 'imported' ? 'Imported browser history' : transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}>
         {transcriptTab === 'imported' && <div><h2>Imported browser history</h2>
           <label><input type="checkbox" checked={importedFavorites} onChange={event => {
@@ -1205,11 +1206,14 @@ function CompanionClient() {
               {(!updateStatus || !['checking','updating','retrying','error'].includes(updateStatus.state)) && <p>{uiText('Up to date')}</p>}
             </div>
           </details>}
-          {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
-            <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
-              setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
+          {!!archivedGames.length && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
+            <select aria-label="Archived game history" value={archivedHistory ? selectedGame : ''} onChange={event => {
+              const active = status?.capture.active_game;
+              const game = archivedGames.some(([id]) => id === event.target.value) ? event.target.value as GameId
+                : active && LIVE_GAME_IDS.includes(active) ? active : 'zzz';
+              explicitGame.current = game; gameSelection.cancel(); setSelectedGame(game);
               setHistoryPage(0); changeTranscriptTab('history', true);
-            }}><option value="">Active games</option><option value="hito">Hito's World (archived)</option></select>
+            }}><option value="">Active games</option>{archivedGames.map(([game,title]) => <option key={game} value={game}>{title} (archived)</option>)}</select>
           </label>}
         </div>
       </footer>
@@ -1231,7 +1235,7 @@ function CompanionClient() {
             </DialogDescription>
           </DialogHeader>
 
-          <p>{nativeHost.android ? 'Capture adjustments are saved on this device. Import a prepared library to choose its study language and original voice.' : <>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</>}</p>
+          <p>{nativeHost.android ? 'Capture adjustments are saved on this device. Choose the game data and study language in Settings.' : <>{uiText("Capture adjustments are saved on this PC.")}{!archivedHistory && ' Choose and download the study language and its matching original voice in Game data.'}</>}</p>
           {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
             onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
           </label>}
