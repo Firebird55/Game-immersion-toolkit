@@ -63,23 +63,50 @@ def _bank(directory, stamp, locale, name, bank_id):
                       for identifier, media in embedded.items()}
 
 
+@lru_cache(maxsize=128)
+def _dependency(directory, stamp, locale, name, bank_id):
+    """An original common SFX bank may be required alongside the selected dub.
+
+    Validate its identity and structure, but never return its events or media as
+    voice candidates. The actual performance must resolve in the selected dub.
+    """
+    if not name.rpartition('/')[0].endswith('/Audio/Windows/Full'):
+        raise ValueError('Original ZZZ common bank is outside the shared package directory.')
+    languages, banks, _ = _tables(directory, stamp, locale, name)
+    entry, = [entry for (identifier, language), entry in banks.items()
+              if identifier == bank_id and languages[language] == 'sfx']
+    if not 0 < entry.size <= 64 * 1024**2:
+        raise ValueError('Unsupported original ZZZ common bank size.')
+    source = voice._archive(directory, stamp, locale, name, 'zzz')
+    bank_sources_from_reader(entry.size, lambda start, size: source.read(directory, entry.offset + start, size),
+                             bank_id, language='sfx')
+
+
 def _inventory(directory, stamp, locale, wanted_banks):
     namespace = voice_namespace('zzz', locale).lower()
     folder = '/Audio/Windows/Full/' + VOICE_FOLDERS[locale] + '/'
     files = voice._files(directory, stamp, locale, 'zzz')
-    result = [{}, {}]
+    result = [{}, {}, {}]
     for layer in ('StreamingAssets', 'Persistent'):
-        current, ambiguous = [{}, {}], [set(), set()]
-        for name in sorted(name for name in files if name.split('/')[1] == layer and folder in name):
+        current, ambiguous = [{}, {}, {}], [set(), set(), set()]
+        for name in sorted(name for name in files if name.split('/')[1] == layer and
+                           (folder in name or name.rpartition('/')[0].endswith('/Audio/Windows/Full'))):
+            common = folder not in name
             languages, banks, sounds = _tables(directory, stamp, locale, name)
             for index, table in enumerate((banks, sounds)):
                 for (identifier, language), entry in table.items():
-                    if languages[language] != namespace or index == 0 and identifier not in wanted_banks:
-                        continue
-                    if identifier in current[index]:
-                        ambiguous[index].add(identifier)
-                    current[index][identifier] = (name, entry)
-        for index in range(2):
+                    if common:
+                        if index or languages[language] != 'sfx' or identifier not in wanted_banks:
+                            continue
+                        target = 2
+                    else:
+                        if languages[language] != namespace or index == 0 and identifier not in wanted_banks:
+                            continue
+                        target = index
+                    if identifier in current[target]:
+                        ambiguous[target].add(identifier)
+                    current[target][identifier] = (name, entry)
+        for index in range(3):
             result[index].update(current[index])
             for identifier in ambiguous[index]:
                 result[index].pop(identifier, None)
@@ -109,9 +136,18 @@ def bindings(data_dir, stamp, locale, links, registry):
     if not wanted:
         return {}
     directory = data_dir / 'tools/sophon'
-    banks, sounds = _inventory(directory, stamp, locale, wanted)
-    complete = {event for event in events if registry.get(event) and registry[event] <= banks.keys()}
+    banks, sounds, dependencies = _inventory(directory, stamp, locale, wanted)
+    complete = {event for event in events if registry.get(event) and registry[event] <= banks.keys() | dependencies.keys()}
     wanted = set().union(*(registry[event] for event in complete))
+    verified_dependencies = set()
+    for identifier, (name, _) in dependencies.items():
+        if identifier not in wanted or identifier in banks:
+            continue
+        try:
+            _dependency(directory, stamp, locale, name, identifier)
+            verified_dependencies.add(identifier)
+        except (ValueError, struct.error):
+            continue
     parsed = {}
     for identifier, (name, _) in banks.items():
         if identifier not in wanted:
@@ -124,9 +160,9 @@ def bindings(data_dir, stamp, locale, links, registry):
     candidates = defaultdict(dict)
     for event_id, event in events.items():
         required = registry.get(event_id, set())
-        if not required or not required <= banks.keys() or not required <= parsed.keys():
+        if not required or not required <= parsed.keys() | verified_dependencies:
             continue
-        for event_bank in sorted(required):
+        for event_bank in sorted(required & parsed.keys()):
             event_name, event_sources, _ = parsed[event_bank]
             source = event_sources.get(event_id)
             if source is None or not 0 < source.media_id <= 0xffffffff:
@@ -135,7 +171,7 @@ def bindings(data_dir, stamp, locale, links, registry):
             # Wwise 135 source kinds are Data, PrefetchStreaming and Streaming.
             # A bank's prefetch prefix is not the complete streamed recording.
             sources = [(parsed[bank][0], parsed[bank][2][media_id], bank)
-                       for bank in sorted(required) if source.stream_type == 0 and media_id in parsed[bank][2]
+                       for bank in sorted(required & parsed.keys()) if source.stream_type == 0 and media_id in parsed[bank][2]
                        and parsed[bank][2][media_id].size == source.memory_size]
             if source.stream_type in (1, 2) and media_id in sounds:
                 name, entry = sounds[media_id]

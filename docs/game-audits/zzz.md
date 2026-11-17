@@ -1,5 +1,38 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Shared dependency banks remain separate from voice media
+
+Reader revision 19 resolves an original common-bank dependency that the selected
+dub-only inventory previously excluded. Bank 3796863498 is present in the root
+`SoundBank_SFX_14.pck`, in its authenticated `sfx` namespace. It is a media-only
+BKHD/DIDX/DATA bank, not a spoken event or a control hierarchy. Its declared
+requirement comes from the original registry. The implementation discovers
+required common banks from the new release's root package tables, validates
+their identities and bank structure, and never admits their events or media to
+the selected voice candidates. No particular film or bank ID is a code list.
+
+For `Play_vo_C300_EP010`, the independently language-specific English event and
+its complete 740,385-byte recording both reside in the English package. The
+shared dependency therefore no longer prevents that voice binding. Normal
+Global English preparation completed in 152.359 seconds with **297,159 records**
+and **902 context captions from 131 events**. Exactly 12 C300 captions gained
+context audio; all other record dictionaries, including the 890 earlier context
+captions and 295,204 ordinary records, stayed identical. Runtime source hashes
+before and after the normal worker match.
+
+The normal-snapshot C300 context decoded to 56.671833 seconds of nonzero audio
+through the regular voice service in two separate fresh processes, with all
+network access forbidden and identical PCM after restart. That extraction read
+only the original English recording. The exact shared dependency check acquired
+one 1,279,011-byte authenticated source chunk (1,227,953 compressed), requesting
+only bank metadata and skipping DATA. All co-resident source bytes count toward
+that acquisition. These checks do not make the SFX content a speech recording.
+
+The three earlier event names lacking original registry entries remain
+unresolved, as do other layouts, player ownership, current-use classification,
+all-locale playback and the frozen update/recovery acceptance. A missing entry
+still cannot establish that captions are unvoiced or unused.
+
 ## November 17, 2026 · Original publisher cinematic bank and media acquisition
 
 Reader revision 18 reads the plain-named original design TextAsset
@@ -35,8 +68,10 @@ The denominators remain separate: the typed complete timelines supply 168
 whole-event names across locales, while English captions unanimously select
 134 events. Three selected English events have no current registry entry
 (`Play_vo_C260_EP000`, `Play_vo_C270_EP010`, `Play_vo_C270_EP110`).
-`Play_vo_C300_EP010` requires bank 3796863498, which is absent from the selected
-English bank inventory. These are unavailable/unknown, not confirmed silent.
+At revision 18, `Play_vo_C300_EP010` required bank 3796863498, absent from the
+selected English bank inventory. The revision 19 check above identifies its
+original shared SFX dependency and resolves the English recording. These
+inventories never certify silence from an absent bank or registry entry.
 Shared captions that select different player events cannot inherit one branch.
 
 Fresh normal Global English preparation completed in 163.968 seconds with

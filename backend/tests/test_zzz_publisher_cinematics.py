@@ -56,6 +56,7 @@ def stream_package(wem, locale='en'):
 def sources(monkeypatch, snapshots):
     cinema._tables.cache_clear()
     cinema._bank.cache_clear()
+    cinema._dependency.cache_clear()
     monkeypatch.setattr(voice, '_files', lambda _directory, stamp, _locale, game: snapshots[stamp])
 
 
@@ -149,6 +150,42 @@ def test_data_source_ignores_unrelated_stream_copy_and_unknown_source_kinds(tmp_
     unknown, _ = package(tmp_path, stream_type=3)
     sources(monkeypatch, {'snapshot': {prefix + 'Patch.pck': unknown}})
     assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()], registry()) == {}
+
+
+def common_package(wem, *, header_language='sfx'):
+    language = ('sfx\0').encode('utf-16-le')
+    languages = struct.pack('<3I', 1, 12, 0) + language
+    body = b'BKHD' + struct.pack('<4I', 12, 135, 99, wwise_hash(header_language))
+    body += b'DIDX' + struct.pack('<4I', 12, 123, 0, len(wem)) + b'DATA' + struct.pack('<I', len(wem)) + wem
+    sizes = (len(languages), 24, 4, 4)
+    header_size = 20 + sum(sizes)
+    return OriginalPackage(b'AKPK' + struct.pack('<6I', header_size, 1, *sizes) + languages
+        + struct.pack('<6I', 1, 99, 1, len(body), header_size + 8, 0) + bytes(8) + body)
+
+
+def test_original_common_bank_is_a_required_dependency_and_never_a_voice_source(tmp_path, monkeypatch):
+    original, wem = package(tmp_path)
+    shared = common_package(wem)
+    root = 'ZenlessZoneZero_Data/Persistent/Audio/Windows/Full/'
+    files = {root + 'En/Patch.pck': original, root + 'Shared.pck': shared}
+    required = {wwise_hash('Play_vo_Synthetic_01'): {77, 88, 99}}
+    sources(monkeypatch, {'snapshot': files})
+    audio = cinema.bindings(tmp_path, 'snapshot', 'en', [link()], required)['SyntheticCaption']
+    assert audio['media_bank'] == 88 and '/En/' in audio['package']
+    assert cinema.extract(audio, tmp_path / 'tools') == wem
+    assert all(start + size <= shared.size - len(wem) or start >= shared.size
+               for start, size in shared.reads)
+    # Even an equal media ID and valid full WEM in SFX cannot replace dub media.
+    assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()],
+                           {wwise_hash('Play_vo_Synthetic_01'): {77, 99}}) == {}
+    for replacement in [None, common_package(wem, header_language='japanese(jp)')]:
+        changed = {root + 'En/Patch.pck': original}
+        if replacement:
+            changed[root + 'Shared.pck'] = replacement
+        sources(monkeypatch, {'snapshot': changed})
+        assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()], required) == {}
+    sources(monkeypatch, {'snapshot': {**files, root + 'Conflicting.pck': common_package(wem)}})
+    assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()], required) == {}
 
 
 @pytest.mark.parametrize('value', [[], {'eventReferenceBanks': True}, {'eventReferenceBanks': [True]},
