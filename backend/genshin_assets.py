@@ -582,7 +582,7 @@ def _complete_links(links, tables, authored, reminder_rows):
     return links
 
 
-def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
+def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None, *, original_text=False):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Genshin study/audio language.')
     warnings = []
@@ -590,7 +590,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         from . import genshin_publisher
         from .publisher_regions import selected_region
         region = selected_region(data_dir / 'tools', 'genshin')
-        stamp, catalog, version = genshin_publisher.prepare(data_dir, region)
+        if original_text:
+            stamp, catalog, version = genshin_publisher.prepare(data_dir, region, original_text=True)
+        else:
+            stamp, catalog, version = genshin_publisher.prepare(data_dir, region)
         version_matches = True
         region_name = 'Global' if region == 'global' else 'mainland China'
         _warn(warnings, f'Using the {region_name} Windows {version} publisher release and its verified current hotfix indexes. Removed event assets can still differ.')
@@ -703,6 +706,10 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         result['publisher_region'] = region
         if not count or selected_region(data_dir / 'tools', 'genshin') != region or not genshin_publisher.current(stamp, region):
             raise ValueError('The Genshin region or release changed, or its voice data is incomplete. Retry preparation.')
+        if original_text:
+            from .genshin_source_receipt import make
+            result['source_receipt'] = make(catalog, stamp, region)
+            result['message'] = f'{len(rows):,} {source_locale} lines from original TextMap and controlled helper metadata; {count:,} verified publisher voices'
     result['coverage_warnings'] = warnings
     return result
 

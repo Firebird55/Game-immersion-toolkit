@@ -23,7 +23,12 @@ from .preparation_errors import PreparationFailure
 from .runtime_bundle import RuntimeBundleError, discover_layout, relative_resource
 
 SCHEMA = 'proxy-prebuilt-dotnet-reader-v1'
-ENTRIES = {'probe': 'ToolkitReaderProbe.exe', 'nte': 'NteReader.exe', 'starrail': 'StarRailMetadata.exe'}
+ENTRIES = {'probe': 'ToolkitReaderProbe.exe', 'nte': 'NteReader.exe', 'starrail': 'StarRailMetadata.exe',
+           'genshin': 'GenshinBlb.exe'}
+GENSHIN_SOFTWARE = {
+    'software_sha256': '85629a412c466549f6e9ff0b3c4e1b7e6acbce251e024f90a6627c3849fe0a72',
+    'license_sha256': 'e6a2268c715fce13cdf0979786c51d152b3e67d32a99a67dbbeb592c64d37e29',
+}
 STARRAIL_SOFTWARE = {
     'metadata_source_sha256': '785a58e58a24c5365ff166552b5daebe9e793ceecdfe7ca8a4227af43c1a54a3',
     'decoder_source_sha256': '49fbf2fe9811e0fc20cd4a51812649e7987d4086e19940a0085dcf33a37badde',
@@ -126,6 +131,9 @@ def _source_names(kind):
         'packaging/game-readers/inputs.json', 'packaging/game-readers/global.json', 'scripts/build-game-reader-helpers.ps1', 'scripts/verify-dotnet-sdk.py'}
     if kind == 'starrail':
         names |= {'packaging/starrail-reader/inputs.json', 'packaging/starrail-reader/probe.py', 'scripts/prepare-starrail-reader.py'}
+    if kind == 'genshin':
+        names |= {'packaging/genshin-reader/inputs.json', 'packaging/genshin-reader/upstream/BlbUtils.cs',
+                  'packaging/genshin-reader/AnimeStudio-LICENSE.txt'}
     return names
 
 
@@ -155,6 +163,12 @@ class PrebuiltReader:
                 or any(not Path(path).is_absolute() for path in paths)):
             raise _failure('The original metadata helper requires a supported operation and absolute private paths.')
         return [str(self.executable), operation, *(str(path) for path in paths)]
+
+    def original_container_command(self, source, parameters, destination):
+        paths = tuple(Path(path) for path in (source, parameters, destination))
+        if self.kind != 'genshin' or any(not path.is_absolute() for path in paths) or len(set(paths)) != 3:
+            raise _failure('The original container helper requires three distinct absolute private paths.')
+        return [str(self.executable), 'decode', *(str(path) for path in paths)]
 
 
 def reader_environment(environ=None, *, platform=None):
@@ -220,7 +234,8 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
                 or value.get('runtime_version') != RUNTIME or value.get('source_commit') != layout.source_commit
                 or value.get('source_dirty') is not False
                 or value.get('purpose') != ('authored-probe-only' if kind == 'probe' else
-                                             'original-metadata-data-only' if kind == 'starrail' else 'owned-bridge-only')):
+                                             'original-metadata-data-only' if kind == 'starrail' else
+                                             'original-container-data-only' if kind == 'genshin' else 'owned-bridge-only')):
             raise ValueError()
         files = value['files']
         if not isinstance(files, dict) or not files or len(files) > 2048 or executable not in files:
@@ -304,6 +319,13 @@ def prebuilt_reader(kind: str, *, layout=None) -> PrebuiltReader:
                     raise ValueError()
         if receipt['sdk_installed_files'].get('dotnet' + target['extension']) != receipt['dotnet_executable_sha256']:
             raise ValueError()
+        if kind == 'genshin':
+            if (receipt.get('software_inputs') != GENSHIN_SOFTWARE or value.get('software_inputs') != GENSHIN_SOFTWARE
+                    or files.get('notices/AnimeStudio-LICENSE.txt', {}).get('sha256') != GENSHIN_SOFTWARE['license_sha256']
+                    or sources.get('packaging/genshin-reader/upstream/BlbUtils.cs') != GENSHIN_SOFTWARE['software_sha256']
+                    or sources.get('packaging/genshin-reader/AnimeStudio-LICENSE.txt') != GENSHIN_SOFTWARE['license_sha256']
+                    or any('/' in name and not name.startswith('notices/') for name in files)):
+                raise ValueError()
         if kind == 'starrail':
             if receipt.get('software_inputs') != STARRAIL_SOFTWARE or value.get('software_inputs') != STARRAIL_SOFTWARE:
                 raise ValueError()

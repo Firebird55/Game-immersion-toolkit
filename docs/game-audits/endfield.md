@@ -21,7 +21,13 @@ Current original caller/player data and gameplay establish use. A final bounded
 cached-source pass still cannot establish the complete original utterance or
 correct audible context render, so every pair retains unknown audio.
 
-Keep #86 open **only for that active prologue audio exception**. The 28 retained
+That is the only demonstrated active subtitle/audio exception. Independent
+update preparation also has separate open requirements: the remaining frozen
+crypto masters and standalone Android acquisition/decoding. The new
+[official common-key/directory/Lua resolver and Android/preflight audit](endfield-official-parameters.md)
+records the implemented PC route and its exact evidence limits.
+
+The 28 retained
 films, 13 missing registry graphs, 143 NPC primary-metadata absences, eight
 dynamic producers and remaining anonymous-radio, Si/Tangtang, guide/platform
 and option-linked Baker guards are separate nonblocking research inventories

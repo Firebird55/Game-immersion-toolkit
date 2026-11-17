@@ -50,7 +50,7 @@ def recording_ids(tools, stamp, dub, events):
     keys = {wwise_hash(name): name for name in events}
     if len(keys) != len(events):
         raise ValueError('Ambiguous film voice event hash.')
-    params = endfield_metadata.parameters(tools)
+    params = release.parameters(tools, stamp)
     definitions = Counter()
     localized_media = {}
     with TemporaryDirectory() as temporary:

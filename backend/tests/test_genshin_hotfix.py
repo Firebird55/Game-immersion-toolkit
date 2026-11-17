@@ -131,6 +131,11 @@ def test_regional_bootstrap_uses_its_own_keys_and_public_account_zero(monkeypatc
                               decode=lambda value: xml.encode())
     config = {'GameDispatchURL': 'template', 'ProtoDispatchKey': 'seed', 'DispatcherKey': 'key',
               'DispatcherKeyBitLength': 128, 'ChannelID': 1, 'SubChannelID': 1}
+    helper_source = {'game': 'genshin', 'region': 'cn', 'policy': 'immutable-community-hybrid',
+        'repository': 'CollapseLauncher/CollapseLauncher-ReleaseRepo', 'revision': 'a' * 40,
+        'files': {name: {'sha256': 'b' * 64, 'bytes': 128}
+                  for name in ('config_master.json', 'config_GICN.json')}}
+    config['_hoyo_bootstrap_provenance'] = helper_source
     monkeypatch.setattr(hotfix.bootstrap, 'load', lambda game, region: (config, decoder))
     plain = field(3, field(36, b'hk4e_cn'))
     cipher = PKCS1_v1_5.new(key.public_key())
@@ -140,7 +145,10 @@ def test_regional_bootstrap_uses_its_own_keys_and_public_account_zero(monkeypatc
         assert q['version'] == ['CNRELWin9.4.0'] and not {'uid', 'token', 'aid'} & set(q)
         return json.dumps({'content': base64.b64encode(cipher.encrypt(plain)).decode(), 'sign': 'opaque'}).encode()
     monkeypatch.setattr(hotfix.bootstrap, 'fetch', fetch)
-    assert hotfix._dispatch('cn', '9.4.0') == {36: b'hk4e_cn'}
+    result = hotfix._dispatch('cn', '9.4.0')
+    assert result == {36: b'hk4e_cn'}
+    if hasattr(hotfix.bootstrap, 'provenance'):
+        assert result.helper_provenance == helper_source
     for other in ['http://cngfdispatch.yuanshen.com', 'https://cngfdispatch.yuanshen.com.evil.example']:
         altered = SimpleNamespace(text=lambda value: template.replace('https://cngfdispatch.yuanshen.com', other) if value == 'template' else 'a' * 16)
         with pytest.raises(ValueError):

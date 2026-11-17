@@ -240,6 +240,38 @@ def derive_native_parameters(method: bytes) -> NativeTextMapParameters:
         finishes[1], hashlib.sha256(method).hexdigest())
 
 
+def discover_native_parameters(image):
+    """Find one unique complete format contract in original unwind ranges.
+
+    This is format discovery, not semantic method ownership. The caller must
+    authenticate the whole original executable and validate complete original
+    TextMap inputs before publication. No address or parameter is reused across
+    revisions. All equivalent method descriptions are returned, sorted by hash;
+    no method is selected as a semantic owner. Different parameter contracts are
+    ambiguous and require a reviewed description or complete input validation.
+    """
+    from .genshin_native_x64 import Image
+    _check(isinstance(image, Image))
+    candidates, attempts = [], 0
+    for start, end in zip(image.function_starts, image.function_ends):
+        size = end - start
+        if not 64 <= size <= MAX_METHOD:
+            continue
+        offset = image.offset(start, size)
+        method = image.data[offset:offset + size]
+        # Necessary opcode counts only; the full typed matcher owns acceptance.
+        if method.count(b'\x0f\xaf') < 12 or len(re.findall(rb'[\x48\x49]\xc1[\xc0-\xc7].', method, re.S)) < 8:
+            continue
+        attempts += 1
+        _check(attempts <= 128)
+        try:
+            candidates.append(derive_native_parameters(method))
+        except ValueError:
+            continue
+    _check(candidates and len({candidate.fingerprint() for candidate in candidates}) == 1)
+    return tuple(sorted(candidates, key=lambda candidate: candidate.method_sha256))
+
+
 def _mix(value, parameters, finish):
     def rotate(value, shift):
         return ((value << shift) | (value >> (64 - shift))) & MASK64

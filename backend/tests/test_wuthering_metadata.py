@@ -139,14 +139,15 @@ def test_reused_index_publication_is_atomic_and_failure_keeps_existing_bytes(tmp
     assert list(target.parent.iterdir()) == [target]
 
 
-def test_feed_outage_reuses_verified_parameters_but_does_not_store_untried_candidates(tmp_path, monkeypatch, protected):
+def test_initial_seed_outage_reuses_verified_parameters_without_authorizing_candidates(tmp_path, monkeypatch, protected):
+    from backend import wuthering_initial_seed as seed
     known, fresh = b'a' * 32, b'b' * 32
     assert metadata.remember_parameter(tmp_path, known)
-    monkeypatch.setattr(release, 'download', lambda *a, **k: json.dumps({'format': '0x' + fresh.hex()}).encode())
+    monkeypatch.setattr(seed, 'parameters', lambda *a, **k: (fresh,))
     assert release._archive_parameters(tmp_path) == (known, fresh)
     assert metadata.parameters(tmp_path) == (known,)
     def unavailable(*a, **k): raise OSError('Authored source outage')
-    monkeypatch.setattr(release, 'download', unavailable)
+    monkeypatch.setattr(seed, 'parameters', unavailable)
     assert release._archive_parameters(tmp_path) == (known,)
     with pytest.raises(PreparationFailure) as failure:
         release._archive_parameters(tmp_path / 'empty')

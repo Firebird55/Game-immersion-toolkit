@@ -34,8 +34,10 @@ def test_released_generation_follows_both_layers_and_preserves_old_descriptor(tm
     current = {'initial': b'a' * 40, 'main': b'b' * 40}
     def fetch(url, **_limits):
         if url == publisher.LATEST:
-            return json.dumps({'version': version, 'pkg': {'packs': [
-                {'url': publisher.CDN + '/1.0/update/6/6/Windows/1.0.3_test/packs/a.zip'}]}})
+            base = publisher.CDN + '/1.0/update/6/6/Windows/1.0.3_test'
+            return json.dumps({'version': version, 'pkg': {'file_path': base + '/files',
+                'game_files_md5': 'a' * 32, 'packs': [
+                {'url': base + '/packs/a.zip', 'md5': 'b' * 32, 'package_size': '4096'}]}})
         if 'get_latest_resources?' in url:
             assert 'rand_str=test' in url
             return json.dumps({'resources': [{'name': role, 'version': '123-1', 'path':
@@ -71,8 +73,10 @@ def test_mainland_launcher_keeps_its_own_generation_and_rejects_cross_region_url
     def download(url, **_options):
         if url.startswith(host + 'get_latest?'):
             assert f'launcher_appcode={launcher_app}' in url and 'channel=1' in url
-            return json.dumps({'version': '1.6.5', 'pkg': {'packs': [{'url':
-                f'{cdn}/1.6/update/1/1/Windows/1.6.5_V/packs/game.zip?auth_key=ephemeral'}]}})
+            base = f'{cdn}/1.6/update/1/1/Windows/1.6.5_V'
+            return json.dumps({'version': '1.6.5', 'pkg': {'file_path': base + '/files',
+                'game_files_md5': 'a' * 32, 'packs': [{'url': base + '/packs/game.zip?auth_key=ephemeral',
+                'md5': 'b' * 32, 'package_size': '4096'}]}})
         if url.startswith(host + 'get_latest_resources?'):
             assert f'appcode={app}' in url and 'rand_str=V' in url
             return json.dumps({'resources': list(layers.values())})
@@ -149,6 +153,7 @@ def test_batch_film_bindings_reject_shared_and_redefined_voice_events(tmp_path, 
             self._bank(1, 0, source.size)
     monkeypatch.setattr(endfield_film_voice.vfs, 'Package', Package)
     monkeypatch.setattr(endfield_film_voice.endfield_metadata, 'parameters', lambda _: None)
+    monkeypatch.setattr(publisher, 'parameters', lambda *_: None)
     monkeypatch.setattr(publisher, 'group', group)
     monkeypatch.setattr(publisher, '_source', lambda *args: None)
     monkeypatch.setattr(publisher, '_whole', lambda _tools, _base, file: file.data)

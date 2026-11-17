@@ -42,12 +42,19 @@ def _resource_url(url, role, region='global'):
     return url
 
 
-def discover(region='global'):
+def latest_client(region='global'):
     _check(region in CHANNELS)
     launcher, app, launcher_app, channel, cdn = CHANNELS[region]
     query = urlencode(dict(appcode=app, launcher_appcode=launcher_app, channel=channel,
                            sub_channel=channel, launcher_sub_channel=channel, disk_type=0, patch_encrypt=1))
     latest = json.loads(download(launcher + 'get_latest?' + query, limit=2 * 1024**2))
+    from .endfield_client_source import client_identity
+    return latest, client_identity(latest, region=region, cdn=cdn)
+
+
+def discover(region='global'):
+    latest, client = latest_client(region)
+    launcher, app, launcher_app, channel, cdn = CHANNELS[region]
     version = latest['version']
     _check(re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version))
     minor = version.rsplit('.', 1)[0]
@@ -69,7 +76,7 @@ def discover(region='global'):
             layers[role] = {'url': base, 'sha256': hashlib.sha256(index).hexdigest(), 'version': row['version']}
     _check(set(layers) == {'main', 'initial'})
     # Retain the immutable identity of Global descriptors already used by saved recordings.
-    result = {'version': version, 'layers': layers}
+    result = {'version': version, 'layers': layers, 'client': client}
     if region != 'global':
         result['region'] = region
     raw = json.dumps(result, sort_keys=True, separators=(',', ':')).encode()
@@ -89,10 +96,36 @@ def fingerprint(region='global'):
 def descriptor(tools, stamp):
     _check(isinstance(stamp, str) and re.fullmatch('endfield-[0-9a-f]{64}', stamp))
     path = tools / 'endfield-releases' / stamp
-    _check(path.stat().st_size <= 8192)
+    _check(path.stat().st_size <= 128 * 1024)
     raw = path.read_bytes()
     _check(_stamp(raw) == stamp)
-    return json.loads(raw)
+    result = json.loads(raw)
+    if 'client' in result:
+        from .endfield_client_source import client_identity
+        client = result['client']
+        region = result.get('region', 'global')
+        _check(region in CHANNELS and isinstance(client, dict) and type(client.get('schema')) is int)
+        original = {'version': result['version'], 'pkg': {'file_path': client.get('url'),
+                    'game_files_md5': client.get('game_files_md5'), 'packs':
+                    [{'url': item.get('url'), 'md5': item.get('md5'), 'package_size': item.get('bytes')}
+                     for item in client.get('artifacts', [])]}}
+        _check(client_identity(original, region=region, cdn=CHANNELS[region][-1]) == client)
+    return result
+
+
+def parameters(tools, stamp):
+    release = descriptor(tools, stamp)
+    if 'client' in release:
+        from .endfield_parameters import crypto_parameters
+        return crypto_parameters(tools, release['client'])
+    return endfield_metadata.parameters(tools)
+
+
+class _GroupBase(str):
+    def __new__(cls, url, params):
+        value = super().__new__(cls, url)
+        value.parameters = params
+        return value
 
 
 class RemoteChunk:
@@ -125,27 +158,41 @@ class RemoteChunk:
 
 @lru_cache(maxsize=48)
 def group(tools, stamp, block, names=None):
-    params = endfield_metadata.parameters(tools)
-    directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 12: '24ED34CF', 2: '0CE8FA57'}
-    if block in (17, 19):
-        source = (endfield_metadata.cache_root(tools) / 'BlockHashes.cs').read_text(encoding='utf-8-sig')
-        kind = 'Lua' if block == 17 else 'JsonData'
-        directories[block] = endfield_metadata._one(r'\[BlockType\.' + kind + r'\]\s*=\s*"([0-9A-F]{8})"', source)
-    directory = directories[block] if block in directories else params.directories[block]
-    role = 'initial' if block in (1, 2, 4) else 'main'
+    params = parameters(tools, stamp)
     release = descriptor(tools, stamp)
-    base = _resource_url(release['layers'][role]['url'], role, release.get('region', 'global')) + '/VFS/' + directory + '/'
+    candidate = None
+    if 'client' in release:
+        from .endfield_parameters import candidate as original_candidate
+        candidate = original_candidate(tools, release['client'])
+        _check(block in candidate.directories)
+        directory = candidate.directories[block]
+    else:
+        directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 12: '24ED34CF', 2: '0CE8FA57'}
+        if block in (17, 19):
+            source = (endfield_metadata.cache_root(tools) / 'BlockHashes.cs').read_text(encoding='utf-8-sig')
+            kind = 'Lua' if block == 17 else 'JsonData'
+            directories[block] = endfield_metadata._one(r'\[BlockType\.' + kind + r'\]\s*=\s*"([0-9A-F]{8})"', source)
+        directory = directories[block] if block in directories else params.directories[block]
+    role = 'initial' if block in (1, 2, 4) else 'main'
+    base = _GroupBase(_resource_url(release['layers'][role]['url'], role, release.get('region', 'global')) + '/VFS/' + directory + '/', params)
     path = tools / 'endfield-releases' / (stamp + '-' + str(block) + '.blc')
     suffix = {18: '.bytes', 2: '.ab', 11: '.ab', 4: '.hgmmap', 17: '.lua', 19: '.json'}.get(block, '.pck')
     limit = 96 * 1024**2 if block == 11 else vfs.MAX_INDEX
+    def parse(data):
+        if candidate is not None:
+            from .endfield_parameters import activate
+            return activate(tools, release['client'], candidate, params, block, data,
+                            recheck=lambda: latest_client(release.get('region', 'global'))[1],
+                            suffix=suffix, names=names)
+        return vfs.parse_index(data, params, block, suffix=suffix, names=names)
     if path.is_file() and path.stat().st_size <= limit:
         data = path.read_bytes()
         try:
-            return base, vfs.parse_index(data, params, block, suffix=suffix, names=names)
-        except ValueError:
+            return base, parse(data)
+        except vfs.FormatError:
             pass
     data = download(base + directory + '.blc', limit=limit)
-    rows = vfs.parse_index(data, params, block, suffix=suffix, names=names)
+    rows = parse(data)
     _atomic_file(path, data)
     return base, rows
 
@@ -153,7 +200,8 @@ def group(tools, stamp, block, names=None):
 def _source(tools, base, file):
     _check(re.fullmatch(r'[0-9A-F]{32}\.chk', file.chunk))
     stream = RemoteChunk(base + file.chunk, file.chunk_size)
-    return vfs.PackageSource(stream, file, endfield_metadata.parameters(tools))
+    params = getattr(base, 'parameters', None) or endfield_metadata.parameters(tools)
+    return vfs.PackageSource(stream, file, params)
 
 
 def _whole(tools, base, file, limit=vfs.MAX_VOICE):
@@ -328,7 +376,7 @@ def hotfix_dub(name):
 
 @lru_cache(maxsize=16)
 def inventory(tools, stamp, dub):
-    params = endfield_metadata.parameters(tools)
+    params = parameters(tools, stamp)
     entries = {}
     for block in (1, vfs.LOCALE_BLOCKS[dub], 21):
         base, rows = group(tools, stamp, block)
@@ -374,7 +422,7 @@ def media(tools, stamp, dub, identity, digest=None):
     if found is None:
         raise UnmatchedRecording('Endfield recording missing from the selected publisher dub.')
     base, file, entry = found
-    data = vfs.read_voice(_source(tools, base, file), endfield_metadata.parameters(tools), entry)
+    data = vfs.read_voice(_source(tools, base, file), parameters(tools, stamp), entry)
     sha = hashlib.sha256(data).hexdigest()
     _check(len(data) == int.from_bytes(data[4:8], 'little') + 8)
     if digest is not None and sha != digest:

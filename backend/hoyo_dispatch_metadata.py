@@ -1,11 +1,16 @@
-"""Read public launcher bootstrap data without executing downloaded code.
+"""Explicit official/client-data and provenance-bearing hybrid policies.
 
-Collapse's RSA wrapping is a public data format, not publisher authentication.
-Keys stay in memory; decoded bootstrap material is never written to a snapshot.
+ZZZ obtains its bootstrap and gateway key data from official client objects.
+Genshin may explicitly use a coherent immutable community snapshot; that is not
+an official-source claim. Decoded keys never enter provenance or snapshots.
 """
 import base64
 import binascii
+import copy
+import hashlib
 import json
+from pathlib import Path
+import re
 import struct
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
@@ -15,10 +20,22 @@ from Crypto.Cipher import PKCS1_v1_5
 from Crypto.PublicKey import RSA
 
 
-ROOT = 'https://raw.githubusercontent.com/CollapseLauncher/CollapseLauncher-ReleaseRepo/main/metadata/v3/stable/'
+REPOSITORY = 'CollapseLauncher/CollapseLauncher-ReleaseRepo'
+SEED_REVISION = '862de49744c5c3c4120fc932cf7260383b8b7c54'
+ROOT = f'https://raw.githubusercontent.com/{REPOSITORY}/{SEED_REVISION}/metadata/v3/stable/'
 CONFIGS = {('genshin', 'global'): 'config_GIGlb.json', ('genshin', 'cn'): 'config_GICN.json',
            ('zzz', 'global'): 'config_ZZZGlb.json', ('zzz', 'cn'): 'config_ZZZCN.json'}
+# Content identities only. The frozen key/configuration payloads are not source
+# literals; they are verified initial resources retained in the host cache.
+SEEDS = {
+    'config_master.json': (920, 'cde95c053d1ddd4eda35b99aa46f26831728bbb1aa233e4f7eba4ae309686568'),
+    'config_ZZZGlb.json': (10559, '4bb447ed4ef769ce5f13a764fff50f977722752fbd8c7347c9cf0a037a2ec345'),
+    'config_ZZZCN.json': (10025, 'e34de78ec8fd53492698a093a70fada0bdb3d5eba08af922d76d964c76585cdc'),
+    'config_GIGlb.json': (13211, '68a894f37f0f48cae86dd525743672d190eda818566773baaeaad5f60d64835f'),
+    'config_GICN.json': (12841, 'aa26d391edc1cfada984afeabae3bbc823ae17c6d1ac378b1116305403faa28c'),
+}
 LIMIT = 1024 * 1024
+_PROVENANCE = '_hoyo_bootstrap_provenance'
 
 
 def check(condition):
@@ -104,11 +121,108 @@ class Decoder:
         return raw
 
 
-def load(game, region):
-    """Return (configuration, decoder) for one fixed public launcher edition."""
+class OfficialFields:
+    """Plain original UTF-8 fields; no master, envelope or key-cache input."""
+    def decode(self, value):
+        return _base64(value)
+
+    def text(self, value):
+        return self.decode(value).decode('utf-8')
+
+
+def _cache(cache_dir):
+    if cache_dir is not None:
+        return Path(cache_dir)
+    from .runtime_bundle import discover_layout
+    return discover_layout().cache_root / 'hoyo-bootstrap'
+
+
+def _json(raw):
+    def unique(pairs):
+        result = {}
+        for name, value in pairs:
+            check(name not in result)
+            result[name] = value
+        return result
+    return json.loads(raw, object_pairs_hook=unique)
+
+
+def _snapshot(game, region, revision, hashes, cache_dir):
     filename = CONFIGS[game, region]
+    names = ('config_master.json', filename)
+    check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
+    if hashes is not None:
+        check(isinstance(hashes, dict) and set(hashes) == set(names)
+              and all(re.fullmatch('[0-9a-f]{64}', str(value)) for value in hashes.values()))
+    directory = _cache(cache_dir) / 'snapshots' / revision
+
+    def body(name):
+        from .game_tools import _atomic_file
+        path = directory / name
+        expected = hashes[name] if hashes is not None else None
+        raw = path.read_bytes() if path.is_file() and path.stat().st_size <= LIMIT else b''
+        if not raw or expected is None or hashlib.sha256(raw).hexdigest() != expected:
+            # Unknown hybrid snapshots are fetched as one pinned revision, never
+            # trusted solely because an unverified file exists in the cache.
+            url = f'https://raw.githubusercontent.com/{REPOSITORY}/{revision}/metadata/v3/stable/{name}'
+            raw = fetch(url)
+            check(isinstance(raw, bytes) and 0 < len(raw) <= LIMIT
+                  and (expected is None or hashlib.sha256(raw).hexdigest() == expected))
+            check(isinstance(_json(raw), dict))
+            _atomic_file(path, raw)
+        return raw
+
     with ThreadPoolExecutor(max_workers=2) as pool:
-        bodies = list(pool.map(lambda name: fetch(ROOT + name), ('config_master.json', filename)))
-    master, config = (json.loads(raw) for raw in bodies)
+        bodies = list(pool.map(body, names))
+    master, config = (_json(raw) for raw in bodies)
     check(isinstance(config, dict))
+    config[_PROVENANCE] = {'game': game, 'region': region, 'repository': REPOSITORY,
+                           'revision': revision,
+                           'files': {name: {'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw)}
+                                     for name, raw in zip(names, bodies)}}
     return config, Decoder(master)
+
+
+def provenance(config):
+    """Return only the owned source identity; never decoder/key configuration."""
+    check(isinstance(config, dict) and isinstance(config.get(_PROVENANCE), dict))
+    return copy.deepcopy(config[_PROVENANCE])
+
+
+def initial_seed(game, region, *, cache_dir=None):
+    """A content-pinned initial input, not a mutable per-update parameter feed."""
+    filename = CONFIGS[game, region]
+    names = ('config_master.json', filename)
+    config, decoder = _snapshot(game, region, SEED_REVISION,
+                                {name: SEEDS[name][1] for name in names}, cache_dir)
+    check(all(config[_PROVENANCE]['files'][name]['bytes'] == SEEDS[name][0] for name in names))
+    config[_PROVENANCE]['policy'] = 'frozen-initial-seed'
+    return config, decoder
+
+
+def load_pinned(game, region, revision, hashes, *, cache_dir=None):
+    """Explicit hybrid replay; providers validate the official generation next."""
+    check(game == 'genshin')  # ZZZ cannot opt into changing community parameters.
+    config, decoder = _snapshot(game, region, revision, hashes, cache_dir)
+    config[_PROVENANCE]['policy'] = 'immutable-community-hybrid'
+    return config, decoder
+
+
+def load(game, region, *, build=None, cache_dir=None):
+    """Return one coherent source under the game's explicit bootstrap policy."""
+    CONFIGS[game, region]  # Validate the edition before any I/O.
+    if game == 'zzz':
+        check(build is not None)
+        from .hoyo_zzz_bootstrap import official
+        config = official(build, region, _cache(cache_dir) / 'official' / ('zzz-' + region))
+        # Official fields are ordinary Base64 UTF-8, without the community
+        # envelope/master. Decoder performs no RSA import on this plain path.
+        return config, OfficialFields()
+    # A changing hybrid source is resolved once. Both documents then come from
+    # that same immutable commit, avoiding a mixed master/config generation.
+    raw = fetch(f'https://api.github.com/repos/{REPOSITORY}/commits/main', limit=64 * 1024)
+    commit = _json(raw)
+    check(isinstance(commit, dict) and re.fullmatch('[0-9a-f]{40}', str(commit.get('sha', ''))))
+    config, decoder = _snapshot(game, region, commit['sha'], None, cache_dir)
+    config[_PROVENANCE]['policy'] = 'immutable-community-hybrid'
+    return config, decoder

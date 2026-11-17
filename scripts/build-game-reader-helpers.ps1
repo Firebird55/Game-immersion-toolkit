@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('probe','nte','endfield','starrail')][string]$Kind='probe',
+    [ValidateSet('probe','nte','endfield','starrail','genshin')][string]$Kind='probe',
     [Parameter(Mandatory=$true)][string]$OutputRoot,
     [Parameter(Mandatory=$true)][string]$EvidenceRoot,
     [Parameter(Mandatory=$true)][string]$Dotnet,
@@ -42,6 +42,15 @@ function Assert-NoLinks([string]$Path) {
 }
 # Check the caller's raw path ancestry before Resolve-Path can erase a junction.
 Assert-NoLinks $OutputRoot; Assert-NoLinks $EvidenceRoot; Assert-NoLinks $Dotnet
+if($Kind -eq 'genshin') {
+    $giPins=Get-Content -LiteralPath (Join-Path $SourceRoot 'packaging/genshin-reader/inputs.json') -Raw | ConvertFrom-Json
+    $softwareInputs=[ordered]@{software_sha256=$giPins.software.sha256;license_sha256=$giPins.license.sha256}
+    foreach($item in @(@('upstream/BlbUtils.cs',$giPins.software.sha256),@('AnimeStudio-LICENSE.txt',$giPins.license.sha256))) {
+        $giPath=Join-Path $SourceRoot ('packaging/genshin-reader/'+$item[0])
+        Assert-NoLinks $giPath
+        if((Get-FileHash -LiteralPath $giPath -Algorithm SHA256).Hash.ToLowerInvariant() -ne $item[1]){throw 'The frozen generic Genshin software or notice differs from its pin.'}
+    }
+}
 if($Kind -eq 'starrail') {
     if(-not $PreparedRoot) {throw 'Pinned Star Rail software source preparation is required.'}
     Assert-NoLinks $PreparedRoot
@@ -116,12 +125,13 @@ foreach ($name in @('NUGET_PACKAGES','DOTNET_CLI_HOME','DOTNET_CLI_TELEMETRY_OPT
 $feed=Join-Path $EvidenceRoot 'nuget-feed'
 $intermediate=Join-Path $EvidenceRoot ('helper-build-'+$Kind+'-'+[guid]::NewGuid().ToString('N'))
 $target=Join-Path $OutputRoot $Kind
-$entry=if($Kind -eq 'probe'){'ToolkitReaderProbe'}elseif($Kind -eq 'nte'){'NteReader'}elseif($Kind -eq 'starrail'){'StarRailMetadata'}else{'EndfieldReader'}
+$entry=if($Kind -eq 'probe'){'ToolkitReaderProbe'}elseif($Kind -eq 'nte'){'NteReader'}elseif($Kind -eq 'starrail'){'StarRailMetadata'}elseif($Kind -eq 'genshin'){'GenshinBlb'}else{'EndfieldReader'}
 $project=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.csproj')
 $ownedSource=Join-Path $SourceRoot ('scripts/game-readers/'+$entry+'.cs')
 $sourcePaths=@($project,$ownedSource,(Join-Path $PolicyRoot 'inputs.json'),(Join-Path $PolicyRoot 'global.json'),(Join-Path $PSScriptRoot 'verify-dotnet-sdk.py'),$PSCommandPath)
 if($Kind -eq 'endfield'){$sourcePaths+=@((Join-Path $PolicyRoot 'blocked-inputs.json'),(Join-Path $SourceRoot 'scripts/endfield-reader-sources.json'))}
 if($Kind -eq 'starrail'){$sourcePaths+=@((Join-Path $SourceRoot 'packaging/starrail-reader/inputs.json'),(Join-Path $SourceRoot 'packaging/starrail-reader/probe.py'),(Join-Path $PSScriptRoot 'prepare-starrail-reader.py'))}
+if($Kind -eq 'genshin'){$sourcePaths+=@((Join-Path $SourceRoot 'packaging/genshin-reader/inputs.json'),(Join-Path $SourceRoot 'packaging/genshin-reader/upstream/BlbUtils.cs'),(Join-Path $SourceRoot 'packaging/genshin-reader/AnimeStudio-LICENSE.txt'))}
 $sourceInputs=[ordered]@{}
 foreach($path in $sourcePaths) { $sourceInputs[[IO.Path]::GetRelativePath($SourceRoot,$path).Replace('\','/')]=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }
 try {
@@ -187,6 +197,7 @@ try {
     Copy-Item -LiteralPath $lock -Destination (Join-Path $target 'restore-lock.json')
     $notices=Join-Path $target 'notices'; New-Item -ItemType Directory -Path $notices | Out-Null
     Copy-Item -LiteralPath (Join-Path $SourceRoot 'LICENSE') -Destination (Join-Path $notices 'PROJECT-LICENSE.txt')
+    if($Kind -eq 'genshin'){Copy-Item -LiteralPath (Join-Path $SourceRoot 'packaging/genshin-reader/AnimeStudio-LICENSE.txt') -Destination $notices}
     if($Kind -eq 'endfield'){Copy-Item -LiteralPath (Join-Path $PreparedRoot 'upstream-LICENSE.txt') -Destination (Join-Path $notices 'ENDFIELDSTUDIO-LICENSE.txt')}
     if($Kind -eq 'starrail') {
         Copy-Item -LiteralPath (Join-Path $PreparedRoot 'notices/HSRGlobalMetadata-LICENSE.txt') -Destination $notices
@@ -244,6 +255,7 @@ try {
     $receipt=[ordered]@{schema='proxy-dotnet-helper-build-receipt-v1';source_commit=$actualSource;source_dirty=$sourceDirty;source_inputs=$sourceInputs;sdk=$sdkPin;sdk_version=$version;runtime_version='10.0.14';sdk_installed_files=$sdkFiles;runtime_packages=$runtimePackages;runtime_package_files=$packageFiles;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant()}
     if($Kind -eq 'endfield'){$receipt.upstream_source_inputs=$upstreamInputs}
     if($Kind -eq 'starrail'){$receipt.software_inputs=$softwareInputs}
+    if($Kind -eq 'genshin'){$receipt.software_inputs=$softwareInputs}
     [IO.File]::WriteAllText((Join-Path $target 'build-receipt.json'),(ConvertTo-Json -InputObject $receipt -Depth 20)+"`n",[Text.UTF8Encoding]::new($false))
     # Every shipped framework/native file must match an exact pinned package
     # member. The owned assembly/apphost/config and notices have separate owners.
@@ -269,6 +281,7 @@ try {
     $manifest=[ordered]@{schema='proxy-prebuilt-dotnet-reader-v1';kind=$Kind;entry=($entry+$extension);platform=$platform;sdk_version=$version;runtime_version='10.0.14';source_commit=$actualSource;source_dirty=$sourceDirty;purpose=$(if($Kind -eq 'probe'){'authored-probe-only'}else{'owned-bridge-only'});source_inputs=$sourceInputs;build_id=$buildId;files=$canonicalFiles;sdk_archive=$sdkPin;runtime_packages=$runtimePackages;restore_lock_sha256=(Get-FileHash -LiteralPath $lock -Algorithm SHA256).Hash.ToLowerInvariant();dotnet_executable_sha256=(Get-FileHash -LiteralPath $Dotnet -Algorithm SHA256).Hash.ToLowerInvariant();redistribution_review='pending-exact-output';game_reader_acceptance='not-established';r19_complete=$false;doctor_exit=$doctorExit}
     $manifestName='helper-manifest.json'
     if($Kind -eq 'starrail'){$manifest.software_inputs=$softwareInputs;$manifest.purpose='original-metadata-data-only'}
+    if($Kind -eq 'genshin'){$manifest.software_inputs=$softwareInputs;$manifest.purpose='original-container-data-only'}
     if($Kind -eq 'endfield') {
         $manifest.schema='proxy-blocked-game-helper-v1';$manifest.purpose='blocked-private-game-reader'
         $manifest.Remove('entry');$manifest.runtime_entrypoints=@();$manifest.runtime_collection_allowed=$false

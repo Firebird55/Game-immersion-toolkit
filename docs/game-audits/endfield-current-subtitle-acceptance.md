@@ -1029,3 +1029,9 @@ the strict original-config/director reader; it does not prove that every other
 client scene format or physical capture layout has been exercised.
 Keep #86 open for that one active prologue mechanism, without extending the
 closing scope to unproven references or treating them as cut or unvoiced.
+The later independent-update requirement has separate remaining crypto-master
+and Android preparation/codec gates. The
+[official parameter and portability audit](endfield-official-parameters.md)
+documents the implemented common-key/map/Lua PC resolvers, original index/source controls
+and manifest-size preflight; it does not turn these source/capture results into
+standalone Android acceptance.

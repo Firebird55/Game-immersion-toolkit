@@ -113,6 +113,25 @@ class MultilingualTextIndex:
                 raise ValueError('Unsupported game data content mode')
             requested_text_only = content_mode == 'text'
             study_language(locale)
+            if self.game == 'genshin' and 'source_receipt' in payload:
+                # Portable replay verifies the immutable envelope with stdlib
+                # only. Desktop preparation owns full source-contract checks;
+                # no publisher/network/native module enters the portable core.
+                receipt = payload['source_receipt']
+                if not isinstance(receipt, dict) or receipt.get('schema') != 'genshin-controlled-generation-v1':
+                    raise ValueError('Unsupported Genshin source receipt')
+                body = {key: value for key, value in receipt.items() if key != 'sha256'}
+                digest = hashlib.sha256(json.dumps(body, sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+                bindings = receipt.get('bindings', {})
+                original = receipt.get('original_text', {})
+                if (not isinstance(bindings, dict) or not isinstance(original, dict)
+                        or receipt.get('sha256') != digest or receipt.get('publisher') != payload.get('fingerprint')
+                        or receipt.get('region') != payload.get('publisher_region')
+                        or bindings.get('revision') != payload.get('metadata_revision')
+                        or original.get('publisher') != payload.get('fingerprint')
+                        or 'sophon-' + hashlib.sha256(json.dumps(original.get('publisher_descriptor'),
+                            sort_keys=True, separators=(',', ':')).encode()).hexdigest() != payload.get('fingerprint')):
+                    raise ValueError('The Genshin source receipt belongs to another generation')
             if self.game == 'endfield' and 'publisher_world_dialogue_ui' in payload:
                 from .endfield_presentation import validate_world_dialogue_ui
                 payload['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(payload['publisher_world_dialogue_ui'])

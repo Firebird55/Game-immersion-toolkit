@@ -11,6 +11,7 @@ from Crypto.PublicKey import RSA
 
 from backend import wuthering_publisher_keys as keys, wuthering_release as release
 from backend import wuthering_release_pak as pak, wuthering_metadata as metadata
+from backend import wuthering_initial_seed as initial_seed
 from backend.preparation_errors import PreparationFailure
 from backend.tests.test_wuthering_metadata import encrypted_package, protected
 from backend.tests.test_wuthering_retained_preparation import original
@@ -277,7 +278,8 @@ def native_voice(signer, tmp_path, monkeypatch, protected):
     snapshot = {'schema': 1, 'region': 'global', 'native_key_sources': list(inputs.sources)}
     data, calls = native_package(parameter), []
     def unavailable(url, *, limit):
-        assert url == release.PUBLIC_METADATA_URL
+        from backend.wuthering_initial_seed import URL
+        assert url == URL
         calls.append('legacy-unavailable')
         raise OSError('Owned legacy metadata outage')
     def block(url, size, offset, count):
@@ -383,9 +385,9 @@ def test_verified_native_a_removed_b_cannot_become_default_but_retained_a_still_
     disabled = json.dumps({'Hash': '', 'Key': '', 'Random': '', 'UpdateTime': 0}).encode()
     inputs_b = keys.current(tmp_path, BASE, VERSION, 'global', (), fetcher(disabled, b''), json.loads, {})
     snapshot['native_key_sources'] = list(inputs_b.sources)
-    # The old native value is still present in the foreign feed in generation B.
+    # The old native value is still present in the fixed initial seed in B.
     # Its removal from B's original KeyList must not grant default eligibility.
-    monkeypatch.setattr(release, 'download', lambda url, **kwargs: json.dumps({'legacy': '0x'+parameter.hex()}).encode())
+    monkeypatch.setattr(initial_seed, 'parameters', lambda *args: (parameter,))
     data[:] = native_package(parameter, uuid.UUID(int=0))
     if independent_default:
         assert prepare().verified_parameter == parameter
@@ -483,8 +485,7 @@ def test_archive_candidates_use_one_consistent_protected_envelope(tmp_path, prot
     native, default = b'n' * 32, b'd' * 32
     assert metadata.remember_parameter(tmp_path, native, native_guid=GUID)
     assert metadata.remember_parameter(tmp_path, default, default_verified=True)
-    monkeypatch.setattr(release, 'download', lambda *args, **kwargs: json.dumps(
-        {'metadata': ['0x'+native.hex(), '0x'+default.hex()]}).encode())
+    monkeypatch.setattr(initial_seed, 'parameters', lambda *args: (native, default))
     original_read, reads = metadata._parameter_record, []
     def read(tools):
         reads.append(tools)
@@ -522,7 +523,7 @@ def test_historical_legacy_origin_survives_native_tagging_but_native_only_never_
     disabled = json.dumps({'Hash': '', 'Key': '', 'Random': '', 'UpdateTime': 0}).encode()
     removed = keys.current(tmp_path, BASE, VERSION, 'global', (), fetcher(disabled, b''), json.loads, {})
     snapshot['native_key_sources'] = list(removed.sources)
-    monkeypatch.setattr(release, 'download', lambda *args, **kwargs: json.dumps({'old': '0x'+parameter.hex()}).encode())
+    monkeypatch.setattr(initial_seed, 'parameters', lambda *args: (parameter,))
     for identity in (GUID, uuid.UUID(int=0)):
         data[:] = native_package(parameter, identity)
         release._voice_package.cache_clear(); release._voice_parameters.cache_clear()
@@ -533,7 +534,7 @@ def test_historical_legacy_origin_survives_native_tagging_but_native_only_never_
     isolated = tmp_path/'native-only'
     native_only = b'n' * 32
     assert metadata.remember_parameter(isolated, native_only, native_guid=OTHER)
-    monkeypatch.setattr(release, 'download', lambda *args, **kwargs: json.dumps({'new': '0x'+native_only.hex()}).encode())
+    monkeypatch.setattr(initial_seed, 'parameters', lambda *args: (native_only,))
     assert release._parameters_for_snapshot(isolated, {'schema': 1}) == ()
     assert metadata.baseline_parameters(isolated) == ()
 
