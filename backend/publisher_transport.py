@@ -104,7 +104,7 @@ class PublisherTransport:
 
     def _transfer_locked(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body):
         source_url(url, self.hosts)
-        if kind not in {'metadata', 'asset'} or not _integer(limit, minimum=1):
+        if kind not in {'metadata', 'asset', 'audio'} or not _integer(limit, minimum=1):
             raise ValueError('A positive typed transfer bound is required')
         if expected_size is not None and (not _integer(expected_size) or expected_size > limit):
             raise ValueError('The expected original size must fit its transfer bound')
