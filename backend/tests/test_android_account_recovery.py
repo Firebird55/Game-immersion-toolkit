@@ -4,6 +4,8 @@ import hashlib
 import hmac
 import json
 import threading
+import sqlite3
+from contextlib import closing
 
 import httpx
 import pytest
@@ -14,7 +16,7 @@ from backend.android_host import AndroidHost
 from backend.lexirise import LexiriseError
 from backend.tests.test_android_account_http import capture, headers
 from backend.tests.test_android_host import request
-from backend.tests.android_recovery_sqlite_evidence import sqlite_profiles, write_evidence
+from backend.tests.android_recovery_sqlite_evidence import application_profiles, sqlite_profiles, write_evidence
 
 KEYS = ('lx_first_authored_account_fixture_only', 'lx_second_authored_account_fixture_only')
 
@@ -65,6 +67,17 @@ def profile_files(root):
         for path in (root / 'profiles').rglob('*') if path.is_file()}
 
 
+def assert_successful_profile_reopen(root, files_before, sqlite_before):
+    after = profile_files(root)
+    assert set(after) == set(files_before)
+    # Every setting, library pointer, textmap, original clip and other non-DB
+    # file remains byte-identical. All DB schemas, complete rows (including
+    # rowids/sequences), indexes and integrity remain independently verified.
+    assert {name: value for name, value in after.items() if name not in sqlite_before} == {
+        name: value for name, value in files_before.items() if name not in sqlite_before}
+    assert application_profiles(sqlite_profiles(root)) == application_profiles(sqlite_before)
+
+
 def corrupt_root(tmp_path, provider):
     root = tmp_path / 'application'
     (root / 'credentials').mkdir(parents=True)
@@ -95,8 +108,9 @@ def test_verified_recovery_reopens_same_owner_imports_history_and_audio_without_
     else:
         (root / 'credentials/accounts-current.json').write_text('{"schema":1,"store":"../outside"}')
     original_bytes = original.read_bytes() if original.exists() else None
-    # Keep the original byte-preservation assertion intact while identifying
-    # any engine-specific maintenance separately from application data.
+    # Locked-state bytes stay strict. A successful normal database reopen may
+    # generate SQLite's proven sqlite_stat1 planner metadata (3.49.1), so also
+    # preserve every application schema entry and complete row independently.
     before = profile_files(root)
     sqlite_before = sqlite_profiles(root)
     assert profile_files(root) == before  # Diagnostic reads cannot mutate files.
@@ -125,8 +139,8 @@ def test_verified_recovery_reopens_same_owner_imports_history_and_audio_without_
         assert host.session.root == root / 'profiles' / first
         assert host.session.history.get(1).favorite and host.session.settings.get().capture_unvoiced
         assert host.session.audio_path(1).read_bytes() == original_audio
-        evidence = write_evidence(root, sqlite_before, damage)
-        assert profile_files(root) == before, evidence
+        write_evidence(root, sqlite_before, damage)
+        assert_successful_profile_reopen(root, before, sqlite_before)
         assert host.account_sessions.accounts.path != original
         assert (original.read_bytes() if original.exists() else None) == original_bytes
         assert KEYS[0].encode() not in host.account_sessions.accounts.path.read_bytes()
@@ -138,10 +152,48 @@ def test_verified_recovery_reopens_same_owner_imports_history_and_audio_without_
         assert reopened.status()['active'] == first and reopened.session.history.count() == 1
         assert reopened.status()['recovery'] is None
         assert reopened.register(KEYS[1], 'Second', reopened.accounts.generation)['active'] == second
-        assert reopened.session.history.count() == 1 and profile_files(root) == before
+        assert reopened.session.history.count() == 1
+        assert_successful_profile_reopen(root, before, sqlite_before)
         assert (original.read_bytes() if original.exists() else None) == original_bytes
     finally:
         reopened.close()
+
+
+@pytest.mark.parametrize('mutation', ['row', 'favorite', 'sequence', 'schema', 'index', 'extra-table', 'audio', 'settings', 'library'])
+def test_successful_reopen_proof_rejects_changed_application_data(tmp_path, mutation):
+    from backend.prepared_session import PreparedCaptureSession
+    from backend.tests.test_prepared_session import fixture_library
+    archive, payload = fixture_library(tmp_path / 'input')
+    root = tmp_path / 'application';session = PreparedCaptureSession(root / 'profiles' / ('a' * 24))
+    session.import_library(archive);generation = session.start()
+    text = payload['records'][0]['source_text']
+    session.observe(generation, 1, [text], now=1);session.observe(generation, 2, [text], now=1.1)
+    session.history.set_favorite(1, True);session.update_settings({'capture_unvoiced': True})
+    files, databases = profile_files(root), sqlite_profiles(root)
+    statements = {'row': "UPDATE transcript_lines SET english='Changed authored sentence'",
+        'favorite': 'UPDATE transcript_lines SET favorite=0',
+        'sequence': "UPDATE sqlite_sequence SET seq=seq+1 WHERE name='transcript_lines'",
+        'schema': 'ALTER TABLE transcript_lines ADD COLUMN changed_fixture TEXT',
+        'index': 'DROP INDEX idx_transcript_created_at', 'extra-table': 'CREATE TABLE changed_fixture(value TEXT)'}
+    if mutation in statements:
+        with closing(sqlite3.connect(session.history.path)) as connection:
+            connection.execute(statements[mutation]);connection.commit()
+    elif mutation == 'audio': session.audio_path(1).write_bytes(b'changed authored recording')
+    elif mutation == 'settings': session.settings.path.write_text('{}')
+    else: session.libraries.pointer.write_text('{}')
+    with pytest.raises(AssertionError):
+        assert_successful_profile_reopen(root, files, databases)
+
+
+def test_real_sqlite_analyze_changes_only_proven_planner_metadata(tmp_path):
+    from backend.storage import TranscriptStore
+    root = tmp_path / 'application';store = TranscriptStore(root / 'profiles' / ('a' * 24) / 'transcript.db')
+    files, databases = profile_files(root), sqlite_profiles(root)
+    with closing(sqlite3.connect(store.path)) as connection:
+        connection.execute('ANALYZE');connection.commit()
+    assert profile_files(root) != files
+    assert 'sqlite_stat1' in sqlite_profiles(root)[next(iter(databases))]['tables']
+    assert_successful_profile_reopen(root, files, databases)
 
 
 @pytest.mark.parametrize('failure', ['verification', 'encrypt', 'readback', 'profile', 'pointer'])

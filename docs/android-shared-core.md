@@ -249,6 +249,21 @@ startup retains accounts disabled and the existing offline/native checks remain
 mandatory. An authored File payload exercises the import handler; physical SAF
 picker and real-account writes are not established by this scenario. Its native
 acceptance requires a successful matching workflow run and runtime proof.
+
+Recovery reference evidence distinguishes the actual Windows build host
+(Python 3.12.10 / SQLite 3.49.1) from the local reference interpreter
+(Python 3.12.2 / SQLite 3.43.1) and embedded Android Python 3.12.15. The newer
+host engine creates its own `sqlite_stat1` planner table during the maintained
+store's `PRAGMA optimize`; the retained authored evidence proves all existing
+schema entries and complete application rows stay identical. Successful reopen
+checks therefore preserve every application schema entry, row/sequence, index,
+integrity check and non-database file byte, with an exception only for that
+proven internal statistics table. Locked-state file inventories and original
+credential bytes remain exact. Mutation regressions cover transcript fields,
+favorites, sequences, schemas/indexes, extra tables, original clips, settings and
+library pointers. The [SQLite pragma documentation](https://www.sqlite.org/pragma.html#pragma_optimize)
+describes the engine's analysis maintenance; these references do not infer the
+Android SQLite version from the Windows build host.
 The native shared fixture executes prepared import, production matching,
 confirmation and original clip lookup for all six live-service games, including
 an actual Wuthering PlayerName template. The APK audit additionally checks its
