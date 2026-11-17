@@ -104,7 +104,7 @@ A bounded header-only probe of the publisher-selected 7z read 32 bytes of start
 header, 39 bytes of next header and 7,045 bytes of encoded header. The source
 CRCs and declared 70,370-byte decoded metadata length passed. The archive
 structure follows the upstream [7z format](https://github.com/ip7z/7zip/blob/main/DOC/7zFormat.txt).
-No game archive content stream was downloaded or executed.
+This initial inventory probe read no archive content stream.
 
 The inventory has 466 entries, including 357 content files in two solid streams
 of 616,011,349 and 477,853,431 compressed bytes. Its 13,536-byte
@@ -114,6 +114,33 @@ The archive also contains localization, Lua, movie and IoStore containers, which
 still require current inventory/format/binding work. The normal update source's
 `Rel_2.8` bootstrap path is not proof of stale game coverage: the same current
 descriptor explicitly contains a `Protect_2_11_2` resource group.
+
+A subsequent explicitly bounded stream probe acquired only the original
+13,536-byte updater file, verified its source CRC `d292a3e6`, and stopped at the
+58,811,400-byte decoded boundary before the first game PAK. Earlier decoded data
+were discarded. The retained target's SHA-256 is
+`b180d285fbfb0cb2d3530eb84a0b4b3b2e478a2675dff9dbdc6f66bc0c214017`.
+The successful probe counted 18,561,605 HTTP-body bytes, including 14,917 bytes
+drained from known HTTP/TLS buffers. Its requested 64 MiB interval remains a
+conservative wire upper bound for unread transport buffers. These are partial
+archive observations: the publisher's whole-archive MD5 was not independently
+verified. Only the selected updater file and private evidence were retained;
+no native component was loaded or executed.
+
+The selected file has an `_XYLUAP_` wrapper followed by Base64 data. Removing
+that outer encoding yields 10,144 bytes, not direct JSON/zlib/gzip. The wrapper
+decoder and any key derivation from official sources remain unresolved; a
+16-byte multiple alone does not establish its cipher. The complete acquired
+launcher/network components have no direct marker reference in ASCII or either
+UTF-16 byte order. The two source-authored SDK parameter keys concern process
+cleanup and GPU-driver configuration; the cleanup response has no wrapper/key
+reference and the driver key reports absent. None of this proves that official
+derivation is unavailable or permits a community-key fallback.
+
+The publisher-authored launch configuration delegates update work to
+`PaperHotUpdateRuntimeBG` with the `UnLuaCommandlet` flag in the original game
+component. Further targeted source-owner work remains necessary. No game/client
+code may be executed to replace the missing reader.
 
 Preparation must offer **text only** and **text plus audio** on Android and PC.
 Required-file selection, download size and local size must follow that choice;
