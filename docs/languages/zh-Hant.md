@@ -71,7 +71,7 @@ Windows Setup can prepare dialogue, verified film contexts and shared-song capti
 
 ## Neverness to Everness
 
-[官方語言清單](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-16 · [涵蓋範圍說明](../nte-languages.md)
+[官方語言清單](https://store.epicgames.com/p/nte-neverness-to-everness-965a32) · 2026-11-17 · [涵蓋範圍說明](../nte-languages.md)
 
 從發行商取得所選版本可用的文字與原版配音
 

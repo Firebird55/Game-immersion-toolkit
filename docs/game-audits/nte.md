@@ -2,7 +2,7 @@
 
 ## Publisher Setup and immutable voice snapshots
 
-Checked November 16, 2026. The Windows publisher route now connects the ordinary
+Checked November 17, 2026. The Windows publisher route now connects the ordinary
 language-preparation adapter and voice service to original regional resources,
 without an installed game. Setup offers Global and mainland China alongside
 the installed fallback. Text availability follows the selected edition; a
@@ -927,10 +927,38 @@ the existing transfer limit; unrelated packages and unsigned gaps are excluded.
 Every block is checksum-verified before atomic cache publication. The following
 ordinary extraction still supplies its own complete schema-usage evidence.
 
-Class-aware graph preparation remains opt-in pending the complete current cold,
-original-audio, retention and recovery trials. It is not the default
-publisher path and does not establish the remaining cinematic clocks, comic
-presentation or museum bubble ownership.
+Class-aware original graph preparation is now the default publisher recipe.
+The current Global Japanese trial completed those 126,472 records in 384.656
+seconds with initially empty IoStore block caches, transferring 49,782,768
+verified bytes in 2,610 requests. As with the old-generation trial, native,
+TOC/global and pak prerequisites were retained. An independent mainland 1.5.6
+Chinese-study worker completed 126,212 records, 28,080 voiced bindings and twenty
+predecessor annotations in 1,523.859 seconds, transferring 42,669,648 bytes in
+2,446 requests. Both were below their 64 MiB transfer caps. Live official
+Global/mainland discovery reproduced the independently tested regional source
+identities; the regions are not interchangeable.
+
+Both Global generations and mainland retained every prior caption, translation,
+audio binding and voice status, apart from the explicit immutable publisher
+identity and authentic predecessor field. With the same Japanese study locale,
+Global 1.4.9 to 1.5.4 adds 9,558 IDs, removes 661 and retains 116,914; 930 common
+source captions, 937 text maps and 95 original audio references change. These
+are source-record comparisons, not chapter or playback coverage counts.
+
+Five actual original performances, including the contextual target and its
+anchor, both protagonist variants and an old retained recording, decoded through
+the normal voice service. Fresh conversions after a service restart reproduced
+identical nonzero PCM with publisher networking forbidden. Timeout and explicit
+closure-rejection trials each retained the prior complete profile and index
+byte-for-byte. A subsequent healthy ordinary-cache preparation completed in
+299.813 seconds with networking forbidden, preserving the profile byte-for-byte
+and rebuilding the complete snapshot with identical JSON values. A public
+synthetic fixture and a private actual-caption replay also exercise the real
+narrow CaptureService dispatch: target alone is withheld, the stable original
+anchor permits the target, and a positioned choice menu clears context. These
+replays supply OCR observations and geometry; they are not native OCR, live
+device or complete chapter acceptance. Cinematic clocks, comic presentation and
+museum bubble ownership remain unresolved.
 
 Earlier Blueprint property dumps also omitted stored script expressions by
 default. A private data-only read now parses all 111 function bodies in 32 media

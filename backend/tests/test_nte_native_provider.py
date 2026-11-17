@@ -80,14 +80,14 @@ def test_manifest_lineage_is_only_a_hint_and_partial_plugin_cannot_publish_autho
     assert all((staging/name).is_file() for name in provider.OUTPUTS)
 
 
-def test_opt_in_graph_recipe_validates_complete_invocation_and_retains_immutable_profile(tmp_path, monkeypatch):
+def test_graph_recipe_validates_complete_invocation_and_retains_immutable_profile(tmp_path, monkeypatch):
     catalog, staging, _, _ = fixture(tmp_path, monkeypatch, graphs=True)
     schema, validation = provider.read_authoring(catalog, tmp_path/'reader', staging)
     assert schema['native_generator'] == metadata.CLASS_GENERATOR
     assert (staging/'dialogue-graphs.json').read_bytes() == b'{"owned":true}'
     second = tmp_path/'second'; second.mkdir()
     assert provider.read_authoring(catalog, tmp_path/'reader', second) == (schema, validation)
-    assert not provider.DIALOGUE_GRAPHS
+    assert provider.DIALOGUE_GRAPHS
 
 
 def test_all_unsupported_required_layouts_leave_no_resolved_profile_or_partial_outputs(tmp_path, monkeypatch):
@@ -174,11 +174,13 @@ def test_fingerprint_uses_complete_original_recipe_and_frozen_parameter_sources(
     try:
         stamp, value = publisher._current(tmp_path, 1, 'nte-global')
         assert value['type_schema']['kind'] == provider.KIND and set(value['publisher_files']) == set(original)
+        assert value['type_schema']['generator'] == metadata.CLASS_GENERATOR
+        assert value['type_schema']['validator'] == 'nte-required-native-classes-v2'
         assert len(value['files']) == 1 and publisher.snapshot(tmp_path, stamp) == value
         assert [(r['revision'], r['digest']) for r in observed] == [publisher.NATIVE_ARCHIVE, publisher.NATIVE_LOCALIZATION]
         # Historical readers keep their stored identities, even after a later
         # toolkit uses a different generator/validator for new source recipes.
-        monkeypatch.setattr(metadata, 'ENUM_GENERATOR', 'nte-owned-next-generator')
+        monkeypatch.setattr(metadata, 'CLASS_GENERATOR', 'nte-owned-next-generator')
         assert publisher.snapshot(tmp_path, stamp) == value
     finally:
         publisher._current.cache_clear()

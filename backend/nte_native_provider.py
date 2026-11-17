@@ -19,7 +19,7 @@ KIND = 'nte-original-native-v1'
 MAX_SOURCE_BYTES = 768 * 1024**2
 MAX_SOURCE_FILES = 16
 OUTPUTS = ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
-DIALOGUE_GRAPHS = False  # Activation requires complete old/current/recovery trials.
+DIALOGUE_GRAPHS = True
 
 
 def discovery(snapshot):

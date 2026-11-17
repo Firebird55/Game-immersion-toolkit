@@ -237,15 +237,15 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.",
-      "coverage": "Windows publisher preparation reads current original dialogue, sequence and movie tables and selected voice banks without a game installation. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Wrapped subtitles, some movie variants and full chapter/branch coverage remain incomplete.",
-      "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates follow the current manifest, public type metadata and authored tables; unresolved bindings remain explicit.",
+      "coverage": "Windows publisher preparation reads current original dialogue graphs, sequence/movie tables and selected voice banks without a game installation. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete.",
+      "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates derive required types from original clients with a fixed retained seed and follow current authored tables; no newer community mapping is required. Unresolved bindings remain explicit and failed preparation retains the previous completed library.",
       "expectedTargets": [
         "fr",
         "de",
         "es-ES",
         "ru"
       ],
-      "reviewedAt": "2026-11-16"
+      "reviewedAt": "2026-11-17"
     },
     {
       "id": "pragmata",

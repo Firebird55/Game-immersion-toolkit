@@ -1,12 +1,13 @@
 # NTE language preparation
 
-Setup currently reads an installed game. It obtains the public archive format
-parameters automatically and verifies them against an encrypted archive's
-complete index checksum. Global and mainland China parameters are distinct;
-the selected files determine which is compatible. Existing protected metadata
-remains reusable. An unavailable or incompatible source leaves the previous
-completed preparation intact. Fully installation-free regional voice Setup
-remains under development; see the [source verification](game-audits/nte.md).
+Windows Setup can prepare the selected Global or mainland China edition from
+original publisher manifests, text, dialogue authoring and voice banks without
+a game installation. Installed PC editions remain supported. Original client
+metadata, a fixed retained description and a retrievable original baseline
+provide the required type layouts; ordinary compatible updates do not need a
+newer community mapping. Each preparation verifies its actual required layouts
+and source revision. An unavailable or incompatible source leaves the previous
+completed library intact. See the [source verification](game-audits/nte.md).
 
 Study locales are English, Japanese, Korean, Simplified Chinese and Traditional
 Chinese. Mandarin audio is shared by the two Chinese scripts. Preparation reads
@@ -22,11 +23,21 @@ exact time interval. Zero variants keep the explicit authored Sex_Switch branch.
 Dialogue and bubble tables can explicitly name a recording whose event differs
 from the subtitle key. Preparation checks these aliases against the selected
 voice bank. Story sequences can also override their cue times per dub.
-The reader verifies the public type schema by checksum and caches it for
-later preparations. [Current coverage and setup dependencies](game-audits/nte.md)
+Publisher preparation derives and caches immutable type descriptions from the
+authenticated original client. Installed preparation retains its checked public
+schema route. [Current coverage and setup dependencies](game-audits/nte.md)
 Ambiguous, layered or unresolved event trees cannot supply guessed performances.
 Source packs and translations are checked independently. A missing official text
 pack is an error; another script or language is never substituted.
+
+Original dialogue graphs also provide conservative direct speech predecessors.
+An independently stable caption can identify its immediate repeated successor
+in the narrow subtitle crop. Choices, entry events/conditions, skipped nodes,
+media configurations and unknown order fields cannot supply guessed context.
+Scope changes, menus, interruptions and expiry clear it; ordinary/full-frame UI
+ambiguity guards remain in place. Complete chapter, museum bubble and separately
+loaded cinematic-clock coverage remain incomplete. Cold publisher preparation
+can take several minutes; subsequent preparations reuse verified private data.
 
 Five locale binding regressions cover official ID alignment, language headers,
 matching media paths, missing packs and cross-language batch rejection. Existing
