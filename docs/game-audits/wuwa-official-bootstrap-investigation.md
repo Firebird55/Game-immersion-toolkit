@@ -372,6 +372,28 @@ it does not infer that they are opaque, that the whole application is packed,
 or that official derivation is unavailable. The encrypted manifest boundary
 remains open. No preparation behavior or supported-coverage claim changed.
 
+### Exact PatchProtocol startup edge
+
+A subsequent cache-only pass follows only the already observed
+`PatchProtocol.SetContext` and `PatchProtocol.CheckSoPatch` calls. The exact class
+is uniquely defined in retained `classes2.dex`; its nineteen method declarations
+were inventoried before those two bodies were selected. Complete input hashes
+and DEX checks were revalidated. The two code items total **160 bytes and 31
+decoded instructions**, below their separate 8-KiB/1,024-instruction limit.
+No additional original bytes were acquired and the Ace/Shield branch remained
+closed.
+
+`SetContext` obtains and stores the application context. `CheckSoPatch` delegates
+cleanup/loading decisions to `IsCleanPatch` and `CheckIsLoadBuiltinSo`, calls
+`KuroTinkerManager.cleanPatch`, and serializes time/mobile-filter information
+into the static `CacheCleanPatchInfo` status field. It also reads
+`IsLoadBuiltinSo`. No HTTP-response, Base64/AES or entry-decrypt path appears in
+these two complete methods. The exact same-owner checks and `cleanPatch` are
+unexpanded next edges, not demonstrated release-metadata owners. No callee
+bodies, generic key/URL search or original execution were added. This narrow
+negative result leaves the ENTRY-key/IV gap open and does not establish that an
+official route is unavailable.
+
 ## Acceptance still required
 
 The archive-default producer now has an authenticated current rule and ordinary
