@@ -277,6 +277,74 @@ def test_native_stream_word_follows_changed_operands_and_rejects_conflicting_pat
 
 
 @requires_decoder
+@pytest.mark.parametrize('operand', [17, 33])
+def test_owned_dictionary_call_argument_follows_current_word_operations(operand):
+    from backend.genshin_native_words import Context
+    raw = bytes.fromhex('488b5408204883c2') + bytes([operand]) + bytes.fromhex('e800000000c3')
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    image = SimpleNamespace(base=0x1000, instructions=lambda rva: seq, window=lambda rva: raw)
+    context = Context(image, 0)
+    assert context.operations(0, 64, 'argument', 9, argument='rdx') == (('add', operand),)
+    with pytest.raises(ValueError):
+        context.operations(0, 64, 'argument', 9, argument='r8')
+    with pytest.raises(ValueError):
+        context.operations(0, 64, 'argument', 14, argument='rdx')
+    with pytest.raises(ValueError):
+        context.operations(0, 64, 'argument', 9)
+
+
+@requires_decoder
+@pytest.mark.parametrize('key', [17, 33])
+def test_original_UInt64_scalar_preserves_high_bits_and_post_store_arithmetic(key):
+    from backend.genshin_native_contracts import Contracts
+    from backend.genshin_original_dialogue import decode_original
+    raw = bytes.fromhex('4889ce0fb65c0820f6c301740e488b5408204889561048837610') + bytes([key]) + b'\xc3'
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    fields = [{'name': '_identity', 'authored_offset_word': 16, 'type': {'kind': 11}}]
+    view = SimpleNamespace(image=SimpleNamespace(base=0x1000, instructions=lambda rva: seq),
+                           field_offsets=lambda definition: fields)
+    contract = Contracts(view, 1).record(0, 0)
+    assert decode_original(b'\x01' + struct.pack('<Q', 0x12345678abcdef01), contract) == {'identity': 0x12345678abcdef01 ^ key}
+    partial = bytes.fromhex('4889ce0fb65c0820f6c301740d488b54082048895610837610') + bytes([key]) + b'\xc3'
+    seq[:] = native.decoder().disasm(partial, 0x1000)
+    with pytest.raises(ValueError, match='partial post-store'):
+        Contracts(view, 1).record(0, 0)
+
+
+@requires_decoder
+def test_only_actual_owned_typed_tail_reader_can_own_array_field():
+    from backend.genshin_native_fields import ordered_fields
+    from backend.genshin_native_words import Context
+    prefix = bytes.fromhex('4889ce4889d70fb65c0820f6c301740c488d56104889f9')
+    target = 0x200
+    raw = prefix + b'\xe9' + struct.pack('<i', target - len(prefix) - 5) + b'\xc3'
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    context = Context(SimpleNamespace(base=0x1000, instructions=lambda rva: seq), 0)
+    fields = [{'name': '_children', 'authored_offset_word': 16, 'type': {'kind': 29}}]
+    _, rows = ordered_fields(context, fields, {target})
+    assert len(rows) == 1 and rows[0]['offset'] == 16
+    with pytest.raises(ValueError, match='no owned field input'):
+        ordered_fields(context, fields)
+
+
+@requires_decoder
+@pytest.mark.parametrize('constant', [16, 17, 33])
+def test_presence_flags_follow_constant_xor_with_header_in_other_register(constant):
+    from backend.genshin_native_contracts import Contracts
+    from backend.genshin_original_dialogue import decode_original
+    raw = (bytes.fromhex('4889ce488b5c0820ba') + struct.pack('<I', constant)
+           + bytes.fromhex('4831daf6c20174078b540820895610c3'))
+    seq = list(native.decoder().disasm(raw, 0x1000))
+    fields = [{'name': '_id', 'authored_offset_word': 16, 'type': {'kind': 9}}]
+    view = SimpleNamespace(image=SimpleNamespace(base=0x1000, instructions=lambda rva: seq),
+                           field_offsets=lambda definition: fields)
+    contract = Contracts(view, 1).record(0, 0)
+    flag = 1 ^ (constant & 1)
+    assert decode_original(struct.pack('<QI', flag, 55), contract) == {'id': 55}
+    assert decode_original(struct.pack('<Q', flag ^ 1), contract) == {'id': 0}
+
+
+@requires_decoder
 @pytest.mark.parametrize('branch,header', [('74', 3), ('75', 0)])
 def test_native_contract_uses_authored_order_and_presence_polarity(branch, header):
     from backend.genshin_native_contracts import Contracts

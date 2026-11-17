@@ -33,11 +33,11 @@ class Contracts:
         primitives, setters = {}, {}
         for definition in {field['type']['definition'] for field in fields if field['type']['kind'] == 17}:
             members = self.view.fields(definition)
-            if len(members) != 1 or members[0]['type']['kind'] not in (8, 9, 12):
+            if len(members) != 1 or members[0]['type']['kind'] not in (8, 9, 10, 11, 12):
                 continue
             methods = self.view.methods(definition)
             kinds = {m['return_type']['kind'] for m in methods if not m['parameters']
-                     and m['return_type']['kind'] in (8, 9, 12) and m['name'] != 'get_size'}
+                     and m['return_type']['kind'] in (8, 9, 10, 11, 12) and m['name'] != 'get_size'}
             writes = [m for m in methods if m['name'] != '.ctor' and m['return_type']['kind'] == 1 and m['rva']
                       and len(m['parameters']) == 1 and m['parameters'][0]['type']['kind'] in kinds]
             if not writes:
@@ -94,20 +94,21 @@ class Contracts:
                 width = stores[0]['bits'] if stores else None
                 if typed.get('definition') in wrappers:
                     primitive = wrappers[typed['definition']]
-                    steps = context.operations(first, 32, 'protected_scalar', setters=setters)
-                    value = o.Word(32, steps, interpretation='float' if primitive == 12 else 'unsigned')
+                    bits = 64 if primitive in (10, 11) else 32
+                    steps = context.operations(first, bits, 'protected_scalar', setters=setters)
+                    value = o.Word(bits, steps, interpretation='float' if primitive == 12 else 'unsigned')
                     default = 0
                 elif width == 8:
                     _check(not stores[0]['mnemonic'].startswith('set') or stores[0]['mnemonic'] in ('setne', 'setnz'),
                            'The original boolean comparison has unsupported polarity.')
                     value = o.Word(8, interpretation='bool', false_value=context.false_value(first))
                     default = False
-                elif width == 32:
+                elif width in (32, 64) and typed['kind'] in (8, 9, 10, 11, 12, 17):
                     _check(stores)
                     endpoint = stores[0]['address'] - self.view.image.base
-                    steps = context.operations(first, 32, 'scalar', endpoint)
-                    steps = context.completed_scalar(endpoint, steps)
-                    value = o.Word(32, steps, interpretation='float' if typed['kind'] == 12 else 'unsigned')
+                    steps = context.operations(first, width, 'scalar', endpoint)
+                    steps = context.completed_scalar(endpoint, steps, width)
+                    value = o.Word(width, steps, interpretation='float' if typed['kind'] == 12 else 'unsigned')
                     default = 0
                 elif typed['kind'] == 14:
                     length = context.operations(first, 16, 'length')
@@ -129,11 +130,13 @@ class Contracts:
                         _check(any(ins.operands[0].imm - self.view.image.base == helper['rva'] for ins in calls))
                         inner = self.view.inner_reader(element['definition'], self.stream)
                         value = o.Array(self.count(helper['rva']), self.record(element['definition'], inner['rva'], depth + 1))
-                    elif element['kind'] in (8, 9, 14, 17):
+                    elif element['kind'] in (8, 9, 10, 11, 14, 17):
+                        primitive = element['kind']
                         if element['kind'] == 17:
                             underlying = [f for f in self.view.fields(element['definition']) if f['name'] == 'value__']
-                            _check(len(underlying) == 1 and underlying[0]['type']['kind'] in (8, 9),
-                                   'The native enum array has no owned UInt32/Int32 underlying field.')
+                            _check(len(underlying) == 1 and underlying[0]['type']['kind'] in (8, 9, 10, 11),
+                                   'The native enum array has no owned integer underlying field.')
+                            primitive = underlying[0]['type']['kind']
                         _check(len(row['reads']) == 2)
                         count, item = (at - self.view.image.base for at in row['reads'])
                         count = o.Word(32, context.operations(count, 32, 'count'))
@@ -142,7 +145,8 @@ class Contracts:
                             cipher, operation = context.cipher(set(row['nodes']))
                             item = o.Text(o.Word(16, length), cipher, operation)
                         else:
-                            item = o.Word(32, context.operations(item, 32, 'element'))
+                            bits = 64 if primitive in (10, 11) else 32
+                            item = o.Word(bits, context.operations(item, bits, 'element'))
                         value = o.Array(count, item)
                     else:
                         raise ValueError('The original typed array element has no supported native contract.')

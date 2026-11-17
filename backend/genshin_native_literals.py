@@ -179,11 +179,13 @@ class Literals:
         return self.rows[index]
 
 
-def path_callers(view, literals, arrays):
+def path_callers(view, literals, arrays, *, roles=None):
     """Original path -> real usage slots -> decoded native references -> owners."""
     targets = {}
     array = arrays[5]['array_rva']
-    roles = ('_BinOutput/Voice/', '_BinOutput/Talk/', 'Config_TextMap', 'TalkExcelConfigData')
+    roles = roles if roles is not None else ('_BinOutput/Voice/', '_BinOutput/Talk/', 'Config_TextMap', 'TalkExcelConfigData')
+    _check(isinstance(roles, tuple) and roles and len(roles) <= 32
+           and all(isinstance(role, str) and role and len(role) <= 128 for role in roles))
     for index, value in enumerate(literals.rows):
         if value is None or not any(role in value for role in roles):
             continue

@@ -218,8 +218,24 @@ def exact_reader(view, table, dispatch, owner):
             'vtable_base': vtable_base, 'table_route': route}
 
 
-def dialogue_roles(view, owner, stream, usages, arrays):
-    """Own node identity through actual root-array/config-cache registration."""
+def array_element_origin(context, definitions, address, name='rcx'):
+    """The actual indexed object-array element passed to a native consumer."""
+    from .genshin_native_voice import _definition, _pointer_origin
+    load = _definition(context, definitions, address, name)
+    for _ in range(16):
+        _check(load.mnemonic == 'mov' and load.operands[0].size == load.operands[1].size == 8)
+        if load.operands[1].type != CS_OP_REG:
+            break
+        load = _definition(context, definitions, load.address, root(load, load.operands[1]))
+    else:
+        raise ValueError('The native array element aliases exceed their bound.')
+    _check(load.operands[1].type == CS_OP_MEM and load.operands[1].mem.scale == 8
+           and load.operands[1].mem.index and load.operands[1].mem.disp == 0x20)
+    return _pointer_origin(context, definitions, load.address, load.reg_name(load.operands[1].mem.base))
+
+
+def collection_owner(view, owner, stream, usages, arrays):
+    """Own the actual guarded root-array element and its typed consumer."""
     from .genshin_native_voice import call_origin, _definition, _field_load, _pointer_origin
     from .genshin_native_words import Context
     root_fields = view.field_offsets(owner['type']['definition'])
@@ -236,14 +252,15 @@ def dialogue_roles(view, owner, stream, usages, arrays):
         if kind == 1:
             class_slots.setdefault(slot, set()).add(index)
     for ins in loader.seq:
-        if ins.mnemonic != 'jmp' or ins.operands[0].type != CS_OP_IMM:
+        if ins.mnemonic not in ('call', 'jmp') or ins.operands[0].type != CS_OP_IMM:
             continue
         try:
             methods = [row for row in view.methods_at(ins.operands[0].imm - view.image.base)
-                       if row['method']['return_type']['kind'] == 1 and len(row['method']['parameters']) == 2
+                       if row['method']['return_type']['kind'] == 1 and len(row['method']['parameters']) in (2, 3)
                        and row['method']['parameters'][0]['type'].get('namespace') == 'System'
                        and row['method']['parameters'][0]['type'].get('name') == 'Object'
-                       and row['method']['parameters'][1]['type']['kind'] == 11]
+                       and row['method']['parameters'][1]['type']['kind'] == 11
+                       and (len(row['method']['parameters']) == 2 or row['method']['parameters'][2]['type']['kind'] == 2)]
             _check(len(methods) == 1)
             # The loader also forwards null and separately typed runtime
             # alternatives. The receiver's actual root-class guard owns its
@@ -272,34 +289,44 @@ def dialogue_roles(view, owner, stream, usages, arrays):
         if ins.mnemonic != 'call' or ins.operands[0].type != CS_OP_IMM:
             continue
         methods = [row for row in view.methods_at(ins.operands[0].imm - view.image.base)
-                   if row['method']['return_type']['kind'] == 1 and len(row['method']['parameters']) == 1
-                   and row['method']['parameters'][0]['type'].get('definition') == node]
+                   if row['method']['return_type']['kind'] == 1 and 1 <= len(row['method']['parameters']) <= 4
+                   and sum(p['type'].get('definition') == node for p in row['method']['parameters']) == 1]
         if not methods:
             continue
         try:
-            source = _definition(registration, definitions, ins.address, 'rcx')
-            _check(source.mnemonic == 'mov' and source.operands[1].type == CS_OP_REG)
-            load = _definition(registration, definitions, source.address, root(source, source.operands[1]))
-            _check(load.mnemonic == 'mov' and load.operands[1].type == CS_OP_MEM
-                   and load.operands[1].mem.scale == 8 and load.operands[1].mem.index
-                   and load.operands[1].mem.disp == 0x20 and load.operands[1].size == 8)
-            origin = _pointer_origin(registration, definitions, load.address, load.reg_name(load.operands[1].mem.base))
-            _check(origin == ('field', ('input', 'rcx'), array['authored_offset_word']))
+            arguments = []
+            for argument in ('rcx', 'rdx', 'r8', 'r9'):
+                try:
+                    origin = array_element_origin(registration, definitions, ins.address, argument)
+                    if origin == ('field', ('input', 'rcx'), array['authored_offset_word']):
+                        arguments.append(argument)
+                except ValueError:
+                    continue
+            _check(len(arguments) == 1)
             _check(len(methods) == 1)
-            nodes.append(methods[0])
+            nodes.append({**methods[0], 'node_argument': arguments[0]})
         except ValueError:
             continue
     _check(len(nodes) == 1, 'The actual typed root-array node registration is ambiguous.')
-    context = Context(view.image, nodes[0]['method']['rva'])
+    return {'root_array_offset': array['authored_offset_word'], 'node_definition': node,
+            'root_registration': registrations[0], 'node_registration': nodes[0]}
+
+
+def collection_roles(view, owner, stream, usages, arrays):
+    from .genshin_native_voice import _field_load, _pointer_origin
+    from .genshin_native_words import Context
+    owned = collection_owner(view, owner, stream, usages, arrays)
+    fields = view.field_offsets(owned['node_definition'])
+    context = Context(view.image, owned['node_registration']['method']['rva'])
     definitions = Definitions(context.seq, context.noreturn)
     identities = []
     for ins in context.seq:
         if ins.mnemonic != 'call' or ins.operands[0].type != CS_OP_IMM:
             continue
         try:
-            _check(_pointer_origin(context, definitions, ins.address, 'r8') == ('input', 'rcx'))
+            _check(_pointer_origin(context, definitions, ins.address, 'r8') == ('input', owned['node_registration']['node_argument']))
             key = _field_load(context, definitions, ins.address, 'rdx')
-            _check(_pointer_origin(context, definitions, key.address, key.reg_name(key.operands[1].mem.base)) == ('input', 'rcx'))
+            _check(_pointer_origin(context, definitions, key.address, key.reg_name(key.operands[1].mem.base)) == ('input', owned['node_registration']['node_argument']))
             metadata = [field for field in fields if field['authored_offset_word'] == key.operands[1].mem.disp
                         and field['type']['kind'] == 9]
             _check(len(metadata) == 1)
@@ -310,6 +337,16 @@ def dialogue_roles(view, owner, stream, usages, arrays):
         except ValueError:
             continue
     _check(len(identities) == 1, 'The actual node/UInt32 cache identity field is ambiguous.')
+    return {**owned, 'node_identity': identities[0]}
+
+
+def dialogue_roles(view, owner, stream, usages, arrays):
+    """Configuration identity and same-field numeric text-key accessors."""
+    from .genshin_native_voice import _field_load, _pointer_origin
+    from .genshin_native_words import Context
+    owned = collection_roles(view, owner, stream, usages, arrays)
+    node = owned['node_definition']
+    fields = view.field_offsets(node)
     # The ordinary key accessor and its UInt32 accessor must own exactly the
     # same original field. No table-value matching selects this field.
     number = view.named('System', 'NumberFormatter')
@@ -347,13 +384,12 @@ def dialogue_roles(view, owner, stream, usages, arrays):
                 and seq[0].operands[1].mem.disp == text_offset):
             unsigned.append(method)
     _check(len(unsigned) == 1 and any(field['authored_offset_word'] == text_offset and field['type']['kind'] == 9 for field in fields))
-    _check(text_offset != identities[0]['offset'])
+    _check(text_offset != owned['node_identity']['offset'])
     next_fields = [field for field in fields if field['type']['kind'] == 29 and field['type']['element']['kind'] == 9]
     roles = [field for field in fields if field['type'].get('namespace') == 'MoleMole.Config'
              and field['type'].get('name') == 'TalkRoleEx']
     _check(len(next_fields) == len(roles) == 1)
-    return {'root_array_offset': array['authored_offset_word'], 'node_definition': node,
-            'root_registration': registrations[0], 'node_registration': nodes[0], 'node_identity': identities[0],
+    return {**owned,
             'text_key_offset': text_offset, 'text_key_accessor': formatted[0][0], 'unsigned_text_key_accessor': unsigned[0],
             'next_dialogues_offset': next_fields[0]['authored_offset_word'],
             'role_offset': roles[0]['authored_offset_word'], 'role_definition': roles[0]['type']['definition']}

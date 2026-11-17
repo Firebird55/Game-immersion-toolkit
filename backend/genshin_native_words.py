@@ -31,8 +31,10 @@ class Context:
                      and any(op.type == CS_OP_MEM and op.mem.index and op.mem.disp == 0x20
                              and op.access & 1 and (width is None or op.size == width) for op in i.operands))
 
-    def operations(self, rva, bits, mode, endpoint=None, setters=None):
-        _check(bits in (8, 16, 32, 64) and mode in ('length', 'count', 'root_count', 'scalar', 'element', 'protected_scalar'))
+    def operations(self, rva, bits, mode, endpoint=None, setters=None, argument=None):
+        _check(bits in (8, 16, 32, 64) and mode in ('length', 'count', 'root_count', 'scalar', 'element', 'protected_scalar', 'argument'))
+        _check((mode == 'argument' and endpoint is not None and argument in ('rcx', 'rdx', 'r8', 'r9'))
+               or mode != 'argument' and argument is None)
         address, end_address = self.image.base + rva, None if endpoint is None else self.image.base + endpoint
         _check(address in self.by_address)
         first = self.by_address[address]
@@ -65,11 +67,15 @@ class Context:
 
         def terminal(ins, state):
             ops = ins.operands
+            if mode == 'argument' and ins.address == end_address:
+                _check(ins.mnemonic == 'call' and ops[0].type == CS_OP_IMM)
+                return state.get(('reg', argument))
             if mode == 'scalar' and ins.address == end_address:
                 _check(ins.mnemonic in ('mov', 'movss') and ops[0].type == CS_OP_MEM)
                 return value(ins, ops[1], state)
             if (mode == 'element' and ins.mnemonic == 'mov' and len(ops) == 2 and ops[0].type == CS_OP_MEM
-                    and ops[0].mem.index and ops[0].mem.disp == 0x20 and ops[0].mem.scale == 4):
+                    and ops[0].mem.index and ops[0].mem.disp == 0x20 and ops[0].mem.scale == bits // 8
+                    and ops[0].size == bits // 8):
                 return value(ins, ops[1], state)
             if ins.mnemonic == 'call' and ops[0].type == CS_OP_IMM:
                 if mode == 'count':
@@ -174,18 +180,19 @@ class Context:
         _check(len(matches) == 1, 'The original boolean false encoding is ambiguous.')
         return matches[0]
 
-    def completed_scalar(self, endpoint, steps):
+    def completed_scalar(self, endpoint, steps, bits=32):
         """Include proved in-place writes before the next control boundary."""
         position = next(n for n, ins in enumerate(self.seq) if ins.address - self.image.base == endpoint)
         store = self.seq[position]
-        _check(store.mnemonic in ('mov', 'movss') and store.operands[0].type == CS_OP_MEM
-               and store.operands[0].size == 4 and store.operands[1].type == CS_OP_REG)
+        _check(bits in (32, 64) and store.mnemonic in ('mov', 'movss') and store.operands[0].type == CS_OP_MEM
+               and store.operands[0].size == bits // 8 and store.operands[1].type == CS_OP_REG
+               and store.operands[1].size == bits // 8)
         memory = store.operands[0].mem
         state = {root(store, store.operands[1]): tuple(steps)}
-        value, mask = tuple(steps), (1 << 32) - 1
+        value, mask = tuple(steps), (1 << bits) - 1
 
         def same(op):
-            return (op.type == CS_OP_MEM and op.size == 4 and op.mem.base == memory.base
+            return (op.type == CS_OP_MEM and op.size == bits // 8 and op.mem.base == memory.base
                     and op.mem.index == memory.index and op.mem.scale == memory.scale and op.mem.disp == memory.disp)
 
         for ins in self.seq[position + 1:position + 34]:
@@ -194,6 +201,11 @@ class Context:
                 return value
             if not ops:
                 continue
+            for op in ops:
+                if (op.type == CS_OP_MEM and op.access & 2 and op.mem.base == memory.base
+                        and op.mem.index == memory.index and op.mem.scale == memory.scale
+                        and op.mem.disp < memory.disp + bits // 8 and memory.disp < op.mem.disp + op.size):
+                    _check(same(op), 'A partial post-store scalar write has no whole-word contract.')
             if ins.mnemonic in ('mov', 'movss') and len(ops) == 2:
                 destination, source = ops
                 if same(destination):
@@ -201,7 +213,9 @@ class Context:
                     value = state[root(ins, source)]
                 elif destination.type == CS_OP_REG:
                     target = root(ins, destination)
-                    old = state.get(root(ins, source)) if source.type == CS_OP_REG else value if same(source) else None
+                    old = (state.get(root(ins, source)) if source.type == CS_OP_REG else value if same(source) else None)
+                    if destination.size != bits // 8 or source.size != bits // 8:
+                        old = None
                     state.pop(target, None)
                     if old is not None:
                         state[target] = old
@@ -215,14 +229,16 @@ class Context:
                 if destination.type == CS_OP_REG:
                     target = root(ins, destination)
                     previous = state.pop(target, None)
+                    if destination.size != bits // 8:
+                        continue
                     if previous is not None:
                         try:
-                            operand = source.imm & mask if source.type == CS_OP_IMM else self.constants.value_before(ins.address, root(ins, source), 32)
+                            operand = source.imm & mask if source.type == CS_OP_IMM else self.constants.value_before(ins.address, root(ins, source), bits)
                         except (ValueError, AttributeError):
                             continue
                         state[target] = previous + ((ins.mnemonic, operand),)
                     elif same(source):
-                        seed = self.constants.value_before(ins.address, target, 32)
+                        seed = self.constants.value_before(ins.address, target, bits)
                         state[target] = (value + ((ins.mnemonic, seed),) if ins.mnemonic != 'sub'
                                          else value + (('xor', mask), ('add', (seed + 1) & mask)))
                     continue

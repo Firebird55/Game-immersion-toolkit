@@ -151,12 +151,24 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
                 outgoing.pop(('reg', name), None)
             outgoing.pop(('condition',), None)
             handled = True
-        elif mnemonic == 'xor' and len(ops) == 2 and ops[1].type == CS_OP_IMM:
-            source = value(ins, ops[0], outgoing)
-            if source is not None:
-                inverted = source[3] ^ (ops[1].imm & ((1 << source[2]) - 1))
-                outgoing[key(ins, ops[0])] = source[0], source[1], source[2], inverted
-                outgoing[('condition',)] = source[0], source[1] + source[2] - 1, 'sign', bool(inverted >> (source[2] - 1) & 1)
+        elif mnemonic == 'xor' and len(ops) == 2:
+            source, amount = value(ins, ops[0], outgoing), None
+            if source is not None and ops[1].type == CS_OP_IMM:
+                amount = ops[1].imm
+            elif ops[0].type == ops[1].type == CS_OP_REG:
+                other = value(ins, ops[1], outgoing)
+                if (source is None) != (other is None):
+                    symbolic, constant = (source, ops[1]) if source is not None else (other, ops[0])
+                    try:
+                        amount = context.constants.value_before(ins.address, root(ins, constant), ops[0].size * 8)
+                        source = symbolic
+                    except ValueError:
+                        pass
+            if source is not None and amount is not None:
+                width = min(source[2], ops[0].size * 8)
+                inverted = (source[3] ^ amount) & ((1 << width) - 1)
+                outgoing[key(ins, ops[0])] = source[0], source[1], width, inverted
+                outgoing[('condition',)] = source[0], source[1] + width - 1, 'sign', bool(inverted >> (width - 1) & 1)
                 handled = True
             else:
                 outgoing.pop(('condition',), None)
@@ -225,7 +237,8 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
     reads = {ins.address: ins for ins in context.reads() if ins.address - context.image.base != header['read_rva']}
     refs = {} if object_calls is None else dict(object_calls)
     for ins in context.seq:
-        if ins.mnemonic != 'call' or ins.operands[0].type != CS_OP_IMM:
+        if (ins.mnemonic not in ('call', 'jmp') or not ins.operands or ins.operands[0].type != CS_OP_IMM
+                or ins.mnemonic == 'jmp' and ins.operands[0].imm - context.image.base not in set(reference_readers) | set(scalar_setters)):
             continue
         state = pointers.get(ins.address, {})
         args = {name: state.get(('reg', name)) for name in ('rcx', 'rdx', 'r8', 'r9')}

@@ -98,10 +98,33 @@ strict UTF-8 literals. Their generated TalkExcel contract reads all 45,699 rows
 with exact EOF and agrees with independently held original controls, opened
 after parsing. The original Talk100001, Talk100002 and GlobalDialog objects also
 pass exact EOF through the actual allocated type's native virtual reader.
-The original Lut contract reads all 154,113 rows; two Items groups containing
-17 entries exercise nested strings, booleans, protected scalars and dictionaries.
-The downstream development probes explicitly reuse a private metadata
-intermediate. They are not a complete end-to-end source acceptance run.
+The original Lut contract reads all 154,113 rows. Whole-corpus development
+replays now read all 7,449 original Items groups / 154,113 entries and 47,121
+previously source-bound original Talk objects / 418,454 nodes, with complete
+catalog identities, payload hashes and exact EOF. Independent original controls
+are opened after all new parses; they show zero differences. These corpus
+replays explicitly reuse a private native-metadata intermediate and the held
+positive source cohort. They do not establish full current presentation routing.
+
+The [canonical bootstrap](../../backend/genshin_native_dialogue.py) connects those
+native roles to the existing explicit preparation profile and atomic snapshot
+writer. It acquires each original object once: exact Lut/Items bytes establish
+trigger correspondence and feed that same preparation. Changed generations,
+wrong read contracts and absent groups preserve the prior snapshot. Source-group
+routing contracts are still caller-supplied. A separate fresh
+original-executable/metadata trial derives metadata, usages, literals and the
+canonical inventory/Talk/Lut/Items readers without that intermediate. Exact
+original UUID-plus-argument joins derive all eight trigger names from current
+data: 154,111 bindings match, including 149,114 Dialog entries. The two missing
+UUID bindings remain unknown; event-only matches cannot replace them.
+
+The [source-index reader](../../backend/genshin_native_sources.py) derives the
+actual UInt32/UInt64 dictionary decoder, all five current index paths, their
+typed path/stream/out-pointer cache writes and matching native getters. Actual
+root allocations and called readers are recovered for NpcFree, MainQuestBrief
+and MainQuest. All 3,978 original NpcFree groups pass whole-object EOF with their
+own derived descriptor contracts. Typed array tail calls, register-derived
+presence tests and full-width UInt64 values have explicit bounded readers.
 
 The analysis follows authored root-array registration, separate raw/decoded
 presence flags, native transformations after initial field stores, and typed
@@ -112,14 +135,15 @@ The configuration registry's byte type tag does not establish a Voice API call.
 Likewise, formatting a localization key does not prove every subsequent UI
 presentation or player-role decision.
 
-These foundations do not yet assemble and activate a complete automatic
-`NativeDialogueProfile` in normal preparation. Canonical profile integration,
-complete descriptor/source routing, original package acquisition and its codec
-closure, regional validation, and old/current update plus recovery acceptance
-remain open. The 219 source-unbound inventory rows and direct-Global/player-role
-questions remain explicit. Ten existing unused Action variants remain ordinary
-update gaps when new content uses them; current-prefix success cannot classify
-them as future format changes. Normal Setup continues using its existing source.
+These readers do not activate an automatic original provider in normal
+preparation. Complete descriptor/MainQuest source routing, original package
+acquisition and its runtime codec closure, regional validation, and old/current
+update plus recovery acceptance remain open. The 219 source-unbound configured
+rows and direct-Global/player-role questions remain explicit research inventory;
+configuration references alone do not prove current use, removal or unvoiced
+status. Ten existing unused Action variants remain future content-support
+qualifications when new content uses them, rather than new package formats or
+proven current presentation blockers. Normal Setup retains its existing source.
 
 ## Explicit original Talk preparation API · November 17, 2026
 
