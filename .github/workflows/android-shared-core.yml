@@ -70,6 +70,13 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-account-recovery-reference
+          if-no-files-found: warn
+          retention-days: 7
+          path: output/checks/android-recovery-sqlite-*.json
       - name: Acquire authenticated original Android compiler
         run: |
           $sdk = $env:ANDROID_HOME

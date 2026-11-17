@@ -14,6 +14,7 @@ from backend.android_host import AndroidHost
 from backend.lexirise import LexiriseError
 from backend.tests.test_android_account_http import capture, headers
 from backend.tests.test_android_host import request
+from backend.tests.android_recovery_sqlite_evidence import sqlite_profiles, write_evidence
 
 KEYS = ('lx_first_authored_account_fixture_only', 'lx_second_authored_account_fixture_only')
 
@@ -94,7 +95,11 @@ def test_verified_recovery_reopens_same_owner_imports_history_and_audio_without_
     else:
         (root / 'credentials/accounts-current.json').write_text('{"schema":1,"store":"../outside"}')
     original_bytes = original.read_bytes() if original.exists() else None
+    # Keep the original byte-preservation assertion intact while identifying
+    # any engine-specific maintenance separately from application data.
     before = profile_files(root)
+    sqlite_before = sqlite_profiles(root)
+    assert profile_files(root) == before  # Diagnostic reads cannot mutate files.
     calls.clear()
     host = AndroidHost(root, web, native, enable_accounts=True, account_transport=identity_reply(calls))
     try:
@@ -120,7 +125,8 @@ def test_verified_recovery_reopens_same_owner_imports_history_and_audio_without_
         assert host.session.root == root / 'profiles' / first
         assert host.session.history.get(1).favorite and host.session.settings.get().capture_unvoiced
         assert host.session.audio_path(1).read_bytes() == original_audio
-        assert profile_files(root) == before
+        evidence = write_evidence(root, sqlite_before, damage)
+        assert profile_files(root) == before, evidence
         assert host.account_sessions.accounts.path != original
         assert (original.read_bytes() if original.exists() else None) == original_bytes
         assert KEYS[0].encode() not in host.account_sessions.accounts.path.read_bytes()
