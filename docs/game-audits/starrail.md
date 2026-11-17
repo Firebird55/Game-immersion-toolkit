@@ -402,6 +402,15 @@ This is one English event recording, not acceptance of all 3,712 event
 candidates, the full dialogue catalog, Android, a cold factory or redistribution.
 The reused codec inventory's pending review labels remain unchanged.
 
+On frozen source `0c9aca83`, that same real English row is rejoined through the
+new event inventory, rendered from the canonical original text, packed/unpacked
+through the new ownership map and certified by the batch reader. Two offline
+resolutions after that member restore retain the same 126,310-frame PCM hash.
+The older experimental intake generation is explicitly replayed, not silently
+adopted into the production cache. This uses zero new source/software bytes and
+does not activate a one-row control as a complete current catalog or claim a
+cold factory, full audio snapshot, Android or release acceptance.
+
 A separate inventory covers every external VoiceConfig source exposed by the
 current supported English catalog, rather than only character-archive events.
 Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete
