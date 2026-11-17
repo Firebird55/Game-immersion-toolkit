@@ -6,6 +6,24 @@ import pytest
 from backend.starrail_native_configs import Descriptions, _path_recipe
 
 
+def test_descriptor_caches_do_not_keep_prior_native_indexes_alive(monkeypatch):
+    import gc
+    import weakref
+    from backend import starrail_native_configs as native
+    monkeypatch.setattr(native.usages, 'derive', lambda index: {'reader': 'Owned.Reader', 'registries': {}})
+    rows = [(0, 'call', '0x1100'), (1, 'mov', 'rcx, qword ptr [rip + 0x80]'),
+            (2, 'call', '0x1200'), (3, 'mov', 'qword ptr [rax], rax')]
+    index = SimpleNamespace(base=0x1000, methods={0x100: [{'signature': 'public static ulong Read(Owned.Reader)'}]},
+        blocks={'Owned.Enum': 'public enum Owned.Enum\n    public const Owned.Enum Value = 1 // Offset: 0x0'},
+        method=lambda *a: 0x500, body=lambda *a: (rows, 'owned'))
+    instance = Descriptions(index)
+    assert instance.enum('Owned.Enum') is instance.enum('Owned.Enum')
+    reference = weakref.ref(instance)
+    del instance
+    gc.collect()
+    assert reference() is None
+
+
 def path_fixture(change=None):
     methods = {
         0x500: [{'owner': 'System.String#1', 'signature': 'public int LastIndexOf(char, int, int)'}],

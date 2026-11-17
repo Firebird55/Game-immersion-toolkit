@@ -42,7 +42,7 @@ class Generation:
     identity: str
 
 
-def prepare(directory, build, names, *, reader=None, fetch=None):
+def prepare(directory, build, names, *, reader=None, fetch=None, allow_generate=True):
     """Regenerate every needed description without newer third-party game data.
 
     Descriptor cache publication happens only after complete native ownership,
@@ -52,6 +52,8 @@ def prepare(directory, build, names, *, reader=None, fetch=None):
     directory = Path(directory).absolute()
     metadata._check(isinstance(names, (set, frozenset)) and 0 < len(names) <= 256)
     options = ({'reader': reader} if reader is not None else {}) | ({'fetch': fetch} if fetch is not None else {})
+    if allow_generate is not True:
+        options['allow_generate'] = allow_generate
     native = metadata.prepare(directory, build, **options)
     identity = {'native': native.receipt, 'logic': _logic_identity(), 'tables': sorted(names)}
     receipt = directory / 'native-descriptions.json'

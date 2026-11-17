@@ -73,8 +73,9 @@ and protagonist authoring as metadata and keeps omitted voice sources
 non-playable. Explicit silence, unknown status and unresolved authored audio
 remain distinct. Synthetic traps fail any attempt to enter those audio paths;
 the resulting snapshot passes the shared omission and matcher contracts.
-The independent download-service adapter below currently implements the
-original-input stage, not this complete text consumer or audio preparation.
+The independent download-service adapter now connects this consumer through
+bounded original-input, schema and text-package stages. Its actual source-file
+acceptance remains separate from the earlier desktop-worker trial.
 
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three
@@ -153,7 +154,7 @@ normal flow. The current Windows worker proof does not establish this boundary.
 | Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. Original PE/x64 instructions are parsed as data through managed Iced; client code is never executed. | Supply a packaged Android-compatible invocation of the same owned metadata/disassembly contract, or a controlled exact-generation schema source. There is no accepted Android helper artifact or runtime resolver. |
 | Publisher formats and cache | Python readers use HTTPS, protobuf, zstandard, JSON and checksummed files. Native preparation currently authenticates complete original Windows launcher inputs. | Validate those libraries on the Android ABI and keep all files in app-controlled storage. Windows publisher data may be read as data, but platform/edition identity must remain explicit. |
 | Playback and export | `VoiceDecoder` and `LocalVoiceAssetService` invoke desktop vgmstream and ffmpeg processes. Movie extraction validates complete ADX tracks and requires reviewed spoken windows. | Integrate the corresponding Android codec/runtime, then prove sample/window equivalence and offline historical playback. No Android codec or movie coverage is implied by current desktop playback. |
-| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. The shared service can estimate, account for and remove the original metadata-input stage. | Connect the remaining staged text/audio estimates and reference-aware full-library removal. The metadata-only estimate is not a complete game download size. |
+| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. The shared service can estimate staged original metadata/text packages, account for their cache and restore completed text locally. | Prove these stages with actual source files and connect original audio with reference-aware full-library removal. A metadata-only stage is not a complete game download size. |
 
 The canonical `starrail_game_data` factory now registers an original metadata
 input stage with the shared service. Planning uses the context-owned publisher
@@ -166,14 +167,35 @@ from their verified chunks without another asset request. No global transport,
 community text source or downloaded code runs in this stage. Shared service
 tests exercise its real byte/consent fences with synthetic original formats.
 
-This is a metadata-only stage: its public message excludes text/audio sizes, and
-completed archives cannot restore a study library. The next catalog stage and
-ordinary audio retrieval are not yet connected to this independent service.
-Android exposes the metadata estimate but cannot authorize this large download
-while its required metadata runtime is unavailable. The preceding desktop
-worker/recovery proof does not remove these independent-service gaps. Shared
-storage accounting and removal can cover the stage's owned cache; they do not
-establish a complete game download estimate or Android preparation.
+On desktop, the following text stages require an already delivered, verified
+metadata helper; this service never compiles or downloads helper software
+implicitly. A separate zero-download step declares the metadata-output/storage
+bound before generating descriptions, including the whole-input copy fallback
+when hardlinks are unavailable. Required core tables/textmaps, native-owned
+mission paths and original caption overrides then select the next exact whole
+packages. Each is checked against its complete publisher MD5. No arbitrary
+configuration scan or package/version ID list selects the inventory.
+
+Only the final `text-snapshot` step can publish a `SnapshotSource`; every earlier
+step remains a `PreparationStage`. The final receipt binds the helper, native
+generation, whole original packages, request/content mode and snapshot SHA256.
+Restore verifies this local receipt and snapshot without fetching or invoking a
+helper. A hash-bound same-request stage can finish its already discovered
+publisher generation without another mutable launcher lookup. The shared stage
+contract preserves a previously ready library while that update is incomplete.
+Text gender conditions retain separate authored branches without reading audio
+states or inventing gender-specific audio paths. Configuration descriptions use
+one validated native generation at a time; their per-instance caches can release
+old native indexes instead of retaining them through class-wide LRU keys.
+
+The complete staged service, shared matcher activation, corrupt-cache retry and
+offline restore pass synthetic original-format controls. An actual-source trial
+of this independent endpoint is still pending; the earlier desktop worker proof
+cannot substitute for it. Android exposes only an estimate while its metadata
+runtime is unavailable. Independent `text-audio` preparation also remains gated;
+no voice URL, metadata archive or successful text-only result is advertised as
+downloaded original audio. Shared storage accounting/removal covers owned stage
+and library files, without establishing Android preparation or an audio size.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
@@ -181,8 +203,8 @@ remain attached to every nested original request; the legacy default transport
 is retained only when no context was supplied. A data-service caller can also
 resolve an already delivered metadata helper with implicit source compilation
 disabled. Complete DesignV packages must still match their publisher MD5 before
-entering the reusable cache. These seams are prerequisites for the remaining
-text stages, not an enabled ready-text or Android path by themselves.
+entering the reusable cache. These seams underpin the implemented text stages;
+they do not by themselves prove actual-source or Android acceptance.
 
 A cache-only plan for current Global 4.7 English with official Chinese
 translations gives these exact original-input amounts, before audio headers,

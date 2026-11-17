@@ -79,3 +79,19 @@ def test_source_helper_is_never_consulted_by_frozen_runtime(tmp_path, monkeypatc
     result = metadata.helper(tmp_path / 'absent-source-cache')
     assert result.command == (str(expected.executable),)
     assert not (tmp_path / 'absent-source-cache').exists()
+
+
+def test_cache_only_probe_never_generates_unapproved_metadata(tmp_path, monkeypatch):
+    build, reader, assets = fixture(monkeypatch)
+    run = reader.run
+    reader.run = lambda *a, **k: pytest.fail('Unapproved metadata generation')
+    with pytest.raises(ValueError, match='not prepared'):
+        metadata.prepare(tmp_path, build, reader=reader, allow_generate=False)
+    assert not (tmp_path / 'native-files').exists()
+    reader.run = run
+    prepared = metadata.prepare(tmp_path, build, reader=reader)
+    reader.run = lambda *a, **k: pytest.fail('Unapproved metadata regeneration')
+    assert metadata.prepare(tmp_path, build, reader=reader, allow_generate=False).outputs == prepared.outputs
+    (prepared.outputs / 'dump.cs').write_text('corrupt')
+    with pytest.raises(ValueError, match='not prepared'):
+        metadata.prepare(tmp_path, build, reader=reader, allow_generate=False)

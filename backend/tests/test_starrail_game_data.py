@@ -17,14 +17,14 @@ from backend.tests.test_publisher_transport import Response
 REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Hans'], 'content_mode': 'text'}
 
 
-def fixture(tmp_path, monkeypatch, *, platform='windows'):
+def fixture(tmp_path, monkeypatch, *, platform='windows', generation=1):
     provider = game.create_provider(platform=platform)
-    base = 'https://autopatchos.starrails.com/test/1.2.3'
+    base = 'https://autopatchos.starrails.com/test/1.2.3/' + str(generation)
     original, objects, raw = {}, {}, b''
     chunk_urls = []
     md5 = lambda value: hashlib.md5(value).hexdigest()
     for role, name in game.metadata.CANONICAL.items():
-        data = ('Inert original fixture ' + role).encode(); original[role] = data
+        data = ('Inert original fixture ' + role + '/' + str(generation)).encode(); original[role] = data
         encoded = zstandard.ZstdCompressor().compress(data)
         object_name = '0' * 16 + '_' + md5(data)
         url = base + '/' + object_name; objects[url] = encoded; chunk_urls.append(url)
@@ -44,7 +44,7 @@ def fixture(tmp_path, monkeypatch, *, platform='windows'):
                   'manifest_download': delivery, 'chunk_download': delivery}
                  for key in ('game', 'en-us', 'zh-cn', 'ja-jp', 'ko-kr')]
     objects[f'https://{downloader}/downloader/sophon_chunk/api/getBuild?{query}'] = json.dumps({
-        'retcode': 0, 'data': {'tag': '1.2.3', 'build_id': 'FixtureA', 'manifests': manifests}}).encode()
+        'retcode': 0, 'data': {'tag': '1.2.3', 'build_id': 'Fixture' + str(generation), 'manifests': manifests}}).encode()
     calls, failures = [], set()
     def open_(request, **kwargs):
         assert request.get_method() == 'GET' and request.data is None
@@ -135,3 +135,125 @@ def test_android_metadata_estimate_does_not_authorize_unavailable_runtime_or_aud
         assert not set(chunks) & set(calls)
     finally:
         service.close()
+
+
+def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch):
+    """Only native/catalog format boundaries are authored fixture substitutes."""
+    from types import SimpleNamespace
+    from backend import starrail_native_preparation, starrail_original_provider
+    from backend.starrail_original_catalog import OriginalCatalog
+    from backend.starrail_original_tables import OriginalTables
+    from backend.tests.test_starrail_text_only import Catalog
+    from backend.xxhash64 import xxhash64
+    provider, _, objects, _, calls, _ = fixture(tmp_path, monkeypatch)
+    state = {'metadata_ready': False}
+    reader = SimpleNamespace(identity='b' * 64)
+    monkeypatch.setattr(provider, '_reader', lambda directory: reader)
+    def probe(*args, **kwargs):
+        assert kwargs.get('allow_generate') is False
+        if not state['metadata_ready']:
+            raise ValueError('Not prepared')
+        return object()
+    monkeypatch.setattr(game.metadata, 'prepare', probe)
+    def derive(*args, **kwargs):
+        assert kwargs['reader'] is reader and callable(kwargs['fetch'])
+        state['metadata_ready'] = True
+        return SimpleNamespace(identity='a' * 64)
+    monkeypatch.setattr(starrail_native_preparation, 'prepare', derive)
+    assets = {}
+    for name in ('core', 'mission', 'caption'):
+        body = ('authored complete ' + name + ' package').encode()
+        from backend.starrail_hotfix import AudioFile
+        asset = AudioFile(name + '.bytes', len(body), hashlib.md5(body).hexdigest(), 'https://autopatchos.starrails.com/test/' + name)
+        assets[name] = asset; objects[asset.url] = body
+    class TextCatalog(Catalog):
+        _mission_paths = OriginalCatalog._mission_paths
+        _overrides = OriginalCatalog._overrides
+        def __init__(self, ctx, build):
+            super().__init__(); self.data = self.tables
+            self.build = build | {'content_mode': 'text', 'hotfix': {'authored_fixture': 'pinned-original-generation'}}
+            self.data['VideoConfig'] = [{'VideoID': 1, 'CaptionPath': 'Config/CutSceneCaption/OwnedFilm_Caption.json', 'VideoPath': 'Owned.usm'}]
+            self.data['PerformanceVideo'] = [{'PerformanceID': 1, 'PerformancePath': 'Config/Level/Mission/1/Act/Act1.json'}]
+            self.movie_files = {'owned.usm': SimpleNamespace(task_ids=(1,), name='Owned.usm', size=12, digest='c' * 32)}
+            self.configs = SimpleNamespace(descriptions=SimpleNamespace(binary_path=lambda path: 'BakedConfig/' + path[:-5] + '.bytes'))
+            self.tables = OriginalTables.__new__(OriginalTables)
+            self.tables.directory = provider._directory(ctx, 'global') / 'sophon'
+            transport = provider._transport(ctx)
+            self.tables.package_fetch = lambda url, *, limit: transport.fetch_bytes(url, limit=limit, kind='asset', expected_size=limit)[0]
+            self.tables.resources = {}
+            paths = {'BakedConfig/ExcelOutput/' + name + '.bytes' for name in starrail_original_provider.TABLES}
+            paths.update('BakedConfig/ExcelOutput/' + name + '.bytes' for name in ('TextmapMain_en', 'Textmap_en', 'TextmapMain_cn', 'Textmap_cn'))
+            for path in paths:
+                self.tables.resources[xxhash64(path.encode())] = assets['core'], 0, assets['core'].size
+            for name, path in [('mission', 'Config/Level/Mission/1/Act/Act1.json'),
+                               ('caption', 'Config/CutSceneCaption/OwnedFilm_Caption.json'),
+                               ('caption', 'Config/CutSceneCaption/Alternate_Caption.json')]:
+                self.tables.resources[xxhash64(self.configs.descriptions.binary_path(path).encode())] = assets[name], 0, assets[name].size
+        def file(self, path, **kwargs):
+            if path.startswith('TextMap/'):
+                return {str(key): ('原始测试台词' if 'CHS' in path else 'Original fixture sentence number ') + str(key) for key in range(101, 106)}
+            if path.startswith('Config/'):
+                return {'OnStartSequece': [{'TaskList': [{'$type': 'RPG.GameCore.PlayVideo', 'VideoID': 1,
+                    'OverrideCaptionPath': 'Config/CutSceneCaption/Alternate_Caption.json'}]}]}
+            return self.data.get(path.removeprefix('ExcelOutput/').removesuffix('.json'), [])
+    monkeypatch.setattr(provider, '_text_context', lambda ctx, build, reader, discover: (
+        'sophon-' + 'f' * 64, TextCatalog(ctx, build), SimpleNamespace(identity='a' * 64)))
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        phases = []
+        for number in range(6):
+            row = start(service); result = finish(service)
+            phases.append(result['job']['status'])
+            assert result['job']['status'] in {'needs_plan', 'complete'}
+            if number == 2:
+                # A discovered pending generation continues from its exact
+                # same-request stage; the mutable launcher is unnecessary.
+                for url in list(objects):
+                    if '/getGameBranches?' in url or '/getBuild?' in url:
+                        del objects[url]
+            if result['job']['status'] == 'complete':
+                break
+        assert result['job']['status'] == 'complete'
+        assert len(phases) == 6
+        assert all(asset.url in calls for asset in assets.values())
+        before = len(calls)
+        source = service.restore('starrail')
+        assert len(calls) == before and source.voice_source is None
+        payload = json.loads(source.snapshot_path.read_bytes())
+        assert payload['content_mode'] == 'text' and all(not row['audio'] for row in payload['records'])
+        assert source.source_proof.origin == 'official'
+        # A real subsequent input stage must keep this verified Ready A;
+        # stage archives must not occupy its current/restore slot.
+        previous_sha = hashlib.sha256(source.snapshot_path.read_bytes()).hexdigest()
+        next_provider, *_ = fixture(tmp_path, monkeypatch, generation=2)
+        service.providers['starrail'] = next_provider
+        start(service)
+        assert finish(service)['job']['status'] == 'needs_plan'
+        retained = service.restore('starrail')
+        assert retained.snapshot_path == source.snapshot_path
+        assert hashlib.sha256(retained.snapshot_path.read_bytes()).hexdigest() == previous_sha
+        source.snapshot_path.write_bytes(b'corrupt')
+        with pytest.raises(GameDataError, match='integrity'):
+            service.restore('starrail')
+    finally:
+        service.close()
+
+
+def test_pending_source_is_hash_bound_and_never_crosses_request_or_edition():
+    from types import SimpleNamespace
+    from backend.game_data_protocol import GameDataRequest
+    request = GameDataRequest.parse(REQUEST)
+    raw = {'schema': game.STAGE_SCHEMA, 'request': request.json(), 'build': {'channel': 'starrail-global',
+           'version': '1.2.3', 'hotfix': {'owned': 'generation'}}, 'files': {}, 'ready': False}
+    handle = raw | {'receipt_sha256': game._identity(raw)}
+    assert game._staged_build(SimpleNamespace(stage_handle=handle), request) == raw['build']
+    changed_request = GameDataRequest('global', 'ja', (), 'text')
+    assert game._staged_build(SimpleNamespace(stage_handle=handle), changed_request) is None
+    changed = handle | {'files': {'foreign': 'owner'}}
+    with pytest.raises(GameDataError, match='receipt changed'):
+        game._staged_build(SimpleNamespace(stage_handle=changed), request)
+    with pytest.raises(GameDataError, match='malformed'):
+        game._staged_build(SimpleNamespace(stage_handle=handle | {'unknown': 7}), request)
+    foreign = raw | {'build': raw['build'] | {'channel': 'starrail-cn'}}
+    with pytest.raises(GameDataError, match='another publisher edition'):
+        game._staged_build(SimpleNamespace(stage_handle=foreign | {'receipt_sha256': game._identity(foreign)}), request)

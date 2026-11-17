@@ -336,9 +336,10 @@ def _input(cache, asset, *, fetch=None):
     return target
 
 
-def prepare(directory, build, *, reader=None, fetch=None):
+def prepare(directory, build, *, reader=None, fetch=None, allow_generate=True):
     """Authenticate complete original inputs, regenerate metadata atomically."""
     directory = Path(directory).absolute(); _no_links(directory); directory.mkdir(parents=True, exist_ok=True)
+    _check(type(allow_generate) is bool)
     _check(build['channel'] in {'starrail-global', 'starrail-cn'})
     spec = build['manifests']['game']
     options = {'fetch': fetch} if fetch is not None else {}
@@ -368,6 +369,8 @@ def prepare(directory, build, *, reader=None, fetch=None):
         return Prepared(directory, generation / 'inputs', generation / 'outputs', previous, reader)
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    if not allow_generate:
+        raise ValueError('The matching original Star Rail metadata generation is not prepared.')
     # Sophon chunks are immutable and independently authenticated, so interrupted
     # attempts reuse complete chunks. Only full MD5 acceptance publishes inputs.
     with tempfile.TemporaryDirectory(prefix='generation-', dir=generations) as temporary:

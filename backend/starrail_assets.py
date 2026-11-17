@@ -333,6 +333,19 @@ def index_text_catalog(stamp, catalog, source_locale, target_locales, tools):
     rows = [_player_row(row, row['player_voice']) if row['player_voice'] else row for row in rows]
     rows.extend(_readable_records(catalog, tables, source_locale))
     rows.extend(starrail_films.caption_rows(tools, catalog, tables, source_locale, {}, text_only=True))
+    from .textmaps import GENDER_VARIANT_RE
+    expanded = []
+    for row in rows:
+        if not row.get('player_voice') and any(GENDER_VARIANT_RE.search(value) for value in row['texts'].values()):
+            # Text authoring alone proves these display branches. Do not read
+            # Wwise states or invent a protagonist-specific audio filename.
+            for gender in ('male', 'female'):
+                variant = _player_row(row, gender)
+                variant['text_id'] = row['text_id'] + '-text-player-' + gender[0]
+                expanded.append(variant)
+        else:
+            expanded.append(row)
+    rows = expanded
     captions = {}
     for row in rows:
         if 'film_caption' in row:

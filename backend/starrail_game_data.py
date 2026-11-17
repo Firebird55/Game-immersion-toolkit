@@ -1,17 +1,19 @@
-"""Context-bound original Star Rail input stages; archives are never ready text.
+"""Context-bound original Star Rail text, staged estimates and offline restore.
 
-The ordinary desktop catalog consumer is separate until its complete transport
-and runtime closure is connected here. In particular, an Android estimate never
-implies an available .NET metadata helper or original-audio decoder.
+Only complete native/package verification can produce a ready text snapshot.
+Android metadata and independent original-audio preparation remain unavailable;
+input archives alone cannot masquerade as a usable library.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 from pathlib import Path
+import threading
 
 from . import sophon_assets as sophon, starrail_metadata as metadata
-from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage, MAX_HANDLE_BYTES
+from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage, SnapshotSource, SourceProof, MAX_HANDLE_BYTES
+from .private_data_paths import MAX_TEXT
 from .publisher_transport import PublisherTransport
 from .private_data_paths import _no_links
 
@@ -22,15 +24,112 @@ SOURCE_LOCALES = frozenset({'en', 'ja', 'ko', 'zh-Hans', 'zh-Hant'})
 TEXT_LOCALES = frozenset({'en', 'ja', 'ko', 'zh-Hans', 'zh-Hant', 'de', 'es', 'fr', 'id', 'pt', 'ru', 'th', 'vi'})
 HOSTS = frozenset({'sg-hyp-api.hoyoverse.com', 'sg-public-api.hoyoverse.com', 'hyp-api.mihoyo.com',
                    'api-takumi.mihoyo.com', 'autopatchos.starrails.com', 'autopatchcn.bhsr.com'})
+TEXT_SCHEMA = 'starrail-original-text-source-v1'
+TEXT_PLAN = 'starrail-original-text-plan-v1'
+
+
+def _packages_for(catalog, paths):
+    from .xxhash64 import xxhash64
+    result = {}
+    for path in paths:
+        value = catalog.tables.resources.get(xxhash64(path.encode('utf-8')))
+        if value is None:
+            raise GameDataError('unsupported_starrail_resource', 'A required original Star Rail text resource is unavailable.')
+        asset = value[0]
+        if asset.digest in result and result[asset.digest].size != asset.size:
+            raise GameDataError('conflicting_starrail_packages', 'The original text package identities disagree.')
+        result[asset.digest] = asset
+    return result
+
+
+def _missing_packages(catalog, packages):
+    result = {}
+    for digest, asset in packages.items():
+        path = catalog.tables.directory / 'starrail-design-packages' / (digest + '.bytes')
+        _no_links(path)
+        if not path.is_file() or path.stat().st_size != asset.size or metadata._hash(path, 'md5') != digest:
+            result[digest] = asset
+    return result
+
+
+def _package_receipts(packages):
+    return {digest: {'name': asset.name, 'bytes': asset.size} for digest, asset in packages.items()}
+
+
+def _description_disk(selected):
+    # Same-filesystem hardlinks normally share the immutable input bodies, but
+    # exFAT and some providers require the reader's documented copy fallback.
+    return sum(asset.size for asset in selected.values()) + sum(metadata.OUTPUTS.values()) + 132 * 1024**2 + MAX_HANDLE_BYTES
+
+
+def _required_text(catalog, request):
+    """Locate only required core/config packages from actual authored owners."""
+    from .starrail_original_provider import TABLES
+    from .starrail_original_tables import TEXT_CODES
+    paths = {'BakedConfig/ExcelOutput/' + name + '.bytes' for name in TABLES}
+    for locale in {request.source_locale, *request.target_locales}:
+        for code in catalog.text_locales[locale]:
+            main = code.startswith('Main'); code = code[4:] if main else code
+            paths.add('BakedConfig/ExcelOutput/' + ('TextmapMain_' if main else 'Textmap_') + TEXT_CODES[code] + '.bytes')
+    packages = _packages_for(catalog, paths)
+    if missing := _missing_packages(catalog, packages):
+        return 'text-core', packages, missing
+    videos = catalog.file('ExcelOutput/VideoConfig.json')
+    captions = {row['CaptionPath'] for rows in (videos, catalog.file('ExcelOutput/CutSceneConfig.json'),
+                 catalog.file('ExcelOutput/LoopCGConfig.json')) for row in rows if row.get('CaptionPath')}
+    missions = catalog._mission_paths(videos)
+    packages.update(_packages_for(catalog, {catalog.configs.descriptions.binary_path(path) for path in missions}))
+    if missing := _missing_packages(catalog, packages):
+        return 'text-missions', packages, missing
+    available = {row['VideoID'] for row in videos if row.get('CaptionPath')}
+    for path in sorted(missions):
+        catalog._overrides(catalog.file(path), available, captions)
+    packages.update(_packages_for(catalog, {catalog.configs.descriptions.binary_path(path) for path in captions}))
+    missing = _missing_packages(catalog, packages)
+    return ('text-captions' if missing else 'text-snapshot'), packages, missing
 
 
 def _identity(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()).hexdigest()
 
 
+def _text_revision(handle):
+    # One publisher/schema generation spans several package estimates. A phase
+    # transition is not a new source revision, and Ready must retire its stage.
+    identity = {name: handle[name] for name in ('request', 'build', 'helper', 'native')}
+    return handle['build']['version'] + '/text-' + _identity(identity)[:24]
+
+
 def _valid_request(request):
     if request.source_locale not in SOURCE_LOCALES or set(request.target_locales) - TEXT_LOCALES:
         raise GameDataError('unsupported_game_languages', 'Choose an official Star Rail text and spoken language.')
+
+
+def _staged_build(ctx, request):
+    stage = getattr(ctx, 'stage_handle', None)
+    if stage is None:
+        return None
+    if (not isinstance(stage, dict) or stage.get('schema') != STAGE_SCHEMA
+            or stage.get('request') != request.json()):
+        return None
+    required = {'schema', 'request', 'build', 'files', 'ready', 'receipt_sha256'}
+    allowed = required | {'native', 'packages'}
+    # Older input-only receipts did not carry their complete hashable value.
+    # Their immutable body cache remains useful through the fresh manifest.
+    if set(stage) == {'schema', 'request', 'build', 'files', 'receipt_sha256'}:
+        return None
+    if not required <= set(stage) or set(stage) - allowed or stage['ready'] is not False:
+        raise GameDataError('starrail_stage_changed', 'The pending original source receipt is malformed. Your active library is retained.')
+    raw = {key: value for key, value in stage.items() if key != 'receipt_sha256'}
+    if _identity(raw) != stage['receipt_sha256']:
+        raise GameDataError('starrail_stage_changed', 'The pending original source receipt changed. Your active library is retained.')
+    build = stage['build']
+    if not isinstance(build, dict) or build.get('channel') != 'starrail-' + request.region:
+        raise GameDataError('starrail_stage_changed', 'The pending original source belongs to another publisher edition.')
+    # Once native discovery pins the actual hotfix indexes, subsequent package
+    # stages finish that exact generation even if a newer launcher appears.
+    # An early native-only stage still needs fresh current resource discovery.
+    return build if 'hotfix' in build else None
 
 
 def _inputs(directory, build, fetch):
@@ -84,9 +183,91 @@ class StarRailProvider:
         # No undocumented native method names or caller-injected schemas.
         # A future host bridge must have a separately verified contract.
         self.native = native
+        self._descriptions = None
+        self._description_lock = threading.RLock()
 
-    def _transport(self, ctx):
-        return PublisherTransport(ctx, hosts=HOSTS)
+    def _transport(self, ctx, *, additional_hosts=()):
+        return PublisherTransport(ctx, hosts=HOSTS | frozenset(additional_hosts))
+
+    def _metadata_fetch(self, ctx, transport):
+        def fetch(url, *, limit):
+            from urllib.parse import urlsplit
+            parsed = urlsplit(url)
+            chosen = transport
+            if parsed.hostname not in HOSTS:
+                domain = '.starrails.com' if ctx.request.region == 'global' else '.bhsr.com'
+                if not parsed.hostname or not parsed.hostname.endswith(domain) or parsed.path not in {'/query_dispatch', '/query_gateway'}:
+                    raise GameDataError('invalid_starrail_dispatch', 'The original Star Rail dispatch address changed.')
+                chosen = self._transport(ctx, additional_hosts=(parsed.hostname,))
+            return chosen.fetch_bytes(url, limit=limit, kind='metadata')[0]
+        return fetch
+
+    @staticmethod
+    def _reader(directory):
+        return metadata.helper(directory / 'tools', allow_build=False)
+
+    def _text_context(self, ctx, build, reader, *, discover):
+        from . import starrail_native_preparation as native, starrail_original_discovery as discovery
+        from . import starrail_original_provider as original
+        directory = self._directory(ctx, ctx.request.region)
+        transport = self._transport(ctx); fetch = self._metadata_fetch(ctx, transport)
+        generation = native.prepare(directory, build, original.TABLES, reader=reader, fetch=fetch, allow_generate=False)
+        if discover:
+            build = discovery.prepare(directory / 'sophon', build, generation.routes, fetch=fetch)
+        def package_fetch(url, *, limit):
+            return transport.fetch_bytes(url, limit=limit, kind='asset', expected_size=limit)[0]
+        key = directory.absolute(), generation.identity
+        with self._description_lock:
+            ctx.check()
+            if self._descriptions is None or self._descriptions[0] != key:
+                descriptions = original.Descriptions(original.NativeIndex(generation.native))
+                self._descriptions = key, descriptions
+            descriptions = self._descriptions[1]
+            ctx.check()
+        stamp, catalog = original.catalog_source(directory, build, generation, content_mode='text',
+            fetch=fetch, package_fetch=package_fetch, config_descriptions=descriptions)
+        return stamp, catalog, generation
+
+    @staticmethod
+    def _stage(ctx, handle, message):
+        raw = json.dumps(handle, sort_keys=True, separators=(',', ':')).encode()
+        if len(raw) > MAX_HANDLE_BYTES:
+            raise GameDataError('starrail_stage_too_large', 'The original Star Rail source receipt exceeds its limit.')
+        path = Path(ctx.directory) / 'original-inputs.json'
+        _no_links(path); path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+        return PreparationStage(handle | {'receipt_sha256': hashlib.sha256(raw).hexdigest()}, message)
+
+    def _text_plan(self, request, ctx, build, selected):
+        directory = self._directory(ctx, request.region)
+        if request.content_mode != 'text':
+            return GameDataPlan(build['version'], None, None, stage='original-audio', runtime_available=False,
+                message='Independent original-audio preparation is not available yet. Text-only preparation has a separate download estimate.')
+        try:
+            reader = self._reader(directory)
+        except (OSError, ValueError):
+            return GameDataPlan(build['version'], None, None, stage='metadata-runtime', runtime_available=False,
+                message='The delivered Star Rail metadata reader is unavailable on this device. Your previous library is retained.')
+        transport = self._transport(ctx); fetch = self._metadata_fetch(ctx, transport)
+        try:
+            metadata.prepare(directory, build, reader=reader, fetch=fetch, allow_generate=False)
+        except ValueError:
+            handle = {'schema': TEXT_PLAN, 'request': request.json(), 'build': build,
+                      'files': _file_receipts(selected), 'phase': 'native-descriptions', 'packages': {},
+                      'helper': reader.identity, 'native': None}
+            return GameDataPlan(_text_revision(handle), 0,
+                _description_disk(selected),
+                handle, stage='native-descriptions', runtime_available=True,
+                message='Prepare the verified original metadata locally before estimating text packages. No further download is included in this step.')
+        stamp, catalog, generation = self._text_context(ctx, build, reader, discover='hotfix' not in build)
+        phase, packages, missing = _required_text(catalog, request)
+        handle = {'schema': TEXT_PLAN, 'request': request.json(), 'build': catalog.build,
+                  'files': _file_receipts(selected), 'phase': phase, 'packages': _package_receipts(packages),
+                  'helper': reader.identity, 'native': generation.identity}
+        disk = sum(asset.size for asset in missing.values()) + (MAX_TEXT if phase == 'text-snapshot' else 0) + MAX_HANDLE_BYTES
+        return GameDataPlan(_text_revision(handle),
+            sum(asset.size for asset in missing.values()), disk, handle, stage=phase, runtime_available=True,
+            message=('Prepare the verified original text library. Audio is omitted by request.' if phase == 'text-snapshot'
+                     else 'Download the required original text packages. Additional authored scene packages may need a separate estimate. Audio is omitted by request.'))
 
     @staticmethod
     def _directory(ctx, region):
@@ -99,7 +280,7 @@ class StarRailProvider:
         transport = self._transport(ctx)
         def fetch(url, *, limit):
             return transport.fetch_bytes(url, limit=limit, kind='metadata')[0]
-        build = sophon.release('starrail-' + request.region, fetch=fetch)
+        build = _staged_build(ctx, request) or sophon.release('starrail-' + request.region, fetch=fetch)
         directory = self._directory(ctx, request.region)
         selected = _inputs(directory, build, fetch)
         download, disk, complete = _budget(directory, selected)
@@ -111,13 +292,14 @@ class StarRailProvider:
             return GameDataPlan(revision, download, disk, handle, stage='metadata-runtime', runtime_available=False,
                 message='Star Rail preparation is not available on Android yet. The shown size is an original metadata estimate.')
         if complete:
-            return GameDataPlan(revision, None, None, handle, stage='catalog-runtime', runtime_available=False,
-                message='Original metadata is verified. Study text and recordings are not available from this preparation yet.')
+            return self._text_plan(request, ctx, build, selected)
         return GameDataPlan(revision, download, disk, handle, stage='original-native-inputs', runtime_available=True,
             message='This downloads original metadata only. It does not prepare study text or recordings yet; their sizes are not included.')
 
     def download(self, plan, ctx):
         handle = plan.handle
+        if isinstance(handle, dict) and handle.get('schema') == TEXT_PLAN:
+            return self._download_text(plan, ctx)
         if (not isinstance(handle, dict) or set(handle) != {'schema', 'request', 'build', 'files'}
                 or handle.get('schema') != SCHEMA or handle.get('request') != ctx.request.json()
                 or plan.stage != 'original-native-inputs' or self.platform == 'android'):
@@ -142,19 +324,107 @@ class StarRailProvider:
         for asset in selected.values():
             ctx.check(); metadata._input(directory, asset, fetch=fetch_asset)
         ctx.check()
-        receipt = {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
-                   'files': _file_receipts(selected), 'ready': False}
-        raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
-        output = Path(ctx.directory) / 'original-inputs.json'
-        _no_links(output); output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_bytes(raw)
-        return PreparationStage({'schema': STAGE_SCHEMA, 'receipt_sha256': hashlib.sha256(raw).hexdigest(),
-                                 'request': ctx.request.json(), 'build': handle['build'], 'files': handle['files']},
+        return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
+                                'files': _file_receipts(selected), 'ready': False},
             'Original metadata downloaded. Study text and recordings are not available from this preparation yet.')
+
+    def _download_text(self, plan, ctx):
+        handle = plan.handle
+        phases = {'native-descriptions', 'text-core', 'text-missions', 'text-captions', 'text-snapshot'}
+        if (set(handle) != {'schema', 'request', 'build', 'files', 'phase', 'packages', 'helper', 'native'}
+                or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text'
+                or handle['phase'] not in phases or plan.stage != handle['phase'] or self.platform == 'android'
+                or handle['build']['channel'] != 'starrail-' + ctx.request.region
+                or plan.revision != _text_revision(handle)):
+            raise GameDataError('starrail_plan_changed', 'Check the original text download size again.')
+        ctx.check(); directory = self._directory(ctx, ctx.request.region)
+        transport = self._transport(ctx); fetch = self._metadata_fetch(ctx, transport)
+        selected = _inputs(directory, handle['build'], fetch)
+        if _file_receipts(selected) != handle['files'] or not _budget(directory, selected)[2]:
+            raise GameDataError('starrail_inputs_changed', 'The original metadata cache changed. Check the download size again.')
+        reader = self._reader(directory)
+        if reader.identity != handle['helper']:
+            raise GameDataError('starrail_reader_changed', 'The original metadata reader changed. Check the size again.')
+        if plan.stage == 'native-descriptions':
+            from . import starrail_native_preparation as native, starrail_original_provider as original
+            if handle['packages'] or handle['native'] is not None or plan.download_bytes != 0:
+                raise GameDataError('starrail_plan_changed', 'Check the original metadata preparation again.')
+            if plan.required_disk_bytes is None or plan.required_disk_bytes < _description_disk(selected):
+                raise GameDataError('starrail_plan_changed', 'Check the original metadata storage estimate again.')
+            generation = native.prepare(directory, handle['build'], original.TABLES, reader=reader, fetch=fetch)
+            ctx.check()
+            return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
+                'files': handle['files'], 'native': generation.identity, 'ready': False},
+                'Original metadata is prepared. Check the separate original text package estimate next.')
+        stamp, catalog, generation = self._text_context(ctx, handle['build'], reader, discover=False)
+        if generation.identity != handle['native']:
+            raise GameDataError('starrail_schema_changed', 'The original text schema changed. Check the download size again.')
+        phase, packages, missing = _required_text(catalog, ctx.request)
+        actual = _package_receipts(packages)
+        if (not isinstance(handle['packages'], dict) or not handle['packages']
+                or any(actual.get(digest) != value for digest, value in handle['packages'].items())):
+            raise GameDataError('starrail_packages_changed', 'The required original text packages changed. Check their size again.')
+        planned = {digest: packages[digest] for digest in handle['packages']}
+        remaining = _missing_packages(catalog, planned)
+        if plan.download_bytes is None or sum(asset.size for asset in remaining.values()) > plan.download_bytes:
+            raise GameDataError('starrail_package_cache_changed', 'The original text cache changed. Check its size again.')
+        needed_disk = sum(asset.size for asset in remaining.values()) + (MAX_TEXT if plan.stage == 'text-snapshot' else 0) + MAX_HANDLE_BYTES
+        if plan.required_disk_bytes is None or plan.required_disk_bytes < needed_disk:
+            raise GameDataError('starrail_plan_changed', 'Check the original text storage estimate again.')
+        if plan.stage == 'text-snapshot':
+            if phase != 'text-snapshot' or missing or plan.download_bytes != 0 or set(actual) != set(handle['packages']):
+                raise GameDataError('starrail_text_incomplete', 'The original text packages are incomplete. Check their size again.')
+            return self._snapshot(ctx, handle, stamp, catalog, generation, packages)
+        for asset in planned.values():
+            ctx.check(); catalog.tables._package(asset)
+        ctx.check()
+        return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
+            'files': handle['files'], 'packages': handle['packages'], 'native': generation.identity, 'ready': False},
+            'Original text packages verified. Check the remaining authored scene estimate next; audio remains omitted.')
+
+    @staticmethod
+    def _snapshot(ctx, handle, stamp, catalog, generation, packages):
+        from .starrail_assets import index_text_catalog
+        from .language_worker import write_payload
+        ctx.check()
+        payload = index_text_catalog(stamp, catalog, ctx.request.source_locale, ctx.request.target_locales, catalog.tables.directory.parent)
+        payload['publisher_region'] = ctx.request.region
+        path = Path(ctx.directory) / 'textmap.json'; _no_links(path)
+        write_payload('starrail', payload, ctx.request.source_locale, ctx.request.target_locales, path)
+        if not 0 < path.stat().st_size <= MAX_TEXT:
+            raise GameDataError('starrail_text_too_large', 'The prepared original text exceeds its storage limit.')
+        receipt = {'schema': TEXT_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
+            'native': generation.identity, 'helper': handle['helper'], 'native_files': handle['files'],
+            'whole_original_packages': _package_receipts(packages), 'snapshot_sha256': metadata._hash(path)}
+        raw = json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()
+        if len(raw) > MAX_HANDLE_BYTES:
+            raise GameDataError('starrail_receipt_too_large', 'The original source receipt exceeds its limit.')
+        proofpath = Path(ctx.directory) / 'source-proof.json'; _no_links(proofpath); proofpath.write_bytes(raw)
+        ctx.check()
+        digest = hashlib.sha256(raw).hexdigest()
+        restored = {'schema': TEXT_SCHEMA, 'request': ctx.request.json(), 'receipt_sha256': digest,
+                    'snapshot_sha256': receipt['snapshot_sha256']}
+        return SnapshotSource(path, restored, SourceProof('official', digest, True))
 
     def restore(self, handle, ctx):
         ctx.check()
-        raise GameDataError('starrail_catalog_not_ready', 'Original input archives cannot restore a ready Star Rail library.', 409)
+        if not isinstance(handle, dict) or handle.get('schema') != TEXT_SCHEMA:
+            raise GameDataError('starrail_catalog_not_ready', 'Original input archives cannot restore a ready Star Rail library.', 409)
+        if (set(handle) != {'schema', 'request', 'receipt_sha256', 'snapshot_sha256'}
+                or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text'):
+            raise GameDataError('starrail_restore_changed', 'The original text library does not match this request.')
+        path, proofpath = Path(ctx.directory) / 'textmap.json', Path(ctx.directory) / 'source-proof.json'
+        _no_links(path); _no_links(proofpath)
+        if (not proofpath.is_file() or not 0 < proofpath.stat().st_size <= MAX_HANDLE_BYTES
+                or metadata._hash(proofpath) != handle['receipt_sha256'] or not path.is_file()
+                or not 0 < path.stat().st_size <= MAX_TEXT or metadata._hash(path) != handle['snapshot_sha256']):
+            raise GameDataError('starrail_restore_corrupt', 'The original text library failed its integrity check.')
+        value = json.loads(proofpath.read_bytes())
+        if (not isinstance(value, dict) or set(value) != {'schema', 'request', 'build', 'native', 'helper',
+                'native_files', 'whole_original_packages', 'snapshot_sha256'} or value.get('schema') != TEXT_SCHEMA
+                or value.get('request') != ctx.request.json() or value.get('snapshot_sha256') != handle['snapshot_sha256']):
+            raise GameDataError('starrail_restore_corrupt', 'The original text source receipt changed.')
+        return SnapshotSource(path, handle, SourceProof('official', handle['receipt_sha256'], True))
 
 
 def create_provider(*, platform, native=None):

@@ -82,24 +82,44 @@ def prepare(data_dir, region='global', *, format_revision=None, format_metadata_
            format_revision is None and not format_metadata_stale))
     tools = Path(data_dir) / 'tools'
     build, generation = release(tools, region)
-    build = _content_source(_movie_source(build, format_revision, format_metadata_stale), content_mode)
-    directory = tools / 'sophon'
-    # Dispatch authenticates all five marker identities. These three index
-    # bodies supply this catalog; ASB/Lua bodies are not consumed by its readers.
-    for name in (('design', 'video') if content_mode == 'text' else ('design', 'audio', 'video')):
-        hotfix.index(directory, build, name)
-    movies = hotfix.movie_files(directory, build)
-    tables = OriginalTables(directory, build, descriptions=generation.tables)
-    configs = OriginalConfigs(tables, Descriptions(NativeIndex(generation.native)))
-    catalog = OriginalCatalog(tables, configs, movies, revision='original-' + _catalog_identity(generation), build=build)
-    stamp, raw = voices.descriptor(build)
-    catalog.revision_title = f"{build['version']} / DesignV {build['hotfix']['indexes']['design'][0]}"
-    catalog.movie_audio_source = directory, stamp, format_revision
-    catalog.movie_format_metadata_stale = format_metadata_stale
+    stamp, catalog = catalog_source(tools, build, generation, format_revision=format_revision,
+        format_metadata_stale=format_metadata_stale, content_mode=content_mode)
     for name in sorted(TABLES):
         catalog.file('ExcelOutput/' + name + '.json')
     # Force every currently required config and caption description before
     # publishing the reusable release descriptor.
     catalog.caption_scripts()
-    _atomic_file(directory / 'releases' / stamp, raw)
+    _atomic_file(tools / 'sophon' / 'releases' / stamp, voices.descriptor(catalog.build)[1])
+    return stamp, catalog
+
+
+def catalog_source(tools, build, generation, *, format_revision=None, format_metadata_stale=False,
+                   content_mode='text-audio', fetch=None, package_fetch=None, config_descriptions=None):
+    """Compose authenticated inputs without prematurely publishing a descriptor.
+
+    Staged providers use the same catalog consumer while planning its remaining
+    original packages. Only the complete caller may publish a ready snapshot.
+    """
+    _check(content_mode in {'text', 'text-audio'} and (content_mode != 'text' or
+           format_revision is None and not format_metadata_stale))
+    build = _content_source(_movie_source(build, format_revision, format_metadata_stale), content_mode)
+    directory = Path(tools) / 'sophon'
+    # Dispatch authenticates all five marker identities. These three index
+    # bodies supply this catalog; ASB/Lua bodies are not consumed by its readers.
+    for name in (('design', 'video') if content_mode == 'text' else ('design', 'audio', 'video')):
+        hotfix.index(directory, build, name, **({'fetch': fetch} if fetch is not None else {}))
+    movies = hotfix.movie_files(directory, build, **({'fetch': fetch} if fetch is not None else {}))
+    options = ({'fetch': fetch} if fetch is not None else {}) | ({'package_fetch': package_fetch} if package_fetch is not None else {})
+    tables = OriginalTables(directory, build, descriptions=generation.tables, **options)
+    if config_descriptions is None:
+        config_descriptions = Descriptions(NativeIndex(generation.native))
+    else:
+        _check(isinstance(config_descriptions, Descriptions)
+               and config_descriptions.index.prepared.receipt == generation.native.receipt)
+    configs = OriginalConfigs(tables, config_descriptions)
+    catalog = OriginalCatalog(tables, configs, movies, revision='original-' + _catalog_identity(generation), build=build)
+    stamp = voices.descriptor(build)[0]
+    catalog.revision_title = f"{build['version']} / DesignV {build['hotfix']['indexes']['design'][0]}"
+    catalog.movie_audio_source = directory, stamp, format_revision
+    catalog.movie_format_metadata_stale = format_metadata_stale
     return stamp, catalog

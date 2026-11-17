@@ -74,3 +74,21 @@ def test_text_only_never_promotes_unrecognized_authoring_to_silence(tmp_path):
     assert rows['starrail:1']['voice_status'] == 'unavailable'
     assert rows['starrail:3']['voice_status'] == 'unknown'
     assert sum(row['voice_status'] == 'unvoiced' for row in rows.values()) == 1
+
+
+def test_text_gender_conditions_do_not_require_audio_states_or_concatenate_branches(tmp_path):
+    catalog = Catalog()
+    file = catalog.file
+    def localized(path, **kwargs):
+        value = file(path, **kwargs)
+        if path.startswith('TextMap/'):
+            value['101'] = 'Follow {M#him}{F#her} to the bridge.'
+        return value
+    catalog.file = localized
+    rows = {row['text_id']: row for row in assets.index_text_catalog(
+        'sophon-' + 'a' * 64, catalog, 'en', ['zh-Hans'], tmp_path)['records']}
+    male, female = rows['starrail:1-text-player-m'], rows['starrail:1-text-player-f']
+    assert male['source_text'] == 'Follow him to the bridge.'
+    assert female['source_text'] == 'Follow her to the bridge.'
+    assert male['source_voice_binding']['source'] == female['source_voice_binding']['source'] == 'English/voice/owned_dialogue.wem'
+    assert male['audio'] is female['audio'] is None

@@ -44,6 +44,7 @@ def fixture(monkeypatch, *, region='global', failed=None):
         def __init__(self, tables, configs, movies, *, revision, build):
             assert (tables, configs, movies) == ('original-tables', 'original-configs', {'original-movie': 'owned-index-entry'})
             self.revision = revision
+            self.build = build
         def file(self, path):
             state['calls'].append(path)
             if failed == 'table' and path.endswith('VoiceConfig.json'):
@@ -117,3 +118,12 @@ def test_text_mode_uses_original_caption_inventory_without_audio_index_or_movie_
     assert not provider.current(tmp_path / 'tools', stamp)
     with pytest.raises(ValueError):
         provider.prepare(tmp_path, content_mode='text', format_revision='a' * 40)
+
+
+def test_staged_catalog_construction_does_not_publish_a_partial_release(tmp_path, monkeypatch):
+    state = fixture(monkeypatch)
+    build, generation = provider.release(tmp_path / 'tools')
+    stamp, catalog = provider.catalog_source(tmp_path / 'tools', build, generation, content_mode='text')
+    assert not (tmp_path / 'tools/sophon/releases' / stamp).exists()
+    assert 'captions' not in state['calls']
+    assert not any(call.startswith('ExcelOutput/') for call in state['calls'])
