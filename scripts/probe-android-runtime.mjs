@@ -126,23 +126,33 @@ let {browser, page} = await connectReader();
 await page.route('https://vdo.ninja/**', route => route.fulfill({contentType: 'text/html', body: senderFixture}));
 const originalOrigin = new URL(page.url()).origin;
 assert.equal(await page.locator('meta[name="toolkit-host-platform"]').getAttribute('content'), 'android');
+const normalStartup = await page.evaluate(async () => ({platform: await (await fetch('/api/platform')).json(),
+  snapshot: await (await fetch('/api/snapshot')).json(), accounts: await (await fetch('/api/lexirise/accounts')).json()}));
+assert.equal(normalStartup.platform.protected_accounts, true);
+assert.equal(normalStartup.platform.authored_account_fixture, false);
+assert.equal(normalStartup.snapshot.lexirise.configured, false);
+assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
+const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
+assert.ok(Number.isSafeInteger(normalAccountGeneration));
 const library = readFileSync(join(directory, 'authored-library.zip')).toString('base64');
-const imported = await page.evaluate(async encoded => {
+const imported = await page.evaluate(async ({encoded, generation}) => {
   const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
   const response = await fetch('/api/library/import', {method: 'POST', headers: {
-    'Content-Type': 'application/zip', 'X-Toolkit-Import-Id': crypto.randomUUID()}, body: bytes});
+    'Content-Type': 'application/zip', 'X-Toolkit-Import-Id': crypto.randomUUID(),
+    'X-Toolkit-Account-Generation': String(generation)}, body: bytes});
   return {status: response.status, data: await response.json()};
-}, library);
+}, {encoded: library, generation: normalAccountGeneration});
 assert.equal(imported.status, 200);
 assert.equal(imported.data.game, 'zzz');
 await diagnostics?.capture('before prepared-library React activation', 'android-receiver-before-library-ready.json');
 await until(() => authoredReceiverLibraryReady(page), 'actual shared reader prepared-library activation');
 await diagnostics?.capture('after prepared-library React activation', 'android-receiver-after-library-ready.json');
-await page.evaluate(async () => {
-  const response = await fetch('/api/settings', {method: 'PATCH', headers: {'Content-Type': 'application/json'},
+await page.evaluate(async generation => {
+  const response = await fetch('/api/settings', {method: 'PATCH', headers: {'Content-Type': 'application/json',
+    'X-Toolkit-Account-Generation': String(generation)},
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
   if (!response.ok) throw new Error('Authored full-frame calibration failed: ' + response.status + ' ' + (await response.text()).slice(0, 512));
-});
+}, normalAccountGeneration);
 const connectScreen = page.getByRole('button', {name: 'Connect screen', exact: true});
 await page.getByLabel('Private viewer link or stream code', {exact: true}).fill('https://vdo.ninja/?view=authored');
 await until(() => connectScreen.isEnabled(), 'actual native receiver after library activation');
@@ -182,8 +192,9 @@ adb('shell', 'am', 'start', '-W', '-n', component);
 assert.equal(await page.evaluate(() => window.__toolkitObservedAudio.length > 0 &&
   window.__toolkitObservedAudio.every(audio => audio.paused && !audio.getAttribute('src'))), true,
   'Backgrounding must stop and release the actual detached shared reader Audio');
-await page.evaluate(async id => {
-  const response = await fetch(`/api/lines/${id}/favorite`, {method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: '{"favorite":true}'});
+await page.evaluate(async ({id, generation}) => {
+  const response = await fetch(`/api/lines/${id}/favorite`, {method: 'PATCH', headers: {'Content-Type': 'application/json',
+    'X-Toolkit-Account-Generation': String(generation)}, body: '{"favorite":true}'});
   if (!response.ok) throw new Error('Authored favorite failed');
   const range = await fetch(`/api/lines/${id}/audio`, {headers: {Range: 'bytes=0-43'}});
   if (range.status !== 206 || (await range.arrayBuffer()).byteLength !== 44) throw new Error('Original clip range failed');
@@ -191,7 +202,7 @@ await page.evaluate(async id => {
   localStorage.setItem('proxy-transcript-reading-mode', 'lexirise');
   localStorage.setItem('proxy-transcript-playback-rate', '0.75');
   localStorage.setItem('proxy-transcript-reading-options', JSON.stringify({fontSize: 31, pinyin: 'all'}));
-}, lineId);
+}, {id: lineId, generation: snapshot.context.account_generation});
 await page.reload();
 assert.equal(await page.getByLabel('Private viewer link or stream code', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
 await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'production reading mode bootstrap');
@@ -255,5 +266,6 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
   offline_apk_update_retained_data: true, update_signing: 'same-run-debug-identity-not-owner-key',
   native_keystore_retained_across_apk_update: true,
+  normal_protected_accounts_available: true, normal_unconfigured_library_works_offline: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

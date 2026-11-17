@@ -191,7 +191,11 @@ export async function nativeAccountAcceptance({adb, component, packageName, conn
   adb('shell', 'am', 'force-stop', packageName);
   adb('shell', 'am', 'start', '-W', '-n', component);
   const normal = await connectReader();
-  try {assert.equal((await platform(normal.page)).protected_accounts, false);}
+  try {
+    const capabilities = await platform(normal.page);
+    assert.equal(capabilities.protected_accounts, true);assert.equal(capabilities.authored_account_fixture, false);
+    assert.equal((await snapshot(normal.page)).lexirise.configured, false);
+  }
   finally {await normal.browser.close();}
   return result;
 }
@@ -212,6 +216,7 @@ export async function verifyNativeAccountsAfterUpdate({adb, component, packageNa
     stale_account_requests_rejected: true, detached_audio_retired_on_switch: true,
     corrupt_original_store_preserved: true, explicit_verified_owner_recovery: true,
     process_restart_retained_data: true, apk_update_retained_recovered_data: true,
-    production_accounts_enabled: false, physical_device_acceptance: 'not-established', release_eligibility: false,
+    normal_protected_accounts_available: true, real_account_writes: false,
+    physical_device_acceptance: 'not-established', release_eligibility: false,
   }, null, 2) + '\n');
 }

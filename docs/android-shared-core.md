@@ -108,14 +108,14 @@ the evidence lane alone does not authorize a new text/voice binding.
 primitive with randomized nonces, app/blob-format-bound associated data, a
 non-exportable OS key and bounded authenticated envelopes. Missing keys or
 tampered blobs fail without plaintext/key-file fallback. The Python platform
-adapter accepts the maintained account store's protection-call shape; it does
-not import desktop credentials or enable account HTTP routes. The debug native
+adapter accepts the maintained account store's protection-call shape and never
+imports desktop credentials. The debug native
 self-test uses a separate authored alias and saved ciphertext, checks new-instance
 reopening, tamper rejection, randomized output and key non-exportability, and
 reports whether a previously saved blob reopened. A process restart/upgrade must
 be established by the runtime harness, not the new-instance check alone.
-`protected_accounts` remains false until maintained account services, request
-pinning and transcript/library isolation are actually integrated. Provider-backed
+Normal native startup now enables the maintained account services with their
+request pinning and transcript/library isolation. Provider-backed
 storage follows the [Android Keystore system](https://developer.android.com/privacy-and-security/keystore);
 no claim of hardware backing is made for an emulator or untested device.
 
@@ -147,13 +147,18 @@ generation increases across replacements; an A→B→A switch cannot revive an o
 import or source callback. Native HTTP DTO line IDs reserve a bounded activation
 epoch above the unchanged uint32 SQLite ID, remaining safe JavaScript integers;
 all native line routes must validate and decode them before use. This component
-is available behind an explicit native-host opt-in; production startup retains
-the existing account-disabled mode until the matching frontend contract lands.
+is enabled by normal native startup through the existing protected provider and
+shared account interface. An empty account store keeps the existing toolkit
+root's local library/history usable without a connection. A previously saved
+owner reopens its own local data and retains permission for ordinary read-only
+settings/language requests; constructor/snapshot restoration is local-only and
+network failure does not block local capture or import. Account writes still
+require explicit user actions. No reconnect gate is added on every launch.
 Maintained account/reader transports accept explicit environment/protected-root
 policy; desktop defaults remain unchanged, while Android disables environment
 and desktop credential fallback.
 
-The opt-in transport advertises `account_protocol: scoped-accounts-v1`. Account
+The native transport advertises `account_protocol: scoped-accounts-v1`. Account
 selection/registration, library import/cancellation, settings, source controls
 and frames require `X-Toolkit-Account-Generation` captured from the rendered
 context. Preview image requests carry the same integer as the readonly
@@ -244,11 +249,15 @@ to the mock service. A→B→A checks reject stale import/settings/receiver/audi
 requests and retire real detached playback. A guarded fixture corrupts only the
 isolated authored credential store, then requires explicit verified-owner UI
 recovery while preserving the unreadable store, library, transcript and voice.
-Restart and APK-update checks reopen the recovered protected store. Normal
-startup retains accounts disabled and the existing offline/native checks remain
+Restart and APK-update checks reopen the recovered protected store. The existing
+offline/native checks remain
 mandatory. An authored File payload exercises the import handler; physical SAF
 picker and real-account writes are not established by this scenario. Its native
 acceptance requires a successful matching workflow run and runtime proof.
+The authored protected-account UI/recovery scenario passed on actual Android in
+[run 44038164999](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44038164999)
+at `cc0bf061`. Normal account activation is a later cohort and needs its own
+matching runtime proof; real account writes and physical devices remain separate.
 
 Recovery reference evidence distinguishes the actual Windows build host
 (Python 3.12.10 / SQLite 3.49.1) from the local reference interpreter

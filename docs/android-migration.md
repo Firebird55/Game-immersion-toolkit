@@ -69,7 +69,7 @@ See [issue #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81).
 
 A DEBUG cold launch with `toolkitAuthoredAccounts=true` uses a separate
 `authored-account-ui` app-private root and the authored AndroidKeystore alias.
-The normal toolkit root and production account startup remain unchanged. The
+This fixture leaves the normal toolkit root and its protected account store untouched. The
 mode cannot be changed through HTTP or adopted by an already running host.
 Non-debug builds reject the native authorization method.
 
@@ -114,8 +114,13 @@ committed locator is retained after an uncertain I/O failure; reopening resolves
 that state. Recovery attempts and retained store counts are bounded. No native
 key deletion, plaintext fallback, arbitrary profile selection or automatic
 remote writes form part of this recovery path. The visible recovery UI and
-actual Android target acceptance are separate integration work; normal
-production account activation remains disabled until its UI fences are ready.
+authored Android target acceptance passed at `cc0bf061`. Normal native startup
+now enables the same protected provider and maintained account interface,
+retaining existing local libraries/history without adopting environment or
+desktop keys. Stored accounts may resume ordinary read-only settings/language
+requests; an empty store never starts a connection. Local recovery and capture
+do not depend on network availability. Normal activation still requires its
+own matching native runtime evidence, separately from physical-device acceptance.
 
 Native OCR completion may take longer than the confirmation gap on a slow
 device. A bounded native admission ledger can retain an independently exact,
