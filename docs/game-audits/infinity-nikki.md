@@ -696,6 +696,26 @@ keychain/group framing and compatibility with the current Global package GUID
 and full plaintext index hash remain required before acceptance. No CMS request
 or new preparation capability is delivered by this static protocol checkpoint.
 
+The shared `publisher_pe_signature.py` now isolates the existing Windows offline
+Authenticode verifier behind explicit publisher identities and a selected-file
+size bound. It preserves locked-handle, reparse, offline trust, signer and
+post-verification hash checks. Endfield's wrapper retains its existing publisher,
+16 MiB limit, API, receipt and unavailable-host failure. This adds no Android PE
+chain capability; the shared APK/JCA RSA primitive is not a substitute.
+
+The ordinary Nikki provider currently stops after native bootstrap. It still
+needs a context-owned, quoted Global launcher/SDK/current-build continuation,
+then original base/FastPatch BuildPatch manifests and the selected configuration
+carriers, full-file hashes, PAK indices and ordered INI members. The nine private
+research INIs cannot supply that missing stage. CMS construction must consume
+that future stage's verified source receipt and keep the response/keychain gate
+explicit. Separately bounded native registration work identifies two original
+consumers: creation receives `(chainName, Base64value)` and group serialization
+receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
+native call edges are identified; their bodies and serialized schema remain
+unread. Neither a cache-getter's direction nor a UClass owner is inferred from
+adjacency alone. No extra remote source bytes or CMS requests are acquired.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
