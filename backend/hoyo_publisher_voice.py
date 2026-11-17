@@ -124,6 +124,9 @@ def inventory(data_dir, stamp, locale, game, *, wanted=None, unavailable_duplica
 
 
 def extract(audio, tools, game):
+    if game == 'zzz' and audio.get('matched_by') == 'publisher_cinematic_event':
+        from .zzz_publisher_cinematics import extract as cinematic_extract
+        return cinematic_extract(audio, tools)
     source, locale, stamp = audio['source'], audio['locale'], audio['publisher']
     identity = voice_hash(source)
     if (locale not in sophon.VOICE_FIELDS or re.split(r'[/\\]', source, maxsplit=1)[0] not in voice_namespaces(game, locale)

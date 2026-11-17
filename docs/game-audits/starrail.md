@@ -311,8 +311,9 @@ slots and two empty predicate slots. These are dispatch slots, not dialogue
 availability or unvoiced classifications. Generic-method specs still require a
 separate proved binding contract if a requested factory uses one.
 
-Original mission action decoding remains a provider integration task, with a
-bounded positive for its real conditional-caption dependency. Authored
+The standalone `starrail_original_configs` reader now decodes original mission
+actions and cinematic/tutorial captions, using `starrail_native_configs` for
+their field order, enum labels, factory joins and constructor defaults. Authored
 `PerformanceVideo` paths resolve through the original `JsonToBinaryPath` rule
 to `BakedConfig/Config/Level/Mission/.../Act/...bytes`. The whole containing
 package `73b3d10f574211fe5df50448d5b2ecb7` (134,240,610 bytes) is now MD5
@@ -320,14 +321,126 @@ verified, using existing publisher range bodies without a new transfer. The
 selected text/table/config source set totals 1,138,529,119 bytes; this is separate
 from the CN native-input proof.
 
-The 114-byte original `Act104371098` body decodes to exact EOF using its original
-native field order and explicit factory bindings. A frozen JSON extraction is a
-post-decode verification oracle only. The existing film consumer selects the
-default caption for Mandarin and the authored `_2` caption for English,
-Japanese and Korean in this single-action probe. That positive does not yet
-implement the generic production mission reader or establish ordinary setup
-worker acceptance. Caption-only proofs cannot substitute for mission predicate
-and dub-branch ownership.
+The current original movie index identifies 266 caption videos with mission
+task owners. Their 153 mission IDs select 203 distinct authored action paths;
+all 203 decode to exact EOF with 19 lazily derived schemas. The bodies total
+8,393 bytes within the whole authenticated package above. Replaying the existing
+film consumer against those original tables and configurations succeeds for
+all 1,330 video/study-choice evaluations. Its conditional video selects the
+default `_1` caption for both Chinese study choices and the authored `_2` caption
+for English, Japanese and Korean. Two original performance rows explicitly
+alias another Act filename; the consumer now follows their authored paths
+instead of requiring the performance ID to equal the filename's numeric suffix.
+The same reader derives the original `VideoCaptionConfig` and `VideoCaption`
+schemas and consumes all 328 paths declared by the three cinematic/tutorial
+tables plus active mission overrides: 1,955 cues, no missing resource and no
+failed decode. All those bodies are in the same verified package. This counts
+declared caption data, not 328 independently verified active presentations.
+
+Literal defaults are joined to the same allocated object passed to the typed
+reader and returned by its factory. Ordered byte stores preserve packed bools
+and floating-point defaults; partial register writes cannot invent unknown upper
+bits. The path recipe proves the original string-builder prefix/stem/suffix
+arguments rather than classifying a matching literal as a path rule. No client
+constructor, Lua or native code is executed. Unknown factories, masks, schemas,
+unproved writes and malformed bounds fail preparation instead of producing an
+empty configuration. A frozen JSON extraction served only as a post-decode
+oracle for the earlier single-action probe. These standalone APIs are not yet
+selected by the ordinary provider and do not establish setup worker acceptance.
+
+The standalone `starrail_original_catalog` adapter now joins that reader to the
+existing film consumer. It discovers caption paths from original tables and
+movie-owned mission actions, then validates anonymous neighboring resources
+with the same native-derived caption description and whole-package reader.
+Its Global 4.7 replay returns 333 scripts / 1,989 cues, with no unresolved
+declared path. All 173 captions previously published by the mirror retain their
+saved IDs and exact text-hash/clock signatures. A frozen identity-only mapping
+is applied after independent discovery; it cannot request a file, declare
+availability or assign audio. New paths require no mapping entry. The earlier
+generic IDs for newly resolved paths remain resource-based, and the old unlisted
+ten-cue caption retains its identity when rediscovered as a neighbor. Four other
+anonymous resources / 24 cues retain their unresolved ownership.
+
+Synthetic migration covers all 173 saved identities, 138 unseen named captions,
+an anonymous neighbor, a changed native field order/path prefix and repacking
+under a regional package folder. Conflicting aliases fail. Catalog-specific
+locale mappings use the publisher's unsplit KR/RU/TH tables; existing mirror
+catalogs retain their transport layout. Unknown numeric voice enums retain the
+text as unavailable rather than selecting speech or silence. **The original
+catalog is still not enabled as the normal publisher default.** Complete
+ordinary preparation, regional replay, cache recovery and movie-format
+acquisition remain separate acceptance work.
+
+The unchanged adapter/config reader also succeeds with the complete original
+Global 4.6 native inputs and frozen helper: 199 movie-owned mission paths,
+21 config schemas, 325 scripts / 1,878 cues and no unresolved declared path.
+That replay uses the retained official DesignV `16854589` index, MD5
+`a7312833dc866a77217b1c26ef9bc0eb` (2,262,050 bytes). Its 518 selected
+mission/caption resources are in whole package
+`98c54c7035b131b7dc27c3466346021d` (128,700,379 bytes), independently size/MD5
+checked after eight bounded official HTTPS reads. This is an explicit baseline
+replay: the retired 4.6 dispatch is not represented as current live discovery.
+The separately derived CN 4.7 native config descriptions also yield all 203
+mission paths and 333 scripts / 1,989 cues. Global descriptions or metadata were
+not substituted; complete package bodies were reused only because the original
+CN indexes certify identical hashes and sizes. Regional playback is not implied.
+
+`starrail_original_provider` now composes the original launcher/native helper,
+derived routes, all 21 catalog tables and original mission/caption readers into
+the existing catalog interface. Its complete Global replay uses the real
+official dispatch and final current-release recheck through that API, then the
+existing language worker: 307,464 English records, 98,693 original voice bindings
+and 3,118 film-caption records. A separate worker comparison using the original
+catalog and the baseline's retained audio descriptor preserves every prior
+record ID, English/Chinese text, audio binding and film clock. The baseline's additional Japanese translation was
+excluded only from that two-locale comparison; the composed worker separately
+requests all three locales.
+
+All thirteen original Main textmaps are also whole-package MD5 checked and
+decode to 1,153 entries each. Their packages total 1,232,000 bytes, in addition
+to the ordinary textmaps/common/config source set above. The complete current
+source set is therefore 1,139,761,119 bytes, separately from previous-version
+and regional native inputs. Preparation publishes its reusable release receipt
+only after all required tables and caption configurations succeed. Synthetic
+dispatch/table/caption failures preserve existing receipts; a changed original
+index invalidates the final release check.
+
+This provider does not poll a new third-party game-data publication. Current
+playback uses an explicitly supplied frozen movie-format revision; deriving
+future movie parameters from originals remains unfinished. The normal
+publisher default remains unchanged pending complete update/recovery and
+platform acceptance. Existing source-helper functional checks use SDK 10.0.302;
+they do not prove the separately pinned SDK 10.0.403 delivery build or Android
+helper execution.
+
+The composed live Japanese worker also succeeds with 307,455 records / 100,170
+voiced records and the same 3,118 film-caption records. A separate complete CN
+worker uses its own original native manifest/descriptions and real regional
+dispatch/current recheck, returning the same English inventory as Global. An
+isolated original-input recovery trial rejects an unproved new descriptor
+generation without changing the prior receipt, then regenerates a malformed
+cache to the exact same descriptor identity with zero new downloads. Its
+original source cache remains unchanged.
+
+Bounded original movie-parameter research now identifies another input
+contract. The native-derived `VideoEncryptionConfig` and
+`LoopCGEncryptionConfig` tables contain 363 and 480 rows (359 and 321 encrypted),
+with ADX/AES-HCA method labels. The original playback bridge explicitly passes
+the appropriate fields from its returned value struct to the CRI video/audio
+key setters. Both three-ulong registries are populated through a protobuf
+handler owned by `PlayerModule.PlayerSecretChecker`, with separate repeated
+lists for video and loop records. These field roles follow native calls and
+stores, rather than their declaration order.
+
+The complete original VideoV lists 1,236 USM files with only path, MD5, size,
+patch, subpack and task fields; it supplies no key field or non-USM sidecar.
+An [older primary server implementation](https://github.com/gucooing/hkrpg-go/blob/v1.6.0/gameserver/player/player_base.go#L173)
+corroborates a separate video-version-key response, but does not prove the
+current original response's transport or authentication requirements. An
+allowed public acquisition route for this additional input is not yet proved.
+No login or game-protocol request was performed. This is an unresolved source
+dependency; it is not classified as a changed movie format or as proved
+authenticated-only data.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

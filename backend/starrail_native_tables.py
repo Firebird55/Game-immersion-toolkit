@@ -101,8 +101,13 @@ def _field_order(index, binding):
     fields = {field['offset']: field for field in binding['fields']}
     _check(len(fields) == len(binding['fields']))
     instructions, digest = index.body(binding['from_binary'])
-    reader = _one(set(re.findall(r'public static void FromBinary\(([A-Za-z0-9_.]+),', binding['row_block'])))
-    registers = {'rdx': ('rowref', 0), 'rcx': ('reader', 0)}
+    method = binding.get('reader_method', 'FromBinary')
+    receiver = binding.get('receiver', 'reference')
+    _check(isinstance(method, str) and re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*', method)
+           and receiver in {'reference', 'object'})
+    reader = _one(set(re.findall(r'public static void ' + re.escape(method)
+                                + r'\(([A-Za-z0-9_.]+),', binding['row_block'])))
+    registers = {'rdx': ('row' if receiver == 'object' else 'rowref', 0), 'rcx': ('reader', 0)}
     mask_found, mask_reader, current, writes = False, None, None, {}
     signed_completions, textids = {}, {}
     dwords = { _register(register): register for register in

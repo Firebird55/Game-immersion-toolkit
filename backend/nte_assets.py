@@ -219,7 +219,8 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
 
 
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
-                         *, schema_cache: Path | None = None, inventory=False, table_schema=None, capture_schema_usage=False):
+                         *, schema_cache: Path | None = None, inventory=False, table_schema=None,
+                         capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
@@ -228,6 +229,16 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
         if inventory or table_schema is None:
             raise ValueError('NTE schema usage requires an explicit publisher table schema')
         outputs += ('schema-usage.json',)
+    if capture_dialogue_graphs:
+        if not capture_schema_usage or not isinstance(dialogue_registry, bytes) or not 0 < len(dialogue_registry) <= 256*1024**2:
+            raise ValueError('NTE dialogue graphs require current-invocation schema validation')
+        outputs += ('dialogue-graphs.json',)
+        registry_path = destination/'dialogue-registry.bin'
+        if registry_path.exists():
+            raise ValueError('NTE dialogue registry requires a fresh staging directory')
+        registry_path.write_bytes(dialogue_registry)
+    elif dialogue_registry is not None:
+        raise ValueError('NTE dialogue registry requires graph extraction')
     if any((destination / name).exists() for name in outputs):
         raise ValueError('NTE publisher extraction requires a fresh staging directory')
     invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)
@@ -249,6 +260,9 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             request['type_schema_sha256'] = TABLE_SCHEMA_SHA256 if table_schema is None else table_schema.reference['sha256']
             if capture_schema_usage:
                 request.update(capture_schema_usage=True, schema_usage_nonce=nonce)
+            if capture_dialogue_graphs:
+                request['capture_dialogue_graphs'] = True
+                request['dialogue_registry_sha256'] = hashlib.sha256(dialogue_registry).hexdigest()
         try:
             result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
                 timeout=600, cwd=working_directory, env=environment,
@@ -275,8 +289,13 @@ def read_schema_usage(destination, schema_sha256, nonce):
         if not path.is_file() or not 0 < path.stat().st_size <= 16*1024**2:
             raise ValueError()
         value = json.loads(path.read_bytes())
-        if (not isinstance(value, dict) or set(value) != {'schema', 'complete', 'nonce', 'schema_sha256', 'lookups', 'classes'}
-                or value['schema'] != 'nte-schema-usage-v1' or value['complete'] is not True
+        base = {'schema', 'complete', 'nonce', 'schema_sha256', 'lookups', 'classes'}
+        if not isinstance(value, dict):
+            raise ValueError()
+        version = value.get('schema')
+        if (version not in ('nte-schema-usage-v1', 'nte-schema-usage-v2')
+                or set(value) != (base | {'codecs', 'codecs_origin'} if version == 'nte-schema-usage-v2' else base)
+                or value['complete'] is not True
                 or value['nonce'] != nonce or value['schema_sha256'] != schema_sha256
                 or not isinstance(value['lookups'], list) or not 0 < len(value['lookups']) <= 100_000
                 or any(not isinstance(n, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,255}', n) for n in value['lookups'])
@@ -288,10 +307,71 @@ def read_schema_usage(destination, schema_sha256, nonce):
                     or not re.fullmatch(r'CUE4Parse\.UE4\.Assets\.Exports\.(?:[A-Za-z_][A-Za-z0-9_]*\.)*U[A-Za-z_][A-Za-z0-9_]*', implementation)
                     or implementation.rsplit('.', 1)[-1] != 'U'+name):
                 raise ValueError()
+        if version == 'nte-schema-usage-v2':
+            if (value['codecs_origin'] != 'zero-without-package-v1' or not isinstance(value['codecs'], dict)
+                    or len(value['codecs']) > 100_000):
+                raise ValueError()
+            for name, implementation in value['codecs'].items():
+                if (not isinstance(name, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,255}', name)
+                        or name in value['lookups'] or not isinstance(implementation, str) or len(implementation) > 512
+                        or not re.fullmatch(r'CUE4Parse\.(?:[A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*', implementation)
+                        or implementation.rsplit('.', 1)[-1] == 'FStructFallback'):
+                    raise ValueError()
         return value
     except (OSError, ValueError, TypeError):
         raise PreparationFailure('game_metadata_unavailable',
             'The NTE reader could not verify its required format metadata. The previous completed index is retained.') from None
+
+
+def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry):
+    """Read complete registry-selected package claims before bounded prefetch."""
+    from .nte_publisher_stream import Broker
+    destination = Path(destination)
+    if (not isinstance(registry, bytes) or not 0 < len(registry) <= 256*1024**2
+            or any((destination/name).exists() for name in ('dialogue-registry.bin', 'dialogue-inventory.json'))):
+        raise ValueError('NTE dialogue inventory requires a fresh staging directory and original registry')
+    sha, nonce = hashlib.sha256(registry).hexdigest(), secrets.token_hex(16)
+    (destination/'dialogue-registry.bin').write_bytes(registry)
+    invocation, environment, working = _reader_invocation(context, executable, destination, 'publisher-dialogue-inventory')
+    with Broker(containers) as broker:
+        request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors,
+                   'dialogue_registry_sha256': sha, 'inventory_nonce': nonce}
+        try:
+            result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True, timeout=180,
+                cwd=working, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        except (OSError, subprocess.SubprocessError):
+            raise PreparationFailure('game_metadata_unavailable',
+                'The original NTE dialogue inventory could not finish. Retry preparation; '
+                'the previous completed index is retained.') from None
+        if broker.failures:
+            raise PreparationFailure('game_metadata_unavailable',
+                'Original NTE package indexes could not be verified. Retry preparation; '
+                'the previous completed index is retained.')
+    try:
+        from pathlib import PurePosixPath
+        path = destination/'dialogue-inventory.json'
+        if result.returncode or not path.is_file() or not 0 < path.stat().st_size <= 16*1024**2:
+            raise ValueError()
+        value = json.loads(path.read_bytes())
+        if (not isinstance(value, dict) or set(value) != {'schema', 'complete', 'registry_sha256', 'nonce', 'package_count', 'packages'}
+                or value['schema'] != 'nte-original-dialogue-inventory-v1' or value['complete'] is not True
+                or value['nonce'] != nonce or value['registry_sha256'] != sha or type(value['package_count']) is not int
+                or not isinstance(value['packages'], dict) or not 0 < len(value['packages']) <= 8192
+                or value['package_count'] != len(value['packages'])):
+            raise ValueError()
+        packages = value['packages']
+        if (len({name.casefold() for name in packages}) != len(packages)
+                or any(not name.startswith('HT/Content/') or not name.endswith('.uasset')
+                    or name != str(PurePosixPath(name)) or '..' in PurePosixPath(name).parts
+                    or '\\' in name or any(char in name for char in '\r\n\0')
+                    or type(size) is not int or not 0 < size <= 4*1024**2 for name, size in packages.items())
+                or sum(packages.values()) > 128*1024**2):
+            raise ValueError()
+        return packages
+    except (OSError, ValueError, TypeError, KeyError):
+        raise PreparationFailure('unsupported_game_format',
+            'The original NTE dialogue inventory is incomplete or unsupported. '
+            'The previous completed index is retained.') from None
 
 
 def run_reader(install: Path, executable: Path, destination: Path, mode: str, depot: str | None = None, cinema_events: list[str] | None = None, depots: list[str] | None = None, *, locales=None, voice_language=None, schema_cache: Path | None = None) -> None:
@@ -422,7 +502,8 @@ def coverage_warnings(records: list[dict], *, publisher=False) -> list[str]:
     return warnings
 
 
-def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, source_locale=None, target_locales=()) -> list[dict]:
+def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, source_locale=None, target_locales=(),
+                  dialogue_graphs=False) -> list[dict]:
     localization = json.loads((cache / "localization.json").read_text(encoding="utf-8"))
     source_code = TEXT_LOCALES[source_locale] if source_locale else 'en'
     if not localization.get(source_code):
@@ -555,6 +636,13 @@ def build_records(cache: Path, cinema_bindings: list[dict] | None = None, *, sou
             row['audio_locale'] = audio_locale(source_locale)
             row['ocr_texts'] = {locale: anchors for locale, text in row['texts'].items()
                                 if (anchors := ocr_anchors(text, locale))}
+    if dialogue_graphs:
+        from .nte_dialogue_graph import annotate, read_pairs
+        try:
+            annotate(records, read_pairs(cache/'dialogue-graphs.json', schema_usmap=(cache/'dialogue.usmap').read_bytes()))
+        except (OSError, ValueError, TypeError, KeyError):
+            raise PreparationFailure('unsupported_game_format',
+                'The original NTE dialogue graph is incomplete or unsupported. The previous completed index is retained.') from None
     return records
 
 

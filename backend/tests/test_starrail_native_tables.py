@@ -75,6 +75,19 @@ def test_new_field_order_comes_from_native_mask_and_store_not_managed_offset_ord
         'fields': [['NewlyAdded', 'u32']], 'identity': [], 'hash_byte_prefix': False, 'enums': {}}
 
 
+def test_typed_config_reader_uses_its_owned_object_receiver_instead_of_a_row_reference():
+    index, binding = row_fixture()
+    rows, digest = index.body(0x100)
+    instructions = [(op, args) for _, op, args in rows[:-2]] + [('mov', 'dword ptr [rbx + 0x28], eax')]
+    index.body = lambda address: ([(at, op, args) for at, (op, args) in enumerate(instructions)], digest)
+    binding.update(reader_method='RenamedReader', receiver='object',
+                   row_block='    public static void RenamedReader(Reader, Row) {}')
+    assert tables._field_order(index, binding) == (binding['fields'], False)
+    binding['receiver'] = 'reference'
+    with pytest.raises(ValueError):
+        tables._field_order(index, binding)
+
+
 @pytest.mark.parametrize('changes', [{'clobber': True}, {'unknown_bit': True}, {'wrong_width': True}])
 def test_row_description_rejects_unbound_values_unknown_mask_bits_and_wrong_store_width(changes):
     index, binding = row_fixture(**changes)

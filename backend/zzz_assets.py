@@ -18,7 +18,7 @@ from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 17
+LANGUAGE_INDEX_VERSION = 19
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
 VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
@@ -273,6 +273,7 @@ def _dialogue_records(tables, source_locale, selected, channels, evidence, kinds
             rows.append({'text_id': row_id, 'source_locale': source_locale, 'source_text': text,
                 'texts': texts, 'english': _text(values.get('en', ''), gender), 'chinese': texts.get('zh-Hans', ''),
                 'audio_locale': audio_locale(source_locale), 'audio': audio,
+                **({'audio_scope': 'context'} if audio and audio.get('audio_scope') == 'context' else {}),
                 'player_voice': {'M': 'male', 'F': 'female'}.get(gender),
                 'member_text_ids': [identity] if gender else None,
                 'voice_status': voice_status, 'dialogue_kind': kind,

@@ -60,6 +60,8 @@ def _voice_links(identity, text_hash, voice_id, voices, locale, kind='dialogue',
     if not voice:
         return [_text_link(identity, text_hash, kind, 'unavailable')]
     voice_type = voice.get('VoiceType', '')
+    if not isinstance(voice_type, str):
+        return [_text_link(identity, text_hash, kind, 'unavailable')]
     if voice_type == 'Cutscene':
         if not individual_cutscene:
             return [_text_link(identity, text_hash, 'cutscene_caption', 'unavailable')]
@@ -314,7 +316,8 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         stamp = fingerprint(install)
         catalog = DialogueCatalog('starrail', data_dir)
     progress('Reading Star Rail dialogue, messages and authored voice IDs')
-    tables = selected_tables(catalog, TEXT_LOCALES, source_locale, target_locales)
+    text_locales = getattr(catalog, 'text_locales', TEXT_LOCALES)
+    tables = selected_tables(catalog, text_locales, source_locale, target_locales)
     links = authored_links(catalog, source_locale)
     entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
                hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
@@ -331,7 +334,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
         rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
         rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
-    result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, TEXT_LOCALES)
+    result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, text_locales)
     # Route/display provenance is inventory metadata, not a LocalDialogue field.
     # Keep it available without breaking worker and runtime row validation.
     result['film_captions'] = {row['text_id']: row.pop('film_caption') for row in rows if 'film_caption' in row}

@@ -198,10 +198,25 @@ class Package:
     def index(self, offset, size, digest):
         check(0 < size <= LIMIT and len(digest) == 20)
         path = self.cache / digest.hex()
-        if path.is_file() and path.stat().st_size == size:
-            data = path.read_bytes()
-            if hashlib.sha1(data).digest() == digest:
-                return data
+        # Different released package identities can contain the same native
+        # plaintext index. Its exact current footer/main digest and length
+        # authenticate reuse; this never replaces the constructor's cipher
+        # selection or either complete original index validation.
+        def cached(candidate):
+            if candidate.is_file() and candidate.stat().st_size == size:
+                data = candidate.read_bytes()
+                if hashlib.sha1(data).digest() == digest:
+                    return data
+            return None
+        data = cached(path)
+        if data is not None:
+            return data
+        for candidate in self.cache.parent.glob('*/' + digest.hex()):
+            if candidate != path:
+                data = cached(candidate)
+                if data is not None:
+                    _atomic_file(path, data)
+                    return data
         data = self.range(offset, size)
         if self.cipher:
             data = self.cipher.decrypt(data)

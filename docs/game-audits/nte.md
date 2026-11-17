@@ -2,7 +2,7 @@
 
 ## Publisher Setup and immutable voice snapshots
 
-Checked November 16, 2026. The Windows publisher route now connects the ordinary
+Checked November 17, 2026. The Windows publisher route now connects the ordinary
 language-preparation adapter and voice service to original regional resources,
 without an installed game. Setup offers Global and mainland China alongside
 the installed fallback. Text availability follows the selected edition; a
@@ -831,6 +831,141 @@ mainland clips, 48 caption keys and seven originals with authored gains/branches
 then reproduced identical fresh PCM with publisher discovery and ranges
 prohibited. Source and native provenance remain edition-specific even where
 generated schema bytes agree.
+
+### Original dialogue caller inventory and native class investigation
+
+A further original Global 1.5.4 `AssetRegistry.bin` read identifies **2,196**
+`DlgDialogue` assets by their declared class. All exist in the selected publisher
+index, with 32,353,708 aggregate declared package bytes. A bounded private read
+completed all 2,196 assets, 54,281 exports, 49,867 node slots and 52,265 edges.
+It transferred 6,352,032 additional publisher-range bytes against warmed research
+caches; that is not a cold acquisition estimate. These are authored graph
+inventories, not independent spoken-line or complete-story counts.
+
+The enlarged actual-reader lookup set requires 75 types and 13 enums. The initial
+struct-only schema validator refused ten required definitions. In particular, the current
+native `DlgTurnRotation` definition has two fields absent from the retained
+description, including a new enum field. Successful JSON extraction alone does
+not establish that these layouts are current, so no additional predecessor or
+comic capture is enabled by this investigation.
+
+The bounded experimental `backend/nte_native_classes.py` reader joins original
+class-registration names to complete class property descriptors through an exact
+`StaticClass` pointer. Parent registrations, counts, pointer ranges and writable
+zero-initialized registration storage are checked without loading client code.
+It reads **11,121** class declarations from original Global 1.4.9 and **11,566**
+from original Global 1.5.4, including the six required dialogue classes missing
+from the earlier struct-only scanner. Twelve owned fixtures cover relocation,
+class parents, BSS bounds, ambiguous names, malformed pointers and aggregate
+limits.
+
+The subsequent opt-in class-aware generator uses the same fixed semantic seed
+and each authenticated original client. It refreshes supported existing class
+and struct fields and appends supported new definitions. New enum properties
+without semantic callback witnesses retain their original underlying integer,
+without invented enum names or literals. The pinned managed codec preserves 19
+boundary cases across seven supported integer widths, including zero defaults;
+unsigned 64-bit fallback is rejected because the codec narrows through signed
+64-bit conversion. Numeric preservation supplies no playback-order semantics.
+
+The owned helper now has an opt-in complete registry/graph extraction contract.
+The original registry is a signed pak member, separately hash-bound to the
+invocation because the package streams expose IoStore assets. It discovers
+dialogue classes dynamically and reads their actual StringTable owners. The
+current original trial again completed all 2,196 graphs and 54,281 exports,
+including 60 table references, three retained as unresolved owners. It used
+36,720 additional verified range bytes against warmed caches. The same invocation's
+actual 62 schema lookups have a fully eligible 75-type/13-enum closure under the
+new opt-in validator; no newer mapping or held-out export supplied eligibility.
+
+An unchanged opaque `SoftObjectPath` seed leaf is permitted only as an indirect
+dependency: the actual frozen helper must attest its concrete codec using a
+zero-value factory with no package/schema fallback, with no actual lookup of
+that type. Exact original baseline/current NoExport flags, absent operations,
+size/alignment, complete property metadata, semantic references and package
+owner groups must agree. Accessors, replication callbacks, a real lookup or any
+drift fail validation. Old metadata recipes and historical references remain
+immutable and readable.
+
+The conservative direct-edge parser withholds entry conditions/events, choice
+edges, proxies/selectors, media configurations, unresolved integer order fields,
+reused predecessor occurrences and targets with multiple incoming edges. It
+does not traverse omitted nodes. Actual namespace/key joins identify 3,061
+direct pairs in this current inventory; thirteen already voiced Japanese records
+have an eligible existing binding at both ends. A full-index replay across both
+player voices adds two previously unmatched observations through an independently
+stable predecessor (one distinct caption under both player selections); sixteen observations already matched ordinarily and two
+remain unresolved because the predecessor is ambiguous. These are finite format
+and matching trials, not additional story percentages. Context expires, resets
+on interruptions/scope changes and cannot advance or refresh itself from a
+context-dependent match. Shared and full-frame UI vetoes remain unchanged.
+
+`ParticipantsData` contains cached participant names, distinct from the node's
+active entry conditions/events. The original native descriptions and values
+agree with the upstream cache structure and rebuild method. Future child-edge
+conditions do not gate entry into the current speech node. [Participant cache
+definition](https://github.com/NotYetGames/DlgSystem/blob/master/Source/DlgSystem/DlgDialogueParticipantData.h),
+[cache rebuild](https://github.com/NotYetGames/DlgSystem/blob/master/Source/DlgSystem/DlgDialogue.cpp#L628).
+
+The normal current Japanese worker completed 126,472 records and 27,672 original
+voice bindings with this graph recipe; all existing voice-status counts remain
+unchanged. A cold IoStore-block-cache old-generation trial completed 117,575
+records, 25,685 voices and thirteen predecessor annotations in 1,153.156 seconds.
+It retained original native/TOC/global/pak prerequisites, so this is not a fully
+empty-machine timing. The trial transferred 47,173,168 verified original range
+bytes in 2,487 requests, below its 64 MiB cap. Earlier serial cold reads exceeded
+the reader deadline: an acquisition timeout is now kept distinct from explicit
+native derivation or required-closure rejection and cannot trigger downloads of
+unrelated native candidates. Previous completed profiles/indexes remain retained.
+
+An independent owned inventory invocation binds its complete unique package
+claims to the original registry hash and an invocation nonce. It selects dialogue
+and StringTable text-owner packages, with original overlay/size checks. Prefetch
+uses at most eight concurrent requests, 128 MiB of selected package bytes and
+64 MiB of new compressed blocks. Only adjacent selected blocks coalesce within
+the existing transfer limit; unrelated packages and unsigned gaps are excluded.
+Every block is checksum-verified before atomic cache publication. The following
+ordinary extraction still supplies its own complete schema-usage evidence.
+
+Class-aware original graph preparation is now the default publisher recipe.
+The current Global Japanese trial completed those 126,472 records in 384.656
+seconds with initially empty IoStore block caches, transferring 49,782,768
+verified bytes in 2,610 requests. As with the old-generation trial, native,
+TOC/global and pak prerequisites were retained. An independent mainland 1.5.6
+Chinese-study worker completed 126,212 records, 28,080 voiced bindings and twenty
+predecessor annotations in 1,523.859 seconds, transferring 42,669,648 bytes in
+2,446 requests. Both were below their 64 MiB transfer caps. Live official
+Global/mainland discovery reproduced the independently tested regional source
+identities; the regions are not interchangeable.
+
+Both Global generations and mainland retained every prior caption, translation,
+audio binding and voice status, apart from the explicit immutable publisher
+identity and authentic predecessor field. With the same Japanese study locale,
+Global 1.4.9 to 1.5.4 adds 9,558 IDs, removes 661 and retains 116,914; 930 common
+source captions, 937 text maps and 95 original audio references change. These
+are source-record comparisons, not chapter or playback coverage counts.
+
+Five actual original performances, including the contextual target and its
+anchor, both protagonist variants and an old retained recording, decoded through
+the normal voice service. Fresh conversions after a service restart reproduced
+identical nonzero PCM with publisher networking forbidden. Timeout and explicit
+closure-rejection trials each retained the prior complete profile and index
+byte-for-byte. A subsequent healthy ordinary-cache preparation completed in
+299.813 seconds with networking forbidden, preserving the profile byte-for-byte
+and rebuilding the complete snapshot with identical JSON values. A public
+synthetic fixture and a private actual-caption replay also exercise the real
+narrow CaptureService dispatch: target alone is withheld, the stable original
+anchor permits the target, and a positioned choice menu clears context. These
+replays supply OCR observations and geometry; they are not native OCR, live
+device or complete chapter acceptance. Cinematic clocks, comic presentation and
+museum bubble ownership remain unresolved.
+
+Earlier Blueprint property dumps also omitted stored script expressions by
+default. A private data-only read now parses all 111 function bodies in 32 media
+and sequence assets and all 89 function bodies in the bounded 177-asset
+celebration caller set, each ending with `EX_EndOfScript`. This supplies new
+caller evidence; it does not establish silence or lack of use for a string
+absent from those sets. The unresolved duplicate-caption guard remains intact.
 
 ### Remaining acceptance
 

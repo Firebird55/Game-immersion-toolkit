@@ -107,7 +107,7 @@ def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing
                  {'text_id': 'missing', 'source': 'VO_Message/Other/Message_Missing', 'dialogue_kind': 'message'},
                  {'text_id': 'choice', 'source': '', 'dialogue_kind':'choice', 'voice_status':'unknown'}],
                 {'en': {'text_' + tag: 'test'}, 'zh-Hant': {'text_' + tag: '測試', 'missing':'其他','choice':'選擇'}},
-                {'recorded_messages':2, 'ambiguous_messages':2}, None)
+                {'recorded_messages':2, 'ambiguous_messages':2}, None, {})
     def clip(tag):
         return b'RIFF' + struct.pack('<I', 5) + b'WAVE' + tag.encode()
     def manifest(cache, channel, spec, suffixes):
@@ -130,7 +130,7 @@ def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing
         row = rows['text_' + tag]
         assert rows['choice']['voice_status'] == 'unknown' and rows['missing']['voice_status'] == 'unavailable'
         assert row['text_id'] == 'text_' + tag and row['voice_status'] == 'voiced' and row['audio_locale'] == 'zh-Hans'
-        assert snapshot['coverage'] == {'recorded_messages': 2, 'ambiguous_messages': 2}
+        assert snapshot['coverage'] == {'recorded_messages': 2, 'ambiguous_messages': 2, 'cinema_context_recordings': 0, 'cinema_context_subtitle_bindings': 0}
         assert snapshot['missing_translation_locales'] == ['nl']
         assert snapshot['install'] is None and snapshot['source_mode'] == 'publisher'
         assert zzz_assets.publisher_snapshot_available(tmp_path / 'tools', snapshot['fingerprint'])

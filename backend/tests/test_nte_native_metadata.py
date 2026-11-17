@@ -153,3 +153,38 @@ def test_required_validation_retains_baseline_provenance_and_never_rewrites_gene
     with pytest.raises(ValueError):
         metadata.check_required(candidate.schema.reference, cache, seed, retained, original, ['Vector'])
     assert len(list((cache / 'validations').iterdir())) == 1
+
+
+def test_opt_in_class_generation_has_immutable_identity_and_retains_older_recipes(tmp_path, monkeypatch):
+    from backend import nte_native_baseline as baseline
+    from backend.tests.test_nte_native_baseline import source
+    raw, manifest = source(monkeypatch)
+    def save(_region, _branch, _item, path): path.write_bytes(raw)
+    retained = baseline.load(tmp_path/'baseline', fetch=lambda *_, **__: manifest, save=save)
+    seed, value, name, original, dependencies = setup(tmp_path, monkeypatch)
+    cache = tmp_path/'candidates'
+    legacy = metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies)
+    enums = metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies, baseline=retained)
+    current = metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies,
+                               baseline=retained, native_classes=True)
+    assert current.schema.reference['native_generator'] == metadata.CLASS_GENERATOR
+    assert current.receipt['native_classes']['count'] == 0  # Owned fixture has only structs.
+    assert len({r.schema.reference['generation'] for r in (legacy, enums, current)}) == 3
+    assert metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies,
+                            baseline=retained, native_classes=True) == current
+    result, identity = metadata.check_required(current.schema.reference, cache, seed, retained, original, ['Vector'])
+    assert result.eligible and result.validator == 'nte-required-native-classes-v2'
+    assert identity and all(metadata.load(r.schema.reference, cache) == r for r in (legacy, enums, current))
+    before = {p.relative_to(cache): p.read_bytes() for p in cache.rglob('*') if p.is_file()}
+    original.write_bytes(b'x'*original.stat().st_size)
+    with pytest.raises(ValueError):
+        metadata.prepare(value, seed, {name: original}, cache, dependencies=dependencies,
+                         baseline=retained, native_classes=True)
+    assert all(metadata.load(r.schema.reference, cache) == r for r in (legacy, enums, current))
+    assert before == {p.relative_to(cache): p.read_bytes() for p in cache.rglob('*') if p.is_file()}
+
+
+def test_class_generation_cannot_drop_original_baseline_provenance(tmp_path, monkeypatch):
+    seed, value, name, original, dependencies = setup(tmp_path, monkeypatch)
+    with pytest.raises(ValueError):
+        metadata.prepare(value, seed, {name: original}, tmp_path/'candidates', dependencies=dependencies, native_classes=True)

@@ -413,6 +413,7 @@ def _table(tools, info, position, name, params):
 
 
 def _read_tables(tools, snapshot, params, locales, destination):
+    """Read complete original members and attest exact PlotAudio bytes for lookups."""
     from . import wuthering_assets as assets
     from .wuthering_music import TABLE as music_table
     root = 'Client/Content/Aki/ConfigDB/'
@@ -434,10 +435,14 @@ def _read_tables(tools, snapshot, params, locales, destination):
             return
         data = _table(tools, info, position, name, params)
         _atomic_file(destination / name[len(root):], data)
+        if name == root + 'db_plot_audio.db':
+            return hashlib.sha256(data).hexdigest()
     with ThreadPoolExecutor(max_workers=3) as pool:
-        list(pool.map(read, selected.items()))
+        plot_audio_proofs = [digest for digest in pool.map(read, selected.items()) if digest]
     pak.check(all((destination / name).is_file() for name in
                   ('db_plot_audio.db', *(table for table in assets.NARRATIVE_TABLES if table != assets.FLOATING_SUBTITLES))))
+    pak.check(len(plot_audio_proofs) == 1)
+    return plot_audio_proofs[0]
 
 
 def _movie_locations(tools, snapshot, params, code, names):
@@ -497,7 +502,7 @@ def _movie_records(tools, snapshot, stamp, params, db_root, records, voices, loc
                 row['voice_status'] = 'voiced'
 
 
-def _movie_context_records(tools, snapshot, stamp, params, db_root, records, locale, decoder):
+def _movie_context_records(tools, snapshot, stamp, params, db_root, records, locale, decoder, *, plot_audio_sha256=None):
     from . import wuthering_assets as assets, wuthering_bank as bank
     from . import wuthering_cinematics as films, wuthering_context as context
     if decoder is None or not any(row.get('dialogue_kind') == 'cinematic'
@@ -527,7 +532,7 @@ def _movie_context_records(tools, snapshot, stamp, params, db_root, records, loc
             shape = films.source_info(data, decoder, Path(temporary))
             if shape:
                 shapes[media] = shape
-    context.assign_contexts(db_root, records, locale, bindings, shapes)
+    context.assign_contexts(db_root, records, locale, bindings, shapes, plot_audio_sha256=plot_audio_sha256)
 
 
 def _same_launcher(snapshot, current):
@@ -577,7 +582,6 @@ def _music_records(tools, snapshot, stamp, params, db_root, locale, targets, dec
 
 def build_language(tools, source_locale, targets, progress=lambda _message: None, *, decoder=None):
     from . import wuthering_assets as assets
-    from .languages import resolve_locale
     # Native decoders still observe Windows path limits. Resolve a cache alias
     # before adding the release and nested private work directories.
     tools = Path(tools).resolve()
@@ -586,29 +590,62 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     from .publisher_regions import selected_region
     region = selected_region(tools, 'wuwa')
     stamp, snapshot, params, pointers = _current(tools, int(time.monotonic() // 60), region)
+    payload = _build_snapshot_language(tools, stamp, snapshot, params, source_locale, targets, progress,
+                                       decoder=decoder, region=region)
+    verify_pointers(pointers)
+    if selected_region(tools, 'wuwa') != region or not _same_launcher(snapshot, launcher(region)):
+        raise ValueError('Kuro updated the launcher during preparation. Retry.')
+    return payload
+
+
+def build_retained_language(tools, stamp, source_locale, targets, progress=lambda _message: None, *, decoder=None):
+    """Explicitly replay one retained catalogue, never substitute it for discovery.
+
+    This supports repeatable original-source verification and an already retained
+    library. It makes no assertion that this catalogue's former live discovery
+    roots still advertise it. Ordinary Setup continues to use build_language.
+    """
+    from . import wuthering_assets as assets
+    from .publisher_regions import selected_region
+    tools = Path(tools).resolve()
+    if source_locale not in assets.SUPPORTED_LOCALES:
+        raise ValueError('Unsupported Wuthering study/audio locale.')
+    snapshot = _snapshot(tools, stamp)
+    region = snapshot.get('region', 'global')
+    if region not in CHANNELS or selected_region(tools, 'wuwa') != region:
+        raise ValueError('The retained Wuthering catalogue belongs to another publisher region.')
+    payload = _build_snapshot_language(tools, stamp, snapshot, _archive_parameters(tools),
+                                       source_locale, targets, progress, decoder=decoder, region=region)
+    if _snapshot(tools, stamp) != snapshot or selected_region(tools, 'wuwa') != region:
+        raise ValueError('The retained Wuthering catalogue or selected region changed during preparation.')
+    return {**payload, 'source_replay': 'retained_original_catalogue'}
+
+
+def _build_snapshot_language(tools, stamp, snapshot, params, source_locale, targets, progress, *, decoder, region):
+    """The same original table/voice/movie/song joins for current and retained input."""
+    from . import wuthering_assets as assets
+    from .languages import resolve_locale
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     selected = {locale for locale in resolved.values() if locale}
-    progress('Reading the publisher’s current Wuthering story and translation tables')
+    progress('Reading the publisher’s original Wuthering story and translation tables')
     with tempfile.TemporaryDirectory(dir=_descriptor_path(tools, stamp).parent) as folder:
         path = Path(folder)
         # Song vocal language is independent of the selected UI/voice pack.
         # Read the actual KeepOrigin/original relation across the voiced locales.
-        _read_tables(tools, snapshot, params, {*assets.SUPPORTED_LOCALES, *selected}, path)
+        plot_audio_sha256 = _read_tables(tools, snapshot, params, {*assets.SUPPORTED_LOCALES, *selected}, path)
         pak.check((path / assets.TEXT_LOCALES[source_locale] / 'lang_multi_text.db').is_file())
         selected = {locale for locale in selected if (path / assets.TEXT_LOCALES[locale] / 'lang_multi_text.db').is_file()}
         progress('Matching authored voice paths against the selected publisher dub')
         files = _voice_locations(tools, stamp, assets.VOICE_LOCALES[source_locale][0])
         records = assets.build_language_records(path, files, source_locale, selected)
         _movie_records(tools, snapshot, stamp, params, path, records, files, source_locale, decoder)
-        _movie_context_records(tools, snapshot, stamp, params, path, records, source_locale, decoder)
+        _movie_context_records(tools, snapshot, stamp, params, path, records, source_locale, decoder,
+                               plot_audio_sha256=plot_audio_sha256)
         records.extend(_music_records(tools, snapshot, stamp, params, path, source_locale, selected, decoder))
     pak.check(records)
     for record in records:
         if record['audio']:
             record['audio']['publisher'] = stamp
-    verify_pointers(pointers)
-    if selected_region(tools, 'wuwa') != region or not _same_launcher(snapshot, launcher(region)):
-        raise ValueError('Kuro updated the launcher during preparation. Retry.')
     mapped = sum(bool(row['audio']) for row in records)
     available = {locale for row in records for locale in row['texts']}
     missing = [target for target, locale in resolved.items() if locale not in available]

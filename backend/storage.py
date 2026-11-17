@@ -166,7 +166,7 @@ class TranscriptStore:
             context.setdefault('audio_scope', 'paragraph')
         if row['voiced'] and (context.get('dialogue_kind') or '').endswith('_full_track'):
             context['audio_scope'] = 'paragraph'
-        return TranscriptLine(
+        line = TranscriptLine(
             id=row["id"],
             created_at=datetime.fromisoformat(row["created_at"]),
             session_id=row["session_id"],
@@ -187,6 +187,10 @@ class TranscriptStore:
             favorite=bool(row["favorite"]),
             **context,
         )
+        if line.game == 'wuwa':
+            from .wuthering_text_templates import present_player_name
+            return present_player_name(line)
+        return line
 
     def add(
         self,

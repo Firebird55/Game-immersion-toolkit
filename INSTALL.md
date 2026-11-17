@@ -46,10 +46,10 @@ installation.
 
 | Game | Folder to choose | Voice requirement |
 | --- | --- | --- |
-| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips and timed clue recordings in the selected dub. For other dialogue, select the installed files and matching voice pack |
+| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips, timed clue recordings and supported whole-film contexts in the selected dub. Context audio is labeled; unresolved film/player bindings remain unavailable |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
-| Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty for publisher preparation |
+| Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty for publisher preparation. Choose Rover voice for gender-specific clips; complete scene audio is labeled as context |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Optional: selected publisher edition, or Client/WindowsNoEditor/HT in an installed client | Publisher text and original voices, or selected installed voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, select Global or Mainland China and prepare the desired dub. The regional audio index selects released base and chapter packages |
@@ -92,7 +92,7 @@ No game archives, audio packages, extracted voices, catalog data or captured cli
 
 Let the game's own launcher finish the patch and voice downloads. Open **Setup → Games**, choose the title and click **Refresh game data**. Checks also run automatically: ZZZ about every 15 minutes, prepared language tables about every two minutes. A moved game can be selected and refreshed without restarting the companion.
 
-The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE publisher preparation follows the selected regional manifest, original movie/dialogue tables and compatible public type metadata. Installed NTE movie catalogs retain their separate upstream refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. With no ZZZ folder selected, preparation follows the selected Global or mainland China publisher text/resource/audio updates and preserves that edition's matching launcher base. Raw update packages are completely hash-checked before playback, so the first request may download a whole patch package; unchanged base voices use selective verified chunks. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
+The toolkit rebuilds subtitle and original-voice indexes; it does not patch the game. Compatible content and catalog updates need no new toolkit release. NTE publisher preparation follows the selected regional manifest and original dialogue graphs, movie tables and voice banks. It derives required type descriptions from original clients using one fixed retained seed, without a newer community mapping for each update. Unsupported required layouts fail preparation and preserve the previous completed library. Installed NTE movie catalogs retain their separate upstream refresh. Complete catalog snapshots use one immutable source revision. Previous complete catalogs and indexes remain available if a download or rebuild fails. With no ZZZ folder selected, preparation follows the selected Global or mainland China publisher text/resource/audio updates and preserves that edition's matching launcher base. Raw update packages are completely hash-checked before playback, so the first request may download a whole patch package; unchanged base voices use selective verified chunks. ZZZ language maps publish as one validated snapshot, so an interrupted update cannot mix old English with new Chinese. Incompatible game formats require a normal toolkit update. See [game-data updates](docs/game-data-updates.md).
 
 ## Capture and optional reading accounts
 
@@ -143,12 +143,17 @@ listed official translation. See [Star Rail](docs/starrail-languages.md),
 For Endfield's written instructions, guide pages and operator-training steps,
 enable unvoiced-text capture. These use the publisher's original text without a
 game folder; illustrative media is not a recording of the written explanation.
+Keep an instruction book's original title and complete body visible together;
+the title distinguishes repeated explanations with different translations.
 Voiced top-of-screen Endfield captions are read across the full frame. Short
 operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.
 Repeated Endfield operator captions can share a verified original recording
 when all official texts and capture conditions agree. Other variants keep their
-context safeguards.
+context safeguards. For spoken world conversations with NPC options visible,
+keep the complete bottom caption, speaker and upper-right Auto/Skip controls
+visible. Reliable full-frame OCR can distinguish that conversation from the
+operator archive; incomplete controls or uncertain OCR keep the guard active.
 
 For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
 For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.

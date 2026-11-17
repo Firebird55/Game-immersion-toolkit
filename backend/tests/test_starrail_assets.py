@@ -6,6 +6,12 @@ from backend import hoyo_dialogue
 from backend.local_game import LocalDialogue
 
 
+def test_unknown_original_native_voice_enum_retains_text_without_guessing_a_recording_or_silence():
+    assert starrail._voice_links(1, 101, 7, {7: {'VoiceType': 123456, 'VoicePath': 'Unproved'}}, 'en') == [
+        {'id': '1', 'hash': 101, 'source': None, 'player_voice': None,
+         'voice_status': 'unavailable', 'dialogue_kind': 'dialogue'}]
+
+
 def test_sentence_retention_distinguishes_silence_missing_media_and_unresolved_multi_voice():
     # The separate MultiVoice table makes a missing primary VoiceID ambiguous.
     sentences = [{'TalkSentenceID': identity, 'TalkSentenceText': {'Hash': 100 + identity},

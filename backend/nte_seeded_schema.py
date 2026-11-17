@@ -76,7 +76,7 @@ def _enum_names(body, names, start, end):
     return {name for name, count in seen.items() if count == 1}
 
 
-def _native_fields(descriptors, pe):
+def _native_fields(descriptors, pe, *, opaque=False):
     index = len(descriptors) - 1
 
     def take(depth=0, child=False):
@@ -86,6 +86,12 @@ def _native_fields(descriptors, pe):
         name, generator, dimension, callback = descriptors[index]
         index -= 1
         kind = generator & 63
+        if opaque and not generator & ~0x7f and kind not in WIRE_TYPES:
+            if not 1 <= dimension <= 255 or child and dimension != 1:
+                raise ValueError('unsupported_dimension')
+            # Existing opaque custom-codec metadata only. This does not assign
+            # a wire meaning to an unknown native tag or enable generation.
+            return name, dimension, (255, (), None, 0)
         if generator & ~0x7f or kind not in WIRE_TYPES:
             raise ValueError('unsupported_generator_tag')
         if not 1 <= dimension <= 255 or child and dimension != 1:

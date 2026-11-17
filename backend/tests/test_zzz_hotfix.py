@@ -246,7 +246,7 @@ def test_same_launcher_release_adopts_changed_text_and_voice_and_retains_old_rec
     monkeypatch.setattr(live, '_request', lambda url, *_: responses[url])
     def catalogue(build, _directory, _locales, _namespace, _progress):
         return ([{'text_id': 'sentence', 'source': 'VO_Message/Actor/Message_Sentence', 'dialogue_kind': 'message'}],
-                {'en': {'sentence': 'Text ' + current[0]}}, {}, None)
+                {'en': {'sentence': 'Text ' + current[0]}}, {}, None, {})
     monkeypatch.setattr(zzz_publisher, '_read_catalogue', catalogue)
     snapshots = []
     for tag in ('a', 'b'):
@@ -297,7 +297,7 @@ def test_mainland_hant_keeps_its_own_text_dub_and_missing_translation_after_regi
         assert namespace == ('Chinese(PRC)' if cn else 'English(EN)')
         assert locales == ({'zh-Hant', 'en'} if cn else {'en'})
         return ([{'text_id': 'sentence', 'source': 'VO_Message/Actor/Message_Sentence', 'dialogue_kind': 'message'}],
-                {'zh-Hant': {'sentence': '繁體測試'}} if cn else {'en': {'sentence': 'Owned Global text'}}, {}, None)
+                {'zh-Hant': {'sentence': '繁體測試'}} if cn else {'en': {'sentence': 'Owned Global text'}}, {}, None, {})
     monkeypatch.setattr(zzz_publisher, '_read_catalogue', catalogue)
     snapshots = []
     for region, locale in [('global', 'en'), ('cn', 'zh-Hant')]:

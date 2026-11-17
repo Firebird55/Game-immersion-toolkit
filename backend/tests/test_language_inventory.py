@@ -174,10 +174,12 @@ def test_progress_lock_failures_do_not_abort_build_and_later_status_recovers(tmp
     clock[0] = 2
     report('Validating language table')
     assert json.loads(progress.read_text(encoding='utf-8'))['message'] == 'Validating language table'
-    def denied_snapshot(path, *args, **kwargs):
-        if path == output:
+    before = output.read_bytes()
+    def denied_snapshot(path, target):
+        if Path(target) == output:
             raise PermissionError('Synthetic snapshot failure')
-        return write_text(path, *args, **kwargs)
-    monkeypatch.setattr(Path, 'write_text', denied_snapshot)
+        return locked_replace(path, target)
+    monkeypatch.setattr(Path, 'replace', denied_snapshot)
     with pytest.raises(PermissionError, match='snapshot failure'):
         language_worker.build('beyond', tmp_path, tmp_path, 'nl', ['en'], output, report)
+    assert output.read_bytes() == before

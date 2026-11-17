@@ -40,6 +40,31 @@ def test_valid_current_invocation_usage_is_returned_without_inventing_a_type_lis
     assert assets.read_schema_usage(tmp_path, 'a'*64, 'b'*32) == value
 
 
+def codec_packet():
+    return packet() | dict(schema='nte-schema-usage-v2', codecs_origin='zero-without-package-v1',
+        codecs={'CustomPath': 'CUE4Parse.UE4.Objects.UObject.FCustomPath'})
+
+
+def test_concrete_codec_contract_retains_actual_lookups_and_generic_factory_origin(tmp_path):
+    value = codec_packet()
+    (tmp_path/'schema-usage.json').write_text(json.dumps(value))
+    assert assets.read_schema_usage(tmp_path, 'a'*64, 'b'*32) == value
+
+
+@pytest.mark.parametrize('change', [
+    lambda p: p.update(codecs_origin='guessed'), lambda p: p.update(codecs=[]),
+    lambda p: p.update(codecs={'Known': 'CUE4Parse.UE4.Objects.UObject.FKnown'}),
+    lambda p: p.update(codecs={'CustomPath': 'CUE4Parse.UE4.Assets.Objects.FStructFallback'}),
+    lambda p: p.update(codecs={'CustomPath': 'Game.Client.FCustomPath'}),
+    lambda p: p.update(codecs={'../Bad': 'CUE4Parse.UE4.Objects.UObject.FCustomPath'}),
+    lambda p: p.pop('codecs_origin'), lambda p: p.update(extra='unattested'),
+])
+def test_unattested_fallback_or_actually_looked_up_codec_is_rejected(tmp_path, change):
+    value = codec_packet(); change(value)
+    (tmp_path/'schema-usage.json').write_text(json.dumps(value))
+    with pytest.raises(PreparationFailure): assets.read_schema_usage(tmp_path, 'a'*64, 'b'*32)
+
+
 @pytest.mark.parametrize('capture', [False, True])
 def test_usage_is_opt_in_and_preserves_legacy_four_output_contract(tmp_path, monkeypatch, capture):
     from backend import nte_publisher_stream
@@ -69,6 +94,49 @@ def test_usage_is_opt_in_and_preserves_legacy_four_output_contract(tmp_path, mon
     else:
         assert result is None and 'capture_schema_usage' not in requests[0]
         assert not (tmp_path/'schema-usage.json').exists()
+
+
+@pytest.mark.parametrize('bad', [None, 'nonce', 'hash', 'incomplete', 'count', 'case', 'path', 'size', 'budget'])
+def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocation(tmp_path, monkeypatch, bad):
+    from backend import nte_publisher_stream
+    class Broker:
+        descriptors, failures = [], []
+        def __init__(self, _): pass
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+    monkeypatch.setattr(nte_publisher_stream, 'Broker', Broker)
+    def invocation(_context, _exe, _destination, mode):
+        assert mode == 'publisher-dialogue-inventory'
+        return ['owned'], None, tmp_path
+    monkeypatch.setattr(assets, '_reader_invocation', invocation)
+    registry = b'owned original registry bytes'
+    def run(_command, **kwargs):
+        request = json.loads(kwargs['input'])
+        assert request['dialogue_registry_sha256'] == hashlib.sha256(registry).hexdigest()
+        assert (tmp_path/'dialogue-registry.bin').read_bytes() == registry
+        result = dict(schema='nte-original-dialogue-inventory-v1', complete=True,
+            registry_sha256=request['dialogue_registry_sha256'], nonce=request['inventory_nonce'],
+            package_count=1, packages={'HT/Content/Owned.uasset': 80})
+        if bad == 'nonce': result['nonce'] = '0'*32
+        elif bad == 'hash': result['registry_sha256'] = '0'*64
+        elif bad == 'incomplete': result['complete'] = False
+        elif bad == 'count': result['package_count'] = 2
+        elif bad == 'case':
+            result.update(package_count=2, packages={'HT/Content/Owned.uasset': 80, 'HT/Content/owned.uasset': 80})
+        elif bad == 'path': result['packages'] = {'HT/Content/../Other.uasset': 80}
+        elif bad == 'size': result['packages'] = {'HT/Content/Owned.uasset': True}
+        elif bad == 'budget':
+            result['packages'] = {f'HT/Content/Owned{i}.uasset': 4*1024**2 for i in range(33)}
+            result['package_count'] = 33
+        (tmp_path/'dialogue-inventory.json').write_text(json.dumps(result))
+        return SimpleNamespace(returncode=0)
+    monkeypatch.setattr(assets.subprocess, 'run', run)
+    if bad:
+        with pytest.raises(PreparationFailure):
+            assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry)
+    else:
+        assert assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry) == {
+            'HT/Content/Owned.uasset': 80}
 
 
 def test_actual_compiled_comparer_and_supplier_parse_warning_contract(tmp_path):

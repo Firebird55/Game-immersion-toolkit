@@ -21,6 +21,7 @@ from .runtime_bundle import discover_layout
 from .runtime_paths import voice_work_root
 from .voice_assets import voice_hash
 from .zzz_assets import TEXT_LOCALES
+from . import zzz_publisher_cinematics as cinema
 
 CHANNELS = {'global': 'zzz-global', 'cn': 'zzz-cn'}
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
@@ -216,7 +217,8 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
             coverage['auxiliary_update_resources'] = zzz_hotfix.silence_evidence(cache, build)
         return (json.loads((work / 'links.json').read_bytes()),
                 {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in locales},
-                coverage, json.loads((work / 'voice-directory.json').read_bytes()))
+                coverage, json.loads((work / 'voice-directory.json').read_bytes()),
+                cinema.audio_registry((work / 'audio-resource.flex').read_bytes()))
 
 
 def _short_id(name):
@@ -311,7 +313,7 @@ def build_language(data_dir, source_locale, target_locales, progress):
     selected = {source_locale, *(value for value in targets.values() if value)}
     progress('Reading ZZZ dialogue and translations from the ' + REGIONS[region] + ' PC publisher release')
     dub = audio_locale(source_locale)
-    links, tables, coverage, directory = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
+    links, tables, coverage, directory, registry = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
     progress('Matching the selected original ZZZ dub to its released scene and message sources')
     entries = voice.inventory(data_dir, stamp, dub, 'zzz')
     expanded, channels, evidence, kinds = zzz_assets._group_links(links)
@@ -320,6 +322,14 @@ def build_language(data_dir, source_locale, target_locales, progress):
     # unless all uses of the selected performance agree on a sentence source.
     consistent = [link for link in expanded if evidence[link['text_id']] == {'unavailable'}]
     bindings = original_bindings(consistent, entries, dub, build['version'], voice_directory(directory))
+    progress('Resolving original ZZZ film events through the selected publisher voice banks')
+    contexts = cinema.bindings(data_dir, stamp, dub, links, registry)
+    for identity, binding in contexts.items():
+        bindings.setdefault(identity, binding)
+    coverage['cinema_context_recordings'] = len({audio['event'] for audio in contexts.values()})
+    coverage['cinema_context_subtitle_bindings'] = len(contexts)
+    if 'presentation_owners' in coverage:
+        coverage['presentation_owners']['subtitle_audio_acquisition'] = 'partial-subtitle-tracks-and-original-film-contexts'
     for link in links:
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}

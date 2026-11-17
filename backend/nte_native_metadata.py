@@ -20,11 +20,16 @@ from .nte_type_metadata import Schema
 SEED_SHA256 = '7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58'
 GENERATOR = 'nte-seeded-native-v2'
 ENUM_GENERATOR = 'nte-seeded-native-v2-original-enums-v1'
+CLASS_GENERATOR = 'nte-original-native-classes-v1-original-enums-v1'
 DEPENDENCIES = {'reader', 'archive_parameters', 'localization_parameters', 'updater_format'}
 MAX_FILES = 200_000
 MAX_RECEIPT = 16 * 1024**2
 MAX_INSPECTED_SOURCES = 64
 MAX_INSPECTED_BYTES = 2 * 1024**3
+
+
+class NativeDerivationRejected(ValueError):
+    """Authenticated source lacks a unique supported native schema witness."""
 
 
 def _json(value):
@@ -123,7 +128,7 @@ class Candidate:
     receipt: dict
 
 
-def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=None):
+def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=None, native_classes=False):
     """Generate one immutable candidate from available original PE sources.
 
     Only a unique structurally witnessed source is eligible. Missing candidates
@@ -131,6 +136,7 @@ def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=N
     game coverage. This API never writes a latest/current pointer.
     """
     value = inventory(discovery)
+    _check(isinstance(native_classes, bool) and (not native_classes or baseline is not None))
     _check(isinstance(seed_usmap, bytes))
     _check(_sha(seed_usmap) == SEED_SHA256)
     _seed(seed_usmap)
@@ -152,9 +158,15 @@ def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=N
             continue
         if result.native_count and result.matched_seed_types >= 2 and result.callbacks:
             positive.append((name, result))
-    _check(len(positive) == 1)
+    if len(positive) != 1:
+        raise NativeDerivationRejected('Original source has no unique supported native schema witness')
     name, result = positive[0]
     data = result.data
+    class_result = None
+    if native_classes:
+        from .nte_class_schema import refresh
+        class_result = refresh(seed_usmap, data, _original(originals[name], available[name]))
+        data = class_result.data
     changed_enums = ()
     if baseline is not None:
         from . import nte_native_baseline as provenance
@@ -166,7 +178,7 @@ def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=N
     _check(len(data) <= MAX_SEED)
     _seed(data)
     source = _json(value)
-    generator = ENUM_GENERATOR if baseline is not None else GENERATOR
+    generator = CLASS_GENERATOR if native_classes else ENUM_GENERATOR if baseline is not None else GENERATOR
     identity = {'generator': generator, 'source_manifest_sha256': _sha(source),
                 'native_sha256': result.client_sha256, 'seed_sha256': result.seed_sha256,
                 'dependencies': dict(dependencies), 'inspected_native_sources': inspected}
@@ -183,6 +195,11 @@ def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=N
                'enum_values_refreshed': baseline is not None, 'production_eligible': False}
     if baseline is not None:
         receipt['changed_enums'] = list(changed_enums)
+    if class_result is not None:
+        receipt['native_classes'] = {'count': class_result.class_count,
+            'appended': list(class_result.appended), 'refreshed': list(class_result.refreshed),
+            'numeric_enums': [{**asdict(row), 'path': list(row.path)} for row in class_result.numeric_enums],
+            'excluded': [{'name': row.name, 'reasons': list(row.reasons)} for row in class_result.excluded]}
     encoded = _json(receipt)
     _check(len(encoded) <= MAX_RECEIPT)
     root = Path(cache)
@@ -207,7 +224,7 @@ def prepare(discovery, seed_usmap, originals, cache, *, dependencies, baseline=N
 def load(reference, cache):
     """Read a retained candidate without network access or regeneration."""
     _check(isinstance(reference, dict) and set(reference) == {'native_generator', 'generation', 'sha256'}
-           and reference['native_generator'] in (GENERATOR, ENUM_GENERATOR))
+           and reference['native_generator'] in (GENERATOR, ENUM_GENERATOR, CLASS_GENERATOR))
     _digest(reference['generation']); _digest(reference['sha256'])
     root = Path(cache) / reference['generation']
     for name, limit in [('schema.usmap', MAX_SEED), ('receipt.json', MAX_RECEIPT), ('source.json', MAX_RECEIPT)]:
@@ -217,12 +234,12 @@ def load(reference, cache):
     _seed(data)
     receipt = json.loads((root / 'receipt.json').read_bytes())
     identity = {key: receipt[key] for key in ('generator', 'source_manifest_sha256', 'native_sha256', 'seed_sha256', 'dependencies', 'inspected_native_sources')}
-    if reference['native_generator'] == ENUM_GENERATOR:
+    if reference['native_generator'] in (ENUM_GENERATOR, CLASS_GENERATOR):
         identity['baseline_sha256'] = receipt['baseline_sha256']
     _check(receipt['reference'] == reference and _sha(_json(identity)) == reference['generation']
            and receipt['generator'] == reference['native_generator'] and receipt['seed_sha256'] == SEED_SHA256
            and receipt['production_eligible'] is False
-           and receipt['enum_values_refreshed'] is (reference['native_generator'] == ENUM_GENERATOR))
+           and receipt['enum_values_refreshed'] is (reference['native_generator'] in (ENUM_GENERATOR, CLASS_GENERATOR)))
     raw_source = (root / 'source.json').read_bytes()
     _check(_sha(raw_source) == receipt['source_manifest_sha256'])
     source = inventory(json.loads(raw_source))
@@ -230,7 +247,7 @@ def load(reference, cache):
     return Candidate(Schema(dict(reference), data), receipt)
 
 
-def check_required(reference, cache, seed_usmap, baseline, original, requested, *, reader_classes=None):
+def check_required(reference, cache, seed_usmap, baseline, original, requested, *, reader_classes=None, reader_codecs=None):
     """Retain a required-closure validation without activating a candidate.
 
     Baseline provenance is retrievable from the fixed original publisher
@@ -248,12 +265,17 @@ def check_required(reference, cache, seed_usmap, baseline, original, requested, 
            and baseline.identity.get('source_manifest_sha256') == baseline.identity['inventory_sha256'])
     raw = _original(original, release.File(**candidate.receipt['native_file']))
     _check(_sha(raw) == candidate.receipt['native_sha256'])
-    result = validate(seed_usmap, candidate.schema.data, baseline.data, raw, requested, reader_classes=reader_classes)
+    classes = reference['native_generator'] == CLASS_GENERATOR
+    _check(classes or not reader_codecs)
+    result = validate(seed_usmap, candidate.schema.data, baseline.data, raw, requested,
+                      reader_classes=reader_classes, native_classes=classes, reader_codecs=reader_codecs)
     receipt = {'schema': reference, 'baseline': baseline.identity,
                'reader_sha256': candidate.receipt['dependencies']['reader'],
                'requested_types': sorted(set(requested)), 'reader_classes': reader_classes or {},
                'report': asdict(result), 'required_schema_eligible': result.eligible,
                'production_eligible': False}
+    if classes:
+        receipt['reader_codecs'] = reader_codecs or {}
     encoded = _json(receipt)
     _check(len(encoded) <= MAX_RECEIPT)
     identity = _sha(encoded)
