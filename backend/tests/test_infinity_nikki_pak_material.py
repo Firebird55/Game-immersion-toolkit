@@ -166,6 +166,14 @@ class DefaultPakMaterialTests(unittest.TestCase):
         cipher = AES.new(material.parameter, AES.MODE_ECB).encrypt(before_cipher)
         expected = hashlib.sha1(plain).digest()
         self.assertEqual(decode_default_index(cipher, material, expected, key_guid=bytes(16)), plain)
+        from backend.publisher_crypto import DesktopPublisherCrypto
+        calls = []
+        class Crypto:
+            def block_cipher(self, algorithm, mode, key, data):
+                calls.append((algorithm, mode, len(key), len(data)))
+                return DesktopPublisherCrypto().block_cipher(algorithm, mode, key, data)
+        self.assertEqual(decode_default_index(cipher, material, expected, key_guid=bytes(16), crypto=Crypto()), plain)
+        self.assertEqual(calls, [('AES', 'ECB', 32, len(cipher))])
         cases = [(cipher[:-1], material, expected), (cipher, material, b'0' * 20),
                  (cipher, replace(material, parameter=bytes(reversed(range(32)))), expected),
                  (AES.new(material.parameter, AES.MODE_ECB).encrypt(plain), material, expected)]

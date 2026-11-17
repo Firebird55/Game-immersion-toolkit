@@ -487,6 +487,54 @@ pre-read budgets, local/CD disagreement, invalid paths, compression/CRC failures
 and the explicitly opted-in signed-zero-tail dialect. This is shared format
 infrastructure, not an executable Nikki preparation stage or dialogue coverage.
 
+## Canonical native-bootstrap preparation stage
+
+`backend/infinitynikki_game_data.py` implements the shared plan/download/restore
+contract on PC and through an explicit Android cryptography capability. It reads
+the exact mainland website `android` field, follows its direct original APK
+family, pins actual size/strong ETag and quotes the complete integrity carrier
+before transfer. Selected native ownership uses the evidenced original
+`lib/arm64-v8a/libUnreal.so` member and its actual wrapper/index consumer chains;
+it does not invent AndroidManifest provenance or import another game's runtime.
+The module name is a source-owned format selector, not a frozen release URL,
+address, key or payload hash. Global requests disclose use of this mainland
+bootstrap source; each Global resource still requires compatibility verification.
+
+The consented stage streams the complete APK through the single shared v2
+verifier, checks selected local-header witnesses against that same stream,
+bounds Deflate/size/CRC and follows the owned address-independent native producer.
+It retains the authenticated native module and private integrity receipts, never
+derived key material or ignored media members. Required disk space includes the
+compressed native member, decoded module, planning metadata and receipt overhead.
+The full carrier contains unused media even for text-only requests; it is quoted
+as necessary bootstrap overhead and no optional voice pack is fetched.
+
+Metadata, source-generation, mode/locale or estimate changes, damaged content,
+unbound native consumers and cancellation stop preparation while retaining old
+game data. The returned value is only a `PreparationStage`. Restoring that stage
+is local and reports the unresolved content-reader gate; it cannot activate a
+matcher, blank snapshot or unverified voice source. Shared cache accounting and
+deletion include its retained source bytes.
+
+Authored APK/HTTP fixtures exercise the actual shared transport and contexts,
+whole signing/member checks, staged continuation, both content modes, explicit
+crypto propagation and failure retention. A fresh process also imports the
+factory and derives authored native material while Crypto and desktop service
+imports are blocked. The wrapper/default-index decoders now accept the explicit
+shared crypto capability and preserve their original ECB/NUL/XOR/hash rules;
+their desktop default is lazy. This does not establish the Android native
+manifest/ABI implementation, actual device acceptance, a fresh end-to-end game
+library, current patch precedence, caption/voice ownership or future-generation
+coverage. Those remain acceptance gates, not package-format-change assertions.
+
+Offline original-source replay binds this stage's code hashes to the retained
+official homepage, APK metadata and earlier complete carrier receipt. The
+metadata-to-quote path reports 625,323,294 download bytes and 290,470,325 required
+disk bytes for that recorded generation. Its original native consumer gate
+passes the authenticated 213,538,488-byte module. This uses existing cached data;
+it is not a fresh source-generation check, a complete new network plan, a new
+whole-APK verification or Android/device acceptance.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
@@ -508,8 +556,10 @@ Sounds with no on-screen subtitle do not block subtitle coverage.
    voice locales. Global anonymous manifest-pointer discovery is implemented;
    the original native wrapper owner/decoder is now evidenced, and its
    address-independent reader has passed original-source replay. Independent
-   mainland SDK acquisition, automatic authenticated native-owner acquisition
-   and downstream current resource inventories remain open.
+   mainland SDK acquisition and downstream current resource inventories remain
+   open. Automatic native-owner acquisition now has a canonical quoted stage;
+   a fresh end-to-end original-source run and actual Android runtime/device
+   acceptance remain open.
 2. Implement bounded manifest-based text-only versus text-plus-audio selection,
    size planning and download/deletion through the shared game-data manager on PC
    and fully independent Android. Preserve history, recordings and user settings
