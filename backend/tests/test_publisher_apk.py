@@ -1,6 +1,11 @@
 import hashlib
+import base64
 import io
+import json
+from pathlib import Path
 import struct
+import subprocess
+import sys
 import unittest
 import zipfile
 
@@ -9,7 +14,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 from Crypto.Util.asn1 import DerSequence
 
-from backend.publisher_apk import ApkLayout, CHUNK, V2, signing_metadata, verify_stream
+from backend.publisher_apk import ApkLayout, CHUNK, V2, signing_metadata, verify_stream, _certificate_public_key
 
 
 def lp(value):
@@ -165,6 +170,79 @@ class ApkTests(unittest.TestCase):
         _, layout, _, _ = self.fixture(attributes=attribute)
         with self.assertRaises(ValueError):
             signing_metadata(layout.signing_block)
+
+    def test_injected_verifier_is_used_before_reading_any_original_bytes(self):
+        raw, layout, _, _ = self.fixture()
+        calls = []
+        class Reject:
+            def rsa_verify_sha256(inner, public, signed, signature):
+                calls.append((public, signed, signature))
+                return False
+        stream = io.BytesIO(raw)
+        with self.assertRaises(ValueError):
+            verify_stream(stream, layout, crypto=Reject())
+        self.assertEqual(stream.tell(), 0)
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][0], self.public)
+        # A truthy foreign result does not certify signature acceptance.
+        class WrongResult:
+            def rsa_verify_sha256(inner, *args): return 1
+        with self.assertRaises(ValueError):
+            layout.validate(crypto=WrongResult())
+
+    def test_pure_der_binding_supports_original_v1_and_v3_certificates(self):
+        self.assertEqual(_certificate_public_key(self.certificate, self.public), 256)
+        tbs = DerSequence([b'\xa0\x03\x02\x01\x02', 1, b'\x30\x00', b'\x30\x00',
+            b'\x30\x00', b'\x30\x00', self.public]).encode()
+        v3 = DerSequence([tbs, b'\x30\x00', b'\x03\x01\x00']).encode()
+        self.assertEqual(_certificate_public_key(v3, self.public), 256)
+        for bad in (self.certificate + b'\0', b'\x30\x80' + self.certificate[4:],
+                    b'\x30\x84\0\0\0\1\0', self.certificate[:-1]):
+            with self.subTest(bad=bad[:10]), self.assertRaises(ValueError):
+                _certificate_public_key(bad, self.public)
+        weak = RSA.generate(1024).public_key().export_key(format='DER')
+        tbs = DerSequence([1, b'\x30\x00', b'\x30\x00', b'\x30\x00', b'\x30\x00', weak]).encode()
+        certificate = DerSequence([tbs, b'\x30\x00', b'\x03\x01\x00']).encode()
+        with self.assertRaises(ValueError):
+            _certificate_public_key(certificate, weak)
+
+    def test_closed_source_verifier_import_and_stream_with_no_crypto_namespace(self):
+        from backend.publisher_crypto import DesktopPublisherCrypto
+        raw, layout, _, _ = self.fixture()
+        expected = []
+        class Spy:
+            def rsa_verify_sha256(inner, *args):
+                expected.extend(base64.b64encode(value).decode() for value in args)
+                return DesktopPublisherCrypto().rsa_verify_sha256(*args)
+        layout.validate(crypto=Spy())
+        payload = {'raw': base64.b64encode(raw).decode(), 'expected': expected,
+            'total': layout.total, 'offset': layout.signing_offset,
+            **{name: base64.b64encode(value).decode() for name, value in
+                [('block', layout.signing_block), ('cd', layout.central_directory), ('eocd', layout.eocd)]}}
+        script = '''
+import base64,importlib.abc,io,json,pathlib,sys
+sys.path.insert(0,sys.argv[1])
+class Deny(importlib.abc.MetaPathFinder):
+ def find_spec(self,fullname,*args):
+  if fullname.split('.')[0] in {'Crypto','java','jnius'}:raise AssertionError('unapproved crypto import')
+sys.meta_path.insert(0,Deny())
+from backend.publisher_apk import ApkLayout,signing_metadata,verify_stream
+p=json.load(sys.stdin);dec=lambda k:base64.b64decode(p[k]);calls=[]
+class AuthoredVerifier:
+ def rsa_verify_sha256(self,*args):
+  assert [base64.b64encode(v).decode() for v in args]==p['expected']
+  calls.append(True);return True
+c=AuthoredVerifier();layout=ApkLayout(p['total'],p['offset'],dec('block'),dec('cd'),dec('eocd'))
+assert len(signing_metadata(dec('block'),crypto=c))==1
+assert len(layout.validate(crypto=c))==1
+assert verify_stream(io.BytesIO(dec('raw')),layout,crypto=c)['whole_apk_v2_integrity_verified']
+assert len(calls)==3 and not any(k=='Crypto' or k.startswith('Crypto.') for k in sys.modules)
+print('closed-source authored verifier propagation passed')
+'''
+        result = subprocess.run([sys.executable, '-I', '-B', '-c', script, str(Path(__file__).resolve().parents[2])],
+            input=json.dumps(payload), text=True, capture_output=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('propagation passed', result.stdout)
 
 
 if __name__ == '__main__':
