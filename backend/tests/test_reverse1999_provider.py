@@ -3,13 +3,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.game_data_protocol import GameDataError, MAX_METADATA_BYTES, SnapshotSource
+from backend.game_data_protocol import GameDataError, GameDataRequest, MAX_METADATA_BYTES, SnapshotSource
 from backend.reverse1999_provider import Reverse1999Provider
 from backend.tests.test_reverse1999_release import fixture
 
 
 def request(mode='text', region='global'):
-    return SimpleNamespace(region=region, source_locale='ja', target_locales=('zh-Hans', 'en'), content_mode=mode)
+    return GameDataRequest(region, 'ja', ('zh-Hans', 'en'), mode)
 
 
 class Context:
@@ -75,7 +75,8 @@ def test_text_and_audio_selection_is_part_of_plan_identity_and_old_handle_requir
 
 
 def test_missing_content_mode_and_cancelled_or_exhausted_plan_never_access_network():
-    adapter, calls = provider(); selection = request(); del selection.content_mode
+    adapter, calls = provider()
+    selection = SimpleNamespace(region='global', source_locale='ja', target_locales=('en',))
     with pytest.raises(GameDataError) as old:
         adapter.plan(selection, Context(selection))
     assert old.value.code == 'repair_needed'

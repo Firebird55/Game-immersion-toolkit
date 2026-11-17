@@ -8,6 +8,7 @@ from urllib.error import HTTPError
 import pytest
 
 from backend.game_data_protocol import GameDataError, MAX_METADATA_BYTES
+from backend.game_data import GameDataService
 from backend.publisher_transport import PublisherTransport
 from backend.reverse1999_game_data import create_provider, Reverse1999GameDataProvider, METADATA_HOSTS
 from backend.tests.test_reverse1999_provider import request
@@ -101,3 +102,21 @@ def test_cancelled_context_is_refused_before_shared_transport_connection():
     with pytest.raises(GameDataError) as error:
         provider.plan(selection, ctx)
     assert error.value.code == 'preparation_cancelled' and not opens
+
+
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_real_shared_service_exposes_unknown_selected_size_and_refuses_snapshot_activation(tmp_path, mode):
+    provider, opens = adapter(); activated = []
+    service = GameDataService(tmp_path, {'reverse1999': provider}, on_activate=lambda *_args: activated.append(True))
+    try:
+        row = service.plan('reverse1999', request(mode).json())['game']
+        assert row['content_mode'] == mode and row['can_plan'] is True and row['can_download'] is False
+        assert row['download_bytes'] is None and row['required_disk_bytes'] is None
+        assert row['installed_bytes'] == 0 and row['state'] == 'not_downloaded'
+        assert 'publisher_inventory' not in row and 'selection_bytes' not in row
+        with pytest.raises(GameDataError) as unavailable:
+            service.download('reverse1999', {'plan_id': row['plan_id'], 'revision': row['revision']})
+        assert unavailable.value.code == 'download_not_available'
+        assert not activated and len(opens) == 4 and not list(tmp_path.rglob('textmap.json'))
+    finally:
+        service.close()

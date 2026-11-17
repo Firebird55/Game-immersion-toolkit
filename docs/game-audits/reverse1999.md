@@ -238,6 +238,10 @@ private source evidence and never become the selected download estimate.
 The stage has `runtime_available = false` and cannot return a snapshot or mark
 the game Ready. Mainland planning does not fetch Global data. Unknown estimates,
 unsupported source preparation and failed freshness checks keep existing data.
+Integration checks use the committed shared content-mode request and the real
+`GameDataService`/`PublisherTransport`: both modes expose unknown selected sizes,
+keep source-only handles private and refuse download/activation without creating
+a dialogue snapshot. No fake prepared game or successful source proof is used.
 This is an honest shared-protocol adapter for the proven discovery stage, not
 independent content preparation. Root integration owns shared registry and
 transport changes.
@@ -282,7 +286,7 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-The 69 owned synthetic fixtures currently exercise public metadata decoding,
+The 71 owned synthetic fixtures currently exercise public metadata decoding,
 ordinary-version and voice-branch refresh, announcement-insensitive launcher
 fingerprints, original archive ownership and totals, bootstrap boundaries,
 mandatory/optional voice distinctions, update order, malformed/oversized data,
