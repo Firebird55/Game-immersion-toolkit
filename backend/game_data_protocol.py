@@ -130,6 +130,8 @@ class PreparationContext(Protocol):
     request: GameDataRequest
     phase: str
     transfer_lock: Any
+    # Same-request previously consented bootstrap continuation, local only.
+    stage_handle: dict | None
 
     def check(self) -> None: ...
     def cancelled(self) -> bool: ...

@@ -29,6 +29,10 @@ provider I/O and decoding never run under the OCR/session lock.
 
 Routes are `GET /api/game-data`, `POST /api/game-data/{game}/plan`,
 `POST /api/game-data/{game}/download`, and `DELETE /api/game-data/{game}/data`.
+`POST /api/game-data/{game}/activate` with `{revision: installed_revision}`
+explicitly selects an already downloaded source, without a transfer. The row's
+`installed_revision` and `can_activate` describe its working downloaded source;
+the ordinary `revision` may instead describe a newer, unexecuted estimate.
 Mutations require the existing app-origin/session checks, setup intent header and
 captured account-generation header. Responses expose bounded state and sizes,
 never private source handles, keys or provider diagnostics.
@@ -41,6 +45,20 @@ bytes and the previous matcher. Startup restores only the persisted exact source
 identity, locally, in the background. A delayed startup restoration cannot replace
 a newer source. A broken pointer keeps history available without selecting a
 different profile or falling back silently to an old backup library.
+
+Incomplete bootstrap/archive descriptors live in `stage.json`, separately from
+the last ready `current.json`. They never deactivate a working source. Planning
+the same region/locales/mode exposes the private `ctx.stage_handle` for a further
+explicit estimate; providers must still verify its publisher generation before
+reuse. A failed continuation leaves the ready source and completed stage intact.
+
+Explicit activation orders competing selections; a slower earlier restoration
+cannot win later. A background download can finish its verified cache without
+stealing a newer explicit selection. The selected source persists its exact
+private descriptor, so its local restart remains valid even when a newer revision
+has since finished downloading. Selecting that installed revision explicitly
+activates it. Re-selecting the identical active descriptor is idempotent and does
+not restart screen capture.
 
 ## Original recordings
 

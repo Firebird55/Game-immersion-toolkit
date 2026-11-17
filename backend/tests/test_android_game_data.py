@@ -140,3 +140,74 @@ def test_delayed_plan_cannot_publish_after_a_b_a_and_other_account_stays_respons
     finally: release.set(); worker.join(3)
     assert not worker.is_alive() and result[0][0] == 409
     assert not host.game_data.plans and game(host)['installed_bytes'] == 0
+
+
+def test_offline_activation_uses_installed_revision_and_same_source_keeps_receiver_generation(account_host):
+    host = account_host; register(host, 'first')
+    provider = LocalProvider(LocalVoice(b'never used')); host.game_data.providers['zzz'] = provider
+    install(host, mode='text')
+    generation = host.session.start()
+    provider.revision = 'authored-two'
+    assert action(host, 'POST', '/zzz/plan', {**REQUEST, 'content_mode': 'text'})[0] == 200
+    row = game(host)
+    assert row['revision'] == 'authored-two' and row['installed_revision'] == 'authored-one'
+    assert row['can_activate']
+    assert action(host, 'POST', '/zzz/activate', {'revision': row['revision']})[0] == 409
+    assert action(host, 'POST', '/zzz/activate', {'revision': row['installed_revision']})[0] == 200
+    assert host.session.running and host.session.generation == generation
+    assert provider.downloads == 1 and provider.voice.calls == 0
+
+
+def test_newer_explicit_selection_fences_delayed_old_restore(account_host):
+    host = account_host; register(host, 'first')
+    provider = LocalProvider(LocalVoice(b'never used')); host.game_data.providers['zzz'] = provider
+    install(host, mode='text')
+    entered, release = threading.Event(), threading.Event(); restore = provider.restore
+    calls = [0]
+    def delayed(*args):
+        calls[0] += 1
+        if calls[0] == 1:
+            entered.set(); assert release.wait(3)
+        return restore(*args)
+    provider.restore = delayed; result = []
+    worker = threading.Thread(target=lambda: result.append(action(host, 'POST', '/zzz/activate', {'revision': 'authored-one'})))
+    worker.start(); assert entered.wait(2)
+    try:
+        assert action(host, 'POST', '/zzz/activate', {'revision': 'authored-one'})[0] == 200
+        generation = host.session.generation
+    finally: release.set(); worker.join(3)
+    assert not worker.is_alive() and result[0][0] == 409
+    assert host.session.generation == generation
+
+
+def test_late_update_finishes_cache_without_stealing_selected_source_across_restart(tmp_path):
+    frontend = tmp_path / 'reader'; frontend.mkdir(); (frontend / 'index.html').write_text('<head></head>')
+    provider = LocalProvider(LocalVoice(b'never used'))
+    root = tmp_path / 'application'
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': provider})
+    try:
+        install(host, mode='text')
+        original = host.session.direct_descriptor.copy()
+        provider.revision = 'authored-two'; provider.gate = threading.Event(); provider.started.clear()
+        status, value = action(host, 'POST', '/zzz/plan', {**REQUEST, 'content_mode': 'text'})
+        assert status == 200
+        row = value['game']
+        assert action(host, 'POST', '/zzz/download', {'plan_id': row['plan_id'], 'revision': row['revision']})[0] == 202
+        assert provider.started.wait(2)
+        assert action(host, 'POST', '/zzz/activate', {'revision': 'authored-one'})[0] == 200
+        provider.gate.set(); assert finished(host)['job']['status'] == 'complete'
+        assert game(host)['installed_revision'] == 'authored-two'
+        assert host.session.direct_descriptor == original
+    finally:
+        if provider.gate: provider.gate.set()
+        host.close()
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': provider})
+    try:
+        until = time.monotonic() + 3
+        while host.session.direct_descriptor is None and time.monotonic() < until:
+            host.snapshot(); time.sleep(.01)
+        assert host.session.direct_descriptor == original
+        assert action(host, 'POST', '/zzz/activate', {'revision': 'authored-two'})[0] == 200
+        assert host.session.direct_descriptor['revision'] == 'authored-two'
+        assert provider.downloads == 2
+    finally: host.close()

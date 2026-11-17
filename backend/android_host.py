@@ -152,9 +152,13 @@ class AndroidHost:
                 if session.index and session.index.game == ctx.game:
                     session.stop('Preserving saved original recordings before deletion')
             else:
-                active = {'schema': 'active-game-data-v1', 'game': ctx.game, 'directory': ctx.source_descriptor['directory']}
-                if ctx.phase == 'restore' and _read(session.root / 'active-game-data.json') != active:
+                active = {'schema': 'active-game-data-v1', 'game': ctx.game,
+                    'directory': ctx.source_descriptor['directory'], 'source': ctx.source_descriptor}
+                if (ctx.phase == 'restore' and not getattr(ctx, 'explicit_activation', False)
+                        and _read(session.root / 'active-game-data.json') != active):
                     raise GameDataError('active_game_changed', 'The selected game data changed.', 409)
+                if session.direct_descriptor == ctx.source_descriptor and session.index is not None:
+                    return
                 pointer = session.root / 'active-game-data.json'
                 previous = pointer.read_bytes() if pointer.exists() else None
                 _write(pointer, active)
@@ -182,9 +186,10 @@ class AndroidHost:
                 active = _read(session.root / 'active-game-data.json')
                 if active is None or active == {'schema': 'active-game-data-v1', 'game': None}:
                     return
-                if (not isinstance(active, dict) or set(active) != {'schema', 'game', 'directory'}
+                if (not isinstance(active, dict) or set(active) != {'schema', 'game', 'directory', 'source'}
                         or active['schema'] != 'active-game-data-v1' or active['game'] not in GAME_TITLES
-                        or not isinstance(active['directory'], str) or re.fullmatch('[0-9a-f]{64}', active['directory']) is None):
+                        or not isinstance(active['directory'], str) or re.fullmatch('[0-9a-f]{64}', active['directory']) is None
+                        or not isinstance(active['source'], dict) or active['source'].get('directory') != active['directory']):
                     raise ValueError('Invalid active game source')
             with self.game_restore_lock:
                 if session in self.game_restored:
@@ -192,7 +197,7 @@ class AndroidHost:
                 self.game_restored[session] = 'restoring'
             def restore():
                 try:
-                    self.game_data.restore(active['game'], expected_owner=owner)
+                    self.game_data.restore(active['game'], expected_owner=owner, source_descriptor=active['source'])
                 except (OSError, ValueError, GameDataError):
                     with session.lock:
                         try:
@@ -628,7 +633,7 @@ class AndroidHost:
                             if scope is not None:
                                 scope.check()
                             self._json(payload, status);return
-                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|data)', path)
+                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|activate|data)', path)
                 if path == '/api/game-data' or game_route:
                     if path == '/api/game-data' and self.command != 'GET':
                         self._json({'detail': 'Method unavailable'}, 405);return
@@ -645,7 +650,8 @@ class AndroidHost:
                     # Blocking provider I/O cannot hold the OCR/account lock.
                     if game_route:
                         game, action = game_route.groups()
-                        operation = {'plan': host.game_data.plan, 'download': host.game_data.download, 'data': host.game_data.delete}[action]
+                        operation = {'plan': host.game_data.plan, 'download': host.game_data.download,
+                            'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
                         payload = operation(game, value, expected_owner=owner)
                         status = 202 if action == 'download' else 200
                     else:
