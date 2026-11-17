@@ -68,12 +68,12 @@ class Fixture:
         self.owners[source.DIALOG_GRAPHS + 'owned.json'] = 'main/abc123.ab'
         self.manifest = registry(self.owners)
         self.index4, _ = index([(source.MANIFEST, self.manifest)], 4)
-        self.indices = {}
+        self.indices, self.bundle_payloads, self.container_requests = {}, {}, []
         for block, role in ((2, 'initial'), (11, 'main')):
             files = [('Data/Bundles/Windows/' + name, b'owned fixture bundle')
                      for name in sorted(set(self.owners.values())) if name.startswith(role + '/')]
             if files:
-                self.indices[block], _ = index(files, block)
+                self.indices[block], self.bundle_payloads[block] = index(files, block)
         self.calls, self.reads = [], []
         self.corrupt_manifest = self.corrupt_index = False
         self.declared_size, self.changed_etag = None, False
@@ -107,9 +107,14 @@ class Fixture:
                 assert range_ is None
                 return Response(url, fixture.index4, 200)
             if url.endswith('.chk'):
-                assert '/00000004/' in url and url.endswith('/' + CHUNK)
-                raw = fixture.manifest
-                if fixture.corrupt_manifest: raw = raw[:-1] + bytes([raw[-1] ^ 1])
+                assert url.endswith('/' + CHUNK)
+                if '/00000004/' in url:
+                    raw = fixture.manifest
+                    if fixture.corrupt_manifest: raw = raw[:-1] + bytes([raw[-1] ^ 1])
+                else:
+                    block = next(block for block in fixture.bundle_payloads if '/' + fixture.common.directories[block] + '/' in url)
+                    fixture.container_requests.append(url)
+                    raw = fixture.bundle_payloads[block]
             else:
                 block = next(block for block in fixture.indices if url.endswith('/' + fixture.common.directories[block] + '.blc'))
                 raw = fixture.indices[block]
@@ -317,6 +322,16 @@ def test_ordinary_provider_continues_actual_text_receipt_through_navigation_stag
         assert continuation['stage'] == 'original-text-navigation-verified'
         ctx = original.context()
         ctx.stage_handle = continuation
+        container_plan = provider.plan(original.request, ctx)
+        assert container_plan.stage == 'original-presentation-containers'
+        assert len(json.dumps(container_plan.handle)) < 1024**2
+        downloading = original.context('download', container_plan.download_bytes)
+        retained = provider.download(container_plan, downloading)
+        assert isinstance(retained, PreparationStage) and not isinstance(retained, SnapshotSource)
+        assert retained.restore_handle['stage'] == 'original-presentation-containers-downloaded'
+        assert len(original.container_requests) == 1
+        assert 0 < downloading.consumed <= container_plan.download_bytes
+        ctx.stage_handle = retained.restore_handle
         with pytest.raises(GameDataError, match='AES/header'):
             provider.plan(original.request, ctx)
         assert not any('/Audio' in url or url.endswith('.dll') for url, _ in original.calls)

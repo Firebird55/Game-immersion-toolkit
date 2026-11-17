@@ -10,7 +10,7 @@ from backend.tests.test_endfield_text_source import Fixture, catalog
 from backend.tests.test_endfield_release import text_table
 
 
-@pytest.mark.parametrize('stage', ['original-text-tables-downloaded', 'original-text-navigation-pending'])
+@pytest.mark.parametrize('stage', ['original-text-tables-downloaded', 'original-text-navigation-pending', 'original-presentation-containers-downloaded'])
 def test_same_client_new_resource_replans_text_and_retains_prior_exact_source(tmp_path, monkeypatch, stage):
     original = Fixture(tmp_path)
     try:
@@ -24,6 +24,9 @@ def test_same_client_new_resource_replans_text_and_retains_prior_exact_source(tm
                         'request': original.request.json(), 'source': bootstrap, 'text': reference}
         continuation = tables_stage if stage == tables_stage['stage'] else {
             'schema': 1, 'stage': stage, 'client': original.client, 'request': original.request.json(), 'tables': tables_stage}
+        if stage == 'original-presentation-containers-downloaded':
+            import hashlib
+            continuation['source'] = {'generation_sha256': hashlib.sha256(game._json_bytes(old_generation)).hexdigest()}
         old_ready = tmp_path / 'old-complete-library.json'
         old_ready.write_bytes(b'old complete library retained')
         original.generation = copy.deepcopy(original.generation)

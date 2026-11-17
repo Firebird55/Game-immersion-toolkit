@@ -488,6 +488,54 @@ these fixtures are simulated where already described. This is recovery control
 flow evidence, not an additional live publisher/key-rotation or Ready acceptance
 claim.
 
+### Selected original graph/UI container stage — November 17
+
+`endfield_presentation_bundles` now continues the exact navigation receipt into
+a separately quoted original-container acquisition stage in both content modes.
+Its bounded private plan retains all authored members and is bound to the
+complete navigation inventory. The finished source receipt preserves every
+file's source hash, offset and nonce. Only an inventory hash and scalar counts
+go into the service handle. Equal source bytes may share physical cache storage; authored member
+identities are not merged into dialogue/voice aliases. Original containers may
+include other bundled data, so that overhead is disclosed. No dedicated audio
+pack or playback decoder is requested by this text-presentation stage, and the
+unknown decoded-library size is not represented as zero.
+
+The quote includes whole required containers, verified-cache subtraction,
+navigation revalidation and bounded metadata/client rechecks. Online no-ETag
+navigation still requires its quoted complete index read. If the fresh valid
+index changes the selected source members, the provider returns the new exact
+navigation stage before any previously selected container is transferred. A
+changed registry similarly returns to its separately quoted navigation path.
+Every fetched whole container must satisfy its current original MD5 after any
+authored outer stream layer. Publication requires every selected source and
+another matching client/resource check. Failed/cancelled updates keep the old
+complete source; checked partial files reduce the next quote. Exact source
+restore uses only the bound receipt/navigation and complete cached original
+members, without network or an AES/capture-readiness claim.
+
+The new source-stable cached-original replay verifies all 3,104 current original
+containers, totaling 15,053,264 bytes, in both modes with zero new network/body
+acquisition. The private inventories are 1,231,218 / 1,231,224 bytes while their
+handles are only 4,909 / 4,921 bytes, below the 1-MiB handle contract. These
+originals are reused through same-volume hardlinks without another large physical
+copy. The no-ETag replay separately quotes and charges the complete
+33,483,621-byte cached-response index read; it does not turn old local hashes
+into a fresh live publisher assertion. Retained source files are unchanged.
+Cached-response/local-recheck and conservative resource-index-length
+qualifications from the previous stage still apply.
+
+All 643 scoped Endfield tests pass with the immutable shared dependency
+checkpoint. Cases cover both modes, main/initial owners, compact inventories,
+member-preserving byte reuse, a valid changed index behind the same short header,
+late generation changes, budget/cancellation/checksum failure, retained partials,
+exact offline source restore and same-client hotfix replanning after this stage.
+The ordinary provider reaches `original-presentation-containers-downloaded`,
+which is still `PreparationStage`. Both `aes_header_parameters_verified` and
+`canonical_snapshot_prepared` remain false. Official AES/header provenance,
+canonical graph/UI decoding, complete dialogue construction, selected-voice
+materialization and host/device acceptance remain open before Ready. No release.
+
 ### Remaining AES/header source boundary — November 17
 
 A bounded original-source pass spent 4,070 bytes of its 8-KiB allowance and

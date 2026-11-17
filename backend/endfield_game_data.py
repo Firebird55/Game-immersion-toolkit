@@ -131,8 +131,14 @@ class EndfieldGameDataProvider:
             if continuation.get('stage') == 'original-text-navigation-pending':
                 return self._plan_navigation(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-text-navigation-verified':
+                return self._plan_bundles(request, ctx, identity, transport, continuation)
+            if continuation.get('stage') == 'original-presentation-containers-downloaded':
+                from .endfield_resource_source import discover
+                generation = discover(ctx, identity, transport)
+                if continuation['source']['generation_sha256'] != hashlib.sha256(_json_bytes(generation)).hexdigest():
+                    return self._restart_resources(request, ctx, identity, transport, continuation['tables']['source'], generation)
                 raise Error('source_not_prepared',
-                    'Endfield original text and presentation navigation are verified. Selected graph/UI bundles and their AES/header provenance still need preparation before a complete capture-ready library; existing data is retained.')
+                    'Endfield complete original text and selected presentation containers are retained. Official AES/header provenance and canonical presentation decoding still precede a capture-ready library; existing data is retained.')
             if continuation.get('stage') == 'client-bootstrap-downloaded':
                 if request.content_mode == 'text':
                     return self._plan_text(request, ctx, identity, transport, continuation)
@@ -194,6 +200,8 @@ class EndfieldGameDataProvider:
             return self._download_text(plan, ctx)
         if plan.stage in {'original-text-manifest', 'original-text-navigation-indices'}:
             return self._download_navigation(plan, ctx)
+        if plan.stage == 'original-presentation-containers':
+            return self._download_bundles(plan, ctx)
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
@@ -368,7 +376,7 @@ class EndfieldGameDataProvider:
             'request': ctx.request.json(), 'source': continuation, 'text': reference},
             'Endfield complete selected original text tables are verified. Canonical dialogue snapshot and selected-audio materialization still follow; no library is active.')
 
-    def _plan_navigation(self, request, ctx, identity, transport, continuation):
+    def _plan_navigation(self, request, ctx, identity, transport, continuation, *, generation=None):
         from .endfield_bootstrap_source import SMALL_TOTAL
         from .endfield_resource_source import discover
         from .endfield_text_source import Catalog
@@ -380,7 +388,7 @@ class EndfieldGameDataProvider:
         except (ValueError, KeyError, TypeError) as error:
             raise Error('unsupported_original_metadata', 'Endfield original navigation parameters could not be derived. Existing data is retained.') from error
         catalog = Catalog(ctx, identity, common, tables_stage['text'])
-        generation = discover(ctx, identity, transport)
+        generation = generation if generation is not None else discover(ctx, identity, transport)
         if generation != catalog.generation:
             return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
         content, _ = navigation_plan(ctx, identity, common, generation, transport)
@@ -429,6 +437,59 @@ class EndfieldGameDataProvider:
         if not isinstance(source, dict) or source.get('stage') != 'original-audio-master-verified':
             raise Error('invalid_local_state', 'Endfield changed and needs its exact original audio source before replanning.')
         return self._plan_control(request, ctx, identity, transport, source.get('native'), generation=generation)
+
+    def _plan_bundles(self, request, ctx, identity, transport, continuation):
+        from .endfield_bootstrap_source import SMALL_TOTAL
+        from .endfield_resource_source import discover
+        from .endfield_text_source import Catalog
+        from .endfield_presentation_bundles import plan as bundle_plan
+        Error, Plan, _, _ = _contracts()
+        tables_stage = continuation['tables']
+        try:
+            common = self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield original presentation-source parameters could not be derived. Existing data is retained.') from error
+        catalog = Catalog(ctx, identity, common, tables_stage['text'])
+        generation = discover(ctx, identity, transport)
+        if generation != catalog.generation:
+            return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
+        try:
+            content, _ = bundle_plan(ctx, identity, common, generation, continuation['navigation'], transport)
+        except Error as error:
+            if error.code != 'publisher_navigation_changed':
+                raise
+            return self._plan_navigation(request, ctx, identity, transport, continuation, generation=generation)
+        handle = {'schema': 1, 'stage': content['stage'], 'client': identity, 'request': request.json(),
+                  'tables': tables_stage, 'source': continuation, 'containers': content}
+        return Plan(revision='endfield-resources-' + hashlib.sha256(_json_bytes(generation)).hexdigest(),
+            download_bytes=content['download_bytes'] + 3 * LAUNCHER_LIMIT + 4 * SMALL_TOTAL,
+            required_disk_bytes=content['required_disk_bytes'], handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage=handle['stage'],
+            message='Exact selected original graph/UI containers plus current navigation and source rechecks. Mixed-container overhead is included; decoded library size and verified presentation decoding follow. No game library is active.')
+
+    def _download_bundles(self, plan, ctx):
+        Error, _, Stage, _ = _contracts()
+        continuation = plan.handle.get('source')
+        current = self._plan(ctx.request, ctx, continuation)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original presentation-source quote changed. Check its size again.')
+        from .endfield_resource_source import discover
+        from .endfield_presentation_bundles import download
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        tables_stage = current.handle['tables']
+        common = self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        result = download(ctx, identity, common, current.handle['containers'], transport,
+            recheck=lambda: (self._latest(ctx.request, transport)[0], discover(ctx, identity, transport)))
+        if result.get('selection_changed'):
+            return Stage({'schema': 1, 'stage': 'original-text-navigation-verified', 'client': identity,
+                'request': ctx.request.json(), 'tables': tables_stage, 'navigation': result['navigation']},
+                'Endfield selected original source files changed. Navigation is rechecked; approve a new container-size estimate before downloading them.')
+        return Stage({'schema': 1, 'stage': result['stage'], 'client': identity,
+            'request': ctx.request.json(), 'tables': tables_stage, 'source': result},
+            'Endfield complete selected original presentation containers are retained. Official AES/header provenance and canonical presentation decoding are still required; no game library is active.')
 
 
 def create_provider(*, platform, native=None, transport_factory=None):
