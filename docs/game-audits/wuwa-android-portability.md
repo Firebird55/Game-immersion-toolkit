@@ -58,6 +58,12 @@ the next plan reports the unresolved release-manifest key/IV gate with Download
 and activation unavailable. Delete removes this game's managed cache while
 preserving other games and saved history. The shared service keeps the previous
 working content pointer when a stage is incomplete or verification fails.
+A metadata-only quote handle cannot restore as a verified module: it reports
+`publisher_bootstrap_incomplete`. Only a locally revalidated completed bootstrap
+stage reports the unresolved manifest-format gate. Ordinary compatibility
+preparation likewise distinguishes missing, invalid, wrong-generation and
+source-authentication ENTRY failures while keeping prior text/audio available;
+none of those states automatically means the game package format changed.
 
 Synthetic complete signed-APK tests exercise the actual shared service and
 transport on both logical platforms, text/text-audio selections, cancellation,

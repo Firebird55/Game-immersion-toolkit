@@ -394,6 +394,45 @@ bodies, generic key/URL search or original execution were added. This narrow
 negative result leaves the ENTRY-key/IV gap open and does not establish that an
 official route is unavailable.
 
+### Named update-field ownership and failure boundaries
+
+Only the existing authenticated config declarations were followed for the
+retained `PackageUpdateDescUrl`, `ParallelPackageDescUrl` and `PackageUpdateUrl`
+field names. `Launcher/BaseConfig/BaseConfigModel.js` defines them in
+`EntryJson.constructor(i,s)`: it initializes them as undefined, then copies the
+supplied object values with override selection. Those assignments establish a
+config-field initializer, not an embedded URL, ENTRY parameter producer or
+independent current resource/four-dub descriptor. No new request, original
+module body or cleanup/lifecycle branch was added. The exact missing evidence
+remains an independently obtainable ENTRY key/IV owner or independently owned
+active resource/dub manifest chain.
+
+The ordinary compatibility reader now reports separate failures for an absent
+ENTRY input, an unverifiable protected cache, a different cache generation,
+failed pinned-source checksum authentication, invalid key/IV declarations and
+failed safe retention. A present invalid or other-generation cache is not
+silently treated as a cold miss. Malformed response framing is distinct from a
+verified pinned input that cannot decrypt the current manifest. The latter
+reports the unresolved current ENTRY-verification step; it does not assert that
+the game package format changed. Public messages contain no raw input values,
+private paths or underlying cryptographic diagnostics.
+
+This changes failure admission and labels, not source acquisition policy. The
+existing pinned compatibility input remains separately qualified and is never
+introduced as a fallback into the canonical Settings provider. A metadata-only
+bootstrap quote also cannot restore as though its module had been verified;
+it reports an incomplete bootstrap stage. Existing retained verified modules
+still reach the explicit ENTRY gate locally.
+
+Service/worker regressions exercise failure during discovery and inside the
+ordinary language worker, keeping a valid prepared table, selected language,
+source descriptor and original recording unchanged. Fresh index readers still
+match the old text and restore the old cached original offline without ENTRY
+or current-key access. Quote and retained-stage checks remain distinct from
+Ready. A read-only positive compatibility check also decodes the three retained
+Global/mainland/config responses with the existing verified input, without
+network or cache changes; it is not independently derived ENTRY acceptance.
+
 ## Acceptance still required
 
 The archive-default producer now has an authenticated current rule and ordinary
