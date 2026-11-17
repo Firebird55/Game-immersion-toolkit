@@ -311,7 +311,24 @@ planning. It requires a source-generation hash and an injected portable codec,
 rejects mismatched sources, duplicate keys, invalid counts and trailing bytes,
 and follows normal version/patch changes without a fixed URL revision. Original
 current hotfix replay and synthetic format fixtures pass. The untouched base
-inventory, package selection and end-to-end normal updates remain unverified.
+inventory was initially outside that probe; package selection and end-to-end
+normal updates remain unverified.
+
+The exact official cold-base binary was subsequently obtained in its own
+bounded acquisition: 75,806,853 body bytes, unchanged strong ETag/length before
+and after, and an exact match to the previously retained 32-byte prefix. Its
+local whole-object SHA-256 is
+`9933508aae458840a4eb3cab41bc394ee8a9f287c595c00f18d534cd94ac563f`.
+This binds the retained bytes to the recorded source generation; the ETag is
+not automatically a publisher MD5 and no separate authored checksum was found.
+The same owned inventory reader decodes exactly 271,792,142 bytes and parses
+101 records to EOF, containing 1,116,852 map-A, 536,864 map-B and 1,117,247 map-C
+entries. Original authored package names include `Default_Loc`, `L10N`, Lua and
+EN/JA/ZH voice groups with story/event variants. These names do not prove
+dialogue extraction, active scene coverage or playback. Map semantics, actual
+resource/package URI ownership and selection sizes still need their original
+consumers. The retained compressed and decoded base metadata together use
+347,598,995 bytes; this is bootstrap metadata cost, not a text/audio quote.
 
 `backend/infinity_nikki_pak_material.py` now implements the default PAK producer
 discovery without fixed addresses, keys or a disassembler. It follows the proven
