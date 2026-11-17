@@ -1,5 +1,120 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Original publisher key-update provider
+
+Ordinary publisher discovery now follows the original launcher's
+`PakKeyUpdate` route. It uses the selected publisher CDN's native `MixUri`
+and the actual configuration's **PackageVersion**, independently of the
+resource revision. The observed package version is `3.8.0`; using the current
+resource revision `3.8.11` in that filename would be wrong. Resource keys come
+from `KeyList_<PackageVersion>.json`, while video keys use `KeyList.json`.
+Each list owns a separate `PakData` path and complete SHA1. Requests remain on
+the discovered publisher host, with bounded inputs and no redirect expansion.
+[Original publisher configuration](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+· [Original resource key metadata](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/KeyList_3.8.0.json).
+
+The current publisher supplies **14 resource and 248 video UUID-owned
+parameters**. The bounded reader accepts a strict standard public operation:
+little-endian 1024-bit modulus, exponent 65537, complete PKCS#1 type-1 padding,
+and an exact canonical UUID/comma/Base64-32-byte record. This operation is
+**inferred and corroborated by original cryptographic package checks**. The
+packed native `LoadKeys` body was neither executed nor decoded. Epic documents
+the engine interface's little-endian key components; that reference alone
+does not prove Kuro's implementation.
+[Epic's original cryptographic interface](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/IEngineCrypto).
+
+Candidates are selected only by the original footer's exact FGuid. They never
+become unrelated/default guesses. A previously unverified candidate must
+decrypt both **complete original main and directory indices** and pass their
+native hashes, even when plaintext indices are already cached. Only then may
+the existing protected verified-parameter store retain that selected value.
+That protected record keeps native UUID ownership separate from legacy inputs.
+A verified native value cannot reappear as an unbound candidate through an
+older cache or a later foreign feed after its UUID is removed. Equal bytes
+establish no default ownership: only a separate complete package verification
+with the native zero FGuid records that proof. Retained A descriptors still
+restore their authentic A inputs after B removes a UUID. Failed protected
+native-ownership publication stops preparation and retains the prior envelope.
+Every new UUID/default owner requires both complete original index checks,
+even when equal bytes were previously verified for another owner. A current
+native source with an empty list still refuses unknown nonzero FGuids instead
+of trying the legacy/default baseline. Protected writes reject invalid role
+combinations before publication and verify the retained record under the same
+writer lock; candidate construction reads one consistent protected envelope.
+Original encoded wire inputs are cached separately by publisher, region,
+version, role and original hashes; decoded candidate values are not written
+there. Immutable descriptors reference those inputs, and normal final-pointer
+checks include both KeyLists. Explicit retained replay restores its exact old
+inputs without querying a current endpoint for historical discovery.
+
+An actual cold production-path check used **zero third-party/default
+parameters**, a fresh isolated cache and only those original publisher inputs.
+The actual later voice-package entry point also passed this cold check with the
+legacy feed unavailable and no protected archive parameters. Only an absent or
+valid protected empty legacy collection permits that narrow fallback; a present
+corrupt envelope, other preparation errors and default/unknown footer GUIDs keep
+their refusals. The separately hash-pinned catalogue codec was retained.
+After the protected-provenance refinement, replay of the original saved range
+bytes and their download hash receipts passed the same complete-index checks
+through the final voice-package entry point, with no new network transfer.
+The original `Video_114_2-SD` footer FGuid matched its recovered record; its
+176-byte main and 32-byte directory decrypted and passed both native SHA1s.
+The exact `C0001.mp4` owner was present. The complete check transferred
+**736 metadata bytes**, including footer/sample, and no movie member. The
+protected store gained exactly one parameter after validation. All current
+values also occur in the frozen third-party corpus: this proves independence
+from that input for the check, not a newly observed publisher rotation.
+
+A separate native-only control on the current subtitle-table resource archive
+failed before index decryption. Its required parameter is not supplied by the
+fourteen runtime resource records. That failure is retained;
+the provider does not relabel it successful or silently substitute a seed.
+The independently verified frozen/default bootstrap route remains necessary.
+**Unknown bootstrap/default rotations and old first-discovery roots remain
+open**, so this is not complete autonomous recovery for every archive.
+
+Adding immutable key inputs changes the source stamp without changing game
+content. Production therefore reuses an older complete recording only when
+both descriptor hashes validate and every descriptor field agrees after
+removing only native-key-source references. The full depot/stamp recording
+hash and WEM framing must also validate. New binding publication is atomic;
+different releases, products, regions, roots or depots never borrow that cache.
+The first ordinary five-locale run reused **706** already verified source WEMs
+through this production path, with no manual priming or media-body transfer.
+
+The final-source ordinary workers preserve all records, apart from their
+publisher-stamp references: **144,129 English; 144,181 Japanese; 144,027 Korean;
+145,781 Simplified Chinese; 144,879 Traditional Chinese**. Both native input
+roles remain attached to each immutable source. No voice, caption, timing,
+translation or Rover binding changes. That final run used 627,164 ordinary
+metadata-download bytes, 12,840 native-key metadata bytes and 939,450 original
+ownership/INI/bank range bytes; no media bodies were requested.
+
+Actual full-index matching, stability and transcript storage then exercised
+fifteen retained-source playback cases: an existing verified sentence interval,
+the stereo M3 context and the standard-surround M0357 context in each study
+selection. Normal single and batch exports agree. A fresh process with every
+network entry point forbidden reproduces the same fifteen MP3, original WEM
+and native PCM hashes. Every old-source WEM remains identical; complete context
+frames and the disclosed surround presentation are preserved. These are
+controlled native-text captures, not image OCR or physical window capture.
+The first private playback plan's unavailable individual-recording selection
+and its separate harness-cleanup error are retained; no new media was acquired
+to fill that test plan.
+
+One actual **mainland discovery-only** check also follows its `.com` bootstrap,
+MixUri and PackageVersion, decodes 262 UUID records and restores the same
+region-partitioned inputs. It used 380,092 metadata bytes and no table/media
+members. This is not mainland worker or playback acceptance. Synthetic checks
+cover new modulus/parameter records, revocation of untried candidates, malformed
+padding/UUID/Base64/hash, conflicting duplicates, region/version/host separation,
+cache damage, source outage and interrupted publication. Actual language-worker
+failure controls preserve the previous index and saved recording bytes.
+
+This provider change adds no new spoken-film claim. The unresolved lexical
+event, global creature performances, short/conflicting recognition and remaining
+presentation inventory below retain their existing guards and statuses.
+
 ## November 17, 2026 · Remaining event and recognition causes
 
 A fresh native-caption census distinguishes unsupported scene event graphs
@@ -46,7 +161,8 @@ positive/mutation controls passed; the two previously authenticated cached PE
 objects contained no matching representation. This bounded passive negative
 result uses no new network bytes or native execution. It does not derive a
 new key, cover the unacquired executable prefix or establish autonomous recovery
-after an unknown rotation. That update limitation remains open.
+after an unknown bootstrap/default rotation. That limitation remains open;
+the separately verified native runtime-key route is described above.
 
 ## November 17, 2026 · Standard surround film sources and global performance veto
 
@@ -239,7 +355,7 @@ These capture observations replay official text through the real full index,
 stability, transcript and voice components; they do not establish image OCR or
 physical capture for these new captions. This finite Global English/Chinese
 trial establishes genuine changed-content uptake and failure/restart retention.
-Unknown rotated-key derivation, regional first-discovery recovery, remaining
+Unknown bootstrap/default-key derivation, regional first-discovery recovery, remaining
 film/music/presentation bindings and all-locale/platform acceptance remain open.
 
 ## November 17, 2026 · Explicit retained-catalogue verification
