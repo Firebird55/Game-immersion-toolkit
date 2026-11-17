@@ -77,6 +77,7 @@ class Fixture:
         self.calls, self.reads = [], []
         self.corrupt_manifest = self.corrupt_index = False
         self.declared_size, self.changed_etag = None, False
+        self.no_etag = self.weak_etag = self.changed_header = False
 
     def context(self, phase='plan', budget=None):
         return _Context(self.service, self.root, 'local', 'endfield', self.request,
@@ -113,9 +114,12 @@ class Fixture:
                 block = next(block for block in fixture.indices if url.endswith('/' + fixture.common.directories[block] + '.blc'))
                 raw = fixture.indices[block]
                 if fixture.corrupt_index and range_ != 'bytes=0-15': raw = raw[:-1] + bytes([raw[-1] ^ 1])
+                if fixture.changed_header and range_ != 'bytes=0-15': raw = bytes([raw[0] ^ 1]) + raw[1:]
             low, high = map(int, range_.removeprefix('bytes=').split('-'))
             total = fixture.declared_size if fixture.declared_size and url.endswith('.blc') else len(raw)
             tag = '"changed-original"' if fixture.changed_etag and high != 15 else '"actual-original"'
+            if fixture.no_etag: tag = None
+            if fixture.weak_etag: tag = 'W/"weak-original"'
             return Response(url, raw[low:high + 1], 206, f'bytes {low}-{high}/{total}', tag)
         return PublisherTransport(ctx, hosts={'beyond.hg-cdn.com'}, opener=server)
 
@@ -184,7 +188,7 @@ def test_large_index_preflight_stays_inside_real_plan_metadata_budget(original):
     assert plan['required_disk_bytes'] > plan['payload_bytes']
 
 
-@pytest.mark.parametrize('change', ['crc', 'etag', 'generation', 'budget', 'cancel', 'plan'])
+@pytest.mark.parametrize('change', ['crc', 'etag', 'header', 'generation', 'budget', 'cancel', 'plan'])
 def test_failed_navigation_refresh_keeps_previous_complete_receipt(original, change):
     first, index4 = original.plan()
     original.download(first, index4)
@@ -196,6 +200,7 @@ def test_failed_navigation_refresh_keeps_previous_complete_receipt(original, cha
     plan, index4 = original.plan()
     if change == 'crc': original.corrupt_index = True
     elif change == 'etag': original.changed_etag = True
+    elif change == 'header': original.changed_header = True
     elif change == 'plan': plan['manifest_index_sha256'] = '0' * 64
     with pytest.raises(GameDataError):
         if change == 'cancel':
@@ -205,6 +210,52 @@ def test_failed_navigation_refresh_keeps_previous_complete_receipt(original, cha
         else:
             original.download(plan, index4, changed=change == 'generation', budget=0 if change == 'budget' else None)
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('validator', ['absent', 'weak'])
+def test_no_strong_validator_quotes_full_current_index_and_retains_exact_offline_source(original, validator):
+    original.no_etag = validator == 'absent'
+    original.weak_etag = validator == 'weak'
+    first, index4 = original.plan()
+    original.download(first, index4)
+    plan, index4 = original.plan()
+    old = original.download(plan, index4)
+    calls = len(original.calls)
+    old_body, old_owners, old_files = source.restore(original.context(), original.client, original.common, original.generation, old)
+    assert len(original.calls) == calls
+    assert old_body['indices'][0]['freshness']['kind'] == 'complete-current-response'
+    assert old_body['indices'][0]['freshness']['transfer']['bytes'] == len(original.indices[11])
+    quote, index4 = original.plan()
+    assert not quote['indices'][0]['cached'] and quote['payload_bytes'] == len(original.indices[11])
+    # Manifest reuse really is content-addressed: the freshly fetched complete
+    # block4 index publishes its current MD5, and the whole cache matches it.
+    assert quote['manifest_cached'] and quote['stage'] == 'original-text-navigation-indices'
+    before = original.indices[11]
+    files = [('Data/Bundles/Windows/' + name, b'X' * len(b'owned fixture bundle')) for name in sorted(set(original.owners.values()))]
+    original.indices[11], _ = index(files, 11)
+    assert len(original.indices[11]) == len(before) and original.indices[11][:16] == before[:16]
+    # Same generation, URL and short header; a changed valid body is still read.
+    current = original.download(quote, index4)
+    assert current['receipt_sha256'] != old['receipt_sha256']
+    _, _, current_files = source.restore(original.context(), original.client, original.common, original.generation, current)
+    assert [row.content_hashes for row in current_files.values()] != [row.content_hashes for row in old_files.values()]
+    calls = len(original.calls)
+    assert source.restore(original.context(), original.client, original.common, original.generation, old)[1] == old_owners
+    assert len(original.calls) == calls  # Offline exact-source restore is not an online freshness claim.
+
+
+def test_changed_current_publisher_manifest_digest_requires_new_payload_quote(original):
+    original.no_etag = True
+    first, index4 = original.plan()
+    original.download(first, index4)
+    assert original.plan()[0]['manifest_cached']
+    original.owners[source.DIALOG_GRAPHS + 'future.json'] = 'main/ddd.ab'
+    original.manifest = registry(original.owners)
+    original.index4, _ = index([(source.MANIFEST, original.manifest)], 4)
+    quote, _ = original.plan()
+    assert quote['stage'] == 'original-text-manifest' and not quote['manifest_cached']
+    assert quote['manifest']['content_hashes'][1] == hashlib.md5(original.manifest).hexdigest()
+    assert quote['payload_bytes'] == len(original.manifest)
 
 
 @pytest.mark.parametrize('change', ['MD5', 'missing-ui', 'too-large-index'])

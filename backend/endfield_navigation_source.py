@@ -101,6 +101,11 @@ def _index_key(identity, generation, url):
 
 
 def _cached_index(ctx, identity, generation, common, entry):
+    # A prior local SHA and matching short header do not prove the whole current
+    # object. No current per-index publisher content digest is supplied by this
+    # discovery route. Without an actual strong validator, quote a complete read.
+    if entry['owner']['response_etag'] is None:
+        return None
     read, _, _, no_links = _helpers()
     path = _root(ctx) / 'index-owners' / (_index_key(identity, generation, entry['url']) + '.json')
     no_links(path)
@@ -238,11 +243,12 @@ def download(ctx, identity, common, approved, manifest_index, transport, *, rech
         if entry['url'] != url or entry['bytes'] != entry['owner']['bytes'] or not HEADER <= entry['bytes'] <= MAX_BUNDLE_INDEX:
             raise Error('publisher_size_changed', 'Endfield original index range differs from the quote.')
         value = _cached_index(ctx, identity, approved['generation'], common, entry)
+        transfer = None
         if value is None:
             if entry['cached']:
                 raise Error('invalid_local_state', 'Endfield cached original index needs a new size plan.')
             headers = {'If-Match': entry['owner']['response_etag']} if entry['owner']['response_etag'] else None
-            value, _ = transport.fetch_bytes(url, limit=entry['bytes'], expected_size=entry['bytes'], kind='metadata',
+            value, transfer = transport.fetch_bytes(url, limit=entry['bytes'], expected_size=entry['bytes'], kind='metadata',
                 original_range=(0, entry['bytes'], entry['bytes']), headers=headers)
             if _sha(value[:HEADER]) != entry['owner']['header_sha256']:
                 raise Error('publisher_object_changed', 'Endfield original index changed after its bounded preflight.', 409)
@@ -251,7 +257,11 @@ def download(ctx, identity, common, approved, manifest_index, transport, *, rech
         except ValueError as error:
             raise Error('unsupported_original_navigation', 'Endfield complete original bundle index failed its CRC/type checks.') from error
         indices[entry['block']] = value
-        controls.append({'block': entry['block'], 'owner': entry['owner'], 'sha256': _sha(value), 'url': url})
+        freshness = ({'kind': 'publisher-strong-etag', 'etag': entry['owner']['response_etag']}
+                     if entry['owner']['response_etag'] else
+                     {'kind': 'complete-current-response', 'transfer': transfer.json()})
+        controls.append({'block': entry['block'], 'owner': entry['owner'], 'sha256': _sha(value), 'url': url,
+                         'freshness': freshness})
     try:
         files = _selection(common, owners, indices)
     except ValueError as error:
@@ -280,3 +290,58 @@ def download(ctx, identity, common, approved, manifest_index, transport, *, rech
     return {'schema': 1, 'stage': 'original-text-navigation-verified', 'receipt_sha256': digest,
         'client_sha256': identity_stamp(identity), 'generation_sha256': _sha(_json(approved['generation'])),
         'selected_bundle_count': len(files), 'selected_bundle_payload_bytes': body['selected_bundle_payload_bytes']}
+
+
+def restore(ctx, identity, common, generation, reference):
+    """Offline exact-source read; never claim current online object freshness."""
+    read, _, Error, no_links = _helpers()
+    ctx.check()
+    try:
+        if (not isinstance(reference, dict) or reference.get('schema') != 1 or
+                reference.get('stage') != 'original-text-navigation-verified' or
+                reference.get('client_sha256') != identity_stamp(identity) or
+                reference.get('generation_sha256') != _sha(_json(generation)) or
+                not re.fullmatch('[0-9a-f]{64}', reference.get('receipt_sha256', ''))):
+            raise ValueError('Original source reference differs')
+        path = _root(ctx) / 'sources' / (reference['receipt_sha256'] + '.json')
+        no_links(path)
+        body = read(path)
+        if (_sha(_json(body)) != reference['receipt_sha256'] or body['client'] != identity or
+                body['generation'] != generation or body['request'] != ctx.request.json() or
+                body['schema'] != 1 or body['kind'] != 'endfield-original-text-navigation'):
+            raise ValueError('Original source receipt differs')
+        def original(digest, limit):
+            if not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest):
+                raise ValueError('Original index identity is invalid')
+            target = _root(ctx) / 'indices' / (digest + '.blc')
+            no_links(target)
+            if not target.is_file() or not 16 <= target.stat().st_size <= limit:
+                raise ValueError('Original complete index is missing')
+            raw = target.read_bytes()
+            if _sha(raw) != digest:
+                raise ValueError('Original complete index differs')
+            return raw
+        index4 = original(body['manifest_index_sha256'], SMALL_INDEX)
+        manifest, = vfs.parse_index(index4, _params(common), 4, suffix='.hgmmap', names=frozenset({MANIFEST}))
+        if _file(manifest) != body['manifest']:
+            raise ValueError('Original registry ownership differs')
+        raw = _manifest(ctx, common, manifest)
+        if raw is None:
+            raise ValueError('Original complete registry is missing')
+        owners = _owners(raw)
+        indices = {}
+        if not isinstance(body['indices'], list) or not 1 <= len(body['indices']) <= 2:
+            raise ValueError('Original index owners are invalid')
+        for entry in body['indices']:
+            block = entry['block']
+            if block not in (2, 11) or block in indices or entry['url'] != _base(identity, common, generation, block) + common.directories[block] + '.blc':
+                raise ValueError('Original index owner differs')
+            indices[block] = original(entry['sha256'], MAX_BUNDLE_INDEX)
+        files = _selection(common, owners, indices)
+        actual = _sha(_json({'owners': owners, 'files': [_file(files[key]) for key in sorted(files)]}))
+        if actual != body['selection_sha256']:
+            raise ValueError('Original asset selection differs')
+    except (ValueError, KeyError, TypeError, OSError) as error:
+        raise Error('invalid_local_state', 'Endfield exact original navigation source is missing or changed. Existing prepared data is retained.') from error
+    ctx.check()
+    return body, owners, files
