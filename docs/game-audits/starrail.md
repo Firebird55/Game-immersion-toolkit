@@ -170,6 +170,14 @@ output. The adapter verifies source identity, region hashes and complete graph
 reachability. Authored regressions cover split regions, external calls, dead
 truncated tails, overlap, indirect branches, limits and output preservation.
 This graph contract alone does not activate changed-codec metadata recovery.
+The delivered, source-bound SDK 10.0.403/runtime 10.0.14 apphost independently
+reproduces the current original type initializer's 708 instructions across two
+PE-owned regions / 4,295 source bytes, with identical addresses, lengths, edges,
+returns and region hashes to the static control. The production resolver checks
+all 207 resources and all nine exact source-input hashes. This graph replay
+uses the existing whole-MD5-verified official native file, with no SDK/runtime
+installation, metadata-dump dependency, transport or original code execution.
+See the [exact graph build identity](../../packaging/starrail-reader/README.md).
 
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone

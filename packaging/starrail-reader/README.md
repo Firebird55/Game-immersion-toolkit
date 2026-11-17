@@ -86,10 +86,24 @@ pins before extraction; restores used only that closed local feed. The shipped
 runtime members, corresponding sources and notices. Its build identity is
 `481994032e491f59a6d491e408c440c2f58f1cd63c28278c7b4d0a84bc849b26`.
 
-That published self-contained apphost regenerated metadata from complete
+That self-contained apphost regenerated metadata from complete
 manifest-MD5-verified Global 4.7 inputs with the SDK removed from `PATH` and
 `DOTNET_ROOT` pointing to an empty directory. Its 189,595,914-byte dump and
 12,498,550-byte literal map exactly matched the earlier control hashes. This
 proves the Windows helper's compiler-free execution and pinned build path;
 full desktop candidate acceptance, other platforms and the complete ordinary
 worker/update/recovery acceptance remain separate requirements.
+
+The subsequent graph bridge at source commit
+`9a0c4dcc6c00b129c68639391f5e7f328f14cc79` also passed the exact SDK/runtime
+build, authored malformed-input probes and production prebuilt resolver. Its
+207-resource local payload has build identity
+`c30cfd97613122bda90c8fd80b1c5a3c2a9fdacccd89ee0037075aef3e1a7f29`;
+all nine owned source-input hashes match exactly. With no installed SDK/runtime
+available, the apphost reproduces the original Global 4.7 type-initializer graph:
+708 instructions, two PE-owned regions and 4,295 source bytes. Addresses,
+instruction lengths, edges, returns and region hashes match an independent
+static control. The complete original native file's manifest MD5 is rechecked;
+no metadata dump or original instruction execution is used for this graph.
+This proves the delivered Windows graph contract, while complete metadata-key
+recovery and ordinary worker/platform acceptance remain separate.
