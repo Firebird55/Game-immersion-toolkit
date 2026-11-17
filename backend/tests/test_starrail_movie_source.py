@@ -101,3 +101,27 @@ def test_exact_legacy_record_digest_still_replays_without_new_provenance_request
     assert metadata.load(tmp_path, revision, digest).digest == digest
     with pytest.raises(ValueError):
         metadata.load(tmp_path, revision, 'b' * 64)
+
+
+def test_listing_success_but_body_failure_retains_pointer_then_retries_identical_commit(tmp_path, monkeypatch):
+    from urllib.error import URLError
+    revision = '1' * 40
+    source_fixture(monkeypatch, {name: b'{}' for name in metadata.FILES}, revision)
+    monkeypatch.setattr(metadata, 'latest_revision', lambda: revision)
+    assert metadata.check_latest(tmp_path) == (revision, False)
+    pointer = tmp_path / 'starrail-movie-formats/current.json'
+    original_pointer = pointer.read_bytes()
+    next_revision = '2' * 40
+    source_fixture(monkeypatch, {name: b'{}' for name in metadata.FILES}, next_revision)
+    fetch = metadata.download
+    def unavailable(url, *, limit):
+        if 'raw.githubusercontent' in url:
+            raise URLError('temporary body outage with a healthy listing')
+        return fetch(url, limit=limit)
+    monkeypatch.setattr(metadata, 'latest_revision', lambda: next_revision)
+    monkeypatch.setattr(metadata, 'download', unavailable)
+    assert metadata.check_latest(tmp_path) == (revision, True)
+    assert pointer.read_bytes() == original_pointer
+    monkeypatch.setattr(metadata, 'download', fetch)
+    assert metadata.check_latest(tmp_path) == (next_revision, False)
+    assert json.loads(pointer.read_bytes()) == {'revision': next_revision}

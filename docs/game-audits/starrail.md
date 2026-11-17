@@ -41,6 +41,10 @@ cache. Earlier records with an already pinned complete digest retain offline
 compatibility. Malformed trees, changed bodies, oversized files and conflicting
 commit identities fail before publishing a replacement metadata generation.
 No downloaded code or media is part of this source operation.
+The current-revision pointer advances only after that complete validation. A
+healthy listing with unavailable bodies retains the previous proven revision
+and marks it stale; successful recovery at the same commit changes freshness
+and permits the ordinary watcher to retry the missing movie audio.
 
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three

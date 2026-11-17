@@ -241,6 +241,7 @@ def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path
 
 def test_optional_format_outage_retains_known_revision_and_recovers(tmp_path, monkeypatch):
     from urllib.error import URLError
+    monkeypatch.setattr(metadata, 'load', lambda *_: object())
     monkeypatch.setattr(metadata, 'latest_revision', lambda: '1' * 40)
     assert metadata.check_latest(tmp_path) == ('1' * 40, False)
     def offline():

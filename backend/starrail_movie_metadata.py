@@ -119,13 +119,19 @@ def check_latest(directory=None):
     pointer = directory / 'starrail-movie-formats' / 'current.json' if directory else None
     try:
         revision = latest_revision()
+        if directory is not None:
+            # A reachable commit listing alone is not a usable generation. Bind
+            # freshness to all three validated bodies so recovery at the same
+            # commit changes the fingerprint and retries missing movie audio.
+            load(directory, revision)
     except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError, KeyError, TypeError, ET.ParseError):
         try:
             check(pointer is not None and pointer.stat().st_size <= 1024)
             revision = json.loads(pointer.read_bytes())['revision']
             check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
+            load(directory, revision)
             return revision, True
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, URLError, TimeoutError, ConnectionError):
             return None, True
     if pointer is not None:
         _atomic_file(pointer, json.dumps({'revision': revision}).encode())
