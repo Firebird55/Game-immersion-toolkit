@@ -160,7 +160,8 @@ class Archive:
         check(name in members, 'Original client does not declare its managed native import.')
         return members[name]
 
-    def extract(self, member, *, maximum=MAX_MEMBER):
+    def member_plan(self, member, *, maximum=MAX_MEMBER):
+        """Read only the bounded local envelope before approving its payload."""
         check(self.members().get(member.name) == member and type(maximum) is int and
               0 < maximum <= MAX_MEMBER and 0 < member.size <= maximum and
               0 < member.compressed <= maximum,
@@ -181,7 +182,12 @@ class Archive:
                         default=self.directory_offset)
         check(start + member.compressed <= following,
               'Original local member payload overlaps another member or directory.')
-        compressed = self.read(start, member.compressed)
+        return {'offset': start, 'download_bytes': member.compressed, 'decoded_bytes': member.size,
+                'required_disk_bytes': 2 * member.size + member.compressed}
+
+    def extract(self, member, *, maximum=MAX_MEMBER):
+        plan = self.member_plan(member, maximum=maximum)
+        compressed = self.read(plan['offset'], plan['download_bytes'])
         if member.method == 0:
             decoded = compressed
         else:

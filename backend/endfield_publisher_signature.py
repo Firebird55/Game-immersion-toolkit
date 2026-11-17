@@ -17,12 +17,16 @@ PUBLISHERS = frozenset({'GRYPH FRONTIER PTE. LTD.'})
 MAX_NATIVE_MEMBER = 16 * 1024**2
 
 
-def verify(path):
+def source_runtime():
     if sys.platform != 'win32':
         raise PreparationFailure('missing_toolkit_runtime',
             'Endfield original audio-parameter preparation needs a reviewed publisher-signature verifier. '
             'This toolkit currently supplies Windows offline Authenticode verification. '
             'Existing prepared data is retained.', previous_snapshot_retained=True)
+
+
+def verify(path):
+    source_runtime()
     return _windows(Path(path))
 
 

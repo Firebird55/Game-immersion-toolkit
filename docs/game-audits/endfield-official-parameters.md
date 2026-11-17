@@ -230,6 +230,28 @@ Context-owned acquisition receipts, selected-mode preflight, persistent witness
 publication and update/failure-retention integration still need one coherent
 ordinary preparation route; these helpers do not bypass those remaining gates.
 
+`endfield_native_source.OriginalNativeSource` now provides the context-owned
+native-member stage as a separate producer helper. Planning uses only bounded
+ZIP tail/directory/local-envelope reads, then quotes the compressed member,
+decoded staging storage and an explicit 2-MiB metadata recheck allowance. The
+quote is an upper bound; already verified source may be reused without network.
+The helper requires the shared transport's real strong response ETag and pins
+later ranges with that value. It never substitutes a declared MD5 for an ETag.
+Transfer receipts still do not establish a whole-part checksum or signature.
+
+The helper uses the shared pure atomic writer, bounds output before writing,
+requires full CRC and publisher signature, rechecks original client identity
+before its source-stage pointer is published, and retains complete acquisition
+provenance during offline reuse. Text mode, another region, unsupported signature
+runtime, stale object tags, changed plans, missing consent, insufficient budget,
+wrong publisher and changed client fail without replacing a previous source
+pointer. Authored tests use the real shared context/transport and simulate only
+the publisher signature positive; the actual original Windows signature remains
+the separate cached-source proof above. No new original transfer or cold-member
+acquisition is claimed. The ordinary provider still needs to connect its
+client-bootstrap continuation, this helper and full AKPK controls to a persistent
+master witness; its presence is not a ready dialogue library or audio source.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-

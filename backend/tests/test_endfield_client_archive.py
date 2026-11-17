@@ -82,6 +82,16 @@ def test_limits_are_checked_before_member_payload_io():
     assert len(calls) == count
 
 
+def test_member_plan_reads_only_the_original_local_envelope_not_the_payload():
+    archive, calls = reader(fixture())
+    member = archive.native_member('OwnedSound')
+    calls.clear()
+    plan = archive.member_plan(member)
+    assert calls == [(0, member.offset, 30), (0, member.offset + 30, len(NAME))]
+    assert plan == {'offset': member.offset + 30 + len(NAME), 'download_bytes': member.compressed,
+                    'decoded_bytes': member.size, 'required_disk_bytes': 2 * member.size + member.compressed}
+
+
 @pytest.mark.parametrize('mutation', ['crc', 'name', 'method', 'encrypted', 'overlap', 'trailing', 'terminal'])
 def test_changed_directory_or_local_envelope_is_rejected(mutation):
     raw = bytearray(fixture())
