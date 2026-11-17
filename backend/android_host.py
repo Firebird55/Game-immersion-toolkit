@@ -27,6 +27,9 @@ from .models import CaptureRegion
 from .native_frame_admission import NativeFrameAdmissions
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
+from .game_data import GameDataService, _read, _write, _write_bytes
+from .game_data_protocol import GAME_TITLES, GameDataError
+from .game_data_providers import create_game_data_providers
 
 MAX_FRAME = 10 * 1024**2
 UUID_PATTERN = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
@@ -55,7 +58,7 @@ def presentation_lines(value, width, height):
 
 class AndroidHost:
     def __init__(self, root, frontend, native=None, *, port=0, enable_accounts=False, account_transport=None,
-            authored_accounts=False):
+            authored_accounts=False, game_data_providers=None):
         self.root = Path(root).absolute()
         self.receiver_owner = None
         self.account_sessions = None
@@ -94,11 +97,18 @@ class AndroidHost:
         self.receiver_owner = None
         self.document_epoch = secrets.token_hex(16)
         self.document_started = False
+        self.game_restore_lock = threading.RLock()
+        self.game_restored = weakref.WeakKeyDictionary()
+        providers = (create_game_data_providers(platform='android', native=native)
+            if game_data_providers is None else game_data_providers)
+        self.game_data = GameDataService(self._game_root, providers, owner_guard=self._game_owner,
+            on_activate=self._activate_game_data, retained_bytes=self._retained_game_bytes)
         self.server = ThreadingHTTPServer(('127.0.0.1', port), self._handler())
         self.server.daemon_threads = True
         self.origin = f'http://127.0.0.1:{self.server.server_port}'
         self.thread = threading.Thread(target=self.server.serve_forever, name='toolkit-android-http', daemon=True)
         self.thread.start()
+        self._ensure_game_restore()
 
     @property
     def session(self):
@@ -107,6 +117,97 @@ class AndroidHost:
     @property
     def account_generation(self):
         return self.account_sessions.accounts.generation if self.account_sessions else 0
+
+    def _game_owner(self):
+        session = self.session
+        with session.lock:
+            if self.account_sessions:
+                self.account_sessions.require_ready()
+                if self.account_sessions.transitioning:
+                    raise GameDataError('account_selection_pending', 'Wait for the selected account to load.', 409)
+            if self.session is not session:
+                raise GameDataError('game_data_owner_changed', 'The selected account changed.', 409)
+            return f'{session.runtime_id}:{self.account_generation}:{session.session_id}'
+
+    def _game_root(self):
+        session = self.session
+        with session.lock:
+            self._game_owner()
+            return session.root / 'game-data'
+
+    def _retained_game_bytes(self, game):
+        session = self.session
+        with session.lock:
+            self._game_owner()
+            return session.recordings.retained_bytes(game)
+
+    def _activate_game_data(self, ctx, source):
+        # Service publication lock -> session lock. HTTP must NEVER hold the
+        # session lock while invoking a GameDataService operation.
+        session = self.session
+        source_for = lambda descriptor: self.game_data.original_voice_source(descriptor, expected_owner=ctx.owner)
+        with session.lock:
+            ctx.check()
+            if source is None:
+                if session.index and session.index.game == ctx.game:
+                    session.stop('Preserving saved original recordings before deletion')
+            else:
+                active = {'schema': 'active-game-data-v1', 'game': ctx.game, 'directory': ctx.source_descriptor['directory']}
+                if ctx.phase == 'restore' and _read(session.root / 'active-game-data.json') != active:
+                    raise GameDataError('active_game_changed', 'The selected game data changed.', 409)
+                pointer = session.root / 'active-game-data.json'
+                previous = pointer.read_bytes() if pointer.exists() else None
+                _write(pointer, active)
+                try:
+                    session.activate_source(ctx.directory, ctx.index, ctx.source_descriptor, source.voice_source, source_for)
+                except Exception:
+                    if previous is None: pointer.unlink(missing_ok=True)
+                    else: _write_bytes(pointer, previous)
+                    raise
+                return
+        # A decoder can take time; pause/account selection remain responsive.
+        session.preserve_game_recordings(ctx.game, source_for, cancelled=ctx.cancelled)
+        with session.lock:
+            ctx.check()
+            active = _read(session.root / 'active-game-data.json')
+            if active and active.get('game') == ctx.game:
+                _write(session.root / 'active-game-data.json', {'schema': 'active-game-data-v1', 'game': None})
+            session.deactivate_source(ctx.game)
+
+    def _ensure_game_restore(self):
+        session = self.session
+        try:
+            with session.lock:
+                owner = self._game_owner()
+                active = _read(session.root / 'active-game-data.json')
+                if active is None or active == {'schema': 'active-game-data-v1', 'game': None}:
+                    return
+                if (not isinstance(active, dict) or set(active) != {'schema', 'game', 'directory'}
+                        or active['schema'] != 'active-game-data-v1' or active['game'] not in GAME_TITLES
+                        or not isinstance(active['directory'], str) or re.fullmatch('[0-9a-f]{64}', active['directory']) is None):
+                    raise ValueError('Invalid active game source')
+            with self.game_restore_lock:
+                if session in self.game_restored:
+                    return
+                self.game_restored[session] = 'restoring'
+            def restore():
+                try:
+                    self.game_data.restore(active['game'], expected_owner=owner)
+                except (OSError, ValueError, GameDataError):
+                    with session.lock:
+                        try:
+                            if self.session is session and self._game_owner() == owner and session.index is None:
+                                session.message = 'Downloaded game data needs repair. Saved history is still available.'
+                        except (ValueError, GameDataError):
+                            pass
+                finally:
+                    with self.game_restore_lock:
+                        self.game_restored[session] = 'complete'
+            threading.Thread(target=restore, name='toolkit-game-restore', daemon=True).start()
+        except (OSError, ValueError, GameDataError):
+            # Locked credentials or a broken local pointer must not expose a
+            # different profile, start network traffic or hide old transcripts.
+            return
 
     def guard_account(self, value, *, session=None, selecting=False, recovering=False):
         if self.account_sessions is None:
@@ -169,6 +270,7 @@ class AndroidHost:
             yield lambda: job.update(state='committed')
 
     def close(self):
+        self.game_data.close()
         self.session.stop('Android host closed')
         if self.account_sessions:
             self.account_sessions.close()
@@ -179,7 +281,7 @@ class AndroidHost:
         return {'platform': 'android', 'library_import': recovery is None,
             'history_migration': recovery is None,
             'capture_source': 'unavailable' if recovery else 'remote-stream' if self.native else 'authored-observations',
-            'message': recovery['message'] if recovery else 'Private prepared libraries and original audio are processed on this Android device.',
+            'message': recovery['message'] if recovery else 'Manage original game data in Settings on this device.',
             'protected_accounts': self.account_sessions is not None,
             'authored_account_fixture': self.authored_accounts,
             'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
@@ -208,6 +310,7 @@ class AndroidHost:
         return picture_bounds((0, 0, width, height), selected if game in {'nte', 'honkai3'} else 'window')
 
     def snapshot(self):
+        self._ensure_game_restore()
         with self.session.lock:
             if self.account_sessions:
                 self.account_sessions.status()
@@ -525,6 +628,33 @@ class AndroidHost:
                             if scope is not None:
                                 scope.check()
                             self._json(payload, status);return
+                game_route = re.fullmatch(r'/api/game-data/([a-z0-9]+)/(plan|download|data)', path)
+                if path == '/api/game-data' or game_route:
+                    if path == '/api/game-data' and self.command != 'GET':
+                        self._json({'detail': 'Method unavailable'}, 405);return
+                    if game_route and ((game_route[2] == 'data' and self.command != 'DELETE')
+                            or (game_route[2] != 'data' and self.command != 'POST')):
+                        self._json({'detail': 'Method unavailable'}, 405);return
+                    if self.command != 'GET' and self.headers.get('X-Proxy-Transcript') != 'setup':
+                        self._json({'detail': 'Use the game data controls.'}, 403);return
+                    value = json.loads(self._body(16384)) if self.command != 'GET' else None
+                    session = host.session
+                    with session.lock:
+                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'), session=session)
+                        owner = host._game_owner()
+                    # Blocking provider I/O cannot hold the OCR/account lock.
+                    if game_route:
+                        game, action = game_route.groups()
+                        operation = {'plan': host.game_data.plan, 'download': host.game_data.download, 'data': host.game_data.delete}[action]
+                        payload = operation(game, value, expected_owner=owner)
+                        status = 202 if action == 'download' else 200
+                    else:
+                        payload, status = host.game_data.snapshot(expected_owner=owner), 200
+                    with session.lock:
+                        host.guard_account(str(generation), session=session)
+                        if owner != host._game_owner():
+                            raise GameDataError('game_data_owner_changed', 'The selected account changed.', 409)
+                        self._json(payload, status);return
                 if path == '/api/platform' and self.command == 'GET':
                     self._json(host.platform());return
                 if path in {'/api/snapshot', '/api/status'} and self.command == 'GET':
@@ -738,6 +868,8 @@ class AndroidHost:
                         if 0 < remaining <= 65536:
                             self.rfile.read(remaining)
                         status, detail = 400, {'detail': 'The local request did not complete. Check the current library before retrying.'}
+                        if isinstance(error, GameDataError):
+                            status, detail = error.status, {'code': error.code, 'message': error.message, 'detail': error.message}
                         if host.account_sessions:
                             from .android_accounts import AndroidAccountConflict
                             from .lexirise import LexiriseError
@@ -748,7 +880,7 @@ class AndroidHost:
                         self._json(detail, status)
                     except OSError:
                         pass
-            do_GET = do_POST = do_PATCH = _dispatch
+            do_GET = do_POST = do_PATCH = do_DELETE = _dispatch
         return Handler
 
 

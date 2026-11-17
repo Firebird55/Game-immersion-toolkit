@@ -160,10 +160,12 @@ class GameDataService:
             raise GameDataError('invalid_data_owner', 'The current account is unavailable.', 409)
         return value
 
-    def _scope(self):
+    def _scope(self, expected_owner=None):
         if self.closed:
             raise GameDataError('game_data_closed', 'Game data preparation has stopped.', 503)
         before = self._owner()
+        if expected_owner is not None and expected_owner != before:
+            raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
         root = Path(self.root_getter()).absolute()
         if before != self._owner():
             raise GameDataError('game_data_owner_changed', 'The account changed. Retry with the current account.', 409)
@@ -247,17 +249,17 @@ class GameDataService:
                 'Check the download size to begin.' if game in self.providers else
                 'This game’s original-data reader is unavailable on this device.')}
 
-    def snapshot(self):
-        root, owner = self._scope()
+    def snapshot(self, *, expected_owner=None):
+        root, owner = self._scope(expected_owner)
         with self.lock:
             result = {'schema': 'game-data-v1', 'games': [self._row(root, owner, game) for game in GAME_TITLES]}
             if owner != self._owner():
                 raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
             return result
 
-    def plan(self, game, request):
+    def plan(self, game, request, *, expected_owner=None):
         provider, selection = self._provider(game), GameDataRequest.parse(request)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         with self.lock:
             running = self.jobs.get((root, game))
             if running and running['status'] in {'queued', 'running'} and running['context'].owner == owner:
@@ -289,9 +291,9 @@ class GameDataService:
             with ctx.transfer_lock: ctx.transfers_closed = True
             _remove_owned(directory, root); raise
 
-    def download(self, game, request):
+    def download(self, game, request, *, expected_owner=None):
         provider = self._provider(game)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         if not isinstance(request, dict) or set(request) != {'plan_id', 'revision'}:
             raise GameDataError('download_plan_required', 'Check the download size before downloading.', 409)
         with self.lock:
@@ -397,8 +399,13 @@ class GameDataService:
                 _write(pointer, metadata)
                 try:
                     if metadata['ready'] and self.on_activate:
+                        # The maintained callback checks and activates under
+                        # the owner's lock. Its return is the commit point:
+                        # an account switch AFTER that point must not delete
+                        # the just-committed source from the old profile.
                         self.on_activate(ctx, result)
-                    ctx.check()
+                    else:
+                        ctx.check()
                 except Exception:
                     if previous is None: pointer.unlink(missing_ok=True)
                     else: _write_bytes(pointer, previous)
@@ -423,7 +430,7 @@ class GameDataService:
 
     def restore(self, game, *, expected_owner=None):
         provider = self._provider(game)
-        root, owner = self._scope(); metadata = self._metadata(root, game)
+        root, owner = self._scope(expected_owner); metadata = self._metadata(root, game)
         if expected_owner is not None and expected_owner != owner:
             raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
         if not metadata or not metadata['ready']:
@@ -456,9 +463,9 @@ class GameDataService:
         root, owner = self._scope()
         if owner != expected_owner or not metadata['ready']:
             raise GameDataError('game_data_owner_changed', 'The account changed before the recording could be opened.', 409)
-        current = self._metadata(root, game)
-        if current and current['request']['content_mode'] != 'text-audio':
-            raise GameDataError('audio_not_requested', 'Select Text + audio in Settings to download original recordings.', 409)
+        # An older explicitly downloaded original may still be needed to retain
+        # a saved line after choosing text-only. This restore context forbids
+        # every network byte; it cannot acquire an omitted or absent voice.
         directory = root / game / 'cache' / 'sources' / metadata['directory']
         if not directory.is_dir():
             raise GameDataError('original_source_not_downloaded', 'Download this game’s data to retrieve this original recording.', 409)
@@ -476,10 +483,10 @@ class GameDataService:
         ctx.check()
         return source.voice_source
 
-    def delete(self, game, request):
+    def delete(self, game, request, *, expected_owner=None):
         if game not in GAME_TITLES:
             raise GameDataError('unsupported_game', 'Choose a supported live-service game.', 404)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         with self.lock:
             row = self._row(root, owner, game)
             if not isinstance(request, dict) or set(request) != {'revision'} or request['revision'] != row['revision']:

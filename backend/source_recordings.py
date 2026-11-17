@@ -50,7 +50,10 @@ class OriginalRecordings:
                 or row.get('voice_status') != 'voiced'):
             raise ValueError('A downloaded original voice binding is required')
         value = {'schema': 'original-recording-reference-v1', 'source': descriptor, 'row': row}
-        reference = hashlib.sha256(_canonical(value)).hexdigest()
+        encoded = _canonical(value)
+        if len(encoded) > 2 * 1024**2:
+            raise ValueError('The saved original reference exceeds its limit')
+        reference = hashlib.sha256(encoded).hexdigest()
         _write(self.root / 'references' / (reference + '.json'), value)
         _write(self.root / 'lines' / (identity + '.json'), {'reference': reference})
         return reference

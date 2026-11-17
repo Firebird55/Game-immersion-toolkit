@@ -143,8 +143,8 @@ class OriginalVoiceSource(Protocol):
     # decoded MP3/WAV is fine; a mere remote URL is insufficient for text+audio
     # readiness. No download/decoder/OCR work may run in this predicate.
     def has(self, row: Mapping[str, Any]) -> bool: ...
-    # The shared native runtime performs authenticated original download/decode;
-    # this callback is invoked outside the matching/confirmation lock.
+    # Decode locally materialized originals outside the confirmation lock.
+    # Missing originals must fail; transfers belong to explicit download plans.
     def resolve(self, row: dict, destination: Path, *, cancelled: Callable[[], bool]) -> Path | None: ...
 
 
@@ -178,5 +178,5 @@ class GameDataProvider(Protocol):
     title: str
     def plan(self, request: GameDataRequest, ctx: PreparationContext) -> GameDataPlan: ...
     def download(self, plan: GameDataPlan, ctx: PreparationContext) -> SnapshotSource | PreparationStage: ...
-    # Restore is local/offline. Only voice.resolve may acquire a missing original.
+    # Restore and voice.resolve are local/offline. Downloads require a new plan.
     def restore(self, handle: dict, ctx: PreparationContext) -> SnapshotSource: ...

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from contextlib import contextmanager, nullcontext
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import math
@@ -23,6 +24,8 @@ from .native_frame_admission import NativeFrameReceipt
 from .multilingual_index import MultilingualTextIndex
 from .prepared_library import CLIP, SHA, MAX_AUDIO, PreparedLibraryStore, _no_links
 from .storage import TranscriptStore
+from .source_recordings import OriginalRecordings
+from .game_data_protocol import GameDataError, private_handle
 
 
 class PreparedCaptureSession:
@@ -35,6 +38,11 @@ class PreparedCaptureSession:
         self.settings = SettingsStore(self.root / 'settings.json')
         self.history = TranscriptStore(self.root / 'transcript.db')
         self.libraries = PreparedLibraryStore(self.root / 'libraries')
+        self.recordings = OriginalRecordings(self.root / 'original-recordings')
+        self.recording_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='toolkit-original')
+        self.recording_jobs = set()
+        self.recording_errors = set()
+        self.direct_descriptor = self.direct_voice = self.original_source_for = None
         self.runtime_id = secrets.token_hex(16)
         self.state_version = self.generation = 0
         self.session_id = secrets.token_hex(16)
@@ -57,6 +65,12 @@ class PreparedCaptureSession:
         self._activate_current()
 
     def _activate_current(self):
+        active = self.root / 'active-game-data.json'
+        _no_links(active)
+        if active.exists():
+            # A managed source (including an explicitly deleted one) takes
+            # precedence over an older backup ZIP. The host restores it offline.
+            return
         directory = self.libraries.current()
         if directory is None:
             return
@@ -69,6 +83,7 @@ class PreparedCaptureSession:
         self._activate_prepared(directory, index)
 
     def _activate_prepared(self, directory, index):
+        self.direct_descriptor = self.direct_voice = self.original_source_for = None
         self.directory, self.index = directory, index
         self.records_by_id = {}
         for row in index._records:
@@ -76,6 +91,103 @@ class PreparedCaptureSession:
         self.context_kinds = {row.get('dialogue_kind') for row in index._records if row.get('previous_text_id')}
         self._apply_settings()
         self.message = 'Prepared library ready; start a supported screen source'
+
+    def activate_source(self, directory, index, descriptor, voice, source_for):
+        """Activate the service-validated production index, without ZIP conversion."""
+        descriptor = private_handle(descriptor)
+        if (not index.ready or descriptor.get('game') != index.game or not descriptor.get('ready')
+                or descriptor.get('request', {}).get('source_locale') != index.source_locale):
+            raise ValueError('A validated original game snapshot is required')
+        with self.lock:
+            self.stop('Game data changed; start the screen source again')
+            previous = (self.directory, self.index, self.records_by_id, self.context_kinds,
+                self.direct_descriptor, self.direct_voice, self.original_source_for)
+            try:
+                self._activate_prepared(Path(directory), index)
+            except Exception:
+                (self.directory, self.index, self.records_by_id, self.context_kinds,
+                    self.direct_descriptor, self.direct_voice, self.original_source_for) = previous
+                raise
+            self.direct_descriptor, self.direct_voice = descriptor, voice
+            self.original_source_for = source_for
+            self.message = 'Original game data ready; paste the screen link to begin'
+            self.state_version += 1
+
+    def preserve_game_recordings(self, game, source_for, *, cancelled):
+        """Keep referenced originals before deleting the managed source cache.
+
+        Callers first stop capture and revoke old work. All local decoding here
+        runs outside the matching lock; failure refuses deletion, keeping data.
+        """
+        for identity in self.recordings.lines(game):
+            if cancelled():
+                raise GameDataError('recording_cancelled', 'Original recording preparation stopped.', 409)
+            if self.history.get(identity) is None:
+                continue
+            path = self.recordings.materialize(identity, source_for, cancelled=cancelled)
+            with self.lock:
+                if cancelled():
+                    raise GameDataError('recording_cancelled', 'Original recording preparation stopped.', 409)
+                if path and self.history.get(identity):
+                    self.history.update_audio(identity, 'official-retained/' + path.name, True)
+
+    def deactivate_source(self, game):
+        with self.lock:
+            if self.index and self.index.game == game:
+                self.stop('Game data deleted; saved history and recordings were kept')
+                self.directory = self.index = None
+                self.direct_descriptor = self.direct_voice = self.original_source_for = None
+                self.records_by_id.clear(); self.context_kinds.clear()
+
+    def _source_row(self, match):
+        rows = [row for row in self.records_by_id.get(match.text_id, ())
+                if row.get('source_text') == match.source_text and row.get('audio_locale') == match.audio_locale
+                and row.get('voice_status') == match.voice_status]
+        if self.index.game != 'zzz' or len(rows) > 1:
+            rows = [row for row in rows if not row.get('player_voice') or row['player_voice'] == self.index.player_voice]
+        return rows[0] if len(rows) == 1 else None
+
+    def _has_original(self, match):
+        if self.direct_descriptor is None:
+            return self._clip(match) is not None
+        row = self._source_row(match)
+        return bool(row and self.direct_voice and self.direct_voice.has(row) is True)
+
+    def _queue_original(self, identity):
+        if self.original_source_for is None or len(self.recording_jobs) >= 128:
+            return
+        saved = self.recordings.reference(identity)
+        if saved is None:
+            return
+        reference, _ = saved
+        generation, source_for = self.generation, self.original_source_for
+        key = (identity, reference, generation)
+        if key in self.recording_jobs:
+            return
+        self.recording_jobs.add(key)
+        self.recording_errors.discard(identity)
+        def cancelled():
+            with self.lock:
+                return generation != self.generation or source_for is not self.original_source_for
+        def work():
+            try:
+                path = self.recordings.materialize(identity, source_for, cancelled=cancelled)
+                with self.lock:
+                    if (not cancelled() and path and self.history.get(identity)
+                            and self.recordings.reference(identity)[0] == reference):
+                        self.history.update_audio(identity, 'official-retained/' + path.name, True)
+                        self.state_version += 1
+            except (OSError, ValueError, GameDataError):
+                with self.lock:
+                    if not cancelled():
+                        if len(self.recording_errors) >= 128:
+                            self.recording_errors.clear()
+                        self.recording_errors.add(identity)
+                        self.state_version += 1
+            finally:
+                with self.lock:
+                    self.recording_jobs.discard(key)
+        self.recording_pool.submit(work)
 
     def _apply_settings(self):
         if self.index is None:
@@ -107,6 +219,13 @@ class PreparedCaptureSession:
             self.stop()
             self.running = True
             self.message = 'Waiting for fresh screen frames'
+            if self.direct_descriptor:
+                for identity in self.recordings.lines(self.index.game):
+                    if len(self.recording_jobs) >= 128:
+                        break
+                    line = self.history.get(identity)
+                    if line and not line.has_audio:
+                        self._queue_original(identity)
             return self.generation
 
     def import_library(self, path, *, cancelled=lambda: False, publish_guard=nullcontext):
@@ -146,7 +265,7 @@ class PreparedCaptureSession:
         if len(names) != 1:
             return None
         name = next(iter(names))
-        if not CLIP.fullmatch(name):
+        if not isinstance(name, str) or not CLIP.fullmatch(name):
             return None
         path = self.directory / name
         _no_links(path)
@@ -202,7 +321,7 @@ class PreparedCaptureSession:
             def eligible(hit):
                 return capture_match_eligible(hit, capture_unvoiced=settings.capture_unvoiced,
                     capture_missing_audio=settings.capture_missing_audio,
-                    mapped_voice=lambda choice: choice.voice_status == 'voiced' and self._clip(choice) is not None)
+                    mapped_voice=lambda choice: choice.voice_status == 'voiced' and self._has_original(choice))
             policy = floating_caption_policy(self.index.game, self.index,
                 capture_unvoiced=settings.capture_unvoiced, capture_missing_audio=settings.capture_missing_audio)
             if channel == 'fullframe':
@@ -284,7 +403,14 @@ class PreparedCaptureSession:
                         if self.index.is_capture_text(hit.text_id, hit.english, name)), 'dialogue') if channel == 'fullframe' else channel
                     line, _ = self.history.add_or_upgrade_recent(hit, self.session_id, channel=saved_channel)
                     if line:
-                        clip = self._clip(hit)
+                        if self.direct_descriptor is not None:
+                            row = self._source_row(hit)
+                            if row and row.get('audio') and self._has_original(hit):
+                                self.recordings.register(line.id, self.direct_descriptor, row)
+                                self._queue_original(line.id)
+                            clip = None
+                        else:
+                            clip = self._clip(hit)
                         if clip:
                             # The saved relative generation keeps original audio
                             # available after imports and process death.
@@ -298,6 +424,9 @@ class PreparedCaptureSession:
     def audio_path(self, line_id):
         with self.lock:
             relative = self.history.audio_path(line_id)
+            if relative and relative.startswith('official-retained/'):
+                path = self.recordings.path(line_id)
+                return path if path and relative == 'official-retained/' + path.name else None
             if not relative or not relative.startswith('official-prepared/'):
                 return None
             relative = relative.removeprefix('official-prepared/')
@@ -313,9 +442,10 @@ class PreparedCaptureSession:
                     raise ValueError('The prepared original recording is corrupt')
             return path
 
-    @staticmethod
-    def _line(line):
+    def _line(self, line):
         value = line.model_dump(mode='json')
+        if not line.has_audio and self.recordings.reference(line.id):
+            value['audio_pending'] = line.id not in self.recording_errors
         if line.has_audio:
             value['audio_source'] = 'original'
         return value
@@ -331,7 +461,7 @@ class PreparedCaptureSession:
             return {'context': {'runtime_id': self.runtime_id, 'state_version': self.state_version, 'account_generation': 0},
                 'status': {'capture': capture_payload,
                     'textmaps': index.status() if index else {'ready': False, 'entry_count': 0, 'audio_count': 0, 'message': self.message},
-                    'audio': {'ready': bool(index and index.audio_count), 'message': 'Prepared original recordings play locally'},
+                    'audio': {'ready': bool(index and index.audio_count), 'message': 'Downloaded original recordings play locally'},
                     'settings': self.settings.get().model_dump(mode='json'),
                     'session': {'id': self.session_id, 'line_count': self.history.count(self.session_id), 'total_line_count': self.history.count()},
                     'selected_languages': {index.game: {'source_locale': index.source_locale,

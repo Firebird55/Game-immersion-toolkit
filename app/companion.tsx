@@ -165,7 +165,7 @@ function voicePlaybackLabel(line: TranscriptLine) {
     : line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
+  return line.voiced || line.audio_pending !== undefined || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
 }
 function isRequestedTextOnly(line: TranscriptLine) {return !!line.audio_omitted_by_request && !!line.text_capture_verified;}
 function isMissingAudioLine(line: TranscriptLine) {

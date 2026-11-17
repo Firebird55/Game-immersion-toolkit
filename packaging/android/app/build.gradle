@@ -21,6 +21,8 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'reading.py', 'runtime_readers.py', 'grammar.py', 'protected_storage.py', 'export_lock.py', 'atomic_files.py',
     'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_account_recovery.py',
     'native_frame_admission.py', 'browser_history_migration.py']
+portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
+    'publisher_transport.py', 'source_recordings.py']
 
 android {
     namespace 'io.github.firebird55.gameimmersiontoolkit'

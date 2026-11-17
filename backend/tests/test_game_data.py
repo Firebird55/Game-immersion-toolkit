@@ -314,3 +314,22 @@ def test_text_audio_cannot_be_ready_from_remote_bindings_without_materialized_or
         assert value['message'] == 'The requested original audio has not finished downloading.'
         assert not (tmp_path / 'zzz/current.json').exists()
     finally: service.close()
+
+
+def test_account_change_after_owner_locked_activation_does_not_delete_committed_source(tmp_path):
+    owner = ['A:1']; provider = Provider(); saved = []
+    def activate(ctx, source):
+        # A maintained host checks under its account lock, commits A, then
+        # releases that lock. A later switch is not a failed A publication.
+        ctx.check(); saved.append(source.snapshot_path)
+        owner[0] = 'B:2'
+    service = GameDataService(tmp_path, {'zzz': provider}, owner_guard=lambda: owner[0], on_activate=activate)
+    try:
+        download(service)
+        until = time.monotonic() + 3
+        while (not saved or service.jobs[(tmp_path, 'zzz')]['status'] == 'running') and time.monotonic() < until:
+            time.sleep(.01)
+        assert saved and saved[0].is_file()
+        assert service.jobs[(tmp_path, 'zzz')]['status'] == 'complete'
+        assert (tmp_path / 'zzz/current.json').is_file()
+    finally: service.close()
