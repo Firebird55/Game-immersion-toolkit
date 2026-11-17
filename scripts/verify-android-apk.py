@@ -26,6 +26,44 @@ def native(data, abi):
     return {'machine': machine, 'minimum_load_alignment': min(loads), 'sha256': hashlib.sha256(data).hexdigest()}
 
 
+def verify_decoder(archive, native_files, repository):
+    decoder = json.loads(archive.read('assets/native-decoder-manifest.json'))
+    decoder_policy = json.loads((repository / 'packaging/android/native-decoders.json').read_text())
+    compiler_policy = json.loads((repository / 'packaging/android/python-dependencies.json').read_text())
+    recipe = {'policy_sha256': hashlib.sha256((repository / 'packaging/android/native-decoders.json').read_bytes()).hexdigest(),
+        'transport_sha256': hashlib.sha256((repository / 'packaging/android/app/src/main/cpp/x64_decoder.c').read_bytes()).hexdigest(),
+        'builder_sha256': hashlib.sha256((repository / 'scripts/build-android-data-decoders.py').read_bytes()).hexdigest(),
+        'source_sha256': decoder_policy['capstone']['sha256'],
+        'ndk_policy_sha256': hashlib.sha256(json.dumps(compiler_policy['ndk'], sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()).hexdigest()}
+    if (decoder.get('schema') != 'toolkit-android-native-decoders-v1'
+            or decoder.get('source_sha256') != decoder_policy['capstone']['sha256']
+            or decoder.get('version') != decoder_policy['capstone']['version']
+            or decoder.get('source') != decoder_policy['capstone']['source']
+            or decoder.get('ndk') != decoder_policy['ndk'] or decoder.get('api') != decoder_policy['api']
+            or decoder.get('ndk_archive_sha256') != compiler_policy['ndk']['sha256']
+            or not isinstance(decoder.get('ndk_inventory_sha256'), str)
+            or not re.fullmatch('[0-9a-f]{64}', decoder['ndk_inventory_sha256'])
+            or decoder.get('original_client_execution') is not False
+            or decoder.get('recipe') != recipe
+            or set(decoder.get('libraries', {})) != set(decoder_policy['abis'])):
+        raise ValueError('The APK data decoder does not match its pinned owned software recipe')
+    for abi, receipt in decoder['libraries'].items():
+        name = 'lib/' + abi + '/' + decoder_policy['library']
+        entry = archive.getinfo(name)
+        if (receipt['entry'] != name or entry.file_size != receipt['bytes'] or entry.compress_type != zipfile.ZIP_STORED
+                or native_files[name]['sha256'] != receipt['sha256']):
+            raise ValueError('Packaged decoder bytes differ from their compiled receipt')
+    expected_licenses = {'native-decoder-licenses/' + str(index) + '-' + Path(name).name
+        for index, name in enumerate(decoder_policy['capstone']['licenses'])}
+    if set(decoder.get('licenses', {})) != expected_licenses:
+        raise ValueError('The complete decoder notices are required')
+    for name, receipt in decoder['licenses'].items():
+        raw = archive.read('assets/' + name)
+        if len(raw) != receipt['bytes'] or hashlib.sha256(raw).hexdigest() != receipt['sha256']:
+            raise ValueError('An original decoder notice is absent or changed')
+    return decoder
+
+
 def verify(path):
     result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
@@ -58,29 +96,7 @@ def verify(path):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
-        decoder = json.loads(archive.read('assets/native-decoder-manifest.json'))
-        decoder_policy = json.loads((repository / 'packaging/android/native-decoders.json').read_text())
-        if (decoder.get('schema') != 'toolkit-android-native-decoders-v1'
-                or decoder.get('source_sha256') != decoder_policy['capstone']['sha256']
-                or decoder.get('original_client_execution') is not False
-                or decoder.get('recipe', {}).get('policy_sha256') != hashlib.sha256((repository / 'packaging/android/native-decoders.json').read_bytes()).hexdigest()
-                or decoder.get('recipe', {}).get('transport_sha256') != hashlib.sha256((repository / 'packaging/android/app/src/main/cpp/x64_decoder.c').read_bytes()).hexdigest()
-                or set(decoder.get('libraries', {})) != set(decoder_policy['abis'])):
-            raise ValueError('The APK data decoder does not match its pinned owned software recipe')
-        for abi, receipt in decoder['libraries'].items():
-            name = 'lib/' + abi + '/' + decoder_policy['library']
-            entry = archive.getinfo(name)
-            if (receipt['entry'] != name or entry.file_size != receipt['bytes'] or entry.compress_type != zipfile.ZIP_STORED
-                    or result[name]['sha256'] != receipt['sha256']):
-                raise ValueError('Packaged decoder bytes differ from their compiled receipt')
-        expected_licenses = {'native-decoder-licenses/' + str(index) + '-' + Path(name).name
-            for index, name in enumerate(decoder_policy['capstone']['licenses'])}
-        if set(decoder.get('licenses', {})) != expected_licenses:
-            raise ValueError('The complete decoder notices are required')
-        for name, receipt in decoder['licenses'].items():
-            raw = archive.read('assets/' + name)
-            if len(raw) != receipt['bytes'] or hashlib.sha256(raw).hexdigest() != receipt['sha256']:
-                raise ValueError('An original decoder notice is absent or changed')
+        decoder = verify_decoder(archive, result, repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():

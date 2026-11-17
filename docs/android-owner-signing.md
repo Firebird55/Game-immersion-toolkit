@@ -22,7 +22,8 @@ owner build workspace. DPAPI recovery depends on the owner's protected Windows
 profile; the initializer does not export credentials or silently rotate keys.
 
 Build an owner candidate using the same SDK, verified offline wheelhouse and
-shared frontend arguments as the ordinary Android build:
+shared frontend arguments as the ordinary Android build, including the mandatory
+`-NdkArchive` and either `-DecoderSourceArchive` or `-DownloadDecoderSource`:
 
 ```powershell
 pwsh scripts/build-android-app.ps1 <build-arguments> -Variant ownerCandidate `

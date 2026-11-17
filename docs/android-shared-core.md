@@ -225,8 +225,13 @@ Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 ```text
 pwsh scripts/build-android-app.ps1 -SdkRoot <sdk> -Wheelhouse <wheelhouse> \
   -Frontend <verified-desktop-frontend> -BuildRoot <private-build-directory> \
-  -Python <build-python> -JavaHome <jdk> -DownloadGradle
+  -Python <build-python> -JavaHome <jdk> -NdkArchive <pinned-original-ndk-archive> \
+  -DecoderSourceArchive <pinned-capstone-source-archive> -DownloadGradle
 ```
+
+The source archives may be reused from a private verified cache. The NDK input
+is mandatory; `-DownloadDecoderSource` is an explicit alternative to supplying
+the pinned Capstone source. See the [data decoder recipe](android-data-decoder.md).
 
 The script verifies the pinned Gradle archive and offline wheels, constructs the
 actual frontend/core APK, audits native ABIs and 16-KiB load alignment, verifies

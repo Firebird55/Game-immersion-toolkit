@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import tarfile
+import zipfile
 
 import pytest
 
@@ -59,6 +60,31 @@ def test_closed_decoder_bundle_requires_every_exact_notice_and_library(tmp_path)
         'library':policy['library'],'original_client_execution':False,'libraries':libraries,'licenses':licenses}
     path = tmp_path / 'assets/native-decoder-manifest.json';path.write_bytes(builder.canonical(manifest))
     builder.verify_bundle(tmp_path)
+    audit_spec = importlib.util.spec_from_file_location('android_apk_decoder_audit', ROOT / 'scripts/verify-android-apk.py')
+    audit = importlib.util.module_from_spec(audit_spec);audit_spec.loader.exec_module(audit)
+    manifest.update(version=policy['capstone']['version'], source=policy['capstone']['source'])
+    def packaged(changed=None, compression=zipfile.ZIP_STORED):
+        selected = json.loads(json.dumps(manifest))
+        if changed: changed(selected)
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, 'w') as archive:
+            archive.writestr('assets/native-decoder-manifest.json', builder.canonical(selected))
+            for name in licenses: archive.writestr('assets/' + name, (tmp_path / 'assets' / name).read_bytes())
+            for abi in libraries:
+                archive.writestr(libraries[abi]['entry'], (tmp_path / 'jniLibs' / abi / policy['library']).read_bytes(), compress_type=compression)
+        return zipfile.ZipFile(io.BytesIO(output.getvalue()))
+    native_files = {receipt['entry']: {'sha256':receipt['sha256']} for receipt in libraries.values()}
+    with packaged() as archive: audit.verify_decoder(archive, native_files, ROOT)
+    for changed in (
+        lambda value: value['recipe'].update(builder_sha256='f' * 64),
+        lambda value: value.update(ndk_archive_sha256='f' * 64),
+        lambda value: value.update(ndk_inventory_sha256='!' * 64),
+        lambda value: value.update(version='5.0.6'),
+        lambda value: value['licenses'].pop(next(iter(licenses))),
+    ):
+        with packaged(changed) as archive, pytest.raises(ValueError): audit.verify_decoder(archive, native_files, ROOT)
+    with packaged(compression=zipfile.ZIP_DEFLATED) as archive, pytest.raises(ValueError):
+        audit.verify_decoder(archive, native_files, ROOT)
     notice = tmp_path / 'assets' / next(iter(licenses));raw = notice.read_bytes();notice.write_bytes(b'changed')
     with pytest.raises(ValueError, match='notice'): builder.verify_bundle(tmp_path)
     notice.write_bytes(raw)
@@ -67,3 +93,14 @@ def test_closed_decoder_bundle_requires_every_exact_notice_and_library(tmp_path)
     extra.unlink()
     library = tmp_path / 'jniLibs/arm64-v8a' / policy['library'];library.write_bytes(b'replaced')
     with pytest.raises(ValueError, match='receipt'): builder.verify_bundle(tmp_path)
+
+
+def test_every_committed_workflow_build_supplies_authenticated_decoder_inputs():
+    invocations = []
+    for path in (ROOT / '.github/workflows').glob('*.yml'):
+        for line in path.read_text().splitlines():
+            if './scripts/build-android-app.ps1 ' in line:
+                invocations.append(line)
+                assert '-NdkArchive ' in line, path.name
+                assert '-DecoderSourceArchive ' in line or '-DownloadDecoderSource' in line, path.name
+    assert invocations, 'The actual hosted APK build must exercise the pinned decoder closure'
