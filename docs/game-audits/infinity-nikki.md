@@ -361,8 +361,46 @@ changed generations, all observed constant kinds including nonfinite number bit
 patterns, bounded recursion/counts and malformed or truncated data. Parsed
 strings remain metadata, not automatically trusted download destinations.
 
-Global PAK-key compatibility, nonzero/dynamic keys, production signature
-registration/verification and complete fresh preparation remain separate work.
+The original updater's captured URL templates lead to the current Global
+`CloudDir/PaperHttpChunkInstall.manifest`. Its complete 41,972,123-byte JSON
+response has unchanged strong ETag/length before and after and a verified
+original prefix. Its local SHA-256 is
+`64a8e94b45da46a3d75248d4a96e7e9732116a44aef49790dc2f9a40a6f52a52`.
+This source-generation identity remains distinct from a publisher signature or
+declared checksum. The typed owned `backend/infinity_nikki_chunks.py` reader
+validates 507 file records and 125,590 matching chunk descriptors. It reads the
+original decimal-encoded byte fields, actual file/part ownership and declared
+SHA-1 values, and quotes complete deduplicated carriers, retained file bytes,
+temporary decode space and shared-carrier presence. It does not infer audio or
+deletion semantics. The original native directory selector maps this manifest's
+feature 13 to `ChunksV3`; the reader does not assume the latest `ChunksV4` name.
+The [engine's feature-level documentation](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/BuildPatchServices/BuildPatchServices__EFeatureLeve-)
+also distinguishes fixed-window chunks from later variable-window formats.
+The one exact authored FastPatch manifest candidate returned HEAD 404. No
+guessed variants were requested and this is not a format-change conclusion.
+
+All five current Global Framework files occupy one 941,200-byte shared carrier.
+The carrier also contains a movie fragment, so its complete verification cost
+is explicit bootstrap overhead; no zero-media-transport claim is made. The
+owned v2-header/zlib reader verifies the full 1,048,576-byte decoded chunk's
+authored SHA-1. Each selected file is reconstructed through its declared parts
+and independently passes its manifest SHA-1: the 657,642-byte PAK, 572-byte
+signature, 1,297-byte UTOC, 48-byte UCAS and 28-byte directory-hash file. Only
+these 659,587 bytes are retained; the transient complete carrier is removed.
+The exact carrier was obtained again in a separately bounded product-reader
+replay, with unchanged source generation and whole local hash, to verify the
+actual owned reader and range edges. Original-source metadata and product
+replay evidence remain distinct.
+
+The registered default material derived from the authenticated official CN
+native owner also passes the current Global Framework's complete 3,360-byte
+zero-GUID index hash. The owned PAK reader then verifies all 176 member hashes,
+totalling 1,169,896 decoded bytes. This proves this particular current Global
+Framework/default-key compatibility; it does not establish other Global
+archives, nonzero/dynamic keys or future rotated material by assumption.
+
+Other Global PAK/key-GUID compatibility, nonzero/dynamic keys, production
+signature registration/verification and complete fresh preparation remain separate work.
 No key values or source assets are
 committed. Fresh production native-owner acquisition also needs an explicit
 bootstrap plan: the embedded OBB contains a 78,866,565-byte movie PAK. Full mixed
