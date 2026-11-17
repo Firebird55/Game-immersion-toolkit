@@ -10,14 +10,14 @@ import wave
 import pytest
 
 from backend import wuthering_assets as assets, wuthering_cinematics as films
-from backend import wuthering_context as context
+from backend import wuthering_context as context, wuthering_release as release
 from backend.languages import audio_locale
 from backend.local_game import LocalDialogue
 from backend.models import AppSettings
 from backend.multilingual_index import MultilingualTextIndex
 from backend.wuthering_bank import SceneSource
 from backend.tests.test_wuthering_narrative import flat_blob, flow_database
-from backend.tests.test_wuthering_bank import bank, direct
+from backend.tests.test_wuthering_bank import bank, direct, play
 from backend.wuthering_bank import scene_sources
 
 
@@ -74,6 +74,55 @@ def test_existing_audio_and_known_silent_unknown_or_ellipsis_entries_survive(cha
     original = copy.deepcopy(rows)
     assign(tmp_path, rows)
     assert rows == original
+
+
+def test_publisher_probes_only_sources_needed_by_the_same_final_context_predicate(tmp_path, monkeypatch):
+    scene_db(tmp_path)
+    scene_db(tmp_path, scene='unused_scene', event='play_unused_scene')
+    with sqlite3.connect(tmp_path/'db_cgVedio.db') as db:
+        db.execute('UPDATE videocaption SET BinData=? WHERE CgName=?',
+                   (flat_blob({2: 30, 3: 60, 4: 'already'}), 'unused_scene'))
+    rows = [record(), record(text_id='wuwa:already', audio={'depot': 'existing'}, voice_status='voiced')]
+    prior = copy.deepcopy(rows[1])
+    native = direct(); native[-1] = (3, 50, play(10, event='play_owned_scene'))
+    raw = bank(native, event='play_owned_scene')
+    event_name = films.EVENT_ROOT+'en/play_owned_scene.bnk'
+    media_name = films.MEDIA_ROOT+'en/101.wem'
+    calls = []
+    def locations(tools, snapshot, params, code, names):
+        calls.append(set(names))
+        assert names in ({event_name}, {media_name})
+        return {name: (('owned-original', 1024, 'owned'), 0) for name in names}
+    class Package:
+        def extract(self, position):
+            assert position == 0
+            return raw
+    monkeypatch.setattr(release, '_movie_locations', locations)
+    monkeypatch.setattr(release, '_voice_package', lambda *args: Package())
+    def source(tools, stamp, depot, reference):
+        assert depot == media_name
+        return b'RIFF\x06\0\0\0WAVEok'
+    monkeypatch.setattr(release, '_source_bytes', source)
+    monkeypatch.setattr(films, 'source_info', lambda *args, **kwargs: (2, 123457))
+    release._movie_context_records(tmp_path, {}, 'owned', (), tmp_path, rows, 'en', 'decoder',
+                                   plot_audio_sha256=complete_plot_table(tmp_path))
+    assert calls == [{event_name}, {media_name}]
+    assert rows[0]['voice_status'] == 'voiced' and rows[1] == prior
+
+
+def test_ineligible_global_performances_cause_no_new_bank_or_media_probe(tmp_path, monkeypatch):
+    from backend.tests.test_wuthering import plot_blob
+    scene_db(tmp_path)
+    rows = [record()]
+    digest = complete_plot_table(tmp_path, identity='caption', data=plot_blob('caption', 'global', global_language=True))
+    before = copy.deepcopy(rows)
+    def locations(*args):
+        assert not args[-1]
+        return {}
+    monkeypatch.setattr(release, '_movie_locations', locations)
+    monkeypatch.setattr(release, '_source_bytes', lambda *args: pytest.fail('No eligible source body'))
+    release._movie_context_records(tmp_path, {}, 'owned', (), tmp_path, rows, 'en', 'decoder', plot_audio_sha256=digest)
+    assert rows == before
 
 
 @pytest.mark.parametrize('shape', [(2, 17280001), (6, 48000), (3, 48000), (2, 0),

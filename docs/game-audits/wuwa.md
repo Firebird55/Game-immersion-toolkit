@@ -1,5 +1,69 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Reader 13 source repair and finite remaining scope
+
+The original `M2_12_22_1` caller and complete event graph now establish the
+remaining lexical caption's source in all four dubs and both Rover branches.
+The voice switch is posted immediately at scene zero. Its selected-dub sources
+and ancestors retain the existing no-dynamic-voice guards. A separate 100-ms
+child event posts common music; the two positively decoded object-specific
+Stops affect music alone, with no bus or voice-ancestor target. A static stock
+compressor is accepted only in a complete common-only sound-effect subtree.
+Unknown plugins, callbacks, played unresolved selectors and effects on a voice
+path still fail closed. This identifies original recordings before the game
+mixer; it does not recreate general mixer DSP or assign audio by node order.
+
+The earlier statement that effect `736727767` was outside the event bank was
+**incorrect and is superseded**. The complete HIRC census finds its definition
+inside this bank in all four dubs: a static Wwise Compressor, also identical in
+48 unique cached banks. The partial parser had searched an incomplete subset.
+The old diagnosis and private prototype remain retained as earlier evidence.
+
+Eight exact original WEMs, their native headers and four package ownership
+checks used **393,856 bytes**. All eight complete stereo sources preserve their
+native frames, roughly 33.16–33.27 seconds, and contain the full actual utterance
+in the correct dub/Rover branch. The native 29–31-second display cue is retained
+as display evidence; no word cut or guessed start/end is created. Private,
+unprompted diagnostics corroborate the spoken words without becoming an ASR
+dependency. An all-zero prefix was omitted only from a second research
+diagnostic; playback and exports preserve every original frame.
+
+The normal five-locale workers replace exactly one unavailable base record with
+two voiced Rover contexts per locale. Every other official text and voice
+record remains identical. Each study locale now has **1,359 film-context
+variants, 87 scenes and 139 sources**. Reader revision 13 makes earlier prepared
+libraries discover this repair. Source acquisition and final binding share the
+same authenticated caption eligibility predicate, so already voiced, shared
+global and otherwise ineligible captions do not download unused soundtracks.
+
+The six configured recognition identities documented below remain guarded.
+They have actual competing text uses, not missing scene audio. Their current
+gameplay reachability has not been established; they are **nonblocking research
+inventory**, not confirmed current gameplay failures, removed content or silent
+dialogue. The same distinction applies to other old/configuration-only lyric
+and presentation references. No additional all-reference or gameplay audit is
+required to close the tested current-source work.
+
+The genuine operational boundary is cold initial setup when neither an
+available legacy bootstrap source nor package-verified local inputs exist.
+Ordinary current updates and the frozen retained-A → normal-B changed-content,
+failure/restart trial are already verified. Original UUID-key updates are
+handled through the publisher route; an unknown bootstrap/default-key rotation
+remains an exceptional unsupported boundary, not an observed current update
+failure. Mainland worker/playback and untested platforms remain outside the
+Global playback acceptance. Historical first-discovery roots do not block
+ordinary current preparation or retained recordings.
+
+Finite closure checks for this source repair:
+
+| Check | Result and limit |
+| --- | --- |
+| Ordinary preparation, five study locales | Passed; exactly the one missing base identity becomes two correctly owned Rover contexts, all other records unchanged. No further WEM body was downloaded during these workers. |
+| Four dubs and both Rover branches | Passed native ownership, complete stereo source frames and actual full-utterance corroboration. Both Chinese scripts share the same Mandarin sources. |
+| Normal single/batch and fresh-process offline export | Ten canonical-record exports agree byte-for-byte with their batch/offline counterparts; source WEM and native PCM hashes remain identical and complete. These source-export checks do not imply automatic text recognition. |
+| Recognition | The repaired line matches controlled Korean native text for both configured Rover voices. Standalone English/Japanese/Chinese forms remain guarded; the six earlier configured identities also retain every real conflict. Recent gameplay reachability of these configured cases is unproven, so they are nonblocking inventory, not newly claimed live capture coverage. |
+| Updates and failure retention | Existing ordinary discovery, authenticated cache rules and the prior real changed-content update trial remain in force. New source IDs need no hand-maintained allowlist; unsupported source shapes keep the previous complete preparation. |
+
 ## November 17, 2026 · Original publisher key-update provider
 
 Ordinary publisher discovery now follows the original launcher's
@@ -144,17 +208,21 @@ configured cue in `M2_12_06` (17), `M2_12_07` (36) and `M2_12_13` (17) already
 has an individual original voice binding. Of ten `M2_12_22` cues, only two lack
 selected-dub audio; both have native `GlobalLanguage` configurations and remain
 unavailable. They are not certified silent or localized spoken performances.
-Of two `M2_12_22_1` cues, one lexical caption, `Main_Rinascita_2_12_6828_2`,
-remains unresolved. Its authored movie cue spans 29–31 seconds, but that display
+Under reader 12, of two `M2_12_22_1` cues, one lexical caption,
+`Main_Rinascita_2_12_6828_2`, remained unresolved. Reader 13's source repair is
+described above. Its authored movie cue spans 29–31 seconds, but that display
 interval does not authorize a guessed voice cut. These configured counts do
 not establish reachability of every historical scene in a current save.
 
 The remaining event posts clean localized Rover sources alongside separate
 common music and sound effects. Its complete inherited sound-effect path also
-contains an active, non-rendered effect whose definition is outside the event
-bank. A private parser prototype therefore still rejects the event. Neither
+contains an active, non-rendered effect. The earlier claim that its definition
+was outside the bank was incorrect: the complete native HIRC inventory above
+supersedes that partial-parser diagnosis. The former private prototype rejected
+the event. Neither
 the unposted music ancestor's unresolved selector nor the external effect is
-treated as known. No production graph guard or coverage total changed.
+treated as known in that prior probe. Reader 13 adds the narrow, tested source
+isolation contract above; it does not reinterpret a stopped ancestor as played.
 
 The standard-surround cohort's **8/4/6/8/8** unresolved recognition variants
 represent six base identities, each counted separately for Rover gender:
