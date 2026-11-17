@@ -78,6 +78,13 @@ def _snapshot(raw, audio):
         if value.get('game') != 'endfield':
             raise ValueError('World dialogue metadata belongs to its original game')
         value['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(value['publisher_world_dialogue_ui'])
+    if 'publisher_sns_dialogue_ui' in value:
+        from .endfield_sns_presentation import validate_sns_dialogue_ui
+        if value.get('game') != 'endfield':
+            raise ValueError('Baker dialogue metadata belongs to its original game')
+        value['publisher_sns_dialogue_ui'] = validate_sns_dialogue_ui(value['publisher_sns_dialogue_ui'])
+        if value['publisher_sns_dialogue_ui']['revision'] != value.get('fingerprint'):
+            raise ValueError('Original Baker UI and prepared records have different revisions')
     if (value.get('format') != 2 or not isinstance(value.get('game'), str)
             or not isinstance(value.get('source_locale'), str)
             or not isinstance(value.get('records'), list) or not 0 < len(value['records']) <= MAX_ROWS
@@ -244,6 +251,11 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
         if snapshot.get('game') != 'endfield':
             raise ValueError('World dialogue metadata belongs to its original game')
         payload['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(snapshot['publisher_world_dialogue_ui'])
+    if 'publisher_sns_dialogue_ui' in snapshot:
+        from .endfield_sns_presentation import validate_sns_dialogue_ui
+        if snapshot.get('game') != 'endfield':
+            raise ValueError('Baker dialogue metadata belongs to its original game')
+        payload['publisher_sns_dialogue_ui'] = validate_sns_dialogue_ui(snapshot['publisher_sns_dialogue_ui'])
     audio = {}
     for original in snapshot['records']:
         guard()

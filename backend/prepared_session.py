@@ -233,6 +233,12 @@ class PreparedCaptureSession:
                     hit = self.index.match_endfield_world_caption(presentation_lines, frame_size)
                     if hit and eligible(hit):
                         matches[hit.text_id] = hit
+                if (self.index.game == 'endfield' and policy.silent_enabled
+                        and self.index.snapshot_metadata.get('publisher_sns_dialogue_ui')):
+                    from .endfield_sns_presentation import merge_sns_observations
+                    hits = self.index.match_endfield_sns_dialogue(presentation_lines, frame_size,
+                        direct=tuple(matches.values()), dialogue_menu=dialogue_menu)
+                    matches = merge_sns_observations(matches, [hit for hit in hits if eligible(hit)])
             if self.index.game == 'nte' and channel == 'dialogue':
                 # Generic Endfield context cannot authorize NTE graph traversal.
                 # Only genuine positioned menu/quality evidence can arm it.

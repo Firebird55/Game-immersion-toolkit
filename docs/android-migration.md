@@ -127,3 +127,12 @@ publisher predecessor contexts, fuzzy confirmation, menu observations or the
 ordinary three-second behavior of callers without native receipts. Unit and
 HTTP fixtures exercise serialized four-second OCR; this source checkpoint alone
 does not establish Android target or physical-device acceptance.
+
+Prepared Endfield libraries retain the original Baker mode, contact and ordered
+cell metadata, bound to the same publisher revision. The shared Android session
+uses the desktop's complete-cell matcher with genuine positioned OCR and the
+unvoiced-capture opt-in, preserving the selected study language when the screen
+uses another prepared display language. Unpositioned, incomplete, ambiguous or
+menu observations cannot establish the written system-message context. Portable
+export/import, history ordering and process restart pass authored shared-core
+checks; actual Android OCR for these layouts remains a target acceptance check.
