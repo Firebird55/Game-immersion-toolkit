@@ -126,10 +126,16 @@ class LanguageContext(BaseModel):
     voice_status: Literal['voiced', 'unvoiced', 'unavailable', 'unknown'] = 'unknown'
     dialogue_kind: str | None = None
     text_capture_verified: bool = False
+    audio_omitted_by_request: bool = False
+    source_voice_binding: dict | None = None
 
     @property
     def is_verified_missing_audio(self) -> bool:
-        return self.text_capture_verified and self.voice_status in {'unknown', 'unavailable'}
+        return not self.audio_omitted_by_request and self.text_capture_verified and self.voice_status in {'unknown', 'unavailable'}
+
+    @property
+    def is_requested_text_only(self) -> bool:
+        return self.audio_omitted_by_request and self.text_capture_verified
 
     @model_validator(mode='after')
     def legacy_language_defaults(self):
