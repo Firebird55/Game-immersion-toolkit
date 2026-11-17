@@ -300,3 +300,44 @@ def test_unexpected_native_decoder_failure_is_bounded_until_explicit_retry(tmp_p
             assert 'provider diagnostics' not in json.dumps(line)
         assert voice.calls == 1
     finally: host.close()
+
+
+def test_old_context_stamp_and_actual_wav_reopen_without_rehashing_saved_pointer(tmp_path):
+    from backend.models import TextMatch
+    fixture_library(tmp_path / 'authored'); raw = (tmp_path / 'authored/tone.wav').read_bytes()
+    provider = LocalProvider(LocalVoice(raw))
+    frontend = tmp_path / 'reader'; frontend.mkdir(); (frontend / 'index.html').write_text('<head></head>')
+    root = tmp_path / 'application'
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': provider})
+    try:
+        install(host)
+        # Recreate the genuine old stamp format: optional publisher fields did
+        # not exist in either JSON context or the complete TranscriptLine DTO.
+        old = host.session.history.add(TextMatch(text_id='authored:old', game='zzz',
+            english=TEXT, chinese='沿河走过桥。', source_text=TEXT, source_ocr=TEXT,
+            source_locale='en', source_language='en', audio_locale='en', score=100, kind='exact', voice_status='voiced'),
+            host.session.session_id)
+        old_dto = old.model_dump(mode='json', exclude={'favorite', 'has_audio', 'voiced', 'audio_source', 'audio_pending',
+            'publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'})
+        old_stamp = hashlib.sha256(json.dumps(old_dto, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+        row = host.session.index._records[0]
+        host.session.recordings.register(old.id, host.session.direct_descriptor, row, line_stamp=old_stamp)
+        path = host.session.recordings.materialize(old.id, host.session.original_source_for)
+        host.session.history.update_audio(old.id, 'official-retained/' + path.name, True)
+        host.session.history.set_favorite(old.id, True)
+        pointer = host.session.recordings.root / 'lines' / (str(old.id) + '.json')
+        original_pointer = pointer.read_bytes()
+    finally: host.close()
+    host = AndroidHost(root, frontend, game_data_providers={'zzz': LocalProvider(LocalVoice(b''))})
+    try:
+        line = host.session.history.get(old.id)
+        assert line.favorite
+        for name in ('publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'):
+            assert getattr(line, name, None) is None
+        assert host.session._recording_stamp(line) == old_stamp
+        assert request(host, 'GET', f'/api/lines/{old.id}/audio')[1] == raw
+        assert pointer.read_bytes() == original_pointer  # No blind rehash/adoption.
+        # Unknown older pointer formats never become trusted by reopening.
+        pointer.write_text(json.dumps({'reference': json.loads(original_pointer)['reference']}))
+        assert request(host, 'GET', f'/api/lines/{old.id}/audio')[0] == 404
+    finally: host.close()

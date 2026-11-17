@@ -281,6 +281,11 @@ class PreparedCaptureSession:
         # SQLite can upgrade a recent caption in place. A local integer id is
         # insufficient voice identity; favorites/audio progress are mutable.
         value = line.model_dump(mode='json', exclude={'favorite', 'has_audio', 'voiced', 'audio_source', 'audio_pending'})
+        # These optional fields were absent from older retained-reference
+        # stamps. Only None is absence-equivalent; every real value is bound.
+        for key in ('publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'):
+            if value.get(key) is None:
+                value.pop(key, None)
         return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
             ensure_ascii=False, allow_nan=False).encode()).hexdigest()
 
