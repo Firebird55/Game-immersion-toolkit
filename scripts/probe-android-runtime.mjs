@@ -9,6 +9,7 @@ import {chromium} from 'playwright';
 import {createAuthoredRuntimeDiagnostics, authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
 import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './android-authored-account-ui.mjs';
 import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} from './android-browser-migration-ui.mjs';
+import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -135,16 +136,9 @@ assert.equal(normalStartup.snapshot.lexirise.configured, false);
 assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
-const library = readFileSync(join(directory, 'authored-library.zip')).toString('base64');
-const imported = await page.evaluate(async ({encoded, generation}) => {
-  const bytes = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
-  const response = await fetch('/api/library/import', {method: 'POST', headers: {
-    'Content-Type': 'application/zip', 'X-Toolkit-Import-Id': crypto.randomUUID(),
-    'X-Toolkit-Account-Generation': String(generation)}, body: bytes});
-  return {status: response.status, data: await response.json()};
-}, {encoded: library, generation: normalAccountGeneration});
-assert.equal(imported.status, 200);
-assert.equal(imported.data.game, 'zzz');
+await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip',
+  bytes: readFileSync(join(directory, 'authored-library.zip')),
+  trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
 await diagnostics?.capture('before prepared-library React activation', 'android-receiver-before-library-ready.json');
 await until(() => authoredReceiverLibraryReady(page), 'actual shared reader prepared-library activation');
 await diagnostics?.capture('after prepared-library React activation', 'android-receiver-after-library-ready.json');
@@ -224,7 +218,9 @@ assert.equal(restarted.snapshot.status.capture.running, false);
 assert.equal(restarted.snapshot.lines.length, 1);
 assert.equal(restarted.snapshot.lines[0].favorite, true);
 assert.equal(restarted.snapshot.lines[0].has_audio, true);
-const migratedTotal = await importBrowserHistoryThroughUi(page, until, lineId);
+const migratedTotal = await importBrowserHistoryThroughUi(page, until, lineId, bytes =>
+  selectAuthoredAndroidDocument({adb, page, until, output, extension: 'json', bytes,
+    trigger: () => page.getByLabel('Browser history backup', {exact: true}).click()}));
 await browser.close();
 adb('shell', 'am', 'force-stop', packageName);
 adb('shell', 'am', 'start', '-W', '-n', component);
@@ -268,6 +264,7 @@ writeFileSync(join(output, 'android-browser-migration-runtime-proof.json'), JSON
   real_ui_import: true, paged_history: true, oldest_favorite_visible: true, repeat_idempotent: true,
   original_native_favorite_and_voice_retained: true, imported_audio_not_invented: true,
   offline_process_restart: true, apk_update_retained_data: true,
+  actual_android_saf_json_selection: true,
   physical_mobile_bookmark_acceptance: 'not-established', release_eligibility: false,
 }, null, 2) + '\n');
 await browser.close();
@@ -285,5 +282,6 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   native_keystore_retained_across_apk_update: true,
   normal_protected_accounts_available: true, normal_unconfigured_library_works_offline: true,
   ordinary_startup_browser_history_migration: true,
+  actual_android_saf_zip_and_json_selection: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

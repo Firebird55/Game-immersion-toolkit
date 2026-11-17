@@ -267,6 +267,14 @@ process-restart and APK-update checks must retain both that history and the
 original voiced favorite. This exercises the import path; it does not establish
 physical mobile bookmark execution or restore recordings absent from the backup.
 
+The native document chooser follows the actual shared file input's ZIP or JSON
+accept declaration. Unsupported declarations cancel safely; both importers still
+validate the selected bytes independently. The hosted native probe now opens
+Android's DocumentsUI, selects each disposable authored file from Downloads and
+returns its content URI to the real WebView import control. This additional SAF
+scenario needs matching target evidence; direct File injection from earlier
+cohorts did not establish native picker behavior.
+
 Recovery reference evidence distinguishes the actual Windows build host
 (Python 3.12.10 / SQLite 3.49.1) from the local reference interpreter
 (Python 3.12.2 / SQLite 3.43.1) and embedded Android Python 3.12.15. The newer

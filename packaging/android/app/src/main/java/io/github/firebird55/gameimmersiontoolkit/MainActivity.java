@@ -223,11 +223,20 @@ public final class MainActivity extends Activity {
         reader.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (picker != null) picker.onReceiveValue(null);
-                picker = callback;
+                picker = null;
+                String[] types = AcceptedDocuments.mimeTypes(params == null ? null : params.getAcceptTypes());
+                if (types.length == 0 || params.getMode() != FileChooserParams.MODE_OPEN) {
+                    callback.onReceiveValue(null);return true;
+                }
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
-                intent.setType("application/zip");
-                startActivityForResult(intent, 21);
+                intent.setType(types.length == 1 ? types[0] : "application/*");
+                if (types.length > 1) intent.putExtra(Intent.EXTRA_MIME_TYPES, types);
+                picker = callback;
+                try { startActivityForResult(intent, 21); }
+                catch (android.content.ActivityNotFoundException error) {
+                    picker = null;callback.onReceiveValue(null);
+                }
                 return true;
             }
         });
@@ -241,6 +250,7 @@ public final class MainActivity extends Activity {
         super.onActivityResult(request, result, intent);
         if (request == 21 && picker != null) {
             picker.onReceiveValue(result == RESULT_OK && intent != null && intent.getData() != null
+                && "content".equals(intent.getData().getScheme())
                 ? new Uri[]{intent.getData()} : null);
             picker = null;
         }

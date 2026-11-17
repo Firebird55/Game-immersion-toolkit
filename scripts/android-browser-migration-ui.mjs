@@ -49,14 +49,15 @@ export async function verifyMigratedHistory(page, until, expectedTotal, nativeLi
   return value;
 }
 
-export async function importBrowserHistoryThroughUi(page, until, nativeLineId) {
+export async function importBrowserHistoryThroughUi(page, until, nativeLineId, selectBackup = null) {
   await until(() => authoredReceiverLibraryReady(page), 'ordinary reader library scope before migration');
   const baseline = await snapshot(page), total = baseline.status.session.total_line_count + migrationRows;
   const file = {name: 'authored-browser-history.json', mimeType: 'application/json', buffer: authoredBrowserHistoryBackup()};
   const setup = page.locator('details.android-device-setup');
   if (!await setup.evaluate(element => element.open)) await setup.locator(':scope > summary').click();
   await page.getByText('Import old browser history', {exact: true}).click();
-  await page.getByLabel('Browser history backup', {exact: true}).setInputFiles(file);
+  if (selectBackup) await selectBackup(file.buffer);
+  else await page.getByLabel('Browser history backup', {exact: true}).setInputFiles(file);
   await page.getByText('22 lines · 1 favorites · 1 excerpts.', {exact: false}).waitFor();
   assert.deepEqual((await snapshot(page)).lines, baseline.lines, 'Preview must preserve existing native rows');
   assert.equal((await snapshot(page)).status.session.total_line_count, total - migrationRows);

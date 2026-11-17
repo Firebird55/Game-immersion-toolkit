@@ -66,9 +66,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_android_game_parity.py backend/tests/test_android_authored_accounts.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py
+          python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
+          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
