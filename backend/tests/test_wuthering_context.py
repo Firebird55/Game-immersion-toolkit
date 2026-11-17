@@ -69,7 +69,7 @@ def test_existing_audio_and_known_silent_unknown_or_ellipsis_entries_survive(cha
     assert rows == original
 
 
-@pytest.mark.parametrize('shape', [(2, 14400001), (6, 48000), (3, 48000), (2, 0),
+@pytest.mark.parametrize('shape', [(2, 17280001), (6, 48000), (3, 48000), (2, 0),
                                    (False, 48000), (2, True), None])
 def test_duration_or_channel_metadata_never_becomes_a_fallback(shape, tmp_path):
     scene_db(tmp_path)
@@ -156,7 +156,7 @@ def reference():
             'source_frames': 123457, 'source_channels': 2}
 
 
-@pytest.mark.parametrize('change', [{'source_frames': True}, {'source_frames': 14400001},
+@pytest.mark.parametrize('change', [{'source_frames': True}, {'source_frames': 17280001},
     {'source_channels': 6}, {'source_channels': False}, {'start_ms': 0}, {'end_ms': 100},
     {'scene': '../../unsafe'}, {'event': 'filename #r 100'}, {'playback_scope': 'full_track'}])
 def test_context_references_require_bounded_exact_shape_without_decoder_directives(change):
@@ -200,3 +200,21 @@ def test_a_header_cannot_hide_truncated_pcm_behind_matching_total_file_size(tmp_
     monkeypatch.setattr(assets.subprocess, 'run', decode)
     with pytest.raises(ValueError, match='verified source'):
         assets.decode_voice_source(b'owned-source', reference(), tmp_path / 'out.wav', 'decoder', tmp_path)
+
+
+def test_longer_whole_film_keeps_all_original_frames_without_extending_song_or_trim_contracts(tmp_path):
+    # Real M0355 metadata shape: 321.063 seconds, longer than five minutes.
+    scene_db(tmp_path)
+    rows = [record()]
+    assign(tmp_path, rows, shapes={101: (2, 15411020)})
+    assert rows[0]['audio']['source_frames'] == 15411020
+    assert rows[0]['audio_scope'] == 'context'
+    assets._validate_voice({**rows[0]['audio'], 'publisher': 'wuwa-' + 'a' * 64})
+    boundary = [record()]
+    assign(tmp_path, boundary, shapes={101: (2, 17280000)})
+    assert boundary[0]['audio']['source_frames'] == 17280000
+    with pytest.raises(ValueError):
+        assets._validate_voice({**rows[0]['audio'], 'publisher': 'wuwa-' + 'a' * 64, 'source_frames': 17280001})
+    with pytest.raises(ValueError):
+        assets._validate_voice({'depot': films.MEDIA_ROOT + 'en/101.wem', 'locale': 'en',
+            'publisher': 'wuwa-' + 'a' * 64, 'start_ms': 0, 'end_ms': 321064})

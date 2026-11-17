@@ -1,5 +1,124 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Fixed independent scene states
+
+The localized scene reader now handles an exact immediate Wwise-172 SetState
+alongside an otherwise static voice graph. It validates the original action's
+bus flag, empty property/range bundles, group and target fields and retains the
+fixed state evidence. A Rover-group change, delayed/randomized action, malformed
+state, chained PlayEvent, or any state-driven source/ancestor property or RTPC
+remains unresolved. Shared-song graphs still reject extra state actions. No
+state or scene ID allowlist selects the supported cases.
+
+The ordinary source path adds six current scenes: C0030, M0296, M0297, M0319,
+M0372 and M0373. Actual untouched banks in all four dubs agree with independent
+WWiser field interpretation. All 44 associated originals passed package/member
+checksums and native decoder metadata: one 48-kHz stereo stream, equal source and
+playback frames, longest 121.909 seconds. Acquisition used 16,600,604 bytes in
+112 original ranges within the coordinated 20-MiB bound. No client code ran.
+
+All five ordinary language workers preserve every prior voice and every other
+record unchanged while adding 49 context variants for 30 caption identities.
+Film totals are now **1,270 variants for 882 identities, 120 original sources and
+77 scenes per study locale**. These are accounted source presentations, not a
+claim of all current chapters or all 1,353 movie display cues. Seven of the 106
+localized movie roots still need their chained-event/delayed graph joins.
+Unsupported surround layouts, remaining music/other presentations, regional
+validation and unknown-key derivation remain open.
+
+Production single exports and bounded batches exercised all eleven new
+source/Rover combinations in each study locale, retaining exact complete WAV
+frames. A fresh process with all network access forbidden reproduced the same
+55 source variants and MP3 hashes. The two Chinese scripts share identical
+Mandarin originals/PCM/MP3; each of the eleven source/Rover groups has distinct
+PCM in all four actual dubs. The six-minute film bound and five-minute song and
+interval/matching bounds remain unchanged.
+
+## November 17, 2026 · Native player-name recognition
+
+Exact subtitle matching now recognizes the original `{PlayerName}` slot. The
+original VideoConfig consumer passes caption text through PlotTextReplacer,
+which substitutes FunctionModel's player nickname. The index retains the
+original texts and voice references; it recognizes a substituted nickname only
+when all surrounding normalized words agree exactly. The slot must be unique,
+the fixed text substantial (at least twelve Latin or six East Asian characters),
+and the normalized nickname between one and 32 characters. This last bound is
+an OCR admission limit, not a claim about the game's account-name policy.
+
+This is Wuthering-specific. Ordinary fuzzy thresholds, other games, wrong-player
+refusals, previous-caption requirements, channel admission and all conflicting
+text/audio candidates remain unchanged. Literal and template collisions still
+prevent a voice match. Confirmed-silent/unknown/missing-audio presentations remain
+vetoes; a verified missing-audio row cannot borrow an overlapping literal voice.
+Unsupported `{TA}` and gender-expression substitutions are not guessed by this
+single-slot mechanism.
+
+The full five prepared indexes each admit twenty of twenty-one controlled late
+M2 observations with the configured Rover branch, including three different
+nicknames in each original player-name caption. The single punctuation-only
+cue remains unresolved in each locale. Without a configured Rover, the two
+Rover-dependent records remain refused. This is controlled text replay, not an
+image-OCR proof for every language or utterance.
+
+A real cached English gameplay image at 359 seconds independently shows the
+nickname **Rayne** in the caption whose original text contains `{PlayerName}`.
+The bundled PortableOcrEngine, with every model SHA-256 verified, read that image
+and the full 144,067-record index selected the correct existing recording as an
+**exact** match (score 100). The pass took 1.74 seconds. No OCR text was injected,
+no native game code was executed and this was not physical window capture.
+[Streetwise Rhapsody gameplay](https://www.youtube.com/watch?v=bEfRuWfai3I&t=359s).
+
+## November 17, 2026 · Complete M0355 contexts and late-caption accounting
+
+The complete-film context bound is now six minutes, separately from the
+unchanged five-minute song and bounded interval/matching contracts. This admits
+the verified original M0355 source (321.063 seconds in English/Japanese/Korean,
+321.029 seconds in Mandarin) without trimming away any PCM frames or guessing
+utterance boundaries. The native scene-zero caller, selected-dub bank and
+explicit Rover state establish ownership; there is no per-film allowlist.
+
+All five ordinary publisher workers now add 90 context variants for 45 M0355
+caption identities. The other records remain field-identical to the previous
+completed snapshots. One punctuation-only caption remains unresolved. Film
+context totals are 1,221 variants for 852 caption identities, 109 original
+sources and 71 scenes per study locale. The three late M0355 captions now have
+both original Rover variants in every study locale. Sources beyond six minutes,
+unsupported channel layouts and ambiguous graphs remain explicit limitations.
+
+Single and batch production exports of all thirty late locale/Rover variants
+retain the complete source and match fresh-process network-forbidden replay.
+Native WAV validation keeps all 15,411,020 frames (Mandarin 15,409,387),
+stereo at 48 kHz. Both Chinese scripts share the same original PCM and MP3.
+All thirty controlled exact observations select their configured Rover variant;
+this is not physical capture of thirty separate gameplay scenes.
+
+The former blanket statement that seventeen late captions lack playable audio
+was overbroad: all fourteen late M2_12_07 cues already resolve to original
+individual PlotAudio recordings in all five prepared study locales. Fifteen
+record variants per locale include the explicit Rover pair. The ordinary source
+reader, native decoder and representative single/batch exports were checked,
+then repeated in a new process with the network forbidden. The two Chinese
+scripts reuse Mandarin originals. Total new original range acquisition was
+1,969,995 bytes; this was a warm-source trial, not a cold download.
+
+Audio ownership is separate from OCR admission. The M2 punctuation-only cue
+cannot identify its performance from punctuation alone. Rover-dependent captions
+require the matching configured branch. Authored `{PlayerName}` substitutions
+also exposed real recognition failures, especially in Chinese/Korean; the
+native-slot mechanism above addresses those failures separately from audio. The original
+VideoConfig caption consumer calls PlotTextReplacer, which replaces that exact
+token with the player's nickname. Other dynamic text grammars and punctuation-only recognition remain separate
+from these audio bindings.
+
+## November 16, 2026 · Publisher metadata recovery
+
+Ordinary preparation retains only native-package-verified archive parameters and
+the existing SHA-pinned catalogue-format source in protected local tool storage.
+A real fresh-process Global English worker prepared the same complete 144,022
+records with both third-party providers unavailable. Unknown rotated parameters
+and the changed-content two-generation trial remain open; cached known inputs
+are not a derivation mechanism. [Recovery evidence and exact limits](wuwa-publisher-recovery.md).
+
 ## November 16, 2026 · Shared-song captions
 
 Publisher preparation adds the original MusicSubtitle presentation and verified
@@ -89,7 +208,8 @@ does not choose a branch. These checks complement the original waveform and
 gameplay evidence; they do not claim physical capture of every scene.
 [Japanese C3jiyanfight gameplay](https://www.youtube.com/watch?v=4_cafY0Poas)
 
-The seventeen late M2_12_07/M0355 captions remain unresolved by this route.
+The seventeen late M2_12_07/M0355 display windows were outside this route's previous whole-source bound; the November 17 accounting above distinguishes
+existing individual M2 recordings from newly admitted M0355 contexts.
 This does not establish that their complete utterances cannot fit in a bounded
 context: the original late-source comparisons below remain valid. Generic
 authored groups, complex callers and clocks still need their joins. Native

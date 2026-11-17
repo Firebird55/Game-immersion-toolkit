@@ -32,7 +32,7 @@ def binding_fixture(*, heap_store=False, clobber=False):
         raw[start] = b'\x48\x8b\x05' + struct.pack('<i', literal - start - 7)
         sizes[start] = {row[0]: 7 for row in bodies[start]}
     index = SimpleNamespace(blocks=blocks, all_blocks=all_blocks, literals=literals,
-        extent=lambda start: start + 7, read=lambda start, count: raw[start],
+        raw_extent=lambda start: start + 7, read=lambda start, count: raw[start],
         body=lambda start: (bodies[start], 'a' * 64), instruction_sizes=lambda start: sizes[start])
     return index, names
 

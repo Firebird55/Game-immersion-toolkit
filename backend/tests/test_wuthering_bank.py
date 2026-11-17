@@ -136,3 +136,40 @@ def test_malformed_banks_duplicate_objects_and_unsupported_versions_fail_closed(
     assert not scene_sources(bank(direct() + [direct()[0]]), 'owned_scene', {101})
     assert not scene_sources(bank(direct(), version=173), 'owned_scene', {101})
     assert not scene_sources(data, 'owned_scene', {True})
+
+
+def fixed_state(group=701, state=702, *, target=None, bus=0, props=bytes(2)):
+    return b'\x04\x12' + u32(state if target is None else target) + bytes([bus]) + props + u32(group) + u32(state)
+
+
+def test_immediate_fixed_unrelated_state_retains_evidence_without_selecting_voice_or_player():
+    state = (701, 702)
+    nodes = gendered() + [(3, 51, fixed_state(*state))]
+    assert scene_sources(bank(nodes, actions=(51,50)), 'owned_scene', {101,102}) == (
+        SceneSource(102,'female',0,False,(state,)),SceneSource(101,'male',0,False,(state,)))
+
+
+@pytest.mark.parametrize('action',[
+    fixed_state(group=wwise_hash('player_rover_gender')),fixed_state(group=0),
+    fixed_state(target=900),fixed_state(bus=1),fixed_state(props=b'\x01\x3a'+u32(100)+b'\0'),
+    fixed_state() + b'\0',fixed_state()[:-1],
+])
+def test_changed_player_delayed_malformed_or_unbounded_states_remain_unresolved(action):
+    nodes=direct()+[(3,51,action)]
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+@pytest.mark.parametrize('tail',[
+    bytes.fromhex('00000000000000010000000000000100'),
+    bytes.fromhex('00000000000000010000000001000000'),
+])
+def test_unrelated_state_does_not_authorize_a_state_or_rtpc_driven_voice_path(tail):
+    nodes=direct(tail=tail)+[(3,51,fixed_state())]
+    assert not scene_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})
+
+
+def test_fixed_scene_state_does_not_relax_shared_song_graphs():
+    from backend.wuthering_bank import song_sources
+    nodes=direct()+[(3,51,fixed_state())]
+    nodes[0]=(2,10,nodes[0][2][:17]+b'\x08'+nodes[0][2][18:])
+    assert not song_sources(bank(nodes,actions=(51,50)), 'owned_scene',{101})

@@ -123,6 +123,18 @@ class Dictionary:
     value: object
 
 
+@dataclass(frozen=True)
+class Empty:
+    """A proved native reader that consumes no bytes."""
+
+
+@dataclass(frozen=True)
+class Tagged:
+    """A native factory tag followed by its exact owned reader contract."""
+    tag: Word
+    cases: tuple
+
+
 def _contract(node, active=None, budget=None, depth=0):
     active = set() if active is None else active
     budget = [0] if budget is None else budget
@@ -131,6 +143,20 @@ def _contract(node, active=None, budget=None, depth=0):
     active.add(id(node))
     if isinstance(node, Word):
         result = ['word', node.bits, node.operations, node.interpretation, node.false_value]
+    elif isinstance(node, Empty):
+        result = ['empty']
+    elif isinstance(node, Tagged):
+        _check(isinstance(node.tag, Word) and node.tag.interpretation == 'unsigned'
+               and node.tag.bits <= 32 and isinstance(node.cases, tuple)
+               and 0 < len(node.cases) <= 256)
+        cases, tags = [], set()
+        for pair in node.cases:
+            _check(isinstance(pair, tuple) and len(pair) == 2)
+            tag, value = pair
+            _check(type(tag) is int and 0 <= tag < 1 << node.tag.bits and tag not in tags)
+            tags.add(tag)
+            cases.append([tag, _contract(value, active, budget, depth + 1)])
+        result = ['tagged', _contract(node.tag, active, budget, depth + 1), cases]
     elif isinstance(node, Text):
         result = ['text', _contract(node.length, active, budget, depth + 1), node.key, node.operation]
     elif isinstance(node, Record):
@@ -179,6 +205,13 @@ class _Reader:
     def read(self, node, depth=0):
         self.values += 1
         _check(self.values <= MAX_VALUES and depth <= MAX_DEPTH)
+        if isinstance(node, Empty):
+            return {}
+        if isinstance(node, Tagged):
+            tag = self.read(node.tag, depth + 1)
+            cases = dict(node.cases)
+            _check(tag in cases)
+            return {'tag': tag, 'value': self.read(cases[tag], depth + 1)}
         if isinstance(node, Word):
             _, value = self.word(node)
             if node.interpretation == 'float':
@@ -280,6 +313,7 @@ class InventoryRoute:
     identity_field: str = 'id'
     representation: str = 'talk'
     group_contract: object = None
+    identity_positions: tuple = ()
 
     def __post_init__(self):
         _check(type(self.kind) is int and 0 <= self.kind <= 0xffffffff
@@ -291,6 +325,58 @@ class InventoryRoute:
                and (self.group_contract is not None) == (self.representation == 'group'))
         if self.group_contract is not None:
             _contract(self.group_contract)
+        _check(isinstance(self.identity_positions, tuple) and len(self.identity_positions) in (0, 2)
+               and all(type(value) is int and 0 <= value < 32 for value in self.identity_positions)
+               and len(set(self.identity_positions)) == len(self.identity_positions))
+
+
+@dataclass(frozen=True)
+class IndexedGroupPrefix:
+    """A native-owned group prefix whose identity comes from its source index.
+
+    The original index owns the full asset reference. The native consumer uses
+    the prefix's final Talk array independently of later gameplay fields. This
+    contract requires every preceding field; it is not a general trailing-byte
+    option and cannot be passed to the strict whole-object decoder or a route.
+    """
+    record: Record
+
+    def __post_init__(self):
+        _check(isinstance(self.record, Record))
+        _contract(self.record)
+        final = self.record.fields[-1]
+        _check(final.name == 'talks' and isinstance(final.value, Array))
+
+
+def _source_contract(contract):
+    if isinstance(contract, IndexedGroupPrefix):
+        return ['index-owned-group-prefix', _contract(contract.record)]
+    return _contract(contract)
+
+
+@dataclass(frozen=True)
+class SourceIndex:
+    """A native-owned UInt32-to-UInt64 publisher resource dictionary.
+
+    An index enumerates authored resources independently of filename guesses.
+    Group index keys belong to the group, not to the contained Talk IDs.
+    """
+    path: str
+    contract: Dictionary
+    representation: str = 'talk'
+    group_contract: object = None
+
+    def __post_init__(self):
+        _check(_path(self.path) and isinstance(self.contract, Dictionary)
+               and isinstance(self.contract.key, Word) and self.contract.key.bits == 32
+               and self.contract.key.interpretation == 'unsigned'
+               and isinstance(self.contract.value, Word) and self.contract.value.bits == 64
+               and self.contract.value.interpretation == 'unsigned'
+               and self.representation in ('talk', 'descriptor', 'group')
+               and (self.group_contract is not None) == (self.representation == 'group'))
+        _contract(self.contract)
+        if self.group_contract is not None:
+            _source_contract(self.group_contract)
 
 
 @dataclass(frozen=True)
@@ -316,6 +402,7 @@ class NativeDialogueProfile:
     inventory_routes: tuple = ()
     descriptor: object = None
     descriptor_payload_kinds: tuple = ()
+    source_indices: tuple = ()
 
     def fingerprint(self):
         _check(_path(self.lut_path) and _path(self.items_prefix.rstrip('/'))
@@ -336,8 +423,16 @@ class NativeDialogueProfile:
         for route in self.inventory_routes:
             _check(isinstance(route, InventoryRoute) and route.kind not in routes)
             routes[route.kind] = [route.prefix, route.identity_field, route.representation,
-                                  _contract(route.group_contract) if route.group_contract else None]
-        uses_descriptors = any(route.representation != 'talk' for route in self.inventory_routes)
+                                  _contract(route.group_contract) if route.group_contract else None,
+                                  route.identity_positions]
+        _check(isinstance(self.source_indices, tuple) and len(self.source_indices) <= 64
+               and all(isinstance(source, SourceIndex) for source in self.source_indices)
+               and len({source.path for source in self.source_indices}) == len(self.source_indices))
+        indices = [[source.path, _contract(source.contract), source.representation,
+                    _source_contract(source.group_contract) if source.group_contract else None]
+                   for source in self.source_indices]
+        uses_descriptors = any(source.representation != 'talk'
+                               for source in (*self.inventory_routes, *self.source_indices))
         _check((self.descriptor is not None) == uses_descriptors
                and isinstance(self.descriptor_payload_kinds, tuple)
                and len(self.descriptor_payload_kinds) <= 64
@@ -350,7 +445,7 @@ class NativeDialogueProfile:
             contracts.append(_contract(self.descriptor))
         raw = json.dumps([contracts, self.lut_path, self.items_prefix, self.trigger_names,
                           self.method_sha256, self.executable_sha256, self.metadata_sha256, routes,
-                          self.descriptor_payload_kinds],
+                          self.descriptor_payload_kinds, indices],
                          sort_keys=True, separators=(',', ':')).encode()
         return hashlib.sha256(raw).hexdigest()
 
@@ -366,13 +461,17 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
     this returns an OriginalAsset from the exact catalog/bundle, never a guessed
     pathname. Groups yield ``id, talks``; descriptors yield ``id, assetIndex,
     payloadKind``. Every inventory member must appear in its authored group.
+    Source dictionaries enumerate roots in their own typed key namespace;
+    compound group routes additionally check ``id2`` against the authored pair.
+    An IndexedGroupPrefix records whole-source provenance and consumed bytes;
+    its group identity is owned by the native source index, not a guessed field.
     A failure, interrupted write or changed release retains the previous cache.
     Missing/ambiguous voice entries stay unknown or unavailable, never unvoiced.
     This explicit API has Talk coverage; it does not claim other presentations.
     """
     _check(isinstance(profile, NativeDialogueProfile) and isinstance(inventory, OriginalObject))
     fingerprint = profile.fingerprint()
-    _check(profile.descriptor is None or callable(load_asset))
+    _check(not (profile.descriptor is not None or profile.source_indices) or callable(load_asset))
     _check(isinstance(publisher_stamp, str) and re.fullmatch('sophon-[0-9a-f]{64}', publisher_stamp)
            and callable(load_object) and callable(current))
     _check(isinstance(tables, dict) and source_locale in tables and isinstance(textmap_sha256, dict)
@@ -403,34 +502,85 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
     listing = decode_original(inventory.payload, profile.inventory)
     _check(isinstance(listing, list) and 0 < len(listing) < MAX_OBJECTS)
     talks, identities, resources, assets = [], set(), {}, {}
+    talk_assets, indexed_members = set(), set()
     routes = {route.kind: route for route in profile.inventory_routes}
     for row in listing:
         _check(isinstance(row, dict) and type(row.get('id')) is int and row['id'] > 0
                and row['id'] not in identities)
         identities.add(row['id'])
 
-    def bind_descriptor(descriptor):
+    def read_asset(identity, contract):
         nonlocal total
+        _check(type(identity) is int and 0 < identity < 1 << 64)
+        schema = _source_contract(contract)
+        if identity in assets:
+            previous_schema, value = assets[identity]
+            _check(previous_schema == schema)
+            return value
+        _check(len(objects) < MAX_OBJECTS)
+        source = load_asset(identity)
+        _check(isinstance(source, OriginalAsset) and source.asset_index == identity
+               and source.publisher_stamp == publisher_stamp)
+        total += len(source.payload)
+        _check(total <= MAX_TOTAL)
+        objects[f'asset:{identity:016x}'] = {'sha256': source.sha256,
+                                           'catalog_sha256': source.catalog_sha256}
+        if isinstance(contract, IndexedGroupPrefix):
+            reader = _Reader(source.payload)
+            value = reader.read(contract.record)
+            objects[f'asset:{identity:016x}']['projection'] = {
+                'kind': 'index-owned-group-prefix', 'consumed_bytes': reader.at,
+                'whole_payload_bytes': len(source.payload)}
+        else:
+            value = decode_original(source.payload, contract)
+        assets[identity] = (schema, value)
+        return value
+
+    def bind_descriptor(descriptor):
         _check(isinstance(descriptor, dict) and type(descriptor.get('id')) is int
                and descriptor['id'] in identities and type(descriptor.get('assetIndex')) is int
                and 0 < descriptor['assetIndex'] < 1 << 64
                and type(descriptor.get('payloadKind')) is int
                and descriptor['payloadKind'] in profile.descriptor_payload_kinds)
         identity = descriptor['assetIndex']
-        if identity not in assets:
-            _check(len(objects) < MAX_OBJECTS)
-            source = load_asset(identity)
-            _check(isinstance(source, OriginalAsset) and source.asset_index == identity
-                   and source.publisher_stamp == publisher_stamp)
-            total += len(source.payload)
-            _check(total <= MAX_TOTAL)
-            objects[f'asset:{identity:016x}'] = {'sha256': source.sha256,
-                                               'catalog_sha256': source.catalog_sha256}
-            talk = decode_original(source.payload, profile.talk)
-            _check(isinstance(talk, dict) and isinstance(talk.get('dialogList'), list))
-            assets[identity] = talk
+        talk = read_asset(identity, profile.talk)
+        _check(isinstance(talk, dict) and talk.get('id') == descriptor['id']
+               and isinstance(talk.get('dialogList', []), list))
+        if identity not in talk_assets:
+            talk_assets.add(identity)
             talks.append(talk)
-        _check(assets[identity].get('id') == descriptor['id'])
+
+    def bind_group(source):
+        descriptors = source.get('talks', [])
+        _check(isinstance(descriptors, list) and len(descriptors) < MAX_OBJECTS)
+        members = set()
+        for descriptor in descriptors:
+            _check(isinstance(descriptor, dict) and type(descriptor.get('id')) is int
+                   and descriptor['id'] not in members)
+            bind_descriptor(descriptor)
+            members.add(descriptor['id'])
+        return members
+
+    for source in profile.source_indices:
+        index = read(source.path, source.contract)
+        _check(isinstance(index, dict))
+        contract = (profile.talk if source.representation == 'talk' else profile.descriptor
+                    if source.representation == 'descriptor' else source.group_contract)
+        for identity, asset_index in index.items():
+            _check(type(identity) is int and 0 <= identity <= 0xffffffff)
+            value = read_asset(asset_index, contract)
+            _check(isinstance(value, dict) and (isinstance(contract, IndexedGroupPrefix)
+                                               or value.get('id') == identity))
+            if source.representation == 'talk':
+                _check(isinstance(value.get('dialogList', []), list))
+                if asset_index not in talk_assets:
+                    talk_assets.add(asset_index)
+                    talks.append(value)
+            elif source.representation == 'descriptor':
+                bind_descriptor(value)
+                indexed_members.add(identity)
+            else:
+                indexed_members.update(bind_group(value))
 
     for row in listing:
         if 'resource' in row:
@@ -438,10 +588,18 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
         else:
             kind = row.get('resourceKind')
             _check(type(kind) is int and kind in routes)
+            if row['id'] in indexed_members:
+                continue
             route = routes[kind]
             identity = row.get(route.identity_field)
-            _check(type(identity) is int and 0 < identity <= 0xffffffff)
-            path = route.prefix + str(identity)
+            if route.identity_positions:
+                _check(isinstance(identity, list) and len(identity) > max(route.identity_positions))
+                identity = tuple(identity[position] for position in route.identity_positions)
+                _check(all(type(value) is int and 0 <= value <= 0xffffffff for value in identity))
+                path = route.prefix + '_'.join(map(str, identity))
+            else:
+                _check(type(identity) is int and 0 < identity <= 0xffffffff)
+                path = route.prefix + str(identity)
             representation = route.representation
             contract = (profile.talk if representation == 'talk' else profile.descriptor
                         if representation == 'descriptor' else route.group_contract)
@@ -453,20 +611,20 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
                    and (representation == 'talk' or row['id'] in members))
             continue
         source = read(path, contract)
-        _check(isinstance(source, dict) and source.get('id') == identity)
+        source_identity = ((source.get('id'), source.get('id2')) if isinstance(identity, tuple)
+                           and len(identity) == 2 and isinstance(source, dict)
+                           else source.get('id') if isinstance(source, dict) else None)
+        _check(isinstance(source, dict) and source_identity == identity)
         if representation == 'talk':
-            _check(isinstance(source.get('dialogList'), list))
+            _check(isinstance(source.get('dialogList', []), list))
             talks.append(source)
             members = {identity}
         else:
-            descriptors = source.get('talks') if representation == 'group' else [source]
-            _check(isinstance(descriptors, list) and 0 < len(descriptors) < MAX_OBJECTS)
-            members = set()
-            for descriptor in descriptors:
-                _check(isinstance(descriptor, dict) and type(descriptor.get('id')) is int
-                       and descriptor['id'] not in members)
-                bind_descriptor(descriptor)
-                members.add(descriptor['id'])
+            if representation == 'group':
+                members = bind_group(source)
+            else:
+                bind_descriptor(source)
+                members = {source['id']}
             _check(row['id'] in members)
         resources[path] = (identity, representation, _contract(contract), members)
     lut = read(profile.lut_path, profile.lut)
@@ -534,6 +692,13 @@ def prepare_original_talk_snapshot(destination, inventory, load_object, profile,
                 'coverage_warnings': warnings,
                 'original_dialogue': {'profile_sha256': fingerprint, 'inventory_rows': len(listing),
                                       'talk_objects': len(talks), 'voice_groups': len(groups),
+                                      'source_indices': len(profile.source_indices),
+                                      'prefix_projections': [
+                                          {'asset_index': int(key[6:], 16),
+                                           'sha256': value['sha256'],
+                                           'catalog_sha256': value['catalog_sha256'], **value['projection']}
+                                          for key, value in sorted(objects.items())
+                                          if isinstance(value, dict) and 'projection' in value],
                                       'object_count': len(objects), 'input_bytes': total},
                 'message': f'{len(rows):,} original {source_locale} Talk lines'}
     _check(current(publisher_stamp) is True)

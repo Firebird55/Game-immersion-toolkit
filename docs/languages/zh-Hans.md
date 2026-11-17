@@ -43,7 +43,7 @@ Both Chinese scripts share Mandarin voices. Choose Proxy voice when a caption ca
 
 ## Wuthering Waves
 
-[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-16 · [覆盖范围说明](../wuthering-languages.md)
+[官方语言列表](https://store.steampowered.com/app/3513350/Wuthering_Waves/) · 2026-11-17 · [覆盖范围说明](../wuthering-languages.md)
 
 可从发行商准备全球版台词、原版配音和已核实的场景上下文片段
 

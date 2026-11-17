@@ -22,7 +22,7 @@ games it also includes optional SD, HD and UHD film packages. [Film and floating
 
 Verified film audio can replay a complete original scene, explicitly labeled
 as a **context clip**. Native callers, selected-dub banks and Rover states must
-establish its ownership; the source must be mono/stereo and at most five
+establish its ownership; the source must be mono/stereo and at most six
 minutes. Exact source frames retain the complete utterance without claiming a
 sentence cut. Existing individual recordings stay unchanged. Choose Rover voice
 for scenes with separate female and male performances; unconfigured selection
@@ -65,3 +65,13 @@ installed voice-pack or native playback coverage. Browser checks exercise
 Japanese study text, original audio controls, desktop/mobile widths and
 Chromium/Firefox zoom/DPR emulation. No complete gameplay chapter coverage is
 claimed from these asset and synthetic checks.
+
+Publisher preparation retains verified archive metadata in protected local tool
+storage so previously supported packages can be prepared after a metadata-source
+outage. A first preparation or an unknown changed archive parameter may still
+need investigation; this is not a claim of autonomous key derivation.
+[Recovery evidence and update limits](game-audits/wuwa-publisher-recovery.md).
+
+Complete subtitles with the game's native player-nickname slot can be recognized
+from their exact surrounding words. Other dynamic text grammars and ambiguous
+short captions still need their own evidence; the matching threshold is unchanged.

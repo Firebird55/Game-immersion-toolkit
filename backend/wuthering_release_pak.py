@@ -156,14 +156,20 @@ class Package:
         version, offset, length = struct.unpack_from('<IQQ', footer, magic+4)
         check(version == 12 and footer[magic-1] in (0, 1))
         self.cipher = None
+        selected_parameter = None
         if footer[magic-1]:
             sample = self.range(offset, 16)
             for value in parameters:
                 candidate = AES.new(value, AES.MODE_ECB)
                 if candidate.decrypt(sample)[4:7] == b'../':
                     self.cipher = candidate
+                    selected_parameter = value
                     break
-            check(self.cipher is not None)
+            if self.cipher is None:
+                raise PreparationFailure('archive_parameters_missing',
+                    'This original Wuthering archive cannot be opened with the available parameters. '
+                    'Retry metadata discovery; changed parameters require original-client investigation. '
+                    'Previous prepared data is kept. This is not proof of a changed package format.')
         self.methods = [b'None'] + [footer[i:i+32].split(b'\0')[0]
                                     for i in range(magic+44, len(footer)-31, 32)]
         main = io.BytesIO(self.index(offset, length, footer[magic+24:magic+44]))
@@ -183,6 +189,8 @@ class Package:
         self.entries = main.read(encoded_size)
         check(len(self.entries) == encoded_size)
         self.directory = self.index(offset, length, directory_hash)
+        # Expose nothing until both complete original directory hashes agree.
+        self.verified_parameter = selected_parameter
 
     def range(self, offset, size):
         return block(self.url, self.size, offset, size)
@@ -256,7 +264,11 @@ class Package:
         hashed = stored if method else min(stored, protected)
         check(hashlib.sha1(data[:hashed]).digest() == header[28:48])
         if encrypted and protected:
-            check(self.cipher is not None)
+            if self.cipher is None:
+                raise PreparationFailure('archive_parameters_missing',
+                    'This original Wuthering archive cannot be opened with the available parameters. '
+                    'Retry metadata discovery; changed parameters require original-client investigation. '
+                    'Previous prepared data is kept. This is not proof of a changed package format.')
             data = self.cipher.decrypt(data[:protected]) + data[protected:]
         if method:
             return _decompress(data, header, self.methods[method], blocks, size if blocks == 1 else block_size,

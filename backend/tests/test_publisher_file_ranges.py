@@ -163,7 +163,7 @@ def test_online_wuthering_tombstone_masks_base_and_duplicate_paths_fail_closed(m
     name = EXTERNAL_ROOT + 'en_example.wem'
     info = {'en/BaseFiles/first.pak': ('base', 600, 'a'), 'en/PatchFiles/update.pak': ('delta', 700, 'b')}
     monkeypatch.setattr(live, '_snapshot', lambda *_: {'products': info})
-    monkeypatch.setattr(live, '_voice_parameters', lambda stamp: ())
+    monkeypatch.setattr(live, '_voice_parameters', lambda stamp, tools=None: ())
     class Package:
         def __init__(self, url, *args):
             self.url = url

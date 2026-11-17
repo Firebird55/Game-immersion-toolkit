@@ -58,6 +58,26 @@ and audio binding retained. Frozen old/current preparation keeps all old IDs
 and now counts 3,155 new voiced records after the disabled source is excluded.
 See the [original caller proof and limits](endfield-current-subtitle-acceptance.md#explicitly-disabled-original-dialogue-speech).
 
+Revision 26 verifies byte-identical exported originals shared by spaceship
+conversations and operator voice archives, keeping every authored audio/member
+reference. Full texts, actual speaker, branch, scope, recognition metadata and
+export options still have to agree. Current friendship-caption capture rises
+to 173/198 English, 172 Simplified Chinese, 173 Traditional Chinese, 113 Japanese
+and 172 Korean; other recordings/translation variants remain guarded. Ordinary
+publisher preparation and frozen old/current preparation validate this metadata
+without a game installation. The [source callers, original-byte proof and compact remaining-work table](endfield-current-subtitle-acceptance.md#original-operator-recordings-and-source-callers)
+separate recording availability from capture and physical acceptance.
+
+Revision 27 completes all 15 source-declared top captions (16 records after
+protagonist expansion). Original voice-controller data establishes that three
+emotion-enabled declarations use their complete primary sentence recording
+when the selected dub has valid voice metadata and positive duration. Every
+top caption now requires that exact primary binding, finite positive selected
+duration and original media before full-frame voiced admission. All 15 match
+for both protagonists in all study selections through the production capture
+policy. General reaction sounds remain separate. See the
+[current endpoint and original-controller proof](endfield-current-subtitle-acceptance.md#compact-current-capture-and-audio-endpoint).
+
 ## Empty radio performers resolved from original code · November 16, 2026
 
 The selected publisher's native metadata/code pair, original radio controller

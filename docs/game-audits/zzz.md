@@ -1,5 +1,125 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original film subtitle tracks in normal publisher preparation
+
+Reader revision 17 follows explicit `.playable` overrides from the selected
+original timeline owners. It acquires their exact current catalog ranges without
+an installed game or a per-film toolkit list. The current original configurations
+reference **408 distinct override paths**, of which **404** match the catalog;
+their bundled ranges total 1,436,125 bytes. The four absent paths remain missing,
+not unused or unvoiced. These configuration totals are not an active-presentation
+denominator.
+
+The owned Unity v21 reader follows actual TimelineAsset, GroupTrack,
+SubtitleTrack and SubtitleClip object pointers, checking reciprocal parents,
+the original subtitle language and the clip's timeline fields. Current cinema
+overrides store separate subtitle clips with bare TextMap identities, so the
+older installed cinematic reader's mandatory `CS_` prefix omits them. These
+authored display times do not establish speech cuts. A unique whole-film
+`Play_vo_` event on a completely understood timeline is retained as context
+ownership, never presented as an individual sentence recording. Multiple
+events, edited source offsets, external pointers and unsupported track layouts
+cannot supply that binding. A valid subtitle track remains readable when an
+adjacent track is unsupported; that timeline's audio remains unknown.
+
+The bounded original-source check read all 404 overrides. Separate typed subtitle
+tracks supplied 10,899 locale references and 1,961 distinct IDs: 2,729 English,
+2,758 Mandarin, 2,730 Japanese and 2,682 Korean references before duplicate and
+TextMap filtering. Selected original TextMaps supply the translations. Other
+inline-subtitle, parameterized audio, language/player-filtered and runtime
+prefab layouts remain explicitly unresolved. A lack of separate subtitle clips
+is not evidence that a film is silent or has no captions.
+
+Fresh normal Global English preparation completed in 145.516 seconds with
+**297,159 records**, adding **1,955** film captions. All 295,204 preceding record
+dictionaries remained identical, with no removals. New records are 1,544
+`unavailable` and 411 `unknown`; this change certifies no new voice playback or
+silence. Source ownership of 168 whole-film event names is positive evidence,
+but their original bank/media acquisition is still required before those
+captions can expose playable context audio.
+
+The final committed-source Global replay repeated those exact record results in
+153.172 seconds. Independent mainland-China Japanese preparation completed in
+179.125 seconds with **289,967 records**, adding **1,940** film captions while all
+288,027 prior record dictionaries remained identical. Its new captions are
+1,526 `unavailable` and 414 `unknown`. Mainland independently selected the same
+408 override paths / 404 catalog matches, but different source packing required
+its own authenticated containers; no Global source equality was assumed. This
+verifies both editions' normal text route, not cinematic audio playback.
+
+Two bounded bank-registry checks are finished negatives. The original native
+literal's `AudioResourceData.bytes` path is absent from the current catalog.
+The original built-in `resources.assets` metadata contains 48 typed TextAssets;
+all 48 exact names were checked and none supplies that registry. Only metadata
+and typed TextAsset name ranges were read, not the full asset or geometry. The
+selected English package tables contain 16,623 banks / 475,878,358 bytes; their
+payloads were not downloaded or searched as a substitute for source ownership.
+
+The app-local closed reader includes the new parser and allows its staged files
+through normal preparation. Synthetic fixtures cover all four dub namespaces,
+language isolation, ownership, external/cyclic structures, edited clips and
+multiple-event ambiguity. Original cinematic bank/media
+resolution, remaining layouts/current callers, four missing override paths,
+player variants and frozen actual-generation update/recovery acceptance keep
+#85 open. No publisher assets, native bytes, captions or recordings are shipped.
+
+## November 16, 2026 · Original timeline and movie configuration ownership
+
+Reader revision 16 follows the original publisher's configuration root during
+normal installation-free preparation. Static review of the authenticated native
+and metadata inputs identified the named `AUTO_META_CONFIG_PATH` resource
+constant, its owning importer, the `AssetPath` structure, and the serialized
+`NewAutoConfigMetaConfig` schema. The resource identity is a non-secret bootstrap
+identifier. The implementation contains format software, not native bytes,
+decryption material or a community snapshot of scene bindings.
+
+Preparation reads that newly selected root's variable reference arrays, then
+acquires its original timeline and localized-video configuration groups. It
+checks MonoScript ownership and consumes each typed Odin dictionary completely,
+including shared object references. New keys and new config groups do not need
+a per-scene toolkit list. Unknown serialization layouts and missing source
+groups fail instead of publishing a partial owner inventory. The installed
+runtime uses its app-local closed reader for these additional stages.
+
+The current Global root owns **42 timeline groups, 21 extra-data groups and one
+localized-video group**. All 64 reference hashes occur in the original catalog;
+the new normal preparation reads the 42 timeline groups and the video group.
+The extra-data references remain inventoried for further work. The 42 timeline
+dictionaries in fresh Global preparation contain 1,640 records, including an empty-key record that cannot
+match a configured scene. They establish original scene/audio paths and authored
+player overrides. Editor `ShowText`/`TextShowInfo` placeholders are not imported
+as subtitles, and a localized video path is not proof of a spoken language.
+
+Original signature-owned methods establish the conflict rule: configs sort by
+ascending `prorityOrder`, and the importer inserts only previously absent keys.
+The reader therefore selects the lowest order. Conflicting bindings with equal
+priority remain explicitly ambiguous because the original sort is unstable.
+No arbitrary first match or adjacent sentence supplies their audio. Catalogue
+membership of the selected paths is reported separately from subtitle/audio
+acquisition, which remains unimplemented for these newly discovered owners.
+
+Fresh Global English preparation produced 295,204 records in 181 seconds, with
+every existing record dictionary unchanged. Its current original configs safely
+resolve **862 of 903 configured timeline keys**; 37 remain unmatched and four
+have conflicting equal-priority bindings. All **25 distinct typed timeline keys**
+encountered in the normally selected stories have an original owner. The owner
+map has 1,600 resolved keys overall; 1,959 of its 1,990 distinct original path
+references occur in the selected catalog. These ownership/catalog checks are
+separate from subtitle and audio coverage.
+
+An independent fresh mainland-China Japanese preparation passed in 185 seconds:
+288,027 existing records remained identical. Its separately discovered publisher
+source produced the same owner/conflict totals and resolved all 25 typed caller
+keys. This verifies the new discovery path in both editions, not playback of the
+still-unacquired film/timeline audio.
+
+The ordinary dialogue reader also inventories typed timeline call sites in its
+selected stories and compares their keys with the original owner map. This is
+positive caller evidence, not proof that every configured/test scene is reachable
+in current gameplay. Original film/timeline subtitle joins, all spoken-locale
+audio retrieval, remaining owner keys, and the frozen two-generation update,
+retained-recording and interrupted-download acceptance still keep #85 open.
+
 ## November 16, 2026 · Previously omitted movie and timeline references
 
 Reader revision 15 keeps the original Perform presentation inventory in normal
