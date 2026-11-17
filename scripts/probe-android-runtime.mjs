@@ -6,7 +6,7 @@ import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
-import {createAuthoredRuntimeDiagnostics} from './android-runtime-diagnostics.mjs';
+import {createAuthoredRuntimeDiagnostics, authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -134,6 +134,9 @@ const imported = await page.evaluate(async encoded => {
 }, library);
 assert.equal(imported.status, 200);
 assert.equal(imported.data.game, 'zzz');
+await diagnostics?.capture('before prepared-library React activation', 'android-receiver-before-library-ready.json');
+await until(() => authoredReceiverLibraryReady(page), 'actual shared reader prepared-library activation');
+await diagnostics?.capture('after prepared-library React activation', 'android-receiver-after-library-ready.json');
 await page.evaluate(async () => {
   const response = await fetch('/api/settings', {method: 'PATCH', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
