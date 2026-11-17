@@ -319,6 +319,58 @@ external/event reference; changed row locale/player/reference cannot certify a
 recording. External hashes must match the verified original PCK directory.
 Actual decoded-PCM acceptance remains separate from the preceding RIFF checks.
 
+On frozen source `42896267`, one actual English character-archive AudioEvent
+record now passes this adapter with the delivered, hash-closed desktop codecs.
+Its complete 57,920-byte original member is locally verified within an owned
+HTTPS range; the whole PCK is not verified by that range. Two offline resolutions
+produce identical 48 kHz mono PCM: 126,310 frames, SHA256
+`210b0cdb2525bea5ef87e25a9bd60b9dfb004d2eaa46a6e943618eb7a49787c0`.
+Wrong dub, player branch and event-reference controls are refused. No software,
+original assets or native bodies were downloaded or built for this control.
+This is one English event recording, not acceptance of all 3,712 event
+candidates, the full dialogue catalog, Android, a cold factory or redistribution.
+The reused codec inventory's pending review labels remain unchanged.
+
+A separate inventory covers every external VoiceConfig source exposed by the
+current supported English catalog, rather than only character-archive events.
+Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete
+original English PCK directories and 1,565 remain unresolved. Matching the
+official installed/persistent owner priority adds no bindings. The exact
+uncached member quote is 14,389,513,653 response-body bytes in 4,780 covering
+ranges; that acquisition is not authorized by the small event trial and has
+not been performed. Missing bindings remain visible and are not declared
+silent, removed or relabeled as inactive content.
+
+The finite mechanism check reads the original VoiceConfig, AvatarAtlas and
+VoiceAtlas fields. VoiceConfig contains no per-content locale field. Missing
+paths include 1,297 paths in the two Fate story families and 86 archive paths;
+there are 1,568 affected catalog rows because paths can be shared. The four
+affected archive avatars have absent English credit hashes but nonzero
+Chinese/Japanese/Korean credit hashes. Credits alone do not authorize a dub
+override. Reused publisher-chunk-verified Japanese headers contain unique
+Japanese-namespace hash matches for 1,334 of the missing English paths, but
+none of those 86 archive paths. Neither a hash match nor a chapter name selects
+another dub. Suffix variations and event-name guesses are not promoted.
+
+A bounded static pass establishes a specific original archive setting route.
+The four AvatarArchiveEntry getters/predicate consume 861 original function
+bytes. Two table constructors and two FromBinary bodies consume another 1,618
+bytes and bind the actual resources `AvatarCobrand` and
+`AllowedAudioLanguage`. Their complete cached publisher packages pass MD5;
+both small resources decode uniquely to exact EOF with the derived field
+order. The base-client copyright branch reads AvatarCobrand.AudioLanguage,
+looks up AllowedAudioLanguage and returns its WwiseLanguageKey. The configured
+archive rows specify `jp`, which maps to `Japanese`; the other branch returns
+the current Wwise language. Authored state-group and on/off-state fields are
+also present. The predicate reads user preferences under
+`UseCopyrightVoiceCobrandAvatarIDs`; its concrete generic preference/contains
+callees are not fully described in the managed dump. No preference is read from
+an account or changed, no original code is executed, and no switch value is
+assumed. This establishes an explicit archive variant dependency, not a blanket
+Japanese fallback, an archive media binding, or the Fate story playback rule.
+Production selection must preserve the user's explicit variant choice and
+the separate study-text/audio languages after the playback consumer is proven.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
