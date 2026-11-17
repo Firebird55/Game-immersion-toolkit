@@ -199,27 +199,13 @@ def original_ui(tools, stamp):
         _, _, layouts[role], _ = assets._asset(tools, source, path, classes=(1, 114, 224))
         sources[role] = source[1].content_hashes[1]
     auto, skip, profile = layout_labels(layouts)
-    params = metadata.parameters(tools)
     root = metadata.cache_root(tools)
-    directory = metadata._one(r'\[BlockType\.Lua\]\s*=\s*"([0-9A-F]{8})"', (root / 'BlockHashes.cs').read_text(encoding='utf-8-sig'))
     secret = metadata._one(r'XxteaKey\s*=\s*(?:System\.Text\.)?Encoding.UTF8.GetBytes\("([^"\\]*)"\)',
                            (root / 'Keys.cs').read_text(encoding='utf-8-sig'))
     key = secret.encode('utf-8')[:16].ljust(16, b'\0')
-    descriptor = release.descriptor(tools, stamp)
-    base = release._resource_url(descriptor['layers']['main']['url'], 'main', descriptor.get('region', 'global'))
-    base += '/VFS/' + directory + '/'
-    index = tools / 'endfield-releases' / (stamp + '-ui-lua.blc')
     names = frozenset(LUA_PATHS.values())
-    from . import endfield_vfs as vfs
-    def parse(raw):
-        _check(len(raw) <= 8 * 1024**2)
-        return {file.name: file for file in vfs.parse_index(raw, params, 17, suffix='.lua', names=names)}
-    try:
-        rows = parse(index.read_bytes())
-    except (OSError, ValueError):
-        raw = download(base + directory + '.blc', limit=8 * 1024**2)
-        rows = parse(raw)
-        _atomic_file(index, raw)
+    base, original = release.group(tools, stamp, 17, names)
+    rows = {file.name: file for file in original}
     _check(rows.keys() == names)
     scripts = {}
     for role, path in LUA_PATHS.items():
