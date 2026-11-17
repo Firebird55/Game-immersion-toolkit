@@ -404,6 +404,14 @@ normalization, original audio readiness and final activation checks remain
 separate gates; this stage evidence is not a ready-library or Android-reader
 claim.
 
+The retained current graph export is 132,656,568 bytes, already close to
+128 MiB. Local authoring preparation therefore reuses the graph consumer's
+existing 256 MiB file bound, with separate existing 64 MiB authoring and 8 MiB
+schema limits. Its 3 GiB temporary-space reservation covers the original
+registry, temporary export copies and immutable publication. This permits
+ordinary graph growth within the existing format contract; schema, source,
+closure and activation checks are unchanged.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary
