@@ -57,9 +57,11 @@ def fixture(tmp_path, monkeypatch, *, text='Owned caption'):
     path.parent.mkdir(parents=True); path.write_bytes(raw)
     native = profiles.native_evidence(recipe, (schema, validation), cache)
     recipe_id = 'nte-'+hashlib.sha256(profiles._json(recipe)).hexdigest()
-    payload = {'game': 'nte', 'install': None, 'source_mode': 'publisher', 'source_region': 'global',
+    payload = {'format': 2, 'game': 'nte', 'install': None, 'source_mode': 'publisher', 'source_region': 'global',
                'source_locale': 'ja', 'fingerprint': recipe_id,
-               'records': [{'text_id': 'owned:1', 'text': text, 'translations': {'en': 'Owned'},
+               'records': [{'text_id': 'owned:1', 'source_locale': 'ja', 'source_text': text,
+                            'texts': {'ja': text, 'en': 'Owned'}, 'audio_locale': 'ja',
+                            'english': 'Owned', 'chinese': '',
                             'audio': {'publisher': recipe_id, 'locale': 'ja',
                                       'depot': 'HT/Content/WwiseAudio/Media/Japanese/1.wem',
                                       'archive': next(iter(files))}}]}
@@ -95,8 +97,8 @@ def test_wrong_dataset_or_provisional_audio_cannot_use_approval(tmp_path, monkey
     args = fixture(tmp_path, monkeypatch)
     stamp, header, profile, payload = materialize(args)
     row = payload['records'][0]
-    if mutation == 'text': row['text'] += ' changed'
-    if mutation == 'translation': row['translations']['en'] = 'Changed'
+    if mutation == 'text': row['source_text'] += ' changed'
+    if mutation == 'translation': row['texts']['en'] = 'Changed'
     if mutation == 'source': row['audio']['depot'] = 'HT/Content/other.wem'
     if mutation == 'audio': row['audio']['publisher'] = 'nte-'+'1'*64
     if mutation == 'provisional': row['audio']['publisher'] = args[1]
@@ -138,7 +140,7 @@ def test_swapped_original_ownership_cannot_publish(tmp_path, monkeypatch, part):
 def test_interrupted_marker_publication_retains_old_and_retry_is_identical(tmp_path, monkeypatch):
     args = fixture(tmp_path, monkeypatch)
     old, header, old_profile, _ = materialize(args)
-    args[3]['records'][0]['translations']['en'] = 'New original revision translation'
+    args[3]['records'][0]['texts']['en'] = 'New original revision translation'
     original_publish = profiles._publish
     def interrupted(path, raw):
         if path.name == 'release.json': raise OSError('Interrupted before completed marker')
@@ -199,3 +201,22 @@ def test_cached_catalog_cannot_bypass_missing_materialized_approval(tmp_path, mo
     (tools/'nte-publisher/metadata-profiles/receipts'/(header['receipt_sha256']+'.json')).unlink()
     with pytest.raises(PreparationFailure): publisher.extract(tools, audio)
     assert calls == ['read']
+
+
+def test_real_index_normalization_preserves_the_desktop_activation_approval(tmp_path, monkeypatch):
+    from backend.multilingual_index import MultilingualTextIndex
+    from backend import nte_publisher as publisher
+    args = fixture(tmp_path, monkeypatch)
+    stamp, _, _, payload = materialize(args)
+    tools, recipe_id, recipe, *_ = args
+    path = tools/'nte-publisher'/recipe_id/'release.json'
+    path.parent.mkdir(parents=True); path.write_bytes(profiles._json(recipe))
+    directory = tmp_path/'language'; directory.mkdir()
+    (directory/'textmap.json').write_text(json.dumps(payload), encoding='utf-8')
+    index = MultilingualTextIndex('nte', directory)
+    assert index.ready, index.message
+    candidate = {**index.snapshot_metadata, 'records': index._records}
+    publisher.validate_prepared(tools, candidate)
+    assert candidate['publisher_snapshot'] == stamp and candidate['fingerprint'] == recipe_id
+    index._records[0]['audio']['publisher'] = recipe_id
+    with pytest.raises(PreparationFailure): publisher.validate_prepared(tools, candidate)

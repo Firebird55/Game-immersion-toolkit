@@ -52,6 +52,9 @@ conversion. Frozen-original normal preparation passed Global **1.4.9 Japanese**
 (117,575 records; 25,731 voiced), Global **1.5.4 Japanese** (126,472; 27,718)
 and independent mainland **1.5.6 Mandarin** (126,212; 28,130). These are supplied
 generation/locale inventories, not chapter counts or every-dub device acceptance.
+All three completed datasets also passed actual shared-index loading followed
+by the desktop materialization check; its derived status/scope/channel fields
+preserved approval without adding desktop imports to the shared index.
 Each resulting materialization reopened its actual original WEM through the
 ordinary voice service without publisher networking, produced matching decoded
 PCM after a fresh service restart, rejected a removed approval receipt and
