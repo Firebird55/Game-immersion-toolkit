@@ -66,6 +66,13 @@ assert.equal(core.native_preview?.passed, true);
 assert.equal(core.native_preview?.cases.length, 4);
 assert.deepEqual(core.native_preview.cases.map(item => item.source), [[1600, 1200], [1600, 1200], [2400, 1080], [2400, 1080]]);
 assert.ok(core.native_preview.cases.every(item => Number.isInteger(item.bytes) && item.bytes > 0 && item.bytes <= 2 * 1024 ** 2));
+function assertProtectedStorage(report) {
+  assert.equal(report?.fixture, 'authored-android-keystore-aes-gcm');
+  for (const field of ['instance_reopened', 'tamper_rejected', 'randomized_ciphertext', 'key_nonexportable'])
+    assert.equal(report[field], true);
+  assert.equal(typeof report.previous_saved_blob_reopened, 'boolean');
+}
+assertProtectedStorage(core.native_protected_storage);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -183,14 +190,19 @@ assert.equal(restarted.snapshot.lines.length, 1);
 assert.equal(restarted.snapshot.lines[0].favorite, true);
 assert.equal(restarted.snapshot.lines[0].has_audio, true);
 await browser.close();
-// Exercise a genuine package-manager update, without rerunning the fixture or
-// re-importing its library. The signing key is temporary CI debug material;
+// Exercise a genuine package-manager update without re-importing the library.
+// Core/self-test data live in isolated authored probe folders; the real reader
+// history below must survive unchanged. The signing key is temporary CI debug material;
 // durable owner signing is verified separately on the protected host.
 adb('shell', 'am', 'force-stop', packageName);
 adb('install', '-r', updateApk);
 assert.ok(new RegExp(`versionCode=${update.version_code}(?:\\s|$)`).test(adb('shell', 'dumpsys', 'package', packageName)), 'The target must actually install the newer APK');
-adb('shell', 'am', 'start', '-W', '-n', component);
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true');
 ({browser, page} = await connectReader());
+const upgradedCore = JSON.parse(adb('shell', 'run-as', packageName, 'cat', 'files/android-core-proof.json'));
+assertProtectedStorage(upgradedCore.native_protected_storage);
+assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
+assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);
 await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'reading mode after APK update');
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'playback preference after APK update');
@@ -216,5 +228,6 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
   offline_apk_update_retained_data: true, update_signing: 'same-run-debug-identity-not-owner-key',
+  native_keystore_retained_across_apk_update: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

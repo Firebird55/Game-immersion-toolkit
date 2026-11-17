@@ -76,7 +76,9 @@ public final class AccountProtection {
         if (!BuildConfig.DEBUG) throw new IllegalStateException();
         AccountProtection first = new AccountProtection(context, "toolkit.authored-vault-probe.v1");
         String original = Base64.encodeToString("authored protected storage fixture".getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
-        AtomicFile persisted = new AtomicFile(new File(context.getCacheDir(), "authored-vault-probe.bin"));
+        // This authored blob deliberately survives cache eviction and APK
+        // replacement. It uses the isolated probe key, never account data.
+        AtomicFile persisted = new AtomicFile(new File(context.getFilesDir(), "authored-vault-probe.bin"));
         boolean previous = persisted.getBaseFile().isFile();
         if (previous && !first.protect(Base64.encodeToString(persisted.readFully(), Base64.NO_WRAP), true).equals(original))
             throw new IllegalStateException("The authored protected blob did not reopen.");
