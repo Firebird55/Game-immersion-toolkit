@@ -29,6 +29,44 @@ Python modules include the presentation helper; its desktop-only publisher
 producer is not embedded. The authored shared-core fixture exercises this path
 on both host and Android, so a package audit alone is not runtime acceptance.
 
+## Physical 54-module checkpoint · November 17, 2026
+
+The debug APK built from clean source `d05feaab0559427d788b792db1f9e52b6743bec3`
+ran on a physical Android 16 / API 36 ARM64 phone with 4-KiB pages. Its
+114,468,864-byte artifact has SHA-256
+`5865e1a968147b5f8bf372d5f86f4491ca02c50a019829740665ea00a6650812`.
+The device-side package-manager path and SHA-256 of the installed base APK
+matched this artifact exactly.
+This is a separate debug package; the existing owner-signed candidate was kept.
+
+The cold authored self-test and a second force-stopped cold start both matched
+the delivered desktop reference result
+`1039a44a7b63988cb8df1d11b0924027a8d3e7b40896bd9a4f20f712d0db92b0`.
+Actual bundled ML Kit recognized the authored bitmap, the production matcher
+confirmed its original recording, and Android MediaPlayer completed playback.
+Native preview/crop checks and protected-store reopen, tamper rejection,
+randomized encryption and nonexportable-key checks passed. The second process
+reopened the first process's saved authored Keystore probe blob.
+
+The [packaged x64-data decoder](android-data-decoder.md) also ran through the
+actual Java/JNI/Python provider on ARM64. All fifteen exact CAPI fixtures passed,
+including 64-bit values above JavaScript's exact integer range, register names,
+register accesses and instruction groups. The loaded library SHA-256 was
+`fe94c6e00a6d8722fcf53fccbdeb82d35752117756bdc41626284bd1ee23c93a`.
+No original game code was executed or system decoder substituted.
+
+The real shared reader showed optional Lexirise/plain use, the exact VDO link
+prompt and Instructions, and Text only / Text + audio settings with region and
+language controls. Unknown sizes and unavailable readers kept acquisition
+disabled. The removed private-library onboarding, Migaku choice and Stop screen
+control were absent. USB-awake settings were restored after verification.
+
+These results establish this specific 54-module authored checkpoint. They do
+not establish the later [63-module publisher-stage policy](android-publisher-stages.md),
+x86_64 or 16-KiB-page execution, network-blocked operation, actual Android HTTPS,
+independent game preparation, real-corpus coverage or iOS gameplay transport.
+No app release or complete eight-game support follows from this result.
+
 ## Private prepared libraries
 
 [The portable writer and importer](../backend/prepared_library.py) use
