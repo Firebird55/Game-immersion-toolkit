@@ -1,5 +1,9 @@
 # Wuthering Waves dialogue audit
 
+Independent Android publisher downloads require the remaining runtime and
+storage work in the [Android portability and size-preflight audit](wuwa-android-portability.md).
+PC-prepared library import does not establish that capability.
+
 ## November 17, 2026 · Immutable initial seed, official ordinary refresh
 
 Publisher preparation no longer downloads the mutable `wuwa-keys` Pages feed
