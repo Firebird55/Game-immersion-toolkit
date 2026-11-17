@@ -1,5 +1,29 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Explicit retained-catalogue verification
+
+An explicitly requested retained catalogue now uses the same table, original
+voice, film and song preparation core as the current publisher path. Its
+descriptor must match its content hash and selected region before and after
+preparation; its payload is labeled `source_replay: retained_original_catalogue`.
+This internal verification entry point is independent of ordinary Setup, whose
+current discovery, pointer checks and final launcher/region checks remain in
+place. It does not assert that an older live discovery root still works.
+
+Both paths use the ordinary worker's complete locale, original-voice and
+LocalDialogue validation and inventory writer. Publication of the same UTF-8
+JSON payload is now atomic; invalid input or interrupted replacement preserves
+the last complete output. Boundary tests cover descriptor mutation, region
+changes, current pointer/launcher changes and actual failed file replacement.
+
+The actual current English worker still produces all 144,086 records with its
+entire parsed payload equal to the pre-extraction result. This warm-cache run
+used 189,074 range bytes and 67.7 seconds. Existing process-dependent dictionary
+key ordering can change independent JSON file bytes; writing the same actual
+payload through the shared writer reproduces the previous bytes exactly. The
+actual changed-content, retained-old to current discovery trial is tracked
+separately from this refactor equality check.
+
 ## November 17, 2026 · Authenticated index reuse across releases
 
 Released packages may share a plaintext native index under different package
