@@ -4,6 +4,7 @@ import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {EventEmitter, once} from 'node:events';
 import {existsSync, mkdtempSync, readFileSync, rmSync} from 'node:fs';
+import {rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {startOwnedServer, stopOwnedProcess} from '../scripts/e2e-preview.mjs';
@@ -35,7 +36,9 @@ test('concurrent previews own ports, storage and artifacts; cleanup leaves unrel
   } finally {
     await Promise.all([a?.stop(),b?.stop()]);
     unrelated.closeAllConnections();await new Promise(resolve=>unrelated.close(resolve));
-    rmSync(cwd,{recursive:true,force:true});
+    // Windows can briefly retain the terminated children's working directory.
+    // Retry only this owned fixture; persistent locks still fail the test.
+    await rm(cwd,{recursive:true,force:true,maxRetries:10,retryDelay:200});
   }
 });
 
