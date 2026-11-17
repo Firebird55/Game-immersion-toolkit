@@ -62,7 +62,7 @@ jobs:
           # a host-only reference prerequisite, never copied into the APK.
           python -m pip install -r requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
+          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire authenticated original Android compiler
         run: |

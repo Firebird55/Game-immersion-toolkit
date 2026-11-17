@@ -20,6 +20,21 @@ async function until(operation, label, timeout = 90_000) {
   }
   throw new Error(`Android runtime did not establish ${label}`);
 }
+async function authoredCore(version, previousRun = null) {
+  const pid = Number(await until(() => adb('shell', 'pidof', packageName).split(/\s+/)[0], 'authored app process'));
+  const value = await until(() => {
+    const diagnostic = JSON.parse(adb('shell', 'run-as', packageName, 'cat', 'files/android-selftest-diagnostic.json'));
+    if (diagnostic.schema !== 'toolkit-android-selftest-diagnostic-v1' || diagnostic.pid !== pid
+        || diagnostic.version_code !== version || diagnostic.run_id === previousRun) return null;
+    if (diagnostic.state === 'failed') return {diagnostic, failed: true};
+    if (diagnostic.phase !== 'complete' || diagnostic.state !== 'passed') return null;
+    const core = JSON.parse(adb('shell', 'run-as', packageName, 'cat', 'files/android-core-proof.json'));
+    return core.self_test_run_id === diagnostic.run_id ? {core, diagnostic} : null;
+  }, 'fresh authored native core/audio/OCR proof', 150_000);
+  writeFileSync(join(output, `android-selftest-version-${version}.json`), JSON.stringify(value.diagnostic, null, 2) + '\n');
+  if (value.failed) throw Error(`Authored native self-test failed at ${value.diagnostic.phase}`);
+  return value.core;
+}
 const provenance = JSON.parse(readFileSync(join(directory, 'ANDROID-PROVENANCE.json'), 'utf8'));
 const packageName = provenance.application_id ?? 'io.github.firebird55.gameimmersiontoolkit.debug';
 assert.ok(['io.github.firebird55.gameimmersiontoolkit.debug', 'io.github.firebird55.gameimmersiontoolkit'].includes(packageName));
@@ -50,7 +65,7 @@ adb('shell', 'ip6tables', '-I', 'OUTPUT', '!', '-d', '::1/128', '-m', 'owner', '
 adb('shell', 'svc', 'wifi', 'disable');
 adb('shell', 'svc', 'data', 'disable');
 adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true');
-const core = await until(() => JSON.parse(adb('shell', 'run-as', packageName, 'cat', 'files/android-core-proof.json')), 'authored native core/audio/OCR proof', 150_000);
+const core = await authoredCore(provenance.version_code);
 assert.equal(core.result_sha256, expected.result_sha256);
 assert.deepEqual(core.results, expected.results);
 assert.equal(core.native_media_completed, true);
@@ -198,8 +213,8 @@ adb('shell', 'am', 'force-stop', packageName);
 adb('install', '-r', updateApk);
 assert.ok(new RegExp(`versionCode=${update.version_code}(?:\\s|$)`).test(adb('shell', 'dumpsys', 'package', packageName)), 'The target must actually install the newer APK');
 adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 'true');
+const upgradedCore = await authoredCore(update.version_code, core.self_test_run_id);
 ({browser, page} = await connectReader());
-const upgradedCore = JSON.parse(adb('shell', 'run-as', packageName, 'cat', 'files/android-core-proof.json'));
 assertProtectedStorage(upgradedCore.native_protected_storage);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
