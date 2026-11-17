@@ -145,6 +145,32 @@ def test_same_actual_services_read_settings_analyze_select_destination_and_expor
     assert all(owner == 'first' for _, _, owner in host.authored_calls)
 
 
+def test_requested_text_only_export_uses_omission_note_and_never_reads_audio(account_host, tmp_path, monkeypatch):
+    host = account_host; register(host, 'first')
+    _, payload = fixture_library(tmp_path / 'source')
+    row = payload['records'][0]
+    payload.update(source_locale='zh-Hans', content_mode='text')
+    row.update(source_locale='zh-Hans', source_text=row['chinese'], audio_locale='zh-Hans',
+        audio_omitted_by_request=True, source_voice_binding=row['audio'], audio=None,
+        text_capture_verified=True)
+    archive = write_prepared_library(payload, tmp_path / 'text.zip', {})
+    assert request(host, 'POST', '/api/library/import', archive.read_bytes(), headers={**headers(host),
+        'X-Toolkit-Import-Id': str(uuid.uuid4()), 'Content-Type': 'application/zip'})[0] == 200
+    generation = host.session.start()
+    host.session.observe(generation, 1, [row['source_text']], now=1)
+    assert host.session.observe(generation, 2, [row['source_text']], now=1.1)
+    line = request(host, 'GET', '/api/snapshot')[1]['lines'][0]
+    monkeypatch.setattr(host.session, 'audio_path', lambda _: pytest.fail('Text choice must never resolve audio'))
+    assert request(host, 'POST', '/api/lexirise/decks', b'{"game":"zzz","deck_id":1950,"language":"zh"}', headers=headers(host))[0] == 200
+    status, result = request(host, 'POST', f"/api/lines/{line['id']}/lexirise", headers=headers(host))
+    assert status == 200 and result['sent'] and not result['audio_included']
+    assert not any(path == '/v1/vocabulary/audio' for _, path, _ in host.authored_calls)
+    api = host.authored_apis['first']
+    # The actual maintained service carries a truthful note to the mocked API.
+    assert 'audio omitted by download choice' in api.items[0]['notes']
+    assert 'Unvoiced' not in api.items[0]['notes'] and api.items[0]['audio_urls'] == []
+
+
 def test_delayed_mocked_settings_response_is_rejected_after_account_switch(account_host):
     host = account_host;first = register(host, 'first');second = register(host, 'second')
     assert request(host, 'POST', '/api/lexirise/accounts/select', json.dumps({'id': first}).encode(), headers=headers(host))[0] == 200

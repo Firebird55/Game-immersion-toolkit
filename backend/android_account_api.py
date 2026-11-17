@@ -79,6 +79,7 @@ def dispatch(host, method, path, query, headers, read_body):
         result = scope.service.send(ref=f'line:{line.id}', game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=' / '.join(filter(None, [line.speaker_english, line.speaker_chinese])),
             audio=audio, audio_source=line.audio_source, audio_scope=line.audio_scope,
+            audio_omitted_by_request=line.is_requested_text_only,
             voice_status='voiced' if line.voiced and not line.is_verified_missing_audio else line.voice_status)
         result = {**result, 'audio_included': include_audio}
     else:
