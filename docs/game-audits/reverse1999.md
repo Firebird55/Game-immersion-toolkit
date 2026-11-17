@@ -493,6 +493,40 @@ implementation's `createTapAppDownloadServiceProxy()`; its declared code locatio
 and actual return producer still require a separately bounded pass. A unique
 interface implementer is not treated as an anonymous game-download request.
 
+### Bounded concrete factory and conditional metadata-request chain
+
+The exact candidate factory is subsequently read from the same signed cache:
+method 52,177, code item 4,984,264. Its six code units / twelve bytes allocate
+`com.taptap.game.downloader.impl.download.notification.j`, call that object's
+constructor, and return the same object. The constructor body is not read.
+Formal metadata confirms that `j` implements the service proxy interface and
+`PreDownloadService$b`.
+
+A separately bounded follow-up inspects eight source-owned methods, totaling
+1,766 instruction bytes within an eight-method / 4,096-byte ceiling. The exact
+`j.onStartCommand` body alone is 928 bytes, with its separately approved 16-byte
+try table and eleven-byte handler list. The batch checks each full signed DEX
+hash and register/invoke, instruction, branch and exception-handler bounds;
+its total exception metadata is 32 try-table and 35 handler bytes. No constructor
+body, original execution, generic URL/key scan or new request is involved.
+
+The source-owned chain reaches `notification.a.a(AppInfo, Function0)`, concrete
+coroutine bridges and finally `com.taptap.game.common.net.f.e`. Its caller passes
+the exact path operand `/app/v1/mini-multi-get`, a map key `ids`, and response
+class `com.taptap.common.ext.support.bean.app.f`. **The pass stops at that network
+owner and the eight-method limit.** Its request builder is not read; no base
+host, HTTP method, headers, accountless availability or actual response is proved.
+
+This is a conditional **level-info-update** branch, gated by the original
+`AppInfo.isLevel` and related-game state. Reverse:1999's actual branch value is
+unresolved, so the path is not claimed as its ordinary APK delivery route.
+The proxy also receives existing `download_id` and `app_info` values from an
+Android intent. Its separately instantiated normal-download callback `j$b`
+remains unread. The exact `ids` value comes through another source-owned
+`AppInfo` helper whose body remains unread. These concrete boundaries do not
+establish a game-package URL, official GameConfig initializer or usable catalog;
+both content modes remain unavailable for preparation.
+
 ### Community key candidate: research only
 
 The original author repository
