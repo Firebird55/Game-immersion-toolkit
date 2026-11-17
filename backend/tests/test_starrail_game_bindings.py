@@ -152,7 +152,7 @@ def test_normal_factory_advances_state_and_full_external_quotes_without_network(
     source = 'English/voice/new_authored.wem'
     inventory[1].external[voice_hash(source)] = audio.Span(inventory[1].owner, 5000, 20)
     store = Store(dict(zip(spans[:2], raw_banks[:2])))
-    monkeypatch.setattr(audio, 'owners', lambda *a: tuple(row.owner for row in inventory))
+    monkeypatch.setattr(audio, 'inventory_owners', lambda *a: tuple(row.owner for row in inventory))
     monkeypatch.setattr(audio, 'RangeStore', lambda *a: store)
     monkeypatch.setattr(audio, 'header_quote', lambda *a: audio.Quote('audio-inventory-headers', ()))
     monkeypatch.setattr(audio, 'directories', lambda *a: inventory)

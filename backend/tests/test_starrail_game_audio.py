@@ -353,6 +353,69 @@ def test_audio_index_selects_all_selected_dub_and_neutral_owners_not_other_dubs(
         audio.owners(build, raw + b' ', 'en')
 
 
+def test_new_shared_owner_names_are_inventory_only_and_preserve_primary_generation():
+    rows = [{'Path': name, 'Md5': str(n)*32, 'Size': 1000, 'Patch': n > 2}
+            for n, name in enumerate(('English/Primary.pck', 'Banks9.pck',
+                'unseen_shared_after_update.pck', 'new_layout/novel_bundle.pck', 'Japanese/Foreign.pck'), 1)]
+    def build_(items):
+        raw = b'\n'.join(json.dumps(row).encode() for row in items)
+        routes = {key: folder + '/V4.7Live/output_123_ab_cd' for key, folder in
+                  [('design', 'design_data'), ('asb', 'asb'), ('base', 'asb'), ('lua', 'lua')]}
+        return {'channel': 'starrail-global', 'version': '4.7.0', 'hotfix': {
+            'routes': routes, 'indexes': {'audio': [123, hashlib.md5(raw).hexdigest(), len(raw)]}}}, raw
+    build, raw = build_(rows)
+    primary = audio.owners(build, raw, 'en'); selected = audio.inventory_owners(build, raw, 'en')
+    assert selected[:len(primary)] == primary
+    assert {o.name for o in selected} == {row['Path'] for row in rows[:-1]}
+    assert {o.generation for o in selected} == {primary[0].generation}
+    changed = copy.deepcopy(build); changed['hotfix']['routes']['asb'] = 'asb/V4.7Live/output_456_cd_ef'
+    moved = audio.inventory_owners(changed, raw, 'en')
+    assert moved[:len(primary)] == primary
+    assert moved[-1].url != selected[-1].url and moved[-1].json() != selected[-1].json()
+    new_rows = copy.deepcopy(rows); new_rows[2]['Md5'] = 'a' * 32
+    new_build, new_raw = build_(new_rows)
+    assert audio.inventory_owners(new_build, new_raw, 'en')[0].generation != primary[0].generation
+    with pytest.raises(GameDataError):
+        audio.inventory_owners(build, new_raw, 'en')
+
+
+def test_shared_container_requires_exact_requested_namespace_directory_and_unique_owner(fixture, tmp_path):
+    old_source, _, old_row = voices(fixture, tmp_path)
+    original = fixture[2]; store, transport = fixture[3:5]
+    shared = audio.Owner('unseen_name/new_common_bundle.pck', original.size, original.md5,
+                         original.url, original.generation)
+    for span in (audio.Span(shared, 0, 28), audio.Span(shared, 28, 40), audio.Span(shared, 80, 20)):
+        store.acquire(span, transport)
+    inventory = audio.directories((shared,), store, 'en'); path = 'English/voice/Owned.wem'
+    span = audio.Span(shared, 80, 20)
+    assert audio.external_members(inventory, (path,), 'en') == {path: span}
+    binding = {'publisher': 'sophon-'+'1'*64, 'locale': 'en', 'source': path, 'file_id': f'{voice_hash(path):016x}'}
+    source = audio.OriginalVoices(store, (audio.OriginalMember('starrail:shared', binding, span),))
+    row = {'text_id': 'starrail:shared', 'voice_status': 'voiced', 'audio_locale': 'en', 'audio': binding}
+    assert source.has(row) and old_source.has(old_row)
+    assert audio.external_members(inventory + inventory, (path,), 'en') == {}
+    with pytest.raises(GameDataError, match='another dub'):
+        audio.external_members(inventory, ('Japanese/voice/Owned.wem',), 'en')
+    foreign = audio.Owner('Japanese/another_bundle.pck', shared.size, shared.md5, shared.url, shared.generation)
+    foreign_span = audio.Span(foreign, 80, 20)
+    assert audio.external_members((audio.Directory(foreign, {voice_hash(path): foreign_span}, {}, {}),), (path,), 'en') == {}
+    with pytest.raises(GameDataError, match='another dub'):
+        audio.OriginalVoices(store, (audio.OriginalMember('starrail:foreign', binding, foreign_span),))
+    # No arbitrary span in a shared owner can replace the authored directory entry.
+    with pytest.raises(GameDataError, match='original directory'):
+        audio.OriginalVoices(store, (audio.OriginalMember('starrail:wrong', binding, audio.Span(shared, 79, 20)),))
+
+
+def test_distinct_authored_paths_with_same_hash_remain_unbound(fixture, monkeypatch):
+    from backend import voice_assets
+    owner = fixture[2]; span = audio.Span(owner, 80, 20)
+    directory = audio.Directory(owner, {7: span}, {}, {})
+    monkeypatch.setattr(voice_assets, 'voice_hash', lambda source: 7)
+    first, second = 'English/voice/First.wem', 'English/voice/Second.wem'
+    assert audio.external_members((directory,), (first,), 'en') == {first: span}
+    assert audio.external_members((directory,), (first, second), 'en') == {}
+
+
 def voices(fixture, tmp_path):
     owner, store, transport = acquire_headers(fixture)
     span = audio.Span(owner, 80, 20); store.acquire(span, transport)

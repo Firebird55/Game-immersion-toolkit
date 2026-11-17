@@ -295,7 +295,7 @@ class StarRailProvider:
             raise GameDataError('starrail_audio_inputs_changed', 'The verified audio index changed. Check the download size again.')
         fetch = missing if offline else self._metadata_fetch(ctx, self._transport(ctx))
         raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=fetch)
-        selected = audio.owners(catalog.build, raw, ctx.request.source_locale)
+        selected = audio.inventory_owners(catalog.build, raw, ctx.request.source_locale)
         store = audio.RangeStore(self._directory(ctx, ctx.request.region) / 'original-audio')
         quote = audio.header_quote(selected, store)
         receipt = {'audio_index_md5': catalog.build['hotfix']['indexes']['audio'][1],
@@ -563,7 +563,7 @@ class StarRailProvider:
         from . import starrail_game_audio as audio, starrail_hotfix as hotfix
         if plan.stage in {'audio-inventory-prefixes', 'audio-inventory-headers'}:
             raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=missing)
-            owners = audio.owners(catalog.build, raw, ctx.request.source_locale)
+            owners = audio.inventory_owners(catalog.build, raw, ctx.request.source_locale)
             if not audio.header_quote(owners, store).spans:
                 audio.directories(owners, store, ctx.request.source_locale)
         elif plan.stage == 'audio-event-lookup':
@@ -574,7 +574,7 @@ class StarRailProvider:
             # Complete bank identities/sections, not just their range hashes,
             # are required before this event-bank stage can be retained.
             raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=missing)
-            owners = audio.owners(catalog.build, raw, ctx.request.source_locale)
+            owners = audio.inventory_owners(catalog.build, raw, ctx.request.source_locale)
             inventory = audio.directories(owners, store, ctx.request.source_locale)
             audio.validate_banks(inventory, quote.spans, store, ctx.request.source_locale)
         ctx.check()
@@ -643,7 +643,7 @@ class StarRailProvider:
         def missing(*a, **k):
             raise GameDataError('starrail_audio_inputs_changed', 'The verified original audio cache changed. Check its size again.')
         raw = hotfix.index(catalog.tables.directory, catalog.build, 'audio', fetch=missing)
-        owners = audio.owners(catalog.build, raw, ctx.request.source_locale)
+        owners = audio.inventory_owners(catalog.build, raw, ctx.request.source_locale)
         inventory = audio.directories(owners, store, ctx.request.source_locale)
         assets = sophon.manifest(catalog.tables.directory, catalog.build['channel'],
             tuple(catalog.build['manifests']['game']), (events.LOOKUP,), fetch=missing)

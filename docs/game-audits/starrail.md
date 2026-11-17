@@ -507,9 +507,25 @@ missing English path hashes is present. This supplies a concrete common-containe
 availability route, not an inferred Japanese fallback or a selected copyright
 state. Complete directory SHA256 and actual strong ETag/If-Match receipts bind
 the partial reads; they do not verify the whole PCK MD5. No recording is promoted
-to voiced or decoded by this metadata intake. The producer still needs generic
-common-container inventory and exact source-hash ownership support; the English
-request's language/state choices remain unchanged.
+to voiced or decoded by this metadata intake. Actual member/body acceptance for
+these common recordings remains unproved; the English request's language/state
+choices remain unchanged.
+
+Canonical planning now inventories all other manifest PCK candidates outside
+the other official dub folders, so future newly named shared containers are not
+excluded by a filename/Fate/External0 allowlist. Their headers are separately
+quoted, never implicitly acquired. Primary generations are retained: the full
+AudioV identity already covers each auxiliary row, and every auxiliary owner
+also binds its exact URL, size and MD5. This does not adopt an older cache
+generation. Exact requested-locale source hashes, complete directory/span
+validation and unique ownership can certify an external member in a common
+container; another dub folder, a conflicting hash or an arbitrary offset cannot.
+All bank/stream directory bounds are checked even when their language is not
+selected. Event/bank owner rules and the 143 unresolved state choices are not
+relaxed. Tests cover newly named containers, source/URL drift, retained voices,
+common-owner snapshot/restore and text-only traps against all audio inventory.
+The additional unclassified headers are quoted only; no source bytes outside
+the approved common-directory intake were acquired for this implementation.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts

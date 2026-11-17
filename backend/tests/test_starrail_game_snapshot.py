@@ -82,9 +82,13 @@ def test_player_sequence_render_preserves_branch_playlist_text_and_restore_bound
         snapshot.unpack(changed, result)
 
 
-def test_actual_provider_snapshot_and_restore_recheck_owned_files_without_network(fixture, monkeypatch, tmp_path):
+@pytest.mark.parametrize('shared', [False, True])
+def test_actual_provider_snapshot_and_restore_recheck_owned_files_without_network(fixture, monkeypatch, tmp_path, shared):
     from backend import starrail_game_data as game, starrail_assets, starrail_hotfix, sophon_assets, starrail_events, native_codecs
     ctx = fixture[0]; owner, store, transport = acquire_headers(fixture)
+    if shared:
+        owner = audio.Owner('future_folder/new_shared_name.pck', owner.size, owner.md5, owner.url, owner.generation)
+        store.acquire(audio.Span(owner, 0, 28), transport); store.acquire(audio.Span(owner, 28, 40), transport)
     store.acquire(audio.Span(owner, 80, 20), transport)
     provider = game.create_provider(platform='windows')
     monkeypatch.setattr(provider, '_directory', lambda *a: store.directory.parent)
@@ -93,7 +97,7 @@ def test_actual_provider_snapshot_and_restore_recheck_owned_files_without_networ
     monkeypatch.setattr(native_codecs, 'packaged_codec_executable', lambda tool, **k: tools)
     monkeypatch.setattr(starrail_assets, 'index_text_catalog', lambda *a: payload())
     monkeypatch.setattr(starrail_hotfix, 'index', lambda *a, **k: b'cached AudioV')
-    monkeypatch.setattr(audio, 'owners', lambda *a: (owner,))
+    monkeypatch.setattr(audio, 'inventory_owners', lambda *a: (owner,))
     raw = lookup_bytes()
     asset = sophon_assets.File(starrail_events.LOOKUP, len(raw), hashlib.md5(raw).hexdigest(), (), 'https://autopatchos.starrails.com/test')
     monkeypatch.setattr(sophon_assets, 'manifest', lambda *a, **k: {starrail_events.LOOKUP: asset})
