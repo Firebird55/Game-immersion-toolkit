@@ -413,6 +413,35 @@ platform acceptance. Existing source-helper functional checks use SDK 10.0.302;
 they do not prove the separately pinned SDK 10.0.403 delivery build or Android
 helper execution.
 
+The composed live Japanese worker also succeeds with 307,455 records / 100,170
+voiced records and the same 3,118 film-caption records. A separate complete CN
+worker uses its own original native manifest/descriptions and real regional
+dispatch/current recheck, returning the same English inventory as Global. An
+isolated original-input recovery trial rejects an unproved new descriptor
+generation without changing the prior receipt, then regenerates a malformed
+cache to the exact same descriptor identity with zero new downloads. Its
+original source cache remains unchanged.
+
+Bounded original movie-parameter research now identifies another input
+contract. The native-derived `VideoEncryptionConfig` and
+`LoopCGEncryptionConfig` tables contain 363 and 480 rows (359 and 321 encrypted),
+with ADX/AES-HCA method labels. The original playback bridge explicitly passes
+the appropriate fields from its returned value struct to the CRI video/audio
+key setters. Both three-ulong registries are populated through a protobuf
+handler owned by `PlayerModule.PlayerSecretChecker`, with separate repeated
+lists for video and loop records. These field roles follow native calls and
+stores, rather than their declaration order.
+
+The complete original VideoV lists 1,236 USM files with only path, MD5, size,
+patch, subpack and task fields; it supplies no key field or non-USM sidecar.
+An [older primary server implementation](https://github.com/gucooing/hkrpg-go/blob/v1.6.0/gameserver/player/player_base.go#L173)
+corroborates a separate video-version-key response, but does not prove the
+current original response's transport or authentication requirements. An
+allowed public acquisition route for this additional input is not yet proved.
+No login or game-protocol request was performed. This is an unresolved source
+dependency; it is not classified as a changed movie format or as proved
+authenticated-only data.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
