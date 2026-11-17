@@ -187,6 +187,13 @@ Text gender conditions retain separate authored branches without reading audio
 states or inventing gender-specific audio paths. Configuration descriptions use
 one validated native generation at a time; their per-instance caches can release
 old native indexes instead of retaining them through class-wide LRU keys.
+The first actual 4.6 final-text attempt exposed one one-sided text condition:
+its opposite protagonist has no displayed English sentence. Publishing that
+empty branch correctly failed the shared validator before activation. The
+generic text renderer now retains only nonempty source branches, without
+borrowing another locale's words or certifying silence. A synthetic one-sided
+condition exercises the same worker validation boundary. This correction does
+not itself turn the interrupted actual trial into a completed acceptance pass.
 
 The complete staged service, shared matcher activation, corrupt-cache retry and
 offline restore pass synthetic original-format controls. An actual-source trial

@@ -92,3 +92,21 @@ def test_text_gender_conditions_do_not_require_audio_states_or_concatenate_branc
     assert female['source_text'] == 'Follow her to the bridge.'
     assert male['source_voice_binding']['source'] == female['source_voice_binding']['source'] == 'English/voice/owned_dialogue.wem'
     assert male['audio'] is female['audio'] is None
+
+
+def test_one_sided_text_condition_preserves_only_the_nonempty_source_branch(tmp_path):
+    catalog = Catalog(); file = catalog.file
+    def localized(path, **kwargs):
+        values = file(path, **kwargs)
+        if path.startswith('TextMap/'):
+            values['101'] = '{F#Wait beside the bridge.}' if 'EN' in path else '{M#男主角文本}{F#女主角文本}'
+        return values
+    catalog.file = localized
+    payload = assets.index_text_catalog('sophon-' + 'a' * 64, catalog, 'en', ['zh-Hans'], tmp_path)
+    rows = {row['text_id']: row for row in payload['records']}
+    assert 'starrail:1-text-player-m' not in rows
+    assert rows['starrail:1-text-player-f']['source_text'] == 'Wait beside the bridge.'
+    assert rows['starrail:1-text-player-f']['texts']['zh-Hans'] == '女主角文本'
+    assert rows['starrail:1-text-player-f']['voice_status'] == 'unavailable'
+    assert all(row['source_text'].strip() for row in rows.values())
+    write_payload('starrail', payload, 'en', ['zh-Hans'], tmp_path / 'textmap.json')

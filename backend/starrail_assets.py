@@ -342,7 +342,12 @@ def index_text_catalog(stamp, catalog, source_locale, target_locales, tools):
             for gender in ('male', 'female'):
                 variant = _player_row(row, gender)
                 variant['text_id'] = row['text_id'] + '-text-player-' + gender[0]
-                expanded.append(variant)
+                # A one-sided condition can intentionally display nothing for
+                # the other protagonist. Never publish a blank study sentence
+                # or borrow its translation from another locale/branch.
+                if variant['source_text'].strip():
+                    variant['texts'] = {locale: value for locale, value in variant['texts'].items() if value.strip()}
+                    expanded.append(variant)
         else:
             expanded.append(row)
     rows = expanded
