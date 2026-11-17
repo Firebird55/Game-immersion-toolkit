@@ -2,6 +2,7 @@
 import time
 import hashlib
 import io
+import sys
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
@@ -167,5 +168,19 @@ def test_conflicting_historical_download_address_is_a_typed_blocker_before_trans
         assert rejected.value.code == 'historical_source_changed'
         assert not any(url.endswith('.zip') for url in calls)
         assert not (tmp_path/'nte/current.json').exists()
+    finally:
+        service.close()
+
+
+def test_android_retained_bootstrap_keeps_the_native_gate_without_importing_windows_modules(tmp_path, monkeypatch):
+    original = originals(monkeypatch)
+    cache = tmp_path/'nte/cache/tools/nte-publisher/format'
+    updater_source.resolve(baseline.inputs(), cache, fetch=original.fetch)
+    monkeypatch.setitem(sys.modules, 'backend.nte_game_data_runtime', None)
+    service = GameDataService(tmp_path, {'nte': NteGameDataProvider(platform='android', opener=opener(original, []))})
+    try:
+        plan = service.plan('nte', REQUEST)['game']
+        assert not plan['can_download'] and plan['download_bytes'] is None
+        assert 'reader' in plan['message'] and not (tmp_path/'nte/current.json').exists()
     finally:
         service.close()

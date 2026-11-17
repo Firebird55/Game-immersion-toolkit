@@ -146,10 +146,15 @@ def files(archive, region, version, sections, checksum, *, parameters=None):
     return result, [len(raw), hashlib.sha256(raw).hexdigest()]
 
 
-def release_config(region, *, fetch=None):
+def release_config(region, *, fetch=None, initial_branch=None, host=None):
     fetch = fetch or download
-    host = HOSTS[region]
-    branch = 'publish_PC'
+    allowed = {HOSTS[region]} | ({'ntecdn2.perfectworld.com'} if region == 'nte-global' else set())
+    if host is not None and host not in allowed:
+        raise ValueError('The NTE launcher declared an unsupported publisher host.')
+    host = host or HOSTS[region]
+    if initial_branch is not None and not re.fullmatch(r'PC_[0-9]+', initial_branch):
+        raise ValueError('The NTE launcher declared an unsupported game branch.')
+    branch = initial_branch or 'publish_PC'
     visited = set()
     while branch not in visited and len(visited) < 12:
         visited.add(branch)
@@ -233,9 +238,13 @@ def _json_manifest(result):
                       sort_keys=True, separators=(',', ':')).encode()
 
 
-def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None, fetch=None):
+def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None, fetch=None,
+             initial_branch=None, host=None):
     read = fetch or download
-    branch, version, root, cfg = (release_config(region) if fetch is None else release_config(region, fetch=read))
+    source = ({'fetch': read} if fetch is not None else {})
+    if initial_branch is not None: source['initial_branch'] = initial_branch
+    if host is not None: source['host'] = host
+    branch, version, root, cfg = release_config(region, **source)
     raw = read(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
     sections = {}
     previous = {}

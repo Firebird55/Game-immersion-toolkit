@@ -132,7 +132,31 @@ accounts for all four payloads before transfer. Changed historical addresses or
 missing originals block preparation while retaining the old library. No actual
 publisher key rotation has been observed in these trials.
 
-The bounded content plan and context-owned reader adapter remain separate work.
+The next Windows stage now uses an explicit context-owned adapter for the
+existing verified app-local NteReader and dependency inventory. It does not
+invoke source compilation, SDK discovery or tool downloads. A reviewed local
+maintainer build used only the retained pinned SDK/runtime packages; its source
+receipt is clean and matches the current C# bridge. The actual apphost reported
+its app-local .NET 10.0.14 runtime. This is a reader/runtime proof, not a complete
+desktop application or Android build acceptance claim.
+
+The original native/SIG/TOC stage plans complete manifest-owned members before
+any large transfer and checks original metadata both before and after them.
+For the frozen Global generation its cold estimate was 671,251,388 bytes:
+555,786,448 native bytes, 115,046,930 index bytes and verification overhead,
+covering 44 original members. Existing verified originals were then reused as
+immutable local hardlinks. With one actual original SIG withheld from that
+cache, the shared service and transport planned and accounted for exactly
+831,738 bytes. No publisher network traffic, voice members or client-code
+execution occurred. The stage returned `needs_plan`, with no index activation.
+Whole global UCAS data is not selected merely from its filename; its later
+eligibility requires an authenticated parsed TOC. Synthetic fixtures cover both
+content modes, changed-source rejection before assets and corrupt-range failure.
+
+Authenticated archive footer/index/block planning and the final context-owned
+offline preparation remain open. No intermediate native/index stage is a ready
+game library. Android rejects the Windows capability before importing its reader
+modules. A separate managed/native host is still required there.
 These Global results do not establish mainland key derivation, archive or
 localization key rotation, new required schema constructors, a changed launcher
 root/native ABI, universal SDK rotation, or direct Android preparation. Cold

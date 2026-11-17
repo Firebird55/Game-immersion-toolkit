@@ -53,6 +53,15 @@ class NteGameDataProvider:
             raise GameDataError('unsafe_game_cache', 'Game downloads need an ordinary private cache directory.') from error
         return cache
 
+    def _reader(self, ctx):
+        if self.platform != 'windows':
+            raise GameDataError('nte_reader_unavailable',
+                'A compatible NTE data reader is not available on this device. Your previous library is retained.', 409)
+        from .nte_game_data_runtime import WindowsNteRuntime, resolve
+        if self.platform == 'windows' and isinstance(self.native, WindowsNteRuntime):
+            return self.native.reader(ctx)
+        return resolve(self.platform, ctx)
+
     def plan(self, request, ctx):
         ctx.check()
         if request.source_locale not in STUDY or set(request.target_locales) - TARGETS:
@@ -73,9 +82,15 @@ class NteGameDataProvider:
         if costs['compressed_bytes'] == 0:
             source.resolve_retained(inputs, cache)
             baseline.parameters(cache)
-            return GameDataPlan('nte-content-'+inputs.identity, None, None,
-                handle={'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity},
-                stage='content', message='Official NTE compatibility information is verified. A bounded game-content reader plan is still required on this device.')
+            try:
+                reader = self._reader(ctx)
+            except GameDataError as error:
+                if error.code != 'nte_reader_unavailable':
+                    raise
+                return GameDataPlan('nte-content-'+inputs.identity, None, None, stage='content',
+                    message='Official NTE compatibility information is verified. A compatible game-content reader is still required on this device.')
+            from . import nte_game_data_content as content
+            return content.plan(request, ctx, inputs, reader, transport)
         handle = {'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity,
                   'baseline_inputs_sha256': baseline.inputs().identity,
                   'verification_bytes': metadata, 'request': request.json()}
@@ -86,6 +101,10 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage == 'original-indices':
+            from . import nte_game_data_content as content
+            return content.download(plan, ctx, self._reader(ctx),
+                PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
         handle = plan.handle
         if (plan.stage != 'compatibility' or not isinstance(handle, dict)
                 or set(handle) != {'schema', 'inputs', 'inputs_sha256', 'baseline_inputs_sha256', 'verification_bytes', 'request'}

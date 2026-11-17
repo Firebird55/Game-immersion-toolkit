@@ -32,14 +32,14 @@ class AuthenticatedNative:
     identity: dict
 
 
-def load(cache, *, fetch=None, save=None, parameters=None) -> AuthenticatedNative:
-    """Authenticate the fixed original manifest and its selected native file.
+def discover(cache, *, fetch=None, parameters=None):
+    """Authenticate the original baseline inventory without acquiring a PE.
 
-    A cold installation-free cache can retrieve both from the original CDN.
+    A cold installation-free cache reads only the small original resource list.
     Existing research paths, game folders and current community indices are not
     inputs. The original entry is selected by fixed publisher identity, never
-    by executable or project filename. Downloads retain their exact package
-    range when the original manifest uses a packaged entry.
+    by executable or project filename. Selected native acquisition is separate
+    and retains its exact publisher package range.
     """
     cache = Path(cache)
     reference = BASELINE
@@ -76,12 +76,19 @@ def load(cache, *, fetch=None, save=None, parameters=None) -> AuthenticatedNativ
         decoded = metadata._json(discovery)
         _check(hashlib.sha256(decoded).hexdigest() == reference['inventory_sha256'])
         _atomic_file(normalized, decoded)
+    if not manifest.exists():
+        _atomic_file(manifest, raw)
+    return discovery
+
+
+def load(cache, *, fetch=None, save=None, parameters=None) -> AuthenticatedNative:
+    """Authenticate the fixed manifest and whole original native data file."""
+    cache, reference = Path(cache), BASELINE
+    discovery = discover(cache, fetch=fetch, parameters=parameters)
     selected = [(name, item) for name, item in metadata.sources(discovery).items()
                 if item.digest == reference['native_md5'] and item.size == reference['native_size']]
     _check(len(selected) == 1)
     name, descriptor = selected[0]
-    if not manifest.exists():
-        _atomic_file(manifest, raw)
     source = metadata.stage_original(discovery, name, cache / 'originals', save=save)
     data = metadata._original(source, descriptor)
     _check(hashlib.sha256(data).hexdigest() == reference['native_sha256'])

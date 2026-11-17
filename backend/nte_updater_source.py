@@ -267,6 +267,14 @@ def resolve_retained(inputs, cache):
     return resolve(inputs, cache, fetch=forbidden)
 
 
+def release_origin(inputs, cache):
+    """Use the current original launcher's declared game branch/CDN owner."""
+    resolve_retained(inputs, cache)
+    artifact = next(item for item in inputs.artifacts if item.role == 'configuration')
+    value = _decode_json(retained(cache, artifact))
+    return urlsplit(value['gameResUrl'][0]).hostname, value['branchName']
+
+
 def _publish(path, raw):
     _no_links(path)
     if path.exists():

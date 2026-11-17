@@ -129,14 +129,15 @@ def _discovery(region, *, parameter_cache=None, allow_community_fallback=False):
 
 
 @lru_cache(maxsize=2)
-def _current(tools, period, region, allow_community_fallback=False):
+def _current(tools, period, region, allow_community_fallback=False, *, reader_identity=None):
     from . import nte_assets
     from . import nte_native_provider as native
     from . import nte_metadata_profile as profiles
     cache = Path(tools) / 'nte-publisher/format'
     value = _discovery(region, parameter_cache=cache/'community',
                        **({'allow_community_fallback': True} if allow_community_fallback else {}))
-    reader = _reader_identity()
+    reader = reader_identity or _reader_identity()
+    native.metadata._digest(reader)
     archive = metadata.load(revision=NATIVE_ARCHIVE[0], digest=NATIVE_ARCHIVE[1], cache=cache)
     localization = metadata.load_localization(revision=NATIVE_LOCALIZATION[0], digest=NATIVE_LOCALIZATION[1], cache=cache)
     types = native.source_reference(native.discovery(value), reader)
@@ -362,25 +363,35 @@ def _stage_voice_banks(catalog, banks, staging, progress):
             write_batch()
 
 
-def build_language(tools, source_locale, targets, progress=lambda _message: None, *, content_mode='text-audio'):
+def build_language(tools, source_locale, targets, progress=lambda _message: None, *, content_mode='text-audio', game_data_reader=None):
     from . import nte_assets as assets
     from .languages import resolve_locale
     from .nte_cinematics import catalog_rows, movie_bindings, movie_namespaces
     from .publisher_regions import selected_region
     tools = Path(tools)
+    if game_data_reader is not None:
+        from .nte_game_data_runtime import NteGameDataReader
+        pak.check(isinstance(game_data_reader, NteGameDataReader)
+                  and tools == Path(game_data_reader.context.cache_directory)/'tools')
+        game_data_reader.context.check()
     if content_mode not in ('text', 'text-audio'):
         raise ValueError('Unsupported NTE content mode')
     if source_locale not in assets.SUPPORTED_LOCALES:
         raise ValueError('Unsupported NTE study/audio locale.')
     region = 'nte-' + selected_region(tools, 'nte')
-    stamp, value = _current(tools, int(time.monotonic() // 60), region)
+    stamp, value = _current(tools, int(time.monotonic() // 60), region,
+        **({'reader_identity': game_data_reader.source_identity} if game_data_reader is not None else {}))
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     locales = {source_locale, *(locale for locale in resolved.values() if locale)}
     progress('Reading coherent NTE publisher text and original authoring')
     catalog = (Catalog(tools, stamp, progress, preparing=True) if 'metadata_policy' in value else
                Catalog(tools, stamp, progress))
-    executable = assets.ensure_extractor(tools)
-    staging_root = tools.parent / 'nte-publisher-staging'
+    if game_data_reader is None:
+        executable = assets.ensure_extractor(tools)
+    else:
+        pak.check(game_data_reader.source_identity == value['reader'])
+        executable = game_data_reader.executable
+    staging_root = (Path(game_data_reader.context.directory) if game_data_reader is not None else tools.parent) / 'nte-publisher-staging'
     staging_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='prepare-', dir=staging_root) as folder:
         staging = Path(folder)
@@ -391,11 +402,13 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         native_proof = None
         if value['type_schema'].get('kind') == 'nte-original-native-v1':
             from . import nte_native_provider as native
-            native_proof = native.read_authoring(catalog, executable, staging, progress)
+            native_proof = native.read_authoring(catalog, executable, staging, progress,
+                **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
         else:
             assets.run_publisher_reader(context, executable, staging, catalog.containers(),
                 catalog.format.parameters[region], schema_cache=catalog.cache / 'schemas',
-                table_schema=type_metadata.load(value['version'], catalog.cache / 'format/types', reference=value['type_schema']))
+                table_schema=type_metadata.load(value['version'], catalog.cache / 'format/types', reference=value['type_schema']),
+                **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
         movie_catalog = json.loads((staging / 'movie-tables.json').read_bytes())
         bindings = movie_bindings(catalog_rows(movie_catalog), movie_namespaces(movie_catalog, required=True))
         subtitles = {b['subtitle']: catalog.read(b['subtitle']).decode('utf-8-sig')

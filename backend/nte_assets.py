@@ -198,9 +198,14 @@ def _stage_table_schema(cache: Path, destination: Path) -> None:
     (destination / 'dialogue.usmap').write_bytes(data)
 
 
-def _reader_invocation(install: Path, executable: Path, destination: Path, mode: str):
+def _reader_invocation(install: Path, executable: Path, destination: Path, mode: str, *, game_data_reader=None):
     if destination.resolve().is_relative_to(install.resolve()):
         raise ValueError("Reader outputs must stay outside the selected source context")
+    if game_data_reader is not None:
+        from .nte_game_data_runtime import NteGameDataReader
+        if not isinstance(game_data_reader, NteGameDataReader) or executable != game_data_reader.executable:
+            raise ValueError('NTE preparation requires its explicit verified owned reader')
+        return game_data_reader.invocation(install, destination, mode)
     from .runtime_bundle import discover_layout
     layout = discover_layout()
     if layout.mode == 'bundle':
@@ -241,7 +246,7 @@ def _publisher_key_bindings(containers, keys):
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
                          *, schema_cache: Path | None = None, inventory=False, table_schema=None,
                          capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None,
-                         capture_original_authoring=False):
+                         capture_original_authoring=False, game_data_reader=None):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
@@ -266,7 +271,8 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
         raise ValueError('NTE dialogue registry requires graph extraction')
     if any((destination / name).exists() for name in outputs):
         raise ValueError('NTE publisher extraction requires a fresh staging directory')
-    invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode)
+    invocation, environment, working_directory = _reader_invocation(context, executable, destination, mode,
+        **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
     if not inventory:
         if schema_cache is None:
             raise ValueError('NTE publisher authoring requires verified type metadata')
@@ -357,7 +363,7 @@ def read_schema_usage(destination, schema_sha256, nonce):
 
 
 def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry,
-                            *, capture_original_authoring=False):
+                            *, capture_original_authoring=False, game_data_reader=None):
     """Read complete registry-selected package claims before bounded prefetch."""
     from .nte_publisher_stream import Broker
     destination = Path(destination)
@@ -366,7 +372,8 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
         raise ValueError('NTE dialogue inventory requires a fresh staging directory and original registry')
     sha, nonce = hashlib.sha256(registry).hexdigest(), secrets.token_hex(16)
     (destination/'dialogue-registry.bin').write_bytes(registry)
-    invocation, environment, working = _reader_invocation(context, executable, destination, 'publisher-dialogue-inventory')
+    invocation, environment, working = _reader_invocation(context, executable, destination, 'publisher-dialogue-inventory',
+        **({'game_data_reader': game_data_reader} if game_data_reader is not None else {}))
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors,
                    'dialogue_registry_sha256': sha, 'inventory_nonce': nonce}
