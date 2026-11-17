@@ -13,12 +13,13 @@ from backend import starrail_game_audio as audio
 from backend.game_data import GameDataService, _Context
 from backend.game_data_protocol import GameDataError, GameDataRequest
 from backend.publisher_transport import PublisherTransport
+from backend.voice_assets import voice_hash
 from backend.tests.test_publisher_transport import Response
 
 
 def package():
     original = b'RIFF' + struct.pack('<I', 12) + b'WAVE' + bytes(8)
-    table = struct.pack('<IQ4I', 1, 123, 1, len(original), 80, 0)
+    table = struct.pack('<IQ4I', 1, voice_hash('English/voice/Owned.wem'), 1, len(original), 80, 0)
     header = b'AKPK' + struct.pack('<6I', 60, 1, 4, 4, 4, len(table)) + bytes(12) + table
     return header + bytes(80 - len(header)) + original
 
@@ -115,6 +116,34 @@ def test_malformed_header_cannot_authorize_followup_ranges(fixture):
         audio.header_quote((owner,), store)
 
 
+def test_complete_directory_projection_reads_only_headers_and_preserves_exact_members(fixture, monkeypatch):
+    owner, store, _ = acquire_headers(fixture)
+    original_read = store.read
+    def read(span):
+        assert span.start in (0, 28) and span.start + span.length <= 68
+        return original_read(span)
+    monkeypatch.setattr(store, 'read', read)
+    inventory = audio.directories((owner,), store, 'en')
+    assert not inventory[0].banks and not inventory[0].sounds
+    expected = audio.Span(owner, 80, 20)
+    assert inventory[0].external == {voice_hash('English/voice/Owned.wem'): expected}
+    assert audio.external_members(inventory, ('English/voice/Owned.wem',), 'en') == {'English/voice/Owned.wem': expected}
+    with pytest.raises(GameDataError, match='another dub'):
+        audio.external_members(inventory, ('Japanese/voice/Owned.wem',), 'en')
+    assert audio.external_members(inventory + inventory, ('English/voice/Owned.wem',), 'en') == {}
+
+
+@pytest.mark.parametrize('offset,value', [(0, 2), (12, 1000001)])
+def test_internal_directory_counts_cannot_leave_sections_or_allocate_unbounded_rows(fixture, offset, value):
+    owner, store, _ = acquire_headers(fixture)
+    span = audio.Span(owner, 28, 40); path = store._path(span)
+    raw = bytearray(path.read_bytes()); struct.pack_into('<I', raw, offset, value); path.write_bytes(raw)
+    receipt = path.with_name(path.name + '.json'); record = json.loads(receipt.read_bytes())
+    record['sha256'] = hashlib.sha256(raw).hexdigest(); receipt.write_text(json.dumps(record))
+    with pytest.raises(GameDataError):
+        audio.directories((owner,), store, 'en')
+
+
 @pytest.mark.parametrize('start,length', [(-1, 1), (0, 0), (True, 28), (2**60, 1), (0, 2**60)])
 def test_span_bounds_reject_negative_boolean_and_overflow_shapes(fixture, start, length):
     with pytest.raises(GameDataError):
@@ -140,7 +169,8 @@ def test_audio_index_selects_all_selected_dub_and_neutral_owners_not_other_dubs(
 def voices(fixture, tmp_path):
     owner, store, transport = acquire_headers(fixture)
     span = audio.Span(owner, 80, 20); store.acquire(span, transport)
-    binding = {'publisher': 'sophon-' + '1' * 64, 'locale': 'en', 'source': 'English/voice/Owned.wem', 'file_id': '000000000000007b'}
+    binding = {'publisher': 'sophon-' + '1' * 64, 'locale': 'en', 'source': 'English/voice/Owned.wem',
+               'file_id': f'{voice_hash("English/voice/Owned.wem"):016x}'}
     member = audio.OriginalMember('starrail:owned', binding, span)
     decoder, encoder = tmp_path / 'decoder', tmp_path / 'encoder'
     decoder.write_bytes(b'inert executable path fixture'); encoder.write_bytes(b'inert executable path fixture')

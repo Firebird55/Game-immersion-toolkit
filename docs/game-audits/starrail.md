@@ -229,6 +229,25 @@ or movie parameters cannot certify a voice. Authored-format/shared-service tests
 cover these boundaries; no new real audio transport or Android codec acceptance
 is implied by these tests.
 
+An isolated actual-source intake on frozen `fe5e5883` now verifies all 209
+current Global English/neutral-bank prefixes through the production range store
+and shared context transport: exactly 5,852 response-body bytes and 184,185
+retained bytes. The complete 114,038-byte AudioV passes publisher MD5
+`7988e0de5f29c43b842f69e6bc23fa10`. Actual strong ETags, exact 206/range/full-size
+responses and every bounded PCK prefix pass. The owners total 18,138,568,731
+bytes; none of those complete PCK bodies is downloaded or MD5 verified by this
+check. The resulting full-directory quote is 209 ranges totaling 3,383,584
+bytes, with no bank/member payload. This is original inventory intake evidence,
+separate from full normal-factory/bootstrap or ready-library acceptance.
+
+The complete-directory projection also reuses the owned PCK table parsers with
+header-only reads. Section/count bounds, language tables, duplicate external
+identities and header-overlapping members fail before a directory stage can be
+published. Exact authored source hashes select members only in the requested
+dub; conflicting owners remain unresolved. These projection controls currently
+have authored-format test evidence, separate from the preceding actual prefix
+acquisition.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport

@@ -21,6 +21,7 @@ import wave
 
 from .game_data_protocol import GameDataError, MAX_ASSET_BYTES
 from .private_data_paths import _no_links
+from .private_data_paths import MAX_ROWS
 from .publisher_transport import STRONG_ETAG
 
 MAX_SPAN = 64 * 1024**2
@@ -233,6 +234,81 @@ def header_quote(selected, store):
             _fail('The original Star Rail PCK header is unsupported or out of bounds.')
         headers.append(Span(prefix.owner, 28, total + 8 - 28))
     return Quote('audio-inventory-headers', tuple(span for span in headers if store.receipt(span) is None))
+
+
+@dataclass(frozen=True)
+class Directory:
+    owner: Owner
+    external: dict
+    banks: dict
+    sounds: dict
+
+
+def directories(selected, store, locale):
+    """Parse complete owned directories, never a bank/member payload."""
+    from . import starrail_events as events
+    from .hoyo_dialogue import voice_namespace
+    from .voice_assets import external_table
+    language = voice_namespace('starrail', locale)
+    result, records = [], 0
+    if header_quote(selected, store).spans:
+        _fail('The original Star Rail audio directories are incomplete.')
+    for owner in selected:
+        prefix = store.read(Span(owner, 0, 28))
+        total, _, langs, banks, sounds, external = struct.unpack_from('<6I', prefix, 4)
+        raw = prefix + store.read(Span(owner, 28, total + 8 - 28))
+        for start, length in ((28 + langs, banks), (28 + langs + banks, sounds),
+                              (28 + langs + banks + sounds, external)):
+            if length < 4 or start > len(raw) - length:
+                _fail('The original PCK directory section leaves its header.')
+            records += struct.unpack_from('<I', raw, start)[0]
+            if records > MAX_ROWS:
+                _fail('The original audio directory exceeds its record limit.')
+        class Header:
+            size = owner.size
+            name = owner.name
+            digest = owner.md5
+            def read(self, directory, start, length):
+                if type(start) is not int or type(length) is not int or not 0 < length <= len(raw) or not 0 <= start <= len(raw)-length:
+                    _fail('An audio inventory parser requested payload outside the declared header.')
+                return raw[start:start+length]
+        asset = Header()
+        try:
+            bank_rows, sound_rows = events._pck(None, asset, 'sfx' if re.fullmatch(r'Banks[0-9]+\.pck', owner.name) else language)
+            bank_rows = {key: Span(owner, row.offset, row.size) for key, row in bank_rows.items()}
+            sound_rows = {key: Span(owner, row.offset, row.size) for key, row in sound_rows.items()}
+            external_rows = {}
+            for row in external_table(owner.name, owner.size, lambda start, length: asset.read(None, start, length)):
+                if row.offset < len(raw):
+                    _fail('The original external recording overlaps its PCK header.')
+                if row.file_id in external_rows:
+                    _fail('The original audio directory repeats an external member identity.')
+                external_rows[row.file_id] = Span(owner, row.offset, row.size)
+        except (ValueError, struct.error, UnicodeError) as error:
+            raise GameDataError('starrail_audio_directory_changed', 'The original audio directory is malformed or unsupported.') from error
+        result.append(Directory(owner, external_rows, bank_rows, sound_rows))
+    return tuple(result)
+
+
+def external_members(inventory, sources, locale):
+    """Bind exact authored source hashes; conflicting owners stay unresolved."""
+    from .hoyo_dialogue import voice_namespace
+    from .voice_assets import voice_hash
+    language = voice_namespace('starrail', locale)
+    by_hash = {}
+    for directory in inventory:
+        if not directory.owner.name.startswith(language + '/'):
+            continue
+        for key, span in directory.external.items():
+            by_hash[key] = span if key not in by_hash else None
+    result = {}
+    for source in set(sources):
+        if (not isinstance(source, str) or not 0 < len(source) <= 4096 or '\x00' in source
+                or re.split(r'[/\\]', source, maxsplit=1)[0].casefold() != language.casefold()):
+            _fail('The authored original voice binding belongs to another dub.')
+        if span := by_hash.get(voice_hash(source)):
+            result[source] = span
+    return result
 
 
 @dataclass(frozen=True)

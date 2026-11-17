@@ -286,6 +286,8 @@ class StarRailProvider:
         selected = audio.owners(catalog.build, raw, ctx.request.source_locale)
         store = audio.RangeStore(self._directory(ctx, ctx.request.region) / 'original-audio')
         quote = audio.header_quote(selected, store)
+        if not quote.spans:
+            audio.directories(selected, store, ctx.request.source_locale)
         receipt = {'audio_index_md5': catalog.build['hotfix']['indexes']['audio'][1],
             'selection_sha256': audio.identity([owner.json() for owner in selected]),
             'quote_sha256': quote.digest, 'owner_count': len(selected)}
@@ -450,6 +452,9 @@ class StarRailProvider:
         transport = self._transport(ctx)
         for span in quote.spans:
             ctx.check(); store.acquire(span, transport)
+        # A complete response span alone does not validate internal directory
+        # offsets. Parse every full directory before publishing this stage.
+        self._audio_inventory(ctx, catalog, offline=True)
         ctx.check()
         return self._stage(ctx, {'schema': STAGE_SCHEMA, 'request': ctx.request.json(), 'build': handle['build'],
             'files': handle['files'], 'packages': handle['packages'], 'native': generation.identity,
