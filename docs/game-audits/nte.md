@@ -48,6 +48,41 @@ capture/omission/context group passed 46 checks. Shared request/UI integration,
 direct Android preparation and official bootstrap/key-rotation support remain
 separate implementation gates.
 
+## Official updater-envelope derivation
+
+November 17, 2026 source follow-up. The official landing/download metadata led to
+the publisher's signed installer. Its complete Authenticode image digest,
+offline Windows trust policy and signer-bound timestamp passed; fresh revocation
+status was not checked. The installer configuration names the official
+[launcher version metadata](https://ntecdn1.perfectworld.com/hd/publish_PC/launcher/Version.ini).
+That metadata identifies the original file manifest, PatcherSDK and PatcherConfig
+payloads with complete checksums and sizes. Only those selected members were
+read, with ZIP CRC and full publisher MD5 checks. The current SDK also passed
+offline Windows trust validation. No publisher executable or DLL was executed.
+
+The new data-only native API follows the original `PatcherXML0` consumer, cipher
+descriptor, parameter setter and JSON `appId` field ownership. It derives the
+suffix, IV and padding from those original bindings. Release addresses, context
+field offsets, key values and versions are not inputs to the locator. The parser
+uses existing Python dependencies and adds no Iced/native helper dependency.
+Fifteen authored-PE checks cover relocation, changed context layout, ambiguous
+markers, altered ownership, unsupported instruction forms and updated constants.
+
+On the actual original SDK, the generic API opened the current Global 1.5.4
+resource list against its publisher-declared plaintext checksum and reproduced
+all 374 retained original typed file descriptors. Wrong app ID, key, IV,
+checksum, version, optional section, cipher descriptor and field ownership were
+rejected in the relevant source trials. The retained Global 1.4.9 encrypted list
+also reproduced all 552 original descriptors and native padding. Its historical
+plaintext checksum declaration was not retained, so that trial instead binds the
+complete original ciphertext/manifest hashes and inventory equivalence.
+
+This is an original-source API checkpoint. Ordinary cold preparation, immutable
+source receipts, source-change recovery and final pointer checks still require
+integration before changing the default updater source. These Global results do
+not establish mainland key derivation, archive/localization keys, new required
+schema constructors, universal SDK/bootstrap rotation or direct Android use.
+
 ## Controlled update metadata and device boundary
 
 November 17, 2026 follow-up. Publisher bytes remain the source of all study
