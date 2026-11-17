@@ -20,8 +20,10 @@ text still needs sufficient capture evidence before selecting a recording.
 
 Publisher preparation also follows the original game's key-update catalogues.
 New UUID-owned archive parameters can be verified without updating the toolkit
-while that format stays supported. Initial bootstrap/default parameters still
-use a separate verified route; an unknown rotation there remains a preparation
+while that format stays supported. Initial bootstrap/default candidates come
+from one immutable, checksum-pinned initial seed, retained in protected local
+storage. Ordinary refreshes then use official publisher inputs without checking
+a mutable community key feed. An unknown bootstrap/default rotation remains a preparation
 limit. A failed refresh keeps the previous index and recordings. A metadata-only
 source change reuses hash-validated recordings from the identical catalogue.
 
