@@ -477,6 +477,22 @@ retained original `classes4.dex` occupies 24,995,265 bytes for this phase, withi
 the approved 26 MiB retention limit. Reverse:1999 preparation remains unavailable
 in both content modes.
 
+A later separately approved **metadata-only** locator follows the exact
+`ITapAppDownloadServiceProvider` interface operand through all seven authenticated
+DEX members. Two passes reach a fixed point over direct interfaces and
+superclass inheritance. There is exactly one concrete candidate:
+`com.taptap.game.downloader.impl.download.notification.TapAppDownloadServiceProvider`,
+class definition 9,266 in `classes4.dex`. The interface itself extends ARouter's
+`IProvider`. Original interface lists are bounded but sometimes unsorted; lookup
+preserves their original membership without claiming canonical ordering.
+
+No candidate method metadata or body is read in that phase, and no network or
+additional retained file is needed. Formal metadata alone does not establish
+the ARouter registration map. The next source-owned method candidate is this
+implementation's `createTapAppDownloadServiceProxy()`; its declared code location
+and actual return producer still require a separately bounded pass. A unique
+interface implementer is not treated as an anonymous game-download request.
+
 ### Community key candidate: research only
 
 The original author repository
