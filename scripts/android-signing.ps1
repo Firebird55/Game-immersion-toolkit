@@ -1,4 +1,22 @@
 # Windows owner-host identity. Keys and DPAPI ciphertext never enter CI/source.
+function Set-AndroidCreatedSigningOwner([string]$Path) {
+    # Call only immediately after this process created the directory/file.
+    # Elevated Windows tokens may otherwise give new children an Admins owner.
+    Assert-AndroidNoLinks $Path
+    $item=Get-Item -LiteralPath $Path
+    # Load/persist ONLY owner information. Round-tripping a complete Get-Acl
+    # object can request audit/SACL privileges on a non-elevated owner host.
+    $acl=[IO.FileSystemAclExtensions]::GetAccessControl($item,[Security.AccessControl.AccessControlSections]::Owner)
+    $acl.SetOwner([Security.Principal.WindowsIdentity]::GetCurrent().User)
+    [IO.FileSystemAclExtensions]::SetAccessControl($item,$acl)
+    Assert-AndroidSigningAcl $Path
+}
+function Write-AndroidNewSigningFile([string]$Path,[byte[]]$Bytes) {
+    Assert-AndroidNoLinks $Path
+    $stream=[IO.File]::Open($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try {$stream.Write($Bytes,0,$Bytes.Length);$stream.Flush($true)} finally {$stream.Dispose()}
+    Set-AndroidCreatedSigningOwner $Path
+}
 function Assert-AndroidSigningAcl([string]$Path) {
     $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
     $acl=Get-Acl -LiteralPath $Path
@@ -40,7 +58,7 @@ function Initialize-AndroidSigningIdentity([string]$Root,[string]$JavaHome) {
         $acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))
     }
     Set-Acl -LiteralPath $Root -AclObject $acl
-    Assert-AndroidSigningAcl $Root
+    Set-AndroidCreatedSigningOwner $Root
     $password=[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
     $previous=$env:TOOLKIT_OWNER_KEY_PASSWORD
     try {
@@ -48,14 +66,16 @@ function Initialize-AndroidSigningIdentity([string]$Root,[string]$JavaHome) {
         $keytool=Join-Path $JavaHome 'bin/keytool.exe'
         & $keytool -genkeypair -alias toolkit-owner -keyalg RSA -keysize 3072 -validity 10000 -storetype PKCS12 -dname 'CN=Game Immersion Toolkit,O=Toolkit,C=NL' -storepass:env TOOLKIT_OWNER_KEY_PASSWORD -keypass:env TOOLKIT_OWNER_KEY_PASSWORD -keystore (Join-Path $Root 'owner.p12') 2>&1 | Out-Null
         if($LASTEXITCODE -ne 0){throw 'Could not initialize the owner signing key.'}
+        Set-AndroidCreatedSigningOwner (Join-Path $Root 'owner.p12')
         & $keytool -exportcert -alias toolkit-owner -storepass:env TOOLKIT_OWNER_KEY_PASSWORD -keystore (Join-Path $Root 'owner.p12') -file (Join-Path $Root 'certificate.der') 2>&1 | Out-Null
         if($LASTEXITCODE -ne 0){throw 'Could not record the owner public certificate.'}
+        Set-AndroidCreatedSigningOwner (Join-Path $Root 'certificate.der')
         $bytes=[Text.Encoding]::UTF8.GetBytes($password)
         try {$encrypted=[Security.Cryptography.ProtectedData]::Protect($bytes,$null,[Security.Cryptography.DataProtectionScope]::CurrentUser)}
         finally {[Array]::Clear($bytes,0,$bytes.Length)}
-        [IO.File]::WriteAllBytes((Join-Path $Root 'password.dpapi'),$encrypted)
+        Write-AndroidNewSigningFile (Join-Path $Root 'password.dpapi') $encrypted
         $record=[ordered]@{schema='toolkit-android-owner-signing-v1';application_id='io.github.firebird55.gameimmersiontoolkit';alias='toolkit-owner';signing_certificate_sha256=(Get-FileHash -LiteralPath (Join-Path $Root 'certificate.der') -Algorithm SHA256).Hash.ToLowerInvariant();last_reserved_version_code=0}
-        [IO.File]::WriteAllText((Join-Path $Root 'identity.json'),($record | ConvertTo-Json)+"`n",[Text.UTF8Encoding]::new($false))
+        Write-AndroidNewSigningFile (Join-Path $Root 'identity.json') ([Text.UTF8Encoding]::new($false).GetBytes(($record | ConvertTo-Json)+"`n"))
         Open-AndroidSigningIdentity $Root | Out-Null
         return [pscustomobject]@{application_id=$record.application_id;signing_certificate_sha256=$record.signing_certificate_sha256}
     } finally {$env:TOOLKIT_OWNER_KEY_PASSWORD=$previous;$password=$null}
@@ -64,7 +84,10 @@ function Reserve-AndroidSigningVersion([string]$Root,[int]$VersionCode) {
     $Root=Open-AndroidSigningIdentity $Root
     Assert-AndroidNoLinks (Join-Path $Root 'build.lock')
     Assert-AndroidNoLinks (Join-Path $Root 'identity.pending')
-    $lock=[IO.File]::Open((Join-Path $Root 'build.lock'),[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    $lockPath=Join-Path $Root 'build.lock'
+    if(-not (Test-Path -LiteralPath $lockPath)) {Write-AndroidNewSigningFile $lockPath ([byte[]]::new(0))}
+    Assert-AndroidSigningAcl $lockPath
+    $lock=[IO.File]::Open($lockPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
     try {
         $record=Get-Content -LiteralPath (Join-Path $Root 'identity.json') -Raw | ConvertFrom-Json
         if($record.schema -ne 'toolkit-android-owner-signing-v1' -or $record.application_id -ne 'io.github.firebird55.gameimmersiontoolkit' -or $record.alias -ne 'toolkit-owner' -or
@@ -76,7 +99,7 @@ function Reserve-AndroidSigningVersion([string]$Root,[int]$VersionCode) {
         if($password.Length -ne 64){throw 'The protected signing password is invalid.'}
         $record.last_reserved_version_code=$VersionCode
         $pending=Join-Path $Root 'identity.pending'
-        [IO.File]::WriteAllText($pending,($record | ConvertTo-Json)+"`n",[Text.UTF8Encoding]::new($false))
+        Write-AndroidNewSigningFile $pending ([Text.UTF8Encoding]::new($false).GetBytes(($record | ConvertTo-Json)+"`n"))
         [IO.File]::Move($pending,(Join-Path $Root 'identity.json'),$true)
         return [pscustomobject]@{root=$Root;password=$password;record=$record;lock=$lock}
     } catch {$lock.Dispose();throw}

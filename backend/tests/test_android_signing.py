@@ -41,6 +41,25 @@ finally{$third.password=$null;$third.lock.Dispose()}
 $overwrite=$false
 try {Initialize-AndroidSigningIdentity $Identity $Java | Out-Null}catch{$overwrite=$true}
 if(-not $overwrite){throw 'Existing owner key could be overwritten'}
+# Existing foreign ownership remains a hard failure. Simulate only the ACL
+# observation so this assertion also runs on non-elevated developer hosts.
+$script:setOwnerCalls=0
+$script:createdOwnerFunction=(Get-Item Function:Set-AndroidCreatedSigningOwner).ScriptBlock
+function Set-AndroidCreatedSigningOwner {param($Path) $script:setOwnerCalls++;throw 'Existing identity ownership must not be changed'}
+function Get-Acl {
+    param($LiteralPath)
+    if($LiteralPath -eq $script:foreignPath){return $script:foreignAcl}
+    Microsoft.PowerShell.Security\Get-Acl -LiteralPath $LiteralPath
+}
+try {
+    foreach($script:foreignPath in @($Identity,(Join-Path $Identity 'owner.p12'),(Join-Path $Identity 'build.lock'))) {
+        $script:foreignAcl=if($script:foreignPath -eq $Identity){[Security.AccessControl.DirectorySecurity]::new()}else{[Security.AccessControl.FileSecurity]::new()}
+        $script:foreignAcl.SetOwner([Security.Principal.SecurityIdentifier]::new('S-1-5-32-544'))
+        $foreignRejected=$false
+        try {$unexpected=Reserve-AndroidSigningVersion $Identity 7;$unexpected.lock.Dispose()}catch{$foreignRejected=$true}
+        if(-not $foreignRejected -or $script:setOwnerCalls -ne 0){throw 'An existing foreign owner was adopted or accepted'}
+    }
+} finally {Remove-Item Function:Get-Acl;Set-Item Function:Set-AndroidCreatedSigningOwner $script:createdOwnerFunction}
 $plaintext=[Text.Encoding]::UTF8.GetString([IO.File]::ReadAllBytes((Join-Path $Identity 'password.dpapi')))
 if($plaintext -match '^[A-Za-z0-9+/]{64}$'){throw 'Signing password was written as plaintext'}
 $acl=Get-Acl -LiteralPath (Join-Path $Identity 'password.dpapi')
