@@ -101,6 +101,18 @@ def wrap(plain, seed, suffix, *, tail=None):
 
 
 class NativeTests(unittest.TestCase):
+    def test_explicit_crypto_preserves_original_wrapper_cipher_and_nul_rules(self):
+        from backend.publisher_crypto import DesktopPublisherCrypto
+        material = extract(fixture()[0])
+        wrapped = wrap(b'{"generation":"authored"}', material.seed_utf16, material.suffix)
+        calls = []
+        class Crypto:
+            def block_cipher(self, algorithm, mode, key, data):
+                calls.append((algorithm, mode, len(key), len(data)))
+                return DesktopPublisherCrypto().block_cipher(algorithm, mode, key, data)
+        self.assertEqual(decode_wrapped_metadata(wrapped, material, crypto=Crypto()), {'generation': 'authored'})
+        self.assertEqual(calls, [('AES', 'ECB', 32, 32)])
+
     def test_authored_path_survives_virtual_and_file_address_relocations(self):
         for address, file in [(0, 0), (0x1000, 0x100), (-0x10000, 0x80), (0x18700000, 0x400)]:
             with self.subTest(address=address, file=file):

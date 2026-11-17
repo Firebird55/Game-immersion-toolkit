@@ -31,8 +31,10 @@ class Block:
 
 class Container:
     """One immutable, single-partition signed v8 container; no overlay guesses."""
-    def __init__(self, region, branch, toc, ucas, proven_archive, cache, *, oodle=None):
+    def __init__(self, region, branch, toc, ucas, proven_archive, cache, *, oodle=None, range_reader=None):
         self._managed_oodle = oodle
+        self.range_reader = range_reader
+        check(range_reader is None or isinstance(proven_archive, (tuple, list)))
         check(region in release.HOSTS and isinstance(branch, str) and
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(toc, INDEX_LIMIT)
@@ -45,8 +47,12 @@ class Container:
         self.region, self.branch, self.toc, self.ucas = region, branch, toc, ucas
         self.root = cache / region / toc.digest / ucas.digest
         path = self.root / 'index.utoc'
+        if range_reader is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         raw = path.read_bytes() if path.is_file() and path.stat().st_size == toc.size else b''
         if hashlib.md5(raw).hexdigest() != toc.digest:
+            check(range_reader is None)
             release.save_file(region, branch, toc, path)
             raw = path.read_bytes()
         check(len(raw) == toc.size and hashlib.md5(raw).hexdigest() == toc.digest)
@@ -177,6 +183,9 @@ class Container:
 
     def _cached(self, index):
         path = self.root / f'{index}.block'
+        if getattr(self, 'range_reader', None) is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         if path.is_file() and path.stat().st_size == self.blocks[index].length:
             data = path.read_bytes()
             if self._valid(index, data):
@@ -184,6 +193,9 @@ class Container:
         return None
 
     def stored_blocks(self, first, stop):
+        if getattr(self, 'inventory_metadata_only', False):
+            raise PreparationFailure('game_metadata_unavailable',
+                'The NTE inventory reader requested package bodies outside its metadata-only preparation stage.')
         check(type(first) is int and type(stop) is int and 0 <= first < stop <= len(self.blocks))
         check(sum(b.length for b in self.blocks[first:stop]) <= MEMBER_LIMIT)
         result = []
@@ -201,18 +213,33 @@ class Container:
                     break
                 limit += self.blocks[end].length
                 end += 1
-            data = release.read_range(self.region, self.branch, self.ucas, start, limit - start)
+            owned = getattr(self, 'range_reader', None)
+            data = (owned(self, start, limit-start) if owned is not None else
+                    release.read_range(self.region, self.branch, self.ucas, start, limit - start))
             parts = [data[b.offset - start:b.offset - start + b.length] for b in self.blocks[first:end]]
             check(len(data) == limit - start and all(self._valid(i, part)
                                                    for i, part in zip(range(first, end), parts)))
             for i, part in zip(range(first, end), parts):
-                _atomic_file(self.root / f'{i}.block', part)
+                self._store(i, part)
             result.extend(parts)
             first = end
         return result
 
+    def _store(self, index, data):
+        check(self._valid(index, data))
+        if self._cached(index) == data:
+            return
+        try:
+            _atomic_file(self.root/f'{index}.block', data)
+        except PermissionError:
+            if self._cached(index) != data:
+                raise
+
     def read_stored(self, position, size):
         """A managed seekable stream may read only checksum-covered UCAS bytes."""
+        if getattr(self, 'inventory_metadata_only', False):
+            raise PreparationFailure('game_metadata_unavailable',
+                'The NTE inventory reader requested package bodies outside its metadata-only preparation stage.')
         check(type(position) is int and type(size) is int and 0 <= size <= TRANSFER and
               0 <= position <= self.ucas.size - size)
         if not size:

@@ -231,6 +231,38 @@ def parse_launcher_link(raw: bytes, region='global') -> str:
         raise ValueError('Infinity Nikki official website metadata cannot be read.') from error
 
 
+def android_source_url(url: str) -> str:
+    """Accept the original CN direct APK family, without a revision allowlist."""
+    _require(isinstance(url, str) and len(url) <= 2048 and
+             all(33 <= ord(char) < 127 for char in url))
+    parsed = urlsplit(url)
+    _require(parsed.scheme == 'https' and parsed.netloc == 'x6cn-game-apk.papegames.com' and
+             not parsed.query and not parsed.fragment and
+             re.fullmatch(r'/x6cn/adapk/[A-Za-z0-9_.-]+\.apk', parsed.path) and
+             '..' not in parsed.path)
+    return url
+
+
+def parse_android_link(raw: bytes) -> str:
+    """Read only the publisher's evidenced mainland Android website field.
+
+    This is a source of native bootstrap data, not proof of Global Android
+    acceptance, regional game assets or compatibility of any downstream PAK.
+    """
+    _require(isinstance(raw, bytes) and len(raw) <= MAX_PAGE)
+    parser = _NextData()
+    try:
+        parser.feed(raw.decode('utf-8'))
+        parser.close()
+        _require(parser.count == 1 and not parser.active)
+        data = json.loads(''.join(parser.parts), object_pairs_hook=_unique_object)
+        entries = data['props']['pageProps']['pageData']['page']['android']
+        _require(isinstance(entries, list) and len(entries) == 1 and entries[0]['__type'] == 'text')
+        return android_source_url(entries[0]['value'])
+    except (UnicodeError, json.JSONDecodeError, KeyError, TypeError, RecursionError) as error:
+        raise ValueError('Could not read the official mainland Android download field.') from error
+
+
 class _LauncherRedirect(urllib.request.HTTPRedirectHandler):
     def __init__(self, region):
         self.region, self.count = region, 0

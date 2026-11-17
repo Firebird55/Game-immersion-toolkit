@@ -7,8 +7,10 @@ separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
-Together with the 56 core/host/decoder, explicit crypto and authored acceptance modules, this
-policy selects 66 owned modules. The generated acceptance provider is installed
+Together with the 57 core/host/decoder, explicit crypto and authored acceptance modules, this
+policy selects 67 owned modules. The additional shared `text_display` dependency
+is required by `textmaps`; it does not enable Wuthering's preparation factory.
+The generated acceptance provider is installed
 only by a separately named, explicitly opted-in native DEBUG startup; it never
 changes the production registry or establishes publisher-content coverage.
 These two production factories require only CPython's standard library.
@@ -41,9 +43,10 @@ Android stage execution still requires a new APK and an actual Android runtime
 proof. The earlier 54-module decoder candidate remains a separate artifact.
 
 The current reviewed baseline is source cohort `0624af55`; NTE's factory also
-includes `072a85d9` from its later archive-index continuation cohort. The two
-Android late-stage negative cases exercise this native-host gate even when a
-caller supplies a mismatched original-index stage. Updating a source pin does
+includes the reviewed source snapshot `617be276` from its later content-stage
+continuations. All eight late-stage branches call the non-Windows reader gate
+before importing their desktop-only dependencies. The isolated closed-source
+fixture exercises every branch without those dependencies present. Updating a source pin does
 not package the Windows managed reader, archive stages or their dependencies.
 Sophon uses the same context-isolated source and byte-window fix as `8be26e32`.
 

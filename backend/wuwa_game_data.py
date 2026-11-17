@@ -8,6 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
 import tempfile
 import time
 from urllib.parse import urlsplit
@@ -30,13 +31,9 @@ def _digest(value):
     return hashlib.sha256(value).hexdigest()
 
 
-def _native():
-    try:
-        from . import wuthering_native_bootstrap
-        return wuthering_native_bootstrap
-    except ImportError as error:
-        raise GameDataError('game_runtime_unavailable',
-            'The device needs the original APK cryptography reader before this download.', 409) from error
+def _source():
+    from . import wuthering_bootstrap_source
+    return wuthering_bootstrap_source
 
 
 def _file(ctx, name):
@@ -48,30 +45,26 @@ def _file(ctx, name):
 
 
 def _save(path, raw):
-    from .game_tools import _atomic_file
+    from .atomic_files import write_bytes
     _no_links(path)
-    _atomic_file(path, raw)
+    write_bytes(path, raw)
 
 
 def _request(request):
-    from .wuthering_assets import SUPPORTED_LOCALES, TEXT_LOCALES
+    from .wuthering_locales import SUPPORTED_LOCALES, TEXT_LOCALES
     if request.source_locale not in SUPPORTED_LOCALES or any(x not in TEXT_LOCALES for x in request.target_locales):
         raise GameDataError('unsupported_game_language', 'Choose an official Wuthering language.')
 
 
-class _TransportZip:
-    """Bind the existing ZIP parser to the shared consent/budget transport."""
-    @staticmethod
-    def create(native, transport, url, total, etag):
-        class Archive(native._Zip):
-            def range(self, start, count):
-                native._check(0 < count <= METADATA_MAX and 0 <= start <= self.total - count and
-                              self.metadata_bytes + count <= METADATA_MAX)
-                raw, _receipt = transport.fetch_bytes(url, limit=count, expected_size=count,
-                    original_range=(start, count, total), headers={'If-Match': etag})
-                self.metadata_bytes += len(raw)
-                return raw
-        return Archive(url, total, etag)
+def _archive(transport, url, total, etag, crypto):
+    from .publisher_apk_zip import ApkMetadata
+    def read_range(start, count):
+        raw, receipt = transport.fetch_bytes(url, limit=count, expected_size=count,
+            original_range=(start, count, total), headers={'If-Match': etag})
+        _source()._check(receipt.response_etag == etag)
+        return raw
+    return ApkMetadata(read_range, total, allow_signed_zero_tail=True,
+        maximum_metadata=METADATA_MAX, crypto=crypto)
 
 
 def _handle(value, request):
@@ -82,18 +75,18 @@ def _handle(value, request):
 
 
 def _retained(ctx, value):
-    native = _native()
-    source = native.reference(value['source'])
-    module = native._module(Path(ctx.cache_directory), source)
+    source_reader = _source()
+    source = source_reader.reference(value['source'])
+    module = source_reader._module(Path(ctx.cache_directory), source)
     _no_links(module)
     try:
-        valid = module.stat().st_size == source['module']['plain_bytes'] and native._file_hash(module) == source['module']['sha256']
+        valid = module.stat().st_size == source['module']['plain_bytes'] and source_reader._file_hash(module) == source['module']['sha256']
     except OSError:
         valid = False
     if not valid:
         raise GameDataError('publisher_bootstrap_cache_invalid', 'The original bootstrap module needs repair.')
     # Derive only in memory; the archive reader has not yet authorized a key.
-    native.default_output(module, source['module']['sha256'])
+    source_reader.default_output(module, source['module']['sha256'])
     return source
 
 
@@ -103,7 +96,22 @@ class WutheringGameDataProvider:
     def __init__(self, platform, native=None):
         if platform not in ('windows', 'linux', 'macos', 'android', 'desktop'):
             raise ValueError('Unsupported Wuthering preparation platform')
-        self.platform = platform
+        self.platform, self.native = platform, native
+
+    def _crypto(self):
+        try:
+            from .publisher_crypto import create_publisher_crypto
+            if self.platform == 'android':
+                return create_publisher_crypto(platform='android', native=self.native.publisherCrypto())
+            platform = self.platform
+            if platform == 'desktop':
+                platform = {'win32': 'windows', 'linux': 'linux', 'darwin': 'macos'}.get(sys.platform)
+            return create_publisher_crypto(platform=platform)
+        except Exception as error:
+            # This boundary only creates the maintained host capability. It
+            # does not catch or reinterpret publisher parsing/hash failures.
+            raise GameDataError('game_runtime_unavailable',
+                'The verified publisher cryptography runtime is unavailable on this device.', 409) from error
 
     def plan(self, request, ctx):
         _request(request)
@@ -114,24 +122,25 @@ class WutheringGameDataProvider:
                 source = _retained(ctx, previous)
                 return GameDataPlan(source['version'], 0, 0, previous, runtime_available=False,
                     stage='manifest-format', message=FORMAT_MESSAGE)
-        native = _native()
-        metadata = PublisherTransport(ctx, hosts={urlsplit(native.CATALOGUE).hostname})
-        raw, _receipt = metadata.fetch_bytes(native.CATALOGUE + '?_t=' + str(int(time.time() // 60)), limit=64 * 1024)
+        crypto = self._crypto()
+        source_reader = _source()
+        metadata = PublisherTransport(ctx, hosts={urlsplit(source_reader.CATALOGUE).hostname})
+        raw, _receipt = metadata.fetch_bytes(source_reader.CATALOGUE + '?_t=' + str(int(time.time() // 60)), limit=64 * 1024)
         catalogue = json.loads(raw)
         if not isinstance(catalogue, dict) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', catalogue.get('version', '')):
             raise GameDataError('publisher_source_invalid', 'The original Wuthering catalogue changed.')
-        url = native._url(catalogue['primary'])
+        url = source_reader._url(catalogue['primary'])
         transport = PublisherTransport(ctx, hosts={urlsplit(url).hostname})
         _first, identity = transport.fetch_bytes(url, limit=1, expected_size=1, original_range=(0, 1, None))
         total, etag = identity.original_range[2], identity.response_etag
         if not etag or not 0 < total <= 4 * 1024**3:
             raise GameDataError('publisher_source_invalid', 'The original APK needs a stable size and ETag.')
-        archive = _TransportZip.create(native, transport, url, total, etag)
+        archive = _archive(transport, url, total, etag, crypto)
         manifest = archive.member('AndroidManifest.xml', read=True, maximum=METADATA_MAX)
-        name = native._library(manifest)
-        offset, packed = archive.member(name)
+        name = source_reader._library(manifest)
+        offset, packed = archive.member(name, maximum=source_reader.MAX_MODULE)
         entry = archive.entries[name]
-        native._check(entry['method'] == 8)
+        source_reader._check(entry['method'] == 8)
         encoded = lambda value: base64.b64encode(value).decode('ascii')
         artifact = {'catalogue_sha256': _digest(raw), 'version': catalogue['version'], 'url': url,
             'total': total, 'etag': etag, 'name': name, 'offset': offset, 'packed': packed, 'entry': entry,
@@ -168,15 +177,17 @@ class WutheringGameDataProvider:
         if _digest(serialized) != key:
             raise GameDataError('publisher_bootstrap_cache_invalid', 'Check the original download again.')
         artifact = json.loads(serialized)
-        native = _native()
-        url = native._url(artifact['url'])
+        crypto = self._crypto()
+        from .publisher_apk import ApkLayout, verify_stream
+        source_reader = _source()
+        url = source_reader._url(artifact['url'])
         if plan.download_bytes != artifact['total']:
             raise GameDataError('invalid_download_plan', 'Check the original download size again.')
         decoded_bytes = lambda value: base64.b64decode(value, validate=True)
-        layout = native.ApkLayout(artifact['total'], artifact['layout']['signing_offset'],
+        layout = ApkLayout(artifact['total'], artifact['layout']['signing_offset'],
             decoded_bytes(artifact['layout']['signing_block']), decoded_bytes(artifact['layout']['central_directory']),
             decoded_bytes(artifact['layout']['eocd']), allow_signed_zero_tail=True)
-        layout.validate()
+        layout.validate(crypto=crypto)
         witnesses = [(start, decoded_bytes(data)) for start, data in artifact['witnesses']]
         transport = PublisherTransport(ctx, hosts={urlsplit(url).hostname})
         root = _file(ctx, 'pending').parent
@@ -193,28 +204,28 @@ class WutheringGameDataProvider:
                             for start, expected in witnesses:
                                 left, right = max(self.at, start), min(self.at + len(raw), start + len(expected))
                                 if left < right:
-                                    native._check(raw[left - self.at:right - self.at] == expected[left - start:right - start])
+                                    source_reader._check(raw[left - self.at:right - self.at] == expected[left - start:right - start])
                             self.at += len(raw)
                             return raw
-                    return native.verify_stream(WitnessStream(), layout,
+                    return verify_stream(WitnessStream(), layout, crypto=crypto,
                         member=(artifact['offset'], artifact['packed']), member_sink=sink)
                 verified, _receipt = transport.consume_stream(url, consume, limit=artifact['total'],
                     expected_size=artifact['total'], headers={'If-Match': artifact['etag']})
-            size, crc, plain_sha, packed_sha = native._decode_module(compressed, decoded, artifact['entry'], check=ctx.check)
-            source = native.reference({'policy': native.POLICY, 'catalogue': native.CATALOGUE,
+            size, crc, plain_sha, packed_sha = source_reader._decode_module(compressed, decoded, artifact['entry'], check=ctx.check)
+            source = source_reader.reference({'policy': source_reader.POLICY, 'catalogue': source_reader.CATALOGUE,
                 'catalogue_sha256': artifact['catalogue_sha256'], 'version': artifact['version'],
                 'url': url, 'bytes': artifact['total'], 'etag': artifact['etag'],
                 'apk_sha256': verified['apk_sha256'], 'v2_digest': verified['v2_content_digest'],
                 'signers': verified['certificate_sha256'], 'module': {'name': artifact['name'],
                     'sha256': plain_sha, 'compressed_sha256': packed_sha, 'compressed_bytes': artifact['packed'],
                     'plain_bytes': size, 'crc32': f'{crc:08x}'}})
-            native.default_output(decoded, plain_sha)
-            target = native._module(Path(ctx.cache_directory), source)
+            source_reader.default_output(decoded, plain_sha)
+            target = source_reader._module(Path(ctx.cache_directory), source)
             _no_links(target)
             ctx.check()
             target.parent.mkdir(parents=True, exist_ok=True)
             if target.exists():
-                native._check(native._file_hash(target) == plain_sha)
+                source_reader._check(source_reader._file_hash(target) == plain_sha)
             else:
                 decoded.replace(target)
         return PreparationStage({'policy': POLICY, 'stage': 'manifest-format',

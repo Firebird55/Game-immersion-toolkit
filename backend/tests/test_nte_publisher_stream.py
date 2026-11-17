@@ -109,6 +109,23 @@ def test_complete_global_cache_is_not_accepted_after_corruption(tmp_path, monkey
         Broker({'global.utoc': source})
 
 
+@pytest.mark.parametrize('cached', [None, b'bad!', b'good'])
+def test_owned_global_requires_a_prior_complete_authenticated_stage_without_implicit_http(tmp_path, monkeypatch, cached):
+    from backend import nte_publisher_stream as streams
+    source, reads = container(tmp_path)
+    source.paths = {}; source.range_reader = lambda *_: pytest.fail('Global range bypass')
+    source.region, source.branch = 'nte-global', 'PC_150'
+    source.ucas = SimpleNamespace(size=4, digest=hashlib.md5(b'good').hexdigest())
+    if cached is not None: (tmp_path/'complete.ucas').write_bytes(cached)
+    monkeypatch.setattr(streams.release, 'save_file', lambda *_: pytest.fail('Unplanned global HTTP'))
+    if cached != b'good':
+        with pytest.raises(PreparationFailure): Broker({'Paks/global.utoc': source})
+    else:
+        with Broker({'Paks/global.utoc': source}) as broker:
+            assert request(broker.descriptors[0]['ucas_url']+'?offset=0&size=4') == b'good'
+    assert reads == []
+
+
 @pytest.mark.parametrize('failure,code', [(OSError('offline'), 'game_metadata_unavailable'),
     (PreparationFailure('unsupported_game_format', 'owned bad block'), 'unsupported_game_format')])
 def test_publisher_reader_preserves_source_failure_kind_without_install_access(tmp_path, monkeypatch, failure, code):

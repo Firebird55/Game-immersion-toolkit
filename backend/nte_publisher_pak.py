@@ -305,7 +305,8 @@ class Archive:
             position += (length + 15) // 16 * 16 if encrypted else length
         return Entry(offset, size, stored, method, encrypted, block_size, header, tuple(blocks))
 
-    def _parts(self, path):
+    def stored_range(self, path):
+        """Validate index-owned layout without reading or decoding the member."""
         entry = self.entry(path)
         if entry is None:
             raise FileNotFoundError('The selected NTE patch deletes this resource.')
@@ -317,11 +318,10 @@ class Archive:
         if not e.method:
             check(e.size == e.stored and not e.blocks)
             if not e.size:
-                return e, b''
+                return e, e.offset+e.header_size, 0
             length = (e.stored + 15) // 16 * 16 if e.encrypted else e.stored
             check(e.offset + e.header_size + length <= self.index_offset)
-            data = self.source.read(e.offset + e.header_size, length)
-            return e, (self.cipher.decrypt(data) if e.encrypted else data)[:e.size]
+            return e, e.offset+e.header_size, length
         stored_sizes = {sum(n for _, n in e.blocks)}
         if e.encrypted:
             stored_sizes.add(sum((n + 15) // 16 * 16 for _, n in e.blocks))
@@ -334,7 +334,13 @@ class Archive:
             check(size > 0 and offset == end and offset + length <= self.index_offset)
             end = offset + length
         start = e.offset + e.header_size
-        data = self.source.read(start, end - start)
+        return e, start, end-start
+
+    def _parts(self, path):
+        e, start, length = self.stored_range(path)
+        data = self.source.read(start, length) if length else b''
+        if not e.method:
+            return e, (self.cipher.decrypt(data) if e.encrypted else data)[:e.size]
         blocks = []
         for i, (offset, size) in enumerate(e.blocks):
             length = (size + 15) // 16 * 16 if e.encrypted else size

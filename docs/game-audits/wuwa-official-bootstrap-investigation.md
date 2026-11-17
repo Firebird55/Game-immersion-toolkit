@@ -275,6 +275,125 @@ bootstrap stage and then the explicit manifest-format gate. It does not turn
 this remaining dependency into a ready language library; see
 [the staged portability report](wuwa-android-portability.md#settings-bootstrap-provider).
 
+### Standalone Windows launcher follow-up
+
+A separate bounded pass investigated the standalone launcher, rather than
+repeating the opaque game-native Windows/Android functions. Two already cached
+3.1.0.1 modules, `launcher_main.dll` and `launcher_updater.dll`, have valid CLR
+metadata. Their ZIP member CRCs and local hashes were checked. The cached
+archive's current publisher checksum authority was **not** re-established; this
+is explicitly qualified cached-source evidence, not a trusted new key source.
+
+An owned passive PE/metadata/IL reader inspected 4,734 main-module and 1,132
+updater methods. It never loaded or executed the original assemblies. The
+concrete game-configuration path is `KRCheckUpdateFlow.InitGameServerConfig`
+through the HTTP helper and response data to `KRGameServerConfigAdapter`, then
+the ordinary System.Text.Json deserializer. There is no Base64/AES step in this
+response-to-JSON path. Its models describe launcher resource packs, bundles and
+index-file MD5s. Cryptographic calls found there concern MD5 file checks and
+certificate checks; logging encryption and password-protected WebView ZIPs are
+separate consumers. No caller connects `kurodata.dll` to this configuration
+path, so that module was not pursued.
+
+The original startup method separately decodes its local `KRApp.conf` using
+Base64 and a source-defined byte XOR before JSON parsing. That local-profile
+rule is not the encrypted game-entry AES-CBC rule. The profile supplies the
+[official launcher application index](https://prod-alicdn-gamestarter.kurogame.com/launcher/app/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/index.json)
+and [official game package index](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json).
+Two current read-only responses, 1,711 and 5,026 compressed bytes, parsed as JSON
+after ordinary gzip decompression without ENTRY or protected-format inputs.
+The game response advertises the 3.8.0 common package inventory. This explains
+how the evidenced standalone route operates without decrypting the separately
+discovered in-game hotfix JSON; it does not supply a hotfix decryption key.
+
+The current application response names a different default archive: parent
+version 3.0.1.0, 465,195,358 bytes, with an explicit publisher MD5. Its original
+HEAD agrees on length and ETag. One authorized 65,557-byte EOF range passed
+strict 206, total-size and ETag checks. The entire 64,366-byte directory with
+743 entries was already in that tail, so no additional directory transfer was
+needed. It names the same launcher component family, but directory names do
+not prove the new modules' behavior. No selected module was extracted and the
+complete archive MD5 was not represented as verified from selective metadata.
+
+This family used **72,294 of 1,048,576 authorized metadata bytes** and stopped.
+No module bodies, complete installer, additional DEX files or old opaque
+function windows were acquired or revisited. There is no concrete new ENTRY
+consumer to justify such an acquisition. The exact missing evidence remains a
+readable original game-configuration decrypt producer, or an independently
+demonstrated alternative. This particular standalone route does not prove that
+official derivation is impossible and does not close the manifest-key/IV gap.
+
+### Exact Android application owner and initialization follow-up
+
+A later, separately authorized pass resolves the previously uninspected DEX
+ownership question; it does not repeat the closed standalone launcher or opaque
+native-function probes. The authenticated original directory contains sixteen
+DEX members in total, including the already checked primary file: **fifteen
+secondary members**, not sixteen secondary members. Those fifteen are physically
+contiguous. One exact original range contained **12,163,199 bytes**: 12,162,562
+compressed DEX bytes and 637 local-header/name bytes, without unrelated members.
+The original owner length and ETag matched before reading the strict 206 body.
+
+Every selected local header matched the complete retained directory's name,
+flags, compression, size and CRC; no extra fields or range expansion were
+accepted. Complete Deflate EOF, plaintext size/CRC, DEX header SHA-1, Adler-32 and
+section/map bounds passed. These later selective bytes have the original
+HTTPS/ETag/owner binding and member checks, separately from the retained earlier
+whole-APK-v2 receipt. This is not a fresh whole-carrier verification, independent
+publisher-certificate pin or Android-install acceptance claim.
+
+The exact manifest class `com.epicgames.ue4.KrApplicationEx` is uniquely defined
+in `classes4.dex`, not the primary DEX. Its exact superclass
+`com.kr.android.core.api.KrApplication` was located from the retained compressed
+originals in `classes10.dex`, without another request. That superclass extends
+`com.ace.gshell.AceApplication`. The manifest application binding therefore was
+not invalidated by the earlier primary-only absence.
+
+A separate cache-only pass first inventoried the two owners' 21 and four
+declared methods. It then inspected only their seven declared `<clinit>`,
+`<init>`, `attachBaseContext` and `onCreate` code items: **476 bytes and 87 decoded
+instructions**, within the explicit 32-KiB/4,096-instruction ceiling. Complete
+DEX hashes were revalidated before each input; instruction, register, reference
+and branch bounds were checked. No additional callee bodies, original code
+execution, generic string/key scan or network requests were used.
+
+The observed startup sets up MultiDex, Tinker patch handling and lifecycle
+callbacks. `KrApplicationEx.onCreate` explicitly calls
+`PatchProtocol.SetContext` and `PatchProtocol.CheckSoPatch`. The exact superclass
+invokes `AceApplication` construction and lifecycle methods, followed by
+`KrImp.onApplicationCreate` and foreground/background detection. These are
+concrete, **unexpanded** runtime/patch delegation edges. A package name or SDK
+initialization call alone does not establish ownership of the encrypted game
+release-entry JSON.
+
+No ENTRY-key/IV producer or owned response-to-decrypt path was established in
+those seven methods. The pass stops at the uninspected runtime/patch callees;
+it does not infer that they are opaque, that the whole application is packed,
+or that official derivation is unavailable. The encrypted manifest boundary
+remains open. No preparation behavior or supported-coverage claim changed.
+
+### Exact PatchProtocol startup edge
+
+A subsequent cache-only pass follows only the already observed
+`PatchProtocol.SetContext` and `PatchProtocol.CheckSoPatch` calls. The exact class
+is uniquely defined in retained `classes2.dex`; its nineteen method declarations
+were inventoried before those two bodies were selected. Complete input hashes
+and DEX checks were revalidated. The two code items total **160 bytes and 31
+decoded instructions**, below their separate 8-KiB/1,024-instruction limit.
+No additional original bytes were acquired and the Ace/Shield branch remained
+closed.
+
+`SetContext` obtains and stores the application context. `CheckSoPatch` delegates
+cleanup/loading decisions to `IsCleanPatch` and `CheckIsLoadBuiltinSo`, calls
+`KuroTinkerManager.cleanPatch`, and serializes time/mobile-filter information
+into the static `CacheCleanPatchInfo` status field. It also reads
+`IsLoadBuiltinSo`. No HTTP-response, Base64/AES or entry-decrypt path appears in
+these two complete methods. The exact same-owner checks and `cleanPatch` are
+unexpanded next edges, not demonstrated release-metadata owners. No callee
+bodies, generic key/URL search or original execution were added. This narrow
+negative result leaves the ENTRY-key/IV gap open and does not establish that an
+official route is unavailable.
+
 ## Acceptance still required
 
 The archive-default producer now has an authenticated current rule and ordinary

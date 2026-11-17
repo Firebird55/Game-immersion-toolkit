@@ -174,7 +174,8 @@ Static LZMA decoding and its authored extraction entries identify exact original
 launcher-module/config ranges. Five targeted ranges transferred 251,395 bytes,
 expanding to 655,753 bytes. Their LZMA block sizes and end markers agree; there
 are no individual NSIS-file CRCs, neither managed DLL has an Authenticode
-signature, and the whole installer hash/signature has not been checked. The
+signature, and the whole installer hash and complete Authenticode file
+verification remain unchecked. The
 launcher files confirm current publisher app/channel parameters but do not
 contain the legacy content-decoder key/IV literals. No assemblies are executed.
 
@@ -362,6 +363,136 @@ original request-production edge; downloading all seven DEX files blindly is
 not accepted as the next step. The game's APK URL and original configuration
 initializer remain unresolved.
 
+### Store-client signing identity: separate from package integrity
+
+A subsequent, separately bounded metadata stage follows the exact public
+`https://pub.taptapdada.com/api/changelog` GET authored in the retained original
+dispatch JavaScript. Its complete 1,297-byte JSON response supplies Android
+version code `296161002`, matching the original store manifest. It contains no
+package URL, length, checksum or signing identity. Display-version punctuation
+differs between the JSON and manifest and is not treated as byte equality.
+
+The original manifest also declares an HTTPS `autoVerify` intent filter for
+`dispatch.taptap.cn`. Its protocol-derived
+[Digital Asset Links document](https://dispatch.taptap.cn/.well-known/assetlinks.json)
+returns 330 bytes of strict JSON naming exact package `com.taptap` and this
+SHA-256 signing-certificate fingerprint:
+
+`4fd67062300d3d9d6c384f7e4e512df4a9a32d165fcb3526428c8e9e3d4e44b7`
+
+One further approved same-owner HTTP range reads only the 694-byte local ZIP
+block for `META-INF/GAMECENT.RSA`. Exact local-header fields, raw DEFLATE EOF,
+915-byte expanded length and member CRC 3529842923 pass. Passive CMS decoding
+finds one certificate and one signer; both match that original domain-declared
+fingerprint. Certificate identity alone does not authenticate a DEX member.
+
+Three separately approved exact ranges then acquire only the `.SF` local block
+and the original `MANIFEST.MF` local header/body: 477,504 additional bytes.
+Their local fields, DEFLATE EOF, expanded lengths (527,105 and 526,981 bytes)
+and complete original member CRCs pass. Detached CMS verification over the
+**exact `.SF` bytes** succeeds with the domain-pinned signer. The signed
+`SHA-256-Digest-Manifest` matches the complete original manifest, whose 6,205
+named entries include `classes.dex`. The retained original Android manifest's
+SHA-256 also matches its authenticated member entry. The authenticated expected
+`classes.dex` SHA-256 is:
+
+`9e64a00c5855302d1d795562355cb1238925742b440a899e3562d2d1f6fd873b`
+
+This proves a signed expected digest, **not verification of the still-unread
+DEX, a computed whole-APK checksum or Android's complete installation-signature
+acceptance**. Trust is explicitly the original HTTPS Digital Asset Links
+declaration; no certificate-chain revocation check is claimed. The store signer
+does not authenticate the game's different APK descriptor or establish a game
+key.
+
+This stage transfers 479,825 bytes in six requests. No DEX/native body is read
+and no client code is executed. A later separately bounded downloader-consumer
+investigation must first verify its acquired member against that signed digest.
+The manifest does not locate the declared components in a particular DEX;
+primary-DEX placement remains a hypothesis, not permission to read all seven.
+
+### Complete bounded locator for the declared store components
+
+A separately approved primary-DEX hypothesis first reads its 41-byte local
+header and 3,345,229-byte compressed payload. The 8,692,172-byte original member
+passes its ZIP CRC, authenticated manifest SHA-256, raw DEFLATE EOF and DEX
+SHA-1/Adler32. Header, identifier-table and map bounds also pass. None of the
+three exact manifest classes is defined in its 10,019 formal class definitions;
+that primary-only hypothesis stops without method-body inspection.
+
+A new **complete class-owner locator** is then explicitly bounded to the other
+six indexed DEX members. Their exact adjacent local blocks form one range of
+16,151,569 bytes, comprising 16,151,317 compressed bytes and six 42-byte headers.
+No unrelated archive entry is included. Every original local header, length,
+CRC, signed manifest SHA-256, raw EOF, DEX SHA-1/Adler32 and header/map bounds
+passes before exact formal class matching. The 47,933,912 expanded bytes are
+processed one member at a time, with at most 9,237,536 expanded bytes present;
+negative temporary members are removed. Only the bounded compressed input is
+retained for subsequent source-owned reads.
+
+| Exact manifest component | Authenticated defining member | Declaration evidence |
+| --- | --- | --- |
+| `com.play.taptap.application.AppGlobal` | `classes2.dex` | Class definition 5,707, superclass `BaseAppContext` |
+| `com.taptap.game.export.download.PreDownloadProvider` | `classes4.dex` | Class definition 10,033, superclass Android `ContentProvider` |
+| `com.taptap.game.export.download.TapAppDownloadService` | `classes4.dex` | Class definition 10,034, superclass Android `Service` |
+
+Only formal declarations and method metadata are inspected. The service declares
+non-native `onStartCommand` and `onBind`; the provider declares `query` and a
+private method returning `com.taptap.game.export.f`. These are concrete consumer
+owners, **not established call edges or a game-APK resolver**. No method body,
+generic URL/string/key scan or client execution is performed. The locator closes
+the standard seven-DEX ZIP inventory, without claiming closure for dynamically
+loaded, encrypted, generated or native code.
+
+The separate store-integrity/locator phase now totals nine requests and
+19,976,664 transferred bytes. This is authenticated store-tool research;
+Reverse:1999's game-package URL, original configuration initializer and production
+preparation remain unresolved. The full store-APK hash and Android installation
+signature acceptance remain unverified. The next bounded hypothesis is the
+declared service callbacks' own typed delegation, using existing bytes only.
+
+### Cache-only service delegation boundary
+
+Separately approved static reads revalidate the complete signed `classes4.dex`
+hash and inspect only four declared service methods: `onStartCommand`, `onBind`,
+the constructor and `onCreate`. Their exact instruction arrays total 68 DEX code
+units / 136 bytes; code-item headers, register/invoke references, instruction
+boundaries and branch destinations pass. There are no exception-handler tables
+in these methods. No original code is executed and no new network bytes are
+needed.
+
+The callbacks null-guard the service's field `a`, typed as
+`com.taptap.game.export.e`, then invoke that interface's matching callback. The
+constructor establishes the actual assignment: `ARouter.navigation` receives
+the exact class operand `ITapAppDownloadServiceProvider`; after a cast/null guard,
+its `createTapAppDownloadServiceProxy()` result is stored in field `a`.
+`onCreate` only delegates initialization to the same instance.
+
+**This pass stops at that returned interface factory.** Its concrete registration,
+implementation and game-download request contract have not been read or proved;
+no automatic callee expansion follows. The chain is source-owned delegation,
+not an anonymous APK API, account requirement, native barrier or proof of
+impossible official key derivation. The authenticated compressed input plus one
+retained original `classes4.dex` occupies 24,995,265 bytes for this phase, within
+the approved 26 MiB retention limit. Reverse:1999 preparation remains unavailable
+in both content modes.
+
+A later separately approved **metadata-only** locator follows the exact
+`ITapAppDownloadServiceProvider` interface operand through all seven authenticated
+DEX members. Two passes reach a fixed point over direct interfaces and
+superclass inheritance. There is exactly one concrete candidate:
+`com.taptap.game.downloader.impl.download.notification.TapAppDownloadServiceProvider`,
+class definition 9,266 in `classes4.dex`. The interface itself extends ARouter's
+`IProvider`. Original interface lists are bounded but sometimes unsorted; lookup
+preserves their original membership without claiming canonical ordering.
+
+No candidate method metadata or body is read in that phase, and no network or
+additional retained file is needed. Formal metadata alone does not establish
+the ARouter registration map. The next source-owned method candidate is this
+implementation's `createTapAppDownloadServiceProxy()`; its declared code location
+and actual return producer still require a separately bounded pass. A unique
+interface implementer is not treated as an anonymous game-download request.
+
 ### Community key candidate: research only
 
 The original author repository
@@ -379,6 +510,223 @@ The missing official derivation step is still not proven impossible or
 unavailable, so the candidate remains unapproved research and does not activate
 a production fallback. Even a later authorized exception would still require
 original source/version/integrity validation and the unresolved content readers.
+
+## Other regional publisher navigation
+
+A separate investigation follows only actual publisher navigation and store
+links. The Global landing page loads `bpFooter.en.js`, whose language choices
+link to the Japanese site. The permanent Global homepage's original config
+also names its Japanese and mainland homepages. The Japanese desktop/mobile
+footers link back to English/Japanese; the inspected mainland footer and its
+original website query establish no additional KR/TW publisher-navigation
+edge. No regional hostname, path or game ID is guessed. This is the limit of
+the inspected navigation chain, not proof that other official editions do not
+exist.
+
+The Japanese site's original `api.js` declares `gameId: 70001` and version page
+`3.9`. Both its authored version-page request and permanent-home game query
+confirm the following links:
+
+| Field | Original Japanese publisher result |
+| --- | --- |
+| Android link | `https://reverse1999jp.onelink.me/XuII/ltt1kw5x` |
+| Android redirect | Google Play, `com.bluepoch.m.jp.reverse1999.and` |
+| PC installer | `https://download.bluepoch.com/jp/Reverse1999_v3.9.0.5_jp.exe` |
+| Installer version / length | `3.9.0.5` / 357,407,088 bytes |
+
+The Android redirect supplies no accountless game-APK transfer descriptor. The
+installer responds publicly with HTTP 200 to HEAD and supports ranges. Its
+multipart ETag is an owner-version token, not a verified file MD5. No ordinary
+whole-file checksum is supplied by these website responses.
+
+Separately approved reads acquire exactly 4,096 PE-header bytes and the
+header-declared 12,016-byte `WIN_CERTIFICATE` table, under strict HTTP 206,
+matching total length and the actual ETag. The security table begins at file
+offset 357,395,072. Passive SignedCms verification validates its CMS signature;
+the embedded X.509 code-signing certificate identifies
+`BLUEPOCH GAMES CO., LIMITED`. The Windows code-signing chain validates offline
+with certificate downloads disabled. **Revocation is not checked.** The signed
+SPC indirect-data record declares this expected **Authenticode** SHA-256 digest:
+
+`8060a1843df27f2dd6650c7816ce1cf734f603e63a455ee0541e659a1fc36517`
+
+That value is publisher-signed expected file-digest metadata. The complete
+installer has not been downloaded or hashed, and its complete Authenticode
+file verification has not been performed. It is not a computed plain SHA-256
+of the full file or proof of any unread payload's integrity. No installer code,
+assembly or client is loaded or executed; this host-cryptography research is
+not Android runtime acceptance.
+
+An independent, zero-download replay of the already cached Global installer
+certificate also validates its CMS signature/offline code-signing chain, with
+the same revocation limitation. Its signed expected Authenticode SHA-256 is
+`785cb5a9c4aa5b977ce2e8ddeb37b3daae99034df01a5e31b6ebf413be40d23c`.
+That is separate Global ownership evidence, not an assertion that Global and
+Japanese installer bytes or contents are identical.
+
+The actual mainland permanent-home query additionally names
+`/home/Reverse1999_Bluepoch_1000.apk` and a download-page parameter containing
+`/home/Reverse1999_Bluepoch_1019.apk`, both on `d.bluepoch.com`. These are newly
+observed authored links, not guessed variants. Both HEAD requests return HTTP
+567 HTML errors and add no APK size/checksum evidence.
+
+This regional phase uses twenty-two requests and 236,067 new response bytes,
+including the specifically approved PE/security metadata. It downloads no APK,
+DEX, complete executable or native library. The approved 4 KiB prefix spans its
+1 KiB PE headers and 3 KiB of following stub-section bytes; those section bytes
+are neither analysed nor executed. The new Japanese installer is a real
+accountless publisher source with version, length and signed expected-digest
+metadata. Its necessary GameConfig consumer/bootstrap module has not yet been
+established or read, so the key/base/hotfix gap remains open. No community-key
+fallback or production readiness is enabled by this checkpoint.
+
+### Original Japanese/Korean launcher configuration
+
+The next explicitly approved JP-installer read checks its 32-byte NSIS
+firstheader at file offset 184,832. The declared compressed header is 56,511
+bytes at 184,864 and expands to exactly 1,023,200 bytes with strict LZMA EOF and
+no trailing compressed bytes. The original instruction/string tables identify
+these configuration owners; branches are not executed:
+
+| Authored owner path | Compressed block, including size prefix | Expanded bytes |
+| --- | ---: | ---: |
+| `runtimes/web/assets/ja/launchermanifest-jp.ini` | 1,066 | 2,143 |
+| `runtimes/web/assets/ko/launchermanifest-kr.ini` | 920 | 1,874 |
+
+Only those two separately approved config blocks are read and parsed as inert
+data. Their declared lengths and strict LZMA framing/EOF agree; no per-file NSIS
+CRC exists and the full installer hash remains unverified. The entries name no
+standalone GameAssembly, global-metadata, Assembly-CSharp, GameConfig or
+libil2cpp payload. This does not rule out embedded code or establish an active
+game-config consumer.
+
+The actual configuration supplies the following production identities without
+guessing regional game/channel IDs:
+
+| Profile | Game / channel / subchannel | Language | Original production website |
+| --- | --- | --- | --- |
+| Japanese | `70001 / 300 / 6002` | `ja` | `https://re1999.bluepoch.com/jp/home` |
+| Korean | `90001 / 202 / 6004` | `kr` | `https://reverse1999.haoplay.com/` |
+
+Both name `https://hotupdate-hw.sl916.com` as their production updater. Their
+SDK hosts are respectively `https://gamesdk-jp.sl916.com` and
+`https://gamesdk-kr.haoplay.com`; no account/SDK operation is called. Applying
+the already evidenced ordinary updater metadata contract to those original
+parameters gives independently owned client inventories:
+
+| Profile | Reported base version / resource revision | Archives | Complete-client compressed / expanded bytes |
+| --- | --- | ---: | --- |
+| Japanese | `3.9.0 / 111.0.1067` | 20 | 29,112,314,082 / 33,175,073,230 |
+| Korean | `3.6.5 / 111.0.907` | 10 | 25,200,090,518 / 28,785,835,609 |
+
+The original URLs' game IDs, version/revision identities, part uniqueness and
+archive size sums agree with their respective publisher responses. No archive
+or game payload is downloaded and whole-archive MD5s are not verified. These
+are complete-client inventories, not text/audio selection estimates.
+
+The Korean website reached through its actual config is live and advertises
+version 3.9, an original `dl.haoplay.com/kr/Reverse1999_v3.9.0.5.exe` installer
+and Google Play package `kr.haoplay.game.and.reverse`. Its reported base 3.6.5
+and website/launcher 3.9 are kept separate: their base/hotfix relationship and
+current content revision remain unresolved, rather than being automatically
+classified as stale or corrupt. No guessed target version is sent.
+
+After this config and ordinary-metadata checkpoint, the conservative shared
+regional/distributor ledger is 37 requests and 715,859 response bytes. The two
+configs and installer index establish original regional bootstrap paths, not a
+decryption key or game text/voice bindings. No fallback, prepared snapshot or
+Ready state is enabled.
+
+### One original Korean base-client archive inventory
+
+The next approved metadata-only probe targets only Korean base 3.6.5 archive
+part 0: 4,773,351,938 compressed bytes, publisher MD5
+`db28988fa73b1732b23fcc9ef2af1159`. HEAD agrees on length and returns that value
+as its strong ETag; the complete file is not downloaded or MD5-verified.
+Strict same-owner ranges read a 32-byte 7z start header, 40-byte NextHeader and
+55,877-byte encoded header. Start/NextHeader CRCs and the 931,754-byte decoded
+header CRC agree. This known-size raw-LZMA1 header has no EOS marker: exact
+declared output size/CRC and no unused data establish its format boundary;
+Python's decoder `eof` is explicitly false, not misreported as true.
+
+The index identifies a distinct regional native-file inventory:
+
+| Owner | Korean base metadata | Existing Global metadata |
+| --- | --- | --- |
+| `GameAssembly.dll` | 126,610,944 bytes; CRC 868644893 | 126,319,616 bytes; CRC 84286124 |
+| `global-metadata.dat` | Explicit empty **file**, not a directory | Explicit empty file |
+
+The Korean resource/globalgamemanagers metadata also differs. No standalone
+Assembly-CSharp/libil2cpp file is declared. These are original file-index
+comparisons, not verified whole-module hashes or a readable key-consumer proof.
+The archive's first solid folder contains 5,147 subfiles (4,667,235,457
+compressed / 4,787,591,367 expanded bytes, LZMA2). Its separate native folder
+starts at compressed offset 4,667,235,489, contains 29 subfiles and uses
+LZMA2 with a 32 MiB dictionary plus x86 BCJ (106,060,532 compressed /
+345,341,131 expanded bytes). GameAssembly begins at native-folder decoded offset
+419,760 after baselib. No folder/member body or other nine archives is read.
+
+This inventory transfers 55,949 metadata bytes in three body requests. The
+conservative combined regional ledger becomes 41 requests / 771,808 bytes.
+It remains evidence for the reported base 3.6.5, not proof of the website's
+current 3.9/hotfix content. Any native-header read needs a separately bounded
+plan; no opaque Global code scan, key fallback or Ready state follows.
+
+A subsequent separately approved **single** native-folder prefix request is
+capped at 262,144 compressed bytes and stops after exactly 423,856 decoded
+bytes. It actually receives 180,224 bytes, checks the complete preceding baselib
+CRC 2294769330, and retains only the bounded input plus a 4,096-byte GameAssembly
+prefix. Only PE directory/section metadata is inspected. Its headers occupy
+1,024 bytes; the following 3,072 section bytes are not analysed or executed.
+The AMD64 module again has zero CLI/security directories and the opaque
+`.Sgxm0` / `.Sgxm1` / `.tvm0` / `.rsrc2` section pattern alongside its empty
+metadata file. This bounded probe establishes no readable alternative consumer.
+
+**The regional native line stops at that boundary.** No literals, keys,
+disassembly, resources, entrypoint or further module bytes are inspected. The
+complete archive MD5 and GameAssembly CRC remain unverified; the generic Unity
+baselib CRC is not game-key proof. The conservative regional ledger finishes
+this branch at 42 requests / 952,032 bytes, below 1 MiB. The result does not
+prove that every official key derivation route is impossible and does not
+authorize a community-key fallback or prepared game.
+
+### Publisher-linked game APK descriptor and transfer stopping point
+
+The existing mainland publisher response also explicitly links to
+[the 3839 listing](https://www.3839.com/a/136385.htm). That complete listing
+links its [mobile page](https://m.3839.com/a/136385.htm), whose original inline
+JSON `downInfo` supplies an actual **game** APK descriptor, independently of the
+previous store-client handoff:
+
+| Field | Distributor-authored result |
+| --- | --- |
+| APK URL | `https://hot.71acg.com/release/hykb/202610/20261030reverse1999180_268.apk` |
+| Package | `com.shenlan.m.reverse1999` |
+| Distributor MD5 | `69718ac8e18427491e6cf33a0ed8146f` |
+| Listing version | `4.1.0` |
+
+The listing's rounded `1.85G` size is not an exact owner length, selected
+text/audio estimate or proof of retained disk use. The distributor's MD5 is
+neither a verified downloaded-file checksum nor publisher-authenticated signing
+provenance. No equality with the separate TapTap APK is assumed.
+
+HEAD, a separately approved exact `Range: bytes=0-0` GET, and an approved
+ordinary GET inspecting headers only all return HTTP 405 with a 906-byte HTML
+error response. No body is read for any of those APK requests. Its error-page
+ETag is excluded from APK owner identity. Thus no exact APK length, real owner
+ETag, readable archive index, signer or GameConfig module is established. The
+ordinary GET result is not solely a Range-header rejection. This transfer route
+stops without further header permutations or guessed URLs; the responses do not
+prove permanent unavailability, an account requirement or impossible official
+key derivation.
+
+The complete regional/distributor investigation totals twenty-eight requests
+and a conservative 593,452 transferred-byte budget, within 1 MiB. This includes
+a 131,073-byte upper-bound charge for the first listing read whose size check
+failed before its response was retained; the subsequent complete listing is
+retained separately. Game-APK payload bytes remain zero. A reachable original
+game-package owner, or an original prescribed delivery step for it, is still
+needed before proposing exact ZIP-index and key-consumer member acquisitions.
 
 ## Text versus text and audio planning
 

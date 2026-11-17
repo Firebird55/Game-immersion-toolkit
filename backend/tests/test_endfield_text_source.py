@@ -250,8 +250,10 @@ sys.meta_path.insert(0, Guard())
 from backend.endfield_text_source import Catalog, plan, download
 from backend.endfield_resource_source import discover
 from backend.endfield_navigation_source import plan as navigation_plan
+from backend.endfield_presentation_bundles import plan as bundle_plan
 assert callable(plan) and callable(download) and callable(discover)
 assert callable(navigation_plan)
+assert callable(bundle_plan)
 '''
     result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr

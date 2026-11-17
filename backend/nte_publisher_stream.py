@@ -29,8 +29,14 @@ def _complete_global(container):
     # outside the per-block SHA1, so authenticate the entire small global file.
     check(not container.paths and container.ucas.size <= 16 * 1024**2)
     path = container.root / 'complete.ucas'
+    if getattr(container, 'range_reader', None) is not None:
+        from .private_data_paths import _no_links
+        _no_links(path)
     data = path.read_bytes() if path.is_file() and path.stat().st_size == container.ucas.size else b''
     if hashlib.md5(data).hexdigest() != container.ucas.digest:
+        # Context-owned preparation quotes/acquires this complete small file
+        # explicitly; broker setup may never start its own publisher transfer.
+        check(getattr(container, 'range_reader', None) is None)
         release.save_file(container.region, container.branch, container.ucas, path)
         data = path.read_bytes()
     check(len(data) == container.ucas.size and hashlib.md5(data).hexdigest() == container.ucas.digest)

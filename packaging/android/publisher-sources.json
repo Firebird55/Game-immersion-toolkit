@@ -18,8 +18,8 @@
   },
   "files": {
     "backend/nte_game_data.py": {
-      "sha256_lf": "6ab75e89665504dfcc3929585031cd790d4cebf146fbfb1ab964f3dcb7667cc7",
-      "source_commit": "072a85d9d1e5652d70f65c994de1711a3a71011c"
+      "sha256_lf": "77aa697549fe92edb472f727ff43f8a14600e81438c199e4ea73f1b61cc95a5f",
+      "source_commit": "617be276759df4a46817486e15e6ecdcb96a5835"
     },
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",

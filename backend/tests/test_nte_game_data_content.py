@@ -7,6 +7,7 @@ import struct
 from xml.etree import ElementTree as E
 import zlib
 from types import SimpleNamespace
+from dataclasses import replace
 
 from Crypto.Cipher import AES
 import pytest
@@ -24,7 +25,7 @@ from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 
 class Originals:
-    def __init__(self, tmp_path, monkeypatch, *, dense=False):
+    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False, text_tail=False):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -42,11 +43,42 @@ class Originals:
                 'Client/WindowsNoEditor/HT/Content/Paks/Original.sig': sig,
                 'Client/WindowsNoEditor/HT/Content/Paks/Original.pak': archive,
                 'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': toc}
+        self.forbidden_assets = set()
+        self.forbid_all_http = False
+        self.metadata_archives = {}
+        if selected_metadata:
+            specs = {
+                'study': ('Content/Localization/Game/ja/', 'Game.locres'),
+                'target': ('Content/Localization/Game/en/', 'Game.locres'),
+                'other-locale': ('Content/Localization/Game/ko/', 'Game.locres'),
+                'registry': ('', 'AssetRegistry.bin'),
+                'subtitles': ('Content/SrtFile/FFMpeg/Story/', 'owned.srt'),
+                'voice': ('Content/WwiseAudio/Media/Japanese/', '123.wem')}
+            for label, (folder, name) in specs.items():
+                payload = (label+' original source\n').encode()*18000
+                if processing and label in ('study', 'target'):
+                    from backend.tests.test_nte_locres import resource
+                    payload = resource([('story', 'owned', label+' text', 7)])
+                    if text_tail and label == 'study': payload += b'!'
+                raw = package([(name, payload, 0, False, False)], folder=folder)
+                owner = 'Client/WindowsNoEditor/HT/Content/Paks/'+label+'.pak'
+                data[owner], data[owner[:-4]+'.sig'] = raw, signature(raw)
+                self.metadata_archives[label] = self.url('PC_100', hashlib.md5(raw).hexdigest(), len(raw))
+            from backend.tests.test_nte_publisher_iostore import fixture as iostore
+            global_toc, global_ucas = iostore(global_toc=True)
+            ordinary_toc, ordinary_ucas = iostore(content=True)
+            data.update({
+                'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': global_toc,
+                'Client/WindowsNoEditor/HT/Content/Paks/global.ucas': global_ucas,
+                'Client/WindowsNoEditor/HT/Content/Paks/owned.utoc': ordinary_toc,
+                'Client/WindowsNoEditor/HT/Content/Paks/owned.ucas': ordinary_ucas})
+        self.expected_index_members = sum(name.endswith(('.sig', '.utoc')) for name in data)+2
         xml = E.Element('ResList', version='1.2.3', tag='baseTag')
         for name, raw in data.items():
             E.SubElement(xml, 'Res', filename=name, filesize=str(len(raw)), md5=hashlib.md5(raw).hexdigest())
-        E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/global.ucas',
-                     filesize='500000', md5='b'*32)
+        if not selected_metadata:
+            E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/global.ucas',
+                         filesize='500000', md5='b'*32)
         xml = E.tostring(xml)
         compressed = zlib.compress(xml); pad = 16-len(compressed)%16
         envelope = b'PatcherXML0\0'+struct.pack('<I', len(xml))+AES.new(params.key, AES.MODE_CBC, params.iv).encrypt(
@@ -71,6 +103,11 @@ class Originals:
         pin = ('a'*40, hashlib.sha256(description).hexdigest())
         monkeypatch.setattr(nte_publisher, 'NATIVE_ARCHIVE', pin)
         (cache/(pin[0]+'-'+pin[1]+'.txt')).write_bytes(description)
+        if processing:
+            raw = ('authored initial text parameter 0x'+KEY.hex()).encode()
+            pin = ('b'*40, hashlib.sha256(raw).hexdigest())
+            monkeypatch.setattr(nte_publisher, 'NATIVE_LOCALIZATION', pin)
+            (cache/(pin[0]+'-'+pin[1]+'.txt')).write_bytes(raw)
 
     @staticmethod
     def url(branch, digest, size):
@@ -81,9 +118,11 @@ class Originals:
         self.objects[self.url(branch, digest, len(raw))] = raw
 
     def open(self, request, **_):
+        assert not self.forbid_all_http, 'Local processing attempted publisher HTTP'
         url, selected = request.full_url, request.get_header('Range')
         self.calls.append({'url': url, 'range': selected})
         if selected:
+            assert url not in self.forbidden_assets, 'An unselected locale or voice member was fetched'
             match = re.fullmatch(r'bytes=(\d+)-(\d+)', selected); assert match
             start, end = map(int, match.groups()); original = self.objects[url]
             raw = original[start:end+1]
@@ -110,11 +149,11 @@ def test_real_service_plans_original_member_sizes_before_ranges_and_never_activa
         state = finish(service)
         assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == plan['download_bytes']
         assert state['state'] != 'ready' and not (original.root/'nte/current.json').exists()
-        assert len([call for call in original.calls if call['range']]) == 4
+        assert len([call for call in original.calls if call['range']]) == original.expected_index_members
         following = service.plan('nte', {**REQUEST, 'content_mode': mode})['game']
         assert following['can_download'] and following['revision'].startswith('nte-ranges-')
         # Cache-only preflight has not read any original archive body.
-        assert len([call for call in original.calls if call['range']]) == 4
+        assert len([call for call in original.calls if call['range']]) == original.expected_index_members
         service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
         state = finish(service)
         assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
@@ -205,19 +244,38 @@ def test_large_encrypted_index_and_directory_require_separate_explicit_plans(tmp
         service.close()
 
 
-def test_missing_initial_description_is_explicit_without_community_or_asset_reads(tmp_path, monkeypatch):
+@pytest.mark.parametrize('fault', [None, 'description', 'publisher'])
+def test_missing_initial_description_has_exact_frozen_quote_and_retains_old_stage_on_failure(tmp_path, monkeypatch, fault):
     original = Originals(tmp_path, monkeypatch); service = original.service()
     try:
         plan = service.plan('nte', REQUEST)['game']
         service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
         assert finish(service)['job']['status'] == 'needs_plan'
         from backend import nte_publisher
+        from backend import nte_game_data_initial as initial
         revision, digest = nte_publisher.NATIVE_ARCHIVE
-        (original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt').unlink()
+        path = original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt'
+        source = path.read_bytes(); path.unlink()
+        specs = initial.descriptions(); specs['archive']['bytes'] = len(source)
+        monkeypatch.setattr(initial, 'descriptions', lambda: specs)
+        original.metadata[specs['archive']['url']] = source
         before = len([call for call in original.calls if call['range']])
         following = service.plan('nte', REQUEST)['game']
-        assert not following['can_download'] and following['download_bytes'] is None
-        assert following['revision'].startswith('nte-initial-description-')
+        assert following['can_download'] and following['download_bytes'] > len(source)
+        assert following['revision'].startswith('nte-initial-descriptions-')
+        assert len([call for call in original.calls if call['range']]) == before
+        assert not any(call['url'] == specs['archive']['url'] for call in original.calls)
+        prior = (original.root/'nte/stage.json').read_bytes()
+        if fault == 'description': original.metadata[specs['archive']['url']] = b'!'+source[1:]
+        if fault == 'publisher': original.metadata[initial.content.updater.VERSION_URL] += b'changed'
+        service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        state = finish(service)
+        if fault:
+            assert state['job']['status'] == 'failed' and not path.exists()
+            assert (original.root/'nte/stage.json').read_bytes() == prior
+        else:
+            assert state['job']['status'] == 'needs_plan' and path.read_bytes() == source
+            assert state['job']['downloaded_bytes'] == following['download_bytes']
         assert len([call for call in original.calls if call['range']]) == before
         assert not (original.root/'nte/current.json').exists()
     finally:
@@ -237,3 +295,83 @@ def test_more_normal_update_indexes_continue_in_bounded_stages_and_reject_foreig
                     [{**wanted[0], 'stop': 129}], [wanted[0], wanted[0]],
                     [{**wanted[0], 'extra': 'unproved'}]):
         with pytest.raises(GameDataError): ranges._cost(owners, records)
+
+
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_during_preflight(tmp_path, monkeypatch, mode):
+    from backend import nte_publisher_pak as pak
+    original = Originals(tmp_path, monkeypatch, selected_metadata=True); service = original.service()
+    request = {**REQUEST, 'content_mode': mode}
+    try:
+        for _ in range(8):
+            plan = service.plan('nte', request)['game']
+            private = service.plans[plan['plan_id']]['plan'].handle
+            if private.get('selection', {}).get('purpose') == 'selected-text-metadata':
+                break
+            assert plan['can_download']
+            service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+            assert finish(service)['job']['status'] == 'needs_plan'
+        else:
+            pytest.fail('Original index metadata did not finish')
+        assert private['selection']['members_count'] == 4
+        original.forbidden_assets.update(original.metadata_archives[label] for label in ('other-locale', 'voice'))
+        monkeypatch.setattr(pak.Archive, 'read', lambda *_: pytest.fail('Preflight read a member'))
+        monkeypatch.setattr(pak.Archive, '_parts', lambda *_: pytest.fail('Preflight requested body parts'))
+        monkeypatch.setattr(pak.Archive, '_expand_oodle', lambda *_: pytest.fail('Preflight decoded a member'))
+        before = len([call for call in original.calls if call['range']])
+        repeated = service.plan('nte', request)['game']
+        assert repeated['revision'] == plan['revision'] and repeated['download_bytes'] == plan['download_bytes']
+        assert len([call for call in original.calls if call['range']]) == before
+        service.download('nte', {'plan_id': repeated['plan_id'], 'revision': repeated['revision']})
+        state = finish(service)
+        assert state['job']['status'] == 'needs_plan'
+        assert state['job']['downloaded_bytes'] == repeated['download_bytes']
+        stage = json.loads((original.root/'nte/stage.json').read_bytes())
+        from backend.nte_game_data_content import _identity
+        assert stage['handle']['selection'] == private['selection']
+        assert stage['handle']['plan_sha256'] == _identity(private)
+        assert stage['handle']['ranges_sha256'] == _identity(private['ranges'])
+        assert stage['handle']['transferred_bytes'] == repeated['download_bytes']
+        selected = {call['url'] for call in original.calls if call['range'] and call['url'] in original.metadata_archives.values()}
+        assert selected >= {original.metadata_archives[label] for label in ('study', 'target', 'registry', 'subtitles')}
+        following = service.plan('nte', request)['game']
+        assert following['can_download'] and following['revision'].startswith('nte-global-metadata-')
+        before = len([call for call in original.calls if call['range']])
+        service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        state = finish(service)
+        assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
+        assert len([call for call in original.calls if call['range']]) == before+1
+        local = service.plan('nte', request)['game']
+        assert local['can_download'] and local['revision'].startswith('nte-initial-descriptions-')
+        assert set(service.plans[local['plan_id']]['plan'].handle['descriptions']) == {'localization'}
+        assert not (original.root/'nte/current.json').exists()
+    finally:
+        service.close()
+
+
+def test_rehashed_wrong_member_selection_is_rejected_before_transfer_and_retains_prior_stage(tmp_path, monkeypatch):
+    from backend.nte_game_data_content import _identity
+    original = Originals(tmp_path, monkeypatch, selected_metadata=True); service = original.service()
+    try:
+        for _ in range(8):
+            plan = service.plan('nte', REQUEST)['game']
+            item = service.plans[plan['plan_id']]
+            if item['plan'].handle.get('selection', {}).get('purpose') == 'selected-text-metadata':
+                break
+            service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+            assert finish(service)['job']['status'] == 'needs_plan'
+        else: pytest.fail('Original indexes did not converge')
+        previous = (original.root/'nte/stage.json').read_bytes()
+        handle = json.loads(json.dumps(item['plan'].handle))
+        handle['selection']['members_sha256'] = '0'*64
+        item['plan'] = replace(item['plan'], handle=handle, revision='nte-ranges-'+_identity(handle))
+        before = len([call for call in original.calls if call['range']])
+        service.download('nte', {'plan_id': plan['plan_id'], 'revision': item['plan'].revision})
+        assert finish(service)['job']['status'] == 'failed'
+        assert len([call for call in original.calls if call['range']]) == before
+        assert (original.root/'nte/stage.json').read_bytes() == previous
+        healthy = service.plan('nte', REQUEST)['game']
+        assert healthy['can_download'] and healthy['revision'] == plan['revision']
+        assert not (original.root/'nte/current.json').exists()
+    finally:
+        service.close()

@@ -548,13 +548,9 @@ def _table(tools, info, position, name, params):
 
 def _read_tables(tools, snapshot, params, locales, destination):
     """Read complete original members and attest exact PlotAudio bytes for lookups."""
-    from . import wuthering_assets as assets
-    from .wuthering_music import TABLE as music_table
+    from . import wuthering_tables as tables
     root = 'Client/Content/Aki/ConfigDB/'
-    names = {'db_plot_audio.db', music_table, *assets.NARRATIVE_TABLES}
-    for locale in locales:
-        code = assets.TEXT_LOCALES[locale]
-        names.update((code + '/lang_multi_text.db', code + '/lang_multi_text_1sthalf.db'))
+    names = tables.required_tables(locales)
     remaining = {root + name for name in names}
     selected = {}
     for layer in ('PatchFiles', 'BaseFiles', 'launcher'):
@@ -574,7 +570,7 @@ def _read_tables(tools, snapshot, params, locales, destination):
     with ThreadPoolExecutor(max_workers=3) as pool:
         plot_audio_proofs = [digest for digest in pool.map(read, selected.items()) if digest]
     pak.check(all((destination / name).is_file() for name in
-                  ('db_plot_audio.db', *(table for table in assets.NARRATIVE_TABLES if table != assets.FLOATING_SUBTITLES))))
+                  ('db_plot_audio.db', *(table for table in tables.NARRATIVE_TABLES if table != tables.FLOATING_SUBTITLES))))
     pak.check(len(plot_audio_proofs) == 1)
     return plot_audio_proofs[0]
 

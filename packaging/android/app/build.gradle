@@ -25,7 +25,7 @@ def publisherPolicyFile = new File(repository, 'packaging/android/publisher-sour
 def publisherPolicy = new groovy.json.JsonSlurper().parse(publisherPolicyFile)
 if (publisherPolicy.schema != 'toolkit-android-publisher-sources-v1') throw new GradleException('Unsupported packaged publisher source policy.')
 def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contracts.py', 'languages.py',
-    'local_game.py', 'textmaps.py', 'bilingual.py', 'multilingual_index.py', 'storage.py',
+    'local_game.py', 'textmaps.py', 'text_display.py', 'bilingual.py', 'multilingual_index.py', 'storage.py',
     'runtime_writers.py', 'sqlite_operation_lifetime.py', 'steam_games.py', 'capture_confirmation.py',
     'endfield_caption_context.py', 'endfield_presentation.py', 'endfield_sns_presentation.py', 'endfield_training_presentation.py', 'floating_caption_policy.py',
     'wuthering_text_templates.py', 'capture_geometry.py', 'caption_layout.py', 'nte_dialogue_context.py',

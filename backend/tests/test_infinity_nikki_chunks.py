@@ -90,7 +90,16 @@ class OriginalChunkTests(unittest.TestCase):
         build = {'DefaultVersion': '3401', 'FastPatchVersion': '28'}
         urls = manifest_sources(ROOT + '/BuildVersion/Windows/BuildVersion_3401.28.json', build)
         self.assertIn('/3401/CloudDir/', urls[0])
-        self.assertIn('/3401/CloudFastPatchDir/28/', urls[1])
+        self.assertIn('/3401/CloudFastPatchDir/3401_28/', urls[1])
+
+    def test_source_owned_fastpatch_substitution_includes_its_default_version(self):
+        data = fixture()[0]
+        url = URL.replace('/CloudDir/', '/CloudFastPatchDir/3400_24/')
+        parsed = parse(data, url=url)
+        self.assertIn('/CloudFastPatchDir/3400_24/ChunksV3/', parsed.chunks[0].url)
+        for fragment in ('24', '3401_24', '3400_24_1'):
+            with self.subTest(fragment=fragment), self.assertRaises(ValueError):
+                parse(data, url=URL.replace('/CloudDir/', '/CloudFastPatchDir/' + fragment + '/'))
 
     def test_uncompressed_carriers_have_the_same_full_data_and_file_controls(self):
         data, carriers, _, selected = fixture(compressed=False)

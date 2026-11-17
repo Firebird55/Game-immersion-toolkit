@@ -13,9 +13,6 @@ import json
 import re
 import struct
 
-from Crypto.Cipher import AES
-
-
 MAX_NATIVE = 256 * 1024**2
 MAX_WRAPPED = 4 * 1024**2
 _SHA1_INITIAL = struct.pack('<4I', 0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476)
@@ -248,7 +245,7 @@ def _unique(pairs):
     return value
 
 
-def decode_wrapped_metadata(raw: bytes, material: WrapperMaterial) -> dict:
+def decode_wrapped_metadata(raw: bytes, material: WrapperMaterial, *, crypto=None) -> dict:
     """Decode one original metadata wrapper using source-derived material.
 
     ECB decoding is not an integrity/authentication check. Verify the wrapper's
@@ -262,7 +259,11 @@ def decode_wrapped_metadata(raw: bytes, material: WrapperMaterial) -> dict:
         body = base64.b64decode(raw[8:], validate=True)
         _require(body and len(body) % 16 == 0)
         key = (hashlib.sha1(material.seed_utf16).digest() + material.suffix)[:32]
-        decoded = AES.new(key, AES.MODE_ECB).decrypt(body)
+        if crypto is None:
+            from .publisher_crypto import DesktopPublisherCrypto
+            crypto = DesktopPublisherCrypto()
+        decoded = crypto.block_cipher('AES', 'ECB', key, body)
+        _require(isinstance(decoded, bytes) and len(decoded) == len(body))
         end = decoded.find(b'\0')
         if end >= 0:
             _require(0 < len(decoded) - end <= 16)

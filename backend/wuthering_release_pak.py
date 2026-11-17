@@ -5,6 +5,7 @@ import io
 import json
 from functools import lru_cache
 import os
+from pathlib import Path
 import shutil
 import ssl
 import struct
@@ -18,13 +19,13 @@ import certifi
 
 from Crypto.Cipher import AES
 
-from .game_tools import CODE_ROOT, _atomic_file
-from .atomic_files import sharing_retry
+from .atomic_files import sharing_retry, write_bytes as _atomic_file
 from .preparation_errors import PreparationFailure
 
 LIMIT = 64 * 1024**2
 MEMBER_LIMIT = 512 * 1024**2
 MAGIC = b'\xe1\x12\x6f\x5a'
+CODE_ROOT = Path(__file__).resolve().parents[1]
 
 
 def check(condition):

@@ -142,3 +142,33 @@ def test_codec_notice_is_verified_again_before_starting_process(tmp_path, monkey
     monkeypatch.setattr(runtime.subprocess, 'Popen', lambda *_a, **_k: pytest.fail('Untrusted codec started'))
     with pytest.raises((GameDataError, ValueError)):
         reader.oodle([(b'a', 1)])
+
+
+@pytest.mark.parametrize('fault', [None, 'cancel', 'timeout'])
+def test_owned_inventory_process_is_cancellable_bounded_and_uses_exact_operation(tmp_path, monkeypatch, fault):
+    layout, _ = fixture(tmp_path, monkeypatch)
+    ctx = context(layout); reader = runtime.resolve('windows', ctx, layout=layout)
+    source = ctx.cache_directory/'empty'; source.mkdir()
+    output = ctx.directory/'inventory'; owned = []
+    class Process:
+        returncode = None; killed = False
+        def __init__(self, command, **kwargs):
+            assert command[1] == 'publisher-dialogue-inventory'
+            assert kwargs['stdout'] == runtime.subprocess.DEVNULL and kwargs['stderr'] == runtime.subprocess.DEVNULL
+            assert 'DOTNET_ROOT' not in kwargs['env']; owned.append(self)
+        def communicate(self, *, input, timeout):
+            assert json.loads(input) == {'inventory_nonce': 'a'*32}
+            if fault == 'cancel': ctx.check = lambda: (_ for _ in ()).throw(GameDataError('cancelled', 'Cancelled', 409))
+            if fault: raise subprocess.TimeoutExpired('owned inventory', timeout)
+            self.returncode = 0
+        def poll(self): return self.returncode
+        def kill(self): self.killed = True; self.returncode = -1
+        def wait(self, **kwargs): return self.returncode
+    monkeypatch.setattr(runtime.subprocess, 'Popen', Process)
+    if fault == 'timeout':
+        timer = iter([0, 0, 61]); monkeypatch.setattr(runtime.time, 'monotonic', lambda: next(timer))
+    if fault:
+        with pytest.raises(GameDataError): reader.execute(source, output, 'publisher-dialogue-inventory', {'inventory_nonce': 'a'*32}, timeout=60)
+    else:
+        assert reader.execute(source, output, 'publisher-dialogue-inventory', {'inventory_nonce': 'a'*32}, timeout=60).returncode == 0
+    assert len(owned) == 1 and owned[0].killed == bool(fault)

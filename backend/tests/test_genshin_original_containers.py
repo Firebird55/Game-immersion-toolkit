@@ -98,3 +98,79 @@ def test_identity_is_path_sensitive_and_refuses_host_path_traversal():
 def test_native_identity_uses_owned_doubling_buffer_boundaries(length, expected):
     path = 'A' * (length - len('.MiHoYoBinData'))
     assert asset_identity(path) == expected
+
+
+def resource_catalog(variants, *, types=()):
+    # Reuse the independently retained single-bundle fixture's physical tables.
+    tail = catalog()[22:]
+    type_map = struct.pack('<I', len(types))
+    for name, extension in types:
+        for value in (name, extension):
+            raw = value.encode()
+            type_map += struct.pack('<I', len(raw)) + raw
+    entry = struct.pack('<QB', 0x1234567890, len(variants))
+    entry += b''.join(struct.pack('<BI', selector, packed) for selector, packed in variants)
+    return type_map + struct.pack('<I', 1) + entry + tail
+
+
+@pytest.mark.parametrize('packed', [7, 0x40000007, 0x80000007, 0xc0000007,
+                                    0x3ffffff9, 0x7ffffff9, 0xbffffff9, 0xfffffff9])
+def test_original_identifier_projection_resolves_tagged_and_signed_locations(packed):
+    c = DesignCatalog(resource_catalog(((19, packed),)))
+    assert c.assets[0x1234567890] == (1, 19, packed, b'')
+    assert c.locate(0x1234567890).bundle == 7
+    assert view(bundle()).resolve(c, 0x1234567890, 7) == b'hello'
+
+
+@pytest.mark.parametrize('variants', [(), ((0, 7), (1, 7)), ((0, 7), (1, 0x40000007)),
+                                    ((2, 7), (1, 7), (0, 7))])
+def test_absent_or_multiple_variants_never_guess_a_platform_selection(variants):
+    c = DesignCatalog(resource_catalog(variants))
+    count, selector, packed, alternatives = c.assets[0x1234567890]
+    assert count == len(variants)
+    assert alternatives == b''.join(struct.pack('<BI', *row) for row in variants[1:])
+    with pytest.raises(ValueError):
+        c.locate(0x1234567890)
+
+
+@pytest.mark.parametrize('variants', [((0, 0x40000008),), ((0, 0x3ffffff8),),
+                                    ((0, 7), (9, 0x80000008)), ((0, 7), (1, 0))])
+def test_every_variant_must_reference_an_owned_physical_bundle(variants):
+    with pytest.raises(ValueError):
+        DesignCatalog(resource_catalog(variants))
+
+
+def test_resource_type_extensions_are_retained_without_choosing_ambiguous_types():
+    c = DesignCatalog(resource_catalog(((0, 7),), types=(('Example.Data', '.Binary'),)))
+    assert c.type_extensions == {'Example.Data': '.Binary'}
+    for types in ((('Example.Data', '.A'), ('Example.Data', '.B')),
+                  (('', '.A'),), (('Example.Data', ''),), (('Example\0Data', '.A'),)):
+        with pytest.raises(ValueError):
+            DesignCatalog(resource_catalog(((0, 7),), types=types))
+
+
+def test_new_variant_records_retain_strict_bounds_and_whole_catalog_eof():
+    raw = resource_catalog(((0, 7), (8, 0x40000007), (9, 0x3ffffff9)))
+    for invalid in (raw[:-1], raw + b'\0', raw[:18], raw[:29]):
+        with pytest.raises(ValueError):
+            DesignCatalog(invalid)
+
+
+def test_physical_short_name_collisions_survive_tag_normalization():
+    raw = catalog((0x1234567890, 0x11234567890))
+    # Second packed location is the same bundle, with independently tagged bits.
+    raw = raw[:32] + struct.pack('<I', 0x40000007) + raw[36:]
+    c = DesignCatalog(raw)
+    with pytest.raises(ValueError):
+        c.locate(0x1234567890)
+
+
+def test_unselected_variant_cannot_hide_a_short_name_collision():
+    raw = resource_catalog(((0, 7), (8, 0x40000007)))
+    # A different full identity can own the same shortened name and bundle.
+    second = struct.pack('<QBBI', 0x11234567890, 1, 0, 7)
+    raw = raw[:4] + struct.pack('<I', 2) + raw[8:27] + second + raw[27:]
+    c = DesignCatalog(raw)
+    assert len(c.names[7, 0x12345678]) == 2
+    with pytest.raises(ValueError):
+        c.locate(0x11234567890)

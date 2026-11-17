@@ -96,9 +96,11 @@ internal static class NteReader
                     var nonce = request.RootElement.GetProperty("inventory_nonce").GetString();
                     if (nonce is null || !Regex.IsMatch(nonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
                     var index = Property(provider, "Files");
-                    var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true);
+                    var strictEof = request.RootElement.TryGetProperty("require_registry_eof", out var eof) && eof.GetBoolean();
+                    var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true,
+                        requireRegistryEof: strictEof);
                     if (request.RootElement.TryGetProperty("capture_original_authoring", out var authoring) && authoring.GetBoolean())
-                        foreach (var table in NteOriginalTableClaims(provider, cue, names, destination, sha)) sources.Add(table.path);
+                        foreach (var table in NteOriginalTableClaims(provider, cue, names, destination, sha, strictEof)) sources.Add(table.path);
                     var packages = new SortedDictionary<string, long>(StringComparer.Ordinal);
                     long total = 0;
                     foreach (var name in sources)
@@ -108,9 +110,16 @@ internal static class NteReader
                         if (size is < 1 or > 4*1024*1024 || total > 128*1024*1024) throw new UnsupportedGameFormatException();
                         packages.Add(name, size);
                     }
-                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(new {
-                        schema="nte-original-dialogue-inventory-v1", complete=true, registry_sha256=sha, nonce=nonce,
-                        package_count=packages.Count, packages=packages }));
+                    var inventory = new Dictionary<string, object?> {
+                        ["schema"]=strictEof ? "nte-original-dialogue-inventory-v2" : "nte-original-dialogue-inventory-v1",
+                        ["complete"]=true, ["registry_sha256"]=sha, ["nonce"]=nonce,
+                        ["package_count"]=packages.Count, ["packages"]=packages };
+                    if (strictEof)
+                    {
+                        inventory["registry_bytes"]=new FileInfo(Path.Combine(destination,"dialogue-registry.bin")).Length;
+                        inventory["registry_eof_verified"]=true;
+                    }
+                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(inventory));
                 }
                 else if (args[0] == "publisher-tables")
                 {
@@ -463,11 +472,11 @@ internal static class NteReader
     record OriginalTable(string path, string package, string object_name, string row_structure, string role, JsonElement rows);
 
     static List<OriginalTable> NteOriginalTableClaims(object provider, Assembly cue, HashSet<string> files,
-        string destination, string? registrySha)
+        string destination, string? registrySha, bool requireRegistryEof = false)
     {
         var result = new List<OriginalTable>();
         var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha, requireRegistryEof))
         {
             object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
             if (Field("AssetClass").ToString() != "DataTable") continue;
@@ -499,7 +508,7 @@ internal static class NteReader
         return "HT/Content/" + package[6..] + ".uasset";
     }
 
-    static Array NteRegistry(object provider, Assembly cue, string destination, string? registrySha)
+    static Array NteRegistry(object provider, Assembly cue, string destination, string? registrySha, bool requireEof = false)
     {
         // AssetRegistry is a checked original pak member; publisher package
         // streams expose IoStore assets only. The caller stages this member.
@@ -511,17 +520,20 @@ internal static class NteReader
         using var archive = (IDisposable)Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.Readers.FByteArchive", true)!,
             [registryPath, bytes, Property(provider, "Versions")])!;
         var registry = Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.AssetRegistry.FAssetRegistryState", true)!, [archive])!;
+        if (requireEof && (Convert.ToInt64(Property(archive,"Position")) != bytes.LongLength ||
+                          Convert.ToInt64(Property(archive,"Length")) != bytes.LongLength))
+            throw new UnsupportedGameFormatException();
         var entries = (Array)registry.GetType().GetField("PreallocatedAssetDataBuffers")!.GetValue(registry)!;
         if (entries.Length is < 1 or > 2_000_000) throw new UnsupportedGameFormatException();
         return entries;
     }
 
     static SortedSet<string> NteDialogueSources(object provider, Assembly cue, HashSet<string> files,
-        string destination, string? registrySha, bool includeStringTables = false)
+        string destination, string? registrySha, bool includeStringTables = false, bool requireRegistryEof = false)
     {
         var sources = new SortedSet<string>(StringComparer.Ordinal);
         var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha, requireRegistryEof))
         {
             object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
             var assetClass = Field("AssetClass").ToString();

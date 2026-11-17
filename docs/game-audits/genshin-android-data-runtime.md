@@ -206,9 +206,26 @@ subtracting them, and authenticates both full materialized files. All transfers
 use the shared consent and cancellation context. A stage produces
 `PreparationStage`, never a partial dialogue snapshot or text-audio Ready.
 
-With those inputs already verified, the next plan explicitly remains unavailable
-at the original content reader. Official dispatch bootstrap, the other original
-dialogue bindings, Subtitle acquisition, selected-dub materialization and full
-ordinary update acceptance still need their complete source route. This does not
+With those inputs already verified, a separate local `original-bootstrap-seed`
+stage resolves the initial `GlobalVars.dispatchSeed` from the current original
+metadata, named static field, initializer, reaching pointer definitions and
+original literal table. It pins no current address, field index, offset or value.
+The quote is zero transfer and a bounded receipt allocation, not a whole-game
+download quote. Whole publisher length/MD5 and complete content hashes are
+checked again before extraction; ambiguous stores, clobbers and changed owners
+fail without replacing the prior stage or accepted library. The private receipt
+binds full input identities, verified runtime and maintained parser code. A
+restart rechecks these inputs and the complete receipt hash from the matching
+regional build/language/content stage handle; handles contain no seed value.
+An invalid or unreceipted cache requires original extraction again, never a
+community key-cache fallback.
+
+This establishes an initial static value only. The following plan remains
+unavailable at the original content reader. Original RSA ownership, request
+template, response-signature verification and possible `UseDispatchData`
+overrides remain open. The other original dialogue bindings, Subtitle
+acquisition, selected-dub materialization and full ordinary update acceptance
+still need their complete source route. Android retains its earlier runtime
+gate; a PC static decoder does not supply its BLB closure. This does not
 replace the accepted dialogue library with the TextMap/Readable subset or promote
 community bindings to official provenance.

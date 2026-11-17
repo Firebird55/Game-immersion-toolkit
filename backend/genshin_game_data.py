@@ -7,7 +7,9 @@ next content stage. Missing host readers cannot trigger large source transfers.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
+import marshal
 from pathlib import Path
 
 from . import sophon_assets as sophon
@@ -37,6 +39,10 @@ class GenshinRuntime:
         decoder()
         identity = hashlib.sha256((reader.source_identity + reader.manifest['build_id']).encode()).hexdigest()
         return Helper((str(reader.executable),), identity)
+
+    def initial_seed(self, executable, metadata, *, expected_owner):
+        from .genshin_native_dispatch import read_initial_seed
+        return read_initial_seed(executable, metadata, expected_owner=expected_owner)
 
 
 class _UnplannedTransfer(Exception):
@@ -140,8 +146,59 @@ def _record(ctx, handle):
     pending.replace(target)
     message = ('Official Genshin manifest verified. Check the native source download size next.'
         if handle['phase'] == 'official-manifest' else
+        'Original initial dispatch value verified. RSA, request template, signature ownership and later overrides remain unresolved.'
+        if handle['phase'] == 'original-bootstrap-seed' else
         'Original Genshin native inputs verified. Dialogue and audio still need the next supported source stage.')
     return PreparationStage(handle, message)
+
+
+def _seed_owner(cache, files, runtime_identity):
+    sources = []
+    for name, asset in sorted(files.items()):
+        path = _source(cache, asset)
+        if not _valid(path, asset.digest, asset.size):
+            raise GameDataError('game_data_plan_changed', 'The original Genshin input changed. Check its source size again.', 409)
+        with path.open('rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        sources.append({'name': name, 'md5': asset.digest, 'bytes': asset.size, 'sha256': digest})
+    # Reader implementation changes require extraction again from original bytes.
+    implementation = hashlib.sha256()
+    # Frozen Python loaders expose code objects; an installed app need not ship
+    # editable .py files. Include the complete maintained parser closure.
+    for name in ('genshin_native_dispatch', 'genshin_original_excel', 'genshin_native_x64',
+                 'genshin_native_metadata', 'genshin_native_expression', 'genshin_native_registration',
+                 'genshin_native_view', 'genshin_native_usage', 'genshin_native_literals'):
+        spec = importlib.util.find_spec('backend.' + name)
+        code = spec.loader.get_code(spec.name) if spec is not None and hasattr(spec.loader, 'get_code') else None
+        if code is None:
+            raise GameDataError('genshin_bootstrap_reader_unavailable', 'Repair the original Genshin bootstrap reader.')
+        implementation.update(name.encode())
+        implementation.update(marshal.dumps(code))
+    return {'sources': sources, 'runtime_identity': runtime_identity, 'implementation_sha256': implementation.hexdigest()}
+
+
+def _seed_path(cache, owner):
+    return _safe(cache / 'bootstrap-seeds' / (hashlib.sha256(_canonical(owner)).hexdigest() + '.json'))
+
+
+def _seed_receipt(path, owner):
+    try:
+        if not path.is_file() or path.stat().st_size > 1024**2:
+            return None
+        receipt = json.loads(path.read_bytes())
+        value, proof = receipt['value'], receipt['proof']
+        expected = {'metadata_sha256' if row['name'].endswith('.dat') else 'executable_sha256': row['sha256']
+                    for row in owner['sources']}
+        if (receipt['owner'] != owner or proof['schema'] != 'genshin-original-initial-dispatch-seed-v1'
+                or not isinstance(value, str) or not 16 <= len(value) <= 128
+                or any(character not in '0123456789abcdef' for character in value)
+                or proof['value_sha256'] != hashlib.sha256(value.encode()).hexdigest()
+                or proof['later_override_excluded'] is not False or proof['complete_dispatch_bootstrap'] is not False
+                or any(proof[key] != digest for key, digest in expected.items())):
+            return None
+        return receipt
+    except (OSError, ValueError, TypeError, KeyError):
+        return None
 
 
 class GenshinGameDataProvider:
@@ -209,8 +266,22 @@ class GenshinGameDataProvider:
             files = _files(cache, build, request.region, self._fetch(ctx, kind='metadata'))
             ledger, transfer, disk = _quote(cache, files)
             if all(row['cached'] for row in ledger['files']):
+                owner = _seed_owner(cache, files, reader.identity)
+                receipt = _seed_receipt(_seed_path(cache, owner), owner)
+                previous = ctx.stage_handle
+                accepted = (isinstance(previous, dict) and previous.get('schema') == SCHEMA
+                    and previous.get('game') == 'genshin' and previous.get('request') == selection
+                    and previous.get('revision') == revision and previous.get('runtime_identity') == reader.identity
+                    and previous.get('phase') == 'original-bootstrap-seed' and previous.get('seed_owner') == owner
+                    and receipt is not None
+                    and previous.get('receipt_sha256') == hashlib.sha256(_canonical(receipt)).hexdigest())
+                if not accepted:
+                    handle.update(ledger=ledger, seed_owner=owner)
+                    return GameDataPlan(revision, 0, 1024**2, handle=handle, runtime_available=True,
+                        stage='original-bootstrap-seed',
+                        message='Read the original initial dispatch value from verified publisher files. This local stage does not prepare dialogue or audio.')
                 return GameDataPlan(revision, None, None, handle=handle, stage='original-content-reader',
-                    message='Original Genshin native inputs are verified. Official bootstrap, remaining dialogue bindings and film subtitles still need a supported source stage.')
+                    message='The original initial dispatch value is verified. RSA, request template, signature ownership, later overrides, remaining dialogue bindings and film subtitles still need supported source stages.')
             handle['ledger'] = ledger
             return GameDataPlan(revision, transfer, disk, handle=handle, download_is_upper_bound=True,
                 runtime_available=True, stage='official-native-inputs',
@@ -223,7 +294,7 @@ class GenshinGameDataProvider:
         if (ctx.game != 'genshin' or handle.get('schema') != SCHEMA or handle.get('game') != 'genshin'
                 or handle.get('request') != selection or build.get('channel') != 'genshin-' + ctx.request.region
                 or plan.revision != handle.get('revision') or plan.revision != _revision(build)
-                or plan.stage not in {'official-manifest', 'official-native-inputs'} or not plan.runtime_available
+                or plan.stage not in {'official-manifest', 'official-native-inputs', 'original-bootstrap-seed'} or not plan.runtime_available
                 or reader is None or handle.get('runtime_identity') != reader.identity):
             raise GameDataError('game_data_plan_changed', 'Check the Genshin source download again.', 409)
         with ctx.transfer_lock:
@@ -241,6 +312,41 @@ class GenshinGameDataProvider:
             except _UnplannedTransfer as error:
                 raise GameDataError('game_data_plan_changed', 'The cached Genshin manifest changed. Check its size again.', 409) from error
             ledger, transfer, disk = _quote(cache, files)
+            if plan.stage == 'original-bootstrap-seed':
+                owner = _seed_owner(cache, files, reader.identity)
+                if (not all(row['cached'] for row in ledger['files']) or handle.get('ledger') != ledger
+                        or handle.get('seed_owner') != owner or (plan.download_bytes, plan.required_disk_bytes) != (0, 1024**2)):
+                    raise GameDataError('game_data_plan_changed', 'Check the original Genshin bootstrap inputs again.', 409)
+                values = {}
+                for name, asset in files.items():
+                    ctx.check()
+                    raw = _source(cache, asset).read_bytes()
+                    row = next(row for row in owner['sources'] if row['name'] == name)
+                    if len(raw) != row['bytes'] or hashlib.md5(raw).hexdigest() != row['md5'] or hashlib.sha256(raw).hexdigest() != row['sha256']:
+                        raise GameDataError('game_data_plan_changed', 'An original Genshin bootstrap input changed.', 409)
+                    values['metadata' if name.endswith('.dat') else 'executable'] = raw
+                expected = {key + '_sha256': hashlib.sha256(value).hexdigest() for key, value in values.items()}
+                try:
+                    result = self.runtime.initial_seed(**values, expected_owner=expected)
+                except (ValueError, RuntimeError) as error:
+                    raise GameDataError('genshin_bootstrap_owner_unavailable',
+                        'The original initial dispatch value cannot be verified for this build.') from error
+                receipt = {'owner': owner, 'value': result.value, 'proof': result.proof}
+                destination = _seed_path(cache, owner)
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                pending = _safe(destination.with_suffix('.pending'))
+                try:
+                    ctx.check()
+                    pending.write_bytes(_canonical(receipt))
+                    if _seed_receipt(pending, owner) is None:
+                        raise GameDataError('genshin_bootstrap_owner_unavailable', 'The original dispatch receipt failed verification.')
+                    ctx.check()
+                    pending.replace(destination)
+                    return _record(ctx, {**{k: v for k, v in handle.items() if k not in {'ledger', 'seed_owner'}},
+                        'phase': 'original-bootstrap-seed', 'seed_owner': owner,
+                        'receipt_sha256': hashlib.sha256(_canonical(receipt)).hexdigest()})
+                finally:
+                    pending.unlink(missing_ok=True)
             if handle.get('ledger') != ledger or (plan.download_bytes, plan.required_disk_bytes) != (transfer, disk):
                 raise GameDataError('game_data_plan_changed', 'The cached Genshin sources changed. Check their size again.', 409)
             fetch = self._fetch(ctx, kind='asset', allowed={url for row in ledger['chunks'] if not row['cached'] for url in row['urls']})

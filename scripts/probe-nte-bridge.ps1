@@ -149,7 +149,7 @@ try {
         [IO.File]::WriteAllText((Join-Path $registryInstall 'owned-fixture.json'),$marker)
         Require-Code (Invoke-Bridge @('inventory',$registryInstall,$tools,(Join-Path $temporary ('registry-output-'+$case))) ((Request) | ConvertTo-Json -Compress)) 0
     }
-    foreach($case in @('valid','all-text','hash','duplicate','escape','missing','empty')) {
+    foreach($case in @('valid','all-text','hash','duplicate','escape','missing','empty','strict-eof','unconsumed','legacy-unconsumed')) {
         $registryInstall=Join-Path $temporary ('dialogue-registry-'+$case); New-Item -ItemType Directory -Path $registryInstall | Out-Null
         $marker=@{schema='proxy-owned-nte-fixture-v1';localization_version=3;dialogue_registry_case=$case} | ConvertTo-Json -Compress
         [IO.File]::WriteAllText((Join-Path $registryInstall 'owned-fixture.json'),$marker)
@@ -176,7 +176,7 @@ try {
     [IO.File]::WriteAllText((Join-Path $unsupported 'owned-fixture.json'),'{'+'"schema":"proxy-owned-nte-fixture-v1","localization_version":4}')
     Require-Code (Invoke-Bridge @('index',$unsupported,$tools,(Join-Path $temporary 'unsupported-output')) ((Request) | ConvertTo-Json -Compress)) 3
     $report=@{schema='proxy-r19-nte-bridge-v1';source_commit=$env:GITHUB_SHA;source_dirty=$false;status='passed';helper_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $application 'helper-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();fixture_inputs=$fixtureInputs;runtime_identity=$identity;actions=@('inventory','index','voice','voices');voice_languages=@('Chinese','English','Japanese','Korean');text_locales=@('en','zh-CN','zh-Hant','ja','ko');upstream_dependency='authored stand-ins; no actual UEExtractor/CUE4Parse/Oodle';immutable_trees='unchanged';developer_environment='cleared';malformed_and_missing_dependency='rejected';unsupported_localization='exit-3';real_games_accessed=$false;real_accounts_accessed=$false;native_windows_11_acceptance='unavailable';game_reader_acceptance='not-established';redistribution_review='pending-exact-output';installer='not-built';r19_complete=$false}
-    $report.dialogue_registry_cases=@('valid','all-text','hash','duplicate','escape','missing','empty')
+    $report.dialogue_registry_cases=@('valid','all-text','hash','duplicate','escape','missing','empty','strict-eof','unconsumed','legacy-unconsumed')
     $report.original_table_registry_cases=@('valid','duplicate','case-collision','escape','bad-object','empty','missing','hash')
     $report.schema_codec_cases=@('zero-without-package','fallback','consumed-archive','foreign-assembly','previous-lookup','missing-package','invalid-name')
 } finally {

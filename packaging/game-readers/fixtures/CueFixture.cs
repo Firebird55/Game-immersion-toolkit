@@ -7,6 +7,8 @@ namespace CUE4Parse.UE4.Readers
     public sealed class FByteArchive : IDisposable
     {
         public byte[] Bytes;
+        public long Position { get; set; }
+        public long Length => Bytes.LongLength;
         public bool Disposed { get; private set; }
         public FByteArchive(string name, byte[] bytes, object versions) { Bytes = bytes; }
         public void Dispose() { Disposed = true; }
@@ -37,6 +39,7 @@ namespace CUE4Parse.UE4.AssetRegistry
                 new FixtureAssetData(row.GetProperty("assetClass").GetString()!, row.GetProperty("packageName").GetString()!,
                     row.TryGetProperty("assetName", out var name) ? name.GetString()! : "Unused",
                     row.TryGetProperty("tags", out var tags) ? JsonSerializer.Deserialize<Dictionary<string,string>>(tags.GetRawText())! : new())).ToArray();
+            archive.Position = archive.Length - (data.RootElement.TryGetProperty("unconsumed", out var suffix) && suffix.GetBoolean() ? 1 : 0);
         }
     }
 }
@@ -106,11 +109,16 @@ namespace CUE4Parse.UE4.Versions
 
 namespace CUE4Parse.FileProvider
 {
+    public sealed class FixtureGameFile
+    {
+        public long Size { get; }
+        public FixtureGameFile(long size) { if (size < 1) throw new InvalidDataException(); Size = size; }
+    }
     // Authored transport witness only: no IoStore, AES or game package parser.
     public sealed class StreamedFileProvider : IDisposable
     {
         public CUE4Parse.UE4.Versions.VersionContainer Versions { get; }
-        public Dictionary<string, int> Files { get; } = new();
+        public Dictionary<string, FixtureGameFile> Files { get; } = new();
         public List<FixtureVfs> UnloadedVfs { get; } = new();
         public List<FixtureVfs> MountedVfs { get; } = new();
         readonly List<Stream> streams = new();
@@ -130,6 +138,13 @@ namespace CUE4Parse.FileProvider
             using var row = JsonDocument.Parse(toc.ToArray());
             var item = row.RootElement;
             if (item.GetProperty("schema").GetString() != "proxy-owned-publisher-stream-v1") throw new InvalidDataException();
+            if (item.TryGetProperty("metadata_only", out var metadataOnly) && metadataOnly.GetBoolean())
+            {
+                foreach (var file in item.GetProperty("fixture_files").EnumerateObject())
+                    Files[file.Name] = new FixtureGameFile(file.Value.GetInt64());
+                UnloadedVfs.Add(new FixtureVfs());
+                return;
+            }
             var member = source[1];
             member.Seek(item.GetProperty("offset").GetInt64(), SeekOrigin.Begin);
             var data = new byte[item.GetProperty("size").GetInt32()];
@@ -149,7 +164,7 @@ namespace CUE4Parse.FileProvider
             var refused = false;
             try { member.Seek(1, SeekOrigin.End); } catch (ArgumentOutOfRangeException) { refused = true; }
             if (!refused) throw new InvalidDataException();
-            Files[item.GetProperty("member").GetString()!] = 0;
+            Files[item.GetProperty("member").GetString()!] = new FixtureGameFile(data.LongLength);
             UnloadedVfs.Add(new FixtureVfs());
         }
         public void SubmitKey(Guid guid, FixtureKey key)
@@ -352,7 +367,8 @@ public sealed class FixtureProvider : IDisposable
         if (kind == "empty") entries.Clear();
         var destination = Path.Combine(install, "owned-dialogue-registry");
         Directory.CreateDirectory(destination);
-        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { schema = "owned-registry-fixture-v1", assets = entries });
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { schema = "owned-registry-fixture-v1", assets = entries,
+            unconsumed = kind is "unconsumed" or "legacy-unconsumed" });
         File.WriteAllBytes(Path.Combine(destination, "dialogue-registry.bin"), bytes);
         var sha = kind == "hash" ? new string('0', 64) :
             Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
@@ -363,13 +379,14 @@ public sealed class FixtureProvider : IDisposable
             .GetMethod("NteDialogueSources", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
         try {
             var result = (SortedSet<string>)method.Invoke(null, new object[] {
-                this, typeof(FixtureProvider).Assembly, files, destination, sha, kind == "all-text" })!;
+                this, typeof(FixtureProvider).Assembly, files, destination, sha, kind == "all-text",
+                kind is "strict-eof" or "unconsumed" })!;
             var expected = kind == "all-text" ? files : new HashSet<string> { "HT/Content/Dialogue/Owned.uasset" };
-            if (kind is not ("valid" or "all-text") || !result.SetEquals(expected) ||
+            if (kind is not ("valid" or "all-text" or "strict-eof" or "legacy-unconsumed") || !result.SetEquals(expected) ||
                 CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true) throw new InvalidDataException();
         }
         catch (System.Reflection.TargetInvocationException error) when
-            ((kind is "hash" or "duplicate" or "escape" or "missing" or "empty") &&
+            ((kind is "hash" or "duplicate" or "escape" or "missing" or "empty" or "unconsumed") &&
              error.InnerException?.GetType().Name == "UnsupportedGameFormatException")
         {
             if (kind == "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive is not null)
@@ -406,7 +423,7 @@ public sealed class FixtureProvider : IDisposable
         CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive = null;
         try {
             var claims = ((System.Collections.IEnumerable)method.Invoke(null, new object[] {
-                this, typeof(FixtureProvider).Assembly, files, destination, sha })!).Cast<object>().ToArray();
+                this, typeof(FixtureProvider).Assembly, files, destination, sha, false })!).Cast<object>().ToArray();
             string Read(object claim, string name) => (string)claim.GetType().GetProperty(name)!.GetValue(claim)!;
             if (kind != "valid" || claims.Length != 2 ||
                 Read(claims[0], "object_name") != "DifferentExport" || Read(claims[0], "role") != "voice" ||

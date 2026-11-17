@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
-from .game_tools import _atomic_file
+from .atomic_files import write_bytes as _atomic_file
 
 MAX_BYTES = 512 * 1024**2
 MAGIC = b'WUS1'

@@ -50,9 +50,10 @@ def study_language(locale: str) -> str:
 def audio_locale(locale: str, game: str | None = None) -> str:
     # Distinct official voice packs must retain their selected identity even
     # when both use Mandarin. Other readers explicitly share one Chinese pack.
-    from .steam_games import STEAM_GAMES
-    if game in {'riseofthetombraider', 'shadowofthetombraider'} or game in STEAM_GAMES:
-        return locale
+    if game is not None:
+        from .steam_games import STEAM_GAMES
+        if game in {'riseofthetombraider', 'shadowofthetombraider'} or game in STEAM_GAMES:
+            return locale
     return 'zh-Hans' if locale == 'zh-Hant' else locale
 
 

@@ -44,12 +44,12 @@ def source_reference(value, reader, *, dialogue_graphs=None, original_authoring=
             **({'authoring': AUTHORING} if authoring else {})}
 
 
-def seed(cache):
+def seed(cache, *, fetch=None):
     cache = Path(cache)
     path = cache / (metadata.SEED_SHA256 + '.usmap')
     raw = path.read_bytes() if path.is_file() and path.stat().st_size <= metadata.MAX_SEED else b''
     if hashlib.sha256(raw).hexdigest() != metadata.SEED_SHA256:
-        raw = assets.download(assets.TABLE_SCHEMA_URL, limit=metadata.MAX_SEED)
+        raw = (fetch or assets.download)(assets.TABLE_SCHEMA_URL, limit=metadata.MAX_SEED)
     metadata._check(isinstance(raw, bytes) and hashlib.sha256(raw).hexdigest() == metadata.SEED_SHA256)
     metadata._seed(raw)
     if not path.exists() or path.read_bytes() != raw: _atomic_file(path, raw)
@@ -81,12 +81,18 @@ def _profile(path, source, snapshot, cache):
     return value
 
 
-def _registry(catalog):
+def registry_location(catalog):
+    """Return the unique original owner without reading its package body."""
     names = [row[2] for row in catalog.locations.values()
              if row and row[2].endswith('/AssetRegistry.bin') and catalog.location(row[2])]
     metadata._check(len(names) == 1)
     _, archive, path = catalog.location(names[0])
     metadata._check(0 < archive.entry(path).size <= 256*1024**2)
+    return archive, path
+
+
+def _registry(catalog):
+    _, path = registry_location(catalog)
     return catalog.read(path)
 
 
@@ -102,8 +108,15 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None, *, gam
     value = catalog.snapshot
     metadata._check(value['reader'] == (game_data_reader.source_identity if game_data_reader is not None else _reader_identity()))
     runtime_options = {'game_data_reader': game_data_reader} if game_data_reader is not None else {}
+    offline_options = {}
     if game_data_reader is not None:
         metadata._check(game_data_reader.source_identity == value['reader'])
+        metadata._check(catalog.cache == Path(game_data_reader.context.cache_directory)/'tools/nte-publisher')
+        def unavailable(*_a, **_k):
+            from .game_data_protocol import GameDataError
+            raise GameDataError('nte_unplanned_original_dependency',
+                'Additional NTE compatibility data is needed. Check the download size again; your previous library is retained.', 409)
+        offline_options = {'fetch': unavailable, 'save': unavailable}
     original = discovery(value)
     graphs = value['type_schema'].get('generator') == metadata.CLASS_GENERATOR
     authoring = value['type_schema'].get('authoring') == AUTHORING
@@ -115,10 +128,11 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None, *, gam
     if 'original_updater' in value:
         from . import nte_updater_baseline as initial
         baseline_parameters = initial.parameters(catalog.cache/'format')
-        baseline = baseline_source.load(catalog.cache/'native-baseline', parameters=baseline_parameters)
+        baseline = baseline_source.load(catalog.cache/'native-baseline', parameters=baseline_parameters, **offline_options)
     else:
-        baseline = baseline_source.load(catalog.cache/'native-baseline')
-    mapping_seed = seed(catalog.cache/'native-seed')
+        baseline = baseline_source.load(catalog.cache/'native-baseline', **offline_options)
+    mapping_seed = seed(catalog.cache/'native-seed',
+                        **({'fetch': offline_options['fetch']} if offline_options else {}))
     registry = _registry(catalog) if graphs else None
     containers = catalog.containers()
     if graphs:
@@ -148,7 +162,8 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None, *, gam
             if retained.is_file() and item.digest == baseline.identity['native_md5']:
                 path = retained
             else:
-                path = metadata.stage_original(original, name, catalog.cache/'native-originals')
+                path = metadata.stage_original(original, name, catalog.cache/'native-originals',
+                    **({'save': offline_options['save']} if offline_options else {}))
             candidate = metadata.prepare(original, mapping_seed, {name: path}, cache,
                                          dependencies=dependencies, baseline=baseline, native_classes=graphs)
             with tempfile.TemporaryDirectory(prefix='native-tables-', dir=staging.parent) as temporary:

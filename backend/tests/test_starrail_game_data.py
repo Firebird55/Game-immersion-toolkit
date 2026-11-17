@@ -319,7 +319,7 @@ def test_pending_source_is_hash_bound_and_never_crosses_request_or_edition():
         game._staged_build(SimpleNamespace(stage_handle=foreign | {'receipt_sha256': game._identity(foreign)}), request)
 
 
-def audio_fixture(tmp_path, monkeypatch):
+def audio_fixture(tmp_path, monkeypatch, *, shared=False):
     """Actual shared service + HTTPS range/cache parsers after native boundary."""
     from types import SimpleNamespace
     from backend import starrail_hotfix
@@ -331,7 +331,10 @@ def audio_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(game.metadata, 'prepare', lambda *a, **k: object())
     monkeypatch.setattr(game, '_required_text', lambda catalog, request: ('text-snapshot', {}, {}))
     body = package(); digest = hashlib.md5(body).hexdigest()
-    raw = json.dumps({'Path': 'English/External.pck', 'Md5': digest, 'Size': len(body), 'Patch': True}).encode()
+    rows = [{'Path': 'English/External.pck', 'Md5': digest, 'Size': len(body), 'Patch': True}]
+    if shared:
+        rows.append({'Path': 'new_layout/unseen_shared.pck', 'Md5': digest, 'Size': len(body), 'Patch': True})
+    raw = b'\n'.join(json.dumps(row).encode() for row in rows)
     routes = {key: folder + '/V1.2Live/output_123_ab_cd' for key, folder in
               [('design', 'design_data'), ('asb', 'asb'), ('base', 'asb'), ('lua', 'lua')]}
     hotfix = {'routes': routes, 'indexes': {'audio': [123, hashlib.md5(raw).hexdigest(), len(raw)]}}
@@ -349,7 +352,7 @@ def audio_fixture(tmp_path, monkeypatch):
     def open_(req, **kwargs):
         calls.append(req.full_url)
         if req.get_header('Range'):
-            assert req.get_method() == 'GET' and req.full_url.endswith('/AudioBlock/English/External.pck')
+            assert req.get_method() == 'GET' and any(req.full_url.endswith('/AudioBlock/' + row['Path']) for row in rows)
             start, end = map(int, req.get_header('Range')[6:].split('-'))
             return Response(body[start:end+1], status=206, url=req.full_url, headers={
                 'Content-Length': str(end-start+1), 'Content-Range': f'bytes {start}-{end}/{len(body)}', 'ETag': tags['value']})
@@ -360,9 +363,37 @@ def audio_fixture(tmp_path, monkeypatch):
 
 def test_text_audio_inventory_is_explicitly_quoted_and_never_activates_partial_audio(tmp_path, monkeypatch):
     provider, request, calls, _, _ = audio_fixture(tmp_path, monkeypatch)
+    # The inert fixture deliberately has no movie implementation. Complete
+    # archive/index stages cannot turn that fixture into an audio library.
+    monkeypatch.setattr(provider, '_required_movie_audio', lambda *a: True)
+    from backend import starrail_events as events, starrail_assets
+    from backend.tests.test_starrail_game_audio import lookup_bytes
+    raw = lookup_bytes(); encoded = zstandard.ZstdCompressor().compress(raw); digest = hashlib.md5(raw).hexdigest()
+    asset = sophon.File(events.LOOKUP, len(raw), digest,
+        ((0, len(raw), len(encoded), 'lookup-chunk', digest),), 'https://autopatchos.starrails.com/test')
+    original_manifest = sophon.manifest
+    def manifest(directory, channel, spec, suffixes, **kwargs):
+        if suffixes == (events.LOOKUP,):
+            return {events.LOOKUP: asset}
+        return original_manifest(directory, channel, spec, suffixes, **kwargs)
+    monkeypatch.setattr(sophon, 'manifest', manifest)
+    monkeypatch.setattr(starrail_assets, 'authored_links', lambda *a: [])
+    original_transport = provider._transport
+    def transport(ctx):
+        base = original_transport(ctx)
+        original_open = base.open
+        def open_(req, **kwargs):
+            if req.full_url == asset.prefix + '/lookup-chunk':
+                calls.append(req.full_url)
+                return Response(encoded, url=req.full_url)
+            return original_open(req, **kwargs)
+        base.open = open_
+        return base
+    monkeypatch.setattr(provider, '_transport', transport)
     service = GameDataService(tmp_path, {'starrail': provider})
     try:
-        for expected, transfer in [('original-native-inputs', None), ('audio-inventory-prefixes', 28), ('audio-inventory-headers', 40)]:
+        for expected, transfer in [('original-native-inputs', None), ('audio-inventory-prefixes', 28),
+                ('audio-inventory-headers', 40), ('audio-event-lookup', len(encoded))]:
             row = service.plan('starrail', request)['game']
             if transfer is not None:
                 assert row['download_bytes'] == transfer
@@ -398,3 +429,41 @@ def test_lost_audio_index_between_quote_and_download_fails_without_unquoted_requ
         assert len(calls) > before
     finally:
         service.close()
+
+
+def test_normal_factory_quotes_new_shared_headers_without_implicitly_fetching_payload(tmp_path, monkeypatch):
+    provider, request, calls, _, _ = audio_fixture(tmp_path, monkeypatch, shared=True)
+    service = GameDataService(tmp_path, {'starrail': provider})
+    try:
+        for expected in (None, 56, 80):
+            row = service.plan('starrail', request)['game']
+            if expected is not None:
+                assert row['download_bytes'] == expected
+            before = len(calls)
+            service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
+            done = finish(service)
+            assert done['job']['status'] == 'needs_plan' and done['state'] != 'ready'
+            if expected is not None:
+                assert len(calls) == before + 2
+        assert not list(tmp_path.rglob('textmap.json'))
+        assert not list(tmp_path.rglob('80-20'))
+    finally:
+        service.close()
+
+
+def test_missing_closed_audio_runtime_gates_recording_quote_before_transport(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import starrail_game_audio as audio, native_codecs
+    from backend.game_data_protocol import GameDataRequest
+    provider = game.create_provider(platform='windows')
+    owner = audio.Owner('English/VoBanks1.pck', 8000, 'a' * 32,
+        'https://autopatchos.starrails.com/test/VoBanks1.pck', 'b' * 64)
+    quote = audio.Quote('audio-localized-banks', (audio.Span(owner, 100, 1000),))
+    monkeypatch.setattr(provider, '_audio_inventory', lambda *a: (quote, object(), {}, ()))
+    monkeypatch.setattr(native_codecs, 'packaged_codec_executable', lambda tool: None)
+    monkeypatch.setattr(provider, '_transport', lambda *a: pytest.fail('Missing codec cannot trigger audio transfer'))
+    ctx = SimpleNamespace(request=GameDataRequest('global', 'en', (), 'text-audio'))
+    plan = provider._audio_plan(ctx, SimpleNamespace(build={'channel': 'starrail-global', 'version': '4.7.0'}),
+        SimpleNamespace(identity='c' * 64), SimpleNamespace(identity='d' * 64), {}, {})
+    assert plan.stage == 'audio-runtime' and plan.runtime_available is False
+    assert plan.download_bytes is None and not plan.handle

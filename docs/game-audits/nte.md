@@ -296,6 +296,114 @@ offline replay of frozen official sources, not a fresh server/rotation trial.
 The selected package/text/audio stage and independent Android acceptance remain
 unfinished.
 
+The following PAK metadata stage selects the requested study/translation locres,
+the existing Story SRT presentation route and the unique live AssetRegistry
+owner. It uses authenticated index entry layouts to quote stored ranges; planning
+does not read/decode a selected member. Retained compressed blocks are checked
+only to determine the remaining transfer. Other text locales and all voice-bank
+and WEM members are excluded from this stage in both content modes. The eventual
+text-and-audio route still needs its separate authored voice selection.
+
+A frozen-original Global 1.5.4 Japanese/Mandarin-target replay selected **47**
+metadata members. Its **41,074,650-byte** plan completed through 13 checked
+shared-transport responses using existing retained blocks only, with no network
+or bank/WEM/other-locale member reads. The stage receipt binds the plan, selected
+owners, exact ranges, reader and official-pointer checks. A correctly rehashed
+but false selected-member identity fails before transfer, preserves the previous
+stage receipt, and permits a healthy retry. Integrity-block rounding is included
+in the quote; incidental bytes in required container blocks are not claimed to
+be selected dialogue. This metadata stage is not complete UE/table extraction
+or a ready language library.
+
+Its unchanged initial archive description is the immutable
+[UnrealExporter source](https://raw.githubusercontent.com/luk-gg/UnrealExporter/7f3fb1dee733d36338766467b0c54cbd47d58851/UnrealExporter/aes.txt),
+SHA-256 `aba72c557c302444c85c89a0789a4cac04a7a3e7f56b6324330c897db2a00566`.
+This is an explicit fixed initial compatibility dependency, not a newly extracted
+description fetched for each game update. The exact cold-miss state is:
+“The application needs its initial NTE compatibility information before preparing
+these packages.” No latest community lookup is attempted. Keeping this fixed
+description does not establish official archive/localization key rotation;
+changed incompatible keys remain a separate open gate.
+
+The existing owned `publisher-dialogue-inventory` operation has an optional
+strict registry completion contract for local preparation. Its v2 receipt binds
+the invocation nonce, original registry hash and byte length, and an actual
+archive-cursor EOF check. The pinned supplier parsed a retained 200,358,635-byte
+registry into 529,923 asset records but silently accepted one appended byte;
+strict mode rejects that trailing byte. The legacy inventory and full authoring
+contracts retain their previous behavior. This strengthens local metadata
+validation; it does not establish a ready library or complete update/key-rotation
+support.
+
+The context-owned import stage also quotes the complete selected small global
+UCAS member before transfer. Its full manifest MD5 is necessary because global
+alignment padding is outside individual compression-block hashes. The owned
+IoStore reader and broker reject missing TOCs, blocks or global data instead of
+starting an independent publisher download. A retained Global 1.5.4 replay
+planned and accounted **6,962,762 bytes**, including the **6,651,504-byte** original
+global member and official-pointer guards. One checked response supplied that
+member from an existing original cache; no new network acquisition occurred.
+The stage retained the selected-metadata identity and remained unfinished local
+processing, with no ready library. Metadata-only inventory additionally forbids
+ordinary package-body access even when those blocks are cached.
+
+The subsequent local metadata job now has an actual **zero-byte** transfer
+allowance and constructs no publisher transport. A frozen-original Japanese/
+Mandarin-target run decoded the acquired locres, checked namespaces, keys,
+source hashes and complete resource EOF, and obtained the strict v2 registry
+inventory through the verified self-contained reader. The 200,358,635-byte
+original registry passed actual EOF verification. Ordinary UCAS package-body
+reads were forbidden throughout inventory preparation. An immutable receipt
+binds the reader, original registry, selected locale owners and normalized
+text/package outputs; missing, swapped or interrupted receipt publication needs
+processing again and cannot activate a library.
+
+Only that retained receipt, authenticated TOCs and cache state are used for the
+following package quote. The actual retained-source run planned and accounted
+**9,515,370 bytes**, including pointer guards, across 2,374 bounded requests and
+2,445 original blocks (9,204,112 stored bytes). All blocks came from existing
+SHA1-verified original caches; no new network acquisition or bank/WEM member
+read occurred. Larger normal package inventories use successive consented
+stages of at most 64 MiB, while the existing prefetch defaults retain their
+limits. Complete native/schema closure validation and language extraction still
+follow this stage; it remains a preparation result, not a ready snapshot.
+
+Local text processing has the separate immutable initial
+[CUE4Parse locres description](https://raw.githubusercontent.com/FabianFG/CUE4Parse/d45c24674d84c3c2c61ae5315a37a80dac97e04f/CUE4Parse/GameTypes/NTE/Encryption/NevernessToEvernessLocresEncryption.cs),
+SHA-256 `855abc7dbf3b39f5a7cf04ac5c613a3281992afb8cdb4c4f844722f816b7ea34`.
+Its exact cold-miss state is: “The application needs its initial NTE text
+compatibility information before local processing.” This fixed prerequisite
+does not establish a future localization-key derivation or permit implicit
+per-update community refreshes.
+
+The initial archive, localization and seed descriptions now have explicit cold
+download stages: 78,835, 1,544 and 1,252,093 bytes respectively, plus the quoted
+original-source checks. They remain fixed immutable descriptions; healthy
+normal updates do not consult a newer community index or mapping. The seed is
+the retained [1.4 format description](https://raw.githubusercontent.com/555me/NTE-usmap/1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap),
+SHA-256 `7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58`.
+These initial descriptions do not prove future archive/localization-key
+rotation or an unsupported changed constructor/codec.
+
+Context-owned original native processing reuses the already quoted baseline and
+current originals. Its seed, baseline and native resolvers cannot acquire an
+unplanned dependency; the existing owned table operation runs through the
+verified cancellable reader. An actual missing original package import is
+recorded against the reader/software, exact recipe, selected languages/mode and
+authenticated TOC/UCAS identities. It produces a separate bounded block quote
+before acquisition; partial authoring never becomes a completed result.
+
+The ordinary retained-source trial discovered one additional 262,144-byte
+block. Its following download accounted for 573,402 bytes including original
+pointer checks, entirely from existing verified original caches. A changed
+source was rejected before any asset transfer, a corrupted block was rejected
+without publication, and a correct retry returned to local processing. All
+three trials kept the previous source on failure and downloaded no new network
+data or bank/WEM members. Required-closure validation, complete selected-language
+normalization, original audio readiness and final activation checks remain
+separate gates; this stage evidence is not a ready-library or Android-reader
+claim.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary
