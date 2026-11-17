@@ -579,6 +579,35 @@ proving ownership. The actual regional settings producer, exact signature
 dataflow and dynamic-chain deserializer remain open. No request using guessed
 client material, community key, Lua VM or original game execution is made.
 
+## Passive Android relocation metadata
+
+The authenticated native owner's settings-function registration uses packed
+`SHT_ANDROID_RELA` / `APS2` metadata. No maintained toolkit APS2 parser was found;
+the existing other-game helper covers ordinary RELA only. The new neutral
+`publisher_android_relocations.py` validates the complete bounded section and
+returns only specifically selected offsets/addends, never a full pointer map.
+It applies or executes no relocation or original code and proves no CMS setting
+or regional client identity by itself.
+
+Group/additive state follows AOSP's
+[original relocation iterator](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker_reloc_iterators.h).
+An explicitly enabled source dialect also accepts exactly bounded, ten-byte
+zero-extended 64-bit delta words, consistent with AOSP's
+[word-width decoder](https://android.googlesource.com/platform/bionic/+/refs/heads/main/linker/linker_sleb128.h).
+Only offset/addend deltas can use that option; count, flag, info and initial
+offset framing stays strict. Integers wider than the word, malformed LEBs,
+arithmetic overflow/underflow, excess groups/matches and trailing bytes fail.
+
+Thirty-nine authored cases cover every group-flag combination, cross-group
+state, signed/zero-extended equivalence, sparse selection, truncation, malformed
+integers and resource bounds. A source-hash-bound offline replay validates the
+entire original 11,274,727-byte section twice: 1,868,734 records and 66,808 groups
+per pass. Sparse results locate the reflected `GetX6PackageSettings` name in its
+original registration metadata. No native method body or original code is read
+or executed by that format proof. The source is the previously authenticated CN
+module; this does not establish Global settings, settings values or a complete
+fresh native preparation. Further owner-specific semantic work remains separate.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
