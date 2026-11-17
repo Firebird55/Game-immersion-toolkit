@@ -13,7 +13,7 @@ import zipfile
 
 
 BOOTSTRAP = r'''
-import json,sys
+import json,sys,hashlib
 from pathlib import Path
 if sys.version_info[:2] != (3,12) or 'backend' in sys.modules:
     raise RuntimeError('Use an isolated Python 3.12 reference process')
@@ -23,6 +23,9 @@ import backend.android_host
 import backend.android_protected_storage
 from backend.android_probe import run
 result=json.loads(run(sys.argv[2]))
+audio=Path(result['private_audio_path'])
+if not audio.is_file() or hashlib.sha256(audio.read_bytes()).hexdigest()!=result['results']['old_recording_sha256']:
+    raise RuntimeError('The authored native media path is missing or differs from the retained original recording')
 result.pop('private_audio_path',None)
 owned={name:module.__file__ for name,module in sys.modules.items()
        if (name=='backend' or name.startswith('backend.')) and getattr(module,'__file__',None)}

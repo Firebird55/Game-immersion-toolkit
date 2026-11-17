@@ -77,15 +77,15 @@ def run(root):
         'new_generation_text_id': restarted.index._records[0]['text_id']}
     games = {}
     for game in ('zzz', 'genshin', 'starrail', 'endfield', 'wuwa', 'nte'):
-        identity = 'authored:' + game + ':bridge'
+        game_identity = 'authored:' + game + ':bridge'
         official = 'Your journey continues beyond the bridge, {PlayerName}.' if game == 'wuwa' else TEXT
         observed = official.replace('{PlayerName}', 'Pilot')
         imported = PreparedCaptureSession(work / ('game-' + game))
-        imported.import_library(_library(work / ('input-' + game), official, identity, game=game))
+        imported.import_library(_library(work / ('input-' + game), official, game_identity, game=game))
         scope = imported.start()
         waited = imported.observe(scope, 1, [observed], now=1)
         emitted = imported.observe(scope, 2, [observed], now=1.1)
-        if waited or len(emitted) != 1 or emitted[0]['text_id'] != identity or emitted[0]['game'] != game:
+        if waited or len(emitted) != 1 or emitted[0]['text_id'] != game_identity or emitted[0]['game'] != game:
             raise ValueError('The packaged shared core did not capture the authored ' + game + ' fixture')
         displayed = emitted[0]['source_text']
         with closing(sqlite3.connect(imported.history.path.as_uri() + '?mode=ro', uri=True)) as database:
