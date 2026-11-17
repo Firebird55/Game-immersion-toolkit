@@ -491,11 +491,25 @@ fresh range requests do not claim a fresh gateway discovery.
 
 A further cache-only metadata inventory identifies 36 common external-container
 candidates in that same AudioV, outside the current selected-dub/neutral-bank
-selection. None has a complete authenticated cached directory. Their names do
-not establish a voice role, and their possible namespace contents have not been
-inspected. Missing Japanese-dub hashes therefore do not establish that the
-original publisher has no recording in any other container. No common-package
-payload was requested or new binding promoted by this inventory.
+selection. That pass finds no complete authenticated cached directory; names
+alone do not establish a voice role. A separately approved fresh intake then
+receives exactly 1,008 prefix bytes and 19,228 directory bytes. Fresh AudioV
+marker/index checks before and after the phases use 228,340 metadata bytes in
+total and confirm the same official ownership. Original discovery remains
+retained/replayed rather than a newly claimed gateway response. Every complete
+directory passes section lengths, entry bounds, duplicate checks and exact EOF.
+The directories contain 739 external records, two bank entries and 15 sound
+entries; no bank or recording payload is read.
+
+Exact native-authored filename hashes now find all 86 Japanese copyright-archive
+paths uniquely in `External0.pck` and `External1.pck`, 43 each. None of the 1,565
+missing English path hashes is present. This supplies a concrete common-container
+availability route, not an inferred Japanese fallback or a selected copyright
+state. Complete directory SHA256 and actual strong ETag/If-Match receipts bind
+the partial reads; they do not verify the whole PCK MD5. No recording is promoted
+to voiced or decoded by this metadata intake. The producer still needs generic
+common-container inventory and exact source-hash ownership support; the English
+request's language/state choices remain unchanged.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
