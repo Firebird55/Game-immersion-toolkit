@@ -20,7 +20,7 @@ test('returning from the picker keeps its original document alive for asynchrono
   const root = mkdtempSync(join(tmpdir(), 'toolkit-authored-picker-')), commands = [];
   try {
     const xml = '<hierarchy>' + ['Show roots', 'Downloads', 'toolkit-authored.zip'].map(text =>
-      `<node package="com.google.android.documentsui" text="${text}" enabled="true" bounds="[20,40][120,80]" />`).join('') + '</hierarchy>';
+      `<node package="com.google.android.documentsui" resource-id="android:id/title" text="${text}" enabled="true" bounds="[20,40][120,80]" />`).join('') + '</hierarchy>';
     await selectAuthoredAndroidDocument({output: root, extension: 'zip', bytes: Buffer.from('bounded authored ZIP sentinel'),
       page: {evaluate: async () => true}, trigger: async () => {}, until: async read => assert.ok(await read()),
       adb: (...args) => {commands.push(args);return args[0] === 'shell' && args[1] === 'cat' ? xml : '';}});
@@ -31,4 +31,12 @@ test('returning from the picker keeps its original document alive for asynchrono
     assert.equal(resolve(tmpdir()), resolve(root, '..'));assert.ok(basename(exact).startsWith('toolkit-authored-picker-'));
     rmSync(exact, {recursive: true});
   }
+});
+
+test('the current Downloads breadcrumb cannot replace the actual drawer root', () => {
+  const xml = '<hierarchy><node package="com.google.android.documentsui" text="Downloads" ' +
+    'resource-id="com.google.android.documentsui:id/breadcrumb_text" enabled="true" bounds="[100,0][200,50]" />' +
+    '<node text="Downloads" resource-id="android:id/title" enabled="true" bounds="[40,400][180,450]" /></hierarchy>';
+  assert.deepEqual(authoredPickerNode(xml, 'Downloads'), [110, 425]);
+  assert.equal(authoredPickerNode(xml.replace('resource-id="android:id/title"', 'resource-id="other:id/title"'), 'Downloads'), null);
 });
