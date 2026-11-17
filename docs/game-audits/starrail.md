@@ -411,6 +411,40 @@ adopted into the production cache. This uses zero new source/software bytes and
 does not activate a one-row control as a complete current catalog or claim a
 cold factory, full audio snapshot, Android or release acceptance.
 
+A finite original-table owner pass retains all 1,568 localized rows affected by
+the 1,565 unresolved English paths: 1,482 TalkSentence rows and 86 VoiceAtlas
+archive rows. The former join to 51 `Story`, 1,427 `StoryNew`, two `NPC_Normal`
+and two `NPC_Near` VoiceConfig rows. TalkSentence has only its identity, text,
+speaker-name text and VoiceID fields; it supplies neither a per-content audio
+locale nor quest-activation ownership. Missing English hashes and absent actor
+credits therefore do not establish an authored English-audio absence or an
+inactive presentation. All 94,962 source paths and 3,678 event references have
+nonempty current English text; filtering missing localized text removes none
+of these audio gaps.
+
+All 143 unresolved HIRC/Lookup state-choice events join exactly to original
+AvatarCobrand group/on/off hashes and their owning VoiceAtlas AvatarID. The four
+owner populations are 35, 37, 35 and 36 events. This establishes a shared
+copyright-setting mechanism requiring an explicit choice; it does not select
+that setting or authorize a Japanese fallback. The frozen English catalog has
+309,044 localized rows, including 2,970 movie-owned caption rows across 306
+scenes and 500 distinct movie owners. A further 148 caption rows in 22 scenes
+have no movie owner and remain separate, nonblocking configuration inventory.
+These are finite current catalog counts, not a claim that every configured
+quest or branch has independently proved active runtime use.
+
+The normal audio producer now checks external-directory gaps and required movie
+ownership while preparing event metadata. Before standalone recording downloads,
+known required event choices, missing paths or movie-audio support block that
+audio preparation and report their counts. The complete quote and original
+source receipt remain available; incomplete bindings cannot turn a 14 GB
+recording download into a ready library. The downloader rechecks the gate before
+opening an asset even if an older enabled plan is supplied. Necessary metadata
+stages, independently bound recording sources and text-only preparation retain
+their existing behavior. Service regressions preserve an activated text or audio
+source and its original bytes while opening zero assets for the blocked plan;
+the new plan's message is visible with the shared selection/readiness fix.
+
 A separate inventory covers every external VoiceConfig source exposed by the
 current supported English catalog, rather than only character-archive events.
 Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete

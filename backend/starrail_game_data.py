@@ -329,23 +329,28 @@ class StarRailProvider:
                 quote = event.quote
                 receipt['event_unresolved'] = len(event.unresolved)
                 receipt['event_unresolved_sha256'] = audio.identity(event.unresolved)
+                receipt['event_state_choices'] = len(event.choices)
                 receipt['event_choices_sha256'] = audio.identity(event.choices)
                 receipt['event_bindings_sha256'] = audio.identity({name:
                     [[variant, mid, span.json()] for variant, (mid, span) in sorted(options.items(), key=lambda item: item[0] or '')]
                     for name, options in event.bindings.items()})
+                # Directory joins and movie ownership are metadata already
+                # required by text preparation. Discover their blockers before
+                # asking for standalone recording bodies that cannot activate.
+                sources = {link['source'] for link in links if link.get('source')}
+                external_quote, external, unbound = bindings.external_quote(inventory, sources, store, ctx.request.source_locale)
+                receipt['external_sources'] = len(sources)
+                receipt['external_unbound'] = len(unbound)
+                receipt['external_unbound_sha256'] = audio.identity(unbound)
+                receipt['external_bindings_sha256'] = audio.identity({source: span.json() for source, span in external.items()})
+                receipt['movie_audio_required'] = self._required_movie_audio(catalog, ctx.request.source_locale)
                 if not quote.spans:
                     members = {span for options in event.bindings.values() for _, span in options.values()}
                     quote = bindings.recording_quote(event.bindings, store)
                 if not quote.spans:
-                    sources = {link['source'] for link in links if link.get('source')}
-                    quote, external, unbound = bindings.external_quote(inventory, sources, store, ctx.request.source_locale)
+                    quote = external_quote
                     members = tuple(external.values())
-                    receipt['external_sources'] = len(sources)
-                    receipt['external_unbound'] = len(unbound)
-                    receipt['external_unbound_sha256'] = audio.identity(unbound)
-                    receipt['external_bindings_sha256'] = audio.identity({source: span.json() for source, span in external.items()})
                     if not quote.spans and not event.unresolved and not unbound:
-                        receipt['movie_audio_required'] = self._required_movie_audio(catalog, ctx.request.source_locale)
                         if not receipt['movie_audio_required']:
                             quote = audio.Quote('audio-snapshot', ())
             receipt['quote_sha256'] = quote.digest
@@ -375,6 +380,9 @@ class StarRailProvider:
         handle = {'schema': AUDIO_PLAN, 'request': ctx.request.json(), 'build': catalog.build,
             'files': _file_receipts(selected), 'helper': reader.identity, 'native': generation.identity,
             'packages': _package_receipts(packages), 'phase': quote.phase, 'audio': audio}
+        if message := self._media_blocker_message(quote.phase, audio):
+            return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
+                handle, stage='original-audio-bindings', runtime_available=False, message=message)
         if quote.phase == 'audio-snapshot' and self._audio_runtime_available():
             return GameDataPlan(_text_revision(handle), 0, 2 * MAX_TEXT + MAX_HANDLE_BYTES,
                 handle, stage=quote.phase, runtime_available=True,
@@ -388,6 +396,23 @@ class StarRailProvider:
         return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
             handle, stage=quote.phase, runtime_available=True,
             message='Download the next part of the selected official audio pack. Further recording preparation needs a separate estimate; this library will not become ready yet.')
+
+    @staticmethod
+    def _media_blocker_message(phase, receipt):
+        if phase not in {'audio-streamed-members', 'audio-external-members', 'audio-snapshot'}:
+            return None
+        reasons = []
+        if count := receipt.get('event_unresolved'):
+            reasons.append(f'{count:,} event bindings ({receipt.get("event_state_choices", 0):,} recording choices)')
+        if count := receipt.get('external_unbound'):
+            reasons.append(f'{count:,} recording paths')
+        if receipt.get('movie_audio_required'):
+            reasons.append('movie audio')
+        if reasons:
+            return ('Original audio preparation still needs verified support for ' + ', '.join(reasons)
+                + '. Resolve these bindings and choices before downloading recordings. '
+                  'Text-only preparation and your existing text and recordings remain available.')
+        return None
 
     @staticmethod
     def _audio_runtime_available():
@@ -548,6 +573,8 @@ class StarRailProvider:
         if (quote.phase != plan.stage or receipt != handle['audio'] or plan.download_bytes != quote.download_bytes
                 or plan.required_disk_bytes is None or plan.required_disk_bytes < quote.disk_bytes + MAX_HANDLE_BYTES):
             raise GameDataError('starrail_audio_plan_changed', 'The original audio inventory or cache changed. Check its size again.')
+        if message := self._media_blocker_message(quote.phase, receipt):
+            raise GameDataError('starrail_audio_bindings_incomplete', message, 409)
         if plan.stage not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
             raise GameDataError('starrail_audio_runtime_unavailable',
                 'The verified audio reader changed. Repair or re-extract this toolkit build, then check the size again. Your existing library is retained.')
