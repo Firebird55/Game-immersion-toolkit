@@ -3,6 +3,10 @@ plugins { id 'com.android.application'; id 'com.chaquo.python' }
 def repository = rootProject.projectDir.parentFile.parentFile
 def wheelhouse = System.getenv('ANDROID_PYTHON_WHEELHOUSE')
 def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
+def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
+if (!decoderBundle || !new File(decoderBundle, 'assets/native-decoder-manifest.json').isFile()) {
+    throw new GradleException('Build the pinned original-data decoder software closure first.')
+}
 if (!readerFrontend || !new File(readerFrontend, 'desktop-manifest.json').isFile()) {
     throw new GradleException('Build the actual shared desktop reader before constructing Android.')
 }
@@ -22,7 +26,7 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'line_presentation.py', 'android_game_probe.py', 'android_authored_accounts.py', 'android_account_recovery.py',
     'native_frame_admission.py', 'browser_history_migration.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
-    'publisher_transport.py', 'source_recordings.py', 'private_data_paths.py']
+    'publisher_transport.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
 
 android {
     namespace 'io.github.firebird55.gameimmersiontoolkit'
@@ -65,8 +69,8 @@ android {
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-    sourceSets { main { assets.srcDir generatedAssets } }
-    packaging { jniLibs { useLegacyPackaging false } }
+    sourceSets { main { assets.srcDir generatedAssets; jniLibs.srcDir new File(decoderBundle, 'jniLibs') } }
+    packaging { jniLibs { useLegacyPackaging false; keepDebugSymbols += ['**/libtoolkit_x64_decoder.so'] } }
 }
 
 chaquopy {
@@ -90,12 +94,14 @@ tasks.register('prepareToolkitPython', Sync) {
 }
 tasks.register('prepareToolkitReader') {
     inputs.dir(readerFrontend)
+    inputs.dir(new File(decoderBundle, 'assets'))
     portableSources.each { inputs.file(new File(repository, 'backend/' + it)) }
     outputs.dir(generatedAssets)
     doLast {
         def output = generatedAssets.get().asFile
         delete(output)
         output.mkdirs()
+        copy { from new File(decoderBundle, 'assets'); into output }
         // AAPT drops _next directories and expands .gz assets. One opaque
         // archive preserves the exact maintained desktop reader inventory.
         new java.util.zip.ZipOutputStream(new FileOutputStream(new File(output, 'reader.bundle'))).withCloseable { zip ->

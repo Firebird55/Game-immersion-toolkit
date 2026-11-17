@@ -58,6 +58,29 @@ def verify(path):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
+        decoder = json.loads(archive.read('assets/native-decoder-manifest.json'))
+        decoder_policy = json.loads((repository / 'packaging/android/native-decoders.json').read_text())
+        if (decoder.get('schema') != 'toolkit-android-native-decoders-v1'
+                or decoder.get('source_sha256') != decoder_policy['capstone']['sha256']
+                or decoder.get('original_client_execution') is not False
+                or decoder.get('recipe', {}).get('policy_sha256') != hashlib.sha256((repository / 'packaging/android/native-decoders.json').read_bytes()).hexdigest()
+                or decoder.get('recipe', {}).get('transport_sha256') != hashlib.sha256((repository / 'packaging/android/app/src/main/cpp/x64_decoder.c').read_bytes()).hexdigest()
+                or set(decoder.get('libraries', {})) != set(decoder_policy['abis'])):
+            raise ValueError('The APK data decoder does not match its pinned owned software recipe')
+        for abi, receipt in decoder['libraries'].items():
+            name = 'lib/' + abi + '/' + decoder_policy['library']
+            entry = archive.getinfo(name)
+            if (receipt['entry'] != name or entry.file_size != receipt['bytes'] or entry.compress_type != zipfile.ZIP_STORED
+                    or result[name]['sha256'] != receipt['sha256']):
+                raise ValueError('Packaged decoder bytes differ from their compiled receipt')
+        expected_licenses = {'native-decoder-licenses/' + str(index) + '-' + Path(name).name
+            for index, name in enumerate(decoder_policy['capstone']['licenses'])}
+        if set(decoder.get('licenses', {})) != expected_licenses:
+            raise ValueError('The complete decoder notices are required')
+        for name, receipt in decoder['licenses'].items():
+            raw = archive.read('assets/' + name)
+            if len(raw) != receipt['bytes'] or hashlib.sha256(raw).hexdigest() != receipt['sha256']:
+                raise ValueError('An original decoder notice is absent or changed')
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():
@@ -85,6 +108,7 @@ def verify(path):
     return {'schema': 'toolkit-android-apk-audit-v1', 'apk_sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest(),
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
+        'native_data_decoder': decoder,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}
 
 

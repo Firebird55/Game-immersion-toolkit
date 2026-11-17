@@ -1,0 +1,22 @@
+{
+  "schema": "toolkit-android-data-decoders-v1",
+  "capstone": {
+    "version": "5.0.7",
+    "source": "https://files.pythonhosted.org/packages/dd/9c/28b11f64e2425774efb21c206a6e952cfce6e3e2ef3e4b63cdae32ccd8a5/capstone-5.0.7.tar.gz",
+    "bytes": 2945245,
+    "sha256": "796bdd69b05fa124fc2aa2e74b9a0b3d4c4e7f3e02add5e583cf2f3bca282ede",
+    "root": "capstone-5.0.7/src",
+    "licenses": ["capstone-5.0.7/LICENSE.TXT", "capstone-5.0.7/src/LICENSE.TXT", "capstone-5.0.7/src/LICENSE_LLVM.TXT"],
+    "sources": ["cs.c", "Mapping.c", "MCInst.c", "MCInstrDesc.c", "MCRegisterInfo.c", "SStream.c", "utils.c", "arch/X86/X86Disassembler.c", "arch/X86/X86DisassemblerDecoder.c", "arch/X86/X86IntelInstPrinter.c", "arch/X86/X86InstPrinterCommon.c", "arch/X86/X86Mapping.c", "arch/X86/X86Module.c", "arch/X86/X86ATTInstPrinter.c"],
+    "definitions": ["CAPSTONE_HAS_X86", "CAPSTONE_X86_SUPPORT", "CAPSTONE_USE_SYS_DYN_MEM", "CAPSTONE_SHARED"],
+    "instruction_architecture": "x86-64",
+    "original_client_execution": false
+  },
+  "ndk": "27.3.13750724",
+  "api": 24,
+  "abis": {"arm64-v8a": "aarch64-linux-android", "x86_64": "x86_64-linux-android"},
+  "library": "libtoolkit_x64_decoder.so",
+  "load_alignment": 16384,
+  "maximum_input_bytes": 65536,
+  "maximum_output_bytes": 33554432
+}

@@ -36,10 +36,17 @@ public final class FrameOcr {
     private final HashMap<String, TextRecognizer> models = new HashMap<>();
     private final AccountProtection protectedAccounts;
     private final Context context;
+    private NativeX64Decoder dataDecoder;
     public FrameOcr(Context context) { this.context = context.getApplicationContext();protectedAccounts = new AccountProtection(this.context); }
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
     public void assertAuthoredAccounts() { if (!BuildConfig.DEBUG) throw new IllegalStateException(); }
+    private synchronized NativeX64Decoder dataDecoder() {
+        if (dataDecoder == null) dataDecoder = new NativeX64Decoder(context);
+        return dataDecoder;
+    }
+    public String x64DecoderProof() throws Exception { return dataDecoder().proof(); }
+    public String disassembleX64(byte[] data, long address, int count) throws Exception { return dataDecoder().disassemble(data, address, count); }
     private BitmapFactory.Options dimensions(byte[] bytes) {
         if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) throw new IllegalArgumentException();
         BitmapFactory.Options bounds = new BitmapFactory.Options();bounds.inJustDecodeBounds = true;

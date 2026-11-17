@@ -97,6 +97,18 @@ class AndroidHost:
         self.receiver_owner = None
         self.document_epoch = secrets.token_hex(16)
         self.document_started = False
+        self.data_decoder = None
+        if native is not None and hasattr(native, 'x64DecoderProof'):
+            try:
+                from .android_x64_decoder import PackagedX64Decoder
+                from .genshin_native_x64 import install_android_decoder
+                candidate = PackagedX64Decoder.from_native(native)
+                install_android_decoder(candidate)
+                self.data_decoder = candidate
+            except Exception:
+                # A decoder failure disables that dependency, not saved reading
+                # or OCR. Never substitute Windows/system/downloaded libraries.
+                pass
         self.game_restore_lock = threading.RLock()
         self.game_restored = weakref.WeakKeyDictionary()
         providers = (create_game_data_providers(platform='android', native=native)
@@ -299,6 +311,7 @@ class AndroidHost:
             'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
             'account_recovery': recovery,
             'ocr': 'bundled-mlkit' if self.native else 'not-attached',
+            'native_source_dependencies': {'x64_data_decoder': self.data_decoder.proof() if self.data_decoder else None},
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
             'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS,
             'document_epoch': self.document_epoch, 'receiver_control': True, 'receiver_protocol': 'leased-frames-v1'}

@@ -11,6 +11,7 @@ import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './androi
 import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} from './android-browser-migration-ui.mjs';
 import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
 import {verifyAuthoredReaderInsets} from './android-authored-reader-insets.mjs';
+import {assertNativeDataDecoder} from './android-native-decoder-proof.mjs';
 import {waitForAuthoredAdbRoot} from './android-authored-adb.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
@@ -104,6 +105,7 @@ function assertProtectedStorage(report) {
   assert.equal(typeof report.previous_saved_blob_reopened, 'boolean');
 }
 assertProtectedStorage(core.native_protected_storage);
+assertNativeDataDecoder(core.native_x64_decoder, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_data_decoder, provenance.native_decoder_manifest_sha256);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -255,6 +257,7 @@ adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitSelfTest', 't
 const upgradedCore = await authoredCore(update.version_code, core.self_test_run_id);
 ({browser, page} = await connectReader());
 assertProtectedStorage(upgradedCore.native_protected_storage);
+assertNativeDataDecoder(upgradedCore.native_x64_decoder, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_data_decoder, update.native_decoder_manifest_sha256);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);
@@ -290,7 +293,7 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   application_id: packageName, version_code: provenance.version_code, variant: provenance.variant,
   android_api_level: deviceApi, native_page_size: pageSize, target_sdk: buildPolicy.target_sdk,
   updated_apk_sha256: update.apk_sha256, updated_version_code: update.version_code,
-  shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
+  shared_core_identical: true, native_media_completed: true, native_x64_data_decoder: core.native_x64_decoder, bundled_ocr_to_transcript: true,
   synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,

@@ -60,6 +60,10 @@ public final class MainActivity extends Activity {
                         .callAttr("run", new File(getCacheDir(), "core-probe").getCanonicalPath(), ocr).toString();
                     org.json.JSONObject report = new org.json.JSONObject(proof);
                     report.put("self_test_run_id", selfTestRun);
+                    selfTestDiagnostic("native-data-decoder", "running", null);
+                    report.put("native_x64_decoder", new org.json.JSONObject(Python.getInstance().getModule("backend.android_x64_decoder")
+                        .callAttr("authored_probe", ocr).toString()));
+                    selfTestDiagnostic("native-data-decoder", "passed", null);
                     selfTestDiagnostic("core", "passed", null);
                     selfTestDiagnostic("native-media", "running", null);
                     android.media.MediaPlayer player = new android.media.MediaPlayer();

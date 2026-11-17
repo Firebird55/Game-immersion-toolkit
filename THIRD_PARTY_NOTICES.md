@@ -212,3 +212,10 @@ freely, subject to the following restrictions:
 
 3. This notice may not be removed or altered from any source
    distribution.
+
+# Android Capstone data decoder
+
+The Android candidate includes Capstone 5.0.7, built from its authenticated
+original source archive. Its original package, core and LLVM notices are
+included unchanged in the APK's `assets/native-decoder-licenses/` directory.
+See [the software recipe and runtime boundary](docs/android-data-decoder.md).

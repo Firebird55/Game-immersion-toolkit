@@ -9,6 +9,7 @@ on:
       - 'backend/android*.py'
       - 'backend/capture_confirmation.py'
       - 'backend/native_frame_admission.py'
+      - 'backend/genshin_native_x64.py'
       - 'backend/multilingual_index.py'
       - 'backend/local_game.py'
       - 'backend/language_contracts.py'
@@ -102,7 +103,7 @@ jobs:
           $build = Join-Path $pwd 'output/android-build'
           $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
           foreach ($code in @(1, 2)) {
-            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -VersionCode $code -DownloadGradle
+            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -NdkArchive (Join-Path $pwd 'output/android-dependencies/android-ndk-r27d-windows.zip') -VersionCode $code -DownloadGradle -DownloadDecoderSource
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
             New-Item -ItemType Directory -Path $target -Force | Out-Null

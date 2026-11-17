@@ -5,10 +5,14 @@ param(
     [Parameter(Mandatory=$true)][string]$BuildRoot,
     [Parameter(Mandatory=$true)][string]$Python,
     [Parameter(Mandatory=$true)][string]$JavaHome,
+    [Parameter(Mandatory=$true)][string]$NdkArchive,
+    [string]$DecoderSourceArchive,
+    [string]$GradleUserHome,
     [ValidateSet('debug','ownerCandidate')][string]$Variant='debug',
     [string]$SigningIdentityRoot,
     [int]$VersionCode=0,
-    [switch]$DownloadGradle
+    [switch]$DownloadGradle,
+    [switch]$DownloadDecoderSource
 )
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path -Parent $PSScriptRoot
@@ -22,7 +26,7 @@ if($VersionCode -lt 1 -or $VersionCode -gt 2100000000){throw 'Invalid Android ve
 $SdkRoot=Resolve-AndroidSupplierPath $SdkRoot 'Android SDK' @("platforms/android-$($policy.compile_sdk)/android.jar","build-tools/$($policy.build_tools)/aapt2.exe","build-tools/$($policy.build_tools)/zipalign.exe")
 $Python=Resolve-AndroidSupplierPath $Python 'Build Python' @('')
 $JavaHome=Resolve-AndroidSupplierPath $JavaHome 'Build Java' @('bin/java.exe','bin/keytool.exe')
-foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome)) {Assert-AndroidNoLinks $item}
+foreach($item in @($SdkRoot,$Wheelhouse,$Frontend,$BuildRoot,$Python,$JavaHome,$NdkArchive)) {Assert-AndroidNoLinks $item}
 $BuildRoot=[IO.Path]::GetFullPath($BuildRoot)
 New-Item -ItemType Directory -Path $BuildRoot -Force | Out-Null
 foreach($name in @('temp','gradle-user','android-user','avd')) {New-Item -ItemType Directory -Path (Join-Path $BuildRoot $name) -Force | Out-Null}
@@ -33,11 +37,21 @@ $env:ANDROID_HOME=$SdkRoot;$env:ANDROID_SDK_ROOT=$SdkRoot
 $env:ANDROID_USER_HOME=Join-Path $BuildRoot 'android-user'
 $env:ANDROID_EMULATOR_HOME=$env:ANDROID_USER_HOME
 $env:ANDROID_AVD_HOME=Join-Path $BuildRoot 'avd'
-$env:GRADLE_USER_HOME=Join-Path $BuildRoot 'gradle-user'
+$env:GRADLE_USER_HOME=if($GradleUserHome){[IO.Path]::GetFullPath($GradleUserHome)}else{Join-Path $BuildRoot 'gradle-user'}
+Assert-AndroidNoLinks $env:GRADLE_USER_HOME
 $env:ANDROID_PYTHON_WHEELHOUSE=$Wheelhouse
 $env:ANDROID_FRONTEND_DIR=$Frontend
 $env:TOOLKIT_BUILD_PYTHON=$Python
 $env:ANDROID_DEBUG_KEYSTORE=Join-Path $BuildRoot 'debug.keystore'
+$decoderRoot=Join-Path $BuildRoot 'data-decoders'
+if(-not $DecoderSourceArchive){$DecoderSourceArchive=Join-Path $decoderRoot 'capstone-5.0.7.tar.gz'}
+Assert-AndroidNoLinks $DecoderSourceArchive
+$decoderArgs=@((Join-Path $PSScriptRoot 'build-android-data-decoders.py'),'--work-dir',$decoderRoot,
+    '--source-archive',$DecoderSourceArchive,'--ndk-root',(Join-Path $SdkRoot 'ndk/27.3.13750724'),'--ndk-archive',$NdkArchive)
+if($DownloadDecoderSource){$decoderArgs+='--download'}
+& $Python @decoderArgs
+if($LASTEXITCODE -ne 0){throw 'The authenticated original-data decoder software build failed.'}
+$env:ANDROID_DATA_DECODERS=$decoderRoot
 $receipt=Get-Content -LiteralPath (Join-Path $Wheelhouse 'python-wheels-receipt.json') -Raw | ConvertFrom-Json
 $policyHash=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/python-dependencies.json') -Algorithm SHA256).Hash.ToLowerInvariant()
 if($receipt.policy_sha256 -ne $policyHash -or $receipt.schema -ne 'toolkit-android-python-wheels-v1') {throw 'Android wheels do not match the source build policy.'}
@@ -128,7 +142,7 @@ if($LASTEXITCODE -ne 0){throw 'The actual APK-owned Python package failed deskto
 if((& git -C $sourceRoot rev-parse HEAD).Trim() -ne $head){throw 'The source commit changed during the build.'}
 $destination=Join-Path $BuildRoot "GameImmersionToolkit-android-$Variant.apk"
 Copy-Item -LiteralPath $apk -Destination $destination -Force
-$proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
+$proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;native_decoder_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $decoderRoot 'assets/native-decoder-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'
 } finally {
