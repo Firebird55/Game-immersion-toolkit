@@ -27,8 +27,9 @@ The ordinary release fingerprint and prepared descriptor use the same original
 regional discovery and include the selected immutable movie-description revision
 and stale-service state. Synthetic checks cover Global/CN route agreement,
 absent local dubs in all four voiced languages, old-folder isolation, historical
-playback, offline descriptor availability and failure preservation. These are
-component checks, not a new live old/current or platform acceptance claim.
+playback, offline descriptor availability and failure preservation. The actual
+retained-generation worker/update trial below is separate from live discovery,
+cold bootstrap and Android acceptance.
 
 The dated checkpoints below retain their original experimental scope. Their
 statements that the normal provider is unchanged describe earlier revisions.
@@ -62,8 +63,10 @@ header, validating the immutable PCK entry and RIFF-declared complete length.
 Truncated or differently sized headers cannot authorize a clock. Fifty-two
 fully available original takes across the retained 4.6/4.7 controls produce the
 same clock from that prefix and their complete WEM spans. Prefix transport is
-still planned by complete authenticated Sophon chunks: four remaining headers
-need two chunks totaling 2,353,000 compressed bytes, not merely 344 bytes.
+planned by complete authenticated Sophon chunks: four remaining headers required
+two chunks totaling 2,353,000 compressed bytes, not merely 344 bytes. Both chunks
+were acquired within that bound and verified against the publisher's complete
+chunk size/MD5 before the old worker succeeded. This does not verify a whole PCK.
 Text-only preparation must skip all take/audio discovery; the independent
 content-mode adapter is not yet implemented by this checkpoint.
 
@@ -88,9 +91,50 @@ nor cold metadata generation. The usable compressed snapshot is 34,897,231 bytes
 its uncompressed SHA256 is
 `e4fb715a79afbb95e2c921184205270e403c2f388de8b1951d1a0a829f0112b5`.
 Observed retained output peaks at 275,529,086 bytes, then falls to 34,917,282 bytes.
-The old-generation worker is not yet accepted: the cache-only trial correctly
-stops at its absent original Main text package without downloading or replacing
-a previous complete snapshot.
+The missing old Main/CHS packages were subsequently acquired from that exact
+4.6 DesignV generation and whole-file size/MD5 verified. On source `26fd4f28`,
+the ordinary English/Chinese worker then completed 301,598 old records with 70
+owned native disassembly calls. Its 34,248,009-byte compressed snapshot has
+uncompressed SHA256
+`08569a5d12b460a55a211e43e3c3c7538fb7d38428148cfa6704dfbd8f8d4f2e`.
+
+That real old snapshot was activated as an ordinary `textmap.json`. An injected
+original-discovery outage stopped the new ordinary worker before publication,
+preserving the old snapshot's exact hash. The production original-voice service
+decoded a retained English event recording before and after the failure, then
+again from a newly opened historical service after the successful update; all
+three exports produced identical decoded PCM. The healthy retry atomically
+activated the current 307,464-record snapshot and reproduced the earlier current
+snapshot hash. It adds 5,866 record IDs, including 2,167 voiced IDs, and changes
+45 existing English strings and 13 existing Simplified Chinese strings. No
+existing unknown/unavailable record was promoted merely to satisfy the trial.
+
+The retry made 142 actual owned disassembly calls; the largest temporary native
+JSON was 106,513 bytes. Both usable raw generations, their archives and the
+approved original-input stages remained retained, with an observed conservative
+peak of 840,679,808 bytes under the 900,000,000-byte trial bound. The worker,
+failure and fresh offline historical playback phases made no network requests.
+The original current/old launcher and discovery responses were explicitly
+replayed, and the metadata helper/outputs were independently authenticated
+retained controls. Required native table/config/route descriptions were still
+derived through their production APIs. This is genuine changed-content,
+activation/retry and historical-playback evidence; it is not fresh live/cold
+bootstrap, a new SDK delivery proof, independent Android execution or automatic
+recovery after a changed metadata codec.
+
+One added current female-protagonist English row was then tested through the
+same production voice service. Its exact `VoiceConfig` external-WEM binding
+selected 33,308 bytes from the current publisher PCK. HTTPS status, immutable
+MD5 ETag, complete parent size, Content-Range, PCK entry, source language,
+protagonist and RIFF length were checked before decoding. It produced 141,600
+PCM bytes with SHA256
+`f56ed440c47df17035a16c73492e9e126d49efdde400d0f29dd9e09a6e894abf`.
+A separate offline process reopened the current snapshot and reproduced that
+PCM and MP3 exactly. This small acquisition verifies an original owned range,
+not a whole-PCK MD5 or an independently published per-WEM digest. It is an
+external voice take, separate from the old event-bank recording above. The
+range plus its ownership receipt occupies 33,571 bytes; no other take or full
+PCK was acquired for this check.
 
 ## Independent Android preparation boundary · November 17, 2026
 
