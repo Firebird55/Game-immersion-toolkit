@@ -143,3 +143,23 @@ def test_unapproved_urls_redirects_and_destination_cannot_escape_cache(context):
         _PublisherRedirect({'publisher.example'}).redirect_request(Request(URL), None, 302, '', {}, 'https://other.example/file')
     with pytest.raises(GameDataError): client.download_to(URL, '../outside.bin', limit=100)
     assert calls == [] and not (context.cache_directory.parent / 'outside.bin').exists()
+
+
+def test_small_initial_metadata_header_learns_and_then_pins_original_owner(context):
+    calls = []
+    def response():
+        return Response(status=206, headers={'Content-Length': str(len(DATA)),
+            'Content-Range': f'bytes 0-{len(DATA)-1}/1000'})
+    client = transport(context, response, calls)
+    body, receipt = client.fetch_bytes(URL, limit=len(DATA), original_range=(0, len(DATA), None))
+    assert body == DATA and receipt.original_range == (0, len(DATA), 1000)
+    with pytest.raises(GameDataError) as error:
+        client.fetch_bytes(URL, limit=len(DATA), original_range=(0, len(DATA), 999))
+    assert error.value.code == 'publisher_range_changed'
+    assert context.consumed == len(DATA)
+    before = len(calls)
+    for kind, original in [('audio', (0, len(DATA), None)), ('asset', (0, len(DATA), None)),
+                           ('metadata', (1, len(DATA), None)), ('metadata', (0, 65537, None))]:
+        with pytest.raises(ValueError):
+            client.fetch_bytes(URL, limit=100000, kind=kind, original_range=original)
+    assert len(calls) == before
