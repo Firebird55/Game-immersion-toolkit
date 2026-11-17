@@ -38,6 +38,15 @@ hashes stayed fixed throughout; no game installation or updated community data
 was used. This closes this Global Japanese update/recovery trial, while complete
 current subtitle coverage and equivalent trials for other regions/dubs remain open.
 
+The interrupted-transfer trial also exposed an incorrect generic reader warning.
+Premature remote EOF, an incomplete HTTP read, a connection reset or a read
+timeout now produces `metadata_download_interrupted` with connection/retry
+instructions. It does not advise updating the toolkit or verifying an installed
+game. Local-cache truncation, invalid hashes, oversized/non-byte payloads and
+source/schema/ownership failures retain their separate validation behavior.
+Staged downloads still cannot replace a complete cache before full verification;
+the preparation controller retains the previous snapshot and automatic retry.
+
 ## November 17, 2026 · Original initialization routing resolves C270 bus Stops
 
 Reader revision 21 follows the original `AudioAssembly.dll` bootstrap: its
