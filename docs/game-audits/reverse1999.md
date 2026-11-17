@@ -450,6 +450,63 @@ metadata. Its necessary GameConfig consumer/bootstrap module has not yet been
 established or read, so the key/base/hotfix gap remains open. No community-key
 fallback or production readiness is enabled by this checkpoint.
 
+### Original Japanese/Korean launcher configuration
+
+The next explicitly approved JP-installer read checks its 32-byte NSIS
+firstheader at file offset 184,832. The declared compressed header is 56,511
+bytes at 184,864 and expands to exactly 1,023,200 bytes with strict LZMA EOF and
+no trailing compressed bytes. The original instruction/string tables identify
+these configuration owners; branches are not executed:
+
+| Authored owner path | Compressed block, including size prefix | Expanded bytes |
+| --- | ---: | ---: |
+| `runtimes/web/assets/ja/launchermanifest-jp.ini` | 1,066 | 2,143 |
+| `runtimes/web/assets/ko/launchermanifest-kr.ini` | 920 | 1,874 |
+
+Only those two separately approved config blocks are read and parsed as inert
+data. Their declared lengths and strict LZMA framing/EOF agree; no per-file NSIS
+CRC exists and the full installer hash remains unverified. The entries name no
+standalone GameAssembly, global-metadata, Assembly-CSharp, GameConfig or
+libil2cpp payload. This does not rule out embedded code or establish an active
+game-config consumer.
+
+The actual configuration supplies the following production identities without
+guessing regional game/channel IDs:
+
+| Profile | Game / channel / subchannel | Language | Original production website |
+| --- | --- | --- | --- |
+| Japanese | `70001 / 300 / 6002` | `ja` | `https://re1999.bluepoch.com/jp/home` |
+| Korean | `90001 / 202 / 6004` | `kr` | `https://reverse1999.haoplay.com/` |
+
+Both name `https://hotupdate-hw.sl916.com` as their production updater. Their
+SDK hosts are respectively `https://gamesdk-jp.sl916.com` and
+`https://gamesdk-kr.haoplay.com`; no account/SDK operation is called. Applying
+the already evidenced ordinary updater metadata contract to those original
+parameters gives independently owned client inventories:
+
+| Profile | Reported base version / resource revision | Archives | Complete-client compressed / expanded bytes |
+| --- | --- | ---: | --- |
+| Japanese | `3.9.0 / 111.0.1067` | 20 | 29,112,314,082 / 33,175,073,230 |
+| Korean | `3.6.5 / 111.0.907` | 10 | 25,200,090,518 / 28,785,835,609 |
+
+The original URLs' game IDs, version/revision identities, part uniqueness and
+archive size sums agree with their respective publisher responses. No archive
+or game payload is downloaded and whole-archive MD5s are not verified. These
+are complete-client inventories, not text/audio selection estimates.
+
+The Korean website reached through its actual config is live and advertises
+version 3.9, an original `dl.haoplay.com/kr/Reverse1999_v3.9.0.5.exe` installer
+and Google Play package `kr.haoplay.game.and.reverse`. Its reported base 3.6.5
+and website/launcher 3.9 are kept separate: their base/hotfix relationship and
+current content revision remain unresolved, rather than being automatically
+classified as stale or corrupt. No guessed target version is sent.
+
+After this config and ordinary-metadata checkpoint, the conservative shared
+regional/distributor ledger is 37 requests and 715,859 response bytes. The two
+configs and installer index establish original regional bootstrap paths, not a
+decryption key or game text/voice bindings. No fallback, prepared snapshot or
+Ready state is enabled.
+
 ### Publisher-linked game APK descriptor and transfer stopping point
 
 The existing mainland publisher response also explicitly links to
