@@ -1,5 +1,50 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Per-game PC text preparation from official sources
+
+The per-game provider now continues beyond bootstrap on a PC with the verified
+compiler-free reader. Five consented stages select original scene metadata,
+presentation configuration, movie owners, comic roots and final text inputs.
+Each stage quotes complete publisher containers and only subtracts locally
+hash-verified bytes. Small typed ranges do not reduce a required whole-container
+checksum to a fictitious range-download amount. Large metadata indexes have
+their own download stage; a launcher manifest exceeding the planning allowance
+also has an explicit stage rather than requiring a toolkit update.
+
+The actual Global Japanese factory/service/transport run completed all five
+stages, rechecked the live publisher pointer and published a ready text library.
+It used **37 actual official HTTPS requests / 837,481 response bytes**, including
+the publisher's rejected protocol-version controls, and **zero new client,
+BLK, PCK or community bytes**. Previously retained original chunks and containers
+were reused only after their current publisher size/checksum checks. This is
+an actual live metadata/source run with a warm original-data cache, not a cold
+whole-source network test. All **289,967** prior record identities and exact
+text/translation maps were retained; that inventory is not a complete-story claim.
+
+The maintained reader artifact was prepared explicitly during development from
+existing pinned toolkit/software inputs. Its immutable Node/resource inventory
+passes `production_zzz_reader` and nine native Windows reader checks. Production
+preparation uses that verified command without installing tools, compiling,
+finding system Node or executing original client code. No new software download
+was needed. This proves the private Windows resource closure; it does not prove
+Android ABI support or a newly delivered installer.
+
+A fresh local service restored the complete real library offline, and three
+exact original conversation controls matched with audio lookup forbidden.
+After the shared request-identity fix, an explicit retained-response replay of
+the text-and-audio plan reports `update_available` and the unavailable audio
+materialization stage. It keeps the installed text selection and its pointer;
+it cannot activate an unprepared audio selection. That replay adds no new live
+freshness claim. Controlled stage tests also preserve a previous ready generation
+across manifest/bootstrap preparation and failures.
+
+**Complete selected-dub materialization and Android independent preparation
+remain open.** The new PC route produces ready **text only**; text-and-audio is
+an honest unavailable gate, without hidden audio acquisition. Mainland full
+content-stage acceptance, other source-language runs, actual historical RSA
+rotation and a changed-generation update/recovery trial through this new service
+remain separate from the earlier reader/worker evidence below.
+
 ## November 17, 2026 · Portable official bootstrap preparation stage
 
 The maintained `zzz_game_data` factory now connects official discovery and
@@ -9,7 +54,7 @@ complete original transport containers before the separate source download.
 The selected request and mode are distinct from the original generation hash.
 No audio pack is acquired at this stage, including in a text request.
 
-This is deliberately a bootstrap **stage**, not a ready dialogue library.
+This earlier checkpoint is deliberately a bootstrap **stage**, not a ready dialogue library.
 Successful source verification returns `PreparationStage`; the next plan
 reports the missing portable catalogue reader with unknown content sizes and
 download disabled. Synthetic changed-key/source controls and actual shared

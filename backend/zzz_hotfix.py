@@ -122,7 +122,7 @@ def _gateway_reply(envelope, candidates):
     return results[0] if results else None
 
 
-def _negotiate(values, build):
+def _negotiate(values, build, *, request=None):
     """Discover accepted numeric protocol identities from official responses.
 
     Native source establishes the field names and RSA key data. These accepted
@@ -133,6 +133,7 @@ def _negotiate(values, build):
     endpoints = [_endpoint(value, channel=build['channel']) for value in values['endpoints']]
     check(0 < len(endpoints) <= 8)
     consumed, attempts, known_version = 0, 0, None
+    source_request = _request if request is None else request
 
     def request(endpoint, fields, maximum):
         nonlocal consumed, attempts
@@ -141,7 +142,7 @@ def _negotiate(values, build):
         check(attempts <= MAX_NEGOTIATION_REQUESTS and remaining > 1)
         template = '?' + '&'.join(name + '=' + value for name, value in fields.items())
         query, headers = _query(template)
-        raw = _request(endpoint + query, headers, min(maximum, remaining - 1))
+        raw = source_request(endpoint + query, headers, min(maximum, remaining - 1))
         check(isinstance(raw, bytes) and len(raw) < remaining)
         consumed += len(raw)
         from .hoyo_dispatch_metadata import _json
@@ -249,6 +250,15 @@ def discover(build, *, bootstrap_cache=None):
     prefix = edition['prefix']
     check(values['GameDispatchChannelName'] == prefix)
     reply, bootstrap_provenance = _negotiate(values | {'gateway_keys': keys}, build)
+    result = configuration(build, reply, bootstrap_provenance)
+    raw = _index_bytes(result, 'base')
+    base = raw.decode('ascii')
+    check(re.fullmatch('[1-9][0-9]*_[0-9a-f]{6,64}', base))
+    return result | {'hotfix': result['hotfix'] | {'base_revision': base}}
+
+
+def configuration(build, reply, bootstrap_provenance):
+    """Keep only the original advertised content roots and checksum specs."""
     # Discard unrelated gateway/account configuration, including client secrets.
     config = reply['cdn_conf_ext']
     roots, indexes, revisions = {}, {}, {}
@@ -272,10 +282,7 @@ def discover(build, *, bootstrap_cache=None):
     hotfix = {'roots': roots, 'indexes': indexes, 'revisions': revisions,
               'audio_revision': str(config['game_res']['audio_revision'])}
     hotfix['bootstrap_provenance'] = bootstrap_provenance
-    raw = _index_bytes(build | {'hotfix': hotfix}, 'base')
-    base = raw.decode('ascii')
-    check(re.fullmatch('[1-9][0-9]*_[0-9a-f]{6,64}', base))
-    return build | {'hotfix': hotfix | {'base_revision': base}}
+    return build | {'hotfix': hotfix}
 
 
 def _index_bytes(build, name):
@@ -303,7 +310,12 @@ def index(directory, build, name):
 
 
 def rows(directory, build, name):
-    result = json.loads(index(directory, build, name))
+    return inventory_rows(index(directory, build, name))
+
+
+def inventory_rows(raw):
+    """Validate an original index body independently of its transport owner."""
+    result = json.loads(raw)
     check(isinstance(result, dict) and result.get('remoteParentDir') == '')
     entries = result['files']
     check(isinstance(entries, list) and 0 < len(entries) <= 100_000)

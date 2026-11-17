@@ -12,6 +12,24 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The later PC provider now continues through five explicit source stages to a
+ready **text-only** library when its verified compiler-free Node reader is
+available. A current Global Japanese run retained 289,967 original records and
+their exact text/translation maps, using 37 actual official requests / 837,481
+new metadata bytes and no new client/container/audio bytes. Original source
+caches were fully publisher-verified; a fresh service restored the real result
+offline. This warm-source Windows proof is not Android execution or a cold
+whole-source download. Text-and-audio still has an honest materialization gate.
+
+`zzz_pc_sources` binds official dispatch and updater transport to the consent
+context, charges whole SDK chunks/updater containers and prohibits network on
+range reads. `zzz_pc_stages` derives successive selections with the closed
+reader, saves source-bound operation receipts, rechecks current official
+pointers before final publication and restores accepted text without network or
+reader execution. The Node command is an explicitly prepared immutable toolkit
+artifact; runtime compilation, system Node and client-code execution are absent.
+That desktop closure does not provide an Android reader/codec bridge.
+
 The new `zzz_game_data.create_provider(platform=..., native=...)` implements
 the shared protocol's **official bootstrap stage**. Its HoYoPlay discovery,
 manifest and PE-header reads use the shared context-bound publisher transport;
@@ -23,11 +41,11 @@ All sources belong to the selected regional manifest, with no initial community
 or protected-key-cache prerequisite. Request/mode identity is separate from
 the original launcher-generation hash.
 
-Download returns `PreparationStage`, never `SnapshotSource`. A following plan
+Bootstrap download returns `PreparationStage`, never `SnapshotSource`. On Android, a following plan
 with authentic bootstrap inputs stops at `catalogue-runtime` with unknown
 content sizes and downloading disabled. No unproved Android reader/codec API,
 desktop fallback, complete-content fingerprint or ready library is invented.
-The factory therefore does **not** finish independent preparation. The host
+The Android factory therefore does **not** finish independent preparation. The host
 still needs the closed catalogue-reader runtime, dependency/ABI inclusion,
 actual content-stage planning and selected-dub materialization. Bootstrap
 crypto/decompression availability itself remains a device capability gate.

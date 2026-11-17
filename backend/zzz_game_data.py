@@ -1,8 +1,8 @@
-"""Accounted official ZZZ bootstrap stage for independent native preparation.
+"""Accounted official ZZZ bootstrap and PC text preparation stages.
 
-The original publisher sources are data. This stage neither runs client code
-nor pretends that source archives are a prepared dialogue library. The closed
-catalogue reader and selected-dub materialization need their own host runtime.
+The original publisher sources are data. Source stages never pretend that
+archives are a prepared dialogue library. PC text uses a verified frozen
+reader; Android and complete selected-dub materialization remain explicit gates.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def _safe(path):
 
 def _selection(request):
     if (request.region not in ('global', 'cn') or request.content_mode not in ('text', 'text-audio')
-            or request.source_locale not in TEXT_LOCALES or any(locale not in TEXT_LOCALES for locale in request.target_locales)
+            or request.source_locale not in TEXT_LOCALES
             or request.content_mode == 'text-audio' and request.source_locale not in VOICE_LOCALES):
         raise GameDataError('zzz_languages', 'Choose official ZZZ text languages and, when requested, an official dub.')
     return request.json()
@@ -134,11 +134,19 @@ def _runtime():
 class ZzzGameDataProvider:
     title = 'Zenless Zone Zero'
 
-    def __init__(self, *, platform, native=None, transport_factory=PublisherTransport):
+    def __init__(self, *, platform, native=None, transport_factory=PublisherTransport, reader_resolver=None):
         if platform not in PLATFORMS:
             raise GameDataError('unsupported_game_data_platform', 'This game data platform is unsupported.')
         self.platform, self.transport_factory = platform, transport_factory
+        self.reader_resolver = reader_resolver
         # No desktop helper or speculative native method is a portable reader.
+
+    def _reader(self):
+        if self.platform == 'android':return None
+        from .prebuilt_node_reader import production_zzz_reader
+        from .preparation_errors import PreparationFailure
+        try:return (self.reader_resolver or production_zzz_reader)()
+        except PreparationFailure:return None
 
     def _fetch(self, ctx, *, kind, allowed=None):
         channel = 'zzz-' + ctx.request.region
@@ -180,6 +188,10 @@ class ZzzGameDataProvider:
                     pass
                 else:
                     handle['bootstrap_proof'] = hoyo_dispatch_metadata.provenance(config)
+                    reader = self._reader()
+                    if reader is not None:
+                        from . import zzz_pc_stages
+                        return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory)
                     ctx.check()
                     return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
                         stage='catalogue-runtime', message='Official ZZZ bootstrap verified. Dialogue preparation is not available on this device yet.')
@@ -192,6 +204,12 @@ class ZzzGameDataProvider:
                 message='Download original ZZZ bootstrap sources first. This stage does not prepare dialogue or audio.')
 
     def download(self, plan, ctx):
+        if plan.handle.get('schema') == 'zzz-pc-official-text-v1':
+            from . import zzz_pc_stages
+            reader = self._reader()
+            if reader is None:raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
+            with ctx.transfer_lock:
+                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory)
         selection = _selection(ctx.request)
         handle = plan.handle
         if (handle.get('schema') != SCHEMA or handle.get('game') != 'zzz' or handle.get('request') != selection
@@ -234,6 +252,9 @@ class ZzzGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
+        if isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-text-v1':
+            from . import zzz_pc_stages
+            return zzz_pc_stages.restore(ctx, handle)
         raise GameDataError('zzz_bootstrap_only', 'Original ZZZ bootstrap sources are not a prepared dialogue library.', 409)
 
 
