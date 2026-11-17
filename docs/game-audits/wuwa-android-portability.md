@@ -26,6 +26,43 @@ Oodle implementation; a missing Oodle provider gives `missing_decoder`.
 Synthetic checks forbid desktop network/process fallbacks and exercise exact
 source framing, padding, hashes and callback output sizes.
 
+## Settings bootstrap provider
+
+`wuwa_game_data.create_provider(platform, native)` now implements the canonical
+GameDataService planning/download interface for desktop and Android. It uses
+the shared budget, account/cancellation fences and actual ETag/range transport,
+the existing ZIP/AXML reader, canonical streaming APK-v2 verifier and bounded
+Deflate/CRC/ELF reader. It does not call a desktop preparation subprocess or an
+invented native preparation callback. Missing cryptographic support is an
+explicit runtime error.
+
+The first plan reads bounded original metadata and quotes the complete APK
+carrier transfer plus the selected compressed module, decoded module and
+metadata disk reservation. Whole-carrier verification streams through a bounded
+reader, retains only the selected member, and discards other carrier bytes.
+The installer contains unused packaged media even in text mode; the plan
+discloses that cost and the known unresolved next language-preparation gate
+before download consent. No optional voice pack is fetched by this bootstrap stage.
+This is not a claim that a text-mode installer carrier contains zero audio
+bytes.
+
+Successful verification returns `PreparationStage`, not a complete content
+`SourceProof` or ready matcher. A restart restores the module identity locally;
+the next plan reports the unresolved release-manifest key/IV gate with Download
+and activation unavailable. Delete removes this game's managed cache while
+preserving other games and saved history. The shared service keeps the previous
+working content pointer when a stage is incomplete or verification fails.
+
+Synthetic complete signed-APK tests exercise the actual shared service and
+transport on both logical platforms, text/text-audio selections, cancellation,
+corruption, size limits, restart, the format gate and scoped deletion. A separate
+cache-only replay of actual original metadata used 258,012 retained bytes for
+each logical platform: **1,396,149,288 bytes** of carrier transfer and
+**425,527,457 bytes** of additional disk were quoted. An already authenticated
+native module was hardlinked and revalidated for the retained-stage gate. No
+new body was downloaded. Both logical-platform runs used Windows Python; they
+are not Android-device execution or a second cold carrier acquisition.
+
 ## Preflight before large payloads
 
 Preflight has two stages because a release manifest lists package sizes but
