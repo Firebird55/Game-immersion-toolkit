@@ -177,12 +177,8 @@ class CaptureService:
         """
         if area != "16:9":
             return window
-        x, y, width, height = window.bounds
-        picture_width = min(width, round(height * 16 / 9))
-        picture_height = min(height, round(width * 9 / 16))
-        return replace(window, bounds=(x + (width-picture_width)//2,
-                                      y + (height-picture_height)//2,
-                                      picture_width, picture_height))
+        from .capture_geometry import picture_bounds
+        return replace(window, bounds=picture_bounds(window.bounds, area))
 
     def start(self) -> bool:
         if self._task and not self._task.done():
@@ -1875,12 +1871,8 @@ class CaptureService:
 
     @staticmethod
     def _region_bounds(window: WindowInfo, region: object) -> tuple[int, int, int, int]:
-        window_x, window_y, window_width, window_height = window.bounds
-        left = window_x + min(window_width - 1, round(window_width * region.left))
-        top = window_y + min(window_height - 1, round(window_height * region.top))
-        width = max(1, min(window_x + window_width - left, max(50, round(window_width * region.width))))
-        height = max(1, min(window_y + window_height - top, max(50, round(window_height * region.height))))
-        return left, top, width, height
+        from .capture_geometry import region_bounds
+        return region_bounds(window.bounds, region)
 
     def _prepare_window_capture(self, window: WindowInfo) -> None:
         # Each worker/preview request owns its frame; a timed-out OCR worker

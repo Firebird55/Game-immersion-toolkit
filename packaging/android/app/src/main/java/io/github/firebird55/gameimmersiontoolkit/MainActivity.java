@@ -58,6 +58,8 @@ public final class MainActivity extends Activity {
                     report.put("native_ocr", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_ocr", new File(getCacheDir(), "ocr-probe").getCanonicalPath(),
                             ocr.authoredProbe()).toString()));
+                    report.put("native_preview", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
+                        .callAttr("run_preview", ocr).toString()));
                     try (FileOutputStream output = new FileOutputStream(new File(getFilesDir(), "android-core-proof.json"))) {
                         output.write(report.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }

@@ -122,3 +122,29 @@ def run_ocr(root, raw):
         raise ValueError('Native OCR did not match the authored shared-core fixture')
     return json.dumps({'fixture': 'authored-native-bitmap', 'confirmed_text_id': confirmed[0]['text_id'],
         'voice_status': confirmed[0]['voice_status'], 'original_audio_available': session.audio_path(confirmed[0]['id']).is_file()})
+
+
+def run_preview(native):
+    """Exercise actual Android bitmap/JPEG crops using the shared geometry."""
+    from .capture_geometry import picture_bounds, region_bounds
+    from .models import CaptureRegion
+    results = []
+    for width, height in ((1600, 1200), (2400, 1080)):
+        picture = picture_bounds((0, 0, width, height), '16:9')
+        for half in (False, True):
+            region = CaptureRegion(left=.5 if half else 0, top=.5 if half else 0,
+                width=.5 if half else 1, height=.5 if half else 1)
+            crop = region_bounds(picture, region)
+            result = json.loads(str(native.authoredPreviewProbe(width, height, *picture, *crop)))
+            ratio = min(1, 1280 / max(crop[2:]))
+            if (result['width'], result['height']) != tuple(round(n * ratio) for n in crop[2:]):
+                raise ValueError('Native preview dimensions differ from shared crop geometry')
+            def color(pixel):
+                return ((pixel >> 16) & 255, (pixel >> 8) & 255, pixel & 255)
+            first, last = color(result['first_pixel']), color(result['last_pixel'])
+            if not (last[0] > 240 and last[1] < 15 and last[2] < 15):
+                raise ValueError('Native preview did not retain the authored red corner')
+            if not ((first[0] > 240 and first[2] < 15) if half else (first[2] > 240 and first[0] < 15)):
+                raise ValueError('Native preview included black bars or a different crop')
+            results.append({'source': [width, height], 'crop': crop, **result})
+    return json.dumps({'fixture': 'authored-native-black-bars-and-quadrants', 'cases': results, 'passed': True})

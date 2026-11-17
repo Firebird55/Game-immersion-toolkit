@@ -6,6 +6,7 @@ window/audio/credential adapters, development server or remote PC are imported.
 from __future__ import annotations
 
 from contextlib import contextmanager
+import base64
 import hashlib
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,8 +18,10 @@ import secrets
 import tempfile
 import threading
 import time
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 
+from .capture_geometry import picture_bounds, region_bounds
+from .models import CaptureRegion
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
 
@@ -39,6 +42,8 @@ class AndroidHost:
         self.import_lock = threading.RLock()
         self.import_jobs = {}
         self.frame_geometry = None
+        self.preview_frame = None
+        self.preview_lock = threading.Lock()
         self.receiver_revisions = {}
         self.receiver_owner = None
         self.document_epoch = secrets.token_hex(16)
@@ -103,6 +108,66 @@ class AndroidHost:
 
     def _release_receiver(self):
         self.receiver_owner = None
+        self.preview_frame = None
+        self.frame_geometry = None
+
+    def _picture(self, width, height, area=None):
+        game = self.session.index.game if self.session.index else 'zzz'
+        settings = self.session.settings.get()
+        selected = area if area is not None else getattr(settings, game + '_picture_area', 'window')
+        return picture_bounds((0, 0, width, height), selected if game in {'nte', 'honkai3'} else 'window')
+
+    def snapshot(self):
+        with self.session.lock:
+            result = self.session.snapshot()
+            frame = self.preview_frame
+            if self._preview_current(frame):
+                bounds = self._picture(frame['width'], frame['height'])
+                game = self.session.index.game
+                region = getattr(self.session.settings.get(), game + '_region', self.session.settings.get().region)
+                result['status']['capture'].update(window_bounds=(0, 0, frame['width'], frame['height']),
+                    crop_bounds=region_bounds(bounds, region))
+            return result
+
+    def _preview_current(self, frame):
+        return bool(frame and frame is self.preview_frame and self.session.running
+            and frame['generation'] == self.session.generation and frame['epoch'] == self.document_epoch
+            and frame['owner'] == self.receiver_owner)
+
+    def preview(self, query):
+        values = parse_qs(query, keep_blank_values=True, max_num_fields=8)
+        if set(values) - {'left', 'top', 'width', 'height', 'picture_area', 't'} or any(len(v) != 1 for v in values.values()):
+            raise ValueError('Invalid preview crop')
+        coordinates = {'left', 'top', 'width', 'height'}
+        supplied = coordinates.intersection(values)
+        if supplied and supplied != coordinates:
+            raise ValueError('A complete preview crop is required')
+        region = CaptureRegion(**{key: values[key][0] for key in coordinates}) if supplied else None
+        area = values.get('picture_area', [None])[0]
+        if area is not None and area not in {'window', '16:9'}:
+            raise ValueError('Invalid picture area')
+        with self.session.lock:
+            frame = self.preview_frame
+            if not self._preview_current(frame) or self.native is None:
+                return None
+            if region is None:
+                settings = self.session.settings.get()
+                region = getattr(settings, self.session.index.game + '_region', settings.region)
+            crop = region_bounds(self._picture(frame['width'], frame['height'], area), region)
+        # Bitmap decoding cannot hold the lifecycle/session lock. Only one
+        # bounded preview operation can own native image memory at a time.
+        if not self.preview_lock.acquire(blocking=False):
+            return None
+        try:
+            encoded = str(self.native.preview(frame['bytes'], *crop))
+            if len(encoded) > 2 * 1024**2:
+                raise ValueError('Native preview exceeds its bound')
+            image = base64.b64decode(encoded, validate=True)
+            if not image.startswith(b'\xff\xd8') or not image.endswith(b'\xff\xd9'):
+                raise ValueError('Invalid native preview')
+            return frame, image
+        finally:
+            self.preview_lock.release()
 
     def _active_receiver(self):
         # Caller holds the same session lock used by frame admission, pause,
@@ -183,7 +248,23 @@ class AndroidHost:
                 return self._receiver_conflict('receiver_generation_changed', 'Screen source changed')
             if not raw or sequence < 0 or self.native is None or self.session.index is None:
                 raise ValueError('Native frame OCR is unavailable or the image is invalid')
-            self.native.submit(raw, generation, sequence, self.session.index.source_locale)
+            if self.preview_frame and sequence <= self.preview_frame['sequence']:
+                return self._receiver_conflict('receiver_frame_stale', 'A newer screen frame was already admitted')
+            try:
+                dimensions = self.native.submit(raw, generation, sequence, self.session.index.source_locale)
+                if dimensions is not None:
+                    dimensions = json.loads(str(dimensions))
+                    width, height = dimensions['width'], dimensions['height']
+                    if any(type(n) is not int or not 0 < n <= 4096 for n in (width, height)):
+                        raise ValueError('Invalid native frame dimensions')
+                    if self.frame_geometry and self.frame_geometry != (generation, width, height):
+                        self.session.stop('Screen dimensions changed; reconnect the screen source')
+                        return self._receiver_conflict('receiver_dimensions_changed', 'Reconnect the rotated screen source')
+                    self.frame_geometry = (generation, width, height)
+                    self.preview_frame = {'bytes': raw, 'width': width, 'height': height, 'sequence': sequence,
+                        'generation': generation, 'epoch': self.document_epoch, 'owner': dict(owner) if owner else None}
+            except Exception as error:
+                raise ValueError('The native frame could not be admitted') from error
             return {'accepted': True, 'generation': generation, 'frame': sequence}, 202
 
     def accept_ocr(self, generation, sequence, raw):
@@ -207,6 +288,7 @@ class AndroidHost:
         game = self.session.index.game if self.session.index else 'zzz'
         channels = {'dialogue': getattr(settings, game + '_region', settings.region),
                     'cinematic': getattr(settings, game + '_cinematic_region', settings.cinematic_region)}
+        picture = self._picture(width, height)
         result = []
         texts = []
         for block in blocks:
@@ -216,14 +298,16 @@ class AndroidHost:
                     or not 0 <= block['rect'][0] < block['rect'][2] <= width
                     or not 0 <= block['rect'][1] < block['rect'][3] <= height):
                 raise ValueError('Invalid native OCR block')
-            texts.append(block['text'])
+            left, top, right, bottom = block['rect']
+            if picture[0] <= left < right <= picture[0] + picture[2] and picture[1] <= top < bottom <= picture[1] + picture[3]:
+                texts.append(block['text'])
         for channel, region in channels.items():
             groups = []
+            x, y, crop_width, crop_height = region_bounds(picture, region)
             for block in blocks:
                 left, top, right, bottom = block['rect']
                 # Only whole recognized blocks inside the calibrated region.
-                if (region.left * width <= left < right <= (region.left + region.width) * width
-                        and region.top * height <= top < bottom <= (region.top + region.height) * height):
+                if x <= left < right <= x + crop_width and y <= top < bottom <= y + crop_height:
                     groups.append(block['text'])
             result.extend(self.session.observe(generation, sequence, groups, channel=channel))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe'))
@@ -284,7 +368,17 @@ class AndroidHost:
                 if path == '/api/platform' and self.command == 'GET':
                     self._json(host.platform());return
                 if path in {'/api/snapshot', '/api/status'} and self.command == 'GET':
-                    self._json(host.session.snapshot());return
+                    self._json(host.snapshot());return
+                if path == '/api/capture/preview.jpg' and self.command == 'GET':
+                    try:
+                        preview = host.preview(urlsplit(self.path).query)
+                    except (ValueError, KeyError, TypeError):
+                        self._json({'detail': 'Invalid preview crop'}, 422);return
+                    with host.session.lock:
+                        if preview is None or not host._preview_current(preview[0]):
+                            self._json({'detail': 'No current screen preview'}, 404);return
+                        self._headers(200, len(preview[1]), 'image/jpeg')
+                        self.wfile.write(preview[1]);return
                 if path == '/api/settings':
                     if self.command == 'GET':
                         self._json(host.session.settings.get().model_dump(mode='json'));return

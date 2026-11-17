@@ -84,6 +84,17 @@ requires reconnecting. Local Android game capture/MediaProjection and protected
 account storage are not implemented by this prototype. The remote iOS screen
 transport is a separate shared frontend capability, not desktop capture.
 
+The common Capture setup preview reads only the most recently admitted native
+frame, in memory. Its normalized crop and explicit centered 16:9 picture use the
+same physical geometry helpers as desktop capture and native OCR admission.
+The JPEG encoder is serialized, bounded to 1280 pixels and one MiB, and its result
+is checked again against the current document, receiver lease and generation
+before publication. Pause, settings, import, rotation, stop and document changes
+discard that frame; preview GETs never restart capture or change its scope.
+HTTP tests exercise actual image crops and delayed-encode invalidation. The
+debug Android self-test additionally decodes native JPEG crops of authored
+letterboxed/ultrawide color quadrants; target execution is separate evidence.
+
 Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 
 ```text
