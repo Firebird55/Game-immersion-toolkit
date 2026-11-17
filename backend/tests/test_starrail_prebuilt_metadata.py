@@ -57,6 +57,7 @@ def test_star_rail_only_authorizes_bounded_data_operations(tmp_path, monkeypatch
     assert helper.original_metadata_command('metadata', private / 'inputs', private / 'new') == [
         str(home / 'StarRailMetadata.exe'), 'metadata', str(private / 'inputs'), str(private / 'new')]
     assert helper.original_metadata_command('disassemble', private / 'input', private / 'request', private / 'output')[1] == 'disassemble'
+    assert helper.original_metadata_command('native-graph', private / 'input', private / 'request', private / 'output')[1] == 'native-graph'
     for operation, paths in [('execute', [private]), ('metadata', [private]), ('metadata', [Path('relative'), private])]:
         with pytest.raises(PreparationFailure):
             helper.original_metadata_command(operation, *paths)

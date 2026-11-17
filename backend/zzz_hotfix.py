@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 import base64
 import hashlib
+from http.client import IncompleteRead
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,7 @@ from urllib.parse import parse_qsl, urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from .game_tools import _atomic_file
+from .preparation_errors import PreparationFailure
 from .xxhash64 import xxhash64, xxhash64_stream
 
 BASE = 'ZenlessZoneZero_Data/StreamingAssets/'
@@ -258,17 +260,34 @@ def _stamp(stat):
     return stat.st_size, stat.st_mtime_ns, stat.st_dev, stat.st_ino
 
 
-def _blocks(handle, size):
+class PublisherDownloadInterrupted(PreparationFailure):
+    def __init__(self):
+        super().__init__('metadata_download_interrupted',
+            'The original game-data download was interrupted. Check the connection; '
+            'preparation will retry automatically, or retry now in Games & Languages.')
+
+
+def _blocks(handle, size, *, download=False):
     """Read exact verification blocks with bounded reads, including a final EOF."""
+    def read(length):
+        try:
+            return handle.read(length)
+        except (IncompleteRead, ConnectionError, TimeoutError) as error:
+            if download:
+                raise PublisherDownloadInterrupted() from error
+            raise
+
     for offset in range(0, size, VERIFY_BLOCK_SIZE):
         wanted = min(VERIFY_BLOCK_SIZE, size - offset)
         block = bytearray()
         while len(block) < wanted:
-            part = handle.read(wanted - len(block))
+            part = read(wanted - len(block))
+            if download and isinstance(part, bytes) and not part:
+                raise PublisherDownloadInterrupted()
             check(isinstance(part, bytes) and 0 < len(part) <= wanted - len(block))
             block.extend(part)
         yield bytes(block)
-    check(handle.read(1) == b'')
+    check(read(1) == b'')
 
 
 def _check_file(path, size, digest, stamp=None):
@@ -353,7 +372,7 @@ def _download_file(path, url, size, digest):
         blocks = []
         with _stream_response(url, size) as response, staged.open('xb') as output:
             def parts():
-                for block in _blocks(response, size):
+                for block in _blocks(response, size, download=True):
                     check(output.write(block) == len(block))
                     blocks.append(hashlib.sha256(block).digest())
                     yield block

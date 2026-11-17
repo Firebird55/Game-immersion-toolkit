@@ -20,10 +20,11 @@ def prepared(root, rows, *, game='endfield', **metadata):
     return session
 
 
-def observe_twice(session, generation, sequence, text, *, menu=False):
-    session.observe(generation, sequence, [text], channel='fullframe', now=sequence * .1, dialogue_menu=menu)
+def observe_twice(session, generation, sequence, text, *, menu=False, spans=None):
+    positioned = {'presentation_lines': spans, 'frame_size': (1920, 1080)} if spans is not None else {}
+    session.observe(generation, sequence, [text], channel='fullframe', now=sequence * .1, dialogue_menu=menu, **positioned)
     return session.observe(generation, sequence + 1, [text], channel='fullframe', now=(sequence + 1) * .1,
-        dialogue_menu=menu)
+        dialogue_menu=menu, **positioned)
 
 
 @pytest.mark.parametrize('catalog_only', [True, False])
@@ -77,17 +78,20 @@ def test_top_caption_metadata_and_two_frame_minimum_survive_export(tmp_path):
 
 
 def test_tutorial_occurrences_and_menu_fence_use_shared_desktop_policy_after_export(tmp_path):
-    session = prepared(tmp_path, step_rows())
+    from backend.tests.test_prepared_training_parity import prepared_training_steps, step_spans
+    session = prepared_training_steps(tmp_path)
     session.update_settings({'capture_unvoiced': True})
     generation = session.start()
-    assert not observe_twice(session, generation, 1, 'Wait!')
-    observe_twice(session, generation, 3, 'Keep performing the authored training sequence.')
-    assert [row['text_id'] for row in observe_twice(session, generation, 5, 'Wait!')] == [
+    def positioned(sequence, text, **options):
+        return observe_twice(session, generation, sequence, text, spans=step_spans(text), **options)
+    assert not positioned(1, 'Wait!')
+    positioned(3, 'Keep performing the authored training sequence.')
+    assert [row['text_id'] for row in positioned(5, 'Wait!')] == [
         'endfield:DungeonCharTutorialStepTable:b_next']
-    repeated = observe_twice(session, generation, 7, 'Keep performing the authored training sequence.')
+    repeated = positioned(7, 'Keep performing the authored training sequence.')
     assert [row['text_id'] for row in repeated] == ['endfield:DungeonCharTutorialStepTable:b_repeat']
-    observe_twice(session, generation, 9, 'Keep performing the authored training sequence.', menu=True)
-    assert not observe_twice(session, generation, 11, 'Now!')
+    positioned(9, 'Keep performing the authored training sequence.', menu=True)
+    assert not positioned(11, 'Now!')
 
 
 def music_rows():

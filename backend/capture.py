@@ -37,7 +37,7 @@ from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_r
 
 
 from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
-from .floating_caption_policy import floating_caption_policy, observe_floating_contexts
+from .floating_caption_policy import floating_caption_policy, observe_floating_contexts, positioned_training_matches
 
 
 @dataclass(slots=True)
@@ -891,13 +891,16 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
+        matches, training = positioned_training_matches(index, matches, response.get('lines', []), image.size,
+            enabled=silent_enabled, dialogue_menu=bool(response.get('dialogue_menu')))
         contexts = ({'film': self._endfield_film, 'top': self._endfield_top_dialogue,
                      'tutorial': self._endfield_tutorial} if game == 'endfield' else
                     {'music': self._wuwa_music} if game == 'wuwa' else {})
         matches = observe_floating_contexts(index, groups, matches, contexts, policy, game=game,
             scope=(scope, self.session_id, getattr(index, 'player_voice', None), getattr(index, 'target_locale', None)),
             now=seen_at, stable_frames=settings.stable_frames, capturable=self._capturable_match,
-            dialogue_menu=response.get('dialogue_menu', False), excluded=getattr(self, '_excluded_screen', None))
+            dialogue_menu=response.get('dialogue_menu', False), excluded=getattr(self, '_excluded_screen', None),
+            training=training)
         if policy.world_cues and policy.voice_enabled:
             # Complete visible world captions do not feed temporal predecessors.
             hit = index.match_endfield_world_caption(response.get('lines', []), image.size)

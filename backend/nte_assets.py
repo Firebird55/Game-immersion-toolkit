@@ -220,11 +220,16 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
 
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
                          *, schema_cache: Path | None = None, inventory=False, table_schema=None,
-                         capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None):
+                         capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None,
+                         capture_original_authoring=False):
     """Read authoring from checked publisher streams, never an installed game."""
     from .nte_publisher_stream import Broker
     mode = 'inventory' if inventory else 'publisher-tables'
     outputs = ('inventory.json',) if inventory else ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
+    if capture_original_authoring:
+        if not capture_dialogue_graphs:
+            raise ValueError('Original NTE authoring requires current original registry and schema validation')
+        outputs += ('original-authoring.json',)
     if capture_schema_usage:
         if inventory or table_schema is None:
             raise ValueError('NTE schema usage requires an explicit publisher table schema')
@@ -263,6 +268,8 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             if capture_dialogue_graphs:
                 request['capture_dialogue_graphs'] = True
                 request['dialogue_registry_sha256'] = hashlib.sha256(dialogue_registry).hexdigest()
+            if capture_original_authoring:
+                request['capture_original_authoring'] = True
         try:
             result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
                 timeout=600, cwd=working_directory, env=environment,
@@ -279,6 +286,11 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
         raise PreparationFailure('unsupported_game_format',
             'The NTE publisher dialogue format is unsupported or incomplete. Retry preparation; the previous index is retained.')
     if capture_schema_usage:
+        if capture_original_authoring:
+            from .nte_authoring import read_original_authoring
+            read_original_authoring(destination/'original-authoring.json',
+                schema_sha256=table_schema.reference['sha256'], nonce=nonce,
+                registry_sha256=hashlib.sha256(dialogue_registry).hexdigest())
         return read_schema_usage(destination, table_schema.reference['sha256'], nonce)
 
 
@@ -323,7 +335,8 @@ def read_schema_usage(destination, schema_sha256, nonce):
             'The NTE reader could not verify its required format metadata. The previous completed index is retained.') from None
 
 
-def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry):
+def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry,
+                            *, capture_original_authoring=False):
     """Read complete registry-selected package claims before bounded prefetch."""
     from .nte_publisher_stream import Broker
     destination = Path(destination)
@@ -336,6 +349,8 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors,
                    'dialogue_registry_sha256': sha, 'inventory_nonce': nonce}
+        if capture_original_authoring:
+            request['capture_original_authoring'] = True
         try:
             result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True, timeout=180,
                 cwd=working, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))

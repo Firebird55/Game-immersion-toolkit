@@ -53,8 +53,21 @@ def merge_authored_occurrence(index, matches, hit):
         or not index.equivalent_caption_occurrence(old, hit)} | {hit.text_id: hit}
 
 
+def positioned_training_matches(index, matches, spans, image_size, *, enabled, dialogue_menu=False):
+    """Only the shared index's complete positioned body can admit a training row."""
+    training = {'body_groups': (), 'owners': ()}
+    if getattr(index, 'game', None) != 'endfield':
+        return matches, training
+    observe = getattr(index, 'match_endfield_training_dialogue', None)
+    if enabled and observe:
+        training = observe(spans, image_size, direct=tuple(matches.values()), dialogue_menu=dialogue_menu)
+    matches = {identity: hit for identity, hit in matches.items() if hit.dialogue_kind != 'tutorial_step'}
+    matches.update((hit.text_id, hit) for hit in training.get('hits', ()))
+    return matches, training
+
+
 def observe_floating_contexts(index, groups, matches, contexts, policy, *, game,
-        scope, now, stable_frames, capturable, dialogue_menu=False, excluded=False):
+        scope, now, stable_frames, capturable, dialogue_menu=False, excluded=False, training=None):
     modes = []
     if game == 'endfield' and policy.voice_enabled:
         modes.append(('film', 'cinematic', 'cinematic', False))
@@ -69,8 +82,10 @@ def observe_floating_contexts(index, groups, matches, contexts, policy, *, game,
         if dialogue_menu or excluded:
             context.reset()
             continue
-        hit = context.observe(index, groups, matches.values(), channel=channel, kind=kind,
-            scope=scope, now=now, stable_frames=stable_frames, prefer_authored_occurrence=prefer)
+        context_groups = (training or {}).get('body_groups', ()) if key == 'tutorial' else groups
+        context_scope = (scope, (training or {}).get('owners', ())) if key == 'tutorial' else scope
+        hit = context.observe(index, context_groups, matches.values(), channel=channel, kind=kind,
+            scope=context_scope, now=now, stable_frames=stable_frames, prefer_authored_occurrence=prefer)
         if hit and capturable(hit):
             matches = merge_authored_occurrence(index, matches, hit) if prefer else {**matches, hit.text_id: hit}
     return matches

@@ -18,6 +18,50 @@ def row(identity, text, *, kind='conversation', previous=None, status='voiced'):
         original_speaker_id='chr_authored_guide' if identity.startswith('world:') else None)
 
 
+def training_proof(root):
+    from .endfield_training_presentation import SOURCE_ROLES, validate_training_dialogue_ui
+    prefix = 'endfield:DungeonCharTutorialStepTable:'
+    body = 'Use the battle skill to protect the ally.'
+    records = []
+    for owner in ('first', 'second'):
+        for suffix, text in (('body', body), ('tail', 'Another complete authored training instruction.')):
+            value = row(prefix + owner + '_' + suffix, text, kind='tutorial_step', status='unvoiced')
+            value.update(channels=['tip'], text_capture_verified=True, texts={'en': text, 'fr': owner + ' ' + text})
+            records.append(value)
+    descriptor = {'schema': 1, 'revision': 'endfield-' + '3'*64,
+        'sources': {role: '4'*32 for role in SOURCE_ROLES},
+        'locales': {'en': {'titles': {'first': ['Operator Guide: First'], 'second': ['Operator Guide: Second']},
+            'labels': {item['text_id']: 'Combo Skill' if item['text_id'].endswith('tail') else
+                       'Battle Skill' if 'first_' in item['text_id'] else 'Ultimate' for item in records},
+            'profile': ['Profile', 'Voice Information']}},
+        'stages': [{'owner': owner, 'stage': 0, 'text_ids': [prefix + owner + '_body', prefix + owner + '_tail']}
+                   for owner in ('first', 'second')], 'goals': [{'owner': 'first', 'texts': {'en': body}}]}
+    library = _library(root / 'input', game='endfield', records=records, clips={},
+        metadata={'fingerprint': descriptor['revision'], 'publisher_training_dialogue_ui': descriptor})
+    positioned = [span('Operator Guide: First', 80/1920, 250/1080, 600/1920),
+        span('Battle Skill', 850/1920, 105/1080, 100/1920),
+        span('Combo Skill', 958/1920, 105/1080, 100/1920), span(body, 400/1920, 820/1080, 1120/1920)]
+    results = {}
+    for condition in ('bottom', 'left', 'unpositioned', 'opt_out'):
+        session = PreparedCaptureSession(root / condition);session.import_library(library)
+        session.update_settings({'capture_unvoiced': condition != 'opt_out'});scope = session.start()
+        lines = positioned if condition != 'left' else [*positioned[:-1], span(body, 70/1920, 400/1080, 750/1920)]
+        emitted = []
+        for sequence in (1, 2):
+            emitted += session.observe(scope, sequence, [item['text'] for item in lines], channel='fullframe',
+                now=sequence*.1, presentation_lines=lines if condition != 'unpositioned' else None,
+                frame_size=(1920, 1080))
+        if condition == 'bottom':
+            results['endfield_training_original_identity'] = len(emitted) == 1 and emitted[0]['text_id'] == records[0]['text_id']
+            results['endfield_training_original_fields'] = bool(emitted and emitted[0]['texts'] == records[0]['texts']
+                and not emitted[0]['has_audio'] and session.index.snapshot_metadata['publisher_training_dialogue_ui']
+                == validate_training_dialogue_ui(descriptor))
+        else:
+            results['endfield_training_' + condition + '_rejected'] = not emitted and session.history.count() == 0 \
+                and all(context.anchor is None for context in session.floating_contexts.values())
+    return results
+
+
 def run(root):
     root.mkdir(parents=True, exist_ok=True)
     _library(root / 'different-take', duration=.24)
@@ -68,6 +112,7 @@ def run(root):
         'endfield_unknown_quality_rejected': quality_veto,
         'nte_direct_original_successor': len(short) == 1 and short[0]['text_id'] == 'nte:Short',
         'nte_actual_menu_geometry_reset': menu_reset, 'nte_absent_evidence_disabled': nte.nte_context.anchor is None}
+    result.update(training_proof(root / 'training'))
     if any(value is not True for key, value in result.items() if key != 'fixture'):
         raise ValueError('The authored game caption policy proof failed')
     return result

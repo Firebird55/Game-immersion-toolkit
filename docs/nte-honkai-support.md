@@ -68,6 +68,10 @@ voice-event object names that omit the redundant `CG` name segment, while
 music events and unrelated source roots remain excluded. Wwise 154 separately
 loaded media is parsed with its full codec header, but storage-0/1 cinematic
 caption timing remains unavailable without a verified original clock contract.
+Supported original authoring tables are discovered by native RowStructure and
+exact export ownership, including Ride-Along voices; new compatible tables do
+not require an updated filename list. Conflicting sequence/caption owners and
+muted, looping or changed-clock sources remain unresolved.
 The [original-native publisher route](game-audits/nte.md#original-native-publisher-preparation)
 generates needed format metadata from authenticated publisher client files and
 a fixed retained seed. It refreshes resolvable changed definitions and original

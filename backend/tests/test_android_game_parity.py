@@ -139,3 +139,25 @@ def test_context_layout_absence_does_not_fall_back_to_generic_nte_predecessors(t
             host.session.observe(generation, sequence, [text], now=sequence * .1)
         assert [line.text_id for line in host.session.history.list()] == ['nte:Owned:First']
     finally: host.close()
+
+
+@pytest.mark.parametrize('case', ['bottom', 'left_goal', 'no_positions', 'low_confidence'])
+def test_native_ocr_quality_lane_uses_the_same_complete_training_roles(tmp_path, case):
+    from backend.tests.test_endfield_training_presentation import fixture, frame, STAMP
+    metadata, rows = fixture()
+    host = prepared_host(tmp_path, 'endfield', rows, fingerprint=STAMP,
+        publisher_training_dialogue_ui=metadata)
+    try:
+        host.session.update_settings({'capture_unvoiced': True});generation = host.session.start()
+        spans = frame()
+        if case == 'left_goal':
+            spans[-1]['bounding_rect'] = {'x1': 70, 'y1': 400, 'x2': 820, 'y2': 400,
+                                         'x3': 820, 'y3': 424, 'x4': 70, 'y4': 424}
+        if case == 'low_confidence': spans[-1]['confidence'] = .1
+        raw = native_response(spans, 1920, 1080, include_quality=case != 'no_positions')
+        emitted = []
+        for sequence in (1, 2): emitted.extend(host.accept_ocr(generation, sequence, raw))
+        assert [line['text_id'] for line in emitted] == ([rows[0]['text_id']] if case == 'bottom' else [])
+        assert all(not line['has_audio'] and line['voice_status'] == 'unvoiced' for line in emitted)
+        if case != 'bottom': assert all(context.anchor is None for context in host.session.floating_contexts.values())
+    finally: host.close()

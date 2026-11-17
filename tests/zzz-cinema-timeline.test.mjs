@@ -1,6 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cinemaSubtitleTimeline, cinemaSubtitleLinks} from '../scripts/zzz-cinema-timeline.mjs';
+import {cinemaSubtitleTimeline, cinemaSubtitleLinks, cinemaTextSourceInventory} from '../scripts/zzz-cinema-timeline.mjs';
+
+test('original blank subtitle segments stay separate from missing keys and existing audio', () => {
+  const captions = [{text_id:'Blank',cinematic_event:'Play_Synthetic'}, {text_id:'Missing'},
+    {text_id:'Present'}, {text_id:'Blank'}];
+  const before = structuredClone(captions);
+  const texts = Object.assign(Object.create({Missing:'Inherited text is not an original row'}),
+    {Blank:' ', Present:'Owned Japanese caption'});
+  assert.deepEqual(cinemaTextSourceInventory(captions, texts), {references:4, distinct_text_ids:3,
+    nonblank_text_ids:1, authored_blank_ids:['Blank'], missing_text_ids:['Missing']});
+  assert.deepEqual(captions, before);
+  // A normal data overwrite can blank, restore or introduce keys without a
+  // scene-ID list or a new toolkit reader. The effective source decides.
+  Object.assign(texts, {Blank:'Restored', Present:'\t\n', Missing:'Added'});
+  assert.deepEqual(cinemaTextSourceInventory(captions, texts), {references:4, distinct_text_ids:3,
+    nonblank_text_ids:2, authored_blank_ids:['Present'], missing_text_ids:[]});
+});
+
+test('changed subtitle source shapes fail instead of certifying authored blanks', () => {
+  assert.throws(() => cinemaTextSourceInventory([{text_id:'../invalid'}], {}), /identity/);
+  assert.throws(() => cinemaTextSourceInventory([{text_id:'Changed'}], {Changed:null}), /source text/);
+  assert.throws(() => cinemaTextSourceInventory([], []), /sources/);
+});
 
 // Entirely owned synthetic Unity v21 objects; no publisher text or asset bytes.
 const u32=n=>{const b=Buffer.alloc(4);b.writeUInt32LE(n);return b;};

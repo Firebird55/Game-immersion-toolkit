@@ -8,6 +8,7 @@ import ssl
 import struct
 import subprocess
 import urllib.request
+import uuid
 import zlib
 
 import certifi
@@ -145,7 +146,8 @@ def _decompress(data, header, method, count, block_size, size, stored, encrypted
 
 
 class Package:
-    def __init__(self, url, size, identity, cache, parameters):
+    def __init__(self, url, size, identity, cache, parameters, *, native_parameters=None,
+                 verified_native_parameters=(), verified_default_parameters=None):
         self.url, self.size = url, size
         check(size >= 64)
         self.cache = cache / 'kuro-package-index' / identity
@@ -156,10 +158,28 @@ class Package:
         version, offset, length = struct.unpack_from('<IQQ', footer, magic+4)
         check(version == 12 and footer[magic-1] in (0, 1))
         self.cipher = None
+        self._verify_original_indices = False
         selected_parameter = None
+        selected_native_guid = None
+        native_guid = None
         if footer[magic-1]:
             sample = self.range(offset, 16)
-            for value in parameters:
+            candidates = parameters
+            check(magic >= 17)
+            native_guid = uuid.UUID(hex=''.join(f'{part:08x}' for part in
+                struct.unpack('<4I', footer[magic-17:magic-1])))
+            if native_parameters is not None:
+                # A native candidate belongs only to its exact original FGuid.
+                # Never try unrelated native candidates as default parameters.
+                if native_guid.int and native_guid in native_parameters:
+                    value = native_parameters[native_guid]
+                    check(isinstance(value, bytes) and len(value) == 32)
+                    candidates = (value,)
+                    selected_native_guid = native_guid
+                    self._verify_original_indices = (native_guid, value) not in verified_native_parameters
+                elif native_guid.int:
+                    candidates = ()  # An absent/revoked native UUID cannot borrow a legacy/default key.
+            for value in candidates:
                 candidate = AES.new(value, AES.MODE_ECB)
                 if candidate.decrypt(sample)[4:7] == b'../':
                     self.cipher = candidate
@@ -170,6 +190,8 @@ class Package:
                     'This original Wuthering archive cannot be opened with the available parameters. '
                     'Retry metadata discovery; changed parameters require original-client investigation. '
                     'Previous prepared data is kept. This is not proof of a changed package format.')
+            if not native_guid.int and verified_default_parameters is not None:
+                self._verify_original_indices = selected_parameter not in verified_default_parameters
         self.methods = [b'None'] + [footer[i:i+32].split(b'\0')[0]
                                     for i in range(magic+44, len(footer)-31, 32)]
         main = io.BytesIO(self.index(offset, length, footer[magic+24:magic+44]))
@@ -191,6 +213,9 @@ class Package:
         self.directory = self.index(offset, length, directory_hash)
         # Expose nothing until both complete original directory hashes agree.
         self.verified_parameter = selected_parameter
+        self.verified_native_guid = selected_native_guid
+        self.verified_default_parameter = (native_guid == uuid.UUID(int=0) and selected_parameter is not None
+                                           and verified_default_parameters is not None)
 
     def range(self, offset, size):
         return block(self.url, self.size, offset, size)
@@ -198,6 +223,14 @@ class Package:
     def index(self, offset, size, digest):
         check(0 < size <= LIMIT and len(digest) == 20)
         path = self.cache / digest.hex()
+        if self._verify_original_indices:
+            # A previous plaintext cache authenticates content, not a new key.
+            # Before that native UUID or default owner can enter the protected store,
+            # decrypt BOTH complete original indices with this exact key.
+            data = self.cipher.decrypt(self.range(offset, size))
+            check(hashlib.sha1(data).digest() == digest)
+            _atomic_file(path, data)
+            return data
         # Different released package identities can contain the same native
         # plaintext index. Its exact current footer/main digest and length
         # authenticate reuse; this never replaces the constructor's cipher

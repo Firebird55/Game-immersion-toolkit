@@ -144,19 +144,18 @@ def test_long_completion_gap_retires_publisher_predecessor_contexts(tmp_path):
 
 
 def test_live_images_do_not_keep_a_short_authored_tutorial_successor_armed(tmp_path):
-    from backend.tests.test_endfield_layout_context import step_rows
-    from backend.tests.test_prepared_capture_parity import prepared as prepare_rows
-    session = prepare_rows(tmp_path, step_rows());session.update_settings({'capture_unvoiced': True});session.start()
+    from backend.tests.test_prepared_training_parity import prepared_training_steps, step_spans
+    session = prepared_training_steps(tmp_path);session.update_settings({'capture_unvoiced': True});session.start()
     clock = Clock();ledger = NativeFrameAdmissions(clock=clock)
     anchor = 'Keep performing the authored training sequence.'
     advance(ledger, clock, session, 1, 9)
-    assert not observe(ledger, clock, session, 1, anchor, channel='fullframe')
+    assert not observe(ledger, clock, session, 1, anchor, channel='fullframe', presentation_lines=step_spans(anchor), frame_size=(1920, 1080))
     advance(ledger, clock, session, 10, 10)
-    assert observe(ledger, clock, session, 9, anchor, channel='fullframe')
+    assert observe(ledger, clock, session, 9, anchor, channel='fullframe', presentation_lines=step_spans(anchor), frame_size=(1920, 1080))
     advance(ledger, clock, session, 11, 25)
-    assert not observe(ledger, clock, session, 17, 'Wait!', channel='fullframe')
+    assert not observe(ledger, clock, session, 17, 'Wait!', channel='fullframe', presentation_lines=step_spans('Wait!'), frame_size=(1920, 1080))
     advance(ledger, clock, session, 26, 26)
-    assert not observe(ledger, clock, session, 25, 'Wait!', channel='fullframe')
+    assert not observe(ledger, clock, session, 25, 'Wait!', channel='fullframe', presentation_lines=step_spans('Wait!'), frame_size=(1920, 1080))
 
 
 class NativeDimensions:

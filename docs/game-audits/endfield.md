@@ -47,6 +47,16 @@ voice states are unchanged. The same frozen reader derives 113 book anchors
 from the replayed older release, without an ID list or new recordings.
 [Original title, current capture and two-generation evidence](endfield-current-subtitle-acceptance.md#original-instruction-titles-and-complete-written-bodies).
 
+Revision 32 separates positioned training instructions from the task objectives
+on the left. Complete original title, bottom instruction and adjacent skill
+labels can distinguish repeated translations; clipped longer-stage peers remain
+ambiguous. Goals never supply training hits or predecessor anchors. Custom or
+unverified title routes and the two remaining Si/Tangtang stage cases stay
+guarded. Preparation derives the UI and task/step references from the current
+publisher resources. Positive source-positioned fixtures remain separate from
+the two public gameplay images whose genuine OCR is incomplete. See the
+[training ownership and evidence](endfield-current-subtitle-acceptance.md#positioned-operator-training-instructions).
+
 Revision 31 adds stateless written Baker context from the original Messages/Tasks
 mode, selected chat name and two to four complete adjacent cells. Each body keeps
 its own position and official translation; ordinary hits retain their existing

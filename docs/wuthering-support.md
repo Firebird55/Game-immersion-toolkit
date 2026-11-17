@@ -15,6 +15,13 @@ Longer or unsupported film sources remain unavailable; subtitle
 display times never authorize a guessed audio cut. See the current
 [film inventory and remaining gaps](game-audits/wuwa.md).
 
+Publisher preparation also follows the original game's key-update catalogues.
+New UUID-owned archive parameters can be verified without updating the toolkit
+while that format stays supported. Initial bootstrap/default parameters still
+use a separate verified route; an unknown rotation there remains a preparation
+limit. A failed refresh keeps the previous index and recordings. A metadata-only
+source change reuses hash-validated recordings from the identical catalogue.
+
 Original voice ownership follows the game's `PlotAudio` ID and
 `FileName` fields, plus its own per-dub gender flags and external-source filename
 rules. Choose **Rover voice** in Capture setup for lines addressed to, or spoken

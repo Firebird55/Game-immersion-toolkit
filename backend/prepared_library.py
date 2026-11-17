@@ -73,6 +73,13 @@ def _snapshot(raw, audio):
     if len(raw) > MAX_TEXT:
         raise ValueError('Prepared text is too large')
     value = _json(raw)
+    if 'publisher_training_dialogue_ui' in value:
+        from .endfield_training_presentation import validate_training_dialogue_ui
+        if value.get('game') != 'endfield':
+            raise ValueError('Training dialogue metadata belongs to its original game')
+        value['publisher_training_dialogue_ui'] = validate_training_dialogue_ui(value['publisher_training_dialogue_ui'])
+        if value['publisher_training_dialogue_ui']['revision'] != value.get('fingerprint'):
+            raise ValueError('Original training UI and prepared records have different revisions')
     if 'publisher_world_dialogue_ui' in value:
         from .endfield_presentation import validate_world_dialogue_ui
         if value.get('game') != 'endfield':
@@ -246,6 +253,11 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
                 raise ValueError('Invalid authored caption inventory count')
             payload[key] = snapshot[key]
     payload.update(install=None, records=[])
+    if 'publisher_training_dialogue_ui' in snapshot:
+        from .endfield_training_presentation import validate_training_dialogue_ui
+        if snapshot.get('game') != 'endfield':
+            raise ValueError('Training dialogue metadata belongs to its original game')
+        payload['publisher_training_dialogue_ui'] = validate_training_dialogue_ui(snapshot['publisher_training_dialogue_ui'])
     if 'publisher_world_dialogue_ui' in snapshot:
         from .endfield_presentation import validate_world_dialogue_ui
         if snapshot.get('game') != 'endfield':

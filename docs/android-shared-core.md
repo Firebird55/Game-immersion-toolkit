@@ -17,6 +17,18 @@ selection, complete-source alias equivalence, menu reset and voiced two-frame
 confirmation. PlayerName templates use the maintained Wuthering index helper;
 the APK ships that actual module.
 
+Endfield training also uses the same original
+[positioned HUD-role helper](../backend/endfield_training_presentation.py) and
+index compilation as desktop. Prepared libraries retain its validated,
+revision-bound `publisher_training_dialogue_ui` descriptor and every original
+training row. Only the proved complete bottom body can supply tutorial hits or
+predecessors; left objectives never supply either, and a changed original owner
+resets the tutorial context. Missing role metadata, genuine positions/confidence
+or explicit unvoiced opt-in keeps these rows out of capture. The APK's 45 owned
+Python modules include the presentation helper; its desktop-only publisher
+producer is not embedded. The authored shared-core fixture exercises this path
+on both host and Android, so a package audit alone is not runtime acceptance.
+
 ## Private prepared libraries
 
 [The portable writer and importer](../backend/prepared_library.py) use

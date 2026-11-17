@@ -12,7 +12,7 @@ import threading
 import time
 
 from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
-from .floating_caption_policy import floating_caption_policy, observe_floating_contexts
+from .floating_caption_policy import floating_caption_policy, observe_floating_contexts, positioned_training_matches
 from .config import SettingsStore
 from .endfield_caption_context import EndfieldCaptionContext
 from .nte_dialogue_context import NteDialogueContext
@@ -221,14 +221,18 @@ class PreparedCaptureSession:
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
             matches = {hit.text_id: hit for hit in matches if eligible(hit)}
-            direct_exact = {text_id for text_id, hit in matches.items() if hit.kind == 'exact'} if not dialogue_menu else set()
+            original_direct = matches
+            matches, training = positioned_training_matches(self.index, matches, presentation_lines, frame_size,
+                enabled=policy.silent_enabled, dialogue_menu=dialogue_menu)
+            direct_exact = {text_id for text_id, hit in matches.items()
+                if hit.kind == 'exact' and original_direct.get(text_id) is hit} if not dialogue_menu else set()
             scope = (generation, channel, self.index.source_locale, self.index.target_locale,
                 self.index.player_voice, self.index._signature,
                 settings.capture_unvoiced, settings.capture_missing_audio)
             if channel == 'fullframe':
                 matches = observe_floating_contexts(self.index, groups, matches, self.floating_contexts, policy,
                     game=self.index.game, scope=scope, now=now, stable_frames=settings.stable_frames,
-                    capturable=eligible, dialogue_menu=dialogue_menu)
+                    capturable=eligible, dialogue_menu=dialogue_menu, training=training)
                 if policy.world_cues and policy.voice_enabled:
                     hit = self.index.match_endfield_world_caption(presentation_lines, frame_size)
                     if hit and eligible(hit):

@@ -12,14 +12,15 @@ from backend.nte_type_metadata import Schema
 from backend.preparation_errors import PreparationFailure
 
 
-def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False):
+def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False, authoring=False):
     monkeypatch.setattr(publisher, '_reader_identity', lambda: 'f'*64)
     names = ['Client/Plugin.dll', 'Client/RenamedApplication.exe']
     files = {name: asdict(release.File(100+index, str(index+1)*32, 100+index, str(index+1)*32, 0))
              for index, name in enumerate(names)}
     snapshot = dict(region='nte-global', branch='PC_9', version='9.0.1', sections={}, publisher_files=files,
                     reader='f'*64, archive=['archive', 'a'*64], localization=['localization', 'b'*64])
-    snapshot['type_schema'] = provider.source_reference(provider.discovery(snapshot), snapshot['reader'], dialogue_graphs=graphs)
+    snapshot['type_schema'] = provider.source_reference(provider.discovery(snapshot), snapshot['reader'],
+        dialogue_graphs=graphs, original_authoring=authoring)
     catalog = SimpleNamespace(snapshot=snapshot, cache=tmp_path/'cache', stamp='nte-'+'1'*64,
                               region='nte-global', format=SimpleNamespace(parameters={'nte-global': 'owned'}), containers=lambda: [])
     staging = tmp_path/'staging'; staging.mkdir()
@@ -29,7 +30,10 @@ def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False):
     if graphs:
         monkeypatch.setattr(provider, '_registry', lambda _: b'checked-original-registry')
         from backend import nte_graph_prefetch
-        monkeypatch.setattr(provider.assets, 'read_dialogue_inventory', lambda *_: {'HT/Content/Owned.uasset': 20})
+        def inventory(*_args, **kwargs):
+            assert kwargs == ({'capture_original_authoring': True} if authoring else {})
+            return {'HT/Content/Owned.uasset': 20}
+        monkeypatch.setattr(provider.assets, 'read_dialogue_inventory', inventory)
         def prefetch(containers, packages, _progress):
             assert containers == [] and packages == {'HT/Content/Owned.uasset': 20}
         monkeypatch.setattr(nte_graph_prefetch, 'prefetch', prefetch)
@@ -53,8 +57,10 @@ def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False):
         assert kwargs['capture_schema_usage'] is True
         assert kwargs['capture_dialogue_graphs'] is graphs
         assert kwargs['dialogue_registry'] == (b'checked-original-registry' if graphs else None)
+        assert kwargs.get('capture_original_authoring', False) is authoring
         for name in provider.OUTPUTS: (output/name).write_text('{}')
         if graphs: (output/'dialogue-graphs.json').write_text('{"owned":true}')
+        if authoring: (output/'original-authoring.json').write_text('{"current-invocation-owned":true}')
         return {'schema': 'nte-schema-usage-v2' if graphs else 'nte-schema-usage-v1',
                 'lookups': ['RequiredDynamic'], 'classes': {},
                 **({'codecs': {'OwnedPath': 'CUE4Parse.UE4.Objects.Owned.FOwnedPath'}} if graphs else {})}
@@ -88,6 +94,17 @@ def test_graph_recipe_validates_complete_invocation_and_retains_immutable_profil
     second = tmp_path/'second'; second.mkdir()
     assert provider.read_authoring(catalog, tmp_path/'reader', second) == (schema, validation)
     assert provider.DIALOGUE_GRAPHS
+
+
+def test_original_table_recipe_uses_the_same_inventory_reader_closure_and_immutable_epoch(tmp_path, monkeypatch):
+    catalog, staging, _, calls = fixture(tmp_path, monkeypatch, graphs=True, authoring=True)
+    schema, validation = provider.read_authoring(catalog, tmp_path/'reader', staging)
+    assert schema['native_generator'] == metadata.CLASS_GENERATOR and len(calls) == 2
+    assert (staging/'original-authoring.json').read_bytes() == b'{"current-invocation-owned":true}'
+    monkeypatch.setattr(provider, 'ORIGINAL_AUTHORING', not provider.ORIGINAL_AUTHORING)
+    second = tmp_path/'second'; second.mkdir()
+    assert provider.read_authoring(catalog, tmp_path/'reader', second) == (schema, validation)
+    assert (second/'original-authoring.json').read_bytes() == (staging/'original-authoring.json').read_bytes()
 
 
 def test_all_unsupported_required_layouts_leave_no_resolved_profile_or_partial_outputs(tmp_path, monkeypatch):
@@ -175,6 +192,7 @@ def test_fingerprint_uses_complete_original_recipe_and_frozen_parameter_sources(
         stamp, value = publisher._current(tmp_path, 1, 'nte-global')
         assert value['type_schema']['kind'] == provider.KIND and set(value['publisher_files']) == set(original)
         assert value['type_schema']['generator'] == metadata.CLASS_GENERATOR
+        assert value['type_schema']['authoring'] == provider.AUTHORING
         assert value['type_schema']['validator'] == 'nte-required-native-classes-v2'
         assert len(value['files']) == 1 and publisher.snapshot(tmp_path, stamp) == value
         assert [(r['revision'], r['digest']) for r in observed] == [publisher.NATIVE_ARCHIVE, publisher.NATIVE_LOCALIZATION]

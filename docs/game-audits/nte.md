@@ -967,6 +967,87 @@ celebration caller set, each ending with `EX_EndOfScript`. This supplies new
 caller evidence; it does not establish silence or lack of use for a string
 absent from those sets. The unresolved duplicate-caption guard remains intact.
 
+### Original native table discovery and Ride-Along voice ownership
+
+The original AssetRegistry supplies each DataTable's `RowStructure`, package
+and exact export name. Publisher preparation now discovers supported voice,
+sequence, caption, movie and text-registry formats through those tags. It does
+not depend on the current table filenames. The actual DataTable export's
+package, object name and native RowStruct must match the registry claim before
+any row is used. New tables using these formats participate in the same bounded
+prefetch and actual native-schema closure validation. Unsupported new formats
+remain explicit; this is not a generic interpretation of arbitrary tables.
+
+Every invocation also emits a complete original-authoring packet bound to the
+original registry hash, generated schema hash and fresh invocation nonce. It
+retains every table/export/row and sequence slot, including empty slots and
+duplicate claims. Two sequence owners do not become one performance merely
+because they name the same event. Timed captions require unique sequence and
+caption owners, a non-muted row, an unchanged unit-rate clock with no start
+offset/random start, a non-looping source and the exact StringTable export.
+Storage-0/1 caption clocks and whole-scene speech eligibility remain unresolved;
+no speech-recognition runtime or model is enabled by this change.
+
+The independently authenticated Global 1.4.9, Global 1.5.4 and mainland 1.5.6
+registries select 23 supported tables each. The old release supplies 23,831
+rows; the two current regional sources independently supply 25,569. The older
+filename filter missed `RideAlongMsgTable`, although it uses the already
+supported `BubbleVoiceMsgDetail` format. Its original row count increases from
+1,005 to 1,055 between the supplied Global generations. Of the current 1,055
+rows, 1,053 name supported voice events and two point at Wwise states instead
+of recordings. Those two references do not establish silence.
+
+The current Global Japanese ordinary worker retains all 126,472 records and
+resolves 27,718 original-voice bindings. Its only 68 content changes are in
+`ST_RideAlong`: 46 previously unknown records become voiced, twelve existing
+bindings select a different original recording, and ten become explicitly
+unavailable. All captions and translations remain identical. That namespace
+contains 1,031 voiced, fourteen unavailable and two unknown records; no new
+unvoiced classification is introduced. The independently prepared mainland
+Chinese edition retains 126,212 records and resolves 28,130 voices: fifty new
+voiced bindings, twelve corrected performances and six newly explicit
+unavailable entries, again confined to that namespace with no text changes.
+
+An original Japanese corrected sample audibly matches its caption; the old
+conventional-name recording speaks a different line. A newly resolved race
+sample also speaks the expected utterance. The normal voice service reopens
+both samples, the retained previous binding and an old-generation recording,
+and fresh offline conversions reproduce identical nonzero PCM. Actual
+CaptureService replay over the full prepared index admits the corrected
+performance and new race line. The existing canonical Motor/NPC alias shares
+the exact same source text and original recording; capture policy is unchanged.
+These are supplied-OCR and audio-service checks, not native OCR, live gameplay
+or playback of every newly bound recording. Earlier counts above describe their
+own retained preparation stages.
+
+With the same helper and retained seed, ordinary Japanese preparation of Global
+1.4.9 and 1.5.4 completes in 315.469 and 339.813 seconds respectively, with
+publisher networking and newer community mappings forbidden. The original
+native schemas differ; each passes its actual required closure. Ride-Along adds
+52 localized IDs, fifty with original voices, across these generations. The
+independent mainland worker completes in 334.547 seconds without transfers.
+These are warmed original caches, not cold-install cost measurements. A
+publisher-reader timeout retains the complete index and immutable profile
+byte-for-byte with an actionable retry state; the next healthy normal worker
+completes in 331.828 seconds with identical snapshot JSON and unchanged profile.
+
+The same frozen helper also completes ordinary current preparation for all four
+original dubs, independently retaining the selected regional localization:
+
+| Original source / study locale | Records | Resolved voice records |
+| --- | ---: | ---: |
+| Global 1.4.9 / Japanese | 117,575 | 25,731 |
+| Global 1.5.4 / English | 126,548 | 27,910 |
+| Global 1.5.4 / Japanese | 126,472 | 27,718 |
+| Global 1.5.4 / Korean | 126,477 | 27,889 |
+| Global 1.5.4 / Simplified Chinese and Mandarin | 126,573 | 28,130 |
+| Mainland 1.5.6 / Simplified Chinese and Mandarin | 126,212 | 28,130 |
+
+All of these worker trials prohibit new publisher transfers and updated
+community mappings. They use retained authenticated caches and supplied
+original version discovery. They do not establish a cold-install transfer cost,
+native OCR acceptance or that every indexed recording has been listened to.
+
 ### Remaining acceptance
 
 Missing caption resources, more complex Wwise graphs, additional movie formats
