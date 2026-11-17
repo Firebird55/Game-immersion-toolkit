@@ -25,6 +25,11 @@ SHA256 = re.compile(r'[0-9a-f]{64}')
 
 class GameDataError(Exception):
     def __init__(self, code, message, status=400):
+        if (not isinstance(code, str) or re.fullmatch(r'[a-z0-9_]{1,96}', code) is None
+                or not isinstance(message, str) or not message or len(message) > 1000
+                or any(ord(char) < 32 or ord(char) == 127 for char in message)
+                or type(status) is not int or not 400 <= status <= 599):
+            code, message, status = 'game_data_error', 'Game data preparation did not complete.', 400
         self.code, self.message, self.status = code, message, status
         super().__init__(message)
 
@@ -118,14 +123,17 @@ class GameDataPlan:
 
 
 class PreparationContext(Protocol):
+    game: str
     directory: Path
     cache_directory: Path
     request: GameDataRequest
     phase: str
+    transfer_lock: Any
 
     def check(self) -> None: ...
     def cancelled(self) -> bool: ...
     def consume_bytes(self, count: int, *, kind: str = 'asset') -> None: ...
+    def remaining_bytes(self, *, kind: str = 'asset') -> int: ...
     def progress(self, phase: str, downloaded_bytes: int, total_bytes: int | None, message: str = '') -> None: ...
 
 
