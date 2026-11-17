@@ -55,16 +55,21 @@ def _movie_source(build, revision, stale):
     return build
 
 
-def fingerprint(tools, region='global', *, format_revision=None, format_metadata_stale=False):
+def _content_source(build, mode):
+    _check(mode in {'text', 'text-audio'})
+    return build | {'content_mode': 'text'} if mode == 'text' else build
+
+
+def fingerprint(tools, region='global', *, format_revision=None, format_metadata_stale=False, content_mode='text-audio'):
     build = _movie_source(release(tools, region)[0], format_revision, format_metadata_stale)
-    return voices.descriptor(build)[0]
+    return voices.descriptor(_content_source(build, content_mode))[0]
 
 
 def current(tools, stamp, region='global', **kwargs):
     return fingerprint(tools, region, **kwargs) == stamp
 
 
-def prepare(data_dir, region='global', *, format_revision=None, format_metadata_stale=False):
+def prepare(data_dir, region='global', *, format_revision=None, format_metadata_stale=False, content_mode='text-audio'):
     """Prepare original data; optionally reuse a supplied frozen format revision.
 
     A format revision is an existing immutable format description, not a live
@@ -73,13 +78,15 @@ def prepare(data_dir, region='global', *, format_revision=None, format_metadata_
     """
     _check(format_revision is None or isinstance(format_revision, str)
            and re.fullmatch(r'[0-9a-f]{40}', format_revision))
+    _check(content_mode in {'text', 'text-audio'} and (content_mode != 'text' or
+           format_revision is None and not format_metadata_stale))
     tools = Path(data_dir) / 'tools'
     build, generation = release(tools, region)
-    build = _movie_source(build, format_revision, format_metadata_stale)
+    build = _content_source(_movie_source(build, format_revision, format_metadata_stale), content_mode)
     directory = tools / 'sophon'
     # Dispatch authenticates all five marker identities. These three index
     # bodies supply this catalog; ASB/Lua bodies are not consumed by its readers.
-    for name in ('design', 'audio', 'video'):
+    for name in (('design', 'video') if content_mode == 'text' else ('design', 'audio', 'video')):
         hotfix.index(directory, build, name)
     movies = hotfix.movie_files(directory, build)
     tables = OriginalTables(directory, build, descriptions=generation.tables)

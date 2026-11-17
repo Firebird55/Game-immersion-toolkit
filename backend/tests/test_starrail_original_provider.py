@@ -106,3 +106,14 @@ def test_original_provider_never_needs_a_latest_third_party_format_publication(t
     assert catalog.movie_audio_source[2] is None
     with pytest.raises(ValueError):
         provider.prepare(tmp_path, format_revision='latest')
+
+
+def test_text_mode_uses_original_caption_inventory_without_audio_index_or_movie_keys(tmp_path, monkeypatch):
+    state = fixture(monkeypatch)
+    stamp, catalog = provider.prepare(tmp_path, content_mode='text')
+    assert 'index-design' in state['calls'] and 'index-video' in state['calls']
+    assert 'index-audio' not in state['calls'] and catalog.movie_audio_source[2] is None
+    assert provider.current(tmp_path / 'tools', stamp, content_mode='text')
+    assert not provider.current(tmp_path / 'tools', stamp)
+    with pytest.raises(ValueError):
+        provider.prepare(tmp_path, content_mode='text', format_revision='a' * 40)

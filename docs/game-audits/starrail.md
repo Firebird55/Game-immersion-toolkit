@@ -67,8 +67,14 @@ planned by complete authenticated Sophon chunks: four remaining headers required
 two chunks totaling 2,353,000 compressed bytes, not merely 344 bytes. Both chunks
 were acquired within that bound and verified against the publisher's complete
 chunk size/MD5 before the old worker succeeded. This does not verify a whole PCK.
-Text-only preparation must skip all take/audio discovery; the independent
-content-mode adapter is not yet implemented by this checkpoint.
+The explicit text-only catalog consumer now skips voice inventory, event banks,
+take timing headers, movie decoding and movie-key lookups. It retains caption
+and protagonist authoring as metadata and keeps omitted voice sources
+non-playable. Explicit silence, unknown status and unresolved authored audio
+remain distinct. Synthetic traps fail any attempt to enter those audio paths;
+the resulting snapshot passes the shared omission and matcher contracts.
+The new independent download-service adapter and its staged transport are not
+yet connected by this core consumer checkpoint.
 
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three

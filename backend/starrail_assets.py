@@ -311,6 +311,45 @@ def _archive_rows(rows, links, bindings, credits, locale, tables=None):
     return result
 
 
+def index_text_catalog(stamp, catalog, source_locale, target_locales, tools):
+    """Read authored publisher text without audio headers, banks, keys or takes.
+
+    A caller first authenticates the catalog's original input generation. Voice
+    authoring remains non-playable provenance; missing media never means silence.
+    """
+    if source_locale not in SUPPORTED_LOCALES:
+        raise ValueError('Unsupported Star Rail study/audio language.')
+    from . import starrail_films
+    text_locales = getattr(catalog, 'text_locales', TEXT_LOCALES)
+    tables = selected_tables(catalog, text_locales, source_locale, target_locales)
+    links = authored_links(catalog, source_locale)
+    rows = common.records('starrail', links, tables, source_locale, {})
+    authoring = {'starrail:' + str(link['id']): link for link in links}
+    for row in rows:
+        link = authoring[row['text_id']]
+        source = {key: link[key] for key in ('source', 'audio_event') if link.get(key)}
+        if source:
+            row['source_voice_binding'] = source | {'publisher': stamp, 'locale': row['audio_locale']}
+    rows = [_player_row(row, row['player_voice']) if row['player_voice'] else row for row in rows]
+    rows.extend(_readable_records(catalog, tables, source_locale))
+    rows.extend(starrail_films.caption_rows(tools, catalog, tables, source_locale, {}, text_only=True))
+    captions = {}
+    for row in rows:
+        if 'film_caption' in row:
+            captions[row['text_id']] = row.pop('film_caption')
+            row['source_voice_binding'] = {'publisher': stamp, 'locale': row['audio_locale'],
+                                           'film_caption': captions[row['text_id']]}
+        row['text_capture_verified'] = True
+        row['audio_omitted_by_request'] = row['voice_status'] != 'unvoiced'
+        if row.get('audio') or row['voice_status'] == 'voiced':
+            raise ValueError('Text-only Star Rail preparation unexpectedly acquired audio.')
+    result = common.snapshot('starrail', None, stamp, catalog, rows, source_locale, target_locales, text_locales)
+    result.update(content_mode='text', source_mode='publisher', film_captions=captions,
+                  metadata_revision_title=catalog.revision_title,
+                  message=f'{len(rows):,} official {source_locale} lines; original audio omitted by request')
+    return result
+
+
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Star Rail study/audio language.')
