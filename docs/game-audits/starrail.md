@@ -527,6 +527,16 @@ common-owner snapshot/restore and text-only traps against all audio inventory.
 The additional unclassified headers are quoted only; no source bytes outside
 the approved common-directory intake were acquired for this implementation.
 
+A frozen cache-only replay exercises these production APIs against the same
+complete current AudioV identity and the 36 authenticated common directories.
+The Japanese request retains 209 primary owners and inventories 309 candidates
+in total. The APIs reproduce all 86 unique Japanese archive memberships and
+zero hits for the 1,565 missing English paths; supplying Japanese paths to an
+English request is rejected. The remaining 273 prefixes in this isolated cache
+are quoted as 7,644 bytes, without fetching them. All 86 located members total
+27,853,355 bytes and remain quote-only. This proves metadata binding, not actual
+recording acceptance, a copyright-state selection or an audio-ready snapshot.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
