@@ -30,7 +30,11 @@ native hashes, even when plaintext indices are already cached. Only then may
 the existing protected verified-parameter store retain that selected value.
 That protected record keeps native UUID ownership separate from legacy inputs.
 A verified native value cannot reappear as an unbound candidate through an
-older cache or a later foreign feed after its UUID is removed. Equal bytes
+older cache or a later foreign feed in a current native descriptor after its
+UUID is removed. Independently earlier verified legacy origin remains stored
+alongside native ownership for historical descriptors without native refs.
+Tagging the same bytes native must not erase that older origin. Newly native-only
+values never acquire legacy origin. Equal bytes
 establish no default ownership: only a separate complete package verification
 with the native zero FGuid records that proof. Retained A descriptors still
 restore their authentic A inputs after B removes a UUID. Failed protected
@@ -41,6 +45,23 @@ native source with an empty list still refuses unknown nonzero FGuids instead
 of trying the legacy/default baseline. Protected writes reject invalid role
 combinations before publication and verify the retained record under the same
 writer lock; candidate construction reads one consistent protected envelope.
+The retained 3.7-A descriptor and exact pre-provider frozen legacy input were
+also checked offline against the preserved legacy-verification hash receipts.
+All fifteen independently proven legacy candidates remain available to A;
+current B still excludes native values from its unbound baseline without a
+separate default proof. A native-only video value stays excluded from legacy
+recovery. The previously saved A sentence preserves its original WEM, all
+326,074 mono PCM frames and MP3 hashes with every network entry point blocked.
+This check establishes cached original playback and descriptor-specific input
+selection, separately from reopening a cold old archive.
+The subsequent actual cold-open used a new empty index cache and the ordinary
+voice-package entry point for two exact retained A owners: the old English
+zero-FGuid bootstrap archive and a common nonzero-FGuid archive whose legacy
+parameter was later also native-owned. All four complete original index reads
+passed their SHA1s and exact member-owner positions: **8,698,896 index bytes**,
+with the earlier 1,056 footer/sample bytes replayed from their saved wire/hash
+receipts. No member or media body was transferred; all fifteen legacy origins
+remain intact. These are original retained A archives, not invented old roots.
 Original encoded wire inputs are cached separately by publisher, region,
 version, role and original hashes; decoded candidate values are not written
 there. Immutable descriptors reference those inputs, and normal final-pointer
@@ -1048,6 +1069,11 @@ metadata, install paths or account data is part of this public audit.
 
 ## Presentation inventory
 
+The counts and gap observations in this table describe the **historical
+installed 3.7 snapshot**. The dated publisher-source sections above supersede
+its older implementation limits; they must not be read as missing current
+coverage for an already implemented presentation.
+
 “Indexed” means the adapter emits a record when the selected locale contains
 the authored text. It does not mean every record appears in the current save,
 or that its UI crop has passed desktop/mobile OCR replay.
@@ -1068,7 +1094,8 @@ or that its UI crop has passed desktop/mobile OCR replay.
 | WavesLine system notices and attachments | 88 system-tip items are text-only. The 118 emoji and 36 attachment items are excluded from narrative text; 35 attachment metadata rows were inventoried. | Attachments may open another presentation. No image transcription, account messages or server mail is read. |
 | Books, letters, notes and readable information panels | `InfoDisplay` has 803 rows with explicit text and optional audio fields. Localized body references are now retained as readable. | Empty audio alone cannot certify silence. Long pages, authored audio events and other handbook/event/book schemas remain only partially covered. |
 | Floating 2D/3D captions | `db_FloatingSubtitle` contains 11 two-dimensional and 37 three-dimensional entries, with distinct text keys and an audio field in the 3D schema. | Dedicated table ingestion, world-space bounds and camera movement are not implemented by this change. |
-| Legacy numeric subtitles/options and song lyrics | `SubtitleText` contains 1,262 rows with five subtitle/option/audio slots; `MusicSubTitle` contains 253 rows. These differ from MultiText string-key joins. | Not newly ingested. Numeric localization joins and song timing need their own verified adapters. |
+| Legacy numeric subtitles/options | Historical `SubtitleText` contains 1,262 rows with five subtitle/option/audio slots, separate from MultiText string-key joins. | Numeric legacy localization joins still need their own verified adapter. |
+| Song lyric presentations | Historical `MusicSubTitle` contains 253 rows; the later publisher snapshot has 282 rows in eighteen groups. | Publisher MusicSubtitle ingestion and bounded original song contexts are implemented; [current source, caller, timing-carrier and vocal-language limits](wuwa-music-subtitles.md) supersede the historical gap. |
 | Story review, replay, summaries and ordinary UI | Review can reuse supported flow/audio identities. Handbook and other display tables exist separately. | Review-mode order, summary text, quest instructions, loading tips and general UI are not bulk-imported as dialogue. |
 
 Counts describe source references, not unique spoken sentences. Reused keys,

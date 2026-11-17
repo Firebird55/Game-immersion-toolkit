@@ -142,12 +142,16 @@ def _format(tools=None):
                  for name in (b'KEY', b'IV'))
 
 
-def _archive_parameters(tools=None):
+def _archive_parameters(tools=None, historical=False):
     from . import wuthering_metadata as metadata
     from .preparation_errors import PreparationFailure
     record = metadata._parameter_record(tools) if tools is not None else None
-    retained, owners, _ = record if record is not None else ((), (), ())
+    retained, owners, defaults = record if record is not None else ((), (), ())
     native = {value for _, value in owners}
+    # Historical descriptors preserve independently verified legacy origins.
+    # Current native descriptors permit only a separately proven default owner.
+    excluded = native - set(retained if historical else defaults)
+    retained = tuple(value for value in retained if value not in excluded)
     if tools is not None and record is None and not metadata.empty_parameter_cache(tools):
         raise PreparationFailure('game_metadata_unavailable',
             'The protected Wuthering archive parameter cache is invalid. Restore the cache or retry '
@@ -157,7 +161,7 @@ def _archive_parameters(tools=None):
         values = tuple(bytes.fromhex(value) for value in dict.fromkeys(
             re.findall(r'0x([0-9a-fA-F]{64})', json.dumps(data))))
         pak.check(0 < len(values) <= 4096)
-        return tuple(dict.fromkeys((*retained, *(value for value in values if value not in native))))
+        return tuple(dict.fromkeys((*retained, *(value for value in values if value not in excluded))))
     except (OSError, ValueError, TypeError) as error:
         if retained:
             return retained
@@ -455,6 +459,8 @@ def _voice_parameters(stamp, tools=None):
 def _parameters_for_snapshot(tools, snapshot):
     from . import wuthering_metadata as metadata
     from .preparation_errors import PreparationFailure
+    if 'native_key_sources' not in snapshot:
+        return _archive_parameters(tools, True)
     try:
         baseline = _archive_parameters(tools)
     except PreparationFailure as error:
@@ -462,8 +468,6 @@ def _parameters_for_snapshot(tools, snapshot):
                 or not metadata.empty_parameter_cache(tools)):
             raise
         baseline = ()
-    if 'native_key_sources' not in snapshot:
-        return baseline  # Historical immutable descriptors keep their old inputs.
     from . import wuthering_publisher_keys as publisher_keys
     return publisher_keys.restore(tools, snapshot['native_key_sources'], snapshot.get('region', 'global'),
                                   baseline, lambda raw: _json(raw, tools),

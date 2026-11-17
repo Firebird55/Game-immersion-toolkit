@@ -406,7 +406,13 @@ def test_a_matching_legacy_value_is_not_independent_default_ownership(native_voi
     assert not metadata.default_parameters(tmp_path)
     prepare()
     assert metadata.native_parameters(tmp_path) == ((GUID, parameter),)
-    assert not metadata.baseline_parameters(tmp_path) and not metadata.default_parameters(tmp_path)
+    assert metadata.baseline_parameters(tmp_path) == (parameter,)
+    assert not metadata.default_parameters(tmp_path)
+    # An older immutable descriptor keeps this already proven legacy origin.
+    assert release._parameters_for_snapshot(tmp_path, {'schema': 1}) == (parameter,)
+    # It still cannot become a current native source's unbound default.
+    with pytest.raises(PreparationFailure):
+        release._archive_parameters(tmp_path)
 
 
 def test_failed_native_ownership_publication_preserves_prior_protected_state(native_voice, tmp_path, monkeypatch):
@@ -467,7 +473,7 @@ def test_provenance_reclassification_at_capacity_does_not_add_a_candidate(tmp_pa
     assert metadata._write(path, json.dumps({'schema': 1, 'parameters': [value.hex() for value in values]}).encode())
     assert metadata.remember_parameter(tmp_path, values[0], native_guid=GUID)
     assert len(metadata.parameters(tmp_path)) == 1024
-    assert values[0] not in metadata.baseline_parameters(tmp_path)
+    assert values[0] in metadata.baseline_parameters(tmp_path)
     before = path.read_bytes()
     assert not metadata.remember_parameter(tmp_path, b'x' * 32, native_guid=OTHER)
     assert path.read_bytes() == before
@@ -488,19 +494,48 @@ def test_archive_candidates_use_one_consistent_protected_envelope(tmp_path, prot
     assert reads == [tmp_path]
 
 
-@pytest.mark.parametrize('fault', ['zero-native', 'unproven-overlap', 'foreign-default'])
+@pytest.mark.parametrize('fault', ['zero-native', 'invalid-default', 'foreign-default'])
 def test_protected_reader_rejects_impossible_owner_combinations(tmp_path, protected, fault):
     parameter = b'a' * 32
     value = {'schema': 1, 'parameters': [], 'native_parameters': []}
     if fault == 'zero-native':
         value['native_parameters'] = [{'uuid': str(uuid.UUID(int=0)), 'parameter': parameter.hex()}]
-    elif fault == 'unproven-overlap':
+    elif fault == 'invalid-default':
         value['parameters'] = [parameter.hex()]
-        value['native_parameters'] = [{'uuid': str(GUID), 'parameter': parameter.hex()}]
+        value['default_parameters'] = 'not-an-owner-list'
     else:
         value['default_parameters'] = [parameter.hex()]
     assert metadata._write(metadata._path(tmp_path, 'verified-parameters'), json.dumps(value).encode())
     assert metadata._parameter_record(tmp_path) is None and not metadata.empty_parameter_cache(tmp_path)
+
+
+def test_historical_legacy_origin_survives_native_tagging_but_native_only_never_acquires_it(native_voice, tmp_path, signer, monkeypatch):
+    parameter, data, _, snapshot, prepare = native_voice
+    assert metadata.remember_parameter(tmp_path, parameter)
+    original_native = json.loads(json.dumps(snapshot))
+    prepare()
+    assert metadata.baseline_parameters(tmp_path) == (parameter,)
+    # A legacy descriptor reopens its own original archive after native tagging.
+    snapshot.clear(); snapshot.update({'schema': 1, 'region': 'global'})
+    assert prepare().verified_parameter == parameter
+    # A newer source with an explicitly empty original list remains native.
+    disabled = json.dumps({'Hash': '', 'Key': '', 'Random': '', 'UpdateTime': 0}).encode()
+    removed = keys.current(tmp_path, BASE, VERSION, 'global', (), fetcher(disabled, b''), json.loads, {})
+    snapshot['native_key_sources'] = list(removed.sources)
+    monkeypatch.setattr(release, 'download', lambda *args, **kwargs: json.dumps({'old': '0x'+parameter.hex()}).encode())
+    for identity in (GUID, uuid.UUID(int=0)):
+        data[:] = native_package(parameter, identity)
+        release._voice_package.cache_clear(); release._voice_parameters.cache_clear()
+        with pytest.raises(PreparationFailure) as error:
+            prepare()
+        assert error.value.code == 'archive_parameters_missing'
+    # Merely native-only material has no independent legacy origin to restore.
+    isolated = tmp_path/'native-only'
+    native_only = b'n' * 32
+    assert metadata.remember_parameter(isolated, native_only, native_guid=OTHER)
+    monkeypatch.setattr(release, 'download', lambda *args, **kwargs: json.dumps({'new': '0x'+native_only.hex()}).encode())
+    assert release._parameters_for_snapshot(isolated, {'schema': 1}) == ()
+    assert metadata.baseline_parameters(isolated) == ()
 
 
 def test_rotated_native_verified_values_keep_both_exact_owners_and_never_gain_baseline(tmp_path, protected):

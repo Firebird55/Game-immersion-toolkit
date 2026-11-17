@@ -64,9 +64,7 @@ def _parameter_record(tools):
         defaults = tuple(bytes.fromhex(item) for item in defaults)
         if any(len(item) != 32 or item not in result for item in defaults):
             return None
-        if (set(result) & {parameter for _, parameter in native}) - set(defaults):
-            return None
-        if len(result) + len(native) > 1024:
+        if len(set(result) | {parameter for _, parameter in native}) > 1024:
             return None
         return result, tuple(native), defaults
     except (ValueError, TypeError, KeyError, AttributeError):
@@ -107,7 +105,11 @@ def empty_parameter_cache(tools):
     except OSError:
         return False
     record = _parameter_record(tools)
-    return record is not None and not record[0]
+    if record is None:
+        return False
+    legacy, native, defaults = record
+    owned = {value for _, value in native} - set(defaults)
+    return not any(value not in owned for value in legacy)
 
 
 def remember_parameter(tools, parameter, *, native_guid=None, default_verified=False):
@@ -132,7 +134,7 @@ def remember_parameter(tools, parameter, *, native_guid=None, default_verified=F
             if record is None and not empty_parameter_cache(tools):
                 return False  # Never overwrite a present corrupt provenance record.
             baseline, native, defaults = record if record is not None else ((), (), ())
-            if (native_guid is None and not default_verified and parameter not in defaults
+            if (native_guid is None and not default_verified and parameter not in baseline and parameter not in defaults
                     and any(item == parameter for _, item in native)):
                 return False  # Equal bytes cannot turn native ownership into a legacy/default proof.
             if (native_guid is None and parameter in baseline and (not default_verified or parameter in defaults)
@@ -144,9 +146,7 @@ def remember_parameter(tools, parameter, *, native_guid=None, default_verified=F
                     defaults = tuple(dict.fromkeys((*defaults, parameter)))
             else:
                 native = (*native, (native_guid, parameter))
-                if parameter not in defaults:
-                    baseline = tuple(item for item in baseline if item != parameter)
-            if len(baseline) + len(native) > 1024:
+            if len(native) > 1024 or len(set(baseline) | {item for _, item in native}) > 1024:
                 return False
             value = {'schema': 1, 'parameters': [item.hex() for item in baseline],
                      'native_parameters': [{'uuid': str(identity), 'parameter': item.hex()} for identity, item in native],
