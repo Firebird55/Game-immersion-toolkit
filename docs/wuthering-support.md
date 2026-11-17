@@ -14,6 +14,9 @@ whole-film limit. Songs and sentence intervals retain their five-minute limits.
 Longer or unsupported film sources remain unavailable; subtitle
 display times never authorize a guessed audio cut. See the current
 [film inventory and remaining gaps](game-audits/wuwa.md).
+Independent background music and sound effects do not block a proven original
+scene voice. Preparation retains the exact dub and Rover branch; shared short
+text still needs sufficient capture evidence before selecting a recording.
 
 Publisher preparation also follows the original game's key-update catalogues.
 New UUID-owned archive parameters can be verified without updating the toolkit
@@ -29,7 +32,7 @@ by, female or male Rover. Ambiguous repeated text, dynamic filenames, and shared
 language-independent creature audio are excluded from selected-dub capture. No
 event-name guesses, recordings, or synthesized voice fallbacks are used.
 
-Download the **selected voice pack inside Wuthering Waves** to enable voiced
+For installed-file preparation, download the **selected voice pack inside Wuthering Waves** to enable voiced
 capture and original playback. Both Chinese scripts use Mandarin. Without the
 pack, official text is indexed and the companion
 shows a missing-pack message. A later pack download changes the archive
@@ -37,6 +40,8 @@ fingerprint and triggers automatic reindexing. Base files and patch files are
 read together, with the extractor preserving patch priority. User mods are
 outside the supported indexing contract; the toolkit never installs mods or
 changes game archives.
+Publisher preparation fetches the selected dub directly from the original
+release resources and requires neither a game installation nor an installed pack.
 
 Extraction uses the same owned, app-local managed archive helper as NTE, with
 checksum-pinned CUE4Parse dependencies. Complete Windows x64 desktop bundles

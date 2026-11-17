@@ -49,7 +49,7 @@ installation.
 | Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips, timed clue recordings and supported whole-film contexts in the selected dub. Context audio is labeled; unresolved film/player bindings remain unavailable |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
-| Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty for publisher preparation and original key-update catalogues. Choose Rover voice for gender-specific clips; complete scene audio is labeled as context, with supported surround recordings replayed in stereo. Unknown bootstrap/default-key rotations remain a preparation limit |
+| Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty to fetch the chosen dub from original publisher resources without a game installation. Choose Rover voice for gender-specific clips; complete scene audio is labeled as context, with supported surround recordings replayed in stereo. Existing prepared film voices refresh automatically when the reader improves. Unknown bootstrap/default-key rotations remain a preparation limit |
 | The Witcher 3 | Contains bin and content | Official Chinese speech pack |
 | Neverness to Everness (NTE) | Optional: selected publisher edition, or Client/WindowsNoEditor/HT in an installed client | Publisher text and original voices, or selected installed voice pack; desktop reader is self-contained, source development uses .NET 10 SDK |
 | Honkai: Star Rail | Optional folder containing StarRail.exe and StarRail_Data | Without a folder, select Global or Mainland China and prepare the desired dub. The regional audio index selects released base and chapter packages |
@@ -145,6 +145,10 @@ enable unvoiced-text capture. These use the publisher's original text without a
 game folder; illustrative media is not a recording of the written explanation.
 Keep an instruction book's original title and complete body visible together;
 the title distinguishes repeated explanations with different translations.
+For Endfield operator training, keep the guide title, complete bottom instruction
+and adjacent skill labels visible. Objectives on the left do not count as
+instructions or establish their previous-step context. Refresh prepared data
+if the toolkit cannot verify the training interface for the current release.
 For Baker system notices, keep the Messages/Tasks title, active chat name and
 complete adjacent messages visible. Some short states need a longer visible
 sequence. Friends, menus and partial or uncertain text retain their guards.

@@ -41,7 +41,7 @@ Ranges carry file offset, virtual address and byte count; each is bounded to
 64 KiB and 8,192 instructions, with aggregate limits of 16 MiB and 262,144
 instructions per request. Decoding
 rejects malformed/truncated instructions rather than dropping unread bytes.
-Both operations reject existing outputs and paths through links. The caller
+All operations reject existing outputs and paths through links. The caller
 stages results privately and publishes a generation only after its complete
 semantic and integrity checks pass.
 
@@ -52,6 +52,18 @@ an input or executing instructions. Overlapping instructions, unterminated flow,
 unknown indirect branches, external conditional branches and paths bypassing the
 switch guard fail. This permits enum-label analysis without interpreting embedded
 table bytes or unreachable tail data as instructions.
+
+The separate `native-graph` operation accepts `{"entry_rva": <unsigned integer>}`
+and follows direct branches between original x64 PE unwind regions. The initial
+entry and each newly reached region require an original region-start boundary.
+It reads at most 16 regions / 32 KiB of code and emits at most 8,192 instructions,
+with source-region SHA-256 values, exact edges and returns. Calls are opaque
+external edges; indirect branches, traps, overlap, graphs without a return and
+unproved boundaries fail. Unreachable bytes are not decoded. The Python adapter
+rechecks whole-native identity, PE mappings, original function-table entries,
+region hashes and the complete reachable graph before returning it. This
+provides data for description derivation; it does not enable metadata-key
+fallback or change the ordinary provider default.
 
 `starrail_native_preparation.prepare` joins complete original acquisition,
 metadata regeneration, managed decoding, bootstrap/protocol descriptions and all
@@ -74,10 +86,24 @@ pins before extraction; restores used only that closed local feed. The shipped
 runtime members, corresponding sources and notices. Its build identity is
 `481994032e491f59a6d491e408c440c2f58f1cd63c28278c7b4d0a84bc849b26`.
 
-That published self-contained apphost regenerated metadata from complete
+That self-contained apphost regenerated metadata from complete
 manifest-MD5-verified Global 4.7 inputs with the SDK removed from `PATH` and
 `DOTNET_ROOT` pointing to an empty directory. Its 189,595,914-byte dump and
 12,498,550-byte literal map exactly matched the earlier control hashes. This
 proves the Windows helper's compiler-free execution and pinned build path;
 full desktop candidate acceptance, other platforms and the complete ordinary
 worker/update/recovery acceptance remain separate requirements.
+
+The subsequent graph bridge at source commit
+`9a0c4dcc6c00b129c68639391f5e7f328f14cc79` also passed the exact SDK/runtime
+build, authored malformed-input probes and production prebuilt resolver. Its
+207-resource local payload has build identity
+`c30cfd97613122bda90c8fd80b1c5a3c2a9fdacccd89ee0037075aef3e1a7f29`;
+all nine owned source-input hashes match exactly. With no installed SDK/runtime
+available, the apphost reproduces the original Global 4.7 type-initializer graph:
+708 instructions, two PE-owned regions and 4,295 source bytes. Addresses,
+instruction lengths, edges, returns and region hashes match an independent
+static control. The complete original native file's manifest MD5 is rechecked;
+no metadata dump or original instruction execution is used for this graph.
+This proves the delivered Windows graph contract, while complete metadata-key
+recovery and ordinary worker/platform acceptance remain separate.

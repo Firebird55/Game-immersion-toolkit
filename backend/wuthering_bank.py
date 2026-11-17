@@ -71,23 +71,32 @@ def _nodes(bank):
     return result
 
 
-def _base(reader):
+def _base(reader, *, music=False, common_effects=None):
     _check(reader.byte() in (0, 1))  # Override parent effects.
     effects = reader.byte()
+    _check(not music or effects == 0)
     if effects:
         # A zero-ID rendered slot is baked into the original source bytes.
         # Active plugins could change the source clock and are unsupported.
-        _check(effects == 1 and reader.byte() == 0
-               and reader.take(6) == b'\0\0\0\0\0\x04')
+        _check(effects <= 4)
+        bypass = reader.byte()
+        slots = tuple(reader.take(6) for _ in range(effects))
+        if not (effects == 1 and bypass == 0 and slots == (b'\0\0\0\0\0\x04',)):
+            _check(common_effects is not None and bypass in (0, 1))
+            _check(len({slot[0] for slot in slots}) == effects)
+            for slot in slots:
+                _check(slot[0] < 4 and slot[5] & ~1 == 0)
+                common_effects(struct.unpack_from('<I', slot, 1)[0])
     _check(reader.byte() in (0, 1) and reader.byte() == 0)  # No metadata plugins.
     reader.uint()  # Output bus: it does not select a source.
     parent = reader.uint()
     _check(reader.byte() & ~3 == 0)  # Priority flags, no MIDI behavior.
     count = reader.byte()
     keys = reader.take(count)
-    _check(len(set(keys)) == count and set(keys) <= {0, 5, 6, 36, 43})
-    properties = dict(zip(keys, (reader.number('f') for _ in keys)))
+    _check(len(set(keys)) == count and set(keys) <= ({0, 5, 6, 36, 43, 74} if music else {0, 5, 6, 36, 43}))
+    properties = {key: reader.number('I' if music and key == 74 else 'f') for key in keys}
     _check(all(math.isfinite(value) for value in properties.values()))
+    _check(not music or properties.get(74, 0) == 0)
     _check(reader.byte() == 0)  # No randomized property ranges.
     positioning = reader.byte()
     _check(positioning in (0, 3))
@@ -119,7 +128,7 @@ def _children(reader):
     return children
 
 
-def _node(kind, data, *, common=False):
+def _node(kind, data, *, common=False, common_effects=None):
     reader = _Reader(data)
     media = None
     if kind == 2:
@@ -129,7 +138,8 @@ def _node(kind, data, *, common=False):
         _check(media and reader.byte() == (8 if common else 9))  # Exact depot ownership.
     else:
         _check(kind in (6, 7))
-    parent, delay, gain, muted = _base(reader)
+    _check(common_effects is None or common)
+    parent, delay, gain, muted = _base(reader, common_effects=common_effects)
     children, states = (), {}
     if kind == 6:
         _check(reader.byte() == 1 and reader.uint() == wwise_hash('player_rover_gender'))
@@ -220,7 +230,7 @@ def _state_only_event(nodes, data, visited, depth=0):
     return result
 
 
-def _sources(bank, event, localized_media, *, common=False):
+def _sources(bank, event, localized_media, *, common=False, root_actions=None):
     """Return proven sources in the selected dub, or no bindings on ambiguity.
 
     localized_media must come from actual members of that original dub depot.
@@ -240,6 +250,9 @@ def _sources(bank, event, localized_media, *, common=False):
         _check(0 < count < 128)
         actions = [nodes[reader.uint()] for _ in range(count)]
         reader.finish()
+        if root_actions is not None:
+            _check(not common)
+            actions = root_actions
         # Fixed immediate unrelated states cannot select these stateless source
         # paths. Every source/ancestor still rejects state properties and RTPCs;
         # the only supported selection group remains explicit Rover gender.
@@ -316,7 +329,21 @@ def _sources(bank, event, localized_media, *, common=False):
 
 def scene_sources(bank, event, localized_media):
     """Scene-clock sources must belong to the actual selected voice depot."""
-    return _sources(bank, event, localized_media)
+    if not isinstance(event, str) or not 0 < len(event) <= 256:
+        return ()
+    try:
+        localized_media = frozenset(localized_media)
+    except TypeError:
+        return ()
+    sources = _sources(bank, event, localized_media)
+    if sources:
+        return sources
+    try:
+        from .wuthering_companion_audio import scene_actions
+        actions = scene_actions(_nodes(bank), wwise_hash(event))
+    except (ValueError, KeyError, TypeError, struct.error):
+        return ()
+    return _sources(bank, event, localized_media, root_actions=actions)
 
 
 def song_sources(bank, event, common_media):

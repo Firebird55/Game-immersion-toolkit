@@ -593,7 +593,8 @@ def _movie_context_records(tools, snapshot, stamp, params, db_root, records, loc
                                   and row.get('audio') is None for row in records):
         return
     code = assets.VOICE_LOCALES[locale][0]
-    events = {event for choices in context.full_scene_events(db_root).values() for event in choices}
+    needed = set(context.context_candidates(db_root, records, locale, plot_audio_sha256=plot_audio_sha256).values())
+    events = {event for scene, choices in context.full_scene_events(db_root).items() if scene in needed for event in choices}
     names = {films.EVENT_ROOT + code + '/' + event + '.bnk': event for event in events}
     references = _movie_locations(tools, snapshot, params, code, set(names))
     banks = {names[name]: _voice_package(tools, stamp, info).extract(position)

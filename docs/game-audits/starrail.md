@@ -161,6 +161,24 @@ do not establish complete source-owner acquisition, relocated semantic roles,
 an actual changed-key release, configurable helper decoding or normal-worker
 recovery. A complete autonomous changed-codec fallback remains unfinished.
 
+The owned helper also exposes a PE-unwind-bounded `native-graph` operation for
+protected native continuations. It follows direct branches across at most 16
+original regions / 32 KiB of code, preserves both conditional paths and records
+calls as external edges. Unknown indirect branches, overlapping instructions,
+unproved entry boundaries and malformed PE mappings fail without publishing an
+output. The adapter verifies source identity, region hashes and complete graph
+reachability. Authored regressions cover split regions, external calls, dead
+truncated tails, overlap, indirect branches, limits and output preservation.
+This graph contract alone does not activate changed-codec metadata recovery.
+The delivered, source-bound SDK 10.0.403/runtime 10.0.14 apphost independently
+reproduces the current original type initializer's 708 instructions across two
+PE-owned regions / 4,295 source bytes, with identical addresses, lengths, edges,
+returns and region hashes to the static control. The production resolver checks
+all 207 resources and all nine exact source-input hashes. This graph replay
+uses the existing whole-MD5-verified official native file, with no SDK/runtime
+installation, metadata-dump dependency, transport or original code execution.
+See the [exact graph build identity](../../packaging/starrail-reader/README.md).
+
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone
 API parses the old bootstrap, reports source unavailability and retains the

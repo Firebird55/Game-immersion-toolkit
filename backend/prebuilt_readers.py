@@ -150,7 +150,7 @@ class PrebuiltReader:
 
     def original_metadata_command(self, operation, *paths):
         """Only bounded data operations; no native loader or compiler command."""
-        if (self.kind != 'starrail' or operation not in {'metadata', 'disassemble'}
+        if (self.kind != 'starrail' or operation not in {'metadata', 'disassemble', 'native-graph'}
                 or len(paths) != (2 if operation == 'metadata' else 3)
                 or any(not Path(path).is_absolute() for path in paths)):
             raise _failure('The original metadata helper requires a supported operation and absolute private paths.')

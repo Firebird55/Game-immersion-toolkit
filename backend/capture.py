@@ -901,6 +901,13 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
+        training = {'body_groups': [], 'owners': ()}
+        if game == 'endfield':
+            observe_training = getattr(index, 'match_endfield_training_dialogue', None)
+            training = (observe_training(response.get('lines', []), image.size, direct=tuple(matches.values()),
+                        dialogue_menu=bool(response.get('dialogue_menu'))) if observe_training and silent_enabled else training)
+            matches = {identity: hit for identity, hit in matches.items() if hit.dialogue_kind != 'tutorial_step'}
+            matches.update((hit.text_id, hit) for hit in training.get('hits', ()))
         if (voice_enabled and game == 'endfield') or (has_song_cues and (voice_enabled or missing_enabled)):
             context = self._endfield_film if game == 'endfield' else self._wuwa_music
             if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
@@ -927,8 +934,10 @@ class CaptureService:
                 if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
                     context.reset()
                     continue
-                hit = context.observe(index, groups, matches.values(), channel=channel, kind=kind,
-                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
+                context_groups = training['body_groups'] if kind == 'tutorial_step' else groups
+                context_owner = training['owners'] if kind == 'tutorial_step' else None
+                hit = context.observe(index, context_groups, matches.values(), channel=channel, kind=kind,
+                    scope=(scope, self.session_id, index.player_voice, index.target_locale, context_owner),
                     now=seen_at, stable_frames=settings.stable_frames, prefer_authored_occurrence=True)
                 if hit and self._capturable_match(hit):
                     for identity, other in list(matches.items()):
