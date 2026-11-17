@@ -601,7 +601,22 @@ external sections and a larger sound section. Actual strong ETags, strict 206
 and exact owner sizes bind these prefixes, with no directory or payload reads
 and no whole-PCK MD5 verification. This is a prefix classification, not an
 inferred voice role or a completed namespace-absence proof. Their complete
-directory quote is 183,088 bytes and has not been acquired in this phase.
+directory quote is 183,088 bytes and is separate from that prefix phase.
+
+The approved directory follow-up then receives exactly 183,088 directory bytes
+plus 132 guard bytes. All 64 complete directories pass bounds, language IDs,
+section lengths, duplicate checks, directory SHA256 and EOF; they contain 9,052
+sound entries, zero banks and zero external members. Together with the previous
+68 common/neutral directories and the 177 English directories, the inventory
+covers all 309 English/shared owners. The earlier 209 primary directories and
+the common-directory cache are explicitly replayed read-only after rejoining
+each owner to the same full AudioV identity, URL, size and MD5; their cache
+generations are not adopted into production. None of the 1,565 missing English
+path hashes binds in this complete selected external namespace, while all 86
+Japanese archive paths remain uniquely present in the common owners. This
+establishes missing exact English paths, not an authored locale-absence policy,
+inactive quests or a Japanese fallback. The follow-up retains 223,256 bytes
+including its proof and acquires no bank, WEM, native code or complete PCK.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
