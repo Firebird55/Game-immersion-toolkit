@@ -117,8 +117,18 @@ managed metadata publication and exact-reference source-cache round trips. The
 full reader reuses the identical locale objects, including both Chinese scripts
 and their shared Mandarin dub. These are import-boundary checks on host Python;
 they do not establish Android native cryptography, codecs or a completed language
-preparation path. The bootstrap source/ZIP import boundary and the unresolved
-release-manifest ENTRY key/IV gate remain separate work.
+preparation path.
+
+`wuthering_bootstrap_source` now contains the identical source-reference,
+AXML application/module ownership, bounded Deflate/CRC/hash and pure ELF reader
+functions used by ordinary preparation. Its isolated two-module test derives a
+synthetic registered native output while transport, cryptography packages,
+protected storage and other backend imports are denied. The ordinary native
+orchestrator retains all source-owner, protected-cache, revision, package-index
+and revocation checks. Moving these pure functions does not authorize a
+candidate or bypass those checks. The staged provider's ZIP/cryptographic import
+boundary and the unresolved release-manifest ENTRY key/IV gate remain separate
+work.
 
 ## Finite evidence
 

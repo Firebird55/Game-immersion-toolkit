@@ -54,7 +54,61 @@ assert (root / 'metadata').read_bytes() == b'complete synthetic source'
 assert not (blocked & set(sys.modules))
 print(json.dumps({'backend_modules': sorted(n for n in sys.modules if n.startswith('backend.'))}))
 '''
-    result = subprocess.run([sys.executable, '-I', '-c', program, str(package.parent), str(tmp_path / 'outputs')],
+    result = subprocess.run([sys.executable, '-B', '-I', '-c', program, str(package.parent), str(tmp_path / 'outputs')],
                             check=True, capture_output=True, text=True, timeout=20)
     loaded = json.loads(result.stdout)['backend_modules']
     assert 'backend.atomic_files' in loaded and 'backend.game_tools' not in loaded
+
+
+def test_passive_bootstrap_source_isolated_from_transport_crypto_and_registry(tmp_path):
+    from backend.tests.test_wuthering_native_bootstrap import manifest, source
+    import zlib
+    ref, raw = source(tmp_path)
+    package = tmp_path / 'pure-package' / 'backend'
+    package.mkdir(parents=True)
+    (package / '__init__.py').write_text('', encoding='utf8')
+    for name in ('wuthering_bootstrap_source', 'wuthering_elf_bootstrap'):
+        module = importlib.import_module('backend.' + name)
+        shutil.copyfile(module.__file__, package / (name + '.py'))
+    inputs = tmp_path / 'inputs'
+    inputs.mkdir()
+    (inputs / 'source.json').write_text(json.dumps(ref), encoding='utf8')
+    (inputs / 'manifest.axml').write_bytes(manifest())
+    compressor = zlib.compressobj(wbits=-15)
+    packed = compressor.compress(raw) + compressor.flush()
+    (inputs / 'module.deflate').write_bytes(packed)
+    program = r'''
+import sys, json, zlib
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+allowed = {'backend', 'backend.wuthering_bootstrap_source', 'backend.wuthering_elf_bootstrap'}
+class Denied:
+ def find_spec(self, fullname, *args):
+  if (fullname.startswith('backend.') and fullname not in allowed) or fullname.split('.')[0] in {'Crypto', 'certifi', 'winreg'}:
+   raise AssertionError('Unexpected platform/crypto import: ' + fullname)
+sys.meta_path.insert(0, Denied())
+def audit(event, args):
+ if event in ('socket.connect', 'subprocess.Popen', 'winreg.OpenKey', 'winreg.SetValue'):
+  raise AssertionError('Unexpected platform operation: ' + event)
+sys.addaudithook(audit)
+from backend import wuthering_bootstrap_source as source
+root = Path(sys.argv[2])
+ref = json.loads((root / 'source.json').read_text(encoding='utf8'))
+validated = source.reference(ref)
+assert validated == ref and validated is not ref
+assert source.identity(ref) == source.identity(validated)
+assert source._library((root / 'manifest.axml').read_bytes()) == ref['module']['name']
+compressed, decoded = root / 'module.deflate', root / 'decoded.so'
+entry = {'plain': ref['module']['plain_bytes'], 'packed': compressed.stat().st_size,
+         'crc': int(ref['module']['crc32'], 16)}
+size, crc, digest, packed_digest = source._decode_module(compressed, decoded, entry)
+assert (size, crc, digest) == (entry['plain'], entry['crc'], ref['module']['sha256'])
+assert source._file_hash(compressed) == packed_digest
+assert source._file_hash(decoded) == digest
+assert source.default_output(decoded, digest).parameter == bytes(range(32))
+assert not list(root.rglob('*.dpapi'))
+print(json.dumps({'backend_modules': sorted(n for n in sys.modules if n.startswith('backend.'))}))
+'''
+    result = subprocess.run([sys.executable, '-B', '-I', '-c', program, str(package.parent), str(inputs)],
+                            check=True, capture_output=True, text=True, timeout=20)
+    assert json.loads(result.stdout)['backend_modules'] == ['backend.wuthering_bootstrap_source', 'backend.wuthering_elf_bootstrap']
