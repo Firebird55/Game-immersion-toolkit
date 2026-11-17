@@ -23,6 +23,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from .capture_geometry import picture_bounds, region_bounds
 from .models import CaptureRegion
+from .native_frame_admission import NativeFrameAdmissions
 from .prepared_library import MAX_LIBRARY, MAX_TEXT, MAX_ROWS
 from .prepared_session import PreparedCaptureSession
 
@@ -57,6 +58,7 @@ class AndroidHost:
         self.session = PreparedCaptureSession(root, on_invalidate=self._release_receiver)
         self.frontend = Path(frontend).absolute()
         self.native = native
+        self.frame_admissions = NativeFrameAdmissions()
         self.cookie = secrets.token_hex(32)
         self.pending_lock = threading.Lock()
         self.import_lock = threading.RLock()
@@ -130,6 +132,13 @@ class AndroidHost:
         self.receiver_owner = None
         self.preview_frame = None
         self.frame_geometry = None
+        if hasattr(self, 'frame_admissions'):
+            self.frame_admissions.reset()
+
+    def _frame_admission_scope(self):
+        owner = self._active_receiver()
+        return (self.document_epoch, getattr(self, 'account_generation', 0),
+            (owner['id'], owner['revision']) if owner else None)
 
     def _picture(self, width, height, area=None):
         game = self.session.index.game if self.session.index else 'zzz'
@@ -289,6 +298,7 @@ class AndroidHost:
                     self.frame_geometry = (generation, width, height)
                     self.preview_frame = {'bytes': raw, 'width': width, 'height': height, 'sequence': sequence,
                         'generation': generation, 'epoch': self.document_epoch, 'owner': dict(owner) if owner else None}
+                    self.frame_admissions.admit(self.session, generation, sequence, self._frame_admission_scope())
             except Exception as error:
                 raise ValueError('The native frame could not be admitted') from error
             return {'accepted': True, 'generation': generation, 'frame': sequence}, 202
@@ -297,9 +307,14 @@ class AndroidHost:
         with self.session.lock:
             if generation != self.session.generation or not self.session.running:
                 return []
-            return self._accept_ocr(generation, sequence, raw)
+            if self.native is None:
+                return self._accept_ocr(generation, sequence, raw)
+            with self.frame_admissions.result(self.session, generation, sequence, self._frame_admission_scope()) as admission:
+                if admission is None:
+                    return []
+                return self._accept_ocr(generation, sequence, raw, admission=admission)
 
-    def _accept_ocr(self, generation, sequence, raw):
+    def _accept_ocr(self, generation, sequence, raw, *, admission=None):
         value = json.loads(raw)
         width, height, blocks = value['width'], value['height'], value['blocks']
         if (type(width) is not int or type(height) is not int or not 0 < width <= 4096
@@ -335,8 +350,8 @@ class AndroidHost:
                 # Only whole recognized blocks inside the calibrated region.
                 if x <= left < right <= x + crop_width and y <= top < bottom <= y + crop_height:
                     groups.append(block['text'])
-            result.extend(self.session.observe(generation, sequence, groups, channel=channel))
-        result.extend(self.session.observe(generation, sequence, texts, channel='fullframe'))
+            result.extend(self.session.observe(generation, sequence, groups, channel=channel, admission=admission))
+        result.extend(self.session.observe(generation, sequence, texts, channel='fullframe', admission=admission))
         return result
 
     def _handler(self):

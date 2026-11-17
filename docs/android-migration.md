@@ -63,3 +63,15 @@ dependency inventories, stable update identity, protected signing, restart/impor
 recovery, local voice playback and the iOS-sender route. The desktop-connected
 iOS reader retains its browser and physical-device verification requirements.
 See [issue #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81).
+
+Native OCR completion may take longer than the confirmation gap on a slow
+device. A bounded native admission ledger can retain an independently exact,
+eligible caption candidate while authenticated images continue arriving within
+three seconds of each other in the same receiver, document, generation and
+session. Each completed image consumes one opaque receipt; recent admissions
+and a maximum 35-second callback age are both required. The ledger retains at
+most 128 IDs and never stores images or stream addresses. It does not extend
+publisher predecessor contexts, fuzzy confirmation, menu observations or the
+ordinary three-second behavior of callers without native receipts. Unit and
+HTTP fixtures exercise serialized four-second OCR; this source checkpoint alone
+does not establish Android target or physical-device acceptance.
