@@ -63,6 +63,7 @@ def read_original_authoring(path, *, schema_sha256, nonce, registry_sha256):
                     or table['path'] != 'HT/Content/'+package[6:]+'.uasset'
                     or not isinstance(name, str) or not re.fullmatch('[A-Za-z_][A-Za-z0-9_]{0,255}', name)
                     or not isinstance(table['row_structure'], str)
+                    or table['row_structure'] not in ROLES
                     or ROLES.get(table['row_structure']) != table['role']):
                 raise ValueError()
             identity = (table['path'].casefold(), name.casefold())

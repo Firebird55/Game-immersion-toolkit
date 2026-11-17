@@ -192,6 +192,7 @@ def test_fingerprint_uses_complete_original_recipe_and_frozen_parameter_sources(
         stamp, value = publisher._current(tmp_path, 1, 'nte-global')
         assert value['type_schema']['kind'] == provider.KIND and set(value['publisher_files']) == set(original)
         assert value['type_schema']['generator'] == metadata.CLASS_GENERATOR
+        assert value['type_schema']['authoring'] == provider.AUTHORING
         assert value['type_schema']['validator'] == 'nte-required-native-classes-v2'
         assert len(value['files']) == 1 and publisher.snapshot(tmp_path, stamp) == value
         assert [(r['revision'], r['digest']) for r in observed] == [publisher.NATIVE_ARCHIVE, publisher.NATIVE_LOCALIZATION]

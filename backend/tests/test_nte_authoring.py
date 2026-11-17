@@ -34,7 +34,7 @@ def test_exact_export_and_duplicate_sequence_slots_are_retained_without_a_filena
     assert slots[0] is None and slots[1] == slots[2]
 
 
-@pytest.mark.parametrize('bad', ['nonce', 'schema', 'registry', 'complete', 'count', 'unknown-type',
+@pytest.mark.parametrize('bad', ['nonce', 'schema', 'registry', 'complete', 'count', 'unknown-type', 'unknown-null-role',
     'role', 'path', 'escape', 'object', 'duplicate', 'case-collision', 'row', 'row-value'])
 def test_stale_partial_or_ambiguous_packets_fail_closed(tmp_path, bad):
     value = packet()
@@ -44,6 +44,8 @@ def test_stale_partial_or_ambiguous_packets_fail_closed(tmp_path, bad):
     elif bad == 'complete': value['complete'] = False
     elif bad == 'count': value['table_count'] = True
     elif bad == 'unknown-type': value['tables'][0]['row_structure'] = '/Script/HTGame.FutureUnknownFormat'
+    elif bad == 'unknown-null-role':
+        value['tables'][0].update(row_structure='/Script/HTGame.FutureUnknownFormat', role=None)
     elif bad == 'role': value['tables'][0]['role'] = 'caption'
     elif bad == 'path': value['tables'][0]['path'] = 'HT/Content/Future/Wrong.uasset'
     elif bad == 'escape': value['tables'][0]['package'] = '/Game/../Escaped'

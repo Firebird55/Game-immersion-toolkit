@@ -72,6 +72,12 @@ maps with the original movie-alias registry and each referenced StringTable's
 exact namespace, including typed CG event references whose object names use
 `Play_Vo_*` without repeating `CG`. Compatible game updates can add aliases and
 reuse those authored voice-name forms without a toolkit update.
+The original AssetRegistry also discovers supported authoring tables by native
+RowStructure, package and exact export, including Ride-Along voice tables with
+nonstandard filenames. New tables in these formats join ordinary preparation
+without a filename list or newer community mapping. A complete invocation-bound
+owner packet retains duplicate sequence/caption claims; ambiguous owners,
+muted/looping sources and changed clocks cannot supply timed speech.
 Wwise 154 codec headers also retain their declared cache identifier for all
 storage types. Separately loaded storage-0/1 recordings remain unavailable for
 timed cinematic captions until their original clock/ownership contract is

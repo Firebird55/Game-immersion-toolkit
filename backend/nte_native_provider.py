@@ -20,7 +20,7 @@ MAX_SOURCE_BYTES = 768 * 1024**2
 MAX_SOURCE_FILES = 16
 OUTPUTS = ('dialogue-events.json', 'sequence-cues.json', 'voice-events.json', 'movie-tables.json')
 DIALOGUE_GRAPHS = True
-ORIGINAL_AUTHORING = False  # Enabled only after normal old/current/recovery acceptance.
+ORIGINAL_AUTHORING = True
 AUTHORING = 'nte-original-authoring-v1'
 
 
