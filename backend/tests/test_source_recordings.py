@@ -3,20 +3,27 @@ import copy
 import hashlib
 import json
 import threading
+import struct
+import wave
 from pathlib import Path
 
 import pytest
 
 from backend.game_data_protocol import GameDataError
 from backend.source_recordings import OriginalRecordings
-from backend.tests.test_prepared_session import fixture_library
 
 
 @pytest.fixture
 def original(tmp_path):
-    _, payload = fixture_library(tmp_path / 'source')
+    source = tmp_path / 'source'; source.mkdir()
+    with wave.open(str(source / 'tone.wav'), 'wb') as stream:
+        stream.setparams((1, 2, 16000, 0, 'NONE', 'NONE'))
+        stream.writeframes(struct.pack('<h', 1000) * 1600)
+    row = {'text_id': 'owned:line', 'english': 'Follow the river beyond the bridge.',
+        'source_text': 'Follow the river beyond the bridge.', 'texts': {'en': 'Follow the river beyond the bridge.',
+            'zh-Hans': '沿河走过桥。'}, 'audio': {'source': 'owned-authored-fixture'}, 'voice_status': 'voiced'}
     descriptor = {'game': 'zzz', 'ready': True, 'request': {'content_mode': 'text-audio'}, 'handle': {'authored': True}}
-    return descriptor, payload['records'][0], (tmp_path / 'source/tone.wav').read_bytes()
+    return descriptor, row, (source / 'tone.wav').read_bytes()
 
 
 class Voice:

@@ -59,6 +59,8 @@ from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 from .runtime_bundle import discover_layout, child_command
+from .desktop_game_data import DesktopGameData
+from .game_data_protocol import GameDataError
 
 
 # A scoped constructor hook can wrap creation without changing the real member
@@ -295,6 +297,7 @@ class Runtime:
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self._retired_voices = set()
         self._locale_voice_lock = threading.RLock()
+        self.publisher_data = DesktopGameData(self, DATA_DIR / 'publisher-games')
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
         self.capture.language_problem = self.capture_language_problem
@@ -465,6 +468,9 @@ class Runtime:
         return {**index, 'source_locale': locale, 'audio_count': count} if index.get('source_locale') in (None, locale) else missing
 
     def activate_language(self, game, locale, account):
+        publisher = getattr(self, 'publisher_data', None)
+        if publisher is not None and publisher.capture_ready(game) is not None:
+            return False  # A legacy background preparation cannot replace an explicit publisher selection.
         if account != self.accounts.status()['active'] or self.languages.selected(game, account) != locale:
             return False
         directory = DATA_DIR / 'languages' / game / locale
@@ -527,6 +533,8 @@ class Runtime:
             return voices if voices.locale == locale else None
 
     def recorded_voice_assets(self, line):
+        if line.publisher_generation and hasattr(self, 'publisher_data'):
+            return self.publisher_data.recorded_voice_assets(line)
         # Historical playback reads an existing snapshot without selecting or
         # preparing another language or changing account preferences.
         scoped = self.language_voice_assets(line.game, line.source_locale)
@@ -557,6 +565,11 @@ class Runtime:
         return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
 
     def capture_language_ready(self, game):
+        publisher = getattr(self, 'publisher_data', None)
+        if publisher is not None:
+            ready = publisher.capture_ready(game)
+            if ready is not None:
+                return ready
         if game == 'hito':
             return True
         account = self.accounts.status()['active']
@@ -586,7 +599,7 @@ class Runtime:
             target = ''
         prepared = self.languages.prepared(line.game, line.source_locale)
         return line.model_copy(update=translation_fields(line.texts, line.english, line.chinese, target,
-            prepared_targets=prepared['targets'] if prepared else None))
+            prepared_targets=prepared['targets'] if prepared and not line.publisher_generation else None))
 
     def setup_install(self, game: str) -> Path | None:
         install = discover_install(game)
@@ -665,6 +678,8 @@ class Runtime:
         Runtime._require_reopenable(self)
         if not self._updates_started:
             starts = [self.languages.start]
+            if hasattr(self, 'publisher_data'):
+                starts.insert(0, self.publisher_data.resume)
             if hasattr(self, 'toolkit_updater'):
                 starts.append(self.toolkit_updater.start)
             if hasattr(self, 'automatic_exports'):
@@ -699,6 +714,8 @@ class Runtime:
     async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
         self._pending_update_starts = []
+        if hasattr(self, 'publisher_data'):
+            await asyncio.to_thread(self.publisher_data.pause)
         if hasattr(self, 'toolkit_updater'):
             await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
@@ -1447,8 +1464,9 @@ class Runtime:
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
             "game_voice_assets": {game: v.status() for game, v in self.game_voice_assets.items()},
             "updates": self.update_status(),
-            "selected_languages": {game: {'source_locale': locale, 'source_language': study_language(locale)}
+            "selected_languages": {**{game: {'source_locale': locale, 'source_language': study_language(locale)}
                 for game in GAME_LOCALES if (locale := self.languages.selected(game, self.accounts.status()['active']))},
+                **(self.publisher_data.selected_languages() if hasattr(self, 'publisher_data') else {})},
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,
@@ -1679,7 +1697,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(COMPANION_ORIGINS),
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 # Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
@@ -1785,6 +1803,82 @@ def setup_access(request: Request, header: str | None = None, *, write: bool = F
         raise HTTPException(403, "Setup is available only on this PC")
     if write and header != "setup":
         raise HTTPException(403, "Setup action header required")
+
+
+class PublisherLanguages(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    region: Literal['global', 'cn']
+    source_locale: str = Field(min_length=2, max_length=32)
+    target_locales: list[str] = Field(max_length=128)
+    content_mode: Literal['text', 'text-audio']
+
+
+class PublisherDownload(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    plan_id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    revision: str = Field(min_length=1, max_length=256)
+
+
+class PublisherRevision(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    revision: str | None = Field(max_length=256)
+
+
+def publisher_operation(request, operation, *, game=None, payload=None, header=None):
+    setup_access(request, header, write=operation != 'snapshot')
+    host = runtime.publisher_data
+    with runtime.accounts.lock:
+        account = runtime.accounts.status()['active']
+        expected = request.headers.get('x-proxy-transcript-account')
+        if expected is not None and expected != account:
+            raise HTTPException(409, 'Account changed. Refresh Settings before retrying.')
+        generation = request.headers.get('x-toolkit-account-generation')
+        if generation is not None and generation != str(runtime.accounts.generation):
+            raise HTTPException(409, 'Account changed. Refresh Settings before retrying.')
+        owner = host.owner()
+    # The service can call back into the account lock at its publication point.
+    # Never retain that lock through planning, decoding, download or service IO.
+    try:
+        method = getattr(host.service, operation)
+        result = (method(expected_owner=owner) if game is None
+            else method(game, payload, expected_owner=owner))
+        if host.owner() != owner:
+            raise GameDataError('game_data_owner_changed', 'Account changed. Refresh Settings before retrying.', 409)
+        return result
+    except GameDataError as error:
+        return JSONResponse({'detail': error.message, 'code': error.code}, status_code=error.status)
+    except (OSError, ValueError, TypeError):
+        return JSONResponse({'detail': 'Game preparation failed. Previous game data and saved history were kept.',
+            'code': 'game_data_unavailable'}, status_code=409)
+
+
+@app.get('/api/game-data')
+def publisher_status(request: Request):
+    return publisher_operation(request, 'snapshot')
+
+
+@app.post('/api/game-data/{game}/plan')
+def publisher_plan(game: str, payload: PublisherLanguages, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'plan', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.post('/api/game-data/{game}/download')
+def publisher_download(game: str, payload: PublisherDownload, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'download', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.post('/api/game-data/{game}/activate')
+def publisher_activate(game: str, payload: PublisherRevision, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'activate', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.delete('/api/game-data/{game}/data')
+def publisher_delete(game: str, payload: PublisherRevision, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'delete', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
 
 
 @app.get("/api/setup")
@@ -2136,15 +2230,31 @@ def get_favorites(
 
 @app.get("/api/lines/{line_id}/audio")
 def get_line_audio(line_id: int) -> FileResponse:
-    filename = runtime.transcript.audio_path(line_id)
-    if not filename:
-        raise HTTPException(status_code=404, detail="This line has no captured voice clip")
-    audio_dir = (DATA_DIR / "audio").resolve()
-    path = (audio_dir / filename).resolve()
-    if path.parent != audio_dir or not path.is_file():
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(status_code=404, detail="This line is no longer in local history")
+    path = line_audio_path(line)
+    if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="Audio file is unavailable")
     media_type = "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/wav"
     return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
+
+
+def line_audio_path(line):
+    """Resolve only a retained authored reference or a legacy direct filename."""
+    line_id = line.id
+    filename = runtime.transcript.audio_path(line_id)
+    if not filename:
+        return None
+    if filename.startswith('publisher-original/'):
+        publisher = getattr(runtime, 'publisher_data', None)
+        path = publisher.original_audio_path(line) if publisher else None
+        return path if path and filename == 'publisher-original/' + path.name else None
+    audio_dir = (DATA_DIR / "audio").resolve()
+    path = (audio_dir / filename).resolve()
+    if path.parent != audio_dir:
+        raise HTTPException(status_code=404, detail="Audio file is unavailable")
+    return path
 
 
 @app.patch("/api/lines/{line_id}/favorite", response_model=TranscriptLine)
@@ -2480,8 +2590,11 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
-    path = (root / (runtime.transcript.audio_path(line_id) or "missing")).resolve()
-    if path.parent != root:
+    filename = runtime.transcript.audio_path(line_id)
+    path = line_audio_path(line) if filename else root / 'missing'
+    if filename and filename.startswith('publisher-original/') and path is None:
+        raise HTTPException(409, 'The saved original recording is not available yet. Retry its audio before export.')
+    if path is not None and not (filename or '').startswith('publisher-original/') and path.parent != root:
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)

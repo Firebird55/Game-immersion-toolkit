@@ -1,5 +1,8 @@
 # Faster development checks
 
+Publisher download host behavior and remaining native gates are recorded in
+[desktop publisher preparation](desktop-game-data-runtime.md).
+
 Use `npm run check:changed` for working changes. For a branch, fetch the actual
 PR target and add `-- --base <target-remote>/<target-branch>`. A fork targeting
 this upstream repository normally uses `upstream/main`; `origin/main` is correct
@@ -240,6 +243,26 @@ generated together; `npm run docs:check` detects drift.
 Keep storefront availability separate from actual reader and package support.
 Existing localized product guides are intentionally multilingual; the English-only
 rule concerns engineering prose, not removal of product localization.
+
+The live-service UI retires active local-game selection and the Migaku mode
+chooser. Keep account, locale, original-audio, capture geometry and explicit-write
+regressions on representative live games; retain saved lines/favorites/audio for
+retired games through the separate archive. The setup scenario replaces its
+Cyberpunk expansion-selection case with a live-only option assertion, retaining
+publisher edition, folder validation, refresh, size consent and deletion checks.
+Do not count an archive playback case as active capture or new-game support.
+
+| Retired browser assertion | Retained regression |
+| --- | --- |
+| Cyberpunk NPC/V and other installed-game controls | ZZZ tips/Proxy and Wuthering cards/Rover retain independent crop, voice-choice and local-only settings checks; the other current live-game cases remain. |
+| Beyond/Heavy Rain Dutch current dialogue | Wuthering Japanese favorites retain original source and Chinese translation independently. |
+| Active retired-game navigation | Hito and Cyberpunk archives retain saved text, translation, favorites and original-audio controls, with capture disabled and no source writes. |
+| Migaku mode and retired-only language choices | Actual configured/unconfigured Lexirise state selects connected/plain reading; live-language inventories and account generation/read/add/export/deck guards remain tested. |
+
+Browser account fixtures intercept their own WebSockets before navigation and
+wait for the real runtime-reset/owned-account loading phase. Delayed responses
+must never expose a foreign language; a transient loading option may precede
+the exact current-account list. No real companion or account is a fixture.
 
 `npm run ocr:manifest` is an explicit maintainer operation that verifies pinned
 model downloads and records sizes/SHA-256. Normal builds do not fetch optional

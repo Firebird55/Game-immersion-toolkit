@@ -17,6 +17,7 @@ import {AndroidReceiver} from './android-receiver';
 import {useNativeHost} from '../lib/native-host';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
+import { ToolkitSetup } from './toolkit-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -439,7 +440,8 @@ function CompanionClient() {
   }, []);
   const [selectedGame, setSelectedGame] = useState<GameId>('zzz');
   const explicitGame = useRef<string | null>(null);
-  const archivedHistory = selectedGame === 'hito';
+  const archivedHistory = !LIVE_GAME_IDS.includes(selectedGame);
+  const archivedGames = Object.entries(GAME_NAMES).filter(([game]) => !LIVE_GAME_IDS.includes(game));
   const [accountLanguage,setAccountLanguage]=useState('zh');
   const lastActiveGame = useRef<GameId | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -518,10 +520,11 @@ function CompanionClient() {
   }, [settingsOpen]);
 
   const loadSnapshot = useCallback(() => pollOwner.current?.request() ?? Promise.resolve(), []);
+  const publisherGeneration = nativeHost.android ? requestGeneration : pollOwner.current?.context?.account_generation ?? null;
   const gameSelection = useMemo(() => createGameSourceSelection({
     current: () => localScopeReady.current && accountScope.current.generation === requestOwner,
     activate: async (game: string) => {
-      const headers = nativeAccountHeaders(requestGeneration, {'Content-Type': 'application/json',
+      const headers = nativeAccountHeaders(publisherGeneration, {'Content-Type': 'application/json',
         'X-Proxy-Transcript': 'setup', 'X-Proxy-Transcript-Account': lexirise.account ?? 'legacy'});
       const response = await fetch(`${API_URL}/api/game-data`, {cache: 'no-store', headers});
       if (!response.ok) throw Error('Game data selection is unavailable.');
@@ -534,7 +537,7 @@ function CompanionClient() {
     },
     committed: () => {void loadSnapshot();},
     failed: () => setStudyMessage('This game could not be selected. Refresh Settings.'),
-  }), [requestOwner, requestGeneration, lexirise.account, loadSnapshot]);
+  }), [requestOwner, publisherGeneration, lexirise.account, loadSnapshot]);
   useEffect(() => () => gameSelection.dispose(), [gameSelection]);
 
   useEffect(() => {
@@ -770,18 +773,18 @@ function CompanionClient() {
   }, [activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
-    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+    if (!archivedHistory && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
       setSelectedGame((activeGameAvailable ? status!.capture.active_game : gamePicker.games[0].id) as GameId);
       setHistoryPage(0);
     }
-  }, [gamePicker.target, selectedGame, activeGameAvailable, status?.capture.active_game]);
+  }, [gamePicker.target, selectedGame, archivedHistory, activeGameAvailable, status?.capture.active_game]);
 
   useEffect(() => {
-    if (selectedGame !== 'hito' && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
+    if (!archivedHistory && gamePicker.games.length && !gamePicker.games.some(game => game.id === selectedGame)) {
       setSelectedGame(gamePicker.games[0].id as GameId);
       setHistoryPage(0);
     }
-  }, [gamePicker.target, selectedGame]);
+  }, [gamePicker.target, selectedGame, archivedHistory]);
 
   const recentLines = useMemo(
     () => lines.filter((line) => line.game === selectedGame).slice(0, HISTORY_LIMIT),
@@ -1043,7 +1046,7 @@ function CompanionClient() {
           else gameSelection.cancel();
         }} />
 
-      {nativeHost.android && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
+      {nativeHost.android && !archivedHistory && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
@@ -1088,7 +1091,7 @@ function CompanionClient() {
         )}
       </section>}
 
-      {archivedHistory && <p role="status">Hito’s World capture is disabled. Your saved history and favorites remain available.</p>}
+      {archivedHistory && <p role="status">{GAME_NAMES[selectedGame]} capture is disabled. Your saved history and favorites remain available.</p>}
       <section className="transcript" aria-label={transcriptTab === 'imported' ? 'Imported browser history' : transcriptTab === 'favorites' ? uiText('Favorites') : uiText('Earlier lines')}>
         {transcriptTab === 'imported' && <div><h2>Imported browser history</h2>
           <label><input type="checkbox" checked={importedFavorites} onChange={event => {
@@ -1175,10 +1178,17 @@ function CompanionClient() {
           </Button>}
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          <GameDataSettings key={`${requestGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`} game={selectedGame}
-            targetLanguage={gamePicker.target} online={online} account={lexirise.account ?? 'legacy'} onChanged={() => void loadSnapshot()}>
-            {nativeHost.android && nativeHost.capabilities?.history_migration && <details><summary>Previous browser history</summary><BrowserHistoryMigration onChanged={() => void loadSnapshot()} /></details>}
-          </GameDataSettings>
+          {!archivedHistory && LIVE_GAME_IDS.includes(selectedGame) &&
+              <NativeAccountContext.Provider value={publisherGeneration}>
+                <GameDataSettings key={`${pollOwner.current?.context?.runtime_id}:${publisherGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`}
+                  online={online} game={selectedGame} targetLanguage={gamePicker.target}
+                  account={lexirise.account ?? 'legacy'} buttonLabel={nativeHost.android ? 'Settings' : 'Game data'} pollClosed={nativeHost.android} onChanged={() => void loadSnapshot()}>
+                  {nativeHost.android && nativeHost.capabilities?.history_migration && <details><summary>Previous browser history</summary><BrowserHistoryMigration onChanged={() => void loadSnapshot()} /></details>}
+                </GameDataSettings>
+              </NativeAccountContext.Provider>}
+          {!nativeHost.android && <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
+            onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
+            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />}
           {!nativeHost.android && <details className="update-disclosure">
             <summary aria-label={uiText('Game language updates')}><RefreshCw size={16} className={updateStatus && ['checking','updating'].includes(updateStatus.state) ? 'is-spinning' : ''} />{uiText('Updates')}</summary>
             <div className="update-popover">
@@ -1196,11 +1206,14 @@ function CompanionClient() {
               {(!updateStatus || !['checking','updating','retrying','error'].includes(updateStatus.state)) && <p>{uiText('Up to date')}</p>}
             </div>
           </details>}
-          {lines.some(line => line.game === 'hito') && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
-            <select aria-label="Archived game history" value={archivedHistory ? 'hito' : ''} onChange={event => {
-              setSelectedGame(event.target.value === 'hito' ? 'hito' : status?.capture.active_game && status.capture.active_game !== 'hito' ? status.capture.active_game : 'zzz');
+          {!!archivedGames.length && <label className="playback-speed archived-history"><span className="sr-only">Archived game history</span>
+            <select aria-label="Archived game history" value={archivedHistory ? selectedGame : ''} onChange={event => {
+              const active = status?.capture.active_game;
+              const game = archivedGames.some(([id]) => id === event.target.value) ? event.target.value as GameId
+                : active && LIVE_GAME_IDS.includes(active) ? active : 'zzz';
+              explicitGame.current = game; gameSelection.cancel(); setSelectedGame(game);
               setHistoryPage(0); changeTranscriptTab('history', true);
-            }}><option value="">Active games</option><option value="hito">Hito's World (archived)</option></select>
+            }}><option value="">Active games</option>{archivedGames.map(([game,title]) => <option key={game} value={game}>{title} (archived)</option>)}</select>
           </label>}
         </div>
       </footer>
@@ -1222,7 +1235,7 @@ function CompanionClient() {
             </DialogDescription>
           </DialogHeader>
 
-          <p>{nativeHost.android ? 'Capture adjustments are saved on this device. Import a prepared library to choose its study language and original voice.' : <>{uiText("Capture adjustments are saved on this PC.")}{selectedGame !== 'hito' && 'Choose and prepare the study language and its matching original voice in Setup → Languages.'}</>}</p>
+          <p>{nativeHost.android ? 'Capture adjustments are saved on this device. Choose the game data and study language in Settings.' : <>{uiText("Capture adjustments are saved on this PC.")}{!archivedHistory && ' Choose and download the study language and its matching original voice in Game data.'}</>}</p>
           {draftSettings && <label className="toolkit-setup-checkbox"><input type="checkbox" checked={draftSettings.capture_unvoiced ?? false}
             onChange={event => setDraftSettings(current => current ? {...current, capture_unvoiced: event.target.checked} : current)} /> {uiText('Include unvoiced dialogue')}
           </label>}

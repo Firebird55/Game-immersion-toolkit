@@ -1,3 +1,4 @@
+import {LIVE_GAME_IDS} from '../lib/game-data-client.mjs';
 import assert from 'node:assert/strict';
 import {startPreview} from './e2e-preview.mjs';
 
@@ -24,7 +25,7 @@ try{
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
     languageSettings:{en:{effectiveTranslationLanguage:active==='first'?'zh-hans':'nl',inlineGlossMode:'always',wordPopup:{tabs:[{id:'definition',enabled:true}],openOn:'first'}},zh:{effectiveTranslationLanguage:'en',inlineGlossMode:'off'}}});
    const region={left:.1,top:.6,width:.8,height:.25};
-   const updates={state:'retrying',progress:null,automatic:true,message:'Installed game files changed. The reader could not prepare the selected language; the previous table was kept.',items:[{game:'zzz',locale:'zh-Hans',state:'error',message:'The new archive format needs a reader update. Original voices remain unavailable until preparation succeeds.'},{game:'beyond',locale:'nl',state:'ready',message:'Prepared Dutch subtitles and original audio are current.'}]};
+   const updates={state:'retrying',progress:null,automatic:true,message:'Installed game files changed. The reader could not prepare the selected language; the previous table was kept.',items:[{game:'zzz',locale:'zh-Hans',state:'error',message:'The new archive format needs a reader update. Original voices remain unavailable until preparation succeeds.'},{game:'nte',locale:'ja',state:'ready',message:'Prepared Japanese subtitles and original audio are current.'}]};
    const settings={preferred_game:'auto',region,tip_region:region,cinematic_region:region,hito_region:region,hito_tip_region:region,auto_start:false};
    const line=()=>({id:1,game:'zzz',created_at:new Date().toISOString(),session_id:'fixture',source_ocr:'Hello',english:'Hello',chinese:'你好',source_language:greekLine?'el':'en',source_locale:greekLine?'el':'en',source_text:greekLine?'Μια δοκιμαστική πρόταση.':'Hello',translation_locale:active==='first'?'zh-Hans':'nl',translation_text:active==='first'?'你好':'Hallo',text_id:'fixture',channel:'dialogue',score:100,match_kind:'exact',voiced:!unvoiced&&!missingAudio,has_audio:!unvoiced&&!missingAudio,voice_status:missingAudio??(unvoiced?'unvoiced':'voiced'),text_capture_verified:!!missingAudio,favorite:false});
    const languages=()=>({context:stateContext(),selected:prepared?'zh-Hans':null,enabled_languages:['en','zh'],targets:{en:active==='first'?'zh-hans':'nl',zh:'en'},locales:[
@@ -32,13 +33,14 @@ try{
     {locale:'ko',language:'ko',name:'Korean',reader_available:false,prepared:null}]});
    const game={id:'zzz',title:'Zenless Zone Zero',detected_path:'F:/Games/ZZZ',configured_path:null,folder_state:'detected',folder_hint:'Choose game folder',voice_state:'needs_language_setup',voice_hint:'Install the selected voice pack.',tools_missing:[],index_ready:true,indexed_lines:1,audio_ready:true,update_state:'idle',update_message:'Ready',progress:100};
    await page.addInitScript(()=>localStorage.setItem('proxy-transcript-reading-mode','lexirise'));
-   await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',()=>{});
+   await page.routeWebSocket('**/*',socket=>assert.equal(socket.url(),'ws://127.0.0.1:8766/api/ws','Only the authored companion WebSocket is expected'));
    await page.route('http://127.0.0.1:8766/**',async route=>{
     const request=route.request(),url=new URL(request.url()),path=url.pathname,body=request.postData()?JSON.parse(request.postData()):{};
     requests.push({path,method:request.method(),account:request.headers()['x-proxy-transcript-account']});
     if(!['GET','OPTIONS'].includes(request.method()))writes.push({path,body});
     const respond=(value,status=200)=>route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'*'},body:JSON.stringify(value)});
     if(request.method()==='OPTIONS')return respond({});
+    if(path==='/api/game-data'&&request.method()==='GET')return respond({schema:'game-data-v1',games:[]});
     if(path==='/api/settings'){if(request.method()==='PATCH')Object.assign(settings,body);return respond(settings);}
     if(path==='/api/toolkit-update')return respond({installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
@@ -101,7 +103,17 @@ try{
     }
     unexpected.push(request.method()+' '+path);return respond({detail:'Unexpected fixture route'},500);
    });
+   // Own the transport as well as HTTP: a running desktop companion must not
+   // inject its account scope into this authored fixture. Keep the real WS
+   // onopen reset, and wait for its replacement snapshot before checking reads.
+   await page.routeWebSocket('**/*',socket=>assert.equal(socket.url(),'ws://127.0.0.1:8766/api/ws','Only the authored companion WebSocket is expected'));
+   await page.addInitScript(()=>{
+    window.__authoredRuntimeResets=0;
+    window.addEventListener('companion-runtime-reset',()=>window.__authoredRuntimeResets++);
+   });
    await page.goto(preview.origin);
+   await page.waitForFunction(()=>window.__authoredRuntimeResets===1);
+   await page.getByRole('button',{name:'Reload languages',exact:true}).waitFor();
    await page.waitForFunction(()=>document.querySelector('select[aria-label="Target language"]')?.disabled);
    for(let i=0;i<100&&!releaseLanguageRead;i++)await page.waitForTimeout(20);
    assert(releaseLanguageRead,'Initial account-language read is held after the capture snapshot');
@@ -121,7 +133,7 @@ try{
    await page.getByLabel('Game language updates',{exact:true}).click();
    const updatePanel=page.getByRole('region',{name:'Automatic data update status'});
    await updatePanel.locator('summary').click();
-   assert(await updatePanel.getByText(/BEYOND: Two Souls.*Ready/).isVisible(),'Successful games are labelled ready even while another game has failed');
+   assert(await updatePanel.getByText(/Neverness to Everness.*Ready/).isVisible(),'Successful games are labelled ready even while another game has failed');
    assert(await updatePanel.getByText(/Zenless Zone Zero.*Preparation failed/).isVisible(),'A failed preparation is distinguished from a successful catalog with coverage notes');
    const details=await updatePanel.locator('details').evaluate(el=>({width:el.getBoundingClientRect().width,parent:el.parentElement.getBoundingClientRect().width,fits:el.scrollWidth<=el.clientWidth+1}));
    assert(details.fits&&details.width>details.parent*.8,'Expanded update details use the full row, not a narrow right column');
@@ -307,24 +319,24 @@ try{
    await target.selectOption('en');
    await picker.locator('.game-library > summary').click();
    const cards=page.getByRole('navigation',{name:'Game transcript'});
-   assert.equal(await cards.getByRole('button').count(),gameCatalog.games.filter(game=>game.study.includes('en')).length,'English shows every supported voiced game');
-   for(const game of ['riseofthetombraider','shadowofthetombraider','mgsvtpp','deusexhrdc']){
+   assert.equal(await cards.getByRole('button').count(),gameCatalog.games.filter(game=>LIVE_GAME_IDS.includes(game.id)&&game.audio.some(code=>code.split('-')[0]==='en')).length,'English shows every supported voiced game');
+   for(const game of ['starrail','endfield','nte','genshin']){
     await picker.getByLabel('Game',{exact:true}).selectOption(game);
     assert.equal(await picker.getByLabel('Game',{exact:true}).inputValue(),game);
     assert(await picker.evaluate(element=>element.scrollWidth<=element.clientWidth+2),'Long game names remain inside the picker at this viewport');
    }
    await picker.screenshot({path:`${preview.output}/game-picker-all-${name}-${width}.png`});
-   await picker.getByRole('searchbox',{name:'Search games'}).fill('witcher');
+   await picker.getByRole('searchbox',{name:'Search games'}).fill('star rail');
    assert.equal(await cards.getByRole('button').count(),1);
    await cards.getByRole('button').click();
-   assert.equal(await picker.getByText('The Witcher 3: Wild Hunt · Supported subtitles',{exact:true}).count(),1);
+   assert.equal(await picker.getByText('Honkai: Star Rail · Supported subtitles',{exact:true}).count(),1);
    assert(await picker.getByText('Different from target',{exact:false}).count()>0,'Subtitle differences are labelled');
    await picker.getByRole('searchbox',{name:'Search games'}).fill('');
    await picker.getByRole('button',{name:'Add language to Lexirise',exact:true}).click();
    const addChoice=picker.getByLabel('Language to add',{exact:true});
    assert.equal(await addChoice.locator('option[value="el"]').count(),0,'Game-only Greek is never offered as a Lexirise account language');
    assert.equal(await addChoice.locator('option[value="en"]').count(),0,'Already enabled languages are not offered for addition');
-   assert.equal(await addChoice.locator('option[value="th"]').count(),1,'Half-Life 2 regional Thai voice support is available to the provider');
+   assert.equal(await addChoice.locator('option[value="th"]').count(),0,'Retired-only voice languages are absent from live setup');
    assert.equal(await addChoice.locator('option[value="bg"]').count(),0,'Subtitle-only Bulgarian is not offered for addition');
    await addChoice.selectOption('ja');failLanguageWrite=true;
    await picker.getByRole('button',{name:'Add to my Lexirise account',exact:true}).evaluate(button=>{button.click();button.click();});
@@ -337,18 +349,21 @@ try{
    assert.equal(await target.inputValue(),'ja');
    assert.deepEqual(writes.filter(w=>w.path==='/api/lexirise/settings').at(-1).body,{languages:['en','zh','ja']},'Only languages are written');
    const settingsWrites=writes.filter(w=>w.path==='/api/lexirise/settings').length;
-   await page.getByLabel('Reading',{exact:true}).selectOption('migaku');
-   assert.deepEqual(await targets(),[...new Set(gameCatalog.games.flatMap(game=>game.audio.map(code=>code.toLowerCase().split('-')[0])))].sort(),'Independent mode shows every voiced language once');
-   assert((await targets()).includes('el'),'Greek remains available independently of Lexirise');
-   await target.selectOption('nl');
-   assert.equal(await cards.getByRole('button').count(),3,'Dutch offers Beyond, Heavy Rain and Spyro with their original voice packs');
+   configured=false;
+   await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
+   await target.locator('option[value="ko"]').waitFor({state:'attached'});
+   assert.equal(await page.getByLabel('Reading',{exact:true}).count(),0,'No obsolete reading-provider selector');
+   assert.deepEqual(await targets(),[...new Set(gameCatalog.games.filter(game=>LIVE_GAME_IDS.includes(game.id)).flatMap(game=>game.audio.map(code=>code.toLowerCase().split('-')[0])))].sort(),'Plain mode offers official live-game voice languages once');
+   assert(!(await targets()).includes('el'),'Retired-only Greek is absent from live setup');
+   await target.selectOption('ko');
+   assert.equal(await cards.getByRole('button').count(),gameCatalog.games.filter(game=>LIVE_GAME_IDS.includes(game.id)&&game.audio.some(code=>code.split('-')[0]==='ko')).length,'Korean offers only live games with original Korean voices');
    assert.equal(await picker.getByRole('button',{name:'Add language to Lexirise',exact:true}).count(),0);
    assert.equal(writes.filter(w=>w.path==='/api/lexirise/settings').length,settingsWrites,'Browsing independent mode never writes account preferences');
    await picker.screenshot({path:`${preview.output}/game-picker-${name}-${width}.png`});
    await page.evaluate(()=>{document.documentElement.style.zoom='1.5';});
    assert(await picker.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'Picker fits at 150% zoom');
    await page.evaluate(()=>{document.documentElement.style.zoom='';});
-   await page.getByLabel('Reading',{exact:true}).selectOption('lexirise');
+   configured=true;await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
    await target.locator('option[value="ja"]').waitFor({state:'attached'});
    // Account changes must clear the previous account's list, including no-game languages.
    accountLanguages.second=['nl'];active='second';generation++;
@@ -366,9 +381,13 @@ try{
    await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
    await target.locator('option[value="ja"]').waitFor({state:'attached'});
    await releaseLanguageRead();
+   assert((await targets()).every(code=>['','en','ja','zh'].includes(code)),'Delayed foreign-account response permits only current owned languages or the empty loading option');
+   // The new generation's snapshot may legitimately clear the picker while its
+   // own read settles. Wait for semantic ownership, not a transient option.
+   await page.waitForFunction(()=>JSON.stringify([...document.querySelectorAll('select[aria-label="Target language"] option')].map(option=>option.value).sort())===JSON.stringify(['en','ja','zh']));
    assert.deepEqual(await targets(),['en','ja','zh'],'Delayed reads cannot leak another account\'s languages');
    const beforeStaleAdd=writes.filter(w=>w.path==='/api/lexirise/settings').length;
-   await picker.getByLabel('Language to add',{exact:true}).selectOption('nl');
+   await picker.getByLabel('Language to add',{exact:true}).selectOption('ko');
    holdLanguageRead=true;releaseLanguageRead=null;
    await picker.getByRole('button',{name:'Add to my Lexirise account',exact:true}).click();await waitForHeldRead();
    active='second';generation++;

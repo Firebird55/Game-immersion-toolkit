@@ -14,8 +14,8 @@ const nteLine={...cyberpunkLine,id:4,game:'nte',english:'',text_id:'nte-fixture'
 const beyondLine={...cyberpunkLine,id:7,game:'beyond',favorite:true,text_id:'beyond-fixture',source_text:'Een volledige testzin.',source_language:'nl',source_locale:'nl',audio_locale:'nl',translation_locale:'zh-Hans',translation_text:'合成测试句子。',english:'',chinese:'合成测试句子。'};
 const heavyRainLine={...beyondLine,id:8,game:'heavyrain',text_id:'heavyrain-fixture'};
 const pragmataLine={...beyondLine,id:9,game:'pragmata',text_id:'pragmata-fixture',source_text:'Attendez ici un instant.',source_language:'fr',source_locale:'fr',audio_locale:'fr'};
-const wuwaLine={...nteLine,id:10,game:'wuwa',text_id:'wuwa-fixture'};
-const cyberpunkStudyLine={...cyberpunkLine,english:'',source_text:'Restez près de moi.',source_language:'fr',source_locale:'fr',audio_locale:'fr',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
+const wuwaLine={...nteLine,favorite:true,id:10,game:'wuwa',text_id:'wuwa-fixture'};
+const cyberpunkStudyLine={...cyberpunkLine,favorite:true,english:'',source_text:'Restez près de moi.',source_language:'fr',source_locale:'fr',audio_locale:'fr',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 const witcherStudyLine={...witcherLine,english:'',source_text:'Bleib in meiner Nähe.',source_language:'de',source_locale:'de',audio_locale:'de',translation_locale:'zh-Hans',translation_text:'待在我身边。',chinese:'待在我身边。'};
 const zzzStudyLine={...nteLine,id:11,game:'zzz',text_id:'GalGame_Japanese_fixture'};
 settings.heavyrain_region={left:.05,top:.70,width:.90,height:.28};
@@ -86,7 +86,7 @@ try{
  fixtureCapture={running:false,phase:'stopped',message:'Fixture capture',active_game:'zzz',visible_text_ids:['fixture']};
  let fixtureSocket;
  await page.routeWebSocket('ws://127.0.0.1:8766/api/ws',socket=>{fixtureSocket=socket;});
- settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
+ settings.tip_region={...region};settings.cyberpunk_tip_region.left=.10; settings.wuwa_cinematic_region.left=.12;
  settings.nte_region.left=.10; settings.honkai3_region.left=.04;settings.nte_picture_area='window';settings.nte_player_voice='unconfigured';settings.honkai3_picture_area='window';
  settings.cyberpunk_v_voice='unconfigured';
  settings.wuwa_rover_voice='unconfigured';
@@ -199,60 +199,36 @@ try{
  const games=page.getByRole('navigation',{name:'Game transcript'});
  await page.getByLabel('Target language',{exact:true}).selectOption('ja');
  assert.equal(await games.getByRole('button',{name:'Where Winds Meet',exact:true}).count(),0,'Unverified WWM integration stays excluded');
- await games.getByRole('button',{name:'Cyberpunk 2077',exact:true}).click();
- await page.locator('.current-line.game-cyberpunk').waitFor();
- await page.locator('.current-line').getByText(cyberpunkStudyLine.source_text,{exact:true}).waitFor();
- assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','Cyberpunk uses its selected French study language');
- assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Cyberpunk uses original audio');
- assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Cyberpunk tabs fit the viewport');
- if(pw===3840)await page.screenshot({path:`${preview.output}/${name}-cyberpunk-4k-${zoom}.png`});
+ await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();
  await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
- assert.equal(await capture.getByRole('button',{name:'Top-right tips',exact:true}).count(),0,'Cyberpunk keeps tips separate from NPC chatter');
- await capture.getByRole('button',{name:'NPC chatter',exact:true}).click();
+ await capture.getByRole('button',{name:'Top-right tips',exact:true}).click();
  assert.equal(await capture.locator('input[type=range]').first().inputValue(),'10');
  await capture.locator('input[type=range]').first().fill('12');
  await capture.getByRole('button',{name:'Dialogue',exact:true}).click();
- assert.equal(await capture.getByLabel('V voice').inputValue(),'unconfigured');
- await capture.getByLabel('V voice').selectOption('male');
+ assert.equal(await capture.getByLabel('Proxy voice').inputValue(),'unconfigured');
+ await capture.getByLabel('Proxy voice').selectOption('male');
  await capture.getByRole('button',{name:'Update TextMaps',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.setup-actions button')?.textContent.includes('Update TextMaps'));
- assert(localWrites.some(w=>w.path==='/api/games/cyberpunk/update'),'Refresh selects Cyberpunk assets');
+ assert(localWrites.some(w=>w.path==='/api/textmaps/update'),'Refresh selects ZZZ assets');
  await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
  const saved=localWrites.find(w=>w.path==='/api/settings');
- assert.equal(saved.body.cyberpunk_tip_region.left,.12,'NPC calibration saved independently');assert.equal(saved.body.cyberpunk_v_voice,'male');assert.deepEqual(saved.body.cyberpunk_region,{left:.12,top:.59,width:.76,height:.37});
- assert.deepEqual(saved.body.region,region,'Saving Cyberpunk preserves ZZZ calibration');assert.equal(writes.length,0,'Game setup never changes account settings');
- for(const[game,label,left]of [['beyond','BEYOND: Two Souls','10'],['heavyrain','HEAVY RAIN','5']]){
- await games.getByRole('button',{name:label,exact:true}).click();
- await page.locator(`.current-line.game-${game}`).waitFor();
- await page.locator('.current-line').getByText(beyondLine.source_text,{exact:true}).waitFor();
- assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'nl',label+' uses Dutch study text');
- await page.getByRole('button',{name:'Favorites',exact:true}).click();
- assert.equal(await page.locator('.transcript-line .current-chinese').getAttribute('lang'),'nl','Saved source uses its actual locale');
- assert.equal(await page.locator('.transcript-line .current-english').getAttribute('lang'),'zh-Hans','Saved translation uses its actual locale');
- await page.getByRole('button',{name:'History',exact:true}).click();
- assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,label+' uses original Dutch audio');
- assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' fits the viewport');
- await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
- assert.equal(await capture.locator('input[type=range]').first().inputValue(),left);
- await page.keyboard.press('Escape');await capture.waitFor({state:'hidden'});
- }
- for(const[game,label]of [['wuwa','Wuthering Waves'],['witcher3','The Witcher 3: Wild Hunt']]){
+ assert.equal(saved.body.tip_region.left,.12,'ZZZ tip calibration saved independently');assert.equal(saved.body.zzz_proxy_voice,'male');assert.deepEqual(saved.body.region,region);
+ assert.deepEqual(saved.body.region,region,'Saving tip calibration preserves ZZZ dialogue');assert.equal(writes.length,0,'Game setup never changes account settings');
+ for(const[game,label]of [['wuwa','Wuthering Waves']]){
   await games.getByRole('button',{name:label,exact:true}).click();await page.locator(`.current-line.game-${game}`).waitFor();
-  if(game==='witcher3'){
-   await page.locator('.current-line').getByText(witcherStudyLine.source_text,{exact:true}).waitFor();
-   assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Witcher uses original audio');
-   assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'de','Witcher uses the selected German study language');
-  }else{
    await page.getByText('Download the Chinese voice pack in Wuthering Waves',{exact:true}).waitFor();
    assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'ja','Wuthering retains the selected Japanese study language');
    await page.locator('.current-line').getByText(wuwaLine.source_text,{exact:true}).waitFor();
    assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Previously captured original Japanese audio remains playable');
-  }
+  await page.getByRole('button',{name:'Favorites',exact:true}).click();
+  assert.equal(await page.locator('.transcript-line .current-chinese').getAttribute('lang'),'ja','Saved source uses actual Japanese locale');
+  assert.equal(await page.locator('.transcript-line .current-english').getAttribute('lang'),'zh-Hans','Saved translation uses actual Chinese locale');
+  await page.getByRole('button',{name:'History',exact:true}).click();
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),label+' tabs fit');
   if(pw===3840)await page.screenshot({path:`${preview.output}/${name}-${game}-4k-${zoom}.png`});
   await page.getByRole('button',{name:'Capture setup',exact:true}).click();await capture.waitFor();
-  await capture.getByRole('button',{name:game==='wuwa'?'Top-right tips':'NPC chatter',exact:true}).click();
-  assert.equal(await capture.locator('input[type=range]').first().inputValue(),game==='wuwa'?'58':'8');
+  await capture.getByRole('button',{name:'Top-right tips',exact:true}).click();
+  assert.equal(await capture.locator('input[type=range]').first().inputValue(),'58');
   if(game==='wuwa'){
    await capture.getByRole('button',{name:'Centered story cards',exact:true}).click();
    assert.equal(await capture.locator('input[type=range]').first().inputValue(),'12');
@@ -260,14 +236,13 @@ try{
   }
   await capture.getByRole('button',{name:'Dialogue',exact:true}).click();
   if(game==='wuwa'){assert.equal(await capture.getByLabel('Rover voice').inputValue(),'unconfigured');await capture.getByLabel('Rover voice').selectOption('female');}
-  else assert.equal(await capture.getByLabel('V voice').count(),0,'Witcher has no Cyberpunk voice selector');
   await capture.getByRole('button',{name:'Update TextMaps',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.setup-actions button')?.textContent.includes('Update TextMaps'));
   assert(localWrites.some(w=>w.path===`/api/games/${game}/update`),label+' refresh selects its own assets');
   await capture.getByRole('button',{name:'Save capture settings',exact:true}).click();await capture.waitFor({state:'hidden'});
   const last=localWrites.filter(w=>w.path==='/api/settings').at(-1).body;
   if(game==='wuwa'){assert.equal(last.wuwa_rover_voice,'female','Rover choice survives asset refresh');assert.equal(last.wuwa_cinematic_region.left,.14,'Story card calibration is independent');assert.equal(last.wuwa_capture_chatter,false,'Unverified top-right channel stays off');}
-  assert.deepEqual(last.cyberpunk_region,saved.body.cyberpunk_region,'Game calibration is independent');assert.equal(last.cyberpunk_v_voice,'male');
+  assert.equal(last.tip_region.left,.12,'ZZZ tip calibration is independent');assert.equal(last.zzz_proxy_voice,'male');
   assert.deepEqual(last.region,region,'New games preserve ZZZ calibration');assert.equal(writes.length,0,'New games never change account settings');
  }
  for(const[game,label,left]of [['nte','Neverness to Everness','10'],...newRpgs.map(([game,label])=>[game,label,'10'])]){
@@ -298,13 +273,8 @@ try{
   assert.equal(writes.length,0,'New games cause no account writes');
   if(name==='chromium'&&pw===320)await page.screenshot({path:`${preview.output}/${game}-mobile.png`});
  }
- await games.getByRole('button',{name:'PRAGMATA',exact:true}).click();await page.locator('.current-line.game-pragmata').waitFor();
- assert.equal(await page.locator('.current-line .reading-text').getAttribute('lang'),'fr','PRAGMATA retains the selected French study language');
- await page.locator('.current-line').getByText(pragmataLine.source_text,{exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'Play current voice line',exact:true}).isEnabled(),true,'Localized PRAGMATA original voice is playable');
- assert.equal(writes.length,0,'Reading a PRAGMATA locale never changes account settings');
- assert.equal(await games.getByRole('button',{name:"Hito's World",exact:true}).count(),0,'Archived Hito is absent');
- assert.equal(await games.getByRole('button',{name:'Honkai Impact 3rd',exact:true}).count(),0,'Archived game is absent');
+ for(const retired of ['Cyberpunk 2077','BEYOND: Two Souls','HEAVY RAIN','The Witcher 3: Wild Hunt','PRAGMATA',"Hito's World",'Honkai Impact 3rd'])
+  assert.equal(await games.getByRole('button',{name:retired,exact:true}).count(),0,retired+' is absent from live capture');
  if(zoom===1&&[1920,320].includes(pw)){
   const beforeArchive=localWrites.length;
   await page.getByLabel('Archived game history',{exact:true}).selectOption('hito');
@@ -319,6 +289,19 @@ try{
   await page.locator('.line-list').getByText(hitoFavorite.english,{exact:true}).waitFor();
   assert.equal(localWrites.length,beforeArchive,'Viewing retired history does not write or refresh game assets');
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Archived history fits');
+  await page.getByRole('button',{name:'History',exact:true}).click();
+  await page.getByLabel('Archived game history',{exact:true}).selectOption('cyberpunk');
+  await page.locator('.line-list').getByText(cyberpunkStudyLine.source_text,{exact:true}).waitFor();
+  assert.equal(await page.locator('.current-line.game-cyberpunk').count(),0,'Cyberpunk archive has no live panel');
+  assert(await page.getByRole('button',{name:'Capture setup',exact:true}).isDisabled());
+  assert(await page.locator('.capture-toggle').isDisabled());
+  assert.equal(await page.locator('.transcript-line .current-chinese').getAttribute('lang'),'fr','Archived French source stays intact');
+  assert.equal(await page.locator('.transcript-line .current-english').getAttribute('lang'),'zh-Hans','Archived Chinese translation stays intact');
+  await page.getByRole('button',{name:'Favorites',exact:true}).click();
+  assert.equal(await page.locator('.line-list .transcript-line').count(),1,'Archived Cyberpunk favorite remains accessible');
+  assert.equal(await page.getByRole('button',{name:'Original voice: ',exact:true}).isEnabled(),true,'Archived original voice remains playable');
+  assert.equal(localWrites.length,beforeArchive,'Archive browsing never writes settings or refreshes retired assets');
+  await page.getByRole('button',{name:'History',exact:true}).click();
   await page.getByLabel('Archived game history',{exact:true}).selectOption('');
  }
  await games.getByRole('button',{name:'Zenless Zone Zero',exact:true}).click();await page.locator('.current-line.game-zzz').waitFor();
