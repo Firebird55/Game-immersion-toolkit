@@ -101,6 +101,24 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage == 'authoring-import-ranges':
+            reader = self._reader(ctx)
+            from . import nte_game_data_imports as dependencies
+            return dependencies.download(plan, ctx, reader,
+                PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
+        if plan.stage == 'process-authoring':
+            reader = self._reader(ctx)
+            from . import nte_game_data_authoring as authoring
+            from .preparation_errors import PreparationFailure
+            try:
+                return authoring.download(plan, ctx, reader)
+            except PreparationFailure as error:
+                raise GameDataError(error.code, str(error), 409) from error
+        if plan.stage == 'initial-descriptions':
+            reader = self._reader(ctx)
+            from . import nte_game_data_initial as initial
+            return initial.download(plan, ctx, reader,
+                PublisherTransport(ctx, hosts=source.HOSTS | initial.HOSTS, opener=self.opener))
         if plan.stage == 'dialogue-package-ranges':
             reader = self._reader(ctx)
             from . import nte_game_data_packages as packages

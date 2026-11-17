@@ -298,9 +298,12 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             if capture_original_authoring:
                 request['capture_original_authoring'] = True
         try:
-            result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
-                timeout=600, cwd=working_directory, env=environment,
-                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            if game_data_reader is not None:
+                result = game_data_reader.execute(context, destination, mode, request, timeout=600)
+            else:
+                result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True,
+                    timeout=600, cwd=working_directory, env=environment,
+                    creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except (OSError, subprocess.SubprocessError):
             raise PreparationFailure('game_metadata_unavailable',
                 'The NTE publisher reader could not finish. Retry preparation; the previous index is retained.') from None

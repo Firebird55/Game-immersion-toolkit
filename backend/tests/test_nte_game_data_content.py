@@ -244,19 +244,38 @@ def test_large_encrypted_index_and_directory_require_separate_explicit_plans(tmp
         service.close()
 
 
-def test_missing_initial_description_is_explicit_without_community_or_asset_reads(tmp_path, monkeypatch):
+@pytest.mark.parametrize('fault', [None, 'description', 'publisher'])
+def test_missing_initial_description_has_exact_frozen_quote_and_retains_old_stage_on_failure(tmp_path, monkeypatch, fault):
     original = Originals(tmp_path, monkeypatch); service = original.service()
     try:
         plan = service.plan('nte', REQUEST)['game']
         service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
         assert finish(service)['job']['status'] == 'needs_plan'
         from backend import nte_publisher
+        from backend import nte_game_data_initial as initial
         revision, digest = nte_publisher.NATIVE_ARCHIVE
-        (original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt').unlink()
+        path = original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt'
+        source = path.read_bytes(); path.unlink()
+        specs = initial.descriptions(); specs['archive']['bytes'] = len(source)
+        monkeypatch.setattr(initial, 'descriptions', lambda: specs)
+        original.metadata[specs['archive']['url']] = source
         before = len([call for call in original.calls if call['range']])
         following = service.plan('nte', REQUEST)['game']
-        assert not following['can_download'] and following['download_bytes'] is None
-        assert following['revision'].startswith('nte-initial-description-')
+        assert following['can_download'] and following['download_bytes'] > len(source)
+        assert following['revision'].startswith('nte-initial-descriptions-')
+        assert len([call for call in original.calls if call['range']]) == before
+        assert not any(call['url'] == specs['archive']['url'] for call in original.calls)
+        prior = (original.root/'nte/stage.json').read_bytes()
+        if fault == 'description': original.metadata[specs['archive']['url']] = b'!'+source[1:]
+        if fault == 'publisher': original.metadata[initial.content.updater.VERSION_URL] += b'changed'
+        service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        state = finish(service)
+        if fault:
+            assert state['job']['status'] == 'failed' and not path.exists()
+            assert (original.root/'nte/stage.json').read_bytes() == prior
+        else:
+            assert state['job']['status'] == 'needs_plan' and path.read_bytes() == source
+            assert state['job']['downloaded_bytes'] == following['download_bytes']
         assert len([call for call in original.calls if call['range']]) == before
         assert not (original.root/'nte/current.json').exists()
     finally:
@@ -323,7 +342,8 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
         assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
         assert len([call for call in original.calls if call['range']]) == before+1
         local = service.plan('nte', request)['game']
-        assert not local['can_download'] and local['revision'].startswith('nte-localization-description-')
+        assert local['can_download'] and local['revision'].startswith('nte-initial-descriptions-')
+        assert set(service.plans[local['plan_id']]['plan'].handle['descriptions']) == {'localization'}
         assert not (original.root/'nte/current.json').exists()
     finally:
         service.close()

@@ -93,8 +93,11 @@ def plan(original, values, ctx, reader):
     except GameDataError as error:
         if error.code != 'nte_initial_localization_description_required':
             raise
-        return GameDataPlan('nte-localization-description-'+content._identity(original), None, None,
-            handle=original, stage='compatibility', message=str(error))
+        from . import nte_game_data_initial as initial
+        result = initial.plan(original['indices'], ('localization',), ctx, reader)
+        if result is None:
+            raise
+        return result
     packet = {'schema': STAGE, 'imports': original, 'reader': reader.identity,
               'localization': [localization.revision, localization.digest]}
     retained = _read(packet, ctx)

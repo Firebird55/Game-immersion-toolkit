@@ -21,7 +21,7 @@ def _offline(*_args):
         'Required original NTE data is missing. Check the download size again.', 409)
 
 
-def containers(handle, ctx, reader, *, inventory_only=False):
+def containers(handle, ctx, reader, *, inventory_only=False, range_reader=None):
     """Build checked directory metadata without UCAS or PAK source lookups."""
     from .nte_publisher import ROOT, container_context
     sources = ranges._sources(handle, ctx, _offline)
@@ -39,7 +39,7 @@ def containers(handle, ctx, reader, *, inventory_only=False):
             raise _failure()
         result[name] = io.Container(current['region'], current['branch'], files[name], files[name[:-5]+'.ucas'],
             tuple(archives.values()), Path(ctx.cache_directory)/'tools/nte-publisher/iostore',
-            oodle=reader.oodle, range_reader=_offline)
+            oodle=reader.oodle, range_reader=range_reader or _offline)
     selected = container_context(result)
     if inventory_only:
         for name, source in selected.items():

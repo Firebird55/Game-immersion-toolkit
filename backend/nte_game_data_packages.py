@@ -32,8 +32,12 @@ def _selection(recipe, retained, values):
 def plan(recipe, retained, values, ctx, reader):
     wanted, packet = _selection(recipe, retained, values)
     if wanted.new_bytes == 0:
-        return GameDataPlan('nte-native-authoring-'+content._identity(packet), None, None, handle=packet,
-            stage='content', message='Original NTE dialogue packages are verified. Native schema and complete language extraction are still required.')
+        from . import nte_game_data_initial as initial
+        prerequisite = initial.plan(recipe['imports']['indices'], ('seed',), ctx, reader)
+        if prerequisite is not None:
+            return prerequisite
+        from . import nte_game_data_authoring as authoring
+        return authoring.plan(recipe, retained, ctx, reader, values)
     guards = recipe['imports']['indices']['verification']
     return GameDataPlan('nte-package-ranges-'+content._identity(packet),
         wanted.new_bytes+2*sum(row['bytes'] for row in guards.values()), wanted.new_bytes+128*1024,

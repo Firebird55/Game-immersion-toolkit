@@ -376,6 +376,34 @@ compatibility information before local processing.” This fixed prerequisite
 does not establish a future localization-key derivation or permit implicit
 per-update community refreshes.
 
+The initial archive, localization and seed descriptions now have explicit cold
+download stages: 78,835, 1,544 and 1,252,093 bytes respectively, plus the quoted
+original-source checks. They remain fixed immutable descriptions; healthy
+normal updates do not consult a newer community index or mapping. The seed is
+the retained [1.4 format description](https://raw.githubusercontent.com/555me/NTE-usmap/1b92d5267092dac6bcfec605bcaf6ae05b664746/mapping/HT-1.4-1413.usmap),
+SHA-256 `7651a4e56f79b2c6c9d7bde31a8dadbfc929b2e923691461c6970ce0bdb0ff58`.
+These initial descriptions do not prove future archive/localization-key
+rotation or an unsupported changed constructor/codec.
+
+Context-owned original native processing reuses the already quoted baseline and
+current originals. Its seed, baseline and native resolvers cannot acquire an
+unplanned dependency; the existing owned table operation runs through the
+verified cancellable reader. An actual missing original package import is
+recorded against the reader/software, exact recipe, selected languages/mode and
+authenticated TOC/UCAS identities. It produces a separate bounded block quote
+before acquisition; partial authoring never becomes a completed result.
+
+The ordinary retained-source trial discovered one additional 262,144-byte
+block. Its following download accounted for 573,402 bytes including original
+pointer checks, entirely from existing verified original caches. A changed
+source was rejected before any asset transfer, a corrupted block was rejected
+without publication, and a correct retry returned to local processing. All
+three trials kept the previous source on failure and downloaded no new network
+data or bank/WEM members. Required-closure validation, complete selected-language
+normalization, original audio readiness and final activation checks remain
+separate gates; this stage evidence is not a ready-library or Android-reader
+claim.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

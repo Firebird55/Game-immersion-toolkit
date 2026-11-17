@@ -49,7 +49,9 @@ def test_normal_receipt_to_package_range_stage_keeps_checksum_and_no_ready_bound
             assert state['job']['status'] == 'needs_plan' and blocks
             assert state['job']['downloaded_bytes'] == plan['download_bytes']
             following = service.plan('nte', REQUEST)['game']
-            assert not following['can_download'] and following['revision'].startswith('nte-native-authoring-')
+            assert following['can_download'] and following['revision'].startswith('nte-initial-descriptions-')
+            next_stage = service.plans[following['plan_id']]['plan']
+            assert set(next_stage.handle['descriptions']) == {'seed'}
         assert not (original.root/'nte/current.json').exists()
     finally: service.close()
 

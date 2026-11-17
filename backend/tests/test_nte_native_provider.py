@@ -12,6 +12,40 @@ from backend.nte_type_metadata import Schema
 from backend.preparation_errors import PreparationFailure
 
 
+@pytest.mark.parametrize('missing', ['baseline', 'seed', 'native'])
+def test_context_reader_never_acquires_unplanned_native_or_initial_dependencies(tmp_path, monkeypatch, missing):
+    from backend.game_data_protocol import GameDataError
+    catalog, staging, _, calls = fixture(tmp_path, monkeypatch, partial=False)
+    ctx = SimpleNamespace(cache_directory=tmp_path/'owned-cache')
+    catalog.cache = ctx.cache_directory/'tools/nte-publisher'
+    reader = SimpleNamespace(source_identity=catalog.snapshot['reader'], context=ctx)
+    baseline_load, seed_load, stage = provider.baseline_source.load, provider.seed, metadata.stage_original
+    observed = []
+    def original_baseline(*args, **kwargs):
+        assert set(kwargs) == {'fetch', 'save'}
+        observed.append('baseline')
+        if missing == 'baseline': kwargs['fetch']('https://publisher.invalid/missing', limit=16)
+        return baseline_load(*args)
+    def initial_seed(*args, **kwargs):
+        assert set(kwargs) == {'fetch'}
+        observed.append('seed')
+        if missing == 'seed': kwargs['fetch']('https://description.invalid/missing', limit=16)
+        return seed_load(*args)
+    def original_native(*args, **kwargs):
+        assert set(kwargs) == {'save'}
+        observed.append('native')
+        kwargs['save']('nte-global', 'PC_9', None, tmp_path/'forbidden')
+        return stage(*args)
+    monkeypatch.setattr(provider.baseline_source, 'load', original_baseline)
+    monkeypatch.setattr(provider, 'seed', initial_seed)
+    monkeypatch.setattr(metadata, 'stage_original', original_native)
+    with pytest.raises(GameDataError) as error:
+        provider.read_authoring(catalog, tmp_path/'reader', staging, game_data_reader=reader)
+    assert error.value.code == 'nte_unplanned_original_dependency'
+    assert observed == {'baseline': ['baseline'], 'seed': ['baseline', 'seed'], 'native': ['baseline', 'seed', 'native']}[missing]
+    assert not calls and not list(staging.iterdir())
+
+
 def fixture(tmp_path, monkeypatch, *, partial=True, graphs=False, authoring=False):
     monkeypatch.setattr(publisher, '_reader_identity', lambda: 'f'*64)
     names = ['Client/Plugin.dll', 'Client/RenamedApplication.exe']
