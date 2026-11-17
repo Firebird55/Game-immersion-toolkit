@@ -251,11 +251,13 @@ class GameDataService:
         if job and job['context'].owner != owner:
             job['context'].cancel.set(); job = None
         public_job = ({key: job[key] for key in ('id', 'status', 'phase', 'downloaded_bytes', 'total_bytes', 'message')} if job else None)
+        if latest and job and job.get('plan_id') != latest['id'] and job['status'] not in {'queued', 'running'}:
+            public_job = None  # A completed old request cannot label the new request ready.
         ready = bool(current and current['ready'])
         state = 'ready' if ready else 'not_downloaded'
         if game not in self.providers:
             state = 'unsupported'
-        if plan and ready and plan.revision != current['revision']:
+        if plan and ready and (plan.revision != current['revision'] or latest['request'].json() != current['request']):
             state = 'update_available'
         active = job and job['status'] in {'queued', 'running'}
         if active:
@@ -272,6 +274,7 @@ class GameDataService:
         return {'id': game, 'title': GAME_TITLES[game], 'state': state,
             'revision': plan.revision if plan else current['revision'] if current else stage['revision'] if stage else None,
             'installed_revision': current['revision'] if ready else None,
+            'installed_request': current['request'] if ready else None,
             'can_activate': ready and game in self.providers,
             **request.json(), 'installed_bytes': installed, 'deletable_bytes': installed, 'retained_bytes': retained,
             'download_bytes': plan.download_bytes if plan else None,
