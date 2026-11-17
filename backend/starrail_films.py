@@ -23,6 +23,22 @@ def _duration(data):
     return samples * 1000 // rate
 
 
+def _take_duration(audio, tools):
+    """Read the original timing header without downloading the whole take."""
+    stamp, locale, name = audio['publisher'], audio['locale'], audio['package']
+    identity = voices.voice_hash(audio['source'])
+    check(locale in voices.sophon.VOICE_FIELDS and f'{identity:016x}' == audio['file_id']
+          and re.split(r'[/\\]', audio['source'], maxsplit=1)[0] in voices.voice_namespaces('starrail', locale))
+    directory = tools / 'sophon'
+    entry, = [row for row in voices._table(directory, stamp, locale, name, 'starrail') if row.file_id == identity]
+    asset = voices._archive(directory, stamp, locale, name, 'starrail')
+    count = min(86, entry.size)
+    data = asset.read(directory, entry.offset, count)
+    check(len(data) == count and len(data) >= 12 and data[:4] == b'RIFF' and data[8:12] == b'WAVE'
+          and struct.unpack_from('<I', data, 4)[0] + 8 == entry.size)
+    return _duration(data)
+
+
 def _takes(tools, catalog, locale, entries):
     from .starrail_assets import _table
     configs = _table(catalog, 'CutSceneConfig', ('CutSceneName', 'CaptionPath', 'CutScenePath'))
@@ -45,7 +61,7 @@ def _takes(tools, catalog, locale, entries):
         for suffix, gender in variants:
             key = f'{voice_namespace("starrail", locale)}/voice/{source}{suffix}.wem'
             audio = audio_binding(key, entries, locale)
-            duration = _duration(voices.extract(audio, tools, 'starrail')) if audio else None
+            duration = _take_duration(audio, tools) if audio else None
             result[name].append((suffix, gender, audio, duration))
     return result
 

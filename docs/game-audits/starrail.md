@@ -57,6 +57,16 @@ partial, corrupt or differently owned ranges cannot supply the voice. Exact
 legacy ranges retain their existing playback contract. These are authenticated
 HTTPS ranges with original ETag/size ownership, not whole-PCK MD5 verification.
 
+Cutscene-take clocks now read only the required 86-byte original RIFF/Vorbis
+header, validating the immutable PCK entry and RIFF-declared complete length.
+Truncated or differently sized headers cannot authorize a clock. Fifty-two
+fully available original takes across the retained 4.6/4.7 controls produce the
+same clock from that prefix and their complete WEM spans. Prefix transport is
+still planned by complete authenticated Sophon chunks: four remaining headers
+need two chunks totaling 2,353,000 compressed bytes, not merely 344 bytes.
+Text-only preparation must skip all take/audio discovery; the independent
+content-mode adapter is not yet implemented by this checkpoint.
+
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three
 bodies total 522,332 bytes and retain combined SHA256
