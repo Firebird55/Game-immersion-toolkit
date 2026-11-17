@@ -130,12 +130,17 @@ class AndroidPublisherCrypto:
                 and value.get('source_sha256') == SOURCE_SHA256 and value.get('platform_primitives') == 'JCA'
                 and value.get('apk_entry_verified') is True and value.get('licenses_verified') is True
                 and value.get('system_fallback') is False and value.get('original_client_execution') is False
-                and value.get('account_keys_reused') is False and value.get('pointer_bits') == 64)
+                and value.get('account_keys_reused') is False and value.get('pointer_bits') == 64
+                and value.get('key_bytes') == 32 and value.get('nonce_bytes') == 12 and value.get('max_bytes') == MAX_BYTES)
             for name in ('library_sha256','manifest_sha256'):
                 _check(isinstance(value.get(name),str) and re.fullmatch('[0-9a-f]{64}',value[name]))
             return cls(native,value)
-        except (ImportError,AttributeError,TypeError) as error:
-            raise ValueError('The protected Android publisher cryptography runtime is unavailable.') from error
+        except Exception:
+            raise ValueError('The protected Android publisher cryptography runtime is unavailable.') from None
+
+    def _call(self, name, *args):
+        try:return getattr(self._native,name)(*args)
+        except Exception:raise ValueError('Unsupported publisher cryptography input or runtime.') from None
 
     def _result(self, value, length):
         try: raw = bytes(value)
@@ -144,22 +149,22 @@ class AndroidPublisherCrypto:
 
     def block_cipher(self, algorithm, mode, key, data, *, iv=None, decrypt=True):
         _block(algorithm,mode,key,data,iv,decrypt)
-        return self._result(self._native.blockCipher(algorithm,mode,key,iv,data,decrypt),len(data))
+        return self._result(self._call('blockCipher',algorithm,mode,key,iv,data,decrypt),len(data))
 
     def rsa_verify_sha256(self, spki, data, signature):
         _public_input(spki,data,signature)
-        return bool(self._native.rsaVerifySha256(spki,data,signature))
+        return bool(self._call('rsaVerifySha256',spki,data,signature))
 
     def rsa_decrypt_pkcs1(self, key, data):
         _rsa_input(key,data)
         unsigned = lambda value:value.to_bytes((value.bit_length()+7)//8,'big')
-        result = self._native.rsaDecryptPkcs1(*(unsigned(value) for value in (key.n,key.e,key.d,key.p,key.q)),data)
+        result = self._call('rsaDecryptPkcs1',*(unsigned(value) for value in (key.n,key.e,key.d,key.p,key.q)),data)
         if result is None: return None
         raw = self._result(result,len(result));_check(len(raw) <= len(data)-11);return raw
 
     def chacha20(self, key, nonce, data, *, position=0):
         _chacha(key,nonce,data,position)
-        return self._result(self._native.chacha20(key,nonce,data,position),len(data))
+        return self._result(self._call('chacha20',key,nonce,data,position),len(data))
 
 
 def create_publisher_crypto(*, platform, native=None):

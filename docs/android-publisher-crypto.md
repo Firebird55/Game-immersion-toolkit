@@ -2,8 +2,9 @@
 
 Reviewed November 17, 2026 against Android checkpoint `502e82f5`, including the
 complete publisher source cohort `d7c7b1f0`. This is an implementation inventory
-and bounded next-cohort plan. No additional source archive, APK, crypto binary,
-provider capability or target execution has been acquired or established here.
+and bounded implementation plan. The subsequent implementation below acquired
+only the authorized original source archive and built the small independent
+software boundary. No APK or ready-game capability follows from it.
 The [64-source/Zstandard checkpoint](android-zstandard.md) remains separate.
 
 ## Actual consumer requirements
@@ -59,7 +60,8 @@ different counter/nonce contracts; source readers remain authoritative.
 The project pins `pycryptodome==3.24.1`. Its previously inspected primary PyPI
 metadata identifies a 4,932,558-byte source archive, SHA-256
 `3f9e74444c0ecbec7af232a95d282c74b114d53212ce075ed17b7fd7dca32bb3`.
-The archive has not been downloaded for this plan. The existing pinned desktop
+It was not downloaded for the initial inventory; the authorized acquisition
+and selected-source audit are recorded in the implementation section below. The existing pinned desktop
 package can be inspected read-only, but its Windows binaries cannot enter an
 Android artifact. The primary [PyPI source record](https://pypi.org/pypi/pycryptodome/3.24.1/json)
 is the acquisition identity, not permission to substitute another version.
@@ -114,7 +116,7 @@ bindings, original parameters, padding decisions or transport budgets.
    PyCryptodome Android wheel is an alternative only after its loader and exact
    import closure are proved; it is not the default large dependency grab.
 
-The next acquisition, if approved, is only the pinned 4.93 MB source archive
+The authorized acquisition was limited to the pinned 4.93 MB source archive
 for header/license/compile-interface inspection. No new SDK, managed runtime,
 game artifact, complete APK build or live account action is needed to decide
 this boundary.
@@ -140,3 +142,75 @@ Android API 34/36, including an ARM64 target and verified artifact hashes.
 Host, compilation and archive checks are separate evidence. Keep the original
 reader/source/.NET/BLB/codec gates explicit until their own real implementations
 and complete game snapshot acceptance exist.
+
+## Implemented explicit contract
+
+`86d1d120` introduces `backend/publisher_crypto.py` and the real JCA operations.
+`e5ed5dfc` adds an optional dependency set to the existing strict ELF parser;
+its default four-Python-library behavior is unchanged. The new native recipe
+uses that same parser for its libc-only contract.
+
+The consumer API is explicit and synchronous:
+
+- `block_cipher(algorithm, mode, key, data, iv=None, decrypt=True)` accepts
+  AES-128/192/256 or single DES, ECB/CBC, and complete unpadded blocks only.
+- `rsa_verify_sha256(spki_der, data, signature)` accepts a bounded public SPKI
+  and returns a boolean. APK-specific minimum modulus, certificate and source
+  authentication remain in the APK verifier, independently of this primitive.
+- `rsa_decrypt_pkcs1(RsaPrivateNumbers(n,e,d,p,q), ciphertext)` checks the
+  complete CRT relationship and provider prime validation; invalid padding
+  returns `None`, while a valid empty plaintext remains `b''`. The desktop
+  adapter uses a k-byte sentinel that cannot collide with valid v1.5 plaintext.
+- `chacha20(key32, nonce12, data, position=0)` takes an **absolute** keystream
+  position. Endfield retains `64 + source_offset` at its consumer boundary.
+  The original core's counter-wrap boundary is preserved, including empty input.
+
+All data calls are bounded to 64 MiB, public encoded keys to 8 KiB, and RSA
+moduli to 1024–4096 bits with a positive odd exponent bounded to 32 bits.
+Numbers cross the native boundary as canonical unsigned bytes. Provider errors
+are generic, with no parameter values or nested private diagnostics. No caller
+is automatically switched from the desktop adapter to an Android approximation.
+
+`PublisherCryptoOperations.java` performs the platform block/RSA operations.
+`PublisherCrypto.java` is a private Android service with an explicit APK-entry
+loader; `FrameOcr.publisherCrypto()` is only a lazy typed accessor. Creating
+that accessor does not register a game or acquire data. The Python Android
+factory requires this concrete Java type and its validated proof.
+
+## Original native software and acceptance boundary
+
+The authorized 4,932,558-byte archive was fetched with TLS verification, an
+exact body limit and the recorded SHA-256. `publisher-crypto-native.json` pins
+all original selected members: the unmodified 10,042-byte `chacha20.c`, its
+three headers, and `LICENSE.rst`. Only the original core plus owned bounded
+transport is compiled. Its state and owned temporary buffers are cleared before
+release. No CPython crypto package, GMP, CFFI, downloaded game code or account
+Keystore is used by this native subset.
+
+`scripts/build-android-publisher-crypto.py` uses the authenticated existing
+NDK 27.3.13750724 for ARM64 and x86_64. The recipe binds the original source,
+headers, compiler inventory, owned transport, Java operations/loader and Python
+contract. Actual ELF dependencies and exported functions are inspected. The
+bundle retains the original full license and complete embedded source notices.
+The loader verifies those notices and the hash of the exact stored APK entry,
+then loads that entry directly; it has no global or system-library fallback.
+The only dynamic dependency of the cipher library is Android libc.
+
+The new parameter on the shared ELF parser changes the helper input hash used
+by the earlier Zstandard recipe. Preserve those previous receipts unchanged;
+a later combined current-source build must rebuild Zstandard from its already
+cached original source, rather than relabel the earlier wheel receipts.
+
+The checked host suite compares real JCA operations with the locked desktop
+reference and rejects invalid block/key/IV shapes, invalid signatures, bad CRT
+numbers, composite factors and unsupported encodings. Software-bundle tests
+reject changed source, recipe, compiler identity, notices, ABI inventory and
+actual hidden dependencies even when a claimed byte receipt is rewritten.
+These are host/source checks, not Android execution.
+
+The separate `prepare-publisher-crypto-probes.py` can prepare tiny authored
+C API executables and JCA DEX using the existing NDK/D8. These probes contain
+no original game input and never open application/account/history data. C API
+execution and platform JCA execution must be recorded separately from actual
+JNI entry, manifest loading, APK ZIP alignment and complete game preparation.
+No application build or producer-capability change is part of this cohort.

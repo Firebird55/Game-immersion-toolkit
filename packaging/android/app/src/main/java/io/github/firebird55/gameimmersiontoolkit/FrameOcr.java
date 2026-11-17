@@ -37,6 +37,11 @@ public final class FrameOcr {
     private final AccountProtection protectedAccounts;
     private final Context context;
     private NativeX64Decoder dataDecoder;
+    private PublisherCrypto publisherCrypto;
+    public synchronized PublisherCrypto publisherCrypto() {
+        if (publisherCrypto == null) publisherCrypto = new PublisherCrypto(context);
+        return publisherCrypto;
+    }
     public FrameOcr(Context context) { this.context = context.getApplicationContext();protectedAccounts = new AccountProtection(this.context); }
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
