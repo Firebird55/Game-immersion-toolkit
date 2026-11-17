@@ -296,10 +296,11 @@ internal static class StarRailMetadata {
                 // A new owner needs an original entry boundary. Interior
                 // targets become admissible only through its decoded graph.
                 if (address != owner.Start) throw new InvalidDataException();
-                var candidate = image.Region(owner);
-                total = checked(total + candidate.Data.Length);
-                if (regions.Count >= 16 || total > 32768 || regions.Values.Any(r =>
+                int bytes = checked((int)(owner.End - owner.Start));
+                if (regions.Count >= 16 || bytes > 32768 - total || regions.Values.Any(r =>
                     r.Function.Start < owner.End && owner.Start < r.Function.End)) throw new InvalidDataException();
+                var candidate = image.Region(owner);
+                total = checked(total + bytes);
                 region = candidate; regions.Add(owner.Start, region);
             }
             var reader = new ByteArrayCodeReader(region.Data); reader.Position = checked((int)(address - owner.Start));
