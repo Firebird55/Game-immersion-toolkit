@@ -1,4 +1,4 @@
-"""Original acquisition refreshes codec data only after a container rejection."""
+"""Official codec candidates are selected by complete publisher input, fail closed."""
 import hashlib
 import json
 from types import SimpleNamespace
@@ -56,20 +56,29 @@ def test_whole_authenticated_original_package_reopens_cached_body_without_execut
     assert len(calls) == 2 and first.package_receipts == before
 
 
-@pytest.mark.parametrize('failure', ['native-schema', 'publisher-index', 'codec'])
-def test_parameter_refresh_is_bounded_and_does_not_mask_native_or_publisher_failures(tmp_path, monkeypatch, failure):
+@pytest.mark.parametrize('outcomes', [('reject', 'accept'), ('accept', 'accept'), ('reject', 'reject'), ('native-error', 'accept')])
+def test_all_official_candidates_are_checked_without_community_fallback(tmp_path, monkeypatch, outcomes):
+    from backend.genshin_blb_native import Candidate
     monkeypatch.setattr(source.blb, 'helper', lambda directory: object())
-    loads = []
-    def load(directory, **kwargs):
-        loads.append(kwargs)
-        return tmp_path / 'private', {'sha256': ('b' if kwargs else 'a') * 64}
-    monkeypatch.setattr(source.codec, 'load', load)
+    native = tmp_path / 'official-native'; native.write_bytes(b'original native fixture')
+    owner = {'sha256': 'a' * 64, 'publisher_md5': 'b' * 32, 'bytes': 1024}
+    monkeypatch.setattr(source, 'official_native', lambda *a: (native, owner))
+    monkeypatch.setattr(source, 'Image', lambda value: value)
+    candidates = tuple(Candidate(bytes([i]), ('c' * 64,)) for i in range(2))
+    monkeypatch.setattr(source, 'discover_candidates', lambda image: candidates)
     attempts = []
-    def construct(*args):
+    def construct(directory, build, helper, parameters, receipt, **kwargs):
+        assert receipt['policy'] == 'official-native-blb-parameters-v1'
+        assert receipt['parameters_sha256'] == hashlib.sha256(parameters.read_bytes()).hexdigest()
+        assert kwargs['native_input'] == (native, owner)
+        outcome = outcomes[len(attempts)]
         attempts.append(True)
-        if failure == 'codec': raise source.CodecRejected('unsupported original container')
-        raise ValueError('unsupported ' + failure)
+        if outcome == 'reject': raise source.CodecRejected('unsupported original container')
+        if outcome == 'native-error': raise ValueError('unsupported native schema')
+        return SimpleNamespace(accepted=True)
     monkeypatch.setattr(source, 'Source', construct)
-    with pytest.raises(ValueError): source.prepare(tmp_path, build())
-    assert len(attempts) == (2 if failure == 'codec' else 1)
-    assert loads == ([{}, {'refresh': True}] if failure == 'codec' else [{}])
+    if outcomes == ('reject', 'accept'):
+        assert source.prepare(tmp_path, build()).accepted
+    else:
+        with pytest.raises(ValueError): source.prepare(tmp_path, build())
+    assert len(attempts) == (1 if outcomes[0] == 'native-error' else 2)

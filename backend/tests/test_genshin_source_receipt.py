@@ -58,6 +58,29 @@ def validate(payload):
                             region=payload['publisher_region'], metadata_revision=payload['metadata_revision'])
 
 
+@pytest.mark.parametrize('change', [None, 'native-input', 'publisher-md5', 'bytes', 'methods', 'reader', 'policy'])
+def test_original_native_codec_receipt_reopens_and_rejects_cross_input_changes(change):
+    payload = snapshot()
+    source = payload['source_receipt']['original_text']
+    owner = source['native']
+    source['codec_description'] = {'policy': 'official-native-blb-parameters-v1',
+        'native_sha256': owner['sha256'], 'publisher_md5': owner['publisher_md5'], 'bytes': owner['bytes'],
+        'reader_sha256': '1' * 64, 'method_sha256s': ['2' * 64, '3' * 64],
+        'parameters_sha256': '4' * 64, 'semantic_owner_claim': False}
+    codec = source['codec_description']
+    if change == 'native-input': codec['native_sha256'] = '9' * 64
+    elif change == 'publisher-md5': codec['publisher_md5'] = '9' * 32
+    elif change == 'bytes': codec['bytes'] += 1
+    elif change == 'methods': codec['method_sha256s'].append(codec['method_sha256s'][0])
+    elif change == 'reader': codec['reader_sha256'] = 'moving-branch'
+    elif change == 'policy': codec['policy'] = 'community-data-relabeled-official'
+    rehash(payload['source_receipt'])
+    if change is None:
+        assert validate(payload)['original_text']['codec_description'] == codec
+    else:
+        with pytest.raises(ValueError): validate(payload)
+
+
 @pytest.mark.parametrize('change', ['title', 'edition', 'stale-hotfix', 'wrong-game', 'helper-region',
     'helper-revision', 'unapproved-source', 'codec-source', 'native-contract', 'missing-shard', 'source-label'])
 def test_rehashed_wrong_source_and_generation_receipts_cannot_be_accepted(change):

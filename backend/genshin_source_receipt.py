@@ -78,11 +78,21 @@ def validate(receipt, *, publisher, region, metadata_revision):
           and sha(source.get('official_design_index_md5'), 32)
           and source['official_design_index_md5'] == hotfix['indexes']['design'][0])
     codec = source.get('codec_description')
-    check(isinstance(codec, dict) and codec.get('policy') == 'controlled-community-codec-description-v1'
-          and codec.get('repository') == 'Escartem/AnimeStudio'
-          and codec.get('path') == 'AnimeStudio/Crypto/CryptoHelper.cs'
-          and sha(codec.get('revision'), 40) and sha(codec.get('sha256')) and sha(codec.get('parameters_sha256'))
-          and type(codec.get('bytes')) is int and 0 < codec['bytes'] <= 1024**2)
+    check(isinstance(codec, dict) and sha(codec.get('parameters_sha256')))
+    if codec.get('policy') == 'controlled-community-codec-description-v1':
+        # Retained snapshots keep their original, honestly weaker provenance.
+        check(codec.get('repository') == 'Escartem/AnimeStudio'
+              and codec.get('path') == 'AnimeStudio/Crypto/CryptoHelper.cs'
+              and sha(codec.get('revision'), 40) and sha(codec.get('sha256'))
+              and type(codec.get('bytes')) is int and 0 < codec['bytes'] <= 1024**2)
+    else:
+        check(codec.get('policy') == 'official-native-blb-parameters-v1'
+              and sha(codec.get('native_sha256')) and sha(codec.get('publisher_md5'), 32)
+              and sha(codec.get('reader_sha256')) and codec.get('semantic_owner_claim') is False
+              and type(codec.get('bytes')) is int and 512 <= codec['bytes'] <= 768 * 1024**2
+              and isinstance(codec.get('method_sha256s'), list) and 1 <= len(codec['method_sha256s']) <= 128
+              and codec['method_sha256s'] == sorted(set(codec['method_sha256s']))
+              and all(sha(method) for method in codec['method_sha256s']))
     native = source.get('native')
     methods = native.get('method_sha256s') if isinstance(native, dict) else None
     check(isinstance(native, dict) and sha(native.get('sha256')) and sha(native.get('publisher_md5'), 32)
@@ -92,6 +102,9 @@ def validate(receipt, *, publisher, region, metadata_revision):
           and sha(native.get('parameters_sha256')) and native.get('semantic_owner_claim') is False
           and isinstance(methods, list) and 1 <= len(methods) <= 128 and methods == sorted(set(methods))
           and all(sha(method) for method in methods))
+    if codec['policy'] == 'official-native-blb-parameters-v1':
+        check(codec['native_sha256'] == native['sha256'] and codec['publisher_md5'] == native['publisher_md5']
+              and codec['bytes'] == native['bytes'])
     locales = source.get('locales')
     check(isinstance(locales, dict) and 0 < len(locales) <= 15)
     for code, item in locales.items():

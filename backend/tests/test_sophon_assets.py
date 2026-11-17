@@ -241,8 +241,13 @@ def test_genshin_global_text_needs_matching_regional_release_or_all_original_res
     cn[publisher.ROOTS['genshin-cn'] + 'AssetBundles/blocks/extra.blk'] = Marker(b'extra')
     with pytest.raises(PreparationFailure, match='Global'):
         publisher._catalog(tmp_path, global_build, 'global')
-    monkeypatch.setattr(publisher, 'matching_release_commit', lambda game, title: title)
-    assert publisher._catalog(tmp_path, global_build, 'global') == 'OSRELWin2.0.0_R1_S2_D3'
+    selected = []
+    def exact_global(game, title):
+        selected.append((game, title))
+        return 'b' * 40
+    monkeypatch.setattr(publisher, 'matching_release_commit', exact_global)
+    assert publisher._catalog(tmp_path, global_build, 'global') == 'b' * 40
+    assert selected == [('genshin', 'OSRELWin2.0.0_R1_S2_D3')]
 
 
 def test_mismatched_or_truncated_chunk_cannot_replace_good_data(tmp_path, monkeypatch):

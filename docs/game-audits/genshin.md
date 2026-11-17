@@ -1108,10 +1108,21 @@ can request one controlled description refresh. Installed bundles resolve a clos
 helper apphost and its included .NET runtime; only source checkouts use a build
 SDK. The helper contract retains full upstream and runtime notices. UnityPy and
 Unity texture/mesh loading are not dependencies of this route.
-The current community BLB/bootstrap parameters are a prototype dependency,
-not accepted final autonomy: official-file derivation must be pursued first.
-No impossibility or present-maintenance evidence has established last-resort
-community eligibility. Immutable provenance alone does not satisfy that rule.
+The original provider now derives BLB parameters directly from the authenticated
+official executable. A bounded, seed-free native reference/consumer pass yields
+complete candidates; strict original catalog parsing must select exactly one.
+All matching method hashes remain in its private provenance. No community-key
+refresh or fallback runs on this path. Dispatch bootstrap and dialogue bindings
+remain separate community dependencies, with last-resort eligibility unproven.
+Immutable provenance alone does not establish official autonomy.
+
+The seed-free current replay recovered four candidate contracts and rejected
+three against the original catalog. With community numeric-data reads and
+network denied, the accepted contract redecoded all 495 packages, then parsed
+all 15,360 original shards and 12,779,262 rows across fifteen locales. This is
+current retained-input evidence, not an old-to-new executable trial. Ordinary
+preparation validates all selected source/target locale shards; the all-locale
+format proof does not authorize hidden downloads of unselected locales.
 
 The actual current replay parsed all 15 official locale inventories: 15,360
 shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was

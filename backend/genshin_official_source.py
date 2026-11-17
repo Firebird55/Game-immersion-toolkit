@@ -11,10 +11,11 @@ from pathlib import Path
 import re
 import tempfile
 
-from . import genshin_blb as blb, genshin_blb_parameters as codec, genshin_hotfix as hotfix
+from . import genshin_blb as blb, genshin_hotfix as hotfix
 from . import sophon_assets as sophon
 from .game_tools import _atomic_file
 from .genshin_native_x64 import Image
+from .genshin_blb_native import discover_candidates
 from .genshin_official_text import OriginalTables
 from .genshin_original_containers import DataObjects, DesignCatalog
 from .genshin_original_textmap import NativeTextMapParameters, discover_native_parameters
@@ -48,13 +49,34 @@ def identity(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
+def official_native(directory, build, publisher):
+    channel = build['channel']
+    check(channel in {'genshin-global', 'genshin-cn'})
+    name = 'GenshinImpact.exe' if channel == 'genshin-global' else 'YuanShen.exe'
+    files = sophon.manifest(publisher, channel, tuple(build['manifests']['game']), ('.exe',))
+    check(name in files)
+    asset = files[name]
+    check(type(asset.size) is int and 512 <= asset.size <= MAX_NATIVE and re.fullmatch('[a-f0-9]{32}', asset.digest))
+    path = directory / ('native-' + asset.digest); _no_links(path)
+    if not path.is_file() or path.stat().st_size != asset.size or digest(path, 'md5') != asset.digest:
+        with tempfile.TemporaryDirectory(prefix='original-native-', dir=directory) as value:
+            pending = Path(value) / 'native'
+            with pending.open('xb') as stream:
+                for offset in range(0, asset.size, 8 * 1024**2):
+                    stream.write(asset.read(publisher, offset, min(8 * 1024**2, asset.size - offset)))
+            check(pending.stat().st_size == asset.size and digest(pending, 'md5') == asset.digest)
+            pending.replace(path)
+    return path, {'name': name, 'publisher_md5': asset.digest, 'bytes': asset.size, 'sha256': digest(path)}
+
+
 class Source:
-    def __init__(self, directory, build, helper, parameters, parameter_receipt):
+    def __init__(self, directory, build, helper, parameters, parameter_receipt, *, native_input=None):
         self.directory = Path(directory).absolute(); _no_links(self.directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.publisher = self.directory.parent / 'sophon'
         self.build, self.helper = build, helper
         self.parameters, self.parameter_receipt = parameters, parameter_receipt
+        self.native_input = native_input
         self.stamp = descriptor(build)[0]
         self.package_receipts = {}
         check('hotfix' in build)
@@ -74,8 +96,11 @@ class Source:
             self.packages[name] = {'name': name, 'bytes': size, 'md5': md5}
         check(INDEX_PACKAGE in self.packages)
         root = self.objects(INDEX_PACKAGE)
-        check(set(root.names) == {INDEX_OBJECT})
-        self.catalog = DesignCatalog(root.named(INDEX_OBJECT))
+        try:
+            check(set(root.names) == {INDEX_OBJECT})
+            self.catalog = DesignCatalog(root.named(INDEX_OBJECT))
+        except ValueError as error:
+            raise CodecRejected('The candidate failed the complete original design catalog.') from error
         descriptions, self.native_receipt = self.native_parameters()
         self.tables = OriginalTables(self.catalog, lambda location: self.objects(location.package), descriptions)
 
@@ -127,26 +152,8 @@ class Source:
         return DataObjects(body.stat().st_size, read)
 
     def native_parameters(self):
-        channel = self.build['channel']
-        check(channel in {'genshin-global', 'genshin-cn'})
-        name = 'GenshinImpact.exe' if channel == 'genshin-global' else 'YuanShen.exe'
-        files = sophon.manifest(self.publisher, channel, tuple(self.build['manifests']['game']), ('.exe',))
-        check(name in files)
-        asset = files[name]
-        check(type(asset.size) is int and 512 <= asset.size <= MAX_NATIVE and re.fullmatch('[a-f0-9]{32}', asset.digest))
-        path = self.directory / ('native-' + asset.digest); _no_links(path)
-        if not path.is_file() or path.stat().st_size != asset.size or digest(path, 'md5') != asset.digest:
-            with tempfile.TemporaryDirectory(prefix='original-native-', dir=self.directory) as value:
-                pending = Path(value) / 'native'
-                with pending.open('xb') as stream:
-                    for offset in range(0, asset.size, 8 * 1024**2):
-                        raw = asset.read(self.publisher, offset, min(8 * 1024**2, asset.size - offset))
-                        stream.write(raw)
-                check(pending.stat().st_size == asset.size and digest(pending, 'md5') == asset.digest)
-                pending.replace(path)
-        native_sha256 = digest(path)
-        owner = {'name': name, 'publisher_md5': asset.digest, 'bytes': asset.size, 'sha256': native_sha256,
-                 'template_reader_sha256': digest(Path(__file__).with_name('genshin_original_textmap.py'))}
+        path, native = self.native_input or official_native(self.directory, self.build, self.publisher)
+        owner = {**native, 'template_reader_sha256': digest(Path(__file__).with_name('genshin_original_textmap.py'))}
         profile = self.directory / ('native-profile-' + identity(owner) + '.private-json')
         _no_links(profile)
         descriptions = None
@@ -180,12 +187,23 @@ class Source:
 def prepare(directory, build):
     directory = Path(directory).absolute(); _no_links(directory); directory.mkdir(parents=True, exist_ok=True)
     helper = blb.helper(directory / 'helper')
-    parameters, receipt = codec.load(directory / 'codec')
-    try:
-        return Source(directory, build, helper, parameters, receipt)
-    except CodecRejected:
-        # One controlled immutable community refresh is allowed. It supplies
-        # data only; the same original official packages must still validate.
-        parameters, fresh = codec.load(directory / 'codec', refresh=True)
-        check(fresh['sha256'] != receipt['sha256'])
-        return Source(directory, build, helper, parameters, fresh)
+    native_input = official_native(directory, build, directory.parent / 'sophon')
+    path, owner = native_input
+    candidates = discover_candidates(Image(path.read_bytes()))
+    accepted = []
+    for candidate in candidates:
+        parameters = directory / ('native-codec-' + candidate.sha256 + '.private-parameters')
+        _no_links(parameters); _atomic_file(parameters, candidate.parameters)
+        receipt = {'policy': 'official-native-blb-parameters-v1', 'native_sha256': owner['sha256'],
+                   'publisher_md5': owner['publisher_md5'], 'bytes': owner['bytes'],
+                   'reader_sha256': digest(Path(__file__).with_name('genshin_blb_native.py')),
+                   'method_sha256s': list(candidate.method_sha256s), 'parameters_sha256': candidate.sha256,
+                   'semantic_owner_claim': False}
+        try:
+            accepted.append(Source(directory, build, helper, parameters, receipt, native_input=native_input))
+        except CodecRejected:
+            continue
+    # No arbitrary first candidate, no network community refresh. Selected
+    # locales still require their complete typed shards before publication.
+    check(len(accepted) == 1)
+    return accepted[0]

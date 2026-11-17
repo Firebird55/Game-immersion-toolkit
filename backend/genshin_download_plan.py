@@ -122,7 +122,7 @@ def plan(build, native, voice_files, design_files, *, content_mode, study_locale
         'peak_bytes_upper_bound': cache + native.size + decoded + staging,
         'cache_reuse_subtracted': False, 'objects': ledger,
         'unquoted_components': ['metadata-api-and-manifest-fetches', 'controlled-binding-archives',
-            'bootstrap-and-codec-parameter-sources', 'Readable/Subtitle-source-routes',
+            'dispatch-bootstrap-parameter-source', 'Readable/Subtitle-source-routes',
             'publisher-movie-assets-and-film-audio', 'derived-dialogue-index', 'shared-runtime-codecs', 'historical-audio-retention']}
     result['sha256'] = hashlib.sha256(json.dumps(result, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return result
