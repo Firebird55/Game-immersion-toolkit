@@ -17,6 +17,14 @@ def sha(value, length=64):
     return isinstance(value, str) and re.fullmatch('[a-f0-9]{' + str(length) + '}', value)
 
 
+def _native_design_id(logical):
+    """ASCII subset of the owned native hash, kept portable for offline reopen."""
+    size = 256
+    while size < len(logical):
+        size *= 2
+    return int.from_bytes(hashlib.md5(logical + bytes(size - len(logical))).digest()[:8], 'little')
+
+
 def validate_readables(value, source, *, publisher, region, active=False):
     """GI-only evidence; old staged data retains its original coverage label."""
     codes = {'CHS', 'CHT', 'EN', 'JP', 'KR', 'FR', 'DE', 'ES', 'PT', 'RU', 'TH', 'VI', 'ID', 'IT', 'TR'}
@@ -36,7 +44,7 @@ def validate_readables(value, source, *, publisher, region, active=False):
     check(isinstance(manifests, dict) and isinstance(manifests.get('game'), (list, tuple))
           and 0 < len(manifests['game']) <= 32)
     logical = b'Data/_ExcelBinOutput/LocalizationExcelConfigData.MiHoYoBinData'
-    expected_asset = int.from_bytes(hashlib.md5(logical + bytes(256 - len(logical) % 256)).digest()[:8], 'little')
+    expected_asset = _native_design_id(logical)
     check(owner.get('publisher') == publisher and owner.get('native_sha256') == native.get('sha256')
           and sha(owner.get('native_sha256')) and owner.get('catalog_sha256') == source.get('catalog_sha256')
           and sha(owner.get('catalog_sha256')) and owner.get('asset_index') == expected_asset
@@ -81,7 +89,7 @@ def validate_readables(value, source, *, publisher, region, active=False):
                   and type(asset_index) is int and 0 <= asset_index < 1 << 64 and type(bundle) is int and bundle > 0
                   and type(size) is int and 0 <= size <= 4 * 1024**2 and sha(digest))
             logical = ('ART/UI/Readable/' + code + '/' + name[:-4] + '.MiHoYoBinData').encode('ascii')
-            check(asset_index == int.from_bytes(hashlib.md5(logical + bytes(256 - len(logical) % 256)).digest()[:8], 'little'))
+            check(asset_index == _native_design_id(logical))
             seen.add(name); total += size
         check(total == item['total_utf8_bytes'])
         for key in ('source_missing', 'sprite_text_images'):
@@ -203,8 +211,7 @@ def validate(receipt, *, publisher, region, metadata_revision):
         check(isinstance(manifests, dict) and isinstance(manifests.get('game'), (list, tuple))
               and 0 < len(manifests['game']) <= 32)
         logical = b'Data/_ExcelBinOutput/ManualTextMapConfigData.MiHoYoBinData'
-        logical += bytes(256 - len(logical) % 256)
-        expected_asset = int.from_bytes(hashlib.md5(logical).digest()[:8], 'little')
+        expected_asset = _native_design_id(logical)
         check(owner.get('publisher') == publisher and owner.get('native_sha256') == native['sha256']
               and owner.get('catalog_sha256') == source['catalog_sha256']
               and owner.get('manifest_sha256') == hashlib.sha256(json.dumps(manifests['game'],

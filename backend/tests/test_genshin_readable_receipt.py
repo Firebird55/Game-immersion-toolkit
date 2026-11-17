@@ -1,5 +1,6 @@
 """Staged original Readable evidence never relabels the accepted legacy route."""
 import copy
+import hashlib
 import importlib.util
 from pathlib import Path
 
@@ -28,6 +29,31 @@ def staged():
             'sprite_text_images': [{'id': 9, 'path': 'ART/UI/Atlas/SpriteText/EN/Glyph_EN'}]}}}
     rehash(payload['source_receipt'])
     return payload
+
+
+@pytest.mark.parametrize('length', [255, 256, 257, 512, 513, 768, 1024])
+def test_offline_readable_receipt_uses_the_same_native_doubling_buffer(length):
+    payload = staged(); original = payload['source_receipt']['original_text']['staged_original_readables']
+    prefix, suffix = 'ART/UI/Readable/EN/', '.MiHoYoBinData'
+    basename = 'A' * (length - len(prefix) - len(suffix))
+    row = original['locales']['EN']['files'][0]
+    row[0], row[2] = basename + '.txt', asset_identity(prefix + basename)
+    rehash(payload['source_receipt'])
+    assert validate(payload)['original_text']['staged_original_readables']['locales']['EN']['files'][0] == row
+
+
+@pytest.mark.parametrize('length', [256, 512, 513])
+def test_old_multiple_padding_cannot_claim_an_original_long_path(length):
+    payload = staged(); value = payload['source_receipt']['original_text']['staged_original_readables']
+    prefix, suffix = 'ART/UI/Readable/EN/', '.MiHoYoBinData'
+    basename = 'A' * (length - len(prefix) - len(suffix))
+    logical = (prefix + basename + suffix).encode('ascii')
+    old_id = int.from_bytes(hashlib.md5(logical + bytes(256 - len(logical) % 256)).digest()[:8], 'little')
+    assert old_id != asset_identity(prefix + basename)
+    value['locales']['EN']['files'][0][0:3:2] = [basename + '.txt', old_id]
+    rehash(payload['source_receipt'])
+    with pytest.raises(ValueError):
+        validate(payload)
 
 
 @pytest.mark.parametrize('change', [None, 'activation', 'coverage', 'edition', 'manifest', 'software', 'schema',

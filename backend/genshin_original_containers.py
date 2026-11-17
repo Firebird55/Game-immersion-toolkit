@@ -55,7 +55,12 @@ def asset_identity(path):
     check(isinstance(path, str) and 0 < len(path) <= 4096 and '\\' not in path
           and not path.startswith('/') and all(p not in ('', '.', '..') for p in path.split('/')))
     raw = (path + '.MiHoYoBinData').encode('ascii')
-    raw += bytes(256 - len(raw) % 256)
+    # The owned native hash buffer starts at 256 and doubles until it fits.
+    # Exact boundaries have no extra block; this is not multiple-of-256 padding.
+    size = 256
+    while size < len(raw):
+        size *= 2
+    raw += bytes(size - len(raw))
     return int.from_bytes(hashlib.md5(raw).digest()[:8], 'little')
 
 

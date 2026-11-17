@@ -1146,6 +1146,13 @@ fifteen locale mappings and the explicit default; metadata declaration order is
 not used as an enum-value guess. Unknown or conflicting layouts retain the
 previous verified state.
 
+The original native path-hash consumer allocates a 256-byte buffer and doubles
+its capacity until the ASCII path plus type extension fits, then zero-fills the
+remaining bytes before hashing. Exact boundaries add no extra block. The
+container reader and portable receipt validation use this same rule; synthetic
+boundary fixtures prevent a longer ordinary-update path from being assigned
+an identity computed with multiple-of-256 padding.
+
 The retained Japanese/English trial resolved and read 1,939 original text assets
 per locale from two whole-MD5-verified publisher packages, totaling 3,230,787 new
 compressed bytes. All 3,878 strict UTF-8 outputs exactly matched frozen controls
