@@ -348,6 +348,43 @@ empty configuration. A frozen JSON extraction served only as a post-decode
 oracle for the earlier single-action probe. These standalone APIs are not yet
 selected by the ordinary provider and do not establish setup worker acceptance.
 
+The standalone `starrail_original_catalog` adapter now joins that reader to the
+existing film consumer. It discovers caption paths from original tables and
+movie-owned mission actions, then validates anonymous neighboring resources
+with the same native-derived caption description and whole-package reader.
+Its Global 4.7 replay returns 333 scripts / 1,989 cues, with no unresolved
+declared path. All 173 captions previously published by the mirror retain their
+saved IDs and exact text-hash/clock signatures. A frozen identity-only mapping
+is applied after independent discovery; it cannot request a file, declare
+availability or assign audio. New paths require no mapping entry. The earlier
+generic IDs for newly resolved paths remain resource-based, and the old unlisted
+ten-cue caption retains its identity when rediscovered as a neighbor. Four other
+anonymous resources / 24 cues retain their unresolved ownership.
+
+Synthetic migration covers all 173 saved identities, 138 unseen named captions,
+an anonymous neighbor, a changed native field order/path prefix and repacking
+under a regional package folder. Conflicting aliases fail. Catalog-specific
+locale mappings use the publisher's unsplit KR/RU/TH tables; existing mirror
+catalogs retain their transport layout. Unknown numeric voice enums retain the
+text as unavailable rather than selecting speech or silence. **The original
+catalog is still not enabled as the normal publisher default.** Complete
+ordinary preparation, regional replay, cache recovery and movie-format
+acquisition remain separate acceptance work.
+
+The unchanged adapter/config reader also succeeds with the complete original
+Global 4.6 native inputs and frozen helper: 199 movie-owned mission paths,
+21 config schemas, 325 scripts / 1,878 cues and no unresolved declared path.
+That replay uses the retained official DesignV `16854589` index, MD5
+`a7312833dc866a77217b1c26ef9bc0eb` (2,262,050 bytes). Its 518 selected
+mission/caption resources are in whole package
+`98c54c7035b131b7dc27c3466346021d` (128,700,379 bytes), independently size/MD5
+checked after eight bounded official HTTPS reads. This is an explicit baseline
+replay: the retired 4.6 dispatch is not represented as current live discovery.
+The separately derived CN 4.7 native config descriptions also yield all 203
+mission paths and 333 scripts / 1,989 cues. Global descriptions or metadata were
+not substituted; complete package bodies were reused only because the original
+CN indexes certify identical hashes and sizes. Regional playback is not implied.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).

@@ -219,7 +219,9 @@ def caption_rows(tools, catalog, tables, locale, entries, sentence_rows=()):
         check(scene not in seen)
         seen.add(scene)
         identity = getattr(catalog, 'caption_identities', {}).get(filename, scene)
-        check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)) and identity not in identities)
+        legacy = getattr(catalog, 'caption_identity_aliases', {}).get(filename)
+        check((identity == scene or re.fullmatch(r'design_[0-9a-f]{16}', identity)
+               or identity == legacy and re.fullmatch(r'[A-Za-z0-9_-]+', identity)) and identity not in identities)
         identities.add(identity)
         if scene in suppressed and scene not in takes:
             continue

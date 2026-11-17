@@ -29,7 +29,7 @@ def package(rows):
     digest = hashlib.md5(blob).digest()
     directory = struct.pack('>4I', 255, 4, 1, len(rows))
     directory += struct.pack('>Q16sQI', rows[0][0], digest, len(blob), len(rows))
-    return directory + members + b'\x00\x02AB\x80', bytes(blob)
+    return directory + members + b'\x00\x00\x80', bytes(blob)
 
 
 def test_repacked_caption_group_with_unknown_names_remains_separate_from_movies(tmp_path, monkeypatch):
