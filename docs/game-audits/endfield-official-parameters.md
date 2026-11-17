@@ -139,7 +139,11 @@ Both `text` and `text-audio` selections bind the request identity and transfer
 zero audio in this stage. These necessary shared client tables are stated
 metadata overhead, not a text-only audio download. A changed mode, client,
 range, stage or estimate stops before large transfer. An interrupted stage
-does not replace an existing library. Independent Android/Linux/macOS runtime
+does not replace an existing library. The source-stage revision binds the
+original client artifact generation independently of content mode; the request,
+plan handle and private cache identity separately bind mode and complete locale
+selection, keeping the corresponding receipts separate.
+Independent Android/Linux/macOS runtime
 closure remains unsupported by this initial adapter and fails before source
 I/O; supplying an unreviewed native object does not bypass that gate.
 

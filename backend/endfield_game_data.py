@@ -131,7 +131,8 @@ class EndfieldGameDataProvider:
             raise Error('publisher_size_changed', 'The Endfield client or selected download changed. Check its size again.')
         transport = self._transport(ctx.request, ctx)
         handle = plan.handle
-        root = Path(ctx.cache_directory) / 'endfield-client-bootstrap' / identity_stamp(handle['client'])
+        selection = hashlib.sha256(_json_bytes({'client': handle['client'], 'request': ctx.request.json()})).hexdigest()
+        root = Path(ctx.cache_directory) / 'endfield-client-bootstrap' / selection
         completed = []
         for number, row in enumerate(handle['ranges']):
             ctx.check()

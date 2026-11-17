@@ -135,3 +135,34 @@ def test_incomplete_owner_bounds_and_interruption_preserve_existing_data(tmp_pat
         provider.download(plan, fixture.ctx)
     assert retained.read_bytes() == b'authored previous active data'
     assert not list(fixture.ctx.cache_directory.rglob('receipt.json'))
+
+
+def test_mode_and_language_selections_keep_distinct_source_stage_identities(tmp_path, monkeypatch):
+    monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
+    fixture = Fixture(tmp_path)
+    provider = source.create_provider(platform='windows', transport_factory=fixture.factory)
+    plans = []
+    for request in (fixture.request, protocol.GameDataRequest('global', 'en', ('ja',), 'text-audio'),
+                    protocol.GameDataRequest('global', 'ja', ('en',), 'text')):
+        fixture.ctx.request = request
+        plan = provider.plan(request, fixture.ctx)
+        plans.append(plan)
+        provider.download(plan, fixture.ctx)
+    assert plans[0].revision == plans[1].revision == plans[2].revision
+    assert plans[0].handle != plans[1].handle != plans[2].handle
+    receipts = list(fixture.ctx.cache_directory.rglob('receipt.json'))
+    assert len(receipts) == 3
+    assert {json.loads(path.read_bytes())['request']['content_mode'] for path in receipts} == {'text', 'text-audio'}
+    assert all(call[1] != 'audio' for call in fixture.calls)
+
+
+def test_original_artifact_hash_changes_generation_even_with_same_marketing_version(tmp_path, monkeypatch):
+    monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
+    fixture = Fixture(tmp_path)
+    provider = source.create_provider(platform='windows', transport_factory=fixture.factory)
+    first = provider.plan(fixture.request, fixture.ctx)
+    fixture.latest['pkg']['game_files_md5'] = 'e' * 32
+    second = provider.plan(fixture.request, fixture.ctx)
+    assert first.revision != second.revision
+    assert first.handle['client']['version'] == second.handle['client']['version']
+    assert first.handle['request'] == second.handle['request']
