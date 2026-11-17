@@ -30,9 +30,21 @@ export async function authoredReceiverLibraryReady(page) {
 
 export function safeReceiverState(value) {
  const capture = value?.status?.capture;
+ const settings = value?.status?.settings, maps = value?.status?.textmaps;
+ const region = name => {
+  const result = ['left', 'top', 'width', 'height'].map(key => settings?.[name]?.[key]);
+  return result.every(item => typeof item === 'number' && Number.isFinite(item) && item >= 0 && item <= 1) ? result : null;
+ };
  return {lines: Array.isArray(value?.lines) ? value.lines.length : null,
   authored_line_present: Array.isArray(value?.lines) && value.lines.some(line => line.text_id === 'authored:bridge'),
   running: capture?.running === true, source_generation: number(capture?.source_generation),
+  state_version: number(value?.context?.state_version),
+  stable_frames: number(settings?.stable_frames),
+  fuzzy_threshold: typeof settings?.fuzzy_threshold === 'number' && Number.isFinite(settings.fuzzy_threshold)
+   && settings.fuzzy_threshold >= 0 && settings.fuzzy_threshold <= 100 ? settings.fuzzy_threshold : null,
+  region: region('region'), cinematic_region: region('cinematic_region'),
+  textmap_ready: maps?.ready === true, textmap_entries: number(maps?.entry_count),
+  textmap_voices: number(maps?.audio_count), audio_ready: value?.status?.audio?.ready === true,
   last_ocr_present: typeof capture?.last_ocr === 'string' && capture.last_ocr.length > 0,
   last_ocr_matches_fixture: capture?.last_ocr === 'Follow the river beyond the bridge.',
   frame_size: Array.isArray(capture?.window_bounds) && capture.window_bounds.length === 4
