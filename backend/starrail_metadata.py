@@ -85,8 +85,9 @@ class Helper:
         _run([*self.command, operation, *(str(path) for path in paths)], work)
 
 
-def helper(directory):
+def helper(directory, *, allow_build=True):
     """Resolve a compiler-free apphost, or build fixed software in source mode."""
+    _check(type(allow_build) is bool)
     layout = discover_layout()
     if layout.mode == 'bundle':
         reader = prebuilt_reader('starrail', layout=layout)
@@ -111,6 +112,8 @@ def helper(directory):
             return Helper((str(sdk), str(generation / 'StarRailMetadata.dll')), _identity({'source': identity, 'files': files}))
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    if not allow_build:
+        raise ValueError('The Star Rail metadata helper is not prepared on this device.')
     from .nte_assets import dotnet_sdk
     sdk = dotnet_sdk()
     if not sdk:
@@ -315,7 +318,7 @@ def _graph_pe(stream):
     return base, sections, mappings[0], length // 12
 
 
-def _input(cache, asset):
+def _input(cache, asset, *, fetch=None):
     """Whole-file acceptance is independent from authenticated chunk reuse."""
     target = cache / 'native-files' / asset.digest; _no_links(target)
     target.parent.mkdir(exist_ok=True)
@@ -325,19 +328,22 @@ def _input(cache, asset):
         staged = Path(temporary) / 'data'; md5 = hashlib.md5()
         with staged.open('xb') as stream:
             for at in range(0, asset.size, 16 * 1024**2):
-                data = asset.read(cache / 'sophon', at, min(16 * 1024**2, asset.size - at))
+                options = {'fetch': fetch} if fetch is not None else {}
+                data = asset.read(cache / 'sophon', at, min(16 * 1024**2, asset.size - at), **options)
                 md5.update(data); stream.write(data)
         _check(staged.stat().st_size == asset.size and md5.hexdigest() == asset.digest)
         staged.replace(target)
     return target
 
 
-def prepare(directory, build, *, reader=None):
+def prepare(directory, build, *, reader=None, fetch=None, allow_generate=True):
     """Authenticate complete original inputs, regenerate metadata atomically."""
     directory = Path(directory).absolute(); _no_links(directory); directory.mkdir(parents=True, exist_ok=True)
+    _check(type(allow_generate) is bool)
     _check(build['channel'] in {'starrail-global', 'starrail-cn'})
     spec = build['manifests']['game']
-    assets = sophon.manifest(directory / 'sophon', build['channel'], tuple(spec), tuple(NAMES.values()))
+    options = {'fetch': fetch} if fetch is not None else {}
+    assets = sophon.manifest(directory / 'sophon', build['channel'], tuple(spec), tuple(NAMES.values()), **options)
     chosen = {}
     for role, basename in NAMES.items():
         matches = [asset for asset in assets.values() if asset.name.rsplit('/', 1)[-1] == basename]
@@ -363,13 +369,15 @@ def prepare(directory, build, *, reader=None):
         return Prepared(directory, generation / 'inputs', generation / 'outputs', previous, reader)
     except (OSError, ValueError, KeyError, TypeError):
         pass
+    if not allow_generate:
+        raise ValueError('The matching original Star Rail metadata generation is not prepared.')
     # Sophon chunks are immutable and independently authenticated, so interrupted
     # attempts reuse complete chunks. Only full MD5 acceptance publishes inputs.
     with tempfile.TemporaryDirectory(prefix='generation-', dir=generations) as temporary:
         stage = Path(temporary); inputs = stage / 'inputs'; inputs.mkdir()
         for role, asset in chosen.items():
             target = inputs / CANONICAL[role]; target.parent.mkdir(parents=True, exist_ok=True)
-            verified = _input(directory, asset)
+            verified = _input(directory, asset, **options)
             try:
                 os.link(verified, target)
             except OSError:

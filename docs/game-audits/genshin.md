@@ -1124,6 +1124,80 @@ current retained-input evidence, not an old-to-new executable trial. Ordinary
 preparation validates all selected source/target locale shards; the all-locale
 format proof does not authorize hidden downloads of unselected locales.
 
+The explicit original source now also intercepts the existing
+`ManualTextMapConfigData` consumer. The native path owner, string-key getter and
+typed serializer resolve that full catalog identity, and complete original
+decoding yields 42,098 rows with strict EOF. Protected integer arrays and
+equivalent unrolled element paths are supported only when every successful
+native path yields one contract; conflicting operands fail. Reads confined to
+proved nonreturning error branches do not become successful serialized fields.
+The private cache binds the entire executable, metadata, table payload and
+reader software, and the generation receipt labels this table separately.
+This removes that pronoun-table content dependency without relabeling earlier
+snapshots, the other dialogue tables, Readable bodies or Subtitle files.
+
+A separate original Readable source now uses the actual reading-dialog
+route: Document localization IDs select original `LocalizationExcelConfigData`
+rows and locale-specific asset paths. The complete current table has 2,278 rows
+and passes strict EOF. Typed native helpers, the original `NativeWrapper` buffer
+layout and every successful presence flag own all bytes of each native record.
+The same original enum's ISO-name switch and asset-slot switch establish all
+fifteen locale mappings and the explicit default; metadata declaration order is
+not used as an enum-value guess. Unknown or conflicting layouts retain the
+previous verified state.
+
+The original native path-hash consumer allocates a 256-byte buffer and doubles
+its capacity until the ASCII path plus type extension fits, then zero-fills the
+remaining bytes before hashing. Exact boundaries add no extra block. The
+container reader and portable receipt validation use this same rule; synthetic
+boundary fixtures prevent a longer ordinary-update path from being assigned
+an identity computed with multiple-of-256 padding.
+
+The retained Japanese/English trial resolved and read 1,939 original text assets
+per locale from two whole-MD5-verified publisher packages, totaling 3,230,787 new
+compressed bytes. All 3,878 strict UTF-8 outputs exactly matched frozen controls
+opened only after parsing. The existing paragraph/translation/voice-status
+consumer is reused through the explicit original source API. Its refined plan
+counts the selected complete document packages, shared Localization container,
+and complete official native/metadata chunk ledger; text-only mode adds no audio
+bank. This refinement requires the already-budgeted native source stage and is
+not a replacement for a cold discovery upper bound or a whole-game quote.
+
+The **default provider remains unchanged**. The existing `original_text` opt-in
+now sends Readable directory requests through this publisher source. A bounded
+comparison streamed the complete accepted 480,619-record library: all 8,276
+Readable paragraphs, translations and voice-status fields were identical with
+the same authored-voice overlap guard. No accepted paragraph identity was lost.
+Eight Book references per selected locale lack current design-catalog membership;
+two localized SpriteText image paths remain separate from text assets. Six
+frozen legacy files per locale have no Localization row: one Book and five
+Weapon files. Their absence is not evidence of cut or unvoiced content. Postparse
+inspection found the Book file empty and each Weapon file containing only one
+newline in both tested locales; they contribute no paragraphs. They remain an
+explicit empty, unbound inventory. The new consumed-source receipt marks
+Readable text as publisher-sourced only after every selected locale was read
+through this route. Earlier staged receipts and old snapshots retain their
+original labels. A retained-generation replay through the normal PC preparation
+worker returned all 480,619 records with the new consumed-source receipt. It
+blocked community Readable, ManualTextMap and BLB-parameter reads and made no
+network requests. A forced current native-profile failure preserved the previous
+library byte for byte; retry, ordinary snapshot publication and offline index
+reopen passed. This is a current-generation PC replay, not a second-generation
+update or Android acceptance result. Subtitle acquisition,
+other original dialogue bindings, ordinary update acceptance and Android
+preparation remain separate open gates. The source and fixtures are
+[owned native slots](../../backend/genshin_native_slots.py),
+[locale routing](../../backend/genshin_native_locale_slots.py), and
+[original localization](../../backend/genshin_original_localization.py).
+
+Preparation requires the complete official metadata input. The preflight ledger
+includes all its Sophon chunks and materialized bytes, plus the shared original
+ManualTextMap container; text-only planning still reads no dub manifest or bank.
+On the retained Global generation the metadata is 83,644,132 bytes, with 65
+transport chunks totaling 61,346,746 wire bytes. The refined Japanese/English
+text-only bound including that dependency is 409,594,778 bytes. Android-native
+execution and a second original executable-generation trial remain open.
+
 The actual current replay parsed all 15 official locale inventories: 15,360
 shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was
 disabled and comparisons with retained original outputs happened after parsing.
@@ -1138,9 +1212,9 @@ This remains an explicit source route: **the normal provider is unchanged**.
 Whole ordinary dialogue/voice preparation, old-to-new original content/audio
 acceptance and packaged-runtime collection/native acceptance are still required
 before activation. The generation receipt expressly distinguishes original
-TextMap content from the existing community Readable/Subtitle text routes; those
-two routes must obtain original publisher bytes before all text can be called
-publisher-sourced. Existing verified snapshots keep their original provenance.
+TextMap and consumed Readable content from the remaining community Subtitle
+route. Subtitle assets must obtain original publisher bytes before all text can
+be called publisher-sourced. Existing verified snapshots keep their original provenance.
 An unknown compiled reader shape needs a controlled compatible parameter
 description or supported decoder; a normal compiler/key change is not silently
 treated as a new package format. Two missing original voice identities and

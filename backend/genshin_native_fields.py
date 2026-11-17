@@ -5,8 +5,17 @@ from .genshin_native_x64 import CS_OP_IMM, CS_OP_MEM, CS_OP_REG, VOLATILE, regis
 from .genshin_native_metadata import root
 
 
-def pointer_states(context, arguments=None):
+def pointer_states(context, arguments=None, *, output_pointers=None):
     frame = context.constants.frame
+    outputs = {} if output_pointers is None else output_pointers
+    _check(isinstance(outputs, dict) and len(outputs) <= 16)
+    for target, (size, pointers) in outputs.items():
+        _check(type(target) is int and target > 0 and type(size) is int and 8 <= size <= 4096
+               and isinstance(pointers, dict) and 1 <= len(pointers) <= 16)
+        _check(all(type(at) is int and 0 <= at <= size - 8 and at % 8 == 0
+                   and isinstance(value, tuple) and len(value) == 2
+                   and isinstance(value[0], str) and type(value[1]) is int
+                   for at, value in pointers.items()))
 
     def key(ins, op):
         if op.type == CS_OP_REG:
@@ -27,6 +36,13 @@ def pointer_states(context, arguments=None):
         _check(iterations <= 200000)
         ins, outgoing = context.by_address[at], dict(states[at])
         ops, handled = ins.operands, False
+        if outputs and ops and ops[0].type == CS_OP_MEM and ops[0].access & 2:
+            destination = key(ins, ops[0])
+            if destination is not None and destination[0] == 'stack':
+                low, high = destination[1], destination[1] + ops[0].size
+                for stored in list(outgoing):
+                    if stored[0] == 'stack' and stored[1] < high and stored[1] + 8 > low:
+                        outgoing.pop(stored)
         if ins.mnemonic in ('mov', 'movabs', 'movzx', 'movsxd') and len(ops) == 2:
             destination = key(ins, ops[0])
             value = outgoing.get(key(ins, ops[1]))
@@ -42,6 +58,8 @@ def pointer_states(context, arguments=None):
             outgoing.pop(destination, None)
             if value is not None and not memory.index and ops[0].size == 8:
                 outgoing[destination] = (value[0], value[1] + memory.disp)
+            elif outputs and not memory.index and ins.reg_name(memory.base) in ('rbp', 'rsp'):
+                outgoing[destination] = ('stack-address', memory.disp + (frame if ins.reg_name(memory.base) == 'rbp' else 0))
             handled = True
         elif ins.mnemonic in ('add', 'sub') and len(ops) == 2 and ops[0].type == CS_OP_REG and ops[1].type == CS_OP_IMM:
             destination = key(ins, ops[0])
@@ -50,6 +68,17 @@ def pointer_states(context, arguments=None):
                 outgoing[destination] = (value[0], value[1] + (ops[1].imm if ins.mnemonic == 'add' else -ops[1].imm))
             handled = True
         elif ins.mnemonic == 'call':
+            output = (outputs.get(ops[0].imm - context.image.base)
+                      if ops and ops[0].type == CS_OP_IMM else None)
+            if output is not None:
+                size, values = output
+                address = outgoing.get(('reg', 'rcx'))
+                _check(address is not None and address[0] == 'stack-address',
+                       'The owned native output has no unambiguous stack destination.')
+                for stored in list(outgoing):
+                    if stored[0] == 'stack' and stored[1] < address[1] + size and stored[1] + 8 > address[1]:
+                        outgoing.pop(stored)
+                outgoing.update({('stack', address[1] + offset): value for offset, value in values.items()})
             for name in VOLATILE:
                 outgoing.pop(('reg', name), None)
             handled = True
@@ -130,7 +159,7 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
             if source is not None and 0 <= ops[1].imm < source[2]:
                 outgoing[destination] = source[0], source[1] + ops[1].imm, source[2] - ops[1].imm, source[3] >> ops[1].imm
             handled = True
-        elif mnemonic in ('bt', 'test') and len(ops) == 2:
+        elif mnemonic in ('bt', 'test', 'cmp') and len(ops) == 2:
             source = value(ins, ops[0], outgoing)
             outgoing.pop(('condition',), None)
             if source is not None:
@@ -142,6 +171,10 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
                     if mask > 0 and mask & (mask - 1) == 0 and mask.bit_length() <= width:
                         outgoing[('condition',)] = (operations, shift + mask.bit_length() - 1, 'zero', bool(inverted & mask))
                 elif mnemonic == 'test' and key(ins, ops[1]) == key(ins, ops[0]):
+                    outgoing[('condition',)] = (operations, shift + width - 1, 'sign', bool(inverted >> (width - 1) & 1))
+                elif mnemonic == 'cmp' and ops[1].type == CS_OP_IMM and ops[1].imm == 0:
+                    # Subtracting zero preserves the sign bit, including when
+                    # the authored header was spilled to a stack slot.
                     outgoing[('condition',)] = (operations, shift + width - 1, 'sign', bool(inverted >> (width - 1) & 1))
             handled = True
         elif mnemonic.startswith('j'):
@@ -263,6 +296,9 @@ def ordered_fields(context, authored_fields, reference_readers=(), scalar_setter
         _check(len(polarities) == 1)
         rows.append({'bit': bit, 'domain': domain, 'key': field_key, 'present_when_set': polarities.pop(), 'representative': min(candidates),
                      'reads': tuple(owned_reads), 'ref_calls': tuple(owned_refs)})
+    owned_inputs = {at for row in rows for at in row['reads']}
+    _check(set(reads) & context.returning_nodes() <= owned_inputs,
+           'An original field input has no owned presence flag.')
     domains = {r['domain'] for r in rows}
     nonraw = domains - {()}
     _check(len(nonraw) <= 1, 'The native reader uses incompatible non-raw header domains.')

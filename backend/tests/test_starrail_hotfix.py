@@ -80,6 +80,35 @@ def test_identical_region_alternate_preserves_exact_range_and_etag(tmp_path, mon
         asset.read(tmp_path / 'separate', 1, 3)
 
 
+def test_contained_voice_range_replays_from_verified_bank_cache_offline(tmp_path, monkeypatch):
+    body = b'owned-bank-header-and-original-voice'
+    digest = hashlib.md5(body).hexdigest()
+    asset = hotfix.AudioFile('Owned.pck', len(body), digest, 'https://original.example/Owned.pck')
+    class Reply(io.BytesIO):
+        status = 206
+        headers = {'ETag': '"' + digest + '"', 'Content-Range': f'bytes 0-{len(body)-1}/{len(body)}'}
+        def geturl(self):
+            return asset.url
+    monkeypatch.setattr(hotfix, 'urlopen', lambda *_args, **_kwargs: Reply(body))
+    assert asset.read(tmp_path, 0, len(body)) == body
+    monkeypatch.setattr(hotfix, 'urlopen', lambda *_args, **_kwargs: pytest.fail('Offline contained voice requested network'))
+    assert asset.read(tmp_path, 12, 8) == body[12:20]
+    assert len(list((tmp_path / 'starrail-ranges' / digest).iterdir())) == 2
+    receipt = tmp_path / 'starrail-ranges' / digest / f'0-{len(body)-1}.json'
+    owner = json.loads(receipt.read_bytes())
+    monkeypatch.setattr(hotfix, 'urlopen', lambda *_args, **_kwargs: (_ for _ in ()).throw(ValueError('Unverified bank cannot supply voice')))
+    for change in ({'asset_size': len(body) + 1}, {'start': 1}, {'asset_md5': 'a' * 32}):
+        receipt.write_text(json.dumps(owner | change))
+        with pytest.raises(ValueError, match='Unverified bank'):
+            asset.read(tmp_path, 12, 8)
+    receipt.write_text(json.dumps(owner))
+    # A correct-looking filename and size cannot bypass the bank checksum.
+    cache = tmp_path / 'starrail-ranges' / digest / f'0-{len(body)-1}'
+    cache.write_bytes(cache.read_bytes()[:-1] + b'!')
+    with pytest.raises(ValueError, match='Unverified bank'):
+        asset.read(tmp_path, 12, 8)
+
+
 def test_movie_only_update_preserves_previous_caption_source_and_refreshes_stamp(tmp_path, monkeypatch):
     routes = {'OS4.7.0': pointers()}
     def listing(name, changed):

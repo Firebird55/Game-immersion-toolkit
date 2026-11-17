@@ -172,21 +172,57 @@ def _archive_parameters(tools=None, historical=False):
 def _package(tools, info, params):
     from . import wuthering_metadata as metadata
     native = getattr(params, 'native', None)
-    options = {'verified_default_parameters': metadata.default_parameters(tools)}
-    if native is not None:
+    bootstrap = getattr(params, 'bootstrap', None)
+    if bootstrap is not None:
+        # This independent original producer never borrows a legacy/default
+        # envelope, and its output cannot authorize an unrelated nonzero FGuid.
+        options = {'verified_default_parameters': (bootstrap.parameter,) if bootstrap.verified else (),
+                   'native_parameters': native if native is not None else {},
+                   'verified_native_parameters': metadata.native_parameters(tools) if native else ()}
+    else:
+        options = {'verified_default_parameters': metadata.default_parameters(tools)}
+    if native is not None and bootstrap is None:
         options.update(native_parameters=native, verified_native_parameters=metadata.native_parameters(tools))
     package = pak.Package(*info, tools, params, **options)
     parameter = getattr(package, 'verified_parameter', None)
     if parameter is not None:
         native_guid = getattr(package, 'verified_native_guid', None)
-        remembered = metadata.remember_parameter(tools, parameter, native_guid=native_guid,
-                                                default_verified=getattr(package, 'verified_default_parameter', False))
+        if bootstrap is not None and native_guid is None:
+            pak.check(getattr(package, 'verified_default_parameter', False) and parameter == bootstrap.parameter)
+            from . import wuthering_native_bootstrap
+            # A source's actual bootstrap owner proves its default role. Other
+            # packages still validate their original indices, but do not race
+            # to publish redundant per-resource bootstrap-owner records.
+            if not bootstrap.verified or bootstrap.owner_id is None or wuthering_native_bootstrap._owner(info, bootstrap.region) == bootstrap.owner_id:
+                wuthering_native_bootstrap.remember_owner(tools, bootstrap, info)
+            remembered = True
+        else:
+            remembered = metadata.remember_parameter(tools, parameter, native_guid=native_guid,
+                                                    default_verified=getattr(package, 'verified_default_parameter', False))
         if native_guid is not None and not remembered:
             from .preparation_errors import PreparationFailure
             raise PreparationFailure('publisher_key_cache_failed',
                 'The verified Wuthering publisher-key ownership could not be retained safely. '
                 'Check protected toolkit storage, then retry; the previous index and recordings are kept.')
     return package
+
+
+def _bootstrap_package(tools, info, region):
+    from . import wuthering_native_bootstrap as original
+    from .preparation_errors import PreparationFailure
+    params = original.parameters(tools, info, region)
+    try:
+        return _package(tools, info, params), params
+    except PreparationFailure as error:
+        if error.code != 'archive_parameters_missing':
+            raise
+        # A known original source may serve ordinary new content unchanged.
+        # Only a key mismatch asks the current official catalogue for a new
+        # producer. Neither path falls back to a community parameter list.
+        refreshed = original.parameters(tools, info, region, refresh=True)
+        if original.identity(refreshed.bootstrap.source) == original.identity(params.bootstrap.source):
+            raise error
+        return _package(tools, info, refreshed), refreshed
 
 
 def _json(raw, tools=None):
@@ -271,8 +307,7 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     domain = CHANNELS[region][2]
     bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
     size, digest = launcher_files[bootstrap]
-    params = _archive_parameters(cache)
-    base = _package(cache, (launcher_root + '/' + bootstrap, size, digest), params)
+    base, params = _bootstrap_package(cache, (launcher_root + '/' + bootstrap, size, digest), region)
     config = base.member('Client/Config/Kuro/KuroPublicConfig.ini')
     pak.check(config is not None)
     lines = config.decode('utf-8-sig').splitlines()
@@ -336,7 +371,8 @@ def discover(cache, launcher_version, launcher_root, launcher_files, *, videos=T
     pak.check(isinstance(mix, str) and re.fullmatch(r'[A-Za-z0-9]{16,80}', mix))
     params = publisher_keys.current(cache, cdn['url'] + mix + '/Windows/', release, region,
                                     params, _native_key_download, lambda raw: _json(raw, cache), pointers,
-                                    verified_defaults=metadata.default_parameters(cache))
+                                    verified_defaults=params if getattr(params, 'bootstrap', None) is not None
+                                    else metadata.default_parameters(cache))
     verify_pointers(pointers)
     return versions, files, products, params, pointers
 
@@ -396,8 +432,12 @@ def _current(tools, period, region='global'):
     descriptor = {'schema': 1, 'base': base, 'root': root, 'products': products,
                   'launcher': version, 'versions': versions}
     native_sources = getattr(params, 'sources', ())
-    if native_sources:
+    bootstrap = getattr(params, 'bootstrap', None)
+    if native_sources or bootstrap is not None:
         descriptor['native_key_sources'] = list(native_sources)
+    if bootstrap is not None:
+        from . import wuthering_native_bootstrap
+        descriptor['native_bootstrap'] = wuthering_native_bootstrap.reference(bootstrap.source)
     if region != 'global':
         descriptor['region'] = region
     raw = json.dumps(descriptor, sort_keys=True, separators=(',', ':')).encode()
@@ -458,6 +498,18 @@ def _voice_parameters(stamp, tools=None):
 def _parameters_for_snapshot(tools, snapshot):
     from . import wuthering_metadata as metadata
     from .preparation_errors import PreparationFailure
+    if 'native_bootstrap' in snapshot:
+        from . import wuthering_native_bootstrap as original
+        bootstrap = 'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak'
+        size, digest = snapshot['base'][bootstrap]
+        info = snapshot['root'] + '/' + bootstrap, size, digest
+        baseline = original.parameters(tools, info, snapshot.get('region', 'global'), retained=snapshot['native_bootstrap'])
+        pak.check('native_key_sources' in snapshot)
+        if not baseline.bootstrap.verified:
+            _package(tools, info, baseline)
+        from . import wuthering_publisher_keys as publisher_keys
+        return publisher_keys.restore(tools, snapshot['native_key_sources'], snapshot.get('region', 'global'),
+                                      baseline, lambda raw: _json(raw, tools), verified_defaults=baseline)
     if 'native_key_sources' not in snapshot:
         return _archive_parameters(tools, True)
     try:
@@ -770,6 +822,7 @@ def _same_catalogue_source(tools, stamp, depot):
         # migration; the original reference still authenticates a new transfer.
         return None
     current.pop('native_key_sources', None)
+    current.pop('native_bootstrap', None)
     for path in (Path(tools) / 'wuwa-publisher').glob('wuwa-*/release.json'):
         previous = path.parent.name
         if previous == stamp or not re.fullmatch('wuwa-[0-9a-f]{64}', previous):
@@ -779,6 +832,7 @@ def _same_catalogue_source(tools, stamp, depot):
         except (OSError, ValueError, TypeError, KeyError):
             continue  # Invalid older cache metadata establishes no equivalence.
         old.pop('native_key_sources', None)
+        old.pop('native_bootstrap', None)
         if old == current:
             data = _cached_source(tools, previous, depot)
             if data is not None:
@@ -806,9 +860,17 @@ def _source_bytes(tools, stamp, depot, reference=None):
         return data
     if reference is None:
         return None
+    from . import wuthering_source_cache
+    data = wuthering_source_cache.cached(tools, depot, reference)
+    if data is not None:
+        binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
+        path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
+        _atomic_file(path, hashlib.sha256(binding + data).digest() + data)
+        return data
     info, position = reference
     data = _voice_package(tools, stamp, info).extract(position)
     _validate_wem(data)
+    wuthering_source_cache.remember(tools, depot, reference, data)
     binding = hashlib.sha256((stamp + '/' + depot).encode()).digest()
     path = _descriptor_path(tools, stamp).parent / 'clips' / hashlib.sha256(depot.encode()).hexdigest()
     _atomic_file(path, hashlib.sha256(binding + data).digest() + data)

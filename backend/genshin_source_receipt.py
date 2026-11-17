@@ -17,6 +17,97 @@ def sha(value, length=64):
     return isinstance(value, str) and re.fullmatch('[a-f0-9]{' + str(length) + '}', value)
 
 
+def _native_design_id(logical):
+    """ASCII subset of the owned native hash, kept portable for offline reopen."""
+    size = 256
+    while size < len(logical):
+        size *= 2
+    return int.from_bytes(hashlib.md5(logical + bytes(size - len(logical))).digest()[:8], 'little')
+
+
+def validate_readables(value, source, *, publisher, region, active=False):
+    """GI-only evidence; old staged data retains its original coverage label."""
+    codes = {'CHS', 'CHT', 'EN', 'JP', 'KR', 'FR', 'DE', 'ES', 'PT', 'RU', 'TH', 'VI', 'ID', 'IT', 'TR'}
+    mode_field = 'legacy_directory_replaced' if active else 'replaces_legacy_readables'
+    check(isinstance(value, dict) and set(value) == {'schema', 'scope', mode_field, 'table', 'locales'}
+          and value.get('schema') == ('genshin-original-readable-source-v2' if active else 'genshin-original-readable-source-v1')
+          and value.get('scope') == 'localization-owned-readable-text' and value.get(mode_field) is active
+          and region in {'global', 'cn'} and source.get('publisher') == publisher
+          and source.get('codec_description', {}).get('policy') == 'official-native-blb-parameters-v1')
+    table = value.get('table')
+    check(isinstance(table, dict) and isinstance(table.get('owner'), dict) and isinstance(table.get('proof'), dict))
+    owner, proof = table['owner'], table['proof']
+    build = source.get('publisher_descriptor'); native = source.get('native')
+    check(isinstance(build, dict) and build.get('channel') == 'genshin-' + region and isinstance(native, dict)
+          and 'sophon-' + hashlib.sha256(json.dumps(build, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == publisher)
+    manifests = build.get('manifests')
+    check(isinstance(manifests, dict) and isinstance(manifests.get('game'), (list, tuple))
+          and 0 < len(manifests['game']) <= 32)
+    logical = b'Data/_ExcelBinOutput/LocalizationExcelConfigData.MiHoYoBinData'
+    expected_asset = _native_design_id(logical)
+    check(owner.get('publisher') == publisher and owner.get('native_sha256') == native.get('sha256')
+          and sha(owner.get('native_sha256')) and owner.get('catalog_sha256') == source.get('catalog_sha256')
+          and sha(owner.get('catalog_sha256')) and owner.get('asset_index') == expected_asset
+          and type(owner.get('bundle')) is int and owner['bundle'] > 0 and sha(owner.get('payload_sha256'))
+          and owner.get('manifest_sha256') == hashlib.sha256(json.dumps(manifests['game'], sort_keys=True,
+              separators=(',', ':')).encode()).hexdigest())
+    metadata = owner.get('metadata')
+    check(isinstance(metadata, dict) and metadata.get('name') ==
+          ('GenshinImpact_Data' if region == 'global' else 'YuanShen_Data') + '/Native/Data/Metadata/global-metadata.dat'
+          and sha(metadata.get('sha256')) and sha(metadata.get('publisher_md5'), 32)
+          and type(metadata.get('bytes')) is int and 512 <= metadata['bytes'] <= 256 * 1024**2)
+    software = owner.get('software_sha256')
+    check(isinstance(software, dict) and 7 <= len(software) <= 64
+          and {'genshin_native_slots.py', 'genshin_native_locale_slots.py', 'genshin_native_fields.py',
+               'genshin_original_localization.py', 'genshin_original_excel.py', 'genshin_original_dialogue.py',
+               'genshin_official_source.py'} <= software.keys()
+          and all(isinstance(name, str) and (name == 'genshin_official_source.py'
+                  or re.fullmatch(r'genshin_(?:native|original)_[a-z0-9_]+\.py', name)) and sha(digest)
+                  for name, digest in software.items()))
+    check(proof.get('schema') == 'genshin-original-localization-table-v1' and proof.get('strict_eof') is True
+          and proof.get('source_kind') == 'original-publisher' and proof.get('complete_native_storage') is True
+          and proof.get('all_locales') == sorted(codes) and type(proof.get('rows')) is int and 0 < proof['rows'] <= 1_000_000
+          and proof.get('payload_sha256') == owner['payload_sha256'] and type(proof.get('payload_bytes')) is int
+          and 4 <= proof['payload_bytes'] <= 64 * 1024**2 and sha(proof.get('canonical_sha256')) and sha(proof.get('contract_sha256'))
+          and isinstance(proof.get('method_sha256s'), list) and 4 <= len(proof['method_sha256s']) <= 128
+          and proof['method_sha256s'] == sorted(set(proof['method_sha256s'])) and all(sha(m) for m in proof['method_sha256s']))
+    locales = value.get('locales')
+    check(isinstance(locales, dict) and set(locales) <= codes)
+    if active:
+        check(locales and set(locales) == set(source.get('locales', {})))
+    for code, item in locales.items():
+        check(isinstance(item, dict) and set(item) == {'locale', 'files', 'total_utf8_bytes', 'source_missing', 'sprite_text_images'}
+              and item.get('locale') == code and isinstance(item.get('files'), list) and 0 < len(item['files']) <= 50_000
+              and type(item.get('total_utf8_bytes')) is int and 0 <= item['total_utf8_bytes'] <= 128 * 1024**2)
+        seen, total = set(), 0
+        for row in item['files']:
+            check(isinstance(row, (list, tuple)) and len(row) == 6)
+            name, localized_id, asset_index, bundle, size, digest = row
+            check(isinstance(name, str) and 0 < len(name) <= 4096 and name.endswith('.txt') and name not in seen
+                  and not any(char in name for char in ('/', '\\', ':', '\0')) and name.isascii()
+                  and type(localized_id) is int and 0 <= localized_id < 1 << 32
+                  and type(asset_index) is int and 0 <= asset_index < 1 << 64 and type(bundle) is int and bundle > 0
+                  and type(size) is int and 0 <= size <= 4 * 1024**2 and sha(digest))
+            logical = ('ART/UI/Readable/' + code + '/' + name[:-4] + '.MiHoYoBinData').encode('ascii')
+            check(asset_index == _native_design_id(logical))
+            seen.add(name); total += size
+        check(total == item['total_utf8_bytes'])
+        for key in ('source_missing', 'sprite_text_images'):
+            rows = item.get(key)
+            check(isinstance(rows, list) and len(rows) <= 50_000)
+            for row in rows:
+                check(isinstance(row, dict) and set(row) == ({'id', 'path', 'reason'} if key == 'source_missing' else {'id', 'path'})
+                      and type(row.get('id')) is int and 0 <= row['id'] < 1 << 32
+                      and isinstance(row.get('path'), str) and 0 < len(row['path']) <= 4096
+                      and row['path'].isascii() and not any(char in row['path'] for char in ('\\', ':', '\0'))
+                      and not row['path'].startswith('/') and all(p not in ('', '.', '..') for p in row['path'].split('/')))
+                check(row['path'].startswith('ART/UI/Readable/') if key == 'source_missing'
+                      else row['path'].startswith('ART/UI/Atlas/SpriteText/'))
+                if key == 'source_missing':
+                    check(row.get('reason') in {'publisher-language-fallback', 'not-in-current-design-catalog'})
+    return value
+
+
 def validate(receipt, *, publisher, region, metadata_revision):
     """Reopen immutable provenance without fetching sources or relabeling data."""
     check(isinstance(receipt, dict) and receipt.get('schema') == 'genshin-controlled-generation-v1'
@@ -24,8 +115,12 @@ def validate(receipt, *, publisher, region, metadata_revision):
           and region in ('global', 'cn') and receipt.get('region') == region
           and isinstance(publisher, str) and re.fullmatch('sophon-[a-f0-9]{64}', publisher)
           and receipt.get('publisher') == publisher and sha(metadata_revision, 40))
-    check(receipt.get('coverage') == {'TextMap': 'original-publisher', 'Readable': 'community-not-converted',
-                                      'Subtitle': 'community-not-converted'})
+    coverage = {'TextMap': 'original-publisher', 'Readable': 'community-not-converted', 'Subtitle': 'community-not-converted'}
+    if isinstance(receipt.get('original_text'), dict) and 'original_tables' in receipt['original_text']:
+        coverage['ManualTextMap'] = 'original-publisher'
+    if isinstance(receipt.get('original_text'), dict) and 'original_readables' in receipt['original_text']:
+        coverage['Readable'] = 'original-publisher'
+    check(receipt.get('coverage') == coverage)
     body = {key: value for key, value in receipt.items() if key != 'sha256'}
     check(receipt.get('sha256') == hashlib.sha256(canonical(body)).hexdigest())
     selection = receipt.get('bindings')
@@ -105,6 +200,44 @@ def validate(receipt, *, publisher, region, metadata_revision):
     if codec['policy'] == 'official-native-blb-parameters-v1':
         check(codec['native_sha256'] == native['sha256'] and codec['publisher_md5'] == native['publisher_md5']
               and codec['bytes'] == native['bytes'])
+    if 'original_tables' in source:
+        check(codec['policy'] == 'official-native-blb-parameters-v1')
+        tables = source['original_tables']
+        check(isinstance(tables, dict) and set(tables) == {'ManualTextMapConfigData'})
+        table = tables['ManualTextMapConfigData']
+        check(isinstance(table, dict) and isinstance(table.get('owner'), dict) and isinstance(table.get('proof'), dict))
+        owner, proof = table['owner'], table['proof']
+        manifests = build.get('manifests')
+        check(isinstance(manifests, dict) and isinstance(manifests.get('game'), (list, tuple))
+              and 0 < len(manifests['game']) <= 32)
+        logical = b'Data/_ExcelBinOutput/ManualTextMapConfigData.MiHoYoBinData'
+        expected_asset = _native_design_id(logical)
+        check(owner.get('publisher') == publisher and owner.get('native_sha256') == native['sha256']
+              and owner.get('catalog_sha256') == source['catalog_sha256']
+              and owner.get('manifest_sha256') == hashlib.sha256(json.dumps(manifests['game'],
+                  sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+              and owner.get('asset_index') == expected_asset and type(owner.get('bundle')) is int and owner['bundle'] > 0
+              and sha(owner.get('payload_sha256')))
+        metadata = owner.get('metadata')
+        check(isinstance(metadata, dict) and metadata.get('name') ==
+              ('GenshinImpact_Data' if region == 'global' else 'YuanShen_Data') + '/Native/Data/Metadata/global-metadata.dat'
+              and sha(metadata.get('sha256')) and sha(metadata.get('publisher_md5'), 32)
+              and type(metadata.get('bytes')) is int and 512 <= metadata['bytes'] <= 256 * 1024**2)
+        software = owner.get('software_sha256')
+        check(isinstance(software, dict) and 4 <= len(software) <= 64
+              and {'genshin_original_excel.py', 'genshin_original_dialogue.py', 'genshin_native_words.py',
+                   'genshin_native_contracts.py'} <= software.keys()
+              and all(isinstance(name, str) and re.fullmatch(r'genshin_(?:native|original)_[a-z0-9_]+\.py', name)
+                      and sha(value) for name, value in software.items()))
+        check(proof.get('schema') == 'genshin-original-manual-table-v1' and proof.get('strict_eof') is True
+              and proof.get('source_kind') == 'original-publisher'
+              and type(proof.get('rows')) is int and 0 < proof['rows'] <= 1_000_000
+              and proof.get('payload_sha256') == owner['payload_sha256']
+              and type(proof.get('payload_bytes')) is int and 4 <= proof['payload_bytes'] <= 64 * 1024**2
+              and sha(proof.get('canonical_sha256')) and sha(proof.get('contract_sha256'))
+              and isinstance(proof.get('method_sha256s'), list) and 1 <= len(proof['method_sha256s']) <= 3
+              and all(sha(method) for method in proof['method_sha256s'])
+              and proof['method_sha256s'] == sorted(set(proof['method_sha256s'])))
     locales = source.get('locales')
     check(isinstance(locales, dict) and 0 < len(locales) <= 15)
     for code, item in locales.items():
@@ -129,6 +262,11 @@ def validate(receipt, *, publisher, region, metadata_revision):
               and sha(package.get('decoded_sha256')) and type(package.get('publisher_bytes')) is int
               and 0 < package['publisher_bytes'] <= 160 * 1024**2 and type(package.get('decoded_bytes')) is int
               and 0 < package['decoded_bytes'] <= 512 * 1024**2)
+    if 'staged_original_readables' in source:
+        check('original_readables' not in source)
+        validate_readables(source['staged_original_readables'], source, publisher=publisher, region=region)
+    if 'original_readables' in source:
+        validate_readables(source['original_readables'], source, publisher=publisher, region=region, active=True)
     return receipt
 
 
@@ -140,5 +278,9 @@ def make(catalog, publisher, region):
                'original_text': source.receipt(),
                'coverage': {'TextMap': 'original-publisher', 'Readable': 'community-not-converted',
                             'Subtitle': 'community-not-converted'}}
+    if 'original_tables' in receipt['original_text']:
+        receipt['coverage']['ManualTextMap'] = 'original-publisher'
+    if 'original_readables' in receipt['original_text']:
+        receipt['coverage']['Readable'] = 'original-publisher'
     receipt['sha256'] = hashlib.sha256(canonical(receipt)).hexdigest()
     return validate(receipt, publisher=publisher, region=region, metadata_revision=catalog.revision)

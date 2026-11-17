@@ -36,6 +36,35 @@ community-key fallback. Dispatch bootstrap and dialogue bindings still depend
 on community descriptions; no impossibility evidence establishes their
 eligibility as a last resort. These remain separate acceptance gaps.
 
+The same explicit source API now supplies the existing ManualTextMap table
+consumer from publisher bytes. Its native string-key getter, typed row reader,
+complete table count and EOF establish the string-ID/UInt32-text-key schema.
+All 42,098 current rows were decoded independently before any reference
+comparison. This table supplies authored protagonist pronouns; replacing it
+does not convert the separate Readable or Subtitle bodies.
+
+The staged Readable API now derives and strictly decodes the complete original
+Localization table, its native slot representation and all fifteen locale
+switches. A bounded publisher trial read 1,939 Japanese and 1,939 English text
+objects from two complete verified packages (3,230,787 compressed bytes), with
+exact postparse control matches. It feeds the existing paragraph consumer and
+provides a selected-package refinement including the complete native/metadata
+inputs. The existing `original_text` opt-in now routes Readable requests through
+this source; the default provider is unchanged. All 8,276 accepted Readable
+records match in every field with the same voice-overlap guard. The six unbound
+legacy files contain only empty/newline data and contribute no paragraphs;
+their current-use status remains unknown. Eight source-missing Book references
+and two SpriteText image paths remain separate qualifications. A consumed-source
+receipt requires every selected locale and marks its text origin explicitly;
+earlier staged receipts are not relabeled. Subtitle bodies remain open.
+
+This adds no Android execution claim. The new Python readers use the same
+original executable/complete metadata environment and bounded static x64
+decoder as the existing native reader. Full metadata/member memory use, the
+Android BLB codec, packaged decoder and actual local preparation/recovery still
+need device acceptance. The optional receipt validation remains stdlib-only;
+the portable prepared-library path imports no publisher or native reader.
+
 ## Reusable data contracts and platform dependencies
 
 | Part | Reusable contract | Android work still needed |
@@ -45,6 +74,7 @@ eligibility as a last resort. These remain separate acceptance gaps.
 | Serialized objects/catalog | Bounded versions 17/21/22 metadata, complete full-ID catalog, named class-1208/1210 payloads | The owned readers use Python/stdlib data operations. Provide Android file/range access and a bounded seekable decoded body; no Unity runtime, textures or game installation is needed. |
 | TextMap parameters | One unique complete arithmetic contract; all matching method hashes; original executable treated as authenticated data | The current template matcher and PE reader do not require Capstone execution. Whole-image/list memory use needs a bounded Android worker or streaming native equivalent. Unknown compiled shapes require official recovery first; a changed shape is not silently a format waiver. |
 | TextMap rows | All current catalog-owned shards, strict UTF-8/EOF, low-bit ownership, aliases and complete-generation activation | Use local streaming/SQLite batches to avoid retaining every decoded body, two complete locale dictionaries and the entire dialogue corpus simultaneously. Preserve alias/cycle and identity checks. |
+| ManualTextMap rows | The existing consumer's original full-ID table, native string-key getter/typed serializer, canonical pronoun keys and complete EOF; input/software/table receipts retained | The current native metadata bootstrap uses the original executable plus complete official metadata and a large in-memory member inventory. Android needs its equivalent bounded data-analysis worker and cache. A PC cache or a Windows decoder DLL is not that implementation. |
 | Dialogue/voice helper bindings | Allowlisted immutable commit, exact publisher title/edition/hotfix compatibility, explicit ambiguity/missing states | Local immutable archive/tree acquisition. The current optional Git subprocess mirror is not an Android implementation; use a reviewed native Git/data-archive transport or keep an actionable retry state. |
 | Original PCK media | Authored path/hash, selected dub, original package offset/size, whole/chunk verification | The binary PCK reader is a data contract. RIFF/WEM decoding needs an Android-compatible vgmstream/codec closure. Desktop executables are not Android dependencies. |
 | Film/audio processing | Original movie identity, authored track/timing/channel scope, PCM output identity | Android-native CRI/USM/HCA and audio conversion interfaces as applicable. Current ffmpeg/vgmstream subprocesses and their desktop platform packages do not establish Android playback. Other unresolved film bindings remain open. |
@@ -121,6 +151,13 @@ contract. Text-only execution must preserve authored bindings/status separately
 while suppressing audio retrieval/export triggers; the current legacy worker's
 bank-inventory step still needs an execution adapter for that mode.
 
+The native metadata input is a complete publisher object, not an 8 MiB sample.
+The current canonical `Native/Data/Metadata/global-metadata.dat` entry is
+83,644,132 bytes and owns 65 transport chunks totaling 61,346,746 wire bytes.
+The ledger includes every chunk and the full materialized metadata file. The
+ManualTextMap container is also included when an authenticated catalog narrows
+the plan; it cannot disappear from the quote because it contains no audio.
+
 A caller-owned authenticated catalog for the same publisher narrows selected
 locale bundles exactly. Without it, all current design packages form an explicit
 upper bound. Only the small catalog/bootstrap stage should precede that
@@ -130,9 +167,12 @@ the actual per-body guard rather than an invented compression ratio. An Android
 adapter can replace that bound only with tested streaming/eviction behavior.
 
 On the retained Global 7.2 metadata, Japanese audio plus Japanese/English text
-produced 17,559,648,026 wire bytes as the **complete selected-dub PCK cache** upper
-bound after catalog refinement (67 design packages). The cold all-design bound
-was 18,737,067,161 bytes (533 design packages). Both calculations read zero large
+previously produced 17,559,648,026 wire bytes before original ManualTextMap
+metadata/container inputs were included. The updated text-only Japanese/English
+quote is 409,594,778 wire bytes after catalog refinement (68 design packages),
+including the full metadata ledger. The earlier cold all-design audio bound
+was 18,737,067,161 bytes before adding that metadata input. These metadata-only
+calculations read zero large
 payload bytes. These are not the size of initial on-demand preparation.
 
 The result deliberately has `complete_game_quote: false`. API/manifest fetches,
@@ -144,3 +184,31 @@ parts and measure used bytes before presenting a complete per-game size. A
 partial sum must not be presented as the whole download or device-storage need.
 Deletion must use the common ownership/lease registry for downloaded or derived
 objects, preserving study history, account state and calibration.
+
+## Registered original native-input stage
+
+The canonical [Genshin factory](../../backend/genshin_game_data.py) implements the
+shared provider contract with explicit context-owned Sophon transport. Its
+Windows `GenshinRuntime(layout)` validates an already installed BLB helper's
+complete resource inventory and the pinned static instruction decoder. It never
+builds or downloads a helper. The normal Windows factory resolves that installed
+bundle lazily when the host supplies no explicit runtime. Source-checkout and
+incomplete bundle layouts remain unavailable; there is no SDK or PATH fallback.
+Android and missing runtimes return an unavailable
+reader gate before transferring large game inputs; the instruction decoder alone
+does not supply an Android BLB reader.
+
+The first supported stage quotes the official launcher manifest when it exceeds
+the metadata allowance, followed by complete original executable and metadata
+files. It binds the regional build, language/content selection and runtime
+identity, deduplicates complete Sophon chunks, verifies cached bytes before
+subtracting them, and authenticates both full materialized files. All transfers
+use the shared consent and cancellation context. A stage produces
+`PreparationStage`, never a partial dialogue snapshot or text-audio Ready.
+
+With those inputs already verified, the next plan explicitly remains unavailable
+at the original content reader. Official dispatch bootstrap, the other original
+dialogue bindings, Subtitle acquisition, selected-dub materialization and full
+ordinary update acceptance still need their complete source route. This does not
+replace the accepted dialogue library with the TextMap/Readable subset or promote
+community bindings to official provenance.

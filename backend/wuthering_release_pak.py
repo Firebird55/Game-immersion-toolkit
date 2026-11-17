@@ -1,12 +1,15 @@
 """Selective reads of released Kuro Windows v12 PAK directories and individual entries."""
 import hashlib
+import errno
 import io
 import json
 from functools import lru_cache
+import os
 import shutil
 import ssl
 import struct
 import subprocess
+import time
 import urllib.request
 import uuid
 import zlib
@@ -16,6 +19,7 @@ import certifi
 from Crypto.Cipher import AES
 
 from .game_tools import CODE_ROOT, _atomic_file
+from .atomic_files import sharing_retry
 from .preparation_errors import PreparationFailure
 
 LIMIT = 64 * 1024**2
@@ -26,6 +30,42 @@ MAGIC = b'\xe1\x12\x6f\x5a'
 def check(condition):
     if not condition:
         raise ValueError('Unsupported or inconsistent Kuro publisher package.')
+
+
+def _publish_index(path, data):
+    """Parallel readers may publish the same already-verified original index."""
+    def publish():
+        try:
+            _atomic_file(path, data)
+        except PermissionError:
+            # Windows denies replacement while another reader has the winning
+            # file open. Accept only the complete identical verified bytes.
+            try:
+                if path.stat().st_size == len(data) and path.read_bytes() == data:
+                    return
+            except OSError:
+                pass
+            raise
+    sharing_retry(publish)
+
+
+def _read_index_cache(path, size):
+    """Bound Windows sharing failures, including CRT open's errno-only EACCES."""
+    def read():
+        if path.is_file() and path.stat().st_size == size:
+            return path.read_bytes()
+        return None
+    deadline = time.monotonic() + 1
+    while True:
+        try:
+            # Keep the existing WinError policy; only this owned cache read
+            # additionally recognizes Windows CRT's missing-winerror case.
+            return sharing_retry(read, timeout=max(0, deadline - time.monotonic()))
+        except PermissionError as error:
+            if (os.name != 'nt' or error.errno != errno.EACCES or
+                    getattr(error, 'winerror', None) is not None or time.monotonic() >= deadline):
+                raise
+            time.sleep(.02)
 
 
 @lru_cache(maxsize=1)
@@ -232,17 +272,16 @@ class Package:
             # decrypt BOTH complete original indices with this exact key.
             data = self.cipher.decrypt(self.range(offset, size))
             check(hashlib.sha1(data).digest() == digest)
-            _atomic_file(path, data)
+            _publish_index(path, data)
             return data
         # Different released package identities can contain the same native
         # plaintext index. Its exact current footer/main digest and length
         # authenticate reuse; this never replaces the constructor's cipher
         # selection or either complete original index validation.
         def cached(candidate):
-            if candidate.is_file() and candidate.stat().st_size == size:
-                data = candidate.read_bytes()
-                if hashlib.sha1(data).digest() == digest:
-                    return data
+            data = _read_index_cache(candidate, size)
+            if data is not None and len(data) == size and hashlib.sha1(data).digest() == digest:
+                return data
             return None
         data = cached(path)
         if data is not None:
@@ -251,13 +290,13 @@ class Package:
             if candidate != path:
                 data = cached(candidate)
                 if data is not None:
-                    _atomic_file(path, data)
+                    _publish_index(path, data)
                     return data
         data = self.range(offset, size)
         if self.cipher:
             data = self.cipher.decrypt(data)
         check(hashlib.sha1(data).digest() == digest)
-        _atomic_file(path, data)
+        _publish_index(path, data)
         return data
 
     def locations(self, *, wanted=(), prefix=None):

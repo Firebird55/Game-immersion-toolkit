@@ -33,6 +33,58 @@ def rich_seed(compressed):
     return pack('HBIBII', 0x30c4, 4, 0, 3 if compressed else 0, len(stored), len(body)) + stored
 
 
+def unknown_size_seed():
+    names = tuple(f'Owned{i:04}_' + 'X'*500 for i in range(1200))
+    body = seed(*names)[16:]
+    compressed = zstandard.ZstdCompressor(write_content_size=False).compress(body)
+    return body, names, pack('HBIBII', 0x30c4, 4, 0, 3, len(compressed), len(body)) + compressed
+
+
+def test_unknown_size_zstd_seed_uses_the_actual_pinned_c_backend_byte_window():
+    assert zstandard.__version__ == '0.25.0'
+    assert zstandard.ZstdDecompressor.__module__ == 'zstandard.backend_c'
+    body, names, raw = unknown_size_seed()
+    parameters = zstandard.get_frame_parameters(raw[16:])
+    assert parameters.content_size == zstandard.CONTENTSIZE_UNKNOWN
+    assert zstandard.frame_content_size(raw[16:]) == -1
+    assert schema.MAX_EXPANDED//1024 < parameters.window_size <= schema.MAX_EXPANDED
+    result = schema._seed(raw)
+    assert result[0] == body and tuple(result[1]) == names and result[5] == len(names)
+
+
+@pytest.mark.parametrize('change', ['frame-window', 'output-length', 'declared-output-cap', 'extra-frame'])
+def test_unknown_size_zstd_seed_keeps_window_and_output_bounds(change):
+    _body, _names, raw = unknown_size_seed()
+    raw = bytearray(raw)
+    if change == 'frame-window':
+        # Unknown-size frames have a window descriptor after magic + FHD.
+        assert raw[20] == 0
+        raw[21] = 0x88  # 128 MiB, beyond the retained 64 MiB native-schema cap.
+        assert zstandard.get_frame_parameters(raw[16:]).window_size > schema.MAX_EXPANDED
+    elif change == 'output-length':
+        struct.pack_into('<I', raw, 12, len(_body)-1)
+    elif change == 'declared-output-cap':
+        struct.pack_into('<I', raw, 12, schema.MAX_EXPANDED+1)
+    else:
+        raw.extend(zstandard.ZstdCompressor().compress(b'owned trailing frame'))
+        struct.pack_into('<I', raw, 8, len(raw)-16)
+    with pytest.raises(ValueError):
+        schema._seed(bytes(raw))
+
+
+def test_unknown_size_seed_does_not_accept_the_distinct_invalid_content_size_sentinel(monkeypatch):
+    _body, _names, raw = unknown_size_seed()
+    monkeypatch.setattr(schema.zstandard, 'frame_content_size', lambda _: -2)
+    with pytest.raises(ValueError):
+        schema._seed(raw)
+
+
+def test_unknown_size_seed_retains_unsigned_metadata_api_compatibility(monkeypatch):
+    body, _names, raw = unknown_size_seed()
+    monkeypatch.setattr(schema.zstandard, 'frame_content_size', lambda _: zstandard.CONTENTSIZE_UNKNOWN)
+    assert schema._seed(raw)[0] == body
+
+
 class PE:
     def __init__(self, *, base=0x140000000, code_rva=0x1000, data_rva=0x2000):
         self.blob = bytearray(0x4600)

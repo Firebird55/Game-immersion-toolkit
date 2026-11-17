@@ -1,5 +1,387 @@
 # Honkai: Star Rail dialogue audit
 
+## Ordinary original publisher preparation · November 17, 2026
+
+Normal Star Rail preparation now selects `starrail_original_provider`: original
+regional bootstrap, all 21 required original tables, original mission/caption
+configurations and the thirteen official text locales. It does not fetch a
+community TextMap or transcript snapshot. Existing frozen metadata software
+supplies current required native descriptions. Text, translations and recordings
+must come from the publisher. Keys must first be derived from official inputs;
+a maintained community-key fallback requires evidence that the official route
+is unavailable or impossible. Packed code or unfinished parser work is not that
+evidence. The existing movie-key refresh still uses community parameters and
+does not meet this official-first lifecycle boundary. Automatic recovery from a
+changed required metadata codec, and a controlled schema fallback, also remain
+unfinished. Source/provenance improvements below do not close those gaps.
+
+Reader revision 26 rebuilds older prepared libraries. A saved game folder remains
+a preference and a source for historical local playback; a new publisher
+snapshot uses publisher audio from the same generation as its text. Missing
+local dub packs therefore do not remove a supported publisher language. The
+watcher's source fingerprint follows this choice, and record-owned historical
+publisher playback remains independent from the selected folder. Failed
+preparation retains earlier snapshots and exact original recordings.
+
+The ordinary release fingerprint and prepared descriptor use the same original
+regional discovery and include the selected immutable movie-description revision
+and stale-service state. Synthetic checks cover Global/CN route agreement,
+absent local dubs in all four voiced languages, old-folder isolation, historical
+playback, offline descriptor availability and failure preservation. The actual
+retained-generation worker/update trial below is separate from live discovery,
+cold bootstrap and Android acceptance.
+
+The dated checkpoints below retain their original experimental scope. Their
+statements that the normal provider is unchanged describe earlier revisions.
+Other spoken movie windows, source-format recovery and platform acceptance
+remain separate requirements; a matching movie key does not prove a caption's
+written words are spoken in that movie.
+
+Movie-description refresh now follows only `Furina1027/hoyo-files`, with a fixed
+three-file path set. An immutable commit supplies the root tree; three bounded
+nonrecursive Git trees are reconstructed and SHA1 checked before following
+their child hashes. Each metadata body must match its advertised size, Git blob
+hash and complete SHA256 receipt. New candidates cannot use an unproven legacy
+cache. Earlier records with an already pinned complete digest retain offline
+compatibility. Malformed trees, changed bodies, oversized files and conflicting
+commit identities fail before publishing a replacement metadata generation.
+No downloaded code or media is part of this source operation.
+The current-revision pointer advances only after that complete validation. A
+healthy listing with unavailable bodies retains the previous proven revision
+and marks it stale; successful recovery at the same commit changes freshness
+and permits the ordinary watcher to retry the missing movie audio.
+
+Contained voice reads now reuse a complete cached bank range only when its
+receipt binds the same immutable original asset MD5 and declared size, exact
+range bounds and SHA256. The complete covering range is hashed before slicing;
+partial, corrupt or differently owned ranges cannot supply the voice. Exact
+legacy ranges retain their existing playback contract. These are authenticated
+HTTPS ranges with original ETag/size ownership, not whole-PCK MD5 verification.
+
+Cutscene-take clocks now read only the required 86-byte original RIFF/Vorbis
+header, validating the immutable PCK entry and RIFF-declared complete length.
+Truncated or differently sized headers cannot authorize a clock. Fifty-two
+fully available original takes across the retained 4.6/4.7 controls produce the
+same clock from that prefix and their complete WEM spans. Prefix transport is
+planned by complete authenticated Sophon chunks: four remaining headers required
+two chunks totaling 2,353,000 compressed bytes, not merely 344 bytes. Both chunks
+were acquired within that bound and verified against the publisher's complete
+chunk size/MD5 before the old worker succeeded. This does not verify a whole PCK.
+The explicit text-only catalog consumer now skips voice inventory, event banks,
+take timing headers, movie decoding and movie-key lookups. It retains caption
+and protagonist authoring as metadata and keeps omitted voice sources
+non-playable. Explicit silence, unknown status and unresolved authored audio
+remain distinct. Synthetic traps fail any attempt to enter those audio paths;
+the resulting snapshot passes the shared omission and matcher contracts.
+The independent download-service adapter now connects this consumer through
+bounded original-input, schema and text-package stages. Its actual source-file
+acceptance remains separate from the earlier desktop-worker trial.
+
+The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
+passes the production source validator with zero new body downloads. Its three
+bodies total 522,332 bytes and retain combined SHA256
+`9634ba22c87e2de1f36991382bae2b98a7ff15ecc287f67a24939cc3e3420758`.
+Both current regional VideoV indexes list 1,236 files; 1,235 have an exact
+MD5/size parameter match. This is metadata coverage, not movie decoding or a
+spoken-caption count. The unmatched skin-show movie has an explicitly empty
+VideoConfig caption path; this establishes neither silence nor current use.
+
+An actual ordinary worker replay on source `123f2421` now produces 307,464
+English records, including 98,693 voiced records, with official Chinese
+translations. Normal preparation, the final recheck and the watcher's fingerprint
+agree; the saved old installation is not used for new audio. All 142 required
+native disassembly calls use retained whole authenticated original inputs and
+the frozen helper; table/config/route description APIs are not replaced.
+The trial explicitly replays retained launcher/discovery receipts and reuses
+previously authenticated metadata outputs, so it proves neither fresh discovery
+nor cold metadata generation. The usable compressed snapshot is 34,897,231 bytes;
+its uncompressed SHA256 is
+`e4fb715a79afbb95e2c921184205270e403c2f388de8b1951d1a0a829f0112b5`.
+Observed retained output peaks at 275,529,086 bytes, then falls to 34,917,282 bytes.
+The missing old Main/CHS packages were subsequently acquired from that exact
+4.6 DesignV generation and whole-file size/MD5 verified. On source `26fd4f28`,
+the ordinary English/Chinese worker then completed 301,598 old records with 70
+owned native disassembly calls. Its 34,248,009-byte compressed snapshot has
+uncompressed SHA256
+`08569a5d12b460a55a211e43e3c3c7538fb7d38428148cfa6704dfbd8f8d4f2e`.
+
+That real old snapshot was activated as an ordinary `textmap.json`. An injected
+original-discovery outage stopped the new ordinary worker before publication,
+preserving the old snapshot's exact hash. The production original-voice service
+decoded a retained English event recording before and after the failure, then
+again from a newly opened historical service after the successful update; all
+three exports produced identical decoded PCM. The healthy retry atomically
+activated the current 307,464-record snapshot and reproduced the earlier current
+snapshot hash. It adds 5,866 record IDs, including 2,167 voiced IDs, and changes
+45 existing English strings and 13 existing Simplified Chinese strings. No
+existing unknown/unavailable record was promoted merely to satisfy the trial.
+
+The retry made 142 actual owned disassembly calls; the largest temporary native
+JSON was 106,513 bytes. Both usable raw generations, their archives and the
+approved original-input stages remained retained, with an observed conservative
+peak of 840,679,808 bytes under the 900,000,000-byte trial bound. The worker,
+failure and fresh offline historical playback phases made no network requests.
+The original current/old launcher and discovery responses were explicitly
+replayed, and the metadata helper/outputs were independently authenticated
+retained controls. Required native table/config/route descriptions were still
+derived through their production APIs. This is genuine changed-content,
+activation/retry and historical-playback evidence; it is not fresh live/cold
+bootstrap, a new SDK delivery proof, independent Android execution or automatic
+recovery after a changed metadata codec.
+
+One added current female-protagonist English row was then tested through the
+same production voice service. Its exact `VoiceConfig` external-WEM binding
+selected 33,308 bytes from the current publisher PCK. HTTPS status, immutable
+MD5 ETag, complete parent size, Content-Range, PCK entry, source language,
+protagonist and RIFF length were checked before decoding. It produced 141,600
+PCM bytes with SHA256
+`f56ed440c47df17035a16c73492e9e126d49efdde400d0f29dd9e09a6e894abf`.
+A separate offline process reopened the current snapshot and reproduced that
+PCM and MP3 exactly. This small acquisition verifies an original owned range,
+not a whole-PCK MD5 or an independently published per-WEM digest. It is an
+external voice take, separate from the old event-bank recording above. The
+range plus its ownership receipt occupies 33,571 bytes; no other take or full
+PCK was acquired for this check.
+
+## Independent Android preparation boundary · November 17, 2026
+
+The Android requirement is independent publisher download, refresh, playback,
+delete and size reporting. A PC-prepared library import cannot satisfy that
+normal flow. The current Windows worker proof does not establish this boundary.
+
+| Dependency | Existing implementation | Required Android work |
+| --- | --- | --- |
+| Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. Original PE/x64 instructions are parsed as data through managed Iced; client code is never executed. | Supply a packaged Android-compatible invocation of the same owned metadata/disassembly contract, or a controlled exact-generation schema source. There is no accepted Android helper artifact or runtime resolver. |
+| Publisher formats and cache | Python readers use HTTPS, protobuf, zstandard, JSON and checksummed files. Native preparation currently authenticates complete original Windows launcher inputs. | Validate those libraries on the Android ABI and keep all files in app-controlled storage. Windows publisher data may be read as data, but platform/edition identity must remain explicit. |
+| Playback and export | `VoiceDecoder` and `LocalVoiceAssetService` invoke desktop vgmstream and ffmpeg processes. Movie extraction validates complete ADX tracks and requires reviewed spoken windows. | Integrate the corresponding Android codec/runtime, then prove sample/window equivalence and offline historical playback. No Android codec or movie coverage is implied by current desktop playback. |
+| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. The shared service can estimate staged original metadata/text packages, account for their cache and restore completed text locally. | Prove these stages with actual source files and connect original audio with reference-aware full-library removal. A metadata-only stage is not a complete game download size. |
+
+The canonical `starrail_game_data` factory now registers an original metadata
+input stage with the shared service. Planning uses the context-owned publisher
+transport for the launcher and checksummed manifest. Its estimate counts only
+missing compressed chunks and required whole-file/cache storage, deduplicating
+shared verified chunks. Downloading authenticates all three complete original
+inputs and returns a `PreparationStage`, never a ready snapshot. Interrupted
+transfers preserve complete cached chunks; corrupt whole files can be rebuilt
+from their verified chunks without another asset request. No global transport,
+community text source or downloaded code runs in this stage. Shared service
+tests exercise its real byte/consent fences with synthetic original formats.
+
+On desktop, the following text stages require an already delivered, verified
+metadata helper; this service never compiles or downloads helper software
+implicitly. A separate zero-download step declares the metadata-output/storage
+bound before generating descriptions, including the whole-input copy fallback
+when hardlinks are unavailable. Required core tables/textmaps, native-owned
+mission paths and original caption overrides then select the next exact whole
+packages. Each is checked against its complete publisher MD5. No arbitrary
+configuration scan or package/version ID list selects the inventory.
+
+The ordinary PC factory resolves that immutable prebuilt closure automatically
+when `native=None`; it does not select an SDK through PATH or use the source
+helper cache. Missing, corrupt or incompatible resources produce an actionable
+repair/re-extract gate before the large original-input download is available.
+The download rechecks the reader before even its manifest recheck, so removal
+after a quote cannot strand new native asset downloads. Explicit test boundary
+injection remains separate, and Android does not attempt a desktop helper.
+Maintainer source-SDK preparation is an independent explicit operation, not a
+fallback in this application path.
+
+Only the final `text-snapshot` step can publish a `SnapshotSource`; every earlier
+step remains a `PreparationStage`. The final receipt binds the helper, native
+generation, whole original packages, request/content mode and snapshot SHA256.
+Restore verifies this local receipt and snapshot without fetching or invoking a
+helper. A hash-bound same-request stage can finish its already discovered
+publisher generation without another mutable launcher lookup. The shared stage
+contract preserves a previously ready library while that update is incomplete.
+Text gender conditions retain separate authored branches without reading audio
+states or inventing gender-specific audio paths. Configuration descriptions use
+one validated native generation at a time; their per-instance caches can release
+old native indexes instead of retaining them through class-wide LRU keys.
+The first actual 4.6 final-text attempt exposed one one-sided text condition:
+its opposite protagonist has no displayed English sentence. Publishing that
+empty branch correctly failed the shared validator before activation. The
+generic text renderer now retains only nonempty source branches, without
+borrowing another locale's words or certifying silence. A synthetic one-sided
+condition exercises the same worker validation boundary. This correction does
+not reuse that interrupted attempt as a pass; the resumed actual trial below
+qualifies its corrected source separately.
+
+The complete staged service, shared matcher activation, corrupt-cache retry and
+offline restore pass synthetic original-format controls. Android exposes only
+an estimate while its metadata runtime is unavailable. Independent `text-audio`
+preparation also remains gated;
+no voice URL, metadata archive or successful text-only result is advertised as
+downloaded original audio. Shared storage accounting/removal covers owned stage
+and library files, without establishing Android preparation or an audio size.
+
+The PC text-and-audio request can now continue through the original text stages
+to a separate selected-dub archive-inventory quote. Exact AudioV ownership
+selects that official dub's PCKs and neutral event-bank PCKs; another dub is not
+included. The first stage quotes only their 28-byte headers. Only validated
+prefixes can establish a bounded full-directory quote. Every download rechecks
+the native/helper/text-package generation and cached AudioV without fetching
+replacement metadata inside the inventory allowance. These stages return
+`PreparationStage`, never a ready text-and-audio snapshot. Event-bank/member
+selection, requested recording materialization and the genuine movie-key and
+platform-runtime gates still remain before complete audio activation.
+
+The HSR-owned range cache learns an opaque strong ETag from the actual response
+and pins following reads with `If-Match`; it does not turn the publisher's MD5
+into an assumed ETag. Each original range retains generation, URL/owner size,
+bounds, complete received-byte SHA256 and actual response identity. This is
+partial-owner HTTPS provenance, not complete-PCK MD5 verification. A separate
+offline voice adapter freezes exact row/audio bindings and locally checked RIFF
+members. Its `has` predicate performs no file reads, stat calls or decoding.
+Resolution rechecks the original member against its frozen checksum, decodes
+only with already available codecs into caller-owned staging, honors
+cancellation and checks the original again before publication. Missing originals
+or movie parameters cannot certify a voice. Authored-format/shared-service tests
+cover these boundaries; no new real audio transport or Android codec acceptance
+is implied by these tests.
+
+An isolated actual-source intake on frozen `fe5e5883` now verifies all 209
+current Global English/neutral-bank prefixes through the production range store
+and shared context transport: exactly 5,852 response-body bytes and 184,185
+retained bytes. The complete 114,038-byte AudioV passes publisher MD5
+`7988e0de5f29c43b842f69e6bc23fa10`. Actual strong ETags, exact 206/range/full-size
+responses and every bounded PCK prefix pass. The owners total 18,138,568,731
+bytes; none of those complete PCK bodies is downloaded or MD5 verified by this
+check. The resulting full-directory quote is 209 ranges totaling 3,383,584
+bytes, with no bank/member payload. This is original inventory intake evidence,
+separate from full normal-factory/bootstrap or ready-library acceptance.
+
+The complete-directory projection also reuses the owned PCK table parsers with
+header-only reads. Section/count bounds, language tables, duplicate external
+identities and header-overlapping members fail before a directory stage can be
+published. Exact authored source hashes select members only in the requested
+dub; conflicting owners remain unresolved. These projection controls also pass
+a separate actual intake on frozen `09223251`: all 209 full directories validate
+after exactly 3,383,584 new response-body bytes and 3,494,995 additional retained
+bytes. Their tables contain 97,792 external members, 44,682 bank records (33,532
+neutral and 11,150 localized) and 6,774 streamed members. These are archive
+records, not voiced-sentence counts. No bank/member payload or complete PCK is
+acquired by that trial.
+
+A subsequent cache-only plan reads the complete original 4,461,388-byte
+`SoundBankLookUp.dat`, verifies publisher MD5
+`0351cd314a0a291b77df6c5b63a9c76f` through existing authenticated Sophon chunks,
+and streams the actual current canonical text snapshot's authored event names.
+Its 3,678 names select only 121 unique neutral banks. The exact next quote is
+121 ranges totaling 206,459 bytes; no unfiltered bank scan or acquisition is
+part of the plan. The generic selector retains conflicting/missing owners as
+unresolved and never chooses a bank by ordinal. This is a proposed bank stage,
+separate from normal lookup/bootstrap integration and finished audio preparation.
+
+That selected neutral stage subsequently passes an actual intake on frozen
+`1115ebe4`: all 121 complete banks validate BKHD version/identity/SFX language,
+section bounds and their event/action ownership after exactly 206,459 response
+bytes and 270,147 additional retained bytes. All 3,678 requested events join an
+explicit cross-bank Play target present in the same original lookup and
+localized directory. This is still partial-PCK provenance and an isolated
+inventory operation; no new ready snapshot is produced.
+
+The owned next-stage selector now follows those Play targets rather than
+fetching unrelated localized banks. It can coalesce neighbouring ranges under
+one immutable owner and a declared byte limit. Contained members can reuse a
+cached covering range only after checking the complete covering body SHA256,
+receipt, owner size/generation and actual ETag; corrupt or differently owned
+ranges cannot supply a member. Boolean/float receipt fields cannot alias integer
+bounds. The offline voice predicate retains its no-I/O contract. These cache and
+quote operations do not bypass the remaining normal lookup/bootstrap, recording
+materialization, movie-key or platform-runtime gates.
+
+The isolated frozen-`9d504d7c` intake now also completes the selected localized,
+state and streamed-original stages. The 1,335 localized covering ranges use
+178,220,387 bytes; 201 additional state banks use 4,553,522 bytes in 131 ranges;
+1,380 missing original spans use 81,042,988 bytes in 1,099 contiguous ranges.
+Every complete bank/section and authored Play target validates. The 3,678
+AudioEvent names yield 3,712 recording candidates including authored player and
+sequence branches; all candidates are locally present with complete RIFF length
+checks. This is the supported AudioEvent subset, not all dialogue voices.
+The same supported catalog separately declares 94,962 unique external
+VoiceConfig paths, with 93,397 unique current-header bindings. Those originals,
+normal lookup/bootstrap integration, codec acceptance and movie parameters are
+not supplied by the AudioEvent intake. No new ready snapshot or voice-status
+promotion occurs, and complete-PCK MD5 is not inferred from these ranges.
+
+The offline adapter now selects codecs only through the bundle's closed
+`packaged_codec_executable` contract, verifying that closure again before local
+execution. It does not discover PATH/imageio tools, build software or download
+dependencies. Membership also freezes the authored dub, player branch and
+external/event reference; changed row locale/player/reference cannot certify a
+recording. External hashes must match the verified original PCK directory.
+Actual decoded-PCM acceptance remains separate from the preceding RIFF checks.
+
+The owned metadata, native-description, original-bootstrap, index and complete
+DesignV-package APIs now accept an explicit context transport. Supplied contexts
+remain attached to every nested original request; the legacy default transport
+is retained only when no context was supplied. A data-service caller can also
+resolve an already delivered metadata helper with implicit source compilation
+disabled. Complete DesignV packages must still match their publisher MD5 before
+entering the reusable cache. These seams underpin the implemented text stages;
+they do not by themselves prove actual-source or Android acceptance.
+
+An actual independent-service trial on corrected Python source `dd5119b5` now
+prepares both retained official Global generations through the normal factory,
+production prebuilt-reader resolver, native descriptions, original catalog and
+shared `GameDataService`. Its frozen delivered helper is source `9a0c4dcc`,
+build `c30cfd97`, compiled with SDK 10.0.403/runtime 10.0.14. Eight of its nine
+source pins still match the Python checkout; the subsequently changed shared
+build recipe is explicitly separate. This is reuse of verified frozen software,
+not a new packaging proof for the composed Python source. The old metadata
+output from the interrupted first attempt was revalidated and reused; current
+metadata was freshly regenerated by that actual helper. Both complete outputs
+match their independently verified whole-original controls.
+
+The resulting text-only snapshots contain 303,160 old and 309,044 current
+records, adding 5,884 IDs and changing 45 existing English strings and 13 Chinese
+strings. Their SHA256 values are respectively
+`0559ac84be953c085d0dd270b82d6b6e1a0bc1927856d65aefeecfefea9b47bf`
+and `6548211fb6ac65039d0701b32f35814dfb35e1c8fd99aeedf7dcbf8c43bfe912`.
+The counts differ from the earlier audio-worker totals because text conditions
+are rendered without using audio-bank state/playlist bindings. They are catalog
+record counts, not a demonstrated current-presentation denominator.
+
+An injected launcher outage and an actual failed native-read preparation job
+both retained the earlier Ready snapshot. Healthy retry activated the current
+snapshot. A separate fresh process then restored both actual published source
+descriptors and obtained exact original-text/translation matcher hits, with
+all helper execution and transport blocked. Unknown/unavailable voice status
+and deliberate audio omission survived; no record was certified silent to make
+the text-only trial pass. No audio headers, PCK ranges, WEM/movie media or
+community movie-key cache existed in this trial's cache.
+
+The resumed helper made 213 disassembly/metadata calls. The largest native input
+was 11,584 bytes and temporary native JSON was 106,513 bytes. The retained-byte
+counter conservatively included the entire preceding 900-MB allowance and peaked
+at 1,799,843,854 bytes under the approved 2-GB bound. No new transport, dependency
+installation, build or game-code execution occurred. Launcher and original
+resource discovery were explicitly replayed retained receipts; retired 4.6 is
+not fresh live discovery. This closes the retained-source PC text-stage,
+failure/retry and fresh offline matcher trial. Fresh live/cold bootstrap,
+independent original audio, current composed-source packaging and Android
+execution remain separate acceptance requirements. The earlier real old/new
+PCM checks remain separate audio evidence.
+
+A cache-only plan for current Global 4.7 English with official Chinese
+translations gives these exact original-input amounts, before audio headers,
+event-bank payloads, requested movies, codecs or snapshots:
+
+| Source phase | Transfer bytes | Retained source bytes |
+| --- | ---: | ---: |
+| Launcher manifest | 7,841,243 | 15,298,561 |
+| Three original metadata/native inputs | 251,758,719 compressed | 675,093,264 whole files plus 675,093,264 expanded chunk cache |
+| Selected common/config/mission and EN/CHS text packages | 287,817,624 | 575,635,248 including the current range-cache copies |
+| Required DesignV, AudioV and VideoV indexes | 2,596,370 | 2,596,370 |
+
+The observed metadata output adds 202,094,464 bytes in this control; the parser's
+general output cap is 603,979,776 bytes. These are not download bytes. Unknown
+audio/cache/output requirements must remain unknown until their bounded next
+stage is planned; they cannot be presented as zero or as a complete installation
+estimate. No new source transport or Android execution was used to make this
+plan. A complete Android worker, physical playback and Settings accounting
+remain unaccepted.
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global
@@ -561,6 +943,31 @@ This establishes the current public IFix source contract. An allowed source for
 a registry-update response remains unproved, and the independent default-context
 path remains under investigation. Neither an account-only requirement nor
 regional IFix equivalence is established.
+
+A separate bounded media-only check tests two specific key-recovery hypotheses
+against three already cached original movies. Their complete publisher sizes and
+MD5s are reverified before reading audio packets:
+
+| Original movie | Complete size | Publisher MD5 |
+| --- | ---: | --- |
+| `CS_Chap00_Act310_f.usm` | 34,696,032 | `dae38a58976a0e370a1eebff21a73da9` |
+| `CS_Chap00_Act310_m.usm` | 34,690,432 | `dde5d9622f780ff537e673a90909d89b` |
+| `CS_Chap01_Act3020.usm` | 65,392,224 | `f0db051bd87897609601fde6672b8b2f` |
+
+The declared ADX end markers fall in short packets before the masking boundary,
+so they supply zero encrypted known-plaintext bytes. A second check bounds all
+13,332 named audio packets across all four dubs, then scans their 19,687,776
+encrypted payload bytes for a 64-byte period-32 run. Such a run would only be a
+silence hypothesis: it must also match every fixed odd mask byte and the complete
+frozen mask-family equations before checking every declared ADX frame and
+comparing independently decoded original audio. Synthetic controls exercise all
+32 rotations and reject changed family bytes. The actual movies contain zero
+such periodic windows, so no candidate is derived and no control recording is
+opened or used to select a candidate. The second check peaks at 36,229,120 bytes
+of process working set; neither check fetches data, executes game code or retains
+new media. These negative results close these two hypotheses only. They do not
+establish that official key acquisition is impossible or authorize a community
+fallback, and they do not change any caption or voice availability.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298

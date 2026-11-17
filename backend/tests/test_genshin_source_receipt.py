@@ -58,6 +58,56 @@ def validate(payload):
                             region=payload['publisher_region'], metadata_revision=payload['metadata_revision'])
 
 
+def manual_snapshot():
+    from backend.genshin_original_excel import MANUAL_PATH, metadata_name
+    from backend.genshin_original_containers import asset_identity
+    payload = snapshot()
+    source = payload['source_receipt']['original_text']; native = source['native']
+    source['codec_description'] = {'policy': 'official-native-blb-parameters-v1',
+        'native_sha256': native['sha256'], 'publisher_md5': native['publisher_md5'], 'bytes': native['bytes'],
+        'reader_sha256': '1' * 64, 'method_sha256s': ['2' * 64], 'parameters_sha256': '3' * 64,
+        'semantic_owner_claim': False}
+    owner = {'publisher': payload['fingerprint'], 'native_sha256': native['sha256'],
+        'metadata': {'name': metadata_name('genshin-global'), 'publisher_md5': '4' * 32, 'sha256': '5' * 64, 'bytes': 2048},
+        'manifest_sha256': hashlib.sha256(json.dumps(source['publisher_descriptor']['manifests']['game'],
+            sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+        'software_sha256': {name: '6' * 64 for name in ('genshin_original_excel.py', 'genshin_original_dialogue.py',
+            'genshin_native_words.py', 'genshin_native_contracts.py')},
+        'asset_index': asset_identity(MANUAL_PATH), 'bundle': 7,
+        'payload_sha256': '7' * 64, 'catalog_sha256': source['catalog_sha256']}
+    proof = {'schema': 'genshin-original-manual-table-v1', 'strict_eof': True, 'source_kind': 'original-publisher',
+        'rows': 2, 'payload_sha256': '7' * 64, 'payload_bytes': 100, 'canonical_sha256': '8' * 64,
+        'contract_sha256': '9' * 64, 'method_sha256s': ['a' * 64, 'b' * 64, 'c' * 64]}
+    source['original_tables'] = {'ManualTextMapConfigData': {'owner': owner, 'proof': proof}}
+    payload['source_receipt']['coverage']['ManualTextMap'] = 'original-publisher'
+    rehash(payload['source_receipt'])
+    return payload
+
+
+@pytest.mark.parametrize('change', [None, 'metadata-edition', 'metadata-size', 'metadata-digest', 'manifest',
+    'native-input', 'asset', 'duplicate-method', 'software-path', 'boolean-count', 'eof', 'coverage'])
+def test_original_manual_receipt_binds_metadata_native_catalog_and_complete_table(change):
+    payload = manual_snapshot()
+    table = payload['source_receipt']['original_text']['original_tables']['ManualTextMapConfigData']
+    owner, proof = table['owner'], table['proof']
+    if change == 'metadata-edition': owner['metadata']['name'] = owner['metadata']['name'].replace('GenshinImpact', 'YuanShen')
+    elif change == 'metadata-size': owner['metadata']['bytes'] = 0
+    elif change == 'metadata-digest': owner['metadata']['publisher_md5'] = 'unknown'
+    elif change == 'manifest': owner['manifest_sha256'] = '0' * 64
+    elif change == 'native-input': owner['native_sha256'] = '0' * 64
+    elif change == 'asset': owner['asset_index'] += 1
+    elif change == 'duplicate-method': proof['method_sha256s'].append(proof['method_sha256s'][0])
+    elif change == 'software-path': owner['software_sha256']['../unowned.py'] = '1' * 64
+    elif change == 'boolean-count': proof['rows'] = True
+    elif change == 'eof': proof['strict_eof'] = False
+    elif change == 'coverage': payload['source_receipt']['coverage'].pop('ManualTextMap')
+    rehash(payload['source_receipt'])
+    if change is None:
+        assert validate(payload)['coverage']['ManualTextMap'] == 'original-publisher'
+    else:
+        with pytest.raises(ValueError): validate(payload)
+
+
 @pytest.mark.parametrize('change', [None, 'native-input', 'publisher-md5', 'bytes', 'methods', 'reader', 'policy'])
 def test_original_native_codec_receipt_reopens_and_rejects_cross_input_changes(change):
     payload = snapshot()
@@ -103,10 +153,12 @@ def test_rehashed_wrong_source_and_generation_receipts_cannot_be_accepted(change
         validate(payload)
 
 
-def test_worker_failed_receipt_retains_prior_file_then_successful_retry_reopens_offline(tmp_path, monkeypatch):
+@pytest.mark.parametrize('original_table', [False, True])
+def test_worker_failed_receipt_retains_prior_file_then_successful_retry_reopens_offline(tmp_path, monkeypatch, original_table):
     monkeypatch.setattr(language_worker, 'asset_adapter', lambda _: (SimpleNamespace(LANGUAGE_INDEX_VERSION=19), None))
     path = tmp_path / 'textmap.json'
-    old = snapshot()
+    factory = manual_snapshot if original_table else snapshot
+    old = factory()
     language_worker.write_payload('genshin', old, 'en', (), path)
     before = path.read_bytes()
     current = copy.deepcopy(old)
@@ -115,7 +167,7 @@ def test_worker_failed_receipt_retains_prior_file_then_successful_retry_reopens_
     with pytest.raises(ValueError):
         language_worker.write_payload('genshin', current, 'en', (), path)
     assert path.read_bytes() == before
-    language_worker.write_payload('genshin', snapshot(), 'en', (), path)
+    language_worker.write_payload('genshin', factory(), 'en', (), path)
     import socket
     monkeypatch.setattr(socket.socket, 'connect', lambda *a, **k: pytest.fail('Offline reopen contacted a publisher'))
     index = MultilingualTextIndex('genshin', tmp_path)

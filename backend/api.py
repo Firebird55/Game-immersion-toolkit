@@ -429,6 +429,9 @@ class Runtime:
                     if (not candidate.ready or candidate.source_locale != locale or preparation_fingerprint(adapter, install, tools) != stamp
                             or install is None and candidate.snapshot_metadata.get('fingerprint') != stamp):
                         raise ValueError('Language snapshot is incomplete or game files changed; previous table retained.')
+                    if game == 'nte' and install is None:
+                        from .nte_publisher import validate_prepared
+                        validate_prepared(tools, {**candidate.snapshot_metadata, 'records': candidate._records}, recheck=True)
                     with job.publication() if job else nullcontext():
                         cached.publish(candidate)
                 if hasattr(self, 'automatic_exports'):

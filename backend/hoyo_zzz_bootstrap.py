@@ -15,7 +15,7 @@ DOCUMENTS = frozenset({'app_version', 'login_setting'})
 NATIVE_RESOURCE = 'GameAssembly.dll'
 
 
-def native_source_plan(build, directory):
+def native_source_plan(build, directory, *, fetch=None):
     """Plan official key-data transport from manifest/PE metadata only.
 
     The section payload belongs to the authorized download stage. In particular
@@ -25,10 +25,11 @@ def native_source_plan(build, directory):
     """
     bootstrap.check(isinstance(build, dict) and build.get('channel') in ('zzz-global', 'zzz-cn'))
     spec = tuple(build['manifests']['game'])
-    files = sophon.manifest(directory, build['channel'], spec, (NATIVE_RESOURCE,))
+    options = {} if fetch is None else {'fetch': fetch}
+    files = sophon.manifest(directory, build['channel'], spec, (NATIVE_RESOURCE,), **options)
     bootstrap.check(NATIVE_RESOURCE in files)
     asset = files[NATIVE_RESOURCE]
-    plan = native_keys.source_plan(asset.size, lambda start, length: asset.read(directory, start, length))
+    plan = native_keys.source_plan(asset.size, lambda start, length: asset.read(directory, start, length, **options))
     start, end = plan['offset'], plan['offset'] + plan['bytes']
     chunks = {}
     for chunk in asset.chunks:
@@ -48,21 +49,23 @@ def native_source_plan(build, directory):
     return asset, plan, proof
 
 
-def gateway_keys(build, directory):
+def gateway_keys(build, directory, *, fetch=None):
     """Authorized download-stage operation; source bytes are data, never code."""
-    asset, plan, source = native_source_plan(build, directory)
+    options = {} if fetch is None else {'fetch': fetch}
+    asset, plan, source = native_source_plan(build, directory, **options)
     return tuple(native_keys.KeyCandidate(item.key, {'source': source, 'initializer': item.proof})
-                 for item in native_keys.read_candidates(plan, lambda start, length: asset.read(directory, start, length)))
+                 for item in native_keys.read_candidates(plan, lambda start, length: asset.read(directory, start, length, **options)))
 
 
-def official(build, region, directory):
+def official(build, region, directory, *, fetch=None):
     """Current official inputs only; no initial/community key cache is needed.
 
     This includes native data acquisition and belongs to an authorized source
     download/preparation stage. Use native_source_plan for metadata-only plans.
     """
-    config = renew({bootstrap._PROVENANCE: {'game': 'zzz', 'region': region}}, build, region, directory)
-    keys = gateway_keys(build, directory)
+    options = {} if fetch is None else {'fetch': fetch}
+    config = renew({bootstrap._PROVENANCE: {'game': 'zzz', 'region': region}}, build, region, directory, **options)
+    keys = gateway_keys(build, directory, **options)
     proof = bootstrap.provenance(config)
     proof['policy'] = 'official-current-client-data'
     proof['frozen_parameters'] = []
@@ -75,7 +78,7 @@ def official(build, region, directory):
     return config
 
 
-def renew(config, build, region, directory):
+def renew(config, build, region, directory, *, fetch=None):
     """Keep frozen crypto separate from current official seed/endpoint inputs.
 
     Original Unity metadata bounds identify the named objects on every release;
@@ -89,10 +92,11 @@ def renew(config, build, region, directory):
     bootstrap.check(isinstance(build, dict) and build.get('channel') == 'zzz-' + region
                     and re.fullmatch(r'[1-9][0-9]*\.[0-9]+\.[0-9]+', str(build.get('version', ''))))
     spec = tuple(build['manifests']['game'])
-    files = sophon.manifest(directory, build['channel'], spec, ('resources.assets',))
+    options = {} if fetch is None else {'fetch': fetch}
+    files = sophon.manifest(directory, build['channel'], spec, ('resources.assets',), **options)
     bootstrap.check(RESOURCE in files)
     asset = files[RESOURCE]
-    documents = text_assets(asset.size, lambda start, length: asset.read(directory, start, length), DOCUMENTS)
+    documents = text_assets(asset.size, lambda start, length: asset.read(directory, start, length, **options), DOCUMENTS)
     app, login = (bootstrap._json(documents[name]['payload']) for name in ('app_version', 'login_setting'))
     bootstrap.check(isinstance(app, dict) and isinstance(login, dict)
                     and login.get('$Type') == 'Foundation.LoginSetting'

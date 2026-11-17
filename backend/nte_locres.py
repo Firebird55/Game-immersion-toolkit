@@ -6,10 +6,20 @@ from Crypto.Cipher import AES
 
 from .nte_archive_metadata import check as metadata_check
 from .nte_publisher_pak import Reader, check, MEMBER_LIMIT
+from .preparation_errors import PreparationFailure
 
 MAGIC = bytes.fromhex('0e147475674a03fc4a15909dc3377f1b')
 STRING_LIMIT = 2 * 1024**2
 COUNT_LIMIT = 2_000_000
+
+
+class LocalizationParameterMismatch(PreparationFailure):
+    """A complete known-layout member rejected the candidate split marker."""
+
+    def __init__(self):
+        super().__init__('game_metadata_unavailable',
+            'Compatible NTE text information could not be verified. Retry preparation; '
+            'the previous completed library is retained.')
 
 
 def parse(data, parameter=None):
@@ -28,7 +38,7 @@ def parse(data, parameter=None):
     if encrypted:
         metadata_check(isinstance(parameter, str) and re.fullmatch(r'0x[0-9a-fA-F]{64}', parameter))
         cipher = AES.new(bytes.fromhex(parameter[2:]), AES.MODE_ECB)
-    strings = []
+    strings, parameter_mismatch = [], False
     for _ in range(count):
         value = reader.string(STRING_LIMIT)
         if encrypted:
@@ -39,11 +49,14 @@ def parse(data, parameter=None):
             metadata_check(bool(raw) and len(raw) % 16 == 0)
             plain = cipher.decrypt(raw)
             end = plain.find(b'HottaLocresSplit')
-            metadata_check(end >= 0)
-            try:
-                value = plain[:end].decode('utf-8')
-            except UnicodeError:
-                metadata_check(False)
+            if end < 0:
+                parameter_mismatch = True
+                value = ''
+            else:
+                try:
+                    value = plain[:end].decode('utf-8')
+                except UnicodeError:
+                    metadata_check(False)
         strings.append(value)
         reader.number()  # Serialized reference count; selection uses authored keys.
     reader.finish()
@@ -63,4 +76,6 @@ def parse(data, parameter=None):
             seen_keys.add(key)
             result.append({'ns': namespace, 'key': key, 'value': strings[index], 'source_hash': source_hash})
     check(len(result) == entries and reader.position == strings_offset)
+    if parameter_mismatch:
+        raise LocalizationParameterMismatch()
     return result

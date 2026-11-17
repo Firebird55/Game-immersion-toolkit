@@ -12,7 +12,6 @@ import struct
 import zlib
 
 from Crypto.Cipher import ChaCha20
-import numpy as np
 
 MAX_INDEX = 32 * 1024 * 1024
 MAX_VOICE = 64 * 1024 * 1024
@@ -28,6 +27,22 @@ class FormatError(ValueError):
 def _require(condition, message='Unsupported Endfield voice resource structure'):
     if not condition:
         raise FormatError(message)
+
+
+@dataclass(frozen=True)
+class IndexParameters:
+    """Original directory/index/outer-stream data, with no audio master."""
+    key: bytes
+    directories: dict[int, str]
+    protocol: int = 3
+
+    def __post_init__(self):
+        import re
+        _require(isinstance(self.key, bytes) and len(self.key) == 32 and self.protocol == 3)
+        _require(isinstance(self.directories, dict) and 0 < len(self.directories) <= 256)
+        _require(all(type(block) is int and 0 <= block <= 255 and isinstance(value, str) and
+                     re.fullmatch('[0-9A-F]{8}', value) for block, value in self.directories.items()))
+        _require(len(set(self.directories.values())) == len(self.directories))
 
 
 @dataclass(frozen=True)
@@ -47,6 +62,15 @@ class Parameters:
         _require(0 < self.multiplier < 2**32 and 0 <= self.xor_constant < 2**32)
 
 
+def _audio_master(parameters):
+    if not isinstance(parameters, Parameters):
+        from .preparation_errors import PreparationFailure
+        raise PreparationFailure('missing_original_audio_master',
+            'Endfield original audio parameters have not been verified. Prepare text separately or '
+            'finish original audio preparation; existing prepared data is retained.',
+            previous_snapshot_retained=True)
+
+
 def chacha(data, key, nonce, offset=0):
     cipher = ChaCha20.new(key=key, nonce=nonce)
     cipher.seek(64 + offset)
@@ -55,6 +79,8 @@ def chacha(data, key, nonce, offset=0):
 
 def xor_data(data: bytes, seed: int, parameters: Parameters, offset=0) -> bytes:
     """Read an arbitrary aligned or unaligned range of the package stream."""
+    _audio_master(parameters)
+    import numpy as np
     _require(offset >= 0)
     if not data:
         return data
@@ -103,7 +129,7 @@ class File:
     content_hashes: tuple = ()
 
 
-def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck', names=None) -> tuple[File, ...]:
+def parse_index(data: bytes, parameters: Parameters | IndexParameters, block: int, *, suffix='.pck', names=None) -> tuple[File, ...]:
     _require(16 <= len(data) <= (96 * 1024**2 if block == 11 and suffix == '.ab' else MAX_INDEX))
     plain = chacha(data[12:], parameters.key, data[:12])
     _require(zlib.crc32(plain[:-4]) == struct.unpack('<I', plain[-4:])[0], 'Endfield voice index checksum mismatch')
@@ -150,7 +176,7 @@ def parse_index(data: bytes, parameters: Parameters, block: int, *, suffix='.pck
 
 class PackageSource:
     """A bounded view of one file in a chunk; packages are never inflated whole."""
-    def __init__(self, stream, file: File, parameters: Parameters):
+    def __init__(self, stream, file: File, parameters: Parameters | IndexParameters):
         self.stream, self.file, self.parameters = stream, file, parameters
         self.size = file.size
         stream.seek(0, 2)
@@ -175,6 +201,7 @@ class Media:
 
 class Package:
     def __init__(self, source, parameters: Parameters):
+        _audio_master(parameters)
         self.source, self.parameters = source, parameters
         initial = source.read(0, 12)
         _require(initial[:4] in (b'AKPK', b':)xD'))

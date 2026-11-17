@@ -115,6 +115,40 @@ def test_selected_members_verify_stored_bytes_and_restart_offline(monkeypatch, t
     assert len(downloads) == 1
 
 
+def test_hybrid_cipher_requires_exact_original_guid_and_unique_default(monkeypatch, tmp_path):
+    toc, ucas = fixture()
+    open_container, _, _ = prepare(monkeypatch, tmp_path, toc=toc, ucas=ucas)
+    control = open_container()
+    def archive(key, guid=bytes(16), branch='PC_150'):
+        result = object.__new__(Archive)
+        result.source = SimpleNamespace(region='nte-global', branch=branch)
+        result.selected_key, result.encryption_guid = '0x'+key.hex(), guid
+        result.cipher = AES.new(key, AES.MODE_ECB)
+        return result
+    def selected(candidates):
+        return io.Container('nte-global', 'PC_150', control.toc, control.ucas, candidates, tmp_path)
+    valid = archive(KEY)
+    assert selected([valid]).read('HT/a.uasset') == b'A'*80
+    assert selected([valid, archive(bytes(32), bytes([1])*16)]).selected_key == valid.selected_key
+    for candidates in ([archive(KEY, bytes([1])*16)], [valid, archive(bytes(32))],
+                       [archive(KEY, branch='PC_149')]):
+        with pytest.raises(PreparationFailure): selected(candidates)
+
+
+def test_managed_key_bindings_are_guid_scoped_and_reject_conflicts():
+    from backend.nte_assets import _publisher_key_bindings
+    keys = ['0x'+KEY.hex(), '0x'+bytes(32).hex()]
+    def container(key, guid):
+        return SimpleNamespace(encrypted=True, selected_key=key, encryption_guid=guid)
+    first = container(keys[0], struct.pack('<4I', 0x12345678, 1, 2, 3))
+    second = container(keys[1], bytes(16))
+    assert _publisher_key_bindings({'first': first, 'second': second}, keys) == {
+        'archive_key_guids': {'12345678000000010000000200000003': 0, '0'*32: 1}}
+    with pytest.raises(PreparationFailure):
+        _publisher_key_bindings({'first': first, 'wrong': container(keys[1], first.encryption_guid)}, keys)
+    assert _publisher_key_bindings({}, keys[0]) == {}
+
+
 def test_corrupt_cached_block_is_refetched_even_at_the_declared_size(monkeypatch, tmp_path):
     open_container, _, ranges = prepare(monkeypatch, tmp_path)
     container = open_container()

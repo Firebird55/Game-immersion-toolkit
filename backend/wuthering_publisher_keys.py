@@ -39,6 +39,7 @@ class Parameters(tuple):
         result = super().__new__(cls, (value for value in baseline if value not in owned or value in independent))
         result.native = MappingProxyType(dict(native))
         result.sources = tuple(dict(source) for source in sources)
+        result.bootstrap = getattr(baseline, 'bootstrap', None)
         return result
 
     def __repr__(self):

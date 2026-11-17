@@ -92,6 +92,24 @@ def _expected_hashes(values):
     return result
 
 
+class _ReadOnlyStream:
+    """A synchronous provider may read bounded pieces only during its callback."""
+    __slots__ = ('_reader',)
+
+    def __init__(self, reader):
+        self._reader = reader
+
+    def read(self, size):
+        if self._reader is None:
+            raise ValueError('The original download stream is closed')
+        if not _integer(size):
+            raise ValueError('Original downloads require a bounded read size')
+        return self._reader(size)
+
+    def revoke(self):
+        self._reader = None
+
+
 class PublisherTransport:
     def __init__(self, ctx, *, hosts, opener=None, timeout=30):
         hosts = frozenset(hosts)
@@ -100,14 +118,14 @@ class PublisherTransport:
         self.ctx, self.hosts, self.timeout = ctx, hosts, timeout
         self.open = opener if opener is not None else build_opener(_PublisherRedirect(hosts)).open
 
-    def _transfer(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body):
+    def _transfer(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None):
         # Budget checks, body reads and consumption share the service's lock.
         # Two provider threads cannot both spend the same remaining allowance.
         with self.ctx.transfer_lock:
             return self._transfer_locked(url, sink, limit=limit, kind=kind, expected_size=expected_size,
-                digests=digests, original_range=original_range, headers=headers, method=method, body=body)
+                digests=digests, original_range=original_range, headers=headers, method=method, body=body, consumer=consumer)
 
-    def _transfer_locked(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body):
+    def _transfer_locked(self, url, sink, *, limit, kind, expected_size, digests, original_range, headers, method, body, consumer=None):
         source_url(url, self.hosts)
         if kind not in {'metadata', 'asset', 'audio'} or not _integer(limit, minimum=1):
             raise ValueError('A positive typed transfer bound is required')
@@ -188,15 +206,18 @@ class PublisherTransport:
                     raise GameDataError('publisher_response_invalid', 'The game server returned an unexpected file range.')
                 # Content-Length frames an entire response. Without it, only
                 # actual EOF proves that a verified prefix is the whole file.
-                target = declared
-                while target is None or count < target:
+                target, ended = declared, False
+                def read(size):
+                    nonlocal count, ended
                     self.ctx.check()
+                    if not size or ended or target is not None and count == target:
+                        return b''
                     remaining = min(allowance - count, self.ctx.remaining_bytes(kind=kind))
                     if target is not None:
                         remaining = min(remaining, target - count)
                     if remaining <= 0:
                         raise GameDataError('download_budget_exhausted', 'The download could not be verified within its size limit.')
-                    requested = min(CHUNK, remaining)
+                    requested = min(size, CHUNK, remaining)
                     try:
                         chunk = response.read(requested)
                     except IncompleteRead as error:
@@ -208,16 +229,31 @@ class PublisherTransport:
                     if not isinstance(chunk, bytes) or len(chunk) > requested:
                         raise GameDataError('publisher_response_invalid', 'The game server returned invalid download data.')
                     if not chunk:
-                        break
+                        ended = True
+                        return b''
                     self.ctx.consume_bytes(len(chunk), kind=kind)
                     self.ctx.check()
                     count += len(chunk)
                     for digest in hashes.values():
                         digest.update(chunk)
+                    return chunk
+                if consumer is not None:
+                    stream = _ReadOnlyStream(read)
                     try:
-                        sink(chunk)
-                    except OSError as error:
-                        raise GameDataError('game_cache_write_failed', 'The game download could not be saved. Your previous data is retained.', 507) from error
+                        result = consumer(stream)
+                        if not (ended or target is not None and count == target):
+                            raise GameDataError('publisher_stream_incomplete', 'The original download was not completely verified. Your previous data is retained.')
+                    finally:
+                        stream.revoke()
+                else:
+                    while target is None or count < target:
+                        chunk = read(CHUNK)
+                        if not chunk:
+                            break
+                        try:
+                            sink(chunk)
+                        except OSError as error:
+                            raise GameDataError('game_cache_write_failed', 'The game download could not be saved. Your previous data is retained.', 507) from error
                 self.ctx.check()
                 if target is not None and count != target:
                     raise GameDataError('metadata_download_interrupted', 'The game download was interrupted. Retry to keep preparing it.')
@@ -230,7 +266,21 @@ class PublisherTransport:
         actual = {name: digest.hexdigest() for name, digest in hashes.items()}
         if any(actual[name] != value for name, value in expected.items()):
             raise GameDataError('publisher_checksum_mismatch', 'The original game download failed its checksum.')
-        return TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, resolved_range, response_etag)
+        receipt = TransferReceipt(hashlib.sha256(url.encode()).hexdigest(), count, actual['sha256'], expected, resolved_range, response_etag)
+        return (result, receipt) if consumer is not None else receipt
+
+    def consume_stream(self, url, consumer, *, limit, expected_size, kind='asset', headers=None, digests=None):
+        """Verify a whole original carrier while an owned reader retains one member.
+
+        No archive-sized buffer or worker is created. The packaged consumer must
+        treat all provisional output as unusable until this returns successfully;
+        it owns cleanup after parse, cancellation, size or checksum failure.
+        A receipt proves transport, not publisher signer trust or voice bindings.
+        """
+        if not callable(consumer) or not _integer(expected_size, minimum=1):
+            raise ValueError('An owned consumer and positive original size are required')
+        return self._transfer(url, None, limit=limit, expected_size=expected_size, kind=kind,
+            headers=headers, digests=digests, original_range=None, method='GET', body=None, consumer=consumer)
 
     def fetch_bytes(self, url, *, limit, kind='metadata', expected_size=None, digests=None, original_range=None,
                     headers=None, method='GET', body=None):

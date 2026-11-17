@@ -121,6 +121,15 @@ def parameters(tools, stamp):
     return endfield_metadata.parameters(tools)
 
 
+def index_parameters(tools, stamp):
+    release = descriptor(tools, stamp)
+    if 'client' in release:
+        from .endfield_parameters import index_parameters as original_index_parameters
+        return original_index_parameters(tools, release['client'])
+    # Preserve the original immutable extraction provenance of old descriptors.
+    return endfield_metadata.parameters(tools)
+
+
 class _GroupBase(str):
     def __new__(cls, url, params):
         value = super().__new__(cls, url)
@@ -158,7 +167,7 @@ class RemoteChunk:
 
 @lru_cache(maxsize=48)
 def group(tools, stamp, block, names=None):
-    params = parameters(tools, stamp)
+    params = index_parameters(tools, stamp)
     release = descriptor(tools, stamp)
     candidate = None
     if 'client' in release:

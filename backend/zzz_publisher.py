@@ -151,7 +151,7 @@ def _stage_metadata(build, cache, work):
     return files, batches
 
 
-def _read_catalogue(build, data_dir, locales, namespace, progress):
+def _read_catalogue(build, data_dir, locales, namespace, progress, *, include_audio=True):
     packaged = require_zzz_reader()
     cache = data_dir / 'tools/sophon'
     parent = packaged.work_root if packaged else cache
@@ -199,11 +199,13 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
             selected = query('comic-plan', roots=roots, rootCount=len(comic_roots), catalogs=batches['catalog'])['ranges']
         blocks = stage_scenes(work, cache, files, plan['ranges'])
         comics = stage_scenes(work, cache, files, selected, extension='comics')
-        directory = stage_scenes(work, cache, files, plan['voiceDirectory'], extension='voice-directory')
+        directory = (stage_scenes(work, cache, files, plan['voiceDirectory'], extension='voice-directory')
+                     if include_audio else [])
         coverage = query('catalogue', design=batches['design'], locales=sorted(locales), namespace=namespace,
                          blocks=blocks, comics=comics, voiceDirectory=directory,
                          cinemaTimelines=cinema_timelines,
-                         knownTimelineKeys=[owner['key'] for owner in presentation_owners['owners']])
+                         knownTimelineKeys=[owner['key'] for owner in presentation_owners['owners']],
+                         includeAudio=include_audio)
         coverage['comic_paths'] = comic_plan['scenePaths']
         coverage['selected_comic_bytes'] = sum(item['size'] for item in [*comic_roots, *selected])
         coverage['scene_paths'] = plan['scenePaths']
@@ -213,12 +215,12 @@ def _read_catalogue(build, data_dir, locales, namespace, progress):
         coverage['presentation_owners']['subtitle_audio_acquisition'] = 'partial-subtitle-tracks; original audio unresolved'
         coverage['selected_cinema_timeline_bytes'] = sum(item['size'] for item in presentation_owners['cinemaRanges'])
         coverage['selected_scene_bytes'] = sum(item['size'] for item in plan['ranges'])
-        if 'hotfix' in build:
+        if include_audio and 'hotfix' in build:
             coverage['auxiliary_update_resources'] = zzz_hotfix.silence_evidence(cache, build)
         return (json.loads((work / 'links.json').read_bytes()),
                 {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in locales},
                 coverage, json.loads((work / 'voice-directory.json').read_bytes()),
-                cinema.audio_registry((work / 'audio-resource.flex').read_bytes()))
+                cinema.audio_registry((work / 'audio-resource.flex').read_bytes()) if include_audio else {})
 
 
 def _short_id(name):
@@ -304,7 +306,40 @@ def original_bindings(links, entries, dub, version, directory=None):
     return result
 
 
-def build_language(data_dir, source_locale, target_locales, progress):
+def _omit_requested_audio(rows, links, expanded, stamp, dub):
+    """Keep original authored evidence without making it a playable binding.
+
+    A source/event reference alone does not establish that its selected-dub
+    recording exists. In particular it must not promote unavailable to voiced.
+    The ordinary caption matcher still applies duplicate/player/context guards.
+    """
+    sources, events = defaultdict(set), defaultdict(set)
+    for link in expanded:
+        sources[link['text_id']].add(link['source'])
+    for link in links:
+        if link.get('cinematic_event'):
+            events[link['text_id']].add(link['cinematic_event'])
+    for row in rows:
+        identity = row['text_id']
+        original = (row.get('member_text_ids') or [identity])[0]
+        binding = {'publisher': stamp, 'locale': dub,
+                   'sources': sorted(sources.get(identity, sources.get(original, ()))),
+                   'cinematic_events': sorted(events.get(original, ())),
+                   'voice_status': row['voice_status']}
+        row.update(audio=None, source_voice_binding=binding if binding['sources'] or binding['cinematic_events'] else None,
+                   audio_omitted_by_request=row['voice_status'] != 'unvoiced',
+                   text_capture_verified=True)
+        if binding['cinematic_events']:
+            row['audio_scope'] = 'context'
+    return rows
+
+
+def build_language(data_dir, source_locale, target_locales, progress, *, content_mode='text-audio'):
+    # The legacy language worker keeps its original audio behavior. The native
+    # per-game provider passes its explicit request, whose default is text.
+    if content_mode not in {'text', 'text-audio'}:
+        raise ValueError('Choose ZZZ text or text and audio before preparation.')
+    include_audio = content_mode == 'text-audio'
     region = selected_region(data_dir / 'tools', 'zzz')
     build = zzz_hotfix.discover(sophon.release(CHANNELS[region]))
     stamp, raw = voice.descriptor(build)
@@ -313,32 +348,38 @@ def build_language(data_dir, source_locale, target_locales, progress):
     selected = {source_locale, *(value for value in targets.values() if value)}
     progress('Reading ZZZ dialogue and translations from the ' + REGIONS[region] + ' PC publisher release')
     dub = audio_locale(source_locale)
-    links, tables, coverage, directory, registry = _read_catalogue(build, data_dir, selected, voice_namespace('zzz', dub), progress)
-    progress('Matching the selected original ZZZ dub to its released scene and message sources')
-    entries = voice.inventory(data_dir, stamp, dub, 'zzz')
+    options = {} if include_audio else {'include_audio': False}
+    links, tables, coverage, directory, registry = _read_catalogue(
+        build, data_dir, selected, voice_namespace('zzz', dub), progress, **options)
     expanded, channels, evidence, kinds = zzz_assets._group_links(links)
     # One caption can be a silent/interactive choice in one scene and spoken in
     # another. This snapshot addresses text IDs, so avoid assigning that sound
     # unless all uses of the selected performance agree on a sentence source.
-    consistent = [link for link in expanded if evidence[link['text_id']] == {'unavailable'}]
-    bindings = original_bindings(consistent, entries, dub, build['version'], voice_directory(directory))
-    progress('Resolving original ZZZ film events through the selected publisher voice banks')
-    contexts = cinema.bindings(data_dir, stamp, dub, links, registry)
+    bindings, contexts = {}, {}
+    if include_audio:
+        progress('Matching the selected original ZZZ dub to its released scene and message sources')
+        entries = voice.inventory(data_dir, stamp, dub, 'zzz')
+        consistent = [link for link in expanded if evidence[link['text_id']] == {'unavailable'}]
+        bindings = original_bindings(consistent, entries, dub, build['version'], voice_directory(directory))
+        progress('Resolving original ZZZ film events through the selected publisher voice banks')
+        contexts = cinema.bindings(data_dir, stamp, dub, links, registry)
     for identity, binding in contexts.items():
         bindings.setdefault(identity, binding)
     coverage['cinema_context_recordings'] = len({audio['event'] for audio in contexts.values()})
     coverage['cinema_context_subtitle_bindings'] = len(contexts)
-    if 'presentation_owners' in coverage:
+    if include_audio and 'presentation_owners' in coverage:
         coverage['presentation_owners']['subtitle_audio_acquisition'] = 'partial-subtitle-tracks-and-original-film-contexts'
     for link in links:
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}
     rows = zzz_assets._dialogue_records(tables, source_locale, selected, channels, evidence, kinds, bindings)
+    if not include_audio:
+        _omit_requested_audio(rows, links, expanded, stamp, dub)
     if not rows or voice.descriptor(zzz_hotfix.discover(sophon.release(CHANNELS[region])))[0] != stamp:
         raise ValueError('No ZZZ dialogue was prepared or the launcher release changed. Retry preparation.')
     available = {locale for row in rows for locale in row['texts']}
     return {'format': 2, 'game': 'zzz', 'source_locale': source_locale, 'install': None, 'source_mode': 'publisher',
-            'publisher_region': region,
+            'publisher_region': region, 'content_mode': content_mode,
             'fingerprint': stamp, 'metadata_revision': build['build'] +
                 ('/' + build['hotfix']['revisions']['design'] if 'hotfix' in build else ''),
             'records': rows, 'coverage': coverage,

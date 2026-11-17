@@ -11,6 +11,15 @@ def alias(name):
     return {'_loadType': 'resourceKind', '_param': 'params'}.get(name, name.lstrip('_'))
 
 
+def array_element(context, reads, bits, *, setters=None):
+    """All successful compiled element paths must own one numeric contract."""
+    _check(isinstance(reads, (tuple, list)) and 1 <= len(reads) <= 32 and bits in (32, 64))
+    steps = {context.operations(item, bits, 'protected_scalar' if setters else 'element', setters=setters)
+             for item in reads}
+    _check(len(steps) == 1, 'Original array elements have conflicting native contracts.')
+    return o.Word(bits, steps.pop())
+
+
 class Contracts:
     def __init__(self, view, stream, *, usages=None, arrays=None):
         self.view, self.stream = view, stream
@@ -31,7 +40,10 @@ class Contracts:
 
     def wrappers(self, fields):
         primitives, setters = {}, {}
-        for definition in {field['type']['definition'] for field in fields if field['type']['kind'] == 17}:
+        definitions = {field['type']['definition'] for field in fields if field['type']['kind'] == 17}
+        definitions.update(field['type']['element']['definition'] for field in fields
+                           if field['type']['kind'] == 29 and field['type']['element']['kind'] == 17)
+        for definition in definitions:
             members = self.view.fields(definition)
             if len(members) != 1 or members[0]['type']['kind'] not in (8, 9, 10, 11, 12):
                 continue
@@ -132,21 +144,29 @@ class Contracts:
                         value = o.Array(self.count(helper['rva']), self.record(element['definition'], inner['rva'], depth + 1))
                     elif element['kind'] in (8, 9, 10, 11, 14, 17):
                         primitive = element['kind']
-                        if element['kind'] == 17:
+                        wrapped = element.get('definition') in wrappers
+                        if wrapped:
+                            primitive = wrappers[element['definition']]
+                            _check(primitive in (8, 9, 10, 11),
+                                   'The protected original array has no supported integer primitive.')
+                        elif element['kind'] == 17:
                             underlying = [f for f in self.view.fields(element['definition']) if f['name'] == 'value__']
                             _check(len(underlying) == 1 and underlying[0]['type']['kind'] in (8, 9, 10, 11),
                                    'The native enum array has no owned integer underlying field.')
                             primitive = underlying[0]['type']['kind']
-                        _check(len(row['reads']) == 2)
-                        count, item = (at - self.view.image.base for at in row['reads'])
+                        reads = [at for at in row['reads'] if at in context.returning_nodes()]
+                        _check(2 <= len(reads) <= 33)
+                        count, *items = (at - self.view.image.base for at in reads)
                         count = o.Word(32, context.operations(count, 32, 'count'))
                         if element['kind'] == 14:
-                            length = context.operations(item, 16, 'length')
+                            lengths = {context.operations(item, 16, 'length') for item in items}
+                            _check(len(lengths) == 1, 'Original array element lengths have conflicting contracts.')
+                            length, = lengths
                             cipher, operation = context.cipher(set(row['nodes']))
                             item = o.Text(o.Word(16, length), cipher, operation)
                         else:
                             bits = 64 if primitive in (10, 11) else 32
-                            item = o.Word(bits, context.operations(item, bits, 'element'))
+                            item = array_element(context, items, bits, setters=setters if wrapped else None)
                         value = o.Array(count, item)
                     else:
                         raise ValueError('The original typed array element has no supported native contract.')

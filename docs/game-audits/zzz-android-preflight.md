@@ -12,6 +12,87 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The later PC provider now continues through five explicit source stages to a
+ready **text-only** library when its verified compiler-free Node reader is
+available. A current Global Japanese run retained 289,967 original records and
+their exact text/translation maps, using 37 actual official requests / 837,481
+new metadata bytes and no new client/container/audio bytes. Original source
+caches were fully publisher-verified; a fresh service restored the real result
+offline. This warm-source Windows proof is not Android execution or a cold
+whole-source download. Text-and-audio still has an honest materialization gate.
+
+`zzz_pc_sources` binds official dispatch and updater transport to the consent
+context, charges whole SDK chunks/updater containers and prohibits network on
+range reads. `zzz_pc_stages` derives successive selections with the closed
+reader, saves source-bound operation receipts, rechecks current official
+pointers before final publication and restores accepted text without network or
+reader execution. The Node command is an explicitly prepared immutable toolkit
+artifact; runtime compilation, system Node and client-code execution are absent.
+That desktop closure does not provide an Android reader/codec bridge.
+
+The new `zzz_game_data.create_provider(platform=..., native=...)` implements
+the shared protocol's **official bootstrap stage**. Its HoYoPlay discovery,
+manifest and PE-header reads use the shared context-bound publisher transport;
+planning cannot silently acquire the native key section. The consented plan
+quotes complete Sophon chunks, subtracting only locally hash-verified bytes.
+The configuration resource file has an explicit complete-container upper bound;
+acquisition still selects only original `app_version` / `login_setting` objects.
+All sources belong to the selected regional manifest, with no initial community
+or protected-key-cache prerequisite. Request/mode identity is separate from
+the original launcher-generation hash.
+
+Bootstrap download returns `PreparationStage`, never `SnapshotSource`. On Android, a following plan
+with authentic bootstrap inputs stops at `catalogue-runtime` with unknown
+content sizes and downloading disabled. No unproved Android reader/codec API,
+desktop fallback, complete-content fingerprint or ready library is invented.
+The Android factory therefore does **not** finish independent preparation. The host
+still needs the closed catalogue-reader runtime, dependency/ABI inclusion,
+actual content-stage planning and selected-dub materialization. Bootstrap
+crypto/decompression availability itself remains a device capability gate.
+
+Synthetic source tests exercise both editions through the real shared
+transport, and the actual game-data service keeps the completed bootstrap at
+`needs_plan`. Same-format changed key/build inputs replan; a corrupt transfer
+cannot overwrite retained old source objects. These are controlled format and
+service checks, not an actual Android publisher download or historical real-key
+rotation.
+
+A current original-source warm-cache probe also passes through the actual
+factory, shared game-data service and shared transport: **four live official
+HoYoPlay requests / 251,440 response bytes**, zero new client bytes and no
+community/protected-key/config input. Global text planning consumes 127,399
+metadata bytes; mainland text-and-audio planning consumes 124,041. Each opposite
+mode is a separately labeled replay of those exact official responses, not a
+second live freshness claim. All four plans reach the honest catalogue-runtime
+gate without a ready state. A bootstrap download job was not forced when its
+authentic raw inputs were already cached; that stage's service transition has
+controlled fixture coverage. Previous-ready-generation retention across a
+stage transition is not proved by this source probe.
+
+Original manifest growth no longer needs to fit the shared 8 MiB planning
+allowance. The provider first reads the small official HYP descriptor and, if
+the declared manifest exceeds the remaining metadata allowance, quotes an
+explicit `official-manifest` download stage. That stage authenticates and parses
+the original manifest without acquiring client bodies. A following plan can
+use the verified manifest to quote the detailed bootstrap sources. Controlled
+tests cover the consent boundary and a declared manifest larger than 8 MiB;
+this is not a claim that a current original manifest has that size. This normal
+source growth needs neither new community parameters nor a toolkit update.
+
+The pure service retention fix is also consumed: controlled tests exercise the
+actual ZZZ manifest and bootstrap stages with a prior ready library. Both
+stages preserve the accepted ready pointer; local restore succeeds during the
+transition and after a fresh offline service restart. The prior library in
+that fixture is authored, so this is a service/provider retention check rather
+than a new real-game historical update proof.
+
+The publisher's explicit text-only source path now skips separate voice
+inventories, banks, directory objects and registry parsing while preserving
+authored non-playable voice evidence and the user's omission choice. A retained
+current Japanese source replay keeps all 289,967 prior text/translation rows
+without new network transfer. This producer checkpoint does not establish its
+Android runtime, the shared provider adapter, or a complete selected-audio plan.
+
 ## Existing stages and exact portability boundaries
 
 | Stage | Existing source | Android requirement still open |

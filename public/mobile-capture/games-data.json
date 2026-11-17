@@ -47,7 +47,7 @@
     },
     "windowsPreparation": {
       "regionalLauncher": { "withoutInstall": true, "label": "Publisher Setup for the Global or mainland China launcher release" },
-      "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for regional voices, selected movie clips and tutorial text" },
+        "regionalChapters": { "withoutInstall": true, "label": "Publisher Setup for official regional text and voices, selected movie clips and tutorial text" },
       "regionalNarrative": { "withoutInstall": true, "label": "Publisher Setup for Global or mainland China narrative voices" },
       "globalDialogue": { "withoutInstall": true, "label": "Publisher Setup for Global dialogue, original voices and verified scene contexts" },
       "regionalNteDialogue": { "withoutInstall": true, "label": "Publisher Setup for the selected edition's available text and original voices" },
@@ -237,7 +237,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Text languages depend on the selected edition. Empty or mismatched localization resources and ambiguous performances do not supply translations or original voices.",
-      "coverage": "Windows publisher preparation reads current original dialogue graphs, native-type-discovered authoring tables and selected voice banks without a game installation, including Ride-Along voices. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete.",
+      "coverage": "Windows publisher preparation reads current original dialogue graphs, native-type-discovered authoring tables and selected voice banks without a game installation, including Ride-Along voices. Proven direct speech predecessors can distinguish repeated captions in the narrow subtitle lane. Original audio samples decode in all four dubs. All five study locales have synthetic OCR checks. Complex branches/media clocks, museum bubbles and full chapter coverage remain incomplete. Explicit text-only preparation keeps publisher captions and translations without reading voice-bank or WEM payloads; omitted audio stays separate from original unknown or unvoiced status.",
       "supportPolicy": "Choose a publisher edition and available study language, or use an installed game. Compatible updates derive required types from original clients with a fixed retained seed and discover supported authoring tables by native type and exact export; no newer community mapping is required. Unresolved bindings remain explicit and failed preparation retains the previous completed library.",
       "expectedTargets": [
         "fr",
@@ -685,7 +685,7 @@
       ],
       "unverified": {},
       "notes": "Both Chinese scripts share Mandarin voices. Choose any listed study language with any listed official translation. Player performances remain separate. The reviewed Epic listing omits Indonesian; the demonstrated ID reader table is retained as toolkit support, separately from storefront evidence.",
-      "coverage": "Prepare Global or mainland China Star Rail without a game folder using current publisher base/chapter voice packages and revision-matched authored text. Reviewed movie clips retain verified original recordings. Battle College has 38 localized tutorial captions; seven declared strings are missing in every locale. Tutorial movie directories have no embedded audio; a separate sound-event route, other spoken film cuts and ambiguous voice selections remain unresolved.",
+      "coverage": "New Global or mainland China libraries read official text and translations from original packages with matching publisher base/chapter voices, including absent local dubs. A saved installation remains available for historical playback. Reviewed movie clips retain verified original recordings. Battle College has 38 localized tutorial captions; seven declared strings are missing in every locale. Tutorial movie directories have no embedded audio; a separate sound-event route, other spoken film cuts and ambiguous voice selections remain unresolved.",
       "supportPolicy": "Supported through the shared locale format; prepare the chosen source and official translation in Languages.",
       "reviewedAt": "2026-10-25",
       "readerOnlyText": [

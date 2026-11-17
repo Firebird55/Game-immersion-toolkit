@@ -32,6 +32,15 @@ def check(condition):
             'Refresh game data and retry; the previous completed index is retained.')
 
 
+class ArchiveParameterMismatch(PreparationFailure):
+    """A complete supported original index rejected the selected regional key."""
+
+    def __init__(self):
+        super().__init__('game_metadata_unavailable',
+            'Compatible NTE update information could not be verified. Retry preparation; '
+            'the previous completed library is retained.')
+
+
 @dataclass(frozen=True)
 class Catalog:
     revision: str
@@ -39,7 +48,7 @@ class Catalog:
     parameters: dict = field(repr=False)
     fallback: bool = False
 
-    def verified_key(self, read, size, region=None):
+    def verified_key(self, read, size, region=None, *, source=None):
         """Read bounded index bytes from a local or publisher range source."""
         check(type(size) is int and 64 <= size <= 1024**4)
         tail_size = min(512, size)
@@ -68,6 +77,8 @@ class Catalog:
             plain = AES.new(bytes.fromhex(value[2:]), AES.MODE_ECB).decrypt(data)[:length]
             if hashlib.sha1(plain).digest() == expected:
                 found.append(value)
+        if not found:
+            raise ArchiveParameterMismatch()
         check(len(found) == 1)
         return found[0]
 

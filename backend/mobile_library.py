@@ -456,7 +456,9 @@ def prepare_source(root, game, decode_dir, *, expected_account_signature=None, e
             service = LocalVoiceAssetService(game, directory, decoder, decode_dir, tools_dir=directory / 'tools' if source_path else data / game / 'tools')
             source_install = None if game in PUBLISHER_GAMES and payload['install'] is None else Path(payload['install'])
             if source_install is None and hasattr(service._adapter, 'publisher_snapshot_available'):
-                source_check = lambda: service._adapter.publisher_snapshot_available(service.tools_dir, payload['fingerprint'])
+                source_stamp = (payload.get('publisher_snapshot', payload['fingerprint'])
+                                if game == 'nte' else payload['fingerprint'])
+                source_check = lambda: service._adapter.publisher_snapshot_available(service.tools_dir, source_stamp)
             else:
                 source_check = lambda: service._adapter.fingerprint(source_install) == payload["fingerprint"]
         records = []

@@ -13,6 +13,9 @@ from .publisher_http import download
 REPOSITORY = 'Furina1027/hoyo-files'
 FILES = ('hkrpg_history.json', 'hkrpg_keys.json', 'hkrpg_keys_versions.json')
 LIMIT = 8 * 1024**2
+SOURCE_LIMITS = dict(zip(FILES, (2 * 1024**2, 384 * 1024, 384 * 1024)))
+SOURCE_SCHEMA = 'proxy-starrail-movie-description-source-v1'
+_ROOTS = {}
 
 
 class MovieFormatUnavailable(ValueError):
@@ -27,7 +30,12 @@ def check(value):
 def latest_revision():
     try:
         raw = download(f'https://api.github.com/repos/{REPOSITORY}/commits/main', limit=512 * 1024)
-        revision = json.loads(raw)['sha']
+        value = json.loads(raw)
+        revision = value['sha']
+        tree = value['commit']['tree']['sha']
+        check(re.fullmatch('[0-9a-f]{40}', revision) and re.fullmatch('[0-9a-f]{40}', tree))
+        _ROOTS.clear()
+        _ROOTS[revision] = tree
     except (HTTPError, URLError, TimeoutError, ConnectionError):
         raw = download(f'https://github.com/{REPOSITORY}/commits/main.atom', limit=512 * 1024)
         root = ET.fromstring(raw)
@@ -39,18 +47,91 @@ def latest_revision():
     return revision
 
 
+def _tree(rows, expected):
+    """Authenticate a nonrecursive Git tree before following any child."""
+    check(isinstance(rows, list) and 0 < len(rows) <= 2048)
+    encoded, names = [], set()
+    for row in rows:
+        check(isinstance(row, dict))
+        name, mode, kind, digest = (row.get(key) for key in ('path', 'mode', 'type', 'sha'))
+        check(isinstance(name, str) and name not in {'', '.', '..'} and name not in names
+              and not any(c in name for c in '/\\\0') and len(name.encode('utf-8')) <= 255
+              and (mode, kind) in {('040000', 'tree'), ('100644', 'blob'), ('100755', 'blob'), ('160000', 'commit')}
+              and isinstance(digest, str) and re.fullmatch('[0-9a-f]{40}', digest))
+        names.add(name)
+        key = name.encode('utf-8') + (b'/' if kind == 'tree' else b'')
+        body = mode.lstrip('0').encode() + b' ' + name.encode('utf-8') + b'\0' + bytes.fromhex(digest)
+        encoded.append((key, body))
+    raw = b''.join(body for _, body in sorted(encoded))
+    check(hashlib.sha1(f'tree {len(raw)}\0'.encode() + raw).hexdigest() == expected)
+    return {row['path']: row for row in rows}
+
+
+def _source_files(value, revision):
+    check(isinstance(value, dict) and set(value) == {'schema', 'repository', 'revision', 'root_tree', 'trees'}
+          and value['schema'] == SOURCE_SCHEMA and value['repository'] == REPOSITORY and value['revision'] == revision
+          and isinstance(value['root_tree'], str) and re.fullmatch('[0-9a-f]{40}', value['root_tree'])
+          and isinstance(value['trees'], list) and len(value['trees']) == 3)
+    expected = value['root_tree']
+    for record, component in zip(value['trees'], ('pkg_version', 'usm', None)):
+        check(isinstance(record, dict) and set(record) == {'sha', 'tree'} and record['sha'] == expected)
+        listing = _tree(record['tree'], expected)
+        if component:
+            child = listing.get(component, {})
+            check(child.get('type') == 'tree' and child.get('mode') == '040000')
+            expected = child['sha']
+    selected = {}
+    for name, limit in SOURCE_LIMITS.items():
+        item = listing.get(name, {})
+        check(item.get('mode') == '100644' and item.get('type') == 'blob'
+              and type(item.get('size')) is int and 0 < item['size'] <= limit)
+        selected[name] = item
+    return selected
+
+
+def _source(revision):
+    tree = _ROOTS.get(revision)
+    if tree is None:
+        value = json.loads(download(f'https://api.github.com/repos/{REPOSITORY}/commits/{revision}', limit=512 * 1024))
+        check(value.get('sha') == revision)
+        tree = value['commit']['tree']['sha']
+        check(isinstance(tree, str) and re.fullmatch('[0-9a-f]{40}', tree))
+    result = {'schema': SOURCE_SCHEMA, 'repository': REPOSITORY, 'revision': revision, 'root_tree': tree, 'trees': []}
+    for component in ('pkg_version', 'usm', None):
+        value = json.loads(download(f'https://api.github.com/repos/{REPOSITORY}/git/trees/{tree}', limit=256 * 1024))
+        check(value.get('sha') == tree and value.get('truncated') is False)
+        listing = _tree(value.get('tree'), tree)
+        # URLs from a response are never followed. Only fixed paths in this
+        # allowlisted repository and exact authenticated child hashes are used.
+        rows = [{key: row[key] for key in ('path', 'mode', 'type', 'sha', 'size') if key in row}
+                for row in value['tree']]
+        result['trees'].append({'sha': tree, 'tree': rows})
+        if component:
+            item = listing.get(component, {})
+            check(item.get('type') == 'tree' and item.get('mode') == '040000')
+            tree = item['sha']
+    _source_files(result, revision)
+    return result
+
+
 def check_latest(directory=None):
     """An optional format service must not disable otherwise usable dialogue."""
     pointer = directory / 'starrail-movie-formats' / 'current.json' if directory else None
     try:
         revision = latest_revision()
+        if directory is not None:
+            # A reachable commit listing alone is not a usable generation. Bind
+            # freshness to all three validated bodies so recovery at the same
+            # commit changes the fingerprint and retries missing movie audio.
+            load(directory, revision)
     except (HTTPError, URLError, TimeoutError, ConnectionError, ValueError, KeyError, TypeError, ET.ParseError):
         try:
             check(pointer is not None and pointer.stat().st_size <= 1024)
             revision = json.loads(pointer.read_bytes())['revision']
             check(isinstance(revision, str) and re.fullmatch('[0-9a-f]{40}', revision))
+            load(directory, revision)
             return revision, True
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, URLError, TimeoutError, ConnectionError):
             return None, True
     if pointer is not None:
         _atomic_file(pointer, json.dumps({'revision': revision}).encode())
@@ -118,9 +199,29 @@ def load(directory, revision=None, digest=None):
                   if (root / name).stat().st_size <= LIMIT}
         check(set(bodies) == set(FILES) and receipt == {name: hashlib.sha256(body).hexdigest() for name, body in bodies.items()})
     except (OSError, ValueError, TypeError):
-        bodies = {name: download(f'https://raw.githubusercontent.com/{REPOSITORY}/{revision}/pkg_version/usm/{name}', limit=LIMIT)
-                  for name in FILES}
+        bodies = None
+    source = None
+    try:
+        check((root / 'source.json').stat().st_size <= 1024**2)
+        source = json.loads((root / 'source.json').read_bytes())
+        _source_files(source, revision)
+    except (OSError, ValueError, KeyError, TypeError):
+        # Historical records already bind the complete decoded SHA256 set.
+        # They may reuse a legacy cache offline; new candidates need provenance.
+        if bodies is None or digest is None:
+            source = _source(revision)
+        else:
+            source = None
+    if source is not None:
+        files = _source_files(source, revision)
+    if bodies is None:
+        bodies = {name: download(f'https://raw.githubusercontent.com/{REPOSITORY}/{revision}/pkg_version/usm/{name}',
+                                limit=files[name]['size']) for name in FILES}
         receipt = {name: hashlib.sha256(body).hexdigest() for name, body in bodies.items()}
+    if source is not None:
+        for name, body in bodies.items():
+            size = files[name]['size']
+            check(len(body) == size and hashlib.sha1(f'blob {size}\0'.encode() + body).hexdigest() == files[name]['sha'])
     identity = hashlib.sha256(json.dumps(receipt, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     check(digest is None or identity == digest)
     documents = [json.loads(bodies[name]) for name in FILES]
@@ -132,4 +233,6 @@ def load(directory, revision=None, digest=None):
         if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != receipt[name]:
             _atomic_file(path, body)
     _atomic_file(root / 'receipt.json', json.dumps(receipt, sort_keys=True).encode())
+    if source is not None:
+        _atomic_file(root / 'source.json', json.dumps(source, sort_keys=True, separators=(',', ':')).encode())
     return catalog

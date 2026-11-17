@@ -26,6 +26,27 @@ class Context:
                 self.noreturn.add(ins.operands[0].imm)
         self.constants = Constants(self.seq, self.noreturn)
 
+    def returning_nodes(self):
+        """Native instruction addresses that can reach this owned method's RET.
+
+        Allocation-failure branches can contain further stream reads before a
+        proved nonreturning throw. Those are not successful serialized fields.
+        Unknown callees retain their ordinary fallthrough; no throw is guessed.
+        """
+        if not hasattr(self, '_returning_nodes'):
+            parents = {}
+            for instruction in self.seq:
+                for child in self.constants.successors(instruction):
+                    parents.setdefault(child, set()).add(instruction.address)
+            result = {instruction.address for instruction in self.seq if instruction.mnemonic == 'ret'}
+            pending = list(result)
+            while pending:
+                for parent in parents.get(pending.pop(), ()):
+                    if parent not in result:
+                        result.add(parent); pending.append(parent)
+            self._returning_nodes = frozenset(result)
+        return self._returning_nodes
+
     def reads(self, width=None):
         return tuple(i for i in self.seq if i.mnemonic in ('mov', 'movzx', 'movsx', 'movsxd', 'add', 'sub', 'xor', 'test', 'cmp')
                      and any(op.type == CS_OP_MEM and op.mem.index and op.mem.disp == 0x20

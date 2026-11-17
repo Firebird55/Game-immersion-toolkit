@@ -76,8 +76,12 @@ def _seed(raw):
         if method == 3:
             _check(zstandard.get_frame_parameters(raw[16:]).window_size <= MAX_EXPANDED)
             advertised = zstandard.frame_content_size(raw[16:])
-            _check(advertised == zstandard.CONTENTSIZE_UNKNOWN or advertised == expanded)
-            body = zstandard.ZstdDecompressor(max_window_size=MAX_EXPANDED // 1024).decompress(
+            # 0.25's C function returns signed -1 for unknown; its exported
+            # CONTENTSIZE_UNKNOWN constant is unsigned. No other negative is valid.
+            _check(advertised in (-1, zstandard.CONTENTSIZE_UNKNOWN) or advertised == expanded)
+            # The pinned 0.25 C backend passes this value to ZSTD in bytes.
+            # Keep both the explicit frame-window and output-length bounds.
+            body = zstandard.ZstdDecompressor(max_window_size=MAX_EXPANDED).decompress(
                 raw[16:], max_output_size=expanded, allow_extra_data=False)
         else:
             body = raw[16:]

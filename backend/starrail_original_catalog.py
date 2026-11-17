@@ -99,7 +99,8 @@ class OriginalCatalog:
         identities, unresolved = {}, []
         extras = design.extra_captions(self.tables.directory, self.build, published, paths,
             identities=identities, unresolved=unresolved, package_reader=self.tables._package, decoder=self._caption,
-            resource_id=lambda path: xxhash64(self.configs.descriptions.binary_path(path).encode('utf-8')))
+            resource_id=lambda path: xxhash64(self.configs.descriptions.binary_path(path).encode('utf-8')),
+            **({'fetch': self.tables.fetch} if getattr(self.tables, 'fetch', None) is not None else {}))
         scripts = {**published, **extras}
         aliases = {}
         legacy_keys = {xxhash64(self.configs.descriptions.binary_path('Config/CutSceneCaption/' + filename).encode('utf-8')): identity

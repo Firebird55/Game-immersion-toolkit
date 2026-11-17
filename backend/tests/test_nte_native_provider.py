@@ -179,7 +179,7 @@ def test_changed_reader_identity_cannot_use_a_stale_source_recipe(tmp_path, monk
 def test_fingerprint_uses_complete_original_recipe_and_frozen_parameter_sources(tmp_path, monkeypatch):
     original = {'Client/WindowsNoEditor/HT/Content/Game.pak': release.File(10, 'a'*32, 10, 'a'*32, 0),
                 'Client/OriginalApplication.exe': release.File(20, 'b'*32, 20, 'b'*32, 0)}
-    monkeypatch.setattr(publisher.release, 'discover', lambda _: ('PC_9', '9.0.1', original, {}))
+    monkeypatch.setattr(publisher.release, 'discover', lambda _, **_kwargs: ('PC_9', '9.0.1', original, {}))
     monkeypatch.setattr(publisher, '_reader_identity', lambda: 'f'*64)
     observed = []
     def load(**kwargs):
