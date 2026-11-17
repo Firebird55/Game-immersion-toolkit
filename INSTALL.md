@@ -143,6 +143,8 @@ listed official translation. See [Star Rail](docs/starrail-languages.md),
 For Endfield's written instructions, guide pages and operator-training steps,
 enable unvoiced-text capture. These use the publisher's original text without a
 game folder; illustrative media is not a recording of the written explanation.
+Keep an instruction book's original title and complete body visible together;
+the title distinguishes repeated explanations with different translations.
 Voiced top-of-screen Endfield captions are read across the full frame. Short
 operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.

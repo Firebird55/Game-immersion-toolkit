@@ -563,6 +563,41 @@ package directories are revalidated through the normal publisher reader;
 this remains a frozen two-generation rehearsal rather than future-update or
 physical scheduled-activation acceptance.
 
+### Original instruction titles and complete written bodies
+
+Revision 30 follows the original `InstructionBookCtrl`'s successful same-book
+lookup: it renders both `title` and `content`. Ordinary preparation resolves
+that book's localized title from the same original catalog and retains
+**title plus complete body** as OCR context for every valid book. The saved
+body, all official translations, IDs, unvoiced status and audio references
+remain unchanged. Missing, unresolved or runtime-substituted titles do not
+enable this route. A book heading never restores a conflicting spoken
+speaker/caption anchor.
+
+The five ordinary current publisher workers each derive 131 title/body
+anchors. Their complete indices match **131 / 131 books in every study
+selection**. Body-only behavior remains unchanged: English matches 125 and
+guards six repeated explanations; the other selections match 131. The six
+English bodies have distinct original event headings and can have different
+official translations, so their bodies alone must remain ambiguous.
+
+Actual `CaptureService` replays use the complete current indices and separate
+positioned title/body OCR boxes, including wrapped bodies. All six formerly
+guarded English books select their own ID and complete translations in every
+selection. Each positive and negative uses fresh transcript history, so
+duplicate suppression cannot conceal a recognition failure. Missing body,
+partial body, and English missing/changed title cases reject the target.
+Unvoiced capture remains opt-in; no audio is requested. This validates capture
+policy with synthetic OCR, rather than native OCR or physical UI acceptance.
+
+With this reader and format metadata frozen, an explicitly replayed original
+1.5.3 descriptor independently derives 113 original title/body anchors among
+49,550 English records. Current 1.6.4 has 55,086 English records, retaining all
+old IDs and the same 5,536 additions, 3,155 added voiced rows and 11 changed
+English texts. Every previous field and OCR alias survives in both generations;
+only the new instruction anchors are added. This rehearsal requests no new
+original recordings and does not establish physical scheduled activation.
+
 These finite checked families are not a claim that every indirect trigger,
 readable layout, operator menu or other narrative presentation has passed.
 Counts use prepared captions/performance pairs rather than unlocked player
@@ -573,7 +608,8 @@ content. Chinese script choices share the original Mandarin sources.
 | Current cinematic original audio bound | 499 / 501 | 501 / 503 | 501 / 503 | 495 / 497 | 497 / 499 | Two boss-caption performances per selection retain unknown speech ownership |
 | Original residual radio subset captured | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | One anonymous short caption; generic reactions stay separate |
 | Source-declared top captions admitted automatically, per protagonist | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | Exact primary binding and positive selected-dub duration required; physical acceptance separate |
-| Instruction bodies captured | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies remain guarded |
+| Instruction bodies captured alone | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies require their original title |
+| Instruction title plus complete body captured | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Original localized title and complete body; unvoiced opt-in; physical acceptance separate |
 | Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
 | Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |
 | Baker system bodies captured | 102 / 117 | 104 / 117 | 104 / 117 | 110 / 117 | 104 / 117 | Short/repeated system text retains guards |

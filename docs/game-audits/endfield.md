@@ -39,6 +39,14 @@ does not establish a displayed body. Both this written message category and
 ordinary text use unvoiced capture, separately from the existing voice-message
 route. [Original-source boundary and current preparation](endfield-current-subtitle-acceptance.md#written-baker-system-messages).
 
+Revision 30 additionally derives each instruction book's original localized
+title and complete body as recognition context. All 131 books match in every
+study selection when that complete pair is visible; six repeated English
+bodies remain guarded without their title. Official bodies, translations and
+voice states are unchanged. The same frozen reader derives 113 book anchors
+from the replayed older release, without an ID list or new recordings.
+[Original title, current capture and two-generation evidence](endfield-current-subtitle-acceptance.md#original-instruction-titles-and-complete-written-bodies).
+
 Revision 24 additionally follows original top-caption layout declarations and
 the exact stage order of operator-training steps. The current graph inventory
 contains 15 top-layout nodes; the strict source selector adds full-frame voiced
