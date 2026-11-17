@@ -836,6 +836,31 @@ a registry-update response remains unproved, and the independent default-context
 path remains under investigation. Neither an account-only requirement nor
 regional IFix equivalence is established.
 
+A separate bounded media-only check tests two specific key-recovery hypotheses
+against three already cached original movies. Their complete publisher sizes and
+MD5s are reverified before reading audio packets:
+
+| Original movie | Complete size | Publisher MD5 |
+| --- | ---: | --- |
+| `CS_Chap00_Act310_f.usm` | 34,696,032 | `dae38a58976a0e370a1eebff21a73da9` |
+| `CS_Chap00_Act310_m.usm` | 34,690,432 | `dde5d9622f780ff537e673a90909d89b` |
+| `CS_Chap01_Act3020.usm` | 65,392,224 | `f0db051bd87897609601fde6672b8b2f` |
+
+The declared ADX end markers fall in short packets before the masking boundary,
+so they supply zero encrypted known-plaintext bytes. A second check bounds all
+13,332 named audio packets across all four dubs, then scans their 19,687,776
+encrypted payload bytes for a 64-byte period-32 run. Such a run would only be a
+silence hypothesis: it must also match every fixed odd mask byte and the complete
+frozen mask-family equations before checking every declared ADX frame and
+comparing independently decoded original audio. Synthetic controls exercise all
+32 rotations and reject changed family bytes. The actual movies contain zero
+such periodic windows, so no candidate is derived and no control recording is
+opened or used to select a candidate. The second check peaks at 36,229,120 bytes
+of process working set; neither check fetches data, executes game code or retains
+new media. These negative results close these two hypotheses only. They do not
+establish that official key acquisition is impossible or authorize a community
+fallback, and they do not change any caption or voice availability.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
