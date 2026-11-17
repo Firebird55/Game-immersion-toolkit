@@ -328,6 +328,32 @@ paths, prepared-library/ZIP setup and native decoder/hash/crypto packages during
 factory/parameter import. This is import-closure evidence, not native Android
 execution or preparation acceptance.
 
+### Remaining AES/header source boundary — November 17
+
+A bounded original-source pass spent 4,070 bytes of its 8-KiB allowance and
+stopped. The original VFS streaming/persistent bundle loaders both reach the
+metadata-owned `UnityEngine.AssetBundle.LoadFromFile` wrapper. Its observed
+owned path resolves the exact runtime ICall
+`UnityEngine.AssetBundle::LoadFromFile_Internal(System.String,System.UInt32,System.UInt64)`
+and dispatches the cached pointer. The inspected resolver reads runtime mapping
+storage in the PE's unbacked data tail; those original static bytes are absent,
+and no zero value or mapped function address is assumed.
+
+The original named `il2cpp_add_internal_call` export reaches a registration API
+whose external caller supplies both the name and function pointer. It stores
+that supplied pointer in a returned map node. The missing original producer is
+the registration call site supplying this exact AssetBundle ICall name and its
+native target. No additional map-insertion helper, engine module or unrelated
+key scan was followed. The nine inspected AssetBundle fields are batch buffers
+and callbacks, not demonstrated AES key storage. Unread cold/error paths are not
+claimed complete.
+
+These are partial HTTPS-range/owned-code observations, not a full native-file
+hash, derived AES master, proof of UnityPlayer ownership or proof that the
+official route is impossible. The remaining original AES/header contract stays
+open. Text table/resource preparation must continue on its own evidenced
+original path; this boundary does not justify abandoning that work.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
