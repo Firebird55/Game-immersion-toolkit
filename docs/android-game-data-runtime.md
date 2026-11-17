@@ -60,6 +60,15 @@ has since finished downloading. Selecting that installed revision explicitly
 activates it. Re-selecting the identical active descriptor is idempotent and does
 not restart screen capture.
 
+Before publication, direct activation sets the trusted index's
+`publisher_generation` to the immutable manifest revision and
+`publisher_request_sha256` to SHA256 of canonical `ctx.request.json()`. The shared
+matcher adds `publisher_occurrence_sha256` from the complete validated authored
+row, including its player/audio/member/predecessor bindings. These are match and
+transcript context, never new publisher-row fields. Shared capture and SQLite
+deduplication distinguish all three values plus intentional omission, so an old
+same-ID sentence cannot suppress a new revision, audio choice or player take.
+
 ## Original recordings
 
 `PreparedCaptureSession` can directly activate a validated publisher snapshot and
@@ -81,6 +90,9 @@ content. SQLite may upgrade a recent caption in place, so a local integer ID is
 insufficient to authorize its older recording. Queueing, completion, playback and
 delete preservation all check that digest; favorites and audio progress do not
 alter it. The native DTO marks expected original audio only after that check.
+For old retained pointers, only absent-equivalent `None` values of those three
+new context fields are removed from stamp canonicalization. Real values always
+bind; unknown pointer formats are never adopted or rehashed automatically.
 The ordinary `audio_pending: false` default cannot make an unknown UI label a
 readable caption.
 

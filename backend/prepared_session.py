@@ -25,7 +25,7 @@ from .multilingual_index import MultilingualTextIndex
 from .prepared_library import CLIP, SHA, MAX_AUDIO, PreparedLibraryStore, _no_links
 from .storage import TranscriptStore
 from .source_recordings import OriginalRecordings
-from .game_data_protocol import GameDataError, private_handle
+from .game_data_protocol import GameDataError, GameDataRequest, bounded_text, private_handle
 
 
 class PreparedCaptureSession:
@@ -96,14 +96,18 @@ class PreparedCaptureSession:
     def activate_source(self, directory, index, descriptor, voice, source_for):
         """Activate the service-validated production index, without ZIP conversion."""
         descriptor = private_handle(descriptor)
+        request = GameDataRequest.parse(descriptor.get('request'))
         if (not index.ready or descriptor.get('game') != index.game or not descriptor.get('ready')
-                or descriptor.get('request', {}).get('source_locale') != index.source_locale):
+                or request.source_locale != index.source_locale or not bounded_text(descriptor.get('revision'), 256)):
             raise ValueError('A validated original game snapshot is required')
         with self.lock:
             self.stop('Game data changed; start the screen source again')
             previous = (self.directory, self.index, self.records_by_id, self.context_kinds,
                 self.direct_descriptor, self.direct_voice, self.original_source_for)
             try:
+                index.publisher_generation = descriptor['revision']
+                index.publisher_request_sha256 = hashlib.sha256(json.dumps(request.json(), sort_keys=True,
+                    separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
                 self._activate_prepared(Path(directory), index)
             except Exception:
                 (self.directory, self.index, self.records_by_id, self.context_kinds,

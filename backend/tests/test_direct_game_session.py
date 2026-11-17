@@ -20,11 +20,19 @@ class LocalVoice:
         self.raw, self.calls = raw, 0
         self.entered, self.release = threading.Event(), None
     def has(self, row): return row.get('audio') == {'publisher': 'authored', 'file_id': 'original-bridge'}
-    def resolve(self, row, destination, *, cancelled):
+    def resolve(self, row, destination, *, cancelled, _raw=None):
         assert self.has(row); self.entered.set(); self.calls += 1
         if self.release: assert self.release.wait(4)
-        path = destination.with_suffix('.wav'); path.write_bytes(self.raw)
+        path = destination.with_suffix('.wav'); path.write_bytes(self.raw if _raw is None else _raw)
         return path
+
+
+class BoundVoice:
+    """Keep original bytes source-specific while sharing authored race controls."""
+    def __init__(self, control, raw): self.control, self.raw = control, raw
+    def has(self, row): return self.control.has(row)
+    def resolve(self, row, destination, *, cancelled):
+        return self.control.resolve(row, destination, cancelled=cancelled, _raw=self.raw)
 
 
 class LocalProvider(Provider):
@@ -37,7 +45,7 @@ class LocalProvider(Provider):
             (ctx.directory / 'original.wav').write_bytes(self.voice.raw)
             handle = {**handle, 'audio_sha256': hashlib.sha256(self.voice.raw).hexdigest()}
         return SnapshotSource(result.snapshot_path, handle, PROOF,
-            self.voice if ctx.request.content_mode == 'text-audio' else None)
+            BoundVoice(self.voice, self.voice.raw) if ctx.request.content_mode == 'text-audio' else None)
     def restore(self, handle, ctx):
         result = super().restore(handle, ctx)
         if ctx.request.content_mode == 'text-audio':
@@ -45,9 +53,8 @@ class LocalProvider(Provider):
             # private managed directory and immutable receipt, without RAM/PC.
             raw = (ctx.directory / 'original.wav').read_bytes()
             assert hashlib.sha256(raw).hexdigest() == handle['audio_sha256']
-            self.voice.raw = raw
         return SnapshotSource(result.snapshot_path, handle, PROOF,
-            self.voice if ctx.request.content_mode == 'text-audio' else None)
+            BoundVoice(self.voice, raw) if ctx.request.content_mode == 'text-audio' else None)
 
 
 def rig(tmp_path):
@@ -199,7 +206,6 @@ def test_real_sqlite_prefix_upgrade_cannot_reuse_older_saved_original_reference(
         'source_text': partial.source_text + '这难道是关于森林的警告吗？',
         'chinese': partial.chinese + '这难道是关于森林的警告吗？',
         'source_ocr': partial.source_ocr + ' Was that supposed to be a warning about the forest?',
-        'audio_omitted_by_request': True, 'source_voice_binding': {'authored': 'new-occurrence'},
         'text_capture_verified': True})
     replaced, upgraded = session.history.add_or_upgrade_recent(complete, session.session_id)
     assert upgraded and replaced.id == first.id and session.history.count() == 1
@@ -209,7 +215,8 @@ def test_real_sqlite_prefix_upgrade_cannot_reuse_older_saved_original_reference(
     session._queue_original(first.id)
     session.preserve_game_recordings('zzz', session.original_source_for, cancelled=lambda: False)
     assert not session.recording_jobs and session.audio_path(first.id) is None
-    assert session.history.get(first.id).is_requested_text_only
+    assert session.history.get(first.id).text_id == 'authored:complete'
+    assert not session.history.get(first.id).has_audio
 
 
 def test_transcript_stamp_keeps_favorites_but_rejects_changed_text_binding(tmp_path):
@@ -222,4 +229,136 @@ def test_transcript_stamp_keeps_favorites_but_rejects_changed_text_binding(tmp_p
         assert session.audio_path(identity).read_bytes() == raw
         changed = original.model_copy(update={'source_text': 'A different occurrence'})
         assert not session.recordings.matches(identity, session._recording_stamp(changed))
+    finally: service.close(); session.stop()
+
+
+def test_same_caption_explicit_audio_addition_keeps_old_text_and_gets_new_original(tmp_path):
+    import json
+    service, session, owner, voice, raw = rig(tmp_path)
+    try:
+        planned = service.plan('zzz', {**REQUEST, 'content_mode': 'text'})['game']
+        service.download('zzz', {'plan_id': planned['plan_id'], 'revision': planned['revision']})
+        finish(service); old_id = capture(session); session.history.set_favorite(old_id, True)
+        old = session.history.get(old_id)
+        assert old.is_requested_text_only and old.publisher_generation == 'authored-one'
+        download(service); finish(service); new_id = capture(session)
+        current = session.history.get(new_id); path = wait_audio(session, new_id)
+        assert new_id != old_id and current.text_id == old.text_id
+        assert current.publisher_generation == old.publisher_generation
+        assert current.publisher_request_sha256 != old.publisher_request_sha256
+        assert current.publisher_request_sha256 == hashlib.sha256(json.dumps(REQUEST, sort_keys=True,
+            separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
+        assert current.publisher_occurrence_sha256 != old.publisher_occurrence_sha256
+        assert path.read_bytes() == raw and session.history.count() == 2
+        assert session.history.get(old_id).favorite and not session.history.get(old_id).has_audio
+        for field in ('publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'):
+            assert not session.recordings.matches(new_id,
+                session._recording_stamp(current.model_copy(update={field: 'b' * 64})))
+    finally: service.close(); session.stop()
+
+
+def test_same_id_new_publisher_generation_uses_new_recording_and_keeps_favorite(tmp_path):
+    service, session, owner, voice, raw = rig(tmp_path)
+    try:
+        download(service); finish(service); old_id = capture(session); old_path = wait_audio(session, old_id)
+        session.history.set_favorite(old_id, True)
+        newer = raw[:-2] + b'\x34\x12'
+        voice.raw = newer; service.providers['zzz'].revision = 'authored-two'
+        download(service); finish(service); new_id = capture(session); new_path = wait_audio(session, new_id)
+        old, current = session.history.get(old_id), session.history.get(new_id)
+        assert new_id != old_id and old.text_id == current.text_id
+        assert old.publisher_generation == 'authored-one' and current.publisher_generation == 'authored-two'
+        assert old.publisher_request_sha256 == current.publisher_request_sha256
+        assert old_path.read_bytes() == raw and new_path.read_bytes() == newer
+        assert old_path != new_path and old.favorite and session.history.count() == 2
+    finally: service.close(); session.stop()
+
+
+def test_late_old_decoder_never_publishes_into_same_caption_new_generation(tmp_path, monkeypatch):
+    import itertools
+    service, session, owner, voice, raw = rig(tmp_path)
+    voice.release = threading.Event()
+    completed, writes, counter = {}, [], itertools.count(1)
+    resolve, update = voice.resolve, session.history.update_audio
+    def traced(*args, **kwargs):
+        number = next(counter)
+        try: return resolve(*args, **kwargs)
+        finally: completed[threading.get_ident()] = number
+    def published(identity, *args):
+        writes.append((identity, completed.get(threading.get_ident())))
+        return update(identity, *args)
+    monkeypatch.setattr(voice, 'resolve', traced)
+    monkeypatch.setattr(session.history, 'update_audio', published)
+    try:
+        download(service); finish(service)
+        old_id = capture(session); old_generation = session.generation
+        assert voice.entered.wait(2)
+        newer = raw[:-2] + b'\x78\x56'
+        voice.raw = newer; service.providers['zzz'].revision = 'authored-two'
+        download(service); finish(service); new_id = capture(session)
+        assert new_id != old_id
+        assert session.observe(old_generation, 3, [TEXT], now=2) == []
+        voice.release.set(); new_path = wait_audio(session, new_id)
+        until = time.monotonic() + 3
+        while session.recording_jobs and time.monotonic() < until: time.sleep(.01)
+        # Starting the new source may separately retry saved historical audio.
+        # That fresh authorization is allowed; the original delayed decode #1
+        # must never publish, including into the new same-ID caption.
+        assert writes and not any(number == 1 for _, number in writes)
+        if session.history.get(old_id).has_audio:
+            assert session.audio_path(old_id).read_bytes() == raw
+        assert new_path.read_bytes() == newer
+        assert session.history.get(new_id).publisher_generation == 'authored-two'
+    finally: voice.release.set(); service.close(); session.stop()
+
+
+def test_actual_direct_same_id_player_switch_gets_its_own_original_occurrence(tmp_path):
+    import json
+    from backend.game_data_protocol import GameDataPlan
+    fixture_library(tmp_path / 'authored'); female = (tmp_path / 'authored/tone.wav').read_bytes()
+    originals = {'female': female, 'male': female[:-2] + b'\x12\x34'}
+    class ActorVoice:
+        def __init__(self, members): self.members = members
+        def has(self, row):
+            return row.get('audio', {}).get('file_id') == 'authored:' + row.get('player_voice', '') and row.get('player_voice') in self.members
+        def resolve(self, row, destination, *, cancelled):
+            assert self.has(row) and not cancelled()
+            path = destination.with_suffix('.wav'); path.write_bytes(self.members[row['player_voice']]); return path
+    class ActorProvider(Provider):
+        def plan(self, request, ctx):
+            ctx.consume_bytes(128, kind='metadata')
+            return GameDataPlan('authored-actors-one', 32768, 65536, runtime_available=True)
+        def download(self, plan, ctx):
+            source = super().download(plan, ctx)
+            payload = json.loads(source.snapshot_path.read_text())
+            payload['records'] = [{**payload['records'][0], 'text_id': 'authored:same-id', 'player_voice': player,
+                'audio': {'publisher': 'authored', 'file_id': 'authored:' + player}} for player in originals]
+            source.snapshot_path.write_text(json.dumps(payload))
+            for player, raw in originals.items():
+                ctx.consume_bytes(len(raw), kind='audio'); (ctx.directory / (player + '.wav')).write_bytes(raw)
+            handle = {'files': {player: hashlib.sha256(raw).hexdigest() for player, raw in originals.items()}}
+            return SnapshotSource(source.snapshot_path, handle, PROOF, ActorVoice(originals))
+        def restore(self, handle, ctx):
+            with pytest.raises(GameDataError): ctx.consume_bytes(0, kind='audio')
+            members = {player: (ctx.directory / (player + '.wav')).read_bytes() for player in handle['files']}
+            assert all(hashlib.sha256(raw).hexdigest() == handle['files'][player] for player, raw in members.items())
+            return SnapshotSource(ctx.directory / 'textmap.json', handle, PROOF, ActorVoice(members))
+    session = PreparedCaptureSession(tmp_path / 'profile')
+    def activate(ctx, source):
+        session.activate_source(ctx.directory, ctx.index, ctx.source_descriptor, source.voice_source,
+            lambda descriptor: service.original_voice_source(descriptor, expected_owner=ctx.owner))
+    service = GameDataService(session.root / 'game-data', {'zzz': ActorProvider()}, on_activate=activate)
+    try:
+        download(service); finish(service)
+        session.update_settings({'zzz_proxy_voice': 'female'})
+        first = capture(session); first_path = wait_audio(session, first); session.history.set_favorite(first, True)
+        session.update_settings({'zzz_proxy_voice': 'male'})
+        second = capture(session); second_path = wait_audio(session, second)
+        old, current = session.history.get(first), session.history.get(second)
+        assert old.text_id == current.text_id == 'authored:same-id' and first != second
+        assert old.publisher_generation == current.publisher_generation
+        assert old.publisher_request_sha256 == current.publisher_request_sha256
+        assert old.publisher_occurrence_sha256 != current.publisher_occurrence_sha256
+        assert first_path.read_bytes() == originals['female'] and second_path.read_bytes() == originals['male']
+        assert old.favorite and session.history.count() == 2
     finally: service.close(); session.stop()

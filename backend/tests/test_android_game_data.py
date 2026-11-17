@@ -303,6 +303,8 @@ def test_unexpected_native_decoder_failure_is_bounded_until_explicit_retry(tmp_p
 
 
 def test_old_context_stamp_and_actual_wav_reopen_without_rehashing_saved_pointer(tmp_path):
+    from contextlib import closing
+    import sqlite3
     from backend.models import TextMatch
     fixture_library(tmp_path / 'authored'); raw = (tmp_path / 'authored/tone.wav').read_bytes()
     provider = LocalProvider(LocalVoice(raw))
@@ -313,14 +315,21 @@ def test_old_context_stamp_and_actual_wav_reopen_without_rehashing_saved_pointer
         install(host)
         # Recreate the genuine old stamp format: optional publisher fields did
         # not exist in either JSON context or the complete TranscriptLine DTO.
-        old = host.session.history.add(TextMatch(text_id='authored:old', game='zzz',
-            english=TEXT, chinese='沿河走过桥。', source_text=TEXT, source_ocr=TEXT,
-            source_locale='en', source_language='en', audio_locale='en', score=100, kind='exact', voice_status='voiced'),
+        row = host.session.index._records[0]
+        old = host.session.history.add(TextMatch(text_id=row['text_id'], game='zzz',
+            english=row['english'], chinese=row['chinese'], source_text=row['source_text'], source_ocr=TEXT,
+            texts=row['texts'], dialogue_kind=row['dialogue_kind'], source_locale='en', source_language='en',
+            audio_locale='en', score=100, kind='exact', voice_status='voiced'),
             host.session.session_id)
+        with closing(sqlite3.connect(host.session.history.path)) as database:
+            with database:
+                context = json.loads(database.execute('SELECT language_context FROM transcript_lines WHERE id=?', (old.id,)).fetchone()[0])
+                for name in ('publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'):
+                    assert context.pop(name, None) is None
+                database.execute('UPDATE transcript_lines SET language_context=? WHERE id=?', (json.dumps(context), old.id))
         old_dto = old.model_dump(mode='json', exclude={'favorite', 'has_audio', 'voiced', 'audio_source', 'audio_pending',
             'publisher_generation', 'publisher_request_sha256', 'publisher_occurrence_sha256'})
         old_stamp = hashlib.sha256(json.dumps(old_dto, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()).hexdigest()
-        row = host.session.index._records[0]
         host.session.recordings.register(old.id, host.session.direct_descriptor, row, line_stamp=old_stamp)
         path = host.session.recordings.materialize(old.id, host.session.original_source_for)
         host.session.history.update_audio(old.id, 'official-retained/' + path.name, True)
