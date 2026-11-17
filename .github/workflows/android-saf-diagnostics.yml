@@ -1,0 +1,46 @@
+name: Authored Android SAF causal diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm run dev:doctor
+        continue-on-error: true
+      - run: npm ci --ignore-scripts
+      - run: node --test tests/android-authored-adb.test.mjs tests/android-authored-document-picker.test.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-shared-core-candidate
+          run-id: 44055784466
+          github-token: ${{ github.token }}
+          path: output/android-downloaded
+      - name: Permit the hosted runner's existing KVM device
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: node scripts/probe-android-saf-file-lifetime.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: authored-saf-file-lifetime
+          if-no-files-found: warn
+          retention-days: 7
+          path: output/android-saf-diagnostic/*.json
