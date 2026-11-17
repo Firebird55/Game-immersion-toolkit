@@ -58,6 +58,8 @@ from .automatic_mobile_export import AutomaticMobileExports
 from .game_paths import GAMES, configured_install, clear_install, discover_install, save_install, validate_install
 from .local_access import COMPANION_ORIGINS, LocalAccessMiddleware, local_access_allowed
 from .runtime_bundle import discover_layout, child_command
+from .desktop_game_data import DesktopGameData
+from .game_data_protocol import GameDataError
 
 
 # A scoped constructor hook can wrap creation without changing the real member
@@ -294,6 +296,7 @@ class Runtime:
         self._locale_indexes, self._locale_voices, self._active_locales = {}, {}, {}
         self._retired_voices = set()
         self._locale_voice_lock = threading.RLock()
+        self.publisher_data = DesktopGameData(self, DATA_DIR / 'publisher-games')
         self.capture.recorded_voice_assets = self.recorded_voice_assets
         self.capture.language_setup = self.capture_language_ready
         self.capture.language_problem = self.capture_language_problem
@@ -556,6 +559,11 @@ class Runtime:
         return f'{locale}: the prepared table is missing or cannot be activated. Automatic repair checks run every 2 minutes; see Setup → Languages.'
 
     def capture_language_ready(self, game):
+        publisher = getattr(self, 'publisher_data', None)
+        if publisher is not None:
+            ready = publisher.capture_ready(game)
+            if ready is not None:
+                return ready
         if game == 'hito':
             return True
         account = self.accounts.status()['active']
@@ -586,7 +594,7 @@ class Runtime:
         texts = line.texts or {'en': line.english, 'zh-Hans': line.chinese}
         locale = resolve_locale(target, texts)
         prepared = self.languages.prepared(line.game, line.source_locale)
-        if prepared and target not in prepared['targets']:
+        if not line.publisher_generation and prepared and target not in prepared['targets']:
             locale = None
         return line.model_copy(update={'translation_locale': locale or target,
                                       'translation_text': texts.get(locale, '') if locale else ''})
@@ -668,6 +676,8 @@ class Runtime:
         Runtime._require_reopenable(self)
         if not self._updates_started:
             starts = [self.languages.start]
+            if hasattr(self, 'publisher_data'):
+                starts.insert(0, self.publisher_data.resume)
             if hasattr(self, 'toolkit_updater'):
                 starts.append(self.toolkit_updater.start)
             if hasattr(self, 'automatic_exports'):
@@ -702,6 +712,8 @@ class Runtime:
     async def stop_updates(self, *, drain=False) -> None:
         self._updates_started = False
         self._pending_update_starts = []
+        if hasattr(self, 'publisher_data'):
+            await asyncio.to_thread(self.publisher_data.pause)
         if hasattr(self, 'toolkit_updater'):
             await asyncio.to_thread(self.toolkit_updater.close)
         if hasattr(self, 'automatic_exports'):
@@ -1682,7 +1694,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(COMPANION_ORIGINS),
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 # Outermost: reject HTTP/preflight and WebSocket requests before account pinning,
@@ -1788,6 +1800,79 @@ def setup_access(request: Request, header: str | None = None, *, write: bool = F
         raise HTTPException(403, "Setup is available only on this PC")
     if write and header != "setup":
         raise HTTPException(403, "Setup action header required")
+
+
+class PublisherLanguages(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    region: Literal['global', 'cn']
+    source_locale: str = Field(min_length=2, max_length=32)
+    target_locales: list[str] = Field(max_length=128)
+    content_mode: Literal['text', 'text-audio']
+
+
+class PublisherDownload(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    plan_id: str = Field(pattern=r'^[0-9a-f]{32}$')
+    revision: str = Field(min_length=1, max_length=256)
+
+
+class PublisherRevision(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    revision: str | None = Field(max_length=256)
+
+
+def publisher_operation(request, operation, *, game=None, payload=None, header=None):
+    setup_access(request, header, write=operation != 'snapshot')
+    host = runtime.publisher_data
+    with runtime.accounts.lock:
+        account = runtime.accounts.status()['active']
+        expected = request.headers.get('x-proxy-transcript-account')
+        if expected is not None and expected != account:
+            raise HTTPException(409, 'Account changed. Refresh Settings before retrying.')
+        owner = host.owner()
+    # The service can call back into the account lock at its publication point.
+    # Never retain that lock through planning, decoding, download or service IO.
+    try:
+        method = getattr(host.service, operation)
+        result = (method(expected_owner=owner) if game is None
+            else method(game, payload, expected_owner=owner))
+        if host.owner() != owner:
+            raise GameDataError('game_data_owner_changed', 'Account changed. Refresh Settings before retrying.', 409)
+        return result
+    except GameDataError as error:
+        return JSONResponse({'detail': error.message, 'code': error.code}, status_code=error.status)
+    except (OSError, ValueError, TypeError):
+        return JSONResponse({'detail': 'Game preparation failed. Previous game data and saved history were kept.',
+            'code': 'game_data_unavailable'}, status_code=409)
+
+
+@app.get('/api/game-data')
+def publisher_status(request: Request):
+    return publisher_operation(request, 'snapshot')
+
+
+@app.post('/api/game-data/{game}/plan')
+def publisher_plan(game: str, payload: PublisherLanguages, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'plan', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.post('/api/game-data/{game}/download')
+def publisher_download(game: str, payload: PublisherDownload, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'download', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.post('/api/game-data/{game}/activate')
+def publisher_activate(game: str, payload: PublisherRevision, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'activate', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
+
+
+@app.delete('/api/game-data/{game}/data')
+def publisher_delete(game: str, payload: PublisherRevision, request: Request,
+        x_proxy_transcript: str = Header(default='')):
+    return publisher_operation(request, 'delete', game=game, payload=payload.model_dump(), header=x_proxy_transcript)
 
 
 @app.get("/api/setup")
