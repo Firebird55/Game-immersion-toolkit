@@ -121,6 +121,13 @@ def crypto_parameters(tools, identity):
                       frozen.multiplier, frozen.xor_constant, protocol=original.protocol)
 
 
+def index_parameters(tools, identity):
+    """Plain tables/Lua/index discovery must not acquire an unused audio seed."""
+    original = candidate(tools, identity)
+    from .endfield_vfs import IndexParameters
+    return IndexParameters(original.key, dict(original.directories), original.protocol)
+
+
 def activate(tools, identity, original, parameters, block, data, *, recheck, suffix='.pck', names=None):
     """Pass original CRC/schema checks, then publish the parameter witness.
 

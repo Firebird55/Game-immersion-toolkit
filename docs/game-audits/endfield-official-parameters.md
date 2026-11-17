@@ -80,6 +80,17 @@ Windows amd64/Python 3.12 only. Existing validated parameter witnesses and older
 prepared data remain readable without a fresh native extraction. This gate does
 not introduce a community fallback or implement Linux, macOS or Android closure.
 
+Modern plain index acquisition now carries only the original common key,
+directory map and protocol in `IndexParameters`. Table, Lua and UI indexes can
+be read without fetching AKPK seed documents or voice package indexes; outer
+payload reads also need only those common fields. A bank or media decoder given
+index-only parameters returns `missing_original_audio_master` before reading
+audio, with previous data retained. There are no zero multiplier/XOR substitutes.
+The NumPy audio mask dependency is loaded only by actual audio transformation.
+Old immutable descriptors keep their exact frozen parameter provenance. Complete
+text-only production and original timeline/UI-bundle AES sourcing remain
+separate open gates.
+
 ## Current evidence and limits
 
 The actual source replay uses cached original Global Windows 1.6.4 client bytes.
