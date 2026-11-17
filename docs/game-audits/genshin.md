@@ -1223,6 +1223,17 @@ conditional/direct-Global dialogue qualifications remain explicit.
 The pinned generic source and full MIT license are recorded in
 [the input policy](../../packaging/genshin-reader/inputs.json). The public code
 and synthetic fixtures contain no original codec arrays, game bytes or dialogue.
+
+The original resource-index reader also retains the publisher's complete type
+extension map and each asset's selector/packed-location alternatives. The native
+`ResourceIndex.GetResourceIdentifier` consumer establishes the physical bundle
+identifier as the absolute value of the signed low 30 bits. This projection is
+applied only after bounded typed parsing; every alternative must still reference
+an owned physical bundle and the whole index must reach EOF. Multiple variants
+remain unavailable until their platform selection is established, even when
+they share a bundle. This does not change the default provider or establish the
+missing full incoming paths for `VideoSubtitles`.
+
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and
 the explicit official-manifest preflight size bounds.
