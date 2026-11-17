@@ -96,6 +96,53 @@ bounds; both containing source files passed their original whole-file hashes.
 This closes that finite source check without claiming the entries are active,
 unused, silent, or the complete set of runtime-injected NPC interactions.
 There is no continuing broad NPC/graph/native download hunt for the 333 paths.
+## November 17, 2026 · Official bootstrap renewal and remaining autonomy boundary
+
+Normal installation-free discovery now reads `app_version` and `login_setting`
+directly from the selected official launcher's `resources.assets`. The bounded
+Unity metadata reader locates the original named TextAssets on each generation;
+it stores no revision-specific object offsets and loads no game code or Unity
+runtime. Sophon verifies every fetched complete chunk against its advertised
+MD5 before an object range is read. The source receipt retains the official
+manifest/file identity and selected object hashes; it does not claim that the
+entire resources file was downloaded or hashed.
+
+These original documents renew `DispatchSeed`, channel/version identity and
+dispatcher endpoints, independently for Global and mainland China. Invalid,
+mixed-generation or cross-edition inputs fail before a candidate replaces the
+accepted prepared library. Source provenance distinguishes these official
+parameters from the frozen initial request/crypto input; decoded keys never
+enter the descriptor or public source.
+
+The initial source is content-pinned to one immutable Collapse repository
+commit, with SHA256 and size checks for its master and selected edition config.
+It is retained locally and is not fetched from a moving branch during ordinary
+ZZZ updates. First initialization may retrieve those exact frozen documents;
+this is an initial software/parameter dependency, not an official-source claim.
+Genshin's separate controlled-hybrid policy resolves one commit before reading
+both documents, exposes their identities and supports pinned offline replay.
+It is not enabled as a changing fallback for ZZZ.
+[Frozen initial source](https://github.com/CollapseLauncher/CollapseLauncher-ReleaseRepo/tree/862de49744c5c3c4120fc932cf7260383b8b7c54/metadata/v3/stable).
+
+Actual ordinary release discovery, dispatch, gateway and final publisher-pointer
+checks succeeded with community requests prohibited for both current 3.3.0
+editions: Global used ten official requests / **279,116 bytes**; mainland used
+ten / **271,402 bytes**. Each second discovery retained the first fingerprint.
+The original manifest/chunk caches were warm; neither probe fetched new game
+chunks. Obtaining mainland's own bootstrap objects separately required three
+fully authenticated chunks / **1,051,908 compressed bytes**. These are source
+development results, not native packaging or a future-update guarantee.
+
+**Full independence remains open.** `GameDispatchURLTemplate`,
+`GameGatewayURLTemplate`, `GameDispatchDefaultName` and the gateway's
+`DispatcherKey` still use frozen initial parameters. The current successful
+requests and synthetic seed/endpoint rotation do not establish renewal of a
+changed RSA key, `rsa_ver`, query shape or gateway convention. The earlier
+retained-A-to-current-B text/audio recovery trial also did not freeze the then
+mutable community bootstrap documents, so it cannot close this separate gap.
+The original native request owner has been identified for bounded static
+investigation; no game code is executed. Known unsupported bootstrap changes
+must leave the previous prepared selection and historical audio intact.
 
 ## November 17, 2026 · Original blank subtitle segments versus missing text keys
 

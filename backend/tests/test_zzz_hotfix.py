@@ -66,7 +66,7 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
               'ProtoDispatchKey': 'owned-fixture',
               'endpoints': [f'https://globaldp-prod-{edition["dispatch"]}0{number}.{edition["domain"]}/query_dispatch'
                             for number in (1, 2)]}
-    def settings(region):
+    def settings(region, build=None):
         assert region == edition['region']
         return values, key
     monkeypatch.setattr(live, '_settings', settings)

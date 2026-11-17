@@ -72,16 +72,17 @@ def _query(template, *values):
     return template, headers
 
 
-def _settings(region='global'):
-    from .hoyo_dispatch_metadata import load
+def _settings(region='global', build=None):
+    from .hoyo_dispatch_metadata import load, provenance
     check(region in ('global', 'cn'))
-    config, decoder = load('zzz', region)
+    config, decoder = load('zzz', region, build=build)
     names = ('GameDispatchChannelName', 'GameDispatchURLTemplate', 'GameGatewayURLTemplate',
              'GameDispatchDefaultName', 'ProtoDispatchKey')
     values = {name: decoder.text(config[name]) for name in names}
     endpoints = config['GameDispatchArrayURL']
     check(isinstance(endpoints, list) and 0 < len(endpoints) <= 8)
     values['endpoints'] = [decoder.text(value) for value in endpoints]
+    values['bootstrap_provenance'] = provenance(config)
     # The public launcher metadata contains a second wrapped data object for
     # the gateway decoder and its authored platform/area. Never persist it.
     packed = decoder.decode(decoder.text(config['DispatcherKey']))
@@ -152,7 +153,7 @@ def _spec(row):
 def discover(build):
     check(build['channel'] in EDITIONS and re.fullmatch(r'[1-9][0-9]*\.[0-9]+\.[0-9]+', build['version']))
     edition = EDITIONS[build['channel']]
-    values, key = _settings(edition['region'])
+    values, key = _settings(edition['region'], build)
     prefix = edition['prefix']
     check(values['GameDispatchChannelName'] == prefix)
     query, headers = _query(values['GameDispatchURLTemplate'], prefix, build['version'])
@@ -204,6 +205,8 @@ def discover(build):
     check(str(config['game_res']['audio_revision']).isdecimal())
     hotfix = {'roots': roots, 'indexes': indexes, 'revisions': revisions,
               'audio_revision': str(config['game_res']['audio_revision'])}
+    if 'bootstrap_provenance' in values:
+        hotfix['bootstrap_provenance'] = values['bootstrap_provenance']
     raw = _index_bytes(build | {'hotfix': hotfix}, 'base')
     base = raw.decode('ascii')
     check(re.fullmatch('[1-9][0-9]*_[0-9a-f]{6,64}', base))

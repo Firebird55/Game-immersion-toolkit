@@ -1,5 +1,6 @@
 """Public data envelopes must not execute code, expand without bounds or follow redirects."""
 import base64
+import hashlib
 import io
 import json
 import struct
@@ -84,18 +85,58 @@ def test_public_envelope_bounds_expansion_and_rejects_recursive_master(key, monk
     ('genshin', 'global', 'config_GIGlb.json'), ('genshin', 'cn', 'config_GICN.json'),
     ('zzz', 'global', 'config_ZZZGlb.json'), ('zzz', 'cn', 'config_ZZZCN.json'),
 ])
-def test_fixed_launcher_editions_load_only_two_public_metadata_documents(monkeypatch, key, game, region, filename):
+def test_frozen_initial_seed_is_content_verified_and_reopens_without_community(monkeypatch, tmp_path, key, game, region, filename):
     requests = []
     master = {'Key': encoded(envelope(key.export_key(format='DER'))), 'BitSize': key.size_in_bytes()}
+    documents = {'config_master.json': json.dumps(master).encode(), filename: b'{"Name":"owned initial seed"}'}
+    monkeypatch.setattr(metadata, 'SEEDS', {name: (len(raw), hashlib.sha256(raw).hexdigest())
+                                          for name, raw in documents.items()})
     def fetch(url):
         requests.append(url)
-        return json.dumps(master if url.endswith('/config_master.json') else {'Name': 'public config'}).encode()
+        return documents[url.rsplit('/', 1)[-1]]
     monkeypatch.setattr(metadata, 'fetch', fetch)
-    config, d = metadata.load(game, region)
-    assert config == {'Name': 'public config'} and isinstance(d, metadata.Decoder)
+    config, d = metadata.initial_seed(game, region, cache_dir=tmp_path)
+    assert config['Name'] == 'owned initial seed' and isinstance(d, metadata.Decoder)
     assert set(requests) == {metadata.ROOT + 'config_master.json', metadata.ROOT + filename}
+    proof = metadata.provenance(config)
+    assert proof['policy'] == 'frozen-initial-seed' and proof['region'] == region
+    assert 'Key' not in json.dumps(proof) and master['Key'] not in json.dumps(proof)
+    monkeypatch.setattr(metadata, 'fetch', lambda *args, **kwargs: pytest.fail('Community network blocked'))
+    reopened, _ = metadata.initial_seed(game, region, cache_dir=tmp_path)
+    assert metadata.provenance(reopened) == proof
     with pytest.raises(KeyError):
-        metadata.load('genshin', 'https://untrusted.example/')
+        metadata.initial_seed('genshin', 'https://untrusted.example/', cache_dir=tmp_path)
+
+
+def test_hybrid_resolves_one_revision_and_pinned_history_reopens_offline(monkeypatch, tmp_path):
+    revision, requests = 'a' * 40, []
+    documents = {'config_master.json': b'{"BitSize":128}', 'config_GICN.json': b'{"Name":"owned CN candidate"}'}
+    def fetch(url, **kwargs):
+        requests.append(url)
+        if url.startswith('https://api.github.com/'):
+            return json.dumps({'sha': revision}).encode()
+        assert '/' + revision + '/' in url and '/main/' not in url
+        return documents[url.rsplit('/', 1)[-1]]
+    monkeypatch.setattr(metadata, 'fetch', fetch)
+    candidate, _ = metadata.load('genshin', 'cn', cache_dir=tmp_path)
+    proof = metadata.provenance(candidate)
+    assert len(requests) == 3 and proof['revision'] == revision and proof['region'] == 'cn'
+    hashes = {name: row['sha256'] for name, row in proof['files'].items()}
+    monkeypatch.setattr(metadata, 'fetch', lambda *args, **kwargs: pytest.fail('Network blocked'))
+    reopened, _ = metadata.load_pinned('genshin', 'cn', revision, hashes, cache_dir=tmp_path)
+    assert metadata.provenance(reopened) == proof
+    with pytest.raises(ValueError):
+        metadata.load_pinned('genshin', 'global', revision, hashes, cache_dir=tmp_path)
+
+
+def test_bad_seed_or_candidate_never_publishes_unverified_bytes(monkeypatch, tmp_path):
+    documents = {'config_master.json': b'{"BitSize":128}', 'config_ZZZGlb.json': b'{"Name":"owned"}'}
+    monkeypatch.setattr(metadata, 'SEEDS', {name: (len(raw), hashlib.sha256(raw).hexdigest())
+                                          for name, raw in documents.items()})
+    monkeypatch.setattr(metadata, 'fetch', lambda url: b'{"Wrong":"unverified"}')
+    with pytest.raises(ValueError):
+        metadata.initial_seed('zzz', 'global', cache_dir=tmp_path)
+    assert not list(tmp_path.rglob('*.json'))
 
 
 def test_metadata_fetch_rejects_redirects_and_incomplete_or_oversized_bodies(monkeypatch):
