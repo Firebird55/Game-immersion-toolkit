@@ -451,6 +451,32 @@ preparation remain unresolved. The full store-APK hash and Android installation
 signature acceptance remain unverified. The next bounded hypothesis is the
 declared service callbacks' own typed delegation, using existing bytes only.
 
+### Cache-only service delegation boundary
+
+Separately approved static reads revalidate the complete signed `classes4.dex`
+hash and inspect only four declared service methods: `onStartCommand`, `onBind`,
+the constructor and `onCreate`. Their exact instruction arrays total 68 DEX code
+units / 136 bytes; code-item headers, register/invoke references, instruction
+boundaries and branch destinations pass. There are no exception-handler tables
+in these methods. No original code is executed and no new network bytes are
+needed.
+
+The callbacks null-guard the service's field `a`, typed as
+`com.taptap.game.export.e`, then invoke that interface's matching callback. The
+constructor establishes the actual assignment: `ARouter.navigation` receives
+the exact class operand `ITapAppDownloadServiceProvider`; after a cast/null guard,
+its `createTapAppDownloadServiceProxy()` result is stored in field `a`.
+`onCreate` only delegates initialization to the same instance.
+
+**This pass stops at that returned interface factory.** Its concrete registration,
+implementation and game-download request contract have not been read or proved;
+no automatic callee expansion follows. The chain is source-owned delegation,
+not an anonymous APK API, account requirement, native barrier or proof of
+impossible official key derivation. The authenticated compressed input plus one
+retained original `classes4.dex` occupies 24,995,265 bytes for this phase, within
+the approved 26 MiB retention limit. Reverse:1999 preparation remains unavailable
+in both content modes.
+
 ### Community key candidate: research only
 
 The original author repository
