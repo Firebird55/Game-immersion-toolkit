@@ -43,7 +43,7 @@ class ReleaseCatalog(DialogueCatalog):
             return self._bytes(relative, url)
 
     def file(self, relative, *, optional=False):
-        if relative.startswith('TextMap/') and getattr(self, 'official_source', None) is not None:
+        if (relative.startswith('TextMap/') or relative == 'ExcelBinOutput/ManualTextMapConfigData.json') and getattr(self, 'official_source', None) is not None:
             return self.official_source.file(relative)
         return super().file(relative, optional=optional)
 
@@ -207,8 +207,10 @@ def preflight(data_dir, region='global', *, content_mode, study_locales, target_
     build = _release(region)
     directory = data_dir / 'tools' / 'sophon'
     native_name = 'GenshinImpact.exe' if region == 'global' else 'YuanShen.exe'
-    game_files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), ('.exe',))
-    if native_name not in game_files:
+    from .genshin_original_excel import metadata_name
+    metadata_path = metadata_name(build['channel'])
+    game_files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), ('.exe', 'global-metadata.dat'))
+    if native_name not in game_files or metadata_path not in game_files:
         raise ValueError('The official Genshin native metadata input is missing.')
     localized = {}
     data_name = ROOTS[build['channel']].split('/')[0]
@@ -229,7 +231,7 @@ def preflight(data_dir, region='global', *, content_mode, study_locales, target_
         if name in designs:
             raise ValueError('The official Genshin design manifest has duplicate identities.')
         designs[name] = row
-    return plan(build, game_files[native_name], localized, designs, content_mode=content_mode, study_locales=study_locales,
+    return plan(build, game_files[native_name], localized, designs, metadata=game_files[metadata_path], content_mode=content_mode, study_locales=study_locales,
                 target_locales=target_locales, catalog=catalog, catalog_publisher=catalog_publisher)
 
 

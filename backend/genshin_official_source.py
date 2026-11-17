@@ -19,6 +19,8 @@ from .genshin_blb_native import discover_candidates
 from .genshin_official_text import OriginalTables
 from .genshin_original_containers import DataObjects, DesignCatalog
 from .genshin_original_textmap import NativeTextMapParameters, discover_native_parameters
+from .genshin_original_excel import MANUAL_PATH, MANUAL_RELATIVE, MAX_METADATA, metadata_name, validate_rows, validate_proof
+from .genshin_original_containers import asset_identity
 from .hoyo_publisher_voice import descriptor
 from .prebuilt_readers import _no_links
 
@@ -49,15 +51,14 @@ def identity(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def official_native(directory, build, publisher):
+def _official_file(directory, build, publisher, name, suffixes, prefix, maximum):
     channel = build['channel']
     check(channel in {'genshin-global', 'genshin-cn'})
-    name = 'GenshinImpact.exe' if channel == 'genshin-global' else 'YuanShen.exe'
-    files = sophon.manifest(publisher, channel, tuple(build['manifests']['game']), ('.exe',))
+    files = sophon.manifest(publisher, channel, tuple(build['manifests']['game']), suffixes)
     check(name in files)
     asset = files[name]
-    check(type(asset.size) is int and 512 <= asset.size <= MAX_NATIVE and re.fullmatch('[a-f0-9]{32}', asset.digest))
-    path = directory / ('native-' + asset.digest); _no_links(path)
+    check(type(asset.size) is int and 512 <= asset.size <= maximum and re.fullmatch('[a-f0-9]{32}', asset.digest))
+    path = directory / (prefix + asset.digest); _no_links(path)
     if not path.is_file() or path.stat().st_size != asset.size or digest(path, 'md5') != asset.digest:
         with tempfile.TemporaryDirectory(prefix='original-native-', dir=directory) as value:
             pending = Path(value) / 'native'
@@ -69,6 +70,11 @@ def official_native(directory, build, publisher):
     return path, {'name': name, 'publisher_md5': asset.digest, 'bytes': asset.size, 'sha256': digest(path)}
 
 
+def official_native(directory, build, publisher):
+    name = 'GenshinImpact.exe' if build['channel'] == 'genshin-global' else 'YuanShen.exe'
+    return _official_file(directory, build, publisher, name, ('.exe',), 'native-', MAX_NATIVE)
+
+
 class Source:
     def __init__(self, directory, build, helper, parameters, parameter_receipt, *, native_input=None):
         self.directory = Path(directory).absolute(); _no_links(self.directory)
@@ -77,6 +83,7 @@ class Source:
         self.build, self.helper = build, helper
         self.parameters, self.parameter_receipt = parameters, parameter_receipt
         self.native_input = native_input
+        self.manual_rows, self.manual_receipt = None, None
         self.stamp = descriptor(build)[0]
         self.package_receipts = {}
         check('hotfix' in build)
@@ -171,10 +178,42 @@ class Source:
                               'parameters_sha256': descriptions[0].fingerprint(), 'semantic_owner_claim': False}
 
     def file(self, relative):
+        if relative == MANUAL_RELATIVE:
+            return self.manual()
         return self.tables.file(relative)
 
+    def manual(self):
+        if self.manual_rows is not None:
+            return self.manual_rows
+        from .genshin_original_excel import read_manual
+        native_path, native = self.native_input or official_native(self.directory, self.build, self.publisher)
+        metadata_path, metadata = _official_file(self.directory, self.build, self.publisher,
+            metadata_name(self.build['channel']), ('global-metadata.dat',), 'metadata-', MAX_METADATA)
+        identity_value = asset_identity(MANUAL_PATH)
+        location = self.catalog.locate(identity_value)
+        payload = self.objects(location.package).resolve(self.catalog, identity_value, location.bundle)
+        software = {path.name: digest(path) for path in Path(__file__).parent.glob('genshin_native*.py')}
+        for name in ('genshin_original_dialogue.py', 'genshin_original_excel.py'):
+            software[name] = digest(Path(__file__).with_name(name))
+        owner = {'publisher': self.stamp, 'native_sha256': native['sha256'], 'metadata': metadata,
+                 'manifest_sha256': identity(self.build['manifests']['game']), 'software_sha256': software,
+                 'payload_sha256': hashlib.sha256(payload).hexdigest(), 'asset_index': identity_value,
+                 'bundle': location.bundle, 'catalog_sha256': self.catalog.sha256}
+        cache = self.directory / ('manual-' + identity(owner) + '.private-json'); _no_links(cache)
+        try:
+            check(cache.stat().st_size <= 32 * 1024**2)
+            saved = json.loads(cache.read_bytes()); check(saved['owner'] == owner)
+            rows = validate_rows(saved['rows']); proof = validate_proof(saved['proof'], rows, payload)
+        except (OSError, ValueError, TypeError, KeyError):
+            rows, proof = read_manual(native_path.read_bytes(), metadata_path.read_bytes(), payload)
+            _atomic_file(cache, json.dumps({'owner': owner, 'rows': rows, 'proof': proof},
+                                           ensure_ascii=False, sort_keys=True).encode())
+        self.manual_rows = rows
+        self.manual_receipt = {'owner': owner, 'proof': proof}
+        return rows
+
     def receipt(self):
-        return {'schema': 'genshin-original-text-source-v1', 'publisher': self.stamp,
+        receipt = {'schema': 'genshin-original-text-source-v1', 'publisher': self.stamp,
                 'publisher_descriptor': dict(self.build), 'official_design_index_md5': self.index_md5,
                 'official_design_index_sha256': self.index_sha256, 'catalog_sha256': self.catalog.sha256,
                 'codec_description': self.parameter_receipt, 'helper_identity': self.helper.identity,
@@ -182,6 +221,9 @@ class Source:
                     ('genshin_original_containers', 'genshin_official_text', 'genshin_official_source')},
                 'native': self.native_receipt, 'locales': self.tables.receipts,
                 'packages': dict(self.package_receipts)}
+        if self.manual_receipt is not None:
+            receipt['original_tables'] = {'ManualTextMapConfigData': self.manual_receipt}
+        return receipt
 
 
 def prepare(directory, build):

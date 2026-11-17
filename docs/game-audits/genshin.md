@@ -1124,6 +1124,26 @@ current retained-input evidence, not an old-to-new executable trial. Ordinary
 preparation validates all selected source/target locale shards; the all-locale
 format proof does not authorize hidden downloads of unselected locales.
 
+The explicit original source now also intercepts the existing
+`ManualTextMapConfigData` consumer. The native path owner, string-key getter and
+typed serializer resolve that full catalog identity, and complete original
+decoding yields 42,098 rows with strict EOF. Protected integer arrays and
+equivalent unrolled element paths are supported only when every successful
+native path yields one contract; conflicting operands fail. Reads confined to
+proved nonreturning error branches do not become successful serialized fields.
+The private cache binds the entire executable, metadata, table payload and
+reader software, and the generation receipt labels this table separately.
+This removes that pronoun-table content dependency without relabeling earlier
+snapshots, the other dialogue tables, Readable bodies or Subtitle files.
+
+Preparation requires the complete official metadata input. The preflight ledger
+includes all its Sophon chunks and materialized bytes, plus the shared original
+ManualTextMap container; text-only planning still reads no dub manifest or bank.
+On the retained Global generation the metadata is 83,644,132 bytes, with 65
+transport chunks totaling 61,346,746 wire bytes. The refined Japanese/English
+text-only bound including that dependency is 409,594,778 bytes. Android-native
+execution and a second original executable-generation trial remain open.
+
 The actual current replay parsed all 15 official locale inventories: 15,360
 shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was
 disabled and comparisons with retained original outputs happened after parsing.

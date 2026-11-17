@@ -10,7 +10,8 @@ import json
 import re
 
 from .genshin_official_text import CODES, shard_inventory
-from .genshin_original_containers import DesignCatalog
+from .genshin_original_containers import DesignCatalog, asset_identity
+from .genshin_original_excel import MANUAL_PATH, MAX_METADATA, metadata_name
 
 
 TEXT_CODES = {'en': 'EN', 'zh-Hans': 'CHS', 'zh-Hant': 'CHT', 'ja': 'JP', 'ko': 'KR',
@@ -26,7 +27,7 @@ def check(value):
         raise ValueError('Incomplete or ambiguous official Genshin download plan.')
 
 
-def plan(build, native, voice_files, design_files, *, content_mode, study_locales, target_locales=(),
+def plan(build, native, voice_files, design_files, *, metadata, content_mode, study_locales, target_locales=(),
          catalog=None, catalog_publisher=None):
     """Budget immutable official inputs, deduplicating their actual cache keys.
 
@@ -46,6 +47,8 @@ def plan(build, native, voice_files, design_files, *, content_mode, study_locale
         check(not voice_files)
     codes = sorted({TEXT_CODES[locale] for locale in studies + targets})
     check(type(native.size) is int and 512 <= native.size <= 768 * 1024**2)
+    check(type(metadata.size) is int and 512 <= metadata.size <= MAX_METADATA)
+    check(isinstance(getattr(metadata, 'chunks', None), tuple) and metadata.chunks)
     check(set(codes) <= CODES and INDEX_PACKAGE in design_files)
     selected = set(design_files)
     text_kind = 'upper-bound'
@@ -53,6 +56,7 @@ def plan(build, native, voice_files, design_files, *, content_mode, study_locale
         check(isinstance(catalog, DesignCatalog) and catalog_publisher == publisher)
         selected = {catalog.locate(row['identity']).package for code in codes for row in shard_inventory(catalog, code)}
         selected.add(INDEX_PACKAGE)
+        selected.add(catalog.locate(asset_identity(MANUAL_PATH)).package)
         check(selected <= design_files.keys())
         text_kind = 'exact'
     objects = {}
@@ -92,6 +96,7 @@ def plan(build, native, voice_files, design_files, *, content_mode, study_locale
         check(end == item.size)
 
     asset(native, 'native')
+    asset(metadata, 'native-metadata')
     for files in voice_files.values():
         check(isinstance(files, dict) and files)
         for item in files.values():
@@ -112,14 +117,18 @@ def plan(build, native, voice_files, design_files, *, content_mode, study_locale
     result = {'schema': 'genshin-official-download-plan-v1', 'publisher': publisher,
         'region': build['channel'].removeprefix('genshin-'), 'content_mode': content_mode,
         'study_locales': sorted(set(studies)), 'text_codes': codes,
-        'scope': ('current-original-textmap-native-input-and-complete-selected-dub-pck-cache'
-                  if content_mode == 'text-audio' else 'current-original-textmap-native-input'),
+        'scope': ('current-original-textmap-manual-native-input-and-complete-selected-dub-pck-cache'
+                  if content_mode == 'text-audio' else 'current-original-textmap-manual-native-input'),
         'complete_game_quote': False, 'text_selection': text_kind, 'selected_design_packages': len(selected),
         'catalog_sha256': catalog.sha256 if catalog is not None else None,
         'transfer_bytes_upper_bound': wire, 'official_object_cache_bytes_upper_bound': cache,
-        'native_materialization_bytes_exact': native.size, 'decoded_containers_bytes_upper_bound': decoded,
-        'resident_bytes_upper_bound': cache + native.size + decoded,
-        'peak_bytes_upper_bound': cache + native.size + decoded + staging,
+        'native_materialization_bytes_exact': native.size, 'metadata_materialization_bytes_exact': metadata.size,
+        'native_metadata': {'name': metadata_name(build['channel']), 'publisher_md5': metadata.digest,
+                            'bytes': metadata.size, 'chunks_sha256': hashlib.sha256(json.dumps(metadata.chunks,
+                                separators=(',', ':')).encode()).hexdigest()},
+        'decoded_containers_bytes_upper_bound': decoded,
+        'resident_bytes_upper_bound': cache + native.size + metadata.size + decoded,
+        'peak_bytes_upper_bound': cache + native.size + metadata.size + decoded + staging,
         'cache_reuse_subtracted': False, 'objects': ledger,
         'unquoted_components': ['metadata-api-and-manifest-fetches', 'controlled-binding-archives',
             'dispatch-bootstrap-parameter-source', 'Readable/Subtitle-source-routes',
