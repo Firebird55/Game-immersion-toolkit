@@ -385,6 +385,34 @@ mission paths and 333 scripts / 1,989 cues. Global descriptions or metadata were
 not substituted; complete package bodies were reused only because the original
 CN indexes certify identical hashes and sizes. Regional playback is not implied.
 
+`starrail_original_provider` now composes the original launcher/native helper,
+derived routes, all 21 catalog tables and original mission/caption readers into
+the existing catalog interface. Its complete Global replay uses the real
+official dispatch and final current-release recheck through that API, then the
+existing language worker: 307,464 English records, 98,693 original voice bindings
+and 3,118 film-caption records. A separate worker comparison using the original
+catalog and the baseline's retained audio descriptor preserves every prior
+record ID, English/Chinese text, audio binding and film clock. The baseline's additional Japanese translation was
+excluded only from that two-locale comparison; the composed worker separately
+requests all three locales.
+
+All thirteen original Main textmaps are also whole-package MD5 checked and
+decode to 1,153 entries each. Their packages total 1,232,000 bytes, in addition
+to the ordinary textmaps/common/config source set above. The complete current
+source set is therefore 1,139,761,119 bytes, separately from previous-version
+and regional native inputs. Preparation publishes its reusable release receipt
+only after all required tables and caption configurations succeed. Synthetic
+dispatch/table/caption failures preserve existing receipts; a changed original
+index invalidates the final release check.
+
+This provider does not poll a new third-party game-data publication. Current
+playback uses an explicitly supplied frozen movie-format revision; deriving
+future movie parameters from originals remains unfinished. The normal
+publisher default remains unchanged pending complete update/recovery and
+platform acceptance. Existing source-helper functional checks use SDK 10.0.302;
+they do not prove the separately pinned SDK 10.0.403 delivery build or Android
+helper execution.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
