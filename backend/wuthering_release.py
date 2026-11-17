@@ -529,7 +529,7 @@ def _movie_context_records(tools, snapshot, stamp, params, db_root, records, loc
                 continue
             data = _source_bytes(tools, stamp, name, (info, position))
             _validate_wem(data)
-            shape = films.source_info(data, decoder, Path(temporary))
+            shape = films.source_info(data, decoder, Path(temporary), film_context=True)
             if shape:
                 shapes[media] = shape
     context.assign_contexts(db_root, records, locale, bindings, shapes, plot_audio_sha256=plot_audio_sha256)

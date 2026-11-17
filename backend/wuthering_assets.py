@@ -25,7 +25,7 @@ from .preparation_errors import PreparationFailure
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
-LANGUAGE_INDEX_VERSION = 11
+LANGUAGE_INDEX_VERSION = 12
 FILM_CONTEXT_SECONDS = 360
 FLOATING_SUBTITLES = 'db_FloatingSubtitle.db'
 NARRATIVE_TABLES = ('db_flowState.db', 'db_cgVedio.db', 'db_infodisplay.db', FLOATING_SUBTITLES)
@@ -529,6 +529,13 @@ def _validate_voice(audio):
     if audio.get('publisher') and media and int(media[1]) <= 0xffffffff:
         if audio.get('scene_context') is True:
             frames, channels = audio.get('source_frames'), audio.get('source_channels')
+            from .wuthering_cinematics import STANDARD_SURROUND_MASK, standard_surround_mix
+            standard_surround = (channels == 6 and audio.get('music_context') is not True
+                and type(audio.get('source_channel_mask')) is int
+                and audio['source_channel_mask'] == STANDARD_SURROUND_MASK
+                and audio.get('channel_mix') == standard_surround_mix()
+                and all(type(gain) in (int, float) for pair in audio['channel_mix'] for gain in pair))
+            ordinary = (channels in (1, 2) and 'source_channel_mask' not in audio and 'channel_mix' not in audio)
             scene, event = audio.get('scene'), audio.get('event')
             valid_scene = (isinstance(scene, str) and (
                 0 < len(scene) <= 512 and scene.isprintable() and bool(scene.strip())
@@ -536,7 +543,7 @@ def _validate_voice(audio):
                 bool(re.fullmatch(r'[A-Za-z0-9_]{1,128}', scene))))
             maximum_seconds = 300 if audio.get('music_context') is True else FILM_CONTEXT_SECONDS
             if (type(frames) is int and 0 < frames <= 48000 * maximum_seconds
-                    and type(channels) is int and channels in (1, 2)
+                    and type(channels) is int and (ordinary or standard_surround)
                     and valid_scene
                     and isinstance(event, str) and re.fullmatch(r'[A-Za-z0-9_]{1,256}', event)
                     and 'start_ms' not in audio and 'end_ms' not in audio
@@ -567,6 +574,11 @@ def decode_voice_source(data, audio, wav, decoder, directory):
             output.writeframes(result.pcm)
         return result.start_ms
     source = directory / 'source.wem'
+    if audio.get('scene_context') is True and audio['source_channels'] == 6:
+        from .wuthering_cinematics import source_info
+        shape = source_info(data, decoder, directory, film_context=True)
+        if shape != (6, audio['source_frames'], audio['source_channel_mask']):
+            raise ValueError('The original surround scene does not match its verified source')
     source.write_bytes(data)
     subprocess.run([str(decoder), '-i', '-o', str(wav), str(source)], check=True,
                    capture_output=True, timeout=90,

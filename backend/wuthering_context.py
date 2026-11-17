@@ -10,7 +10,7 @@ import sqlite3
 import struct
 
 from . import wuthering_assets as assets
-from .wuthering_cinematics import MEDIA_ROOT, caption_cues
+from .wuthering_cinematics import MEDIA_ROOT, caption_cues, STANDARD_SURROUND_MASK, standard_surround_mix
 
 
 def full_scene_events(db_root):
@@ -37,10 +37,11 @@ def full_scene_events(db_root):
 
 
 def _separate_sources(db_root, plot_audio_sha256):
-    flagged = {assets._string(blob, 4) for blob, in assets._rows(
-        db_root / 'db_cgVedio.db', 'SELECT BinData FROM videocaption')
-        if assets._boolean(blob, 11)}
-    if plot_audio_sha256 is None or not flagged:
+    """Retain separate, shared-global and unresolved native performance vetoes."""
+    captions = [(assets._string(blob, 4), assets._boolean(blob, 11)) for blob, in assets._rows(
+        db_root / 'db_cgVedio.db', 'SELECT BinData FROM videocaption')]
+    flagged = {identity for identity, separate in captions if separate}
+    if plot_audio_sha256 is None:
         return flagged
     from .preparation_errors import PreparationFailure
     try:
@@ -54,9 +55,20 @@ def _separate_sources(db_root, plot_audio_sha256):
         with closing(sqlite3.connect(':memory:')) as database:
             database.deserialize(raw)
             with closing(database.cursor()) as statement:
-                return {identity for identity in flagged if statement.execute(
-                    'SELECT 1 FROM PlotAudio WHERE Id=? LIMIT 1', (identity,)).fetchone() is not None}
-    except (OSError, ValueError, sqlite3.Error, AttributeError) as error:
+                blocked = set()
+                for identity in {identity for identity, _ in captions}:
+                    configured = statement.execute('SELECT BinData FROM PlotAudio WHERE Id=? LIMIT 1',
+                                                   (identity,)).fetchone()
+                    if configured is not None and (identity in flagged or configured[0] in (None, b'')
+                            or assets._boolean(configured[0], 3)):
+                        # Native GlobalLanguage switches the performance to
+                        # "gl", irrespective of the selected spoken language.
+                        # A localized scene containing this creature/shared
+                        # performance cannot certify the translated words as
+                        # a recording in that study language.
+                        blocked.add(identity)
+                return blocked
+    except (OSError, ValueError, TypeError, struct.error, sqlite3.Error, AttributeError) as error:
         raise PreparationFailure('game_metadata_unavailable',
             'The complete official Wuthering dialogue audio metadata could not be verified or read. '
             'Retry preparation; the previous complete index and recordings are retained.') from error
@@ -69,7 +81,7 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, p
     source_shapes comes from probing those exact original bytes. No per-scene
     IDs, guessed recording names, caption-derived cuts or ASR alignment is used.
     plot_audio_sha256 is supplied only after a complete publisher member read;
-    without it, every separately flagged caption keeps the original veto.
+    without it, no new scene context can establish per-study-language speech.
     """
     events = full_scene_events(db_root)
     # build_language_records merges presentation evidence by text identity.
@@ -89,7 +101,7 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, p
     code = assets.VOICE_LOCALES[locale][0]
     additions, all_ids = [], {row['text_id'] for row in records}
     for row in records:
-        if (row.get('audio') is not None or row.get('voice_status') != 'unavailable'
+        if (plot_audio_sha256 is None or row.get('audio') is not None or row.get('voice_status') != 'unavailable'
                 or row.get('dialogue_kind') != 'cinematic'
                 or not row['text_id'].startswith('wuwa:')
                 or not any(character.isalnum() for character in row.get('source_text', ''))):
@@ -124,14 +136,20 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, p
                         variants = []
                         break
             shape = source_shapes.get(source.media_id)
-            if (not source.authored_mute and shape and len(shape) == 2
-                    and type(shape[0]) is int and shape[0] in (1, 2)
+            standard_surround = (shape and len(shape) == 3 and shape[0] == 6
+                                 and type(shape[2]) is int and shape[2] == STANDARD_SURROUND_MASK)
+            if (not source.authored_mute and shape
+                    and (len(shape) == 2 and shape[0] in (1, 2) or standard_surround)
+                    and type(shape[0]) is int
                     and type(shape[1]) is int and 0 < shape[1] <= 48000 * assets.FILM_CONTEXT_SECONDS):
-                channels, frames = shape
+                channels, frames = shape[:2]
                 variant.update(audio_scope='context', voice_status='voiced', audio={
                     'depot': f'{MEDIA_ROOT}{code}/{source.media_id}.wem',
                     'locale': row['audio_locale'], 'scene_context': True, 'scene': scene,
                     'event': event, 'source_frames': frames, 'source_channels': channels})
+                if standard_surround:
+                    variant['audio'].update(source_channel_mask=STANDARD_SURROUND_MASK,
+                                            channel_mix=standard_surround_mix())
             variants.append(variant)
         if variants and any(variant.get('audio') for variant in variants):
             additions.extend(variants)
