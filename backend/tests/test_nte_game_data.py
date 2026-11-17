@@ -15,9 +15,23 @@ from backend.tests.test_nte_updater_source import Originals
 from backend.tests.test_publisher_transport import Response
 from backend import nte_updater_baseline as baseline, nte_updater_source as updater_source
 from backend.tests.test_nte_original_updater import authored_sdk
+from types import SimpleNamespace
 
 
 REQUEST = {'region': 'global', 'source_locale': 'ja', 'target_locales': ['en'], 'content_mode': 'text'}
+
+
+@pytest.mark.parametrize('stage', ['archive-index-ranges', 'original-indices'])
+def test_nonwindows_download_rejects_before_desktop_imports_even_for_a_foreign_stage(monkeypatch, stage):
+    import backend
+    for name in ('nte_game_data_runtime', 'nte_game_data_content', 'nte_game_data_ranges'):
+        monkeypatch.delattr(backend, name, raising=False)
+        monkeypatch.setitem(sys.modules, 'backend.'+name, None)
+    ctx = SimpleNamespace(check=lambda: None)
+    provider = NteGameDataProvider(platform='android')
+    with pytest.raises(GameDataError) as rejected:
+        provider.download(SimpleNamespace(stage=stage), ctx)
+    assert rejected.value.code == 'nte_reader_unavailable'
 
 
 def originals(monkeypatch):

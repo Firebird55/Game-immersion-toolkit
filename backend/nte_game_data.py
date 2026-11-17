@@ -102,12 +102,14 @@ class NteGameDataProvider:
     def download(self, plan, ctx):
         ctx.check()
         if plan.stage == 'archive-index-ranges':
+            reader = self._reader(ctx)
             from . import nte_game_data_ranges as ranges
-            return ranges.download(plan, ctx, self._reader(ctx),
+            return ranges.download(plan, ctx, reader,
                 PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
         if plan.stage == 'original-indices':
+            reader = self._reader(ctx)
             from . import nte_game_data_content as content
-            return content.download(plan, ctx, self._reader(ctx),
+            return content.download(plan, ctx, reader,
                 PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
         handle = plan.handle
         if (plan.stage != 'compatibility' or not isinstance(handle, dict)
