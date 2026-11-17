@@ -145,6 +145,9 @@ enable unvoiced-text capture. These use the publisher's original text without a
 game folder; illustrative media is not a recording of the written explanation.
 Keep an instruction book's original title and complete body visible together;
 the title distinguishes repeated explanations with different translations.
+For Baker system notices, keep the Messages/Tasks title, active chat name and
+complete adjacent messages visible. Some short states need a longer visible
+sequence. Friends, menus and partial or uncertain text retain their guards.
 Voiced top-of-screen Endfield captions are read across the full frame. Short
 operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.

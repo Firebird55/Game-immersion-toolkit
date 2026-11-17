@@ -14,7 +14,7 @@ from .publisher_regions import REGIONS, selected_region
 from .textmaps import display_text
 from .voice_assets import voice_hash, wwise_short_id
 
-LANGUAGE_INDEX_VERSION = 30
+LANGUAGE_INDEX_VERSION = 31
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': 'CN', 'zh-Hant': 'TC', 'ja': 'JP', 'ko': 'KR',
     'fr': 'FR', 'de': 'DE', 'it': 'IT', 'es-419': 'MX', 'pt-BR': 'BR', 'ru': 'RU',
     'th': 'TH', 'vi': 'VN', 'id': 'ID'}
@@ -776,6 +776,14 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
             warnings.append('Endfield world-dialogue UI ownership could not be verified for this release. '
                             'Repeated operator-profile captions retain their ambiguity guards. Refresh preparation '
                             'after the publisher resources are complete; changed presentation formats need reader support.')
+    sns_ui = None
+    if online and hasattr(catalog, 'sns_dialogue_ui'):
+        try:
+            sns_ui = catalog.sns_dialogue_ui(rows, tables)
+        except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+            warnings.append('Endfield Baker UI ownership could not be verified for this release. '
+                            'Repeated system messages retain their capture guards. Refresh preparation '
+                            'after the publisher resources are complete; changed presentation formats need reader support.')
     for film in films:
         coverage[film['voice_status']] += 1
     current = endfield_release.discover(selected_region(data_dir / 'tools', 'endfield'))[0] if online else fingerprint(install)
@@ -817,6 +825,7 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         'records': rows, 'coverage_warnings': warnings, 'voice_coverage': coverage, 'publisher_film_cues': len(films),
         'publisher_top_dialogue_cues': sum(row['dialogue_kind'] == 'conversation' and 'cinematic' in row['channels'] for row in rows),
         **({'publisher_world_dialogue_ui': world_ui} if world_ui else {}),
+        **({'publisher_sns_dialogue_ui': sns_ui} if sns_ui else {}),
         'missing_translation_locales': [target for target in target_locales if resolve_locale(target, TEXT_LOCALES) not in available],
         'message': f'{len(rows):,} authored {source_locale} lines; {count:,} original voices; partial presentation coverage'}
 
