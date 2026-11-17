@@ -128,9 +128,10 @@ verified. Only the selected updater file and private evidence were retained;
 no native component was loaded or executed.
 
 The selected file has an `_XYLUAP_` wrapper followed by Base64 data. Removing
-that outer encoding yields 10,144 bytes, not direct JSON/zlib/gzip. The wrapper
-decoder and any key derivation from official sources remain unresolved; a
-16-byte multiple alone does not establish its cipher. The complete acquired
+that outer encoding yields 10,144 bytes, not direct JSON/zlib/gzip. A later
+authenticated native-source probe, described below, resolved this file's
+decoder and original key derivation. A 16-byte multiple alone did not establish
+its cipher. The complete acquired
 launcher/network components have no direct marker reference in ASCII or either
 UTF-16 byte order. The two source-authored SDK parameter keys concern process
 cleanup and GPU-driver configuration; the cleanup response has no wrapper/key
@@ -153,6 +154,79 @@ installer's size nor the publisher's whole-game free-space recommendation is a
 valid substitute. A preparation plan must come from the current regional game
 inventory, include required tables/bindings and selected original voice assets,
 and account for cache, retained recordings and temporary extraction space.
+
+## Original Android source-integrity boundary
+
+The mainland homepage points to the publisher's
+[Android APK](https://x6cn-game-apk.papegames.com/x6cn/adapk/ad_package_offcialweb.apk).
+The observed generation is 625,323,294 bytes. Its central directory contains
+1,395 entries, including 66 Deflate-compressed native modules. The selected
+`lib/arm64-v8a/libUnreal.so` is 76,697,538 compressed bytes and 213,538,488 decoded
+bytes. It cannot be range-read as an uncompressed ELF section. This is mainland
+source evidence, not proof of Global Android compatibility or dialogue coverage.
+
+A bounded 1 MiB compressed prefix establishes ELF64/AArch64 and GNU build ID
+`2688ff5e9076a2fb028ff5bebdac3f014efbbaf6`. The resulting 3,541,389 decoded
+bytes do not contain the targeted wrapper/commandlet markers in ASCII or either
+UTF-16 byte order. Those markers may occur outside this prefix; this does not
+establish a missing or impossible official decoder. The dynamic table and
+section table are near the end of the full module, beyond that initial probe.
+
+`backend/publisher_apk.py` implements the observed APK v2
+RSA/PKCS1-SHA256 source-integrity profile without installing or executing the
+APK. It checks the leaf certificate's exact public-key encoding, signature and
+ordered algorithm lists. Unknown algorithms, v3/v3.1 blocks and additional
+attributes fail closed. A metadata signature alone never marks APK content
+verified. Following Android's [v2 specification](https://source.android.com/docs/security/features/apksigning/v2),
+the streaming reader verifies every protected section in separate 1 MiB chunks,
+patches the EOCD central-directory offset for the digest, compares all cached
+metadata against the stream, rejects truncation/trailing data and retains only
+an explicitly selected compressed member. A valid self-signed package signer
+does not independently pin that certificate to a publisher.
+
+The original 1,682-byte signing block contains v2 and one vendor metadata pair,
+with no v3 block or v1 certificate entries. Whole-content verification requires
+all APK bytes, not just the signer block or the selected native module. It is
+research bootstrap overhead, not a valid text-only dialogue download estimate.
+Synthetic APK fixtures exercise chunk boundaries, metadata/content corruption,
+generation mismatches, short reads, unsupported signing profiles and bounded
+member selection. This integrity reader alone prepares no game dialogue.
+
+The complete original APK was subsequently streamed once: all 625,323,294 body
+bytes, the v2 signature and 599 protected-content chunks passed verification.
+The official URL, strong ETag and length matched before/after the request; the
+whole-APK SHA-256 is
+`1dc7f77e285aff522d191e6bc17f86ee7dd09210ab8b7f7cbc321366c36aa208`.
+Only the selected compressed native member and small metadata/receipts were
+retained. Its complete Deflate EOF, 213,538,488-byte decoded length and original
+ZIP CRC `e3bc3d0b` passed. The decoded ELF SHA-256 is
+`bd6ae5fe02b59362ee362d3a8915a7f5c66957703219a556b751eb74462f9dcf`.
+The package's self-signed certificate was not independently pinned to a
+publisher identity; original publisher URL/TLS provenance and verified package
+integrity are distinct observations. No original module was loaded or executed.
+
+Targeted native references now prove that the full module contains both the
+wrapper and original commandlet markers. Following the wrapper's actual
+consumer establishes Base64 decoding, an authored SHA-1-based derivation and
+AES-256-ECB; the caller explicitly trims after the first NUL. Reimplementing
+that data transformation decodes the existing original Global bootstrap to a
+10,131-byte JSON object with base/delay-group/voice-family fields. No key is
+stored in this repository or obtained from a community source. This proves
+compatibility for that one Global descriptor, not every regional package.
+Address-independent extraction of the authored material from each current
+official native owner, discovery integration and downstream containers remain
+required. Internal build-only roots in the bootstrap are not network sources;
+public resource discovery must use the publisher SDK's current CDN descriptors.
+
+The generic verifier retains a strict default. A separately evidenced source
+may opt into `allow_signed_zero_tail=True`, which permits exactly four zero
+bytes after the three canonical signed-data fields. Android's
+[original v2 verifier](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/main/core/java/android/util/apk/ApkSignatureSchemeV2Verifier.java)
+verifies the entire raw signed-data signature and does not require that those
+three parsed fields consume all signed data. The narrow opt-in still verifies
+the complete raw signature and rejects partial, nonzero, repeated or unsigned
+tails. It does not accept unknown attributes or a stripped v3 declaration. This
+is a source-integrity subset, not complete Android installation acceptance.
 
 ## Presentation inventory and finite completion boundary
 
