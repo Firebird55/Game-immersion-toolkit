@@ -325,9 +325,28 @@ synthetic fixtures relocate code/data, rotate source material, vary linker/BTI
 forms and reject unbound producers, wrong receivers, overwritten arguments,
 unsupported copies, changed source hashes, nondefault GUIDs and bad indices.
 
-Global PAK-key compatibility, nonzero/dynamic keys, owned full-entry and Lua
-metadata readers, production signature registration/verification and complete
-fresh preparation remain separate work. No key values or source assets are
+`backend/infinity_nikki_pak.py` now supplies the bounded original v12 directory,
+compact-entry and two-hash full-entry reader. It checks the compact location
+against the original on-disk header, bounds every encrypted/compressed block,
+verifies both index plaintexts and every selected decoded member's authored
+SHA-1, and rejects unsafe paths, duplicate names, unknown GUIDs, nonencoded
+variants and unresolved deletion positions. Its injected codec contract has no
+original-library execution or Windows-specific runtime dependency. Replaying
+the exact current CN Framework archive reads all 175 members and verifies all
+1,154,031 decoded bytes using the toolkit's existing source-built desktop codec.
+That replay does not establish an Android codec or a complete game provider.
+
+`backend/infinity_nikki_lua_metadata.py` parses the source-owned updater's
+prototype, constant and debug framing without a Lua VM. Its original 0x53 tag
+does not imply stock Lua 5.3 framing. Four current updater chunks parse to exact
+EOF: 387,434 bytes and 644 prototypes. Synthetic fixtures cover source inheritance,
+changed generations, all observed constant kinds including nonfinite number bit
+patterns, bounded recursion/counts and malformed or truncated data. Parsed
+strings remain metadata, not automatically trusted download destinations.
+
+Global PAK-key compatibility, nonzero/dynamic keys, production signature
+registration/verification and complete fresh preparation remain separate work.
+No key values or source assets are
 committed. Fresh production native-owner acquisition also needs an explicit
 bootstrap plan: the embedded OBB contains a 78,866,565-byte movie PAK. Full mixed
 APK verification remains a possible route if its entire carrier cost and reason
