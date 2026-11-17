@@ -1,9 +1,9 @@
 """Desktop publication of explicitly downloaded publisher text snapshots.
 
 The shared service owns planning, transfers and immutable source validation.
-This host binds a validated text index to the existing desktop capture service;
-audio preparation remains unavailable until its original-recording adapter is
-installed. A bootstrap stage never activates capture or replaces ready data.
+This host binds a validated index to the existing desktop capture service and
+retains original recordings separately. A bootstrap stage never activates
+capture or replaces ready data.
 """
 from __future__ import annotations
 
@@ -17,6 +17,9 @@ from .game_data import GameDataService, _read, _write, _write_bytes
 from .game_data_protocol import GAME_TITLES, GameDataError
 from .game_data_providers import create_game_data_providers
 from .multilingual_index import MultilingualTextIndex
+from .source_recordings import OriginalRecordings
+from .desktop_original_audio import DesktopOriginalVoices, recording_stamp
+from .runtime_writers import QuiesceableExecutor
 
 
 class _TextOnlyVoices:
@@ -36,6 +39,9 @@ class DesktopGameData:
         self.runtime, self.root = runtime, Path(data_root)
         self.epoch, self.active = 0, {}
         self.restore_error = None
+        self.blocked, self._recordings = set(), None
+        self._recordings_lock = threading.Lock()
+        self.audio_pool = QuiesceableExecutor(max_workers=1, thread_name_prefix='publisher-original')
         self._restore_lock, self._restored_owner = threading.RLock(), None
         platform = {'win32': 'windows', 'darwin': 'macos'}.get(sys.platform, 'linux')
         self.providers = (create_game_data_providers(platform=platform) if providers is None else providers)
@@ -43,7 +49,40 @@ class DesktopGameData:
 
     def _service(self):
         return GameDataService(self.profile_root, self.providers, owner_guard=self.owner,
-            on_activate=self._activate)
+            on_activate=self._activate, retained_bytes=lambda game: self.recordings().retained_bytes(game))
+
+    def recordings(self):
+        with self._recordings_lock:
+            if self._recordings is None:
+                self._recordings = OriginalRecordings(self.root.parent / 'publisher-recordings')
+            return self._recordings
+
+    def source_for(self, descriptor, owner):
+        with self.runtime.accounts.lock:
+            if self.owner() != owner or descriptor.get('_desktop_profile') != self.profile_root().name:
+                raise GameDataError('game_data_owner_changed', 'The original belongs to a different selected account.', 409)
+        return self.service.original_voice_source(descriptor, expected_owner=owner)
+
+    def original_audio_path(self, line):
+        if self.recordings().matches(line.id, recording_stamp(line)):
+            return self.recordings().path(line.id)
+        return None
+
+    def recorded_voice_assets(self, line):
+        if line.audio_omitted_by_request:
+            return None
+        owner = self.owner()
+        active = self.active.get((owner, line.game))
+        if active and isinstance(active[1], DesktopOriginalVoices) and active[1]._row(line) is not None:
+            return active[1]
+        records = self.recordings()
+        if not records.matches(line.id, recording_stamp(line)):
+            return None
+        saved = records.reference(line.id)
+        descriptor = saved[1]['source']
+        if descriptor.get('_desktop_profile') != self.profile_root().name:
+            return None
+        return DesktopOriginalVoices(self, owner, descriptor, saved_line=line)
 
     def owner(self):
         with self.runtime.accounts.lock:
@@ -81,23 +120,12 @@ class DesktopGameData:
         return value
 
     def _activate(self, ctx, source):
+        if source is None:
+            return self._delete(ctx)
         with self.runtime.accounts.lock:
             ctx.check()
             key = (ctx.owner, ctx.game)
-            previous = self.active.get(key)
             selections = self._selections()
-            if source is None:
-                selections['games'][ctx.game] = None
-                _write(self.profile_root() / 'selected.json', selections)
-                if previous:
-                    index, voices = previous
-                    empty = MultilingualTextIndex(ctx.game, ctx.directory, autoload=False)
-                    self._bind(ctx.game, empty, voices)
-                    self.active[key] = (empty, voices)
-                return
-            if ctx.request.content_mode != 'text':
-                raise GameDataError('desktop_original_audio_adapter_unavailable',
-                    'Original audio preparation is not available in this desktop build. Previous game data was kept.', 409)
             if ctx.game != 'zzz' and ctx.game not in self.runtime.game_indexes:
                 raise GameDataError('desktop_capture_profile_unavailable',
                     'This game’s desktop capture profile is not available yet.', 409)
@@ -110,7 +138,9 @@ class DesktopGameData:
                 ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
             old_voices = (self.runtime.voice_assets if ctx.game == 'zzz'
                 else self.runtime.game_voice_assets[ctx.game])
-            voices = _TextOnlyVoices(index.source_locale, old_voices._executor)
+            voices = (DesktopOriginalVoices(self, ctx.owner, ctx.source_descriptor, index)
+                if ctx.request.content_mode == 'text-audio'
+                else _TextOnlyVoices(index.source_locale, old_voices._executor))
             if (ctx.phase == 'restore' and not getattr(ctx, 'explicit_activation', False)
                     and selections['games'].get(ctx.game) != ctx.source_descriptor):
                 raise GameDataError('active_game_changed', 'A newer downloaded game selection was kept.', 409)
@@ -125,6 +155,50 @@ class DesktopGameData:
                 if previous_bytes is None: pointer.unlink(missing_ok=True)
                 else: _write_bytes(pointer, previous_bytes)
                 raise
+
+    def _delete(self, ctx):
+        key = (ctx.owner, ctx.game)
+        with self.runtime.accounts.lock:
+            ctx.check()
+            previous = self.active.get(key)
+            self.blocked.add(key)
+            if previous:
+                empty = MultilingualTextIndex(ctx.game, ctx.directory, autoload=False)
+                self._bind(ctx.game, empty, previous[1])
+                self.active[key] = (empty, previous[1])
+        try:
+            # No account/capture lock during original decode. Refuse deletion
+            # if any saved current-profile original cannot be retained.
+            records = self.recordings()
+            for identity in records.lines(ctx.game):
+                ctx.check()
+                saved = records.reference(identity)
+                if saved[1]['source'].get('_desktop_profile') != ctx.root.name:
+                    continue
+                line = self.runtime.transcript.get(identity)
+                if line is None or not records.matches(identity, recording_stamp(line)):
+                    continue
+                path = records.materialize(identity, lambda value: self.source_for(value, ctx.owner), cancelled=ctx.cancelled)
+                ctx.check()
+                if path is None:
+                    raise GameDataError('original_not_retained', 'Saved original recordings must finish before deleting game data.', 409)
+                current = self.runtime.transcript.get(identity)
+                if current is not None and records.matches(identity, recording_stamp(current)):
+                    self.runtime.transcript.update_audio(identity, 'publisher-original/' + path.name, True)
+            with self.runtime.accounts.lock:
+                ctx.check()
+                selections = self._selections()
+                selections['games'][ctx.game] = None
+                _write(self.profile_root() / 'selected.json', selections)
+        except Exception:
+            with self.runtime.accounts.lock:
+                if previous and ctx.owner == self.owner():
+                    self._bind(ctx.game, *previous)
+                    self.active[key] = previous
+            raise
+        finally:
+            with self.runtime.accounts.lock:
+                self.blocked.discard(key)
 
     def restore_selected(self):
         """Restore this profile's exact selections locally, never latest/remote."""
@@ -166,11 +240,13 @@ class DesktopGameData:
         # Cancellation and the real pool drain complete before SQL handoff.
         self.service.close()
         self.service.pool.shutdown(wait=True, cancel_futures=True)
+        self.audio_pool.quiesce(None)
 
     def resume(self):
         if self.service.closed:
             self.epoch += 1
             self.active.clear()
+            self.audio_pool.resume()
             self.service = self._service()
         try:
             self.restore_selected()

@@ -529,6 +529,8 @@ class Runtime:
             return voices if voices.locale == locale else None
 
     def recorded_voice_assets(self, line):
+        if line.publisher_generation and hasattr(self, 'publisher_data'):
+            return self.publisher_data.recorded_voice_assets(line)
         # Historical playback reads an existing snapshot without selecting or
         # preparing another language or changing account preferences.
         scoped = self.language_voice_assets(line.game, line.source_locale)
@@ -2219,15 +2221,31 @@ def get_favorites(
 
 @app.get("/api/lines/{line_id}/audio")
 def get_line_audio(line_id: int) -> FileResponse:
-    filename = runtime.transcript.audio_path(line_id)
-    if not filename:
-        raise HTTPException(status_code=404, detail="This line has no captured voice clip")
-    audio_dir = (DATA_DIR / "audio").resolve()
-    path = (audio_dir / filename).resolve()
-    if path.parent != audio_dir or not path.is_file():
+    line = runtime.transcript.get(line_id)
+    if line is None:
+        raise HTTPException(status_code=404, detail="This line is no longer in local history")
+    path = line_audio_path(line)
+    if path is None or not path.is_file():
         raise HTTPException(status_code=404, detail="Audio file is unavailable")
     media_type = "audio/mpeg" if path.suffix.casefold() == ".mp3" else "audio/wav"
     return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
+
+
+def line_audio_path(line):
+    """Resolve only a retained authored reference or a legacy direct filename."""
+    line_id = line.id
+    filename = runtime.transcript.audio_path(line_id)
+    if not filename:
+        return None
+    if filename.startswith('publisher-original/'):
+        publisher = getattr(runtime, 'publisher_data', None)
+        path = publisher.original_audio_path(line) if publisher else None
+        return path if path and filename == 'publisher-original/' + path.name else None
+    audio_dir = (DATA_DIR / "audio").resolve()
+    path = (audio_dir / filename).resolve()
+    if path.parent != audio_dir:
+        raise HTTPException(status_code=404, detail="Audio file is unavailable")
+    return path
 
 
 @app.patch("/api/lines/{line_id}/favorite", response_model=TranscriptLine)
@@ -2563,8 +2581,11 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
     root = (DATA_DIR / "audio").resolve()
-    path = (root / (runtime.transcript.audio_path(line_id) or "missing")).resolve()
-    if path.parent != root:
+    filename = runtime.transcript.audio_path(line_id)
+    path = line_audio_path(line) if filename else root / 'missing'
+    if filename and filename.startswith('publisher-original/') and path is None:
+        raise HTTPException(409, 'The saved original recording is not available yet. Retry its audio before export.')
+    if path is not None and not (filename or '').startswith('publisher-original/') and path.parent != root:
         raise HTTPException(404, "Voice file unavailable.")
     try:
         line = presented(line)

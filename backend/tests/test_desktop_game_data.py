@@ -13,6 +13,7 @@ import pytest
 from backend import api
 from backend.desktop_game_data import DesktopGameData
 from backend.tests.test_game_data import Provider, REQUEST, finish
+from backend.storage import TranscriptStore
 
 
 HEADERS = {'X-Proxy-Transcript': 'setup', 'X-Proxy-Transcript-Account': 'legacy',
@@ -28,7 +29,7 @@ def desktop(tmp_path, monkeypatch):
     voices = SimpleNamespace(_executor=executor)
     capture = SimpleNamespace(_scan_epoch=0, game_indexes={}, game_voice_assets={})
     runtime = SimpleNamespace(accounts=accounts, capture=capture, voice_assets=voices,
-        game_indexes={}, game_voice_assets={}, textmaps=None)
+        game_indexes={}, game_voice_assets={}, textmaps=None, transcript=TranscriptStore(tmp_path / 'history.db'))
     provider = Provider()
     host = runtime.publisher_data = DesktopGameData(runtime, tmp_path / 'publisher', providers={'zzz': provider})
     monkeypatch.setattr(api, 'runtime', runtime, raising=False)
@@ -77,7 +78,7 @@ def test_desktop_text_download_binds_real_matcher_offline_activation_and_delete(
     assert retained.read_bytes() == b'authored retained recording outside publisher cache'
 
 
-def test_stage_and_unavailable_audio_activation_preserve_working_desktop_text(desktop):
+def test_stage_and_invalid_audio_snapshot_preserve_working_desktop_text(desktop):
     client, host, provider, runtime = desktop
     prepare(client)
     assert finish(host.service)['state'] == 'ready'
@@ -88,11 +89,11 @@ def test_stage_and_unavailable_audio_activation_preserve_working_desktop_text(de
     prepare(client)
     assert finish(host.service)['job']['status'] == 'needs_plan'
     assert runtime.capture.textmaps is accepted and pointer.read_bytes() == previous
-    provider.stage = False
+    provider.stage, provider.invalid = False, True
     prepare(client, REQUEST)
     failed = finish(host.service)
     assert failed['job']['status'] == 'failed'
-    assert 'audio preparation is not available' in failed['message']
+    assert 'could not be validated' in failed['message']
     assert runtime.capture.textmaps is accepted and pointer.read_bytes() == previous
 
 
