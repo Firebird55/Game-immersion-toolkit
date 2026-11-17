@@ -31,6 +31,7 @@ class WrapperMaterial:
     seed_utf16: bytes = field(repr=False)
     suffix: bytes = field(repr=False)
     source_sha256: str
+    hash_function_address: int = field(default=0, repr=False)
 
 
 class _Elf:
@@ -39,6 +40,13 @@ class _Elf:
         _require(64 <= len(raw) <= MAX_NATIVE and raw[:6] == b'\x7fELF\x02\x01')
         header = struct.unpack_from('<HHIQQQIHHHHHH', raw, 16)
         _require(header[0] == 3 and header[1] == 183 and header[2] == 1 and header[7] == 64)
+        _require(header[8] == 56 and 0 <= header[9] <= 128 and header[4] <= len(raw) - 56 * header[9])
+        self.loads = []
+        for index in range(header[9]):
+            kind, flags, offset, address, _, size, memory, _ = struct.unpack_from('<II6Q', raw, header[4] + index * 56)
+            _require(offset <= len(raw) - size and size <= memory)
+            if kind == 1:
+                self.loads.append((flags, address, memory))
         start, entry, count, names_index = header[5], header[10], header[11], header[12]
         _require(entry == 64 and 1 <= count <= 256 and names_index < count and start <= len(raw) - count * entry)
         self.sections = []
@@ -158,7 +166,7 @@ def _builder_suffix(elf, address):
         hash_calls = [target for i, word in enumerate(words[:first_store])
                       if (target := _call(word, address + 4 * i)) is not None and _sha1_profile(elf, target)]
         _require(len(hash_calls) == 1)
-        return bytes(suffix)
+        return bytes(suffix), hash_calls[0]
     except (ValueError, StopIteration, struct.error):
         return None
 
@@ -208,9 +216,10 @@ def extract_wrapper_material(native, *, expected_native_sha256: str) -> WrapperM
                 continue
             if target not in builders:
                 builders[target] = _builder_suffix(elf, target)
-            suffix = builders[target]
-            if suffix is None:
+            builder = builders[target]
+            if builder is None:
                 continue
+            suffix, hash_address = builder
             seed_literal = None
             for previous in range(max(0, index - 10), index - 1):
                 pair = _literal_pair(context[previous], context[previous + 1], reference + previous * 4)
@@ -223,12 +232,12 @@ def extract_wrapper_material(native, *, expected_native_sha256: str) -> WrapperM
                 calls = [_call(context[i], reference + i * 4) for i in range(previous + 2, index)]
                 if sum(call is not None for call in calls) == 1:
                     try:
-                        candidates.add((elf.string(seed_address), suffix))
+                        candidates.add((elf.string(seed_address), suffix, hash_address))
                     except (ValueError, UnicodeError):
                         continue
     _require(len(candidates) == 1)
-    seed, suffix = candidates.pop()
-    return WrapperMaterial(seed, suffix, expected_native_sha256)
+    seed, suffix, hash_address = candidates.pop()
+    return WrapperMaterial(seed, suffix, expected_native_sha256, hash_address)
 
 
 def _unique(pairs):

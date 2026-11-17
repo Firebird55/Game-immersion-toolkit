@@ -313,10 +313,22 @@ and follows normal version/patch changes without a fixed URL revision. Original
 current hotfix replay and synthetic format fixtures pass. The untouched base
 inventory, package selection and end-to-end normal updates remain unverified.
 
-The PAK callback/entry/bytecode work is presently original-source research;
-address-independent production PAK material extraction, owned format readers
-and their regression fixtures remain required. No key values or source assets
-are committed. Fresh production native-owner acquisition also needs an explicit
+`backend/infinity_nikki_pak_material.py` now implements the default PAK producer
+discovery without fixed addresses, keys or a disassembler. It follows the proven
+index/GUID/SHA-1 consumer to the getter's writable storage, matches the setter's
+callback capture into that same delegate object, then follows the actual startup
+binding to a complete static-copy producer in read-only source data. It does not
+scan for key literals or use ciphertext as a candidate-key oracle. Its bounded
+AES/XOR index reader requires the default zero GUID explicitly and verifies the
+plaintext hash. The exact owned reader passes the original CN Framework index;
+synthetic fixtures relocate code/data, rotate source material, vary linker/BTI
+forms and reject unbound producers, wrong receivers, overwritten arguments,
+unsupported copies, changed source hashes, nondefault GUIDs and bad indices.
+
+Global PAK-key compatibility, nonzero/dynamic keys, owned full-entry and Lua
+metadata readers, production signature registration/verification and complete
+fresh preparation remain separate work. No key values or source assets are
+committed. Fresh production native-owner acquisition also needs an explicit
 bootstrap plan: the embedded OBB contains a 78,866,565-byte movie PAK. Full mixed
 APK verification remains a possible route if its entire carrier cost and reason
 are quoted as required bootstrap overhead, only native bytes are retained and
