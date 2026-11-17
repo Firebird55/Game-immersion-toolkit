@@ -184,3 +184,28 @@ parts and measure used bytes before presenting a complete per-game size. A
 partial sum must not be presented as the whole download or device-storage need.
 Deletion must use the common ownership/lease registry for downloaded or derived
 objects, preserving study history, account state and calibration.
+
+## Registered original native-input stage
+
+The canonical [Genshin factory](../../backend/genshin_game_data.py) implements the
+shared provider contract with explicit context-owned Sophon transport. Its
+Windows `GenshinRuntime(layout)` validates an already installed BLB helper's
+complete resource inventory and the pinned static instruction decoder. It never
+builds or downloads a helper. Android and missing runtimes return an unavailable
+reader gate before transferring large game inputs; the instruction decoder alone
+does not supply an Android BLB reader.
+
+The first supported stage quotes the official launcher manifest when it exceeds
+the metadata allowance, followed by complete original executable and metadata
+files. It binds the regional build, language/content selection and runtime
+identity, deduplicates complete Sophon chunks, verifies cached bytes before
+subtracting them, and authenticates both full materialized files. All transfers
+use the shared consent and cancellation context. A stage produces
+`PreparationStage`, never a partial dialogue snapshot or text-audio Ready.
+
+With those inputs already verified, the next plan explicitly remains unavailable
+at the original content reader. Official dispatch bootstrap, the other original
+dialogue bindings, Subtitle acquisition, selected-dub materialization and full
+ordinary update acceptance still need their complete source route. This does not
+replace the accepted dialogue library with the TextMap/Readable subset or promote
+community bindings to official provenance.
