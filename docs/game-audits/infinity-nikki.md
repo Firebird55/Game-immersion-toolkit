@@ -608,6 +608,64 @@ or executed by that format proof. The source is the previously authenticated CN
 module; this does not establish Global settings, settings values or a complete
 fresh native preparation. Further owner-specific semantic work remains separate.
 
+## Original settings owner and regional-selection gate
+
+Separately approved, bounded static inspection follows that exact reflected
+registration through the native result store, class factory and default-object
+getter. The factory identifies `/Script/X6Game`, `X6PackageSettings` and the
+`X6PackageSettings` configuration category. Argument roles are checked against
+Epic's [class-factory declaration](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/CoreUObject/UObject/GetPrivateStaticClassBody?application_version=5.5):
+the fourth argument registers native methods; the constructor is a later stack
+argument. An earlier registration-callback/constructor interpretation is explicitly
+corrected in the private proof. The actual constructor initializes storage and
+calls a base helper; the inspected instructions do not provide regional CMS
+values. This remains a CN/common native owner, not proof of a Global default.
+
+The matching Global publisher inventory independently identifies the original
+`Default_Ini_2872_P.pak` configuration family. One approved 958,806-byte BuildPatch
+carrier supplies five complete selected files totaling 510,135 bytes, including
+the 508,202-byte PAK. Strict generation checks, complete chunk integrity and all
+five manifest-declared file SHA-1 checks pass. The companion signature's eight
+CRC blocks also agree with the complete PAK; that CRC check is not a new RSA
+signature verification. Native-derived default material verifies both complete
+plaintext indices and all 232 compact-entry references.
+
+Exactly nine source-owned settings INIs are then decoded from that verified
+whole PAK with zero new network bytes. Their combined 16,726 decoded bytes pass
+member-header, bounds, decoding and member-SHA-1 checks. Ordered sections,
+assignments and operators are preserved privately; application credentials and
+their values are not published. The relevant section is
+`/Script/X6Game.X6PackageSettings`. Each file explicitly assigns `CMSApiUrl`,
+`ClientID` and `ClientKey` once. The nine files form two different equivalence
+groups, so they cannot be treated as universally interchangeable:
+
+| Explicit source fields | Checked settings variants | CMS host and equality |
+| --- | --- | --- |
+| `GameArea=Cn`, `RegionId=1` | Default and `Area_CN`, `Area_CNB`, `Area_CNS` | `api-infinity.papegames.com`; the three CMS fields agree within this group. |
+| `GameArea=Oversea`, `RegionId=4` | `Area_ASG`, `Area_ENG`, `Area_OS`, `Area_OSE`, `Area_OSS` | `api.infoldgames.com`; the three CMS fields agree across all five variants. |
+
+These are literal source fields and directory names, not inferred meanings for
+the area abbreviations. Channel values differ; `OverseaRegion` is explicit in
+only two of the five latter variants. The retained successful anonymous Global
+launcher response reports `(region, channel, role)=(4, 3, 0)`, which matches one
+of these profiles by values. Original Global `FirstLoginViewModel` metadata
+independently maps `RegionId`, `ChannelId` and `Role` to those three patch-list
+request fields. That method has platform/audit predicates and is not claimed to
+run on PC. Other updater methods read `CMSConfig.Region/Channel` from
+`UPaperHotUpdateRuntimeSettings`; the build-version field named `Region` is not
+silently equated with `X6PackageSettings.RegionId`.
+
+Epic's [configuration hierarchy](https://dev.epicgames.com/documentation/en-us/unreal-engine/configuration-files-in-unreal-engine?application_version=5.5)
+defines later-layer overrides, and its [target reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-build-tool-target-reference)
+identifies `CustomConfig` as an additional build-selected configuration folder.
+Those generic rules do not identify Nikki's actual selected Global build or
+prove every game-specific merge/override. The current source-owned selection
+and effective-setting chain must still be bound before making a CMS request.
+Agreement within the RegionId-4 group narrows that question; it does not justify
+using default/CN values or launcher credentials. No CMS request, original-code
+execution, nonzero-GUID default-key attempt, caption/voice binding or Ready
+snapshot is claimed by this checkpoint.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
