@@ -12,7 +12,7 @@ import re
 import struct
 
 
-MAX_MODULE = 330 * 1024**2
+MAX_MODULE = 1024**3
 CALLBACK = b'_ZN26FEncryptionKeyRegistration8CallbackEPh'
 REGISTER = b'_Z29RegisterEncryptionKeyCallbackPFvPhE'
 GETTER = b'_ZN14FCoreDelegates27GetPakEncryptionKeyDelegateEv'
@@ -86,9 +86,9 @@ class _Elf:
         _check(len(dynamic) == 1)
         symbols = dynamic[0]
         _check(symbols['entry'] == 24 and symbols['size'] % 24 == 0 and
-               symbols['size'] <= 24_000_000 and symbols['link'] < len(self.sections))
+               symbols['size'] <= MAX_MODULE and symbols['link'] < len(self.sections))
         strings = self.sections[symbols['link']]
-        _check(strings['type'] == 3 and strings['size'] <= 96 * 1024**2)
+        _check(strings['type'] == 3 and strings['size'] <= MAX_MODULE)
         names = self.take(strings['offset'], strings['size'])
         self.symbols = {}
         for at in range(symbols['offset'], symbols['offset'] + symbols['size'], 24):
@@ -221,8 +221,9 @@ class _Elf:
                 continue
             if word & 0xffe0ffe0 == 0xaa0003e0:
                 target, source = word & 31, word >> 16 & 31
+                copied = source in arguments
                 arguments.discard(target)
-                if source in arguments:
+                if copied:
                     arguments.add(target)
             elif word & 0xfc000000 == 0x94000000:
                 arguments.difference_update(range(19))

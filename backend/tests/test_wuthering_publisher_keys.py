@@ -597,8 +597,7 @@ def native_discovery(signer, tmp_path, monkeypatch):
         def member(self, name):
             assert name == 'Client/Config/Kuro/KuroPublicConfig.ini'
             return b'InternalPrefix=https://aki-config-owned.aki-game.net\nUrlPath=OwnedBootstrapRoute123\n'
-    monkeypatch.setattr(release, '_package', lambda *_: Bootstrap())
-    monkeypatch.setattr(release, '_archive_parameters', lambda *_: (b'd' * 32,))
+    monkeypatch.setattr(release, '_bootstrap_package', lambda *_: (Bootstrap(), (b'd' * 32,)))
     monkeypatch.setattr(release, '_resource_inventory', lambda *a: ({'resource': '3.8.11'}, {}, {}))
     monkeypatch.setattr(release, 'launcher', lambda region: ('3.8.0', 'owned-launcher',
         {'Client/Content/Paks/pakchunk0-WindowsNoEditor.pak': (1024, 'a' * 32)}))
