@@ -82,5 +82,3 @@ def test_previous_caption_guard_does_not_disappear_when_audio_is_omitted(tmp_pat
     assert reader.match_lines([TEXT]) is None
     assert reader.match_lines([TEXT], previous_text_id='authored:wrong', exact_only=True) is None
     assert reader.match_lines([TEXT], previous_text_id='authored:previous', exact_only=True).text_id == entry['text_id']
-
-

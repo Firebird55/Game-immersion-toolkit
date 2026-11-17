@@ -159,6 +159,11 @@ unused, silent, or the complete set of runtime-injected NPC interactions.
 There is no continuing broad NPC/graph/native download hunt for the 333 paths.
 ## November 17, 2026 · Original gateway key recovered; Android preparation remains open
 
+The following gateway/source-renewal checkpoints describe earlier investigation
+phases. The production locator section above supersedes their statements about
+initial or community inputs in normal ZZZ discovery. It does not complete the
+separate Android, selected-content preparation or update-acceptance gates.
+
 Bounded static analysis now establishes the original response guard's
 `content`/`sign` checks and its exact decoder. The decoder constructs an RSA
 provider and initializes a 944-byte array through 118 original constant stores.
