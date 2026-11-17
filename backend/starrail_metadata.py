@@ -315,7 +315,7 @@ def _graph_pe(stream):
     return base, sections, mappings[0], length // 12
 
 
-def _input(cache, asset):
+def _input(cache, asset, *, fetch=None):
     """Whole-file acceptance is independent from authenticated chunk reuse."""
     target = cache / 'native-files' / asset.digest; _no_links(target)
     target.parent.mkdir(exist_ok=True)
@@ -325,7 +325,8 @@ def _input(cache, asset):
         staged = Path(temporary) / 'data'; md5 = hashlib.md5()
         with staged.open('xb') as stream:
             for at in range(0, asset.size, 16 * 1024**2):
-                data = asset.read(cache / 'sophon', at, min(16 * 1024**2, asset.size - at))
+                options = {'fetch': fetch} if fetch is not None else {}
+                data = asset.read(cache / 'sophon', at, min(16 * 1024**2, asset.size - at), **options)
                 md5.update(data); stream.write(data)
         _check(staged.stat().st_size == asset.size and md5.hexdigest() == asset.digest)
         staged.replace(target)

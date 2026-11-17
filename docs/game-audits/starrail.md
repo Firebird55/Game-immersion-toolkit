@@ -73,8 +73,8 @@ and protagonist authoring as metadata and keeps omitted voice sources
 non-playable. Explicit silence, unknown status and unresolved authored audio
 remain distinct. Synthetic traps fail any attempt to enter those audio paths;
 the resulting snapshot passes the shared omission and matcher contracts.
-The new independent download-service adapter and its staged transport are not
-yet connected by this core consumer checkpoint.
+The independent download-service adapter below currently implements the
+original-input stage, not this complete text consumer or audio preparation.
 
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three
@@ -153,7 +153,27 @@ normal flow. The current Windows worker proof does not establish this boundary.
 | Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. Original PE/x64 instructions are parsed as data through managed Iced; client code is never executed. | Supply a packaged Android-compatible invocation of the same owned metadata/disassembly contract, or a controlled exact-generation schema source. There is no accepted Android helper artifact or runtime resolver. |
 | Publisher formats and cache | Python readers use HTTPS, protobuf, zstandard, JSON and checksummed files. Native preparation currently authenticates complete original Windows launcher inputs. | Validate those libraries on the Android ABI and keep all files in app-controlled storage. Windows publisher data may be read as data, but platform/edition identity must remain explicit. |
 | Playback and export | `VoiceDecoder` and `LocalVoiceAssetService` invoke desktop vgmstream and ffmpeg processes. Movie extraction validates complete ADX tracks and requires reviewed spoken windows. | Integrate the corresponding Android codec/runtime, then prove sample/window equivalence and offline historical playback. No Android codec or movie coverage is implied by current desktop playback. |
-| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. An existing source control can identify selected tables and locale packages. | Expose a staged manifest plan before large downloads, account for unique shared/cache/output bytes, and implement reference-aware removal through the shared data service. This adapter does not yet provide that public size/delete API. |
+| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. The shared service can estimate, account for and remove the original metadata-input stage. | Connect the remaining staged text/audio estimates and reference-aware full-library removal. The metadata-only estimate is not a complete game download size. |
+
+The canonical `starrail_game_data` factory now registers an original metadata
+input stage with the shared service. Planning uses the context-owned publisher
+transport for the launcher and checksummed manifest. Its estimate counts only
+missing compressed chunks and required whole-file/cache storage, deduplicating
+shared verified chunks. Downloading authenticates all three complete original
+inputs and returns a `PreparationStage`, never a ready snapshot. Interrupted
+transfers preserve complete cached chunks; corrupt whole files can be rebuilt
+from their verified chunks without another asset request. No global transport,
+community text source or downloaded code runs in this stage. Shared service
+tests exercise its real byte/consent fences with synthetic original formats.
+
+This is a metadata-only stage: its public message excludes text/audio sizes, and
+completed archives cannot restore a study library. The next catalog stage and
+ordinary audio retrieval are not yet connected to this independent service.
+Android exposes the metadata estimate but cannot authorize this large download
+while its required metadata runtime is unavailable. The preceding desktop
+worker/recovery proof does not remove these independent-service gaps. Shared
+storage accounting and removal can cover the stage's owned cache; they do not
+establish a complete game download estimate or Android preparation.
 
 A cache-only plan for current Global 4.7 English with official Chinese
 translations gives these exact original-input amounts, before audio headers,
