@@ -507,9 +507,9 @@ missing English path hashes is present. This supplies a concrete common-containe
 availability route, not an inferred Japanese fallback or a selected copyright
 state. Complete directory SHA256 and actual strong ETag/If-Match receipts bind
 the partial reads; they do not verify the whole PCK MD5. No recording is promoted
-to voiced or decoded by this metadata intake. Actual member/body acceptance for
-these common recordings remains unproved; the English request's language/state
-choices remain unchanged.
+to voiced or decoded by this metadata intake. Actual member/body acceptance is
+separate from that directory proof; the English request's language/state choices
+remain unchanged.
 
 Canonical planning now inventories all other manifest PCK candidates outside
 the other official dub folders, so future newly named shared containers are not
@@ -534,8 +534,30 @@ in total. The APIs reproduce all 86 unique Japanese archive memberships and
 zero hits for the 1,565 missing English paths; supplying Japanese paths to an
 English request is rejected. The remaining 273 prefixes in this isolated cache
 are quoted as 7,644 bytes, without fetching them. All 86 located members total
-27,853,355 bytes and remain quote-only. This proves metadata binding, not actual
+27,853,355 bytes and were quote-only in that phase. This proves metadata binding, not actual
 recording acceptance, a copyright-state selection or an audio-ready snapshot.
+
+A separately bounded explicit Japanese control on 2026-11-18 acquires only
+`Japanese/voice/archive_saber_2.wem`, authored by VoiceConfig 71014002, from
+`External0.pck`. The exact range is 84,801 bytes at offset 7,683,516 in the
+13,820,069-byte manifest owner, MD5 `bb76919a0784a3a83674f7b31180a4a3`.
+Fresh 66-byte AudioV guards before and after confirm the pinned current identity;
+the member uses strict HTTP 206, actual strong ETag/If-Match and exact full-owner
+size. Total response bodies are 84,933 bytes. The complete member's retained
+SHA256 is `fdd9d2c2bfae4c02cf021c1d36ee12e5ae621077eef22c5352fcc7fa8e780703`;
+this is local member integrity, while whole-PCK MD5 remains unverified.
+
+The closed owned codecs decode this member to nonempty 48 kHz mono PCM:
+267,687 frames, 535,374 bytes, SHA256
+`3276cab8a640949cb40baa550187b2a9634798dbbdb690ae5846a27a9f26d620`.
+Inert member pack/unpack and a separate fresh process restore the original and
+produce identical PCM without transport; wrong-locale and changed-reference
+controls reject. Encoded bytes/receipts add 85,312 bytes and retained PCM/proof
+outputs total 1,611,059 bytes. No new software, build or original game execution
+is involved. The codec closure retains its pending release-review labels.
+This proves one shared-container Japanese member's decode and offline retention,
+not a localized Japanese text snapshot, the other 85 recordings, a copyright
+setting, English fallback, a cold factory run or a complete audio-ready snapshot.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
