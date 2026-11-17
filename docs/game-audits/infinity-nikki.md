@@ -575,8 +575,8 @@ builder and remote-JSON consumer. That builder consumes
 `UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
 explicitly overrides the baseline SDK configuration from these native fields;
 launcher values and baseline SDK values therefore cannot be substituted without
-proving ownership. The actual regional settings producer, exact signature
-dataflow and dynamic-chain deserializer remain open. No request using guessed
+proving ownership. Effective regional selection, final protocol validation and
+the dynamic-chain deserializer remain open. No request using guessed
 client material, community key, Lua VM or original game execution is made.
 
 ## Passive Android relocation metadata
@@ -665,6 +665,36 @@ Agreement within the RegionId-4 group narrows that question; it does not justify
 using default/CN values or launcher credentials. No CMS request, original-code
 execution, nonzero-GUID default-key attempt, caption/voice binding or Ready
 snapshot is claimed by this checkpoint.
+
+The retained Global request builder now supplies its exact static signature
+dataflow: the settings object's `ClientKey` followed by the formatted timestamp
+feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
+`timestamp` and `sig`; string parameter values use the original percent-escape
+rule. The single-chain parameter is `<platform>_PACDKCINFO_<version>`; a group
+uses `<platform>_<group-id>_<version>`. These orders come from instruction
+operands, rather than concatenating a guessed URL from constant names.
+
+The same authenticated native source's reflected string-parameter/result edge
+reaches a concrete hash and conversion owner. Bounded passive inspection proves
+ASCII byte preservation in scalar, 32-byte SIMD, 8-byte SIMD and remainder paths
+for the nine checked settings' ASCII signature inputs. The output formats 16
+digest bytes with `%02x`. The algorithm profile independently matches the
+[MD5 reference](https://www.rfc-editor.org/rfc/rfc1321.html): four initial state
+words, all 64 round constants, all 64 rotations in their canonical order,
+padding/length framing and little-endian digest serialization. This is stronger
+than a function name or IV alone; it is not a complete proof of every transform
+Boolean expression/message-word selection or execution of the original code.
+
+The final completion phase stops at its eight approved windows and 3,324 new
+instruction bytes, below the 4,096-byte cap, with zero network bytes. Its private
+ledger explicitly invalidates one 64-byte off-owner data read caused by a manual
+padding-pointer transcription. The corrected comparison derives the pointer
+from original instructions; no value from the mistaken range is published or
+used. The CMS response envelope exposes `gameConfigParameter.key/value`, not an
+independent current-edition assertion. Exact requested-key equality, native
+keychain/group framing and compatibility with the current Global package GUID
+and full plaintext index hash remain required before acceptance. No CMS request
+or new preparation capability is delivered by this static protocol checkpoint.
 
 ## Presentation inventory and finite completion boundary
 
