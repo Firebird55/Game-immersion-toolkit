@@ -25,7 +25,8 @@ from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 
 class Originals:
-    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False, text_tail=False):
+    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False,
+                 text_tail=False, study_locale='ja'):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -47,10 +48,14 @@ class Originals:
         self.forbid_all_http = False
         self.metadata_archives = {}
         if selected_metadata:
+            from backend.nte_assets import TEXT_LOCALES
+            study = TEXT_LOCALES[study_locale]
+            target = 'en' if study_locale != 'en' else 'zh-CN'
+            other = next(code for code in ('ko', 'ja', 'en', 'zh-CN', 'zh-Hant') if code not in (study, target))
             specs = {
-                'study': ('Content/Localization/Game/ja/', 'Game.locres'),
-                'target': ('Content/Localization/Game/en/', 'Game.locres'),
-                'other-locale': ('Content/Localization/Game/ko/', 'Game.locres'),
+                'study': ('Content/Localization/Game/'+study+'/', 'Game.locres'),
+                'target': ('Content/Localization/Game/'+target+'/', 'Game.locres'),
+                'other-locale': ('Content/Localization/Game/'+other+'/', 'Game.locres'),
                 'registry': ('', 'AssetRegistry.bin'),
                 'subtitles': ('Content/SrtFile/FFMpeg/Story/', 'owned.srt'),
                 'voice': ('Content/WwiseAudio/Media/Japanese/', '123.wem')}

@@ -412,6 +412,15 @@ registry, temporary export copies and immutable publication. This permits
 ordinary graph growth within the existing format contract; schema, source,
 closure and activation checks are unchanged.
 
+Localization processing budgets now follow the actual selected language set:
+at most 128 MiB per distinct selected locale and 512 MiB in aggregate, with
+space reserved for temporary and immutable copies plus registry processing.
+The retained Japanese/Mandarin-target normalization is 38,959,679 bytes; a
+fixed two-language aggregate should not exclude larger valid multi-target
+requests. Authored service fixtures cover all five existing study locales and
+the bounded nine-language request. This is format coverage; the real source
+trial remains the independently verified two-locale selection.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary
