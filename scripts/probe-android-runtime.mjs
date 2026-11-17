@@ -6,18 +6,21 @@ import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
+import {createAuthoredRuntimeDiagnostics} from './android-runtime-diagnostics.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
 const updateDirectory = resolve(process.argv[4] ?? 'output/android-update');
 mkdirSync(output, {recursive: true});
 const adb = (...args) => execFileSync('adb', args, {encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe']}).trim();
+let diagnostics = null;
 async function until(operation, label, timeout = 90_000) {
   const end = Date.now() + timeout;
   while (Date.now() < end) {
     try { const result = await operation(); if (result) return result; } catch {}
     await delay(500);
   }
+  await diagnostics?.capture(label);
   throw new Error(`Android runtime did not establish ${label}`);
 }
 async function authoredCore(version, previousRun = null) {
@@ -99,6 +102,7 @@ async function connectReader() {
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', {noDefaults: true});
   const page = await until(() => browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:')), 'local shared reader');
   await page.locator('.companion-shell').waitFor({timeout: 60_000});
+  diagnostics = await createAuthoredRuntimeDiagnostics(page, {output, adb, packageName});
   return {browser, page};
 }
 // A real cross-origin iframe/WindowProxy and structured PNG Blob exercise the
