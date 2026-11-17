@@ -156,6 +156,68 @@ version 150, DIDX/DATA/HIRC chunks and embedded RIFF/WEM Vorbis audio (mono,
 authored text/event ownership, every bank layout, audio decoding/playback and
 native Android acceptance remain unverified. No recording is published.
 
+## Bounded initialization research and stopping points
+
+The already acquired official installer prefix contains a complete NSIS header.
+Static LZMA decoding and its authored extraction entries identify exact original
+launcher-module/config ranges. Five targeted ranges transferred 251,395 bytes,
+expanding to 655,753 bytes. Their LZMA block sizes and end markers agree; there
+are no individual NSIS-file CRCs, neither managed DLL has an Authenticode
+signature, and the whole installer hash/signature has not been checked. The
+launcher files confirm current publisher app/channel parameters but do not
+contain the legacy content-decoder key/IV literals. No assemblies are executed.
+
+The original 7z file properties explicitly mark
+`il2cpp_data/Metadata/global-metadata.dat` as an **empty file**, separately from
+its parent directory. A bounded native-file prefix identifies GameAssembly PE
+sections and an unusual large `.rsrc2` section. This is evidence for examining a
+specific native-initialization resource, not permission to assume its contents
+are readable metadata or that an official key route is impossible.
+
+One subsequent streaming read reused the existing compressed prefix, stopped at
+decoded folder offset 94,730,672, discarded preceding output and retained only
+the first 64 KiB of `.rsrc2`. It received 18,874,368 new compressed bytes, below
+its explicit 63 MiB upper bound. The valid `IMAGE_RESOURCE_DIRECTORY` identifies
+one custom `CFG/130/2052` resource: 25,449,372 bytes beginning at GameAssembly
+file offset 94,245,476. Its inspected prefix does not establish a plain IL2CPP
+metadata header or a verified reversible envelope. **This `.rsrc2` hypothesis
+stops here**; no whole-resource literal/key scan follows. The whole GameAssembly
+and archive hashes remain unverified. A complete preceding generic Unity
+`baselib.dll` matches its 7z file CRC and has a valid Unity Authenticode signature;
+it is not evidence for a game-specific decoder key.
+
+Two bounded file-index URL hypotheses under the original `massHotUpdate` host
+both returned HTTP 404: `/60001/Windows/configs/allmanifest.dat` and
+`/60001/configs/allmanifest.dat`. No further path variants were tried. Provenance
+is deliberately separate: the host comes from the original GameConfig, game ID
+from original publisher configuration/API, the `/gameId` joining behavior from a
+pinned community initialization description, and the relative manifest path from
+the original 7z header. Neither guessed complete URL is an established official
+download route. These failures do not demonstrate corruption, a package format
+change, an authentication requirement or the absence of every official route.
+
+## Text versus text and audio planning
+
+`backend/reverse1999_provider.py` implements a conservative publisher-discovery
+stage for the shared Android/PC data protocol. The host supplies bounded,
+accounted metadata transport; it has no default unaccounted network client.
+Requests, private handles and revision identities distinguish `content_mode`
+values `text` and `text-audio`. Old handles without the mode require repair;
+this adapter does not modify saved history.
+
+Text-only planning makes no optional-voice query, audio archive request or audio
+resolve call. Its selected audio bytes are explicitly zero. Selected text/shared
+bytes stay unknown; text-and-audio bytes also remain unknown while the original
+text/base path is incomplete. Full-client inventory numbers are kept solely as
+private source evidence and never become the selected download estimate.
+
+The stage has `runtime_available = false` and cannot return a snapshot or mark
+the game Ready. Mainland planning does not fetch Global data. Unknown estimates,
+unsupported source preparation and failed freshness checks keep existing data.
+This is an honest shared-protocol adapter for the proven discovery stage, not
+independent content preparation. Root integration owns shared registry and
+transport changes.
+
 ## Finite dialogue coverage boundary
 
 Inventory current accessible dialogue and official regional languages. Do not
@@ -196,9 +258,10 @@ must use authored scene/step context where available.
   public game metadata, README/install instructions and generated language
   guides when a functioning adapter is ready. Keep this issue open meanwhile.
 
-The 57 owned synthetic fixtures currently exercise public metadata decoding,
+The 64 owned synthetic fixtures currently exercise public metadata decoding,
 ordinary-version and voice-branch refresh, announcement-insensitive launcher
 fingerprints, original archive ownership and totals, bootstrap boundaries,
 mandatory/optional voice distinctions, update order, malformed/oversized data,
-network fallback and HTTP response integrity. No game text, recordings, keys or executable files are
+network fallback, content-mode isolation, incomplete-stage nonactivation and
+HTTP response integrity. No game text, recordings, keys or executable files are
 test fixtures. No installed-game or physical-device playback is claimed.
