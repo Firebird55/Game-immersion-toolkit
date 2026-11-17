@@ -84,7 +84,7 @@ def test_runtime_lock_selects_current_windows_entries_without_host_marker_defaul
             unconditional[normalized(item.name)] = next(iter(item.specifier)).version
     selected = windows_runtime_requirements(lock)
     assert {name: version for name, version in selected.items() if name in unconditional} == unconditional
-    assert set(selected) - set(unconditional) == {'windows-capture', 'oneocr', 'pyaudiowpatch', 'capstone'}
+    assert set(selected) - set(unconditional) == {'windows-capture', 'oneocr', 'pyaudiowpatch', 'capstone', 'xxhash'}
     assert selected['windows-capture'] == '2.0.1' and selected['oneocr'] == '1.0.12'
     assert selected['pyaudiowpatch'] == '0.2.12.9'
     assert selected['capstone'] == '5.0.7'

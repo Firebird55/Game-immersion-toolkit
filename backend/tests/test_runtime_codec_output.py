@@ -80,12 +80,18 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
     inputs = tmp_path / 'inputs.json'; inputs.write_text(json.dumps(value))
     monkeypatch.setenv('PROXY_RUNTIME_BUILD_INPUTS', str(inputs))
     monkeypatch.setenv('PROXY_RUNTIME_EVIDENCE_ROOT', str(evidence))
-    metadata = tmp_path / 'capstone-5.0.7.dist-info'; metadata.mkdir()
-    for name in ('METADATA', 'WHEEL', 'LICENSE.TXT', 'direct_url.json', 'INSTALLER'):
-        (metadata / name).write_bytes(b'authored package metadata fixture')
+    packages = {'capstone': ('capstone-5.0.7.dist-info', ('METADATA', 'WHEEL', 'LICENSE.TXT')),
+                'xxhash': ('xxhash-4.1.0.dist-info', ('METADATA', 'WHEEL', 'licenses/LICENSE'))}
+    metadata = {}
+    for package, (directory, members) in packages.items():
+        metadata[package] = tmp_path / directory
+        for name in (*members, 'direct_url.json', 'INSTALLER'):
+            path = metadata[package] / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'authored package metadata fixture')
     hooks = SimpleNamespace(collect_data_files=lambda *_a, **_k: [], collect_dynamic_libs=lambda *_a, **_k: [],
         collect_submodules=lambda *_a, **_k: [], copy_metadata=lambda name:
-            [(str(metadata), metadata.name)] if decoder_metadata and name == 'capstone' else [])
+            [(str(metadata[name]), metadata[name].name)] if decoder_metadata and name in metadata else [])
     monkeypatch.setitem(sys.modules, 'PyInstaller.utils.hooks', hooks)
     # This contract owns codec DATA placement. Real provenance source/refusal
     # behavior is covered with authored archives in test_native_collection_provenance.
@@ -114,8 +120,10 @@ def test_spec_keeps_verified_codec_pe_files_outside_analysis_then_delivers_expli
         member = 'codecs/xiph-flac/' + name
         assert actual[member] == (str(evidence / member), 'DATA')
     assert 'codecs/xiph-flac/notices/COPYING.GPL' in actual
-    expected_metadata = {metadata.name + '/' + name for name in ('METADATA', 'WHEEL', 'LICENSE.TXT')} if decoder_metadata else set()
-    assert {name for name in actual if name.startswith('capstone-')} == expected_metadata
+    expected_metadata = {directory + '/' + name for directory, members in packages.values()
+                         for name in members} if decoder_metadata else set()
+    assert {name for name in actual if name.startswith(('capstone-', 'xxhash-'))} == expected_metadata
     if modern:
-        assert all(Path(origin).parent == metadata for rows in analyses for origin, _ in rows), 'Immutable resource distributions must not enter Analysis.'
+        allowed = {metadata[package] / name for package, (_, members) in packages.items() for name in members}
+        assert all(Path(origin) in allowed for rows in analyses for origin, _ in rows), 'Immutable resource distributions must not enter Analysis.'
         assert set(actual) == {item['path'] for item in value['resources']} | expected_metadata
