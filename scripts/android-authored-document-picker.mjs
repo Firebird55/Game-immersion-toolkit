@@ -20,7 +20,21 @@ export function authoredPickerNode(xml, label) {
   return null;
 }
 
-export async function selectAuthoredAndroidDocument({adb, page, until, output, extension, bytes, trigger}) {
+export function authoredPickerState(xml) {
+  assert.ok(typeof xml === 'string' && xml.length < 512 * 1024);
+  const known = new Set(['Show roots', 'Downloads', 'toolkit-authored.zip', 'toolkit-authored.json']);
+  const nodes = [];
+  for (const match of xml.matchAll(/<node\s+([^>]+)>/g)) {
+    const attrs = Object.fromEntries([...match[1].matchAll(/([\w-]+)="([^"]*)"/g)].map(value => [value[1], value[2]]));
+    const label = known.has(attrs.text) ? attrs.text : known.has(attrs['content-desc']) ? attrs['content-desc'] : null;
+    if (!label || nodes.length >= 24) continue;
+    const id = /^(?:android|com\.(?:google\.android|android)\.documentsui):id\/[A-Za-z0-9_]{1,80}$/.test(attrs['resource-id'] ?? '') ? attrs['resource-id'] : null;
+    nodes.push({label, id, enabled: attrs.enabled === 'true', clickable: attrs.clickable === 'true'});
+  }
+  return {documents_ui: /package="com\.(?:google\.android|android)\.documentsui"/.test(xml), nodes};
+}
+
+export async function selectAuthoredAndroidDocument({adb, page, until, output, extension, bytes, trigger, onState = () => {}}) {
   assert.ok(extension === 'json' || extension === 'zip');
   assert.ok(Buffer.isBuffer(bytes) && bytes.length > 0 && bytes.length < 1024 * 1024);
   const name = `toolkit-authored.${extension}`, temporary = join(output, 'authored-picker-inputs');
@@ -30,7 +44,8 @@ export async function selectAuthoredAndroidDocument({adb, page, until, output, e
   try {adb('push', local, remote);} finally {unlinkSync(local);}
   const dump = () => {
     adb('shell', 'uiautomator', 'dump', '/sdcard/toolkit-authored-picker.xml');
-    return adb('shell', 'cat', '/sdcard/toolkit-authored-picker.xml');
+    const xml = adb('shell', 'cat', '/sdcard/toolkit-authored-picker.xml');
+    onState(extension, authoredPickerState(xml));return xml;
   };
   await trigger();
   await until(() => {

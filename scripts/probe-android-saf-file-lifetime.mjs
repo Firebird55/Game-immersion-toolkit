@@ -50,6 +50,12 @@ page.on('requestfailed', request => {
 });
 page.on('response', response => {if (new URL(response.url()).pathname === '/api/library/import') responses.push(response.status());});
 const reports = [];
+const pickerStates = [];
+const onState = (extension, state) => {
+  const value = {extension, ...state};
+  if (JSON.stringify(value) !== JSON.stringify(pickerStates.at(-1)) && pickerStates.length < 24) pickerStates.push(value);
+  writeFileSync(join(output, 'authored-saf-picker-states.json'), JSON.stringify({api, states: pickerStates}, null, 2) + '\n');
+};
 let jsonSaf = false;
 function save() {
   writeFileSync(join(output, 'authored-saf-file-lifetime.json'), JSON.stringify({
@@ -80,7 +86,7 @@ try {
       };
       document.addEventListener('change', selected, true);
     }, {preserve, expectedSize: library.length});
-    await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip', bytes: library,
+    await selectAuthoredAndroidDocument({adb, page, until, output, onState, extension: 'zip', bytes: library,
       trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
     let completionTimeout = false;
     try {
@@ -121,7 +127,7 @@ try {
   const setup = page.locator('details.android-device-setup');
   if (!await setup.evaluate(element => element.open)) await setup.locator(':scope > summary').click();
   await page.getByText('Import old browser history', {exact: true}).click();
-  await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'json', bytes: authoredBrowserHistoryBackup(),
+  await selectAuthoredAndroidDocument({adb, page, until, output, onState, extension: 'json', bytes: authoredBrowserHistoryBackup(),
     trigger: () => page.getByLabel('Browser history backup', {exact: true}).click()});
   await page.getByText('22 lines · 1 favorites · 1 excerpts.', {exact: false}).waitFor();
   assert.equal(await page.evaluate(async () => (await (await fetch('/api/snapshot')).json()).status.session.total_line_count), 0);

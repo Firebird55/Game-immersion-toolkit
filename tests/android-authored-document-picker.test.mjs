@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {authoredPickerNode} from '../scripts/android-authored-document-picker.mjs';
+import {authoredPickerNode, authoredPickerState} from '../scripts/android-authored-document-picker.mjs';
 import {selectAuthoredAndroidDocument} from '../scripts/android-authored-document-picker.mjs';
 import {mkdtempSync, rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
@@ -31,4 +31,13 @@ test('returning from the picker keeps its original document alive for asynchrono
     assert.equal(resolve(tmpdir()), resolve(root, '..'));assert.ok(basename(exact).startsWith('toolkit-authored-picker-'));
     rmSync(exact, {recursive: true});
   }
+});
+
+test('picker diagnostics admit only fixed authored labels and original system resource identifiers', () => {
+  const xml = '<hierarchy><node package="com.google.android.documentsui" text="toolkit-authored.json" resource-id="android:id/title" enabled="false" />' +
+    '<node text="private-user-name" resource-id="private-provider-id" /><node text="Downloads" resource-id="secret-provider-value" /></hierarchy>';
+  assert.deepEqual(authoredPickerState(xml), {documents_ui: true, nodes: [
+    {label: 'toolkit-authored.json', id: 'android:id/title', enabled: false, clickable: false},
+    {label: 'Downloads', id: null, enabled: false, clickable: false}]});
+  assert.doesNotMatch(JSON.stringify(authoredPickerState(xml)), /private-user|private-provider|secret-provider/);
 });
