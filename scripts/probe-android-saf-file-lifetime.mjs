@@ -8,6 +8,7 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {chromium} from 'playwright';
 import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
 import {waitForAuthoredAdbRoot} from './android-authored-adb.mjs';
+import {authoredBrowserHistoryBackup} from './android-browser-migration-ui.mjs';
 
 const root = resolve('output/android-downloaded/android-candidate'), output = resolve('output/android-saf-diagnostic');
 mkdirSync(output, {recursive: true});
@@ -28,7 +29,8 @@ async function until(read, label, timeout = 90000) {
   throw Error('Authored SAF diagnostic did not establish ' + label);
 }
 assert.equal(adb('shell', 'getprop', 'ro.kernel.qemu'), '1');
-assert.equal(adb('shell', 'getprop', 'ro.build.version.sdk'), '34');
+const api = Number(adb('shell', 'getprop', 'ro.build.version.sdk'));
+assert.ok([34, 36].includes(api));assert.equal(api, Number(process.env.TOOLKIT_ANDROID_EXPECTED_API));
 adb('install', '-r', apk);
 await waitForAuthoredAdbRoot(adb, until);
 adb('shell', 'iptables', '-I', 'OUTPUT', '!', '-d', '127.0.0.0/8', '-m', 'owner', '!', '--uid-owner', '0', '-j', 'REJECT');
@@ -48,6 +50,15 @@ page.on('requestfailed', request => {
 });
 page.on('response', response => {if (new URL(response.url()).pathname === '/api/library/import') responses.push(response.status());});
 const reports = [];
+let jsonSaf = false;
+function save() {
+  writeFileSync(join(output, 'authored-saf-file-lifetime.json'), JSON.stringify({
+    schema: 'toolkit-authored-saf-file-lifetime-diagnostic-v1', apk_source_commit: expectedSource,
+    apk_sha256: provenance.apk_sha256, api, fixture_bytes: library.length, reports,
+    ordinary_json_saf_preview_and_commit: jsonSaf,
+    native_android_execution: true, production_fix_acceptance: false, real_account_writes: false,
+  }, null, 2) + '\n');
+}
 try {
   await page.getByRole('button', {name: 'Open library', exact: true}).waitFor();
   for (const preserve of [false, true]) {
@@ -58,12 +69,16 @@ try {
       window.__authoredSaf = {reset_requested: 0, selected: false};
       Object.defineProperty(input, 'value', {configurable: true, get() {return descriptor.get.call(this);},
         set(value) {if (value === '') {window.__authoredSaf.reset_requested++;if (preserve) return;}descriptor.set.call(this, value);}});
-      input.addEventListener('change', () => {
+      const selected = event => {
+        if (event.target !== input) return;
+        document.removeEventListener('change', selected, true);
         const file = input.files?.[0];
-        if (!file || file.name !== 'toolkit-authored.zip' || file.size !== expectedSize) return;
-        window.__authoredSaf.file = file;window.__authoredSaf.selected = true;
-        window.__authoredSaf.size_matches = true;window.__authoredSaf.mime_zip = file.type === 'application/zip';
-      }, {capture: true, once: true});
+        window.__authoredSaf.file = file;window.__authoredSaf.selected = !!file;
+        window.__authoredSaf.name_matches = file?.name === 'toolkit-authored.zip';
+        window.__authoredSaf.size_matches = file?.size === expectedSize;
+        window.__authoredSaf.mime_zip = file?.type === 'application/zip';
+      };
+      document.addEventListener('change', selected, true);
     }, {preserve, expectedSize: library.length});
     await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip', bytes: library,
       trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
@@ -80,11 +95,12 @@ try {
     const report = await page.evaluate(async expected => {
       const value = window.__authoredSaf;
       const result = {selected: value.selected, reset_requested: value.reset_requested,
-        size_matches: value.size_matches === true, mime_zip: value.mime_zip === true,
+        name_matches: value.name_matches === true, size_matches: value.size_matches === true, mime_zip: value.mime_zip === true,
         retained_input: document.querySelector('[aria-label="Private toolkit library"]').files.length === 1};
       const status = document.querySelector('.android-library-card > [role="status"]')?.textContent?.trim();
       result.account_scope_wait = status === 'Wait for the selected account to load before retrying.';
       try {
+        if (!value.name_matches || !value.size_matches) throw new TypeError();
         const bytes = await value.file.arrayBuffer();
         const digest = await crypto.subtle.digest('SHA-256', bytes);
         result.read_hash_matches = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('') === expected;
@@ -95,13 +111,23 @@ try {
     }, expectedHash);
     reports.push({preserve_original_file_input: preserve, ...report, handler_completion_timeout: completionTimeout,
       import_http_statuses: [...responses], network_error_codes: {...codes}});
-    writeFileSync(join(output, 'authored-saf-file-lifetime.json'), JSON.stringify({
-      schema: 'toolkit-authored-saf-file-lifetime-diagnostic-v1', apk_source_commit: expectedSource,
-      apk_sha256: provenance.apk_sha256, fixture_bytes: library.length, reports,
-      native_android_execution: true, production_fix_acceptance: false, real_account_writes: false,
-    }, null, 2) + '\n');
+    save();
     await page.evaluate(() => {delete document.querySelector('[aria-label="Private toolkit library"]').value;delete window.__authoredSaf;});
     if (report.library_ready) break;
   }
+  assert.equal(reports[0].library_ready, true, 'The unchanged normal input must work while its source document remains present');
+  assert.equal(reports[0].preserve_original_file_input, false);
+  assert.equal(reports[0].read_hash_matches, true);
+  const setup = page.locator('details.android-device-setup');
+  if (!await setup.evaluate(element => element.open)) await setup.locator(':scope > summary').click();
+  await page.getByText('Import old browser history', {exact: true}).click();
+  await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'json', bytes: authoredBrowserHistoryBackup(),
+    trigger: () => page.getByLabel('Browser history backup', {exact: true}).click()});
+  await page.getByText('22 lines · 1 favorites · 1 excerpts.', {exact: false}).waitFor();
+  assert.equal(await page.evaluate(async () => (await (await fetch('/api/snapshot')).json()).status.session.total_line_count), 0);
+  await page.getByRole('button', {name: 'Import history and favorites', exact: true}).click();
+  await page.getByText('History imported: 22 new lines, 0 already imported. Original browser data is unchanged.', {exact: true}).waitFor();
+  assert.equal(await page.evaluate(async () => (await (await fetch('/api/snapshot')).json()).status.session.total_line_count), 22);
+  jsonSaf = true;save();
 } finally {await browser.close();}
 console.log('Bounded unchanged-APK SAF diagnostic completed; see authored boolean/hash evidence.');

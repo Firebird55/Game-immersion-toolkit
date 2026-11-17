@@ -8,6 +8,10 @@ jobs:
   runtime:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 36]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,8 +33,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
+        env:
+          TOOLKIT_ANDROID_EXPECTED_API: ${{ matrix.api }}
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -40,7 +46,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: authored-saf-file-lifetime
+          name: authored-saf-file-lifetime-api-${{ matrix.api }}
           if-no-files-found: warn
           retention-days: 7
           path: output/android-saf-diagnostic/*.json

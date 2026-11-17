@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {authoredPickerNode} from '../scripts/android-authored-document-picker.mjs';
+import {selectAuthoredAndroidDocument} from '../scripts/android-authored-document-picker.mjs';
+import {mkdtempSync, rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join, resolve, basename} from 'node:path';
 
 test('authored native picker coordinates require bounded genuine DocumentsUI nodes', () => {
   const node = '<hierarchy><node package="com.google.android.documentsui" text="toolkit-authored.json" enabled="true" bounds="[20,40][120,80]" /></hierarchy>';
@@ -10,4 +14,21 @@ test('authored native picker coordinates require bounded genuine DocumentsUI nod
   assert.throws(() => authoredPickerNode(node.replace('com.google.android.documentsui', 'another.application'), 'toolkit-authored.json'));
   assert.throws(() => authoredPickerNode(node, 'private-user-file.json'));
   assert.throws(() => authoredPickerNode(node.repeat(10000), 'toolkit-authored.json'));
+});
+
+test('returning from the picker keeps its original document alive for asynchronous upload and commit', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'toolkit-authored-picker-')), commands = [];
+  try {
+    const xml = '<hierarchy>' + ['Show roots', 'Downloads', 'toolkit-authored.zip'].map(text =>
+      `<node package="com.google.android.documentsui" text="${text}" enabled="true" bounds="[20,40][120,80]" />`).join('') + '</hierarchy>';
+    await selectAuthoredAndroidDocument({output: root, extension: 'zip', bytes: Buffer.from('bounded authored ZIP sentinel'),
+      page: {evaluate: async () => true}, trigger: async () => {}, until: async read => assert.ok(await read()),
+      adb: (...args) => {commands.push(args);return args[0] === 'shell' && args[1] === 'cat' ? xml : '';}});
+    assert.deepEqual(commands.filter(args => args.includes('rm')), [['shell', 'rm', '/sdcard/toolkit-authored-picker.xml']]);
+    assert.equal(commands.filter(args => args[0] === 'push').length, 1);
+  } finally {
+    const exact = resolve(root);
+    assert.equal(resolve(tmpdir()), resolve(root, '..'));assert.ok(basename(exact).startsWith('toolkit-authored-picker-'));
+    rmSync(exact, {recursive: true});
+  }
 });
