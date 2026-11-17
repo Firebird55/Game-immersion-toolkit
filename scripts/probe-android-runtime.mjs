@@ -9,6 +9,7 @@ import {chromium} from 'playwright';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
+const updateDirectory = resolve(process.argv[4] ?? 'output/android-update');
 mkdirSync(output, {recursive: true});
 const adb = (...args) => execFileSync('adb', args, {encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe']}).trim();
 async function until(operation, label, timeout = 90_000) {
@@ -26,6 +27,17 @@ const component = `${packageName}/io.github.firebird55.gameimmersiontoolkit.Main
 const apk = join(directory, 'GameImmersionToolkit-android-debug.apk');
 assert.equal(createHash('sha256').update(readFileSync(apk)).digest('hex'), provenance.apk_sha256);
 assert.equal(provenance.release_eligibility, false);
+const update = JSON.parse(readFileSync(join(updateDirectory, 'ANDROID-PROVENANCE.json'), 'utf8'));
+const updateApk = join(updateDirectory, 'GameImmersionToolkit-android-debug.apk');
+assert.equal(createHash('sha256').update(readFileSync(updateApk)).digest('hex'), update.apk_sha256);
+for (const field of ['source_commit', 'frontend_build_id', 'application_id', 'variant', 'signing_certificate_sha256', 'python_wheels_policy_sha256']) {
+  assert.ok(provenance[field], 'Both APKs must declare their actual build/signing identity');
+  assert.equal(update[field], provenance[field]);
+}
+assert.equal(provenance.source_dirty, false);assert.equal(update.source_dirty, false);
+assert.equal(update.release_eligibility, false);
+assert.ok(Number.isInteger(provenance.version_code) && provenance.version_code > 0);
+assert.ok(Number.isInteger(update.version_code) && update.version_code > provenance.version_code);
 const expected = JSON.parse(readFileSync(join(directory, 'desktop-core-proof.json'), 'utf8'));
 adb('install', '-r', apk);
 // Nothing in first launch may depend on a PC, model download or hosted reader.
@@ -171,13 +183,38 @@ assert.equal(restarted.snapshot.lines.length, 1);
 assert.equal(restarted.snapshot.lines[0].favorite, true);
 assert.equal(restarted.snapshot.lines[0].has_audio, true);
 await browser.close();
+// Exercise a genuine package-manager update, without rerunning the fixture or
+// re-importing its library. The signing key is temporary CI debug material;
+// durable owner signing is verified separately on the protected host.
+adb('shell', 'am', 'force-stop', packageName);
+adb('install', '-r', updateApk);
+assert.ok(new RegExp(`versionCode=${update.version_code}(?:\\s|$)`).test(adb('shell', 'dumpsys', 'package', packageName)), 'The target must actually install the newer APK');
+adb('shell', 'am', 'start', '-W', '-n', component);
+({browser, page} = await connectReader());
+assert.equal(new URL(page.url()).origin, originalOrigin);
+await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'reading mode after APK update');
+await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'playback preference after APK update');
+const upgraded = await page.evaluate(async id => {
+  const range = await fetch(`/api/lines/${id}/audio`, {headers: {Range: 'bytes=0-43'}});
+  return {snapshot: await (await fetch('/api/snapshot')).json(), audio_status: range.status,
+    audio_bytes: (await range.arrayBuffer()).byteLength,
+    font: getComputedStyle(document.querySelector('.companion-shell')).getPropertyValue('--lexirise-font-size').trim(),
+    options: JSON.parse(localStorage.getItem('proxy-transcript-reading-options'))};
+}, lineId);
+assert.equal(upgraded.snapshot.status.capture.running, false);
+assert.deepEqual(upgraded.snapshot.lines, restarted.snapshot.lines);
+assert.equal(upgraded.audio_status, 206);assert.equal(upgraded.audio_bytes, 44);
+assert.equal(upgraded.font, '31px');assert.equal(upgraded.options.pinyin, 'all');
+await browser.close();
 writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema: 'toolkit-android-runtime-proof-v1',
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,
   application_id: packageName, version_code: provenance.version_code, variant: provenance.variant,
+  updated_apk_sha256: update.apk_sha256, updated_version_code: update.version_code,
   shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
   synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
+  offline_apk_update_retained_data: true, update_signing: 'same-run-debug-identity-not-owner-key',
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');
