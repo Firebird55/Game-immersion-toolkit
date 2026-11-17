@@ -131,7 +131,8 @@ def test_pinned_metadata_cache_validates_complete_digest_and_never_executes_data
     c = catalog(a)
     documents = dict(zip(metadata.FILES, map(json.dumps, [c.history, c.keys, c.variants])))
     monkeypatch.setattr(metadata, 'latest_revision', lambda: c.revision)
-    monkeypatch.setattr(metadata, 'download', lambda url, **_: documents[url.rsplit('/', 1)[1]].encode())
+    from backend.tests.test_starrail_movie_source import source_fixture
+    source_fixture(monkeypatch, documents, c.revision)
     first = metadata.load(tmp_path)
     assert first.key_for(a) == 7
     monkeypatch.setattr(metadata, 'download', lambda *_a, **_k: pytest.fail('Pinned offline metadata read'))

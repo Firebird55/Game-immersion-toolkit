@@ -32,6 +32,25 @@ Other spoken movie windows, source-format recovery and platform acceptance
 remain separate requirements; a matching movie key does not prove a caption's
 written words are spoken in that movie.
 
+Movie-description refresh now follows only `Furina1027/hoyo-files`, with a fixed
+three-file path set. An immutable commit supplies the root tree; three bounded
+nonrecursive Git trees are reconstructed and SHA1 checked before following
+their child hashes. Each metadata body must match its advertised size, Git blob
+hash and complete SHA256 receipt. New candidates cannot use an unproven legacy
+cache. Earlier records with an already pinned complete digest retain offline
+compatibility. Malformed trees, changed bodies, oversized files and conflicting
+commit identities fail before publishing a replacement metadata generation.
+No downloaded code or media is part of this source operation.
+
+The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
+passes the production source validator with zero new body downloads. Its three
+bodies total 522,332 bytes and retain combined SHA256
+`9634ba22c87e2de1f36991382bae2b98a7ff15ecc287f67a24939cc3e3420758`.
+Both current regional VideoV indexes list 1,236 files; 1,235 have an exact
+MD5/size parameter match. This is metadata coverage, not movie decoding or a
+spoken-caption count. The unmatched skin-show movie has an explicitly empty
+VideoConfig caption path; this establishes neither silence nor current use.
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global
