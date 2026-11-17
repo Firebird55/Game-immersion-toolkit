@@ -35,7 +35,8 @@ from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
 
 
-from .capture_confirmation import StableMatchTracker, capture_match_eligible
+from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
+from .floating_caption_policy import floating_caption_policy, observe_floating_contexts
 
 
 @dataclass(slots=True)
@@ -838,23 +839,17 @@ class CaptureService:
         settings = self.settings.get()
         match_lines = getattr(index, 'match_unvoiced_lines', None)
         missing_lines = getattr(index, 'match_missing_audio_lines', None)
-        spec = STEAM_GAMES.get(game)
-        has_film_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_film_cues', 0)
-        has_top_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_top_dialogue_cues', 0)
-        has_song_cues = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get('publisher_song_cues', 0)
-        has_song_voices = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get(
-            'publisher_song_voices', has_song_cues)
-        voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_song_voices or (spec and spec.floating_dialogue) else None
-        voice_enabled = bool(voice_lines and index.ready and index.audio_count)
+        policy = floating_caption_policy(game, index, capture_unvoiced=settings.capture_unvoiced,
+            capture_missing_audio=getattr(settings, 'capture_missing_audio', False))
+        voice_lines = getattr(index, 'match_full_frame_voice_lines', None)
+        voice_enabled = policy.voice_enabled
         prefix = 'unvoiced\0'
         scope = (epoch, game, getattr(window, 'handle', None), window.bounds,
                  getattr(index, 'source_locale', None), getattr(index, '_signature', None),
                  getattr(self, 'context_scope', lambda: None)(), settings.capture_unvoiced,
                  getattr(settings, 'capture_missing_audio', False), voice_enabled)
-        silent_enabled = bool(settings.capture_unvoiced and match_lines and index.ready
-                              and index.status().get('unvoiced_count', 0))
-        missing_enabled = bool(getattr(settings, 'capture_missing_audio', False) and missing_lines
-                               and index.ready and index.status().get('missing_audio_count', 0))
+        silent_enabled = policy.silent_enabled
+        missing_enabled = policy.missing_enabled
         enabled = ((silent_enabled or missing_enabled or voice_enabled) and epoch == self._scan_epoch
                    and not getattr(self, '_excluded_screen', None))
         if not enabled or scope != self._unvoiced_scope:
@@ -876,7 +871,7 @@ class CaptureService:
         response = engine.recognize_pil(image)
         if epoch != self._scan_epoch:
             return outcome
-        if has_song_cues and response.get('dialogue_menu'):
+        if policy.menu_blocks_frame(response.get('dialogue_menu')):
             self._wuwa_music.reset()
             self._unvoiced_scope = None
             return outcome
@@ -895,41 +890,13 @@ class CaptureService:
                 if hit.voice_status == 'voiced' and hit.kind == 'exact' and self._capturable_match(hit):
                     matches[hit.text_id] = hit
         seen_at = time.monotonic()
-        if (voice_enabled and game == 'endfield') or (has_song_cues and (voice_enabled or missing_enabled)):
-            context = self._endfield_film if game == 'endfield' else self._wuwa_music
-            if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                context.reset()
-            else:
-                hit = context.observe(index, groups, matches.values(), channel='cinematic',
-                    kind='music_subtitle' if has_song_cues else 'cinematic',
-                    prefer_authored_occurrence=bool(has_song_cues),
-                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
-                    now=seen_at, stable_frames=settings.stable_frames)
-                if hit and self._capturable_match(hit):
-                    if has_song_cues:
-                        matches = {identity: old for identity, old in matches.items()
-                                   if old.source_ocr != hit.source_ocr
-                                   or not index.equivalent_caption_occurrence(old, hit)}
-                    matches[hit.text_id] = hit
-        if game == 'endfield':
-            contexts = []
-            if has_top_cues and voice_enabled:
-                contexts.append((self._endfield_top_dialogue, 'conversation', 'cinematic'))
-            if silent_enabled:
-                contexts.append((self._endfield_tutorial, 'tutorial_step', 'tip'))
-            for context, kind, channel in contexts:
-                if response.get('dialogue_menu') or getattr(self, '_excluded_screen', None):
-                    context.reset()
-                    continue
-                hit = context.observe(index, groups, matches.values(), channel=channel, kind=kind,
-                    scope=(scope, self.session_id, index.player_voice, index.target_locale),
-                    now=seen_at, stable_frames=settings.stable_frames, prefer_authored_occurrence=True)
-                if hit and self._capturable_match(hit):
-                    for identity, other in list(matches.items()):
-                        if (identity != hit.text_id and other.source_ocr == hit.source_ocr
-                                and index.equivalent_caption_occurrence(other, hit)):
-                            del matches[identity]
-                    matches[hit.text_id] = hit
+        contexts = ({'film': self._endfield_film, 'top': self._endfield_top_dialogue,
+                     'tutorial': self._endfield_tutorial} if game == 'endfield' else
+                    {'music': self._wuwa_music} if game == 'wuwa' else {})
+        matches = observe_floating_contexts(index, groups, matches, contexts, policy, game=game,
+            scope=(scope, self.session_id, getattr(index, 'player_voice', None), getattr(index, 'target_locale', None)),
+            now=seen_at, stable_frames=settings.stable_frames, capturable=self._capturable_match,
+            dialogue_menu=response.get('dialogue_menu', False), excluded=getattr(self, '_excluded_screen', None))
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():
@@ -944,7 +911,7 @@ class CaptureService:
             active_keys.add(key)
             previous = self._unvoiced_trackers.get(key)
             tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
-            tracker.configure(max(2, settings.stable_frames) if hit.voice_status == 'voiced' else settings.stable_frames)
+            tracker.configure(capture_confirmation_frames(hit, settings.stable_frames, full_frame=True))
             if self._is_fresh_match(key, key, seen_at) and tracker.observe(key) and self._can_emit(key, seen_at):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=now, channel=channel)
                 if line is not None:

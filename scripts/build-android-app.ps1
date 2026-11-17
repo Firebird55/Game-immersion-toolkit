@@ -93,6 +93,8 @@ foreach($abi in $policy.abis) {
 if($LASTEXITCODE -ne 0){throw 'The APK signature is invalid.'}
 & (Join-Path $SdkRoot ('build-tools/'+$policy.build_tools+'/zipalign.exe')) -c -P 16 4 $apk
 if($LASTEXITCODE -ne 0){throw 'The candidate APK is not aligned for the declared target.'}
+& $Python (Join-Path $PSScriptRoot 'probe-android-closed-core.py') --apk $apk --work-dir (Join-Path $BuildRoot 'owned-package-work') --output (Join-Path $BuildRoot 'apk-owned-core-proof.json')
+if($LASTEXITCODE -ne 0){throw 'The actual APK-owned Python package failed desktop reference closure; Android runtime acceptance remains separate.'}
 if((& git -C $sourceRoot rev-parse HEAD).Trim() -ne $head){throw 'The source commit changed during the build.'}
 $destination=Join-Path $BuildRoot 'GameImmersionToolkit-android-debug.apk'
 Copy-Item -LiteralPath $apk -Destination $destination -Force

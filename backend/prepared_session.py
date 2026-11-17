@@ -11,7 +11,8 @@ import secrets
 import threading
 import time
 
-from .capture_confirmation import StableMatchTracker, capture_match_eligible
+from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
+from .floating_caption_policy import floating_caption_policy, observe_floating_contexts
 from .config import SettingsStore
 from .endfield_caption_context import EndfieldCaptionContext
 from .languages import study_language
@@ -40,6 +41,7 @@ class PreparedCaptureSession:
         self.last_time = None
         self.trackers = {}
         self.contexts = {}
+        self.floating_contexts = {}
         self.index = self.directory = None
         self.records_by_id = {}
         self.context_kinds = set()
@@ -85,7 +87,7 @@ class PreparedCaptureSession:
             self.on_invalidate()
             self.last_frame, self.last_time = -1, None
             self.processed_channels.clear()
-            self.trackers.clear(); self.contexts.clear()
+            self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
             self.message = message
             self.state_version += 1
 
@@ -141,7 +143,7 @@ class PreparedCaptureSession:
         _no_links(path)
         return path if path.is_file() and path.stat().st_size <= MAX_AUDIO else None
 
-    def observe(self, generation, sequence, groups, *, channel='dialogue', now=None):
+    def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -153,44 +155,58 @@ class PreparedCaptureSession:
                     or sequence == self.last_frame and channel in self.processed_channels):
                 return []
             if (channel not in {'dialogue', 'cinematic', 'tip', 'gameplay', 'fullframe'} or not isinstance(groups, list)
-                    or len(groups) > 128 or any(not isinstance(text, str) or len(text) > 8192 for text in groups)):
+                    or len(groups) > 128 or type(dialogue_menu) is not bool
+                    or any(not isinstance(text, str) or len(text) > 8192 for text in groups)):
                 raise ValueError('Invalid bounded OCR observation')
             now = time.monotonic() if now is None else now
             if not isinstance(now, (int, float)) or not math.isfinite(now):
                 raise ValueError('Invalid observation clock')
             if self.last_time is not None and not 0 <= now - self.last_time <= 3:
-                self.trackers.clear(); self.contexts.clear()
+                self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
+            if dialogue_menu:
+                self.contexts.clear();self.floating_contexts.clear()
             if sequence > self.last_frame:
                 self.processed_channels.clear()
             self.processed_channels.add(channel)
             self.last_time, self.last_frame = now, sequence
             self.last_ocr = '\n'.join(groups)
             settings = self.settings.get()
+            def eligible(hit):
+                return capture_match_eligible(hit, capture_unvoiced=settings.capture_unvoiced,
+                    capture_missing_audio=settings.capture_missing_audio,
+                    mapped_voice=lambda choice: choice.voice_status == 'voiced' and self._clip(choice) is not None)
+            policy = floating_caption_policy(self.index.game, self.index,
+                capture_unvoiced=settings.capture_unvoiced, capture_missing_audio=settings.capture_missing_audio)
             if channel == 'fullframe':
-                matches = self.index.match_full_frame_voice_lines(groups)
-                if settings.capture_unvoiced:
+                if not policy.enabled or policy.menu_blocks_frame(dialogue_menu):
+                    for key in list(self.trackers):
+                        if key[0] == 'fullframe':
+                            del self.trackers[key]
+                    return []
+                matches = self.index.match_full_frame_voice_lines(groups) if policy.voice_enabled else []
+                if policy.silent_enabled:
                     matches += self.index.match_unvoiced_lines(groups)
-                if settings.capture_missing_audio:
+                if policy.missing_enabled:
                     matches += self.index.match_missing_audio_lines(groups)
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
-            matches = {hit.text_id: hit for hit in matches if capture_match_eligible(hit,
-                capture_unvoiced=settings.capture_unvoiced, capture_missing_audio=settings.capture_missing_audio,
-                mapped_voice=lambda hit: hit.voice_status == 'voiced' and self._clip(hit) is not None)}
+            matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+            scope = (generation, channel, self.index.source_locale, self.index.target_locale,
+                self.index.player_voice, self.index._signature,
+                settings.capture_unvoiced, settings.capture_missing_audio)
+            if channel == 'fullframe':
+                matches = observe_floating_contexts(self.index, groups, matches, self.floating_contexts, policy,
+                    game=self.index.game, scope=scope, now=now, stable_frames=settings.stable_frames,
+                    capturable=eligible, dialogue_menu=dialogue_menu)
             # Same authored predecessor mechanism as desktop. Every context is
             # generation/channel/kind scoped; no nearby-text voice fallback.
             for kind in self.context_kinds:
-                if not kind:
-                    continue
-                if channel == 'fullframe' and kind not in ({'cinematic'} if self.index.game == 'endfield'
-                        else {'music_subtitle'} if self.index.game == 'wuwa' else set()):
+                if not kind or channel == 'fullframe' or dialogue_menu:
                     continue
                 context = self.contexts.setdefault((channel, kind), EndfieldCaptionContext())
-                hit = context.observe(self.index, groups, matches.values(), channel='cinematic' if channel == 'fullframe' else channel, kind=kind,
-                    scope=(generation, channel, self.index.source_locale, self.index.target_locale,
-                           self.index.player_voice), now=now, stable_frames=settings.stable_frames)
-                if hit and capture_match_eligible(hit, capture_unvoiced=settings.capture_unvoiced,
-                        capture_missing_audio=settings.capture_missing_audio, mapped_voice=lambda hit: self._clip(hit) is not None):
+                hit = context.observe(self.index, groups, matches.values(), channel=channel, kind=kind,
+                    scope=scope, now=now, stable_frames=settings.stable_frames)
+                if hit and eligible(hit):
                     matches[hit.text_id] = hit
             emitted = []
             for key, tracker in list(self.trackers.items()):
@@ -198,7 +214,7 @@ class PreparedCaptureSession:
                     tracker.observe(None)
             for text_id, hit in matches.items():
                 tracker = self.trackers.setdefault((channel, text_id), StableMatchTracker())
-                tracker.configure(settings.stable_frames)
+                tracker.configure(capture_confirmation_frames(hit, settings.stable_frames, full_frame=channel == 'fullframe'))
                 if tracker.observe(text_id):
                     saved_channel = next((name for name in ('dialogue', 'cinematic', 'tip', 'gameplay')
                         if self.index.is_capture_text(hit.text_id, hit.english, name)), 'dialogue') if channel == 'fullframe' else channel

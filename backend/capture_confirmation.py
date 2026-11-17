@@ -43,3 +43,7 @@ def capture_match_eligible(match, *, capture_unvoiced, capture_missing_audio, ma
     if match.voice_status in {'unknown', 'unavailable'} and match.text_capture_verified:
         return capture_missing_audio and match.kind == 'exact'
     return mapped_voice(match)
+
+
+def capture_confirmation_frames(match, configured, *, full_frame=False):
+    return max(2, configured) if full_frame and match.voice_status == 'voiced' else configured

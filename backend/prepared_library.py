@@ -225,8 +225,13 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
         if not valid:
             raise ValueError('Invalid prepared library source identity')
         payload[key] = value
-    for key in ('capture_capabilities', 'publisher_song_cues', 'publisher_film_cues'):
+    for key in ('capture_capabilities',):
         if key in snapshot:
+            payload[key] = snapshot[key]
+    for key in ('publisher_song_cues', 'publisher_song_voices', 'publisher_film_cues', 'publisher_top_dialogue_cues'):
+        if key in snapshot:
+            if type(snapshot[key]) is not int or not 0 <= snapshot[key] <= MAX_ROWS:
+                raise ValueError('Invalid authored caption inventory count')
             payload[key] = snapshot[key]
     payload.update(install=None, records=[])
     audio = {}

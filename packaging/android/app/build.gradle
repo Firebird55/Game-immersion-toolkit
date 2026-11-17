@@ -14,7 +14,8 @@ def generatedAssets = layout.buildDirectory.dir('generated/toolkit-assets')
 def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contracts.py', 'languages.py',
     'local_game.py', 'textmaps.py', 'bilingual.py', 'multilingual_index.py', 'storage.py',
     'runtime_writers.py', 'sqlite_operation_lifetime.py', 'steam_games.py', 'capture_confirmation.py',
-    'endfield_caption_context.py', 'prepared_library.py', 'prepared_session.py', 'android_host.py', 'android_probe.py']
+    'endfield_caption_context.py', 'floating_caption_policy.py', 'wuthering_text_templates.py',
+    'prepared_library.py', 'prepared_session.py', 'android_host.py', 'android_probe.py']
 
 android {
     namespace 'io.github.firebird55.gameimmersiontoolkit'

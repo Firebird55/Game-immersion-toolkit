@@ -62,7 +62,7 @@ jobs:
           # a host-only reference prerequisite, never copied into the APK.
           python -m pip install -r requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_prepared_session.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py
+          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire authenticated original Android compiler
         run: |
@@ -100,6 +100,7 @@ jobs:
             output/android-candidate/ANDROID-PROVENANCE.json
             output/android-candidate/apk-audit.json
             output/android-candidate/apk-signature.txt
+            output/android-candidate/apk-owned-core-proof.json
             output/android-candidate/desktop-core-proof.json
             output/android-candidate/authored-library.zip
             output/android-wheelhouse/python-wheels-receipt.json

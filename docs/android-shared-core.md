@@ -10,6 +10,12 @@ is used by desktop capture and the [prepared session](../backend/prepared_sessio
 Both use `MultilingualTextIndex`, the official locale/voice contracts,
 `SettingsStore` and `TranscriptStore`. No desktop capture or account transport is
 imported to bootstrap the local session.
+The desktop and portable hosts also use the same
+[floating-caption policy](../backend/floating_caption_policy.py) for Endfield
+top/film/tutorial and Wuthering song admission, exact authored occurrence
+selection, complete-source alias equivalence, menu reset and voiced two-frame
+confirmation. PlayerName templates use the maintained Wuthering index helper;
+the APK ships that actual module.
 
 ## Private prepared libraries
 
@@ -22,6 +28,11 @@ The writer preserves only bounded source fingerprint, regional edition, source
 mode and reader revision as source provenance. It does not copy URL collections,
 account diagnostics or arbitrary snapshot metadata. Immutable generations retain
 that source identity; existing transcript models do not expose all of it per line.
+Verified original full-WEM SHA/speaker fields remain untouched when a prepared
+clip is missing. They are then provenance on an explicit unavailable row, never
+authorization for original-voice equivalence or a fabricated audio asset.
+Publisher top/song/film counts, including an explicit zero playable-song count,
+retain the same admission meaning after portable export/import.
 
 The writer accepts a source snapshot, destination and decoded clips supplied by
 the existing original-voice services. It preserves official texts, voice state,
@@ -96,6 +107,15 @@ It disables network before first launch and force-stops/restarts the app to
 check the actual shared reader's mode, playback speed, font and pinyin settings,
 history and original clips. A green archive/build audit is not a substitute for
 this runtime job. Until the job passes, target runtime acceptance is unverified.
+The native shared fixture executes prepared import, production matching,
+confirmation and original clip lookup for all six live-service games, including
+an actual Wuthering PlayerName template. The APK audit additionally checks its
+exact delivered `app.imy` namespace and current source receipts.
+`scripts/probe-android-closed-core.py` imports that **actual packaged bytecode**
+in an isolated host Python process with desktop dependency wheels, rejects
+repository backend masking/desktop platform imports and compares the six-game
+results with the maintained desktop source. This is owned-source delivery and
+reference-behavior evidence; Android ABI execution still requires the emulator.
 
 Physical Android/iOS sender tests, long-session fuzzy-match performance, audio
 focus, protected Android account storage, complete desktop migration/export UI,

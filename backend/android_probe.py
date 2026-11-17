@@ -15,7 +15,7 @@ from .prepared_session import PreparedCaptureSession
 TEXT = 'Follow the river beyond the bridge.'
 
 
-def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2):
+def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game='zzz'):
     root.mkdir(parents=True, exist_ok=True)
     clip = root / 'authored-tone.wav'
     with wave.open(str(clip), 'wb') as output:
@@ -26,7 +26,7 @@ def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2):
     row = dict(text_id=identity, english=text, chinese='沿河走过桥。', source_locale='en',
         source_text=text, texts={'en': text, 'zh-Hans': '沿河走过桥。'}, audio_locale='en',
         audio={'authored-fixture': True}, voice_status='voiced', dialogue_kind='conversation')
-    snapshot = dict(format=2, game='zzz', source_locale='en', records=[row])
+    snapshot = dict(format=2, game=game, source_locale='en', records=[row])
     return write_prepared_library(snapshot, root / 'library.zip', {identity: clip})
 
 
@@ -73,6 +73,21 @@ def run(root):
         'old_recording_sha256': hashlib.sha256(restarted.audio_path(identity).read_bytes()).hexdigest(),
         'recording_retained': restarted.audio_path(identity).read_bytes() == original_pcm,
         'new_generation_text_id': restarted.index._records[0]['text_id']}
+    games = {}
+    for game in ('zzz', 'genshin', 'starrail', 'endfield', 'wuwa', 'nte'):
+        identity = 'authored:' + game + ':bridge'
+        official = 'Your journey continues beyond the bridge, {PlayerName}.' if game == 'wuwa' else TEXT
+        observed = official.replace('{PlayerName}', 'Pilot')
+        imported = PreparedCaptureSession(work / ('game-' + game))
+        imported.import_library(_library(work / ('input-' + game), official, identity, game=game))
+        scope = imported.start()
+        waited = imported.observe(scope, 1, [observed], now=1)
+        emitted = imported.observe(scope, 2, [observed], now=1.1)
+        if waited or len(emitted) != 1 or emitted[0]['text_id'] != identity or emitted[0]['game'] != game:
+            raise ValueError('The packaged shared core did not capture the authored ' + game + ' fixture')
+        games[game] = {'text_id': emitted[0]['text_id'], 'voice_status': emitted[0]['voice_status'],
+            'original_audio_sha256': hashlib.sha256(imported.audio_path(emitted[0]['id']).read_bytes()).hexdigest()}
+    results['prepared_games'] = games
     if any(value is False for value in results.values()):
         raise ValueError('Shared lifecycle fixture failed')
     encoded = json.dumps(results, sort_keys=True, separators=(',', ':')).encode()

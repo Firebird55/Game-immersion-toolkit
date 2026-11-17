@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import struct
+import re
 import zipfile
 
 
@@ -56,6 +57,16 @@ def verify(path):
         if any(not required <= rapidfuzz_abis.get(abi, set()) for abi in abis):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
+        repository = Path(__file__).resolve().parents[1]
+        for name, digest in core['files'].items():
+            if not re.fullmatch(r'backend/[a-z0-9_]+\.py', name) or not re.fullmatch(r'[0-9a-f]{64}', digest):
+                raise ValueError('Invalid owned Python source receipt')
+            if hashlib.sha256((repository / name).read_bytes()).hexdigest() != digest:
+                raise ValueError('The packaged source receipt differs from the current maintained core')
+        with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/app.imy'))) as owned:
+            actual_python = {name for name in owned.namelist() if not name.endswith('/')}
+            if actual_python != {name + 'c' for name in core['files']}:
+                raise ValueError('The delivered Python namespace differs from its closed source manifest')
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/reader.bundle'))) as reader:
             frontend = json.loads(reader.read('desktop-manifest.json'))
             actual_web = {name for name in reader.namelist() if name != 'desktop-manifest.json'}
