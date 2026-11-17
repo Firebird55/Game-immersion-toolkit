@@ -143,6 +143,10 @@ does not replace an existing library. The source-stage revision binds the
 original client artifact generation independently of content mode; the request,
 plan handle and private cache identity separately bind mode and complete locale
 selection, keeping the corresponding receipts separate.
+Renewed temporary launcher tokens or unrelated response fields do not create a
+new generation or invalidate an otherwise identical approved plan; canonical
+artifact declarations, original header SHA-256 values, ranges and sizes remain
+strict recheck inputs.
 Independent Android/Linux/macOS runtime
 closure remains unsupported by this initial adapter and fails before source
 I/O; supplying an unreviewed native object does not bypass that gate.

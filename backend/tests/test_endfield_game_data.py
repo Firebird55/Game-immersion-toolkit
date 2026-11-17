@@ -88,7 +88,7 @@ def test_original_size_plan_and_download_are_only_a_non_audio_bootstrap(tmp_path
         provider.restore(result.restore_handle, fixture.ctx)
 
 
-@pytest.mark.parametrize('change', ['client', 'mode', 'range', 'estimate', 'revision', 'stage'])
+@pytest.mark.parametrize('change', ['client', 'mode', 'range', 'estimate', 'revision', 'stage', 'header-bytes', 'receipt-shape'])
 def test_changed_source_selection_or_estimate_stops_before_large_transfer(tmp_path, monkeypatch, change):
     monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
     fixture = Fixture(tmp_path)
@@ -100,6 +100,12 @@ def test_changed_source_selection_or_estimate_stops_before_large_transfer(tmp_pa
         fixture.ctx.request = protocol.GameDataRequest('global', 'en', ('ja',), 'text-audio')
     elif change == 'range':
         plan.handle['ranges'][0]['offset'] += 1
+    elif change == 'header-bytes':
+        changed = bytearray(fixture.data['GameAssembly.dll'])
+        changed[0x50] ^= 1  # Valid PE with unchanged table ranges but different original header bytes.
+        fixture.data['GameAssembly.dll'] = bytes(changed)
+    elif change == 'receipt-shape':
+        plan.handle['receipts'] = 'malformed authored input'
     else:
         from dataclasses import replace
         plan = replace(plan, **{'estimate': {'download_bytes': plan.download_bytes + 1},
@@ -166,3 +172,19 @@ def test_original_artifact_hash_changes_generation_even_with_same_marketing_vers
     assert first.revision != second.revision
     assert first.handle['client']['version'] == second.handle['client']['version']
     assert first.handle['request'] == second.handle['request']
+
+
+def test_launcher_token_refresh_does_not_change_original_generation_or_size_approval(tmp_path, monkeypatch):
+    monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
+    fixture = Fixture(tmp_path)
+    provider = source.create_provider(platform='windows', transport_factory=fixture.factory)
+    first = provider.plan(fixture.request, fixture.ctx)
+    fixture.latest['action'] = 12
+    fixture.latest['pkg']['packs'][0]['url'] += '?auth_key=refreshed-authored-token'
+    second = provider.plan(fixture.request, fixture.ctx)
+    assert first.revision == second.revision
+    assert first.handle['receipts']['declaration']['sha256'] != second.handle['receipts']['declaration']['sha256']
+    assert first.handle['client'] == second.handle['client']
+    result = provider.download(first, fixture.ctx)
+    assert isinstance(result, protocol.PreparationStage)
+    assert all(call[1] != 'audio' for call in fixture.calls)

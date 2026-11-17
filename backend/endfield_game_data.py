@@ -44,6 +44,19 @@ def _json_bytes(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
+def _source_plan(handle):
+    # Raw launcher JSON can renew temporary tokens or unrelated fields without
+    # changing the canonical original artifact declaration. Keep that receipt
+    # as evidence, not as generation identity. The actual original headers are
+    # still byte-bound: a changed header must not reuse an old size approval.
+    receipts = handle.get('receipts')
+    if not isinstance(receipts, dict) or any(not isinstance(receipts.get(name), dict)
+                                            for name in (METADATA, 'GameAssembly.dll')):
+        return None
+    return ({key: value for key, value in handle.items() if key != 'receipts'},
+            {name: receipts[name].get('sha256') for name in (METADATA, 'GameAssembly.dll')})
+
+
 class EndfieldGameDataProvider:
     title = TITLE
 
@@ -125,7 +138,7 @@ class EndfieldGameDataProvider:
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
-        if (plan.handle != current.handle or plan.download_bytes != current.download_bytes or
+        if (_source_plan(plan.handle) != _source_plan(current.handle) or plan.download_bytes != current.download_bytes or
                 plan.required_disk_bytes != current.required_disk_bytes or plan.revision != current.revision or
                 plan.stage != 'client-bootstrap' or plan.runtime_available is not True):
             raise Error('publisher_size_changed', 'The Endfield client or selected download changed. Check its size again.')
