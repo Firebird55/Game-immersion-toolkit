@@ -8,6 +8,8 @@ export type NativeCapabilities = {
   protected_accounts: boolean;
   capture_source: string;
   message: string;
+  receiver_protocol?: string;
+  max_frame_bytes?: number;
 };
 
 export function useNativeHost() {

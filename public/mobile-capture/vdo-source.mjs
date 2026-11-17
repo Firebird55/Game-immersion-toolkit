@@ -72,7 +72,13 @@ async function pngDimensions(blob) {
  return { width, height };
 }
 
-/** Official viewer bridge. No peer, SDK, capture track or iframe DOM access. */
+/**
+ * Official viewer bridge. No peer, SDK, capture track or iframe DOM access.
+ * @param {{container: HTMLElement, window?: Window, document?: Document, now?: () => number,
+ * requestTimeoutMs?: number, stallAfterMs?: number, reconnectBaseMs?: number,
+ * reconnectMaxMs?: number, freezeReconnectMs?: number, startupGraceMs?: number,
+ * decodeImage?: (blob: Blob) => Promise<ImageBitmap>}} options
+ */
 export function createVdoFrameSource({ container, window = globalThis.window, document = globalThis.document, now = Date.now, requestTimeoutMs = 4000, stallAfterMs = 8000, reconnectBaseMs = 1000, reconnectMaxMs = 30000, freezeReconnectMs = 30000, startupGraceMs = 15000, decodeImage = blob => globalThis.createImageBitmap(blob) } = {}) {
  if (!container || !window || !document) throw new TypeError('A viewer container and browser document are required.');
  const life = createFrameLifecycle({ now, stallAfterMs });

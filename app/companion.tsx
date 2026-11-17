@@ -8,8 +8,8 @@ import { settingsAdapter } from './lexirise-settings';
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {DesktopSharing} from './desktop-sharing';
 import {AndroidSetup} from './android-setup';
+import {AndroidReceiver} from './android-receiver';
 import {useNativeHost} from '../lib/native-host';
-import {canCaptureDeviceFrames} from '../lib/native-host-policy.mjs';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
@@ -102,6 +102,7 @@ type Settings = Record<`${Exclude<GameId, 'zzz' | 'pragmata'>}_region`, CaptureR
 };
 type CaptureStatus = {
   source_generation?: number;
+  library_revision?: string | null;
   visible_text_ids: string[];
   running: boolean;
   phase: string;
@@ -582,7 +583,11 @@ function CompanionClient() {
     };
     window.addEventListener('lexirise-credentials-changed', changed);
     void owner.request();
-    const poll = window.setInterval(() => void owner.request(), 10000);
+    const poll = window.setInterval(() => {
+      if (!nativeHost.android || !document.hidden) void owner.request();
+    }, nativeHost.android ? 750 : 10000);
+    const nativeResume = () => {if (nativeHost.android) void owner.request();};
+    if (nativeHost.android) window.addEventListener('toolkit-host-resume', nativeResume);
     let closed = false;
     let socket: WebSocket | null = null;
 
@@ -692,13 +697,14 @@ function CompanionClient() {
       socket.onerror = () => connection.close();
     };
 
-    connect();
+    if (!nativeHost.android) connect();
     return () => {
       closed = true;
       owner.close();
       if (pollOwner.current === owner) pollOwner.current = null;
       window.clearInterval(poll);
       window.removeEventListener('lexirise-credentials-changed', changed);
+      window.removeEventListener('toolkit-host-resume', nativeResume);
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       socket?.close();
     };
@@ -963,6 +969,9 @@ function CompanionClient() {
         capabilities={nativeHost.capabilities} error={nativeHost.error} libraryReady={!!mapStatus?.ready}
         onChanged={game => {if (game) setSelectedGame(game); void loadSnapshot();}}
         onAccount={() => {setReadingMode('lexirise'); setAccountSection('connection'); setAccountSettingsOpen(true);}} />}
+      {nativeHost.android && <AndroidReceiver key={`${selectedGame}:${capture?.library_revision ?? 'none'}`}
+        online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
+        capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
       {!nativeHost.android && !archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
         <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
@@ -1075,17 +1084,17 @@ function CompanionClient() {
               <option value={0.6}>0.6×</option>
             </select>
           </label>
-          <Button
+          {!nativeHost.android && <Button
             variant="outline"
             className={capture?.running ? "capture-toggle is-running" : "capture-toggle"}
             onClick={toggleCapture}
-            disabled={archivedHistory || !online || !status || (nativeHost.android && !capture?.running && !canCaptureDeviceFrames(nativeHost.capabilities))}
+            disabled={archivedHistory || !online || !status}
           >
             <Pause className="capture-pause-icon" />
             <Play className="capture-play-icon" />
             <span className="capture-pause-label">{uiText("Pause")}</span>
             <span className="capture-play-label">{uiText("Start")}</span>
-          </Button>
+          </Button>}
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
           {!nativeHost.android && <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}

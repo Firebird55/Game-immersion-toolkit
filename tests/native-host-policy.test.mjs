@@ -27,3 +27,13 @@ test('incomplete, stringified or unknown capabilities fail before exposing nativ
   assert.throws(()=>parseNativeCapabilities(null),/complete device capability/);
   assert.equal(canCaptureDeviceFrames(null),false);
 });
+
+test('the receiver uses an explicitly supported protocol and a bounded native frame limit',()=>{
+  const value=parseNativeCapabilities({...report(),capture_source:'remote-stream',
+    receiver_protocol:'leased-frames-v1',max_frame_bytes:10*1024**2});
+  assert.equal(value.receiver_protocol,'leased-frames-v1');
+  assert.equal(value.max_frame_bytes,10*1024**2);
+  assert.equal(parseNativeCapabilities({...report(),receiver_protocol:'unknown-version'}).receiver_protocol,undefined);
+  for(const maximum of [0,-1,16777217,Infinity,'10485760'])
+    assert.throws(()=>parseNativeCapabilities({...report(),max_frame_bytes:maximum}),/complete device capability/);
+});
