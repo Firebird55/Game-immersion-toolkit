@@ -360,9 +360,34 @@ def audio_fixture(tmp_path, monkeypatch):
 
 def test_text_audio_inventory_is_explicitly_quoted_and_never_activates_partial_audio(tmp_path, monkeypatch):
     provider, request, calls, _, _ = audio_fixture(tmp_path, monkeypatch)
+    from backend import starrail_events as events, starrail_assets
+    from backend.tests.test_starrail_game_audio import lookup_bytes
+    raw = lookup_bytes(); encoded = zstandard.ZstdCompressor().compress(raw); digest = hashlib.md5(raw).hexdigest()
+    asset = sophon.File(events.LOOKUP, len(raw), digest,
+        ((0, len(raw), len(encoded), 'lookup-chunk', digest),), 'https://autopatchos.starrails.com/test')
+    original_manifest = sophon.manifest
+    def manifest(directory, channel, spec, suffixes, **kwargs):
+        if suffixes == (events.LOOKUP,):
+            return {events.LOOKUP: asset}
+        return original_manifest(directory, channel, spec, suffixes, **kwargs)
+    monkeypatch.setattr(sophon, 'manifest', manifest)
+    monkeypatch.setattr(starrail_assets, 'authored_links', lambda *a: [])
+    original_transport = provider._transport
+    def transport(ctx):
+        base = original_transport(ctx)
+        original_open = base.open
+        def open_(req, **kwargs):
+            if req.full_url == asset.prefix + '/lookup-chunk':
+                calls.append(req.full_url)
+                return Response(encoded, url=req.full_url)
+            return original_open(req, **kwargs)
+        base.open = open_
+        return base
+    monkeypatch.setattr(provider, '_transport', transport)
     service = GameDataService(tmp_path, {'starrail': provider})
     try:
-        for expected, transfer in [('original-native-inputs', None), ('audio-inventory-prefixes', 28), ('audio-inventory-headers', 40)]:
+        for expected, transfer in [('original-native-inputs', None), ('audio-inventory-prefixes', 28),
+                ('audio-inventory-headers', 40), ('audio-event-lookup', len(encoded))]:
             row = service.plan('starrail', request)['game']
             if transfer is not None:
                 assert row['download_bytes'] == transfer
@@ -398,3 +423,21 @@ def test_lost_audio_index_between_quote_and_download_fails_without_unquoted_requ
         assert len(calls) > before
     finally:
         service.close()
+
+
+def test_missing_closed_audio_runtime_gates_recording_quote_before_transport(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from backend import starrail_game_audio as audio, native_codecs
+    from backend.game_data_protocol import GameDataRequest
+    provider = game.create_provider(platform='windows')
+    owner = audio.Owner('English/VoBanks1.pck', 8000, 'a' * 32,
+        'https://autopatchos.starrails.com/test/VoBanks1.pck', 'b' * 64)
+    quote = audio.Quote('audio-localized-banks', (audio.Span(owner, 100, 1000),))
+    monkeypatch.setattr(provider, '_audio_inventory', lambda *a: (quote, object(), {}, ()))
+    monkeypatch.setattr(native_codecs, 'packaged_codec_executable', lambda tool: None)
+    monkeypatch.setattr(provider, '_transport', lambda *a: pytest.fail('Missing codec cannot trigger audio transfer'))
+    ctx = SimpleNamespace(request=GameDataRequest('global', 'en', (), 'text-audio'))
+    plan = provider._audio_plan(ctx, SimpleNamespace(build={'channel': 'starrail-global', 'version': '4.7.0'}),
+        SimpleNamespace(identity='c' * 64), SimpleNamespace(identity='d' * 64), {}, {})
+    assert plan.stage == 'audio-runtime' and plan.runtime_available is False
+    assert plan.download_bytes is None and not plan.handle

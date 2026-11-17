@@ -22,14 +22,18 @@ class MissingAudio(Exception):
 
 
 class AudioSources(Sources):
-    def __init__(self, ctx, build, locale, *, transport_factory=PublisherTransport):
+    def __init__(self, ctx, build, locale, *, transport_factory=PublisherTransport, verification=None):
         if ctx.request.content_mode != 'text-audio':
             raise GameDataError('zzz_audio_not_requested', 'Select text and audio before accessing original voice sources.')
+        if build.get('channel') != 'zzz-' + ctx.request.region:
+            raise GameDataError('zzz_audio_region_changed', 'Choose the matching original ZZZ regional source.', 409)
         if locale not in sophon.VOICE_FIELDS:
             raise GameDataError('zzz_audio_locale', 'Choose an official ZZZ dub.')
         super().__init__(ctx, build, transport_factory=transport_factory)
         self.locale = locale
-        self._audio_chunks = set()
+        self._audio_chunks = set() if verification is None else verification.setdefault('chunks', set())
+        if verification is not None:self._verified = verification.setdefault('files', {})
+        self._game_files = None
 
     @property
     def voice_spec(self):
@@ -38,7 +42,32 @@ class AudioSources(Sources):
     def inputs_available(self):
         spec = self.voice_spec
         return (_valid_file(self.bootstrap_cache / 'manifests' / spec[4], spec[4], spec[3])
-                and self.available(self.index_file('audio')))
+                and self.available(self.index_file('audio'))
+                and all(self._chunk_available(row[4], row[1]) for asset in self._markers().values() for row in asset.chunks))
+
+    def _game(self):
+        if self._game_files is None:
+            spec = tuple(self.build['manifests']['game'])
+            _safe(self.bootstrap_cache / 'manifests' / spec[4])
+            def no_fetch(*args, **kwargs):
+                raise GameDataError('zzz_audio_source_changed', 'The original game manifest changed. Check its size again.', 409)
+            self._game_files = sophon.manifest(self.bootstrap_cache, self.build['channel'], spec, ('.pck', 'revision'), fetch=no_fetch)
+        return self._game_files
+
+    def _markers(self):
+        game = self._game();result = {}
+        for name in ('audio_revision', 'data_revision', 'res_revision', 'silence_revision'):
+            asset = game.get(hotfix.BASE + name)
+            if asset is None or not 0 < asset.size <= 32:
+                raise GameDataError('zzz_audio_base_identity', 'The original launcher base identity is unavailable.', 409)
+            result[name] = asset
+        return result
+
+    def _base_matches(self):
+        expected = self.build['hotfix']['base_revision'].split('_', 1)[0].encode('ascii')
+        def no_fetch(*args, **kwargs):
+            raise GameDataError('zzz_audio_source_changed', 'The local launcher identity changed. Check its size again.', 409)
+        return all(asset.read(self.bootstrap_cache, 0, asset.size, fetch=no_fetch) == expected for asset in self._markers().values())
 
     def quote_inputs(self):
         spec = self.voice_spec
@@ -47,6 +76,16 @@ class AudioSources(Sources):
         _, network, disk = self.quote([self.index_file('audio')])
         if not _valid_file(self.bootstrap_cache / 'manifests' / spec[4], spec[4], spec[3]):
             network += spec[2];disk += spec[3] * 2
+        chunks = {}
+        for asset in self._markers().values():
+            for row in asset.chunks:
+                previous = chunks.get(row[4])
+                if previous is not None and previous[1] != row[1]:
+                    raise GameDataError('zzz_audio_base_identity', 'Original launcher identity chunk sizes disagree.')
+                if previous is None or row[2] > previous[2]:chunks[row[4]] = row
+        missing = [row for row in chunks.values() if not self._chunk_available(row[4], row[1])]
+        network += sum(row[2] for row in missing)
+        disk += sum(row[1] for row in missing) + max((row[1] for row in missing), default=0)
         return network, disk
 
     def download_inputs(self):
@@ -59,6 +98,12 @@ class AudioSources(Sources):
         _safe(self.bootstrap_cache / 'manifests' / spec[4])
         sophon.manifest(self.bootstrap_cache, self.build['channel'], spec, ('.pck',), fetch=fetch)
         self.download([self.index_file('audio')], kind='audio')
+        for asset in self._markers().values():
+            for _, expanded, compressed, identity, digest in asset.chunks:
+                self.ctx.check();_safe(self.bootstrap_cache / 'chunks' / digest)
+                sophon._verified(self.bootstrap_cache / 'chunks', asset.prefix + '/' + identity,
+                    compressed, expanded, digest, sophon.MAX_CHUNK,
+                    fetch=lambda url, *, limit: transport.fetch_bytes(url, limit=limit, kind='audio')[0])
 
     def assets(self):
         if not self.inputs_available():
@@ -66,9 +111,8 @@ class AudioSources(Sources):
         def no_fetch(*args, **kwargs):
             raise GameDataError('zzz_audio_source_changed', 'The cached ZZZ manifest changed. Check its size again.', 409)
         voice = sophon.manifest(self.bootstrap_cache, self.build['channel'], self.voice_spec, ('.pck',), fetch=no_fetch)
-        game_spec = tuple(self.build['manifests']['game'])
-        _safe(self.bootstrap_cache / 'manifests' / game_spec[4])
-        game = sophon.manifest(self.bootstrap_cache, self.build['channel'], game_spec, ('.pck',), fetch=no_fetch)
+        game = self._game()
+        matching_base = self._base_matches()
         index = self.index_file('audio')
         # An index is metadata, never a range-read audio container.
         raw = Sources.read(self, index, 0, index.size)
@@ -76,10 +120,11 @@ class AudioSources(Sources):
         files = {}
         for row in hotfix.inventory_rows(raw):
             if not re.fullmatch(pattern, row['remoteName']):continue
-            sdk = None if row['isPatch'] else voice.get(hotfix.BASE + row['remoteName']) or game.get(hotfix.BASE + row['remoteName'])
+            # During a publisher rollout, HYP can still advertise another base.
+            # The updater's own immutable base URL/checksum then owns the bytes.
+            sdk = None if row['isPatch'] or not matching_base else voice.get(hotfix.BASE + row['remoteName']) or game.get(hotfix.BASE + row['remoteName'])
+            if sdk and sdk.size != row['fileSize']:sdk = None
             if sdk:
-                if sdk.size != row['fileSize']:
-                    raise GameDataError('zzz_audio_source_changed', 'The original ZZZ audio owners disagree.')
                 asset = OriginalFile(sdk.name, sdk.size, int(row['md5']), '', sdk)
             else:
                 source = hotfix.resource(self.build, row)
@@ -92,7 +137,8 @@ class AudioSources(Sources):
 
     def _ranges(self, files, ranges):
         selected = {}
-        for row in ranges:
+        for index, row in enumerate(ranges):
+            if index % 256 == 0:self.ctx.check()
             if not isinstance(row, dict) or row.get('name') not in files:
                 raise GameDataError('zzz_audio_range_owner', 'The original ZZZ audio range has no selected owner.')
             asset = files[row['name']]
@@ -128,24 +174,19 @@ class AudioSources(Sources):
                 patches[asset.name] = asset
                 continue
             for offset, expanded, compressed, identity, digest in self._chunks(asset, start, size):
-                if self._chunk_available(digest, expanded):continue
                 if digest in chunks and chunks[digest][0] != expanded:
                     raise GameDataError('zzz_audio_source_changed', 'Original ZZZ audio chunk sizes disagree.')
                 previous = chunks.get(digest)
                 if previous is None or compressed > previous[1]:
                     chunks[digest] = expanded, compressed, asset.base.prefix + '/' + identity
         _, network, disk = self.quote(patches.values())
-        network += sum(row[1] for row in chunks.values())
-        disk += sum(row[0] for row in chunks.values()) + max((row[0] for row in chunks.values()), default=0) + scratch_bytes
+        missing = [row for digest, row in chunks.items() if not self._chunk_available(digest, row[0])]
+        network += sum(row[1] for row in missing)
+        disk += sum(row[0] for row in missing) + max((row[0] for row in missing), default=0) + scratch_bytes
         return network, disk
 
     def ranges_available(self, files, ranges):
-        for asset, start, size in self._ranges(files, ranges):
-            if not asset.base:
-                if not self.available(asset):return False
-            elif any(not self._chunk_available(chunk[4], chunk[1]) for chunk in self._chunks(asset, start, size)):
-                return False
-        return True
+        return self.quote_ranges(files, ranges)[0] == 0
 
     def download_ranges(self, files, ranges):
         selected = self._ranges(files, ranges)

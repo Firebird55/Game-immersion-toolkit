@@ -6,6 +6,10 @@ using System.Reflection;
 using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using System.Buffers.Binary;
+using System.IO.Compression;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 
 internal static class NteReader
 {
@@ -27,7 +31,7 @@ internal static class NteReader
                     game_execution_approved = false }));
                 return local ? 0 : 2;
             }
-            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "publisher-tables" or "publisher-dialogue-inventory" or "wuwa-list" or "wuwa-extract")) throw new ArgumentException();
+            if (args.Length != 4 || args[0] is not ("index" or "voice" or "voices" or "inventory" or "publisher-tables" or "publisher-dialogue-inventory" or "wuwa-list" or "wuwa-extract" or "--decode-oodle")) throw new ArgumentException();
             var install = Path.GetFullPath(args[1]);
             var tools = Path.GetFullPath(args[2]);
             var destination = Path.GetFullPath(args[3]);
@@ -45,10 +49,12 @@ internal static class NteReader
                     destination.StartsWith(immutable.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
                     immutable.StartsWith(destination.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     throw new ArgumentException("Choose a separate private output folder");
-            var input = new char[64 * 1024 + 1];
-            var count = Console.In.ReadBlock(input, 0, input.Length);
-            if (count > 64 * 1024) throw new ArgumentException();
-            using var request = JsonDocument.Parse(new string(input, 0, count));
+            using var request = ReadRequest();
+            if (args[0] == "--decode-oodle")
+            {
+                DecodeOodle(install, tools, destination, request.RootElement);
+                return 0;
+            }
             var voiceLanguage = request.RootElement.TryGetProperty("voice_language", out var requestedVoice) ? requestedVoice.GetString()! : "Chinese";
             var includeAudio = !request.RootElement.TryGetProperty("include_audio", out var requestedAudio) || requestedAudio.GetBoolean();
             if (!includeAudio && args[0] != "index") throw new ArgumentException();
@@ -90,9 +96,11 @@ internal static class NteReader
                     var nonce = request.RootElement.GetProperty("inventory_nonce").GetString();
                     if (nonce is null || !Regex.IsMatch(nonce, "\\A[0-9a-f]{32}\\z")) throw new ArgumentException();
                     var index = Property(provider, "Files");
-                    var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true);
+                    var strictEof = request.RootElement.TryGetProperty("require_registry_eof", out var eof) && eof.GetBoolean();
+                    var sources = NteDialogueSources(provider, cue, names, destination, sha, includeStringTables: true,
+                        requireRegistryEof: strictEof);
                     if (request.RootElement.TryGetProperty("capture_original_authoring", out var authoring) && authoring.GetBoolean())
-                        foreach (var table in NteOriginalTableClaims(provider, cue, names, destination, sha)) sources.Add(table.path);
+                        foreach (var table in NteOriginalTableClaims(provider, cue, names, destination, sha, strictEof)) sources.Add(table.path);
                     var packages = new SortedDictionary<string, long>(StringComparer.Ordinal);
                     long total = 0;
                     foreach (var name in sources)
@@ -102,9 +110,16 @@ internal static class NteReader
                         if (size is < 1 or > 4*1024*1024 || total > 128*1024*1024) throw new UnsupportedGameFormatException();
                         packages.Add(name, size);
                     }
-                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(new {
-                        schema="nte-original-dialogue-inventory-v1", complete=true, registry_sha256=sha, nonce=nonce,
-                        package_count=packages.Count, packages=packages }));
+                    var inventory = new Dictionary<string, object?> {
+                        ["schema"]=strictEof ? "nte-original-dialogue-inventory-v2" : "nte-original-dialogue-inventory-v1",
+                        ["complete"]=true, ["registry_sha256"]=sha, ["nonce"]=nonce,
+                        ["package_count"]=packages.Count, ["packages"]=packages };
+                    if (strictEof)
+                    {
+                        inventory["registry_bytes"]=new FileInfo(Path.Combine(destination,"dialogue-registry.bin")).Length;
+                        inventory["registry_eof_verified"]=true;
+                    }
+                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(inventory));
                 }
                 else if (args[0] == "publisher-tables")
                 {
@@ -457,11 +472,11 @@ internal static class NteReader
     record OriginalTable(string path, string package, string object_name, string row_structure, string role, JsonElement rows);
 
     static List<OriginalTable> NteOriginalTableClaims(object provider, Assembly cue, HashSet<string> files,
-        string destination, string? registrySha)
+        string destination, string? registrySha, bool requireRegistryEof = false)
     {
         var result = new List<OriginalTable>();
         var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha, requireRegistryEof))
         {
             object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
             if (Field("AssetClass").ToString() != "DataTable") continue;
@@ -493,7 +508,7 @@ internal static class NteReader
         return "HT/Content/" + package[6..] + ".uasset";
     }
 
-    static Array NteRegistry(object provider, Assembly cue, string destination, string? registrySha)
+    static Array NteRegistry(object provider, Assembly cue, string destination, string? registrySha, bool requireEof = false)
     {
         // AssetRegistry is a checked original pak member; publisher package
         // streams expose IoStore assets only. The caller stages this member.
@@ -505,17 +520,20 @@ internal static class NteReader
         using var archive = (IDisposable)Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.Readers.FByteArchive", true)!,
             [registryPath, bytes, Property(provider, "Versions")])!;
         var registry = Activator.CreateInstance(cue.GetType("CUE4Parse.UE4.AssetRegistry.FAssetRegistryState", true)!, [archive])!;
+        if (requireEof && (Convert.ToInt64(Property(archive,"Position")) != bytes.LongLength ||
+                          Convert.ToInt64(Property(archive,"Length")) != bytes.LongLength))
+            throw new UnsupportedGameFormatException();
         var entries = (Array)registry.GetType().GetField("PreallocatedAssetDataBuffers")!.GetValue(registry)!;
         if (entries.Length is < 1 or > 2_000_000) throw new UnsupportedGameFormatException();
         return entries;
     }
 
     static SortedSet<string> NteDialogueSources(object provider, Assembly cue, HashSet<string> files,
-        string destination, string? registrySha, bool includeStringTables = false)
+        string destination, string? registrySha, bool includeStringTables = false, bool requireRegistryEof = false)
     {
         var sources = new SortedSet<string>(StringComparer.Ordinal);
         var owners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var item in NteRegistry(provider, cue, destination, registrySha))
+        foreach (var item in NteRegistry(provider, cue, destination, registrySha, requireRegistryEof))
         {
             object Field(string name) => item!.GetType().GetField(name)!.GetValue(item)!;
             var assetClass = Field("AssetClass").ToString();
@@ -758,6 +776,131 @@ internal static class NteReader
         if (captionTables.Any() || preserveOwners)
             File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
     }
+    static JsonDocument ReadRequest()
+    {
+        var input = new char[64 * 1024 + 1];
+        var count = Console.In.ReadBlock(input, 0, input.Length);
+        if (count > 64 * 1024) throw new ArgumentException();
+        return JsonDocument.Parse(new string(input, 0, count));
+    }
+
+    delegate bool ManagedOodleDecode(ReadOnlySpan<byte> input, Span<byte> output, out int written);
+
+    static string Sha256(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+    static byte[] EmbeddedManagedCodec(byte[] supplier, string expectedSha)
+    {
+        // Read the supplier as PE DATA. Its wrapper/module constructor and its
+        // native Oodle initialization/download entry points never execute.
+        using var pe = new PEReader(new MemoryStream(supplier, false));
+        var metadata = pe.GetMetadataReader();
+        var entries = metadata.ManifestResources.Select(metadata.GetManifestResource)
+            .Where(r => metadata.GetString(r.Name) == "costura.oodlesharp.dll.compressed").ToArray();
+        if (entries.Length != 1 || !entries[0].Implementation.IsNil) throw new UnsupportedGameFormatException();
+        var directory = pe.PEHeaders.CorHeader!.ResourcesDirectory;
+        var offset = checked((int)entries[0].Offset);
+        if (offset < 0 || offset > directory.Size - 4) throw new UnsupportedGameFormatException();
+        var section = pe.GetSectionData(directory.RelativeVirtualAddress);
+        var length = BinaryPrimitives.ReadInt32LittleEndian(section.GetContent(offset, 4).AsSpan());
+        if (length < 1 || length > 4*1024*1024 || length > directory.Size - offset - 4)
+            throw new UnsupportedGameFormatException();
+        using var compressed = new MemoryStream(section.GetContent(offset + 4, length).ToArray(), false);
+        using var inflater = new DeflateStream(compressed, CompressionMode.Decompress);
+        using var result = new MemoryStream();
+        var buffer = new byte[8192]; int count;
+        while ((count = inflater.Read(buffer)) > 0)
+        {
+            if (result.Length + count > 4*1024*1024) throw new UnsupportedGameFormatException();
+            result.Write(buffer, 0, count);
+        }
+        var raw = result.ToArray();
+        if (Sha256(raw) != expectedSha) throw new UnsupportedGameFormatException();
+        using var codec = new PEReader(new MemoryStream(raw, false));
+        var description = codec.GetMetadataReader();
+        if (!description.IsAssembly || description.GetString(description.GetAssemblyDefinition().Name) != "OodleSharp" ||
+            description.MethodDefinitions.Any(h => (description.GetMethodDefinition(h).Attributes & MethodAttributes.PinvokeImpl) != 0))
+            throw new UnsupportedGameFormatException();
+        foreach (var handle in description.AssemblyReferences)
+            if (!description.GetString(description.GetAssemblyReference(handle).Name).StartsWith("System.", StringComparison.Ordinal))
+                throw new UnsupportedGameFormatException();
+        foreach (var handle in description.TypeReferences)
+        {
+            var type = description.GetTypeReference(handle);
+            var name = description.GetString(type.Namespace) + "." + description.GetString(type.Name);
+            if (name.StartsWith("System.Net.", StringComparison.Ordinal) || name is
+                "System.IO.File" or "System.IO.Directory" or "System.IO.FileStream" or "System.Diagnostics.Process" or
+                "System.Runtime.InteropServices.NativeLibrary" or "System.Reflection.Assembly" or
+                "System.Runtime.Loader.AssemblyLoadContext") throw new UnsupportedGameFormatException();
+        }
+        return raw;
+    }
+
+    static void DecodeOodle(string inputRoot, string tools, string destination, JsonElement request)
+    {
+        var fields = new HashSet<string>(["schema", "nonce", "stored_bytes", "raw_bytes", "stored_sha256", "supplier_sha256", "codec_sha256", "blocks"], StringComparer.Ordinal);
+        var properties = request.EnumerateObject().ToArray();
+        if (properties.Length != fields.Count || !fields.SetEquals(properties.Select(p => p.Name)) ||
+            request.GetProperty("schema").GetString() != "nte-managed-oodle-v1") throw new ArgumentException();
+        string Text(string name, string pattern)
+        {
+            var value = request.GetProperty(name).GetString();
+            if (value is null || !Regex.IsMatch(value, pattern)) throw new ArgumentException();
+            return value;
+        }
+        var nonce = Text("nonce", @"\A[0-9a-f]{32}\z");
+        var inputSha = Text("stored_sha256", @"\A[0-9a-f]{64}\z");
+        var supplierSha = Text("supplier_sha256", @"\A[0-9a-f]{64}\z");
+        var codecSha = Text("codec_sha256", @"\A[0-9a-f]{64}\z");
+        var stored = request.GetProperty("stored_bytes").GetInt32();
+        var size = request.GetProperty("raw_bytes").GetInt32();
+        if (stored < 1 || stored > 8*1024*1024 || size < 1 || size > 128*1024*1024 ||
+            File.Exists(Path.Combine(destination, "decoded.bin")) || File.Exists(Path.Combine(destination, "complete.json")))
+            throw new ArgumentException();
+        var blocks = request.GetProperty("blocks").EnumerateArray().ToArray();
+        long packedTotal = 0, rawTotal = 0;
+        if (blocks.Length < 1 || blocks.Length > 512) throw new ArgumentException();
+        foreach (var block in blocks)
+        {
+            var members = block.EnumerateObject().ToArray();
+            if (members.Length != 2 || !new HashSet<string>(["stored_bytes", "raw_bytes"], StringComparer.Ordinal)
+                    .SetEquals(members.Select(p => p.Name))) throw new ArgumentException();
+            var packedSize = block.GetProperty("stored_bytes").GetInt32();
+            var rawSize = block.GetProperty("raw_bytes").GetInt32();
+            if (packedSize < 1 || packedSize > 4*1024*1024 || rawSize < 1 || rawSize > 128*1024*1024)
+                throw new ArgumentException();
+            packedTotal += packedSize; rawTotal += rawSize;
+        }
+        if (packedTotal != stored || rawTotal != size) throw new ArgumentException();
+        var input = Path.Combine(inputRoot, "block.bin");
+        if (new FileInfo(input).Length != stored) throw new ArgumentException();
+        var data = File.ReadAllBytes(input);
+        if (data.Length != stored || Sha256(data) != inputSha) throw new ArgumentException();
+        var supplier = Path.Combine(tools, "UEExtractor.dll");
+        if (new FileInfo(supplier).Length is < 1 or > 32*1024*1024) throw new ArgumentException();
+        var supplierBytes = File.ReadAllBytes(supplier);
+        if (Sha256(supplierBytes) != supplierSha) throw new UnsupportedGameFormatException();
+        var codec = Assembly.Load(EmbeddedManagedCodec(supplierBytes, codecSha));
+        var method = codec.GetType("OodleSharp.OodleDecompressor", true)!.GetMethod("TryDecompress",
+            [typeof(ReadOnlySpan<byte>), typeof(Span<byte>), typeof(int).MakeByRefType()])!;
+        var decode = (ManagedOodleDecode)method.CreateDelegate(typeof(ManagedOodleDecode));
+        var output = new byte[size];
+        int packedOffset = 0, rawOffset = 0;
+        foreach (var block in blocks)
+        {
+            var packedSize = block.GetProperty("stored_bytes").GetInt32();
+            var rawSize = block.GetProperty("raw_bytes").GetInt32();
+            if (!decode(data.AsSpan(packedOffset, packedSize), output.AsSpan(rawOffset, rawSize), out var written) || written != rawSize)
+                throw new UnsupportedGameFormatException();
+            packedOffset += packedSize; rawOffset += rawSize;
+        }
+        Directory.CreateDirectory(destination);
+        File.WriteAllBytes(Path.Combine(destination, "decoded.bin"), output);
+        // Marker last: partial output is never a successful codec operation.
+        File.WriteAllText(Path.Combine(destination, "complete.json"), JsonSerializer.Serialize(new {
+            schema = "nte-managed-oodle-v1", nonce, stored_bytes = stored, raw_bytes = size, blocks = blocks.Length,
+            stored_sha256 = inputSha, raw_sha256 = Sha256(output), codec_sha256 = codecSha }));
+    }
+
     static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys,
         JsonElement? publisherStreams = null, JsonElement? publisherGuids = null)
     {

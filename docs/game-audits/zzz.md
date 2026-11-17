@@ -1,5 +1,62 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Canonical text-and-audio stages and current original-source quote
+
+The per-game PC producer now connects the verified catalogue reader to explicit
+selected-dub index, package-header, package-table, bank-metadata and complete
+recording stages. Bank planning skips DATA bodies until an authored event/media
+join selects a recording. Every transfer is context-bound and charged as audio;
+text-only preparation never enters this path. A candidate catalogue remains a
+`PreparationStage`. Ready requires all selected complete originals locally
+verified, a final ordinary publisher-pointer check and an offline-restorable
+snapshot with an original voice source.
+
+Original source selection includes the launcher's four base-revision markers.
+If its base or package size differs from the current updater's declaration,
+the updater's own immutable base URL and whole-file checksum supply the source.
+The producer cannot silently combine another SDK base with newer voice tables.
+Changed-format, checksum, interruption and publisher-pointer failures preserve
+the previous accepted library; missing recordings never become silent lines.
+
+The actual current Global Japanese → English/Simplified Chinese run completed
+all five original dialogue/catalogue stages and reached the exact recording
+quote through the normal factory, shared service and publisher transport. It
+used **36 actual official HTTPS requests / 837,462 metadata bytes**, **zero new
+client, BLK, PCK, audio or software bytes**, and retained the installed text
+library's pointer. The quote selects **3,948 missing authenticated SDK chunks**:
+**4,615,417,381 compressed bytes / 4,616,893,868 expanded bytes**, with no new whole
+PCK downloads. The presented upper bound is **4,628,000,293 bytes**, including
+12 MiB for final metadata revalidation, with **6,635,402,668 bytes** of additional
+disk reserved. These are dated source/cache-specific amounts, not future totals.
+
+The subsequent base/row-binding safeguards also passed a separately labeled
+zero-network replay of the retained official responses, preserving the same
+quote and previous text pointer. That replay adds no fresh discovery claim.
+The real run stops before the missing original chunks: **current full-corpus
+Audio Ready has not yet been demonstrated**.
+
+Decoding uses only `native_codecs.packaged_codec_executable` and the immutable
+enclosing runtime inventory, including companion libraries and notices.
+Missing owned codecs disable the audio download capability before bulk transfer.
+Production never selects PATH/imageio tools, compiles or downloads software.
+The maintained `OwnedCodecs.resolve` API decoded seven cached original film
+contexts across the four dubs/player branches to the same MP3 hashes as its
+preceding owned-codec controls. Mandarin's unacquired B control remains missing;
+the G control passes. These are targeted Windows controls, separate from runtime
+redistribution review, an installer delivery or Android acceptance.
+
+Local restoration uses a checksummed text-ID/original-binding index and scoped
+immutable file verification; it avoids rebuilding the complete dialogue table
+and hashing unchanged whole voice packages for every saved line. `has` only
+checks admitted row/binding identities. Extraction and owned decoding run
+outside capture locks, verify the touched originals and respect cancellation.
+Synthetic original-PCK tests exercise the actual shared service through Ready,
+fresh offline restore, interrupted transfer, failed final pointer revalidation,
+changed-generation recovery and saved-recording retention. These fixtures do
+not substitute for the still-pending full original-data download and host/device
+acceptance. Independent Android preparation and non-dub text study sources
+remain open.
+
 ## November 17, 2026 · Context-bound audio ownership and download planning
 
 The audio catalogue now accepts an explicit authenticated reader instead of
@@ -37,7 +94,7 @@ does not replace an independent live mainland check. No complete pack was
 downloaded for this audit. Exact selected-range plans can reuse shared chunks
 and exclude unrelated media; their costs must be computed from actual owners.
 
-**Canonical text-and-audio preparation remains open.** These reusable source
+**At this ownership checkpoint, canonical text-and-audio preparation remained open.** These reusable source
 and ownership components do not turn the current audio gate into Ready. The
 producer still needs consented materialization, the verified owned codec
 closure, offline restore and retained-recording acceptance through the shared

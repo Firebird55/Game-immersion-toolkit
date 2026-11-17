@@ -10,6 +10,42 @@ from backend import sophon_assets as source
 from backend.tests.test_sophon_assets import fixture
 
 
+def test_unknown_size_original_frame_uses_the_existing_byte_window_cap(tmp_path):
+    payload = b'Authored bounded publisher manifest.\n' * 16384
+    encoded = zstandard.ZstdCompressor(write_content_size=False).compress(payload)
+    maximum = source.MAX_MANIFEST
+    assert zstandard.frame_content_size(encoded) == -1
+    assert maximum // 1024 < zstandard.get_frame_parameters(encoded).window_size <= maximum
+    digest = hashlib.md5(payload).hexdigest()
+    def fetch(_url, *, limit):
+        assert limit == len(encoded)
+        return encoded
+    assert source._verified(tmp_path, 'https://publisher.invalid/fixture', len(encoded), len(payload), digest,
+        maximum, fetch=fetch) == payload
+    assert (tmp_path / digest).read_bytes() == payload
+
+
+def test_oversized_unknown_window_output_and_extra_frame_still_fail_before_publication(tmp_path):
+    payload = b'Authored bounded publisher manifest.\n' * 16384
+    encoded = zstandard.ZstdCompressor(write_content_size=False).compress(payload)
+    maximum = source.MAX_MANIFEST
+    # Unknown-size standard frames have a separate window descriptor. This
+    # changes only its advertised window to 256 MiB, beyond the 128-MiB cap.
+    assert not encoded[4] & 0x20
+    oversized = encoded[:5] + bytes([18 << 3]) + encoded[6:]
+    assert zstandard.get_frame_parameters(oversized).window_size > maximum
+    digest = hashlib.md5(payload).hexdigest()
+    for body, expected_length in ((oversized, len(payload)), (encoded, len(payload) - 1),
+                                  (encoded + encoded, len(payload))):
+        def fetch(_url, *, limit):
+            assert limit == len(body)
+            return body
+        with pytest.raises((ValueError, zstandard.ZstdError)):
+            source._verified(tmp_path, 'https://publisher.invalid/fixture', len(body), expected_length,
+                digest, maximum, fetch=fetch)
+        assert not (tmp_path / digest).exists()
+
+
 @pytest.mark.parametrize('channel', ['genshin-global', 'genshin-cn'])
 def test_context_fetch_owns_release_build_manifest_file_and_verified_cache(tmp_path, monkeypatch, channel):
     _, _, stamp, original, objects = fixture(tmp_path, monkeypatch, '3.3.0', b'original voice', channel=channel)

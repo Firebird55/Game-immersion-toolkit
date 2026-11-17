@@ -304,6 +304,57 @@ normal lookup/bootstrap integration, codec acceptance and movie parameters are
 not supplied by the AudioEvent intake. No new ready snapshot or voice-status
 promotion occurs, and complete-PCK MD5 is not inferred from these ranges.
 
+The audio range-cache generation now depends on the official edition, exact
+AudioV identity and selected original owner names, sizes, MD5 values and URLs.
+Enriching the text/native/helper receipt cannot invalidate those same audio
+objects between stages. A changed AudioV or used owner URL produces a separate
+generation. Earlier experimental cache identities are retained separately;
+this change does not silently adopt or relabel their range receipts.
+
+The canonical factory now advances from complete PCK directories to a separate
+original SoundBankLookUp estimate, then the authored neutral and localized bank
+stages. The lookup is discovered from the same official game manifest; its
+quote counts complete missing compressed Sophon chunks and retained expanded
+chunks plus the whole lookup. Each chunk and the reconstructed whole lookup
+must pass publisher MD5, followed by the bounded DBDC parser. Lost inputs are
+requoted before transport. A corrupt whole lookup can be reconstructed from
+verified chunks without another download. Every retained event-bank covering
+range is checked against its original directory bank IDs, dub and complete
+section bounds. A missing hash-closed codec runtime gates bank-payload downloads
+and is checked again before transport. Synthetic service tests exercise the
+normal context-bound
+lookup step without turning these input stages into Ready. The earlier real
+bank intake remains a separately frozen proof; state/sequence materialization,
+the full external-member stage and canonical audio snapshot publication are
+not yet connected by this change.
+
+The next canonical source step connects original player-state dependency banks,
+complete ordered sequences and the complete supported external-source quote.
+It joins the original lookup state group to the actual switch group, requires
+the same populated states and preserves every supported male/female branch.
+Other switches remain explicit `state-choice-required` entries with their
+original group/default/state/child/bank inventory. Neither an event name nor
+the selected study language selects a copyright/Japanese branch. The previous
+real event intake used its separately recorded selection logic; its 3,678-event
+count is not claimed for this stricter canonical state policy.
+
+Recording estimates include every sequence member and every uniquely bound
+authored external source. Missing hashes remain counted and digest-bound in the
+pending receipt. Complete cached covering ranges are rehashed once per batch
+estimate, with fresh checks after mutation; cached individual banks are removed
+before coalescing rather than downloading their surrounding gaps again. Each
+downloaded recording range must contain complete authored RIFFs with matching
+declared lengths. These are production planning/materialization steps, not an
+authorized 14 GB acquisition, a voice-state promotion or audio Ready. Canonical
+audio snapshot/restore and the unresolved film/locale dependencies remain open.
+
+On frozen source `a954cde7`, the production lookup API also reconstructs the
+actual 4.7 index from three existing publisher-MD5-verified Sophon chunks with
+transport forbidden. The complete 4,461,388-byte lookup passes publisher MD5
+`0351cd314a0a291b77df6c5b63a9c76f` and contains 29,371 event records, including
+5,511 state-map references. This validates the actual source/index API, rather
+than a fresh launcher request, the complete cold factory or Ready audio.
+
 The offline adapter now selects codecs only through the bundle's closed
 `packaged_codec_executable` contract, verifying that closure again before local
 execution. It does not discover PATH/imageio tools, build software or download
@@ -311,6 +362,58 @@ dependencies. Membership also freezes the authored dub, player branch and
 external/event reference; changed row locale/player/reference cannot certify a
 recording. External hashes must match the verified original PCK directory.
 Actual decoded-PCM acceptance remains separate from the preceding RIFF checks.
+
+On frozen source `42896267`, one actual English character-archive AudioEvent
+record now passes this adapter with the delivered, hash-closed desktop codecs.
+Its complete 57,920-byte original member is locally verified within an owned
+HTTPS range; the whole PCK is not verified by that range. Two offline resolutions
+produce identical 48 kHz mono PCM: 126,310 frames, SHA256
+`210b0cdb2525bea5ef87e25a9bd60b9dfb004d2eaa46a6e943618eb7a49787c0`.
+Wrong dub, player branch and event-reference controls are refused. No software,
+original assets or native bodies were downloaded or built for this control.
+This is one English event recording, not acceptance of all 3,712 event
+candidates, the full dialogue catalog, Android, a cold factory or redistribution.
+The reused codec inventory's pending review labels remain unchanged.
+
+A separate inventory covers every external VoiceConfig source exposed by the
+current supported English catalog, rather than only character-archive events.
+Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete
+original English PCK directories and 1,565 remain unresolved. Matching the
+official installed/persistent owner priority adds no bindings. The exact
+uncached member quote is 14,389,513,653 response-body bytes in 4,780 covering
+ranges; that acquisition is not authorized by the small event trial and has
+not been performed. Missing bindings remain visible and are not declared
+silent, removed or relabeled as inactive content.
+
+The finite mechanism check reads the original VoiceConfig, AvatarAtlas and
+VoiceAtlas fields. VoiceConfig contains no per-content locale field. Missing
+paths include 1,297 paths in the two Fate story families and 86 archive paths;
+there are 1,568 affected catalog rows because paths can be shared. The four
+affected archive avatars have absent English credit hashes but nonzero
+Chinese/Japanese/Korean credit hashes. Credits alone do not authorize a dub
+override. Reused publisher-chunk-verified Japanese headers contain unique
+Japanese-namespace hash matches for 1,334 of the missing English paths, but
+none of those 86 archive paths. Neither a hash match nor a chapter name selects
+another dub. Suffix variations and event-name guesses are not promoted.
+
+A bounded static pass establishes a specific original archive setting route.
+The four AvatarArchiveEntry getters/predicate consume 861 original function
+bytes. Two table constructors and two FromBinary bodies consume another 1,618
+bytes and bind the actual resources `AvatarCobrand` and
+`AllowedAudioLanguage`. Their complete cached publisher packages pass MD5;
+both small resources decode uniquely to exact EOF with the derived field
+order. The base-client copyright branch reads AvatarCobrand.AudioLanguage,
+looks up AllowedAudioLanguage and returns its WwiseLanguageKey. The configured
+archive rows specify `jp`, which maps to `Japanese`; the other branch returns
+the current Wwise language. Authored state-group and on/off-state fields are
+also present. The predicate reads user preferences under
+`UseCopyrightVoiceCobrandAvatarIDs`; its concrete generic preference/contains
+callees are not fully described in the managed dump. No preference is read from
+an account or changed, no original code is executed, and no switch value is
+assumed. This establishes an explicit archive variant dependency, not a blanket
+Japanese fallback, an archive media binding, or the Fate story playback rule.
+Production selection must preserve the user's explicit variant choice and
+the separate study-text/audio languages after the playback consumer is proven.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts

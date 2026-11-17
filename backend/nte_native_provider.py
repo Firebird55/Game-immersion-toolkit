@@ -81,12 +81,18 @@ def _profile(path, source, snapshot, cache):
     return value
 
 
-def _registry(catalog):
+def registry_location(catalog):
+    """Return the unique original owner without reading its package body."""
     names = [row[2] for row in catalog.locations.values()
              if row and row[2].endswith('/AssetRegistry.bin') and catalog.location(row[2])]
     metadata._check(len(names) == 1)
     _, archive, path = catalog.location(names[0])
     metadata._check(0 < archive.entry(path).size <= 256*1024**2)
+    return archive, path
+
+
+def _registry(catalog):
+    _, path = registry_location(catalog)
     return catalog.read(path)
 
 

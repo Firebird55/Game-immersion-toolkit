@@ -13,9 +13,7 @@ from .languages import normalize_text
 from .publisher_http import download
 from .textmaps import display_text
 
-UI_ROOT = 'assets/beyond/dynamicassets/gameplay/ui/prefabs/'
-UI_PATHS = {'dialog': UI_ROOT + 'dialog/dialogpanel.prefab', 'top': UI_ROOT + 'dialog/topright.prefab',
-            'profile': UI_ROOT + 'charinfo/charinfoprofilepanel.prefab'}
+from .endfield_presentation_owners import UI_ROOT, WORLD_UI as UI_PATHS
 LUA_PATHS = {'dialog_ctrl': 'Data/LuaScripts/UI/Panels/Dialog/DialogCtrl.lua',
              'dialog_base': 'Data/LuaScripts/UI/Panels/Dialog/DialogCtrlBase.lua',
              'profile_ctrl': 'Data/LuaScripts/UI/Panels/CharInfoProfile/CharInfoProfileCtrl.lua'}

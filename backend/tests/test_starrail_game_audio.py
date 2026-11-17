@@ -1,5 +1,6 @@
 """Real context byte fences and inert original PCK/RIFF format fixtures."""
 import hashlib
+import copy
 import json
 from pathlib import Path
 import shutil
@@ -8,6 +9,7 @@ from types import MappingProxyType
 import wave
 
 import pytest
+import zstandard
 
 from backend import starrail_game_audio as audio
 from backend.game_data import GameDataService, _Context
@@ -22,6 +24,59 @@ def package():
     table = struct.pack('<IQ4I', 1, voice_hash('English/voice/Owned.wem'), 1, len(original), 80, 0)
     header = b'AKPK' + struct.pack('<6I', 60, 1, 4, 4, 4, len(table)) + bytes(12) + table
     return header + bytes(80 - len(header)) + original
+
+
+def lookup_bytes():
+    raw = bytearray(80)
+    raw[:4] = b'DBDC'
+    for offset, values in ((4, (1, 80)), (16, (24,)), (24, (28, 1, 1)),
+                           (52, (123, 60)), (60, (123, 72, 0)), (72, (1, 55))):
+        struct.pack_into('<' + 'I' * len(values), raw, offset, *values)
+    return bytes(raw)
+
+
+def test_lookup_quotes_compressed_chunks_reconstructs_offline_and_checks_whole_md5(fixture, tmp_path):
+    from backend import sophon_assets as sophon, starrail_events as events
+    ctx = fixture[0]; raw = lookup_bytes(); encoded = zstandard.ZstdCompressor().compress(raw)
+    digest = hashlib.md5(raw).hexdigest(); url = 'https://autopatchos.starrails.com/lookup/chunk'
+    asset = sophon.File(events.LOOKUP, len(raw), digest,
+        ((0, len(raw), len(encoded), 'chunk', digest),), url.rsplit('/', 1)[0])
+    calls = []
+    def open_(request, **kwargs):
+        calls.append(request)
+        assert request.full_url == url and request.get_header('Range') is None
+        return Response(encoded, url=url)
+    transport = PublisherTransport(ctx, hosts={'autopatchos.starrails.com'}, opener=open_)
+    lookup = audio.OriginalLookup(tmp_path / 'sophon', asset)
+    first = lookup.quote()
+    assert first.download_bytes == len(encoded) != len(raw) and first.spans == (asset,)
+    assert first.disk_bytes >= len(raw) * 2
+    lookup.acquire(asset, transport)
+    assert len(calls) == 1 and lookup.read() == raw and lookup.quote().spans == ()
+    assert events.bank_lookup(lookup.read()) == {123: (55,)}
+    lookup.path.write_bytes(bytes(len(raw)))
+    repaired = lookup.quote()
+    assert repaired.download_bytes == 0 and repaired.spans == (asset,)
+    lookup.acquire(asset, transport)
+    assert len(calls) == 1 and lookup.read() == raw
+    # The complete verified body can survive loss of its source chunk.
+    (lookup.directory / 'chunks' / digest).unlink()
+    assert lookup.quote().complete and lookup.read() == raw
+
+
+def test_whole_verified_but_malformed_lookup_cannot_publish_a_stage(fixture, tmp_path):
+    from backend import sophon_assets as sophon, starrail_events as events
+    raw = bytes(80); digest = hashlib.md5(raw).hexdigest()
+    asset = sophon.File(events.LOOKUP, len(raw), digest, ((0, len(raw), 12, 'chunk', digest),),
+        'https://autopatchos.starrails.com/lookup')
+    lookup = audio.OriginalLookup(tmp_path / 'sophon', asset)
+    path = lookup.directory / 'chunks' / digest; path.parent.mkdir(parents=True); path.write_bytes(raw)
+    class NoTransport:
+        def fetch_bytes(self, *args, **kwargs):
+            pytest.fail('A verified source chunk must be reused offline')
+    with pytest.raises(ValueError):
+        lookup.acquire(asset, NoTransport())
+    assert not lookup.path.exists()
 
 
 @pytest.fixture
@@ -120,6 +175,21 @@ def test_contained_member_requires_complete_verified_same_owner_range(fixture):
         store.read(child)
 
 
+def test_batch_inventory_hashes_each_cover_once_and_rechecks_after_mutation(fixture, monkeypatch):
+    owner, store, transport = acquire_headers(fixture)
+    parent = audio.Span(owner, 80, 20); store.acquire(parent, transport)
+    children = (audio.Span(owner, 80, 10), audio.Span(owner, 90, 10))
+    original_hash = audio._hash; calls = []
+    def hash_(path):
+        calls.append(path)
+        return original_hash(path)
+    monkeypatch.setattr(audio, '_hash', hash_)
+    assert store.missing(children) == ()
+    assert calls == [store._path(parent)]
+    store._path(parent).write_bytes(bytes(20))
+    assert store.missing(children) == children
+
+
 def test_cache_receipt_boolean_cannot_alias_integer_owner_bounds(fixture):
     owner, store, _ = acquire_headers(fixture)
     span = audio.Span(owner, 0, 28); path = store._path(span).with_name('0-28.json')
@@ -209,6 +279,29 @@ def test_localized_bank_quote_requires_owned_play_target_and_matching_lookup(fix
     assert not quote.spans and not targets
 
 
+def test_retained_bank_stage_checks_original_id_language_and_cover_geometry(fixture):
+    from backend.tests.test_starrail_events import bank
+    base = fixture[2]
+    owner = audio.Owner('English/VoBanks8.pck', 8000, base.md5, base.url, base.generation)
+    raw = bank(80, 'English', [])
+    span = audio.Span(owner, 400, len(raw)); cover = audio.Span(owner, 390, len(raw)+20)
+    inventory = (audio.Directory(owner, {}, {80: span}, {}),)
+    class Store:
+        def read(self, chosen):
+            assert chosen == span
+            return self.raw
+    store = Store(); store.raw = raw
+    audio.validate_banks(inventory, (cover,), store, 'en')
+    store.raw = bank(81, 'English', [])
+    with pytest.raises(ValueError):
+        audio.validate_banks(inventory, (cover,), store, 'en')
+    store.raw = bank(80, 'Japanese', [])
+    with pytest.raises(ValueError):
+        audio.validate_banks(inventory, (cover,), store, 'en')
+    with pytest.raises(GameDataError, match='no complete declared bank'):
+        audio.validate_banks(inventory, (audio.Span(owner, 400, len(raw)-1),), store, 'en')
+
+
 @pytest.mark.parametrize('offset,value', [(0, 2), (12, 1000001)])
 def test_internal_directory_counts_cannot_leave_sections_or_allocate_unbounded_rows(fixture, offset, value):
     owner, store, _ = acquire_headers(fixture)
@@ -238,6 +331,19 @@ def test_audio_index_selects_all_selected_dub_and_neutral_owners_not_other_dubs(
     found = audio.owners(build, raw, 'en')
     assert {owner.name for owner in found} == {'English/External_renamed.pck', 'English/VoBanks7.pck', 'Banks81.pck'}
     assert all(owner.url.startswith('https://autopatchos.starrails.com/') for owner in found)
+    enriched = copy.deepcopy(build)
+    enriched.update(manifests={'game': ['new metadata receipt']}, native_file_md5='a' * 32,
+                    toolkit_reader='changed helper receipt')
+    enriched['hotfix']['indexes']['design'] = [456, 'b' * 32, 100]
+    enriched['hotfix']['routes']['design'] = 'design_data/V4.7Live/output_456_cd_ef'
+    assert audio.owners(enriched, raw, 'en') == found
+    moved = copy.deepcopy(enriched)
+    moved['hotfix']['routes']['asb'] = 'asb/V4.7Live/output_456_cd_ef'
+    assert {owner.generation for owner in audio.owners(moved, raw, 'en')}.isdisjoint(
+        owner.generation for owner in found)
+    changed = copy.deepcopy(enriched)
+    changed['hotfix']['indexes']['audio'][0] += 1
+    assert audio.owners(changed, raw, 'en')[0].generation != found[0].generation
     with pytest.raises(GameDataError):
         audio.owners(build, raw + b' ', 'en')
 

@@ -244,6 +244,85 @@ old payload. All five original 3.8.11 payload files remain unchanged. Synthetic
 source, rotation, provenance, cache and parallel-publication controls passed
 alongside 642 affected tests and sixteen subtests.
 
+### Distinct manifest consumer and bounded initializer follow-up
+
+The remaining `ENTRY_KEY`/`ENTRY_IV` inputs unwrap Base64/AES-CBC **outer release
+JSON**. They are not SQLite ConfigDB entry parameters or the PAK archive-default
+key. The original entry/config, resource/dub/video manifest and encrypted
+KeyList paths use this boundary. Existing original launcher scripts pass the
+HTTP response to `UKuroLauncherLibrary::Decrypt` before JSON parsing.
+
+The authenticated Android module's complete reflected `execDecrypt` wrapper
+calls that exact native method. Its four-byte declared entry is neither a
+supported direct branch nor a normal return; the bounded static pass did not
+recover the key/IV producer. The registered archive-default output is also not
+equal to the already frozen manifest AES key. No key transforms, generic
+literal search or original-code execution were used.
+
+A further original-APK primary-DEX probe checked the exact binary-manifest
+application class as a possible initialization owner. After an explicitly
+recorded local ZIP-flag assertion failure, the separately authorized exact retry
+passed strict ETag/range, Deflate size/CRC and DEX SHA-1/Adler checks. The exact
+application class was absent from its 3,913 class definitions. The probe stopped
+without downloading the other fifteen DEX files or executing protection code.
+This closes that particular primary-DEX hypothesis; it does not establish
+official derivation impossible. Later range bytes retain original HTTPS/ETag
+ownership to the previously fully verified APK, without claiming a fresh
+independent APK-v2 digest for that member.
+
+The canonical desktop/Android Settings provider now exposes the verified
+bootstrap stage and then the explicit manifest-format gate. It does not turn
+this remaining dependency into a ready language library; see
+[the staged portability report](wuwa-android-portability.md#settings-bootstrap-provider).
+
+### Standalone Windows launcher follow-up
+
+A separate bounded pass investigated the standalone launcher, rather than
+repeating the opaque game-native Windows/Android functions. Two already cached
+3.1.0.1 modules, `launcher_main.dll` and `launcher_updater.dll`, have valid CLR
+metadata. Their ZIP member CRCs and local hashes were checked. The cached
+archive's current publisher checksum authority was **not** re-established; this
+is explicitly qualified cached-source evidence, not a trusted new key source.
+
+An owned passive PE/metadata/IL reader inspected 4,734 main-module and 1,132
+updater methods. It never loaded or executed the original assemblies. The
+concrete game-configuration path is `KRCheckUpdateFlow.InitGameServerConfig`
+through the HTTP helper and response data to `KRGameServerConfigAdapter`, then
+the ordinary System.Text.Json deserializer. There is no Base64/AES step in this
+response-to-JSON path. Its models describe launcher resource packs, bundles and
+index-file MD5s. Cryptographic calls found there concern MD5 file checks and
+certificate checks; logging encryption and password-protected WebView ZIPs are
+separate consumers. No caller connects `kurodata.dll` to this configuration
+path, so that module was not pursued.
+
+The original startup method separately decodes its local `KRApp.conf` using
+Base64 and a source-defined byte XOR before JSON parsing. That local-profile
+rule is not the encrypted game-entry AES-CBC rule. The profile supplies the
+[official launcher application index](https://prod-alicdn-gamestarter.kurogame.com/launcher/app/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/index.json)
+and [official game package index](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json).
+Two current read-only responses, 1,711 and 5,026 compressed bytes, parsed as JSON
+after ordinary gzip decompression without ENTRY or protected-format inputs.
+The game response advertises the 3.8.0 common package inventory. This explains
+how the evidenced standalone route operates without decrypting the separately
+discovered in-game hotfix JSON; it does not supply a hotfix decryption key.
+
+The current application response names a different default archive: parent
+version 3.0.1.0, 465,195,358 bytes, with an explicit publisher MD5. Its original
+HEAD agrees on length and ETag. One authorized 65,557-byte EOF range passed
+strict 206, total-size and ETag checks. The entire 64,366-byte directory with
+743 entries was already in that tail, so no additional directory transfer was
+needed. It names the same launcher component family, but directory names do
+not prove the new modules' behavior. No selected module was extracted and the
+complete archive MD5 was not represented as verified from selective metadata.
+
+This family used **72,294 of 1,048,576 authorized metadata bytes** and stopped.
+No module bodies, complete installer, additional DEX files or old opaque
+function windows were acquired or revisited. There is no concrete new ENTRY
+consumer to justify such an acquisition. The exact missing evidence remains a
+readable original game-configuration decrypt producer, or an independently
+demonstrated alternative. This particular standalone route does not prove that
+official derivation is impossible and does not close the manifest-key/IV gap.
+
 ## Acceptance still required
 
 The archive-default producer now has an authenticated current rule and ordinary

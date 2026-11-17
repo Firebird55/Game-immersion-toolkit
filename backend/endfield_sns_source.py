@@ -13,13 +13,8 @@ from .publisher_http import download
 from .textmaps import display_text
 
 
-UI_ROOT = 'assets/beyond/dynamicassets/gameplay/ui/prefabs/sns/'
-UI_PATHS = {'basic_layout': UI_ROOT + 'snsbasicpanel.prefab',
-            'barker_layout': UI_ROOT + 'snsbarkerpanel.prefab',
-            'mission_layout': UI_ROOT + 'snsmissionpanel.prefab',
-            'core_layout': UI_ROOT + 'widgets/snsdialogcontentcore.prefab',
-            'cell_layout': UI_ROOT + 'widgets/snsdialogcontentcorecell.prefab',
-            'system_layout': UI_ROOT + 'widgets/snscontentsystemmsg.prefab'}
+from .endfield_presentation_owners import UI_ROOT as _PREFABS, SNS_UI as UI_PATHS
+UI_ROOT = _PREFABS + 'sns/'
 LUA_PATHS = {'basic_ctrl': 'Data/LuaScripts/UI/Panels/SNSBasic/SNSBasicCtrl.lua',
              'barker_ctrl': 'Data/LuaScripts/UI/Panels/SNSBarker/SNSBarkerCtrl.lua',
              'mission_ctrl': 'Data/LuaScripts/UI/Panels/SNSMission/SNSMissionCtrl.lua',

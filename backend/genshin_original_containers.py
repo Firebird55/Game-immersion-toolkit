@@ -64,6 +64,14 @@ def asset_identity(path):
     return int.from_bytes(hashlib.md5(raw).digest()[:8], 'little')
 
 
+def _bundle_identifier(packed):
+    """ResourceIndex.GetResourceIdentifier: signed low 30 bits, then absolute."""
+    value = packed & ((1 << 30) - 1)
+    if value & (1 << 29):
+        value -= 1 << 30
+    return abs(value)
+
+
 @dataclass(frozen=True)
 class Location:
     bundle: int
@@ -81,15 +89,23 @@ class DesignCatalog:
     """Strict complete catalog parse; unsupported entries cannot be resolved."""
     def __init__(self, payload):
         r = Reader(payload)
+        self.type_extensions = {}
         for _ in range(r.count(10_000)):
-            r.string()
-            r.string()
+            name, extension = r.string(), r.string()
+            check(name and extension and name not in self.type_extensions
+                  and '\0' not in name and '\0' not in extension)
+            self.type_extensions[name] = extension
         self.assets = {}
+        references = set()
         for _ in range(r.count()):
-            identity, kind, flags, bundle = struct.unpack('<QBBI', r.take(14))
-            check(identity not in self.assets and kind in (1, 2))
-            extension = r.take(5) if kind == 2 else b''
-            self.assets[identity] = (kind, flags, bundle, extension)
+            identity, count = struct.unpack('<QB', r.take(9))
+            check(identity not in self.assets)
+            raw = r.take(count * 5)
+            variants = tuple(struct.iter_unpack('<BI', raw))
+            references.update(_bundle_identifier(packed) for _selector, packed in variants)
+            flags, bundle = variants[0] if variants else (0, 0)
+            # Preserve the existing tuple API; the first item is a variant count.
+            self.assets[identity] = (count, flags, bundle, raw[5:])
         dependencies = r.count()
         self.header_words = (r.number(), r.number())
         for _ in range(dependencies):
@@ -115,17 +131,24 @@ class DesignCatalog:
                 self.locations[bundle] = Location(bundle, block, groups[block], offset, size)
         r.take(r.count() * 4)
         r.end()
-        check(all(row[2] in self.locations for row in self.assets.values() if row[0] == 1))
+        check(references <= self.locations.keys())
         self.names = {}
         for identity, row in self.assets.items():
-            if row[0] == 1:
-                self.names.setdefault((row[2], (identity >> 8) & 0xffffffff), []).append(identity)
+            alternatives = struct.iter_unpack('<BI', row[3])
+            bundles = {_bundle_identifier(packed) for _selector, packed in alternatives}
+            if row[0]:
+                bundles.add(_bundle_identifier(row[2]))
+            for bundle in bundles:
+                self.names.setdefault((bundle, (identity >> 8) & 0xffffffff), []).append(identity)
         self.sha256 = hashlib.sha256(payload).hexdigest()
 
     def locate(self, identity):
         check(type(identity) is int and identity in self.assets)
-        kind, _flags, bundle, _extension = self.assets[identity]
-        check(kind == 1 and bundle in self.locations
+        count, _selector, packed, _alternatives = self.assets[identity]
+        bundle = _bundle_identifier(packed)
+        # A current platform-selector contract is required before choosing among
+        # alternatives, including alternatives which happen to share a bundle.
+        check(count == 1 and bundle in self.locations
               and len(self.names[bundle, (identity >> 8) & 0xffffffff]) == 1)
         return self.locations[bundle]
 

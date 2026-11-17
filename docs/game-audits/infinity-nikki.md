@@ -353,16 +353,104 @@ the exact current CN Framework archive reads all 175 members and verifies all
 1,154,031 decoded bytes using the toolkit's existing source-built desktop codec.
 That replay does not establish an Android codec or a complete game provider.
 
+The current Global Loc index exposed two independent compact-entry flags that
+the original Framework sample could not distinguish: the native decoder uses
+bit 22 for the compressed-size field's width and bit 29 for member encryption.
+Both were set in the verified Framework members. The owned reader now follows
+the original decoder's separate width load and flag capture; synthetic fixtures
+exercise all four independent width/encryption combinations and full-entry
+checks. This is a reader correction, not a publisher format-change conclusion.
+The Loc footer, main index and full-directory index have passed complete
+manifest-chunk and plaintext-index hashes without downloading the entire
+280,653,147-byte PAK. The reader enumerates 183,718 locations, including 180,246
+game locres files across the twelve original locale folders (`de`, `en`, `es`,
+`fr`, `id`, `it`, `ja-JP`, `ko`, `pt`, `th`, `zh`, `zh-Hant`). These are resource
+counts, not an active story denominator. No locres body or original voice has
+been extracted by that index-only proof. All retained carrier/cache bytes are
+counted; an unused 8,584,496-byte path-hash index was not fetched.
+
 `backend/infinity_nikki_lua_metadata.py` parses the source-owned updater's
 prototype, constant and debug framing without a Lua VM. Its original 0x53 tag
 does not imply stock Lua 5.3 framing. Four current updater chunks parse to exact
 EOF: 387,434 bytes and 644 prototypes. Synthetic fixtures cover source inheritance,
 changed generations, all observed constant kinds including nonfinite number bit
-patterns, bounded recursion/counts and malformed or truncated data. Parsed
-strings remain metadata, not automatically trusted download destinations.
+patterns, bounded recursion/counts and malformed or truncated data. Lua string
+constants may contain arbitrary bytes: invalid UTF-8 stays opaque bytes instead
+of causing a false format-change failure. Source/debug names keep their text
+validation. Parsed strings remain metadata, not automatically trusted download
+destinations. The four current Global updater chunks also parse to exact EOF;
+original utility chunks independently demonstrate the need for opaque binary
+constants. No original VM runs.
 
-Global PAK-key compatibility, nonzero/dynamic keys, production signature
-registration/verification and complete fresh preparation remain separate work.
+A separately bounded four-member format probe retrieves only the English,
+Japanese and Chinese versions of one named dialogue resource plus an English
+settings resource: 2,030,376 complete carrier bytes, 4,361 selected original
+member bytes and 8,068 decoded bytes. All four source chunks and decoded PAK
+members pass their authored SHA-1 checks on frozen corrected-reader code.
+Only the four authorized resources and verified carrier cache are retained.
+`backend/infinity_nikki_locres.py` reads their stock-v3 key tables and string
+pools completely: 150 entries, with identical namespace/key/source-hash
+identities across the three dialogue translations. The source hash describes
+the authored source string, as represented by the engine's
+[localization entry](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Core/FTextLocalizationResource/FEntry);
+it must not be recomputed from a translated value or discarded when joining
+languages. The owned reader bounds both table regions, preserves Unicode and
+opaque key hashes, rejects duplicate identities and stale-identity joins, and
+uses no client library or Lua VM. A localization row alone is not marked as a
+verified caption, unvoiced dialogue or an original voice binding. Original
+caption/voice consumers and patch-priority semantics remain separate gates.
+
+The original updater's captured URL templates lead to the current Global
+`CloudDir/PaperHttpChunkInstall.manifest`. Its complete 41,972,123-byte JSON
+response has unchanged strong ETag/length before and after and a verified
+original prefix. Its local SHA-256 is
+`64a8e94b45da46a3d75248d4a96e7e9732116a44aef49790dc2f9a40a6f52a52`.
+This source-generation identity remains distinct from a publisher signature or
+declared checksum. The typed owned `backend/infinity_nikki_chunks.py` reader
+validates 507 file records and 125,590 matching chunk descriptors. It reads the
+original decimal-encoded byte fields, actual file/part ownership and declared
+SHA-1 values, and quotes complete deduplicated carriers, retained file bytes,
+temporary decode space and shared-carrier presence. It does not infer audio or
+deletion semantics. The original native directory selector maps this manifest's
+feature 13 to `ChunksV3`; the reader does not assume the latest `ChunksV4` name.
+The [engine's feature-level documentation](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/BuildPatchServices/BuildPatchServices__EFeatureLeve-)
+also distinguishes fixed-window chunks from later variable-window formats.
+The initial FastPatch substitution omitted the default-version prefix and
+returned HEAD 404. The complete current Global getter's original register
+dataflow explicitly concatenates default version, an underscore and fast-patch
+version. The corrected source therefore uses `CloudFastPatchDir/2872_24`, not
+the bare patch number. Its independently obtained 476,738-byte manifest passes
+unchanged ETag/length, prefix and complete local SHA-256
+`bde1e8a862e4807908024e395835cd1b0c491fa4090184f63456fd3a6bf7118e`.
+The owned URI reader derives both version components for normal updates and
+checks that the repeated default version agrees with the source family. Typed
+metadata contains 188 files and 1,273 matching chunk descriptors. Authored
+custom fields remain opaque until their actual consumers establish overlay
+priority; neither the field names nor the earlier 404 establish deletion,
+silence or a publisher format change. No guessed endpoint variants were used.
+
+All five current Global Framework files occupy one 941,200-byte shared carrier.
+The carrier also contains a movie fragment, so its complete verification cost
+is explicit bootstrap overhead; no zero-media-transport claim is made. The
+owned v2-header/zlib reader verifies the full 1,048,576-byte decoded chunk's
+authored SHA-1. Each selected file is reconstructed through its declared parts
+and independently passes its manifest SHA-1: the 657,642-byte PAK, 572-byte
+signature, 1,297-byte UTOC, 48-byte UCAS and 28-byte directory-hash file. Only
+these 659,587 bytes are retained; the transient complete carrier is removed.
+The exact carrier was obtained again in a separately bounded product-reader
+replay, with unchanged source generation and whole local hash, to verify the
+actual owned reader and range edges. Original-source metadata and product
+replay evidence remain distinct.
+
+The registered default material derived from the authenticated official CN
+native owner also passes the current Global Framework's complete 3,360-byte
+zero-GUID index hash. The owned PAK reader then verifies all 176 member hashes,
+totalling 1,169,896 decoded bytes. This proves this particular current Global
+Framework/default-key compatibility; it does not establish other Global
+archives, nonzero/dynamic keys or future rotated material by assumption.
+
+Other Global PAK/key-GUID compatibility, nonzero/dynamic keys, production
+signature registration/verification and complete fresh preparation remain separate work.
 No key values or source assets are
 committed. Fresh production native-owner acquisition also needs an explicit
 bootstrap plan: the embedded OBB contains a 78,866,565-byte movie PAK. Full mixed

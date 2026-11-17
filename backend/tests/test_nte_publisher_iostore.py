@@ -75,7 +75,7 @@ def fixture(*, encrypted=True, version=8, cycle=False, collision=False, compress
     return toc, ucas
 
 
-def prepare(monkeypatch, tmp_path, *, toc=None, ucas=None, archive_region='nte-global', **options):
+def prepare(monkeypatch, tmp_path, *, toc=None, ucas=None, archive_region='nte-global', oodle=None, **options):
     if toc is None:
         toc, ucas = fixture(**options)
     toc_file, ucas_file = file(toc), file(ucas)
@@ -95,7 +95,7 @@ def prepare(monkeypatch, tmp_path, *, toc=None, ucas=None, archive_region='nte-g
     archive.source = SimpleNamespace(region=archive_region, branch='PC_150')
     archive.cipher = AES.new(KEY, AES.MODE_ECB)
     def open_container():
-        return io.Container('nte-global', 'PC_150', toc_file, ucas_file, archive, tmp_path)
+        return io.Container('nte-global', 'PC_150', toc_file, ucas_file, archive, tmp_path, oodle=oodle)
     return open_container, downloads, ranges
 
 
@@ -224,6 +224,21 @@ def test_compressed_encrypted_blocks_use_exact_declared_output(monkeypatch, tmp_
     monkeypatch.setattr(wuthering_release_pak, '_oodle', lambda blocks: bytes(sum(n for _, n in blocks) + 1))
     with pytest.raises(PreparationFailure):
         open_container().read('HT/a.uasset')
+
+
+def test_context_codec_uses_authenticated_decrypted_blocks_without_legacy_tools(monkeypatch, tmp_path):
+    from backend import wuthering_release_pak
+    import zlib
+    monkeypatch.setattr(wuthering_release_pak, '_oodle', lambda _: pytest.fail('Legacy decoder called'))
+    calls = []
+    def decode(blocks):
+        calls.extend(blocks)
+        return b''.join(zlib.decompress(data) for data, _ in blocks)
+    open_container, _, _ = prepare(monkeypatch, tmp_path, compression=True, oodle=decode)
+    assert open_container().read('HT/a.uasset') == b'A'*80
+    assert [size for _, size in calls] == [64, 31]
+    container = open_container(); container._managed_oodle = lambda _: b'partial'
+    with pytest.raises(PreparationFailure): container.read('HT/a.uasset')
 
 
 def test_replaced_recording_does_not_replace_historical_cached_bytes(monkeypatch, tmp_path):

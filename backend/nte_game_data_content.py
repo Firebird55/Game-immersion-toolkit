@@ -134,8 +134,8 @@ def plan(request, ctx, inputs, reader, transport):
               'files': specs, 'verification': verification}
     identity = _identity(handle)
     if not missing:
-        return GameDataPlan('nte-archive-blocks-'+identity, None, None, handle=handle, stage='content',
-            message='Original NTE indexes are verified. A bounded archive-block preparation plan is still required.')
+        from . import nte_game_data_ranges as ranges
+        return ranges.plan(handle, ctx, reader)
     payload = sum(spec['file']['size'] for spec in missing)
     checks = sum(item['bytes'] for item in verification.values())
     return GameDataPlan('nte-indices-'+identity, payload+2*checks, payload+128*1024,
@@ -143,11 +143,9 @@ def plan(request, ctx, inputs, reader, transport):
         message='Download original NTE indexes and format metadata, then check the selected text and audio size.')
 
 
-def download(plan, ctx, reader, transport):
-    handle = plan.handle
+def validate_handle(handle, ctx, reader):
     if (not isinstance(handle, dict) or handle.get('schema') != STAGE
             or set(handle) != {'schema', 'request', 'inputs', 'reader', 'inventory', 'updater', 'files', 'verification'}
-            or plan.stage != 'original-indices' or plan.revision != 'nte-indices-'+_identity(handle)
             or handle['request'] != ctx.request.json() or handle['reader'] != reader.identity):
         raise _failure()
     inputs = updater._inputs(handle['inputs'])
@@ -165,6 +163,14 @@ def download(plan, ctx, reader, transport):
     host, branch = updater.release_origin(inputs, format_cache)
     if branch != handle['inventory']['branch'] or _selection(handle['inventory'], historical, host) != handle['files']:
         raise _failure()
+    return cache, host
+
+
+def download(plan, ctx, reader, transport):
+    handle = plan.handle
+    if plan.stage != 'original-indices' or plan.revision != 'nte-indices-'+_identity(handle):
+        raise _failure()
+    cache, _ = validate_handle(handle, ctx, reader)
     missing = [spec for spec in handle['files'] if not _retained(cache, spec)]
     verification = handle['verification']
     if not isinstance(verification, dict) or not 0 < len(verification) <= 32:

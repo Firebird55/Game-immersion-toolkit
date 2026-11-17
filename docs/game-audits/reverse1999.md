@@ -174,7 +174,8 @@ Static LZMA decoding and its authored extraction entries identify exact original
 launcher-module/config ranges. Five targeted ranges transferred 251,395 bytes,
 expanding to 655,753 bytes. Their LZMA block sizes and end markers agree; there
 are no individual NSIS-file CRCs, neither managed DLL has an Authenticode
-signature, and the whole installer hash/signature has not been checked. The
+signature, and the whole installer hash and complete Authenticode file
+verification remain unchecked. The
 launcher files confirm current publisher app/channel parameters but do not
 contain the legacy content-decoder key/IV literals. No assemblies are executed.
 
@@ -379,6 +380,113 @@ The missing official derivation step is still not proven impossible or
 unavailable, so the candidate remains unapproved research and does not activate
 a production fallback. Even a later authorized exception would still require
 original source/version/integrity validation and the unresolved content readers.
+
+## Other regional publisher navigation
+
+A separate investigation follows only actual publisher navigation and store
+links. The Global landing page loads `bpFooter.en.js`, whose language choices
+link to the Japanese site. The permanent Global homepage's original config
+also names its Japanese and mainland homepages. The Japanese desktop/mobile
+footers link back to English/Japanese; the inspected mainland footer and its
+original website query establish no additional KR/TW publisher-navigation
+edge. No regional hostname, path or game ID is guessed. This is the limit of
+the inspected navigation chain, not proof that other official editions do not
+exist.
+
+The Japanese site's original `api.js` declares `gameId: 70001` and version page
+`3.9`. Both its authored version-page request and permanent-home game query
+confirm the following links:
+
+| Field | Original Japanese publisher result |
+| --- | --- |
+| Android link | `https://reverse1999jp.onelink.me/XuII/ltt1kw5x` |
+| Android redirect | Google Play, `com.bluepoch.m.jp.reverse1999.and` |
+| PC installer | `https://download.bluepoch.com/jp/Reverse1999_v3.9.0.5_jp.exe` |
+| Installer version / length | `3.9.0.5` / 357,407,088 bytes |
+
+The Android redirect supplies no accountless game-APK transfer descriptor. The
+installer responds publicly with HTTP 200 to HEAD and supports ranges. Its
+multipart ETag is an owner-version token, not a verified file MD5. No ordinary
+whole-file checksum is supplied by these website responses.
+
+Separately approved reads acquire exactly 4,096 PE-header bytes and the
+header-declared 12,016-byte `WIN_CERTIFICATE` table, under strict HTTP 206,
+matching total length and the actual ETag. The security table begins at file
+offset 357,395,072. Passive SignedCms verification validates its CMS signature;
+the embedded X.509 code-signing certificate identifies
+`BLUEPOCH GAMES CO., LIMITED`. The Windows code-signing chain validates offline
+with certificate downloads disabled. **Revocation is not checked.** The signed
+SPC indirect-data record declares this expected **Authenticode** SHA-256 digest:
+
+`8060a1843df27f2dd6650c7816ce1cf734f603e63a455ee0541e659a1fc36517`
+
+That value is publisher-signed expected file-digest metadata. The complete
+installer has not been downloaded or hashed, and its complete Authenticode
+file verification has not been performed. It is not a computed plain SHA-256
+of the full file or proof of any unread payload's integrity. No installer code,
+assembly or client is loaded or executed; this host-cryptography research is
+not Android runtime acceptance.
+
+An independent, zero-download replay of the already cached Global installer
+certificate also validates its CMS signature/offline code-signing chain, with
+the same revocation limitation. Its signed expected Authenticode SHA-256 is
+`785cb5a9c4aa5b977ce2e8ddeb37b3daae99034df01a5e31b6ebf413be40d23c`.
+That is separate Global ownership evidence, not an assertion that Global and
+Japanese installer bytes or contents are identical.
+
+The actual mainland permanent-home query additionally names
+`/home/Reverse1999_Bluepoch_1000.apk` and a download-page parameter containing
+`/home/Reverse1999_Bluepoch_1019.apk`, both on `d.bluepoch.com`. These are newly
+observed authored links, not guessed variants. Both HEAD requests return HTTP
+567 HTML errors and add no APK size/checksum evidence.
+
+This regional phase uses twenty-two requests and 236,067 new response bytes,
+including the specifically approved PE/security metadata. It downloads no APK,
+DEX, complete executable or native library. The approved 4 KiB prefix spans its
+1 KiB PE headers and 3 KiB of following stub-section bytes; those section bytes
+are neither analysed nor executed. The new Japanese installer is a real
+accountless publisher source with version, length and signed expected-digest
+metadata. Its necessary GameConfig consumer/bootstrap module has not yet been
+established or read, so the key/base/hotfix gap remains open. No community-key
+fallback or production readiness is enabled by this checkpoint.
+
+### Publisher-linked game APK descriptor and transfer stopping point
+
+The existing mainland publisher response also explicitly links to
+[the 3839 listing](https://www.3839.com/a/136385.htm). That complete listing
+links its [mobile page](https://m.3839.com/a/136385.htm), whose original inline
+JSON `downInfo` supplies an actual **game** APK descriptor, independently of the
+previous store-client handoff:
+
+| Field | Distributor-authored result |
+| --- | --- |
+| APK URL | `https://hot.71acg.com/release/hykb/202610/20261030reverse1999180_268.apk` |
+| Package | `com.shenlan.m.reverse1999` |
+| Distributor MD5 | `69718ac8e18427491e6cf33a0ed8146f` |
+| Listing version | `4.1.0` |
+
+The listing's rounded `1.85G` size is not an exact owner length, selected
+text/audio estimate or proof of retained disk use. The distributor's MD5 is
+neither a verified downloaded-file checksum nor publisher-authenticated signing
+provenance. No equality with the separate TapTap APK is assumed.
+
+HEAD, a separately approved exact `Range: bytes=0-0` GET, and an approved
+ordinary GET inspecting headers only all return HTTP 405 with a 906-byte HTML
+error response. No body is read for any of those APK requests. Its error-page
+ETag is excluded from APK owner identity. Thus no exact APK length, real owner
+ETag, readable archive index, signer or GameConfig module is established. The
+ordinary GET result is not solely a Range-header rejection. This transfer route
+stops without further header permutations or guessed URLs; the responses do not
+prove permanent unavailability, an account requirement or impossible official
+key derivation.
+
+The complete regional/distributor investigation totals twenty-eight requests
+and a conservative 593,452 transferred-byte budget, within 1 MiB. This includes
+a 131,073-byte upper-bound charge for the first listing read whose size check
+failed before its response was retained; the subsequent complete listing is
+retained separately. Game-APK payload bytes remain zero. A reachable original
+game-package owner, or an original prescribed delivery step for it, is still
+needed before proposing exact ZIP-index and key-consumer member acquisitions.
 
 ## Text versus text and audio planning
 

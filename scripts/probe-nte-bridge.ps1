@@ -56,13 +56,21 @@ try {
     $fixtures=Join-Path $SourceRoot 'packaging/game-readers/fixtures'
     $fixtureInputs=[ordered]@{}
     foreach($file in Get-ChildItem -LiteralPath $fixtures -File){$fixtureInputs[$file.Name]=(Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()}
-    foreach($kind in @('Cue','Unreal')){
+    $codecResource=Join-Path $temporary 'authored-codec.deflate'
+    foreach($kind in @('Oodle','Cue','Unreal')){
         $target=Join-Path $temporary ('compiled-'+$kind)
         $props=@('-p:DisableTransitiveFrameworkReferenceDownloads=true','-p:UseSharedCompilation=false','-p:NuGetAudit=false',('-p:BaseIntermediateOutputPath='+$temporary+'/'+$kind+'-obj/'),('-p:BaseOutputPath='+$temporary+'/'+$kind+'-bin/'),('-p:FixtureCueAssembly='+$temporary+'/compiled-Cue/CUE4Parse.dll'))
+        if($kind -eq 'Unreal'){$props+=('-p:FixtureCodecResource='+$codecResource)}
         & $Dotnet restore (Join-Path $fixtures ($kind+'Fixture.csproj')) --configfile $config @props --nologo > (Join-Path $temporary ($kind+'-restore.log')) 2>&1
         if($LASTEXITCODE -ne 0){throw 'Authored NTE fixture offline restore failed.'}
         & $Dotnet build (Join-Path $fixtures ($kind+'Fixture.csproj')) --no-restore -c Release -o $target @props '-p:DebugType=None' --nologo > (Join-Path $temporary ($kind+'-build.log')) 2>&1
         if($LASTEXITCODE -ne 0){throw 'Authored NTE reflection fixture did not compile; private logs remain on the build host.'}
+        if($kind -eq 'Oodle'){
+            $codecBytes=[IO.File]::ReadAllBytes((Join-Path $target 'OodleSharp.dll'))
+            $stream=[IO.File]::Create($codecResource)
+            $deflater=[IO.Compression.DeflateStream]::new($stream,[IO.Compression.CompressionLevel]::Optimal)
+            try{$deflater.Write($codecBytes)}finally{$deflater.Dispose();$stream.Dispose()}
+        }
     }
     $application=Join-Path $temporary 'Immutable app 漢字'
     $tools=Join-Path $temporary 'Authored tools'; $install=Join-Path $temporary 'Authored install'
@@ -76,6 +84,29 @@ try {
     $identity=Invoke-Bridge @('--runtime-identity'); Require-Code $identity 0
     $identity=$identity.stdout | ConvertFrom-Json
     if($identity.runtime_version -ne '10.0.14' -or $identity.runtime_origin -ne 'app-local' -or $identity.corelib_sha256 -ne $manifest.files.'System.Private.CoreLib.dll'.sha256 -or $identity.game_execution_approved -ne $false){throw 'NTE app-local runtime identity differs.'}
+    $codecInput=Join-Path $temporary 'owned-codec-input';New-Item -ItemType Directory -Path $codecInput | Out-Null
+    [IO.File]::WriteAllBytes((Join-Path $codecInput 'block.bin'),[byte[]]@(0x71,4,3,2,1))
+    $codecRequest=@{schema='nte-managed-oodle-v1';nonce=('a'*32);stored_bytes=5;raw_bytes=4;
+        stored_sha256=(Get-FileHash -LiteralPath (Join-Path $codecInput 'block.bin') -Algorithm SHA256).Hash.ToLowerInvariant();
+        supplier_sha256=(Get-FileHash -LiteralPath (Join-Path $tools 'UEExtractor.dll') -Algorithm SHA256).Hash.ToLowerInvariant();
+        codec_sha256=(Get-FileHash -LiteralPath (Join-Path $temporary 'compiled-Oodle/OodleSharp.dll') -Algorithm SHA256).Hash.ToLowerInvariant();
+        blocks=@(@{stored_bytes=5;raw_bytes=4})}
+    $codecOutput=Join-Path $temporary 'owned-codec-output'
+    Require-Code (Invoke-Bridge @('--decode-oodle',$codecInput,$tools,$codecOutput) ($codecRequest|ConvertTo-Json -Depth 5 -Compress)) 0
+    $decoded=[IO.File]::ReadAllBytes((Join-Path $codecOutput 'decoded.bin'))
+    if(([Convert]::ToHexString($decoded)) -cne '01020304'){throw 'The managed codec span ABI did not execute the authored fixture.'}
+    $codecMarker=Get-Content -LiteralPath (Join-Path $codecOutput 'complete.json') -Raw | ConvertFrom-Json
+    if($codecMarker.nonce -cne $codecRequest.nonce -or $codecMarker.blocks -ne 1 -or
+        $codecMarker.raw_sha256 -cne (Get-FileHash -LiteralPath (Join-Path $codecOutput 'decoded.bin') -Algorithm SHA256).Hash.ToLowerInvariant()){
+        throw 'The owned codec completion did not bind its output.'
+    }
+    foreach($field in @('stored_sha256','supplier_sha256','codec_sha256')){
+        $wrong=$codecRequest.Clone();$wrong[$field]='0'*64
+        $rejected=Join-Path $temporary ('codec-rejected-'+$field)
+        $result=Invoke-Bridge @('--decode-oodle',$codecInput,$tools,$rejected) ($wrong|ConvertTo-Json -Depth 5 -Compress)
+        if($result.code -eq 0 -or (Test-Path -LiteralPath (Join-Path $rejected 'complete.json')) -or
+            (Test-Path -LiteralPath (Join-Path $rejected 'decoded.bin'))){throw 'A codec hash mutation published output.'}
+    }
     $request=Request
     Require-Code (Invoke-Bridge @('inventory',$install,$tools,(Join-Path $temporary 'bad-marker')) ($request | ConvertTo-Json -Compress)) 1
     $malformedWitness=Join-Path $install 'owned-initialize-rejected.txt'
@@ -118,7 +149,7 @@ try {
         [IO.File]::WriteAllText((Join-Path $registryInstall 'owned-fixture.json'),$marker)
         Require-Code (Invoke-Bridge @('inventory',$registryInstall,$tools,(Join-Path $temporary ('registry-output-'+$case))) ((Request) | ConvertTo-Json -Compress)) 0
     }
-    foreach($case in @('valid','all-text','hash','duplicate','escape','missing','empty')) {
+    foreach($case in @('valid','all-text','hash','duplicate','escape','missing','empty','strict-eof','unconsumed','legacy-unconsumed')) {
         $registryInstall=Join-Path $temporary ('dialogue-registry-'+$case); New-Item -ItemType Directory -Path $registryInstall | Out-Null
         $marker=@{schema='proxy-owned-nte-fixture-v1';localization_version=3;dialogue_registry_case=$case} | ConvertTo-Json -Compress
         [IO.File]::WriteAllText((Join-Path $registryInstall 'owned-fixture.json'),$marker)
@@ -145,7 +176,7 @@ try {
     [IO.File]::WriteAllText((Join-Path $unsupported 'owned-fixture.json'),'{'+'"schema":"proxy-owned-nte-fixture-v1","localization_version":4}')
     Require-Code (Invoke-Bridge @('index',$unsupported,$tools,(Join-Path $temporary 'unsupported-output')) ((Request) | ConvertTo-Json -Compress)) 3
     $report=@{schema='proxy-r19-nte-bridge-v1';source_commit=$env:GITHUB_SHA;source_dirty=$false;status='passed';helper_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $application 'helper-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();fixture_inputs=$fixtureInputs;runtime_identity=$identity;actions=@('inventory','index','voice','voices');voice_languages=@('Chinese','English','Japanese','Korean');text_locales=@('en','zh-CN','zh-Hant','ja','ko');upstream_dependency='authored stand-ins; no actual UEExtractor/CUE4Parse/Oodle';immutable_trees='unchanged';developer_environment='cleared';malformed_and_missing_dependency='rejected';unsupported_localization='exit-3';real_games_accessed=$false;real_accounts_accessed=$false;native_windows_11_acceptance='unavailable';game_reader_acceptance='not-established';redistribution_review='pending-exact-output';installer='not-built';r19_complete=$false}
-    $report.dialogue_registry_cases=@('valid','all-text','hash','duplicate','escape','missing','empty')
+    $report.dialogue_registry_cases=@('valid','all-text','hash','duplicate','escape','missing','empty','strict-eof','unconsumed','legacy-unconsumed')
     $report.original_table_registry_cases=@('valid','duplicate','case-collision','escape','bad-object','empty','missing','hash')
     $report.schema_codec_cases=@('zero-without-package','fallback','consumed-archive','foreign-assembly','previous-lookup','missing-package','invalid-name')
 } finally {

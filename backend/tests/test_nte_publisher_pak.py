@@ -222,6 +222,24 @@ def test_bank_batch_preserves_member_boundaries_and_rejects_partial_decode(tmp_p
         archive.read_many(names * 100)
 
 
+def test_context_codec_decodes_single_and_batch_without_legacy_tools(tmp_path, monkeypatch):
+    payload = b'owned original text' * 80
+    archive, _ = open_archive(package([('owned.bin', payload, 128, True, False)]), tmp_path, monkeypatch)
+    archive.methods = tuple('Oodle' if method == 'Zlib' else method for method in archive.methods)
+    monkeypatch.setattr(archive, '_oodle', lambda _: pytest.fail('Legacy decoder called'))
+    calls = []
+    def decode(blocks):
+        calls.append(blocks)
+        return b''.join(zlib.decompress(data) for data, _ in blocks)
+    archive._managed_oodle = decode
+    assert archive.read('HT/Content/owned.bin') == payload
+    assert archive.read_many(['HT/Content/owned.bin']) == [payload]
+    assert len(calls) == 2
+    archive._managed_oodle = lambda _: b'partial'
+    with pytest.raises(PreparationFailure): archive.read('HT/Content/owned.bin')
+    with pytest.raises(PreparationFailure): archive.read_many(['HT/Content/owned.bin'])
+
+
 @pytest.mark.parametrize('encrypted_index', [True, False])
 @pytest.mark.parametrize('wide_numbers', [True, False])
 def test_all_supported_entry_encodings_and_single_block_length_exception(tmp_path, monkeypatch, encrypted_index, wide_numbers):
