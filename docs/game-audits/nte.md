@@ -46,7 +46,7 @@ constructor support. These remain open dependency work, independent of the
 completed finite current-presentation audit below.
 
 The source-development checkpoint passed **653 affected checks** with one
-unavailable-platform skip. The updated managed reader compiled without warnings
+Windows link-privilege skip. The updated managed reader compiled without warnings
 or errors, and the pinned real CUE reader confirmed the nonzero GUID byte/digit
 conversion. Frozen-original normal preparation passed Global **1.4.9 Japanese**
 (117,575 records; 25,731 voiced), Global **1.5.4 Japanese** (126,472; 27,718)
