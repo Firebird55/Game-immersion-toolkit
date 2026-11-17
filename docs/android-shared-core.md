@@ -108,6 +108,9 @@ actual frontend/core APK, audits native ABIs and 16-KiB load alignment, verifies
 APK signatures and ZIP alignment, and emits candidate provenance. Its persistent
 host-local debug key supports local candidate upgrades; it is not a production
 update identity. No production key or workflow secret is used.
+The separate [owner-host signing path](android-owner-signing.md) creates a
+durable protected identity for update-in-place candidates without CI secrets;
+its actual APK version and certificate are checked and recorded in provenance.
 
 The manually dispatched `android-shared-core.yml` workflow builds on Windows
 (the pinned NDK compiler supplier), then transfers the checksum-bound APK to a
