@@ -15,6 +15,18 @@ param(
     [switch]$DownloadGradle,
     [switch]$DownloadDecoderSource
 )
+function Read-AndroidBoundBaseReceipt([string]$Wheelhouse,$CompositeReceipt,[string]$BasePolicySha256) {
+    if($CompositeReceipt.schema -ne 'toolkit-android-runtime-wheels-v2' -or $CompositeReceipt.base_receipt_sha256 -notmatch '^[0-9a-f]{64}$') {throw 'The verified composite base-receipt binding is missing.'}
+    $basePath=Join-Path $Wheelhouse 'python-base-wheels-receipt.json'
+    Assert-AndroidNoLinks $basePath
+    if((Get-Item -LiteralPath $basePath).Length -gt 1048576){throw 'The bound Python base receipt exceeds its limit.'}
+    $baseBytes=[IO.File]::ReadAllBytes($basePath)
+    $baseDigest=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($baseBytes)).ToLowerInvariant()
+    if($baseDigest -ne $CompositeReceipt.base_receipt_sha256){throw 'The bound original Python receipt changed before native APK validation.'}
+    $baseReceipt=[Text.Encoding]::UTF8.GetString($baseBytes) | ConvertFrom-Json
+    if($baseReceipt.schema -ne 'toolkit-android-python-wheels-v1' -or $baseReceipt.policy_sha256 -ne $BasePolicySha256){throw 'The bound original Python receipt has an unexpected schema or policy.'}
+    return $baseReceipt
+}
 $ErrorActionPreference='Stop'
 $sourceRoot=Split-Path -Parent $PSScriptRoot
 $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build-inputs.json') -Raw | ConvertFrom-Json
@@ -116,11 +128,12 @@ $audit=Join-Path $BuildRoot 'apk-audit.json'
 & $Python (Join-Path $PSScriptRoot 'verify-android-apk.py') $apk --output $audit
 if($LASTEXITCODE -ne 0){throw 'The Android APK failed its closed native/shared-core audit.'}
 $nativeAudit=Get-Content -LiteralPath $audit -Raw | ConvertFrom-Json
+$baseReceipt=Read-AndroidBoundBaseReceipt $Wheelhouse $receipt $policyHash
 foreach($abi in $policy.abis) {
-    $nativeReceipt=$receipt.native.PSObject.Properties[$abi].Value
+    $nativeReceipt=$baseReceipt.native.PSObject.Properties[$abi].Value
     $cores=@($nativeAudit.native_files.PSObject.Properties | Where-Object { $_.Name.StartsWith('assets/chaquopy/requirements-'+$abi+'.imy/pydantic_core/_pydantic_core') })
     if($cores.Count -ne 1 -or $cores[0].Value.sha256 -ne $nativeReceipt.native_sha256) {throw 'The packaged native core differs from its verified wheel.'}
-    $rapid=$receipt.rapidfuzz_native.PSObject.Properties[$abi].Value
+    $rapid=$baseReceipt.rapidfuzz_native.PSObject.Properties[$abi].Value
     if(-not $rapid -or -not $rapid.modules) {throw 'The native RapidFuzz build receipt is missing.'}
     foreach($module in $rapid.modules.PSObject.Properties) {
         $name='assets/chaquopy/requirements-'+$abi+'.imy/'+$module.Name
