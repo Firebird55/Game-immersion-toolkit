@@ -60,8 +60,9 @@ class DefaultOutput:
 
 
 class _Elf:
-    def __init__(self, raw):
-        self.raw = raw
+    def __init__(self, raw, *, check=lambda: None):
+        self.raw, self.check = raw, check
+        check()
         _check(64 <= len(raw) <= MAX_MODULE and raw[:7] == b'\x7fELF\x02\x01\x01')
         h = self.unpack('<16sHHIQQQIHHHHHH', 0)
         _check(h[1] == 3 and h[2] == 183 and h[3] == 1 and h[8] == 64 and
@@ -79,7 +80,7 @@ class _Elf:
             _check(s[0] < len(names) and b'\0' in names[s[0]:])
             name = names[s[0]:names.index(0, s[0])].decode('ascii')
             if s[1] != 8:
-                self.take(s[4], s[5])
+                self.bounds(s[4], s[5])
             self.sections.append(dict(name=name, type=s[1], flags=s[2], va=s[3], offset=s[4],
                                       size=s[5], link=s[6], entry=s[9]))
         dynamic = [s for s in self.sections if s['type'] == 11]
@@ -89,14 +90,21 @@ class _Elf:
                symbols['size'] <= MAX_MODULE and symbols['link'] < len(self.sections))
         strings = self.sections[symbols['link']]
         _check(strings['type'] == 3 and strings['size'] <= MAX_MODULE)
-        names = self.take(strings['offset'], strings['size'])
+        self.bounds(strings['offset'], strings['size'])
+        string_end = strings['offset'] + strings['size']
+        wanted_sizes = {len(name) for name in (CALLBACK, REGISTER, GETTER)}
         self.symbols = {}
         for at in range(symbols['offset'], symbols['offset'] + symbols['size'], 24):
+            if (at - symbols['offset']) % (2048 * 24) == 0:
+                check()
             no, info, _, sec, va, size = self.unpack('<IBBHQQ', at)
-            _check(no < len(names))
-            end = names.find(b'\0', no)
+            _check(no < strings['size'])
+            start = strings['offset'] + no
+            end = self.raw.find(b'\0', start, string_end)
             _check(end >= 0)
-            name = names[no:end]
+            if end - start not in wanted_sizes:
+                continue
+            name = self.take(start, end - start)
             if name not in (CALLBACK, REGISTER, GETTER):
                 continue
             _check(name not in self.symbols and info & 15 == 2 and 0 < sec < len(self.sections) and size)
@@ -105,8 +113,11 @@ class _Elf:
             self.symbols[name] = (va, size, section['offset'] + va - section['va'])
         _check(set(self.symbols) == {CALLBACK, REGISTER, GETTER})
 
-    def take(self, at, size):
+    def bounds(self, at, size):
         _check(type(at) is int and type(size) is int and 0 <= at <= len(self.raw) and 0 <= size <= len(self.raw) - at)
+
+    def take(self, at, size):
+        self.bounds(at, size)
         return self.raw[at:at + size]
 
     def unpack(self, layout, at):
@@ -133,6 +144,7 @@ class _Elf:
         return any(flags & 2 and start <= va and va + size <= start + memory for flags, start, memory in self.loads)
 
     def output(self):
+        self.check()
         pc, words = self.words(CALLBACK, 256)
         registers, values, output = {0: ('output', 0)}, {}, {}
         returned = False
@@ -205,6 +217,7 @@ class _Elf:
         return addresses
 
     def registration(self):
+        self.check()
         callback = self.symbols[CALLBACK][0]
         register = self.symbols[REGISTER][0]
         getter = {va for reg, va in self.references(GETTER, 512, addresses_only=True) if reg == 0 and self.writable(va, 16)}
@@ -243,6 +256,8 @@ class _Elf:
                 continue
             _check(s['entry'] == 24 and s['size'] % 24 == 0 and s['size'] <= 64 * 1024**2)
             for off in range(s['offset'], s['offset'] + s['size'], 24):
+                if (off - s['offset']) % (2048 * 24) == 0:
+                    self.check()
                 address, info, value = self.unpack('<QQq', off)
                 if info != 1027:
                     continue
@@ -257,11 +272,16 @@ class _Elf:
         _check(self.take(frame['offset'], 4) == bytes((1, 0x1b, 3, 0x3b)))
         count, = self.unpack('<I', frame['offset'] + 8)
         _check(1 <= count <= 1_000_000 and 12 + 8 * count <= frame['size'])
-        starts = [frame['va'] + self.unpack('<i', frame['offset'] + 12 + i * 8)[0] for i in range(count)]
+        starts = []
+        for i in range(count):
+            if i % 2048 == 0:
+                self.check()
+            starts.append(frame['va'] + self.unpack('<i', frame['offset'] + 12 + i * 8)[0])
         _check(starts == sorted(set(starts)))
         text = self.section('.text')
         bindings = []
         for start in constructors:
+            self.check()
             i = bisect_right(starts, start) - 1
             if i < 0 or starts[i] != start or i + 1 == len(starts):
                 continue
@@ -287,19 +307,22 @@ class _Elf:
         return bindings[0]
 
 
-def default_output(path, expected_sha256):
+def default_output(path, expected_sha256, *, check=lambda: None):
     """Derive one registered native output, after independently verified member integrity."""
     _check(isinstance(expected_sha256, str) and re.fullmatch('[0-9a-f]{64}', expected_sha256))
+    check()
     digest = hashlib.sha256()
     with open(path, 'rb') as stream:
         size = stream.seek(0, 2)
         _check(64 <= size <= MAX_MODULE)
         stream.seek(0)
         for part in iter(lambda: stream.read(1024**2), b''):
+            check()
             digest.update(part)
         _check(digest.hexdigest() == expected_sha256)
         with mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ) as raw:
-            elf = _Elf(raw)
+            elf = _Elf(raw, check=check)
             parameter, address = elf.output()
             constructor = elf.registration()
+            check()
             return DefaultOutput(parameter, expected_sha256, elf.symbols[CALLBACK][0], constructor, address)
