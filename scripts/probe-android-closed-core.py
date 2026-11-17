@@ -13,14 +13,20 @@ import zipfile
 
 
 BOOTSTRAP = r'''
-import json,sys,hashlib
+import json,sys,hashlib,socket
 from pathlib import Path
+def no_network(*args,**kwargs):
+    raise RuntimeError('The authored packaged-source proof forbids network access')
+socket.socket.connect=no_network
+socket.create_connection=no_network
 if sys.version_info[:2] != (3,12) or 'backend' in sys.modules:
     raise RuntimeError('Use an isolated Python 3.12 reference process')
 origin=Path(sys.argv[1]).resolve()
 sys.path.insert(0,str(origin))
 import backend.android_host
 import backend.android_protected_storage
+import backend.android_accounts
+import backend.android_account_api
 from backend.android_probe import run
 result=json.loads(run(sys.argv[2]))
 audio=Path(result['private_audio_path'])
@@ -32,7 +38,7 @@ owned={name:module.__file__ for name,module in sys.modules.items()
 prefix=origin.as_posix().rstrip('/')+'/'
 if any(not Path(path).as_posix().startswith(prefix) for path in owned.values()):
     raise RuntimeError('A repository backend module masked missing packaged source')
-forbidden={'mss','oneocr','httpx','PIL','cv2','rapidocr_onnxruntime','windows_capture','backend.capture'}
+forbidden={'mss','oneocr','PIL','cv2','rapidocr_onnxruntime','windows_capture','backend.capture'}
 if forbidden.intersection(sys.modules):
     raise RuntimeError('The shared core imported a desktop platform/transport dependency')
 result['owned_module_names']=sorted(owned)
@@ -72,6 +78,7 @@ def probe(apk, work, *, reference=None):
         'owned_source_files': manifest['files'], 'owned_module_names': actual['owned_module_names'],
         'result_sha256': actual['result_sha256'], 'prepared_games': actual['results']['prepared_games'],
         'dependency_overlay': 'desktop-reference-wheels', 'owned_package_reference_behavior': 'passed',
+        'network': 'blocked-before-owned-module-import',
         'android_native_runtime_acceptance': 'not-established-by-desktop-overlay', 'release_eligibility': False}
 
 

@@ -19,6 +19,7 @@ import secrets
 import tempfile
 import threading
 import time
+import weakref
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from .capture_geometry import picture_bounds, region_bounds
@@ -52,9 +53,19 @@ def presentation_lines(value, width, height):
 
 
 class AndroidHost:
-    def __init__(self, root, frontend, native=None, *, port=0):
+    def __init__(self, root, frontend, native=None, *, port=0, enable_accounts=False, account_transport=None):
         self.receiver_owner = None
-        self.session = PreparedCaptureSession(root, on_invalidate=self._release_receiver)
+        self.account_sessions = None
+        if enable_accounts:
+            if native is None:
+                raise ValueError('Protected Android accounts require the native provider.')
+            from .android_accounts import AndroidAccountSessions
+            from .android_protected_storage import AndroidProtectedBlobs
+            self.account_sessions = AndroidAccountSessions(root, protect=AndroidProtectedBlobs(native).protect,
+                on_invalidate=self._release_receiver, transport=account_transport)
+            self._session = None
+        else:
+            self._session = PreparedCaptureSession(root, on_invalidate=self._release_receiver)
         self.frontend = Path(frontend).absolute()
         self.native = native
         self.cookie = secrets.token_hex(32)
@@ -74,7 +85,27 @@ class AndroidHost:
         self.thread = threading.Thread(target=self.server.serve_forever, name='toolkit-android-http', daemon=True)
         self.thread.start()
 
-    def _import_job(self, identity, *, register=False):
+    @property
+    def session(self):
+        return self.account_sessions.session if self.account_sessions else self._session
+
+    @property
+    def account_generation(self):
+        return self.account_sessions.accounts.generation if self.account_sessions else 0
+
+    def guard_account(self, value, *, session=None, selecting=False):
+        if self.account_sessions is None:
+            return 0
+        from .android_accounts import AndroidAccountConflict
+        if not isinstance(value, str) or not value.isascii() or not value.isdigit() or len(value) > 16:
+            raise AndroidAccountConflict('account_generation_required', 'Refresh the current account before this operation.')
+        generation = int(value)
+        self.account_sessions._expect(generation)
+        if (not selecting and self.account_sessions.transitioning) or session is not None and session is not self.session:
+            raise AndroidAccountConflict('account_selection_pending', 'Wait for the current account selection to finish.')
+        return generation
+
+    def _import_job(self, identity, *, register=False, session=None, account_generation=None):
         if not isinstance(identity, str) or not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', identity):
             raise ValueError('A valid private import ID is required')
         with self.import_lock:
@@ -82,8 +113,13 @@ class AndroidHost:
                 if len(self.import_jobs) >= 128:
                     raise ValueError('Reopen the app before starting another library operation')
                 self.import_jobs[identity] = {'state': 'pending', 'cancel': threading.Event(), 'working': False,
-                    'generation': self.session.generation}
+                    'generation': self.session.generation, 'scope_session': weakref.ref(session or self.session),
+                    'account_generation': self.account_generation if account_generation is None else account_generation}
             job = self.import_jobs[identity]
+            if self.account_sessions and (job['scope_session']() is not (session or self.session)
+                    or job['account_generation'] != (self.account_generation if account_generation is None else account_generation)):
+                from .android_accounts import AndroidAccountConflict
+                raise AndroidAccountConflict('account_import_scope_changed', 'The import belongs to an earlier account selection.')
             if register:
                 if job['state'] != 'pending' or job['working']:
                     raise ValueError('The import ID was already used or cancelled')
@@ -111,17 +147,23 @@ class AndroidHost:
         with self.import_lock:
             if job['cancel'].is_set():
                 raise InterruptedError('Library import cancelled')
+            if self.account_sessions:
+                self.account_sessions.guard_import(job['scope_session'](), job['account_generation'])
             yield lambda: job.update(state='committed')
 
     def close(self):
         self.session.stop('Android host closed')
+        if self.account_sessions:
+            self.account_sessions.close()
         self.server.shutdown();self.server.server_close();self.thread.join(timeout=5)
 
     def platform(self):
         return {'platform': 'android', 'library_import': True,
             'capture_source': 'remote-stream' if self.native else 'authored-observations',
             'message': 'Private prepared libraries and original audio are processed on this Android device.',
-            'protected_accounts': False, 'ocr': 'bundled-mlkit' if self.native else 'not-attached',
+            'protected_accounts': self.account_sessions is not None,
+            'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
+            'ocr': 'bundled-mlkit' if self.native else 'not-attached',
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
             'max_library_bytes': MAX_LIBRARY, 'max_text_bytes': MAX_TEXT, 'max_library_records': MAX_ROWS,
             'document_epoch': self.document_epoch, 'receiver_control': True, 'receiver_protocol': 'leased-frames-v1'}
@@ -140,6 +182,12 @@ class AndroidHost:
     def snapshot(self):
         with self.session.lock:
             result = self.session.snapshot()
+            if self.account_sessions:
+                result['context']['account_generation'] = self.account_generation
+                preferences = self.account_sessions.cached_preferences()
+                result['lines'] = [self.account_sessions.qualify_line(self.account_sessions.present_dto(line, preferences))
+                    for line in result['lines']]
+                result['lexirise'] = self.account_sessions.lexirise_status()
             frame = self.preview_frame
             if self._preview_current(frame):
                 bounds = self._picture(frame['width'], frame['height'])
@@ -156,7 +204,7 @@ class AndroidHost:
 
     def preview(self, query):
         values = parse_qs(query, keep_blank_values=True, max_num_fields=8)
-        if set(values) - {'left', 'top', 'width', 'height', 'picture_area', 't'} or any(len(v) != 1 for v in values.values()):
+        if set(values) - {'left', 'top', 'width', 'height', 'picture_area', 't', 'account_generation'} or any(len(v) != 1 for v in values.values()):
             raise ValueError('Invalid preview crop')
         coordinates = {'left', 'top', 'width', 'height'}
         supplied = coordinates.intersection(values)
@@ -167,6 +215,8 @@ class AndroidHost:
         if area is not None and area not in {'window', '16:9'}:
             raise ValueError('Invalid picture area')
         with self.session.lock:
+            if self.account_sessions:
+                self.guard_account(values.get('account_generation', [None])[0])
             frame = self.preview_frame
             if not self._preview_current(frame) or self.native is None:
                 return None
@@ -350,6 +400,7 @@ class AndroidHost:
             def log_message(self, *args):
                 pass  # Frames, URLs, catalogs and account data never become logs.
             def _headers(self, status, size, content_type, *, cookie=False, extra=None):
+                self.response_started = True
                 self.send_response(status)
                 self.send_header('Content-Type', content_type)
                 self.send_header('Content-Length', str(size))
@@ -391,6 +442,31 @@ class AndroidHost:
                 path = urlsplit(self.path).path
                 if not self._authorize(path):
                     self._json({'detail': 'App-local request required'}, 403);return
+                if path in {'/api/lexirise/accounts', '/api/lexirise/accounts/select'} and host.account_sessions:
+                    if self.command == 'GET' and path == '/api/lexirise/accounts':
+                        self._json(host.account_sessions.status());return
+                    if self.command != 'POST' or self.headers.get('X-Proxy-Transcript') != 'lexirise':
+                        self._json({'detail': 'Use the account selector.'}, 403);return
+                    value = json.loads(self._body(4096))
+                    with host.session.lock:
+                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'), selecting=True)
+                    if path.endswith('/select'):
+                        if not isinstance(value, dict) or set(value) != {'id'} or not isinstance(value['id'], str):
+                            raise ValueError('Invalid account selection')
+                        self._json(host.account_sessions.select(value['id'], generation));return
+                    if (not isinstance(value, dict) or set(value) - {'key', 'name'} or not isinstance(value.get('key'), str)
+                            or not isinstance(value.get('name', ''), str) or len(value.get('name', '')) > 80):
+                        raise ValueError('Invalid protected account registration')
+                    self._json(host.account_sessions.register(value['key'], value.get('name', ''), generation));return
+                if host.account_sessions:
+                    from .android_account_api import dispatch
+                    result = dispatch(host, self.command, path, urlsplit(self.path).query, self.headers, self._body)
+                    if result is not None:
+                        payload, status, scope = result
+                        with host.session.lock:
+                            if scope is not None:
+                                scope.check()
+                            self._json(payload, status);return
                 if path == '/api/platform' and self.command == 'GET':
                     self._json(host.platform());return
                 if path in {'/api/snapshot', '/api/status'} and self.command == 'GET':
@@ -409,23 +485,31 @@ class AndroidHost:
                     if self.command == 'GET':
                         self._json(host.session.settings.get().model_dump(mode='json'));return
                     if self.command == 'PATCH':
-                        self._json(host.session.update_settings(json.loads(self._body(1024**2))));return
+                        value = json.loads(self._body(1024**2))
+                        with host.session.lock:
+                            host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                            self._json(host.session.update_settings(value));return
                 if path == '/api/capture/start' and self.command == 'POST':
+                    self._body(4096)
                     with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
                         if host._active_receiver():
                             self._json(*host._receiver_conflict('receiver_owned', 'Use the active screen receiver controls'));return
                         generation = host.session.start()
-                        self._json({**host.session.snapshot(), 'generation': generation});return
+                        self._json({**host.snapshot(), 'generation': generation});return
                 if path == '/api/capture/receiver' and self.command == 'POST':
-                    self._json(*host.control_receiver(json.loads(self._body(4096)),
-                        self.headers.get('X-Toolkit-Document-Epoch')));return
+                    value = json.loads(self._body(4096))
+                    with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        self._json(*host.control_receiver(value, self.headers.get('X-Toolkit-Document-Epoch')));return
                 if path in {'/api/capture/stop', '/api/capture/source'} and self.command == 'POST':
                     self._body(4096)
                     with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
                         if host._active_receiver():
                             self._json(*host._receiver_conflict('receiver_owned', 'Use the active screen receiver controls'));return
                         host.session.stop('Screen source changed' if path.endswith('source') else 'Capture paused')
-                        self._json({**host.session.snapshot(), 'generation': host.session.generation});return
+                        self._json({**host.snapshot(), 'generation': host.session.generation});return
                 if path == '/api/library/import' and self.command == 'POST':
                     if self.headers.get('Transfer-Encoding') or not self.headers.get('Content-Length', '').isdigit():
                         raise ValueError('A bounded library length is required')
@@ -433,9 +517,12 @@ class AndroidHost:
                     if not 0 < size <= MAX_LIBRARY:
                         raise ValueError('Library is too large or empty')
                     identity = self.headers.get('X-Toolkit-Import-Id')
-                    job = host._import_job(identity, register=True)
+                    with host.session.lock:
+                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        session = host.session
+                        job = host._import_job(identity, register=True, session=session, account_generation=generation)
                     try:
-                        with tempfile.TemporaryDirectory(prefix='upload-', dir=host.session.root) as folder:
+                        with tempfile.TemporaryDirectory(prefix='upload-', dir=session.root) as folder:
                             upload = Path(folder) / 'library.zip'
                             with upload.open('xb') as destination:
                                 remaining = size
@@ -447,7 +534,7 @@ class AndroidHost:
                                         raise InterruptedError('Library upload interrupted')
                                     destination.write(block);remaining -= len(block)
                                     self.request_bytes_read += len(block)
-                            self._json(host.session.import_library(upload, cancelled=job['cancel'].is_set,
+                            self._json(session.import_library(upload, cancelled=job['cancel'].is_set,
                                 publish_guard=lambda: host.publish_import(job)));return
                     finally:
                         with host.import_lock:
@@ -455,16 +542,21 @@ class AndroidHost:
                             if job['state'] not in {'committed', 'cancelled'}:
                                 job['state'] = 'failed'
                 if path == '/api/library/import/cancel' and self.command == 'POST':
-                    result, status = host.cancel_import(json.loads(self._body(4096)).get('import_id'))
+                    value = json.loads(self._body(4096))
+                    with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        result, status = host.cancel_import(value.get('import_id'))
                     self._json(result, status);return
                 if path == '/api/capture/frame' and self.command == 'POST':
                     generation, sequence = (int(self.headers.get(name, '-1')) for name in ('X-Toolkit-Generation', 'X-Toolkit-Frame'))
                     raw = self._body(MAX_FRAME)
                     if self.headers.get('Content-Type') not in {'image/jpeg', 'image/png'}:
                         raise ValueError('Native frame OCR is unavailable or the image is invalid')
-                    self._json(*host.submit_frame(raw, generation, sequence,
-                        self.headers.get('X-Toolkit-Receiver-Id'), self.headers.get('X-Toolkit-Receiver-Revision'),
-                        self.headers.get('X-Toolkit-Document-Epoch')));return
+                    with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        self._json(*host.submit_frame(raw, generation, sequence,
+                            self.headers.get('X-Toolkit-Receiver-Id'), self.headers.get('X-Toolkit-Receiver-Revision'),
+                            self.headers.get('X-Toolkit-Document-Epoch')));return
                 line_match = re.fullmatch(r'/api/lines/([1-9][0-9]*)/(favorite|audio)', path)
                 if line_match:
                     identity, operation = int(line_match[1]), line_match[2]
@@ -473,14 +565,25 @@ class AndroidHost:
                         if type(value) is not bool:
                             raise ValueError('Invalid favorite value')
                         with host.session.lock:
+                            host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                            if host.account_sessions:
+                                identity = host.account_sessions.local_line(identity)
                             line = host.session.history.set_favorite(identity, value)
                             if line is not None:
                                 host.session.state_version += 1
-                        if line is None:
+                            result = host.session._line(line) if line else None
+                            if result and host.account_sessions:
+                                result = host.account_sessions.qualify_line(result)
+                        if result is None:
                             self._json({'detail': 'Line not found'}, 404);return
-                        self._json(host.session._line(line));return
+                        self._json(result);return
                     if operation == 'audio' and self.command == 'GET':
-                        audio = host.session.audio_path(identity)
+                        with host.session.lock:
+                            if host.account_sessions:
+                                identity = host.account_sessions.local_line(identity)
+                            session = host.session
+                            account_generation = host.account_generation
+                            audio = session.audio_path(identity)
                         if audio is None:
                             self._json({'detail': 'Original recording unavailable'}, 404);return
                         size = audio.stat().st_size
@@ -495,11 +598,17 @@ class AndroidHost:
                                 self._headers(416, 0, 'application/octet-stream', extra={'Content-Range': f'bytes */{size}'})
                                 return
                             status = 206;extra['Content-Range'] = f'bytes {first}-{last}/{size}'
-                        self._headers(status, last - first + 1, 'audio/wav' if audio.suffix == '.wav' else 'audio/mpeg', extra=extra)
                         with audio.open('rb') as source:
+                            with session.lock:
+                                if host.account_sessions:
+                                    host.account_sessions.guard_import(session, account_generation)
+                                self._headers(status, last - first + 1, 'audio/wav' if audio.suffix == '.wav' else 'audio/mpeg', extra=extra)
                             source.seek(first);remaining = last - first + 1
                             while remaining:
-                                block = source.read(min(1024**2, remaining))
+                                with session.lock:
+                                    if host.account_sessions and (host.session is not session or host.account_generation != account_generation):
+                                        self.close_connection = True;return
+                                block = source.read(min(65536, remaining))
                                 if not block:
                                     break
                                 self.wfile.write(block);remaining -= len(block)
@@ -524,10 +633,13 @@ class AndroidHost:
                 self.wfile.write(raw)
             def _dispatch(self):
                 self.request_bytes_read = 0
+                self.response_started = False
                 try:
                     self._handle()
-                except (ValueError, KeyError, TypeError, OSError, InterruptedError):
+                except Exception as error:
                     self.close_connection = True
+                    if self.response_started:
+                        return
                     try:
                         # Closing a small unread upload can reset TCP before a
                         # Windows client receives the error. Drain only bounded
@@ -536,14 +648,22 @@ class AndroidHost:
                         remaining = int(length) - self.request_bytes_read if length.isascii() and length.isdigit() and len(length) <= 20 else 0
                         if 0 < remaining <= 65536:
                             self.rfile.read(remaining)
-                        self._json({'detail': 'The local request did not complete. Check the current library before retrying.'}, 400)
+                        status, detail = 400, {'detail': 'The local request did not complete. Check the current library before retrying.'}
+                        if host.account_sessions:
+                            from .android_accounts import AndroidAccountConflict
+                            from .lexirise import LexiriseError
+                            if isinstance(error, AndroidAccountConflict):
+                                status, detail = 409, {'state': error.state, 'detail': str(error), 'account_generation': host.account_generation}
+                            elif isinstance(error, LexiriseError):
+                                detail = {'detail': str(error)}
+                        self._json(detail, status)
                     except OSError:
                         pass
             do_GET = do_POST = do_PATCH = _dispatch
         return Handler
 
 
-def start(root, frontend, native=None):
+def start(root, frontend, native=None, enable_accounts=False):
     global _host
     with _host_lock:
         if _host is None:
@@ -553,7 +673,7 @@ def start(root, frontend, native=None):
             port = json.loads(pointer.read_text())['port'] if pointer.is_file() else 0
             if type(port) is not int or port != 0 and not 1024 <= port <= 65535:
                 raise ValueError('Invalid app-local reader origin')
-            _host = AndroidHost(root, frontend, native, port=port)
+            _host = AndroidHost(root, frontend, native, port=port, enable_accounts=enable_accounts)
             pending = pointer.with_suffix('.pending')
             pending.write_text(json.dumps({'port': _host.server.server_port}), encoding='utf8')
             pending.replace(pointer)

@@ -171,3 +171,16 @@ def test_scope_bounds_and_stale_generation_fail_before_selection(tmp_path):
     with pytest.raises(ValueError): runtime.qualify_line({'id': 2**32})
     for invalid in (True, 0, 2**53, 2**32):
         with pytest.raises(AndroidAccountConflict): runtime.local_line(invalid)
+
+
+def test_maintained_service_pin_keeps_old_key_and_rejects_old_response_scope(tmp_path):
+    runtime, first, second, _ = manager(tmp_path / 'application')
+    runtime.select(first, runtime.accounts.generation)
+    pinned = runtime.pin(runtime.accounts.generation, remote=True)
+    assert pinned.service._key() == 'lx_first_authored_fixture_only'
+    runtime.select(second, runtime.accounts.generation)
+    assert pinned.service._key() == 'lx_first_authored_fixture_only'
+    assert runtime.pin(runtime.accounts.generation, remote=True).service._key() == 'lx_second_authored_fixture_only'
+    with pytest.raises(AndroidAccountConflict, match='account changed'):
+        pinned.check()
+    runtime.close()

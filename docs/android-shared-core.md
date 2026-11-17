@@ -80,8 +80,8 @@ startup failure instead of silently creating a different preference origin.
 The host provides SAF ZIP selection, private storage, lifecycle pause and bundled
 MLKit text recognition. Remote frames are bounded, newest-pending-only, and
 generation checked after OCR. A dimension change invalidates confirmation and
-requires reconnecting. Local Android game capture/MediaProjection and protected
-account storage are not implemented by this prototype. The remote iOS screen
+requires reconnecting. Local Android game capture/MediaProjection is unavailable;
+protected account activation requires the matching scoped frontend. The remote iOS screen
 transport is a separate shared frontend capability, not desktop capture.
 
 The common Capture setup preview reads only the most recently admitted native
@@ -127,10 +127,31 @@ generation increases across replacements; an A→B→A switch cannot revive an o
 import or source callback. Native HTTP DTO line IDs reserve a bounded activation
 epoch above the unchanged uint32 SQLite ID, remaining safe JavaScript integers;
 all native line routes must validate and decode them before use. This component
-is not enabled by the existing HTTP host until its full scoped API is wired.
+is available behind an explicit native-host opt-in; production startup retains
+the existing account-disabled mode until the matching frontend contract lands.
 Maintained account/reader transports accept explicit environment/protected-root
 policy; desktop defaults remain unchanged, while Android disables environment
 and desktop credential fallback.
+
+The opt-in transport advertises `account_protocol: scoped-accounts-v1`. Account
+selection/registration, library import/cancellation, settings, source controls
+and frames require `X-Toolkit-Account-Generation` captured from the rendered
+context. Preview image requests carry the same integer as the readonly
+`account_generation` query parameter. Epoch-qualified IDs bind audio/ranges,
+favorites, reading and exports to the exact account activation. Old A requests
+remain invalid after switching through B back to A. Import receipts retain weak
+session references so completed jobs cannot keep obsolete full game indices.
+
+The API delegates settings, destination ownership/selection, word/grammar
+reading and sentence/original-audio exports to the maintained services. Requests
+pin credentials, local line identity and account session before network work and
+recheck ownership before responding. The official translation-field projection
+is shared with desktop presentation and leaves canonical stored rows unchanged;
+an absent selected translation stays absent. All remote test writes use mocked
+transports. The native core fixture additionally exercises maintained account
+registration, scoped import/capture, A→B→A guards and encrypted-store reopening
+using an authored Keystore alias; it reports the provider separately from its
+deterministic desktop comparison results.
 
 Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 
@@ -169,7 +190,7 @@ results with the maintained desktop source. This is owned-source delivery and
 reference-behavior evidence; Android ABI execution still requires the emulator.
 
 Physical Android/iOS sender tests, long-session fuzzy-match performance, audio
-focus, protected Android account storage, complete desktop migration/export UI,
+focus, protected-account UI/native acceptance, complete desktop migration/export UI,
 stable production signing/update identity and full issue #81 acceptance remain
 open. No release is made by this change. Bundled libraries retain their upstream
 notices; production distribution still requires the complete Android dependency

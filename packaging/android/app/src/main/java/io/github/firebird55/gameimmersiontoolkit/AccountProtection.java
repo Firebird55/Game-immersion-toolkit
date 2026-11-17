@@ -29,6 +29,10 @@ public final class AccountProtection {
         alias = identity;
         associatedData = (context.getPackageName() + "/" + identity).getBytes(StandardCharsets.UTF_8);
     }
+    public static AccountProtection authored(Context context) {
+        if (!BuildConfig.DEBUG) throw new IllegalStateException();
+        return new AccountProtection(context, "toolkit.authored-vault-probe.v1");
+    }
     private SecretKey key(boolean create) throws Exception {
         synchronized (KEY_LOCK) {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");store.load(null);
@@ -74,7 +78,7 @@ public final class AccountProtection {
     }
     public static String authoredProbe(Context context) throws Exception {
         if (!BuildConfig.DEBUG) throw new IllegalStateException();
-        AccountProtection first = new AccountProtection(context, "toolkit.authored-vault-probe.v1");
+        AccountProtection first = authored(context);
         String original = Base64.encodeToString("authored protected storage fixture".getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
         // This authored blob deliberately survives cache eviction and APK
         // replacement. It uses the isolated probe key, never account data.
@@ -84,7 +88,7 @@ public final class AccountProtection {
             throw new IllegalStateException("The authored protected blob did not reopen.");
         String encrypted = first.protect(original, false), another = first.protect(original, false);
         if (encrypted.equals(another)) throw new IllegalStateException("The protected fixture reused its nonce.");
-        AccountProtection reopened = new AccountProtection(context, "toolkit.authored-vault-probe.v1");
+        AccountProtection reopened = authored(context);
         if (!reopened.protect(encrypted, true).equals(original) || reopened.key(false).getEncoded() != null)
             throw new IllegalStateException("The authored protected key boundary failed.");
         byte[] tampered = Base64.decode(encrypted, Base64.NO_WRAP);tampered[tampered.length-1] ^= 1;

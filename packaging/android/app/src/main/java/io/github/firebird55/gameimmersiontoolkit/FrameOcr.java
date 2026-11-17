@@ -35,8 +35,10 @@ public final class FrameOcr {
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final HashMap<String, TextRecognizer> models = new HashMap<>();
     private final AccountProtection protectedAccounts;
-    public FrameOcr(Context context) { protectedAccounts = new AccountProtection(context); }
+    private final Context context;
+    public FrameOcr(Context context) { this.context = context.getApplicationContext();protectedAccounts = new AccountProtection(this.context); }
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
+    public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
     private BitmapFactory.Options dimensions(byte[] bytes) {
         if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) throw new IllegalArgumentException();
         BitmapFactory.Options bounds = new BitmapFactory.Options();bounds.inJustDecodeBounds = true;

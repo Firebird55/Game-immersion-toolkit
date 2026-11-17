@@ -32,7 +32,7 @@ def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game=
     return write_prepared_library(snapshot, root / 'library.zip', {identity: clip})
 
 
-def run(root):
+def run(root, native=None):
     root = Path(root);root.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='shared-core-', dir=root))
     library = _library(work / 'original')
@@ -99,6 +99,7 @@ def run(root):
             'displayed_source': displayed, 'canonical_source': canonical,
             'original_audio_sha256': hashlib.sha256(imported.audio_path(emitted[0]['id']).read_bytes()).hexdigest()}
     results['prepared_games'] = games
+    results['protected_account_lifecycle'] = run_accounts(work / 'accounts', native)
     if any(value is False for value in results.values()):
         raise ValueError('Shared lifecycle fixture failed')
     encoded = json.dumps(results, sort_keys=True, separators=(',', ':')).encode()
@@ -113,9 +114,61 @@ def run(root):
     return json.dumps({'schema': 'toolkit-android-shared-core-probe-v1', 'results': results,
         'result_sha256': hashlib.sha256(encoded).hexdigest(), 'fixture': 'authored-text-and-generated-tone',
         'runtime': {'python': sys.version.split()[0], 'pydantic_core': pydantic_core.__version__,
+            'account_protection': 'android-keystore-authored-alias' if native is not None else 'authored-test-adapter',
             'rapidfuzz': rapidfuzz.__version__, 'fuzzy_scorer': fuzz.ratio.__module__,
             'fuzzy_extractor': process.extract.__module__, 'authored_fuzzy_50000_ms': fuzzy_ms},
         'private_audio_path': str(restarted.audio_path(identity))}, sort_keys=True)
+
+
+def run_accounts(root, native=None):
+    """Maintained stores and production capture; every remote call is mocked."""
+    import httpx
+    from types import SimpleNamespace
+    from .android_accounts import AndroidAccountSessions, AndroidAccountConflict
+    from .android_protected_storage import AndroidProtectedBlobs
+    calls = []
+    def reply(request):
+        if request.method != 'GET' or request.url.path != '/v1/me':
+            raise ValueError('The authored account proof allows only mocked identity reads')
+        calls.append('GET /v1/me')
+        owner = 'second' if 'second' in request.headers['Authorization'] else 'first'
+        return httpx.Response(200, json={'user': {'id': owner, 'name': owner}})
+    if native is None:
+        protect = lambda value, decrypt=False: bytes(n ^ 173 for n in value)
+    else:
+        protect = AndroidProtectedBlobs(SimpleNamespace(protect=native.protectAuthored)).protect
+    manager = AndroidAccountSessions(root, protect=protect, transport=httpx.MockTransport(reply))
+    first = manager.register('lx_first_authored_account_fixture_only', 'First', 0)['active']
+    session = manager.session
+    session.import_library(_library(root / 'first-input'))
+    generation = session.start()
+    session.observe(generation, 1, [TEXT], now=1)
+    line = session.observe(generation, 2, [TEXT], now=1.1)[0]
+    old_id = manager.qualify_line(line)['id']
+    session.history.set_favorite(line['id'], True)
+    old_account_generation = manager.accounts.generation
+    manager.register('lx_second_authored_account_fixture_only', 'Second', old_account_generation)
+    isolated = manager.session.history.count() == 0 and manager.session.index is None
+    old_ocr = manager.session.observe(generation, 3, [TEXT], now=1.2) == []
+    manager.select(first, manager.accounts.generation)
+    old_id_rejected = old_import_rejected = False
+    try: manager.local_line(old_id)
+    except AndroidAccountConflict: old_id_rejected = True
+    try: manager.guard_import(session, old_account_generation)
+    except AndroidAccountConflict: old_import_rejected = True
+    reopened = AndroidAccountSessions(root, protect=protect)
+    restored = reopened.session.history.get(line['id'])
+    result = {'separate_account_library_and_history': isolated, 'old_ocr_rejected': old_ocr,
+        'old_a_b_a_line_rejected': old_id_rejected, 'old_import_rejected': old_import_rejected,
+        'restart_history_and_favorite': bool(restored and restored.favorite and not reopened.session.running),
+        'restart_original_audio': reopened.session.audio_path(line['id']).read_bytes() == session.audio_path(line['id']).read_bytes(),
+        'credential_free_status': 'lx_' not in json.dumps(reopened.status()),
+        'protected_saved_blob': b'lx_first' not in manager.accounts.path.read_bytes(),
+        'mocked_identity_calls': len(calls)}
+    manager.close();reopened.close()
+    if any(value is not True for key, value in result.items() if key != 'mocked_identity_calls') or len(calls) != 2:
+        raise ValueError('The authored protected-account lifecycle proof failed')
+    return result
 
 
 def run_ocr(root, raw):

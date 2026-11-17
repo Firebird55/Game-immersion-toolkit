@@ -55,7 +55,7 @@ public final class MainActivity extends Activity {
                 if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitSelfTest", false)) {
                     selfTestDiagnostic("core", "running", null);
                     String proof = Python.getInstance().getModule("backend.android_probe")
-                        .callAttr("run", new File(getCacheDir(), "core-probe").getCanonicalPath()).toString();
+                        .callAttr("run", new File(getCacheDir(), "core-probe").getCanonicalPath(), ocr).toString();
                     org.json.JSONObject report = new org.json.JSONObject(proof);
                     report.put("self_test_run_id", selfTestRun);
                     selfTestDiagnostic("core", "passed", null);

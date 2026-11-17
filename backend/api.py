@@ -47,6 +47,7 @@ from .runtime_workers import RequestBarrier, WriterBarrierMiddleware
 from .runtime_writers import RuntimeWriterGate, RuntimeWriterMiddleware, WritersQuiescing, ParentControlBinding
 from .state_version import StateVersion
 from .lexirise_settings import account_settings, STUDY_LANGUAGES
+from .line_presentation import translation_fields
 from .accounts import AccountStore
 from .languages import translation_language, study_language, resolve_locale, GAME_LOCALES
 from .language_preparation import LanguagePreparation
@@ -583,13 +584,9 @@ class Runtime:
             if not self.lexirise.status()['configured']:
                 return line
             target = ''
-        texts = line.texts or {'en': line.english, 'zh-Hans': line.chinese}
-        locale = resolve_locale(target, texts)
         prepared = self.languages.prepared(line.game, line.source_locale)
-        if prepared and target not in prepared['targets']:
-            locale = None
-        return line.model_copy(update={'translation_locale': locale or target,
-                                      'translation_text': texts.get(locale, '') if locale else ''})
+        return line.model_copy(update=translation_fields(line.texts, line.english, line.chinese, target,
+            prepared_targets=prepared['targets'] if prepared else None))
 
     def setup_install(self, game: str) -> Path | None:
         install = discover_install(game)
