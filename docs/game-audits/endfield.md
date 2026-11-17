@@ -1,6 +1,33 @@
 # Arknights: Endfield presentation audit
 
-## Current-content closing basis · November 16, 2026
+## Current-content closing basis · November 17, 2026
+
+The finite current-use conclusion leaves **one demonstrated active audio
+family** unresolved: `cutscene_e0m0_5_03`, **“Æternity hath come.”** Its two
+protagonist rows across four original dubs form eight performance/caption pairs;
+the two unknown film rows and eight boss variants describe the same exception.
+Current original caller/player data and gameplay establish use. A final bounded
+cached-source pass still cannot establish the complete original utterance or
+correct audible context render, so every pair retains unknown audio.
+
+Keep #86 open **only for that active prologue audio exception**. The 28 retained
+films, 13 missing registry graphs, 143 NPC primary-metadata absences, eight
+dynamic producers and remaining anonymous-radio, Si/Tangtang, guide/platform
+and option-linked Baker guards are separate nonblocking research inventories
+without demonstrated individual current use. They are not declared cut or
+unvoiced. No further broad hunt is required; resume the prologue mechanism only
+with a new authoritative cue-specific voice/event-context reference. See the
+[dated conclusion and bounded evidence](endfield-current-subtitle-acceptance.md#finite-current-use-conclusion--november-17-2026).
+
+Revision-32 preparation passes all five current publisher workers and an
+older-release replay using its own original metadata: training owners/stages/
+goal references grow from 27/129/221 to 29/143/246 with the same reader. Relative
+to the previous reader revision, each generation preserves every existing text,
+translation, audio and voice-state field.
+Desktop capture accepts 62 additional source-positioned OCR fixtures and
+rejects 372 fresh-history negatives. The two public training images retain
+incomplete genuine OCR; these results do not claim native gameplay or physical
+regional/device acceptance.
 
 The [current subtitle acceptance inventory](endfield-current-subtitle-acceptance.md)
 reconciles the original 89 radio groups and 28 films against Global 1.6.4,

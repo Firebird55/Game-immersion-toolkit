@@ -74,16 +74,8 @@ def _separate_sources(db_root, plot_audio_sha256):
             'Retry preparation; the previous complete index and recordings are retained.') from error
 
 
-def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, plot_audio_sha256=None):
-    """Add complete scene contexts after caller, bank and native source proof.
-
-    event_sources comes from scene_sources with real selected-dub members;
-    source_shapes comes from probing those exact original bytes. No per-scene
-    IDs, guessed recording names, caption-derived cuts or ASR alignment is used.
-    plot_audio_sha256 is supplied only after a complete publisher member read;
-    without it, no new scene context can establish per-study-language speech.
-    """
-    events = full_scene_events(db_root)
+def context_candidates(db_root, records, locale, *, plot_audio_sha256=None):
+    """One authored admission predicate for source acquisition and final binding."""
     # build_language_records merges presentation evidence by text identity.
     # A cinematic's unresolved status must not hide an explicit silent use or
     # an unknown written presentation of the same visible words.
@@ -98,24 +90,41 @@ def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, p
     owners = {}
     for scene, identity, _, _ in caption_cues(db_root, locale):
         owners.setdefault(identity, set()).add(scene)
-    code = assets.VOICE_LOCALES[locale][0]
-    additions, all_ids = [], {row['text_id'] for row in records}
+    candidates = {}
     for row in records:
         if (plot_audio_sha256 is None or row.get('audio') is not None or row.get('voice_status') != 'unavailable'
                 or row.get('dialogue_kind') != 'cinematic'
                 or not row['text_id'].startswith('wuwa:')
                 or not any(character.isalnum() for character in row.get('source_text', ''))):
-            additions.append(row)
             continue
         identity = re.sub(r':(?:female|male)$', '', row['text_id'][5:])
         if identity in unresolved_presentations or identity in separate_sources:
-            additions.append(row)
             continue
         scenes = owners.get(identity, set())
         if len(scenes) != 1:
+            continue
+        candidates[row['text_id']] = next(iter(scenes))
+    return candidates
+
+
+def assign_contexts(db_root, records, locale, event_sources, source_shapes, *, plot_audio_sha256=None):
+    """Add complete scene contexts after caller, bank and native source proof.
+
+    event_sources comes from scene_sources with real selected-dub members;
+    source_shapes comes from probing those exact original bytes. No per-scene
+    IDs, guessed recording names, caption-derived cuts or ASR alignment is used.
+    plot_audio_sha256 is supplied only after a complete publisher member read;
+    without it, no new scene context can establish per-study-language speech.
+    """
+    candidates = context_candidates(db_root, records, locale, plot_audio_sha256=plot_audio_sha256)
+    events = full_scene_events(db_root)
+    code = assets.VOICE_LOCALES[locale][0]
+    additions, all_ids = [], {row['text_id'] for row in records}
+    for row in records:
+        if row['text_id'] not in candidates:
             additions.append(row)
             continue
-        scene = next(iter(scenes))
+        scene = candidates[row['text_id']]
         choices = [(event, event_sources[event]) for event in events.get(scene, ())
                    if event_sources.get(event)]
         if len(choices) != 1:
