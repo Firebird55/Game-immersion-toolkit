@@ -67,6 +67,38 @@ The old-generation worker is not yet accepted: the cache-only trial correctly
 stops at its absent original Main text package without downloading or replacing
 a previous complete snapshot.
 
+## Independent Android preparation boundary · November 17, 2026
+
+The Android requirement is independent publisher download, refresh, playback,
+delete and size reporting. A PC-prepared library import cannot satisfy that
+normal flow. The current Windows worker proof does not establish this boundary.
+
+| Dependency | Existing implementation | Required Android work |
+| --- | --- | --- |
+| Original metadata and required schemas | `starrail_metadata.helper` selects a pinned .NET apphost, or a developer SDK. `prebuilt_readers` has desktop targets only. Original PE/x64 instructions are parsed as data through managed Iced; client code is never executed. | Supply a packaged Android-compatible invocation of the same owned metadata/disassembly contract, or a controlled exact-generation schema source. There is no accepted Android helper artifact or runtime resolver. |
+| Publisher formats and cache | Python readers use HTTPS, protobuf, zstandard, JSON and checksummed files. Native preparation currently authenticates complete original Windows launcher inputs. | Validate those libraries on the Android ABI and keep all files in app-controlled storage. Windows publisher data may be read as data, but platform/edition identity must remain explicit. |
+| Playback and export | `VoiceDecoder` and `LocalVoiceAssetService` invoke desktop vgmstream and ffmpeg processes. Movie extraction validates complete ADX tracks and requires reviewed spoken windows. | Integrate the corresponding Android codec/runtime, then prove sample/window equivalence and offline historical playback. No Android codec or movie coverage is implied by current desktop playback. |
+| Download planning and storage | Original manifests give exact compressed chunk sizes, expanded sizes and package MD5/size identities. An existing source control can identify selected tables and locale packages. | Expose a staged manifest plan before large downloads, account for unique shared/cache/output bytes, and implement reference-aware removal through the shared data service. This adapter does not yet provide that public size/delete API. |
+
+A cache-only plan for current Global 4.7 English with official Chinese
+translations gives these exact original-input amounts, before audio headers,
+event-bank payloads, requested movies, codecs or snapshots:
+
+| Source phase | Transfer bytes | Retained source bytes |
+| --- | ---: | ---: |
+| Launcher manifest | 7,841,243 | 15,298,561 |
+| Three original metadata/native inputs | 251,758,719 compressed | 675,093,264 whole files plus 675,093,264 expanded chunk cache |
+| Selected common/config/mission and EN/CHS text packages | 287,817,624 | 575,635,248 including the current range-cache copies |
+| Required DesignV, AudioV and VideoV indexes | 2,596,370 | 2,596,370 |
+
+The observed metadata output adds 202,094,464 bytes in this control; the parser's
+general output cap is 603,979,776 bytes. These are not download bytes. Unknown
+audio/cache/output requirements must remain unknown until their bounded next
+stage is planned; they cannot be presented as zero or as a complete installation
+estimate. No new source transport or Android execution was used to make this
+plan. A complete Android worker, physical playback and Settings accounting
+remain unaccepted.
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global

@@ -16,6 +16,12 @@ def archive_sources(install):
     return common.archive_sources(install, 'starrail')
 
 
+def probe_voice_pack(_install, locale):
+    # New libraries use the selected publisher edition even when a saved local
+    # installation lacks this dub. Historical local playback keeps its binding.
+    return 'publisher' if locale in SUPPORTED_LOCALES else 'unknown'
+
+
 def fingerprint(install):
     if install is None:
         from .starrail_publisher import fingerprint as publisher_fingerprint

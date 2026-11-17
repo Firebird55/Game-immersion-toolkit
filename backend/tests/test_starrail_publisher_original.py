@@ -24,11 +24,12 @@ def test_normal_publisher_uses_original_text_and_identical_fingerprint_route(tmp
 
 @pytest.mark.parametrize('locale', ['en', 'ja', 'ko', 'zh-Hans'])
 def test_saved_older_install_and_absent_dub_use_one_publisher_generation(tmp_path, monkeypatch, locale):
-    from backend import starrail_events, starrail_films
+    from backend import starrail_events, starrail_films, voice_pack_probe
     install = tmp_path / 'saved-older-install'
     install.mkdir()
     saved = install / 'old-package.pck'
     saved.write_bytes(b'older package must remain untouched')
+    assert voice_pack_probe.probe('starrail', install, locale) == 'publisher'
     catalog = SimpleNamespace(revision='original-generation-two', revision_title='official two')
     monkeypatch.setattr(publisher_regions, 'selected_region', lambda *_: 'cn')
     def prepare(data, region):
