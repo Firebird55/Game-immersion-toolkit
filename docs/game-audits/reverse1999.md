@@ -411,6 +411,46 @@ investigation must first verify its acquired member against that signed digest.
 The manifest does not locate the declared components in a particular DEX;
 primary-DEX placement remains a hypothesis, not permission to read all seven.
 
+### Complete bounded locator for the declared store components
+
+A separately approved primary-DEX hypothesis first reads its 41-byte local
+header and 3,345,229-byte compressed payload. The 8,692,172-byte original member
+passes its ZIP CRC, authenticated manifest SHA-256, raw DEFLATE EOF and DEX
+SHA-1/Adler32. Header, identifier-table and map bounds also pass. None of the
+three exact manifest classes is defined in its 10,019 formal class definitions;
+that primary-only hypothesis stops without method-body inspection.
+
+A new **complete class-owner locator** is then explicitly bounded to the other
+six indexed DEX members. Their exact adjacent local blocks form one range of
+16,151,569 bytes, comprising 16,151,317 compressed bytes and six 42-byte headers.
+No unrelated archive entry is included. Every original local header, length,
+CRC, signed manifest SHA-256, raw EOF, DEX SHA-1/Adler32 and header/map bounds
+passes before exact formal class matching. The 47,933,912 expanded bytes are
+processed one member at a time, with at most 9,237,536 expanded bytes present;
+negative temporary members are removed. Only the bounded compressed input is
+retained for subsequent source-owned reads.
+
+| Exact manifest component | Authenticated defining member | Declaration evidence |
+| --- | --- | --- |
+| `com.play.taptap.application.AppGlobal` | `classes2.dex` | Class definition 5,707, superclass `BaseAppContext` |
+| `com.taptap.game.export.download.PreDownloadProvider` | `classes4.dex` | Class definition 10,033, superclass Android `ContentProvider` |
+| `com.taptap.game.export.download.TapAppDownloadService` | `classes4.dex` | Class definition 10,034, superclass Android `Service` |
+
+Only formal declarations and method metadata are inspected. The service declares
+non-native `onStartCommand` and `onBind`; the provider declares `query` and a
+private method returning `com.taptap.game.export.f`. These are concrete consumer
+owners, **not established call edges or a game-APK resolver**. No method body,
+generic URL/string/key scan or client execution is performed. The locator closes
+the standard seven-DEX ZIP inventory, without claiming closure for dynamically
+loaded, encrypted, generated or native code.
+
+The separate store-integrity/locator phase now totals nine requests and
+19,976,664 transferred bytes. This is authenticated store-tool research;
+Reverse:1999's game-package URL, original configuration initializer and production
+preparation remain unresolved. The full store-APK hash and Android installation
+signature acceptance remain unverified. The next bounded hypothesis is the
+declared service callbacks' own typed delegation, using existing bytes only.
+
 ### Community key candidate: research only
 
 The original author repository
