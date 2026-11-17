@@ -59,3 +59,7 @@ These boundaries apply to both Text only and Text + audio. No text-only stage
 may acquire optional voice banks, and a mixed bootstrap carrier must disclose
 its full transport/storage cost before transfer. No new full-game, network or
 Android stage execution acceptance follows from the 64-source package policy.
+
+The next bounded [publisher cryptography inventory](android-publisher-crypto.md)
+details actual AES/DES/RSA/ChaCha requirements and the remaining Android loader
+and ABI decisions. It adds no ready-game capability.
