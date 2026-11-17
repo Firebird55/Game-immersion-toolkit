@@ -100,6 +100,16 @@ HTTP hotfix packages use complete declared file size. Shared Mandarin packs are
 counted once for simplified/traditional subtitles. Cache reuse is not subtracted
 without a separate verified-cache inventory.
 
+The request and result require `content_mode: text | text-audio`. Text planning
+does not fetch dub manifests or inspect any PCK inventory and contains no voice
+objects; it can quote any official text locale. Text-audio planning contains the
+complete selected original dub cache for advance materialization. The common
+executor must enforce that mode and verify every required object before marking
+text-audio Ready. The older on-demand PC worker result is not that new Ready
+contract. Text-only execution must preserve authored bindings/status separately
+while suppressing audio retrieval/export triggers; the current legacy worker's
+bank-inventory step still needs an execution adapter for that mode.
+
 A caller-owned authenticated catalog for the same publisher narrows selected
 locale bundles exactly. Without it, all current design packages form an explicit
 upper bound. Only the small catalog/bootstrap stage should precede that

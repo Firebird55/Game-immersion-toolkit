@@ -26,7 +26,7 @@ def check(value):
         raise ValueError('Incomplete or ambiguous official Genshin download plan.')
 
 
-def plan(build, native, voice_files, design_files, *, study_locales, target_locales=(),
+def plan(build, native, voice_files, design_files, *, content_mode, study_locales, target_locales=(),
          catalog=None, catalog_publisher=None):
     """Budget immutable official inputs, deduplicating their actual cache keys.
 
@@ -38,8 +38,12 @@ def plan(build, native, voice_files, design_files, *, study_locales, target_loca
     raw = json.dumps(build, sort_keys=True, separators=(',', ':')).encode()
     publisher = 'sophon-' + hashlib.sha256(raw).hexdigest()
     studies, targets = tuple(study_locales), tuple(target_locales)
-    check(studies and all(locale in VOICES for locale in studies)
-          and all(locale in TEXT_CODES for locale in targets) and set(voice_files) == set(studies))
+    check(content_mode in {'text', 'text-audio'} and studies
+          and all(locale in TEXT_CODES for locale in studies + targets))
+    if content_mode == 'text-audio':
+        check(all(locale in VOICES for locale in studies) and set(voice_files) == set(studies))
+    else:
+        check(not voice_files)
     codes = sorted({TEXT_CODES[locale] for locale in studies + targets})
     check(type(native.size) is int and 512 <= native.size <= 768 * 1024**2)
     check(set(codes) <= CODES and INDEX_PACKAGE in design_files)
@@ -106,8 +110,10 @@ def plan(build, native, voice_files, design_files, *, study_locales, target_loca
     decoded = len(selected) * MAX_DECODED_BODY
     staging = sum(sorted((row['cache_bytes'] for row in ledger), reverse=True)[:6]) + MAX_DECODED_BODY
     result = {'schema': 'genshin-official-download-plan-v1', 'publisher': publisher,
-        'region': build['channel'].removeprefix('genshin-'), 'study_locales': sorted(set(studies)), 'text_codes': codes,
-        'scope': 'current-original-textmap-native-input-and-complete-selected-dub-pck-cache',
+        'region': build['channel'].removeprefix('genshin-'), 'content_mode': content_mode,
+        'study_locales': sorted(set(studies)), 'text_codes': codes,
+        'scope': ('current-original-textmap-native-input-and-complete-selected-dub-pck-cache'
+                  if content_mode == 'text-audio' else 'current-original-textmap-native-input'),
         'complete_game_quote': False, 'text_selection': text_kind, 'selected_design_packages': len(selected),
         'catalog_sha256': catalog.sha256 if catalog is not None else None,
         'transfer_bytes_upper_bound': wire, 'official_object_cache_bytes_upper_bound': cache,

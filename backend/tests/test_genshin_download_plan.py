@@ -25,7 +25,7 @@ def fixtures():
 
 def test_full_cache_quote_deduplicates_real_cache_keys_and_keeps_an_upper_bound():
     build, native, voice, designs, _ = fixtures()
-    result = quotes.plan(build, native, voice, designs, study_locales=('ja',), target_locales=('en',))
+    result = quotes.plan(build, native, voice, designs, content_mode='text-audio', study_locales=('ja',), target_locales=('en',))
     assert result['text_selection'] == 'upper-bound' and result['selected_design_packages'] == 3
     assert result['transfer_bytes_upper_bound'] == 9 + 70 + 600
     shared, = [row for row in result['objects'] if row['cache_key'] == 'sophon-chunk:' + 'b' * 32]
@@ -37,21 +37,21 @@ def test_full_cache_quote_deduplicates_real_cache_keys_and_keeps_an_upper_bound(
 def test_authenticated_same_generation_catalog_narrows_text_packages_before_payload_reads():
     build, native, voice, designs, catalog = fixtures()
     # The fixture owns EN only, so select EN voice/text for this scoped quote.
-    result = quotes.plan(build, native, {'en': voice['ja']}, designs, study_locales=('en',),
+    result = quotes.plan(build, native, {'en': voice['ja']}, designs, content_mode='text-audio', study_locales=('en',),
                          catalog=catalog, catalog_publisher=descriptor(build)[0])
     assert result['text_selection'] == 'exact' and result['selected_design_packages'] == 2
     assert result['transfer_bytes_upper_bound'] == 9 + 70 + 300
     assert result['decoded_containers_bytes_upper_bound'] == 2 * 512 * 1024**2
     assert result['resident_bytes_upper_bound'] == result['official_object_cache_bytes_upper_bound'] + 1024 + 2 * 512 * 1024**2
     with pytest.raises(ValueError):
-        quotes.plan(build, native, {'en': voice['ja']}, designs, study_locales=('en',),
+        quotes.plan(build, native, {'en': voice['ja']}, designs, content_mode='text-audio', study_locales=('en',),
                     catalog=catalog, catalog_publisher='sophon-' + '0' * 64)
 
 
 def test_shared_chinese_pack_is_counted_once_for_both_official_subtitle_editions():
     build, native, voice, designs, _ = fixtures()
-    once = quotes.plan(build, native, {'zh-Hans': voice['ja']}, designs, study_locales=('zh-Hans',))
-    twice = quotes.plan(build, native, {'zh-Hans': voice['ja'], 'zh-Hant': voice['ja']}, designs,
+    once = quotes.plan(build, native, {'zh-Hans': voice['ja']}, designs, content_mode='text-audio', study_locales=('zh-Hans',))
+    twice = quotes.plan(build, native, {'zh-Hans': voice['ja'], 'zh-Hant': voice['ja']}, designs, content_mode='text-audio',
                         study_locales=('zh-Hans', 'zh-Hant'))
     assert twice['transfer_bytes_upper_bound'] == once['transfer_bytes_upper_bound']
     assert twice['text_codes'] == ['CHS', 'CHT']
@@ -61,7 +61,7 @@ def test_conflicting_chunk_ownership_cannot_underquote_a_download():
     build, native, voice, designs, _ = fixtures()
     voice['ja']['one'].chunks = ((0, 400, 6, 'a' * 16 + '_' + 'b' * 32, 'b' * 32),)
     voice['ja']['one'].size = 400
-    with pytest.raises(ValueError): quotes.plan(build, native, voice, designs, study_locales=('ja',))
+    with pytest.raises(ValueError): quotes.plan(build, native, voice, designs, content_mode='text-audio', study_locales=('ja',))
 
 
 def test_publisher_preflight_only_reads_discovery_and_small_manifests(tmp_path, monkeypatch):
@@ -74,5 +74,26 @@ def test_publisher_preflight_only_reads_discovery_and_small_manifests(tmp_path, 
         {'GenshinImpact_Data/StreamingAssets/AudioAssets/Japanese/External0.pck': voice['ja']['one']})
     monkeypatch.setattr(publisher.hotfix, 'files', lambda directory, build, locale, regular: regular)
     monkeypatch.setattr(publisher.hotfix, 'index', lambda *args: b'\n'.join(json.dumps(row).encode() for row in designs.values()))
-    result = publisher.preflight(tmp_path, study_locales=('ja',), target_locales=('en',))
+    result = publisher.preflight(tmp_path, content_mode='text-audio', study_locales=('ja',), target_locales=('en',))
     assert result['publisher'] == descriptor(build)[0] and result['transfer_bytes_upper_bound'] == 9 + 600
+
+
+def test_text_only_preflight_never_fetches_a_voice_manifest_or_bank(tmp_path, monkeypatch):
+    build, native, _, designs, _ = fixtures()
+    monkeypatch.setattr(publisher, '_release', lambda region: build)
+    def manifest(directory, channel, spec, suffix):
+        assert suffix == ('.exe',), 'Text-only requested a dub manifest'
+        return {'GenshinImpact.exe': native}
+    monkeypatch.setattr(publisher.sophon, 'manifest', manifest)
+    monkeypatch.setattr(publisher.hotfix, 'files', lambda *a, **k: pytest.fail('Text-only read an audio inventory'))
+    monkeypatch.setattr(publisher.hotfix, 'index', lambda *a: b'\n'.join(json.dumps(row).encode() for row in designs.values()))
+    result = publisher.preflight(tmp_path, content_mode='text', study_locales=('fr',), target_locales=('ja',))
+    assert result['content_mode'] == 'text' and result['text_codes'] == ['FR', 'JP']
+    assert result['transfer_bytes_upper_bound'] == 8 + 600
+    assert all('voice' not in item['parts'] for item in result['objects'])
+
+
+def test_unknown_mode_is_not_a_zero_byte_or_implicitly_voiced_quote(tmp_path, monkeypatch):
+    monkeypatch.setattr(publisher, '_release', lambda *a: pytest.fail('An unknown mode fetched metadata'))
+    with pytest.raises(ValueError):
+        publisher.preflight(tmp_path, content_mode='unknown', study_locales=('ja',))
