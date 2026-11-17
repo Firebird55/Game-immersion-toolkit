@@ -49,6 +49,36 @@ variants. This is a targeted nine-record source/decoder control; it does not
 replace the existing prepared library, certify the other 191 event candidates,
 or claim a new full-library normal-worker Ready result.
 
+## November 18, 2026 · Normal reader 23 rebuild and explicit remaining bank stage
+
+A separate ordinary `GameDataService` preparation used the maintained,
+compiler-free reader 23 and the authenticated current original cache. Source
+metadata and pointers were copied independently; only checksum-verified,
+immutable original files and already saved MP3s shared storage. The original
+accepted library was retained throughout.
+
+The text-only request completed all five source stages and final ordinary
+publisher revalidation, reached Text Ready, and retained **all 289,967 records**,
+their source texts, translation maps and OCR texts. The subsequent Text + audio
+request completed its five catalogue stages, then stopped at the first nonzero
+original download estimate: **26 bank-metadata carrier chunks, 36,193,836
+compressed bytes / 37,677,562 expanded bytes**. The selected metadata ranges
+total 4,550,192 bytes, including already cached ranges; the transport quote counts
+each entire missing carrier, including co-resident data. Later bank or media
+stages may have further estimates. This run acquired no new original game or
+software bytes and does not claim a new full-library Audio Ready result.
+
+Both requests used **72 actual official metadata responses / 1,674,924 bytes**
+and retained the same original publisher generation. Every adopted original
+file, previous source snapshot and saved recording was hash-checked afterward.
+A fresh process restored the new text source with network forbidden, reopened
+the older managed audio source after text selection, and decoded the same
+sentence and separate C330 B/G contexts with exactly their previous MP3 hashes.
+Already saved MP3s also replayed without provider lookup. The previously
+accepted **77,702 original-audio bindings remain available in their retained
+source**; the two targeted C055 controls above remain separately qualified
+until the complete reader 23 audio preparation finishes.
+
 ## November 17, 2026 · Canonical Japanese audio materialization and offline acceptance
 
 The per-game PC producer now connects the verified catalogue reader to explicit
