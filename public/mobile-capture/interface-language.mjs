@@ -1,6 +1,8 @@
 import productCopy from './interface-copy.mjs';
 export const interfaceLanguages={'en':'English','nl':'Nederlands','zh-Hans':'简体中文','zh-Hant':'繁體中文'};
 const messages = {
+ 'While the desktop companion runs, create one Android library per selected voice language and update it when game files change. Save settings to start. These settings belong to this PC, independently of your reading account.':['Maak per gekozen stemtaal een Android-bibliotheek en werk die bij wanneer de gamebestanden veranderen, zolang de desktopcompanion draait. Sla de instellingen op om te starten. Deze instellingen horen bij deze pc, onafhankelijk van je leesaccount.','桌面 companion 运行时，会为所选配音语言分别创建 Android 资料库，并在游戏文件变化后更新。保存设置即可开始。这些设置属于本电脑，与阅读账户无关。','桌面 companion 執行時，會為所選配音語言分別建立 Android 資料庫，並在遊戲檔案變更後更新。儲存設定即可開始。這些設定屬於本電腦，與閱讀帳戶無關。'],
+ 'Removing a language stops future updates and keeps existing ZIPs. Voice packs follow each game’s language mapping; Chinese scripts may use shared or separate packs. Import each updated Android Library ZIP in the Android app. Existing browser data stays separate.':['Een taal verwijderen stopt toekomstige updates en bewaart bestaande ZIP-bestanden. Stempakketten volgen de taalindeling van de game; Chinese schrijfwijzen kunnen gedeelde of aparte pakketten gebruiken. Importeer elke bijgewerkte Android Library-ZIP in de Android-app. Bestaande browsergegevens blijven apart.','移除语言会停止后续更新，现有 ZIP 将保留。配音包遵循游戏的语言映射；简繁中文可能共用或使用不同的配音包。请在 Android 应用中导入每个更新后的 Android Library ZIP。原有浏览器数据保持独立。','移除語言會停止後續更新，現有 ZIP 將保留。配音包遵循遊戲的語言對應；簡繁中文可能共用或使用不同的配音包。請在 Android 應用程式中匯入每個更新後的 Android Library ZIP。原有瀏覽器資料保持獨立。'],
  'Settings':['Instellingen','设置','設定'],
  'Games & Languages':['Games en talen','游戏与语言','遊戲與語言'],
  'Capture':['Ondertitels vastleggen','字幕捕获','字幕擷取'],

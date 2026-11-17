@@ -67,9 +67,13 @@ The worker rechecks source/account identity before atomically replacing the last
 completed ZIP. The original game files and credentials are not serialized.
 
 Older browser archives require a new export; they do not contain the full native
-matcher contract. Existing automatic browser exports remain a separate legacy
-path pending migration. This manual export connection does not establish
-autonomous publisher preparation on the phone or iOS frame transport acceptance.
+matcher contract. The automatic queue also writes the complete prepared Android
+contract. Its existing per-PC rules, pause state, languages and destination stay
+in place. The export format participates in job identity, so an unchanged game
+is re-exported after migration. Android ZIPs have distinct names; old browser
+archives and revision folders remain available for recovery. Each updated ZIP
+must be imported in the Android app. Export does not establish autonomous
+publisher preparation on the phone or iOS frame transport acceptance.
 
 The capability policy has authored regression fixtures. Type checking and the
 actual static desktop frontend build cover these shared components. Android

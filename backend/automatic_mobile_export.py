@@ -20,6 +20,7 @@ from .languages import GAME_LOCALES, LOCALE_NAMES
 from .mobile_export_controls import MobileExportManager
 from .owned_process import OwnedProcess
 from .mobile_library import digest, file_digest
+from .prepared_library import FORMAT as PREPARED_FORMAT
 from .mobile_export_layout import file_title, work_folder, catalog_name, export_folder_name
 from .voice_pack_probe import probe, LABELS
 
@@ -298,9 +299,11 @@ class AutomaticMobileExports:
         if install is None and game in REGIONAL_GAMES:
             tools = runtime_data_root(self.root) / game / 'tools'
         stamp = preparation_fingerprint(adapter, install, tools)
-        identity = digest([stamp, adapter.LANGUAGE_INDEX_VERSION, locale, translation, rule['destination']])
+        # An unchanged game still needs a new export after the browser format is
+        # retired. Keep the existing rule keys and previous published archive.
+        identity = digest([PREPARED_FORMAT, stamp, adapter.LANGUAGE_INDEX_VERSION, locale, translation, rule['destination']])
         job = rule.get('jobs', {}).get(locale, {})
-        name = f"{file_title(game)} - {LOCALE_NAMES[locale]} - {LOCALE_NAMES.get(translation, translation)} translation - Mobile Library.zip".replace(' — ', ' - ')
+        name = f"{file_title(game)} - {LOCALE_NAMES[locale]} - {LOCALE_NAMES.get(translation, translation)} translation - Android Library.zip".replace(' — ', ' - ')
         destination = Path(rule['destination']) / file_title(game) / name
         if job.get('fingerprint') == identity and job.get('state') == 'complete' and destination.is_file():
             return
@@ -329,12 +332,12 @@ class AutomaticMobileExports:
                 if self.stop.is_set() or not current.get('enabled') or current.get('paused') or current.get('languages', {}).get(locale) != translation or current.get('destination') != rule['destination']:
                     raise InterruptedError()
         guard()
-        self._set(game, locale, state='preparing', attempt=identity, message='Preparing mobile library in local working storage.')
+        self._set(game, locale, state='preparing', attempt=identity, message='Preparing Android library in local working storage.')
         source_args = ['--automatic-install', str(install)] if install else ['--automatic-publisher']
         if install is None:
             source_args.extend(['--publisher-fingerprint', stamp])
         command = child_command('mobile-export', ['--root', str(self.root), '--game', game,
-                   '--output', str(output), '--source-locale', locale, '--translation-locale', translation,
+                   '--output', str(output), '--source-locale', locale, '--translation-locale', translation, '--prepared-library',
                    *source_args])
         from .update_workers import INDEX_BUILD_LOCK
         while not INDEX_BUILD_LOCK.acquire(timeout=.5):
@@ -395,15 +398,14 @@ class AutomaticMobileExports:
             publish_guard.force = lambda: publish_guard(True)
             self._set(game, locale, state='publishing', message='Copying verified library to the export folder.', bytes=candidate.stat().st_size)
             publish(candidate, destination, self.home / 'recovery' / key / name, publish_guard)
-            instructions = destination.parent / 'Mobile Library - Read me.txt'
+            instructions = destination.parent / 'Android Library - Read me.txt'
             temporary = instructions.with_suffix('.txt.pending')
-            temporary.write_text('Open the ZIP in the mobile companion and leave Keep on this device enabled. Libraries reopen automatically. On iPhone, select each updated ZIP once from Files. Cloud synchronization is managed by your cloud application. Do not share game libraries publicly. No credentials are included.\n', encoding='utf-8')
+            temporary.write_text('Import the Android Library ZIP in the Android app. Keep it zipped. Import each updated ZIP to activate the new prepared library; previous saved recordings remain on the device. The prepared text and voices work with the PC off. Cloud synchronization is managed by your cloud application. Existing browser libraries and browser data are not migrated automatically; preserve them separately. Do not share game libraries publicly. No credentials are included.\n', encoding='utf-8')
             os.replace(temporary, instructions)
             self._set(game, locale, state='complete', fingerprint=identity, storageFailures=0, message='Updated in export folder', updatedAt=time.time())
-            try:
-                prune_completed_work(output, game, self.home)
-            except (OSError, ValueError, KeyError, zipfile.BadZipFile):
-                pass  # Optional tidying cannot invalidate a completed publication.
+            # The prepared writer replaces a single completed ZIP atomically.
+            # Legacy revision folders may still contain recoverable browser
+            # libraries; do not run their old pruning policy during migration.
         except InterruptedError:
             self._set(game, locale, state='waiting', message='Export interrupted; verified work is retained for resuming.')
         finally:

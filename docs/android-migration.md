@@ -27,9 +27,12 @@ not evidence that such a relay works offline.
 
 ## Preserve private data
 
-1. Keep each original Mobile Library ZIP in your private files. Importing that
-   ZIP is the library handoff to Android. Check its game, study language,
-   translation and player voice when importing.
+1. Keep each original Mobile Library ZIP in your private files for recovery.
+   Older browser archives lack the full native matcher contract. Create a new
+   **Android Library ZIP** using the desktop manual export or automatic queue,
+   then import that ZIP in Android. Check its game, study language, translation
+   and player voice when importing. Existing automatic rules are retained; a
+   format change queues a native export even if the game data are unchanged.
 2. Keep old browser-origin storage until any wanted history and favorites are
    exported or a migration route is provided. Re-importing a library does not
    itself copy history or favorites. A native app cannot read another browser's

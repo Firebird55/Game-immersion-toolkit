@@ -35,6 +35,7 @@ def fixture(tmp_path, monkeypatch):
             assert kwargs['cwd'] == Path(auto.__file__).resolve().parents[1] != manager.root
             assert command[command.index('--root') + 1] == str(manager.root)
             assert '--account-signature' not in command
+            assert '--prepared-library' in command
             assert command[command.index('--source-locale')+1] in ('ja', 'en')
             output = Path(command[command.index('--output')+1]);output.mkdir(parents=True, exist_ok=True)
             candidate = output / 'candidate.zip'
@@ -77,6 +78,66 @@ def test_initial_noop_update_add_remove_and_restart(tmp_path, monkeypatch):
     state['stamp'] = 'v3';restored.reconcile();assert state['calls'] == 3
     manager.action('zzz', 'resume');run();assert state['calls'] == 4
     published.unlink();run();assert published.exists() and state['calls'] == 5
+
+
+def test_legacy_completed_job_reexports_unchanged_game_without_removing_browser_zip(tmp_path, monkeypatch):
+    manager, state, destination, run = fixture(tmp_path, monkeypatch)
+    previous_identity = auto.digest(['v1', 1, 'ja', 'en', str(destination)])
+    folder = destination / auto.file_title('zzz')
+    folder.mkdir()
+    browser = folder / 'Zenless Zone Zero - Japanese - English translation - Mobile Library.zip'
+    browser.write_bytes(b'previous private browser archive')
+    manager._set('zzz', 'ja', state='complete', fingerprint=previous_identity)
+    run()
+    android = next(folder.glob('* - Android Library.zip'))
+    assert state['calls'] == 1 and android.read_bytes() == b'completed-v1'
+    assert browser.read_bytes() == b'previous private browser archive'
+    assert manager.status('zzz')['jobs']['ja']['fingerprint'] != previous_identity
+    assert 'Android app' in (folder / 'Android Library - Read me.txt').read_text()
+    restored = auto.AutomaticMobileExports(tmp_path, home=manager.home, install_lookup=manager.install_lookup)
+    restored.reconcile()
+    assert state['calls'] == 1
+    assert restored.status('zzz')['languages'] == {'ja': 'en'}
+
+
+def test_automatic_worker_writes_full_native_contract_instead_of_browser_catalog(tmp_path, monkeypatch):
+    from backend import game_assets, game_paths, language_worker, mobile_export_worker as worker
+    from backend.prepared_library import PreparedLibraryStore
+    from backend.tests.test_prepared_session import fixture_library
+
+    _, snapshot = fixture_library(tmp_path / 'original')
+    spoken = dict(snapshot['records'][0], player_voice='male', requires_previous=True, previous_text_id='owned:previous')
+    female = dict(copy.deepcopy(spoken), player_voice='female')
+    silent = dict(copy.deepcopy(spoken), text_id='owned:written', player_voice=None,
+        audio=None, voice_status='unvoiced', requires_previous=False, previous_text_id=None)
+    unknown = dict(copy.deepcopy(silent), text_id='owned:unknown', voice_status='unknown')
+    snapshot['records'] = [spoken, female, silent, unknown]
+    clip = tmp_path / 'original' / 'tone.wav'
+    install = tmp_path / 'game'
+    install.mkdir()
+    adapter = SimpleNamespace(LANGUAGE_INDEX_VERSION=1, fingerprint=lambda _: 'original-v1')
+    monkeypatch.setattr(game_assets, 'asset_adapter', lambda _: (adapter, ''))
+    monkeypatch.setattr(game_paths, 'settings_path', lambda: tmp_path / 'settings.json')
+    monkeypatch.setattr(language_worker, 'build', lambda _game, _install, _directory, _locale, _targets, target:
+        target.write_text(json.dumps(snapshot), encoding='utf8'))
+    def prepare(_root, game, _decoded, **options):
+        assert game == snapshot['game'] and options['full_contract'] is True
+        assert json.loads(options['source_path'].read_text()) == snapshot
+        return snapshot, lambda *_: clip, lambda: None, None
+    monkeypatch.setattr(worker, 'prepare_source', prepare)
+    def browser_export(*_args, **_options):
+        pytest.fail('An automatic Android job must not write the retired browser catalog')
+    monkeypatch.setattr(worker, 'export_library', browser_export)
+    output = tmp_path / 'exports'
+    monkeypatch.setattr(sys, 'argv', ['worker', '--root', str(tmp_path), '--output', str(output),
+        '--game', snapshot['game'], '--automatic-install', str(install), '--prepared-library',
+        '--source-locale', 'en', '--translation-locale', 'zh-Hans'])
+    assert worker.main() == 0
+    directory = PreparedLibraryStore(tmp_path / 'phone').import_archive(next(output.glob('* - Android Library.zip')))
+    actual = json.loads((directory / 'textmap.json').read_text(encoding='utf8'))
+    assert len(actual['records']) == len(snapshot['records'])
+    for original, received in zip(snapshot['records'], actual['records'], strict=True):
+        assert {k: v for k, v in original.items() if k != 'audio'} == {k: v for k, v in received.items() if k != 'audio'}
 
 
 def test_failure_requires_retry_but_changed_source_requeues(tmp_path, monkeypatch):
