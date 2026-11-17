@@ -39,6 +39,15 @@ def snapshot(tools, stamp):
     result = json.loads(raw)
     pak.check(result['schema'] == SCHEMA and result['region'] in release.HOSTS and
               isinstance(result['files'], dict) and 0 < len(result['files']) <= 100_000)
+    if 'updater_metadata' in result:
+        from . import nte_community_metadata as community
+        proof = result['updater_metadata']
+        pak.check(isinstance(proof, dict) and set(proof) == {'source', 'proof_sha256', 'original'})
+        source = community.reference(proof['source'])
+        pak.check(source['family'] == ('updater-global' if result['region'] == 'nte-global' else 'updater-cn')
+                  and isinstance(proof['proof_sha256'], str) and re.fullmatch('[0-9a-f]{64}', proof['proof_sha256']))
+        community.original(proof['original'])
+        pak.check(all(proof['original'][key] == result[key] for key in ('region', 'branch', 'version')))
     for name, info in result['files'].items():
         pak.check(isinstance(name, str) and name.startswith(ROOT) and '..' not in name and '\\' not in name)
         pak._file(release.File(**info), 1024**4)
@@ -80,20 +89,26 @@ def _reader_identity():
     return hashlib.sha256(b''.join((root / n).read_bytes() for n in ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
 
 
-def _discovery(region):
-    branch, version, files, sections = release.discover(region)
+def _discovery(region, *, parameter_cache=None):
+    updater = {}
+    if parameter_cache is None:
+        branch, version, files, sections = release.discover(region)
+    else:
+        branch, version, files, sections = release.discover(region,
+            community_cache=parameter_cache, metadata_out=updater)
     selected = {name: asdict(item) for name, item in files.items() if name.startswith(ROOT)}
     pak.check(selected)
     return {'region': region, 'branch': branch, 'version': version, 'files': selected, 'sections': sections,
-            'publisher_files': {name: asdict(item) for name, item in files.items()}}
+            'publisher_files': {name: asdict(item) for name, item in files.items()},
+            **({'updater_metadata': updater} if updater else {})}
 
 
 @lru_cache(maxsize=2)
 def _current(tools, period, region):
     from . import nte_assets
     from . import nte_native_provider as native
-    value = _discovery(region)
     cache = Path(tools) / 'nte-publisher/format'
+    value = _discovery(region, parameter_cache=cache/'community')
     reader = _reader_identity()
     archive = metadata.load(revision=NATIVE_ARCHIVE[0], digest=NATIVE_ARCHIVE[1], cache=cache)
     localization = metadata.load_localization(revision=NATIVE_LOCALIZATION[0], digest=NATIVE_LOCALIZATION[1], cache=cache)
@@ -346,7 +361,9 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
             row['audio'].update(publisher=stamp, archive=location[0])
     expected = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections')}
     if 'publisher_files' in value: expected['publisher_files'] = value['publisher_files']
-    observed = _discovery(region)
+    if 'updater_metadata' in value:
+        expected['updater_metadata'] = value['updater_metadata']
+    observed = _discovery(region, parameter_cache=catalog.cache/'format/community')
     if 'publisher_files' not in value: observed = {key: observed[key] for key in expected}
     if 'nte-' + selected_region(tools, 'nte') != region or observed != expected:
         raise PreparationFailure('game_files_changed', 'NTE publisher resources changed during preparation. Retry; the previous completed index is retained.')

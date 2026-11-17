@@ -48,21 +48,33 @@ def _parameters(region):
     return key, iv
 
 
-def _xml(raw, region, digest):
-    if raw.startswith(b'PatcherXML0\0'):
+class UpdaterParameterMismatch(ValueError):
+    """A supported authenticated-envelope shape could not prove its parameter."""
+
+
+def _xml(raw, region, digest, *, parameters=None):
+    if not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{32}', digest):
+        raise ValueError('Invalid NTE publisher resource-list checksum declaration.')
+    encrypted = raw.startswith(b'PatcherXML0\0')
+    if encrypted:
         from Crypto.Cipher import AES
         if len(raw) < 32 or len(raw) % 16:
             raise ValueError('Invalid NTE resource-list envelope.')
         size = struct.unpack_from('<I', raw, 12)[0]
         if not 0 < size <= LIMIT:
             raise ValueError('Invalid NTE resource-list size.')
-        key, iv = _parameters(region)
+        key, iv = parameters if parameters is not None else _parameters(region)
         payload = AES.new(key, AES.MODE_CBC, iv).decrypt(raw[16:])
         inflater = zlib.decompressobj()
-        raw = inflater.decompress(payload, size + 1)
+        try:
+            raw = inflater.decompress(payload, size + 1)
+        except zlib.error:
+            raise UpdaterParameterMismatch('NTE updater envelope parameter did not verify.') from None
         if not inflater.eof or len(raw) != size:
-            raise ValueError('Incomplete NTE resource list.')
+            raise UpdaterParameterMismatch('NTE updater envelope parameter did not verify.')
     if hashlib.md5(raw).hexdigest() != digest:
+        if encrypted:
+            raise UpdaterParameterMismatch('NTE updater envelope parameter did not verify.')
         raise ValueError('NTE publisher resource-list checksum mismatch.')
     return ElementTree.fromstring(raw)
 
@@ -88,14 +100,15 @@ def _digest(value):
     return value
 
 
-def files(archive, region, version, sections, checksum):
+def files(archive, region, version, sections, checksum, *, parameters=None):
     """Include both independent CDN files and files embedded in patcher packages."""
     with ZipFile(io.BytesIO(archive)) as packed:
         entries = [entry for entry in packed.infolist() if entry.filename == 'ResList.bin']
         if len(entries) != 1 or not 0 < entries[0].file_size <= LIMIT:
             raise ValueError('Invalid NTE resource list.')
         raw = packed.read(entries[0])
-    root = _xml(raw, region, checksum)
+    root = (_xml(raw, region, checksum) if parameters is None else
+            _xml(raw, region, checksum, parameters=parameters))
     if root.tag != 'ResList' or root.get('version') != version or root.get('tag') != 'baseTag':
         raise ValueError('NTE manifest and launcher versions differ.')
     nodes = [root]
@@ -155,7 +168,61 @@ def release_config(region):
     raise ValueError('NTE region returned an incomplete release chain.')
 
 
-def discover(region):
+def _candidate_parameters(candidate, region, primary):
+    """Read a narrowly recognized description as data, never as executable code."""
+    raw = candidate.data
+    if region == 'nte-global':
+        keys = re.findall(rb'let key = b"([^"\r\n]{16})";', raw)
+        ivs = re.findall(rb'let iv = b"([^"\r\n]{16})";', raw)
+        if len(keys) != 1 or len(ivs) != 1:
+            raise ValueError('Compatible NTE update information could not be verified.')
+        return keys[0], ivs[0]
+    keys = re.findall(rb'decode_patcherxml0\(raw, "([^"\r\n]{1,16})"\)', raw)
+    # The existing CN format shares the frozen Global IV. A source may instead
+    # explicitly describe its own single 16-byte IV; conflicting declarations
+    # remain unsupported rather than guessed or executed.
+    ivs = re.findall(rb'\biv\s*=\s*b[\'"]([^\'"\r\n]{16})[\'"]', raw)
+    if len(keys) != 1 or len(ivs) > 1:
+        raise ValueError('Compatible NTE update information could not be verified.')
+    return keys[0].ljust(16, b'0'), ivs[0] if ivs else primary[1]
+
+
+def _manifest(archive, region, branch, version, sections, checksum, cache, metadata_out):
+    try:
+        return files(archive, region, version, sections, checksum)
+    except UpdaterParameterMismatch:
+        if cache is None:
+            raise
+    from . import nte_community_metadata as community
+    family = 'updater-global' if region == 'nte-global' else 'updater-cn'
+    primary = _parameters(region)
+    retained = community.known(family, cache, region)
+    for source in [*retained, None]:
+        candidate = community.load(family, cache, retained=source)
+        parameters = _candidate_parameters(candidate, region, primary)
+        try:
+            result = files(archive, region, version, sections, checksum, parameters=parameters)
+        except UpdaterParameterMismatch:
+            continue
+        original = {'region': region, 'branch': branch, 'version': version,
+                    'sha256': result[1][1]}
+        # files() has already checked the complete original XML checksum,
+        # edition/version/sections and every manifest descriptor before approval.
+        receipt = community.remember(candidate, original, 'publisher-manifest', _json_manifest(result), cache)
+        if metadata_out is not None:
+            metadata_out.update(receipt, original=original)
+        return result
+    raise UpdaterParameterMismatch('Compatible NTE update information is unavailable or could not be verified. '
+                                  'Retry preparation; the previous completed library is retained.')
+
+
+def _json_manifest(result):
+    items, identity = result
+    return json.dumps({'files': {name: vars(row) for name, row in items.items()}, 'xml': identity},
+                      sort_keys=True, separators=(',', ':')).encode()
+
+
+def discover(region, *, community_cache=None, metadata_out=None):
     branch, version, root, cfg = release_config(region)
     raw = download(root + '/version/' + version + '/ResList.bin.zip', limit=LIMIT)
     sections = {}
@@ -167,7 +234,8 @@ def discover(region):
             raise ValueError('Invalid or duplicate NTE resource section.')
         sections[tag] = revision
         previous[tag] = [int(size), revision]
-    items, previous['ResList.bin'] = files(raw, region, version, sections, cfg.findtext('Extra/listHash'))
+    items, previous['ResList.bin'] = _manifest(raw, region, branch, version, sections,
+        cfg.findtext('Extra/listHash'), community_cache, metadata_out)
     return branch, version, items, previous
 
 

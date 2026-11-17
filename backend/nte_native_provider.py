@@ -123,7 +123,9 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
     candidates = metadata.sources(original)
     dependencies = {'reader': value['reader'], 'archive_parameters': value['archive'][1],
                     'localization_parameters': value['localization'][1],
-                    'updater_format': (release.CN_FORMAT if catalog.region == 'nte-cn' else release.GLOBAL_FORMAT)[1]}
+                    'updater_format': (hashlib.sha256(metadata._json(value['updater_metadata'])).hexdigest()
+                        if 'updater_metadata' in value else
+                        (release.CN_FORMAT if catalog.region == 'nte-cn' else release.GLOBAL_FORMAT)[1])}
     charged, attempts = 0, 0
     for name in _order(candidates, baseline.identity['native_path'], prior['native_path'] if prior else None):
         item = candidates[name]
