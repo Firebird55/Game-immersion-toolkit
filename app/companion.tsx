@@ -9,13 +9,12 @@ import {NativeAccountContext} from '../lib/native-account-context';
 import {nativeAccountHeaders, nativeAccountQuery} from '../lib/native-account-scope.mjs';
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {DesktopSharing} from './desktop-sharing';
-import {AndroidSetup} from './android-setup';
+import {GameDataSettings} from './game-data-settings';
+import {BrowserHistoryMigration} from './browser-history-migration';
 import {AndroidReceiver} from './android-receiver';
 import {useNativeHost} from '../lib/native-host';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
-import { ToolkitSetup } from './toolkit-setup';
-import {LanguageSetup} from './language-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -201,7 +200,7 @@ function newestFirst(left: TranscriptLine, right: TranscriptLine) {
   return Date.parse(right.created_at) - Date.parse(left.created_at) || right.id - left.id;
 }
 type LexiriseStatus = {account?:string; by_language?:Record<string,{decks?:Record<string,{id:number;title:string}>}>; configured: boolean; sent: Record<string, number>; decks?:Record<string,{id:number;title:string}> };
-type ReadingMode = 'migaku' | 'lexirise';
+type ReadingMode = 'plain' | 'lexirise';
 const LexiriseButton = memo(function LexiriseButton({ sent, busy, disabled, game, onClick, compact = false }: {
   sent: boolean; busy: boolean; disabled: boolean; game: GameId; onClick: () => void; compact?: boolean;
 }) {
@@ -310,8 +309,7 @@ const StableText = memo(function StableText({ text, className, lang }: { text: s
   const element = useRef<HTMLParagraphElement>(null);
   useEffect(() => {
     if (element.current && element.current.textContent !== text) {
-      // Migaku rewrites target-language text into its own spans. React must not
-      // reconcile those injected children or it can crash on the next update.
+      // Keep the visible text independent of external browser mutations.
       element.current.replaceChildren(document.createTextNode(text));
     }
   }, [text]);
@@ -326,22 +324,6 @@ const StableInline = memo(function StableInline({ text, className }: { text: str
     }
   }, [text]);
   return <span ref={element} className={className} />;
-});
-
-const MigakuCurrentText = memo(function MigakuCurrentText({ text, lineId, locale }: { text: string; lineId: number; locale: string }) {
-  const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!host.current) return;
-    const paragraph = document.createElement('p');
-    paragraph.className = 'current-chinese';
-    paragraph.lang = locale;
-    paragraph.dataset.migakuLineId = String(lineId);
-    paragraph.textContent = text;
-    // A fresh node is important: Migaku processes newly inserted transcript
-    // nodes, but does not reliably revisit text replaced inside an old node.
-    host.current.replaceChildren(paragraph);
-  }, [lineId, text, locale]);
-  return <div className="current-chinese-host" ref={host} />;
 });
 
 function EnglishTranslation({ line, summary, limit, current = false }: {
@@ -488,7 +470,7 @@ function CompanionClient() {
   const requestOwner = accountScope.current.generation;
   const settingsAdapter = useMemo(() => createSettingsAdapter(requestGeneration,
     () => accountScope.current.generation === requestOwner), [requestGeneration, requestOwner]);
-  const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
+  const readingMode: ReadingMode = lexirise.configured ? 'lexirise' : 'plain';
   const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured, requestGeneration);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
@@ -511,8 +493,7 @@ function CompanionClient() {
   useEffect(() => {
     const saved = Number(window.localStorage.getItem('proxy-transcript-playback-rate'));
     if ([1, 0.85, 0.75, 0.6].includes(saved)) setPlaybackRate(saved);
-    const reader = window.localStorage.getItem('proxy-transcript-reading-mode');
-    if (reader === 'migaku' || reader === 'lexirise') setReadingMode(reader);
+    // Existing reader/user-script preference keys remain untouched.
     try {
       const saved = window.localStorage.getItem('proxy-transcript-reading-options');
       if (saved) setReadingOptions(restoreLocalSettings(JSON.parse(saved)));
@@ -997,8 +978,7 @@ function CompanionClient() {
       }).toString()
     : `t=${previewTick}`;
 
-  // The first visible render already has the correct controls and transcript
-  // structure. This avoids a large reconciliation while Migaku parses the page.
+  // The first visible render already has the correct controls and transcript.
   if (!snapshotLoaded) return <main className="companion-shell" aria-busy="true" />;
 
   return (
@@ -1011,14 +991,10 @@ function CompanionClient() {
         </div>
       <div className="game-tabs">
         <div className="reading-controls" aria-label={uiText("Reading options")}>
-        <label><span className="control-label">{uiText("Reading")}</span><select aria-label={uiText("Reading")} value={readingMode} onChange={event => {
-          const value = event.target.value as ReadingMode;
-          setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value);
-        }}><option value="migaku">{uiText("Migaku")}</option><option value="lexirise" disabled={!lexirise.configured}>{uiText("Lexirise")}</option></select></label>
         {readingMode === 'lexirise' && <button type="button" className="reader-options-button" onClick={openReadingOptions} disabled={!providerReadingSource}
           title={!providerReadingSource ? uiText('Lexirise reading tools are unavailable for this language.') : undefined}
           aria-label={uiText("Lexirise reading options")}><Settings2 size={15} /> <span className="control-label">{uiText("Reading options")}</span></button>}
-        {readingMode === 'lexirise' && accountsSupported && <button type="button" className="reader-options-button" aria-label={uiText("Account settings")} title={uiText("Account settings")} onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}><UserRound size={15} /><span className="control-label">{uiText("Account settings")}</span></button>}
+        {accountsSupported && <button type="button" className="reader-options-button" aria-label={uiText(lexirise.configured ? 'Account settings' : 'Connect Lexirise')} onClick={() => {setAccountSection('connection');setAccountLanguage(status?.selected_languages?.[selectedGame]?.source_language??'zh');setAccountSettingsOpen(true);}}><UserRound size={15} /><span className="control-label">{uiText(lexirise.configured ? 'Account settings' : 'Connect Lexirise')}</span></button>}
         </div>
       </div>
         <div className={`live-state ${online ? '' : 'is-offline'}`}>
@@ -1031,18 +1007,10 @@ function CompanionClient() {
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
 
-      {nativeHost.android && <AndroidSetup key={`${requestGeneration}:${lexirise.account ?? 'legacy'}`} online={online}
-        capabilities={nativeHost.capabilities} error={nativeHost.error} libraryReady={!!mapStatus?.ready}
-        onChanged={game => {if (game) setSelectedGame(game); void loadSnapshot();}}
-        onAccount={() => {setReadingMode('lexirise'); setAccountSection('connection'); setAccountSettingsOpen(true);}} />}
       {nativeHost.android && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
-      {!nativeHost.android && !archivedHistory && online && !status?.selected_languages?.[selectedGame]?.source_locale && (capture?.phase === 'needs_language_setup' || !mapStatus?.ready) && <div className="game-start-card">
-        <div><h2>Prepare {GAME_NAMES[selectedGame]} for play</h2><p>Choose the subtitles and original voice you use in the game, then prepare them here. Preparation continues in the background.</p></div>
-        <LanguageSetup game={selectedGame} compact targetLanguage={gamePicker.target} showAccount={false} onConfigure={() => {}} onChanged={() => void loadSnapshot()}/>
-      </div>}
 
       <div ref={historyList} className={`reader-stream ${pinCurrent ? 'can-pin' : ''} ${readerScrolled ? 'is-scrolled' : ''}`}>
       {!archivedHistory && <section ref={currentLineElement} className={`current-line game-${selectedGame} ${latestLine ? '' : 'is-empty'}`} aria-labelledby="current-heading">
@@ -1062,7 +1030,7 @@ function CompanionClient() {
               {latestLine.speaker_chinese && <StableInline className="speaker-chinese" text={latestLine.speaker_chinese} />}
             </div>}
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
-            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <MigakuCurrentText text={latestLine.source_text??latestLine.chinese} lineId={latestLine.id} locale={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
+            {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <StableText text={latestLine.source_text??latestLine.chinese} className="current-chinese" lang={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
               {latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine) ? <span className="text-muted">{uiText(latestLine.voice_status === 'unvoiced' ? 'Unvoiced dialogue' : missingAudioLabel(latestLine))}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'context' ? 'Play context clip' : latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
@@ -1171,10 +1139,10 @@ function CompanionClient() {
           </Button>}
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
-          {!nativeHost.android && <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
-            onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
-            onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}
-            readingSupported={!!providerReadingSource} onReading={openReadingOptions} onAccount={language => {setAccountSection(language ? 'preferences' : 'connection');setAccountLanguage(language??'zh');setAccountSettingsOpen(true);}} onChanged={() => void loadSnapshot()} />}
+          <GameDataSettings key={`${requestGeneration}:${lexirise.account ?? 'legacy'}:${selectedGame}`} game={selectedGame}
+            targetLanguage={gamePicker.target} online={online} account={lexirise.account ?? 'legacy'} onChanged={() => void loadSnapshot()}>
+            {nativeHost.android && nativeHost.capabilities?.history_migration && <details><summary>Previous browser history</summary><BrowserHistoryMigration onChanged={() => void loadSnapshot()} /></details>}
+          </GameDataSettings>
           {!nativeHost.android && <details className="update-disclosure">
             <summary aria-label={uiText('Game language updates')}><RefreshCw size={16} className={updateStatus && ['checking','updating'].includes(updateStatus.state) ? 'is-spinning' : ''} />{uiText('Updates')}</summary>
             <div className="update-popover">
@@ -1202,12 +1170,12 @@ function CompanionClient() {
       </footer>
 
       {readerSettingsOpen && readerSettingsOpen.account === (lexirise.account ?? 'legacy') && <ReadingOptionsDialog initial={readingOptions} onChange={next => saveReadingOptions(next, readerSettingsOpen)} onClose={() => setReaderSettingsOpen(null)} sourceLanguage={readerSettingsOpen.language} />}
-      {readingMode === 'lexirise' && accountsSupported && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
+      {accountsSupported && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Connect Lexirise or close this window to keep reading without an account.</DialogDescription></DialogHeader>
         <AccountSwitcher key={nativeHost.android ? `${requestGeneration}:${lexirise.account ?? 'legacy'}` : 'desktop'} onChanged={() => void loadSnapshot()}/>
         {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
         <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
       </DialogContent></Dialog>}
-      {readingMode === 'lexirise' && accountsSupported && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
+      {accountsSupported && accountSettingsOpen && accountSection === 'preferences' && <SettingsPanel title={uiText("Lexirise account preferences")} showReadingOptions={false} initial={readingOptions} onChange={saveReadingOptions} onClose={() => setAccountSettingsOpen(false)} adapter={settingsAdapter} sourceLanguage={isStudyLanguage(accountLanguage)?accountLanguage:"zh"} connection={<Button variant="outline" onClick={() => setAccountSection('connection')}>Back to account and sentence destination</Button>} />}
 
       <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
         <DialogContent className="setup-dialog sm:max-w-3xl">

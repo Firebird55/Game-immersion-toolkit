@@ -8,12 +8,13 @@ import catalog from '../public/mobile-capture/games-data.json';
 import {useInterfaceLanguage} from '@/lib/interface-language';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
+import {LIVE_GAME_IDS} from '../lib/game-data-client.mjs';
 
 const API = desktopApiBase();
 const baseLanguage = (code: string) => code.toLowerCase().split('-')[0];
-export const voicedLanguages = [...new Set(catalog.games.flatMap(game => game.audio.map(baseLanguage)))];
+export const voicedLanguages = [...new Set(catalog.games.filter(game => LIVE_GAME_IDS.includes(game.id)).flatMap(game => game.audio.map(baseLanguage)))];
 const accountLanguages = voicedLanguages.filter(isStudyLanguage);
-export const gamesForLanguage = (language: string) => catalog.games.filter(game => game.audio.some(code => baseLanguage(code) === language));
+export const gamesForLanguage = (language: string) => catalog.games.filter(game => LIVE_GAME_IDS.includes(game.id) && game.audio.some(code => baseLanguage(code) === language));
 
 type Preferences = {languages: string[]};
 async function preferences(account: string, signal: AbortSignal, languages?: string[], generation?: number | null): Promise<Preferences> {
@@ -28,7 +29,7 @@ async function preferences(account: string, signal: AbortSignal, languages?: str
   return {languages: value.languages as string[]};
 }
 
-export function useTargetLanguage(mode: 'lexirise' | 'migaku', account?: string, configured = false, accountGeneration?: number | null) {
+export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, configured = false, accountGeneration?: number | null) {
   const [loaded, setLoaded] = useState<{account: string; languages: string[]} | null>(null);
   const [selection, setSelection] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -37,7 +38,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'migaku', account?: string,
   const owner = useRef<AbortController | null>(null);
   const addingRequest = useRef<AbortController | null>(null);
   const lexirise = mode === 'lexirise';
-  const scope = lexirise ? `lexirise:${account ?? ''}` : 'migaku';
+  const scope = lexirise ? `lexirise:${account ?? ''}` : 'plain';
   const languages = lexirise ? configured && loaded && loaded.account === account ? loaded.languages : [] : voicedLanguages;
   const target = languages.includes(selection[scope]) ? selection[scope] : languages.includes('zh') ? 'zh' : languages[0] ?? '';
   const select = (code: string) => setSelection(previous => ({...previous, [scope]: code}));
@@ -92,7 +93,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'migaku', account?: string,
 }
 
 export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLocale}: {
-  picker: ReturnType<typeof useTargetLanguage>; mode: 'lexirise' | 'migaku'; selectedGame: string;
+  picker: ReturnType<typeof useTargetLanguage>; mode: 'lexirise' | 'plain'; selectedGame: string;
   onGameChange: (game: string) => void; sourceLocale?: string;
 }) {
   const {t, locale} = useInterfaceLanguage();
