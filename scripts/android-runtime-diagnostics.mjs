@@ -2,6 +2,7 @@
 // provider payloads, account details or arbitrary browser console messages.
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
+import {authoredLibraryIdentity, inspectAuthoredLibrary} from './android-authored-library-check.mjs';
 
 const paths = new Set(['/api/snapshot', '/api/platform', '/api/library/import', '/api/settings',
  '/api/capture/receiver', '/api/capture/frame']);
@@ -65,7 +66,9 @@ function messageMetrics() {
  addEventListener('securitypolicyviolation', () => window.__toolkitAuthoredReceiverMetrics.csp_violations++);
 }
 
-export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packageName}) {
+export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packageName, directory}) {
+ let expectedLibrary = null;
+ try {if (directory) expectedLibrary = authoredLibraryIdentity(join(directory, 'authored-library.zip'));} catch {}
  const requests = new Map(), controls = [];
  let browserErrors = 0, consoleErrors = 0, cspConsoleErrors = 0;
  page.on('pageerror', () => browserErrors++);
@@ -99,6 +102,7 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
    checkpoint: String(label).slice(0, 160), new_document_metrics: newDocumentMetrics,
    browser_errors: browserErrors, console_errors: consoleErrors, csp_console_errors: cspConsoleErrors,
    requests: [...requests].map(([key, count]) => ({key, count})), controls: controls.slice()};
+  if (directory) report.authored_library = {expected_fixture_valid: expectedLibrary !== null, inspected: false};
   try {
    const value = await bounded(page.evaluate(async () => {
     const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 3000);
@@ -116,6 +120,9 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
     library_ready: value.library_ready === true,
     image_bitmap_available: value.image_bitmap_available === true};
    report.parent_messages = safeMessageMetrics(value.metrics);
+   const account = value.snapshot?.lexirise?.account;
+   if (expectedLibrary && (account === undefined || account === 'legacy') && value.snapshot?.status?.capture?.active_game === 'zzz')
+    report.authored_library = inspectAuthoredLibrary(adb, packageName, expectedLibrary);
    report.senders = [];
    for (const frame of page.frames()) {
     if (frame === page.mainFrame()) continue;

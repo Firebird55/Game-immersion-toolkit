@@ -102,7 +102,7 @@ async function connectReader() {
   const browser = await chromium.connectOverCDP('http://127.0.0.1:9222', {noDefaults: true});
   const page = await until(() => browser.contexts().flatMap(context => context.pages()).find(page => page.url().startsWith('http://127.0.0.1:')), 'local shared reader');
   await page.locator('.companion-shell').waitFor({timeout: 60_000});
-  diagnostics = await createAuthoredRuntimeDiagnostics(page, {output, adb, packageName});
+  diagnostics = await createAuthoredRuntimeDiagnostics(page, {output, adb, packageName, directory});
   return {browser, page};
 }
 // A real cross-origin iframe/WindowProxy and structured PNG Blob exercise the
