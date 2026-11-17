@@ -22,7 +22,8 @@ def test_whole_authenticated_original_package_reopens_cached_body_without_execut
     raw = b'authored original publisher container fixture'
     digest = hashlib.md5(raw).hexdigest(); (publisher / digest).write_bytes(raw)
     listing = {'remoteName': source.INDEX_PACKAGE, 'fileSize': len(raw), 'md5': digest}
-    monkeypatch.setattr(source.hotfix, 'index', lambda *a: json.dumps(listing).encode())
+    unused = {'remoteName': 'blocks/00/1234.blk', 'fileSize': source.blb.MAX_PACKAGE + 1, 'md5': 'e' * 32}
+    monkeypatch.setattr(source.hotfix, 'index', lambda *a: json.dumps(listing).encode() + b'\n' + json.dumps(unused).encode())
     calls = []
     def decode(original, parameters, destination, *, work):
         calls.append(original.read_bytes())
@@ -37,6 +38,9 @@ def test_whole_authenticated_original_package_reopens_cached_body_without_execut
     receipt = {'parameters_sha256': 'd' * 64}
     first = source.Source(directory, build(), helper, directory / 'private', receipt)
     assert len(calls) == 1 and len(first.catalog.assets) == 1
+    monkeypatch.setattr(source.hotfix, '_download_package', lambda *a: pytest.fail('An unsupported unselected container was downloaded'))
+    with pytest.raises(ValueError):
+        first.objects(unused['remoteName'])
     def reject_decode(*args, **kwargs):
         calls.append(b'rejected')
         raise ValueError('A verified cached body ran the codec again')

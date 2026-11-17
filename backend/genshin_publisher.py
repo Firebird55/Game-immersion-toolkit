@@ -192,6 +192,45 @@ def prepare(data_dir, region='global', *, original_text=False):
     return stamp, catalog, build['version']
 
 
+def preflight(data_dir, region='global', *, study_locales, target_locales=(), catalog=None, catalog_publisher=None):
+    """Read only official discovery/manifests/indexes before large game data.
+
+    The optional catalog must already be authenticated for this exact publisher
+    generation. Without it the quote explicitly bounds all design packages.
+    """
+    from .genshin_download_plan import plan, VOICES
+    from .hoyo_dialogue import voice_namespaces
+    if region not in CHANNELS or not study_locales or any(locale not in VOICES for locale in study_locales):
+        raise ValueError('Choose a supported Genshin publisher edition and study language.')
+    build = _release(region)
+    directory = data_dir / 'tools' / 'sophon'
+    native_name = 'GenshinImpact.exe' if region == 'global' else 'YuanShen.exe'
+    game_files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), ('.exe',))
+    if native_name not in game_files:
+        raise ValueError('The official Genshin native metadata input is missing.')
+    localized = {}
+    data_name = ROOTS[build['channel']].split('/')[0]
+    for locale in set(study_locales):
+        files = sophon.manifest(directory, build['channel'], tuple(build['manifests'][sophon.VOICE_FIELDS[locale]]), ('.pck',))
+        allowed = set(voice_namespaces('genshin', locale))
+        regular = {name: item for name, item in files.items()
+                   if len(PurePosixPath(name).parts) == 5 and PurePosixPath(name).parts[0] == data_name
+                   and PurePosixPath(name).parts[1] in {'StreamingAssets', 'Persistent'}
+                   and PurePosixPath(name).parts[2] == 'AudioAssets' and PurePosixPath(name).parts[3] in allowed}
+        localized[locale] = hotfix.files(directory, build, locale, regular)
+    designs = {}
+    for line in hotfix.index(directory, build, 'design').splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        name = row['remoteName']
+        if name in designs:
+            raise ValueError('The official Genshin design manifest has duplicate identities.')
+        designs[name] = row
+    return plan(build, game_files[native_name], localized, designs, study_locales=study_locales,
+                target_locales=target_locales, catalog=catalog, catalog_publisher=catalog_publisher)
+
+
 def inventory(data_dir, stamp, locale, *, unavailable_duplicates=None):
     return voices.inventory(data_dir, stamp, locale, 'genshin', unavailable_duplicates=unavailable_duplicates)
 

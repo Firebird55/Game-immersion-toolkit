@@ -69,7 +69,7 @@ class Source:
             row = json.loads(line)
             name, size, md5 = row['remoteName'], row['fileSize'], row['md5']
             check(isinstance(name, str) and re.fullmatch(r'blocks/[0-9]{2,10}/[0-9]{1,10}\.blk', name)
-                  and name not in self.packages and type(size) is int and 0 < size <= blb.MAX_PACKAGE
+                  and name not in self.packages and type(size) is int and 0 < size <= 8 * 1024**3
                   and isinstance(md5, str) and re.fullmatch('[a-f0-9]{32}', md5))
             self.packages[name] = {'name': name, 'bytes': size, 'md5': md5}
         check(INDEX_PACKAGE in self.packages)
@@ -82,6 +82,7 @@ class Source:
     def objects(self, name):
         check(name in self.packages)
         row = self.packages[name]
+        check(row['bytes'] <= blb.MAX_PACKAGE)
         url = hotfix.roots(self.build)['design'] + 'AssetBundles/' + name
         asset = hotfix.AudioFile(name, row['bytes'], row['md5'], url)
         # The ordinary acquisition validates the complete original package's

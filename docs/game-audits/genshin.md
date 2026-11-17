@@ -1108,6 +1108,10 @@ can request one controlled description refresh. Installed bundles resolve a clos
 helper apphost and its included .NET runtime; only source checkouts use a build
 SDK. The helper contract retains full upstream and runtime notices. UnityPy and
 Unity texture/mesh loading are not dependencies of this route.
+The current community BLB/bootstrap parameters are a prototype dependency,
+not accepted final autonomy: official-file derivation must be pursued first.
+No impossibility or present-maintenance evidence has established last-resort
+community eligibility. Immutable provenance alone does not satisfy that rule.
 
 The actual current replay parsed all 15 official locale inventories: 15,360
 shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was
@@ -1134,6 +1138,9 @@ conditional/direct-Global dialogue qualifications remain explicit.
 The pinned generic source and full MIT license are recorded in
 [the input policy](../../packaging/genshin-reader/inputs.json). The public code
 and synthetic fixtures contain no original codec arrays, game bytes or dialogue.
+The [direct Android data runtime audit](genshin-android-data-runtime.md) records
+the tested complete PC worker, reusable contracts, remaining platform work and
+the explicit official-manifest preflight size bounds.
 
 Synthetic regressions cover schema drift, global fallback precedence, conflicts,
 parallel card arrays, reminder hash collisions, player variants, missing versus

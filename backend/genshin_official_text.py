@@ -21,6 +21,26 @@ def check(value):
         raise ValueError('Incomplete or ambiguous original Genshin TextMap generation.')
 
 
+def shard_inventory(catalog, code):
+    """Resolve current logical names without reading native or text payloads."""
+    check(isinstance(catalog, DesignCatalog) and code in CODES)
+    entries = []
+    for suffix in range(MAX_SUFFIX):
+        found = []
+        for namespace in ('TextMap', 'TextMap_Medium'):
+            path = f'Data/_ExcelBinOutput/{namespace}/{code}/Hash/{suffix}'
+            identity = asset_identity(path)
+            if identity in catalog.assets:
+                found.append({'identity': identity, 'namespace': namespace, 'suffix': suffix,
+                              'bundle': catalog.locate(identity).bundle})
+        check(len(found) <= 1)
+        entries.extend(found)
+    count = len(entries)
+    check(0 < count < MAX_SUFFIX and count & (count - 1) == 0
+          and [entry['suffix'] for entry in entries] == list(range(count)))
+    return entries
+
+
 class OriginalTables:
     """Read all current catalog-owned shards for one requested official locale."""
     def __init__(self, catalog, load_bundle, parameter_descriptions):
@@ -35,22 +55,7 @@ class OriginalTables:
         self.tables, self.receipts = {}, {}
 
     def inventory(self, code):
-        check(code in CODES)
-        entries = []
-        for suffix in range(MAX_SUFFIX):
-            found = []
-            for namespace in ('TextMap', 'TextMap_Medium'):
-                path = f'Data/_ExcelBinOutput/{namespace}/{code}/Hash/{suffix}'
-                identity = asset_identity(path)
-                if identity in self.catalog.assets:
-                    found.append({'identity': identity, 'namespace': namespace, 'suffix': suffix,
-                                  'bundle': self.catalog.locate(identity).bundle})
-            check(len(found) <= 1)
-            entries.extend(found)
-        count = len(entries)
-        check(0 < count < MAX_SUFFIX and count & (count - 1) == 0
-              and [entry['suffix'] for entry in entries] == list(range(count)))
-        return entries
+        return shard_inventory(self.catalog, code)
 
     def read(self, code):
         check(code in CODES)
