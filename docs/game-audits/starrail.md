@@ -304,6 +304,13 @@ normal lookup/bootstrap integration, codec acceptance and movie parameters are
 not supplied by the AudioEvent intake. No new ready snapshot or voice-status
 promotion occurs, and complete-PCK MD5 is not inferred from these ranges.
 
+The audio range-cache generation now depends on the official edition, exact
+AudioV identity and selected original owner names, sizes, MD5 values and URLs.
+Enriching the text/native/helper receipt cannot invalidate those same audio
+objects between stages. A changed AudioV or used owner URL produces a separate
+generation. Earlier experimental cache identities are retained separately;
+this change does not silently adopt or relabel their range receipts.
+
 The offline adapter now selects codecs only through the bundle's closed
 `packaged_codec_executable` contract, verifying that closure again before local
 execution. It does not discover PATH/imageio tools, build software or download

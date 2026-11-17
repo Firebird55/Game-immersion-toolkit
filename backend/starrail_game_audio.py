@@ -88,7 +88,6 @@ def owners(build, raw, locale):
     _, digest, size = build['hotfix']['indexes']['audio']
     if len(raw) != size or hashlib.md5(raw).hexdigest() != digest:
         _fail()
-    generation = identity({'build': build, 'audio_md5': digest})
     roots = hotfix.audio_roots(build)
     found = {}
     for line in raw.splitlines():
@@ -102,12 +101,21 @@ def owners(build, raw, locale):
             if name in found or type(row['Patch']) is not bool:
                 _fail()
             asset = hotfix.audio_file(roots, name, row['Patch'], name, row['Size'], row['Md5'])
-            found[name] = Owner(name, asset.size, asset.digest, asset.url, generation)
+            found[name] = asset
         except (KeyError, TypeError, ValueError) as error:
             raise GameDataError('starrail_audio_index_changed', 'The original Star Rail audio index is unsupported.') from error
     if not any(name.startswith(language + '/') for name in found):
         _fail('The selected official Star Rail dub inventory is unavailable.')
-    return tuple(found[name] for name in sorted(found))
+    # Native/schema preparation enriches the build receipt between stages.
+    # Only the official audio index, edition and exact selected owners govern
+    # this cache. Text packages or helper bookkeeping cannot create another
+    # identity for the same immutable audio objects.
+    generation = identity({'channel': build['channel'],
+        'audio_index': build['hotfix']['indexes']['audio'],
+        'owners': [{'name': name, 'bytes': asset.size, 'md5': asset.digest, 'url': asset.url}
+                   for name, asset in sorted(found.items())]})
+    return tuple(Owner(name, asset.size, asset.digest, asset.url, generation)
+                 for name, asset in sorted(found.items()))
 
 
 class RangeStore:

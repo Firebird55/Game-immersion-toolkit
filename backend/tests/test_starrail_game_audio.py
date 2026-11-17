@@ -1,5 +1,6 @@
 """Real context byte fences and inert original PCK/RIFF format fixtures."""
 import hashlib
+import copy
 import json
 from pathlib import Path
 import shutil
@@ -238,6 +239,19 @@ def test_audio_index_selects_all_selected_dub_and_neutral_owners_not_other_dubs(
     found = audio.owners(build, raw, 'en')
     assert {owner.name for owner in found} == {'English/External_renamed.pck', 'English/VoBanks7.pck', 'Banks81.pck'}
     assert all(owner.url.startswith('https://autopatchos.starrails.com/') for owner in found)
+    enriched = copy.deepcopy(build)
+    enriched.update(manifests={'game': ['new metadata receipt']}, native_file_md5='a' * 32,
+                    toolkit_reader='changed helper receipt')
+    enriched['hotfix']['indexes']['design'] = [456, 'b' * 32, 100]
+    enriched['hotfix']['routes']['design'] = 'design_data/V4.7Live/output_456_cd_ef'
+    assert audio.owners(enriched, raw, 'en') == found
+    moved = copy.deepcopy(enriched)
+    moved['hotfix']['routes']['asb'] = 'asb/V4.7Live/output_456_cd_ef'
+    assert {owner.generation for owner in audio.owners(moved, raw, 'en')}.isdisjoint(
+        owner.generation for owner in found)
+    changed = copy.deepcopy(enriched)
+    changed['hotfix']['indexes']['audio'][0] += 1
+    assert audio.owners(changed, raw, 'en')[0].generation != found[0].generation
     with pytest.raises(GameDataError):
         audio.owners(build, raw + b' ', 'en')
 
