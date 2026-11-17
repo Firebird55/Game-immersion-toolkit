@@ -110,6 +110,11 @@ def test_exact_member_plan_consent_etag_and_complete_source_stage_use_real_share
     assert reused == path and offline.consumed == 0 and len(original.calls) == calls
     assert retained['range_receipts_sha256'] == stage['range_receipts_sha256']
     assert retained['range_receipt_count'] == stage['range_receipt_count']
+    receipt = hashlib.sha256((path.parent / 'module.json').read_bytes()).hexdigest()
+    verified, stored = original.source(offline).verified(original.original_import, receipt)
+    assert verified == original.raw and stored == retained and len(original.calls) == calls
+    with pytest.raises(GameDataError):
+        original.source(offline).verified(original.original_import, '0' * 64)
 
 
 def test_text_mode_and_unavailable_signature_runtime_stop_before_any_request(original, monkeypatch):

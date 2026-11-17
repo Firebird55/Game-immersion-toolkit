@@ -43,7 +43,7 @@ class _Header:
 
 
 def _json_bytes(value):
-    return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
 def _source_plan(handle):

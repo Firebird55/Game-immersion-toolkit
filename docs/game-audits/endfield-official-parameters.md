@@ -277,8 +277,30 @@ revalidation. It returns another `PreparationStage`, never a snapshot. After
 that stage the provider reports the unimplemented package-control/text stage
 explicitly, rather than repeating a large client download or claiming readiness.
 Text mode likewise stops at the remaining text-resource stage and never enters
-the native audio branch. Full AKPK controls still need connection to a persistent
-master witness, and ordinary text-resource preparation remains incomplete.
+the native audio branch. The separately planned package-control download still
+needs connection to the persistent witness below, and ordinary text-resource
+preparation remains incomplete.
+
+`endfield_akpk_witness.activate` now implements provider-local, explicitly
+referenced material. It rebuilds both candidates from the exact checked
+bootstrap, revalidates the referenced complete original native member/signature,
+requires the requested-dub index and complete MD5-bound PCK controls, then
+rechecks client/resource generation before writing a content-addressed private
+witness. Its public reference carries only client/resource/module/control and
+witness hashes. Restore requires every exact reference; it never searches a
+legacy tool directory, adopts another current generation or rewrites an old
+frozen profile. Parameters remain private. This helper is a source-control gate,
+not a dialogue snapshot, voice source or publisher-content proof.
+
+A zero-network original-content replay activates and explicitly restores that
+private witness using the actual retained 1.6.4 metadata, signed native member
+and complete 1,947,909-byte selected original package, validating all 1,359 banks.
+An altered generation is rejected and the existing descriptor/frozen parameter
+cache remain unchanged. The stage envelopes and recheck callback in this replay
+are constructed local fixtures: no new cold acquisition, live publisher recheck,
+ordinary end-user activation or Android execution is claimed. Source-hash
+references use the exact UTF-8 private JSON encoding, including non-ASCII signer
+names; an authored continuation regression covers that encoding boundary.
 
 The factory and common/Lua parameter modules no longer import desktop tool setup
 just to obtain a cache writer. A small lazy adapter reuses the shared pure

@@ -202,3 +202,36 @@ class OriginalNativeSource:
         write(self.root / 'module.json', stage)
         self.ctx.check()
         return target, stage
+
+    def verified(self, original_import, receipt_sha256):
+        """Explicit immutable source-stage reference; never search another cache."""
+        self._admit()
+        read, _, _, Error, no_links = _helpers()
+        if not isinstance(receipt_sha256, str) or not re.fullmatch('[0-9a-f]{64}', receipt_sha256):
+            raise Error('invalid_local_state', 'Endfield native source reference is invalid.')
+        stage = read(self.root / 'module.json')
+        encoded = json.dumps(stage, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+        if (not isinstance(stage, dict) or hashlib.sha256(encoded).hexdigest() != receipt_sha256 or
+                stage.get('stage') != 'original-audio-native-member-verified' or
+                not isinstance(stage.get('plan'), dict) or stage['plan'].get('client') != self.client or
+                stage['plan'].get('import') != asdict(original_import)):
+            raise Error('invalid_local_state', 'Endfield native source reference belongs to another original stage.')
+        sha = stage.get('sha256')
+        member = stage['plan'].get('member')
+        if (not isinstance(sha, str) or not re.fullmatch('[0-9a-f]{64}', sha) or not isinstance(member, dict) or
+                member.get('name') != f'Endfield_Data/Plugins/x86_64/{original_import.module}.dll' or
+                type(member.get('size')) is not int or not 512 <= member['size'] <= MAX_MEMBER or
+                type(member.get('crc32')) is not int or not 0 <= member['crc32'] < 2**32):
+            raise Error('invalid_local_state', 'Endfield original native member identity is invalid.')
+        path = self.root / ('module-' + sha + '.bin')
+        no_links(path)
+        if path.stat().st_size != member['size']:
+            raise Error('invalid_local_state', 'Endfield original native member size differs.')
+        raw = path.read_bytes()
+        if hashlib.sha256(raw).hexdigest() != sha or zlib.crc32(raw) != member['crc32']:
+            raise Error('invalid_local_state', 'Endfield original native member checksum differs.')
+        proof = signature.verify(path)
+        if proof.get('sha256') != sha or proof.get('bytes') != len(raw):
+            raise Error('unverified_original_source', 'Endfield original native publisher proof differs.')
+        self.ctx.check()
+        return raw, stage

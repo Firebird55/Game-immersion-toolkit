@@ -60,6 +60,10 @@ def fixture(tmp_path, monkeypatch, mode):
 
 def test_ordinary_provider_continues_exact_bootstrap_plan_without_download_context_stage_handle(tmp_path, monkeypatch):
     provider, native = fixture(tmp_path, monkeypatch, 'text-audio')
+    from backend import endfield_publisher_signature
+    signature = endfield_publisher_signature.verify
+    monkeypatch.setattr(endfield_publisher_signature, 'verify', lambda path: {
+        **signature(path), 'publisher': 'Authored non-ASCII publisher: 样例'})
     try:
         first_plan = provider.plan(native.request, native.context('plan'))
         first = provider.download(first_plan, native.context('download', first_plan.download_bytes))
@@ -77,6 +81,9 @@ def test_ordinary_provider_continues_exact_bootstrap_plan_without_download_conte
         assert 0 < downloading.consumed <= plan.download_bytes
         assert result.restore_handle['bootstrap'] == first.restore_handle
         assert len(result.restore_handle['source_receipt_sha256']) == 64
+        module_receipts = list(downloading.cache_directory.glob('endfield-original-native/*/module.json'))
+        import hashlib
+        assert len(module_receipts) == 1 and result.restore_handle['source_receipt_sha256'] == hashlib.sha256(module_receipts[0].read_bytes()).hexdigest()
         # The unfinished package/text stage is honest, not another full client
         # download loop or a false ready-library state.
         planning.stage_handle = result.restore_handle
