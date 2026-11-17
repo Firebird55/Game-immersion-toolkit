@@ -183,6 +183,26 @@ def _overlay(sources, paths):
     return result
 
 
+def container_context(values):
+    """Keep the same original global/import ownership for every reader host."""
+    globals_ = {n: v for n, v in values.items() if n.endswith('/global.utoc')}
+    # Base globals remain historical/base-only context, never combined with
+    # the publisher's current PatchPaks global import metadata.
+    global_name = ROOT+'PatchPaks/global.utoc'
+    if global_name not in globals_:
+        global_name = ROOT+'Paks/global.utoc'
+    pak.check(global_name in globals_ and not globals_[global_name].paths)
+    ordinary = {n: v for n, v in values.items() if n not in globals_}
+    _overlay(ordinary, lambda container: (p[0] for p in container.paths.values()))
+    selected = {global_name[len(ROOT):]: globals_[global_name]}
+    for name, container in ordinary.items():
+        # Imported types can live outside a table's own container.
+        if container.paths:
+            selected[name[len(ROOT):]] = container
+    pak.check(len(selected) > 1)
+    return selected
+
+
 class Catalog:
     def __init__(self, tools, stamp, progress=lambda _message: None, *, preparing=False, oodle=None):
         self.tools, self.stamp = Path(tools), stamp
@@ -253,24 +273,7 @@ class Catalog:
                                      **({'oodle': self.oodle} if getattr(self, 'oodle', None) is not None else {}))
         with ThreadPoolExecutor(max_workers=4) as pool:
             values = dict(zip(names, pool.map(read, names)))
-        globals_ = {n: v for n, v in values.items() if n.endswith('/global.utoc')}
-        # NTE publishes the current global import context with PatchPaks. Base
-        # globals are retained for historical/base-only releases, never combined.
-        global_name = ROOT + 'PatchPaks/global.utoc'
-        if global_name not in globals_:
-            global_name = ROOT + 'Paks/global.utoc'
-        pak.check(global_name in globals_ and not globals_[global_name].paths)
-        ordinary = {n: v for n, v in values.items() if n not in globals_}
-        _overlay(ordinary, lambda container: (p[0] for p in container.paths.values()))
-        selected = {global_name[len(ROOT):]: globals_[global_name]}
-        for name, container in ordinary.items():
-            # A table can import types/objects from a container with no table
-            # directory of its own. Register its checked index too; package
-            # bytes remain fetched only when the parser actually needs them.
-            if container.paths:
-                selected[name[len(ROOT):]] = container
-        pak.check(len(selected) > 1)
-        return selected
+        return container_context(values)
 
     def prefetch(self, paths):
         """Read adjacent bank blocks in bounded batches before parsing each bank."""

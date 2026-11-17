@@ -21,10 +21,10 @@ from types import SimpleNamespace
 REQUEST = {'region': 'global', 'source_locale': 'ja', 'target_locales': ['en'], 'content_mode': 'text'}
 
 
-@pytest.mark.parametrize('stage', ['archive-index-ranges', 'original-indices'])
+@pytest.mark.parametrize('stage', ['archive-index-ranges', 'original-indices', 'global-import-metadata'])
 def test_nonwindows_download_rejects_before_desktop_imports_even_for_a_foreign_stage(monkeypatch, stage):
     import backend
-    for name in ('nte_game_data_runtime', 'nte_game_data_content', 'nte_game_data_ranges'):
+    for name in ('nte_game_data_runtime', 'nte_game_data_content', 'nte_game_data_ranges', 'nte_game_data_iostore'):
         monkeypatch.delattr(backend, name, raising=False)
         monkeypatch.setitem(sys.modules, 'backend.'+name, None)
     ctx = SimpleNamespace(check=lambda: None)

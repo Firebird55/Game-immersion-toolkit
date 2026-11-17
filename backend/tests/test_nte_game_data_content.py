@@ -58,12 +58,21 @@ class Originals:
                 owner = 'Client/WindowsNoEditor/HT/Content/Paks/'+label+'.pak'
                 data[owner], data[owner[:-4]+'.sig'] = raw, signature(raw)
                 self.metadata_archives[label] = self.url('PC_100', hashlib.md5(raw).hexdigest(), len(raw))
-        self.expected_index_members = sum(name.endswith('.sig') for name in data)+3
+            from backend.tests.test_nte_publisher_iostore import fixture as iostore
+            global_toc, global_ucas = iostore(global_toc=True)
+            ordinary_toc, ordinary_ucas = iostore()
+            data.update({
+                'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': global_toc,
+                'Client/WindowsNoEditor/HT/Content/Paks/global.ucas': global_ucas,
+                'Client/WindowsNoEditor/HT/Content/Paks/owned.utoc': ordinary_toc,
+                'Client/WindowsNoEditor/HT/Content/Paks/owned.ucas': ordinary_ucas})
+        self.expected_index_members = sum(name.endswith(('.sig', '.utoc')) for name in data)+2
         xml = E.Element('ResList', version='1.2.3', tag='baseTag')
         for name, raw in data.items():
             E.SubElement(xml, 'Res', filename=name, filesize=str(len(raw)), md5=hashlib.md5(raw).hexdigest())
-        E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/global.ucas',
-                     filesize='500000', md5='b'*32)
+        if not selected_metadata:
+            E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/global.ucas',
+                         filesize='500000', md5='b'*32)
         xml = E.tostring(xml)
         compressed = zlib.compress(xml); pad = 16-len(compressed)%16
         envelope = b'PatcherXML0\0'+struct.pack('<I', len(xml))+AES.new(params.key, AES.MODE_CBC, params.iv).encrypt(
@@ -295,7 +304,14 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
         selected = {call['url'] for call in original.calls if call['range'] and call['url'] in original.metadata_archives.values()}
         assert selected >= {original.metadata_archives[label] for label in ('study', 'target', 'registry', 'subtitles')}
         following = service.plan('nte', request)['game']
-        assert not following['can_download'] and following['revision'].startswith('nte-archive-blocks-')
+        assert following['can_download'] and following['revision'].startswith('nte-global-metadata-')
+        before = len([call for call in original.calls if call['range']])
+        service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        state = finish(service)
+        assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
+        assert len([call for call in original.calls if call['range']]) == before+1
+        local = service.plan('nte', request)['game']
+        assert not local['can_download'] and local['revision'].startswith('nte-local-metadata-')
         assert not (original.root/'nte/current.json').exists()
     finally:
         service.close()

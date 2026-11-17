@@ -335,6 +335,18 @@ contracts retain their previous behavior. This strengthens local metadata
 validation; it does not establish a ready library or complete update/key-rotation
 support.
 
+The context-owned import stage also quotes the complete selected small global
+UCAS member before transfer. Its full manifest MD5 is necessary because global
+alignment padding is outside individual compression-block hashes. The owned
+IoStore reader and broker reject missing TOCs, blocks or global data instead of
+starting an independent publisher download. A retained Global 1.5.4 replay
+planned and accounted **6,962,762 bytes**, including the **6,651,504-byte** original
+global member and official-pointer guards. One checked response supplied that
+member from an existing original cache; no new network acquisition occurred.
+The stage retained the selected-metadata identity and remained unfinished local
+processing, with no ready library. Metadata-only inventory additionally forbids
+ordinary package-body access even when those blocks are cached.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

@@ -101,6 +101,11 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage == 'global-import-metadata':
+            reader = self._reader(ctx)
+            from . import nte_game_data_iostore as imports
+            return imports.download(plan, ctx, reader,
+                PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener))
         if plan.stage == 'archive-index-ranges':
             reader = self._reader(ctx)
             from . import nte_game_data_ranges as ranges
