@@ -1,0 +1,12 @@
+{
+  "schema": "toolkit-android-runtime-extensions-v1",
+  "base_policy": "packaging/android/python-dependencies.json",
+  "requirements": ["zstandard==0.25.0"],
+  "extensions": {
+    "zstandard": {
+      "recipe": "packaging/android/zstandard-native.json",
+      "builder": "scripts/build-android-zstandard.py",
+      "receipt": "zstandard-build-receipt.json"
+    }
+  }
+}

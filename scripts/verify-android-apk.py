@@ -1,6 +1,7 @@
 """Check an actual candidate APK as data, including nested Python native modules."""
 import argparse
 import hashlib
+import importlib.util
 import io
 import json
 from pathlib import Path
@@ -70,6 +71,7 @@ def verify_publisher_sources(archive, core, repository):
     if policy != expected or policy.get('schema') != 'toolkit-android-publisher-sources-v1' or policy.get('source_normalization') != 'utf8-lf':
         raise ValueError('The packaged publisher policy differs from the reviewed closure')
     declared = {'backend/' + name + '.py' for provider in policy['providers'].values() for name in provider['modules']}
+    declared |= {'backend/' + name + '.py' for name in policy.get('context_modules', {})}
     if declared != set(policy['files']) or not declared <= set(core['files']):
         raise ValueError('An actual publisher dependency is missing from the APK core')
     for name, receipt in policy['files'].items():
@@ -77,6 +79,29 @@ def verify_publisher_sources(archive, core, repository):
         if hashlib.sha256(raw).hexdigest() != receipt['sha256_lf']:
             raise ValueError('A publisher source changed without a closure review')
     return policy
+
+
+def verify_zstandard_package(archive, native_files, repository):
+    extension_raw = archive.read('assets/python-runtime-extensions.json')
+    if extension_raw != (repository / 'packaging/android/python-runtime-extensions.json').read_bytes():
+        raise ValueError('The native extension policy differs from reviewed source')
+    spec = importlib.util.spec_from_file_location('apk_runtime_extensions', repository / 'scripts/prepare-android-runtime-wheels.py')
+    software = importlib.util.module_from_spec(spec);spec.loader.exec_module(software)
+    _, pins = software.policy()
+    receipt = json.loads(archive.read('assets/zstandard-build-receipt.json'))
+    policy = software.validate_zstandard_receipt(receipt, pins)
+    if archive.read('assets/zstandard-authored-vectors.json') != (repository / 'packaging/android/zstandard-authored-vectors.json').read_bytes():
+        raise ValueError('The authored native-extension vectors changed')
+    with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
+        for abi, row in receipt['abis'].items():
+            name = 'assets/chaquopy/requirements-' + abi + '.imy/' + policy['native_member']
+            if name not in native_files or native_files[name]['sha256'] != row['native_sha256']:
+                raise ValueError('The actual packaged native extension differs from its compiled ABI receipt')
+            for member, expected in row['notices'].items():
+                raw = common.read('zstandard-0.25.0.dist-info/licenses/' + member)
+                if len(raw) != expected['bytes'] or hashlib.sha256(raw).hexdigest() != expected['sha256']:
+                    raise ValueError('The packaged complete original extension notices changed')
+    return receipt
 
 
 def verify(path):
@@ -113,6 +138,7 @@ def verify(path):
         repository = Path(__file__).resolve().parents[1]
         decoder = verify_decoder(archive, result, repository)
         publishers = verify_publisher_sources(archive, core, repository)
+        zstandard = verify_zstandard_package(archive, result, repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():
@@ -140,7 +166,7 @@ def verify(path):
     return {'schema': 'toolkit-android-apk-audit-v1', 'apk_sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest(),
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
-        'native_data_decoder': decoder,
+        'native_data_decoder': decoder, 'native_zstandard': zstandard,
         'publisher_source_policy': publishers,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}
 

@@ -1,4 +1,13 @@
 {
+  "context_modules": {
+    "sophon_assets": {
+      "dependencies": [
+        "python-stdlib",
+        "zstandard==0.25.0"
+      ],
+      "purpose": "Bounded checksummed original launcher manifests; no game-content runtime or provider registration."
+    }
+  },
   "excluded": {
     "endfield": "The reviewed factory requires the separate Windows decoder/hash runtime before any transfer.",
     "genshin": "The actual game-data factory and full source/runtime closure are not packaged.",
@@ -9,8 +18,8 @@
   },
   "files": {
     "backend/nte_game_data.py": {
-      "sha256_lf": "8d31a74f1165c8c6cb8e636f7a70d2a39f0aed3861fbda0129ee5750d20b370a",
-      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+      "sha256_lf": "6ab75e89665504dfcc3929585031cd790d4cebf146fbfb1ab964f3dcb7667cc7",
+      "source_commit": "072a85d9d1e5652d70f65c994de1711a3a71011c"
     },
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
@@ -25,8 +34,8 @@
       "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
     },
     "backend/nte_updater_source.py": {
-      "sha256_lf": "c137261ae4c0be100334e847292ebc1153b6174e16c9301df5827ab0df02b8bb",
-      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+      "sha256_lf": "f131125e80192913c51f282cc05a7c2721f4577b23ec02dfd2de550ab8a2cd47",
+      "source_commit": "0624af5548f16488cc1a5f1543cda0ef1043432d"
     },
     "backend/preparation_errors.py": {
       "sha256_lf": "ec7734a89a70a52ac3abea952b72a668d62f068c3a971dfa1a1e8ff137c8490b",
@@ -43,6 +52,10 @@
     "backend/reverse1999_release.py": {
       "sha256_lf": "0d824483917f55b2778621651da5bc8a4fe18a5577d721569a7b56b4729297e9",
       "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/sophon_assets.py": {
+      "sha256_lf": "64befcb85bd84c351b11ec28b52af4095a99c83caee66c1e1729a8426b069f5d",
+      "source_commit": "8be26e32d3a8992147d140d1ade3d45b2f7dbcd6"
     }
   },
   "forbidden_stage_imports": [
@@ -58,7 +71,10 @@
     "numpy",
     "clr",
     "pythonnet",
-    "backend.prepared_library"
+    "backend.prepared_library",
+    "backend.nte_game_data_runtime",
+    "backend.nte_game_data_content",
+    "backend.nte_game_data_ranges"
   ],
   "providers": {
     "nte": {

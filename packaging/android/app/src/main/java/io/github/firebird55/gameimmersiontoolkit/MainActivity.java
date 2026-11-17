@@ -64,6 +64,19 @@ public final class MainActivity extends Activity {
                     report.put("native_x64_decoder", new org.json.JSONObject(Python.getInstance().getModule("backend.android_x64_decoder")
                         .callAttr("authored_probe", ocr).toString()));
                     selfTestDiagnostic("native-data-decoder", "passed", null);
+                    selfTestDiagnostic("native-zstandard", "running", null);
+                    try (InputStream input = getAssets().open("zstandard-authored-vectors.json")) {
+                        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                        byte[] chunk = new byte[4096]; int count;
+                        while ((count = input.read(chunk)) != -1) {
+                            if (buffer.size() + count > 65536) throw new IllegalStateException();
+                            buffer.write(chunk, 0, count);
+                        }
+                        report.put("native_zstandard", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
+                            .callAttr("run_zstandard", new File(getCacheDir(), "zstandard-probe").getCanonicalPath(),
+                                buffer.toString("UTF-8")).toString()));
+                    }
+                    selfTestDiagnostic("native-zstandard", "passed", null);
                     selfTestDiagnostic("core", "passed", null);
                     selfTestDiagnostic("native-media", "running", null);
                     android.media.MediaPlayer player = new android.media.MediaPlayer();

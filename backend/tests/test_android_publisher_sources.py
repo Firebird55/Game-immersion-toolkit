@@ -29,9 +29,9 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999'}
-    assert len(policy['files']) == 9 and len(portable_sources()) == 63
+    assert len(policy['files']) == 10 and len(portable_sources()) == 64
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
-        module for provider in policy['providers'].values() for module in provider['modules']}
+        module for provider in policy['providers'].values() for module in provider['modules']} | set(policy['context_modules'])
     assert all(not provider['snapshot_runtime'] and provider['dependencies'] == ['python-stdlib']
         for provider in policy['providers'].values())
     for name, receipt in policy['files'].items():
@@ -80,6 +80,15 @@ class UnusedNative:
  def __getattribute__(self,name):raise AssertionError('A pure stage queried a native service')
 providers=create_game_data_providers(platform='android',native=UnusedNative())
 assert set(providers)=={'nte','reverse1999'}
+assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
+# A mismatched late-stage call must fail at the Android gate before a desktop
+# source module import, including when these modules do not exist in the APK.
+from types import SimpleNamespace
+from backend.game_data_protocol import GameDataError
+for stage in ('original-indices','archive-index-ranges'):
+ try:providers['nte'].download(SimpleNamespace(stage=stage),SimpleNamespace(check=lambda:None))
+ except GameDataError as error:assert error.code=='nte_reader_unavailable'
+ else:raise AssertionError('Android admitted a desktop-only continuation')
 assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
 class Response(io.BytesIO):
  status=200
@@ -153,6 +162,6 @@ def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_netwo
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 63 and proof['registry'] == ['nte','reverse1999']
+    assert proof['owned_modules'] == 64 and proof['registry'] == ['nte','reverse1999']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['native_android_execution'] is False

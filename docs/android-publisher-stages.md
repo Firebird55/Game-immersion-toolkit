@@ -1,16 +1,20 @@
 # Reviewed Android publisher stages
 
 `packaging/android/publisher-sources.json` is the explicit maintained-source
-closure. It pins nine original toolkit modules from reviewed commits, by
+closure. It pins ten original toolkit modules from reviewed commits, by
 SHA-256 after UTF-8 CRLF-to-LF normalization. The ordinary APK source manifest
 separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
-Together with the existing 54 core/host/decoder modules, this policy selects 63
+Together with the existing 54 core/host/decoder modules, this policy selects 64
 owned modules. These two factories require only CPython's standard library.
-There are no new third-party wheels or notices; the toolkit's own source license
-applies. Original client artifacts acquired later are private input data, not
+One additional context-only module, `sophon_assets`, reads bounded checksummed
+launcher manifests using the reviewed [Zstandard native cohort](android-zstandard.md).
+It does not register another provider. The two factories still import only the
+standard library on their Android stages; their later Windows source modules
+are refused before import. The toolkit's own source license applies to these
+owned modules; the Zstandard wheels retain their separate original notices. Original client artifacts acquired later are private input data, not
 application libraries or shipped game code.
 
 | Game | Packaged stage | Remaining boundary |
@@ -32,3 +36,26 @@ exercise the real registry, service and context-owned transport against authored
 publisher responses. A successful host fixture is source/behavior evidence;
 Android stage execution still requires a new APK and an actual Android runtime
 proof. The earlier 54-module decoder candidate remains a separate artifact.
+
+The current reviewed baseline is source cohort `0624af55`; NTE's factory also
+includes `072a85d9` from its later archive-index continuation cohort. The two
+Android late-stage negative cases exercise this native-host gate even when a
+caller supplies a mismatched original-index stage. Updating a source pin does
+not package the Windows managed reader, archive stages or their dependencies.
+Sophon uses the same context-isolated source and byte-window fix as `8be26e32`.
+
+The remaining per-game Android gates are deliberately distinct:
+
+| Game | Required work beyond this software cohort |
+| --- | --- |
+| ZZZ | Original bootstrap RSA/Brotli dependencies, then a verified Android original-asset reader; audio also needs the original Wwise decoder/encoder bridge. |
+| Genshin | A complete context-isolated factory and original source route, then an Android BLB decoder/typed parameter contract; Capstone and Zstandard alone do not implement the Windows managed helper. |
+| Star Rail | Context-isolated source/schema preparation and actual Android metadata/archive runtime; original audio preparation remains separate. |
+| Endfield | Original source authentication, XXH3/ChaCha20 and resource-producer import isolation; the current factory keeps its explicit non-Windows gate. Original voice codecs remain separate. |
+| Wuthering Waves | Reviewed bootstrap crypto/APK/ELF closure and original protected-manifest parameters. Publisher table authoring is Python SQLite/FlatBuffer, while compressed members need an Android Oodle adapter and original audio needs a decoder/encoder. |
+| Infinity Nikki | A reviewed provider factory plus authenticated acquire/overlay/text/binding stages, crypto and an Android compressed-member adapter. The original data readers alone are not a ready library. |
+
+These boundaries apply to both Text only and Text + audio. No text-only stage
+may acquire optional voice banks, and a mixed bootstrap carrier must disclose
+its full transport/storage cost before transfer. No new full-game, network or
+Android stage execution acceptance follows from the 64-source package policy.

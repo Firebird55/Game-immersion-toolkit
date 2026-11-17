@@ -65,11 +65,11 @@ jobs:
           # a host-only reference prerequisite, never copied into the APK.
           python -m pip install -r requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_android_game_parity.py backend/tests/test_android_authored_accounts.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
+          python -m pytest -q backend/tests/test_android_runtime_wheels.py backend/tests/test_android_zstandard_recipe.py backend/tests/test_android_publisher_sources.py backend/tests/test_sophon_context_transport.py backend/tests/test_sophon_pure_import.py backend/tests/test_nte_game_data.py backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_android_game_parity.py backend/tests/test_android_authored_accounts.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py backend/tests/test_prepared_training_parity.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
+          node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
@@ -92,7 +92,15 @@ jobs:
           rustup toolchain install 1.95.0 --profile minimal --target aarch64-linux-android --target x86_64-linux-android
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:RUSTUP_TOOLCHAIN = '1.95.0'
-          python scripts/build-android-python-dependencies.py --work-dir output/android-dependencies --wheelhouse output/android-wheelhouse --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --download
+          python scripts/build-android-python-dependencies.py --work-dir output/android-dependencies --wheelhouse output/android-base-wheelhouse --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --download
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build reviewed Zstandard ABIs and compose immutable software cohorts
+        run: |
+          python -c "import importlib.util,json;from pathlib import Path;p=Path('scripts/build-android-python-dependencies.py');s=importlib.util.spec_from_file_location('software_inputs',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);v=json.loads(Path('packaging/android/zstandard-native.json').read_text());m.acquire(Path('output/android-zstandard'),{'artifact':'zstandard-0.25.0.tar.gz',**v},download=True)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/build-android-zstandard.py --work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --ndk-root "$env:ANDROID_HOME/ndk/27.3.13750724" --ndk-archive output/android-dependencies/android-ndk-r27d-windows.zip --python-archives output/android-dependencies
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/prepare-android-runtime-wheels.py --base-wheelhouse output/android-base-wheelhouse --zstandard-work-dir output/android-zstandard --source-archive output/android-zstandard/zstandard-0.25.0.tar.gz --output output/android-wheelhouse
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build the same maintained desktop reader
         run: npm run desktop:build -- --output-root output/android-frontend
@@ -132,6 +140,8 @@ jobs:
             output/android-update/apk-signature.txt
             output/android-update/apk-owned-core-proof.json
             output/android-wheelhouse/python-wheels-receipt.json
+            output/android-wheelhouse/python-base-wheels-receipt.json
+            output/android-wheelhouse/zstandard-build-receipt.json
   runtime:
     needs: construct
     runs-on: ubuntu-24.04

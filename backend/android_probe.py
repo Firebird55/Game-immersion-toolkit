@@ -195,6 +195,64 @@ def run_ocr(root, raw):
         'voice_status': confirmed[0]['voice_status'], 'original_audio_available': session.audio_path(confirmed[0]['id']).is_file()})
 
 
+def run_zstandard(root, vectors_json):
+    """Load the actual C extension and exercise bounded authored manifests.
+
+    The Android debug host supplies its pinned authored asset. This function
+    has no publisher network access and does not register a ready game source.
+    """
+    import zstandard
+    from zstandard import backend_c
+    from . import sophon_assets
+    if len(vectors_json) > 64 * 1024:
+        raise ValueError('Authored native extension fixture exceeds its bound')
+    vectors = json.loads(vectors_json)
+    if (zstandard.__version__ != vectors['version'] or zstandard.backend != 'cext'
+            or list(zstandard.ZSTD_VERSION) != vectors['zstd'] or not 1 <= len(vectors['cases']) <= 32):
+        raise ValueError('The actual pinned native Zstandard backend is required')
+    native = Path(backend_c.__file__)
+    if native.suffix not in {'.so', '.pyd'} or not 1 <= native.stat().st_size <= 2 * 1024**2:
+        raise ValueError('The actual native extension is absent')
+    results = []
+    for case in vectors['cases']:
+        frame = bytes.fromhex(case['frame_hex'])
+        expected = case['result']
+        try:
+            raw = zstandard.ZstdDecompressor(max_window_size=case['max_window_size_bytes']).decompress(
+                frame, max_output_size=case['max_output_size'], allow_extra_data=False)
+        except (zstandard.ZstdError, ValueError) as error:
+            if expected['accepted'] or type(error).__name__ != expected['error']:
+                raise ValueError('The native extension rejected a valid authored manifest') from error
+            result = {'name':case['name'], 'accepted':False, 'error':type(error).__name__}
+        else:
+            digest = hashlib.sha256(raw).hexdigest()
+            if not expected['accepted'] or len(raw) != expected['bytes'] or digest != expected['sha256']:
+                raise ValueError('The native extension returned different authored bytes')
+            result = {'name':case['name'], 'accepted':True, 'bytes':len(raw), 'sha256':digest}
+        results.append(result)
+    unknown = next(case for case in vectors['cases'] if case['name'] == 'unknown')
+    frame = bytes.fromhex(unknown['frame_hex'])
+    payload = zstandard.ZstdDecompressor(max_window_size=unknown['max_window_size_bytes']).decompress(
+        frame, max_output_size=unknown['max_output_size'], allow_extra_data=False)
+    cache = Path(root);cache.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.md5(payload).hexdigest();calls = []
+    def fetch(url, *, limit):
+        if url != 'https://publisher.invalid/authored' or limit != len(frame):
+            raise ValueError('Unexpected authored manifest request')
+        calls.append(True);return frame
+    def no_fetch(*args, **kwargs): raise ValueError('A verified cached manifest attempted a transfer')
+    actual = sophon_assets._verified(cache, 'https://publisher.invalid/authored', len(frame), len(payload),
+        digest, sophon_assets.MAX_CHUNK, fetch=fetch)
+    cached = sophon_assets._verified(cache, 'https://publisher.invalid/authored', len(frame), len(payload),
+        digest, sophon_assets.MAX_CHUNK, fetch=no_fetch)
+    if actual != payload or cached != payload or len(calls) > 1:
+        raise ValueError('The shared bounded manifest/cache contract failed')
+    return json.dumps({'fixture':'authored-native-zstandard-manifests', 'version':zstandard.__version__,
+        'zstd':list(zstandard.ZSTD_VERSION), 'backend':zstandard.backend,
+        'native_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
+        'cases':results, 'sophon_context_and_offline_cache':True, 'publisher_requests':0})
+
+
 def run_preview(native):
     """Exercise actual Android bitmap/JPEG crops using the shared geometry."""
     from .capture_geometry import picture_bounds, region_bounds

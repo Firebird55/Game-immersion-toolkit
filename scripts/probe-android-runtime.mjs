@@ -1,3 +1,4 @@
+import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 // Authored fixtures only. The APK runs the production shared Python core and UI.
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -106,6 +107,7 @@ function assertProtectedStorage(report) {
 }
 assertProtectedStorage(core.native_protected_storage);
 assertNativeDataDecoder(core.native_x64_decoder, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_data_decoder, provenance.native_decoder_manifest_sha256);
+assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_zstandard);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -258,6 +260,7 @@ const upgradedCore = await authoredCore(update.version_code, core.self_test_run_
 ({browser, page} = await connectReader());
 assertProtectedStorage(upgradedCore.native_protected_storage);
 assertNativeDataDecoder(upgradedCore.native_x64_decoder, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_data_decoder, update.native_decoder_manifest_sha256);
+assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);

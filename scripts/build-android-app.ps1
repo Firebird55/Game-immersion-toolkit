@@ -52,14 +52,10 @@ if($DownloadDecoderSource){$decoderArgs+='--download'}
 & $Python @decoderArgs
 if($LASTEXITCODE -ne 0){throw 'The authenticated original-data decoder software build failed.'}
 $env:ANDROID_DATA_DECODERS=$decoderRoot
+& $Python (Join-Path $PSScriptRoot 'prepare-android-runtime-wheels.py') --verify $Wheelhouse
+if($LASTEXITCODE -ne 0){throw 'Compose the reviewed base and native-extension cohorts into a new Android runtime wheelhouse.'}
 $receipt=Get-Content -LiteralPath (Join-Path $Wheelhouse 'python-wheels-receipt.json') -Raw | ConvertFrom-Json
 $policyHash=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/python-dependencies.json') -Algorithm SHA256).Hash.ToLowerInvariant()
-if($receipt.policy_sha256 -ne $policyHash -or $receipt.schema -ne 'toolkit-android-python-wheels-v1') {throw 'Android wheels do not match the source build policy.'}
-foreach($file in $receipt.files.PSObject.Properties) {
-    if([IO.Path]::GetFileName($file.Name) -ne $file.Name -or $file.Name -notlike '*.whl') {throw 'Unsafe wheel resource.'}
-    $path=Join-Path $Wheelhouse $file.Name
-    if((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() -ne $file.Value) {throw 'An Android Python wheel changed.'}
-}
 $frontendManifest=Get-Content -LiteralPath (Join-Path $Frontend 'desktop-manifest.json') -Raw | ConvertFrom-Json
 if($frontendManifest.runtime -ne 'static-local-no-node') {throw 'The actual shared desktop frontend is required.'}
 Push-Location -LiteralPath $sourceRoot
@@ -142,7 +138,7 @@ if($LASTEXITCODE -ne 0){throw 'The actual APK-owned Python package failed deskto
 if((& git -C $sourceRoot rev-parse HEAD).Trim() -ne $head){throw 'The source commit changed during the build.'}
 $destination=Join-Path $BuildRoot "GameImmersionToolkit-android-$Variant.apk"
 Copy-Item -LiteralPath $apk -Destination $destination -Force
-$proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;native_decoder_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $decoderRoot 'assets/native-decoder-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();publisher_source_policy_sha256=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/publisher-sources.json') -Algorithm SHA256).Hash.ToLowerInvariant();application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
+$proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;python_runtime_extensions_policy_sha256=$receipt.extension_policy_sha256;zstandard_receipt_sha256=$receipt.zstandard_receipt_sha256;native_decoder_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $decoderRoot 'assets/native-decoder-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();publisher_source_policy_sha256=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/publisher-sources.json') -Algorithm SHA256).Hash.ToLowerInvariant();application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'
 } finally {

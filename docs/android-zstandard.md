@@ -39,3 +39,25 @@ APK. A later coherent APK must verify the actual native module, its version,
 backend and fixture results on the Android targets. Sophon import isolation,
 remaining crypto/managed/codec runtimes and full game preparation are separate
 work; this dependency alone enables no game to report Ready.
+
+## Controlled APK integration
+
+`packaging/android/python-runtime-extensions.json` adds the exact
+`zstandard==0.25.0` requirement without changing the original matching/account
+build policy. `scripts/prepare-android-runtime-wheels.py` creates a **new**
+wheelhouse from the two verified cohorts. It preserves the base receipt bytes,
+authenticates the original Zstandard source, checks both native ABI/CPython
+supplier contracts, the common original NDK inventory, complete notices and
+wheel records, and writes an explicit combined lock and versioned receipt.
+Unknown wheels, changed locks, changed recipes and missing ABIs are refused.
+The build entrypoint requires that composite receipt; the existing baseline
+wheelhouse and the physically tested 54-module APK remain unchanged.
+
+The package audit requires the actual two compiled native module hashes,
+original notices and reviewed source/extension/vector assets. The debug-only
+native selftest loads the real C backend, checks all nine authored bounded
+vectors and exercises the shared Sophon manifest/cache path without publisher
+network calls. The target assertion binds its reported native module hash to
+one of the exact audited APK ABI hashes. This acceptance code is prepared for
+a later coherent APK; no APK or target execution of this new cohort has yet
+been established by these source, wheel or host-reference checks.

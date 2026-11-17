@@ -10,7 +10,7 @@ if (!decoderBundle || !new File(decoderBundle, 'assets/native-decoder-manifest.j
 if (!readerFrontend || !new File(readerFrontend, 'desktop-manifest.json').isFile()) {
     throw new GradleException('Build the actual shared desktop reader before constructing Android.')
 }
-if (!wheelhouse || !new File(wheelhouse, 'requirements-android.lock.txt').isFile()) {
+if (!wheelhouse || !new File(wheelhouse, 'requirements-android.lock.txt').isFile() || !new File(wheelhouse, 'zstandard-build-receipt.json').isFile()) {
     throw new GradleException('Prepare the verified offline Android Python wheelhouse first.')
 }
 def generatedPython = layout.buildDirectory.dir('generated/toolkit-python')
@@ -107,6 +107,9 @@ tasks.register('prepareToolkitReader') {
     inputs.dir(readerFrontend)
     inputs.dir(new File(decoderBundle, 'assets'))
     inputs.file(publisherPolicyFile)
+    inputs.file(new File(wheelhouse, 'zstandard-build-receipt.json'))
+    inputs.file(new File(repository, 'packaging/android/python-runtime-extensions.json'))
+    inputs.file(new File(repository, 'packaging/android/zstandard-authored-vectors.json'))
     portableSources.each { inputs.file(new File(repository, 'backend/' + it)) }
     outputs.dir(generatedAssets)
     doLast {
@@ -115,6 +118,9 @@ tasks.register('prepareToolkitReader') {
         output.mkdirs()
         copy { from new File(decoderBundle, 'assets'); into output }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
+        copy { from new File(wheelhouse, 'zstandard-build-receipt.json'); into output }
+        copy { from new File(repository, 'packaging/android/python-runtime-extensions.json'); into output }
+        copy { from new File(repository, 'packaging/android/zstandard-authored-vectors.json'); into output }
         // AAPT drops _next directories and expands .gz assets. One opaque
         // archive preserves the exact maintained desktop reader inventory.
         new java.util.zip.ZipOutputStream(new FileOutputStream(new File(output, 'reader.bundle'))).withCloseable { zip ->

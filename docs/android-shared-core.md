@@ -62,7 +62,7 @@ disabled. The removed private-library onboarding, Migaku choice and Stop screen
 control were absent. USB-awake settings were restored after verification.
 
 These results establish this specific 54-module authored checkpoint. They do
-not establish the later [63-module publisher-stage policy](android-publisher-stages.md),
+not establish the later [publisher-stage source policies](android-publisher-stages.md),
 x86_64 or 16-KiB-page execution, network-blocked operation, actual Android HTTPS,
 independent game preparation, real-corpus coverage or iOS gameplay transport.
 No app release or complete eight-game support follows from this result.
