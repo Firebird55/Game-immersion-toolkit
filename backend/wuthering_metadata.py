@@ -159,8 +159,20 @@ def remember_parameter(tools, parameter, *, native_guid=None, default_verified=F
 
 
 def format_source(tools, digest):
-    raw = _read(_path(tools, 'catalog-format'))
-    return raw if raw and hashlib.sha256(raw).hexdigest() == digest else None
+    from .preparation_errors import PreparationFailure
+    path = _path(tools, 'catalog-format')
+    raw = _read(path)
+    if raw is None or not raw:
+        if path.exists():
+            raise PreparationFailure('publisher_entry_cache_invalid',
+                'The retained Wuthering ENTRY key/IV input cannot be verified. Existing prepared text and audio are unchanged.',
+                previous_snapshot_retained=True)
+        return None
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise PreparationFailure('publisher_entry_cache_generation_mismatch',
+            "The retained Wuthering ENTRY input does not match this reader's required source revision. Verify its cache/source before updating; existing text and audio are unchanged.",
+            previous_snapshot_retained=True)
+    return raw
 
 
 def remember_format(tools, raw, digest):

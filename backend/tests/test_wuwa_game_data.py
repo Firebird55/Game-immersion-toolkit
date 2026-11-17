@@ -207,3 +207,19 @@ def test_selected_module_limit_is_rejected_before_whole_carrier_acquisition(tmp_
     with pytest.raises(ValueError): provider.create_provider('android').plan(ctx.request, ctx)
     assert all(request.get_header('Range') or request.full_url.startswith(provider._source().CATALOGUE) for request in calls)
     assert not list(ctx.cache_directory.rglob('*.json'))
+
+
+def test_quote_restore_never_claims_that_its_original_module_is_verified(tmp_path, original):
+    _module, _apk, calls, controls = original
+    ctx = Context(tmp_path)
+    adapter = provider.create_provider('android')
+    plan = adapter.plan(ctx.request, ctx)
+    count = len(calls)
+    controls['offline'] = True
+    with pytest.raises(GameDataError) as error:
+        adapter.restore(plan.handle, ctx)
+    assert error.value.code == 'publisher_bootstrap_incomplete'
+    assert 'not been verified' in str(error.value)
+    assert provider.FORMAT_MESSAGE not in str(error.value)
+    assert len(calls) == count
+    assert not list(ctx.cache_directory.rglob('module.so'))

@@ -233,8 +233,10 @@ class WutheringGameDataProvider:
 
     def restore(self, handle, ctx):
         _handle(handle, ctx.request)
-        if handle['stage'] == 'manifest-format':
-            _retained(ctx, handle)
+        if handle['stage'] == 'bootstrap':
+            raise GameDataError('publisher_bootstrap_incomplete',
+                'The original bootstrap download has not been verified. Complete its download stage before preparing language data; existing data is unchanged.', 409)
+        _retained(ctx, handle)
         raise GameDataError('publisher_format_key_unresolved', FORMAT_MESSAGE, 409)
 
 
