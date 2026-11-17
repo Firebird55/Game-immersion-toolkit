@@ -68,7 +68,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_native_frame_admission.py backend/tests/test_android_account_recovery.py backend/tests/test_android_default_startup.py backend/tests/test_browser_history_migration.py backend/tests/test_android_file_picker.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
+          node --test tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()
@@ -80,7 +80,7 @@ jobs:
       - name: Acquire authenticated original Android compiler
         run: |
           $sdk = $env:ANDROID_HOME
-          & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" 'platforms;android-34' 'build-tools;36.0.0'
+          & "$sdk/cmdline-tools/latest/bin/sdkmanager.bat" 'platforms;android-36' 'build-tools;36.0.0'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python scripts/prepare-android-ndk.py --work-dir output/android-dependencies --sdk-root $sdk
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -134,6 +134,10 @@ jobs:
   runtime:
     needs: construct
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 36]
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
@@ -163,8 +167,10 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Execute actual offline Android shared core, native OCR and reader restart
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          TOOLKIT_ANDROID_EXPECTED_API: ${{ matrix.api }}
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           target: google_apis
           arch: x86_64
           profile: pixel_6
@@ -174,7 +180,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-shared-core-runtime
+          name: android-shared-core-runtime-api-${{ matrix.api }}
           if-no-files-found: warn
           retention-days: 7
           path: output/android-runtime/

@@ -31,6 +31,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        if (android.os.Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(false);
         TextView loading = new TextView(this);
         loading.setText("Opening Game Immersion Toolkit…");
         loading.setPadding(32, 48, 32, 32);
@@ -240,7 +241,20 @@ public final class MainActivity extends Activity {
                 return true;
             }
         });
-        setContentView(reader);
+        android.widget.FrameLayout surface = new android.widget.FrameLayout(this);
+        surface.addView(reader, new android.widget.FrameLayout.LayoutParams(-1, -1));
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            surface.setOnApplyWindowInsetsListener((view, insets) -> {
+                android.graphics.Insets safe = insets.getInsets(android.view.WindowInsets.Type.systemBars()
+                    | android.view.WindowInsets.Type.displayCutout() | android.view.WindowInsets.Type.ime());
+                // Keep shared controls and the complete WebView viewport clear
+                // of system bars, cutouts and the keyboard after every resize.
+                view.setPadding(safe.left, safe.top, safe.right, safe.bottom);
+                return android.view.WindowInsets.CONSUMED;
+            });
+        }
+        setContentView(surface);
+        surface.requestApplyInsets();
         CookieManager.getInstance().setCookie(origin, sessionCookie, accepted -> {
             if (reader != null && !isFinishing() && !isDestroyed()) reader.loadUrl(address);
         });

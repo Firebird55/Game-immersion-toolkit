@@ -10,6 +10,7 @@ import {createAuthoredRuntimeDiagnostics, authoredReceiverLibraryReady} from './
 import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './android-authored-account-ui.mjs';
 import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} from './android-browser-migration-ui.mjs';
 import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
+import {verifyAuthoredReaderInsets} from './android-authored-reader-insets.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -61,6 +62,13 @@ assert.ok(Number.isInteger(provenance.version_code) && provenance.version_code >
 assert.ok(Number.isInteger(update.version_code) && update.version_code > provenance.version_code);
 const expected = JSON.parse(readFileSync(join(directory, 'desktop-core-proof.json'), 'utf8'));
 adb('install', '-r', apk);
+const buildPolicy = JSON.parse(readFileSync(new URL('../packaging/android/build-inputs.json', import.meta.url), 'utf8'));
+const deviceApi = Number(adb('shell', 'getprop', 'ro.build.version.sdk'));
+const pageSize = Number(adb('shell', 'getconf', 'PAGESIZE'));
+assert.ok(Number.isInteger(deviceApi) && deviceApi >= buildPolicy.min_sdk);
+assert.ok([4096, 16384].includes(pageSize));
+if (process.env.TOOLKIT_ANDROID_EXPECTED_API) assert.equal(deviceApi, Number(process.env.TOOLKIT_ANDROID_EXPECTED_API));
+assert.match(adb('shell', 'dumpsys', 'package', packageName), new RegExp(`targetSdk=${buildPolicy.target_sdk}(?:\\s|$)`));
 // Nothing in first launch may depend on a PC, model download or hosted reader.
 adb('root');adb('wait-for-device');
 assert.equal(adb('shell', 'id', '-u'), '0');
@@ -136,6 +144,11 @@ assert.equal(normalStartup.snapshot.lexirise.configured, false);
 assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalStartup.accounts.profiles, []);
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
+const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName});
+writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
+  source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, ...insets,
+  fixture: 'authored-emulator-reader-before-personal-data', physical_device_acceptance: 'not-established',
+}, null, 2) + '\n');
 await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip',
   bytes: readFileSync(join(directory, 'authored-library.zip')),
   trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
@@ -273,6 +286,7 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,
   application_id: packageName, version_code: provenance.version_code, variant: provenance.variant,
+  android_api_level: deviceApi, native_page_size: pageSize, target_sdk: buildPolicy.target_sdk,
   updated_apk_sha256: update.apk_sha256, updated_version_code: update.version_code,
   shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
   synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
@@ -283,5 +297,6 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   normal_protected_accounts_available: true, normal_unconfigured_library_works_offline: true,
   ordinary_startup_browser_history_migration: true,
   actual_android_saf_zip_and_json_selection: true,
+  system_insets_and_rotation: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
 console.log('Authored shared-core, bundled OCR, original audio and reader restart accepted on the Android emulator.');

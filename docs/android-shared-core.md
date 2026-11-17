@@ -256,8 +256,12 @@ picker and real-account writes are not established by this scenario. Its native
 acceptance requires a successful matching workflow run and runtime proof.
 The authored protected-account UI/recovery scenario passed on actual Android in
 [run 44038164999](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44038164999)
-at `cc0bf061`. Normal account activation is a later cohort and needs its own
-matching runtime proof; real account writes and physical devices remain separate.
+at `cc0bf061`. Normal protected-account startup and the ordinary shared-UI history
+migration subsequently passed at `ea395b1f` in
+[run 44050647499](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44050647499),
+including retained original voice/favorite, offline restart and an actual
+same-signer APK update. Both cohorts used API 34 x86_64; real account writes,
+native document-picker behavior and physical devices remain separate.
 
 The normal-startup cohort additionally uses the real browser-history exporter
 whitelist to create a bounded, mixed-language authored backup. Actual shared UI
@@ -274,6 +278,41 @@ Android's DocumentsUI, selects each disposable authored file from Downloads and
 returns its content URI to the real WebView import control. This additional SAF
 scenario needs matching target evidence; direct File injection from earlier
 cohorts did not establish native picker behavior.
+
+## Recent Android compatibility
+
+Reviewed 2026-11-17: the host uses standard Android APIs, with no device-model
+branch. Its compile/target SDK is now 36 with AGP 8.10.1 and checksum-pinned
+Gradle 8.11.1, the combination supported by the
+[Android plugin compatibility table](https://developer.android.com/build/releases/agp-8-10-0-release-notes).
+[Chaquopy 17.2](https://chaquo.com/chaquopy/doc/current/android.html) supplies Python
+3.12.15 for arm64-v8a and x86_64; both native dependency sets are built from the
+same pinned source. The dependency floor remains API 24, and does not establish
+runtime acceptance on old Android versions. No 32-bit variant is provided.
+The four [bundled ML Kit 16.0.1 recognizers](https://developers.google.com/ml-kit/vision/text-recognition/v2/android)
+cover Latin, Chinese, Japanese and Korean without a model download.
+
+Targeting current Android requires handling
+[enforced edge-to-edge layouts](https://developer.android.com/develop/ui/views/layout/edge-to-edge).
+The native parent applies current system-bar, display-cutout and keyboard insets
+around the shared WebView after layout changes. The authored native probe checks
+actual portrait/landscape/portrait reader bounds and uses the real DocumentsUI
+picker for both ZIP and JSON. These new cases have no target pass until their
+matching workflow completes.
+
+| Runtime | Evidence |
+| --- | --- |
+| API 34 / x86_64 | Earlier continuity, protected-account and normal-startup/migration cohorts passed; SDK-36 host changes require a fresh pass. |
+| API 36 / x86_64 | New hosted matrix entry; runtime, insets, picker, offline capture, accounts and updates pending. |
+| arm64-v8a | Actual APK/native-source/ELF/signature audits; physical ARM64 runtime pending. |
+| Physical recent Android | Pending device acceptance; an emulator profile is not a manufacturer certification. |
+
+The official stable Google APIs emulator feed currently supplies API 36; it has
+no API 37 x86_64 entry in that feed. The candidate therefore tests the available
+stable image rather than claiming an unavailable image. The probe records the
+actual device API and native page size. Every APK retains the existing
+[16-KiB native ELF and ZIP checks](https://developer.android.com/guide/practices/page-sizes),
+including bundled SDK libraries; x86_64 execution does not prove ARM64 execution.
 
 Recovery reference evidence distinguishes the actual Windows build host
 (Python 3.12.10 / SQLite 3.49.1) from the local reference interpreter
