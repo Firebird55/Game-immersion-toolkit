@@ -13,8 +13,6 @@ from urllib.parse import urlencode
 
 from .endfield_client_source import identity_stamp
 from .endfield_game_data import CHANNELS
-from .endfield_akpk_witness import voice_block
-from .endfield_akpk_controls import MAX_CONTROL
 from . import endfield_vfs as vfs
 
 DETAIL_LIMIT = 2 * 1024**2
@@ -76,6 +74,8 @@ def discover(ctx, identity, transport):
 
 
 def control_plan(ctx, identity, common, generation, transport):
+    from .endfield_akpk_witness import voice_block
+    from .endfield_akpk_controls import MAX_CONTROL
     Error = _error()
     ctx.check()
     if ctx.game != 'endfield' or ctx.request.content_mode != 'text-audio':
@@ -112,6 +112,8 @@ def control_plan(ctx, identity, common, generation, transport):
 
 
 def download_control(ctx, identity, common, plan, index, transport):
+    from .endfield_akpk_witness import voice_block
+    from .endfield_akpk_controls import MAX_CONTROL
     Error = _error()
     ctx.check()
     if ctx.phase != 'download' or ctx.request.content_mode != 'text-audio':

@@ -232,3 +232,24 @@ def test_provider_uses_same_original_text_stage_with_separate_audio_witness(orig
     if mode == 'text-audio':
         assert result.restore_handle['source']['witness'] == continuation['witness']
     assert not any('Audio' in url or url.endswith('.dll') for url in original.calls)
+
+
+def test_cold_text_reader_import_does_not_require_audio_parameter_or_signature_software():
+    import subprocess
+    import sys
+    script = '''
+import importlib.abc, sys
+class Guard(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.startswith('backend.endfield_akpk_') or fullname in {
+            'backend.endfield_native_source', 'backend.endfield_native_import',
+            'backend.endfield_publisher_signature', 'backend.genshin_native_x64',
+            'backend.game_tools', 'backend.voice_assets', 'backend.prepared_library'}:
+            raise AssertionError('Text source attempted unused audio/desktop software: ' + fullname)
+sys.meta_path.insert(0, Guard())
+from backend.endfield_text_source import Catalog, plan, download
+from backend.endfield_resource_source import discover
+assert callable(plan) and callable(download) and callable(discover)
+'''
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, check=False)
+    assert result.returncode == 0, result.stderr

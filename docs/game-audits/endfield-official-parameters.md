@@ -372,6 +372,13 @@ dependencies, selected-dub materialization and host/device acceptance remain
 open. No full current catalog download, Android execution or end-user Ready
 state is claimed by these source checks.
 
+The shared resource/text readers now defer AKPK parameter and signature-source
+imports until the dedicated audio-control functions run. A genuine cold-process
+test refuses those imports, desktop tool setup and voice/export dependencies
+while importing the text catalog and resource discovery. All 38 affected text,
+resource and provider-continuation tests pass after this isolation; it does not
+remove the factory's explicit host/runtime gate or establish Android support.
+
 ### Remaining AES/header source boundary — November 17
 
 A bounded original-source pass spent 4,070 bytes of its 8-KiB allowance and
