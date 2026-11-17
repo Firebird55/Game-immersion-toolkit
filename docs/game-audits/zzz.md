@@ -1,5 +1,63 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Current preparation, acceptance and configuration-only research
+
+The 333 unresolved paths below are **configuration-only references whose
+current use has not been demonstrated**. They are a separate, nonblocking
+research inventory. They are not confirmed cut content, confirmed unvoiced
+dialogue, or a reason to keep searching every retained graph. A demonstrated
+active presentation with missing/wrong audio or capture remains a coverage
+defect regardless of this classification.
+
+The complete current Global Japanese reader-22 snapshot contains the following
+prepared inventory. This describes actual production output, not the number of
+reachable gameplay presentations or a claim of complete voice coverage.
+
+| Presentation | Prepared records | Voiced | Confirmed unvoiced | Unavailable | Unknown |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Conversations | 158,513 | 55,898 | 98,832 | 2,688 | 1,095 |
+| Ambient | 32,654 | 12,721 | 17,302 | 342 | 2,289 |
+| Gameplay-tip records | 13,884 | 5,536 | 7,220 | 340 | 788 |
+| Choices | 67,203 | 0 | 0 | 2 | 67,201 |
+| Narration | 3,602 | 559 | 2,388 | 31 | 624 |
+| Cutscene captions | 1,940 | 954 | 0 | 572 | 414 |
+| Motion-comic captions | 2,691 | 2,025 | 0 | 2 | 664 |
+| Messages | 9,480 | 9 | 9,469 | 0 | 2 |
+
+In particular, **572 unavailable and 414 unknown cutscene captions** remain in
+the prepared output. They are not the 333 absent configuration paths and must
+not be relabeled as legacy, unvoiced or covered. The current preparation still
+reports incomplete movie/timeline coverage. Unsupported layouts, conflicting
+player uses and unresolved original audio ownership stay gated; no missing
+clip is replaced with a neighboring sentence or another player/dub.
+
+Re-reading the same 404 authenticated current timeline containers separates
+those 986 entries: **568** share caption IDs across different authored events
+(including B/G variants) and are held back by the player-ambiguity guard;
+**414** lack a supported unique original event; **four** older `CS_…:M/F`
+records come from outside that explicit subtitle-track inventory and retain
+their own unresolved source. These are finite source/output categories, not
+proof that every referenced film is active or that every gated entry lacks an
+original recording. No player is inferred from an event-name suffix.
+
+The finite acceptance checklist is:
+
+- Keep current-source preparation and the explicit unresolved output above
+  visible; resolve any demonstrated active failure before claiming that mode
+  complete. Configuration membership alone cannot establish that failure.
+- Use the existing current Global four-dub preparation/context proofs and the
+  independent mainland Japanese preparation/B/G playback proof below for the
+  regional and player representatives; do not require every retained export.
+- Preserve whole original context labels and the existing fresh offline
+  extraction/restart checks. Trigger windows are not utterance cuts.
+- Retain the frozen authentic-launcher A → ordinary-live B Japanese trial,
+  changed original PCM/text/translations, failed-transfer/publication recovery,
+  and old/new offline history. Other regional/dub combinations are not claimed
+  as separately completed two-generation trials.
+- Check affected capture/layout and source regressions on the integrated
+  change. Source-format/playback checks are not native Windows DPI or physical
+  mobile capture acceptance, and prepared totals cannot replace that evidence.
+
 ## November 17, 2026 · Original Perform route and unresolved current use
 
 Static inspection of authenticated original source now connects the NPC bubble
@@ -26,6 +84,18 @@ it does not establish that those rows are unused, unreachable or unvoiced.
 The current upstream ID sources and the original asset loader's complete path
 resolution/fallback behavior remain unresolved. This NPC mechanism alone does
 not classify the Chat, ChatPlus, GalGame or other presentation mechanisms.
+
+The finite current interaction-root review is also complete: all **11**
+original `ConfigInteractEntry` roots named by the typed current meta-config
+match the catalogue and decode to the end of their original Odin arrays.
+They contain **203 interaction entries**, including **16** typed
+`InteractEntryModeChat.performID` fields. Ten are zero and six are distinct
+nonzero IDs; none of those six is in the current 30,964-row Perform table or
+the 313-owner inventory. All roots passed their exact script/type and stream
+bounds; both containing source files passed their original whole-file hashes.
+This closes that finite source check without claiming the entries are active,
+unused, silent, or the complete set of runtime-injected NPC interactions.
+There is no continuing broad NPC/graph/native download hunt for the 333 paths.
 
 ## November 17, 2026 · Original blank subtitle segments versus missing text keys
 
