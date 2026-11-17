@@ -1,12 +1,15 @@
 """Selective reads of released Kuro Windows v12 PAK directories and individual entries."""
 import hashlib
+import errno
 import io
 import json
 from functools import lru_cache
+import os
 import shutil
 import ssl
 import struct
 import subprocess
+import time
 import urllib.request
 import uuid
 import zlib
@@ -44,6 +47,25 @@ def _publish_index(path, data):
                 pass
             raise
     sharing_retry(publish)
+
+
+def _read_index_cache(path, size):
+    """Bound Windows sharing failures, including CRT open's errno-only EACCES."""
+    def read():
+        if path.is_file() and path.stat().st_size == size:
+            return path.read_bytes()
+        return None
+    deadline = time.monotonic() + 1
+    while True:
+        try:
+            # Keep the existing WinError policy; only this owned cache read
+            # additionally recognizes Windows CRT's missing-winerror case.
+            return sharing_retry(read, timeout=max(0, deadline - time.monotonic()))
+        except PermissionError as error:
+            if (os.name != 'nt' or error.errno != errno.EACCES or
+                    getattr(error, 'winerror', None) is not None or time.monotonic() >= deadline):
+                raise
+            time.sleep(.02)
 
 
 @lru_cache(maxsize=1)
@@ -257,10 +279,9 @@ class Package:
         # authenticate reuse; this never replaces the constructor's cipher
         # selection or either complete original index validation.
         def cached(candidate):
-            if candidate.is_file() and candidate.stat().st_size == size:
-                data = candidate.read_bytes()
-                if hashlib.sha1(data).digest() == digest:
-                    return data
+            data = _read_index_cache(candidate, size)
+            if data is not None and len(data) == size and hashlib.sha1(data).digest() == digest:
+                return data
             return None
         data = cached(path)
         if data is not None:
