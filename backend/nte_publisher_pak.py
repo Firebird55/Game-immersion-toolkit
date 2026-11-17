@@ -185,8 +185,9 @@ def _path(mount, folder, name):
 
 class Archive:
     """Immutable file locations, including deletion records; no guessed patch order."""
-    def __init__(self, source, catalog):
+    def __init__(self, source, catalog, *, oodle=None):
         self.source = source
+        self._managed_oodle = oodle
         size = source.item.size
         footer = source.read(max(0, size - 512), min(512, size))
         marker = len(footer) - 204
@@ -348,7 +349,7 @@ class Archive:
             return blocks
         method = self.methods[e.method]
         if method == 'Oodle':
-            result = self._oodle(blocks)
+            result = self._expand_oodle(blocks)
         elif method in ('Zlib', 'Gzip'):
             parts = []
             for data, size in blocks:
@@ -365,6 +366,10 @@ class Archive:
         check(len(result) == e.size)
         return result
 
+    def _expand_oodle(self, blocks):
+        decoder = getattr(self, '_managed_oodle', None)
+        return decoder(blocks) if decoder is not None else self._oodle(blocks)
+
     def read(self, path):
         return self._decode(*self._parts(path))
 
@@ -378,7 +383,7 @@ class Archive:
         compressed = [(i, e, blocks) for i, (e, blocks) in enumerate(parts) if self.methods[e.method] == 'Oodle']
         result = [self._decode(e, blocks) if self.methods[e.method] != 'Oodle' else None for e, blocks in parts]
         if compressed:
-            combined = self._oodle([b for _, _, blocks in compressed for b in blocks])
+            combined = self._expand_oodle([b for _, _, blocks in compressed for b in blocks])
             check(len(combined) == sum(e.size for _, e, _ in compressed))
             offset = 0
             for index, entry, _ in compressed:

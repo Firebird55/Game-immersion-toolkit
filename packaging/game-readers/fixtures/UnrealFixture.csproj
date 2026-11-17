@@ -9,5 +9,6 @@
   <ItemGroup>
     <Compile Include="UnrealFixture.cs" />
     <Reference Include="CUE4Parse"><HintPath>$(FixtureCueAssembly)</HintPath></Reference>
+    <EmbeddedResource Include="$(FixtureCodecResource)" LogicalName="costura.oodlesharp.dll.compressed" Condition="'$(FixtureCodecResource)' != ''" />
   </ItemGroup>
 </Project>
