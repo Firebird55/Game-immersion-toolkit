@@ -13,9 +13,9 @@ from contextlib import closing
 
 from . import wuthering_assets as assets
 from .languages import audio_locale
-from .textmaps import display_text
+from .text_display import display_text
+from .wuthering_tables import MUSIC_SUBTITLE_TABLE as TABLE
 
-TABLE = 'db_MusicSubTitle.db'
 PREFIX = 'wuwa:music:'
 
 

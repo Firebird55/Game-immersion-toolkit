@@ -13,7 +13,7 @@ not assert support for extracting an Android installation's different archives.
 | Initial/archive parameters | Official APK-v2/AXML/ELF static default producer, original UUID-owned KeyLists/PakData, exact FGuid and complete original indices; separately retained historical legacy provenance | The current original Android module actually opens both complete Global bootstrap indices without legacy key inputs. This Python/cryptographic logic needs device crypto/protected-store acceptance. Actual default rotation is unverified; encrypted manifest JSON still has a frozen/protected `ENTRY_KEY`/`ENTRY_IV` dependency. |
 | Publisher archives | Owned Python v12 PAK reader, encrypted/aligned ranges, complete index SHA-1s, native member checksum coverage, uncompressed/Zlib/Oodle entries | No IoStore or C# reader is needed for the evidenced publisher PAK lane. Raw `custom=2` entries checksum only their 2,048-byte encrypted prefix; do not call selective reads whole-member/PAK hash verification. Unsupported archive formats remain explicit errors. Installed-file `NteReader` is a separate desktop lane. |
 | Package decompression | Uncompressed and Zlib use Python; Oodle currently runs the pinned desktop Node/ooz tool | `PortablePackage` takes explicit range and Oodle providers. It cannot fall back to desktop processes. Android still needs an actual packaged Oodle provider and original-file parity proof. |
-| Text and authored bindings | SQLite ConfigDB, redirected locale shards, FlatBuffer fields, original story/movie/music caller graphs, selected-dub/Rover ownership | Reuse these joins rather than generating Android-only mappings. Verify SQLite read-only URI and deserialize support, AES and the exact module closure on-device. |
+| Text and authored bindings | Shared `wuthering_tables` SQLite/FlatBuffer parser, redirected locale shards, selected-dub/Rover joins; later original movie/music enrichment | The actual ordinary reader reuses this pure parser and native table-name selection. Isolated-package and authentic old/current five-language parity pass on host Python; device SQLite/read-only URI and complete runtime closure remain required. |
 | Wwise sources | Authored bank/media relationships and source shape checks | Bank parsing is Python. All eight inspected current originals use RIFF/Wwise Opus format tag `0x3041`, stereo 48 kHz; this finite sample is not a complete codec census. Existing standard 5.1 ownership/mapping guards must also survive. |
 | Audio probing and decoding | Desktop `vgmstream` probe/full/window subprocesses | Needs the shared app-native audio runtime. Revalidate rate, channels, complete frame count, source layout and seek origin using the same admission policy. A missing decoder cannot become unvoiced or silently remove film/song coverage. |
 | Waveform matching | NumPy/SciPy matching against original recordings | Requires compatible packaged runtime support or an explicitly reviewed shared implementation. Pure ConfigDB parsing does not establish this numerical/audio capability. |
@@ -152,6 +152,92 @@ whole-carrier integrity, establishes an independent certificate pin or proves
 Android package-install acceptance.
 Actual native runtime packaging/device validation and the unresolved
 release-manifest ENTRY key/IV gate remain separate work.
+
+## Portable table parsing and a future continuation
+
+The actual ordinary `_read_tables` selection and `build_language_records` joins
+now share `wuthering_tables`. It contains the existing SQLite/FlatBuffer, locale
+shard, narrative-status and original dub/Rover logic, with the ordinary assets
+module reexporting the same functions. There is no second Android mapping or
+CLI invocation. Display cleanup is the identical shared stdlib-only
+`text_display` function, reexported by `textmaps`; default audio-locale resolution
+no longer imports the desktop Steam registry when no game is passed.
+
+A minimal continuation after a **future independently owned ENTRY descriptor**
+can reuse these boundaries. This is a continuation design, not an implemented
+ENTRY resolver or complete Settings content stage:
+
+1. Bind the selected region/revision and all original resource/dub pointers to
+   the descriptor. Use the same complete original index checks and
+   `required_tables` selection, retaining patch/base/launcher precedence and
+   tombstones. All IO must use the context's consent, limits, cancellation and
+   original-owner transport; no protected-format or desktop-tool fallback may
+   enter this path.
+2. Quote the exact indexed table/member plan and enforce the context's separate
+   metadata, original-body, pending-output and derived-index reservations.
+   Gate AES, SQLite and every selected compression before acquisition. Publish
+   a table artifact only after its original checks and full local SHA-256;
+   validate the retained descriptor and those exact source identities again on
+   restore. The pure parser does not authenticate a publisher source by itself.
+3. Parse text/bindings with the same shared functions. Text-only work can pass
+   an empty voice inventory and performs no audio/body/probe IO; authored
+   missing/unknown voices retain their existing status. Movie/music caller,
+   player/locale and source-clock enrichments remain the same separate
+   admissions. They cannot be replaced by filename or preceding-line guesses.
+4. For text plus audio, materialize and validate the selected originals through
+   the exact authored owner/member/depot cache contract before Ready. A local
+   source miss needs a new approved plan, not an unbounded restore download.
+   The existing pure owned-source cache can be reused only under its complete
+   identity and full recording hash. Old retained descriptors/recordings stay
+   usable independently; a failed or incomplete continuation preserves the
+   previous content pointer and never publishes a partial snapshot.
+
+The actual current five-language table selection contains sixteen members:
+fourteen newly acquired in the earlier proof and two already retained. Their
+combined plaintext is **322,056,192 bytes**; all sixteen use uncompressed,
+encrypted `custom=2` PAK storage. The largest is **60,698,624 bytes**. That finite
+cohort does not need Oodle. A future indexed Oodle member needs an explicitly
+packaged native provider before body acquisition; `PortablePackage` must not
+select the desktop Node decoder. Current PAK AES still needs the explicit
+Android crypto seam before this proposed continuation can acquire archives;
+the APK-signature capability alone does not establish PAK extraction.
+
+Complete original indices retain SHA-1 validation. These `custom=2` raw members
+have the native 2,048-byte encrypted-prefix checksum, then exact original
+HTTPS/owner/length/ETag binding and a complete local plaintext SHA-256. No whole
+publisher-member or PAK hash is claimed from selective reads. Voice preparation
+additionally needs the shared native Wwise/codec probe, complete frame/rate and
+channel-layout checks, scoped seek/context policy, required matching numerics
+and output encoding. The evidenced RIFF/Wwise Opus `0x3041` sample and guarded
+standard 5.1 whole-scene presentation are requirements to preserve, not a claim
+that an arbitrary on-device decoder satisfies them. A missing capability keeps
+the typed gate and the previous library.
+
+An isolated six-module parser package exercises all five study languages,
+Mandarin sharing for both Chinese scripts, official target text, redirected
+Japanese text, and female/male source bindings while desktop/tool registry,
+model/fuzzy/crypto imports and network/process/registry operations are denied.
+An empty voice inventory returns missing audio rather than fabricating speech.
+Rich-text and explicit locale regression cases retain existing behavior.
+
+Read-only actual 3.8.11 and 3.8.12 fixtures separately pass all five selections:
+every base text/binding record exactly equals the previous ordinary parser,
+and direct dub/Rover depots match the saved actual workers. Their confirmed
+unvoiced, unknown and unavailable counts are unchanged. This comparison covers
+the base joins, not a new complete movie/song enrichment or device playback
+claim. Original-source fixture envelopes, immutable owner/position/path and
+current local hashes were checked before making 311,582,720 bytes of local
+headerless copies; seven exact matching members were hardlinked. No new
+original bytes were downloaded. Ten old/current retained recording fixtures
+also retain their complete source hashes and snapshot/depot bindings without
+network, protected-key access or a repeated decoder run.
+
+This checkpoint implements the ordinary/portable parsing and table-selection
+seam. It leaves the Settings ENTRY gate in place and creates no content
+`SourceProof`, complete `SnapshotSource` or Ready state. Future app source
+bundles must include `text_display` wherever they include `textmaps`, and the
+pure Wuwa parser closure before using this continuation; a host regression is
+not proof those modules/runtimes have shipped or executed on Android.
 
 ## Finite evidence
 
