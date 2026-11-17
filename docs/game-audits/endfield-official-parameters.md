@@ -237,7 +237,12 @@ metadata bootstrap, not a completed content provider. Through the shared
 context-owned publisher transport it reads only the launcher declaration and
 4,352 original header bytes during planning. Exact PE/IL2CPP table ranges and
 their publisher-response owner lengths determine the subsequent download and
-disk estimate. Download rechecks the entire plan and client declaration, uses
+disk estimate. The quoted transfer is an explicit upper bound: table bytes plus
+4,198,656 bytes for two bounded launcher rechecks and the repeated 4,352-byte
+headers. All actual verification metadata, assets and audio share the approved
+download budget; the table-only total is not sufficient. Tests with the real
+shared preparation context and publisher transport exercise growing unrelated
+launcher fields in both content modes. Download rechecks the entire plan and client declaration, uses
 only pinned-owner ranges and returns `PreparationStage`; it never returns
 `SnapshotSource`, a voice source or a publisher-content proof. Another original
 parameter/index verification and selected-content estimate is still needed.

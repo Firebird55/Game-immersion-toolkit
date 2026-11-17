@@ -74,8 +74,12 @@ def test_original_size_plan_and_download_are_only_a_non_audio_bootstrap(tmp_path
     provider = source.create_provider(platform='windows', transport_factory=fixture.factory)
     plan = provider.plan(fixture.request, fixture.ctx)
     assert plan.stage == 'client-bootstrap' and plan.runtime_available is True
-    assert plan.source_proof is None and plan.download_bytes == sum(row['bytes'] for row in plan.handle['ranges'])
-    assert plan.required_disk_bytes == 2 * plan.download_bytes + 4352
+    tables = sum(row['bytes'] for row in plan.handle['ranges'])
+    assert plan.source_proof is None and plan.download_bytes == tables + source.RECHECK_METADATA_UPPER
+    assert plan.download_is_upper_bound is True
+    assert plan.handle['transfer_bytes'] == {'client_tables': tables,
+        'verification_metadata_upper_bound': source.RECHECK_METADATA_UPPER}
+    assert plan.required_disk_bytes == 2 * tables + 4352
     assert not any(row[0] == 'download' for row in fixture.calls)
     result = provider.download(plan, fixture.ctx)
     assert isinstance(result, protocol.PreparationStage)
@@ -88,7 +92,7 @@ def test_original_size_plan_and_download_are_only_a_non_audio_bootstrap(tmp_path
         provider.restore(result.restore_handle, fixture.ctx)
 
 
-@pytest.mark.parametrize('change', ['client', 'mode', 'range', 'estimate', 'revision', 'stage', 'header-bytes', 'receipt-shape'])
+@pytest.mark.parametrize('change', ['client', 'mode', 'range', 'estimate', 'revision', 'stage', 'header-bytes', 'receipt-shape', 'bound-kind'])
 def test_changed_source_selection_or_estimate_stops_before_large_transfer(tmp_path, monkeypatch, change):
     monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
     fixture = Fixture(tmp_path)
@@ -109,7 +113,8 @@ def test_changed_source_selection_or_estimate_stops_before_large_transfer(tmp_pa
     else:
         from dataclasses import replace
         plan = replace(plan, **{'estimate': {'download_bytes': plan.download_bytes + 1},
-                                'revision': {'revision': 'changed'}, 'stage': {'stage': 'content'}}[change])
+                                'revision': {'revision': 'changed'}, 'stage': {'stage': 'content'},
+                                'bound-kind': {'download_is_upper_bound': False}}[change])
     with pytest.raises(protocol.GameDataError) as caught:
         provider.download(plan, fixture.ctx)
     assert caught.value.code == 'publisher_size_changed'
@@ -188,3 +193,66 @@ def test_launcher_token_refresh_does_not_change_original_generation_or_size_appr
     result = provider.download(first, fixture.ctx)
     assert isinstance(result, protocol.PreparationStage)
     assert all(call[1] != 'audio' for call in fixture.calls)
+
+
+@pytest.mark.parametrize('mode', ['text', 'text-audio'])
+def test_real_shared_context_and_transport_pay_for_all_revalidation_bytes(tmp_path, monkeypatch, mode):
+    import io
+    from email.message import Message
+    from backend.game_data import GameDataService, _Context
+    monkeypatch.setattr(endfield_parameters, 'source_runtime', lambda: None)
+    fixture = Fixture(tmp_path, mode)
+    calls, launcher_count = [], [0]
+
+    class Response:
+        def __init__(self, url, data, status, range_=None):
+            self.url, self.status, self.body = url, status, io.BytesIO(data)
+            self.headers = Message()
+            self.headers['Content-Length'] = str(len(data))
+            if range_:
+                self.headers['Content-Range'] = range_
+        def geturl(self): return self.url
+        def read(self, size): return self.body.read(size)
+        def __enter__(self): return self
+        def __exit__(self, *_): pass
+
+    def server(request, **_):
+        if '/get_latest?' in request.full_url:
+            launcher_count[0] += 1
+            # Variable non-generation metadata may grow after the quote. The
+            # two explicit bounded launcher rechecks must still fit the budget.
+            fixture.latest['unrelated'] = 'x' * (10000 * launcher_count[0])
+            raw = json.dumps(fixture.latest).encode()
+            calls.append(('metadata', len(raw)))
+            return Response(request.full_url, raw, 200)
+        artifact = next(name for name in fixture.data if request.full_url == fixture.client['url'] + '/' + name)
+        bounds = request.get_header('Range').removeprefix('bytes=').split('-')
+        low, high = map(int, bounds)
+        raw = fixture.data[artifact]
+        calls.append(('range', high - low + 1))
+        return Response(request.full_url, raw[low:high + 1], 206, f'bytes {low}-{high}/{len(raw)}')
+
+    provider = source.create_provider(platform='windows', transport_factory=lambda ctx, **kw:
+        transport.PublisherTransport(ctx, opener=server, **kw))
+    service = GameDataService(tmp_path, {'endfield': provider})
+    try:
+        planning = _Context(service, tmp_path, 'local', 'endfield', fixture.request, tmp_path / 'plan', 'plan')
+        plan = provider.plan(fixture.request, planning)
+        calls.clear()
+        downloading = _Context(service, tmp_path, 'local', 'endfield', fixture.request,
+                               tmp_path / 'download', 'download', budget=plan.download_bytes)
+        result = provider.download(plan, downloading)
+        tables = plan.handle['transfer_bytes']['client_tables']
+        assert tables < downloading.consumed == sum(size for _, size in calls) <= plan.download_bytes
+        assert isinstance(result, protocol.PreparationStage) and not isinstance(result, protocol.SnapshotSource)
+        assert launcher_count[0] == 3
+        # The old tables-only approval genuinely cannot pay for the same strict
+        # context/transport lane; no mock counters or global budget relaxation.
+        too_small = _Context(service, tmp_path, 'local', 'endfield', fixture.request,
+                            tmp_path / 'short', 'download', budget=tables)
+        with pytest.raises(protocol.GameDataError) as error:
+            provider.download(plan, too_small)
+        assert error.value.code == 'publisher_size_changed'
+        assert too_small.consumed <= tables
+    finally:
+        service.close()

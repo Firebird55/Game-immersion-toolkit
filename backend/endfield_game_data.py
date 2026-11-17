@@ -20,6 +20,8 @@ CHANNELS = {
     'cn': ('launcher.hypergryph.com', '6LL0KJuqHBVz33WK', 'abYeZZ16BPluCFyT', 1, 'beyond.hycdn.cn'),
 }
 PLATFORMS = {'android', 'windows', 'linux', 'macos'}
+LAUNCHER_LIMIT = 2 * 1024**2
+RECHECK_METADATA_UPPER = 2 * LAUNCHER_LIMIT + 4352
 
 
 def _contracts():
@@ -79,7 +81,7 @@ class EndfieldGameDataProvider:
         query = urlencode(dict(appcode=app, launcher_appcode=launcher_app, channel=channel,
                                sub_channel=channel, launcher_sub_channel=channel, disk_type=0, patch_encrypt=1))
         raw, receipt = transport.fetch_bytes('https://' + launcher + '/api/game/get_latest?' + query,
-                                             limit=2 * 1024**2, kind='metadata')
+                                             limit=LAUNCHER_LIMIT, kind='metadata')
         try:
             latest = json.loads(raw)
             identity = client_identity(latest, region=request.region, cdn='https://' + cdn + '/' + app)
@@ -126,11 +128,14 @@ class EndfieldGameDataProvider:
         except (ValueError, KeyError, TypeError) as error:
             raise Error('unsupported_game_format', 'Endfield original client metadata has an unsupported structure. Previous data is retained.') from error
         handle = {'schema': 1, 'stage': 'client-bootstrap', 'request': request.json(),
-                  'client': identity, 'artifacts': artifacts, 'ranges': ranges, 'receipts': receipts}
+                  'client': identity, 'artifacts': artifacts, 'ranges': ranges, 'receipts': receipts,
+                  'transfer_bytes': {'client_tables': sum(row['bytes'] for row in ranges),
+                                     'verification_metadata_upper_bound': RECHECK_METADATA_UPPER}}
         size = sum(row['bytes'] for row in ranges)
-        return Plan(revision='endfield-client-' + identity_stamp(identity), download_bytes=size,
+        return Plan(revision='endfield-client-' + identity_stamp(identity), download_bytes=size + RECHECK_METADATA_UPPER,
             required_disk_bytes=2 * size + 4352, handle=handle, runtime_available=True,
-            stage='client-bootstrap', message='Download original client metadata first; parameter/index verification and a separate text or audio content estimate are still required. This stage activates no game data.')
+            download_is_upper_bound=True, stage='client-bootstrap',
+            message='Original client tables plus a bounded metadata recheck allowance; parameter/index verification and a separate text or audio content estimate follow. This stage activates no game data.')
 
     def download(self, plan, ctx):
         self._runtime()
@@ -140,7 +145,8 @@ class EndfieldGameDataProvider:
         current = self.plan(ctx.request, ctx)
         if (_source_plan(plan.handle) != _source_plan(current.handle) or plan.download_bytes != current.download_bytes or
                 plan.required_disk_bytes != current.required_disk_bytes or plan.revision != current.revision or
-                plan.stage != 'client-bootstrap' or plan.runtime_available is not True):
+                plan.stage != 'client-bootstrap' or plan.runtime_available is not True or
+                plan.download_is_upper_bound is not True):
             raise Error('publisher_size_changed', 'The Endfield client or selected download changed. Check its size again.')
         transport = self._transport(ctx.request, ctx)
         handle = plan.handle
