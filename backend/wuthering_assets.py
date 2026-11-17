@@ -22,6 +22,7 @@ from pathlib import Path
 
 from .textmaps import display_text
 from .preparation_errors import PreparationFailure
+from .wuthering_locales import SUPPORTED_LOCALES, VOICE_LOCALES, TEXT_LOCALES
 
 PUBLIC_METADATA_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json"
 EXTERNAL_ROOT = "Client/Content/Aki/WwiseAudio_Generated/WwiseExternalSource/"
@@ -36,10 +37,6 @@ COVERAGE_WARNINGS = [
     'Combat and ambient audio events, embedded movie audio and dynamic voice filenames still lack complete per-line bindings.',
     'Floating 2D/3D caption text is indexed. Entity-only bubbles, legacy numeric subtitles, songs and event-specific text still have gaps.',
 ]
-SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
-VOICE_LOCALES = {'en': ('en', 4), 'zh-Hans': ('zh', 7), 'zh-Hant': ('zh', 7), 'ja': ('ja', 5), 'ko': ('ko', 6)}
-TEXT_LOCALES = {locale: locale for locale in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'fr', 'de', 'ru', 'th', 'vi', 'id')}
-TEXT_LOCALES.update({'es-ES': 'es', 'pt-BR': 'pt'})
 
 
 def _download(url: str) -> bytes:

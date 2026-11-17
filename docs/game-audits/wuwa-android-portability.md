@@ -102,6 +102,24 @@ cache/outputs, coordinated with active downloads/readers; it must not remove
 the app's shared runtimes, other games, credentials or saved user transcripts.
 The shared Settings/data service owns that lifecycle and used-byte accounting.
 
+## Pure source import boundary
+
+The staged provider's language validation and managed-file publication now use
+small stdlib-only locale and atomic-file modules. The ordinary source-cache and
+PAK readers use the same publication primitive without importing desktop tool
+or installation discovery. Complete sibling staging, bounded Windows sharing
+retries and preservation of the previous file remain enforced. Source-cache
+ownership, original-byte hashes and PAK index authentication are unchanged.
+
+An isolated-package regression copies the actual source modules, denies desktop,
+registry, process and network access, and exercises official-language validation,
+managed metadata publication and exact-reference source-cache round trips. The
+full reader reuses the identical locale objects, including both Chinese scripts
+and their shared Mandarin dub. These are import-boundary checks on host Python;
+they do not establish Android native cryptography, codecs or a completed language
+preparation path. The bootstrap source/ZIP import boundary and the unresolved
+release-manifest ENTRY key/IV gate remain separate work.
+
 ## Finite evidence
 
 A cache-only original-data check reused the complete authenticated indices and

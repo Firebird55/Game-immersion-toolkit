@@ -48,13 +48,13 @@ def _file(ctx, name):
 
 
 def _save(path, raw):
-    from .game_tools import _atomic_file
+    from .atomic_files import write_bytes
     _no_links(path)
-    _atomic_file(path, raw)
+    write_bytes(path, raw)
 
 
 def _request(request):
-    from .wuthering_assets import SUPPORTED_LOCALES, TEXT_LOCALES
+    from .wuthering_locales import SUPPORTED_LOCALES, TEXT_LOCALES
     if request.source_locale not in SUPPORTED_LOCALES or any(x not in TEXT_LOCALES for x in request.target_locales):
         raise GameDataError('unsupported_game_language', 'Choose an official Wuthering language.')
 
