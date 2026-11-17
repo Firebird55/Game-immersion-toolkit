@@ -43,11 +43,11 @@ def _register_source(context, address, name, depth=0):
     return pointer(ins, source, context['image']), (ins.address - context['image'].base,)
 
 
-def derive_initial_seed(view, usages, arrays, literals):
-    """Use the maintained original View/usage/literal readers, never saved indices."""
+def _derive_static_string(view, usages, arrays, literals, field_name):
+    """Use original named static fields and reaching full-pointer definitions."""
     owner = view.named('MoleMole', 'GlobalVars')
     definition = owner['definition']
-    fields = [row for row in view.field_offsets(definition) if row['name'] == 'dispatchSeed']
+    fields = [row for row in view.field_offsets(definition) if row['name'] == field_name]
     _check(len(fields) == 1 and fields[0]['type']['kind'] == 14,
            'The original dispatch seed field is missing or ambiguous.')
     selected, = fields
@@ -68,7 +68,9 @@ def derive_initial_seed(view, usages, arrays, literals):
     method, = methods
     image = view.image
     sequence = image.instructions(method['rva'])
-    _check(0 < len(sequence) <= MAX_METHOD_INSTRUCTIONS)
+    body = image.window(method['rva'])
+    _check(0 < len(sequence) <= MAX_METHOD_INSTRUCTIONS and sum(ins.size for ins in sequence) == len(body)
+           and sequence[-1].address + sequence[-1].size == image.base + method['rva'] + len(body))
     context = {'image': image, 'definitions': Definitions(sequence),
                'instructions': {ins.address: ins for ins in sequence}}
     stores = [ins for ins in sequence if ins.operands
@@ -95,8 +97,7 @@ def derive_initial_seed(view, usages, arrays, literals):
     _check(len(identities) == 1, 'The original seed literal slot has ambiguous ownership.')
     identity, = identities
     value = literals.text(identity)
-    _check(isinstance(value, str) and re.fullmatch('[0-9a-f]{16,128}', value),
-           'The original initial dispatch seed has an unsupported representation.')
+    _check(isinstance(value, str))
     proof = {'schema': SCHEMA, 'source_kind': 'original-publisher-initial-static-value',
              'executable_sha256': hashlib.sha256(image.data).hexdigest(),
              'metadata_sha256': hashlib.sha256(view.metadata).hexdigest(),
@@ -113,7 +114,14 @@ def derive_initial_seed(view, usages, arrays, literals):
     return InitialSeed(value, proof)
 
 
-def read_initial_seed(executable, metadata, *, expected_owner):
+def derive_initial_seed(view, usages, arrays, literals):
+    result = _derive_static_string(view, usages, arrays, literals, 'dispatchSeed')
+    _check(re.fullmatch('[0-9a-f]{16,128}', result.value),
+           'The original initial dispatch seed has an unsupported representation.')
+    return result
+
+
+def _environment(executable, metadata, expected_owner):
     """Whole input checks precede maintained parser/literal extraction."""
     _check(isinstance(executable, bytes) and isinstance(metadata, bytes)
            and isinstance(expected_owner, dict) and set(expected_owner) == {'executable_sha256', 'metadata_sha256'})
@@ -121,7 +129,11 @@ def read_initial_seed(executable, metadata, *, expected_owner):
                               'metadata_sha256': hashlib.sha256(metadata).hexdigest()},
            'The original dispatch seed input owner changed.')
     from .genshin_original_excel import native_environment
-    view, _anchor, usages, arrays, literals = native_environment(executable, metadata)
+    return native_environment(executable, metadata)
+
+
+def read_initial_seed(executable, metadata, *, expected_owner):
+    view, _anchor, usages, arrays, literals = _environment(executable, metadata, expected_owner)
     result = derive_initial_seed(view, usages, arrays, literals)
     _check(all(result.proof[key] == value for key, value in expected_owner.items()))
     return result

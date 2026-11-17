@@ -1284,6 +1284,21 @@ ownership, response-signature verification, possible later overrides, another
 actual client generation and the Android BLB closure remain open. The stage
 does not emit a partial dialogue snapshot or activate a descriptor.
 
+The ordinary source preparation also follows the verified typed
+`Miscs.GetConfigChannel` cache and `LoadChannelConfigBlk` consumer into the
+original channel-profile container. Current basename and object-ID arguments
+come from the current original inputs. The stage quotes the complete publisher
+source and derives all codec candidates from the original native file; exactly
+one complete object-map and strict profile parse receives a retained private
+receipt. This profile-only acceptance does not satisfy final Source catalog or
+selected-shard acceptance. The current original profile includes a dispatch
+list endpoint and an `RSAParam.keyId` value, with no RSA key material.
+The compiled URL consumer reads the same original seed field; its `isGlobal`
+argument distinguishes request construction paths and does not establish Global
+versus CN edition equivalence. Cloud-specific headers likewise do not establish
+ordinary game RSA or response-signature ownership. The original source route
+and Android runtime gates remain explicit; no default provider is replaced.
+
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and
 the explicit official-manifest preflight size bounds.
