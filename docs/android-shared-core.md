@@ -288,8 +288,15 @@ accept declaration. Unsupported declarations cancel safely; both importers still
 validate the selected bytes independently. The hosted native probe now opens
 Android's DocumentsUI, selects each disposable authored file from Downloads and
 returns its content URI to the real WebView import control. This additional SAF
-scenario needs matching target evidence; direct File injection from earlier
-cohorts did not establish native picker behavior.
+scenario now has bounded native evidence for the unchanged `c42312cb` APK:
+[API 34](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44066783731)
+and [API 36](https://github.com/Firebird55/Game-immersion-toolkit/actions/runs/44063634766)
+both selected the original ZIP through DocumentsUI, checked its bytes and
+completed ordinary JSON preview/import through the same picker. The authored
+source stays present until all asynchronous reads finish, and the fixture
+selects the actual Downloads root instead of its background breadcrumb. No
+production input-reset change was needed. The combined 45-module package still
+requires its own complete matching native cohort.
 
 ## Recent Android compatibility
 
@@ -314,12 +321,12 @@ matching workflow completes.
 
 | Runtime | Evidence |
 | --- | --- |
-| API 34 / x86_64 | Earlier continuity, protected-account and normal-startup/migration cohorts passed; SDK-36 host changes require a fresh pass. |
-| API 36 / x86_64 | New hosted matrix entry; runtime, insets, picker, offline capture, accounts and updates pending. |
+| API 34 / x86_64 | Earlier complete continuity/account/startup cohorts passed. The SDK-36 `c42312cb` APK additionally passed native core/media/OCR/Keystore, reader rotation/insets and corrected-fixture ZIP/JSON selection; the full combined package is pending. |
+| API 36 / x86_64 | Actual `c42312cb` startup and ordinary ZIP/JSON DocumentsUI import passed. The full combined core, capture, accounts, insets and update cohort is pending. |
 | arm64-v8a | Actual APK/native-source/ELF/signature audits; physical ARM64 runtime pending. |
 | Physical recent Android | Pending device acceptance; an emulator profile is not a manufacturer certification. |
 
-The official stable Google APIs emulator feed currently supplies API 36; it has
+The [official stable Google APIs emulator feed](https://dl.google.com/android/repository/sys-img/google_apis/sys-img2-3.xml) currently supplies API 36; it has
 no API 37 x86_64 entry in that feed. The candidate therefore tests the available
 stable image rather than claiming an unavailable image. The probe records the
 actual device API and native page size. Every APK retains the existing
