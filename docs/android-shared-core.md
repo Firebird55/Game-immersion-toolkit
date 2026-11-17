@@ -119,6 +119,26 @@ pinning and transcript/library isolation are actually integrated. Provider-backe
 storage follows the [Android Keystore system](https://developer.android.com/privacy-and-security/keystore);
 no claim of hardware backing is made for an emulator or untested device.
 
+Prepared Endfield libraries now retain only the canonical, bounded original
+world-dialogue UI descriptor. Full-frame voice admission recognizes that
+validated descriptor even without film/top counts. Its stateless original
+speaker/control/complete-caption proof runs after predecessor observations and
+cannot feed predecessor state. Unknown native line confidence, missing controls,
+profile overlays or unmatched extra caption sentences retain the shared veto.
+
+NTE uses the same `NteDialogueContext` as desktop for a directly preceding
+original speech node. Its native lane requires genuine positioned line geometry
+and confidence; it reuses desktop subtitle/menu filtering and also sees choices
+outside the configured crop. Short right-panel labels which the maintained
+filter cannot distinguish from options disable native context too. This can
+conservatively suppress context with top controls until their ownership is
+evidenced; it does not assert a clear menu state. Missing/uncertain evidence disables that context,
+and a resolved successor cannot arm another graph edge. Generic Endfield
+predecessor handling is excluded for NTE. Normal independent captions keep their
+existing matcher. The authored target fixture reports these source-policy cases
+separately as `authored-positioned-spans-not-sdk-gameplay`; actual native game OCR
+and physical sender acceptance remain separate evidence.
+
 The account-session component reuses `AccountStore` and `PreparedCaptureSession`
 with independent app-private settings, library pointers and SQLite histories.
 Selection stages a candidate outside the common session lock, then publishes

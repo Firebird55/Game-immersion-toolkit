@@ -15,6 +15,8 @@ from .capture_confirmation import StableMatchTracker, capture_match_eligible, ca
 from .floating_caption_policy import floating_caption_policy, observe_floating_contexts
 from .config import SettingsStore
 from .endfield_caption_context import EndfieldCaptionContext
+from .nte_dialogue_context import NteDialogueContext
+from .caption_layout import NativeNteCaption
 from .languages import study_language
 from .models import AppSettings, CaptureSnapshot
 from .multilingual_index import MultilingualTextIndex
@@ -42,6 +44,7 @@ class PreparedCaptureSession:
         self.trackers = {}
         self.contexts = {}
         self.floating_contexts = {}
+        self.nte_context = NteDialogueContext()
         self.index = self.directory = None
         self.records_by_id = {}
         self.context_kinds = set()
@@ -88,6 +91,7 @@ class PreparedCaptureSession:
             self.last_frame, self.last_time = -1, None
             self.processed_channels.clear()
             self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
+            self.nte_context.reset()
             self.message = message
             self.state_version += 1
 
@@ -143,7 +147,8 @@ class PreparedCaptureSession:
         _no_links(path)
         return path if path.is_file() and path.stat().st_size <= MAX_AUDIO else None
 
-    def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False):
+    def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
+            nte_layout=None, presentation_lines=None, frame_size=None):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -163,6 +168,7 @@ class PreparedCaptureSession:
                 raise ValueError('Invalid observation clock')
             if self.last_time is not None and not 0 <= now - self.last_time <= 3:
                 self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
+                self.nte_context.reset()
             if dialogue_menu:
                 self.contexts.clear();self.floating_contexts.clear()
             if sequence > self.last_frame:
@@ -198,10 +204,24 @@ class PreparedCaptureSession:
                 matches = observe_floating_contexts(self.index, groups, matches, self.floating_contexts, policy,
                     game=self.index.game, scope=scope, now=now, stable_frames=settings.stable_frames,
                     capturable=eligible, dialogue_menu=dialogue_menu)
+                if policy.world_cues and policy.voice_enabled:
+                    hit = self.index.match_endfield_world_caption(presentation_lines, frame_size)
+                    if hit and eligible(hit):
+                        matches[hit.text_id] = hit
+            if self.index.game == 'nte' and channel == 'dialogue':
+                # Generic Endfield context cannot authorize NTE graph traversal.
+                # Only genuine positioned menu/quality evidence can arm it.
+                layout = nte_layout if isinstance(nte_layout, NativeNteCaption) else None
+                default = next(iter(matches.values())) if len(matches) == 1 else None
+                hit = self.nte_context.match(self.index, list(layout.groups) if layout else groups, default,
+                    enabled=bool(layout and not layout.dialogue_menu and not dialogue_menu), scope=scope,
+                    now=now, stable_frames=settings.stable_frames)
+                if hit and eligible(hit):
+                    matches[hit.text_id] = hit
             # Same authored predecessor mechanism as desktop. Every context is
             # generation/channel/kind scoped; no nearby-text voice fallback.
             for kind in self.context_kinds:
-                if not kind or channel == 'fullframe' or dialogue_menu:
+                if not kind or channel == 'fullframe' or dialogue_menu or self.index.game == 'nte':
                     continue
                 context = self.contexts.setdefault((channel, kind), EndfieldCaptionContext())
                 hit = context.observe(self.index, groups, matches.values(), channel=channel, kind=kind,

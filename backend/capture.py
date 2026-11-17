@@ -1197,60 +1197,9 @@ class CaptureService:
         return match
 
     @staticmethod
-    def _local_subtitle_rows(response: dict, size: tuple[int, int],
-                             region: CaptureRegion, game: str) -> dict:
-        """Exclude response choices and corner HUD from the lower subtitle lane.
-
-        Coordinates refer to the OCR image, which may have been rescaled. Keep
-        the user's crop independent of screen resolution and Windows DPI.
-        """
-        if game in STEAM_GAMES:
-            # These readers use their independent, user-calibrated caption crop.
-            # Source captions can be left aligned and Persona's text is beside a
-            # portrait: older centered-caption/HUD rules would silently erase it.
-            # Matching still requires the authored catalog and an eligible voice
-            # or explicitly enabled text-only record. Off-lane silent content is
-            # handled by the separate stable, exact full-frame pass.
-            return response
-        rows = []
-        dialogue_menu = False
-        for row in response.get("lines", []):
-            # Interaction labels must not be treated as spoken subtitles.
-            known_ui_label = normalize_subtitle(str(row.get("text", ""))) in {
-                "talk", "open", "close", "back", "continue", "apply", "cancel",
-                "sprint", "jump", "roach", "horse", "interact", "next", "skip",
-                "select", "exit", "map", "inventory", "attack", "yourturn", "gatheringredients",
-                "交谈", "对话", "互动", "继续", "取消", "确定", "退出", "跳跃",
-                "冲刺", "攻击", "选择", "返回", "跳过", "打开", "关闭", "地图", "背包",
-            }
-            rectangle = row.get("bounding_rect") or {}
-            try:
-                left = region.left + min(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
-                right = region.left + max(float(rectangle[f"x{i}"]) for i in range(1, 5)) / size[0] * region.width
-                top = region.top + min(float(rectangle[f"y{i}"]) for i in range(1, 5)) / size[1] * region.height
-            except (KeyError, ValueError, TypeError):
-                rows.append(row)
-                continue
-            text = str(row.get("text", ""))
-            short_label = (len(re.findall(r"[a-zA-Z]+", text)) == 1 and len(normalize_subtitle(text)) < 12)
-            short_label |= bool(re.search(r"[\u3400-\u9fff]", text) and len(normalize_subtitle(text)) < 4)
-            caption_band = (.80, .87) if game == "witcher3" else (.85, .96) if game == "cyberpunk" else (.72, .96) if game == "honkai3" else (.79, .96)
-            # HEAVY RAIN's documents and thought options can repeat the spoken
-            # paragraph above its centered subtitle lane.
-            if game == 'heavyrain' and not caption_band[0] <= top <= caption_band[1]:
-                continue
-            # Moving harvest names can match a unique voiced word exactly. Keep
-            # single short words only in the observed centered caption band.
-            if (short_label or known_ui_label) and not caption_band[0] <= top <= caption_band[1]:
-                continue
-            # Response menus sit to the right, above the centered caption.
-            if left > (.52 if game == "cyberpunk" else .60) and top < (.84 if game == "cyberpunk" else .80):
-                dialogue_menu = True
-                continue
-            if not .22 <= (left + right) / 2 <= .78:
-                continue
-            rows.append(row)
-        return {**response, "lines": rows, "dialogue_menu": dialogue_menu}
+    def _local_subtitle_rows(response: dict, size: tuple[int, int], region: CaptureRegion, game: str) -> dict:
+        from .caption_layout import local_subtitle_rows
+        return local_subtitle_rows(response, size, region, game)
 
     def _scan_local_chatter(self, window: WindowInfo, engine: OcrEngine, epoch: int,
                             now: datetime, game: str, main_match: TextMatch | None,

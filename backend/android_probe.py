@@ -17,7 +17,7 @@ from .prepared_session import PreparedCaptureSession
 TEXT = 'Follow the river beyond the bridge.'
 
 
-def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game='zzz'):
+def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game='zzz', records=None, metadata=None, clips=None):
     root.mkdir(parents=True, exist_ok=True)
     clip = root / 'authored-tone.wav'
     with wave.open(str(clip), 'wb') as output:
@@ -28,8 +28,9 @@ def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game=
     row = dict(text_id=identity, english=text, chinese='沿河走过桥。', source_locale='en',
         source_text=text, texts={'en': text, 'zh-Hans': '沿河走过桥。'}, audio_locale='en',
         audio={'authored-fixture': True}, voice_status='voiced', dialogue_kind='conversation')
-    snapshot = dict(format=2, game=game, source_locale='en', records=[row])
-    return write_prepared_library(snapshot, root / 'library.zip', {identity: clip})
+    snapshot = dict(format=2, game=game, source_locale='en', records=[row] if records is None else records)
+    snapshot.update(metadata or {})
+    return write_prepared_library(snapshot, root / 'library.zip', {identity: clip} if clips is None else clips)
 
 
 def run(root, native=None):
@@ -100,6 +101,8 @@ def run(root, native=None):
             'original_audio_sha256': hashlib.sha256(imported.audio_path(emitted[0]['id']).read_bytes()).hexdigest()}
     results['prepared_games'] = games
     results['protected_account_lifecycle'] = run_accounts(work / 'accounts', native)
+    from .android_game_probe import run as game_caption_proof
+    results['game_caption_policy'] = game_caption_proof(work / 'caption-policy')
     if any(value is False for value in results.values()):
         raise ValueError('Shared lifecycle fixture failed')
     encoded = json.dumps(results, sort_keys=True, separators=(',', ':')).encode()

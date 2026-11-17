@@ -73,6 +73,11 @@ def _snapshot(raw, audio):
     if len(raw) > MAX_TEXT:
         raise ValueError('Prepared text is too large')
     value = _json(raw)
+    if 'publisher_world_dialogue_ui' in value:
+        from .endfield_presentation import validate_world_dialogue_ui
+        if value.get('game') != 'endfield':
+            raise ValueError('World dialogue metadata belongs to its original game')
+        value['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(value['publisher_world_dialogue_ui'])
     if (value.get('format') != 2 or not isinstance(value.get('game'), str)
             or not isinstance(value.get('source_locale'), str)
             or not isinstance(value.get('records'), list) or not 0 < len(value['records']) <= MAX_ROWS
@@ -234,6 +239,11 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
                 raise ValueError('Invalid authored caption inventory count')
             payload[key] = snapshot[key]
     payload.update(install=None, records=[])
+    if 'publisher_world_dialogue_ui' in snapshot:
+        from .endfield_presentation import validate_world_dialogue_ui
+        if snapshot.get('game') != 'endfield':
+            raise ValueError('World dialogue metadata belongs to its original game')
+        payload['publisher_world_dialogue_ui'] = validate_world_dialogue_ui(snapshot['publisher_world_dialogue_ui'])
     audio = {}
     for original in snapshot['records']:
         guard()

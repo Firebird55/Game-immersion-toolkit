@@ -379,6 +379,12 @@ class AndroidHost:
         channels = {'dialogue': getattr(settings, game + '_region', settings.region),
                     'cinematic': getattr(settings, game + '_cinematic_region', settings.cinematic_region)}
         picture = self._picture(width, height)
+        positioned = presentation_lines(value, width, height)
+        nte_layout = None
+        if game == 'nte':
+            from .caption_layout import native_nte_caption
+            nte_layout = native_nte_caption(positioned, (width, height), picture,
+                region_bounds(picture, channels['dialogue']))
         result = []
         texts = []
         for block in blocks:
@@ -399,8 +405,13 @@ class AndroidHost:
                 # Only whole recognized blocks inside the calibrated region.
                 if x <= left < right <= x + crop_width and y <= top < bottom <= y + crop_height:
                     groups.append(block['text'])
-            result.extend(self.session.observe(generation, sequence, groups, channel=channel))
-        result.extend(self.session.observe(generation, sequence, texts, channel='fullframe'))
+            if game == 'nte' and channel == 'dialogue' and nte_layout is not None:
+                groups = list(nte_layout.groups)
+            result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
+                dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu)))
+        result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
+            presentation_lines=positioned, frame_size=(width, height),
+            dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu)))
         return result
 
     def _handler(self):
