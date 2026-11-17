@@ -462,6 +462,27 @@ a runtime text-only plan that pretends no audio/video-containing carrier bytes
 were transferred. A failed source/key check is not automatically evidence of a
 package-format change or official-source impossibility.
 
+## Shared APK metadata boundary
+
+`backend/publisher_apk_zip.py` now locates classic single-disk APK entries through
+a bounded exact-range callback. It has no network, extraction or execution
+effects and delegates signer metadata to the single `publisher_apk.py` verifier.
+Selected local headers, original encoded names, compression/CRC/size fields and
+carrier bounds must agree; ZIP64, encrypted/descriptor selected entries and
+unsupported compression are explicit gates. Small metadata-member inflation is
+bounded before reading. Original local-header witnesses must also match the
+subsequent complete carrier before accepting the selected native owner.
+
+An offline replay of already retained official CN metadata reads 126,205 bytes,
+parses all 1,395 entries and locates the same 76,697,538-byte compressed /
+213,538,488-byte native owner. It performs no network acquisition and does not
+repeat the earlier full-APK v2 verification. Authored APK fixtures separately
+exercise the walker and canonical whole-stream verifier together, including
+split directory/tail reads, CP437/UTF-8 names, misleading comment signatures,
+pre-read budgets, local/CD disagreement, invalid paths, compression/CRC failures
+and the explicitly opted-in signed-zero-tail dialect. This is shared format
+infrastructure, not an executable Nikki preparation stage or dialogue coverage.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
