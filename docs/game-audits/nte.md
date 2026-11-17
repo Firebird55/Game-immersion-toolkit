@@ -1048,19 +1048,83 @@ community mappings. They use retained authenticated caches and supplied
 original version discovery. They do not establish a cold-install transfer cost,
 native OCR acceptance or that every indexed recording has been listened to.
 
-### Remaining acceptance
+### Current use acceptance boundary
 
-Missing caption resources, more complex Wwise graphs, additional movie formats
-and full spoken boundaries remain unresolved despite the verified bindings
-above. Complete chapters,
-conversation/choice context, more complex
-conditional/bark/phone/comic presentations,
-all cue windows, full live-device upstream-only update adoption beyond the
-qualified startup replay, download-cost/resume/metered
-behavior and each claimed native host remain open in #88. The live Windows
-source flow and separate compiler-free authored-helper checks are distinct
-evidence; neither proves full frozen-image, Linux, macOS or Android acceptance.
-No release is made as part of this change.
+Checked November 17, 2026. This checkpoint covers installation-free preparation
+of the selected current publisher edition, correct original audio for the demonstrated presentations,
+compatible ordinary updates, and retention/recovery of complete older snapshots.
+A configuration, asset name or localized string alone does not establish that a
+presentation is active in the current game. Such references remain a research
+inventory until current use and its original text/audio ownership are shown.
+They are not classified as cut content, unvoiced dialogue or a current failure.
+
+After the native-type discovery and Ride-Along corrections above, **no known
+currently active presentation with wrong audio or missing independently available
+correct audio remains demonstrated in the accepted finite evidence**. This is a
+bounded result, not a claim that every chapter, caption or recording has been
+observed. The two Ride-Along CaptureService positives use supplied OCR geometry;
+they establish the ordinary full-index capture path, not live-gameplay acceptance.
+
+The ten Japanese Ride-Along records newly marked unavailable have original
+current table/localization references. Their actual use in current gameplay and
+available correct recordings have not been established. Neither positive capture
+sample is one of those ten. They remain unavailable, alongside four previously
+unavailable entries and two unknown state references; their presence does not
+establish ten active missing-audio failures or ten silent lines.
+
+The current Global caption table has **72 groups / 457 authored slots / 455
+distinct text keys**. Of these, 68 groups / 432 slots have a unique source owner
+under the strict sequence guards; voice and clock eligibility are checked
+separately. These denominators describe original configuration and localized
+prepared records, not demonstrated current gameplay:
+
+| Global study text / original dub | All variants voiced | Unavailable | Unknown | No prepared localized record |
+| --- | ---: | ---: | ---: | ---: |
+| English | 328 | 116 | 13 | 0 |
+| Japanese | 316 | 128 | 13 | 0 |
+| Korean | 319 | 125 | 13 | 0 |
+| Simplified Chinese / Mandarin | 353 | 90 | 13 | 1 |
+
+Each row accounts for the same 457 authored slots; protagonist variants are
+checked within a slot rather than counted as extra captions. Unavailable means
+no admitted recording, not proof the line is active or spoken. The separate
+mainland ordinary preparation retains its own localization and source identity;
+its classified cinematic inventory has 1,289 voiced, 198 unavailable and 166
+unknown record variants. Those variants are not the Global caption-slot count.
+Neither inventory is a full-story coverage percentage.
+
+A bounded original-source inspection read both selected caption-owning sequence
+packages, all 22 compiled-hierarchy child packages of one scene, and its
+registry-owned cinema UI. All 3,391 child export-map entries were inventoried;
+33 imported custom classes remain explicitly unresolved. No native audio/event
+track was identified in that bounded child inventory. All twelve UI function
+bodies parsed completely; they expose UI/start/skip dispatch, not a per-line voice
+or playback-clock policy. These are static data reads, not game/Blueprint
+execution, and do not prove a line is unvoiced. The final reads completed through
+the ordinary reader wrapper with current schema checks and no new transfers.
+
+An explicitly authored protagonist event also has separate female/male original
+recordings. Neither complete recording was positively located in the selected
+whole-scene mix. Recorded and subtitled wording differs; official subtitles may
+paraphrase speech, so exact wording is not an extra admission requirement. The
+scene's actual event/dub/player and clock ownership remains unproved. No guessed
+clip, scale, per-ID timestamp or alternative asset is admitted. Production speech
+recognition remains off and adds no runtime/model dependency.
+
+The four excluded owner groups / 25 slots, museum/side-quest clocks, complex
+branches and movie/comic/texture references remain **nonblocking research
+inventory for this current use checkpoint**. If a current active presentation
+with available correct original audio is demonstrated, its unresolved binding
+becomes a concrete defect. Additional cinematic admission still requires original
+ownership and a verified clock or complete-context policy. No exhaustive current
+active-gameplay denominator or full chapter/platform acceptance is claimed.
+
+The normal old/current Global and independently regional mainland preparation,
+all four official original dubs, historical playback, interrupted-update
+retention and healthy recovery checks above meet this finite source/update
+boundary. Closing #88 is recommended only after the integration PR's required
+hosted checks pass. Independent platform acceptance and exploratory references
+are tracked separately; this checkpoint makes no release.
 
 The dated acquisition stages below retain the evidence and limits of each
 earlier implementation stage. Their former Setup gaps are superseded only by
