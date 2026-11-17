@@ -5,6 +5,11 @@ the Android host. Settings can plan either **Text only** or **Text + audio** for
 selected region, source language and translation languages. The plan reports
 download and required disk bytes before consent; unknown sizes cannot download.
 Bootstrap results remain preparation stages requiring another explicit estimate.
+The requested selection is separate from the accepted downloaded selection:
+changing mode, source, targets or region needs a new preparation even when the
+publisher revision is unchanged. The old selection remains usable. A completed
+old job cannot report the proposed request ready; Settings identifies the
+contents actually downloaded.
 The live-service desktop Settings dialog uses the same game-data component as
 the Android host. Its selected download mode is independent of account features;
 an optional reading account is not required to download or use game data.

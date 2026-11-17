@@ -11,6 +11,7 @@ import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import './game-data-settings.css';
 
 export type GameDataRow = {id: string; title: string; state: string; revision: string | null; installed_revision: string | null; can_activate: boolean; region: string; content_mode: 'text' | 'text-audio';
+ installed_request?: null | {region:string; source_locale:string; target_locales:string[]; content_mode:'text'|'text-audio'};
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
  job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; message: string};
@@ -121,6 +122,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
     <input type="checkbox" disabled={busy} checked={targets.includes(code)} onChange={event => setTargets(previous => event.target.checked ? [...previous, code] : previous.filter(value => value !== code))}/>{languageName(code, 'en')}
    </label>)}</fieldset>
    <dl><dt>Downloaded data</dt><dd>{formatGameBytes(row.installed_bytes)}</dd>
+    {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
     <dt>{row.download_is_upper_bound ? 'Download size, up to' : 'Download size'}</dt><dd>{formatGameBytes(row.download_bytes)}</dd>
     <dt>Additional storage needed</dt><dd>{formatGameBytes(row.required_disk_bytes)}</dd>
     {row.retained_bytes > 0 && <><dt>Saved recordings kept with history</dt><dd>{formatGameBytes(row.retained_bytes)}</dd></>}

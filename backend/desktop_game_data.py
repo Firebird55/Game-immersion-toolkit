@@ -17,6 +17,7 @@ from .game_data import GameDataService, _read, _write, _write_bytes
 from .game_data_protocol import GAME_TITLES, GameDataError
 from .game_data_providers import create_game_data_providers
 from .multilingual_index import MultilingualTextIndex
+from .languages import study_language
 from .source_recordings import OriginalRecordings
 from .desktop_original_audio import DesktopOriginalVoices, recording_stamp
 from .runtime_writers import QuiesceableExecutor
@@ -238,6 +239,12 @@ class DesktopGameData:
         with self.runtime.accounts.lock:
             value = self.active.get((self.owner(), game))
             return bool(value[0].ready) if value is not None else None
+
+    def selected_languages(self):
+        with self.runtime.accounts.lock:
+            owner = self.owner()
+            return {game: {'source_locale': index.source_locale, 'source_language': study_language(index.source_locale)}
+                for (scope, game), (index, _voices) in self.active.items() if scope == owner and index.ready}
 
     def pause(self):
         # Cancellation and the real pool drain complete before SQL handoff.

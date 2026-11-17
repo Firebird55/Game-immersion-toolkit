@@ -48,6 +48,7 @@ try{
     else if(path==='/api/game-data/zzz/download'&&method==='POST'){
      assert.equal(body.plan_id,publisher.plan_id);
      publisher={...publisher,state:'ready',installed_revision:publisher.revision,installed_bytes:publisher.download_bytes,
+      installed_request:{region:publisher.region,source_locale:publisher.source_locale,target_locales:publisher.target_locales,content_mode:publisher.content_mode},
       deletable_bytes:publisher.download_bytes,can_download:false,can_delete:true,can_activate:true,message:'Original game data ready.'};value={game:publisher};
     }
     else if(path==='/api/game-data/zzz/activate'&&method==='POST'){
@@ -55,7 +56,7 @@ try{
     }
     else if(path==='/api/game-data/zzz/data'&&method==='DELETE'){
      assert.equal(body.revision,publisher.revision);
-     publisher={...publisher,state:'not_downloaded',revision:null,installed_revision:null,plan_id:null,
+     publisher={...publisher,state:'not_downloaded',revision:null,installed_revision:null,installed_request:null,plan_id:null,
       installed_bytes:0,deletable_bytes:0,retained_bytes:256,can_activate:false,can_delete:false,message:'History and saved recordings kept.'};value={game:publisher};
     }
     else if(path==='/api/setup'){if(setupOffline){await route.abort();return;}const selected=url.searchParams.get('game')??'zzz';value={...setup,mobile_export:{...setup.mobile_export,scope:exportScope(selected),sourceLocale:exportLocale,selectedGame:selected}};}
@@ -214,6 +215,7 @@ try{
    await gameData.getByRole('button',{name:'Check download size',exact:true}).click();
    await gameData.getByText('8.0 KiB',{exact:true}).waitFor();
    await gameData.getByRole('button',{name:'Download',exact:true}).click();
+   await gameData.locator('dd').filter({hasText:'Text + audio'}).waitFor();
    await gameData.getByRole('button',{name:'Use downloaded data',exact:true}).click();
    await gameData.getByRole('button',{name:'Delete downloaded data',exact:true}).click();
    await gameData.getByRole('button',{name:'Confirm delete',exact:true}).click();

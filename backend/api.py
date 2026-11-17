@@ -1467,8 +1467,9 @@ class Runtime:
             "pragmata_voice_assets": self.pragmata_voice_assets.status(),
             "game_voice_assets": {game: v.status() for game, v in self.game_voice_assets.items()},
             "updates": self.update_status(),
-            "selected_languages": {game: {'source_locale': locale, 'source_language': study_language(locale)}
+            "selected_languages": {**{game: {'source_locale': locale, 'source_language': study_language(locale)}
                 for game in GAME_LOCALES if (locale := self.languages.selected(game, self.accounts.status()['active']))},
+                **(self.publisher_data.selected_languages() if hasattr(self, 'publisher_data') else {})},
             "settings": self.settings.get().model_dump(mode="json"),
             "session": {
                 "id": self.capture.session_id,

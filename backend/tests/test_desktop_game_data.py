@@ -58,6 +58,7 @@ def test_desktop_text_download_binds_real_matcher_offline_activation_and_delete(
     row = finish(host.service)
     assert row['state'] == 'ready', row
     assert host.capture_ready('zzz') is True
+    assert host.selected_languages()['zzz'] == {'source_locale': 'en', 'source_language': 'en'}
     index = runtime.capture.textmaps
     match = index.match_lines(['Follow the river beyond the bridge.'], threshold=100)
     assert match.text_id == 'authored:bridge'
