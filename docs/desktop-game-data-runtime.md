@@ -5,6 +5,9 @@ the Android host. Settings can plan either **Text only** or **Text + audio** for
 selected region, source language and translation languages. The plan reports
 download and required disk bytes before consent; unknown sizes cannot download.
 Bootstrap results remain preparation stages requiring another explicit estimate.
+The live-service desktop Settings dialog uses the same game-data component as
+the Android host. Its selected download mode is independent of account features;
+an optional reading account is not required to download or use game data.
 
 The local routes are `GET /api/game-data`, `POST /api/game-data/{game}/plan`,
 `POST /api/game-data/{game}/download`, `POST /api/game-data/{game}/activate` and

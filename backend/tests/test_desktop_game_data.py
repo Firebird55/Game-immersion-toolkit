@@ -67,6 +67,8 @@ def test_desktop_text_download_binds_real_matcher_offline_activation_and_delete(
     assert len(match.publisher_request_sha256) == 64
     assert len(match.publisher_occurrence_sha256) == 64
     assert runtime.capture.voice_assets.has_variant(match.text_id, match.english) is False
+    assert api.Runtime.activate_language(runtime, 'zzz', 'en', 'legacy') is False
+    assert runtime.capture.textmaps is index  # Legacy background activation cannot replace this source.
     host.active.clear()  # A fresh selection can use only the accepted local descriptor.
     response = client.post('/api/game-data/zzz/activate', json={'revision': row['installed_revision']}, headers=HEADERS)
     assert response.status_code == 200 and host.capture_ready('zzz') is True
@@ -104,6 +106,8 @@ def test_http_owner_header_and_setup_origin_precede_any_profile_io(desktop):
         headers={**HEADERS, 'Origin': 'https://example.com'}).status_code == 403
     assert client.get('/api/game-data', headers={**HEADERS,
         'X-Proxy-Transcript-Account': 'different'}).status_code == 409
+    assert client.get('/api/game-data', headers={**HEADERS,
+        'X-Toolkit-Account-Generation': '2'}).status_code == 409
     assert not host.root.exists()
     row = client.post('/api/game-data/zzz/plan', json=TEXT, headers=HEADERS).json()['game']
     runtime.accounts.generation += 2  # Includes A -> B -> A, same account label.
@@ -130,7 +134,7 @@ def test_source_errors_do_not_publish_private_diagnostics_and_pause_drains(deskt
     assert client.get('/api/game-data').status_code == 200
 
 
-def test_fresh_desktop_host_restores_exact_accepted_text_while_new_stage_is_pending(desktop):
+def test_fresh_desktop_host_restores_exact_accepted_text_while_new_stage_is_pending(desktop, monkeypatch):
     client, host, provider, runtime = desktop
     prepare(client)
     assert finish(host.service)['state'] == 'ready'
@@ -141,6 +145,8 @@ def test_fresh_desktop_host_restores_exact_accepted_text_while_new_stage_is_pend
     host.pause()
     fresh = DesktopGameData(runtime, host.root, providers={'zzz': provider})
     try:
+        from backend import desktop_game_data
+        monkeypatch.setattr(desktop_game_data, '_write', lambda *_args: pytest.fail('Offline restore rewrote a selection'))
         fresh.resume()
         assert fresh.restore_error is None and fresh.capture_ready('zzz') is True
         assert runtime.capture.textmaps.publisher_generation == 'authored-one'

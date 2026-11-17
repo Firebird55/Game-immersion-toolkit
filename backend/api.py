@@ -467,6 +467,9 @@ class Runtime:
         return {**index, 'source_locale': locale, 'audio_count': count} if index.get('source_locale') in (None, locale) else missing
 
     def activate_language(self, game, locale, account):
+        publisher = getattr(self, 'publisher_data', None)
+        if publisher is not None and publisher.capture_ready(game) is not None:
+            return False  # A legacy background preparation cannot replace an explicit publisher selection.
         if account != self.accounts.status()['active'] or self.languages.selected(game, account) != locale:
             return False
         directory = DATA_DIR / 'languages' / game / locale
@@ -1830,6 +1833,9 @@ def publisher_operation(request, operation, *, game=None, payload=None, header=N
         account = runtime.accounts.status()['active']
         expected = request.headers.get('x-proxy-transcript-account')
         if expected is not None and expected != account:
+            raise HTTPException(409, 'Account changed. Refresh Settings before retrying.')
+        generation = request.headers.get('x-toolkit-account-generation')
+        if generation is not None and generation != str(runtime.accounts.generation):
             raise HTTPException(409, 'Account changed. Refresh Settings before retrying.')
         owner = host.owner()
     # The service can call back into the account lock at its publication point.

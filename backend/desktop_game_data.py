@@ -146,14 +146,17 @@ class DesktopGameData:
                 raise GameDataError('active_game_changed', 'A newer downloaded game selection was kept.', 409)
             pointer = self.profile_root() / 'selected.json'
             previous_bytes = pointer.read_bytes() if pointer.exists() else None
+            selection_changed = selections['games'].get(ctx.game) != ctx.source_descriptor
             selections['games'][ctx.game] = ctx.source_descriptor
-            _write(pointer, selections)
+            if selection_changed:
+                _write(pointer, selections)
             try:
                 self._bind(ctx.game, index, voices)
                 self.active[key] = (index, voices)
             except Exception:
-                if previous_bytes is None: pointer.unlink(missing_ok=True)
-                else: _write_bytes(pointer, previous_bytes)
+                if selection_changed:
+                    if previous_bytes is None: pointer.unlink(missing_ok=True)
+                    else: _write_bytes(pointer, previous_bytes)
                 raise
 
     def _delete(self, ctx):
