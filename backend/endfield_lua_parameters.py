@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 
 from .endfield_client_source import Image, Metadata, Ranges, check, identity_stamp
-from .game_tools import _atomic_file
+from .endfield_private_cache import atomic_bytes as _atomic_file
 
 
 def _path(tools, identity):

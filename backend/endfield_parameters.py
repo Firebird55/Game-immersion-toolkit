@@ -10,7 +10,7 @@ import re
 from . import endfield_metadata
 from .endfield_client_contract import Candidate, derive
 from .endfield_client_source import Image, Metadata, Ranges, check, identity_stamp, metadata_sections
-from .game_tools import _atomic_file
+from .endfield_private_cache import atomic_bytes as _atomic_file
 
 
 def source_runtime():

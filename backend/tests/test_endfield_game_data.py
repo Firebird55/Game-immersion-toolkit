@@ -195,6 +195,28 @@ def test_launcher_token_refresh_does_not_change_original_generation_or_size_appr
     assert all(call[1] != 'audio' for call in fixture.calls)
 
 
+def test_cold_factory_and_parameter_imports_do_not_load_desktop_tools_or_native_libraries():
+    import subprocess
+    import sys
+    program = r'''
+import importlib.abc, sys
+class NoDesktop(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        forbidden = ('backend.game_tools', 'backend.runtime_paths', 'backend.runtime_bundle',
+                     'backend.steam_games', 'backend.prepared_library', 'capstone', 'xxhash', 'numpy', 'Crypto')
+        if any(fullname == name or fullname.startswith(name + '.') for name in forbidden):
+            raise AssertionError('Forbidden cold import: ' + fullname)
+sys.meta_path.insert(0, NoDesktop())
+from backend import endfield_game_data, endfield_parameters, endfield_lua_parameters
+provider = endfield_game_data.create_provider(platform='android')
+assert provider.platform == 'android'
+assert 'backend.game_data' not in sys.modules
+'''
+    result = subprocess.run([sys.executable, '-c', program], cwd=Path(__file__).parents[2],
+                            capture_output=True, text=True, timeout=20)
+    assert result.returncode == 0, result.stderr
+
+
 @pytest.mark.parametrize('mode', ['text', 'text-audio'])
 def test_real_shared_context_and_transport_pay_for_all_revalidation_bytes(tmp_path, monkeypatch, mode):
     import io
