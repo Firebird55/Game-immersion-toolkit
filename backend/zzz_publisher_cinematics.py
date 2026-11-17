@@ -151,8 +151,8 @@ def _initial_buses(directory, stamp, locale):
         lambda start, size: source.read(directory, entry.offset + start, size), identity)
 
 
-def bindings(data_dir, stamp, locale, links, registry, *, catalogue=None):
-    """Only unanimous authored cinema uses can acquire a whole-film context."""
+def requested_events(links, registry):
+    """Select only unanimous authored contexts, before any bank/source access."""
     uses = defaultdict(list)
     for link in links:
         uses[link['text_id']].append(link)
@@ -175,11 +175,17 @@ def bindings(data_dir, stamp, locale, links, registry, *, catalogue=None):
             event, mode = alternates[0][0], 'unconditional_voice_layer'
         events_by_text[identity], modes_by_text[identity] = event, mode
     if not events_by_text:
-        return {}
+        return {}, {}, {}
     names = defaultdict(set)
     for identity, event in events_by_text.items():
         names[wwise_hash(event)].add((event, modes_by_text[identity]))
     events = {identity: next(iter(values)) for identity, values in names.items() if len(values) == 1}
+    return events_by_text, modes_by_text, events
+
+
+def bindings(data_dir, stamp, locale, links, registry, *, catalogue=None):
+    """Only unanimous authored cinema uses can acquire a whole-film context."""
+    events_by_text, modes_by_text, events = requested_events(links, registry)
     wanted = set().union(*(registry.get(event, set()) for event in events))
     if not wanted:
         return {}

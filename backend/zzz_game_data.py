@@ -134,11 +134,13 @@ def _runtime():
 class ZzzGameDataProvider:
     title = 'Zenless Zone Zero'
 
-    def __init__(self, *, platform, native=None, transport_factory=PublisherTransport, reader_resolver=None):
+    def __init__(self, *, platform, native=None, transport_factory=PublisherTransport, reader_resolver=None, codec_layout=None):
         if platform not in PLATFORMS:
             raise GameDataError('unsupported_game_data_platform', 'This game data platform is unsupported.')
         self.platform, self.transport_factory = platform, transport_factory
         self.reader_resolver = reader_resolver
+        self.codec_layout = codec_layout
+        self._audio_verification = {}
         # No desktop helper or speculative native method is a portable reader.
 
     def _reader(self):
@@ -147,6 +149,18 @@ class ZzzGameDataProvider:
         from .preparation_errors import PreparationFailure
         try:return (self.reader_resolver or production_zzz_reader)()
         except PreparationFailure:return None
+
+    def _codecs(self):
+        if self.platform == 'android':return None
+        from .zzz_owned_audio import available_codecs
+        return available_codecs(layout=self.codec_layout)
+
+    def _verification(self, ctx):
+        key = str(Path(ctx.cache_directory).absolute()), ctx.request.region
+        if key not in self._audio_verification:
+            if len(self._audio_verification) >= 16:self._audio_verification.pop(next(iter(self._audio_verification)))
+            self._audio_verification[key] = {}
+        return self._audio_verification[key]
 
     def _fetch(self, ctx, *, kind, allowed=None):
         channel = 'zzz-' + ctx.request.region
@@ -191,7 +205,8 @@ class ZzzGameDataProvider:
                     reader = self._reader()
                     if reader is not None:
                         from . import zzz_pc_stages
-                        return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory)
+                        options = {'codecs': self._codecs()} if request.content_mode == 'text-audio' else {}
+                        return zzz_pc_stages.plan(ctx, build, cache, reader, transport_factory=self.transport_factory, **options)
                     ctx.check()
                     return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
                         stage='catalogue-runtime', message='Official ZZZ bootstrap verified. Dialogue preparation is not available on this device yet.')
@@ -209,7 +224,8 @@ class ZzzGameDataProvider:
             reader = self._reader()
             if reader is None:raise GameDataError('zzz_reader_unavailable', 'The verified ZZZ reader is unavailable on this device.')
             with ctx.transfer_lock:
-                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory)
+                options = {'codecs': self._codecs(), 'verification': self._verification(ctx)} if ctx.request.content_mode == 'text-audio' else {}
+                return zzz_pc_stages.download(ctx, plan, reader, transport_factory=self.transport_factory, **options)
         selection = _selection(ctx.request)
         handle = plan.handle
         if (handle.get('schema') != SCHEMA or handle.get('game') != 'zzz' or handle.get('request') != selection
@@ -252,6 +268,10 @@ class ZzzGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
+        if isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-audio-v1':
+            from . import zzz_pc_audio
+            return zzz_pc_audio.restore(ctx, handle, self._codecs(), transport_factory=self.transport_factory,
+                                       verification=self._verification(ctx))
         if isinstance(handle, dict) and handle.get('schema') == 'zzz-pc-official-text-v1':
             from . import zzz_pc_stages
             return zzz_pc_stages.restore(ctx, handle)

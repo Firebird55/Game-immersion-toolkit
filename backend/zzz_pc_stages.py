@@ -1,5 +1,6 @@
 """Consented original text stages using the verified compiler-free ZZZ reader."""
 from pathlib import Path
+import base64
 import hashlib
 import json
 import re
@@ -166,22 +167,27 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
                 inputs = {'design': batches['design'], 'locales': sorted(selected),
                     'namespace': voice_namespace('zzz', audio_locale(ctx.request.source_locale)),
                     'blocks': frames(scene['ranges'], 'scenes'), 'comics': frames(operations['comic-plan']['output']['ranges'], 'comics'),
-                    'voiceDirectory': [], 'cinemaTimelines': frames(owners['cinemaRanges'], 'cinema-timelines'),
-                    'knownTimelineKeys': [owner['key'] for owner in owners['owners']], 'includeAudio': False}
+                    'voiceDirectory': (frames(scene['voiceDirectory'], 'voice-directory') if ctx.request.content_mode == 'text-audio' else []),
+                    'cinemaTimelines': frames(owners['cinemaRanges'], 'cinema-timelines'),
+                    'knownTimelineKeys': [owner['key'] for owner in owners['owners']], 'includeAudio': ctx.request.content_mode == 'text-audio'}
         if mode == 'comic-plan' and not inputs['roots']:result = {'ranges': []}
         else:result = _query(reader, work, mode, inputs, ctx)
         if mode != 'catalogue':return {'input': inputs, 'output': result}
         links = json.loads((work / 'links.json').read_bytes())
         tables = {locale: json.loads((work / ('texts-' + locale + '.json')).read_bytes()) for locale in inputs['locales']}
-        expanded, channels, evidence, kinds = zzz_assets._group_links(links)
-        rows = zzz_assets._dialogue_records(tables, ctx.request.source_locale, set(inputs['locales']), channels, evidence, kinds, {})
         stamp = voice.descriptor(sources.build)[0]
-        publisher._omit_requested_audio(rows, links, expanded, stamp, audio_locale(ctx.request.source_locale))
         scene = operations['scene-plan']['output']
         owners = operations['presentation-owners']['output']
         result.update(scene_paths=scene['scenePaths'], comic_paths=scene['comics']['scenePaths'],
                       perform_presentations=scene['performPresentations'], presentation_owners=owners['coverage'])
         result['presentation_owners']['extra_config_references'] = operations['presentation-config-plan']['output']['extraConfigs']
+        if ctx.request.content_mode == 'text-audio':
+            return {'links': links, 'tables': tables, 'coverage': result,
+                'voice_directory': json.loads((work / 'voice-directory.json').read_bytes()),
+                'registry': base64.b64encode((work / 'audio-resource.flex').read_bytes()).decode('ascii')}
+        expanded, channels, evidence, kinds = zzz_assets._group_links(links)
+        rows = zzz_assets._dialogue_records(tables, ctx.request.source_locale, set(inputs['locales']), channels, evidence, kinds, {})
+        publisher._omit_requested_audio(rows, links, expanded, stamp, audio_locale(ctx.request.source_locale))
         result['presentation_owners']['subtitle_audio_acquisition'] = 'omitted-by-request'
         available = {locale for row in rows for locale in row['texts']}
         return {'format': 2, 'game': 'zzz', 'source_locale': ctx.request.source_locale, 'content_mode': 'text',
@@ -192,17 +198,24 @@ def _execute(ctx, reader, mode, sources, files, batches, blocks, operation):
             'coverage_warnings': [publisher.SCOPE], 'message': 'Official ZZZ text prepared without audio acquisition.'}
 
 
-def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport):
+def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherTransport, codecs=None):
     current = discover(ctx, launcher, bootstrap_cache, transport_factory=transport_factory)
     revision = voice.descriptor(current)[0]
     handle = {'schema': SCHEMA, 'game': 'zzz', 'request': ctx.request.json(), 'revision': revision,
               'build': current, 'reader': reader.identity}
-    if ctx.request.content_mode != 'text':
+    if ctx.request.content_mode == 'text-audio' and codecs is None:
         return GameDataPlan(revision, None, None, handle=handle, runtime_available=False, stage='audio-materialization',
-            message='Complete ZZZ text and audio preparation is not available yet. Text-only preparation is available separately.')
+            message='The verified original-audio decoder is unavailable on this device. Text-only preparation is available separately.')
     if ctx.request.source_locale not in ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko'):
         return GameDataPlan(revision, None, None, handle=handle, runtime_available=False, stage='study-language',
             message='This ZZZ study language cannot be prepared on this device yet.')
+    if ctx.request.content_mode == 'text-audio':
+        from . import zzz_pc_audio
+        initial = zzz_pc_audio.plan_inputs(ctx, current, handle, transport_factory=transport_factory)
+        if initial is not None:return initial
+        audio = zzz_pc_audio.plan_candidate(ctx, current, handle, reader,
+            transport_factory=transport_factory, final_metadata_bytes=FINAL_METADATA_BYTES)
+        if audio is not None:return audio
     sources = Sources(ctx, current, transport_factory=transport_factory)
     try:inventories = sources.indexes(('design', 'catalog'))
     except NeedsFiles as missing:
@@ -214,23 +227,32 @@ def plan(ctx, launcher, bootstrap_cache, reader, *, transport_factory=PublisherT
     previous = getattr(ctx, 'stage_handle', None)
     operation = _load_operations(ctx, previous, revision, reader)
     mode, ranges = _mode_inputs(operation['operations'])
+    if mode == 'catalogue' and ctx.request.content_mode == 'text-audio':
+        ranges = [*ranges, *operation['operations']['scene-plan']['output']['voiceDirectory']]
     assets = _selected(files, blocks, ranges)
     locales = {ctx.request.source_locale, *(resolve_locale(locale, zzz_assets.TEXT_LOCALES) for locale in ctx.request.target_locales)} - {None}
     selected, network, disk = sources.quote(assets, scratch_bytes=_scratch_bytes(files, ranges, locales))
     handle.update(mode=mode, files=selected, operations=previous.get('operations') if previous and operation.get('revision') else None)
-    allowance = FINAL_METADATA_BYTES if mode == 'catalogue' else 0
+    allowance = FINAL_METADATA_BYTES if mode == 'catalogue' and ctx.request.content_mode == 'text' else 0
     handle['source_network_bytes'] = network
     return GameDataPlan(revision, network + allowance, disk, handle=handle, runtime_available=True,
         stage='zzz-' + mode, download_is_upper_bound=True,
-        message='Prepare the selected original ZZZ text sources. Audio is not included.')
+        message=('Prepare the selected original ZZZ text sources. Audio is not included.' if ctx.request.content_mode == 'text'
+                 else 'Verify the original dialogue and voice references, then check the selected audio size.'))
 
 
-def download(ctx, planned, reader, *, transport_factory=PublisherTransport):
+def download(ctx, planned, reader, *, transport_factory=PublisherTransport, codecs=None, verification=None):
     handle = planned.handle
-    if (handle.get('schema') != SCHEMA or handle.get('request') != ctx.request.json() or ctx.request.content_mode != 'text'
+    if (handle.get('schema') != SCHEMA or handle.get('request') != ctx.request.json()
             or handle.get('reader') != reader.identity or handle.get('revision') != planned.revision
             or voice.descriptor(handle['build'])[0] != planned.revision):
         raise GameDataError('zzz_stage_changed', 'Check the selected ZZZ text download again.', 409)
+    if ctx.request.content_mode == 'text-audio':
+        if codecs is None:raise GameDataError('zzz_audio_runtime_missing', 'The verified original-audio decoder is unavailable. Repair the app runtime.', 409)
+        if handle['mode'].startswith('audio-'):
+            from . import zzz_pc_audio
+            return zzz_pc_audio.download(ctx, planned, reader, codecs,
+                transport_factory=transport_factory, verify_current=_verify_current, verification=verification)
     sources = Sources(ctx, handle['build'], transport_factory=transport_factory)
     if handle['mode'] == 'indexes':
         assets = [sources.index_file(name) for name in ('design', 'catalog')]
@@ -249,11 +271,13 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport):
     files, batches, blocks = _metadata(sources, inventories)
     operation = _load_operations(ctx, handle, planned.revision, reader)
     mode, ranges = _mode_inputs(operation['operations'])
+    if mode == 'catalogue' and ctx.request.content_mode == 'text-audio':
+        ranges = [*ranges, *operation['operations']['scene-plan']['output']['voiceDirectory']]
     assets = _selected(files, blocks, ranges)
     selected, network, _disk = sources.quote(assets)
     if mode != handle['mode'] or selected != handle['files'] or network > handle['source_network_bytes']:
         raise GameDataError('zzz_stage_changed', 'The selected ZZZ source changed. Check its size again.', 409)
-    sources.download(assets)
+    sources.download(assets, **({'kind': 'audio'} if ctx.request.content_mode == 'text-audio' else {}))
     result = _execute(ctx, reader, mode, sources, files, batches, blocks, operation)
     if mode != 'catalogue':
         operation.update(revision=planned.revision, reader=reader.identity, request=ctx.request.json())
@@ -264,17 +288,12 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport):
         digest = hashlib.sha256(raw).hexdigest(); path = _operation_path(ctx, digest)
         path.parent.mkdir(parents=True, exist_ok=True); ctx.check(); _atomic_file(path, raw)
         return PreparationStage({**handle, 'operations': digest}, 'Original ZZZ text stage verified. Check the remaining download size.')
+    if ctx.request.content_mode == 'text-audio':
+        from . import zzz_pc_audio
+        return zzz_pc_audio.save_candidate(ctx, handle, result, reader)
     # Only the final source pointer check may spend the explicitly planned
     # metadata allowance. It has no permission to acquire a newer client key.
-    channel = handle['build']['channel']
-    def official_fetch(url, *, limit):
-        (launcher, _, downloader), _, _, _ = sophon_assets.CHANNELS[channel]
-        return transport_factory(ctx, hosts={launcher, downloader}).fetch_bytes(url, limit=limit, kind='metadata')[0]
-    latest_launcher = sophon_assets.release(channel, fetch=official_fetch)
-    bootstrap_cache = Path(ctx.cache_directory) / 'zzz-original' / ctx.request.region
-    latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory)
-    if voice.descriptor(latest)[0] != planned.revision:
-        raise GameDataError('zzz_publisher_changed', 'The original ZZZ update changed during preparation. Retry; previous data is kept.', 409)
+    _verify_current(ctx, handle['build'], planned.revision, transport_factory)
     destination = _safe(ctx.directory / 'textmap.json')
     write_payload('zzz', result, ctx.request.source_locale, ctx.request.target_locales, destination)
     snapshot_sha = hashlib.sha256(destination.read_bytes()).hexdigest()
@@ -286,6 +305,18 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport):
     result_handle = {'schema': SCHEMA, 'game': 'zzz', 'request': ctx.request.json(), 'revision': planned.revision,
                      'receipt_sha256': digest, 'snapshot_sha256': snapshot_sha}
     return SnapshotSource(destination, result_handle, SourceProof('official', digest, True))
+
+
+def _verify_current(ctx, build, revision, transport_factory):
+    channel = build['channel']
+    def official_fetch(url, *, limit):
+        (launcher, _, downloader), _, _, _ = sophon_assets.CHANNELS[channel]
+        return transport_factory(ctx, hosts={launcher, downloader}).fetch_bytes(url, limit=limit, kind='metadata')[0]
+    latest_launcher = sophon_assets.release(channel, fetch=official_fetch)
+    bootstrap_cache = Path(ctx.cache_directory) / 'zzz-original' / ctx.request.region
+    latest = discover(ctx, latest_launcher, bootstrap_cache, transport_factory=transport_factory)
+    if voice.descriptor(latest)[0] != revision:
+        raise GameDataError('zzz_publisher_changed', 'The original ZZZ update changed during preparation. Retry; previous data is kept.', 409)
 
 
 def restore(ctx, handle):
