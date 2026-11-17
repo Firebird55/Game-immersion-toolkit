@@ -2116,7 +2116,7 @@ def get_lines(
         presented(runtime.speakers.enrich(line) if line.game == "zzz" else line)
         for line in runtime.transcript.list(limit=limit, before_id=before_id, game=game)
         if line.game == "hito" or ((line.voiced or line.is_comic or line.voice_status == 'unvoiced'
-                                  or line.is_verified_missing_audio) and (
+                                  or line.is_verified_missing_audio or line.is_requested_text_only) and (
             runtime.pragmata.is_capture_text(line.text_id, line.english, line.channel)
             if line.game == "pragmata"
             else runtime.game_indexes[line.game].is_capture_text(line.text_id, line.english, line.channel)
@@ -2474,7 +2474,8 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
     line = runtime.transcript.get(line_id)
     if line is None:
         raise HTTPException(404, "This line is no longer in local history.")
-    if not line.voiced and line.voice_status != 'unvoiced' and not line.is_verified_missing_audio:
+    if (not line.voiced and line.voice_status != 'unvoiced' and not line.is_verified_missing_audio
+            and not line.is_requested_text_only):
         raise HTTPException(409, "This line needs verified dialogue text or an original voice before export.")
     if line.game == "zzz":
         line = runtime.speakers.enrich(line)
@@ -2487,11 +2488,13 @@ def send_line_to_lexirise(line_id: int, x_proxy_transcript: str = Header(default
         # A subtitle page can be bound to a whole authored performance without
         # verified page timings. Keep manual playback, but do not export that
         # recording as though it were a clip of this sentence alone.
-        include_audio = line.voice_status != 'unvoiced' and not line.is_verified_missing_audio and line.audio_scope != 'paragraph'
+        include_audio = (line.voice_status != 'unvoiced' and not line.is_verified_missing_audio
+                         and not line.is_requested_text_only and line.audio_scope != 'paragraph')
         result = runtime.lexirise.pin(line.source_language).send(ref=f"line:{line_id}", game=line.game, chinese=line.source_text,
             english=line.translation_text, speaker=" / ".join(filter(None, [line.speaker_english, line.speaker_chinese])),
             audio=path if include_audio else None, audio_source=line.audio_source, audio_scope=line.audio_scope,
-            voice_status='voiced' if line.voiced and not line.is_verified_missing_audio else line.voice_status)
+            voice_status='voiced' if line.voiced and not line.is_verified_missing_audio else line.voice_status,
+            audio_omitted_by_request=line.is_requested_text_only)
         return {**result, 'audio_included': include_audio}
     except LexiriseError as error:
         raise HTTPException(409, str(error)) from None
