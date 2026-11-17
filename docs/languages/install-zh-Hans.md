@@ -29,7 +29,7 @@
 | :--- | :--- |
 | Genshin Impact | 可从发行商准备全球版或中国大陆版启动器资源 |
 | Honkai: Star Rail | 可从发行商准备所选地区的语音、部分影片片段和教程文本 |
-| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
+| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips, timed clues and supported whole-film contexts. |
 | Arknights: Endfield | 可从发行商准备全球版或中国大陆版剧情配音 |
 | Wuthering Waves | 可从发行商准备全球版台词、原版配音和已核实的场景上下文片段 |
 | Neverness to Everness | 从发行商获取所选版本可用的文本与原版配音 |

@@ -472,10 +472,15 @@ function catalogue(work, input, reader) {
   const key = name => String(reader.xxHash64(name.toLowerCase()));
   const suffixes = ['TemplateTb', 'OverwriteTemplateTb'];
   const bindings = ['MessageConfigTemplateTb', 'OngoingTipsConfigTemplateTb', 'SubtitleConfigTemplateTb', 'TipsConfigTemplateTb'];
-  const wanted = new Set(bindings.map(key));
+  // AudioResourceData is an original plain-named design TextAsset, rather than
+  // a hashed FileCfg table or an asset in the scene resource catalog.
+  const wanted = new Set([...bindings.map(key), 'AudioResourceData']);
   for (const locale of locales) for (const suffix of suffixes) wanted.add(key('TextMap' + tags[locale] + suffix));
   const tables = designTables(input.design, work, wanted, reader.unpackMhyFile);
   if (bindings.some(name => !tables.has(key(name)))) throw Error('Released ZZZ binding table is missing');
+  const audioResource = tables.get('AudioResourceData');
+  if(!audioResource?.length || audioResource.length > 32*1024*1024)throw Error('Released ZZZ cinematic bank registry is missing or changed');
+  writeFileSync(join(work,'audio-resource.flex'),audioResource,{flag:'wx'});
   const links = [];
   const unsupported = {}, timelineKeys = new Set();
   for (const cab of sceneCabs(work, input.blocks, reader)) {

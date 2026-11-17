@@ -46,7 +46,7 @@ installation.
 
 | Game | Folder to choose | Voice requirement |
 | --- | --- | --- |
-| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips and timed clue recordings in the selected dub. For other dialogue, select the installed files and matching voice pack |
+| Zenless Zone Zero | Optional folder containing ZenlessZoneZero_Data, or the Data folder itself | Without a folder, choose Global or Mainland China in Publisher edition to prepare current dialogue scenes, messages, gameplay tips, timed clue recordings and supported whole-film contexts in the selected dub. Context audio is labeled; unresolved film/player bindings remain unavailable |
 | PRAGMATA | Contains PRAGMATA.exe and re_chunk_*.pak | Mandarin voices are verified during indexing |
 | Cyberpunk 2077 | Contains bin/x64 and archive/pc/content | Official Simplified Chinese voice pack |
 | Wuthering Waves | Contains Client, or Client itself | Install the selected voice pack, or leave the folder empty for publisher preparation |

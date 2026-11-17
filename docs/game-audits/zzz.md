@@ -1,5 +1,65 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Original publisher cinematic bank and media acquisition
+
+Reader revision 18 reads the plain-named original design TextAsset
+`AudioResourceData`. Its payload is FlexBuffers, not a hashed scene-catalog asset
+or a JSON table. The already locked Apache-2.0 FlatBuffers 25.12.19 runtime
+includes this reader and its existing packaged source notices; no additional
+software or community data publication is required. The current original
+registry contains 49,158 event/bank groups. New event and bank identities come
+from each newly selected publisher release, without a toolkit list of films.
+
+Normal preparation joins a completely understood timeline's unique whole-film
+event to its original required banks. The selected dub's authenticated PCK
+tables establish bank and media ownership. The bounded Wwise 135 parser accepts
+only one Play action targeting one language-specific Sound. It reads HIRC/DIDX
+metadata while skipping embedded DATA. Source kind distinguishes embedded
+recordings from complete streamed recordings: a prefetch prefix in a bank is
+never exposed as the whole film. The source layout is independently documented
+by the frozen [Wwise parser format description](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wdefs.py#L1048).
+This is a format reference, not an added runtime dependency. Playback downloads
+the exact selected original media and verifies its complete RIFF/WAVE bounds.
+Persistent packages override base packages; conflicting same-layer sources,
+unsupported hierarchies and mixed caption uses stay unresolved.
+
+The finite current English source check establishes **130 whole-film events /
+893 caption identities** with playable source bindings. Of these, 20 events use
+complete streamed media instead of their short embedded prefetch prefixes.
+Metadata acquisition added 160 authenticated chunks, 201,653,595 expanded bytes
+and 194,498,331 compressed bytes, without downloading a whole PCK or requesting
+bank DATA payloads. Chunk boundaries can contain adjacent payload bytes; that
+does not turn this into a media search.
+
+The denominators remain separate: the typed complete timelines supply 168
+whole-event names across locales, while English captions unanimously select
+134 events. Three selected English events have no current registry entry
+(`Play_vo_C260_EP000`, `Play_vo_C270_EP010`, `Play_vo_C270_EP110`).
+`Play_vo_C300_EP010` requires bank 3796863498, which is absent from the selected
+English bank inventory. These are unavailable/unknown, not confirmed silent.
+Shared captions that select different player events cannot inherit one branch.
+
+Fresh normal Global English preparation completed in 163.968 seconds with
+**297,159 records**, including **890 context captions from 130 events**. All
+295,204 earlier ordinary record dictionaries remained identical, and no record
+was added or removed relative to reader 17. The 893 raw bindings include three
+IDs absent from the prepared English source join: `C310_EP073B_040`,
+`C310_EP073B_070` and `C310_EP073G_040`. These are retained as source gaps rather
+than invented English captions. Source hashes before and after the worker match.
+
+Four actual current normal-snapshot contexts passed the local voice service in
+two separate fresh processes with all network access forbidden. C330 B/G each
+decoded to 40.257208 seconds of nonzero audio, with different PCM per branch.
+Base-embedded `C310_EP080G_010` decoded to 8.426667 seconds and complete streamed
+`C260_EP063_010` to 14.033333 seconds. All four PCM hashes remained identical
+after the process restart. The streamed sample required one separately verified
+926,839-byte launcher chunk (916,490 compressed); no whole PCK was transferred.
+This does not establish a complete ordinary-update trial or all-locale playback. The recordings are
+explicitly labeled `context`, with no invented sentence cuts or inferred B/G
+gender. Other timeline layouts, current-use classification, player ownership,
+the four absent overrides and frozen actual-generation update/recovery
+acceptance remain open. No original assets, audio or native bytes are shipped.
+
 ## November 17, 2026 · Original film subtitle tracks in normal publisher preparation
 
 Reader revision 17 follows explicit `.playable` overrides from the selected

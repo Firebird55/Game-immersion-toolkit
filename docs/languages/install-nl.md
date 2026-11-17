@@ -29,7 +29,7 @@ Laat de gamemap leeg in de Windows-instellingen voor de wereldwijde of Chinese v
 | :--- | :--- |
 | Genshin Impact | Uitgeversbestanden uit de wereldwijde of Chinese launcher |
 | Honkai: Star Rail | Regionale stemmen, geselecteerde filmfragmenten en tutorialtekst van de uitgever |
-| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips and timed clue recordings. |
+| Zenless Zone Zero | Global or mainland China publisher dialogue scenes, motion comics, messages, gameplay tips, timed clues and supported whole-film contexts. |
 | Arknights: Endfield | Verhaalstemmen van de wereldwijde of Chinese uitgever |
 | Wuthering Waves | Global-dialogen, originele stemmen en geverifieerde scènefragmenten met context van de uitgever |
 | Neverness to Everness | Beschikbare tekst en originele stemmen van de gekozen editie ophalen bij de uitgever |
