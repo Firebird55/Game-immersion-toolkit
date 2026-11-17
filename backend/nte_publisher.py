@@ -28,17 +28,31 @@ def _json(value):
     return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
 
 
+def _allows_community(value):
+    # The official-first resolver/admission boundary is not established yet.
+    # This private opt-in preserves bounded hybrid proofs, not a Setup default.
+    return value.get('metadata_policy', {}).get('description', {}).get('community_fallback') == 'research-opt-in'
+
+
 def _path(tools, stamp):
     pak.check(isinstance(stamp, str) and re.fullmatch(r'nte-[0-9a-f]{64}', stamp))
     return Path(tools) / 'nte-publisher' / stamp / 'release.json'
 
 
-def snapshot(tools, stamp):
+def snapshot(tools, stamp, *, _recipe=False):
     raw = _path(tools, stamp).read_bytes()
     pak.check('nte-' + hashlib.sha256(raw).hexdigest() == stamp)
     result = json.loads(raw)
+    from . import nte_metadata_profile as profiles
+    if result.get('kind') == profiles.SNAPSHOT:
+        pak.check(not _recipe)
+        recipe = snapshot(tools, result['recipe'], _recipe=True)
+        profile = profiles.load(tools, stamp, result, recipe)
+        return {**recipe, '_materialized': {'snapshot': stamp, 'header': result, 'profile': profile}}
     pak.check(result['schema'] == SCHEMA and result['region'] in release.HOSTS and
               isinstance(result['files'], dict) and 0 < len(result['files']) <= 100_000)
+    if 'metadata_policy' in result:
+        profiles.check_policy(result['metadata_policy'])
     if 'updater_metadata' in result:
         from . import nte_community_metadata as community
         proof = result['updater_metadata']
@@ -71,9 +85,10 @@ def snapshot(tools, stamp):
     return result
 
 
-def snapshot_available(tools, stamp):
+def snapshot_available(tools, stamp, *, preparing=False):
     try:
-        snapshot(tools, stamp)
+        value = snapshot(tools, stamp)
+        pak.check(preparing or 'metadata_policy' not in value or '_materialized' in value)
         return True
     except (OSError, ValueError, TypeError, KeyError):
         return False
@@ -89,13 +104,14 @@ def _reader_identity():
     return hashlib.sha256(b''.join((root / n).read_bytes() for n in ('NteReader.cs', 'NteReader.csproj'))).hexdigest()
 
 
-def _discovery(region, *, parameter_cache=None):
+def _discovery(region, *, parameter_cache=None, allow_community_fallback=False):
     updater = {}
     if parameter_cache is None:
         branch, version, files, sections = release.discover(region)
     else:
         branch, version, files, sections = release.discover(region,
-            community_cache=parameter_cache, metadata_out=updater)
+            community_cache=parameter_cache, metadata_out=updater,
+            **({'allow_community_fallback': True} if allow_community_fallback else {}))
     selected = {name: asdict(item) for name, item in files.items() if name.startswith(ROOT)}
     pak.check(selected)
     return {'region': region, 'branch': branch, 'version': version, 'files': selected, 'sections': sections,
@@ -104,21 +120,24 @@ def _discovery(region, *, parameter_cache=None):
 
 
 @lru_cache(maxsize=2)
-def _current(tools, period, region):
+def _current(tools, period, region, allow_community_fallback=False):
     from . import nte_assets
     from . import nte_native_provider as native
+    from . import nte_metadata_profile as profiles
     cache = Path(tools) / 'nte-publisher/format'
-    value = _discovery(region, parameter_cache=cache/'community')
+    value = _discovery(region, parameter_cache=cache/'community',
+                       **({'allow_community_fallback': True} if allow_community_fallback else {}))
     reader = _reader_identity()
     archive = metadata.load(revision=NATIVE_ARCHIVE[0], digest=NATIVE_ARCHIVE[1], cache=cache)
     localization = metadata.load_localization(revision=NATIVE_LOCALIZATION[0], digest=NATIVE_LOCALIZATION[1], cache=cache)
     types = native.source_reference(native.discovery(value), reader)
     value.update(schema=SCHEMA, reader=reader, type_schema=types,
+                 metadata_policy=profiles.policy(allow_community_fallback=allow_community_fallback),
                  index_schema=nte_assets.LANGUAGE_INDEX_VERSION,
                  archive=[archive.revision, archive.digest], localization=[localization.revision, localization.digest])
     raw = _json(value)
     stamp = 'nte-' + hashlib.sha256(raw).hexdigest()
-    if not snapshot_available(tools, stamp):
+    if not snapshot_available(tools, stamp, preparing=True):
         _atomic_file(_path(tools, stamp), raw)
     return stamp, value
 
@@ -155,20 +174,41 @@ def _overlay(sources, paths):
 
 
 class Catalog:
-    def __init__(self, tools, stamp, progress=lambda _message: None):
+    def __init__(self, tools, stamp, progress=lambda _message: None, *, preparing=False):
         self.tools, self.stamp = Path(tools), stamp
         self.snapshot = snapshot(tools, stamp)
         self.region, self.branch = self.snapshot['region'], self.snapshot['branch']
+        pak.check(preparing or 'metadata_policy' not in self.snapshot or '_materialized' in self.snapshot)
         self.files = {n: release.File(**v) for n, v in self.snapshot['files'].items()}
         self.cache = self.tools / 'nte-publisher'
         revision, digest = self.snapshot['archive']
-        self.format = metadata.load(revision=revision, digest=digest, cache=self.cache / 'format')
+        self.keyring = None
+        if 'metadata_policy' in self.snapshot:
+            from .nte_archive_keys import KeyRing
+            from .nte_native_provider import discovery, metadata as native_metadata
+            original = {'region': self.region, 'branch': self.branch, 'version': self.snapshot['version'],
+                        'sha256': hashlib.sha256(native_metadata._json(discovery(self.snapshot))).hexdigest()}
+            materialized = self.snapshot.get('_materialized')
+            if materialized:
+                self.keyring = KeyRing(None, self.cache/'format/community', original,
+                    sealed=materialized['profile']['materials']['archive'])
+            else:
+                primary = metadata.load(revision=revision, digest=digest, cache=self.cache/'format')
+                self.keyring = KeyRing(primary, self.cache/'format/community', original,
+                    allow_community_fallback=_allows_community(self.snapshot))
+            self.format = self.keyring
+        else:
+            self.format = metadata.load(revision=revision, digest=digest, cache=self.cache / 'format')
         self.progress, self.archives = progress, {}
         names = [n for n in self.files if n.endswith('.pak')]
         pak.check(0 < len(names) <= 128)
         with ThreadPoolExecutor(max_workers=4) as pool:
             self.archives = dict(zip(names, pool.map(self.archive, names)))
         self.locations = _overlay(self.archives, lambda archive: archive.locations)
+
+    def reader_keys(self):
+        return (self.keyring.proved_keys(self.archives.values()) if self.keyring is not None else
+                self.format.parameters[self.region])
 
     def archive(self, name):
         if name not in self.archives:
@@ -191,7 +231,8 @@ class Catalog:
     def containers(self):
         names = [n for n in self.files if n.endswith('.utoc')]
         pak.check(0 < len(names) <= 128)
-        proven = next((archive for archive in self.archives.values() if archive.cipher is not None), None)
+        proven = (tuple(self.archives.values()) if getattr(self, 'keyring', None) is not None else
+                  next((archive for archive in self.archives.values() if archive.cipher is not None), None))
         pak.check(proven is not None)
         def read(name):
             pak.check(name[:-5] + '.ucas' in self.files)
@@ -254,7 +295,12 @@ def _localization(catalog, locales, source_locale, destination):
     from .nte_assets import TEXT_LOCALES
     from .nte_locres import parse
     revision, digest = catalog.snapshot['localization']
-    parameter = metadata.load_localization(revision=revision, digest=digest, cache=catalog.cache / 'format').parameter
+    hybrid = getattr(catalog, 'keyring', None) is not None
+    if hybrid:
+        from .nte_localization_keys import LocalizationKeys
+        catalog.localization_keys = LocalizationKeys(catalog)
+    else:
+        parameter = metadata.load_localization(revision=revision, digest=digest, cache=catalog.cache / 'format').parameter
     tables = {}
     for locale in locales:
         code = TEXT_LOCALES[locale]
@@ -262,7 +308,8 @@ def _localization(catalog, locales, source_locale, destination):
             continue
         path = 'HT/Content/Localization/Game/' + code + '/Game.locres'
         if catalog.location(path):
-            tables[code] = parse(catalog.read(path), parameter)
+            data = catalog.read(path)
+            tables[code] = catalog.localization_keys.parse(path, data) if hybrid else parse(data, parameter)
     source = tables.get(TEXT_LOCALES[source_locale])
     if not source:
         raise PreparationFailure('missing_text_pack', 'The selected NTE edition does not provide this text language. Choose the Global edition or another available study language in Setup.')
@@ -290,7 +337,8 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     locales = {source_locale, *(locale for locale in resolved.values() if locale)}
     progress('Reading coherent NTE publisher text, original authoring and selected voice banks')
-    catalog = Catalog(tools, stamp, progress)
+    catalog = (Catalog(tools, stamp, progress, preparing=True) if 'metadata_policy' in value else
+               Catalog(tools, stamp, progress))
     executable = assets.ensure_extractor(tools)
     staging_root = tools.parent / 'nte-publisher-staging'
     staging_root.mkdir(parents=True, exist_ok=True)
@@ -363,7 +411,8 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     if 'publisher_files' in value: expected['publisher_files'] = value['publisher_files']
     if 'updater_metadata' in value:
         expected['updater_metadata'] = value['updater_metadata']
-    observed = _discovery(region, parameter_cache=catalog.cache/'format/community')
+    observed = _discovery(region, parameter_cache=catalog.cache/'format/community',
+                         **({'allow_community_fallback': True} if _allows_community(value) else {}))
     if 'publisher_files' not in value: observed = {key: observed[key] for key in expected}
     if 'nte-' + selected_region(tools, 'nte') != region or observed != expected:
         raise PreparationFailure('game_files_changed', 'NTE publisher resources changed during preparation. Retry; the previous completed index is retained.')
@@ -379,7 +428,44 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
             'message': f'{len(records):,} official {source_locale} lines; {sum(bool(r.get("audio")) for r in records):,} original voices'}
     if native_proof is not None:
         result.update(type_schema=native_proof[0], native_schema_validation=native_proof[1])
+    if 'metadata_policy' in value:
+        from . import nte_metadata_profile as profiles
+        pak.check(native_proof is not None and catalog.keyring is not None)
+        native = profiles.native_evidence(value, native_proof, catalog.cache)
+        materials = {'archive': catalog.keyring.bindings, 'localization': catalog.localization_keys.bindings,
+                     'updater': value.get('updater_metadata') or {
+                         'global': list(release.GLOBAL_FORMAT),
+                         **({'mainland': list(release.CN_FORMAT)} if region == 'nte-cn' else {})}}
+        resolved = profiles.publish(tools, stamp, value, result, native, materials)
+        result['publisher_snapshot'] = resolved
+        for row in records:
+            if row.get('audio'):
+                row['audio']['publisher'] = resolved
+        validate_prepared(tools, result)
     return result
+
+
+def validate_prepared(tools, payload, *, recheck=False):
+    """Desktop activation/export boundary; never used by the portable core."""
+    if 'publisher_snapshot' not in payload:
+        value = snapshot(tools, payload['fingerprint'])
+        pak.check('metadata_policy' not in value)
+        return
+    from . import nte_metadata_profile as profiles
+    snapshot_id = payload['publisher_snapshot']
+    value = snapshot(tools, snapshot_id)
+    materialized = value.get('_materialized')
+    pak.check(isinstance(materialized, dict))
+    profiles.validate_payload(payload, materialized['profile'], materialized['header'], snapshot_id)
+    if recheck:
+        observed = _discovery(value['region'], parameter_cache=Path(tools)/'nte-publisher/format/community',
+                             **({'allow_community_fallback': True} if _allows_community(value) else {}))
+        expected = {key: value[key] for key in ('region', 'branch', 'version', 'files', 'sections', 'publisher_files')}
+        if 'updater_metadata' in value:
+            expected['updater_metadata'] = value['updater_metadata']
+        if observed != expected:
+            raise PreparationFailure('game_files_changed',
+                'NTE publisher resources changed during preparation. Retry; the previous completed library is retained.')
 
 
 @lru_cache(maxsize=2)
@@ -390,6 +476,7 @@ def _voices(tools, stamp):
 def extract(tools, audio):
     from .nte_assets import _voice_language
     _voice_language(audio)
+    pak.check(snapshot_available(tools, audio['publisher']))
     catalog = _voices(Path(tools), audio['publisher'])
     value = catalog.location(audio['depot'])
     pak.check(value and value[0] == audio.get('archive'))

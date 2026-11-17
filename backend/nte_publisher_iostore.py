@@ -36,10 +36,12 @@ class Container:
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(toc, INDEX_LIMIT)
         _file(ucas, 1024**4)
-        check(isinstance(proven_archive, Archive) and
-              proven_archive.source.region == region and proven_archive.source.branch == branch)
+        owners = proven_archive if isinstance(proven_archive, (tuple, list)) else (proven_archive,)
+        check(0 < len(owners) <= 128)
+        for archive in owners:
+            check(isinstance(archive, Archive) and archive.source.region == region
+                  and archive.source.branch == branch)
         self.region, self.branch, self.toc, self.ucas = region, branch, toc, ucas
-        self.cipher = proven_archive.cipher
         self.root = cache / region / toc.digest / ucas.digest
         path = self.root / 'index.utoc'
         raw = path.read_bytes() if path.is_file() and path.stat().st_size == toc.size else b''
@@ -48,6 +50,22 @@ class Container:
             raw = path.read_bytes()
         check(len(raw) == toc.size and hashlib.md5(raw).hexdigest() == toc.digest)
         self.raw = raw
+        self.encryption_guid = raw[64:80]
+        if isinstance(proven_archive, (tuple, list)):
+            # The hybrid path supplies only complete-index-proved archives
+            # from this exact original inventory. A TOC owns its GUID; never
+            # borrow the first region-wide/default cipher when keys diverge.
+            check(0 < len(proven_archive) <= 128 and len(raw) >= 144)
+            matches = {archive.selected_key: archive for archive in proven_archive
+                       if archive.encryption_guid == self.encryption_guid and archive.selected_key is not None}
+            check(not raw[80] & 2 or len(matches) == 1)
+            selected = next(iter(matches.values())) if len(matches) == 1 else None
+            self.selected_key = selected.selected_key if selected is not None else None
+            self.cipher = selected.cipher if selected is not None else None
+        else:
+            # Existing installed/legacy source contract remains single-key.
+            self.cipher = proven_archive.cipher
+            self.selected_key = None
         self._index()
 
     def _index(self):

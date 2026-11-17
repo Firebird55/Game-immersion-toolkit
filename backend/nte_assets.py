@@ -218,6 +218,26 @@ def _reader_invocation(install: Path, executable: Path, destination: Path, mode:
     return invocation, environment, working_directory
 
 
+def _publisher_key_bindings(containers, keys):
+    """Bind only current-original-proved ciphers to their authenticated TOC GUID."""
+    if not isinstance(keys, list):
+        return {}
+    from .nte_archive_metadata import check
+    check(0 < len(keys) <= 8 and len(set(keys)) == len(keys))
+    result = {}
+    for container in containers.values():
+        if not container.encrypted:
+            continue
+        check(container.selected_key in keys and len(container.encryption_guid) == 16)
+        # Unreal FGuid serializes four little-endian uint32 components; its
+        # managed digit representation prints those components in that order.
+        guid = ''.join(f'{part:08x}' for part in struct.unpack('<4I', container.encryption_guid))
+        index = keys.index(container.selected_key)
+        check(guid not in result or result[guid] == index)
+        result[guid] = index
+    return {'archive_key_guids': result}
+
+
 def run_publisher_reader(context: Path, executable: Path, destination: Path, containers, archive_metadata,
                          *, schema_cache: Path | None = None, inventory=False, table_schema=None,
                          capture_schema_usage=False, capture_dialogue_graphs=False, dialogue_registry=None,
@@ -260,6 +280,7 @@ def run_publisher_reader(context: Path, executable: Path, destination: Path, con
             (destination / 'dialogue.usmap').write_bytes(data)
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors}
+        request.update(_publisher_key_bindings(containers, archive_metadata))
         nonce = secrets.token_hex(16) if capture_schema_usage else None
         if not inventory:
             request['type_schema_sha256'] = TABLE_SCHEMA_SHA256 if table_schema is None else table_schema.reference['sha256']
@@ -349,6 +370,7 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
     with Broker(containers) as broker:
         request = {'archive_metadata': archive_metadata, 'publisher_streams': broker.descriptors,
                    'dialogue_registry_sha256': sha, 'inventory_nonce': nonce}
+        request.update(_publisher_key_bindings(containers, archive_metadata))
         if capture_original_authoring:
             request['capture_original_authoring'] = True
         try:

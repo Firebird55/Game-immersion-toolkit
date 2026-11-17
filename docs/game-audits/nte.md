@@ -1,5 +1,78 @@
 # Neverness to Everness audit
 
+## Controlled update metadata and device boundary
+
+November 17, 2026 follow-up. Publisher bytes remain the source of all study
+text, translations and audio. Original native descriptors with the retained
+initial schema remain the first preparation route. A working primary route
+does not query newer community descriptions. The latest owner policy requires
+an official key/bootstrap derivation first. Maintained community key fallback
+needs evidence that no available official derivation can supply it; packed
+code, missing parser work or one failed probe are insufficient. Community text
+or audio snapshots are excluded.
+
+The retained hybrid implementation is an explicit research opt-in, disabled
+in ordinary preparation until that official-first admission is established.
+Its updater-envelope fallback is restricted to the selected regional updater
+description. Its archive fallback proves each key against the complete original
+encrypted PAK index and its declared SHA1. Localization fallback requires a
+complete known-format original member, including every encrypted string marker,
+namespace, key, source hash and index. A malformed/new layout, acquisition
+timeout or corrupt original does not initiate a metadata search. Plaintext or
+empty localization cannot prove an unused key. Sources are fixed to the
+allowlisted repository/path, resolved to an immutable commit and SHA256; source
+code is parsed as data and never executed.
+
+Discovery identities are separate from completed-library identities. A completed
+library binds the exact original inventory, reader, original native source,
+validated required schema, selected descriptions, original-member proofs and
+prepared text/audio bindings. Its approval and completed marker are immutable;
+the marker is published last. Desktop activation rechecks the original source
+and normalized prepared records before replacing the prior library. Historical
+playback reads its retained profile and proofs without asking for latest
+metadata. Missing or exchanged evidence disables that materialization and
+offers repair; it cannot fall back to a provisional discovery identity.
+
+IoStore key ownership uses the authenticated TOC GUID and keys already proved
+against PAK indices in the same original generation. Publisher reader requests
+bind each GUID to its specific proved key; installed NTE and Wuthering keep
+their existing contracts. Conflicting keys for the same GUID are rejected,
+including an ambiguous default GUID. This is an explicit limitation, rather
+than an assumption that an arbitrary base key also opens every patch. New
+required constructors and unsupported changed frozen codecs remain an explicit
+schema-compatibility boundary. Neither the research fallback nor the current
+fixed bootstrap keys establish autonomous official key rotation or new required
+constructor support. These remain open dependency work, independent of the
+completed finite current-presentation audit below.
+
+### Direct Android preparation is a separate implementation gate
+
+The Windows result does not establish direct preparation on Android. These are
+the actual runtime boundaries; a Windows executable or a prepared PC library
+does not satisfy the owner's independent-device requirement.
+
+| Work | Current implementation | Android status |
+| --- | --- | --- |
+| Regional discovery and original ranges | `nte_release`, HTTPS manifests and bounded content-addressed reads | Python logic; direct Android execution not accepted yet |
+| PAK/IoStore integrity and AES | `nte_publisher_pak`, `nte_publisher_iostore`, PyCryptodome | Selection/integrity logic is Python; Android crypto/runtime packaging remains required |
+| PAK/IoStore Oodle expansion | `wuthering_release_pak._oodle` and `_ooz_runtime`, pinned Node and `ooz-wasm` | Desktop subprocess boundary; needs an approved Android codec host |
+| Original PE/schema derivation | `nte_native_schema`, seeded/class/required validators; Python and `zstandard` | Data-only inspection; Android extension/runtime acceptance pending |
+| UE packages, tables and Blueprint authoring | Toolkit-owned .NET 10 `NteReader`, pinned UEExtractor/CUE4Parse and managed codecs; checked loopback streams | Managed hosting/trimming/AOT and complete extraction need device proof; no Windows binaries in an APK |
+| Wwise event/bank selection | Existing Python authored event/media readers | Logic can be reused; Android end-to-end acceptance pending |
+| Actual original WEM playback | Desktop vgmstream and FFmpeg | Requires licensed native Android decoder/encoder integration and playback proof |
+
+The original manifest supplies file sizes, packed-object sizes, offsets and
+digests. A download planner can therefore separate cached bytes from new exact
+SIG/TOC/native-file costs. Small authenticated index probes then determine PAK
+index and member ranges; the existing registry prefetch already produces a
+complete selected block-run plan before transferring those package blocks.
+Its limits are 128 MiB of selected package bytes and 64 MiB of new compressed
+transfer, with at most eight concurrent requests. Original native candidate
+inspection is independently capped at 16 files and 768 MiB; cold retained
+baseline and runtime costs must also appear in the plan. These are safety
+bounds, not a measured phone download size. The shared Download/Delete/used-size
+interface and Android direct-preparation acceptance remain separate open work.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

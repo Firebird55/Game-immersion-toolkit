@@ -53,15 +53,25 @@ internal static class NteReader
             if (voiceLanguage is not ("Chinese" or "English" or "Japanese" or "Korean")) throw new ArgumentException();
             var assembly = Assembly.LoadFrom(Path.Combine(tools, "UEExtractor.dll"));
             var wuwa = args[0].StartsWith("wuwa-", StringComparison.Ordinal);
-            var metadata = request.RootElement.GetProperty("archive_metadata");
-            var archiveKeys = wuwa ? metadata.EnumerateArray().Select(v => v.GetString()).ToArray() : [metadata.GetString()];
-            if (archiveKeys.Length is < 1 or > 512 || archiveKeys.Any(key => key == null || key.Length != 66 ||
-                !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit))) throw new ArgumentException();
-            var filter = wuwa ? WuwaFilter(request.RootElement.GetProperty("filter").GetString()!, args[0] == "wuwa-list") : null;
             var publisher = args[0] is "publisher-tables" or "publisher-dialogue-inventory" || args[0] == "inventory" &&
                 request.RootElement.TryGetProperty("publisher_streams", out _);
+            var metadata = request.RootElement.GetProperty("archive_metadata");
+            // Publisher keys have already proved their exact original indices.
+            // A base and its patch may retain different keys in one generation.
+            // Installed NTE keeps its single-key input contract.
+            var archiveKeys = wuwa || publisher && metadata.ValueKind == JsonValueKind.Array
+                ? metadata.EnumerateArray().Select(v => v.GetString()).ToArray() : [metadata.GetString()];
+            if (archiveKeys.Length < 1 || archiveKeys.Length > (wuwa ? 512 : publisher ? 8 : 1) || archiveKeys.Any(key => key == null || key.Length != 66 ||
+                !key.StartsWith("0x") || !key[2..].All(Uri.IsHexDigit))) throw new ArgumentException();
+            JsonElement? publisherGuids = null;
+            if (publisher && metadata.ValueKind == JsonValueKind.Array)
+            {
+                publisherGuids = request.RootElement.GetProperty("archive_key_guids");
+                if (publisherGuids.Value.ValueKind != JsonValueKind.Object) throw new ArgumentException();
+            }
+            var filter = wuwa ? WuwaFilter(request.RootElement.GetProperty("filter").GetString()!, args[0] == "wuwa-list") : null;
             var provider = CreateProvider(assembly, install, wuwa ? "GAME_WutheringWaves" : "GAME_NevernessToEverness", archiveKeys!,
-                publisher ? request.RootElement.GetProperty("publisher_streams") : null);
+                publisher ? request.RootElement.GetProperty("publisher_streams") : null, publisherGuids);
             try
             {
                 provider.GetType().GetMethods().Single(m => m.Name == "Mount" && m.GetParameters().Length == 0).Invoke(provider, null);
@@ -743,7 +753,8 @@ internal static class NteReader
         if (captionTables.Any() || preserveOwners)
             File.WriteAllText(Path.Combine(destination, "sequence-cues.json"), JsonSerializer.Serialize(new { events, groups }));
     }
-    static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys, JsonElement? publisherStreams = null)
+    static object CreateProvider(Assembly supplier, string install, string gameName, string[] keys,
+        JsonElement? publisherStreams = null, JsonElement? publisherGuids = null)
     {
         // Initialize only the embedded-assembly resolver. The supplier's
         // UnrealArchiveReader constructor invokes native-code downloaders;
@@ -776,6 +787,33 @@ internal static class NteReader
             if (publisherStreams.HasValue) RegisterPublisherStreams(provider, publisherStreams.Value);
             var submit = providerType.GetMethod("SubmitKey")!;
             var guid = Activator.CreateInstance(submit.GetParameters()[0].ParameterType)!;
+            if (publisherGuids.HasValue)
+            {
+                if (!publisherStreams.HasValue) throw new UnsupportedGameFormatException();
+                var bindings = new Dictionary<string, int>(StringComparer.Ordinal);
+                foreach (var item in publisherGuids.Value.EnumerateObject())
+                    if (!Regex.IsMatch(item.Name, @"\A[0-9a-f]{32}\z") || !item.Value.TryGetInt32(out var index) ||
+                        index < 0 || index >= keys.Length || !bindings.TryAdd(item.Name, index))
+                        throw new UnsupportedGameFormatException();
+                if (bindings.Count > 8) throw new UnsupportedGameFormatException();
+                // Use the actual reader GUID objects; a metadata key is never
+                // tried against every remaining archive or a different GUID.
+                var owned = ((IEnumerable)Property(provider, "UnloadedVfs")).Cast<object>()
+                    .Select(archive => Property(archive, "EncryptionKeyGuid")).Append(guid).Distinct().ToArray();
+                var used = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var archiveGuid in owned)
+                {
+                    var identity = archiveGuid.ToString()!.Replace("-", "").ToLowerInvariant();
+                    if (bindings.TryGetValue(identity, out var index))
+                    {
+                        submit.Invoke(provider, [archiveGuid,
+                            Activator.CreateInstance(submit.GetParameters()[1].ParameterType, keys[index])!]);
+                        used.Add(identity);
+                    }
+                }
+                if (used.Count != bindings.Count) throw new UnsupportedGameFormatException();
+                return provider;
+            }
             foreach (var key in keys)
             {
                 var aes = Activator.CreateInstance(submit.GetParameters()[1].ParameterType, key)!;

@@ -117,7 +117,7 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
         from .nte_graph_prefetch import prefetch
         with tempfile.TemporaryDirectory(prefix='native-inventory-', dir=staging.parent) as temporary:
             packages = assets.read_dialogue_inventory(catalog.cache/'empty-context', executable, Path(temporary),
-                containers, catalog.format.parameters[catalog.region], registry,
+                containers, catalog.reader_keys() if hasattr(catalog, 'reader_keys') else catalog.format.parameters[catalog.region], registry,
                 **({'capture_original_authoring': True} if authoring else {}))
         prefetch(containers, packages, progress)
     candidates = metadata.sources(original)
@@ -144,7 +144,7 @@ def read_authoring(catalog, executable, staging, progress=lambda _: None):
             with tempfile.TemporaryDirectory(prefix='native-tables-', dir=staging.parent) as temporary:
                 output = Path(temporary)
                 usage = assets.run_publisher_reader(catalog.cache/'empty-context', executable, output,
-                    containers, catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
+                    containers, catalog.reader_keys() if hasattr(catalog, 'reader_keys') else catalog.format.parameters[catalog.region], schema_cache=catalog.cache/'schemas',
                     table_schema=candidate.schema, capture_schema_usage=True,
                     capture_dialogue_graphs=graphs, dialogue_registry=registry,
                     **({'capture_original_authoring': True} if authoring else {}))

@@ -81,7 +81,8 @@ def test_healthy_primary_never_refreshes_community_metadata(tmp_path, monkeypatc
 def test_rotated_updater_key_is_original_verified_immutable_and_reused_offline(tmp_path, monkeypatch):
     data, _, external = fixture(monkeypatch)
     output = {}
-    result = release.discover('nte-global', community_cache=tmp_path, metadata_out=output)
+    result = release.discover('nte-global', community_cache=tmp_path, metadata_out=output,
+                              allow_community_fallback=True)
     assert len(external) == 2 and '/refs/heads/' not in external[-1]
     assert output['source'] == {'family': 'updater-global', 'revision': 'a'*40,
                                 'sha256': hashlib.sha256(source()).hexdigest()}
@@ -92,7 +93,8 @@ def test_rotated_updater_key_is_original_verified_immutable_and_reused_offline(t
     assert proof['verification']['sha256'] == hashlib.sha256(release._json_manifest((result[2], result[3]['ResList.bin']))).hexdigest()
     monkeypatch.setattr(community, 'download', lambda *_: pytest.fail('Verified source cache queried latest'))
     again = {}
-    assert release.discover('nte-global', community_cache=tmp_path, metadata_out=again) == result
+    assert release.discover('nte-global', community_cache=tmp_path, metadata_out=again,
+                            allow_community_fallback=True) == result
     assert again == output
     before = {p: p.read_bytes() for p in tmp_path.rglob('*.json')}
     with pytest.raises(ValueError):
@@ -111,7 +113,7 @@ def test_bad_candidates_or_original_acquisition_never_publish_a_proof(tmp_path, 
         monkeypatch.setattr(release, 'download', lambda url, **_: b'<Config><ResVersion>9.0.1</ResVersion></Config>'
                             if url.endswith('/config.xml') else b'bad original ZIP')
     with pytest.raises((ValueError, TimeoutError, OSError, BadZipFile)):
-        release.discover('nte-global', community_cache=tmp_path, metadata_out={})
+        release.discover('nte-global', community_cache=tmp_path, metadata_out={}, allow_community_fallback=True)
     assert not list(tmp_path.glob('proofs/**/*.json'))
     if failure in ('timeout', 'corrupt-zip'):
         assert external == []
@@ -154,7 +156,7 @@ def test_cn_candidate_uses_its_own_allowlisted_source_and_original_proof(tmp_pat
     monkeypatch.setattr(community, 'download', fetch)
     out = {}
     result = release._manifest(archive(xml()), 'nte-cn', 'PC_9', '9.0.1', {},
-                               hashlib.md5(xml()).hexdigest(), tmp_path, out)
+                               hashlib.md5(xml()).hexdigest(), tmp_path, out, allow_community_fallback=True)
     assert result[0] and len(requests) == 2
     assert out['source']['family'] == 'updater-cn' and out['original']['region'] == 'nte-cn'
     wrong = community.Candidate({'family': 'updater-global', 'revision': 'a'*40,
@@ -163,7 +165,7 @@ def test_cn_candidate_uses_its_own_allowlisted_source_and_original_proof(tmp_pat
         community.remember(wrong, out['original'], 'publisher-manifest', b'owned verified bytes', tmp_path)
 
 
-def test_normal_publisher_recipe_binds_fallback_and_final_discovery_reuses_it(tmp_path, monkeypatch):
+def test_optin_research_recipe_binds_fallback_and_final_discovery_reuses_it(tmp_path, monkeypatch):
     fixture(monkeypatch)
     # Follow the original branch redirect rather than assuming publish_PC is final.
     actual = release.download
@@ -179,11 +181,12 @@ def test_normal_publisher_recipe_binds_fallback_and_final_discovery_reuses_it(tm
     monkeypatch.setattr(publisher.metadata, 'load_localization', lambda **_: SimpleNamespace(revision='d'*40, digest='e'*64))
     publisher._current.cache_clear()
     try:
-        stamp, value = publisher._current(tmp_path, 1, 'nte-global')
+        stamp, value = publisher._current(tmp_path, 1, 'nte-global', True)
         assert value['updater_metadata']['source']['family'] == 'updater-global'
         assert publisher.snapshot(tmp_path, stamp) == value
         monkeypatch.setattr(community, 'download', lambda *_: pytest.fail('Current source proof should be reused'))
-        assert publisher._discovery('nte-global', parameter_cache=tmp_path/'nte-publisher/format/community')['updater_metadata'] == value['updater_metadata']
+        assert publisher._discovery('nte-global', parameter_cache=tmp_path/'nte-publisher/format/community',
+                                    allow_community_fallback=True)['updater_metadata'] == value['updater_metadata']
         original = publisher._path(tmp_path, stamp).read_bytes()
         # Retained playback/source lookup reads the immutable recipe, not discovery.
         monkeypatch.setattr(release, 'download', lambda *_a, **_k: pytest.fail('Historical recipe performed discovery'))
@@ -191,3 +194,10 @@ def test_normal_publisher_recipe_binds_fallback_and_final_discovery_reuses_it(tm
         assert publisher._path(tmp_path, stamp).read_bytes() == original
     finally:
         publisher._current.cache_clear()
+
+
+def test_default_rotated_updater_never_skips_unresolved_official_key_route(tmp_path, monkeypatch):
+    _, _, external = fixture(monkeypatch)
+    with pytest.raises(release.UpdaterParameterMismatch):
+        release.discover('nte-global', community_cache=tmp_path, metadata_out={})
+    assert external == [] and list(tmp_path.rglob('*')) == []
