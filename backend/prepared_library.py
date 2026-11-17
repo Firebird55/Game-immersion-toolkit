@@ -20,15 +20,12 @@ import zipfile
 from .local_game import LocalDialogue
 from .languages import audio_locale
 from .multilingual_index import MultilingualTextIndex
+from .private_data_paths import MAX_TEXT, MAX_ROWS, _no_links
 
 FORMAT = 'toolkit-prepared-library-v1'
 MAX_LIBRARY = 64 * 1024**3
-MAX_TEXT = 512 * 1024**2
 MAX_MANIFEST = 256 * 1024**2
 MAX_AUDIO = 128 * 1024**2
-# Current publisher snapshots already exceed 250k entries. Leave bounded
-# headroom for player branches and ordinary updates without changing the app.
-MAX_ROWS = 1000000
 SHA = re.compile(r'[0-9a-f]{64}')
 CLIP = re.compile(r'audio/([0-9a-f]{64})\.(mp3|wav)')
 
@@ -42,12 +39,6 @@ def _json(raw):
             value[key] = item
         return value
     return json.loads(raw, object_pairs_hook=unique)
-
-
-def _no_links(path):
-    for part in (path, *path.parents):
-        if part.is_symlink() or (part.exists() and getattr(part.lstat(), 'st_file_attributes', 0) & 0x400):
-            raise ValueError('A private library cannot follow filesystem links')
 
 
 def _safe_entries(archive, total_limit):

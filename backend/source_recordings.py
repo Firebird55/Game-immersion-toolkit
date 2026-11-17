@@ -16,7 +16,8 @@ import threading
 
 from .game_data import _write, _read
 from .game_data_protocol import GAME_TITLES, GameDataError, private_handle
-from .prepared_library import MAX_AUDIO, _no_links
+from .prepared_library import MAX_AUDIO
+from .private_data_paths import _no_links
 
 SHA = re.compile(r'[0-9a-f]{64}')
 CLIP = re.compile(r'([0-9a-f]{64})\.(mp3|wav)')
@@ -75,7 +76,7 @@ class OriginalRecordings:
         saved = self.reference(line_id)
         return self._path(saved[0]) if saved else None
 
-    def _path(self, reference):
+    def _path(self, reference, *, verify=True):
         receipt = _read(self.root / 'resolved' / (reference + '.json'))
         if receipt is None:
             return None
@@ -87,9 +88,10 @@ class OriginalRecordings:
         _no_links(path)
         if not path.is_file() or not 0 < path.stat().st_size <= MAX_AUDIO:
             raise ValueError('The retained original recording is missing')
-        with path.open('rb') as source:
-            if hashlib.file_digest(source, 'sha256').hexdigest() != match[1]:
-                raise ValueError('The retained original recording is corrupt')
+        if verify:
+            with path.open('rb') as source:
+                if hashlib.file_digest(source, 'sha256').hexdigest() != match[1]:
+                    raise ValueError('The retained original recording is corrupt')
         return path
 
     def materialize(self, line_id, source_for, *, cancelled=lambda: False):
@@ -166,5 +168,7 @@ class OriginalRecordings:
         return result
 
     def retained_bytes(self, game):
-        paths = {self.path(identity) for identity in self.lines(game)} - {None}
+        # Storage polling needs actual file sizes, not repeated full-audio reads.
+        # Playback/materialization still hash every returned recording.
+        paths = {self._path(self.reference(identity)[0], verify=False) for identity in self.lines(game)} - {None}
         return sum(path.stat().st_size for path in paths)
