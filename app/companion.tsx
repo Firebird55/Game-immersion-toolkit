@@ -4,7 +4,9 @@ import {desktopApiBase, desktopWebSocketUrl} from '../lib/desktop-endpoints';
 import {useInterfaceLanguage, useInterfaceTranslation} from '../lib/interface-language';
 
 import { SettingsPanel, ReadingOptionsDialog, restoreLocalSettings, type LocalSettings, isStudyLanguage } from '@firebird55/lexirise-components';
-import { settingsAdapter } from './lexirise-settings';
+import {createSettingsAdapter} from './lexirise-settings';
+import {NativeAccountContext} from '../lib/native-account-context';
+import {nativeAccountHeaders, nativeAccountQuery} from '../lib/native-account-scope.mjs';
 import {StateEvents, StatePoll, type StateContext} from './state-sync';
 import {DesktopSharing} from './desktop-sharing';
 import {AndroidSetup} from './android-setup';
@@ -419,6 +421,8 @@ const TranscriptRow = memo(function TranscriptRow({
 function CompanionClient() {
  const {t: uiText}=useInterfaceLanguage();
   const nativeHost = useNativeHost();
+  const [nativeGeneration, setNativeGeneration] = useState<number | null>(null);
+  const requestGeneration = nativeHost.android ? nativeGeneration : undefined;
   const accountsSupported = !nativeHost.android || nativeHost.capabilities?.protected_accounts === true;
   const [status, setStatus] = useState<StatusPayload | null>(null);
   const [lines, setLines] = useState<TranscriptLine[]>([]);
@@ -429,6 +433,7 @@ function CompanionClient() {
   const [previewTick, setPreviewTick] = useState(0);
   const [setupChannel, setSetupChannel] = useState<'dialogue' | 'tip' | 'cinematic'>('dialogue');
   const [saving, setSaving] = useState(false);
+  const settingsJob = useRef<symbol | null>(null);
   const [refreshingMaps, setRefreshingMaps] = useState(false);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [transcriptTab, setTranscriptTab] = useState<TranscriptTab>('history');
@@ -472,11 +477,14 @@ function CompanionClient() {
       document.removeEventListener('visibilitychange', onHidden);
       stopPlayback();
     };
-  }, [nativeHost.android, lexirise.account]);
+  }, [nativeHost.android, lexirise.account, requestGeneration]);
   // A generation distinguishes A → B → A from an outstanding request for A.
   const accountScope = useRef({ account: 'legacy', generation: 0, ready: false });
+  const requestOwner = accountScope.current.generation;
+  const settingsAdapter = useMemo(() => createSettingsAdapter(requestGeneration,
+    () => accountScope.current.generation === requestOwner), [requestGeneration, requestOwner]);
   const [readingMode, setReadingMode] = useState<ReadingMode>('migaku');
-  const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured);
+  const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured, requestGeneration);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState<{language: import('@firebird55/lexirise-components').StudyLanguage; account: string} | null>(null);
@@ -484,7 +492,7 @@ function CompanionClient() {
   const [accountSection, setAccountSection] = useState<'connection'|'preferences'>('connection');
   const [sendingRef, setSendingRef] = useState<string | null>(null);
   const [studyMessage, setStudyMessage] = useState('');
-  const sendingStudy = useRef(false);
+  const sendingStudy = useRef<symbol | null>(null);
   const saveReadingOptions = useCallback((next: LocalSettings, owner?: {language: string; account: string}) => {
     setReadingOptions(next);
     window.localStorage.setItem('proxy-transcript-reading-options', JSON.stringify(next));
@@ -526,6 +534,22 @@ function CompanionClient() {
       accountScope.current.ready = false;
       setLexirise({ configured: false, sent: {} });
       setStudyMessage('');
+      sendingStudy.current = null;
+      setSendingRef(null);
+      settingsJob.current = null;
+      setSaving(false);
+      if (nativeHost.android) {
+        const audio = playback.current;
+        playback.current = null;
+        if (audio) {audio.pause(); audio.removeAttribute('src'); audio.load();}
+        setNativeGeneration(null);
+        setLines([]);
+        knownLineIds.current.clear();
+        setSettingsOpen(false);
+        settingsOpenRef.current = false;
+        setDraftSettings(null);
+        setAccountSection('connection');
+      }
     };
     const owner = new StatePoll<CompanionSnapshot>(async signal => {
       const response = await fetch(`${API_URL}/api/snapshot`, {cache:'no-store', signal});
@@ -534,7 +558,8 @@ function CompanionClient() {
       return await response.json() as CompanionSnapshot;
     }, value => {
       const key = `${value.context.runtime_id}:${value.context.account_generation}`;
-      if (key !== accountContext) {
+      const contextChanged = key !== accountContext;
+      if (contextChanged) {
         const previous = accountContext;
         retireAccount(); accountContext = key;
         if (previous) window.dispatchEvent(new CustomEvent('lexirise-credentials-changed', {detail:owner}));
@@ -543,13 +568,14 @@ function CompanionClient() {
       setStatus(value.status);
       if (!settingsOpenRef.current) setDraftSettings(value.status.settings);
       setLines(current => {
-        const merged = mergeTranscriptSnapshot(current, value.lines);
+        const merged = mergeTranscriptSnapshot(nativeHost.android && contextChanged ? [] : current, value.lines);
         knownLineIds.current = new Set(merged.map(line => line.id));
 
         return merged;
       });
       accountScope.current.account = value.lexirise.account ?? 'legacy';
       accountScope.current.ready = value.lexirise.configured;
+      if (nativeHost.android) setNativeGeneration(value.context.account_generation);
       setLexirise(value.lexirise);
       setOnline(true);
       setSnapshotLoaded(true);
@@ -799,7 +825,7 @@ function CompanionClient() {
   async function toggleCapture() {
     if (!status) return;
     const action = status.capture.running ? 'stop' : 'start';
-    await fetch(`${API_URL}/api/capture/${action}`, { method: 'POST' });
+    await fetch(`${API_URL}/api/capture/${action}`, { method: 'POST', headers: nativeAccountHeaders(requestGeneration) });
     await loadSnapshot();
   }
 
@@ -819,20 +845,24 @@ function CompanionClient() {
 
   async function saveSettings() {
     if (!draftSettings) return;
+    const owner = accountScope.current.generation, job = Symbol();
+    settingsJob.current = job;
+    const current = () => owner === accountScope.current.generation && settingsJob.current === job;
     setSaving(true);
     try {
       const response = await fetch(`${API_URL}/api/settings`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: nativeAccountHeaders(requestGeneration, {'Content-Type': 'application/json'}),
         body: JSON.stringify(draftSettings),
       });
+      if (!current()) return;
       if (!response.ok) throw new Error('Could not save capture settings');
       // The response can arrive after a newer settings event. Refresh through
       // the same versioned owner instead of publishing an unversioned result.
       setSettingsOpen(false);
       await loadSnapshot();
     } finally {
-      setSaving(false);
+      if (current()) {settingsJob.current = null; setSaving(false);}
     }
   }
 
@@ -852,11 +882,11 @@ function CompanionClient() {
     setLines((current) => current.map((item) => item.id === line.id ? { ...item, favorite } : item));
     const response = await fetch(`${API_URL}/api/lines/${line.id}/favorite`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: nativeAccountHeaders(requestGeneration, {'Content-Type': 'application/json'}),
       body: JSON.stringify({ favorite }),
     });
     if (!response.ok) await loadSnapshot();
-  }, [loadSnapshot]);
+  }, [loadSnapshot, requestGeneration]);
 
   const playLine = useCallback((line: TranscriptLine) => {
     if (!line.has_audio) return;
@@ -871,13 +901,14 @@ function CompanionClient() {
     if (sendingStudy.current || !accountScope.current.ready) return;
     const scope = { ...accountScope.current };
     const isCurrent = () => scope.generation === accountScope.current.generation && scope.account === accountScope.current.account && accountScope.current.ready;
-    sendingStudy.current = true;
+    const job = Symbol();
+    sendingStudy.current = job;
     const ref = `${kind}:${id}`;
     setSendingRef(ref);
     setStudyMessage('Saving sentence to Lexirise…');
     try {
       const response = await fetch(`${API_URL}/api/lines/${id}/lexirise`, {
-        method: 'POST', headers: { 'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account },
+        method: 'POST', headers: nativeAccountHeaders(requestGeneration, {'X-Proxy-Transcript': 'lexirise','X-Proxy-Transcript-Account':scope.account}),
       });
       const result = await response.json() as { detail?: string; deck_id: number; already_sent?: boolean; audio_included?: boolean };
       if (!isCurrent()) return;
@@ -888,10 +919,9 @@ function CompanionClient() {
     } catch (error) {
       if (isCurrent()) setStudyMessage(error instanceof Error ? error.message : 'Could not reach Lexirise. Please retry.');
     } finally {
-      sendingStudy.current = false;
-      setSendingRef(null);
+      if (sendingStudy.current === job) {sendingStudy.current = null; setSendingRef(null);}
     }
-  }, []);
+  }, [requestGeneration]);
 
   function studyButton(kind: 'line', id: number | string, game: GameId, canExport: boolean, compact = false) {
     const ref = `${kind}:${id}`;
@@ -937,7 +967,8 @@ function CompanionClient() {
   if (!snapshotLoaded) return <main className="companion-shell" aria-busy="true" />;
 
   return (
-    <main className="companion-shell" style={{'--lexirise-font-size': (readingOptions.fontSize ?? 27) + 'px', '--footer-height': footerHeight + 'px'} as React.CSSProperties}>
+    <NativeAccountContext.Provider value={requestGeneration}>
+    <main key={requestGeneration} className="companion-shell" style={{'--lexirise-font-size': (readingOptions.fontSize ?? 27) + 'px', '--footer-height': footerHeight + 'px'} as React.CSSProperties}>
       <header className="topbar">
         <div>
           <h1>Game immersion toolkit</h1>
@@ -965,11 +996,11 @@ function CompanionClient() {
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {setSelectedGame(game as GameId); setHistoryPage(0); if (game !== 'zzz') setSetupChannel('dialogue');}} />
 
-      {nativeHost.android && <AndroidSetup key={lexirise.account ?? 'legacy'} online={online}
+      {nativeHost.android && <AndroidSetup key={`${requestGeneration}:${lexirise.account ?? 'legacy'}`} online={online}
         capabilities={nativeHost.capabilities} error={nativeHost.error} libraryReady={!!mapStatus?.ready}
         onChanged={game => {if (game) setSelectedGame(game); void loadSnapshot();}}
         onAccount={() => {setReadingMode('lexirise'); setAccountSection('connection'); setAccountSettingsOpen(true);}} />}
-      {nativeHost.android && <AndroidReceiver key={`${selectedGame}:${capture?.library_revision ?? 'none'}`}
+      {nativeHost.android && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 
@@ -1129,7 +1160,7 @@ function CompanionClient() {
 
       {readerSettingsOpen && readerSettingsOpen.account === (lexirise.account ?? 'legacy') && <ReadingOptionsDialog initial={readingOptions} onChange={next => saveReadingOptions(next, readerSettingsOpen)} onClose={() => setReaderSettingsOpen(null)} sourceLanguage={readerSettingsOpen.language} />}
       {readingMode === 'lexirise' && accountsSupported && accountSettingsOpen && accountSection === 'connection' && <Dialog open onOpenChange={setAccountSettingsOpen}><DialogContent className="toolkit-account-dialog" showCloseButton={false}><button className="account-close" type="button" aria-label="Close Lexirise settings" onClick={() => setAccountSettingsOpen(false)}>×</button><DialogHeader><DialogTitle>{uiText("Lexirise account settings")}</DialogTitle><DialogDescription>Choose your account and where sentences are saved.</DialogDescription></DialogHeader>
-        <AccountSwitcher onChanged={() => void loadSnapshot()}/>
+        <AccountSwitcher key={`${requestGeneration}:${lexirise.account ?? 'legacy'}`} onChanged={() => void loadSnapshot()}/>
         {selectedGame !== 'hito' && <details open><summary>Sentence destination · {GAME_NAMES[selectedGame]}</summary><GameDeckSettings key={lexirise.account ?? 'legacy'} game={selectedGame} title={GAME_NAMES[selectedGame]} language={status?.selected_languages?.[selectedGame]?.source_language??'zh'} current={(lexirise.by_language?.[status?.selected_languages?.[selectedGame]?.source_language??'zh']?.decks??lexirise.decks)?.[selectedGame]} onConfigured={() => void loadSnapshot()} /></details>}
         <Button className="account-preferences" variant="outline" onClick={() => setAccountSection('preferences')}>Study languages, dictionaries and account preferences</Button>
       </DialogContent></Dialog>}
@@ -1241,7 +1272,7 @@ function CompanionClient() {
             {capture?.active_game === selectedGame && capture?.window_bounds ? (
               <img
                 key={previewTick}
-                src={`${API_URL}/api/capture/preview.jpg?${previewRegionQuery}`}
+                src={`${API_URL}/api/capture/preview.jpg?${previewRegionQuery}${requestGeneration === null ? '' : nativeAccountQuery(requestGeneration)}`}
                 alt={`Live preview of the ${setupRegionLabel.toLowerCase()} capture region`}
               />
             ) : (
@@ -1280,10 +1311,10 @@ function CompanionClient() {
           </div>
 
           <div className="setup-actions">
-            <Button variant="outline" onClick={refreshTextMaps} disabled={refreshingMaps}>
+            {!nativeHost.android && <Button variant="outline" onClick={refreshTextMaps} disabled={refreshingMaps}>
               <RefreshCw className={refreshingMaps ? "is-spinning" : ''} />
               <StableInline text={refreshingMaps ? "Updating…" : selectedGame === 'hito' ? "Refresh from game" : "Update TextMaps"} />
-            </Button>
+            </Button>}
             <Button onClick={saveSettings} disabled={!draftSettings || saving}>
               <StableInline text={saving ? "Saving…" : "Save capture settings"} />
             </Button>
@@ -1291,5 +1322,6 @@ function CompanionClient() {
         </DialogContent>
       </Dialog>
     </main>
+    </NativeAccountContext.Provider>
   );
 }

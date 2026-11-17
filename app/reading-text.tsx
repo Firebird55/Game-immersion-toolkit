@@ -1,5 +1,7 @@
 'use client';
 import {desktopApiBase} from '../lib/desktop-endpoints';
+import {useNativeAccountGeneration} from '../lib/native-account-context';
+import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
 
 import {createReader, validateAccount, isStudyLanguage, type AccountSettings, type ReadingOptions, type StudyLanguage} from '@firebird55/lexirise-components';
 import type {ComponentProps} from 'react';
@@ -9,9 +11,12 @@ export type {ReadingOptions,ReadingScope} from '@firebird55/lexirise-components'
 type Context={account:string;settings:AccountSettings};
 let revision=0;
 let contextPromise:Promise<Context>|null=null;
+let contextGeneration:number|null|undefined;
 const API=desktopApiBase();
-function context(){
- return contextPromise??=Promise.all([fetch(API+'/api/lexirise/accounts',{cache:'no-store'}),fetch(API+'/api/lexirise/settings',{cache:'no-store'})]).then(async([a,s])=>{
+function context(generation?:number|null){
+ const headers=nativeAccountHeaders(generation);
+ if(generation!==contextGeneration){contextPromise=null;contextGeneration=generation;}
+ return contextPromise??=Promise.all([fetch(API+'/api/lexirise/accounts',{cache:'no-store',headers}),fetch(API+'/api/lexirise/settings',{cache:'no-store',headers})]).then(async([a,s])=>{
   if(!s.ok)throw Error('Reload Lexirise account settings.');
   const account=a.ok?await a.json() as {active?:string}:{};
   return {account:account.active??'legacy',settings:validateAccount(await s.json())};
@@ -30,14 +35,15 @@ export function ReadingText({sourceLanguage='zh',...props}:ReaderProps&{sourceLa
  return <SupportedReadingText {...props} sourceLanguage={sourceLanguage}/>;
 }
 function SupportedReadingText({sourceLanguage:source,...props}:ReaderProps&{sourceLanguage:StudyLanguage}){
+ const nativeGeneration=useNativeAccountGeneration();
  const [loaded,setLoaded]=useState<Context|null>(null),[version,setVersion]=useState(revision);
  useEffect(()=>{
   let active=true,generation=0;
-  const load=()=>{const mine=++generation;setLoaded(null);setVersion(revision);void context().then(value=>{if(active&&mine===generation)setLoaded(value);}).catch(()=>undefined);};
+  const load=()=>{const mine=++generation;setLoaded(null);setVersion(revision);if(nativeGeneration===null)return;void context(nativeGeneration).then(value=>{if(active&&mine===generation)setLoaded(value);}).catch(()=>undefined);};
   const local=()=>setVersion(v=>v+1);window.addEventListener('lexirise-local-reading-options',local);
   load();for(const name of ['lexirise-account-settings','lexirise-credentials-changed'])window.addEventListener(name,load);
   return()=>{active=false;window.removeEventListener('lexirise-local-reading-options',local);for(const name of ['lexirise-account-settings','lexirise-credentials-changed'])window.removeEventListener(name,load);};
- },[]);
+ },[nativeGeneration]);
  const profile=loaded?.settings.languageSettings[source];
  const target=String(profile?.effectiveTranslationLanguage??loaded?.settings.global.effectiveTranslationLanguage??loaded?.settings.global.translationLanguage??'en');
  const accountGeneration=revision;
@@ -48,12 +54,13 @@ function SupportedReadingText({sourceLanguage:source,...props}:ReaderProps&{sour
   const query=new URLSearchParams();if(params.start!=null)query.set('start',String(params.start));
   const path=action==='analysis'?'':action==='save-example'?'/examples/'+params.index+'/save':'/'+action;
   const headers=new Headers(init.headers);headers.set('X-Proxy-Transcript-Account',loaded.account);
+  for(const [name,value] of Object.entries(nativeAccountHeaders(nativeGeneration)))headers.set(name,String(value));
   if(init.method&&init.method!=='GET')headers.set('X-Proxy-Transcript','lexirise');
   const response=await fetch(API+'/api/lines/'+props.id+'/reading'+path+(query.size?'?'+query:''),{...init,headers});
   if(accountGeneration!==revision)throw Error('Account changed. Retry with the selected account.');
   if(!response.ok){const error=await response.clone().json().catch(()=>null) as {detail?:unknown}|null;throw Error(typeof error?.detail==='string'?error.detail:'Lexirise request unavailable.');}
   return response;
- }}),[source,target,loaded,version,props.id,accountGeneration]);
+ }}),[source,target,loaded,version,props.id,accountGeneration,nativeGeneration]);
  if(!loaded)return <p lang={source} className={props.current?'current-chinese':undefined}>{props.text}</p>;
  let options=accountReadingOptions(props.options,loaded.settings,source);
  try{const saved=localStorage.getItem('proxy-transcript-reading-options:'+loaded.account+':'+source);if(saved)options={...options,...JSON.parse(saved)};}catch{}

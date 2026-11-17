@@ -75,6 +75,24 @@ def register(host, name):
     return result['active']
 
 
+def test_pinned_account_discovery_cannot_mix_settings_after_a_b_a(account_host):
+    host = account_host
+    first = register(host, 'first')
+    old = host.account_generation
+    before = request(host, 'GET', '/api/lexirise/accounts', headers=headers(host, old))
+    assert before[0] == 200 and before[1]['active'] == first
+    register(host, 'second')
+    assert request(host, 'POST', '/api/lexirise/accounts/select',
+        json.dumps({'id': first}).encode(), headers=headers(host))[0] == 200
+    assert host.account_generation > old
+    for route in ('/api/lexirise/accounts', '/api/lexirise/settings'):
+        status, value = request(host, 'GET', route, headers=headers(host, old))
+        assert status == 409 and value['state'] == 'account_generation_changed'
+    status, value = request(host, 'GET', '/api/lexirise/accounts', headers=headers(host))
+    assert status == 200 and value['active'] == first
+    assert value['generation'] == host.account_generation
+
+
 def capture(host, tmp_path, text='沿河走过桥。'):
     _, payload = fixture_library(tmp_path / 'input')
     row = payload['records'][0]

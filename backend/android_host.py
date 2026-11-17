@@ -469,7 +469,11 @@ class AndroidHost:
                     self._json({'detail': 'App-local request required'}, 403);return
                 if path in {'/api/lexirise/accounts', '/api/lexirise/accounts/select'} and host.account_sessions:
                     if self.command == 'GET' and path == '/api/lexirise/accounts':
-                        self._json(host.account_sessions.status());return
+                        with host.session.lock:
+                            captured = self.headers.get('X-Toolkit-Account-Generation')
+                            if captured is not None:
+                                host.guard_account(captured, selecting=True)
+                            self._json(host.account_sessions.status());return
                     if self.command != 'POST' or self.headers.get('X-Proxy-Transcript') != 'lexirise':
                         self._json({'detail': 'Use the account selector.'}, 403);return
                     value = json.loads(self._body(4096))

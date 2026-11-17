@@ -4,6 +4,7 @@ import {Play, Square} from 'lucide-react';
 import {Button} from '../components/ui/button';
 import {desktopApiBase} from '../lib/desktop-endpoints';
 import {type NativeCapabilities} from '../lib/native-host';
+import {useNativeAccountGeneration} from '../lib/native-account-context';
 import {createAndroidReceiver} from '../lib/android-receiver.mjs';
 import {createReceiverSource} from '../public/mobile-capture/receiver-source.mjs';
 import {createVdoFrameSource} from '../public/mobile-capture/vdo-source.mjs';
@@ -15,6 +16,7 @@ type ReceiverState = {status: string; message: string; active: boolean; paused?:
 export function AndroidReceiver({online, libraryReady, capabilities, onChanged}: {
  online: boolean; libraryReady: boolean; capabilities: NativeCapabilities | null; onChanged: () => void;
 }) {
+ const accountGeneration = useNativeAccountGeneration();
  const viewer = useRef<HTMLDivElement>(null);
  const controller = useRef<ReturnType<typeof createAndroidReceiver> | null>(null);
  const documentEpoch = useRef<string | null>(null);
@@ -24,7 +26,7 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
  const maximum = capabilities?.max_frame_bytes ?? 10 * 1024 ** 2;
 
  useEffect(() => {
-  if (!supported || !viewer.current) return;
+  if (!supported || !viewer.current || accountGeneration === null) return;
   // Never adopt a later platform/snapshot nonce in an old document.
   if (documentEpoch.current === null)
    documentEpoch.current = document.querySelector('meta[name="toolkit-document-epoch"]')?.getAttribute('content') ?? '';
@@ -35,7 +37,7 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
   const source = createReceiverSource({vdo: () => createVdoFrameSource({container})});
   const canvas = document.createElement('canvas');
   const receiver = createAndroidReceiver({source, apiBase: desktopApiBase(), documentEpoch: documentEpoch.current,
-   maxFrameBytes: maximum, encodeFrame: async (frame: {width: number; height: number; image: CanvasImageSource}, {signal}: {signal: AbortSignal}) => {
+   maxFrameBytes: maximum, accountGeneration, encodeFrame: async (frame: {width: number; height: number; image: CanvasImageSource}, {signal}: {signal: AbortSignal}) => {
     if (signal.aborted) throw new DOMException('Screen source changed', 'AbortError');
     canvas.width = frame.width; canvas.height = frame.height;
     const context = canvas.getContext('2d');
@@ -62,7 +64,7 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
    document.removeEventListener('visibilitychange', visibility);
    window.removeEventListener('pagehide', pause);
   };
- }, [supported, maximum]);
+ }, [supported, maximum, accountGeneration]);
 
  useEffect(() => {if (!online || !libraryReady) void controller.current?.stop();}, [online, libraryReady]);
 

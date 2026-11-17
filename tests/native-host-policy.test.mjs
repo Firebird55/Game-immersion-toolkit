@@ -37,3 +37,11 @@ test('the receiver uses an explicitly supported protocol and a bounded native fr
   for(const maximum of [0,-1,16777217,Infinity,'10485760'])
     assert.throws(()=>parseNativeCapabilities({...report(),max_frame_bytes:maximum}),/complete device capability/);
 });
+
+test('protected accounts require the reviewed generation-bound protocol',()=>{
+ for(const account_protocol of [undefined,null,'accounts-v1','scoped-accounts-v2'])
+  assert.throws(()=>parseNativeCapabilities({...report(),protected_accounts:true,account_protocol}),/complete device capability/);
+ const value=parseNativeCapabilities({...report(),protected_accounts:true,account_protocol:'scoped-accounts-v1'});
+ assert.equal(value.protected_accounts,true);
+ assert.equal(value.account_protocol,'scoped-accounts-v1');
+});

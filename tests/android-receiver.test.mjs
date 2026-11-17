@@ -12,6 +12,7 @@ function fixture(options = {}) {
  const jobs = new Map(), listeners = new Set(), frames = [], calls = [], accepted = [];
  let timerId = 0, transport = {sessionId: null, status: 'ready', message: 'Ready', width: 0, height: 0};
  let generation = 0, highest = 0, owner = null, sourceNumber = 0, read;
+ let accountGeneration = options.accountGeneration;
  const emit = value => {transport = {...transport, ...value}; for (const listener of listeners) listener(transport);};
  const source = {
   getState: () => transport,
@@ -25,7 +26,8 @@ function fixture(options = {}) {
  };
  async function fetch(path, init = {}) {
   calls.push({path, ...init});
-  if (path === '/api/snapshot') return reply({status: {capture: {source_generation: generation}}});
+  if (path === '/api/snapshot') return reply({context:{account_generation:accountGeneration},status: {capture: {source_generation: generation}}});
+  if (accountGeneration !== undefined && init.headers?.['X-Toolkit-Account-Generation'] !== String(accountGeneration)) return reply({},409);
   if (path === '/api/capture/receiver') {
    const value = JSON.parse(init.body);
    if (options.stopFailure && value.action === 'stop') return reply({}, 500);
@@ -50,9 +52,10 @@ function fixture(options = {}) {
   return reply({}, 202);
  }
  const controller = createAndroidReceiver({source, fetch, encodeFrame: options.encodeFrame ?? (async () => png()),
-  documentEpoch, id: '00000000-0000-4000-8000-000000000001',
+  documentEpoch, accountGeneration: options.accountGeneration, id: '00000000-0000-4000-8000-000000000001',
   setTimer(fn) {const id = ++timerId; jobs.set(id, fn); return id;}, clearTimer(id) {jobs.delete(id);}});
  return {controller, source, calls, accepted, emit,
+  selectAccount(value) {accountGeneration=value;owner=null;generation++;},
   setRead(fn) {read = fn;},
   frame(sequence, width = 1600, height = 900) {
    let released = 0;
@@ -75,6 +78,20 @@ test('a received frame reaches only the leased native PNG endpoint with no viewe
   assert.equal(f.controller.getState().acceptedFrames, 1);
   assert.ok(!JSON.stringify(f.calls).includes('private-value'));
  } finally {f.controller.dispose(); await flush();}
+});
+
+test('a receiver cannot adopt a later account from polling or forward a late encoded frame', async()=>{
+ const encoded=deferred(),f=fixture({accountGeneration:0,encodeFrame:()=>encoded.promise});
+ try {
+  await f.controller.connect('authored-stream');const frame=f.frame(1);await f.tick();
+  f.selectAccount(2);encoded.resolve(png());await flush();
+  assert.equal(f.accepted.length,0);
+  assert.equal(frame.released(),1);
+  assert.ok(f.calls.filter(call=>call.path!=='/api/snapshot').every(call=>call.headers['X-Toolkit-Account-Generation']==='0'));
+  f.frame(2);await f.tick();
+  assert.equal(f.accepted.length,0);
+  assert.equal(f.controller.getState().status,'error');
+ } finally {f.controller.dispose();await flush();}
 });
 
 test('explicit stop fences native capture while a late encoder result is still pending', async () => {

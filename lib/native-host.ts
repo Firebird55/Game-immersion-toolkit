@@ -6,6 +6,7 @@ export type NativeCapabilities = {
   platform: string;
   library_import: boolean;
   protected_accounts: boolean;
+  account_protocol?: string;
   capture_source: string;
   message: string;
   receiver_protocol?: string;

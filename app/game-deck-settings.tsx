@@ -1,20 +1,23 @@
 import {desktopApiBase} from '../lib/desktop-endpoints';
 import {useInterfaceTranslation} from '../lib/interface-language';
 import {useEffect,useRef,useState} from 'react';
+import {useNativeAccountGeneration} from '../lib/native-account-context';
+import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
 type Deck={id:number;title:string};
 const API=desktopApiBase();
 export function GameDeckSettings({game,title,current,onConfigured,language="zh"}:{game:string;title:string;current?:Deck;onConfigured:()=>void;language?:string}) {
  const uiText=useInterfaceTranslation();
+ const accountGeneration=useNativeAccountGeneration();
  const [decks,setDecks]=useState<Deck[]>([]),[selected,setSelected]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const generation=useRef(0),account=useRef<string|null>(null),saving=useRef(false);
  async function request(accountId:string,method:string,body?:unknown){
-  const response=await fetch(API+'/api/lexirise/decks?language='+encodeURIComponent(language),{method,cache:'no-store',headers:{'Content-Type':'application/json','X-Proxy-Transcript':'lexirise','X-Proxy-Transcript-Account':accountId},body:body===undefined?undefined:JSON.stringify(body)});
+  const response=await fetch(API+'/api/lexirise/decks?language='+encodeURIComponent(language),{method,cache:'no-store',headers:nativeAccountHeaders(accountGeneration,{'Content-Type':'application/json','X-Proxy-Transcript':'lexirise','X-Proxy-Transcript-Account':accountId}),body:body===undefined?undefined:JSON.stringify(body)});
   const result=await response.json() as {detail?:unknown;decks?:Deck[]};if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'Could not configure destination.');return result;
  }
  async function reload(){
   const mine=++generation.current;account.current=null;setBusy(true);setMessage('');setDecks([]);setSelected('');
   try{
-   const response=await fetch(API+'/api/lexirise/accounts',{cache:'no-store'});if(!response.ok)throw Error('Reload the account before configuring destinations.');
+   const response=await fetch(API+'/api/lexirise/accounts',{cache:'no-store',headers:nativeAccountHeaders(accountGeneration)});if(!response.ok)throw Error('Reload the account before configuring destinations.');
    const value=await response.json() as {active?:string};if(mine!==generation.current)return;
    const accountId=value.active??'legacy',result=await request(accountId,'GET');if(mine!==generation.current)return;
    account.current=accountId;setDecks(result.decks??[]);setSelected(current&&result.decks?.some(deck=>deck.id===current.id)?String(current.id):'');
@@ -24,7 +27,7 @@ export function GameDeckSettings({game,title,current,onConfigured,language="zh"}
  useEffect(()=>{
   void reload();const changed=()=>void reload();window.addEventListener('lexirise-credentials-changed',changed);
   return()=>{generation.current++;account.current=null;window.removeEventListener('lexirise-credentials-changed',changed);};
- },[game,language,current?.id]);
+ },[game,language,current?.id,accountGeneration]);
  async function save(create:boolean){
   if(saving.current||account.current===null)return;
   const mine=generation.current,accountId=account.current;saving.current=true;setBusy(true);setMessage('');

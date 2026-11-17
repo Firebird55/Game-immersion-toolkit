@@ -5,6 +5,8 @@ import {Button} from '../components/ui/button';
 import {desktopApiBase} from '../lib/desktop-endpoints';
 import {GAME_NAMES, type GameId} from '../lib/games';
 import {type NativeCapabilities} from '../lib/native-host';
+import {useNativeAccountGeneration} from '../lib/native-account-context';
+import {nativeAccountHeaders} from '../lib/native-account-scope.mjs';
 import './android-setup.css';
 
 function importReply(value: unknown): Record<string, unknown> {
@@ -20,6 +22,7 @@ export function AndroidSetup({online, capabilities, error, libraryReady, onChang
   onChanged: (game?: GameId) => void;
   onAccount: () => void;
 }) {
+  const accountGeneration = useNativeAccountGeneration();
   const fileInput = useRef<HTMLInputElement>(null);
   const pending = useRef<{controller: AbortController; id: string; cancelling: boolean; failed: boolean} | null>(null);
   const cancelRequest = useRef<AbortController | null>(null);
@@ -36,7 +39,7 @@ export function AndroidSetup({online, capabilities, error, libraryReady, onChang
     setMessage('Cancelling the import…');
     try {
       const response = await fetch(desktopApiBase() + '/api/library/import/cancel', {
-        method: 'POST', headers: {'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup'},
+        method: 'POST', headers: nativeAccountHeaders(accountGeneration, {'Content-Type': 'application/json', 'X-Proxy-Transcript': 'setup'}),
         body: JSON.stringify({import_id: job.id}), signal: controller.signal,
       });
       const value = importReply(await response.json());
@@ -70,7 +73,7 @@ export function AndroidSetup({online, capabilities, error, libraryReady, onChang
     setBusy(true); setMessage('Opening the private library…');
     try {
       const response = await fetch(desktopApiBase() + '/api/library/import', {
-        method: 'POST', headers: {'Content-Type': 'application/zip', 'X-Proxy-Transcript': 'setup', 'X-Toolkit-Import-Id': job.id},
+        method: 'POST', headers: nativeAccountHeaders(accountGeneration, {'Content-Type': 'application/zip', 'X-Proxy-Transcript': 'setup', 'X-Toolkit-Import-Id': job.id}),
         body: file, signal: controller.signal,
       });
       const value = importReply(await response.json());

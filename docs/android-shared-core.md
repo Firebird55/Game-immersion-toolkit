@@ -162,6 +162,20 @@ favorites, reading and exports to the exact account activation. Old A requests
 remain invalid after switching through B back to A. Import receipts retain weak
 session references so completed jobs cannot keep obsolete full game indices.
 
+The shared React reader now pins these headers and preview queries to its
+rendered native generation. An account change retires detached audio, pending
+settings/export UI ownership, private screen links and old transcript views.
+Conditional account discovery prevents mixed account/settings reads. Android
+does not expose the desktop-only TextMap update button. Default native account
+activation remains off pending recovery and native UI acceptance.
+
+`scripts/android-account-ui-e2e.mjs` runs the actual frontend against the
+maintained Android HTTP/session services in Chromium and Firefox at 412×915.
+Authored account transport and desktop credential protection are explicit
+mocks. Registration, import, capture, favorite, separate empty second-owner
+library and A→B→A history restoration pass; stale generation mutations reject.
+This establishes browser/service behavior, not Android Keystore or device OCR.
+
 The API delegates settings, destination ownership/selection, word/grammar
 reading and sentence/original-audio exports to the maintained services. Requests
 pin credentials, local line identity and account session before network work and
