@@ -1,5 +1,6 @@
 from dataclasses import asdict
 import json
+import os
 import threading
 import time
 
@@ -12,6 +13,17 @@ from backend.local_game import LocalDialogue
 
 REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Hans'], 'content_mode': 'text-audio'}
 PROOF = SourceProof('official', 'a' * 64, True)  # Authored receipt, never a publisher claim.
+
+
+def test_storage_counts_verified_generation_hardlinks_once_but_distinct_copies_separately(tmp_path):
+    from backend.game_data import _size
+    cache = tmp_path / 'cache'; cache.mkdir()
+    original = cache / 'original'; original.write_bytes(b'authored original package')
+    old = cache / 'old'; old.mkdir()
+    os.link(original, old / 'generation-input')
+    assert _size(cache) == original.stat().st_size
+    (old / 'distinct-copy').write_bytes(original.read_bytes())
+    assert _size(cache) == original.stat().st_size * 2
 
 
 class Voice:

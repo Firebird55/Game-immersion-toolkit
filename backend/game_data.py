@@ -54,7 +54,7 @@ def _size(root):
     _no_links(root)
     if not root.exists():
         return 0
-    total, count, pending = 0, 0, [root]
+    total, count, pending, linked_files = 0, 0, [root], set()
     while pending:
         directory = pending.pop()
         try: children = list(directory.iterdir())
@@ -65,7 +65,18 @@ def _size(root):
                 if count > 1000000:
                     raise GameDataError('cache_file_limit', 'The game cache exceeds its file limit.')
                 if item.is_dir(): pending.append(item)
-                else: total += item.stat().st_size
+                else:
+                    attributes = item.stat()
+                    # Preparation can hardlink a verified input into another
+                    # generation. Count that same file once, not each name.
+                    # An unavailable inode must never deduplicate unrelated
+                    # files; this is content size, not filesystem allocation.
+                    identity = (attributes.st_dev, attributes.st_ino)
+                    linked = attributes.st_ino != 0 and attributes.st_nlink > 1
+                    if not linked or identity not in linked_files:
+                        total += attributes.st_size
+                    if linked:
+                        linked_files.add(identity)
             except FileNotFoundError:
                 continue
             if total > MAX_ASSET_BYTES:
