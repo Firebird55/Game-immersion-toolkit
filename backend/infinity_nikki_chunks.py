@@ -35,8 +35,10 @@ def manifest_sources(build_url: str, build: dict) -> tuple[str, str]:
     source = inventory_sources(build_url, build)[0]
     root = source.url.split('/HashFiles/Windows/')[0]
     prefix = f'{root}/HttpChunkInstall/Windows/{source.version}/'
+    # The original getter substitutes DefaultVersion + '_' + FastPatchVersion,
+    # rather than the standalone FastPatchVersion used in HashFiles filenames.
     return (prefix + 'CloudDir/PaperHttpChunkInstall.manifest',
-            prefix + f'CloudFastPatchDir/{source.fast_patch}/PaperHttpChunkInstall.manifest')
+            prefix + f'CloudFastPatchDir/{source.version}_{source.fast_patch}/PaperHttpChunkInstall.manifest')
 
 
 def _source(url, version):
@@ -44,9 +46,9 @@ def _source(url, version):
     parsed = urlsplit(url)
     _check(parsed.scheme == 'https' and parsed.netloc in RESOURCE_HOSTS and not parsed.query and not parsed.fragment)
     match = re.fullmatch(r'/[A-Za-z0-9_-]{8,128}/Rel_[0-9]+(?:\.[0-9]+){1,3}/PaperHotUpdate/Protected/'
-                         r'HttpChunkInstall/Windows/([0-9]{1,12})/(CloudDir|CloudFastPatchDir/[0-9]{1,12})/'
+                         r'HttpChunkInstall/Windows/([0-9]{1,12})/(CloudDir|CloudFastPatchDir/([0-9]{1,12})_[0-9]{1,12})/'
                          r'PaperHttpChunkInstall\.manifest', parsed.path)
-    _check(match is not None and match[1] == version)
+    _check(match is not None and match[1] == version and (match[3] is None or match[3] == version))
     return url.rsplit('/', 1)[0]
 
 

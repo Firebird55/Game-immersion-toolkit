@@ -397,8 +397,19 @@ deletion semantics. The original native directory selector maps this manifest's
 feature 13 to `ChunksV3`; the reader does not assume the latest `ChunksV4` name.
 The [engine's feature-level documentation](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/BuildPatchServices/BuildPatchServices__EFeatureLeve-)
 also distinguishes fixed-window chunks from later variable-window formats.
-The one exact authored FastPatch manifest candidate returned HEAD 404. No
-guessed variants were requested and this is not a format-change conclusion.
+The initial FastPatch substitution omitted the default-version prefix and
+returned HEAD 404. The complete current Global getter's original register
+dataflow explicitly concatenates default version, an underscore and fast-patch
+version. The corrected source therefore uses `CloudFastPatchDir/2872_24`, not
+the bare patch number. Its independently obtained 476,738-byte manifest passes
+unchanged ETag/length, prefix and complete local SHA-256
+`bde1e8a862e4807908024e395835cd1b0c491fa4090184f63456fd3a6bf7118e`.
+The owned URI reader derives both version components for normal updates and
+checks that the repeated default version agrees with the source family. Typed
+metadata contains 188 files and 1,273 matching chunk descriptors. Authored
+custom fields remain opaque until their actual consumers establish overlay
+priority; neither the field names nor the earlier 404 establish deletion,
+silence or a publisher format change. No guessed endpoint variants were used.
 
 All five current Global Framework files occupy one 941,200-byte shared carrier.
 The carrier also contains a movie fragment, so its complete verification cost
