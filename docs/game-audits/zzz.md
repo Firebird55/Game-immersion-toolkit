@@ -1,5 +1,70 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Unconditional localized stems in a composite film event
+
+Reader revision 20 follows an additional event from the same fully understood
+original timeline when its lone `Play_vo_` reference has no original registry
+entry. The alternate must have the same authored trigger start/duration, no
+source offset or speed edit, and consistent ownership across every use of the
+caption. A registered primary event never falls back just because its take is
+unavailable. Conflicting voice tracks, other timings and mixed caption uses
+remain unresolved. No film identity or event/bank list is embedded in the code.
+
+The Wwise135 reader accepts a composite event only when every action is Play
+and exactly one directly posted Sound is language-specific. Its full reciprocal
+ActorMixer ancestry must be unconditional, with no pitch, trim, delay, effects,
+random properties or RTPC curves. Only bounded volume/makeup values and
+volume-only states are supported; a possible inaudible state rejects the source.
+Other Play roots cannot trigger that take again or contain another localized
+voice. Shared SFX/controller sources never become voice candidates. These are
+independently authored readers informed by the frozen [Wwise135 field description](https://github.com/bnnm/wwiser/blob/24eb88f3b2a99d54c1062d8438a7bd04be88335d/wwiser/parser/wparser.py#L688),
+not an additional parser/runtime dependency.
+
+The current `C260_EP000` timeline supplies this mechanism. Its other Switch is
+separate from the localized voice: original managed literals identify
+`StateGroup_Controller`, `Controller_Haptics`, `Controller_Xbox` and `None`.
+The selected English stem is an original 1,096,799-byte recording, decoding to
+89.549229 seconds. Its caption displays span 0.847–84.903 seconds. Both audio
+clips have five-second trigger windows; those windows cannot be used as speech
+cuts. The full original stem is exposed as labeled context audio. A local
+offline recognition check positively found the corresponding opening/closing
+dialogue, but recognition neither establishes its binding nor creates cuts.
+
+Fresh normal Global English preparation completed in 163.437 seconds with
+**297,159 records and 933 context captions from 132 events**. Exactly 31 C260
+captions gained original context audio. All other dictionaries, including the
+902 earlier contexts and 295,204 ordinary records, stayed identical. Runtime
+source hashes before and after the worker match. Normal-service MP3 extraction
+in two separate fresh processes, with every network path forbidden, yielded
+89.549250 seconds of nonzero PCM with the same hash after restart.
+
+The other three Global preparations also completed through the normal worker,
+with new package transfers forbidden and nine runtime source hashes unchanged.
+Their original selected-dub event/actor ancestry and complete media ownership
+were verified independently; only bounded bank metadata was newly requested.
+
+| Source dub | Prepared records | Context captions | Whole-film events | Added C260 captions | Worker seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| English | 297,159 | 933 | 132 | 31 | 163.437 |
+| Mandarin | 297,184 | 936 | 132 | 31 | 161.547 |
+| Japanese | 289,967 | 926 | 132 | 30 | 170.188 |
+| Korean | 266,702 | 928 | 130 | 31 | 157.359 |
+
+Every earlier record is retained. In each preparation only these additional
+C260 records changed their audio, voice status and context label; all other
+record dictionaries stayed identical. Requested translations were present.
+Japanese retains its independent missing source-text join rather than borrowing
+another dub's caption count. The newly supported mechanism has actual English
+normal-service playback; the other three C260 stems have metadata/format proof,
+while their earlier C330 contexts retain actual offline playback checks below.
+
+The two C270 alternate events have additional external-bus Stop actions. Their
+localized stems and correct publisher media are identified, but this reader
+deliberately keeps those event controls unresolved. Other layouts/current
+callers, player conflicts, mainland context and frozen actual-generation
+update/recovery acceptance also remain open. These prepared totals are not a
+complete active-current-presentation denominator.
+
 ## November 17, 2026 · Current Global preparation and context playback in four dubs
 
 The frozen reader 19 completed normal publisher preparation independently for

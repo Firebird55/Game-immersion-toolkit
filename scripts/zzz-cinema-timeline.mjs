@@ -61,12 +61,12 @@ export function cinemaSubtitleTimeline(bytes) {
   for(const timeline of timelines) {
     const r=new Reader(timeline.bytes,timeline.body);
     if(r.u32()!==0)throw Error('Unsupported ZZZ TimelineAsset version');
-    const roots=Array.from({length:r.count()},()=>r.pointer()), visited=new Set(), captions=[], voices=[];
+    const roots=Array.from({length:r.count()},()=>r.pointer()), visited=new Set(), captions=[], voices=[], posts=[];
     let complete=true;
     const safelyVisit=(pointer,parent)=>{
-      const captionStart=captions.length,voiceStart=voices.length;
+      const captionStart=captions.length,voiceStart=voices.length,postStart=posts.length;
       try { visit(pointer,parent); }
-      catch(error) { captions.length=captionStart;voices.length=voiceStart;complete=false;
+      catch(error) { captions.length=captionStart;voices.length=voiceStart;posts.length=postStart;complete=false;
         failures.push({timeline:timeline.name,track:pointer.id,reason:error.message}); }
     };
     const visit=(pointer,parent)=>{
@@ -86,14 +86,23 @@ export function cinemaSubtitleTimeline(bytes) {
           captions.push({text_id,locale:({1:'en',2:'zh-Hans',3:'ja',4:'ko'})[language],start:entry.start,duration:entry.duration});
         } else if(object.type==='WwiseAudioTrack'&&target.type==='WwiseAudioClip') {
           const event=body.string(); body.zero(64); body.end();
+          posts.push({event,start:entry.start,duration:entry.duration,offset:entry.offset,speed:entry.speed});
           if(/^Play_vo_[A-Za-z0-9_]+$/i.test(event)&&entry.offset===0&&entry.speed===1) voices.push(event);
         } else throw Error('Changed ZZZ cinema clip type');
       }
     };
     for(const root of roots)safelyVisit(root,timeline.id);
     const unique=[...new Set(voices)];
+    const primary=posts.filter(row=>row.event===unique[0]);
+    const alternatives=posts.filter(row=>row.event!==unique[0]);
+    const alternate=complete&&unique.length===1&&primary.length===1&&alternatives.length===1&&
+      /^Play_[A-Za-z0-9_]+$/i.test(alternatives[0].event)&&!/^Play_vo_/i.test(alternatives[0].event)&&
+      alternatives[0].offset===0&&alternatives[0].speed===1&&
+      Math.abs(alternatives[0].start-primary[0].start)<1e-6&&Math.abs(alternatives[0].duration-primary[0].duration)<1e-6
+      ? alternatives[0].event:null;
     for(const caption of captions)subtitles.push({...caption,timeline:timeline.name,
-      event:complete&&unique.length===1?unique[0]:null,audio_scope:'context'});
+      event:complete&&unique.length===1?unique[0]:null,audio_scope:'context',
+      ...(alternate?{cinematic_alternates:[alternate]}:{})});
     events.push(...unique);
   }
   return {subtitles,events:[...new Set(events)],unsupported:failures};

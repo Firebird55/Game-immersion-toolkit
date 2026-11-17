@@ -9,6 +9,7 @@ from backend import zzz_publisher_cinematics as cinema
 from backend.hoyo_dialogue import voice_namespace
 from backend.nte_assets import wwise_hash
 from backend.tests.test_zzz_cinematics import cinematic_package
+from backend.tests.test_zzz_voice_layers import synthetic_objects
 
 
 def registry(event='Play_vo_Synthetic_01'):
@@ -186,6 +187,43 @@ def test_original_common_bank_is_a_required_dependency_and_never_a_voice_source(
         assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()], required) == {}
     sources(monkeypatch, {'snapshot': {**files, root + 'Conflicting.pck': common_package(wem)}})
     assert cinema.bindings(tmp_path, 'snapshot', 'en', [link()], required) == {}
+
+
+def layer_package(locale):
+    namespace = voice_namespace('zzz', locale).lower()
+    objects = synthetic_objects(states=2)
+    body = struct.pack('<I', len(objects)) + b''.join(struct.pack('<BI', kind, len(raw)) + raw for kind, raw in objects.values())
+    bank = b'BKHD' + struct.pack('<4I', 12, 135, 77, wwise_hash(namespace)) + b'HIRC' + struct.pack('<I', len(body)) + body
+    wem = b'RIFF' + struct.pack('<I', 96) + b'WAVE' + bytes(92)
+    media = b'BKHD' + struct.pack('<4I', 12, 135, 88, wwise_hash(namespace))
+    media += b'DIDX' + struct.pack('<4I', 12, 123, 0, len(wem)) + b'DATA' + struct.pack('<I', len(wem)) + wem
+    languages = struct.pack('<3I', 1, 12, 2) + (namespace + '\0').encode('utf-16-le')
+    sizes = (len(languages), 44, 4, 4)
+    header_size = 20 + sum(sizes)
+    entries = struct.pack('<I5I5I', 2, 77, 1, len(bank), header_size + 8, 2,
+                          88, 1, len(media), header_size + 8 + len(bank), 2)
+    return OriginalPackage(b'AKPK' + struct.pack('<6I', header_size, 1, *sizes) + languages + entries + bytes(8) + bank + media), wem
+
+
+@pytest.mark.parametrize('locale', ['en', 'zh-Hans', 'ja', 'ko'])
+def test_typed_same_clock_alternate_requires_original_registry_and_one_unconditional_localized_take(tmp_path, monkeypatch, locale):
+    original, wem = layer_package(locale)
+    name = 'ZenlessZoneZero_Data/Persistent/Audio/Windows/Full/' + cinema.VOICE_FOLDERS[locale] + '/Patch.pck'
+    sources(monkeypatch, {'snapshot': {name: original}})
+    uses = [link(cinematic_alternates=['Play_ActualLayer'])]
+    required = {wwise_hash('Play_ActualLayer'): {77, 88}}
+    audio = cinema.bindings(tmp_path, 'snapshot', locale, uses, required)['SyntheticCaption']
+    assert audio['event'] == 'Play_ActualLayer' and audio['event_mode'] == 'unconditional_voice_layer'
+    assert audio['locale'] == locale and audio['audio_scope'] == 'context'
+    assert cinema.extract(audio, tmp_path / 'tools') == wem
+    for bad in [link(), link(cinematic_alternates=['Play_vo_Other']),
+                link(cinematic_alternates=['Play_ActualLayer', 'Play_Other'])]:
+        assert cinema.bindings(tmp_path, 'snapshot', locale, [bad], required) == {}
+    assert cinema.bindings(tmp_path, 'snapshot', locale, uses + [link(cinematic_alternates=['Play_Other'])], required) == {}
+    assert cinema.bindings(tmp_path, 'snapshot', locale, uses,
+        {**required, wwise_hash('Play_vo_Synthetic_01'): {77, 88}}) == {}
+    with pytest.raises(ValueError):
+        cinema.extract({**audio, 'event_mode': 'direct'}, tmp_path / 'tools')
 
 
 @pytest.mark.parametrize('value', [[], {'eventReferenceBanks': True}, {'eventReferenceBanks': [True]},
