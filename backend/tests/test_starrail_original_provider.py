@@ -66,7 +66,8 @@ def test_provider_joins_matching_original_generations_before_publishing_descript
     assert catalog.revision == 'original-catalog-native-generation-one'
     assert catalog.movie_audio_source == (tmp_path / 'tools/sophon', stamp, 'a' * 40)
     assert state['calls'][:3] == ['launcher', 'native', 'dispatch']
-    assert set(state['calls'][8:-1]) == {'ExcelOutput/' + name + '.json' for name in provider.TABLES}
+    assert state['calls'][3:6] == ['index-design', 'index-audio', 'index-video']
+    assert set(state['calls'][6:-1]) == {'ExcelOutput/' + name + '.json' for name in provider.TABLES}
     assert state['calls'][-1] == 'captions'
     assert (tmp_path / 'tools/sophon/releases' / stamp).is_file()
     assert provider.current(tmp_path / 'tools', stamp, region, format_revision='a' * 40)

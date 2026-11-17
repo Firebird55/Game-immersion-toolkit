@@ -77,7 +77,9 @@ def prepare(data_dir, region='global', *, format_revision=None, format_metadata_
     build, generation = release(tools, region)
     build = _movie_source(build, format_revision, format_metadata_stale)
     directory = tools / 'sophon'
-    for name in ('design', 'asb', 'lua', 'audio', 'video'):
+    # Dispatch authenticates all five marker identities. These three index
+    # bodies supply this catalog; ASB/Lua bodies are not consumed by its readers.
+    for name in ('design', 'audio', 'video'):
         hotfix.index(directory, build, name)
     movies = hotfix.movie_files(directory, build)
     tables = OriginalTables(directory, build, descriptions=generation.tables)
