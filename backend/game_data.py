@@ -129,7 +129,11 @@ class _Context:
 
     def consume_bytes(self, count, *, kind='asset'):
         with self.transfer_lock:
-            self.check()
+            # Zero-byte preflight must reject a stale scope before I/O. Positive
+            # counts describe bytes already received: cancellation during a
+            # blocking read must not erase their cost from this old context.
+            if count == 0:
+                self.check()
             if type(count) is not int or count < 0 or kind not in {'metadata', 'asset', 'audio'}:
                 raise GameDataError('invalid_transfer_count', 'The game source reported an invalid transfer.')
             if kind == 'audio' and self.request.content_mode != 'text-audio':
@@ -140,6 +144,7 @@ class _Context:
             if maximum is None or self.consumed + count > maximum:
                 raise GameDataError('transfer_budget_exceeded', 'The game source exceeded the approved download size.')
             self.consumed += count
+            self.check()
 
     def remaining_bytes(self, *, kind='asset'):
         with self.transfer_lock:
