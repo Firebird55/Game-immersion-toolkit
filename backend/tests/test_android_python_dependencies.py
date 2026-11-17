@@ -42,6 +42,28 @@ def test_target_elf_is_data_and_matches_android_python_dependency_contract(machi
     assert result['needed'] == ['libc.so', 'libdl.so', 'libm.so', 'libpython3.12.so']
 
 
+@pytest.mark.parametrize('machine', [183, 62])
+def test_explicit_crypto_dependencies_reuse_the_same_strict_elf_parser(machine):
+    data = bytearray(authored_elf(machine=machine))
+    libc = data.index(b'libc.so\0', 768) - 768
+    entries = [(1,libc),(5,768),(10,256),(0,0)]
+    # Keep the actual original DT_STRTAB size, not an invented expansion.
+    entries[2] = (10, len(data[768:].split(b'\0\0',1)[0]) + 1)
+    for index,pair in enumerate(entries):struct.pack_into('<qQ',data,512+index*16,*pair)
+    result = builder.elf_contract(bytes(data),machine,expected_dependencies=('libc.so',))
+    assert result['needed'] == ['libc.so'] and result['page_alignment'] == 16384
+    with pytest.raises(ValueError):builder.elf_contract(bytes(data),machine)
+    with pytest.raises(ValueError):builder.elf_contract(bytes(data),62 if machine == 183 else 183,('libc.so',))
+    # Missing, extra and duplicate actual dependencies fail the same contract.
+    missing = bytearray(data);struct.pack_into('<qQ',missing,512,0,0)
+    with pytest.raises(ValueError):builder.elf_contract(bytes(missing),machine,('libc.so',))
+    with pytest.raises(ValueError):builder.elf_contract(authored_elf(machine=machine),machine,('libc.so',))
+    duplicate = bytearray(data)
+    for index,pair in enumerate([(1,libc),(1,libc),(5,768),entries[2],(0,0)]):
+        struct.pack_into('<qQ',duplicate,512+index*16,*pair)
+    with pytest.raises(ValueError):builder.elf_contract(bytes(duplicate),machine,('libc.so',))
+
+
 @pytest.mark.parametrize('data', [
     b'MZ' + bytes(1022), authored_elf(machine=62), authored_elf(alignment=4096),
     authored_elf(python='libpython3.13.so'), authored_elf()[:600],

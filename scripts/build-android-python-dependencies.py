@@ -119,7 +119,7 @@ def verify_ndk(ndk, archive, pin):
     return sha(json.dumps(inventory, sort_keys=True, separators=(',', ':')).encode())
 
 
-def elf_contract(data, machine):
+def elf_contract(data, machine, expected_dependencies=('libpython3.12.so', 'libc.so', 'libm.so', 'libdl.so')):
     """Verify ABI, Android dependencies and page alignment, without loading code."""
     if (len(data) < 64 or data[:7] != b'\x7fELF\x02\x01\x01'
             or struct.unpack_from('<HH', data, 16) != (3, machine)):
@@ -166,7 +166,8 @@ def elf_contract(data, machine):
         if entry >= len(table) or (end := table.find(b'\0', entry)) < 0:
             raise ValueError('Truncated native dependency name')
         dependencies.append(table[entry:end].decode('ascii'))
-    if set(dependencies) != {'libpython3.12.so', 'libc.so', 'libm.so', 'libdl.so'} or len(dependencies) != 4:
+    expected = frozenset(expected_dependencies)
+    if set(dependencies) != expected or len(dependencies) != len(expected):
         raise ValueError('Unexpected native runtime dependency')
     return {'elf_machine': machine, 'page_alignment': 16384, 'needed': sorted(dependencies)}
 
