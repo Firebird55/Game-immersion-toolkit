@@ -50,6 +50,13 @@ healthy listing with unavailable bodies retains the previous proven revision
 and marks it stale; successful recovery at the same commit changes freshness
 and permits the ordinary watcher to retry the missing movie audio.
 
+Contained voice reads now reuse a complete cached bank range only when its
+receipt binds the same immutable original asset MD5 and declared size, exact
+range bounds and SHA256. The complete covering range is hashed before slicing;
+partial, corrupt or differently owned ranges cannot supply the voice. Exact
+legacy ranges retain their existing playback contract. These are authenticated
+HTTPS ranges with original ETag/size ownership, not whole-PCK MD5 verification.
+
 The actual cached revision `a0774e9ddf72ead835846bf03f4a08c0cae406f0`
 passes the production source validator with zero new body downloads. Its three
 bodies total 522,332 bytes and retain combined SHA256

@@ -1,9 +1,8 @@
-"""Isolated original-source discovery; production preparation does not call this.
+"""Original-source discovery used by ordinary publisher preparation.
 
 The caller supplies descriptions derived from the matching original native
 client. starrail_native_preparation joins authenticated metadata acquisition,
-managed decoding and complete required description generation. The ordinary
-publisher provider has not switched to that adapter yet.
+managed decoding and complete required description generation.
 """
 import base64
 import hashlib
