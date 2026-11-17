@@ -80,6 +80,35 @@ class NteGameDataReader:
         except (OSError, ValueError, KeyError, TypeError, RuntimeBundleError) as error:
             raise _failure() from error
 
+    def execute(self, source, destination, operation, request, *, timeout):
+        """Run an existing owned operation with cancellation, never a compiler."""
+        if type(timeout) is not int or not 1 <= timeout <= 600 or not isinstance(request, dict):
+            raise _failure()
+        body = json.dumps(request, separators=(',', ':'), allow_nan=False).encode('ascii')
+        if len(body) > 64*1024:
+            raise _failure()
+        command, environment, working = self.invocation(source, destination, operation)
+        ctx = self.context; ctx.check()
+        process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            cwd=working, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        started = time.monotonic()
+        try:
+            while True:
+                ctx.check()
+                if time.monotonic()-started > timeout:
+                    raise GameDataError('nte_reader_timeout',
+                        'NTE dialogue processing did not finish. Your previous library is retained.', 409)
+                try:
+                    process.communicate(input=body, timeout=.1)
+                    break
+                except subprocess.TimeoutExpired:
+                    body = None
+            ctx.check()
+            return subprocess.CompletedProcess(command, process.returncode)
+        finally:
+            if process.poll() is None:
+                process.kill(); process.wait(timeout=5)
+
     def _codec_specification(self):
         from .nte_toolchain import PREFIX, DEPENDENCIES
         path = self.layout.resource(PREFIX+'notices/MANAGED-COMPONENTS.json')

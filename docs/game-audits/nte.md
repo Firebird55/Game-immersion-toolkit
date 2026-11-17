@@ -325,6 +325,16 @@ these packages.” No latest community lookup is attempted. Keeping this fixed
 description does not establish official archive/localization key rotation;
 changed incompatible keys remain a separate open gate.
 
+The existing owned `publisher-dialogue-inventory` operation has an optional
+strict registry completion contract for local preparation. Its v2 receipt binds
+the invocation nonce, original registry hash and byte length, and an actual
+archive-cursor EOF check. The pinned supplier parsed a retained 200,358,635-byte
+registry into 529,923 asset records but silently accepted one appended byte;
+strict mode rejects that trailing byte. The legacy inventory and full authoring
+contracts retain their previous behavior. This strengthens local metadata
+validation; it does not establish a ready library or complete update/key-rotation
+support.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

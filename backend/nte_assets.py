@@ -363,9 +363,11 @@ def read_schema_usage(destination, schema_sha256, nonce):
 
 
 def read_dialogue_inventory(context, executable, destination, containers, archive_metadata, registry,
-                            *, capture_original_authoring=False, game_data_reader=None):
+                            *, capture_original_authoring=False, game_data_reader=None, require_registry_eof=False):
     """Read complete registry-selected package claims before bounded prefetch."""
     from .nte_publisher_stream import Broker
+    if type(require_registry_eof) is not bool:
+        raise ValueError('Unsupported NTE inventory verification mode')
     destination = Path(destination)
     if (not isinstance(registry, bytes) or not 0 < len(registry) <= 256*1024**2
             or any((destination/name).exists() for name in ('dialogue-registry.bin', 'dialogue-inventory.json'))):
@@ -380,9 +382,14 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
         request.update(_publisher_key_bindings(containers, archive_metadata))
         if capture_original_authoring:
             request['capture_original_authoring'] = True
+        if require_registry_eof:
+            request['require_registry_eof'] = True
         try:
-            result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True, timeout=180,
-                cwd=working, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            if game_data_reader is not None:
+                result = game_data_reader.execute(context, destination, 'publisher-dialogue-inventory', request, timeout=180)
+            else:
+                result = subprocess.run(invocation, input=json.dumps(request).encode(), capture_output=True, timeout=180,
+                    cwd=working, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         except (OSError, subprocess.SubprocessError):
             raise PreparationFailure('game_metadata_unavailable',
                 'The original NTE dialogue inventory could not finish. Retry preparation; '
@@ -397,11 +404,18 @@ def read_dialogue_inventory(context, executable, destination, containers, archiv
         if result.returncode or not path.is_file() or not 0 < path.stat().st_size <= 16*1024**2:
             raise ValueError()
         value = json.loads(path.read_bytes())
-        if (not isinstance(value, dict) or set(value) != {'schema', 'complete', 'registry_sha256', 'nonce', 'package_count', 'packages'}
-                or value['schema'] != 'nte-original-dialogue-inventory-v1' or value['complete'] is not True
+        fields = {'schema', 'complete', 'registry_sha256', 'nonce', 'package_count', 'packages'}
+        if require_registry_eof:
+            fields |= {'registry_bytes', 'registry_eof_verified'}
+        if (not isinstance(value, dict) or set(value) != fields
+                or value['schema'] != ('nte-original-dialogue-inventory-v2' if require_registry_eof else 'nte-original-dialogue-inventory-v1')
+                or value['complete'] is not True
                 or value['nonce'] != nonce or value['registry_sha256'] != sha or type(value['package_count']) is not int
                 or not isinstance(value['packages'], dict) or not 0 < len(value['packages']) <= 8192
                 or value['package_count'] != len(value['packages'])):
+            raise ValueError()
+        if require_registry_eof and (type(value['registry_bytes']) is not int or value['registry_bytes'] != len(registry)
+                                     or value['registry_eof_verified'] is not True):
             raise ValueError()
         packages = value['packages']
         if (len({name.casefold() for name in packages}) != len(packages)

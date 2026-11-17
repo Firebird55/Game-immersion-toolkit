@@ -134,8 +134,10 @@ def test_original_authoring_is_opt_in_and_requires_a_complete_current_packet(tmp
         assert extract()['complete'] is True
 
 
-@pytest.mark.parametrize('bad', [None, 'nonce', 'hash', 'incomplete', 'count', 'case', 'path', 'size', 'budget'])
-def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocation(tmp_path, monkeypatch, bad):
+@pytest.mark.parametrize('strict,bad', [(strict, bad) for strict in (False, True)
+    for bad in (None, 'nonce', 'hash', 'incomplete', 'count', 'case', 'path', 'size', 'budget')]
+    + [(True, bad) for bad in ('eof', 'length', 'bool-length', 'legacy-schema')])
+def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocation(tmp_path, monkeypatch, bad, strict):
     from backend import nte_publisher_stream
     class Broker:
         descriptors, failures = [], []
@@ -155,6 +157,9 @@ def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocati
         result = dict(schema='nte-original-dialogue-inventory-v1', complete=True,
             registry_sha256=request['dialogue_registry_sha256'], nonce=request['inventory_nonce'],
             package_count=1, packages={'HT/Content/Owned.uasset': 80})
+        assert request.get('require_registry_eof', False) is strict
+        if strict:
+            result.update(schema='nte-original-dialogue-inventory-v2', registry_bytes=len(registry), registry_eof_verified=True)
         if bad == 'nonce': result['nonce'] = '0'*32
         elif bad == 'hash': result['registry_sha256'] = '0'*64
         elif bad == 'incomplete': result['complete'] = False
@@ -166,14 +171,18 @@ def test_registry_inventory_is_complete_unique_and_bound_to_this_source_invocati
         elif bad == 'budget':
             result['packages'] = {f'HT/Content/Owned{i}.uasset': 4*1024**2 for i in range(33)}
             result['package_count'] = 33
+        elif bad == 'eof': result['registry_eof_verified'] = False
+        elif bad == 'length': result['registry_bytes'] += 1
+        elif bad == 'bool-length': result['registry_bytes'] = True
+        elif bad == 'legacy-schema': result['schema'] = 'nte-original-dialogue-inventory-v1'
         (tmp_path/'dialogue-inventory.json').write_text(json.dumps(result))
         return SimpleNamespace(returncode=0)
     monkeypatch.setattr(assets.subprocess, 'run', run)
     if bad:
         with pytest.raises(PreparationFailure):
-            assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry)
+            assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry, require_registry_eof=strict)
     else:
-        assert assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry) == {
+        assert assets.read_dialogue_inventory(tmp_path/'context', tmp_path/'reader', tmp_path, [], 'owned', registry, require_registry_eof=strict) == {
             'HT/Content/Owned.uasset': 80}
 
 
