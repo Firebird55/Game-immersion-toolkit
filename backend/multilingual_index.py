@@ -1,6 +1,7 @@
 """Locale-tagged official text matching with one verified source performance."""
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -37,6 +38,8 @@ class MultilingualTextIndex:
         self.capture_missing_audio = False
         self.capture_text_only = False
         self.audio_omitted_count = 0
+        self.publisher_generation = None
+        self.publisher_request_sha256 = None
         self.target_locale = 'en'
         self.source_locale = ''
         self.entry_count = self.audio_count = 0
@@ -61,6 +64,16 @@ class MultilingualTextIndex:
         self._training_compiled = ()
         if autoload:
             self.load()
+
+    def _publisher_context(self, row):
+        # The host binds a validated source before exposing this index. Hash
+        # the complete authored occurrence, including player/audio provenance;
+        # do not add toolkit fields to immutable publisher rows or approvals.
+        return {'publisher_generation': self.publisher_generation,
+                'publisher_request_sha256': self.publisher_request_sha256,
+                'publisher_occurrence_sha256': hashlib.sha256(json.dumps(row, sort_keys=True,
+                    separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+                    if self.publisher_generation is not None else None}
 
     def publish(self, candidate):
         """Activate the already validated generation without parsing it again."""
@@ -430,7 +443,8 @@ class MultilingualTextIndex:
                             speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
                             voice_status=row['voice_status'], dialogue_kind=row['dialogue_kind'],
                             text_capture_verified=row['text_capture_verified'], audio_scope=row['audio_scope'],
-                            audio_omitted_by_request=row.get('audio_omitted_by_request', False), source_voice_binding=row.get('source_voice_binding'))
+                            audio_omitted_by_request=row.get('audio_omitted_by_request', False), source_voice_binding=row.get('source_voice_binding'),
+                            **self._publisher_context(row))
                     if hit.text_id not in used:
                         result.append(hit)
                         used.add(hit.text_id)
@@ -481,7 +495,8 @@ class MultilingualTextIndex:
                         speaker_english=row.get('speaker_english'), speaker_chinese=row.get('speaker_chinese'),
                         voice_status=row['voice_status'], dialogue_kind=row['dialogue_kind'],
                         text_capture_verified=row['text_capture_verified'], audio_scope=row['audio_scope'],
-                        audio_omitted_by_request=row.get('audio_omitted_by_request', False), source_voice_binding=row.get('source_voice_binding'))
+                        audio_omitted_by_request=row.get('audio_omitted_by_request', False), source_voice_binding=row.get('source_voice_binding'),
+                        **self._publisher_context(row))
                     hits[hit.text_id] = hit
                     # The complete UI selected this authored occurrence. Do not
                     # emit a second globally coalesced alias for the same body.
@@ -641,7 +656,7 @@ class MultilingualTextIndex:
                         voice_status=row['voice_status'], dialogue_kind=row.get('dialogue_kind'),
                         text_capture_verified=row.get('text_capture_verified', False),
                         audio_scope=row['audio_scope'], audio_omitted_by_request=row.get('audio_omitted_by_request', False),
-                        source_voice_binding=row.get('source_voice_binding')))
+                        source_voice_binding=row.get('source_voice_binding'), **self._publisher_context(row)))
         if multiple:
             # Retain independent visible speakers, but never turn a wrapped
             # caption's fragment into another performance. The same ambiguity
