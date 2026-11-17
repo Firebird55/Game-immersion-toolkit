@@ -298,6 +298,88 @@ derived from the original owner structures before further acquisition. The
 current evidence does not establish an Android `GameConfigAsset` initializer
 or key; no Android source is accepted into the production provider yet.
 
+The subsequent browser-route investigation reuses complete original source
+modules after their length/MD5 checks and parses JavaScript syntax without
+executing it. `AppButton.client`'s download case calls its authored `kt` handler,
+then `Jn.androidDialogDownload`. The latter passes an app-module URI with
+`app_id` to the store-client handoff. The independently fetched complete
+`web-to-client.C-pNXRtT.js` (87,562 bytes, original Content-MD5 verified) builds
+`taptap://taptap.com/app` and the public `dispatch.taptap.cn/taptap` address.
+An anonymous request derived from that exact contract, using the known game ID
+and no account/session cookie, returns a complete 5,070-byte "Download TapTap"
+HTML page. Its original dispatch module (132,134 bytes, original Content-MD5
+verified) derives `apkDownloadUrl` from the **store-client**
+`d.taptap.cn/latest` base plus a store channel. The game ID is handoff/jump
+context, not a proven game-package transfer descriptor. No analytics, account or
+native bridge operation is invoked.
+
+The original route table also identifies `/app/:id/signature`. Its complete
+page and small original module read `app/v5/information.signature_data_list`,
+separately from a catalog of applications with signature information. The
+complete current Reverse:1999 response does not contain that list. It therefore
+adds no signer proof or APK URL for this game; catalog entries for other games
+are not substituted. The exact remaining step is resolving the game's known APK
+identity into its actual transfer URL through an original public descriptor,
+or another publisher-authored route. That native store-client step is not
+established by these browser sources. It is not filled with an invented API.
+That browser/maintenance phase uses eleven requests and 415,005 new metadata
+bytes, including the fallback-source check below; no package/native bodies are
+acquired in that phase.
+
+### Bounded store-client component inventory
+
+The original store-client fallback subsequently resolves by HEAD from
+`d.taptap.cn/latest` to a 30,390,849-byte store APK on `rls.tapurl.com`. This is
+distribution-tool research, **not an official Reverse:1999 package source or
+game-key proof**. The hexadecimal filename token and multipart ETag are not
+treated as whole-file checksums or publisher signing identities.
+
+Separately approved, strict same-owner/ETag HTTP ranges acquire only a
+65,557-byte EOCD tail and its exact 421,652-byte central directory. Their valid
+single-disk ZIP structures index 6,208 entries, including seven DEX members.
+One further bounded member read consists of the 49-byte original local header
+and 44,912 compressed bytes of `AndroidManifest.xml`. Its DEFLATE stream expands
+to exactly 480,736 bytes and passes its complete original member CRC. No other
+member, native library or DEX body is read. The final continuation total,
+including browser/maintenance metadata, HEAD requests and these approved reads,
+is seventeen requests and 947,175 transferred bytes, within its 1 MiB limit.
+
+Static Android binary-XML parsing establishes package `com.taptap`, application
+`com.play.taptap.application.AppGlobal`, and these publisher-declared store
+components:
+
+| Kind | Declared owner |
+| --- | --- |
+| Service | `com.taptap.game.export.download.TapAppDownloadService` |
+| Provider | `com.taptap.game.export.download.PreDownloadProvider` |
+
+Those declarations identify download-related components; they do not prove a
+network request producer, an accountless game APK API, or a mapping to one of the
+seven DEX files. The whole store APK checksum/signature remains unverified. No
+component or client is executed. The bounded store route stops here. A later
+targeted hypothesis would need the exact declared class's DEX location and its
+original request-production edge; downloading all seven DEX files blindly is
+not accepted as the next step. The game's APK URL and original configuration
+initializer remain unresolved.
+
+### Community key candidate: research only
+
+The original author repository
+[hax0r31337/re1999-tools](https://github.com/hax0r31337/re1999-tools) is not
+archived and reports a last push on September 9, 2026. Its decoder file was last
+changed by [the June 23, 2024 decoder commit](https://github.com/hax0r31337/re1999-tools/commit/a43705eb2c7ce543ebe18bd5707363b22c9c34e6).
+The current 498-byte `text-assets.py` contains the same two cryptographic
+literals as the existing pinned research reference, compared through Python AST
+data inspection only. No downloaded code is executed and no key material is
+published or added to the provider.
+
+This is a fixed-literal candidate, not an evidenced revision-aware key service.
+Recent repository activity alone does not establish decoder/key maintenance.
+The missing official derivation step is still not proven impossible or
+unavailable, so the candidate remains unapproved research and does not activate
+a production fallback. Even a later authorized exception would still require
+original source/version/integrity validation and the unresolved content readers.
+
 ## Text versus text and audio planning
 
 `backend/reverse1999_game_data.py` exposes the shared host factory
