@@ -33,8 +33,9 @@ not evidence that such a relay works offline.
    then import that ZIP in Android. Check its game, study language, translation
    and player voice when importing. Existing automatic rules are retained; a
    format change queues a native export even if the game data are unchanged.
-2. Keep old browser-origin storage until any wanted history and favorites are
-   exported or a migration route is provided. Re-importing a library does not
+2. Keep old browser-origin storage. Use the explicit
+   [history and favorites migration](browser-history-migration.md) when available
+   in the Android candidate. Re-importing a library does not
    itself copy history or favorites. A native app cannot read another browser's
    IndexedDB or OPFS implicitly.
 3. Enter account credentials through the app's protected account flow when

@@ -177,6 +177,7 @@ class AndroidHost:
     def platform(self):
         recovery = self.account_sessions.status().get('recovery') if self.account_sessions else None
         return {'platform': 'android', 'library_import': recovery is None,
+            'history_migration': recovery is None,
             'capture_source': 'unavailable' if recovery else 'remote-stream' if self.native else 'authored-observations',
             'message': recovery['message'] if recovery else 'Private prepared libraries and original audio are processed on this Android device.',
             'protected_accounts': self.account_sessions is not None,
@@ -569,6 +570,35 @@ class AndroidHost:
                             self._json(*host._receiver_conflict('receiver_owned', 'Use the active screen receiver controls'));return
                         host.session.stop('Screen source changed' if path.endswith('source') else 'Capture paused')
                         self._json({**host.snapshot(), 'generation': host.session.generation});return
+                if path == '/api/history/migration/lines' and self.command == 'GET':
+                    from .models import GameId
+                    from typing import get_args
+                    values = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=3)
+                    if (set(values) != {'game', 'page', 'favorites'} or any(len(v) != 1 for v in values.values())
+                            or values['game'][0] not in get_args(GameId) or values['favorites'][0] not in {'true', 'false'}
+                            or not re.fullmatch(r'[0-9]{1,10}', values['page'][0]) or int(values['page'][0]) > 2**31 - 1):
+                        raise ValueError('Invalid imported history page')
+                    with host.session.lock:
+                        generation = host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        total, lines = host.session.history.browser_history_page(values['game'][0],
+                            int(values['page'][0]), favorites=values['favorites'][0] == 'true')
+                        rows = [host.session._line(line) for line in lines]
+                        if host.account_sessions:
+                            preferences = host.account_sessions.cached_preferences()
+                            rows = [host.account_sessions.qualify_line(host.account_sessions.present_dto(line, preferences)) for line in rows]
+                        self._json({'total': total, 'rows': rows, 'account_generation': generation});return
+                if path in {'/api/history/migration/preview', '/api/history/migration/import'} and self.command == 'POST':
+                    from .browser_history_migration import MAX_BYTES, parse_backup, summary
+                    if self.headers.get('X-Proxy-Transcript') != 'setup':
+                        raise ValueError('Use the explicit history import controls')
+                    rows = parse_backup(self._body(MAX_BYTES))
+                    with host.session.lock:
+                        host.guard_account(self.headers.get('X-Toolkit-Account-Generation'))
+                        result = summary(rows)
+                        if path.endswith('/import'):
+                            result.update(host.session.history.import_browser_history(rows))
+                            host.session.state_version += 1
+                        self._json(result);return
                 if path == '/api/library/import' and self.command == 'POST':
                     if self.headers.get('Transfer-Encoding') or not self.headers.get('Content-Length', '').isdigit():
                         raise ValueError('A bounded library length is required')

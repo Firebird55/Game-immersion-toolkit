@@ -100,6 +100,8 @@ class TranscriptStore:
                 statement.execute("PRAGMA journal_mode=WAL")
             with self._sql_lifetime.cursor(connection) as statement:
                 statement.execute(SCHEMA)
+                statement.execute('''CREATE TABLE IF NOT EXISTS browser_history_imports (
+                    source_key TEXT PRIMARY KEY, line_id INTEGER NOT NULL)''')
             with self._sql_lifetime.cursor(connection) as statement:
                 columns = {row[1] for row in statement.execute("PRAGMA table_info(transcript_lines)")}
             if 'language_context' not in columns:
@@ -239,6 +241,48 @@ class TranscriptStore:
                     (row_id,),
                 ).fetchone()
         return self._row_to_line(row)
+
+    def import_browser_history(self, entries, *, before_commit=lambda: None):
+        """Atomically add validated archive rows, retaining replay tombstones.
+
+        Favorites may be promoted on re-import; existing native favorites are
+        never cleared. Explicit deletion stays deleted on a later re-import.
+        The caller holds its account/session lock throughout publication.
+        """
+        added = promoted = 0
+        with self._connection_scope() as connection:
+            with self._sql_lifetime.cursor(connection) as statement:
+                for identity, line in entries:
+                    previous = statement.execute('SELECT line_id FROM browser_history_imports WHERE source_key=?',
+                        (identity,)).fetchone()
+                    if previous:
+                        if line.favorite:
+                            promoted += statement.execute('UPDATE transcript_lines SET favorite=1 WHERE id=? AND favorite=0',
+                                (previous['line_id'],)).rowcount
+                        continue
+                    context = {key: getattr(line, key) for key in ('source_language', 'source_locale', 'source_text',
+                        'translation_locale', 'translation_text', 'audio_locale', 'texts', 'voice_status',
+                        'dialogue_kind', 'audio_scope', 'text_capture_verified')}
+                    statement.execute('''INSERT INTO transcript_lines (
+                        created_at,session_id,game,source_ocr,english,chinese,text_id,score,match_kind,
+                        ambiguous,channel,voiced,audio_path,speaker_english,speaker_chinese,favorite,language_context)
+                        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
+                        (line.created_at.isoformat(), line.session_id, line.game, line.source_ocr, line.english,
+                         line.chinese, line.text_id, line.score, 'browser_migration', 0, line.channel, 0, None,
+                         line.speaker_english, line.speaker_chinese, int(line.favorite), json.dumps(context, ensure_ascii=False)))
+                    statement.execute('INSERT INTO browser_history_imports VALUES (?,?)', (identity, statement.lastrowid))
+                    added += 1
+            before_commit()
+        return {'imported': added, 'favorites_promoted': promoted, 'already_imported': len(entries) - added}
+
+    def browser_history_page(self, game, page=0, *, favorites=False):
+        with self._connection_scope() as connection:
+            with self._sql_lifetime.cursor(connection) as statement:
+                where = "match_kind='browser_migration' AND game=?" + (' AND favorite=1' if favorites else '')
+                total = statement.execute('SELECT count(*) FROM transcript_lines WHERE ' + where, (game,)).fetchone()[0]
+                rows = statement.execute('SELECT * FROM transcript_lines WHERE ' + where +
+                    ' ORDER BY id DESC LIMIT 10 OFFSET ?', (game, page * 10)).fetchall()
+        return total, [self._row_to_line(row) for row in rows]
 
     @staticmethod
     def _prefix_text(value: str) -> str:
@@ -501,7 +545,7 @@ class TranscriptStore:
                     rows.extend(statement.execute(
                         """
                     SELECT id, audio_path FROM transcript_lines
-                    WHERE favorite = 0 AND game = ?
+                    WHERE favorite = 0 AND game = ? AND match_kind <> 'browser_migration'
                     ORDER BY id DESC LIMIT -1 OFFSET ?
                     """,
                         (game, keep_nonfavorite),
@@ -524,7 +568,7 @@ class TranscriptStore:
                 rows = statement.execute(
                     """
                 SELECT * FROM transcript_lines
-                WHERE game <> 'hito' AND voiced = 0 AND favorite = 0
+                WHERE game <> 'hito' AND voiced = 0 AND favorite = 0 AND match_kind <> 'browser_migration'
                 """
                 ).fetchall()
             rows = [row for row in rows if not (self._row_to_line(row).is_comic
