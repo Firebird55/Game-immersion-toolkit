@@ -450,21 +450,58 @@ The original named `_OnCmdGetVideoVersionKeyScRsp` handler now directly joins
 that successful response to the two registries. Native protobuf tag branches,
 primitive reads and stores prove an ID plus three uint64 values per record;
 the response status and both list roles are independently joined to their
-consumers. The output playback struct is explicitly initialized to zero, but
-the input context used after a registry miss is loaded separately from static
-storage. Its initializer and native derivation remain under investigation;
-zero-initialized output alone does not establish the fallback key values.
+consumers. The fallback playback output struct is explicitly initialized to
+zero. This does not establish the separate three-ulong input context used when
+a registry lookup misses: the factory first loads that context from static
+storage, whose initializer and subsequent native formula still need validation.
+An empty registry therefore does not by itself prove that a response is needed.
+
+The original runtime-type-handle dictionary independently registers this
+response type as command 69. The handler's runtime type check and the dictionary
+constructor use the same original type global. This proves a response command;
+no request command or authentication policy is inferred from it.
 
 Tracing the original cached `SendGetVideoVersionKeyCsReq` delegate through its
 actual static-field accesses and original runtime-method usage records reaches
 a native function that returns immediately unless its IFix patch branch is
 active. Its name therefore proves neither an outgoing request nor an
-authentication requirement. The smallest missing input proof is a complete,
-successful publisher response bound to the same regional client/resource
-generation, obtained through an evidenced allowed route. Its two lists must
-then validate against the corresponding original video/loop tables before
-deriving playback parameters. No such new response was acquired, and no
-account-session or game-protocol operation was attempted.
+authentication requirement. Using the registry-update route would require a
+complete, successful publisher response bound to the same regional client/
+resource generation, obtained through an evidenced allowed route. Its two lists
+must then validate against the corresponding original video/loop tables before
+deriving playback parameters. Whether this response is necessary depends on the
+separate default input context and formula above. No such new response was
+acquired, and no account-session or game-protocol operation was attempted.
+
+A subsequent Global 4.7 static check also derives the original public IFix
+update URL and revision from the gateway parser/writer. The IFix-specific data
+constructor takes that URL from `ServerDispatchData`; its relative-path getter,
+native path initializer and actual download-item URL builder join it with
+`client/Windows` and the authored filename. This reaches the published
+`M_IFixV.bytes` marker at revision `17148223`, without trying candidate paths.
+Its 62-byte format-2 body is a complete official HTTPS response. The original
+version reader explicitly supports this layout and format 3's additional uint32;
+the existing production marker parser remains unchanged.
+
+The complete 70-byte index passes the marker-advertised MD5
+`8468d49a5041da52c8511494a4ae6345`. The original UTF-8/comma row parser and typed
+path/hash/size getters bind its sole carrier, `win-Assembly-CSharp.patch.bytes`,
+to 27,725 bytes and MD5 `390e117e8ce07b79ec7b5479fdb30790`. The complete carrier
+passes that size/MD5 and has SHA-256
+`67ec126a01f4dd116f4f97be7dffe7f8744fce949697c0dbc5b55e50429f31df`.
+Total new transfer is 27,857 bytes. No other carrier was fetched.
+
+Static metadata parsing consumes the carrier's complete framing to EOF: 91 type
+references, 128 method references, 51 field references, 26 opaque instruction
+blocks and nine patch targets. Its three additional sections are empty; the
+diagnostic rejects nonempty instances of those sections. The targets concern
+idle animation, staff-roll UI, photograph checks and a roller-coaster puzzle.
+They do not replace the identified movie-key request stub. Instruction blocks
+remain uninterpreted and no original patch, VM or client code is executed.
+This establishes the current public IFix source contract. An allowed source for
+a registry-update response remains unproved, and the independent default-context
+path remains under investigation. Neither an account-only requirement nor
+regional IFix equivalence is established.
 
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
