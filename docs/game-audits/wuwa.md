@@ -1,5 +1,22 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · Authenticated index reuse across releases
+
+Released packages may share a plaintext native index under different package
+identities. The selective reader now reuses such a cached object only when its
+size and full SHA-1 match the current original footer or main-index reference.
+It atomically publishes the verified copy under the requesting package. Current
+encrypted-package key selection still runs first, and both complete original
+indices must validate before any parameter can enter protected recovery storage.
+
+Tests cover corrupt, wrong-size and differently named digests, a changed declared
+native hash, atomic-publication interruption and a differently encrypted original
+with the same plaintext indices. A real original encrypted package used only
+528 network bytes for its footer/key sample with the cross-package directory
+object cached. An unknown parameter was still refused with both plaintext
+indices present. This improves cache reuse during ordinary content updates;
+deriving genuinely rotated unknown parameters remains a separate open task.
+
 ## November 17, 2026 · Observed player names in saved presentation
 
 Saved transcript DTOs now render an observed player nickname in the original
