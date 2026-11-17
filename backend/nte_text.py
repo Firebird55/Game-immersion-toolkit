@@ -69,7 +69,8 @@ def localized_records(records, tables, source_locale):
                 row.update(text_id=record['text_id'] + ':' + gender, player_voice=gender)
             required = [source_locale] if source_locale else ['en', 'zh-Hans']
             if any(locale not in texts for locale in required):
-                row.update(audio=None, voice_status='unavailable' if record['voice_status'] == 'voiced'
+                row.update(audio=None, voice_status=('unknown' if record.get('audio_omitted_by_request') else 'unavailable')
+                           if record['voice_status'] == 'voiced'
                            else record['voice_status'], text_binding_unresolved=True)
                 # Retain the unsupported source as diagnostic text, without
                 # manufacturing a spoken variant or dropping the inventory row.

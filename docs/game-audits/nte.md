@@ -1,5 +1,48 @@
 # Neverness to Everness audit
 
+## Explicit text-only preparation
+
+November 17, 2026. The NTE provider accepts `content_mode='text'` before
+selecting voice payloads. It reads original localization, subtitle ownership,
+native authoring and authenticated archive indices, but does not prefetch or
+read BNK/WEM members, parse voice banks or construct playable media references.
+Required shared indices and text containers remain unavoidable overhead; this
+does not promise that their compressed blocks contain no incidental audio bytes.
+The existing five study locales and all official translation targets remain
+the supported language choices.
+
+Every resulting row marks intentional audio omission. A unique authored event
+and selected-dub bank-name declaration can retain nonplayable source voice
+evidence. This is not a bank-decoding or recording-playback claim. Missing,
+ambiguous and uninspected voice bindings remain unknown. Caption ownership can
+verify displayed text without proving that a cinematic caption is spoken.
+Confirmed written text retains its original unvoiced status. Exact-text and
+native-predecessor admission retain duplicate, player, source, menu and
+unresolved-binding guards; omission never fabricates a silent recording.
+
+The actual provider and ordinary atomic payload writer passed these independent
+frozen-original trials with the rebuilt managed reader. Network access,
+BNK/WEM member reads, bank prefetch and bank parsing were forbidden throughout.
+
+| Original generation | Study locale | Prepared text rows | Verified text rows | Playable audio |
+| --- | --- | ---: | ---: | ---: |
+| Global 1.4.9 | Japanese | 113,664 | 24,871 | 0 |
+| Global 1.5.4 | Japanese | 122,200 | 26,858 | 0 |
+| Mainland 1.5.6 | Mandarin | 121,394 | 26,412 | 0 |
+
+The current Global output retains every canonical text identity from the
+earlier 126,472-row audio-enabled output. Its 4,272 fewer rows reflect paired
+bank-performance variants that are not inspected for a text request. These
+inventories count prepared source rows, not chapters or demonstrated gameplay.
+Actual shared-index loading and materialization validation passed, including
+exact matches that preserve voiced, unknown and unvoiced status. An injected
+reader timeout retained the complete text library and immutable approval;
+healthy retry reproduced both exactly without networking or audio access.
+The NTE test group passed 572 tests and the managed reader compiled without
+warnings or errors. The shared desktop request/UI/capture integration is a
+separate combined checkpoint; these provider trials do not claim direct Android
+preparation or new official bootstrap/key-rotation support.
+
 ## Controlled update metadata and device boundary
 
 November 17, 2026 follow-up. Publisher bytes remain the source of all study

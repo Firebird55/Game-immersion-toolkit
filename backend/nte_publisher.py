@@ -324,19 +324,50 @@ def _localization(catalog, locales, source_locale, destination):
     return tables, rejected
 
 
-def build_language(tools, source_locale, targets, progress=lambda _message: None):
+def _stage_voice_banks(catalog, banks, staging, progress):
+    progress(f'Reading {len(banks):,} original NTE voice banks')
+    catalog.prefetch(banks)
+    bank_dir = staging/'banks'
+    bank_dir.mkdir()
+    seen, batches = set(), {}
+    for path in banks:
+        archive_name, archive, original = catalog.location(path)
+        batches.setdefault(archive_name, (archive, []))[1].append(original)
+    for archive, names in batches.values():
+        batch, size, stored = [], 0, 0
+        def write_batch():
+            for path, data in zip(batch, archive.read_many(batch)):
+                name = 'Play_Vo_' + Path(path).name[8:]
+                pak.check(name.casefold() not in seen)
+                seen.add(name.casefold())
+                (bank_dir/name).write_bytes(data)
+        for path in names:
+            entry = archive.entry(path)
+            if batch and (len(batch) == 256 or size+entry.size > pak.TRANSFER or stored+entry.stored > 2*pak.TRANSFER):
+                write_batch()
+                batch, size, stored = [], 0, 0
+            batch.append(path)
+            size += entry.size
+            stored += entry.stored
+        if batch:
+            write_batch()
+
+
+def build_language(tools, source_locale, targets, progress=lambda _message: None, *, content_mode='text-audio'):
     from . import nte_assets as assets
     from .languages import resolve_locale
     from .nte_cinematics import catalog_rows, movie_bindings, movie_namespaces
     from .publisher_regions import selected_region
     tools = Path(tools)
+    if content_mode not in ('text', 'text-audio'):
+        raise ValueError('Unsupported NTE content mode')
     if source_locale not in assets.SUPPORTED_LOCALES:
         raise ValueError('Unsupported NTE study/audio locale.')
     region = 'nte-' + selected_region(tools, 'nte')
     stamp, value = _current(tools, int(time.monotonic() // 60), region)
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     locales = {source_locale, *(locale for locale in resolved.values() if locale)}
-    progress('Reading coherent NTE publisher text, original authoring and selected voice banks')
+    progress('Reading coherent NTE publisher text and original authoring')
     catalog = (Catalog(tools, stamp, progress, preparing=True) if 'metadata_policy' in value else
                Catalog(tools, stamp, progress))
     executable = assets.ensure_extractor(tools)
@@ -368,39 +399,18 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
         for _, _, path in catalog.locations.values():
             if path.casefold().startswith(bank_root.casefold()) and re.fullmatch(r'Play_Vo_[A-Za-z0-9_]+\.bnk', Path(path).name, re.I) and catalog.location(path):
                 banks.append(path)
-            elif path.casefold().startswith(media_root.casefold()) and re.fullmatch(r'[0-9]+\.wem', Path(path).name) and catalog.location(path):
+            elif content_mode == 'text-audio' and path.casefold().startswith(media_root.casefold()) and re.fullmatch(r'[0-9]+\.wem', Path(path).name) and catalog.location(path):
                 media.append(media_root + Path(path).name)
-        progress(f'Reading {len(banks):,} original {language} NTE voice banks')
-        catalog.prefetch(banks)
-        bank_dir = staging / 'banks'
-        bank_dir.mkdir()
-        seen, batches = set(), {}
-        for path in banks:
-            archive_name, archive, original = catalog.location(path)
-            batches.setdefault(archive_name, (archive, []))[1].append(original)
-        for archive, names in batches.values():
-            batch, size, stored = [], 0, 0
-            def write_batch():
-                for path, data in zip(batch, archive.read_many(batch)):
-                    name = 'Play_Vo_' + Path(path).name[8:]
-                    pak.check(name.casefold() not in seen)
-                    seen.add(name.casefold())
-                    (bank_dir / name).write_bytes(data)
-            for path in names:
-                entry = archive.entry(path)
-                if batch and (len(batch) == 256 or size + entry.size > pak.TRANSFER or stored + entry.stored > 2 * pak.TRANSFER):
-                    write_batch()
-                    batch, size, stored = [], 0, 0
-                batch.append(path)
-                size += entry.size
-                stored += entry.stored
-            if batch:
-                write_batch()
+        if content_mode == 'text-audio':
+            _stage_voice_banks(catalog, banks, staging, progress)
+        else:
+            _atomic_file(staging/'voice-bank-paths.json', _json(banks))
         _atomic_file(staging / 'media.json', _json(media))
         available = {locale for locale in locales if tables.get(assets.TEXT_LOCALES[locale])}
         from .nte_native_metadata import CLASS_GENERATOR
         records = assets.build_records(staging, bindings, source_locale=source_locale, target_locales=available - {source_locale},
-                                       dialogue_graphs=value['type_schema'].get('generator') == CLASS_GENERATOR)
+                                       dialogue_graphs=value['type_schema'].get('generator') == CLASS_GENERATOR,
+                                       **({'content_mode': content_mode} if content_mode == 'text' else {}))
     pak.check(records)
     for row in records:
         if row.get('audio'):
@@ -423,9 +433,11 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
                     for code, rows in tables.items() if code != assets.TEXT_LOCALES[source_locale] and len(rows) < source_count)
     missing = [target for target, locale in resolved.items() if locale not in available]
     result = {'format': 2, 'game': 'nte', 'install': None, 'source_mode': 'publisher', 'source_region': region[4:],
+            'content_mode': content_mode,
             'fingerprint': stamp, 'source_locale': source_locale, 'records': records,
             'missing_translation_locales': missing, 'coverage_warnings': warnings,
-            'message': f'{len(records):,} official {source_locale} lines; {sum(bool(r.get("audio")) for r in records):,} original voices'}
+            'message': (f'{len(records):,} official {source_locale} lines; audio not requested' if content_mode == 'text' else
+                        f'{len(records):,} official {source_locale} lines; {sum(bool(r.get("audio")) for r in records):,} original voices')}
     if native_proof is not None:
         result.update(type_schema=native_proof[0], native_schema_validation=native_proof[1])
     if 'metadata_policy' in value:

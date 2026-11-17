@@ -50,6 +50,8 @@ internal static class NteReader
             if (count > 64 * 1024) throw new ArgumentException();
             using var request = JsonDocument.Parse(new string(input, 0, count));
             var voiceLanguage = request.RootElement.TryGetProperty("voice_language", out var requestedVoice) ? requestedVoice.GetString()! : "Chinese";
+            var includeAudio = !request.RootElement.TryGetProperty("include_audio", out var requestedAudio) || requestedAudio.GetBoolean();
+            if (!includeAudio && args[0] != "index") throw new ArgumentException();
             if (voiceLanguage is not ("Chinese" or "English" or "Japanese" or "Korean")) throw new ArgumentException();
             var assembly = Assembly.LoadFrom(Path.Combine(tools, "UEExtractor.dll"));
             var wuwa = args[0].StartsWith("wuwa-", StringComparison.Ordinal);
@@ -224,11 +226,14 @@ internal static class NteReader
                         (n.StartsWith("HT/Content/WwiseAudio/Event/", StringComparison.Ordinal) && n.EndsWith(".bnk")))
                         .Select(Path.GetFileNameWithoutExtension).Where(n => keys.Contains(n!)).Distinct().Order().ToArray();
                     File.WriteAllText(Path.Combine(destination, "voice-events.json"), JsonSerializer.Serialize(declaredEvents));
-                    foreach (var name in names.Where(n => n.StartsWith("HT/Content/WwiseAudio/Event/" + voiceLanguage + "/", StringComparison.Ordinal) &&
-                        n.EndsWith(".bnk") && keys.Contains(Path.GetFileNameWithoutExtension(n))))
-                        File.WriteAllBytes(Path.Combine(banks, Path.GetFileName(name)), (byte[])save.Invoke(provider, [name])!);
-                    File.WriteAllText(Path.Combine(destination, "media.json"), JsonSerializer.Serialize(names.Where(n =>
-                        n.StartsWith("HT/Content/WwiseAudio/Media/" + voiceLanguage + "/", StringComparison.Ordinal) && n.EndsWith(".wem"))));
+                    var bankNames = names.Where(n => n.StartsWith("HT/Content/WwiseAudio/Event/" + voiceLanguage + "/", StringComparison.Ordinal) &&
+                        n.EndsWith(".bnk") && keys.Contains(Path.GetFileNameWithoutExtension(n))).Order().ToArray();
+                    File.WriteAllText(Path.Combine(destination, "voice-bank-paths.json"), JsonSerializer.Serialize(bankNames));
+                    if (includeAudio)
+                        foreach (var name in bankNames)
+                            File.WriteAllBytes(Path.Combine(banks, Path.GetFileName(name)), (byte[])save.Invoke(provider, [name])!);
+                    File.WriteAllText(Path.Combine(destination, "media.json"), JsonSerializer.Serialize(includeAudio ? names.Where(n =>
+                        n.StartsWith("HT/Content/WwiseAudio/Media/" + voiceLanguage + "/", StringComparison.Ordinal) && n.EndsWith(".wem")) : Enumerable.Empty<string>()));
                     var subtitles = new Dictionary<string, string>();
                     foreach (var name in names.Where(n => n.StartsWith("HT/Content/SrtFile/FFMpeg/Story/") && n.EndsWith(".srt")))
                     {
