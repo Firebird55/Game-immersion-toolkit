@@ -630,6 +630,17 @@ patch-slot lookup; no callee body, patch execution or runtime state is inspected
 This proves the ordinary filename branch, without claiming that current patch
 registration is absent or that a downloaded patch replaces this method.
 
+A metadata-only join places this exact formatter in `Assembly-CSharp.dll` and
+checks the already authenticated IFix index at retained revision 17148223. Its
+sole 27,725-byte `win-Assembly-CSharp.patch.bytes` carrier passes the advertised
+whole MD5. Complete typed framing has nine registration targets and 128 method
+references; neither section contains `RPG.GameCore.StoryExcelTableExt`. That
+exact cached advertised carrier therefore does not register a formatter override.
+The native patch-slot number is not interpreted as a VM-body ID or an invented
+serialized field. This check refreshes no dispatch/IFix response, reads no other
+native body, analyzes no patch callee and executes no bytecode; it makes no
+global runtime-input-context or other-generation absence claim.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
