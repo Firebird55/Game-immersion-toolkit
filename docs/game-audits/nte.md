@@ -45,6 +45,29 @@ fixed bootstrap keys establish autonomous official key rotation or new required
 constructor support. These remain open dependency work, independent of the
 completed finite current-presentation audit below.
 
+The source-development checkpoint passed **653 affected checks** with one
+unavailable-platform skip. The updated managed reader compiled without warnings
+or errors, and the pinned real CUE reader confirmed the nonzero GUID byte/digit
+conversion. Frozen-original normal preparation passed Global **1.4.9 Japanese**
+(117,575 records; 25,731 voiced), Global **1.5.4 Japanese** (126,472; 27,718)
+and independent mainland **1.5.6 Mandarin** (126,212; 28,130). These are supplied
+generation/locale inventories, not chapter counts or every-dub device acceptance.
+Each resulting materialization reopened its actual original WEM through the
+ordinary voice service without publisher networking, produced matching decoded
+PCM after a fresh service restart, rejected a removed approval receipt and
+recovered after restoring that exact receipt. A reader-timeout injection in the ordinary worker
+preserved the completed Japanese library and marker; a healthy normal retry
+produced the same snapshot. The historical package trial required 32,352 bytes
+of additional original, TOC/block-verified ranges before its offline run.
+
+A separately approved 3,299-byte original Global `config.xml` still identified
+PC_150/1.5.4 and explicitly named an updater branch. This is a first-party owner
+hint, not a recovered encryption key. Bounded inspection of three retained
+original clients found their localization split marker but did not prove its
+consumer/key derivation. Absence of simple literal or RIP-relative matches is
+not proof that official derivation is impossible. No community-default or
+uninspectable-constructor acceptance follows from those negative checks.
+
 ### Direct Android preparation is a separate implementation gate
 
 The Windows result does not establish direct preparation on Android. These are
