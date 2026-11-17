@@ -21,6 +21,13 @@ export function safeMessageMetrics(value) {
   .map(key => [key, number(value?.[key])]));
 }
 
+export async function authoredReceiverLibraryReady(page) {
+ const message = await page.locator('[aria-label="Receive game screen"] [role="status"]').textContent();
+ // This status is rendered from the actual libraryReady prop. HTTP import
+ // completion alone does not prove React committed its new keyed receiver.
+ return ['Connect the game device to begin.', 'Screen source stopped.'].includes(message?.trim());
+}
+
 export function safeReceiverState(value) {
  const capture = value?.status?.capture;
  return {lines: Array.isArray(value?.lines) ? value.lines.length : null,
@@ -72,7 +79,9 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
  let newDocumentMetrics = true;
  try {await page.addInitScript(messageMetrics);} catch {newDocumentMetrics = false;}
  await page.evaluate(messageMetrics);
- return {async capture(label) {
+ return {async capture(label, filename = 'android-authored-runtime-failure.json') {
+  if (!['android-authored-runtime-failure.json', 'android-receiver-before-library-ready.json',
+    'android-receiver-after-library-ready.json'].includes(filename)) throw Error('Unknown authored diagnostic filename');
   const report = {schema: 'toolkit-android-authored-runtime-failure-v1',
    // Labels are authored probe literals, never user errors.
    checkpoint: String(label).slice(0, 160), new_document_metrics: newDocumentMetrics,
@@ -84,12 +93,15 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
     let snapshot = null;
     try {const response = await fetch('/api/snapshot', {signal: controller.signal});if (response.ok) snapshot = await response.json();}
     catch {} finally {clearTimeout(timer);}
+    const message = document.querySelector('[aria-label="Receive game screen"] [role="status"]')?.textContent?.trim();
     return {snapshot, hidden: document.hidden, iframe_count: document.querySelectorAll('.android-screen-viewer iframe').length,
+     library_ready: ['Connect the game device to begin.', 'Screen source stopped.'].includes(message),
      viewer_link_present: !!document.querySelector('#android-screen-link')?.value,
      image_bitmap_available: typeof createImageBitmap === 'function', metrics: window.__toolkitAuthoredReceiverMetrics};
    }), 5000);
    report.reader = {...safeReceiverState(value.snapshot), hidden: value.hidden === true,
     iframe_count: number(value.iframe_count), viewer_link_present: value.viewer_link_present === true,
+    library_ready: value.library_ready === true,
     image_bitmap_available: value.image_bitmap_available === true};
    report.parent_messages = safeMessageMetrics(value.metrics);
    report.senders = [];
@@ -111,6 +123,6 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
      startup_failure: logs.includes('Local host startup failed'), fatal_exception: logs.includes('FATAL EXCEPTION')};
    }
   } catch {report.native_log_unavailable = true;}
-  writeFileSync(join(output, 'android-authored-runtime-failure.json'), JSON.stringify(report, null, 2) + '\n');
+  writeFileSync(join(output, filename), JSON.stringify(report, null, 2) + '\n');
  }};
 }
