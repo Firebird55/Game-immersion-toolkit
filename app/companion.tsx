@@ -10,6 +10,9 @@ import {DesktopSharing} from './desktop-sharing';
 import {AccountSwitcher} from './account-switcher';
 import { GameDeckSettings } from './game-deck-settings';
 import { ToolkitSetup } from './toolkit-setup';
+import {GameDataSettings} from './game-data-settings';
+import {LIVE_GAME_IDS} from '../lib/game-data-client.mjs';
+import {NativeAccountContext} from '../lib/native-account-context';
 import {LanguageSetup} from './language-setup';
 import {GamePicker, useTargetLanguage} from './game-picker';
 import {GAME_NAMES, captureRegionKey, type GameId} from '../lib/games';
@@ -1060,6 +1063,12 @@ function CompanionClient() {
           </Button>
           <Button onClick={() => { if (status) setDraftSettings(status.settings); setSettingsOpen(true); }} disabled={archivedHistory || !online || !draftSettings}>
             <Settings2 /> {uiText("Capture setup")}</Button>
+          {!archivedHistory && LIVE_GAME_IDS.includes(selectedGame) &&
+              <NativeAccountContext.Provider value={pollOwner.current?.context?.account_generation ?? null}>
+                <GameDataSettings key={`${pollOwner.current?.context?.runtime_id}:${pollOwner.current?.context?.account_generation}:${lexirise.account ?? 'legacy'}:${selectedGame}`}
+                  online={online} game={selectedGame} targetLanguage={gamePicker.target}
+                  account={lexirise.account ?? 'legacy'} buttonLabel="Game data" pollClosed={false} onChanged={() => void loadSnapshot()}/>
+              </NativeAccountContext.Provider>}
           <ToolkitSetup key={lexirise.account ?? 'legacy'} online={online} game={archivedHistory ? 'zzz' : selectedGame} onGameChange={setSelectedGame} readingMode={readingMode} targetLanguage={gamePicker.target} allowedGames={gamePicker.games.map(game => game.id)}
             onReadingMode={value => { setReadingMode(value); window.localStorage.setItem('proxy-transcript-reading-mode', value); }}
             onCapture={() => { if (archivedHistory) setSelectedGame('zzz'); if (status) setDraftSettings(status.settings); setSettingsOpen(true); }}

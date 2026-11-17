@@ -128,6 +128,10 @@ class LanguageContext(BaseModel):
     text_capture_verified: bool = False
     audio_omitted_by_request: bool = False
     source_voice_binding: dict | None = None
+    # Trusted host capture context, separate from raw publisher dialogue rows.
+    publisher_generation: str | None = Field(default=None, min_length=1, max_length=256)
+    publisher_request_sha256: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
+    publisher_occurrence_sha256: str | None = Field(default=None, pattern=r'^[0-9a-f]{64}$')
 
     @property
     def is_verified_missing_audio(self) -> bool:

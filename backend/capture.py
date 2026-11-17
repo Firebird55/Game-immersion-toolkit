@@ -225,7 +225,7 @@ class CaptureService:
         for line in self.transcript.list(limit=50):
             if line.session_id != session_id:
                 continue
-            key = f"{line.text_id}\0{line.english}"
+            key = self._publisher_key(f"{line.text_id}\0{line.english}", line)
             created = line.created_at if line.created_at.tzinfo else line.created_at.replace(tzinfo=timezone.utc)
             age = max(0, (datetime.now(timezone.utc) - created).total_seconds())
             if age < 60:
@@ -649,7 +649,7 @@ class CaptureService:
             message = "Subtitle seen, but no official match" if raw_text else "Reading English or Chinese subtitles"
             match_score = None
         else:
-            key = f"{match.text_id}\0{match.english}"
+            key = self._publisher_key(f"{match.text_id}\0{match.english}", match)
             self._observe_match_start(match_channel, key, monotonic_now)
             redundant_visible_match = self._is_redundant_visible_match(
                 match_channel, match.english, raw_text
@@ -702,7 +702,7 @@ class CaptureService:
             if not self._capturable_match(tip_match) or self._is_cinematic_fragment(tip_match, cinematic_matches):
                 tip_match = None
             tip_key = (
-                f"tip\0{tip_match.text_id}\0{tip_match.english}"
+                self._publisher_key(f"tip\0{tip_match.text_id}\0{tip_match.english}", tip_match)
                 if tip_match is not None
                 else ""
             )
@@ -760,7 +760,7 @@ class CaptureService:
             ]
             emitted_cinematic_matches: list[TextMatch] = []
             for cinematic_match in new_cinematic_matches:
-                cinematic_key = f"cinematic\0{cinematic_match.text_id}\0{cinematic_match.english}"
+                cinematic_key = self._publisher_key(f"cinematic\0{cinematic_match.text_id}\0{cinematic_match.english}", cinematic_match)
                 if self._can_emit(cinematic_key, monotonic_now):
                     line, _ = self.transcript.add_or_upgrade_recent(
                         cinematic_match,
@@ -966,7 +966,7 @@ class CaptureService:
                             if index.is_capture_text(hit.text_id, hit.english, candidate)), None)
             if channel is None:
                 continue
-            key = f'{prefix}{game}\0{hit.text_id}'
+            key = self._publisher_key(f'{prefix}{game}\0{hit.text_id}', hit)
             active_keys.add(key)
             previous = self._unvoiced_trackers.get(key)
             tracker = previous[0] if previous and seen_at - previous[1] <= 3 else StableMatchTracker()
@@ -1027,6 +1027,7 @@ class CaptureService:
             index.capture_unvoiced = settings.capture_unvoiced
             index.capture_missing_audio = getattr(settings, 'capture_missing_audio', False)
         if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0
+                and not getattr(index, 'capture_text_only', False)
                 and not (settings.capture_unvoiced and index.status().get('unvoiced_count', 0))
                 and not (getattr(settings, 'capture_missing_audio', False) and index.status().get('missing_audio_count', 0))):
             self._tracker.observe(None)
@@ -1128,7 +1129,7 @@ class CaptureService:
             message = f'{GAME_PROFILES[game].name} official subtitles matched'
             self._update_snapshot(match_reason='captured' if emitted else 'confirming_or_already_captured')
         else:
-            key = f"{game}\0{match.text_id}\0{match.english}"
+            key = self._publisher_key(f"{game}\0{match.text_id}\0{match.english}", match)
             self._observe_match_start(game, key, monotonic_now)
             # Two equal scans avoid committing typewriter/transition fragments.
             if (
@@ -1143,7 +1144,8 @@ class CaptureService:
                     observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            kind = ('unvoiced dialogue' if match.voice_status == 'unvoiced' else
+            kind = ('text-only subtitle' if match.is_requested_text_only else
+                    'unvoiced dialogue' if match.voice_status == 'unvoiced' else
                     'dialogue without available audio' if match.voice_status != 'voiced' else 'subtitle with original voice')
             message = f"{GAME_PROFILES[game].name} {kind} matched"
 
@@ -1233,7 +1235,7 @@ class CaptureService:
             seen[hit.text_id], misses[hit.text_id] = now, 0
             tracker = self._quantic_trackers.setdefault(hit.text_id, StableMatchTracker())
             tracker.configure(self.settings.get().stable_frames)
-            channel, key = game + ':' + hit.text_id, f'{game}\0{hit.text_id}\0{hit.english}'
+            channel, key = game + ':' + hit.text_id, self._publisher_key(f'{game}\0{hit.text_id}\0{hit.english}', hit)
             self._observe_match_start(channel, key, now)
             if tracker.observe(key) and self._can_emit(key, now):
                 line, _ = self.transcript.add_or_upgrade_recent(hit, self.session_id, created_at=captured_at, channel='dialogue')
@@ -1365,7 +1367,7 @@ class CaptureService:
         emitted = []
         active_keys = set()
         for match in matches.values():
-            key = f"{channel}\0{match.text_id}\0{match.english}"
+            key = self._publisher_key(f"{channel}\0{match.text_id}\0{match.english}", match)
             active_keys.add(key)
             previous = self._local_chatter_trackers.get(key)
             # Missing observations remove this tracker below. Slow consecutive
@@ -1575,8 +1577,16 @@ class CaptureService:
             return self.pragmata_voice_assets
         return self.game_voice_assets.get(game)
 
+    @staticmethod
+    def _publisher_key(key, context):
+        generation = getattr(context, 'publisher_generation', None)
+        if generation is None:
+            return key
+        return '\0'.join((key, 'publisher', generation, context.publisher_request_sha256 or '',
+                           context.publisher_occurrence_sha256 or '', str(int(context.audio_omitted_by_request))))
+
     def _mapped_voice(self, match: TextMatch | None) -> bool:
-        if match is None or match.voice_status == 'unvoiced':
+        if match is None or match.voice_status == 'unvoiced' or match.audio_omitted_by_request:
             return False
         assets = self._assets_for(match.game)
         return bool(assets and getattr(assets, 'locale', match.source_locale) == match.source_locale and assets.has_variant(match.text_id, match.english))
@@ -1702,7 +1712,10 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
-        if line.voice_status == 'unvoiced' or (line.text_capture_verified and line.voice_status in {'unknown', 'unavailable'}):
+        if line.audio_omitted_by_request and not line.is_requested_text_only:
+            return
+        if (line.is_requested_text_only or line.voice_status == 'unvoiced'
+                or (line.text_capture_verified and line.voice_status in {'unknown', 'unavailable'})):
             if self._event_loop is not None:
                 self._queue_publication(self.on_line(line))
                 self._prune_history()
@@ -1763,6 +1776,8 @@ class CaptureService:
         self._queue_publication(self.on_line(line))
 
     def repair_recorded_line(self, line: TranscriptLine, *, completed: Callable[[], None] | None = None) -> bool:
+        if line.audio_omitted_by_request:
+            return False
         assets = self.recorded_voice_assets(line) if self.recorded_voice_assets else self._assets_for(line.game)
         if not assets or (not line.voiced and not line.is_comic) or (line.audio_source == "original" and line.has_audio):
             return False

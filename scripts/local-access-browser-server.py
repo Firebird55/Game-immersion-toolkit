@@ -50,6 +50,7 @@ with tempfile.TemporaryDirectory(prefix='toolkit-access-data-') as temporary:
         installation=SimpleNamespace(status=lambda: record('setup', {'completed': False}),
             complete=lambda auto: record('setup_complete')),
         transcript=SimpleNamespace(list=lambda **_: record('lines', []),
+            get=lambda identity: SimpleNamespace(id=1) if identity == 1 else None,
             audio_path=lambda _: record('audio', 'synthetic.wav')),
         speakers=SimpleNamespace(enrich=lambda line: line),
         hub=api.EventHub(), status=lambda: record('status', {'synthetic': True}))

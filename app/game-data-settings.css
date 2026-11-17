@@ -1,0 +1,7 @@
+.game-data-settings > label {display: grid; gap: .35rem; min-width: 0;}
+.game-data-settings select {width: 100%; min-width: 0; padding: .4rem;}
+.game-data-settings fieldset {display: flex; flex-wrap: wrap; gap: .5rem 1rem; min-width: 0;}
+.game-data-settings fieldset label {display: inline-flex; align-items: center; gap: .35rem;}
+.game-data-settings dl {display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem;}
+.game-data-settings dd {margin: 0; overflow-wrap: anywhere;}
+.game-data-settings .toolkit-setup-actions {display: flex; flex-wrap: wrap; gap: .5rem;}
