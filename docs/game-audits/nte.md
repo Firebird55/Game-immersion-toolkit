@@ -277,6 +277,25 @@ planning and acquisition must still be connected before that stage can become
 ready. The existing completed publisher libraries and their playback path remain
 separate from this unfinished download-stage route.
 
+Context-owned Download now also advances through explicit PAK index-range
+stages. The existing parser inspects cached bytes only; missing footer, encrypted
+main-index or directory blocks produce a new estimate. Download pins the original
+inventory and full SIG, checks every returned block before publishing any of that
+response, and checks the official metadata again before and after acquisition.
+Each stage is limited to 64 MiB; larger normal inventories continue through more
+stages. A missing frozen initial format description produces an explicit
+compatibility prerequisite, with no implicit community lookup. Changed publisher
+metadata, corrupt stored blocks and changed descriptions fail without activating
+a library. A retained Global 1.5.4 preflight through the actual shared service
+planned **963,123 bytes**, including pointer checks, without reading archive
+bodies during planning. Replaying existing original cached responses through the
+actual shared transport then completed all PAK indexes in three exact-accounted
+stages: **963,123**, **5,619,674** and **9,945,050 bytes**. Every preflight remained
+free of archive transfers; no voice-bank or WEM member was read. This was an
+offline replay of frozen official sources, not a fresh server/rotation trial.
+The selected package/text/audio stage and independent Android acceptance remain
+unfinished.
+
 ## Publisher Setup and immutable voice snapshots
 
 Checked November 17, 2026. The Windows publisher route now connects the ordinary

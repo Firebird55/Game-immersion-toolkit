@@ -79,17 +79,24 @@ def _file(item, maximum):
 
 class SignedSource:
     """Coalesce missing ranges, and recheck cached bytes against the full .sig."""
-    def __init__(self, region, branch, item, signature, cache, progress=lambda _message: None):
+    def __init__(self, region, branch, item, signature, cache, progress=lambda _message: None, *, range_reader=None):
         check(region in release.HOSTS and isinstance(branch, str) and
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(item, 1024**4)
         _file(signature, INDEX_LIMIT)
         self.region, self.branch, self.item, self.signature = region, branch, item, signature
+        self.range_reader = range_reader
         self.progress = progress
         self.root = cache / region / item.digest / signature.digest
         path = self.root / 'checksums.sig'
+        if range_reader is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         data = path.read_bytes() if path.is_file() and path.stat().st_size == signature.size else b''
         if hashlib.md5(data).hexdigest() != signature.digest:
+            # Context-owned callers acquire the complete signature in a prior
+            # explicit stage. Never escape their transport/consent boundary.
+            check(range_reader is None)
             release.save_file(region, branch, signature, path)
             data = path.read_bytes()
         check(len(data) == signature.size and hashlib.md5(data).hexdigest() == signature.digest)
@@ -109,6 +116,9 @@ class SignedSource:
 
     def _cached(self, index):
         path = self.root / f'{index}.chunk'
+        if getattr(self, 'range_reader', None) is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         expected = min(CHUNK, self.item.size - index * CHUNK)
         if path.is_file() and path.stat().st_size == expected:
             data = path.read_bytes()
@@ -145,7 +155,9 @@ class SignedSource:
                 stop += 1
             begin, finish = index * CHUNK, min(stop * CHUNK, self.item.size)
             self.progress('Downloading verified NTE publisher archive blocks')
-            data = release.read_range(self.region, self.branch, self.item, begin, finish - begin)
+            owned = getattr(self, 'range_reader', None)
+            data = (owned(self, begin, finish-begin) if owned is not None else
+                    release.read_range(self.region, self.branch, self.item, begin, finish - begin))
             check(len(data) == finish - begin)
             blocks = [data[i * CHUNK:(i + 1) * CHUNK] for i in range(stop - index)]
             check(all(self._valid(index + i, part) for i, part in enumerate(blocks)))
