@@ -64,6 +64,21 @@ def verify_decoder(archive, native_files, repository):
     return decoder
 
 
+def verify_publisher_sources(archive, core, repository):
+    policy = json.loads(archive.read('assets/publisher-source-policy.json'))
+    expected = json.loads((repository / 'packaging/android/publisher-sources.json').read_text())
+    if policy != expected or policy.get('schema') != 'toolkit-android-publisher-sources-v1' or policy.get('source_normalization') != 'utf8-lf':
+        raise ValueError('The packaged publisher policy differs from the reviewed closure')
+    declared = {'backend/' + name + '.py' for provider in policy['providers'].values() for name in provider['modules']}
+    if declared != set(policy['files']) or not declared <= set(core['files']):
+        raise ValueError('An actual publisher dependency is missing from the APK core')
+    for name, receipt in policy['files'].items():
+        raw = (repository / name).read_bytes().replace(b'\r\n', b'\n')
+        if hashlib.sha256(raw).hexdigest() != receipt['sha256_lf']:
+            raise ValueError('A publisher source changed without a closure review')
+    return policy
+
+
 def verify(path):
     result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
@@ -97,6 +112,7 @@ def verify(path):
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
         decoder = verify_decoder(archive, result, repository)
+        publishers = verify_publisher_sources(archive, core, repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():
@@ -125,6 +141,7 @@ def verify(path):
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder,
+        'publisher_source_policy': publishers,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}
 
 

@@ -1,0 +1,102 @@
+{
+  "excluded": {
+    "endfield": "The reviewed factory requires the separate Windows decoder/hash runtime before any transfer.",
+    "genshin": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "infinitynikki": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "starrail": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "wuwa": "The actual game-data factory and full source/runtime closure are not packaged.",
+    "zzz": "The current bootstrap imports unverified Android crypto and compression dependencies."
+  },
+  "files": {
+    "backend/nte_game_data.py": {
+      "sha256_lf": "8d31a74f1165c8c6cb8e636f7a70d2a39f0aed3861fbda0129ee5750d20b370a",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_original_updater.py": {
+      "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_baseline.py": {
+      "sha256_lf": "4f1f20193d9a9120e34588387262f08c773e8ffa56079303764166389d170c9e",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_native.py": {
+      "sha256_lf": "5d0d05af357ea3ad3414c6cc8d15d8fc30d7320fd5c3a60b4c9f8fc2211f2b78",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/nte_updater_source.py": {
+      "sha256_lf": "c137261ae4c0be100334e847292ebc1153b6174e16c9301df5827ab0df02b8bb",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/preparation_errors.py": {
+      "sha256_lf": "ec7734a89a70a52ac3abea952b72a668d62f068c3a971dfa1a1e8ff137c8490b",
+      "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
+    },
+    "backend/reverse1999_game_data.py": {
+      "sha256_lf": "47268867be6c082cb9b903611125fb797f7b325e53df609f559f55caf493fabc",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/reverse1999_provider.py": {
+      "sha256_lf": "a98a21d63ad4bff51292274f5cd796b815bc2587c894cce7b1b6a92afbe7ee4b",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    },
+    "backend/reverse1999_release.py": {
+      "sha256_lf": "0d824483917f55b2778621651da5bc8a4fe18a5577d721569a7b56b4729297e9",
+      "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
+    }
+  },
+  "forbidden_stage_imports": [
+    "backend.game_tools",
+    "backend.runtime_paths",
+    "backend.runtime_bundle",
+    "backend.publisher_http",
+    "backend.nte_release",
+    "backend.production_zzz_reader",
+    "Crypto",
+    "brotli",
+    "zstandard",
+    "numpy",
+    "clr",
+    "pythonnet",
+    "backend.prepared_library"
+  ],
+  "providers": {
+    "nte": {
+      "dependencies": [
+        "python-stdlib"
+      ],
+      "download_runtime": true,
+      "factory": "backend.nte_game_data:create_provider",
+      "modules": [
+        "nte_game_data",
+        "nte_updater_source",
+        "nte_updater_baseline",
+        "nte_updater_native",
+        "nte_original_updater",
+        "preparation_errors"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "compatibility"
+      ]
+    },
+    "reverse1999": {
+      "dependencies": [
+        "python-stdlib"
+      ],
+      "download_runtime": false,
+      "factory": "backend.reverse1999_game_data:create_provider",
+      "modules": [
+        "reverse1999_game_data",
+        "reverse1999_provider",
+        "reverse1999_release"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "discovery"
+      ]
+    }
+  },
+  "schema": "toolkit-android-publisher-sources-v1",
+  "source_normalization": "utf8-lf"
+}

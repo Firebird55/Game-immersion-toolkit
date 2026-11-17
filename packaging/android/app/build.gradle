@@ -15,6 +15,9 @@ if (!wheelhouse || !new File(wheelhouse, 'requirements-android.lock.txt').isFile
 }
 def generatedPython = layout.buildDirectory.dir('generated/toolkit-python')
 def generatedAssets = layout.buildDirectory.dir('generated/toolkit-assets')
+def publisherPolicyFile = new File(repository, 'packaging/android/publisher-sources.json')
+def publisherPolicy = new groovy.json.JsonSlurper().parse(publisherPolicyFile)
+if (publisherPolicy.schema != 'toolkit-android-publisher-sources-v1') throw new GradleException('Unsupported packaged publisher source policy.')
 def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contracts.py', 'languages.py',
     'local_game.py', 'textmaps.py', 'bilingual.py', 'multilingual_index.py', 'storage.py',
     'runtime_writers.py', 'sqlite_operation_lifetime.py', 'steam_games.py', 'capture_confirmation.py',
@@ -27,6 +30,14 @@ def portableSources = ['__init__.py', 'models.py', 'config.py', 'language_contra
     'native_frame_admission.py', 'browser_history_migration.py']
 portableSources += ['game_data_protocol.py', 'game_data.py', 'game_data_providers.py',
     'publisher_transport.py', 'source_recordings.py', 'private_data_paths.py', 'android_x64_decoder.py', 'android_x64_fixtures.py', 'genshin_native_x64.py']
+publisherPolicy.files.each { name, receipt ->
+    if (!(name ==~ /backend\/[a-z0-9_]+\.py/)) throw new GradleException('Invalid packaged publisher source path.')
+    def source = new File(repository, name)
+    def digest = java.security.MessageDigest.getInstance('SHA-256').digest(source.getText('UTF-8').replace('\r\n', '\n').getBytes('UTF-8')).encodeHex().toString()
+    if (digest != receipt.sha256_lf) throw new GradleException('Review the changed publisher source before adding it to Android: ' + name)
+    portableSources += name.substring('backend/'.length())
+}
+if (portableSources.toSet().size() != portableSources.size()) throw new GradleException('Duplicate owned Python source.')
 
 android {
     namespace 'io.github.firebird55.gameimmersiontoolkit'
@@ -95,6 +106,7 @@ tasks.register('prepareToolkitPython', Sync) {
 tasks.register('prepareToolkitReader') {
     inputs.dir(readerFrontend)
     inputs.dir(new File(decoderBundle, 'assets'))
+    inputs.file(publisherPolicyFile)
     portableSources.each { inputs.file(new File(repository, 'backend/' + it)) }
     outputs.dir(generatedAssets)
     doLast {
@@ -102,6 +114,7 @@ tasks.register('prepareToolkitReader') {
         delete(output)
         output.mkdirs()
         copy { from new File(decoderBundle, 'assets'); into output }
+        copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
         // AAPT drops _next directories and expands .gz assets. One opaque
         // archive preserves the exact maintained desktop reader inventory.
         new java.util.zip.ZipOutputStream(new FileOutputStream(new File(output, 'reader.bundle'))).withCloseable { zip ->

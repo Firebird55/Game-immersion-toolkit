@@ -28,6 +28,11 @@ import backend.android_protected_storage
 import backend.android_accounts
 import backend.android_account_api
 import backend.android_authored_accounts
+from backend.game_data_providers import create_game_data_providers
+reviewed_publishers=set(json.loads(sys.argv[3]))
+registered=create_game_data_providers(platform='android',native=None)
+if not reviewed_publishers <= set(registered) or (origin.suffix=='.imy' and set(registered)!=reviewed_publishers):
+    raise RuntimeError('The packaged publisher factory closure differs from its reviewed policy')
 from backend.android_probe import run
 result=json.loads(run(sys.argv[2]))
 audio=Path(result['private_audio_path'])
@@ -43,12 +48,14 @@ forbidden={'mss','oneocr','PIL','cv2','rapidocr_onnxruntime','windows_capture','
 if forbidden.intersection(sys.modules):
     raise RuntimeError('The shared core imported a desktop platform/transport dependency')
 result['owned_module_names']=sorted(owned)
+result['publisher_source_stages']=sorted(reviewed_publishers)
 print(json.dumps(result,sort_keys=True))
 '''
 
 
 def execute(origin, directory):
-    result = subprocess.run([sys.executable, '-I', '-B', '-c', BOOTSTRAP, str(origin), str(directory)],
+    result = subprocess.run([sys.executable, '-I', '-B', '-c', BOOTSTRAP, str(origin), str(directory),
+        json.dumps(sorted(json.loads((Path(__file__).resolve().parents[1] / 'packaging/android/publisher-sources.json').read_text())['providers']))],
         capture_output=True, text=True, timeout=90)
     if result.returncode:
         raise RuntimeError('Owned Python delivery probe failed:\n' + result.stderr[-4096:])
@@ -77,6 +84,7 @@ def probe(apk, work, *, reference=None):
     return {'schema': 'toolkit-android-owned-package-proof-v1',
         'apk_sha256': hashlib.sha256(Path(apk).read_bytes()).hexdigest(),
         'owned_source_files': manifest['files'], 'owned_module_names': actual['owned_module_names'],
+        'publisher_source_stages': actual['publisher_source_stages'],
         'result_sha256': actual['result_sha256'], 'prepared_games': actual['results']['prepared_games'],
         'dependency_overlay': 'desktop-reference-wheels', 'owned_package_reference_behavior': 'passed',
         'network': 'blocked-before-owned-module-import',

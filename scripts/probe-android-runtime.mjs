@@ -54,7 +54,7 @@ assert.equal(provenance.release_eligibility, false);
 const update = JSON.parse(readFileSync(join(updateDirectory, 'ANDROID-PROVENANCE.json'), 'utf8'));
 const updateApk = join(updateDirectory, 'GameImmersionToolkit-android-debug.apk');
 assert.equal(createHash('sha256').update(readFileSync(updateApk)).digest('hex'), update.apk_sha256);
-for (const field of ['source_commit', 'frontend_build_id', 'application_id', 'variant', 'signing_certificate_sha256', 'python_wheels_policy_sha256']) {
+for (const field of ['source_commit', 'frontend_build_id', 'application_id', 'variant', 'signing_certificate_sha256', 'python_wheels_policy_sha256', 'native_decoder_manifest_sha256', 'publisher_source_policy_sha256']) {
   assert.ok(provenance[field], 'Both APKs must declare their actual build/signing identity');
   assert.equal(update[field], provenance[field]);
 }
