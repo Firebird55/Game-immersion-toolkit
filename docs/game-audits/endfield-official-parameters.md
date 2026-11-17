@@ -92,6 +92,12 @@ Focused owned fixtures separately exercise actual atomic publication, changed
 fragments/masks/map labels, source identity changes, malformed ranges, wrong
 owners/types, failed updates and offline retention.
 
+**Dated clarification, November 17:** those 22 common-key controls cover two
+resource generations of **1.6.4**, `11529267-11` and `11775769-12`. Their earlier
+"old/current" labels describe resource generations, not versions 1.5.3 and
+1.6.4. The original evidence remains retained. The separate Lua controls below
+really do cover 1.5.3 and 1.6.4.
+
 The additional production Lua replay derives its key from cached original
 Global 1.6.4 client bytes, then uses the ordinary script route on 13 complete
 original files from 1.5.3 and 13 from 1.6.4. Both original Lua indexes pass
@@ -116,6 +122,37 @@ old/current endpoint controls. The current original map still derives them
 generically. Unknown/unavailable types fail honestly if requested; there are no
 six-entry exceptions or manual label aliases. The original Unity hash callee is
 identified through metadata; its body was not added to the bounded source probe.
+
+## Additional AKPK source research — November 17
+
+The original managed P/Invoke chain now identifies the exact `AkSoundEngine`
+module/import. The publisher's launcher-declared split ZIP64 directory owns the
+unique Windows plugin entry. Its complete extracted DLL passes the original
+ZIP entry CRC and Windows Authenticode verification, returning zero with signer
+**GRYPH FRONTIER PTE. LTD.** The check used cache-only URL retrieval and disabled
+revocation checks; it establishes no fresh online revocation status. Only the
+Windows trust API ran: the game DLL was never loaded or executed.
+[Microsoft's verification flags](https://learn.microsoft.com/en-us/windows/win32/api/wintrust/ns-wintrust-wintrust_data)
+describe that offline boundary.
+
+This does not assert a complete ZIP-part MD5 or a decoded GameFiles file-entry
+MD5. The complete original `game_files` manifest itself matches the launcher's
+declared MD5, but its binary encoding is unresolved. One bounded official
+`patch_encrypt=0` metadata request returns the same client/artifact/manifest
+declarations and no visible alternative manifest field; it proves no particular
+encoding or cipher behavior.
+
+The signed current DLL's owned package-loader/custom-header transform was
+checked separately against complete publisher-MD5 PCK inputs from **1.5.3 /
+10731330-8** and **1.6.4 / 11775769-12**. Their outer VFS CRC and typed indexes
+pass before decoding. All **1,263 + 1,359** complete BNK/BKHD/section buffers
+decode, and their complete plaintext SHA-256 values match the existing fixed
+format reader on those same authenticated inputs. Wrong multiplier, wrong XOR
+and wrong key-word byte order are rejected for each version: six negatives.
+These selected default-bank packages contain **zero embedded media**, so this
+is not a WEM, spoken-content or playback hash claim. Parameter values are not
+published. No real changed-key revision, Android execution or generic production
+AKPK resolver has been established by this research checkpoint.
 
 AKPK multiplier/XOR masters, custom timeline AES/substitutions/IV and
 header masks still come from the existing immutable format/seed inputs. This
