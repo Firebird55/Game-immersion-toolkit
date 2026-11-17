@@ -13,6 +13,23 @@ from .endfield_client_source import Image, Metadata, Ranges, check, identity_sta
 from .game_tools import _atomic_file
 
 
+def source_runtime():
+    """Fail before cold source acquisition when the reviewed host closure is absent."""
+    from .genshin_native_x64 import decoder
+    from .endfield_xxhash import implementation
+    from .preparation_errors import PreparationFailure
+    try:
+        decoder()
+        implementation()
+    except (OSError, ValueError, ImportError) as error:
+        raise PreparationFailure('missing_toolkit_runtime',
+            'Endfield official-client parameter preparation needs the verified Capstone and XXH3 runtime. '
+            'This toolkit currently provides that source reader for Windows amd64 with Python 3.12. '
+            'Use a compatible toolkit installation; independent preparation on other hosts requires its '
+            'reviewed native runtime. Existing prepared data is retained. This is a toolkit runtime '
+            'limitation, not a changed game format.', previous_snapshot_retained=True) from error
+
+
 def _path(tools, identity):
     return Path(tools) / 'endfield-client-metadata' / identity_stamp(identity) / 'validated-parameters.json'
 
@@ -54,10 +71,7 @@ def _candidate(tools, encoded_identity):
     if active:
         return active[0]
     # Check the fixed software/host closure before fetching large inert tables.
-    from .genshin_native_x64 import decoder
-    from .endfield_xxhash import implementation
-    decoder()
-    implementation()
+    source_runtime()
     metadata = Ranges(tools, identity, 'Endfield_Data/il2cpp_data/Metadata/global-metadata.dat')
     native = Ranges(tools, identity, 'GameAssembly.dll')
     return derive(Metadata(metadata), Image(native))
@@ -78,6 +92,7 @@ def preflight_client(tools, identity):
         return {'schema': 1, 'client': identity_stamp(identity), 'metadata_bytes': 0,
                 'metadata_overhead_upper_bytes': 0, 'parameters_already_validated': True,
                 'content_bytes': None, 'requires_current_index_plan': True}
+    source_runtime()
     metadata = Ranges(tools, identity, 'Endfield_Data/il2cpp_data/Metadata/global-metadata.dat')
     native = Ranges(tools, identity, 'GameAssembly.dll')
     tables = metadata_sections(metadata)

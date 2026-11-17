@@ -52,6 +52,14 @@ package hash from those partial ranges. The launcher artifact hashes remain in
 the identity, and independent original VFS CRC/schema controls are required.
 Those two evidence levels must remain distinct.
 
+Cold source preflight and extraction first check the reviewed native runtime,
+before requesting even native-file headers. An unsupported host or missing
+Capstone/XXH3 closure produces `missing_toolkit_runtime` with an Endfield-specific
+action; it is not classified as a game-format change. The current closure is
+Windows amd64/Python 3.12 only. Existing validated parameter witnesses and older
+prepared data remain readable without a fresh native extraction. This gate does
+not introduce a community fallback or implement Linux, macOS or Android closure.
+
 ## Current evidence and limits
 
 The actual source replay uses cached original Global Windows 1.6.4 client bytes.

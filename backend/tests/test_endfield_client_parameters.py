@@ -96,6 +96,7 @@ def test_owned_metadata_fields_methods_and_literal_have_independent_bounds():
 
 
 def test_preflight_reads_only_headers_before_large_metadata_decision(tmp_path, monkeypatch):
+    monkeypatch.setattr(parameters, 'source_runtime', lambda: None)
     metadata, native = MemorySource(toy_metadata()), MemorySource(toy_pe())
     monkeypatch.setattr(parameters, 'Ranges', lambda _tools, _identity, name:
                         native if name == 'GameAssembly.dll' else metadata)
