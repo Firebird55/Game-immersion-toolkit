@@ -4,12 +4,15 @@ These authored transport cases complement actual publisher APK extraction;
 they establish neither Android runtime nor original publisher key rotation.
 """
 import hashlib
+from contextlib import closing
 from http.client import IncompleteRead
 
 import pytest
 
 from backend.game_data_protocol import GameDataError
+from backend.game_data import GameDataService
 from backend.publisher_transport import CHUNK
+from backend.tests.test_game_data import Provider, download, finish
 from backend.tests.test_publisher_transport import context, Response, transport, URL, DATA
 
 
@@ -126,3 +129,36 @@ def test_consumer_never_runs_when_source_scope_or_declared_size_is_invalid(conte
             limit=100, expected_size=len(DATA), **options)
     assert called == [] and context.consumed == 0
     if case == 'consent': assert requests == []
+
+
+@pytest.mark.parametrize('failure', ['checksum', 'parser'])
+def test_rejected_carrier_preserves_current_snapshot_and_fresh_offline_restore(tmp_path, failure):
+    class CarrierProvider(Provider):
+        def download(self, plan, ctx):
+            if plan.revision == 'authored-two':
+                def consume(stream):
+                    if failure == 'parser':
+                        stream.read(3)
+                        raise ValueError('Authored carrier parser rejected')
+                    while stream.read(7): pass
+                    return 'provisional-only'
+                transport(ctx, Response()).consume_stream(URL, consume, limit=100, expected_size=len(DATA),
+                    digests={'sha256': '0' * 64})
+                pytest.fail('Rejected carrier must never return a publishable result')
+            return super().download(plan, ctx)
+    provider = CarrierProvider()
+    with closing(GameDataService(tmp_path, {'zzz': provider})) as service:
+        download(service)
+        assert finish(service)['state'] == 'ready'
+        pointer = (tmp_path / 'zzz/current.json').read_bytes()
+        source = service.restore('zzz')
+        original = source.snapshot_path.read_bytes()
+        provider.revision = 'authored-two'
+        download(service)
+        assert finish(service)['job']['status'] == 'failed'
+        assert (tmp_path / 'zzz/current.json').read_bytes() == pointer
+        assert source.snapshot_path.read_bytes() == original
+    # Provider.restore has a zero-byte network preflight rejection. Reopening
+    # must use A's immutable descriptor rather than retrying the broken B.
+    with closing(GameDataService(tmp_path, {'zzz': provider})) as fresh:
+        assert fresh.restore('zzz').snapshot_path.read_bytes() == original
