@@ -213,9 +213,17 @@ that data transformation decodes the existing original Global bootstrap to a
 10,131-byte JSON object with base/delay-group/voice-family fields. No key is
 stored in this repository or obtained from a community source. This proves
 compatibility for that one Global descriptor, not every regional package.
-Address-independent extraction of the authored material from each current
-official native owner, discovery integration and downstream containers remain
-required. Internal build-only roots in the bootstrap are not network sources;
+`backend/infinity_nikki_native.py` now extracts that authored material without
+fixed addresses, a key list, a disassembler or loading the original module. The
+caller must supply the verified native generation's SHA-256. The reader follows
+the wrapper literal's AArch64 references, a matching caller/builder path, the
+original SHA-1 initialization and authored immediate-byte append operations;
+ambiguous/unknown paths fail instead of guessing a key. The exact owned reader
+successfully replays the original 83-field Global descriptor. Synthetic fixtures
+relocate both virtual/file addresses, rotate authored material across source
+generations, reject changed sources and ambiguous paths, and exercise original
+NUL-boundary/invalid-wrapper behavior. Discovery integration and downstream
+containers remain required. Internal build-only roots in the bootstrap are not network sources;
 public resource discovery must use the publisher SDK's current CDN descriptors.
 
 The generic verifier retains a strict default. A separately evidenced source
@@ -247,8 +255,10 @@ Sounds with no on-screen subtitle do not block subtitle coverage.
 1. Complete fresh official Global/mainland bootstrap and current game
    inventories, original text/binding/voice containers, integrity fields and all
    voice locales. Global anonymous manifest-pointer discovery is implemented;
-   independent mainland SDK acquisition and downstream resource inventories
-   remain open.
+   the original native wrapper owner/decoder is now evidenced, and its
+   address-independent reader has passed original-source replay. Independent
+   mainland SDK acquisition, automatic authenticated native-owner acquisition
+   and downstream current resource inventories remain open.
 2. Implement bounded manifest-based text-only versus text-plus-audio selection,
    size planning and download/deletion through the shared game-data manager on PC
    and fully independent Android. Preserve history, recordings and user settings
