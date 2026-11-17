@@ -161,6 +161,16 @@ do not establish complete source-owner acquisition, relocated semantic roles,
 an actual changed-key release, configurable helper decoding or normal-worker
 recovery. A complete autonomous changed-codec fallback remains unfinished.
 
+The owned helper also exposes a PE-unwind-bounded `native-graph` operation for
+protected native continuations. It follows direct branches across at most 16
+original regions / 32 KiB of code, preserves both conditional paths and records
+calls as external edges. Unknown indirect branches, overlapping instructions,
+unproved entry boundaries and malformed PE mappings fail without publishing an
+output. The adapter verifies source identity, region hashes and complete graph
+reachability. Authored regressions cover split regions, external calls, dead
+truncated tails, overlap, indirect branches, limits and output preservation.
+This graph contract alone does not activate changed-codec metadata recovery.
+
 The current public server rejects the 4.6 request with scalar field 1 equal to
 4 and an update-required message, supplying no regions. The same standalone
 API parses the old bootstrap, reports source unavailability and retains the

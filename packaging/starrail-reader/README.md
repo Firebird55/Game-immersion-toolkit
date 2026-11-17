@@ -41,7 +41,7 @@ Ranges carry file offset, virtual address and byte count; each is bounded to
 64 KiB and 8,192 instructions, with aggregate limits of 16 MiB and 262,144
 instructions per request. Decoding
 rejects malformed/truncated instructions rather than dropping unread bytes.
-Both operations reject existing outputs and paths through links. The caller
+All operations reject existing outputs and paths through links. The caller
 stages results privately and publishes a generation only after its complete
 semantic and integrity checks pass.
 
@@ -52,6 +52,18 @@ an input or executing instructions. Overlapping instructions, unterminated flow,
 unknown indirect branches, external conditional branches and paths bypassing the
 switch guard fail. This permits enum-label analysis without interpreting embedded
 table bytes or unreachable tail data as instructions.
+
+The separate `native-graph` operation accepts `{"entry_rva": <unsigned integer>}`
+and follows direct branches between original x64 PE unwind regions. The initial
+entry and each newly reached region require an original region-start boundary.
+It reads at most 16 regions / 32 KiB of code and emits at most 8,192 instructions,
+with source-region SHA-256 values, exact edges and returns. Calls are opaque
+external edges; indirect branches, traps, overlap, graphs without a return and
+unproved boundaries fail. Unreachable bytes are not decoded. The Python adapter
+rechecks whole-native identity, PE mappings, original function-table entries,
+region hashes and the complete reachable graph before returning it. This
+provides data for description derivation; it does not enable metadata-key
+fallback or change the ordinary provider default.
 
 `starrail_native_preparation.prepare` joins complete original acquisition,
 metadata regeneration, managed decoding, bootstrap/protocol descriptions and all
