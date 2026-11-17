@@ -6,6 +6,7 @@ import re
 import struct
 from xml.etree import ElementTree as E
 import zlib
+from types import SimpleNamespace
 
 from Crypto.Cipher import AES
 import pytest
@@ -19,10 +20,11 @@ from backend.tests.test_nte_native_baseline import source as baseline_source
 from backend.tests.test_nte_toolchain import fixture as runtime_fixture
 from backend.tests.test_nte_updater_source import packed
 from backend.tests.test_publisher_transport import Response
+from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 
 class Originals:
-    def __init__(self, tmp_path, monkeypatch):
+    def __init__(self, tmp_path, monkeypatch, *, dense=False):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -32,15 +34,17 @@ class Originals:
         self.root = layout.cache_root/'game-provider'
         cache = self.root/'nte/cache/tools/nte-publisher/format'
         params = source.resolve(source.plan(fetch=self.sdk.fetch), cache, fetch=self.sdk.fetch)
-        sig, toc = b'authored whole SIG', b'authored whole global TOC'
+        rows = ([(f'owned-{i:05}.locres', b'authored text', 0, False, False) for i in range(6000)] if dense else
+                [('owned.locres', b'authored original text\n'*18000, 0, False, False)])
+        archive = package(rows)
+        sig, toc = signature(archive), b'authored whole global TOC'
         data = {'Client/Unfamiliar/Original.DLL': self.current_native,
                 'Client/WindowsNoEditor/HT/Content/Paks/Original.sig': sig,
+                'Client/WindowsNoEditor/HT/Content/Paks/Original.pak': archive,
                 'Client/WindowsNoEditor/HT/Content/Paks/global.utoc': toc}
         xml = E.Element('ResList', version='1.2.3', tag='baseTag')
         for name, raw in data.items():
             E.SubElement(xml, 'Res', filename=name, filesize=str(len(raw)), md5=hashlib.md5(raw).hexdigest())
-        E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/Original.pak',
-                     filesize='1000000', md5='a'*32)
         E.SubElement(xml, 'Res', filename='Client/WindowsNoEditor/HT/Content/Paks/global.ucas',
                      filesize='500000', md5='b'*32)
         xml = E.tostring(xml)
@@ -62,6 +66,11 @@ class Originals:
         old_url = self.url(baseline.BASELINE['branch'], 'e'*32, len(self.old_native)+11)
         self.objects[old_url] = bytes(11)+self.old_native
         self.calls, self.corrupt = [], False
+        from backend import nte_publisher
+        description = ('Neverness to Everness (global) 0x'+KEY.hex()+'\n').encode()
+        pin = ('a'*40, hashlib.sha256(description).hexdigest())
+        monkeypatch.setattr(nte_publisher, 'NATIVE_ARCHIVE', pin)
+        (cache/(pin[0]+'-'+pin[1]+'.txt')).write_bytes(description)
 
     @staticmethod
     def url(branch, digest, size):
@@ -103,8 +112,16 @@ def test_real_service_plans_original_member_sizes_before_ranges_and_never_activa
         assert state['state'] != 'ready' and not (original.root/'nte/current.json').exists()
         assert len([call for call in original.calls if call['range']]) == 4
         following = service.plan('nte', {**REQUEST, 'content_mode': mode})['game']
-        assert not following['can_download'] and following['download_bytes'] is None
-        assert following['revision'].startswith('nte-archive-blocks-')
+        assert following['can_download'] and following['revision'].startswith('nte-ranges-')
+        # Cache-only preflight has not read any original archive body.
+        assert len([call for call in original.calls if call['range']]) == 4
+        service.download('nte', {'plan_id': following['plan_id'], 'revision': following['revision']})
+        state = finish(service)
+        assert state['job']['status'] == 'needs_plan' and state['job']['downloaded_bytes'] == following['download_bytes']
+        complete = service.plan('nte', {**REQUEST, 'content_mode': mode})['game']
+        assert not complete['can_download'] and complete['download_bytes'] is None
+        assert complete['revision'].startswith('nte-archive-blocks-')
+        assert state['state'] != 'ready' and not (original.root/'nte/current.json').exists()
         assert not list((original.root/'nte/cache').rglob('complete.ucas'))
     finally:
         service.close()
@@ -135,3 +152,88 @@ def test_corrupt_original_range_never_publishes_a_native_or_ready_library(tmp_pa
         assert not (original.root/'nte/current.json').exists()
     finally:
         service.close()
+
+
+@pytest.mark.parametrize('fault', ['source', 'block', 'description'])
+def test_archive_stage_rejects_changed_source_or_corrupt_blocks_without_activating(tmp_path, monkeypatch, fault):
+    original = Originals(tmp_path, monkeypatch); service = original.service()
+    try:
+        def acquire(plan):
+            service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+            return finish(service)
+        assert acquire(service.plan('nte', REQUEST)['game'])['job']['status'] == 'needs_plan'
+        plan = service.plan('nte', REQUEST)['game']
+        before = len([call for call in original.calls if call['range']])
+        if fault == 'source': original.metadata[source.VERSION_URL] += b'changed'
+        elif fault == 'block': original.corrupt = True
+        else:
+            from backend import nte_publisher
+            revision, digest = nte_publisher.NATIVE_ARCHIVE
+            (original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt').write_bytes(b'changed')
+        state = acquire(plan)
+        assert state['job']['status'] == 'failed' and state['state'] != 'ready'
+        assert not list((original.root/'nte/cache/tools/nte-publisher/ranges').rglob('*.chunk'))
+        assert not (original.root/'nte/current.json').exists()
+        assert len([call for call in original.calls if call['range']]) == before+int(fault == 'block')
+    finally:
+        service.close()
+
+
+def test_large_encrypted_index_and_directory_require_separate_explicit_plans(tmp_path, monkeypatch):
+    original = Originals(tmp_path, monkeypatch, dense=True); service = original.service()
+    try:
+        rounds = []
+        for _ in range(8):
+            before = len([call for call in original.calls if call['range']])
+            plan = service.plan('nte', REQUEST)['game']
+            assert len([call for call in original.calls if call['range']]) == before
+            if not plan['can_download']:
+                assert plan['revision'].startswith('nte-archive-blocks-')
+                break
+            rounds.append(plan['revision'].split('-')[1])
+            service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+            state = finish(service)
+            assert state['job']['status'] == 'needs_plan'
+            assert state['job']['downloaded_bytes'] == plan['download_bytes']
+            assert not (original.root/'nte/current.json').exists()
+        else:
+            pytest.fail('Bounded authored index did not converge')
+        assert rounds[0] == 'indices' and len(rounds) >= 4
+        assert set(rounds[1:]) == {'ranges'}
+        assert not list((original.root/'nte/cache').rglob('*.wem'))
+    finally:
+        service.close()
+
+
+def test_missing_initial_description_is_explicit_without_community_or_asset_reads(tmp_path, monkeypatch):
+    original = Originals(tmp_path, monkeypatch); service = original.service()
+    try:
+        plan = service.plan('nte', REQUEST)['game']
+        service.download('nte', {'plan_id': plan['plan_id'], 'revision': plan['revision']})
+        assert finish(service)['job']['status'] == 'needs_plan'
+        from backend import nte_publisher
+        revision, digest = nte_publisher.NATIVE_ARCHIVE
+        (original.root/'nte/cache/tools/nte-publisher/format'/f'{revision}-{digest}.txt').unlink()
+        before = len([call for call in original.calls if call['range']])
+        following = service.plan('nte', REQUEST)['game']
+        assert not following['can_download'] and following['download_bytes'] is None
+        assert following['revision'].startswith('nte-initial-description-')
+        assert len([call for call in original.calls if call['range']]) == before
+        assert not (original.root/'nte/current.json').exists()
+    finally:
+        service.close()
+
+
+def test_more_normal_update_indexes_continue_in_bounded_stages_and_reject_foreign_ranges():
+    from backend import nte_game_data_ranges as ranges
+    from backend.game_data_protocol import GameDataError
+    source = SimpleNamespace(checksums=bytes(4*128), item=SimpleNamespace(size=128*65536))
+    owners = {f'original-{i}.pak': source for i in range(40)}
+    wanted = [{'pak': name, 'first': 0, 'stop': 64} for name in owners]
+    batch = ranges._batch(owners, wanted)
+    assert len(batch) == 16 and ranges._cost(owners, batch) == 64*1024**2
+    assert len(ranges._batch(owners, wanted[len(batch):])) == 16
+    for records in ([{**wanted[0], 'pak': 'foreign.pak'}], [{**wanted[0], 'first': True}],
+                    [{**wanted[0], 'stop': 129}], [wanted[0], wanted[0]],
+                    [{**wanted[0], 'extra': 'unproved'}]):
+        with pytest.raises(GameDataError): ranges._cost(owners, records)

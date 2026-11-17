@@ -184,8 +184,9 @@ def _overlay(sources, paths):
 
 
 class Catalog:
-    def __init__(self, tools, stamp, progress=lambda _message: None, *, preparing=False):
+    def __init__(self, tools, stamp, progress=lambda _message: None, *, preparing=False, oodle=None):
         self.tools, self.stamp = Path(tools), stamp
+        self.oodle = oodle
         self.snapshot = snapshot(tools, stamp)
         self.region, self.branch = self.snapshot['region'], self.snapshot['branch']
         pak.check(preparing or 'metadata_policy' not in self.snapshot or '_materialized' in self.snapshot)
@@ -225,7 +226,8 @@ class Catalog:
             pak.check(name in self.files and name[:-4] + '.sig' in self.files)
             source = pak.SignedSource(self.region, self.branch, self.files[name], self.files[name[:-4] + '.sig'],
                                       self.cache / 'ranges', self.progress)
-            return pak.Archive(source, self.format)
+            return pak.Archive(source, self.format,
+                **({'oodle': self.oodle} if getattr(self, 'oodle', None) is not None else {}))
         return self.archives[name]
 
     def location(self, name):
@@ -247,7 +249,8 @@ class Catalog:
         def read(name):
             pak.check(name[:-5] + '.ucas' in self.files)
             return iostore.Container(self.region, self.branch, self.files[name], self.files[name[:-5] + '.ucas'],
-                                     proven, self.cache / 'iostore')
+                                     proven, self.cache / 'iostore',
+                                     **({'oodle': self.oodle} if getattr(self, 'oodle', None) is not None else {}))
         with ThreadPoolExecutor(max_workers=4) as pool:
             values = dict(zip(names, pool.map(read, names)))
         globals_ = {n: v for n, v in values.items() if n.endswith('/global.utoc')}
@@ -384,8 +387,9 @@ def build_language(tools, source_locale, targets, progress=lambda _message: None
     resolved = {target: resolve_locale(target, assets.TEXT_LOCALES) for target in targets}
     locales = {source_locale, *(locale for locale in resolved.values() if locale)}
     progress('Reading coherent NTE publisher text and original authoring')
-    catalog = (Catalog(tools, stamp, progress, preparing=True) if 'metadata_policy' in value else
-               Catalog(tools, stamp, progress))
+    codec = {'oodle': game_data_reader.oodle} if game_data_reader is not None else {}
+    catalog = (Catalog(tools, stamp, progress, preparing=True, **codec) if 'metadata_policy' in value else
+               Catalog(tools, stamp, progress, **codec))
     if game_data_reader is None:
         executable = assets.ensure_extractor(tools)
     else:

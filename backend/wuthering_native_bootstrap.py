@@ -351,6 +351,32 @@ def _library(axml):
     return 'lib/arm64-v8a/lib' + libraries[0] + '.so'
 
 
+def _decode_module(compressed, decoded, entry, *, check=lambda: None):
+    """The same bounded passive Deflate/CRC loop for ordinary and staged IO."""
+    _check(type(entry['plain']) is int and 0 < entry['plain'] <= MAX_MODULE and
+           type(entry['packed']) is int and 0 < entry['packed'] <= 4 * 1024**3 and
+           compressed.stat().st_size == entry['packed'])
+    decoder, size, crc, digest, stored = zlib.decompressobj(-15), 0, 0, hashlib.sha256(), hashlib.sha256()
+    with compressed.open('rb') as src, decoded.open('xb') as dst:
+        for part in iter(lambda: src.read(65536), b''):
+            check()
+            stored.update(part)
+            pending = part
+            while pending:
+                check()
+                value = decoder.decompress(pending, min(1024**2, entry['plain'] - size + 1))
+                previous, pending = len(pending), decoder.unconsumed_tail
+                _check(value or len(pending) < previous)
+                size += len(value)
+                _check(size <= entry['plain'] and not decoder.unused_data)
+                dst.write(value)
+                crc = zlib.crc32(value, crc)
+                digest.update(value)
+        _check(not decoder.flush() and decoder.eof and not decoder.unused_data and size == entry['plain'] and
+               crc & 0xffffffff == entry['crc'])
+    return size, crc & 0xffffffff, digest.hexdigest(), stored.hexdigest()
+
+
 def _acquire(tools, progress=lambda _message: None, *, existing=()):
     catalogue_raw = _read(CATALOGUE + '?_t=' + str(int(time.time() // 60)), 64 * 1024)
     catalogue = json.loads(catalogue_raw)
@@ -400,26 +426,11 @@ def _acquire(tools, progress=lambda _message: None, *, existing=()):
             _check(response.status == 200 and response.geturl() == url and response.headers.get('ETag') == etag and
                    response.headers.get('Content-Length') == str(total) and not response.headers.get('Content-Encoding'))
             verified = verify_stream(WitnessStream(response), archive.layout, member=(offset, packed), member_sink=sink)
-        decoder, size, crc, digest, stored = zlib.decompressobj(-15), 0, 0, hashlib.sha256(), hashlib.sha256()
-        with compressed.open('rb') as src, decoded.open('xb') as dst:
-            for part in iter(lambda: src.read(65536), b''):
-                stored.update(part)
-                pending = part
-                while pending:
-                    value = decoder.decompress(pending, min(1024**2, entry['plain'] - size + 1))
-                    previous, pending = len(pending), decoder.unconsumed_tail
-                    _check(value or len(pending) < previous)
-                    size += len(value)
-                    _check(size <= entry['plain'] and not decoder.unused_data)
-                    dst.write(value)
-                    crc = zlib.crc32(value, crc)
-                    digest.update(value)
-            _check(not decoder.flush() and decoder.eof and not decoder.unused_data and size == entry['plain'] and
-                   crc & 0xffffffff == entry['crc'])
+        size, crc, plain_sha, packed_sha = _decode_module(compressed, decoded, entry)
         source = reference(dict(policy=POLICY, catalogue=CATALOGUE, catalogue_sha256=_hash(catalogue_raw),
             version=catalogue['version'], url=url, bytes=total,
             etag=etag, apk_sha256=verified['apk_sha256'], v2_digest=verified['v2_content_digest'], signers=verified['certificate_sha256'],
-            module=dict(name=name, sha256=digest.hexdigest(), compressed_sha256=stored.hexdigest(),
+            module=dict(name=name, sha256=plain_sha, compressed_sha256=packed_sha,
                         compressed_bytes=packed, plain_bytes=size, crc32=f'{crc & 0xffffffff:08x}')))
         default_output(decoded, source['module']['sha256'])
         target = _module(tools, source)

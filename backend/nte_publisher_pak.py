@@ -79,17 +79,24 @@ def _file(item, maximum):
 
 class SignedSource:
     """Coalesce missing ranges, and recheck cached bytes against the full .sig."""
-    def __init__(self, region, branch, item, signature, cache, progress=lambda _message: None):
+    def __init__(self, region, branch, item, signature, cache, progress=lambda _message: None, *, range_reader=None):
         check(region in release.HOSTS and isinstance(branch, str) and
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(item, 1024**4)
         _file(signature, INDEX_LIMIT)
         self.region, self.branch, self.item, self.signature = region, branch, item, signature
+        self.range_reader = range_reader
         self.progress = progress
         self.root = cache / region / item.digest / signature.digest
         path = self.root / 'checksums.sig'
+        if range_reader is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         data = path.read_bytes() if path.is_file() and path.stat().st_size == signature.size else b''
         if hashlib.md5(data).hexdigest() != signature.digest:
+            # Context-owned callers acquire the complete signature in a prior
+            # explicit stage. Never escape their transport/consent boundary.
+            check(range_reader is None)
             release.save_file(region, branch, signature, path)
             data = path.read_bytes()
         check(len(data) == signature.size and hashlib.md5(data).hexdigest() == signature.digest)
@@ -109,6 +116,9 @@ class SignedSource:
 
     def _cached(self, index):
         path = self.root / f'{index}.chunk'
+        if getattr(self, 'range_reader', None) is not None:
+            from .private_data_paths import _no_links
+            _no_links(path)
         expected = min(CHUNK, self.item.size - index * CHUNK)
         if path.is_file() and path.stat().st_size == expected:
             data = path.read_bytes()
@@ -145,7 +155,9 @@ class SignedSource:
                 stop += 1
             begin, finish = index * CHUNK, min(stop * CHUNK, self.item.size)
             self.progress('Downloading verified NTE publisher archive blocks')
-            data = release.read_range(self.region, self.branch, self.item, begin, finish - begin)
+            owned = getattr(self, 'range_reader', None)
+            data = (owned(self, begin, finish-begin) if owned is not None else
+                    release.read_range(self.region, self.branch, self.item, begin, finish - begin))
             check(len(data) == finish - begin)
             blocks = [data[i * CHUNK:(i + 1) * CHUNK] for i in range(stop - index)]
             check(all(self._valid(index + i, part) for i, part in enumerate(blocks)))
@@ -185,8 +197,9 @@ def _path(mount, folder, name):
 
 class Archive:
     """Immutable file locations, including deletion records; no guessed patch order."""
-    def __init__(self, source, catalog):
+    def __init__(self, source, catalog, *, oodle=None):
         self.source = source
+        self._managed_oodle = oodle
         size = source.item.size
         footer = source.read(max(0, size - 512), min(512, size))
         marker = len(footer) - 204
@@ -348,7 +361,7 @@ class Archive:
             return blocks
         method = self.methods[e.method]
         if method == 'Oodle':
-            result = self._oodle(blocks)
+            result = self._expand_oodle(blocks)
         elif method in ('Zlib', 'Gzip'):
             parts = []
             for data, size in blocks:
@@ -365,6 +378,10 @@ class Archive:
         check(len(result) == e.size)
         return result
 
+    def _expand_oodle(self, blocks):
+        decoder = getattr(self, '_managed_oodle', None)
+        return decoder(blocks) if decoder is not None else self._oodle(blocks)
+
     def read(self, path):
         return self._decode(*self._parts(path))
 
@@ -378,7 +395,7 @@ class Archive:
         compressed = [(i, e, blocks) for i, (e, blocks) in enumerate(parts) if self.methods[e.method] == 'Oodle']
         result = [self._decode(e, blocks) if self.methods[e.method] != 'Oodle' else None for e, blocks in parts]
         if compressed:
-            combined = self._oodle([b for _, _, blocks in compressed for b in blocks])
+            combined = self._expand_oodle([b for _, _, blocks in compressed for b in blocks])
             check(len(combined) == sum(e.size for _, e, _ in compressed))
             offset = 0
             for index, entry, _ in compressed:

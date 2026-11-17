@@ -31,7 +31,8 @@ class Block:
 
 class Container:
     """One immutable, single-partition signed v8 container; no overlay guesses."""
-    def __init__(self, region, branch, toc, ucas, proven_archive, cache):
+    def __init__(self, region, branch, toc, ucas, proven_archive, cache, *, oodle=None):
+        self._managed_oodle = oodle
         check(region in release.HOSTS and isinstance(branch, str) and
               re.fullmatch(r'PC_[0-9]+|publish_PC', branch))
         _file(toc, INDEX_LIMIT)
@@ -245,9 +246,12 @@ class Container:
             data = (self.cipher.decrypt(data) if self.encrypted else data)[:block.stored]
             if block.method:
                 check(self.methods[block.method] == 'Oodle')
-                from .wuthering_release_pak import _oodle
                 try:
-                    data = _oodle([(data, block.expanded)])
+                    decoder = getattr(self, '_managed_oodle', None)
+                    if decoder is None:
+                        from .wuthering_release_pak import _oodle
+                        decoder = _oodle
+                    data = decoder([(data, block.expanded)])
                 except PreparationFailure as error:
                     if error.code != 'missing_decoder':
                         raise

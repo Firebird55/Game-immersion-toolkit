@@ -13,8 +13,19 @@ from urllib.parse import urlencode, urlsplit
 
 import zstandard
 
-from .game_tools import _atomic_file
-from .publisher_http import download
+
+def _atomic_file(path, data):
+    # The same maintained cache writer is available in the native core. Do not
+    # import desktop discovery/tool preparation merely to publish verified data.
+    from .game_data import _write_bytes
+    return _write_bytes(path, data)
+
+
+def download(*args, **kwargs):
+    # Retain the legacy desktop entrypoint, while context-owned callers never
+    # import or invoke this unaccounted default transport.
+    from .publisher_http import download as legacy_download
+    return legacy_download(*args, **kwargs)
 
 GLOBAL = ('sg-hyp-api.hoyoverse.com', 'VYTpXlbWo8', 'sg-public-api.hoyoverse.com')
 CHINA = ('hyp-api.mihoyo.com', 'jGHBHlcOq1', 'api-takumi.mihoyo.com')
@@ -112,7 +123,10 @@ def _verified(directory, url, compressed, length, digest, maximum, *, fetch=None
     _check(len(encoded) == compressed)
     declared = zstandard.frame_content_size(encoded)
     _check(declared in (-1, length))
-    data = zstandard.ZstdDecompressor(max_window_size=maximum // 1024).decompress(
+    # The pinned C backend forwards this value as bytes, despite older API
+    # documentation describing KiB. Keep the same expanded/window byte cap.
+    _check(zstandard.get_frame_parameters(encoded).window_size <= maximum)
+    data = zstandard.ZstdDecompressor(max_window_size=maximum).decompress(
         encoded, max_output_size=length, allow_extra_data=False)
     _check(len(data) == length and hashlib.md5(data).hexdigest() == digest)
     try:

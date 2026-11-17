@@ -11,9 +11,7 @@ from .endfield_training_presentation import validate_training_dialogue_ui
 from .textmaps import display_text
 
 
-UI_ROOT = 'assets/beyond/dynamicassets/gameplay/ui/prefabs/'
-UI_PATHS = {'step_layout': UI_ROOT + 'dungeon/dungeonchartutorialstephudpanel.prefab',
-            'task_layout': UI_ROOT + 'commontasktrack/commontasktrackhudpanel.prefab'}
+from .endfield_presentation_owners import UI_ROOT, TRAINING_UI as UI_PATHS
 LUA_PATHS = {'step_ctrl': 'Data/LuaScripts/UI/Panels/DungeonCharTutorialStepHud/DungeonCharTutorialStepHudCtrl.lua',
              'task_ctrl': 'Data/LuaScripts/UI/Panels/CommonTaskTrackHud/CommonTaskTrackHudCtrl.lua',
              'goal_ctrl': 'Data/LuaScripts/UI/Widgets/CommonTaskGoalCell.lua'}

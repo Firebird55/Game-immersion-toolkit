@@ -173,8 +173,11 @@ class Archive:
         size = reader.number('I' if bits & (1 << 30) else 'q')
         method = (bits >> 23) & 63
         _check(method < len(self.methods) and self.methods[method])
-        stored = reader.number('I' if bits & (1 << 29) else 'q') if method else size
-        count, encrypted = (bits >> 6) & 65535, bool(bits & (1 << 22))
+        # The original Nikki decoder uses bit 22 for the stored-size width and
+        # bit 29 for member encryption. Framework entries set both, so those
+        # samples alone cannot distinguish this from another game's layout.
+        stored = reader.number('I' if bits & (1 << 22) else 'q') if method else size
+        count, encrypted = (bits >> 6) & 65535, bool(bits & (1 << 29))
         _check(bool(count) == bool(method) and 0 <= size <= MEMBER_LIMIT and 0 <= stored <= MEMBER_LIMIT)
         header = 73 + (4 + count * 16 if method else 0)  # Two original 20-byte hashes.
         if count == 1:

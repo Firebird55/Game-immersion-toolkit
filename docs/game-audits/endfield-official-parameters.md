@@ -372,6 +372,103 @@ dependencies, selected-dub materialization and host/device acceptance remain
 open. No full current catalog download, Android execution or end-user Ready
 state is claimed by these source checks.
 
+The shared resource/text readers now defer AKPK parameter and signature-source
+imports until the dedicated audio-control functions run. A genuine cold-process
+test refuses those imports, desktop tool setup and voice/export dependencies
+while importing the text catalog and resource discovery. All 38 affected text,
+resource and provider-continuation tests pass after this isolation; it does not
+remove the factory's explicit host/runtime gate or establish Android support.
+
+### Separately quoted original presentation navigation — November 17
+
+The ordinary provider now continues the explicit text-table receipt into two
+navigation stages. A small complete typed block-4 index first identifies the
+original registry and its whole-file MD5/size. The cold plan quotes that large
+manifest before fetching it. Only after complete MD5 and bounded Brotli/registry
+checks does the reader determine the required initial/main bundle-index owners.
+It probes only a strict 16-byte initial HTTP range to discover each required
+index's total size and actual response ETag, then quotes the complete index as
+another approved download. A large index is never hidden inside the shared
+8-MiB planning-metadata budget. An unused initial bundle index is not required.
+
+The same pure reader-contract path module supplies the existing world, Baker
+and training validators and this new navigation reader. It requires all eleven
+exact UI assets and discovers current dialog JSON assets from the owned original
+path prefix; there is no release-specific bundle/dialogue-ID list. After complete
+CRC/type validation of every required index, all selected assets must have unique
+authored bundle owners. The immutable navigation receipt binds client, resource,
+request, original manifest/index controls and the exact selection digest. It
+does not accept an AES/header master or claim that bundle payloads were fetched.
+Those remain required before a complete capture-ready snapshot.
+
+Warm integrity requires complete source hashes and typed checks. Online reuse
+additionally needs a current publisher content digest or an actual strong ETag;
+generation/URL, an old local SHA and a matching short header are insufficient.
+A response ETag pins the later request; it is not a checksum. An unchanged large
+index is not rewritten during warm
+publication. Required disk is a labeled bound for pending source/staging files
+and receipts; the separate 384-MiB registry-inflation memory ceiling is not
+reported as disk use. Invalid CRC/MD5, missing UI/bundle ownership, changed source
+or response tag, insufficient budget and cancellation preserve prior complete
+receipts. No predecessor, speaker or presentation guard is dropped.
+
+The actual retained 1.6.4 / 11775769-12 controls pass this new reader: the complete
+55,316,379-byte original registry passes MD5 and the 33,483,621-byte main bundle
+index passes CRC/type checks. They select eleven UI assets and 3,093 dialog
+assets in 3,104 bundles totaling 15,053,264 original bytes. The separate cached
+dependency check verifies every one of those bundle bodies against its current
+original MD5; the navigation helper itself does not claim bundle materialization
+or AES decoding. The source-only replay reuses existing originals through
+same-volume hardlinks and performs zero new network/body transfers. Its cached
+header responses and local generation recheck are fixtures, not a newly performed
+cold HTTPS acquisition or live freshness test. As above, missing retained full
+resource-index JSON bodies require explicitly conservative length bounds in
+this private replay; production discovery supplies the actual lengths.
+
+All 624 scoped Endfield tests pass on the immutable shared dependency checkpoint,
+including ordinary text/text-audio continuation, main-only and initial/main
+ownership, large-index planning inside the real metadata budget, cold/warm
+storage, missing-original-owner errors, corruption/ETag/failure retention and
+cold import without unused audio/desktop software. Native/bootstrap positives
+in authored HTTP fixtures remain simulated; actual cached-original controls
+are reported separately. Host/device, complete snapshot, selected-audio playback
+and full autonomous parameter-rotation acceptance remain open. No release.
+
+### Navigation online freshness and exact offline restore — November 17
+
+The current bundle-index discovery supplies no independent current publisher
+content digest for each large index. If its actual response has no strong ETag,
+online reactivation therefore quotes and reads the complete index again, even
+when generation, URL, size, short header and old local SHA still match. Weak tags
+do not permit reuse. The complete fresh response must pass the original CRC/type
+checks and its receipt is retained. No MD5 is invented as an ETag.
+
+The registry is a genuine content-addressed exception: the freshly obtained
+complete block-4 index publishes its current original file MD5, and every byte
+of the cached registry must satisfy that digest before reuse without an ETag.
+A changed publisher digest requires another payload quote. A changed valid index
+body behind the same short header, changed header, changed generation and changed
+validator are covered independently by the affected tests.
+
+`endfield_navigation_source.restore` separately validates the exact retained
+client/resource/request, immutable receipt, complete index hashes/CRC, registry
+MD5 and asset-selection digest without network. It can retain an old verified
+source after a newer online read; it never labels that old source freshly checked
+online. This is source restore, not a completed dialogue-library restore or Ready
+state.
+
+All 43 affected text/navigation/provider tests pass after this policy change. A
+new source-stable original-content replay deliberately supplies no ETag and
+therefore quotes a complete 33,483,621-byte index read in both content modes.
+The full responses in this private replay come from already retained original
+bytes, with zero new network/body acquisition; the real shared context charges
+their complete lengths against the approved quote. Exact offline restore makes
+no source request. The earlier navigation checkpoint's cached-source proof is
+retained as historical integrity evidence, not current online-freshness evidence.
+Local recheck/cached-response and conservative resource-index-length
+qualifications above still apply; no new live publisher or device acceptance is
+claimed.
+
 ### Remaining AES/header source boundary — November 17
 
 A bounded original-source pass spent 4,070 bytes of its 8-KiB allowance and

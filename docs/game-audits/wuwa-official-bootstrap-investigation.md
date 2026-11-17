@@ -244,6 +244,37 @@ old payload. All five original 3.8.11 payload files remain unchanged. Synthetic
 source, rotation, provenance, cache and parallel-publication controls passed
 alongside 642 affected tests and sixteen subtests.
 
+### Distinct manifest consumer and bounded initializer follow-up
+
+The remaining `ENTRY_KEY`/`ENTRY_IV` inputs unwrap Base64/AES-CBC **outer release
+JSON**. They are not SQLite ConfigDB entry parameters or the PAK archive-default
+key. The original entry/config, resource/dub/video manifest and encrypted
+KeyList paths use this boundary. Existing original launcher scripts pass the
+HTTP response to `UKuroLauncherLibrary::Decrypt` before JSON parsing.
+
+The authenticated Android module's complete reflected `execDecrypt` wrapper
+calls that exact native method. Its four-byte declared entry is neither a
+supported direct branch nor a normal return; the bounded static pass did not
+recover the key/IV producer. The registered archive-default output is also not
+equal to the already frozen manifest AES key. No key transforms, generic
+literal search or original-code execution were used.
+
+A further original-APK primary-DEX probe checked the exact binary-manifest
+application class as a possible initialization owner. After an explicitly
+recorded local ZIP-flag assertion failure, the separately authorized exact retry
+passed strict ETag/range, Deflate size/CRC and DEX SHA-1/Adler checks. The exact
+application class was absent from its 3,913 class definitions. The probe stopped
+without downloading the other fifteen DEX files or executing protection code.
+This closes that particular primary-DEX hypothesis; it does not establish
+official derivation impossible. Later range bytes retain original HTTPS/ETag
+ownership to the previously fully verified APK, without claiming a fresh
+independent APK-v2 digest for that member.
+
+The canonical desktop/Android Settings provider now exposes the verified
+bootstrap stage and then the explicit manifest-format gate. It does not turn
+this remaining dependency into a ready language library; see
+[the staged portability report](wuwa-android-portability.md#settings-bootstrap-provider).
+
 ## Acceptance still required
 
 The archive-default producer now has an authenticated current rule and ordinary

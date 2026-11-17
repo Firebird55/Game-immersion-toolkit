@@ -18,7 +18,7 @@ def unsigned(value):
 def string(value):
     if value is None:
         return b'\x80'
-    raw = value.encode('utf-8')
+    raw = value if isinstance(value, bytes) else value.encode('utf-8')
     return unsigned(len(raw) + 1) + raw
 
 
@@ -94,6 +94,14 @@ class UpdaterMetadataTests(unittest.TestCase):
     def test_original_number_bit_patterns_are_data_even_when_nonfinite(self):
         parsed = parse_metadata(chunk(failure='nonfinite-number'))
         self.assertTrue(math.isnan(parsed.constants[3]))
+
+    def test_binary_lua_string_constants_are_opaque_without_becoming_source_names(self):
+        binary = b'\xff\x00\x80authored binary constant'
+        parsed = parse_metadata(chunk(prototype(constants=(binary, 'valid UTF-8', '\0embedded NUL'))))
+        self.assertEqual(parsed.constants[-3:], (binary, 'valid UTF-8', '\0embedded NUL'))
+        self.assertNotIn('authored binary constant', repr(parsed))
+        with self.assertRaises(UnicodeError):
+            parse_metadata(chunk(prototype(source=b'\xffinvalid source name')))
 
     def test_rejects_unterminated_or_oversized_integers_and_strings(self):
         for encoded in (bytes(10), unsigned(65537), unsigned(65536) + b'not a complete source'):

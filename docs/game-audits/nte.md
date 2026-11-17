@@ -245,7 +245,7 @@ does not satisfy the owner's independent-device requirement.
 | --- | --- | --- |
 | Regional discovery and original ranges | `nte_release`, HTTPS manifests and bounded content-addressed reads | Python logic; direct Android execution not accepted yet |
 | PAK/IoStore integrity and AES | `nte_publisher_pak`, `nte_publisher_iostore`, PyCryptodome | Selection/integrity logic is Python; Android crypto/runtime packaging remains required |
-| PAK/IoStore Oodle expansion | `wuthering_release_pak._oodle` and `_ooz_runtime`, pinned Node and `ooz-wasm` | Desktop subprocess boundary; needs an approved Android codec host |
+| PAK/IoStore Oodle expansion | Context-owned Windows preparation selects the verified `NteReader` managed codec; the existing publisher route retains pinned Node/`ooz-wasm` | Managed hosting and device proof remain required; no Windows binary in Android |
 | Original PE/schema derivation | `nte_native_schema`, seeded/class/required validators; Python and `zstandard` | Data-only inspection; Android extension/runtime acceptance pending |
 | UE packages, tables and Blueprint authoring | Toolkit-owned .NET 10 `NteReader`, pinned UEExtractor/CUE4Parse and managed codecs; checked loopback streams | Managed hosting/trimming/AOT and complete extraction need device proof; no Windows binaries in an APK |
 | Wwise event/bank selection | Existing Python authored event/media readers | Logic can be reused; Android end-to-end acceptance pending |
@@ -262,6 +262,39 @@ inspection is independently capped at 16 files and 768 MiB; cold retained
 baseline and runtime costs must also appear in the plan. These are safety
 bounds, not a measured phone download size. The shared Download/Delete/used-size
 interface and Android direct-preparation acceptance remain separate open work.
+
+The November 17 context-owned reader also has a bounded managed Oodle operation.
+It reads the already verified supplier assembly as PE data, verifies the embedded
+codec's recorded hash, and loads that managed codec directly. The supplier's
+initializers and native Oodle download/loader paths do not execute. Requests bind
+the exact stored bytes, block boundaries, output sizes and an invocation nonce;
+the caller verifies the final output hash before accepting it. Cancellation or
+missing/mismatched completion keeps the operation unsuccessful. Three retained
+original authenticated blocks (3,843 stored bytes; 8,230 decoded bytes) matched
+the existing pinned decoder byte for byte. This is codec evidence, not a completed
+context-owned library preparation or Android-host acceptance: archive-block
+planning and acquisition must still be connected before that stage can become
+ready. The existing completed publisher libraries and their playback path remain
+separate from this unfinished download-stage route.
+
+Context-owned Download now also advances through explicit PAK index-range
+stages. The existing parser inspects cached bytes only; missing footer, encrypted
+main-index or directory blocks produce a new estimate. Download pins the original
+inventory and full SIG, checks every returned block before publishing any of that
+response, and checks the official metadata again before and after acquisition.
+Each stage is limited to 64 MiB; larger normal inventories continue through more
+stages. A missing frozen initial format description produces an explicit
+compatibility prerequisite, with no implicit community lookup. Changed publisher
+metadata, corrupt stored blocks and changed descriptions fail without activating
+a library. A retained Global 1.5.4 preflight through the actual shared service
+planned **963,123 bytes**, including pointer checks, without reading archive
+bodies during planning. Replaying existing original cached responses through the
+actual shared transport then completed all PAK indexes in three exact-accounted
+stages: **963,123**, **5,619,674** and **9,945,050 bytes**. Every preflight remained
+free of archive transfers; no voice-bank or WEM member was read. This was an
+offline replay of frozen official sources, not a fresh server/rotation trial.
+The selected package/text/audio stage and independent Android acceptance remain
+unfinished.
 
 ## Publisher Setup and immutable voice snapshots
 

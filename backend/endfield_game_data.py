@@ -127,8 +127,12 @@ class EndfieldGameDataProvider:
             if continuation.get('stage') == 'original-audio-master-verified':
                 return self._plan_text(request, ctx, identity, transport, continuation)
             if continuation.get('stage') == 'original-text-tables-downloaded':
+                return self._plan_navigation(request, ctx, identity, transport, continuation)
+            if continuation.get('stage') == 'original-text-navigation-pending':
+                return self._plan_navigation(request, ctx, identity, transport, continuation)
+            if continuation.get('stage') == 'original-text-navigation-verified':
                 raise Error('source_not_prepared',
-                    'Endfield complete original text tables are downloaded. Canonical dialogue snapshot and selected-audio materialization still need preparation; existing data is retained.')
+                    'Endfield original text and presentation navigation are verified. Selected graph/UI bundles and their AES/header provenance still need preparation before a complete capture-ready library; existing data is retained.')
             if continuation.get('stage') == 'client-bootstrap-downloaded':
                 if request.content_mode == 'text':
                     return self._plan_text(request, ctx, identity, transport, continuation)
@@ -188,6 +192,8 @@ class EndfieldGameDataProvider:
             return self._download_control(plan, ctx)
         if plan.stage == 'original-text-tables':
             return self._download_text(plan, ctx)
+        if plan.stage in {'original-text-manifest', 'original-text-navigation-indices'}:
+            return self._download_navigation(plan, ctx)
         # Rebuild only the bounded size/source plan, before any large transfer.
         # Changed client, selection, ranges or estimate require new consent.
         current = self.plan(ctx.request, ctx)
@@ -361,6 +367,57 @@ class EndfieldGameDataProvider:
         return Stage({'schema': 1, 'stage': reference['stage'], 'client': identity,
             'request': ctx.request.json(), 'source': continuation, 'text': reference},
             'Endfield complete selected original text tables are verified. Canonical dialogue snapshot and selected-audio materialization still follow; no library is active.')
+
+    def _plan_navigation(self, request, ctx, identity, transport, continuation):
+        from .endfield_bootstrap_source import SMALL_TOTAL
+        from .endfield_resource_source import discover
+        from .endfield_text_source import Catalog
+        from .endfield_navigation_source import plan as navigation_plan
+        Error, Plan, _, _ = _contracts()
+        tables_stage = continuation if continuation['stage'] == 'original-text-tables-downloaded' else continuation['tables']
+        try:
+            common = self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield original navigation parameters could not be derived. Existing data is retained.') from error
+        catalog = Catalog(ctx, identity, common, tables_stage['text'])
+        generation = discover(ctx, identity, transport)
+        if generation != catalog.generation:
+            raise Error('publisher_object_changed', 'Endfield changed after text-table preparation. Check the current text source before presentation navigation.', 409)
+        content, _ = navigation_plan(ctx, identity, common, generation, transport)
+        handle = {'schema': 1, 'stage': content['stage'], 'client': identity, 'request': request.json(),
+                  'tables': tables_stage, 'navigation': content}
+        return Plan(revision='endfield-resources-' + hashlib.sha256(_json_bytes(generation)).hexdigest(),
+            download_bytes=content['download_bytes'] + 2 * LAUNCHER_LIMIT + 4 * SMALL_TOTAL,
+            required_disk_bytes=content['required_disk_bytes'], handle=handle, download_is_upper_bound=True,
+            runtime_available=True, stage=handle['stage'],
+            message='Separately quoted complete original registry or required bundle indexes, plus bounded source rechecks. Exact graph/UI owners follow the verified registry; no dialogue library is active.')
+
+    def _download_navigation(self, plan, ctx):
+        Error, _, Stage, _ = _contracts()
+        continuation = {'schema': 1, 'stage': 'original-text-navigation-pending',
+                        'client': plan.handle.get('client'), 'request': ctx.request.json(), 'tables': plan.handle.get('tables')}
+        current = self._plan(ctx.request, ctx, continuation)
+        if (current.handle != plan.handle or current.revision != plan.revision or
+                current.download_bytes != plan.download_bytes or current.required_disk_bytes != plan.required_disk_bytes or
+                current.stage != plan.stage or plan.download_is_upper_bound is not True or plan.runtime_available is not True):
+            raise Error('publisher_size_changed', 'Endfield original navigation, verified cache or quoted transfer changed. Check its size again.')
+        from .endfield_resource_source import discover
+        from .endfield_navigation_source import plan as navigation_plan, download
+        transport = self._transport(ctx.request, ctx)
+        identity = current.handle['client']
+        tables_stage = current.handle['tables']
+        try:
+            common = self._common(self._text_bootstrap(ctx, identity, transport, tables_stage['source']))
+        except (ValueError, KeyError, TypeError) as error:
+            raise Error('unsupported_original_metadata', 'Endfield original navigation parameters changed before download. Existing data is retained.') from error
+        quoted, index = navigation_plan(ctx, identity, common, current.handle['navigation']['generation'], transport)
+        if quoted != current.handle['navigation']:
+            raise Error('publisher_size_changed', 'Endfield original navigation changed before its approved download.')
+        result = download(ctx, identity, common, quoted, index, transport,
+            recheck=lambda: (self._latest(ctx.request, transport)[0], discover(ctx, identity, transport)))
+        return Stage({'schema': 1, 'stage': result['stage'], 'client': identity,
+            'request': ctx.request.json(), 'tables': tables_stage, 'navigation': result},
+            'Endfield original navigation source stage is complete. Remaining selected bundle acquisition and verified presentation decoding still precede a complete capture-ready library.')
 
 
 def create_provider(*, platform, native=None, transport_factory=None):
