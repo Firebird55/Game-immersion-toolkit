@@ -1056,3 +1056,11 @@ with all original identities retained as members and no other identity delta.
 See the [ordinary continuation evidence](endfield-official-parameters.md#ordinary-authored-validation-continuation--november-17)
 for exact wire/disk quotes, actual transfer/recovery proof and the distinct
 source-fixture, original-client-provenance and native-admission qualifications.
+
+The November 18 [engine/state-retention review](endfield-official-parameters.md#engine-registration-data-and-state-retention--november-18)
+finds the original engine's exact AssetBundle registration-name data but does
+not prove the native consumer/handler or accept a key. Its bounded operand
+locator is negative and stops without a new native-body hunt. A separate
+current-core synthetic service fixture verifies older-current/stage-pointer and
+recording retention on publication failure plus offline old activation; this
+does not establish actual Endfield Ready or resolve the remaining capture gates.

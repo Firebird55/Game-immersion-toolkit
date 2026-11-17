@@ -679,6 +679,67 @@ locales are exercised synthetically in both modes; the actual new facts-stage
 trial above uses English source with all five script tables. Complete capture
 admission and the existing active prologue audio exception remain unresolved.
 
+### Engine registration data and state retention — November 18
+
+An exact cache-only follow-up confirms that the managed AssetBundle internal
+bindings still leave their native registration producer unresolved. The retained
+GameAssembly PE imports OS libraries and `baselib.dll`, with no direct
+UnityPlayer import or exact UnityPlayer registration symbol. Its managed codegen
+image name does not identify an external native handler.
+
+The already retained complete publisher ZIP directory does identify an original
+`UnityPlayer.dll` member. A separately approved acquisition reads exactly its
+15,555,636-byte local span from the declared part 058, plus 28,906 launcher
+metadata bytes. The first 30 member-header bytes establish an actual strong
+response ETag; the remainder uses that validator without duplicating header
+bytes. Original declaration identity is unchanged before and after. Full Deflate
+EOF, exact 35,273,688-byte output and the original directory's CRC pass. Only
+that module and bounded proof metadata are retained, below the 64-MiB allowance.
+The whole ZIP-part MD5 and decoded GameFiles per-member MD5 remain unverified.
+The PE has an embedded certificate, but publisher-signature trust is not
+asserted; the existing smaller-member verifier has not been relaxed.
+
+Directed PE-data inspection finds the exact short synchronous/asynchronous
+AssetBundle ICall names, the `il2cpp_add_internal_call` API name and
+`GameAssembly.dll`. The AssetBundle group belongs to a contiguous 80-name run
+followed by 80 backed code pointers. These are column-shape candidates, without
+typed delimiters or a demonstrated same-index registration consumer. No
+positional name/function alias is accepted.
+
+A subsequent explicitly approved operand locator examines only the two exact
+candidate column addresses in the original `.text` interval: 27,184,141 bytes,
+124,473 bounded RIP-relative LEA prefixes in 0.5991 seconds. It finds no exact
+target hit and therefore no unique registration consumer. There is no general
+disassembly or expansion to other operands/sections. Original `.pdata` and the
+different actual runtime exception directory agree on the positional candidate's
+1,478-byte function extent and unwind metadata, using only 440 metadata bytes;
+that agreement proves a function boundary, not its AssetBundle identity. No
+consumer/handler body is decoded, no original game code is loaded/executed, and
+no AES/header parameter is accepted. This bounded hypothesis stops unresolved,
+without treating packing, absent references or the negative locator as proof
+that official derivation is impossible.
+
+The ordinary authored stage is also reviewed against immutable committed
+current shared-core code, including the later mode-selection fix. An explicit
+synthetic older-ready-source adapter seeds the state-machine fixture; the real
+Endfield staged provider, complete synthetic SparkBuffer/HTTP inputs and generic
+publication logic then run. The older `current.json` remains byte-identical
+through table/authored stages and a forced stage-pointer publication failure;
+the previous unfinished-stage pointer and recording are retained. The synthetic
+old source can still activate with HTTP disabled. This is a service-boundary
+fixture, not real Endfield Ready, gameplay or Android proof. The real all-five
+target data review still accounts for every one of the 97 gender expansions,
+with original member identities preserved and no other identity/text delta.
+No product correction or shared API change is required by these checks.
+
+The finite remaining preparation gates are the original external registration
+consumer/handler and parameter initialization contract; validation of those
+parameters against complete original containers; canonical graph/UI/cinematic
+ownership and capture guards; selected-media materialization; and independent
+host/device closure. The one demonstrated active prologue audio family remains
+a separate original-utterance/context exception. Historical or config-only
+references without current-use proof remain nonblocking research inventory.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
