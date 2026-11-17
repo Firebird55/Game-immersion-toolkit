@@ -12,6 +12,45 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The new `zzz_game_data.create_provider(platform=..., native=...)` implements
+the shared protocol's **official bootstrap stage**. Its HoYoPlay discovery,
+manifest and PE-header reads use the shared context-bound publisher transport;
+planning cannot silently acquire the native key section. The consented plan
+quotes complete Sophon chunks, subtracting only locally hash-verified bytes.
+The configuration resource file has an explicit complete-container upper bound;
+acquisition still selects only original `app_version` / `login_setting` objects.
+All sources belong to the selected regional manifest, with no initial community
+or protected-key-cache prerequisite. Request/mode identity is separate from
+the original launcher-generation hash.
+
+Download returns `PreparationStage`, never `SnapshotSource`. A following plan
+with authentic bootstrap inputs stops at `catalogue-runtime` with unknown
+content sizes and downloading disabled. No unproved Android reader/codec API,
+desktop fallback, complete-content fingerprint or ready library is invented.
+The factory therefore does **not** finish independent preparation. The host
+still needs the closed catalogue-reader runtime, dependency/ABI inclusion,
+actual content-stage planning and selected-dub materialization. Bootstrap
+crypto/decompression availability itself remains a device capability gate.
+
+Synthetic source tests exercise both editions through the real shared
+transport, and the actual game-data service keeps the completed bootstrap at
+`needs_plan`. Same-format changed key/build inputs replan; a corrupt transfer
+cannot overwrite retained old source objects. These are controlled format and
+service checks, not an actual Android publisher download or historical real-key
+rotation.
+
+A current original-source warm-cache probe also passes through the actual
+factory, shared game-data service and shared transport: **four live official
+HoYoPlay requests / 251,440 response bytes**, zero new client bytes and no
+community/protected-key/config input. Global text planning consumes 127,399
+metadata bytes; mainland text-and-audio planning consumes 124,041. Each opposite
+mode is a separately labeled replay of those exact official responses, not a
+second live freshness claim. All four plans reach the honest catalogue-runtime
+gate without a ready state. A bootstrap download job was not forced when its
+authentic raw inputs were already cached; that stage's service transition has
+controlled fixture coverage. Previous-ready-generation retention across a
+stage transition is not proved by this source probe.
+
 The publisher's explicit text-only source path now skips separate voice
 inventories, banks, directory objects and registry parsing while preserving
 authored non-playable voice evidence and the user's omission choice. A retained

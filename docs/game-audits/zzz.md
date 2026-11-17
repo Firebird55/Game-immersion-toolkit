@@ -1,5 +1,29 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Portable official bootstrap preparation stage
+
+The maintained `zzz_game_data` factory now connects official discovery and
+original bootstrap acquisition to the shared plan/download protocol on the
+supported host platforms. Planning uses metadata-only transport, then quotes
+complete original transport containers before the separate source download.
+The selected request and mode are distinct from the original generation hash.
+No audio pack is acquired at this stage, including in a text request.
+
+This is deliberately a bootstrap **stage**, not a ready dialogue library.
+Successful source verification returns `PreparationStage`; the next plan
+reports the missing portable catalogue reader with unknown content sizes and
+download disabled. Synthetic changed-key/source controls and actual shared
+service/transport tests cover this boundary. Android execution, the closed
+reader/dependency closure and complete selected-dub materialization remain
+open in the [platform/preflight audit](zzz-android-preflight.md).
+
+The actual current warm-source factory/service probe independently reaches
+that gate for Global and mainland with four official HoYoPlay requests,
+251,440 API bytes and zero new client bytes. Global text and mainland
+text-and-audio use ordinary live discovery; their opposite modes are explicit
+exact-response replays. Neither mode is reported ready. This does not establish
+Android execution, a cold whole-source download or prior-ready stage retention.
+
 ## November 17, 2026 · Explicit text selection in the publisher producer
 
 `zzz_publisher.build_language(..., content_mode='text')` skips selected-dub
