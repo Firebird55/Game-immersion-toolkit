@@ -263,6 +263,60 @@ source references; this text-only extension does not claim a new audio/device
 acceptance run. Runtime-generated notices, actor-name substitution, unsupported
 media contents and the remaining presentation/capture guards stay explicit.
 
+## Positioned operator-training instructions
+
+Revision 32 separates the training HUD's `stepDescTxt` from the task HUD's
+`goalTxt` and separate `progressTxt`. The same English phrase appears in 246
+current training/goal pairs; 22 have a different prepared official translation
+in at least one goal peer. The left goal is therefore neither a training hit nor
+an input to the tutorial predecessor context, even when its English is exact.
+No general quest-HUD rows or sentence audio are added.
+
+The current original source chain consists of the two HUD prefabs, their two
+controllers, the goal-cell controller, tutorial/step/game-name/label tables and
+the same release's subgame/task-extra-info JSON. Original subgame script and
+main-task UIDs select literal localized task titles. Custom title configuration,
+missing titles and unresolved native routes stay guarded. The source validator
+checks the separate owned text nodes, ascending horizontal skill list and
+controller assignments; ordinary preparation discovers current resource names
+and hashes without a game installation or a current-ID allowlist.
+
+The shared stateless classifier requires an exact localized title, complete
+bottom instruction, genuine confidence of at least 0.8 and physical boxes.
+Additional disambiguation requires two to five complete adjacent skill labels.
+Every longer stage that could expose the same manually scrolled window remains
+a conflict peer. All original texts, translations, optional predecessor fields,
+voice statuses and audio references remain unchanged. Missing presentation
+metadata disables this training capture route; it never falls back to left-goal
+matching. Existing tutorial predecessor logic receives only proven positioned
+instruction groups, with the original owner included in its reset scope.
+
+Full-index source-positioned fixtures distinguish an additional 24 of the 26
+English ordered-stage residuals, 18 of 20 per Chinese script and both Japanese
+residuals. The Si stage-7 and Tangtang stage-3 cases remain ambiguous: identical
+previous captions have aliases in other stages, and an absent off-screen skill
+tail cannot establish the shorter stage. No arbitrary authored occurrence is
+selected. All 868 incomplete/wrong-role/menu/low-confidence fixture cases and
+the 22 translated-goal role cases reject added training admission.
+
+Two public gameplay images establish the actual title/left-goal/top-skill/bottom
+instruction layout. Exact production preprocessing and frozen genuine OCR do
+not recognize every required caption/control in those images. They remain
+negative OCR acceptance evidence, separate from the positive source-positioned
+fixtures; no native gameplay or all-device acceptance is claimed.
+
+All five ordinary revision-32 publisher workers complete with 55,086 English,
+56,345 Simplified Chinese, 55,067 Traditional Chinese, 55,177 Japanese and
+55,065 Korean records. Every previous record field, OCR anchor, audio reference,
+voice status and world/Baker descriptor remains exactly unchanged. Each worker
+derives 29 title owners, 143 ordered stages and 246 goal-role references from
+the 11 original sources. Actual `CaptureService` tests against these complete
+indices capture all 62 additional source-positioned cases and reject 372
+fresh-history wrong-role/header/partial/confidence/geometry/menu cases. No
+audio is scheduled for these confirmed written instructions. These checks
+exercise the real desktop route with source-positioned OCR fixtures; the real
+public-image OCR result above remains negative.
+
 ## Original top captions and training-step order
 
 Revision 24 reads each current dialogue graph's original `_showAtTop`

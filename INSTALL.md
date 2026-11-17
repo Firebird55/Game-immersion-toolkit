@@ -145,6 +145,10 @@ enable unvoiced-text capture. These use the publisher's original text without a
 game folder; illustrative media is not a recording of the written explanation.
 Keep an instruction book's original title and complete body visible together;
 the title distinguishes repeated explanations with different translations.
+For Endfield operator training, keep the guide title, complete bottom instruction
+and adjacent skill labels visible. Objectives on the left do not count as
+instructions or establish their previous-step context. Refresh prepared data
+if the toolkit cannot verify the training interface for the current release.
 For Baker system notices, keep the Messages/Tasks title, active chat name and
 complete adjacent messages visible. Some short states need a longer visible
 sequence. Friends, menus and partial or uncertain text retain their guards.

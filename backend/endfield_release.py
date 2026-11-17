@@ -127,12 +127,16 @@ class RemoteChunk:
 def group(tools, stamp, block, names=None):
     params = endfield_metadata.parameters(tools)
     directories = {18: TABLE_GROUP, 4: '1CDDBF1F', 11: '7064D8E2', 12: '24ED34CF', 2: '0CE8FA57'}
+    if block in (17, 19):
+        source = (endfield_metadata.cache_root(tools) / 'BlockHashes.cs').read_text(encoding='utf-8-sig')
+        kind = 'Lua' if block == 17 else 'JsonData'
+        directories[block] = endfield_metadata._one(r'\[BlockType\.' + kind + r'\]\s*=\s*"([0-9A-F]{8})"', source)
     directory = directories[block] if block in directories else params.directories[block]
     role = 'initial' if block in (1, 2, 4) else 'main'
     release = descriptor(tools, stamp)
     base = _resource_url(release['layers'][role]['url'], role, release.get('region', 'global')) + '/VFS/' + directory + '/'
     path = tools / 'endfield-releases' / (stamp + '-' + str(block) + '.blc')
-    suffix = {18: '.bytes', 2: '.ab', 11: '.ab', 4: '.hgmmap'}.get(block, '.pck')
+    suffix = {18: '.bytes', 2: '.ab', 11: '.ab', 4: '.hgmmap', 17: '.lua', 19: '.json'}.get(block, '.pck')
     limit = 96 * 1024**2 if block == 11 else vfs.MAX_INDEX
     if path.is_file() and path.stat().st_size <= limit:
         data = path.read_bytes()
@@ -223,6 +227,10 @@ class Catalog:
 
     def sns_dialogue_ui(self, records, tables):
         from .endfield_sns_source import cues
+        return cues(self, records, tables)
+
+    def training_dialogue_ui(self, records, tables):
+        from .endfield_training_source import cues
         return cues(self, records, tables)
 
 

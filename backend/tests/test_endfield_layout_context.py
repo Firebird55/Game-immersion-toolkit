@@ -137,18 +137,31 @@ def step_rows():
 
 
 def test_written_step_context_uses_native_stage_order_and_keeps_only_the_current_occurrence(tmp_path):
+    from backend.endfield_training_presentation import SOURCE_ROLES
+    from backend.tests.test_endfield_training_presentation import span, STAMP
     rows = step_rows()
-    index = load_index(tmp_path / 'language', rows)
+    prefix = 'endfield:DungeonCharTutorialStepTable:'
+    metadata = {'schema': 1, 'revision': STAMP, 'sources': {role: 'a'*32 for role in SOURCE_ROLES},
+        'locales': {'en': {'titles': {'a': ['Operator Guide: Other'], 'b': ['Operator Guide: Current']},
+            'labels': {row['text_id']: 'Battle Skill' for row in rows}, 'profile': []}},
+        'stages': [{'owner': 'a', 'stage': 0, 'text_ids': [prefix + key for key in ('a_intro', 'a_next')]},
+                   {'owner': 'b', 'stage': 0, 'text_ids': [prefix + key for key in ('b_intro', 'b_next', 'b_repeat', 'b_finish')]}],
+        'goals': []}
+    index = load_index(tmp_path / 'language', rows, fingerprint=STAMP, publisher_training_dialogue_ui=metadata)
     index.capture_unvoiced = True
     assert not index.match_lines(['Wait!'], exact_only=True, channel='tip')
     service, _, _, _ = fixture_service(tmp_path, game='endfield')
     settings = service.settings.get().model_copy(update={'capture_unvoiced': True, 'stable_frames': 2})
     service.settings.save(settings)
+    service._capture = lambda _: SimpleNamespace(size=(1920, 1080))
+    service._ocr_image = lambda image, _: image
     response = {'lines': []}
     engine = SimpleNamespace(recognize_pil=lambda _: response)
     window = SimpleNamespace(handle=1, bounds=(0, 0, 1920, 1080), title='Endfield')
     def scan(text, *, menu=False):
-        response.update(lines=[ocr_row(text, .1, .3, size=(800, 200))], dialogue_menu=menu)
+        response.update(lines=[span('Operator Guide: Current', 80, 250, 600),
+            span('Battle Skill', 850, 105, 100), span('Battle Skill', 958, 105, 100),
+            span(text, 400, 820, 1120)], dialogue_menu=menu)
         return service._with_unvoiced(_ScanOutcome([]), index, window, engine, 0,
                                      datetime.now(timezone.utc), 'endfield')
     def twice(text):
