@@ -214,3 +214,31 @@ no original game input and never open application/account/history data. C API
 execution and platform JCA execution must be recorded separately from actual
 JNI entry, manifest loading, APK ZIP alignment and complete game preparation.
 No application build or producer-capability change is part of this cohort.
+
+## Source-specific standalone Android result
+
+The checked runtime is `a212b6b8`. Its authenticated bundle contains:
+
+| ABI | Cipher bytes | SHA-256 | Evidence |
+| --- | ---: | --- | --- |
+| ARM64 | 10,120 | `47c92a473226329af80238e6d13bef8a920232c2e54e3f1c5be0c9d2cc9457e3` | Compiled and audited; the exact hash also executed through the standalone C API on the authorized API 36 device. |
+| x86_64 | 10,096 | `ce580607a128165c6a0979955925fe29276feefd9aea5ca060ad26f463b9304d` | Compiled and audited; no target execution in this checkpoint. |
+
+Both ELF files have 16-KiB LOAD alignment and only libc as a dynamic dependency.
+The manifest SHA-256 is
+`12f0036615abe96960cc828df24b8282373a2b553219e9e257b9539ce8f6f9d1`.
+It binds four complete original notices and the exact software recipe.
+
+After the runtime commit, a controlled standalone run on Android API 36,
+ARM64, with 4-KiB device pages passed **16 C API cases and 41 actual ART/JCA
+cases**. The host verified every transferred executable, library, DEX and
+fresh authored input hash on the device before execution. Temporary files were
+confined to a fresh child of the authorized probe directory and removed after
+the run. No application/account/history paths, APK install/update, port forward,
+ADB reset, network setting or persistent device setting was used.
+
+This proves the original positioned cipher and platform primitives on that
+target. It does **not** prove JNI calls or manifest loading from a signed APK,
+APK ZIP alignment, API 34 execution, x86_64 execution, a 16-KiB-page device,
+complete game source preparation, or original audio playback. Those remain
+separate acceptance steps and no producer is enabled merely by these results.
