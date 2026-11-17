@@ -11,6 +11,7 @@ import {nativeAccountAcceptance, verifyNativeAccountsAfterUpdate} from './androi
 import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} from './android-browser-migration-ui.mjs';
 import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
 import {verifyAuthoredReaderInsets} from './android-authored-reader-insets.mjs';
+import {waitForAuthoredAdbRoot} from './android-authored-adb.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
@@ -70,7 +71,8 @@ assert.ok([4096, 16384].includes(pageSize));
 if (process.env.TOOLKIT_ANDROID_EXPECTED_API) assert.equal(deviceApi, Number(process.env.TOOLKIT_ANDROID_EXPECTED_API));
 assert.match(adb('shell', 'dumpsys', 'package', packageName), new RegExp(`targetSdk=${buildPolicy.target_sdk}(?:\\s|$)`));
 // Nothing in first launch may depend on a PC, model download or hosted reader.
-adb('root');adb('wait-for-device');
+await waitForAuthoredAdbRoot(adb, until);
+adb('wait-for-device');
 assert.equal(adb('shell', 'id', '-u'), '0');
 // Keep root-owned ADB transport working while denying app/system-service
 // egress. Bundled OCR must not acquire models through Play Services either.

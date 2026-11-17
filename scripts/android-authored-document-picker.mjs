@@ -49,5 +49,8 @@ export async function selectAuthoredAndroidDocument({adb, page, until, output, e
     adb('shell', 'input', 'tap', ...point.map(String));return true;
   }, `actual Android ${extension} document selection`);
   await until(() => page.evaluate(() => document.hasFocus()), 'WebView return after SAF selection');
-  adb('shell', 'rm', '/sdcard/toolkit-authored-picker.xml', remote);
+  // A selected SAF File is backed by this document and read asynchronously.
+  // Keep the authored source through upload AND any preview/commit; the
+  // disposable emulator owns cleanup after the complete scenario.
+  adb('shell', 'rm', '/sdcard/toolkit-authored-picker.xml');
 }
