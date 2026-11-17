@@ -69,9 +69,20 @@ def test_provider_joins_matching_original_generations_before_publishing_descript
     assert set(state['calls'][8:-1]) == {'ExcelOutput/' + name + '.json' for name in provider.TABLES}
     assert state['calls'][-1] == 'captions'
     assert (tmp_path / 'tools/sophon/releases' / stamp).is_file()
-    assert provider.current(tmp_path / 'tools', stamp, region)
+    assert provider.current(tmp_path / 'tools', stamp, region, format_revision='a' * 40)
     state['version'] = 'changed-original-index'
     assert not provider.current(tmp_path / 'tools', stamp, region)
+
+
+def test_movie_description_revision_and_outage_state_are_part_of_the_source_generation(tmp_path, monkeypatch):
+    fixture(monkeypatch)
+    first, _ = provider.prepare(tmp_path, format_revision='a' * 40)
+    second, catalog = provider.prepare(tmp_path, format_revision='b' * 40, format_metadata_stale=True)
+    assert second != first and catalog.movie_format_metadata_stale
+    assert provider.current(tmp_path / 'tools', second, format_revision='b' * 40, format_metadata_stale=True)
+    assert not provider.current(tmp_path / 'tools', second, format_revision='b' * 40)
+    with pytest.raises(ValueError):
+        provider.prepare(tmp_path, format_metadata_stale='yes')
 
 
 @pytest.mark.parametrize('failed', ['dispatch', 'table', 'caption'])

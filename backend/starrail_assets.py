@@ -2,10 +2,11 @@
 import re
 
 from . import hoyo_dialogue as common
-from .dialogue_catalog import DialogueCatalog, selected_tables
+from .dialogue_catalog import selected_tables
 from .preparation_errors import PreparationFailure
 
-LANGUAGE_INDEX_VERSION = 25
+LANGUAGE_INDEX_VERSION = 26
+PUBLISHER_DATA_ONLY = True
 SUPPORTED_LOCALES = common.SUPPORTED_LOCALES
 TEXT_LOCALES = {locale: ('Main' + code, *((code + '_0', code + '_1') if code in {'KR', 'RU', 'TH'} else (code,)))
                 for locale, code in common.TEXT_LOCALES.items()}
@@ -307,33 +308,30 @@ def _archive_rows(rows, links, bindings, credits, locale, tables=None):
 def index_language(install, data_dir, source_locale, target_locales, progress=lambda _message: None):
     if source_locale not in SUPPORTED_LOCALES:
         raise ValueError('Unsupported Star Rail study/audio language.')
-    if install is None:
-        from . import starrail_publisher, hoyo_publisher_voice
-        from .publisher_regions import selected_region
-        region = selected_region(data_dir / 'tools', 'starrail')
-        stamp, catalog = starrail_publisher.prepare(data_dir, region)
-    else:
-        stamp = fingerprint(install)
-        catalog = DialogueCatalog('starrail', data_dir)
+    # A saved installation remains a preference and a historical playback
+    # source. It cannot pair old PCKs with a new publisher text generation.
+    install = None
+    from . import starrail_publisher, hoyo_publisher_voice
+    from .publisher_regions import selected_region
+    region = selected_region(data_dir / 'tools', 'starrail')
+    stamp, catalog = starrail_publisher.prepare(data_dir, region)
     progress('Reading Star Rail dialogue, messages and authored voice IDs')
     text_locales = getattr(catalog, 'text_locales', TEXT_LOCALES)
     tables = selected_tables(catalog, text_locales, source_locale, target_locales)
     links = authored_links(catalog, source_locale)
-    entries = (common.inventory(install, 'starrail', source_locale) if install is not None else
-               hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail'))
+    entries = hoyo_publisher_voice.inventory(data_dir, stamp, source_locale, 'starrail')
     rows = common.records('starrail', links, tables, source_locale, entries)
     rows = [_player_row(row, row['player_voice']) if row['player_voice'] else row for row in rows]
     rows.extend(_readable_records(catalog, tables, source_locale))
-    if install is None:
-        from . import starrail_films, starrail_events
-        events = {'starrail:' + link['id']: link for link in links if 'audio_event' in link}
-        audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale,
-                                        {link['audio_event'] for link in events.values()})
-        credits = {}
-        if any((key or '').startswith('localized') for options in audio.values() for key in options):
-            credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
-        rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
-        rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
+    from . import starrail_films, starrail_events
+    events = {'starrail:' + link['id']: link for link in links if 'audio_event' in link}
+    audio = starrail_events.bindings(data_dir / 'tools', stamp, source_locale,
+                                    {link['audio_event'] for link in events.values()})
+    credits = {}
+    if any((key or '').startswith('localized') for options in audio.values() for key in options):
+        credits = {row['AvatarID']: row for row in _table(catalog, 'AvatarAtlas', ('AvatarID', 'CV_JP'))}
+    rows = _archive_rows(rows, events, audio, credits, source_locale, tables)
+    rows.extend(starrail_films.caption_rows(data_dir / 'tools', catalog, tables, source_locale, entries, rows))
     result = common.snapshot('starrail', install, stamp, catalog, rows, source_locale, target_locales, text_locales)
     # Route/display provenance is inventory metadata, not a LocalDialogue field.
     # Keep it available without breaking worker and runtime row validation.
@@ -345,17 +343,16 @@ def index_language(install, data_dir, source_locale, target_locales, progress=la
         result['coverage_warnings'].append('Some unnamed text entries have candidate audio without a verified recording of their written words. They remain unresolved.')
     if getattr(catalog, 'unresolved_caption_paths', ()):
         result['coverage_warnings'].append('Some declared film subtitle files could not be verified in the selected publisher release. They remain unresolved.')
-    if install is None:
-        if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region, data_dir / 'tools'):
-            raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
-        result['metadata_revision_title'] = catalog.revision_title
-        result['publisher_region'] = region
-        result['source_mode'] = 'publisher'
-        if getattr(catalog, 'movie_format_metadata_stale', False):
-            result['coverage_warnings'].append('The movie format metadata service is unavailable. Verified cached movie parameters may be reused; other dialogue remains available. Preparation will check again automatically.')
-        if getattr(catalog, 'movie_audio_incomplete', False):
-            result['coverage_warnings'].append('Some movie audio has changed or lacks matching format metadata or verified spoken windows. Those captions remain unavailable; earlier recordings are retained.')
-        result['message'] += ' using the selected regional HoYoPlay release and verified in-game hotfix indexes.'
+    if not any(row['audio'] for row in rows) or not starrail_publisher.current(stamp, region, data_dir / 'tools'):
+        raise ValueError('The Star Rail publisher release changed or its voice data is incomplete. Retry preparation.')
+    result['metadata_revision_title'] = catalog.revision_title
+    result['publisher_region'] = region
+    result['source_mode'] = 'publisher'
+    if getattr(catalog, 'movie_format_metadata_stale', False):
+        result['coverage_warnings'].append('The movie format metadata service is unavailable. Verified cached movie parameters may be reused; other dialogue remains available. Preparation will check again automatically.')
+    if getattr(catalog, 'movie_audio_incomplete', False):
+        result['coverage_warnings'].append('Some movie audio has changed or lacks matching format metadata or verified spoken windows. Those captions remain unavailable; earlier recordings are retained.')
+    result['message'] += ' using the selected regional HoYoPlay release and verified in-game hotfix indexes.'
     return result
 
 
@@ -364,6 +361,8 @@ def index_install(install, data_dir, progress=lambda _message: None):
 
 
 def extract_voice(install, audio, _executable, _destination):
+    if audio.get('publisher'):
+        install = None
     if install is None and 'movie' in audio:
         from .starrail_movie_audio import extract as extract_movie
         return extract_movie(audio, _executable)

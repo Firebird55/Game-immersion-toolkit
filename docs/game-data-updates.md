@@ -163,6 +163,17 @@ App updates prepare a separate replacement while the current companion keeps tra
 
 ## Honkai: Star Rail, Genshin Impact and Arknights: Endfield
 
+Star Rail reader revision 26 prepares official regional text and translations
+from original packages, together with audio selected by the same publisher
+generation. A saved installation does not override that source for new snapshots;
+existing local snapshots and historical playback remain available. Required
+table/config descriptions currently come from the original native client through
+frozen software. Community keys, schemas and bindings may supplement those
+descriptions, but community text or audio snapshots are not used by this route.
+Missing or incompatible required descriptions fail the candidate while keeping
+the prior complete library. Movie parameters and verified spoken windows remain
+separate from ordinary PCK dialogue support.
+
 Genshin index schema 19 rebuilds ordinary dialogue and reminders with their
 authored Traveler text and translation variants, including shared recordings.
 Archive reader 4 retains the exact rendered historical identity. Unresolved
@@ -173,10 +184,11 @@ presentation is confirmed silent. Capture cannot identify it through a rendered
 alias or an otherwise valid translation. Independently resolved text-only
 entries still follow the unvoiced-capture setting.
 
-Language preparation resolves one immutable revision of the fixed game-data
+Genshin language preparation resolves one immutable revision of its game-data
 source. Subtitle tables, dialogue identifiers and voice source paths stay on that
 revision for the complete candidate build. Genshin includes Medium and split
-subtitle tables; Star Rail includes Main and split tables. Endfield uses its
+subtitle tables. Star Rail's original tables include Main plus each official
+locale's complete original TextMap. Endfield uses its
 explicit dialogue and audio tables with the selected VFS voice group. With
 the game folder empty, it reads the selected publisher edition's release.
 Endfield reader revision 18 also refreshes radio classifications from explicit

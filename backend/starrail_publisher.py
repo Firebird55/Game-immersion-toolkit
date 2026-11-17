@@ -62,8 +62,14 @@ def _poll(region, period, tools):
 
 def _release(region, tools=None):
     from . import starrail_movie_metadata
-    channel = {'global': 'starrail-global', 'cn': 'starrail-cn'}[region]
-    build = hotfix.discover(sophon.release(channel))
+    if tools is not None:
+        from . import starrail_original_provider
+        build = starrail_original_provider.release(tools, region)[0]
+    else:
+        # Compatibility for callers without a data directory. Normal workers
+        # supply tools and use the original client bootstrap above.
+        channel = {'global': 'starrail-global', 'cn': 'starrail-cn'}[region]
+        build = hotfix.discover(sophon.release(channel))
     revision, stale = starrail_movie_metadata.check_latest(tools / 'sophon' if tools else None)
     if revision:
         build['movie_format_revision'] = revision
@@ -265,22 +271,7 @@ class ReleasedCatalog(DialogueCatalog):
 
 
 def prepare(data_dir, region='global'):
-    build = _release(region, data_dir / 'tools')
-    stamp, raw = voices.descriptor(build)
-    directory = data_dir / 'tools' / 'sophon'
-    # Check all actual index bodies against this release before publishing
-    # the translation and audio selection. Reuse unchanged index digests.
-    title_indexes = ('design', 'asb', 'lua', 'audio')
-    for name in title_indexes:
-        hotfix.index(directory, build, name)
-    movie_files = hotfix.movie_files(directory, build)
-    revisions = tuple(build['hotfix']['indexes'][name][0] for name in title_indexes)
-    title = release_title(stamp, build['version'], revisions)
-    catalog = ReleasedCatalog('starrail', data_dir, revision=_text_commit(title))
-    catalog.revision_title = title
-    catalog.movie_files = movie_files
-    catalog.design_source = directory, build
-    catalog.movie_audio_source = directory, stamp, build.get('movie_format_revision')
-    catalog.movie_format_metadata_stale = bool(build.get('movie_format_metadata_stale'))
-    _atomic_file(directory / 'releases' / stamp, raw)
-    return stamp, catalog
+    from . import starrail_original_provider, starrail_movie_metadata
+    revision, stale = starrail_movie_metadata.check_latest(data_dir / 'tools' / 'sophon')
+    return starrail_original_provider.prepare(data_dir, region, format_revision=revision,
+                                             format_metadata_stale=stale)

@@ -1,5 +1,37 @@
 # Honkai: Star Rail dialogue audit
 
+## Ordinary original publisher preparation · November 17, 2026
+
+Normal Star Rail preparation now selects `starrail_original_provider`: original
+regional bootstrap, all 21 required original tables, original mission/caption
+configurations and the thirteen official text locales. It does not fetch a
+community TextMap or transcript snapshot. Existing frozen metadata software
+supplies current required native descriptions. Controlled community keys,
+schema and authored bindings are permitted dependencies; text, translations and
+recordings must still come from the publisher. A complete controlled schema
+fallback for an unsupported future native codec remains unfinished.
+
+Reader revision 26 rebuilds older prepared libraries. A saved game folder remains
+a preference and a source for historical local playback; a new publisher
+snapshot uses publisher audio from the same generation as its text. Missing
+local dub packs therefore do not remove a supported publisher language. The
+watcher's source fingerprint follows this choice, and record-owned historical
+publisher playback remains independent from the selected folder. Failed
+preparation retains earlier snapshots and exact original recordings.
+
+The ordinary release fingerprint and prepared descriptor use the same original
+regional discovery and include the selected immutable movie-description revision
+and stale-service state. Synthetic checks cover Global/CN route agreement,
+absent local dubs in all four voiced languages, old-folder isolation, historical
+playback, offline descriptor availability and failure preservation. These are
+component checks, not a new live old/current or platform acceptance claim.
+
+The dated checkpoints below retain their original experimental scope. Their
+statements that the normal provider is unchanged describe earlier revisions.
+Other spoken movie windows, source-format recovery and platform acceptance
+remain separate requirements; a matching movie key does not prove a caption's
+written words are spoken in that movie.
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global

@@ -1,7 +1,7 @@
 """Compose original Star Rail acquisition and the existing dialogue catalog API.
 
-The ordinary publisher selects this only after its complete preparation and
-recovery contract is accepted. No third-party data publication is polled here.
+Text and recordings always belong to the same original publisher generation.
+No third-party text publication is polled here.
 """
 from pathlib import Path
 import re
@@ -44,15 +44,27 @@ def release(tools, region='global'):
     return discovery.prepare(tools / 'sophon', build, generation.routes), generation
 
 
-def fingerprint(tools, region='global'):
-    return voices.descriptor(release(tools, region)[0])[0]
+def _movie_source(build, revision, stale):
+    _check(revision is None or isinstance(revision, str) and re.fullmatch(r'[0-9a-f]{40}', revision))
+    _check(type(stale) is bool)
+    build = dict(build)
+    if revision:
+        build['movie_format_revision'] = revision
+    if stale:
+        build['movie_format_metadata_stale'] = True
+    return build
 
 
-def current(tools, stamp, region='global'):
-    return fingerprint(tools, region) == stamp
+def fingerprint(tools, region='global', *, format_revision=None, format_metadata_stale=False):
+    build = _movie_source(release(tools, region)[0], format_revision, format_metadata_stale)
+    return voices.descriptor(build)[0]
 
 
-def prepare(data_dir, region='global', *, format_revision=None):
+def current(tools, stamp, region='global', **kwargs):
+    return fingerprint(tools, region, **kwargs) == stamp
+
+
+def prepare(data_dir, region='global', *, format_revision=None, format_metadata_stale=False):
     """Prepare original data; optionally reuse a supplied frozen format revision.
 
     A format revision is an existing immutable format description, not a live
@@ -63,6 +75,7 @@ def prepare(data_dir, region='global', *, format_revision=None):
            and re.fullmatch(r'[0-9a-f]{40}', format_revision))
     tools = Path(data_dir) / 'tools'
     build, generation = release(tools, region)
+    build = _movie_source(build, format_revision, format_metadata_stale)
     directory = tools / 'sophon'
     for name in ('design', 'asb', 'lua', 'audio', 'video'):
         hotfix.index(directory, build, name)
@@ -73,6 +86,7 @@ def prepare(data_dir, region='global', *, format_revision=None):
     stamp, raw = voices.descriptor(build)
     catalog.revision_title = f"{build['version']} / DesignV {build['hotfix']['indexes']['design'][0]}"
     catalog.movie_audio_source = directory, stamp, format_revision
+    catalog.movie_format_metadata_stale = format_metadata_stale
     for name in sorted(TABLES):
         catalog.file('ExcelOutput/' + name + '.json')
     # Force every currently required config and caption description before

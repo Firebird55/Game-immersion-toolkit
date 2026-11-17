@@ -225,10 +225,9 @@ def test_protagonist_movies_require_each_branch_recording_and_keep_missing_count
 
 
 def test_format_updates_change_freshness_without_game_or_toolkit_update(tmp_path, monkeypatch):
-    from backend import starrail_publisher as publisher
+    from backend import starrail_publisher as publisher, starrail_original_provider as original
     state = {'revision': '1' * 40, 'time': 60}
-    monkeypatch.setattr(publisher.sophon, 'release', lambda *_: {'channel': 'starrail-global', 'version': '4.7.0'})
-    monkeypatch.setattr(publisher.hotfix, 'discover', lambda build: build)
+    monkeypatch.setattr(original, 'release', lambda *_: ({'channel': 'starrail-global', 'version': '4.7.0'}, None))
     monkeypatch.setattr(metadata, 'check_latest', lambda *_: (state['revision'], False))
     monkeypatch.setattr(publisher.time, 'monotonic', lambda: state['time'])
     publisher._poll.cache_clear()
