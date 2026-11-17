@@ -61,7 +61,24 @@ async function connectReader() {
   await page.locator('.companion-shell').waitFor({timeout: 60_000});
   return {browser, page};
 }
+// A real cross-origin iframe/WindowProxy and structured PNG Blob exercise the
+// maintained receiver. The sender is authored; this is not an iOS/WebRTC claim.
+const senderFixture = `<!doctype html><canvas width="1600" height="240"></canvas><script>
+let sequence=0;
+addEventListener('message',async event=>{
+ const request=event.data;if(!request?.getVideoFrame)return;
+ const canvas=document.querySelector('canvas'),context=canvas.getContext('2d');
+ context.fillStyle='black';context.fillRect(0,0,1600,240);
+ context.fillStyle='rgb('+(++sequence%255)+',40,80)';context.fillRect(0,0,32,32);
+ context.fillStyle='white';context.font='64px sans-serif';
+ context.fillText('Follow the river beyond the bridge.',40,140);
+ const imageData=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+ parent.postMessage({action:'image-frame-capture',value:{imageData,imageType:'png',
+  cib:request.cib,streamID:request.streamID}},event.origin);
+});
+</script>`;
 let {browser, page} = await connectReader();
+await page.route('https://vdo.ninja/**', route => route.fulfill({contentType: 'text/html', body: senderFixture}));
 const originalOrigin = new URL(page.url()).origin;
 assert.equal(await page.locator('meta[name="toolkit-host-platform"]').getAttribute('content'), 'android');
 const library = readFileSync(join(directory, 'authored-library.zip')).toString('base64');
@@ -78,25 +95,25 @@ await page.evaluate(async () => {
     body: JSON.stringify({zzz_region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
   if (!response.ok) throw new Error('Authored full-frame calibration failed');
 });
-const generation = await page.evaluate(async () => (await (await fetch('/api/capture/start', {method: 'POST'})).json()).generation);
-for (let sequence = 1; sequence <= 4; sequence++) {
-  const status = await page.evaluate(async ({generation, sequence}) => {
-    const canvas = document.createElement('canvas');canvas.width = 1600;canvas.height = 240;
-    const context = canvas.getContext('2d');context.fillStyle = 'black';context.fillRect(0, 0, 1600, 240);
-    context.fillStyle = 'white';context.font = '64px sans-serif';
-    context.fillText('Follow the river beyond the bridge.', 40, 140);
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    return (await fetch('/api/capture/frame', {method: 'POST', headers: {'Content-Type': 'image/png',
-      'X-Toolkit-Generation': String(generation), 'X-Toolkit-Frame': String(sequence)}, body: blob})).status;
-  }, {generation, sequence});
-  assert.equal(status, 202);
-  await delay(1200);
-}
+const connectScreen = page.getByRole('button', {name: 'Connect screen', exact: true});
+await page.getByLabel('Private viewer link or stream code', {exact: true}).fill('https://vdo.ninja/?view=authored');
+await until(() => connectScreen.isEnabled(), 'actual native receiver after library activation');
+await connectScreen.click();
 const snapshot = await until(() => page.evaluate(async () => {
   const value = await (await fetch('/api/snapshot')).json();return value.lines.length ? value : null;
 }), 'native frame OCR into the actual reader transcript');
 assert.equal(snapshot.lines[0].text_id, 'authored:bridge');
 assert.equal(snapshot.lines[0].has_audio, true);
+assert.equal(snapshot.status.capture.running, true);
+const firstGeneration = snapshot.status.capture.source_generation;
+assert.ok(Number.isSafeInteger(firstGeneration));
+await page.getByRole('button', {name: 'Stop screen', exact: true}).click();
+await until(() => page.evaluate(async () => !(await (await fetch('/api/snapshot')).json()).status.capture.running), 'actual receiver Stop');
+await connectScreen.click();
+await until(() => page.evaluate(async previous => {
+  const capture=(await (await fetch('/api/snapshot')).json()).status.capture;
+  return capture.running && capture.source_generation > previous;
+}, firstGeneration), 'fresh native scope after reconnect');
 const lineId = snapshot.lines[0].id;
 await page.evaluate(() => {
   // Observe real WebView media objects created by the production play button.
@@ -128,6 +145,7 @@ await page.evaluate(async id => {
   localStorage.setItem('proxy-transcript-reading-options', JSON.stringify({fontSize: 31, pinyin: 'all'}));
 }, lineId);
 await page.reload();
+assert.equal(await page.getByLabel('Private viewer link or stream code', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
 await until(() => page.locator('select[aria-label="Reading"]').inputValue().then(value => value === 'lexirise'), 'production reading mode bootstrap');
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'production playback preference');
 await page.screenshot({path: join(output, 'android-shared-reader.png')});
@@ -151,6 +169,7 @@ writeFileSync(join(output, 'android-runtime-proof.json'), JSON.stringify({schema
   fixture: 'authored-text-bitmap-and-generated-tone', apk_sha256: provenance.apk_sha256,
   source_commit: provenance.source_commit, frontend_build_id: provenance.frontend_build_id,
   shared_core_identical: true, native_media_completed: true, bundled_ocr_to_transcript: true,
+  synthetic_cross_origin_receiver: true, native_receiver_stop_and_reconnect: true,
   shared_reader_audio_stopped_on_background: true, authored_fuzzy_50000_ms: core.runtime.authored_fuzzy_50000_ms,
   offline_process_restart: true, reader_preferences_retained: true, favorite_and_original_audio_retained: true,
   physical_device_acceptance: 'not-established', release_eligibility: false}, null, 2) + '\n');
