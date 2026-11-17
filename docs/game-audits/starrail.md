@@ -446,6 +446,24 @@ No login or game-protocol request was performed. This is an unresolved source
 dependency; it is not classified as a changed movie format or as proved
 authenticated-only data.
 
+The original named `_OnCmdGetVideoVersionKeyScRsp` handler now directly joins
+that successful response to the two registries. Native protobuf tag branches,
+primitive reads and stores prove an ID plus three uint64 values per record;
+the response status and both list roles are independently joined to their
+consumers. The fallback playback struct is explicitly initialized to zero, so
+an empty registry cannot supply replacement movie keys.
+
+Tracing the original cached `SendGetVideoVersionKeyCsReq` delegate through its
+actual static-field accesses and original runtime-method usage records reaches
+a native function that returns immediately unless its IFix patch branch is
+active. Its name therefore proves neither an outgoing request nor an
+authentication requirement. The smallest missing input proof is a complete,
+successful publisher response bound to the same regional client/resource
+generation, obtained through an evidenced allowed route. Its two lists must
+then validate against the corresponding original video/loop tables before
+deriving playback parameters. No such new response was acquired, and no
+account-session or game-protocol operation was attempted.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
