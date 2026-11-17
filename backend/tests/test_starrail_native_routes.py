@@ -53,3 +53,36 @@ def test_enum_wire_labels_require_original_constants_return_flow_and_string_argu
             _enum_converter(index, 0x100, 'PackageKind')
     else:
         assert _enum_converter(index, 0x100, 'PackageKind') == 'PackageKind'
+
+
+@pytest.mark.parametrize('transfer,expected', [('scalar', 0x48), ('vector', 0x38), ('swap', 0x40)])
+def test_region_name_belongs_to_setter_receiver_and_not_same_offset_in_gateway_array(transfer, expected):
+    # Array element zero shares the region Name offset. This used to select the
+    # primary gateway as the name when a compiler combined adjacent field copies.
+    from backend.starrail_native_routes import _region_sources
+    rows = [('mov', 'rdx, qword ptr [rsi + 0x18]'), ('mov', 'qword ptr [rax + 0x20], rdx'),
+            ('mov', 'rcx, qword ptr [rsi + 0x28]'), ('mov', 'qword ptr [rax + 0x28], rcx'),
+            ('mov', 'rcx, rbx'), ('mov', 'rdx, rax'), ('call', '0x500')]
+    rows += ([('mov', 'rcx, qword ptr [rsi + 0x48]'), ('mov', 'qword ptr [rbx + 0x20], rcx')]
+             if transfer == 'scalar' else [('movdqu', 'xmm0, xmmword ptr [rsi + 0x38]')]
+             + ([('pshufd', 'xmm0, xmm0, 0x4e')] if transfer == 'swap' else [])
+             + [('movdqu', 'xmmword ptr [rbx + 0x20], xmm0')])
+    assert _region_sources([(i, op, args) for i, (op, args) in enumerate(rows)], 0x500, 0x20) == {
+        'name': expected, 'primary_gateway': 0x18, 'alternate_gateway': 0x28}
+
+
+@pytest.mark.parametrize('change', ['clobber-source', 'clobber-receiver', 'wrong-shuffle', 'wrong-array', 'clobber-vector'])
+def test_region_transfer_rejects_unproved_aliases_and_lane_operations(change):
+    from backend.starrail_native_routes import _region_sources
+    rows = [('mov', 'rdx, qword ptr [rsi + 0x18]'), ('mov', 'qword ptr [rax + 0x20], rdx'),
+            ('mov', 'rcx, qword ptr [rsi + 0x28]'), ('mov', 'qword ptr [rax + 0x28], rcx'),
+            ('mov', 'rcx, rbx'), ('mov', 'rdx, rdi' if change == 'wrong-array' else 'rdx, rax'), ('call', '0x500')]
+    if change.startswith('clobber-') and change != 'clobber-vector':
+        rows.append(('xor', 'esi, esi' if change == 'clobber-source' else 'ebx, ebx'))
+    rows += [('movdqu', 'xmm0, xmmword ptr [rsi + 0x38]'),
+             ('pshufd', 'xmm0, xmm0, 0x1b' if change == 'wrong-shuffle' else 'xmm0, xmm0, 0x4e')]
+    if change == 'clobber-vector':
+        rows.append(('pxor', 'xmm0, xmm0'))
+    rows.append(('movdqu', 'xmmword ptr [rbx + 0x20], xmm0'))
+    with pytest.raises(ValueError):
+        _region_sources([(i, op, args) for i, (op, args) in enumerate(rows)], 0x500, 0x20)

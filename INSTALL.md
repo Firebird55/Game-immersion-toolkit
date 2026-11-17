@@ -73,6 +73,9 @@ Endfield's general reactions are separate from sentence recordings. A sigh or
 captions use the unvoiced option; unresolved or missing audio keeps its own
 status. See the [current subtitle inventory](docs/game-audits/endfield-current-subtitle-acceptance.md)
 for the current radio classifications and historical-film boundaries.
+Top-of-screen Endfield captions use full-frame voiced capture when the current
+publisher data supplies their exact original recording and positive duration
+in the selected dub. A generic emotion fallback is kept separate.
 Some Endfield captions use the complete original scene recording, explicitly
 labeled as context. Observed context recordings run from 14.5 to 224.5 seconds;
 they include the full performance rather than an exact individual-sentence cut.
@@ -143,6 +146,9 @@ game folder; illustrative media is not a recording of the written explanation.
 Voiced top-of-screen Endfield captions are read across the full frame. Short
 operator-training instructions can use their immediately preceding authored
 step; keep complete instructions visible and allow stable observations.
+Repeated Endfield operator captions can share a verified original recording
+when all official texts and capture conditions agree. Other variants keep their
+context safeguards.
 
 For Rise of the Tomb Raider, choose the folder containing ROTTR.exe and bigfile.000.tiger.
 For Shadow of the Tomb Raider, choose the folder containing SOTTR.exe and bigfile.000.tiger.

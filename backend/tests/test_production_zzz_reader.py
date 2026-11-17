@@ -93,6 +93,31 @@ def test_fixed_scene_commands_require_verified_resources_and_owned_work(tmp_path
         helper.publisher_command('scene-plan', game)
 
 
+def test_publisher_typed_config_stages_remain_in_the_closed_app_local_reader(tmp_path, monkeypatch):
+    layout, root, value = fixture(tmp_path, monkeypatch)
+    helper = reader.production_zzz_reader(layout=seal(layout, root, value))
+    work = layout.work_root / 'publisher-configs'
+    work.mkdir(parents=True)
+    for name in ('design-1.blk', 'catalog-2.blk', 'scene-plan-input.json', 'scene-plan-output.json',
+                 '3.blk.presentation-roots', 'presentation-config-plan-input.json'):
+        (work / name).write_bytes(b'authored fixture')
+    assert helper.publisher_command('presentation-config-plan', work)[2] == 'presentation-config-plan'
+    for name in ('presentation-config-plan-output.json', '4.blk.presentation-configs',
+                 'presentation-owners-input.json'):
+        (work / name).write_bytes(b'authored fixture')
+    assert helper.publisher_command('presentation-owners', work)[2] == 'presentation-owners'
+    for name in ('presentation-owners-output.json', '5.blk.comic-roots', 'comic-plan-input.json'):
+        (work / name).write_bytes(b'authored fixture')
+    assert helper.publisher_command('comic-plan', work)[2] == 'comic-plan'
+    for name in ('comic-plan-output.json', '6.blk.scenes', '7.blk.comics',
+                 '8.blk.voice-directory', 'catalogue-input.json'):
+        (work / name).write_bytes(b'authored fixture')
+    assert helper.publisher_command('catalogue', work)[2] == 'catalogue'
+    (work / 'unbound-config.json').write_bytes(b'not an authorized input')
+    with pytest.raises(PreparationFailure, match='Unexpected input'):
+        helper.publisher_command('catalogue', work)
+
+
 @pytest.mark.parametrize('change', ['missing-license', 'extra-file', 'extra-dir', 'wrong-source', 'dirty-source',
     'wrong-upstream', 'wrong-platform', 'wrong-node', 'tampered-script', 'unbound-manifest', 'wrong-build',
     'arbitrary-code', 'changed-dependency', 'probe-profile', 'wrong-inputs'])

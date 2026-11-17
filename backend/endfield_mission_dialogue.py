@@ -30,7 +30,7 @@ def _spoken_trunk(node, *, top=False):
             or actor.get('actions') or actor.get('actionGroups') or action.get('voiceConfig')
             or action.get('customText') or action.get('disablePlayVoice')
             or (action.get('_showAtTop') is not True if top else action.get('_showAtTop'))
-            or action.get('exUIDescriptor', {}).get('useRadio') or action.get('enableEmotionVoice')
+            or action.get('exUIDescriptor', {}).get('useRadio') or (action.get('enableEmotionVoice') and not top)
             or action.get('isOverrideEmotionVoiceId') or action.get('overrideEmotionVoiceId')):
         return None
     return action.get('_trunkId')
@@ -94,7 +94,7 @@ def predecessors(tools, stamp):
 
 def _top_summary(tools, path, source):
     identity = (path + '\0' + source[1].content_hashes[1]).encode()
-    destination = tools / 'endfield-releases' / 'dialogue-top-layouts-v1' / sha256(identity).hexdigest()
+    destination = tools / 'endfield-releases' / 'dialogue-top-layouts-v2' / sha256(identity).hexdigest()
     if destination.is_file() and destination.stat().st_size <= 4 * 1024**2:
         checksum, _, body = destination.read_bytes().partition(b'\n')
         if checksum == sha256(identity + body).hexdigest().encode():

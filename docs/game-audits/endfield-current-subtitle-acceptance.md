@@ -1,6 +1,6 @@
 # Endfield current subtitle acceptance
 
-Checked November 16, 2026 against Global Windows **1.6.4**, initial/main
+Checked November 17, 2026 against Global Windows **1.6.4**, initial/main
 resource **11775769-12**. This is the current-content closing basis for #86.
 Historical Technical Test reconstruction is a separate archive feature.
 The [publisher-version rehearsal](endfield.md#publisher-version-rehearsal-with-changed-text-and-voices--november-16-2026)
@@ -362,6 +362,160 @@ excluded. The old generation contains only the second disabled caller, whose
 prior unavailable state becomes unvoiced. No other prior audio or capture
 metadata changes. This corrects source ownership; physical gameplay and the
 remaining presentation/device acceptance gates remain separate.
+
+## Original operator recordings and source callers
+
+Revision 26 resolves a specific recording-identity collision. Current spaceship
+dialogue and the operator's voice archive can display the same official caption
+while referring to separate WEM paths. The original graph declares its
+`spaceshipCharId` and NPC actor index. Its blank trunk owns the outgoing
+`ExTrunkReplace` extension; the native `GetExNodeData` and
+`FindTrunkIdForReplacement` readers establish that ownership. All 33 current
+friendship extensions contain six conditional utterances each. Their **198
+original sentence voices are already prepared in every study selection**.
+The complete source selector also accounts for direct spaceship utterances:
+394 speaker bindings across 34 operator identities. Character profiles retain
+their own original `CharacterTable` speaker identity.
+
+Before this correction, different file IDs made 197 English, 198 Simplified
+Chinese, 196 Traditional Chinese, 197 Japanese and 198 Korean friendship captions
+ambiguous. Missing sentence files were not the cause. A bounded original-media
+census checks matching full text, speaker/player branch and line scope, then
+compares complete original WEM bytes. Every same-length candidate group proved
+byte-identical: 230 English, 230 Simplified Chinese, 229 Traditional Chinese,
+142 Japanese and 230 Korean groups. Different-length groups remain separate.
+Japanese has fewer eligible groups because the complete requested official
+translations do not always agree between presentations.
+
+All verified groups have default dialogue `audioEffect = 0`. Their original
+metadata agrees except for path, speaker channel and voice type. Those **in-game
+bus differences remain explicit**; no equal gameplay mix is claimed. A fresh
+network-forbidden process exported one conversation/archive pair per dub
+through `LocalVoiceAssetService`. Each pair produced identical MP3 bytes and
+identical non-silent PCM. Thus the toolkit's original line export, playback and
+gain agree even though the game can route those sources differently.
+
+The reader adds optional `original_recording_sha256` and `original_speaker_id`
+metadata while retaining every authored audio reference and member identity.
+It only compares the complete verified raw recording under default line-export
+options. Full official texts, translations, actual speaker, player, locale,
+scope, predecessor requirements, member IDs, channels and OCR evidence must
+still agree. An archive entry cannot bypass a guarded short conversation.
+Portable clips additionally retain their actual encoded content identity;
+different encodings or export options remain separate. No recording-ID alias
+list, fuzzy exception or generic reaction substitution is used.
+
+Hash receipts bind to the current official package digest, entry ID/offset/size
+and dub. Changed packages require new byte verification; unchanged packages can
+reuse verified cache receipts across resource revisions. Source graph bindings
+independently follow their current path/content digest. New compatible game IDs
+therefore need no toolkit update or newer community-data snapshot.
+
+All five ordinary publisher workers retain the revision-25 record totals and
+every prior text, original audio reference, state, recognition anchor, channel,
+predecessor and member field. A fresh complete-index replay, with networking
+forbidden and ordinary voiced capture, now gives:
+
+| Study selection | Friendship captions captured | Still guarded | All verified recording groups captured |
+| --- | ---: | ---: | ---: |
+| English | 173 / 198 | 25 | 230 / 230 |
+| Simplified Chinese | 172 / 198 | 26 | 230 / 230 |
+| Traditional Chinese | 173 / 198 | 25 | 229 / 229 |
+| Japanese | 113 / 198 | 85 | 142 / 142 |
+| Korean | 172 / 198 | 26 | 230 / 230 |
+
+The last column covers all annotated conversation/archive groups, including
+friendship groups, rather than an additional disjoint inventory. The
+[remaining friendship cases](endfield-operator-capture-guards-1.6.4.csv) need
+actual presentation context or further recording/translation evidence. They
+are not relabeled silent or assigned an unverified alternate recording.
+
+With the same revision-26 code and format metadata frozen, explicitly replayed
+original 1.5.3 discovery prepares 49,550 English records; live 1.6.4 prepares
+55,086. Every old ID and prior binding survives, including 460 original-recording
+digest rows in each generation. The update adds 5,536 records, including 3,155
+voiced records, with the same 11 existing English text changes. Actual selected
+old media is verified separately; the package-bound digest cache does not assume
+that equal file IDs imply equal content across releases. The earlier
+changed-recording, interruption and retained-export proofs remain separate.
+
+For caller inventory, an owned data reader consumes all 405,739 bytes of the
+current original `DialogIdTable`: 3,106 dialogue IDs and 5,440 option IDs, with
+both inverse maps consistent. All 3,093 current dialogue graphs have registry
+entries. Thirteen registry entries lack a current graph; none has a checked
+constant-dialogue-parameter reference in the 5,561 current level scripts.
+They are not counted as missing current subtitles without a current caller.
+Static original union metadata identifies all 1,364 action tags. The strict
+reader accepts all 15 serialized fields of **1,029 `StartDialogAction` records**:
+1,021 literal calls refer to 974 dialogue IDs; eight parameterized calls in four
+scripts still need producer/context tracing. NPC overrides, preloads and other
+caller families are separate. This is source-call evidence, not execution of
+the game's root triggers or physical gameplay acceptance.
+
+## Compact current capture and audio endpoint
+
+Revision 27 completes the source-declared top-caption family: all **15 current
+IDs / 16 protagonist-expanded records** enter the voiced full-frame route.
+The three previously excluded `enableEmotionVoice` declarations have their own
+original sentence recordings. Static original `DialogManager._PlayVoice` data
+shows that the primary `DialogTextData.audioOverride` lookup runs first;
+`VoiceUtils.TryGetVoiceDuration` must find voice metadata and a duration greater
+than zero. A successful lookup skips the complete emotion fallback branch.
+The original duration getter reads the selected Mandarin, English, Japanese or
+Korean field. The current original patch inventory changes neither controller
+nor voice utility. No client or patch code is executed for this proof.
+
+Preparation now requires the exact authored primary filename, its matching
+`AudioDialog` ID, a finite positive duration in the selected dub and that dub's
+original recording before admitting any top caption to full-frame voiced
+capture. Missing metadata, invalid/zero duration, placeholders and missing
+media do not gain this route. The bottom mission selector keeps its existing
+emotion-route restrictions. No caption-ID allowlist or borrowed generic sound
+is used. Normal updates re-evaluate the current graph, metadata and packages.
+
+All five ordinary current publisher workers keep their complete record totals,
+texts, recordings, voice states, OCR anchors, recording digests and member
+identities. Exactly three capture-channel fields and two authored predecessor
+fields change. A network-forbidden replay uses each complete current language
+index and the actual `CaptureService` with synthetic top-position OCR boxes:
+**15 / 15 captions per protagonist in every study selection**, each after two
+stable observations, with unvoiced and missing-audio capture disabled. This is
+production capture-policy evidence, not native OCR or physical playback.
+
+The same frozen revision-27 reader prepares 49,550 English records from the
+explicitly replayed original 1.5.3 descriptor and 55,086 from live 1.6.4. Both
+generations admit 16 expanded top records using their own primary metadata.
+Every old ID, recording reference, voice state, OCR anchor, digest and member
+identity survives. The current generation adds 5,536 records including 3,155
+voiced rows and keeps the same 11 existing English-text changes. Original
+package directories are revalidated through the normal publisher reader;
+this remains a frozen two-generation rehearsal rather than future-update or
+physical scheduled-activation acceptance.
+
+These finite checked families are not a claim that every indirect trigger,
+readable layout, operator menu or other narrative presentation has passed.
+Counts use prepared captions/performance pairs rather than unlocked player
+content. Chinese script choices share the original Mandarin sources.
+
+| Checked family | English | Simplified Chinese | Traditional Chinese | Japanese | Korean | Remaining condition |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Current cinematic original audio bound | 499 / 501 | 501 / 503 | 501 / 503 | 495 / 497 | 497 / 499 | Two boss-caption performances per selection retain unknown speech ownership |
+| Original residual radio subset captured | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | 133 / 134 | One anonymous short caption; generic reactions stay separate |
+| Source-declared top captions admitted automatically, per protagonist | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | 15 / 15 | Exact primary binding and positive selected-dub duration required; physical acceptance separate |
+| Instruction bodies captured | 125 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | 131 / 131 | Six English bodies remain guarded |
+| Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
+| Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |
+| Baker system bodies captured | 102 / 117 | 104 / 117 | 104 / 117 | 110 / 117 | 104 / 117 | Short/repeated system text retains guards |
+| Friendship NPC captions captured | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Other recording or official-text variants need context |
+
+All friendship recordings are prepared; the last row measures capture
+disambiguation. The cinematic row measures original audio ownership, not a
+physical capture pass. Other prepared conversation, radio, choice, story-panel,
+message, readable, operator archive and bark inventories retain their existing
+limits. Finite active-caller closure and representative physical/end-to-end
+capture, scheduled activation and regional acceptance remain open. #86 stays
+open; historical films without a current caller are not substituted for those
+current acceptance requirements.
 
 ## Text provenance and remaining acceptance
 

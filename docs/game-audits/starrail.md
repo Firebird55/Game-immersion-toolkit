@@ -266,6 +266,69 @@ repeat attempt. This is original route/table preparation evidence; it does not
 yet establish the ordinary setup worker, regional editions, playback or recovery
 acceptance for the new provider.
 
+The same frozen helper also regenerated fresh metadata from complete Global
+4.6 inputs (build `28nuQlEyEGAX`, native MD5
+`d33cb7b0781287362e7f3d8571b520aa`) and derived the same 21 table roles and 109
+fields with changed protocol tags. Original table comparisons found 4,429 added
+sentence IDs, 16 changed existing sentence rows and 1,847 added voice IDs in 4.7.
+The retired 4.6 dispatch is an explicit retained-baseline replay; it is not a
+live discovery pass or evidence of a format break.
+
+Mainland 4.7 now passes the native preparation API independently: build
+`55EjVJ7DGGpF`, native MD5 `3cdfac8ce662ceea48d827a77e38a9bc`, metadata MD5
+`52233e5d172eeece25998f5e8fb9749b` and startup MD5
+`8e6574f1deaf5c7b5c59e0dafb7db8b8`. All three complete files were authenticated
+against the [original CN manifest](https://autopatchcn.bhsr.com/client/sophon/manifests/cxi9zq9xwjk0/20261030/4.7.0/jtxaUnbtOZLC/manifest_0e4269e70b1ad07e_6110fa9c21b26d52920107fb5e71d9d2).
+The unchanged helper regenerated its own dump and literals, then the owned API
+derived all 21 table bindings and 109 fields without substituting Global
+metadata. The original CN parser combines adjacent region strings with a vector
+copy and lane exchange. The derivation now follows that exact transfer into the
+region setter's receiver, excluding temporary gateway-array slots with matching
+offsets; unsupported lane operations and clobbered owners fail closed. Raw
+literal prefiltering can inspect a larger unrelated constructor, while decoded
+method bounds remain 64 KiB. Live public CN dispatch succeeds, and all five
+resource index revision/digest/size tuples equal the independently verified
+current Global generation. This proves regional bootstrap discovery and native
+description preparation, not regional playback or ordinary worker acceptance.
+
+The owned native-usage API now resolves the missing polymorphic factory bridge.
+It discovers the typed task/predicate registries from original metadata, follows
+their actual static storage into the dispatcher, and proves reader/index/table/
+return ownership across its native control-flow graph. Original exception
+callees are considered non-returning only when their bounded bodies prove that
+every reachable exit traps. This prevents invented fallthrough paths between
+compiler cold blocks. The PE exception directory supplies native bounds; the
+named `.pdata` section is not assumed to contain readable records.
+
+Registration is joined to the freshly generated literal-table identity. Native
+arithmetic operands establish the original usage-list and usage-pair codecs,
+including their offsets and final-list index. The resulting explicit method
+definition joins do not use declaration order, copied runtime pointers, a newer
+data publication, a version list or supplied addresses/keys. The same owned
+extractor succeeds for Global 4.6 (3,967 task slots and 648 predicate slots) and
+Global/CN 4.7 (4,086 and 660 slots). Each version retains 12 explicit empty task
+slots and two empty predicate slots. These are dispatch slots, not dialogue
+availability or unvoiced classifications. Generic-method specs still require a
+separate proved binding contract if a requested factory uses one.
+
+Original mission action decoding remains a provider integration task, with a
+bounded positive for its real conditional-caption dependency. Authored
+`PerformanceVideo` paths resolve through the original `JsonToBinaryPath` rule
+to `BakedConfig/Config/Level/Mission/.../Act/...bytes`. The whole containing
+package `73b3d10f574211fe5df50448d5b2ecb7` (134,240,610 bytes) is now MD5
+verified, using existing publisher range bodies without a new transfer. The
+selected text/table/config source set totals 1,138,529,119 bytes; this is separate
+from the CN native-input proof.
+
+The 114-byte original `Act104371098` body decodes to exact EOF using its original
+native field order and explicit factory bindings. A frozen JSON extraction is a
+post-decode verification oracle only. The existing film consumer selects the
+default caption for Mandarin and the authored `_2` caption for English,
+Japanese and Korean in this single-action probe. That positive does not yet
+implement the generic production mission reader or establish ordinary setup
+worker acceptance. Caption-only proofs cannot substitute for mission predicate
+and dub-branch ownership.
+
 The current proof uses Global 4.7.0, launcher build `8Mu3l7s23x8Q`, and DesignV
 revision `17180467`, index MD5 `5e340a3628885b9fde90bdd2d15ce3ee` (2,307,298
 bytes; SHA-256 `5284b90a06258fd816002e9a8c1acc8ef7abc551e953420c22278943cc963b4f`).
