@@ -47,6 +47,40 @@ def transport(ctx, response, calls=None):
     return PublisherTransport(ctx, hosts={'publisher.example'}, opener=open_)
 
 
+def test_actual_response_etag_pins_next_original_range_without_using_md5_as_tag(context):
+    calls = []
+    tag = '"authored-object-generation-7"'
+    response = lambda: Response(status=206, headers={'Content-Length': str(len(DATA)),
+        'Content-Range': f'bytes 100-{99 + len(DATA)}/1000', 'ETag': tag})
+    _, first = transport(context, response).fetch_bytes(URL, limit=100, original_range=(100, len(DATA), 1000))
+    assert first.response_etag == tag and first.json()['response_etag'] == tag
+    raw, second = transport(context, response, calls).fetch_bytes(URL, limit=100,
+        original_range=first.original_range, headers={'If-Match': first.response_etag})
+    assert raw == DATA and second.response_etag == tag
+    assert calls[0].get_header('If-match') == tag
+
+
+@pytest.mark.parametrize('actual', [None, 'W/"generation-7"', '"different-generation"'])
+def test_if_match_missing_weak_or_changed_response_never_reads_body(context, actual):
+    headers = {'Content-Length': str(len(DATA))}
+    if actual is not None: headers['ETag'] = actual
+    value = Response(headers=headers)
+    with pytest.raises(GameDataError) as failure:
+        transport(context, value).fetch_bytes(URL, limit=100, headers={'If-Match': '"generation-7"'})
+    assert failure.value.code == 'publisher_object_changed' and context.consumed == 0
+
+
+def test_duplicate_or_synthetic_unquoted_etags_are_not_generation_proof(context):
+    value = Response(headers={'Content-Length': str(len(DATA)), 'ETag': '"generation-7"'})
+    value.headers['ETag'] = '"generation-7"'
+    with pytest.raises(GameDataError): transport(context, value).fetch_bytes(URL, limit=100)
+    calls = []
+    for tag in ('W/"generation-7"', '*', hashlib.md5(DATA).hexdigest()):
+        with pytest.raises(ValueError):
+            transport(context, Response(), calls).fetch_bytes(URL, limit=100, headers={'If-Match': tag})
+    assert calls == [] and context.consumed == 0
+
+
 def test_verified_range_is_atomic_and_bad_hash_keeps_previous_file(context):
     path = context.cache_directory / 'index.bin'
     path.parent.mkdir(parents=True); path.write_bytes(b'previous verified index')
