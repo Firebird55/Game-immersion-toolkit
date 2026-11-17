@@ -175,6 +175,21 @@ def test_contained_member_requires_complete_verified_same_owner_range(fixture):
         store.read(child)
 
 
+def test_batch_inventory_hashes_each_cover_once_and_rechecks_after_mutation(fixture, monkeypatch):
+    owner, store, transport = acquire_headers(fixture)
+    parent = audio.Span(owner, 80, 20); store.acquire(parent, transport)
+    children = (audio.Span(owner, 80, 10), audio.Span(owner, 90, 10))
+    original_hash = audio._hash; calls = []
+    def hash_(path):
+        calls.append(path)
+        return original_hash(path)
+    monkeypatch.setattr(audio, '_hash', hash_)
+    assert store.missing(children) == ()
+    assert calls == [store._path(parent)]
+    store._path(parent).write_bytes(bytes(20))
+    assert store.missing(children) == children
+
+
 def test_cache_receipt_boolean_cannot_alias_integer_owner_bounds(fixture):
     owner, store, _ = acquire_headers(fixture)
     span = audio.Span(owner, 0, 28); path = store._path(span).with_name('0-28.json')

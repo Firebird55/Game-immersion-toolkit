@@ -206,6 +206,34 @@ class RangeStore:
     def available(self, span):
         return self._locate(span) is not None
 
+    def missing(self, spans):
+        """Fresh batch verification; hash a covering body once per estimate."""
+        pending = dict.fromkeys(spans)
+        owners = {}
+        for span in pending:
+            if not isinstance(span, Span):
+                _fail()
+            owners.setdefault(span.owner, []).append(span)
+        for owner, requested in owners.items():
+            directory = self._directory(owner)
+            if not directory.is_dir():
+                continue
+            for number, path in enumerate(directory.iterdir()):
+                if number >= 10000:
+                    _fail('The original audio range cache exceeds its per-owner file limit.')
+                match = re.fullmatch(r'([0-9]{1,20})-([0-9]{1,20})', path.name)
+                if not match:
+                    continue
+                start, length = map(int, match.groups())
+                if not 0 < length <= MAX_SPAN or not 0 <= start <= owner.size-length:
+                    continue
+                covered = [span for span in requested if span in pending and start <= span.start
+                           and span.length <= length-(span.start-start)]
+                if covered and self.receipt(Span(owner, start, length)) is not None:
+                    for span in covered:
+                        pending.pop(span)
+        return tuple(pending)
+
     def acquire(self, span, transport):
         if self.available(span):
             return
@@ -506,8 +534,8 @@ def localized_bank_quote(inventory, lookup, names, store, locale):
         target = events._target(loaded[span], event)
         if target and target[0] in lookup[event] and localized.get(target[0]):
             targets[event] = (target[0], target[1], localized[target[0]])
-    spans = coalesce(target[2] for target in targets.values())
-    return Quote('audio-localized-banks', tuple(span for span in spans if not store.available(span))), targets
+    spans = coalesce(target[2] for target in targets.values() if not store.available(target[2]))
+    return Quote('audio-localized-banks', spans), targets
 
 
 def validate_banks(inventory, covers, store, locale):
@@ -527,6 +555,22 @@ def validate_banks(inventory, covers, store, locale):
                     found += 1
         if not found:
             _fail('The quoted original bank range contains no complete declared bank.')
+
+
+def validate_recordings(covers, members, store):
+    """Validate complete authored RIFFs, reading each covering body once."""
+    by_owner = {}
+    for span in set(members):
+        by_owner.setdefault(span.owner, []).append(span)
+    for cover in covers:
+        selected = [span for span in by_owner.get(cover.owner, ()) if cover.start <= span.start
+                    and span.length <= cover.length-(span.start-cover.start)]
+        if not selected:
+            _fail('The quoted recording range contains no complete authored recording.')
+        raw = store.read(cover)
+        for span in selected:
+            start = span.start-cover.start
+            _riff(raw[start:start+span.length])
 
 
 @dataclass(frozen=True)

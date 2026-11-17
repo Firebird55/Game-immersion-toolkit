@@ -328,6 +328,26 @@ bank intake remains a separately frozen proof; state/sequence materialization,
 the full external-member stage and canonical audio snapshot publication are
 not yet connected by this change.
 
+The next canonical source step connects original player-state dependency banks,
+complete ordered sequences and the complete supported external-source quote.
+It joins the original lookup state group to the actual switch group, requires
+the same populated states and preserves every supported male/female branch.
+Other switches remain explicit `state-choice-required` entries with their
+original group/default/state/child/bank inventory. Neither an event name nor
+the selected study language selects a copyright/Japanese branch. The previous
+real event intake used its separately recorded selection logic; its 3,678-event
+count is not claimed for this stricter canonical state policy.
+
+Recording estimates include every sequence member and every uniquely bound
+authored external source. Missing hashes remain counted and digest-bound in the
+pending receipt. Complete cached covering ranges are rehashed once per batch
+estimate, with fresh checks after mutation; cached individual banks are removed
+before coalescing rather than downloading their surrounding gaps again. Each
+downloaded recording range must contain complete authored RIFFs with matching
+declared lengths. These are production planning/materialization steps, not an
+authorized 14 GB acquisition, a voice-state promotion or audio Ready. Canonical
+audio snapshot/restore and the unresolved film/locale dependencies remain open.
+
 On frozen source `a954cde7`, the production lookup API also reconstructs the
 actual 4.7 index from three existing publisher-MD5-verified Sophon chunks with
 transport forbidden. The complete 4,461,388-byte lookup passes publisher MD5

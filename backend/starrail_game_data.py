@@ -300,8 +300,10 @@ class StarRailProvider:
         receipt = {'audio_index_md5': catalog.build['hotfix']['indexes']['audio'][1],
             'selection_sha256': audio.identity([owner.json() for owner in selected]),
             'quote_sha256': quote.digest, 'owner_count': len(selected)}
+        members = ()
         if not quote.spans:
             from . import starrail_events as events
+            from . import starrail_game_bindings as bindings
             from .starrail_assets import authored_links
             inventory = audio.directories(selected, store, ctx.request.source_locale)
             assets = sophon.manifest(catalog.tables.directory, catalog.build['channel'],
@@ -313,26 +315,46 @@ class StarRailProvider:
             receipt['lookup'] = audio.lookup_identity(lookup.asset)
             if quote.spans:
                 receipt['quote_sha256'] = quote.digest
-                return quote, lookup, receipt
-            names = {link['audio_event'] for link in authored_links(catalog, ctx.request.source_locale)
-                     if link.get('audio_event')}
-            banks = events.bank_lookup(lookup.read())
+                return quote, lookup, receipt, members
+            links = authored_links(catalog, ctx.request.source_locale)
+            names = {link['audio_event'] for link in links if link.get('audio_event')}
+            lookup_raw = lookup.read(); banks = events.bank_lookup(lookup_raw)
             receipt['authored_events_sha256'] = audio.identity(sorted(names))
             quote, _ = audio.neutral_bank_quote(inventory, banks, names, store)
             if not quote.spans:
                 quote, _ = audio.localized_bank_quote(inventory, banks, names, store, ctx.request.source_locale)
+            if not quote.spans:
+                event = bindings.event_inventory(inventory, lookup_raw, names, store, ctx.request.source_locale)
+                quote = event.quote
+                receipt['event_unresolved'] = len(event.unresolved)
+                receipt['event_unresolved_sha256'] = audio.identity(event.unresolved)
+                receipt['event_choices_sha256'] = audio.identity(event.choices)
+                receipt['event_bindings_sha256'] = audio.identity({name:
+                    [[variant, mid, span.json()] for variant, (mid, span) in sorted(options.items(), key=lambda item: item[0] or '')]
+                    for name, options in event.bindings.items()})
+                if not quote.spans:
+                    members = {span for options in event.bindings.values() for _, span in options.values()}
+                    quote = bindings.recording_quote(event.bindings, store)
+                if not quote.spans:
+                    sources = {link['source'] for link in links if link.get('source')}
+                    quote, external, unbound = bindings.external_quote(inventory, sources, store, ctx.request.source_locale)
+                    members = tuple(external.values())
+                    receipt['external_sources'] = len(sources)
+                    receipt['external_unbound'] = len(unbound)
+                    receipt['external_unbound_sha256'] = audio.identity(unbound)
+                    receipt['external_bindings_sha256'] = audio.identity({source: span.json() for source, span in external.items()})
             receipt['quote_sha256'] = quote.digest
-        return quote, store, receipt
+        return quote, store, receipt, members
 
     def _audio_plan(self, ctx, catalog, generation, reader, selected, packages):
-        quote, _, audio = self._audio_inventory(ctx, catalog)
+        quote, _, audio, _ = self._audio_inventory(ctx, catalog)
         handle = {'schema': AUDIO_PLAN, 'request': ctx.request.json(), 'build': catalog.build,
             'files': _file_receipts(selected), 'helper': reader.identity, 'native': generation.identity,
             'packages': _package_receipts(packages), 'phase': quote.phase, 'audio': audio}
         if not quote.spans:
             return GameDataPlan(_text_revision(handle), None, None, stage='original-audio-bindings', runtime_available=False,
                 message='The downloaded audio metadata is verified. More recording branches and movie audio need support before this library can be used. Your existing library is retained.')
-        if quote.phase in {'audio-neutral-banks', 'audio-localized-banks'} and not self._audio_runtime_available():
+        if quote.phase not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
             return GameDataPlan(_text_revision(handle), None, None, stage='audio-runtime', runtime_available=False,
                 message='The verified audio reader is unavailable on this device. Repair or re-extract this toolkit build before downloading recordings. Your existing library is retained.')
         return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
@@ -473,7 +495,8 @@ class StarRailProvider:
         if (set(handle) != {'schema', 'request', 'build', 'files', 'helper', 'native', 'packages', 'phase', 'audio'}
                 or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text-audio'
                 or handle['phase'] not in {'audio-inventory-prefixes', 'audio-inventory-headers',
-                    'audio-event-lookup', 'audio-neutral-banks', 'audio-localized-banks'}
+                    'audio-event-lookup', 'audio-neutral-banks', 'audio-localized-banks',
+                    'audio-state-banks', 'audio-streamed-members', 'audio-external-members'}
                 or plan.stage != handle['phase'] or plan.revision != _text_revision(handle)
                 or self.platform == 'android' or handle['build']['channel'] != 'starrail-' + ctx.request.region):
             raise GameDataError('starrail_plan_changed', 'Check the original audio inventory size again.')
@@ -493,11 +516,11 @@ class StarRailProvider:
         if (generation.identity != handle['native'] or phase != 'text-snapshot' or absent
                 or _package_receipts(packages) != handle['packages']):
             raise GameDataError('starrail_audio_inputs_changed', 'The original text generation changed. Check the audio size again.')
-        quote, store, receipt = self._audio_inventory(ctx, catalog, offline=True)
+        quote, store, receipt, members = self._audio_inventory(ctx, catalog, offline=True)
         if (quote.phase != plan.stage or receipt != handle['audio'] or plan.download_bytes != quote.download_bytes
                 or plan.required_disk_bytes is None or plan.required_disk_bytes < quote.disk_bytes + MAX_HANDLE_BYTES):
             raise GameDataError('starrail_audio_plan_changed', 'The original audio inventory or cache changed. Check its size again.')
-        if plan.stage in {'audio-neutral-banks', 'audio-localized-banks'} and not self._audio_runtime_available():
+        if plan.stage not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
             raise GameDataError('starrail_audio_runtime_unavailable',
                 'The verified audio reader changed. Repair or re-extract this toolkit build, then check the size again. Your existing library is retained.')
         transport = self._transport(ctx)
@@ -513,6 +536,8 @@ class StarRailProvider:
                 audio.directories(owners, store, ctx.request.source_locale)
         elif plan.stage == 'audio-event-lookup':
             store.read()
+        elif plan.stage in {'audio-streamed-members', 'audio-external-members'}:
+            audio.validate_recordings(quote.spans, members, store)
         else:
             # Complete bank identities/sections, not just their range hashes,
             # are required before this event-bank stage can be retained.

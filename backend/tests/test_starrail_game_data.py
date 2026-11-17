@@ -433,7 +433,7 @@ def test_missing_closed_audio_runtime_gates_recording_quote_before_transport(tmp
     owner = audio.Owner('English/VoBanks1.pck', 8000, 'a' * 32,
         'https://autopatchos.starrails.com/test/VoBanks1.pck', 'b' * 64)
     quote = audio.Quote('audio-localized-banks', (audio.Span(owner, 100, 1000),))
-    monkeypatch.setattr(provider, '_audio_inventory', lambda *a: (quote, object(), {}))
+    monkeypatch.setattr(provider, '_audio_inventory', lambda *a: (quote, object(), {}, ()))
     monkeypatch.setattr(native_codecs, 'packaged_codec_executable', lambda tool: None)
     monkeypatch.setattr(provider, '_transport', lambda *a: pytest.fail('Missing codec cannot trigger audio transfer'))
     ctx = SimpleNamespace(request=GameDataRequest('global', 'en', (), 'text-audio'))
