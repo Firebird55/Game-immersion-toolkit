@@ -12,12 +12,19 @@ import {importBrowserHistoryThroughUi, verifyMigratedHistory, migrationRows} fro
 import {selectAuthoredAndroidDocument} from './android-authored-document-picker.mjs';
 import {verifyAuthoredReaderInsets} from './android-authored-reader-insets.mjs';
 import {waitForAuthoredAdbRoot} from './android-authored-adb.mjs';
+import {createInsetsDiagnostics} from './android-insets-diagnostics.mjs';
 
 const directory = resolve(process.argv[2] ?? 'output/android-candidate');
 const output = resolve(process.argv[3] ?? 'output/android-runtime');
 const updateDirectory = resolve(process.argv[4] ?? 'output/android-update');
 mkdirSync(output, {recursive: true});
-const adb = (...args) => execFileSync('adb', args, {encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe']}).trim();
+let insetDiagnostics = null;
+const adb = (...args) => {
+  try {
+    const value = execFileSync('adb', args, {encoding: 'utf8', timeout: 30_000, stdio: ['ignore', 'pipe', 'pipe']}).trim();
+    insetDiagnostics?.record(args, value); return value;
+  } catch (error) { insetDiagnostics?.failed(args, error); throw error; }
+};
 let diagnostics = null;
 async function until(operation, label, timeout = 90_000) {
   const end = Date.now() + timeout;
@@ -62,6 +69,13 @@ assert.equal(update.release_eligibility, false);
 assert.ok(Number.isInteger(provenance.version_code) && provenance.version_code > 0);
 assert.ok(Number.isInteger(update.version_code) && update.version_code > provenance.version_code);
 const expected = JSON.parse(readFileSync(join(directory, 'desktop-core-proof.json'), 'utf8'));
+if (process.env.TOOLKIT_ANDROID_INSETS_ONLY === '1') {
+  assert.equal(provenance.source_commit, '5ea69c705845a2f8c28a7f3e74b4aafcf65e9e79');
+  assert.equal(provenance.apk_sha256, 'f67413988b79d900abbfac4c99969af88cab20da724990c6d0a8e35d6a6cd059');
+  assert.equal(adb('shell', 'getprop', 'ro.kernel.qemu'), '1');
+  insetDiagnostics = createInsetsDiagnostics({output, sourceCommit: provenance.source_commit,
+    apkSha256: provenance.apk_sha256, packageName});
+}
 adb('install', '-r', apk);
 const buildPolicy = JSON.parse(readFileSync(new URL('../packaging/android/build-inputs.json', import.meta.url), 'utf8'));
 const deviceApi = Number(adb('shell', 'getprop', 'ro.build.version.sdk'));
@@ -151,6 +165,7 @@ writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
   source_commit: provenance.source_commit, apk_sha256: provenance.apk_sha256, ...insets,
   fixture: 'authored-emulator-reader-before-personal-data', physical_device_acceptance: 'not-established',
 }, null, 2) + '\n');
+if (process.env.TOOLKIT_ANDROID_INSETS_ONLY === '1') { await browser.close(); process.exit(0); }
 await selectAuthoredAndroidDocument({adb, page, until, output, extension: 'zip',
   bytes: readFileSync(join(directory, 'authored-library.zip')),
   trigger: () => page.getByRole('button', {name: 'Open library', exact: true}).click()});
