@@ -1033,3 +1033,14 @@ and Android preparation/codec gates. The
 documents the implemented common-key/map/Lua PC resolvers, original index/source controls
 and manifest-size preflight; it does not turn these source/capture results into
 standalone Android acceptance.
+
+A later source-stable table-only validator independently checks all 54,585
+ordinary IDs/full English and Simplified-Chinese texts against 30 complete
+original TableCfg files, and 25,576 configured candidate voice references. It
+explicitly leaves graph predecessors/speakers/channels, two graph-disabled
+silence claims, media presence and 501 cinematic rows uncertified. Its distinct
+non-snapshot report cannot activate a capture library; a failed load retains an
+older valid index. The bounded two-container plaintext alternative was negative
+and stopped, without a new key or source-hunt claim. See the
+[independent authored-table validation](endfield-official-parameters.md#independent-authored-table-validation--november-17)
+for exact source controls and remaining canonical admission gates.

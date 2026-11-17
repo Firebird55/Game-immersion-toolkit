@@ -562,6 +562,56 @@ official route is impossible. The remaining original AES/header contract stays
 open. Text table/resource preparation must continue on its own evidenced
 original path; this boundary does not justify abandoning that work.
 
+### Independent authored-table validation — November 17
+
+The remaining registration producer was not found in the retained static
+sources. One bounded cached-only alternative checked two already MD5-verified
+containers: a 2,497-byte registered dialog graph and the 120,752-byte dialog UI.
+Only aligned, complete candidate Unity-v22 headers within each first 4 KiB were
+examined. No candidate passed the header search, so no serialized object or
+authored container/script owner was accepted. Including the corrected repeat
+and frozen selection software, the experiment consumed 523,172 bounded input
+bytes, below its 512-KiB limit. It transferred and copied no original payload.
+Frozen decoding software was used only to choose the two sample paths; it did
+not supply an official key or independent plaintext proof. This negative result
+does not establish that other containers are encrypted or that official
+derivation is impossible. The experiment stopped without expanding the hunt.
+
+The separate `endfield_authored_validation` component now validates what the
+original TableCfg source can establish independently. It reuses the owned
+narrative reducers through a table-only view, excluding optional graph/UI hooks,
+and constructs ordinary text records plus non-playable configured voice facts.
+The facts retain authored locale/gender variants, exact primary source path and
+file ID, original AudioDialog IDs and the positive-duration result. They do not
+assert that a recording exists or that its caller enables primary speech.
+An explicit-source entry point reopens the context-owned text receipt and its
+original client/resource/request, typed index and consumed whole-table checks;
+ambient legacy catalogs are not adopted. Evidence mutation checks cover texts,
+configured references and table controls. These are field-validation reports,
+with a distinct format, rather than capture snapshots or `SnapshotSource`.
+
+The source-stable cached current-original comparison reads 30 complete tables,
+39,698,672 bytes, with original MD5 and SparkBuffer-root controls. All **54,585**
+ordinary record IDs and full English/Simplified-Chinese texts agree with the
+existing candidate. Its **25,576** playable-reference candidates agree with the
+configured source path, file ID and locale; their playback presence remains
+uncertified. The table projection contains 25,580 configured references, of
+which 25,577 also have the required positive primary duration. Its statuses
+remain 34,404 unavailable, 185 unknown and 19,996 authored unvoiced; no missing
+voice inventory is converted into silence or usable audio.
+
+The report separately identifies dependencies that tables cannot certify:
+6,182 graph predecessors, 392 graph speaker IDs, 16 graph-owned channel changes,
+two graph-disabled silence claims and 501 cinematic rows outside the ordinary
+table projection. It preserves the candidate and all those claims unchanged,
+without admitting them. The new regression cases cover five study scripts in
+both modes, paired protagonist performances, unsafe/ambiguous/non-media sources,
+changed IDs/texts/translations/bindings, scope separation and retention of an
+older valid index when a non-snapshot report is presented. This comparison uses
+zero network bytes and activates no library. Official AES/header provenance,
+graph/UI/cinematic decoding, selected recording materialization and complete
+canonical capture admission remain separate open gates.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
