@@ -65,7 +65,7 @@ android {
 chaquopy {
     defaultConfig {
         version '3.12'
-        extractPackages 'opencc'
+        extractPackages 'opencc', 'certifi'
         def python = System.getenv('TOOLKIT_BUILD_PYTHON')
         if (!python) throw new GradleException('Set TOOLKIT_BUILD_PYTHON to the build-host Python 3.12 executable.')
         buildPython python

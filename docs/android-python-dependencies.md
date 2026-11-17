@@ -90,3 +90,14 @@ The embedding and target compatibility guidance comes from
 and [Chaquopy's Gradle documentation](https://chaquo.com/chaquopy/doc/current/android.html),
 reviewed November 16, 2026. PyPI source files are pinned in the input policy;
 the license and source provenance is retained with each built wheel.
+
+The maintained account/reader dependency closure adds the exact desktop pins
+httpx 0.28.1, httpcore 1.0.9, AnyIO 4.15.1, certifi 2026.10.23, idna 3.20,
+h11 0.16.0 and pypinyin 0.55.0. The seven original portable wheels total
+1,366,763 bytes; their primary PyPI file URLs, SHA-256 and byte counts are in
+the same input policy. No extra HTTP features or native host wheels are selected.
+`account-python-notices.json` records the original included notice paths and
+hashes (BSD-3-Clause, MIT and MPL-2.0); the APK audit verifies those exact bytes
+inside its delivered common requirements archive. Certifi is extracted by the
+embedding host for a real TLS certificate path. Dependency delivery does not
+enable account capability before protected storage and request isolation pass.

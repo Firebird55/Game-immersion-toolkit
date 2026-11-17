@@ -58,6 +58,12 @@ def verify(path):
             raise ValueError('Both actual native RapidFuzz ABIs are required')
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
+        notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
+        with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
+            for package in notices['packages'].values():
+                for name, digest in package['included_notices'].items():
+                    if hashlib.sha256(common.read(name)).hexdigest() != digest:
+                        raise ValueError('A maintained account dependency notice is absent or changed')
         for name, digest in core['files'].items():
             if not re.fullmatch(r'backend/[a-z0-9_]+\.py', name) or not re.fullmatch(r'[0-9a-f]{64}', digest):
                 raise ValueError('Invalid owned Python source receipt')
