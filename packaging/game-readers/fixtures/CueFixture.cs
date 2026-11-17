@@ -4,10 +4,72 @@ using System.Text.Json;
 
 namespace CUE4Parse.UE4.Readers
 {
-    public sealed class FByteArchive
+    public sealed class FByteArchive : IDisposable
     {
         public byte[] Bytes;
+        public bool Disposed { get; private set; }
         public FByteArchive(string name, byte[] bytes, object versions) { Bytes = bytes; }
+        public void Dispose() { Disposed = true; }
+    }
+}
+namespace CUE4Parse.UE4.AssetRegistry
+{
+    public sealed class FixtureAssetData
+    {
+        public string AssetClass;
+        public string PackageName;
+        public FixtureAssetData(string assetClass, string packageName) { AssetClass = assetClass; PackageName = packageName; }
+    }
+    public sealed class FAssetRegistryState
+    {
+        public FixtureAssetData[] PreallocatedAssetDataBuffers;
+        public static CUE4Parse.UE4.Readers.FByteArchive? LastArchive;
+        public FAssetRegistryState(CUE4Parse.UE4.Readers.FByteArchive archive)
+        {
+            if (archive.Disposed) throw new InvalidDataException();
+            LastArchive = archive;
+            using var data = JsonDocument.Parse(archive.Bytes);
+            if (data.RootElement.GetProperty("schema").GetString() != "owned-registry-fixture-v1") throw new InvalidDataException();
+            PreallocatedAssetDataBuffers = data.RootElement.GetProperty("assets").EnumerateArray().Select(row =>
+                new FixtureAssetData(row.GetProperty("assetClass").GetString()!, row.GetProperty("packageName").GetString()!)).ToArray();
+        }
+    }
+}
+namespace CUE4Parse.UE4.Assets.Readers
+{
+    public sealed class FAssetArchive
+    {
+        public long Position { get; set; }
+        public FAssetArchive(CUE4Parse.UE4.Readers.FByteArchive archive, object? owner, int offset, object? payload)
+        {
+            if (archive.Disposed || archive.Bytes.Length != 0 || owner is not null || offset != 0 || payload is not null)
+                throw new InvalidDataException();
+        }
+    }
+}
+namespace CUE4Parse.UE4.Assets.Objects
+{
+    public enum FixtureReadType { NORMAL, ZERO }
+    public sealed class FStructFallback { }
+    public sealed class FOwnedZero { public int Value { get; } = 0; }
+    public sealed class FOwnedConsumesArchive
+    {
+        public FOwnedConsumesArchive(CUE4Parse.UE4.Assets.Readers.FAssetArchive archive) { archive.Position++; }
+    }
+    public sealed class FScriptStruct
+    {
+        public object StructType;
+        public static List<string> Created { get; } = new();
+        public FScriptStruct(CUE4Parse.UE4.Assets.Readers.FAssetArchive archive, string name, object? schema, FixtureReadType? readType)
+        {
+            if (schema is not null || readType != FixtureReadType.ZERO) throw new InvalidDataException();
+            Created.Add(name);
+            StructType = name switch {
+                "OwnedConcrete" => new FOwnedZero(), "OwnedFallback" => new FStructFallback(),
+                "OwnedConsumesArchive" => new FOwnedConsumesArchive(archive), "OwnedForeign" => new object(),
+                _ => throw new InvalidDataException("An ordinary fixture fallback requires unavailable package state.")
+            };
+        }
     }
 }
 namespace CUE4Parse.UE4.Localization
@@ -104,11 +166,20 @@ namespace CUE4Parse.MappingsProvider.Usmap
 {
     public sealed class FileUsmapTypeMappingsProvider
     {
+        public FixtureMappings MappingsForGame { get; }
         public FileUsmapTypeMappingsProvider(string path, StringComparer comparer)
         {
-            if (!File.Exists(path) || !ReferenceEquals(comparer, StringComparer.Ordinal))
+            var usage = comparer.GetType();
+            if (!File.Exists(path) || !(ReferenceEquals(comparer, StringComparer.Ordinal) ||
+                usage.FullName == "NteReader+SchemaUsageComparer" && usage.Assembly == System.Reflection.Assembly.GetEntryAssembly()))
                 throw new InvalidDataException();
+            MappingsForGame = new FixtureMappings(comparer);
         }
+    }
+    public sealed class FixtureMappings
+    {
+        public Dictionary<string, object> Types;
+        public FixtureMappings(StringComparer comparer) { Types = new(comparer); }
     }
 }
 
@@ -159,6 +230,8 @@ public sealed class FixtureProvider : IDisposable
         if (marker["schema"].GetString() != "proxy-owned-nte-fixture-v1") throw new InvalidDataException();
         VerifySequenceFixture(marker);
         VerifyMovieRegistryFixture(marker);
+        VerifyDialogueRegistryFixture(marker);
+        VerifyFrozenCodecsFixture(marker);
         version = marker["localization_version"].GetByte();
         for (int i = 0; i < 100; i++) Files[$"Owned/Dummy/{i}"] = 0;
         foreach (var locale in texts.Keys) Files[$"Owned/Localization/{locale}/game.locres"] = 0;
@@ -259,6 +332,70 @@ public sealed class FixtureProvider : IDisposable
             result["NamedSibling"] != "Sibling.Namespace" || result["EmptyOwner"] != null || result["Conflict"] != null ||
             reads[first + "\0DifferentObjectName"] != 1 || reads[first + "\0SecondObjectName"] != 1 || reads[second + "\0OtherObject"] != 1)
             throw new InvalidDataException();
+    }
+    void VerifyDialogueRegistryFixture(Dictionary<string, JsonElement> marker)
+    {
+        if (!marker.TryGetValue("dialogue_registry_case", out var selected)) return;
+        var kind = selected.GetString();
+        var entries = new List<object> {
+            new { assetClass = "DlgDialogue", packageName = kind == "escape" ? "/Game/../Escaped" : "/Game/Dialogue/Owned" },
+            new { assetClass = "StringTable", packageName = "/Game/Text/Owned" },
+            new { assetClass = "Other", packageName = "/Game/NotSelected" }
+        };
+        if (kind == "duplicate") entries.Add(new { assetClass = "DlgDialogue", packageName = "/Game/Dialogue/Owned" });
+        if (kind == "empty") entries.Clear();
+        var destination = Path.Combine(install, "owned-dialogue-registry");
+        Directory.CreateDirectory(destination);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new { schema = "owned-registry-fixture-v1", assets = entries });
+        File.WriteAllBytes(Path.Combine(destination, "dialogue-registry.bin"), bytes);
+        var sha = kind == "hash" ? new string('0', 64) :
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+        var files = new HashSet<string> { "HT/Content/Dialogue/Owned.uasset", "HT/Content/Text/Owned.uasset" };
+        if (kind == "missing") files.Remove("HT/Content/Dialogue/Owned.uasset");
+        CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive = null;
+        var method = System.Reflection.Assembly.GetEntryAssembly()!.GetType("NteReader", true)!
+            .GetMethod("NteDialogueSources", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        try {
+            var result = (SortedSet<string>)method.Invoke(null, new object[] {
+                this, typeof(FixtureProvider).Assembly, files, destination, sha, kind == "all-text" })!;
+            var expected = kind == "all-text" ? files : new HashSet<string> { "HT/Content/Dialogue/Owned.uasset" };
+            if (kind is not ("valid" or "all-text") || !result.SetEquals(expected) ||
+                CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true) throw new InvalidDataException();
+        }
+        catch (System.Reflection.TargetInvocationException error) when
+            ((kind is "hash" or "duplicate" or "escape" or "missing" or "empty") &&
+             error.InnerException?.GetType().Name == "UnsupportedGameFormatException")
+        {
+            if (kind == "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive is not null)
+                throw new InvalidDataException("Registry authentication must precede parsing.");
+            if (kind != "hash" && CUE4Parse.UE4.AssetRegistry.FAssetRegistryState.LastArchive?.Disposed != true)
+                throw new InvalidDataException("A rejected registry must dispose its archive.");
+        }
+    }
+    void VerifyFrozenCodecsFixture(Dictionary<string, JsonElement> marker)
+    {
+        if (!marker.TryGetValue("schema_codec_case", out var selected)) return;
+        if (selected.GetString() != "complete") throw new InvalidDataException();
+        var bridge = System.Reflection.Assembly.GetEntryAssembly()!.GetType("NteReader", true)!;
+        var usageType = bridge.GetNestedType("SchemaUsageComparer", System.Reflection.BindingFlags.NonPublic)!;
+        var usage = (StringComparer)Activator.CreateInstance(usageType, nonPublic: true)!;
+        var enabled = usageType.GetField("Enabled", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        enabled.SetValue(usage, true); usage.GetHashCode("OwnedPreviouslyRead"); enabled.SetValue(usage, false);
+        var path = Path.Combine(install, "owned-codec-description");
+        File.WriteAllText(path, "authored reflection fixture; not an actual usmap");
+        var mappings = new CUE4Parse.MappingsProvider.Usmap.FileUsmapTypeMappingsProvider(path, usage);
+        foreach (var name in new[] { "OwnedConcrete", "OwnedFallback", "OwnedConsumesArchive", "OwnedForeign",
+                "OwnedPreviouslyRead", "OwnedUnknownPackage", "Owned-invalid-name" })
+            mappings.MappingsForGame.Types.Add(name, new object());
+        CUE4Parse.UE4.Assets.Objects.FScriptStruct.Created.Clear();
+        var method = bridge.GetMethod("FrozenSchemaCodecs", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var result = (Dictionary<string, string>)method.Invoke(null, new object[] {
+            typeof(FixtureProvider).Assembly, mappings, this, usage })!;
+        if (result.Count != 1 || result.GetValueOrDefault("OwnedConcrete") != "CUE4Parse.UE4.Assets.Objects.FOwnedZero" ||
+            CUE4Parse.UE4.Assets.Objects.FScriptStruct.Created.Count != 5 ||
+            CUE4Parse.UE4.Assets.Objects.FScriptStruct.Created.Contains("OwnedPreviouslyRead") ||
+            CUE4Parse.UE4.Assets.Objects.FScriptStruct.Created.Contains("Owned-invalid-name"))
+            throw new InvalidDataException("Concrete ZERO codec evidence did not preserve the actual reflection guards.");
     }
     public void SubmitKey(Guid guid, FixtureKey key)
     {
