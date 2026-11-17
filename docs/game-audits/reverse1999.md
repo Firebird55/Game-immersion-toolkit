@@ -595,6 +595,46 @@ forwarded values does not prove their APK metadata origin. No official game APK,
 GameConfig initializer, English base/hotfix catalog or content preparation is
 accepted from these partial source proofs.
 
+### Download-center task/configuration boundary
+
+A separately bounded upstream phase checks eight exact bodies / 1,112 instruction
+bytes, below its eight-method / 8,192-byte ceiling. Their total exception metadata
+is eight try-table and six handler bytes. Signed source hashes and typed register,
+invoke, instruction, branch and handler bounds pass for every step. No constructor,
+notification-service branch, network request or original execution is involved.
+
+The sixteen-byte `DownloadCenterImpl.x` forwards its two incoming values. Its
+only own-class caller is an eight-byte synthetic accessor `g`. Formal
+`EnclosingMethod` / `EnclosingClass` annotations establish the exact compiler
+members of this class without relying on a namespace guess. Restricted accessor
+lookups across those proven members identify `DownloadCenterImpl$b$a.run` as
+the caller. The two formal passes cover 80 code items / 6,966 instruction bytes
+in 0.171 seconds, within the 1,024-item / 1 MiB / two-minute limit.
+
+That runnable and its exact task-builder accessor establish these source paths:
+
+| Value or operation | Authored source / remaining boundary |
+| --- | --- |
+| Download ID passed to service startup | `extensions.c.f(AppDownloadService$a)` uses a non-null supplied option ID; otherwise it calls still-unread `c` / `a` fallback helpers |
+| `AppInfo` passed to service startup | The runnable reads `DownloadCenterImpl$b.a`; that field's initialization remains unread |
+| Existing task configuration | `b.h` calls `GameDownloaderService.getApkInfo(id)` and reuses the returned task |
+| New task configuration | `b.h` calls `GameDownloaderService.createApkInfo(AppInfo, type)` |
+
+The exact service facade and companion resolve
+`ARouter.navigation(GameDownloaderService.class)`. Formal interface/inheritance
+metadata over the seven signed DEX members finds two concrete candidates in
+`classes4.dex`: `GameDownloaderServiceImpl` and `GameDownloaderServiceLoaderProxy`.
+The registration binding is not yet proved, so neither candidate's method body
+is chosen or read. The phase stops at its eight-method limit.
+
+This is genuine task/configuration ownership, rather than another notification
+consumer. The next original source boundary is the router's concrete provider
+binding for `createApkInfo`, followed by that evidenced descriptor producer.
+The option-ID fallbacks and captured `AppInfo` initialization remain separate,
+explicit provenance gaps. No actual APK URL, request contract, game key or
+preparable catalog follows from the unresolved interface; both content modes
+remain unavailable.
+
 ### Community key candidate: research only
 
 The original author repository
