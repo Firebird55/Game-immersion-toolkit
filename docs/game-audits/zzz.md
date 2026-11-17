@@ -1,5 +1,43 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Frozen original-generation update and recovery acceptance
+
+The unchanged reader 21 and helper/software dependencies passed a retained
+launcher-base A replay followed by ordinary live Global B discovery and its final
+publisher-pointer checks. A is explicitly a retained launcher descriptor, not a
+recorded older hotfix-gateway response. Normal preparation produced 284,986
+Japanese A records and 289,967 current B records. Among common IDs, 4,980 Japanese
+texts changed; 609 also changed an available English or Chinese translation.
+One selected stored Japanese/English pair verifies both actual text changes.
+These counts compare the prepared generations, not the active presentation denominator.
+
+Original `PartnerTalk_GalGame_PartnerRoxy_106200002_045` keeps the same media ID
+across A/B while its original WEM bytes and decoded PCM change. Normal voice
+services produced 15.253208 and 16.981333 seconds respectively. A separately
+verified newly voiced B entry, `Main_ChatAudio_Chapter240_324000001_20`, is absent
+from A and produces 2.570917 seconds. Three other common-ID original sources
+also have changed WEM and PCM; no re-encoding-only change is used as evidence.
+
+The real preparation child and production downloader were exercised with an
+authenticated original-payload transport replay. An interrupted current package
+after 2,097,275 bytes never published partial data. A second full preparation
+completed live pointer checks, then hit an actual Windows no-delete-sharing lock
+at snapshot replacement. Both failures retained A's prepared selection,
+translation target, settings, transcripts (including preserved Chinese history)
+and saved original clip. Releasing the lock and retrying the normal worker
+published B successfully. Package bytes came from authenticated retained caches;
+the B discovery and final gateway checks used the live publisher service.
+
+Two fresh processes with all network paths forbidden reopened the transcript
+store, retained the saved A clip, and reproduced old, changed and new originals
+through normal snapshot-scoped voice services with identical PCM per generation.
+One explicit-source adapter batch also extracted the A/B versions of the same
+media ID and the new B original together without confusing generations. This
+does not claim that one UI catalog combines historical snapshots. Runtime source
+hashes stayed fixed throughout; no game installation or updated community data
+was used. This closes this Global Japanese update/recovery trial, while complete
+current subtitle coverage and equivalent trials for other regions/dubs remain open.
+
 ## November 17, 2026 · Original initialization routing resolves C270 bus Stops
 
 Reader revision 21 follows the original `AudioAssembly.dll` bootstrap: its
@@ -65,8 +103,8 @@ processes from `autopatchcn.juequling.com`, using the CN descriptor. Both span
 
 These totals still do not establish the complete active-current-presentation
 denominator. Other timeline layouts/callers, player conflicts, the three
-Japanese source-text joins and frozen actual-changed-generation update/recovery
-acceptance remain open. New initialization/routing checks reject unsupported
+Japanese source-text joins and broader regional/dub update acceptance remain
+open. New initialization/routing checks reject unsupported
 controls; they do not turn missing recordings into silence.
 
 ## November 17, 2026 · Unconditional localized stems in a composite film event
