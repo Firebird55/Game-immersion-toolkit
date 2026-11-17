@@ -51,6 +51,12 @@ authentic raw inputs were already cached; that stage's service transition has
 controlled fixture coverage. Previous-ready-generation retention across a
 stage transition is not proved by this source probe.
 
+The current bootstrap plan also needs its original manifest and header reads
+to fit the shared 8 MiB planning-metadata allowance. A future larger manifest
+currently fails safely; a separate consented manifest-acquisition stage before
+the detailed bootstrap estimate is not implemented. Such source growth is not
+automatically a package-format change or permission for a community fallback.
+
 The publisher's explicit text-only source path now skips separate voice
 inventories, banks, directory objects and registry parsing while preserving
 authored non-playable voice evidence and the user's omission choice. A retained

@@ -219,3 +219,20 @@ def test_real_service_exposes_bootstrap_needs_plan_then_reader_unavailable(tmp_p
         assert following['state'] != 'ready' and 'Dialogue preparation' in following['message']
     finally:
         service.close()
+
+
+def test_cache_ancestor_refuses_before_any_descendant_metadata_access(tmp_path, monkeypatch):
+    ancestor = tmp_path / 'linked-cache'
+    child = ancestor / 'private-source' / 'chunk'
+    actual_link, actual_exists = Path.is_symlink, Path.exists
+    def is_link(path):
+        if path == ancestor:return True
+        if ancestor in path.parents:raise AssertionError('Descendant link metadata was inspected first')
+        return actual_link(path)
+    def exists(path):
+        if ancestor in path.parents:raise AssertionError('Descendant existence was inspected first')
+        return actual_exists(path)
+    monkeypatch.setattr(Path, 'is_symlink', is_link)
+    monkeypatch.setattr(Path, 'exists', exists)
+    with pytest.raises(GameDataError, match='ordinary private files'):
+        game._safe(child)

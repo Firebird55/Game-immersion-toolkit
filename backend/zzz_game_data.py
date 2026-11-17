@@ -32,7 +32,7 @@ def _no_transfer(*args, **kwargs):
 
 def _safe(path):
     path = Path(path).absolute()
-    for item in (path, *path.parents):
+    for item in reversed((path, *path.parents)):
         if item.is_symlink() or item.exists() and getattr(item.lstat(), 'st_file_attributes', 0) & getattr(stat, 'FILE_ATTRIBUTE_REPARSE_POINT', 0x400):
             raise GameDataError('unsafe_game_cache', 'The game source cache must use ordinary private files.')
     return path
