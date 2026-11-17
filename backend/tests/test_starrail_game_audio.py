@@ -105,6 +105,42 @@ def test_corrupt_ranges_and_changed_generation_are_quoted_again(fixture):
     assert audio.header_quote((other,), store).download_bytes == 28
 
 
+def test_contained_member_requires_complete_verified_same_owner_range(fixture):
+    owner, store, transport = acquire_headers(fixture)
+    parent, child = audio.Span(owner, 68, 32), audio.Span(owner, 80, 20)
+    store.acquire(parent, transport)
+    calls = len(fixture[5]); store.acquire(child, transport)
+    assert len(fixture[5]) == calls and store.receipt(child) is None
+    assert store.available(child) and store.read(child) == package()[80:]
+    other = audio.Owner(owner.name, owner.size, owner.md5, owner.url, 'b' * 64)
+    assert not store.available(audio.Span(other, 80, 20))
+    store._path(parent).write_bytes(bytes(32))
+    assert not store.available(child)
+    with pytest.raises(GameDataError, match='not verified locally'):
+        store.read(child)
+
+
+def test_cache_receipt_boolean_cannot_alias_integer_owner_bounds(fixture):
+    owner, store, _ = acquire_headers(fixture)
+    span = audio.Span(owner, 0, 28); path = store._path(span).with_name('0-28.json')
+    value = json.loads(path.read_bytes()); value['span']['start'] = False
+    path.write_text(json.dumps(value))
+    assert store.receipt(span) is None
+
+
+def test_coalescing_never_crosses_owner_gap_or_explicit_range_limits(fixture):
+    owner = fixture[2]
+    first, second = audio.Span(owner, 80, 10), audio.Span(owner, 95, 5)
+    assert audio.coalesce((second, first, first), gap=5) == (audio.Span(owner, 80, 20),)
+    assert len(audio.coalesce((first, second), gap=4)) == 2
+    assert len(audio.coalesce((first, second), gap=5, maximum=12)) == 2
+    assert audio.coalesce((audio.Span(owner, 80, 20), audio.Span(owner, 85, 5)), maximum=12) == (audio.Span(owner, 80, 20),)
+    other = audio.Owner(owner.name, owner.size, owner.md5, owner.url, 'b' * 64)
+    assert len(audio.coalesce((first, audio.Span(other, 90, 10)))) == 2
+    with pytest.raises(GameDataError):
+        audio.coalesce((first,), gap=True)
+
+
 def test_malformed_header_cannot_authorize_followup_ranges(fixture):
     _, _, owner, store, transport, _, _ = fixture
     span = audio.Span(owner, 0, 28); store.acquire(span, transport)
@@ -148,6 +184,29 @@ def test_neutral_quote_selects_only_authored_event_owners_and_refuses_duplicate_
     assert quote.spans == () and events == {}
     quote, events = audio.neutral_bank_quote((directory,), {wwise_hash(name): (11, 22)}, (name,), store)
     assert quote.spans == () and events == {}
+
+
+def test_localized_bank_quote_requires_owned_play_target_and_matching_lookup(fixture):
+    from backend.starrail_events import wwise_hash
+    from backend.tests.test_starrail_events import bank, hierarchy
+    base = fixture[2]; name = 'Ev_owned_fixture'; event = wwise_hash(name)
+    neutral_owner = audio.Owner('Banks7.pck', 8000, base.md5, base.url, base.generation)
+    voice_owner = audio.Owner('English/VoBanks8.pck', 8000, base.md5, base.url, base.generation)
+    action = b'\x03\x04' + struct.pack('<I', 90) + b'\0\0\0\x04' + struct.pack('<I', 80)
+    raw = bank(70, 'sfx', [hierarchy(4, event, b'\x01' + struct.pack('<I', 60)), hierarchy(3, 60, action)])
+    neutral_span, voice_span = audio.Span(neutral_owner, 100, len(raw)), audio.Span(voice_owner, 400, 200)
+    class Store:
+        def available(self, span): return span == neutral_span
+        def read(self, span):
+            assert span == neutral_span
+            return raw
+    inventory = (audio.Directory(neutral_owner, {}, {70: neutral_span}, {}),
+                 audio.Directory(voice_owner, {}, {80: voice_span}, {}))
+    quote, targets = audio.localized_bank_quote(inventory, {event: (70, 80)}, (name,), Store(), 'en')
+    assert quote.phase == 'audio-localized-banks' and quote.spans == (voice_span,)
+    assert targets == {event: (80, 90, voice_span)}
+    quote, targets = audio.localized_bank_quote(inventory, {event: (70,)}, (name,), Store(), 'en')
+    assert not quote.spans and not targets
 
 
 @pytest.mark.parametrize('offset,value', [(0, 2), (12, 1000001)])

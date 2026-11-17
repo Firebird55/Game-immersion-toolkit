@@ -262,6 +262,24 @@ part of the plan. The generic selector retains conflicting/missing owners as
 unresolved and never chooses a bank by ordinal. This is a proposed bank stage,
 separate from normal lookup/bootstrap integration and finished audio preparation.
 
+That selected neutral stage subsequently passes an actual intake on frozen
+`1115ebe4`: all 121 complete banks validate BKHD version/identity/SFX language,
+section bounds and their event/action ownership after exactly 206,459 response
+bytes and 270,147 additional retained bytes. All 3,678 requested events join an
+explicit cross-bank Play target present in the same original lookup and
+localized directory. This is still partial-PCK provenance and an isolated
+inventory operation; no new ready snapshot is produced.
+
+The owned next-stage selector now follows those Play targets rather than
+fetching unrelated localized banks. It can coalesce neighbouring ranges under
+one immutable owner and a declared byte limit. Contained members can reuse a
+cached covering range only after checking the complete covering body SHA256,
+receipt, owner size/generation and actual ETag; corrupt or differently owned
+ranges cannot supply a member. Boolean/float receipt fields cannot alias integer
+bounds. The offline voice predicate retains its no-I/O contract. These cache and
+quote operations do not bypass the remaining normal lookup/bootstrap, recording
+materialization, movie-key or platform-runtime gates.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport

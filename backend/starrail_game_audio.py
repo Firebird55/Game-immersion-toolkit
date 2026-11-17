@@ -133,7 +133,7 @@ class RangeStore:
                 return None
             value = json.loads(path.read_bytes())
             if (not isinstance(value, dict) or set(value) != {'owner', 'response_etag'}
-                    or value['owner'] != owner.json() or not isinstance(value['response_etag'], str)
+                    or identity(value['owner']) != identity(owner.json()) or not isinstance(value['response_etag'], str)
                     or STRONG_ETAG.fullmatch(value['response_etag']) is None):
                 return None
             return value
@@ -149,7 +149,7 @@ class RangeStore:
                 return None
             value = json.loads(receipt.read_bytes())
             if (not isinstance(value, dict) or set(value) != {'schema', 'span', 'sha256', 'response_etag', 'verification'}
-                    or value['schema'] != RANGE_SCHEMA or value['span'] != span.json()
+                    or value['schema'] != RANGE_SCHEMA or identity(value['span']) != identity(span.json())
                     or value['response_etag'] != owner['response_etag']
                     or value['verification'] != 'publisher-owned-https-range'
                     or not isinstance(value['sha256'], str) or re.fullmatch('[0-9a-f]{64}', value['sha256']) is None
@@ -160,19 +160,46 @@ class RangeStore:
             return None
 
     def read(self, span):
-        if self.receipt(span) is None:
+        located = self._locate(span)
+        if located is None:
             _fail('The required original Star Rail audio range is not verified locally.')
-        path = self._path(span)
+        parent, value = located
+        path = self._path(parent)
         raw = path.read_bytes()
         # Recheck the actual bytes supplied to the parser/decoder, after the
         # receipt validation, instead of trusting a stat or a previous process.
-        value = json.loads(path.with_name(path.name + '.json').read_bytes())
-        if len(raw) != span.length or hashlib.sha256(raw).hexdigest() != value['sha256']:
+        if len(raw) != parent.length or hashlib.sha256(raw).hexdigest() != value['sha256']:
             _fail()
-        return raw
+        start = span.start - parent.start
+        return raw[start:start+span.length]
+
+    def _locate(self, span):
+        if receipt := self.receipt(span):
+            return span, receipt
+        directory = self._directory(span.owner)
+        if not directory.is_dir():
+            return None
+        candidates = []
+        for number, path in enumerate(directory.iterdir()):
+            if number >= 10000:
+                _fail('The original audio range cache exceeds its per-owner file limit.')
+            match = re.fullmatch(r'([0-9]{1,20})-([0-9]{1,20})', path.name)
+            if not match:
+                continue
+            start, length = map(int, match.groups())
+            if (0 < length <= MAX_SPAN and 0 <= start <= span.start
+                    and start <= span.owner.size-length and span.length <= length-(span.start-start)):
+                candidates.append(Span(span.owner, start, length))
+        for parent in sorted(candidates, key=lambda value: (value.length, value.start)):
+            if receipt := self.receipt(parent):
+                return parent, receipt
+        return None
+
+    def available(self, span):
+        return self._locate(span) is not None
 
     def acquire(self, span, transport):
-        if self.receipt(span) is not None:
+        if self.available(span):
             return
         owner = self._owner(span.owner)
         if owner is None and (span.start, span.length) != (0, 28):
@@ -213,7 +240,10 @@ class Quote:
 
     @property
     def disk_bytes(self):
-        return self.download_bytes + (len(self.spans) * 2 + 1) * RECEIPT_LIMIT
+        # Prefixes create both owner and range receipts. Subsequent stages
+        # require those owners already and create just their range receipts.
+        receipts = 2 if self.phase == 'audio-inventory-prefixes' else 1
+        return self.download_bytes + (len(self.spans) * receipts + 1) * RECEIPT_LIMIT
 
     @property
     def digest(self):
@@ -332,7 +362,52 @@ def neutral_bank_quote(inventory, lookup, names, store):
         if len(candidates) == 1:
             selected[key] = neutral[candidates[0]]
     spans = tuple(sorted(set(selected.values()), key=lambda span: (span.owner.name, span.start, span.length)))
-    return Quote('audio-neutral-banks', tuple(span for span in spans if store.receipt(span) is None)), selected
+    return Quote('audio-neutral-banks', tuple(span for span in spans if not store.available(span))), selected
+
+
+def coalesce(spans, *, gap=64*1024, maximum=8*1024**2):
+    """Quote exact bounded covering ranges, without joining different owners."""
+    if type(gap) is not int or not 0 <= gap <= MAX_SPAN or type(maximum) is not int or not 0 < maximum <= MAX_SPAN:
+        _fail()
+    groups = []
+    for span in sorted(set(spans), key=lambda value: (identity(value.owner.json()), value.start, value.length)):
+        if groups:
+            previous = groups[-1]; end = max(previous.start+previous.length, span.start+span.length)
+            if (previous.owner == span.owner and span.start <= previous.start+previous.length+gap
+                    and (end-previous.start <= maximum or end <= previous.start+previous.length)):
+                groups[-1] = Span(span.owner, previous.start, end-previous.start)
+                continue
+        groups.append(span)
+    return tuple(groups)
+
+
+def localized_bank_quote(inventory, lookup, names, store, locale):
+    """Join verified neutral Play actions to exact localized bank targets."""
+    from . import starrail_events as events
+    from .hoyo_dialogue import voice_namespace
+    language = voice_namespace('starrail', locale)
+    missing, selected = neutral_bank_quote(inventory, lookup, names, store)
+    if missing.spans:
+        _fail('The required original neutral event banks are not verified locally.')
+    neutral, localized = {}, {}
+    required = set(selected.values())
+    for directory in inventory:
+        if re.fullmatch(r'Banks[0-9]+\.pck', directory.owner.name):
+            for key, span in directory.banks.items():
+                if span in required:
+                    if span in neutral and neutral[span] != key:
+                        _fail('The neutral bank directory has conflicting identities.')
+                    neutral[span] = key
+        elif directory.owner.name.startswith(language + '/'):
+            events._unique(localized, directory.banks)
+    loaded = {span: events._bank(store.read(span), neutral[span], 'sfx')[0] for span in required}
+    targets = {}
+    for event, span in selected.items():
+        target = events._target(loaded[span], event)
+        if target and target[0] in lookup[event] and localized.get(target[0]):
+            targets[event] = (target[0], target[1], localized[target[0]])
+    spans = coalesce(target[2] for target in targets.values())
+    return Quote('audio-localized-banks', tuple(span for span in spans if not store.available(span))), targets
 
 
 @dataclass(frozen=True)
