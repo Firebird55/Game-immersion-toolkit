@@ -23,7 +23,7 @@ _SHA1_INITIAL = struct.pack('<4I', 0x67452301, 0xefcdab89, 0x98badcfe, 0x1032547
 
 def _require(condition):
     if not condition:
-        raise ValueError('Infinity Nikki original wrapper owner is incomplete, ambiguous or has changed format.')
+        raise ValueError('Could not verify and read an unambiguous current official Infinity Nikki wrapper owner.')
 
 
 @dataclass(frozen=True)
@@ -263,4 +263,4 @@ def decode_wrapped_metadata(raw: bytes, material: WrapperMaterial) -> dict:
         _require(isinstance(result, dict) and bool(result))
         return result
     except (ValueError, UnicodeError, RecursionError) as error:
-        raise ValueError('Infinity Nikki original wrapped metadata is incomplete or has changed format.') from error
+        raise ValueError('Could not decode and validate the current official Infinity Nikki wrapped metadata.') from error

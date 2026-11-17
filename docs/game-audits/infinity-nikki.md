@@ -290,15 +290,41 @@ the selected hotfix binary is 1,428,020 bytes and the file/PAK map is 17,115,624
 bytes. The binary prefixes have an original `0x20240418` marker, flag/declared
 expanded-length fields and Oodle framing. These are metadata sizes, not selected
 dialogue/audio sizes. Only prefixes have been acquired; no complete resource
-inventory or decoded binary schema is claimed by these probes.
+inventory is established by those prefix probes alone.
+
+The exact 1,428,020-byte hotfix object was subsequently obtained with unchanged
+strong ETag/length before and after, preserved before parsing and hashed in full.
+Its SHA-256 is
+`6d6af52fff9dc50a53fe8c602ee9ac96ea5f02ac7c3b64c5c084437169d8998e`.
+The ETag is an object identity, not automatically a declared publisher MD5; no
+separate publisher checksum for this metadata object was supplied. The actual
+native consumer proves the nine-byte version/flag/expanded-size envelope and
+payload start. The owned decoder reads exactly 5,691,995 expanded bytes and the
+original inner serializer's complete 43-record array to EOF. The records have
+three strings and three maps: 15,657 opaque-12-byte-key/string pairs, 21,598
+string/string pairs and 16,332 further opaque-key/string pairs. Unresolved map
+meanings remain opaque; empty values are not guessed to mean deletion or silence.
+
+`backend/infinity_nikki_inventory.py` now supplies that portable owned reader,
+the current SDK-derived URI templates and compressed/temporary-decode size
+planning. It requires a source-generation hash and an injected portable codec,
+rejects mismatched sources, duplicate keys, invalid counts and trailing bytes,
+and follows normal version/patch changes without a fixed URL revision. Original
+current hotfix replay and synthetic format fixtures pass. The untouched base
+inventory, package selection and end-to-end normal updates remain unverified.
 
 The PAK callback/entry/bytecode work is presently original-source research;
 address-independent production PAK material extraction, owned format readers
 and their regression fixtures remain required. No key values or source assets
 are committed. Fresh production native-owner acquisition also needs an explicit
-text-only-compatible plan: the embedded OBB contains a 78,866,565-byte movie PAK.
-The research APK integrity stream must not silently become a runtime text-only
-download plan that transports those assets.
+bootstrap plan: the embedded OBB contains a 78,866,565-byte movie PAK. Full mixed
+APK verification remains a possible route if its entire carrier cost and reason
+are quoted as required bootstrap overhead, only native bytes are retained and
+its mixed content is described honestly. Prefer a separately authenticated
+native-only source when available. The research stream must not silently become
+a runtime text-only plan that pretends no audio/video-containing carrier bytes
+were transferred. A failed source/key check is not automatically evidence of a
+package-format change or official-source impossibility.
 
 ## Presentation inventory and finite completion boundary
 
