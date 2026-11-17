@@ -200,6 +200,25 @@ def test_full_provider_quotes_selected_control_and_only_explicitly_publishes_its
             assert text_result.restore_handle['source']['witness'] == reference
             assert 0 < text_downloading.consumed <= text_plan.download_bytes
             assert len(native.control_requests) == 1  # No extra audio during text acquisition.
+            # A normal same-client resource hotfix restarts from the exact
+            # signed native source and quotes new controls before new text.
+            native.resource_version = '301-2'
+            planning.stage_handle = text_result.restore_handle
+            changed = provider.plan(native.request, planning)
+            assert changed.stage == 'original-audio-package-control'
+            assert changed.handle['native'] == result.restore_handle['native']
+            assert changed.handle['control']['generation'] != result.restore_handle['generation']
+            assert len(native.control_requests) == 1  # Replanning has no audio body transfer.
+            refreshed = provider.download(changed, native.context('download', changed.download_bytes))
+            assert refreshed.restore_handle['stage'] == 'original-audio-master-verified'
+            assert refreshed.restore_handle['generation'] == changed.handle['control']['generation']
+            assert len(native.control_requests) == 2
+            native.resource_version = '302-3'
+            planning.stage_handle = result.restore_handle  # Earlier master stage, same exact client.
+            direct = provider.plan(native.request, planning)
+            assert direct.stage == 'original-audio-package-control'
+            assert direct.handle['native'] == result.restore_handle['native']
+            assert len(native.control_requests) == 2
         assert old.read_bytes() == b'previous exact source remains active'
     finally:
         native.service.close()

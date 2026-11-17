@@ -469,6 +469,25 @@ Local recheck/cached-response and conservative resource-index-length
 qualifications above still apply; no new live publisher or device acceptance is
 claimed.
 
+### Same-client resource-hotfix recovery — November 17
+
+A changed resource generation does not always change the original client. The
+provider now replans from that exact client's checked upstream stage instead of
+repeatedly rejecting the same superseded text/navigation handle. Text mode
+returns a new current table quote from its explicit original bootstrap, without
+audio/native-member traffic. Text/audio returns to new selected original package
+controls through its explicit signed-native source before preparing current text.
+It does not relabel the old generation's witness or reset/delete the old source.
+
+The 45 affected text/navigation/provider tests cover new authored text with the
+same client, both retained text/navigation handles, stale audio-master and
+post-text audio stages, explicit next-generation control downloads and old
+complete source/record preservation. Replanning transfers only the small source
+metadata; every new body still needs its new quote. Native/source positives in
+these fixtures are simulated where already described. This is recovery control
+flow evidence, not an additional live publisher/key-rotation or Ready acceptance
+claim.
+
 ### Remaining AES/header source boundary — November 17
 
 A bounded original-source pass spent 4,070 bytes of its 8-KiB allowance and

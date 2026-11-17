@@ -256,7 +256,7 @@ class EndfieldGameDataProvider:
             'source_receipt_sha256': hashlib.sha256(_json_bytes(source)).hexdigest()},
             'Endfield original audio native source is verified. Original package controls and text preparation are still required; no dialogue or voice library is active.')
 
-    def _plan_control(self, request, ctx, identity, transport, continuation):
+    def _plan_control(self, request, ctx, identity, transport, continuation, *, generation=None):
         Error, Plan, _, _ = _contracts()
         if request.content_mode != 'text-audio':
             raise Error('audio_not_requested', 'Endfield original audio controls require the audio selection.')
@@ -270,7 +270,7 @@ class EndfieldGameDataProvider:
             common = self._common(bootstrap)
         except (ValueError, KeyError, TypeError) as error:
             raise Error('unsupported_original_metadata', 'Endfield original common parameters could not be derived. Existing data is retained.') from error
-        generation = discover(ctx, identity, transport)
+        generation = generation if generation is not None else discover(ctx, identity, transport)
         control, _ = control_plan(ctx, identity, common, generation, transport)
         handle = {'schema': 1, 'stage': control['stage'], 'client': identity, 'request': request.json(),
                   'native': continuation, 'control': control}
@@ -324,7 +324,7 @@ class EndfieldGameDataProvider:
             raise Error('invalid_local_state', 'Endfield text/audio preparation needs its explicit original source stage.')
         return Bootstrap(ctx, identity, transport, stage)
 
-    def _plan_text(self, request, ctx, identity, transport, continuation):
+    def _plan_text(self, request, ctx, identity, transport, continuation, *, generation=None):
         from .endfield_bootstrap_source import SMALL_TOTAL
         from .endfield_resource_source import discover
         from .endfield_text_source import plan as text_plan
@@ -334,9 +334,9 @@ class EndfieldGameDataProvider:
             common = self._common(bootstrap)
         except (ValueError, KeyError, TypeError) as error:
             raise Error('unsupported_original_metadata', 'Endfield original text common parameters could not be derived. Existing data is retained.') from error
-        generation = discover(ctx, identity, transport)
+        generation = generation if generation is not None else discover(ctx, identity, transport)
         if request.content_mode == 'text-audio' and continuation.get('generation') != generation:
-            raise Error('publisher_object_changed', 'Endfield changed after original audio verification. Recheck the selected original source.', 409)
+            return self._restart_resources(request, ctx, identity, transport, continuation, generation)
         content, _ = text_plan(ctx, identity, common, generation, transport)
         handle = {'schema': 1, 'stage': content['stage'], 'client': identity,
                   'request': request.json(), 'source': continuation, 'text': content}
@@ -382,7 +382,7 @@ class EndfieldGameDataProvider:
         catalog = Catalog(ctx, identity, common, tables_stage['text'])
         generation = discover(ctx, identity, transport)
         if generation != catalog.generation:
-            raise Error('publisher_object_changed', 'Endfield changed after text-table preparation. Check the current text source before presentation navigation.', 409)
+            return self._restart_resources(request, ctx, identity, transport, tables_stage['source'], generation)
         content, _ = navigation_plan(ctx, identity, common, generation, transport)
         handle = {'schema': 1, 'stage': content['stage'], 'client': identity, 'request': request.json(),
                   'tables': tables_stage, 'navigation': content}
@@ -418,6 +418,17 @@ class EndfieldGameDataProvider:
         return Stage({'schema': 1, 'stage': result['stage'], 'client': identity,
             'request': ctx.request.json(), 'tables': tables_stage, 'navigation': result},
             'Endfield original navigation source stage is complete. Remaining selected bundle acquisition and verified presentation decoding still precede a complete capture-ready library.')
+
+    def _restart_resources(self, request, ctx, identity, transport, source, generation):
+        # A normal resource hotfix need not change the client. Reuse only this
+        # exact client's checked upstream source; never reset/delete old data or
+        # loop forever on the superseded downstream stage handle.
+        if request.content_mode == 'text':
+            return self._plan_text(request, ctx, identity, transport, source, generation=generation)
+        Error, _, _, _ = _contracts()
+        if not isinstance(source, dict) or source.get('stage') != 'original-audio-master-verified':
+            raise Error('invalid_local_state', 'Endfield changed and needs its exact original audio source before replanning.')
+        return self._plan_control(request, ctx, identity, transport, source.get('native'), generation=generation)
 
 
 def create_provider(*, platform, native=None, transport_factory=None):
