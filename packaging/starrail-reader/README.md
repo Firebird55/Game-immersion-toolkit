@@ -65,6 +65,19 @@ Functional research regenerated metadata from complete manifest-verified Global
 4.6 and 4.7 inputs with the same frozen source and metadata-only entrypoint.
 Managed decoding derived all nine bootstrap fields on both versions through the
 unchanged owned description API, and reproduced the native string codec
-description. The research build used SDK 10.0.302; this is functional evidence,
-not acceptance of a pinned distributable. Matching-platform hosted packaging and
-ordinary worker/update/recovery acceptance remain required.
+description. The initial research build used SDK 10.0.302. A separate Windows
+delivery trial then built the unchanged helper at source commit
+`2efe139f44720d9402dbf2fa7f4922c6e9f9bf79` with the exact pinned SDK 10.0.403 and
+runtime 10.0.14. The SDK archive and both runtime packages passed their SHA-512
+pins before extraction; restores used only that closed local feed. The shipped
+207-file resource set passed the ordinary prebuilt resolver, including exact
+runtime members, corresponding sources and notices. Its build identity is
+`481994032e491f59a6d491e408c440c2f58f1cd63c28278c7b4d0a84bc849b26`.
+
+That published self-contained apphost regenerated metadata from complete
+manifest-MD5-verified Global 4.7 inputs with the SDK removed from `PATH` and
+`DOTNET_ROOT` pointing to an empty directory. Its 189,595,914-byte dump and
+12,498,550-byte literal map exactly matched the earlier control hashes. This
+proves the Windows helper's compiler-free execution and pinned build path;
+full desktop candidate acceptance, other platforms and the complete ordinary
+worker/update/recovery acceptance remain separate requirements.

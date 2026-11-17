@@ -10,12 +10,15 @@ const string=s=>{const b=Buffer.from(s);return Buffer.concat([u32(b.length),b,Bu
 const script=(name,unity=false)=>Buffer.concat([string(name),Buffer.alloc(20),string(name),
   string(unity?'UnityEngine.Timeline':'MoleMole.Timeline'),string(unity?'Unity.Timeline.dll':'Logic.dll')]);
 const behaviour=(id,name,body)=>Buffer.concat([Buffer.alloc(16),pointer(id),string(name),body]);
-const timelineClip=(asset,owner,{offset=0,speed=1}={})=>Buffer.concat([u32(1),double(1),double(offset),pointer(asset),double(2),double(speed),pointer(owner),
+const timelineClip=(asset,owner,{offset=0,speed=1,start=1,duration=2}={})=>Buffer.concat([u32(1),double(start),double(offset),pointer(asset),double(duration),double(speed),pointer(owner),
   Buffer.alloc(32),u32(0),Buffer.alloc(12),u32(0),Buffer.alloc(12),Buffer.alloc(8),u32(0),pointer(0),Buffer.alloc(12),double(0),double(0),string('Synthetic')]);
 const track=(parent,children,clips,tail=Buffer.alloc(0),{muted=false}={})=>Buffer.concat([u32(3),u32(muted?1:0),Buffer.alloc(32),pointer(parent),
   u32(children.length),...children.map(id=>pointer(id)),string('a'.repeat(32)),u32(clips.length),...clips,u32(0),tail]);
 
-function fixture({language=3,clipLanguage=language,wrongParent=false,external=false,muted=false,secondEvent=false,offset=0,cyclic=false,unknownTrack=false}={}) {
+function fixture({language=3,clipLanguage=language,wrongParent=false,external=false,muted=false,secondEvent=false,offset=0,cyclic=false,unknownTrack=false,
+  alternate=false,alternateOptions={},alternateFirst=false}={}) {
+  const audioClips=[timelineClip(60,40,{offset}),...(secondEvent?[timelineClip(61,40)]:[]),...(alternate?[timelineClip(62,40,alternateOptions)]:[])];
+  if(alternateFirst)audioClips.reverse();
   const records=[
     [1,115,script('TimelineAsset',true)],[2,115,script('GroupTrack',true)],
     [3,115,script('SubtitleTrack')],[4,115,script('SubtitleClip')],
@@ -23,10 +26,11 @@ function fixture({language=3,clipLanguage=language,wrongParent=false,external=fa
     [10,114,behaviour(1,'Synthetic_Timeline',Buffer.concat([u32(0),u32(1),pointer(20,external?1:0)]))],
     [20,114,behaviour(2,'Synthetic',track(10,[30,40,...(cyclic?[20]:[]),...(unknownTrack?[80]:[])],[]))],
     [30,114,behaviour(3,'NoLocaleInName',track(wrongParent?999:20,[],[timelineClip(50,30)],u32(language),{muted}))],
-    [40,114,behaviour(5,'NoVoiceInName',track(20,[],[timelineClip(60,40,{offset}),...(secondEvent?[timelineClip(61,40)]:[])],Buffer.alloc(12)))],
+    [40,114,behaviour(5,'NoVoiceInName',track(20,[],audioClips,Buffer.alloc(12)))],
     [50,114,behaviour(4,'SubtitleClip',Buffer.concat([string('SyntheticCaption'),u32(clipLanguage),u32(0)]))],
     [60,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_vo_Synthetic'),Buffer.alloc(64)]))],
     [61,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_vo_Other'),Buffer.alloc(64)]))],
+    [62,114,behaviour(6,'WwiseAudioClip',Buffer.concat([string('Play_ActualLayer'),Buffer.alloc(64)]))],
   ];
   const types=Buffer.concat([u32(2),u32(114),Buffer.alloc(35),u32(115),Buffer.alloc(19)]);
   let pre=Buffer.concat([Buffer.from('2019.4.40f1\0'),u32(19),Buffer.from([0]),types,u32(records.length)]);
@@ -67,5 +71,20 @@ test('a valid subtitle remains available when another track is cyclic or unsuppo
     const result=cinemaSubtitleTimeline(fixture(options));assert.equal(result.subtitles.length,1);
     assert.equal(result.subtitles[0].event,null);assert.equal(result.unsupported.length,1);
     assert.equal(cinemaSubtitleLinks(result,'Japanese(JP)')[0].voice_status,'unknown');
+  }
+});
+test('a typed alternate is retained only for the same complete trigger clocks, independent of object order',()=>{
+  for(const alternateFirst of [false,true]){
+    const result=cinemaSubtitleTimeline(fixture({alternate:true,alternateFirst}));
+    assert.deepEqual(result.subtitles[0].cinematic_alternates,['Play_ActualLayer']);
+    assert.deepEqual(cinemaSubtitleLinks(result,'Japanese(JP)')[0].cinematic_alternates,['Play_ActualLayer']);
+  }
+});
+test('edited alternate clocks and conflicting voice tracks never establish a fallback',()=>{
+  for(const alternateOptions of [{start:2},{duration:3},{offset:1},{speed:2}])
+    assert.equal(cinemaSubtitleTimeline(fixture({alternate:true,alternateOptions})).subtitles[0].cinematic_alternates,undefined);
+  for(const options of [{secondEvent:true},{unknownTrack:true},{cyclic:true}]){
+    const row=cinemaSubtitleTimeline(fixture({alternate:true,...options})).subtitles[0];
+    assert.equal(row.event,null);assert.equal(row.cinematic_alternates,undefined);
   }
 });

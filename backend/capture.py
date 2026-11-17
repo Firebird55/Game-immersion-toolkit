@@ -849,6 +849,7 @@ class CaptureService:
         has_song_voices = game == 'wuwa' and getattr(index, 'snapshot_metadata', {}).get(
             'publisher_song_voices', has_song_cues)
         has_world_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_world_dialogue_ui')
+        has_sns_cues = game == 'endfield' and getattr(index, 'snapshot_metadata', {}).get('publisher_sns_dialogue_ui')
         voice_lines = getattr(index, 'match_full_frame_voice_lines', None) if has_film_cues or has_top_cues or has_world_cues or has_song_voices or (spec and spec.floating_dialogue) else None
         voice_enabled = bool(voice_lines and index.ready and index.audio_count)
         prefix = 'unvoiced\0'
@@ -941,6 +942,11 @@ class CaptureService:
             hit = index.match_endfield_world_caption(response.get('lines', []), image.size)
             if hit and self._capturable_match(hit):
                 matches[hit.text_id] = hit
+        if has_sns_cues and silent_enabled:
+            from .endfield_sns_presentation import merge_sns_observations
+            hits = index.match_endfield_sns_dialogue(response.get('lines', []), image.size,
+                direct=tuple(matches.values()), dialogue_menu=bool(response.get('dialogue_menu')))
+            matches = merge_sns_observations(matches, hits)
         self._observe_visible_matches('unvoiced', list(matches), seen_at)
         active_keys = set()
         for hit in matches.values():

@@ -598,6 +598,90 @@ English texts. Every previous field and OCR alias survives in both generations;
 only the new instruction anchors are added. This rehearsal requests no new
 original recordings and does not establish physical scheduled activation.
 
+### Original Baker mode, header and adjacent written cells
+
+Revision 31 derives Baker context from the same original release's chat and
+dialogue tables, localization, seven UI controllers and six owned layouts.
+The original host assigns different localized **Messages**, **Tasks** and
+**Friends** titles; only Messages/Tasks can admit this route. Its selected chat
+name and complete adjacent written bodies must occupy their own screen regions
+with reliable OCR. A cropped header, another contact preview, menu, uncertain
+line or a known sentence embedded in an unmatched longer paragraph is
+insufficient. Existing unvoiced capture remains opt-in.
+
+Static original native data establishes the normal message producer's
+`nextContentId` order and distinguishes option/additive nodes. No game, native
+or Lua code is executed. Source chains contain two to four literal reciprocal
+cells without options, converging branches, end placeholders or missing bodies.
+Every other prepared SNS type with the same complete source context remains a
+conflict peer. Original bodies, IDs, official translations, voice states,
+recording references, recognition aliases and short/predecessor guards stay
+unchanged; no generic whole-frame alias is added.
+
+The admission keeps each body's physical position. Two different System cells
+in one observed chain can therefore produce separate original lines in visual
+order, rather than mapping their combined text to an arbitrary single result.
+Ordinary message hits are only reordered when they were independently matched;
+this route does not newly admit arbitrary ordinary messages. A one-character
+chat name requires complete longer context. The initial short typing state in
+Chinese/Korean requires the full four-cell authored sequence through the
+following message; the name or two short typing states alone do not suffice.
+
+This sequence has retained sibling cells, rather than successive replacements
+of one transient typing indicator. The original non-additive branch appends a
+new content entry and increases the scroll-list count for each body. Completing
+one cell marks it loaded and advances to the next; it does not delete the old
+entry. The list's ordinary view effects and gradual hiding are disabled. The
+encoded full-window layout can accommodate the required short sequence, while
+the capture rule independently requires every complete body to be visible at
+once. Clipping, larger text or a different active view cannot establish the
+missing context merely because its table IDs are adjacent.
+Preparation checks the selected release's owned append order, increasing list
+count and loaded-then-advance path structurally. Replacing/reordering/removing
+retained cells, resetting the count during progress or changing the completion
+advance rejects this descriptor. Compatible extra source statements do not
+require an entire-controller hash pin.
+
+The five ordinary current workers retain every prior field in all 55,086
+English, 56,345 Simplified Chinese, 55,067 Traditional Chinese, 55,177 Japanese
+and 55,065 Korean records. Each derives 348 current source chains; 327 pass the
+written-cell/conflict conditions. These are source references, not proof that
+every chain has an active root caller or is currently visible. The same frozen
+reader explicitly replays original 1.5.3 and derives 336 chains, with 316
+eligible, from its own original UI/table hashes. All 49,550 old English records
+and the existing world-dialogue descriptor remain identical. Current content
+keeps the same 5,536 added records, 3,155 added voiced rows and 11 changed
+English texts. This rehearsal downloads no new original recording.
+
+Each prepared display language is checked independently against its own original
+mode, chat header and complete translated bodies. An English screen can therefore
+retain the selected Chinese, Japanese or Korean study text and voice locale;
+English study can likewise use its prepared Chinese display text. Bodies and
+controls from different display languages never form one context, and missing
+localized controls do not fall back to another language. Full record conflicts
+and all predecessor/menu guards still apply.
+Five additional mixed-language full-index `CaptureService` replays reach the
+same **116 / 117** under complete context: Chinese display with English study,
+and English display with each of the other four study selections. Their 952
+fresh negative occurrence checks retain the same boundaries. Existing ordinary
+body matches remain available independently of this scoped rule.
+
+Network-forbidden replays of all five complete current indices and the actual
+`CaptureService` distinguish **116 / 117** System bodies in every study
+selection under the complete-context conditions. All 117 body-only results
+remain identical. Each positive and negative has fresh transcript history;
+784 negative occurrence checks reject wrong/missing mode, header, nonadjacent,
+partial, embedded, mixed-region, uncertain, missing-box and menu/toggle cases.
+Another complete visible cell with identical full metadata may still be
+captured; it does not establish the damaged occurrence's position. No original
+audio is requested. These are synthetic positioned OCR tests, separate from
+native OCR or physical gameplay acceptance. The
+remaining offline notice leads into an option node and retains its guard.
+This is separate from caption-only matching and from representative physical
+capture or running-device activation. Public Baker screenshots used for genuine
+offline OCR are limited-resolution/missing-mode negative controls: they do not
+establish a newly completed live-game capture.
+
 These finite checked families are not a claim that every indirect trigger,
 readable layout, operator menu or other narrative presentation has passed.
 Counts use prepared captions/performance pairs rather than unlocked player
@@ -613,6 +697,7 @@ content. Chinese script choices share the original Mandarin sources.
 | Guide bodies captured | 630 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | 626 / 631 | Exact/rendering ambiguity remains |
 | Training bodies captured with authored order | 472 / 498 | 478 / 498 | 478 / 498 | 496 / 498 | 498 / 498 | Short/repeated cases retain context guards |
 | Baker system bodies captured | 102 / 117 | 104 / 117 | 104 / 117 | 110 / 117 | 104 / 117 | Short/repeated system text retains guards |
+| Baker System bodies with original mode/header/complete adjacent cells | 116 / 117 | 116 / 117 | 116 / 117 | 116 / 117 | 116 / 117 | Messages/Tasks mode, two to four complete owned cells, geometry/confidence and unvoiced opt-in; option successor remains guarded; physical acceptance separate |
 | Friendship NPC captions, caption alone | 173 / 198 | 172 / 198 | 173 / 198 | 113 / 198 | 172 / 198 | Recording/translation differences retain guards |
 | Friendship NPC captions, verified world UI | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | 198 / 198 | Complete localized controls, actor, caption, geometry and reliable confidence; current physical acceptance separate |
 | NPC-override referenced rows with primary voices prepared | 56 / 199 | 56 / 199 | 56 / 199 | 56 / 199 | 56 / 199 | All 199 text rows represented; 143 lack original primary metadata; root activation unknown |

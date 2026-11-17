@@ -9,8 +9,9 @@ for selected study text, aligned translations and original voice availability.
 In Windows Setup, leaving the game folder empty also prepares verified original
 film contexts from the selected publisher release. These clips replay the
 complete bound scene and carry a **context** label in playback and exports.
-They preserve full utterances and exact source frames, with a five-minute
-output limit. Longer or unsupported film sources remain unavailable; subtitle
+They preserve full utterances and exact source frames, with a six-minute
+whole-film limit. Songs and sentence intervals retain their five-minute limits.
+Longer or unsupported film sources remain unavailable; subtitle
 display times never authorize a guessed audio cut. See the current
 [film inventory and remaining gaps](game-audits/wuwa.md).
 

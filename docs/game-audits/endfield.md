@@ -47,6 +47,15 @@ voice states are unchanged. The same frozen reader derives 113 book anchors
 from the replayed older release, without an ID list or new recordings.
 [Original title, current capture and two-generation evidence](endfield-current-subtitle-acceptance.md#original-instruction-titles-and-complete-written-bodies).
 
+Revision 31 adds stateless written Baker context from the original Messages/Tasks
+mode, selected chat name and two to four complete adjacent cells. Each body keeps
+its own position and official translation; ordinary hits retain their existing
+admission and no original row or recording changes. Source/layout coverage is
+116 of 117 System bodies per study selection under those full-context conditions;
+the remaining option-linked notice stays guarded. Both publisher generations
+derive their own UI/table bindings with the same reader. [Baker ownership and
+remaining conditions](endfield-current-subtitle-acceptance.md#original-baker-mode-header-and-adjacent-written-cells).
+
 Revision 24 additionally follows original top-caption layout declarations and
 the exact stage order of operator-training steps. The current graph inventory
 contains 15 top-layout nodes; the strict source selector adds full-frame voiced

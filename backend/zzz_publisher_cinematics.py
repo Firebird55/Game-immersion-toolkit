@@ -7,11 +7,13 @@ import struct
 from flatbuffers import flexbuffers
 
 from . import hoyo_publisher_voice as voice
-from .honkai_assets import PackageEntry, bank_sources_from_reader, package_tables_from_reader
+from .honkai_assets import PackageEntry, bank_metadata_from_reader, bank_sources_from_reader, package_tables_from_reader
 from .hoyo_dialogue import voice_namespace
 from .nte_assets import wwise_hash
 from .zzz_assets import VOICE_FOLDERS
 from .zzz_cinematics import event_bank_links
+from .zzz_voice_layers import unconditional_voice_layers
+from .zzz_bus_routing import INITIAL_BANK_FILENAME, bus_parents_from_reader
 
 
 def audio_registry(data):
@@ -48,7 +50,7 @@ def _tables(directory, stamp, locale, name):
 
 
 @lru_cache(maxsize=512)
-def _bank(directory, stamp, locale, name, bank_id):
+def _bank(directory, stamp, locale, name, bank_id, mode='direct'):
     namespace = voice_namespace('zzz', locale).lower()
     languages, banks, _ = _tables(directory, stamp, locale, name)
     matches = [entry for (identifier, language), entry in banks.items()
@@ -57,8 +59,21 @@ def _bank(directory, stamp, locale, name, bank_id):
         raise ValueError('Original ZZZ cinematic bank is missing or ambiguous.')
     entry, = matches
     source = voice._archive(directory, stamp, locale, name, 'zzz')
-    bindings, embedded = bank_sources_from_reader(entry.size,
-        lambda start, size: source.read(directory, entry.offset + start, size), bank_id, language=namespace, detailed=True)
+    read = lambda start, size: source.read(directory, entry.offset + start, size)
+    if mode == 'unconditional_voice_layer':
+        objects, embedded = bank_metadata_from_reader(entry.size, read, bank_id, language=namespace)
+        buses = None
+        if any(kind == 3 and len(raw) >= 6 and struct.unpack_from('<H', raw, 4)[0] == 0x0102
+               for kind, raw in objects.values()):
+            try:
+                buses = _initial_buses(directory, stamp, locale)
+            except (ValueError, struct.error):
+                pass  # Other all-Play events in this bank remain independently resolvable.
+        bindings = unconditional_voice_layers(objects, buses)
+    elif mode == 'direct':
+        bindings, embedded = bank_sources_from_reader(entry.size, read, bank_id, language=namespace, detailed=True)
+    else:
+        raise ValueError('Unsupported original ZZZ cinematic source mode.')
     return bindings, {identifier: PackageEntry(entry.offset + media.offset, media.size)
                       for identifier, media in embedded.items()}
 
@@ -113,24 +128,46 @@ def _inventory(directory, stamp, locale, wanted_banks):
     return result
 
 
+@lru_cache(maxsize=128)
+def _initial_buses(directory, stamp, locale):
+    identity = wwise_hash(INITIAL_BANK_FILENAME.rsplit('.', 1)[0])
+    banks, _, common = _inventory(directory, stamp, locale, {identity})
+    if banks or set(common) != {identity}:
+        raise ValueError('Original ZZZ initialization bank is missing or ambiguous.')
+    name, entry = common[identity]
+    source = voice._archive(directory, stamp, locale, name, 'zzz')
+    return bus_parents_from_reader(entry.size,
+        lambda start, size: source.read(directory, entry.offset + start, size), identity)
+
+
 def bindings(data_dir, stamp, locale, links, registry):
     """Only unanimous authored cinema uses can acquire a whole-film context."""
     uses = defaultdict(list)
     for link in links:
         uses[link['text_id']].append(link)
-    events_by_text = {}
+    events_by_text, modes_by_text = {}, {}
     for identity, rows in uses.items():
         events = {row.get('cinematic_event') for row in rows}
         if (len(events) != 1 or None in events or any(row.get('source') or row.get('audio_scope') != 'context' for row in rows)):
             continue
         event, = events
-        if re.fullmatch(r'Play_vo_[A-Za-z0-9_]+', event, re.I):
-            events_by_text[identity] = event
+        if not re.fullmatch(r'Play_vo_[A-Za-z0-9_]+', event, re.I):
+            continue
+        mode = 'direct'
+        if not registry.get(wwise_hash(event)):
+            alternates = [row.get('cinematic_alternates') for row in rows]
+            if (any(not isinstance(values, list) or len(values) != 1 or not isinstance(values[0], str)
+                    or not re.fullmatch(r'Play_[A-Za-z0-9_]+', values[0], re.I)
+                    or re.match(r'Play_vo_', values[0], re.I) for values in alternates)
+                    or len({values[0] for values in alternates}) != 1):
+                continue
+            event, mode = alternates[0][0], 'unconditional_voice_layer'
+        events_by_text[identity], modes_by_text[identity] = event, mode
     if not events_by_text:
         return {}
     names = defaultdict(set)
-    for event in events_by_text.values():
-        names[wwise_hash(event)].add(event)
+    for identity, event in events_by_text.items():
+        names[wwise_hash(event)].add((event, modes_by_text[identity]))
     events = {identity: next(iter(values)) for identity, values in names.items() if len(values) == 1}
     wanted = set().union(*(registry.get(event, set()) for event in events))
     if not wanted:
@@ -148,17 +185,21 @@ def bindings(data_dir, stamp, locale, links, registry):
             verified_dependencies.add(identifier)
         except (ValueError, struct.error):
             continue
-    parsed = {}
-    for identifier, (name, _) in banks.items():
-        if identifier not in wanted:
-            continue
-        try:
-            parsed[identifier] = (name, *_bank(directory, stamp, locale, name, identifier))
-        except (ValueError, struct.error):
-            # A changed or unsupported hierarchy is unresolved, never silent.
-            continue
+    parsed_modes = {}
+    for mode in {value[1] for value in events.values()}:
+        wanted_mode = set().union(*(registry[event] for event in complete if events[event][1] == mode))
+        parsed = parsed_modes[mode] = {}
+        for identifier, (name, _) in banks.items():
+            if identifier not in wanted_mode:
+                continue
+            try:
+                parsed[identifier] = (name, *_bank(directory, stamp, locale, name, identifier, mode))
+            except (ValueError, struct.error):
+                # A changed or unsupported hierarchy is unresolved, never silent.
+                continue
     candidates = defaultdict(dict)
-    for event_id, event in events.items():
+    for event_id, (event, mode) in events.items():
+        parsed = parsed_modes[mode]
         required = registry.get(event_id, set())
         if not required or not required <= parsed.keys() | verified_dependencies:
             continue
@@ -184,6 +225,7 @@ def bindings(data_dir, stamp, locale, links, registry):
                     'publisher': stamp, 'locale': locale, 'source': '', 'file_id': f'{media_id:016x}',
                     'package': name, 'event_package': event_name, 'event_bank': event_bank,
                     'media_bank': media_bank, 'event': event, 'audio_scope': 'context',
+                    **({'event_mode': mode} if mode != 'direct' else {}),
                     'matched_by': 'publisher_cinematic_event'})
     return {identity: next(iter(candidates[wwise_hash(event)].values()))
             for identity, event in events_by_text.items() if len(candidates[wwise_hash(event)]) == 1}
@@ -192,8 +234,11 @@ def bindings(data_dir, stamp, locale, links, registry):
 def extract(audio, tools):
     locale, stamp = audio['locale'], audio['publisher']
     event, media_id = audio.get('event', ''), int(audio['file_id'], 16)
+    mode = audio.get('event_mode', 'direct')
+    pattern = r'Play_[A-Za-z0-9_]+' if mode == 'unconditional_voice_layer' else r'Play_vo_[A-Za-z0-9_]+'
     if (locale not in VOICE_FOLDERS or audio.get('source') or audio.get('audio_scope') != 'context'
-            or not re.fullmatch(r'Play_vo_[A-Za-z0-9_]+', event, re.I) or not 0 < media_id <= 0xffffffff):
+            or mode not in ('direct', 'unconditional_voice_layer')
+            or not re.fullmatch(pattern, event, re.I) or not 0 < media_id <= 0xffffffff):
         raise ValueError('Invalid original ZZZ cinematic context identity.')
     if (type(audio.get('event_bank')) is not int or not 0 < audio['event_bank'] <= 0xffffffff
             or audio.get('media_bank') is not None and
@@ -203,7 +248,7 @@ def extract(audio, tools):
     folder = '/Audio/Windows/Full/' + VOICE_FOLDERS[locale] + '/'
     if any(folder not in audio[key] for key in ('package', 'event_package')):
         raise ValueError('ZZZ cinematic context crosses original voice locales.')
-    event_sources, _ = _bank(directory, stamp, locale, audio['event_package'], audio['event_bank'])
+    event_sources, _ = _bank(directory, stamp, locale, audio['event_package'], audio['event_bank'], mode)
     source = event_sources.get(wwise_hash(event))
     if source is None or source.media_id != media_id:
         raise ValueError('Original ZZZ cinematic event no longer identifies this recording.')
