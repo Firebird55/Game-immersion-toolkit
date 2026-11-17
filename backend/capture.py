@@ -982,6 +982,7 @@ class CaptureService:
             index.capture_unvoiced = settings.capture_unvoiced
             index.capture_missing_audio = getattr(settings, 'capture_missing_audio', False)
         if index is None or not index.ready or (game != "pragmata" and index.audio_count == 0
+                and not getattr(index, 'capture_text_only', False)
                 and not (settings.capture_unvoiced and index.status().get('unvoiced_count', 0))
                 and not (getattr(settings, 'capture_missing_audio', False) and index.status().get('missing_audio_count', 0))):
             self._tracker.observe(None)
@@ -1098,7 +1099,8 @@ class CaptureService:
                     observed_at = self._visible_match_started[game][1]
                     self._schedule_line_audio(line, monotonic_now, observed_at=observed_at)
             phase = "matched"
-            kind = ('unvoiced dialogue' if match.voice_status == 'unvoiced' else
+            kind = ('text-only subtitle' if match.is_requested_text_only else
+                    'unvoiced dialogue' if match.voice_status == 'unvoiced' else
                     'dialogue without available audio' if match.voice_status != 'voiced' else 'subtitle with original voice')
             message = f"{GAME_PROFILES[game].name} {kind} matched"
 
@@ -1480,7 +1482,7 @@ class CaptureService:
         return self.game_voice_assets.get(game)
 
     def _mapped_voice(self, match: TextMatch | None) -> bool:
-        if match is None or match.voice_status == 'unvoiced':
+        if match is None or match.voice_status == 'unvoiced' or match.audio_omitted_by_request:
             return False
         assets = self._assets_for(match.game)
         return bool(assets and getattr(assets, 'locale', match.source_locale) == match.source_locale and assets.has_variant(match.text_id, match.english))
@@ -1606,7 +1608,10 @@ class CaptureService:
         ))
 
     def _schedule_line_audio(self, line: TranscriptLine, now: float, *, observed_at: float) -> None:
-        if line.voice_status == 'unvoiced' or (line.text_capture_verified and line.voice_status in {'unknown', 'unavailable'}):
+        if line.audio_omitted_by_request and not line.is_requested_text_only:
+            return
+        if (line.is_requested_text_only or line.voice_status == 'unvoiced'
+                or (line.text_capture_verified and line.voice_status in {'unknown', 'unavailable'})):
             if self._event_loop is not None:
                 self._queue_publication(self.on_line(line))
                 self._prune_history()
@@ -1667,6 +1672,8 @@ class CaptureService:
         self._queue_publication(self.on_line(line))
 
     def repair_recorded_line(self, line: TranscriptLine, *, completed: Callable[[], None] | None = None) -> bool:
+        if line.audio_omitted_by_request:
+            return False
         assets = self.recorded_voice_assets(line) if self.recorded_voice_assets else self._assets_for(line.game)
         if not assets or (not line.voiced and not line.is_comic) or (line.audio_source == "original" and line.has_audio):
             return False
