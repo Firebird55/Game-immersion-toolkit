@@ -9,6 +9,7 @@ from types import MappingProxyType
 import wave
 
 import pytest
+import zstandard
 
 from backend import starrail_game_audio as audio
 from backend.game_data import GameDataService, _Context
@@ -23,6 +24,59 @@ def package():
     table = struct.pack('<IQ4I', 1, voice_hash('English/voice/Owned.wem'), 1, len(original), 80, 0)
     header = b'AKPK' + struct.pack('<6I', 60, 1, 4, 4, 4, len(table)) + bytes(12) + table
     return header + bytes(80 - len(header)) + original
+
+
+def lookup_bytes():
+    raw = bytearray(80)
+    raw[:4] = b'DBDC'
+    for offset, values in ((4, (1, 80)), (16, (24,)), (24, (28, 1, 1)),
+                           (52, (123, 60)), (60, (123, 72, 0)), (72, (1, 55))):
+        struct.pack_into('<' + 'I' * len(values), raw, offset, *values)
+    return bytes(raw)
+
+
+def test_lookup_quotes_compressed_chunks_reconstructs_offline_and_checks_whole_md5(fixture, tmp_path):
+    from backend import sophon_assets as sophon, starrail_events as events
+    ctx = fixture[0]; raw = lookup_bytes(); encoded = zstandard.ZstdCompressor().compress(raw)
+    digest = hashlib.md5(raw).hexdigest(); url = 'https://autopatchos.starrails.com/lookup/chunk'
+    asset = sophon.File(events.LOOKUP, len(raw), digest,
+        ((0, len(raw), len(encoded), 'chunk', digest),), url.rsplit('/', 1)[0])
+    calls = []
+    def open_(request, **kwargs):
+        calls.append(request)
+        assert request.full_url == url and request.get_header('Range') is None
+        return Response(encoded, url=url)
+    transport = PublisherTransport(ctx, hosts={'autopatchos.starrails.com'}, opener=open_)
+    lookup = audio.OriginalLookup(tmp_path / 'sophon', asset)
+    first = lookup.quote()
+    assert first.download_bytes == len(encoded) != len(raw) and first.spans == (asset,)
+    assert first.disk_bytes >= len(raw) * 2
+    lookup.acquire(asset, transport)
+    assert len(calls) == 1 and lookup.read() == raw and lookup.quote().spans == ()
+    assert events.bank_lookup(lookup.read()) == {123: (55,)}
+    lookup.path.write_bytes(bytes(len(raw)))
+    repaired = lookup.quote()
+    assert repaired.download_bytes == 0 and repaired.spans == (asset,)
+    lookup.acquire(asset, transport)
+    assert len(calls) == 1 and lookup.read() == raw
+    # The complete verified body can survive loss of its source chunk.
+    (lookup.directory / 'chunks' / digest).unlink()
+    assert lookup.quote().complete and lookup.read() == raw
+
+
+def test_whole_verified_but_malformed_lookup_cannot_publish_a_stage(fixture, tmp_path):
+    from backend import sophon_assets as sophon, starrail_events as events
+    raw = bytes(80); digest = hashlib.md5(raw).hexdigest()
+    asset = sophon.File(events.LOOKUP, len(raw), digest, ((0, len(raw), 12, 'chunk', digest),),
+        'https://autopatchos.starrails.com/lookup')
+    lookup = audio.OriginalLookup(tmp_path / 'sophon', asset)
+    path = lookup.directory / 'chunks' / digest; path.parent.mkdir(parents=True); path.write_bytes(raw)
+    class NoTransport:
+        def fetch_bytes(self, *args, **kwargs):
+            pytest.fail('A verified source chunk must be reused offline')
+    with pytest.raises(ValueError):
+        lookup.acquire(asset, NoTransport())
+    assert not lookup.path.exists()
 
 
 @pytest.fixture
@@ -208,6 +262,29 @@ def test_localized_bank_quote_requires_owned_play_target_and_matching_lookup(fix
     assert targets == {event: (80, 90, voice_span)}
     quote, targets = audio.localized_bank_quote(inventory, {event: (70,)}, (name,), Store(), 'en')
     assert not quote.spans and not targets
+
+
+def test_retained_bank_stage_checks_original_id_language_and_cover_geometry(fixture):
+    from backend.tests.test_starrail_events import bank
+    base = fixture[2]
+    owner = audio.Owner('English/VoBanks8.pck', 8000, base.md5, base.url, base.generation)
+    raw = bank(80, 'English', [])
+    span = audio.Span(owner, 400, len(raw)); cover = audio.Span(owner, 390, len(raw)+20)
+    inventory = (audio.Directory(owner, {}, {80: span}, {}),)
+    class Store:
+        def read(self, chosen):
+            assert chosen == span
+            return self.raw
+    store = Store(); store.raw = raw
+    audio.validate_banks(inventory, (cover,), store, 'en')
+    store.raw = bank(81, 'English', [])
+    with pytest.raises(ValueError):
+        audio.validate_banks(inventory, (cover,), store, 'en')
+    store.raw = bank(80, 'Japanese', [])
+    with pytest.raises(ValueError):
+        audio.validate_banks(inventory, (cover,), store, 'en')
+    with pytest.raises(GameDataError, match='no complete declared bank'):
+        audio.validate_banks(inventory, (audio.Span(owner, 400, len(raw)-1),), store, 'en')
 
 
 @pytest.mark.parametrize('offset,value', [(0, 2), (12, 1000001)])

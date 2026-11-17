@@ -258,6 +258,98 @@ class Quote:
         return identity({'phase': self.phase, 'spans': [span.json() for span in self.spans]})
 
 
+@dataclass(frozen=True)
+class LookupQuote:
+    asset: object
+    chunks: tuple
+    complete: bool
+    phase = 'audio-event-lookup'
+
+    @property
+    def spans(self):
+        return () if self.complete else (self.asset,)
+
+    @property
+    def download_bytes(self):
+        return sum(chunk[2] for chunk in self.chunks)
+
+    @property
+    def disk_bytes(self):
+        return (0 if self.complete else self.asset.size) + sum(chunk[1] for chunk in self.chunks) + RECEIPT_LIMIT
+
+    @property
+    def digest(self):
+        return identity({'phase': self.phase, 'asset': lookup_identity(self.asset),
+                         'missing_chunks': self.chunks, 'complete': self.complete})
+
+
+def lookup_identity(asset):
+    return {'name': asset.name, 'bytes': asset.size, 'md5': asset.digest,
+            'chunks_sha256': identity(asset.chunks), 'prefix_sha256': identity(asset.prefix)}
+
+
+class OriginalLookup:
+    """Whole original event index, quoted by authenticated compressed chunks."""
+    def __init__(self, directory, asset):
+        from . import sophon_assets as sophon, starrail_events as events
+        if (not isinstance(asset, sophon.File) or asset.name != events.LOOKUP
+                or type(asset.size) is not int or not 0 < asset.size <= 16 * 1024**2
+                or re.fullmatch('[0-9a-f]{32}', asset.digest) is None):
+            _fail('The original audio event lookup identity is unsupported.')
+        self.directory, self.asset = Path(directory), asset
+        self.path = self.directory / 'starrail-audio-lookups' / asset.digest
+        _no_links(self.path)
+
+    @staticmethod
+    def _verified(path, size, digest):
+        _no_links(path)
+        if not path.is_file() or path.stat().st_size != size:
+            return False
+        with path.open('rb') as stream:
+            return hashlib.file_digest(stream, 'md5').hexdigest() == digest
+
+    def quote(self):
+        complete = self._verified(self.path, self.asset.size, self.asset.digest)
+        missing = {}
+        if not complete:
+            for chunk in self.asset.chunks:
+                _, size, compressed, _, digest = chunk
+                if digest in missing and missing[digest][1:3] != chunk[1:3]:
+                    _fail('The original audio lookup chunks have conflicting sizes.')
+                if not self._verified(self.directory / 'chunks' / digest, size, digest):
+                    missing[digest] = chunk
+        return LookupQuote(self.asset, tuple(missing.values()), complete)
+
+    def acquire(self, asset, transport):
+        if asset != self.asset:
+            _fail()
+        if self.quote().complete:
+            return
+        def fetch(url, *, limit):
+            return transport.fetch_bytes(url, limit=limit, kind='audio', expected_size=limit)[0]
+        # File.read authenticates every complete Sophon chunk and the whole
+        # lookup MD5; its compressed body size, not the logical read size, was
+        # included in the quote. Lost chunks must be caught by the caller's
+        # fresh quote comparison before invoking this operation.
+        raw = asset.read(self.directory, 0, asset.size, fetch=fetch)
+        if len(raw) != asset.size or hashlib.md5(raw).hexdigest() != asset.digest:
+            _fail()
+        from .starrail_events import bank_lookup
+        bank_lookup(raw)
+        from .game_tools import _atomic_file
+        _no_links(self.path); _atomic_file(self.path, raw)
+
+    def read(self):
+        if not self.quote().complete:
+            _fail('The complete original audio event lookup is not verified locally.')
+        raw = self.path.read_bytes()
+        if len(raw) != self.asset.size or hashlib.md5(raw).hexdigest() != self.asset.digest:
+            _fail()
+        from .starrail_events import bank_lookup
+        bank_lookup(raw)
+        return raw
+
+
 def header_quote(selected, store):
     """First quote exact 28-byte prefixes; only those reveal full header sizes."""
     prefixes = tuple(Span(owner, 0, 28) for owner in selected)
@@ -416,6 +508,25 @@ def localized_bank_quote(inventory, lookup, names, store, locale):
             targets[event] = (target[0], target[1], localized[target[0]])
     spans = coalesce(target[2] for target in targets.values())
     return Quote('audio-localized-banks', tuple(span for span in spans if not store.available(span))), targets
+
+
+def validate_banks(inventory, covers, store, locale):
+    """Validate complete original banks retained by a covering-range stage."""
+    from . import starrail_events as events
+    from .hoyo_dialogue import voice_namespace
+    language = voice_namespace('starrail', locale)
+    for cover in covers:
+        found = 0
+        for directory in inventory:
+            if directory.owner != cover.owner:
+                continue
+            bank_language = 'sfx' if re.fullmatch(r'Banks[0-9]+\.pck', directory.owner.name) else language
+            for key, span in directory.banks.items():
+                if cover.start <= span.start and span.length <= cover.length-(span.start-cover.start):
+                    events._bank(store.read(span), key, bank_language)
+                    found += 1
+        if not found:
+            _fail('The quoted original bank range contains no complete declared bank.')
 
 
 @dataclass(frozen=True)

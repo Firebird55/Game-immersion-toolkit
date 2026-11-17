@@ -311,6 +311,23 @@ objects between stages. A changed AudioV or used owner URL produces a separate
 generation. Earlier experimental cache identities are retained separately;
 this change does not silently adopt or relabel their range receipts.
 
+The canonical factory now advances from complete PCK directories to a separate
+original SoundBankLookUp estimate, then the authored neutral and localized bank
+stages. The lookup is discovered from the same official game manifest; its
+quote counts complete missing compressed Sophon chunks and retained expanded
+chunks plus the whole lookup. Each chunk and the reconstructed whole lookup
+must pass publisher MD5, followed by the bounded DBDC parser. Lost inputs are
+requoted before transport. A corrupt whole lookup can be reconstructed from
+verified chunks without another download. Every retained event-bank covering
+range is checked against its original directory bank IDs, dub and complete
+section bounds. A missing hash-closed codec runtime gates bank-payload downloads
+and is checked again before transport. Synthetic service tests exercise the
+normal context-bound
+lookup step without turning these input stages into Ready. The earlier real
+bank intake remains a separately frozen proof; state/sequence materialization,
+the full external-member stage and canonical audio snapshot publication are
+not yet connected by this change.
+
 The offline adapter now selects codecs only through the bundle's closed
 `packaged_codec_executable` contract, verifying that closure again before local
 execution. It does not discover PATH/imageio tools, build software or download
