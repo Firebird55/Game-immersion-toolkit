@@ -397,7 +397,16 @@ class MultilingualTextIndex:
                     # performance. Use the configured Proxy only when the
                     # observed caption leaves more than one variant possible.
                     if self.game != 'zzz' or len(rows) > 1:
-                        rows = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
+                        selected = [r for r in rows if not r.get('player_voice') or r['player_voice'] == self.player_voice]
+                        if (self.game == 'wuwa' and any(r.get('player_voice') for r in rows)
+                                and (self.player_voice not in {'female', 'male'} or not selected)):
+                            # A complete authored caption with an unresolved
+                            # Rover branch still owns its observed words. Do
+                            # not let filtering it borrow another recording
+                            # through one of its shorter sentence fragments.
+                            ambiguous.append(source)
+                            continue
+                        rows = selected
                     if not previous_text_id and any(row.get('requires_previous') for row in rows):
                         ambiguous.append(source)
                         continue
