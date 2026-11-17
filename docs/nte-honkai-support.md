@@ -80,9 +80,13 @@ worker returns an index. The fixed original baseline is retrievable without a
 game installation. No current community mapping index is required; existing
 archive/localization parameters remain explicitly frozen. Unsupported required
 layouts fail without replacing the prior complete index or historical audio.
-Complete chapter/presentation and
-cross-platform acceptance remain open. The installed results below describe an
-earlier reviewed client.
+The [November 17 current-use audit](game-audits/nte.md#current-use-acceptance-boundary)
+separates demonstrated current presentations from configuration-only research
+references. After the documented corrections, no active presentation with
+incorrect audio or missing available original audio remains demonstrated in that
+finite evidence; full-story coverage is not claimed. Unsupported cinematic clocks
+and unresolved source references stay unavailable. Cross-platform acceptance is separate. The installed
+results below describe an earlier reviewed client.
 
 NTE reads the installed English and zh-CN `game.locres` tables. It joins the
 same localization namespace/key, verifies the exact `Play_Vo_<key>` bank and
