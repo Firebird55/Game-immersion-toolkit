@@ -1,5 +1,37 @@
 # Zenless Zone Zero dialogue audit
 
+## November 17, 2026 · Explicit text selection in the publisher producer
+
+`zzz_publisher.build_language(..., content_mode='text')` skips selected-dub
+PCK inventories, cinematic bank resolution, the separate voice-directory
+objects and the audio registry. It also omits auxiliary uninterpreted silence
+payload acquisition. Text, translation, scene and subtitle-track inputs retain
+their original validation; co-resident design data is not misreported as an
+independent audio transfer. The legacy language worker retains its existing
+audio behavior; the new per-game provider must pass its explicit request.
+
+Text snapshots keep authored source/event references as non-playable
+`source_voice_binding` metadata, with `audio_omitted_by_request` separate from
+the evidenced voice state. An authored reference without a selected-pack check
+does not become a verified available recording. Confirmed unvoiced rows remain
+unvoiced and keep their separate capture option. Original typed text joins are
+marked verified for exact text capture; duplicate, player and context guards
+still apply. Publisher fingerprints do not depend on the download mode.
+
+A zero-network replay through the actual retained current Japanese catalogue
+retained all **289,967** previous reader-22 record identities and their exact
+text/translation maps. Audio inventory, bank resolution and registry parsing
+were forbidden during this run. This is original-source producer evidence,
+not ordinary live discovery, Android execution, or completed per-game Download
+acceptance. Full selected-dub materialization remains separate work.
+
+The resulting complete payload also passes the normal worker's validation and
+the shared portable matcher on the integrated omission-aware contract. All
+prior text, player, category and channel guards remain equal. Three exact
+original conversation controls capture with audio lookup forbidden and zero
+playable recordings. This is a local shared-core check, not Android ABI/device
+acceptance.
+
 ## November 17, 2026 · Production official native-key locator and protocol discovery
 
 The normal ZZZ bootstrap no longer loads an initial/community master, config or

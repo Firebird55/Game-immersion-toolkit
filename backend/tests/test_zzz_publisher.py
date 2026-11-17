@@ -141,3 +141,53 @@ def test_two_launcher_releases_keep_exact_historical_recordings_and_skip_missing
     with pytest.raises(ValueError):
         zzz_assets.extract_voice(None, {**row['audio'], 'locale': 'ja'}, tmp_path / 'tools', None)
     assert not hoyo_publisher_voice.snapshot_available(tmp_path / 'tools', first_audio['publisher'], 'starrail')
+
+
+def test_explicit_text_preparation_preserves_authored_sources_without_voice_io(tmp_path, monkeypatch):
+    build = {'channel': 'zzz-global', 'version': '3.3.0', 'build': 'original'}
+    monkeypatch.setattr(sophon_assets, 'release', lambda _: build)
+    monkeypatch.setattr(zzz_publisher.zzz_hotfix, 'discover', lambda value: value)
+    links = [
+        {'text_id': 'sentence', 'source': 'Galgame_Actor_01'},
+        {'text_id': 'player', 'source': 'Tips_Actor_M', 'gender': 'M', 'voice_status': 'unavailable'},
+        {'text_id': 'player', 'source': 'Tips_Actor_F', 'gender': 'F', 'voice_status': 'unavailable'},
+        {'text_id': 'film', 'source': '', 'cinematic_event': 'Play_vo_Example',
+         'audio_scope': 'context', 'voice_status': 'unavailable'},
+        {'text_id': 'silent', 'source': '', 'voice_status': 'unvoiced'},
+        {'text_id': 'unknown', 'source': '', 'voice_status': 'unknown'},
+    ]
+    texts = {'sentence': 'An original sentence.', 'player': 'A player sentence.',
+             'film': 'A cinematic sentence.', 'silent': 'A silent choice.', 'unknown': 'An unknown source.'}
+    calls = []
+    def catalogue(_build, _data, locales, namespace, _progress, **options):
+        calls.append(options)
+        assert locales == {'en', 'ja'} and namespace == 'English(EN)'
+        return links, {'en': texts, 'ja': {'sentence': '元の台詞。'}}, {}, None, {}
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError('Text preparation touched original audio inventory or banks')
+    monkeypatch.setattr(zzz_publisher, '_read_catalogue', catalogue)
+    monkeypatch.setattr(hoyo_publisher_voice, 'inventory', forbidden)
+    monkeypatch.setattr(zzz_publisher.cinema, 'bindings', forbidden)
+    monkeypatch.setattr(zzz_publisher.cinema, 'audio_registry', forbidden)
+    result = zzz_publisher.build_language(tmp_path, 'en', ('ja',), lambda _: None, content_mode='text')
+    rows = {row['text_id']: row for row in result['records']}
+    assert calls == [{'include_audio': False}] and result['content_mode'] == 'text'
+    assert all(row['audio'] is None and row['text_capture_verified'] for row in rows.values())
+    assert rows['sentence']['source_voice_binding']['sources'] == ['Galgame_Actor_01']
+    assert rows['sentence']['voice_status'] == 'unavailable'
+    assert rows['player:M']['source_voice_binding']['sources'] == ['Tips_Actor_M']
+    assert rows['player:F']['source_voice_binding']['sources'] == ['Tips_Actor_F']
+    assert rows['film']['source_voice_binding']['cinematic_events'] == ['Play_vo_Example']
+    assert rows['film']['audio_scope'] == 'context'
+    assert rows['unknown']['voice_status'] == 'unknown' and rows['unknown']['audio_omitted_by_request']
+    assert rows['silent']['voice_status'] == 'unvoiced' and not rows['silent']['audio_omitted_by_request']
+    assert result['fingerprint'] == hoyo_publisher_voice.descriptor(build)[0]
+    assert rows['sentence']['texts']['ja'] == '元の台詞。'
+
+
+def test_invalid_text_audio_selection_fails_before_source_connection(tmp_path, monkeypatch):
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError('Invalid mode attempted publisher discovery')
+    monkeypatch.setattr(sophon_assets, 'release', forbidden)
+    with pytest.raises(ValueError, match='Choose ZZZ text'):
+        zzz_publisher.build_language(tmp_path, 'en', (), lambda _: None, content_mode='both')

@@ -12,6 +12,13 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The publisher's explicit text-only source path now skips separate voice
+inventories, banks, directory objects and registry parsing while preserving
+authored non-playable voice evidence and the user's omission choice. A retained
+current Japanese source replay keeps all 289,967 prior text/translation rows
+without new network transfer. This producer checkpoint does not establish its
+Android runtime, the shared provider adapter, or a complete selected-audio plan.
+
 ## Existing stages and exact portability boundaries
 
 | Stage | Existing source | Android requirement still open |
