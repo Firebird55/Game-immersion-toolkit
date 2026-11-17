@@ -593,6 +593,16 @@ This proves one shared-container Japanese member's decode and offline retention,
 not a localized Japanese text snapshot, the other 85 recordings, a copyright
 setting, English fallback, a cold factory run or a complete audio-ready snapshot.
 
+A subsequent bounded metadata phase covers the other 64 common manifest owners,
+selected by the generic inventory difference rather than their filenames. It
+receives exactly 1,792 prefix bytes plus 132 AudioV guard bytes; the pinned
+generation remains unchanged. All 64 prefixes declare four-byte bank and
+external sections and a larger sound section. Actual strong ETags, strict 206
+and exact owner sizes bind these prefixes, with no directory or payload reads
+and no whole-PCK MD5 verification. This is a prefix classification, not an
+inferred voice role or a completed namespace-absence proof. Their complete
+directory quote is 183,088 bytes and has not been acquired in this phase.
+
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
 remain attached to every nested original request; the legacy default transport
