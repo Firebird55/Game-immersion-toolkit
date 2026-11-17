@@ -51,6 +51,22 @@ MD5/size parameter match. This is metadata coverage, not movie decoding or a
 spoken-caption count. The unmatched skin-show movie has an explicitly empty
 VideoConfig caption path; this establishes neither silence nor current use.
 
+An actual ordinary worker replay on source `123f2421` now produces 307,464
+English records, including 98,693 voiced records, with official Chinese
+translations. Normal preparation, the final recheck and the watcher's fingerprint
+agree; the saved old installation is not used for new audio. All 142 required
+native disassembly calls use retained whole authenticated original inputs and
+the frozen helper; table/config/route description APIs are not replaced.
+The trial explicitly replays retained launcher/discovery receipts and reuses
+previously authenticated metadata outputs, so it proves neither fresh discovery
+nor cold metadata generation. The usable compressed snapshot is 34,897,231 bytes;
+its uncompressed SHA256 is
+`e4fb715a79afbb95e2c921184205270e403c2f388de8b1951d1a0a829f0112b5`.
+Observed retained output peaks at 275,529,086 bytes, then falls to 34,917,282 bytes.
+The old-generation worker is not yet accepted: the cache-only trial correctly
+stops at its absent original Main text package without downloading or replacing
+a previous complete snapshot.
+
 ## Original hotfix discovery prototype · November 16, 2026
 
 The standalone `starrail_original_discovery` API now discovers the current Global
