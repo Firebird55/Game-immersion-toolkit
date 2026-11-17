@@ -122,7 +122,8 @@ def run_ocr(root, raw):
     """Feed actual bundled native OCR into the unchanged production session."""
     root = Path(root);root.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix='native-ocr-', dir=root))
-    blocks = json.loads(raw)['blocks']
+    native_result = json.loads(raw)
+    blocks = native_result['blocks']
     observed = [block['text'] for block in blocks]
     session = PreparedCaptureSession(work / 'application')
     session.import_library(_library(work / 'original'))
@@ -131,7 +132,10 @@ def run_ocr(root, raw):
     confirmed = session.observe(generation, 2, observed, now=1.1)
     if first or len(confirmed) != 1 or confirmed[0]['text_id'] != 'authored:bridge':
         raise ValueError('Native OCR did not match the authored shared-core fixture')
+    from .android_host import presentation_lines
+    spans = presentation_lines(native_result, native_result['width'], native_result['height'])
     return json.dumps({'fixture': 'authored-native-bitmap', 'confirmed_text_id': confirmed[0]['text_id'],
+        'presentation_line_count': len(spans), 'minimum_line_confidence': min((span['confidence'] for span in spans), default=None),
         'voice_status': confirmed[0]['voice_status'], 'original_audio_available': session.audio_path(confirmed[0]['id']).is_file()})
 
 

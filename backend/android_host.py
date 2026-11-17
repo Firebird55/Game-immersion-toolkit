@@ -12,6 +12,7 @@ from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
+import math
 from pathlib import Path
 import re
 import secrets
@@ -29,6 +30,25 @@ MAX_FRAME = 10 * 1024**2
 UUID_PATTERN = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _host = None
 _host_lock = threading.RLock()
+
+
+def presentation_lines(value, width, height):
+    """Optional native classifier evidence; unknown confidence fails closed."""
+    spans = value.get('presentation_lines', [])
+    if not isinstance(spans, list) or len(spans) > 512:
+        return []
+    keys = {axis + str(n) for axis in ('x', 'y') for n in range(1, 5)}
+    for span in spans:
+        if not isinstance(span, dict) or not isinstance(span.get('text'), str) or not 0 < len(span['text']) <= 2048:
+            return []
+        confidence, rectangle = span.get('confidence'), span.get('bounding_rect')
+        if (type(confidence) not in (float, int) or not math.isfinite(confidence) or not 0 <= confidence <= 1
+                or not isinstance(rectangle, dict) or set(rectangle) != keys):
+            return []
+        if any(type(n) not in (float, int) or not math.isfinite(n)
+                or not 0 <= n <= (width if key.startswith('x') else height) for key, n in rectangle.items()):
+            return []
+    return spans
 
 
 class AndroidHost:

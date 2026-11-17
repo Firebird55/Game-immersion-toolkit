@@ -95,6 +95,15 @@ HTTP tests exercise actual image crops and delayed-encode invalidation. The
 debug Android self-test additionally decodes native JPEG crops of authored
 letterboxed/ultrawide color quadrants; target execution is separate evidence.
 
+Native OCR also exposes a bounded optional `presentation_lines` evidence lane
+without changing ordinary block matching. Each original MLKit line keeps its
+own text and physical rectangle; its score is the minimum genuine line/element
+confidence. Missing, invalid or unavailable values remain zero or are rejected;
+no default confident score is substituted. The pinned common API 19.1.0 exposes
+these methods; [Google documents their range and unavailable-zero behavior](https://developers.google.com/android/reference/com/google/mlkit/vision/text/Text.Element).
+This supplies input for a separately validated game presentation classifier;
+the evidence lane alone does not authorize a new text/voice binding.
+
 Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 
 ```text

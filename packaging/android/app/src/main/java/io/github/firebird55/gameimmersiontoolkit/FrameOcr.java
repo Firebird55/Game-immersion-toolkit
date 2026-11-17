@@ -133,16 +133,37 @@ public final class FrameOcr {
     }
     private synchronized JSONObject recognizeBitmap(Bitmap bitmap, String locale) throws Exception {
             Text text = Tasks.await(model(locale).process(InputImage.fromBitmap(bitmap, 0)), 30, TimeUnit.SECONDS);
-            JSONArray blocks = new JSONArray();
+            JSONArray blocks = new JSONArray(), presentationLines = new JSONArray();
+            boolean presentationComplete = true;
             if (text.getTextBlocks().size() > 128) throw new IllegalArgumentException();
             for (Text.TextBlock block : text.getTextBlocks()) {
                 Rect r = block.getBoundingBox();
                 if (r == null || block.getText().length() > 8192) continue;
                 JSONObject item = new JSONObject();item.put("text", block.getText());
                 item.put("rect", new JSONArray(new int[]{r.left, r.top, r.right, r.bottom}));blocks.put(item);
+                for (Text.Line line : block.getLines()) {
+                    Rect lineRect = line.getBoundingBox();
+                    if (presentationLines.length() >= 512 || line.getText().length() > 2048 || lineRect == null
+                            || lineRect.left < 0 || lineRect.top < 0 || lineRect.right > bitmap.getWidth()
+                            || lineRect.bottom > bitmap.getHeight() || lineRect.width() <= 0 || lineRect.height() <= 0) {
+                        presentationComplete = false;continue;
+                    }
+                    float confidence = line.getConfidence();
+                    if (!Float.isFinite(confidence) || confidence < 0 || confidence > 1 || line.getElements().isEmpty()) confidence = 0;
+                    for (Text.Element element : line.getElements()) {
+                        float score = element.getConfidence();
+                        confidence = !Float.isFinite(score) || score < 0 || score > 1 ? 0 : Math.min(confidence, score);
+                    }
+                    JSONObject rectangle = new JSONObject().put("x1", lineRect.left).put("y1", lineRect.top)
+                        .put("x2", lineRect.right).put("y2", lineRect.top).put("x3", lineRect.right)
+                        .put("y3", lineRect.bottom).put("x4", lineRect.left).put("y4", lineRect.bottom);
+                    presentationLines.put(new JSONObject().put("text", line.getText()).put("confidence", confidence)
+                        .put("bounding_rect", rectangle));
+                }
             }
             JSONObject result = new JSONObject();result.put("width", bitmap.getWidth());
             result.put("height", bitmap.getHeight());result.put("blocks", blocks);
+            result.put("presentation_lines", presentationComplete ? presentationLines : new JSONArray());
             return result;
     }
     public String authoredProbe() throws Exception {
