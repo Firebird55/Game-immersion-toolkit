@@ -25,6 +25,8 @@ public final class MainActivity extends Activity {
     private String origin;
     private boolean foreground;
     private long lifecycleRevision;
+    private String selfTestPhase = "created";
+    private String selfTestRun;
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
@@ -35,42 +37,98 @@ public final class MainActivity extends Activity {
         setContentView(loading);
         worker.execute(() -> {
             try {
+                if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitSelfTest", false)) {
+                    selfTestRun = java.util.UUID.randomUUID().toString();
+                    new android.util.AtomicFile(new File(getFilesDir(), "android-core-proof.json")).delete();
+                }
+                selfTestDiagnostic("reader", "running", null);
                 File web = preparedReader();
+                selfTestDiagnostic("reader", "passed", null);
+                selfTestDiagnostic("host", "running", null);
                 FrameOcr ocr = new FrameOcr(getApplicationContext());
                 PyObject module = Python.getInstance().getModule("backend.android_host");
                 String address = module.callAttr("start", new File(getFilesDir(), "toolkit").getCanonicalPath(),
                     web.getCanonicalPath(), ocr).toString();
                 origin = address.substring(0, address.length() - 1);
                 String sessionCookie = module.callAttr("bootstrap_cookie").toString();
+                selfTestDiagnostic("host", "passed", null);
                 if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitSelfTest", false)) {
+                    selfTestDiagnostic("core", "running", null);
                     String proof = Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run", new File(getCacheDir(), "core-probe").getCanonicalPath()).toString();
                     org.json.JSONObject report = new org.json.JSONObject(proof);
+                    report.put("self_test_run_id", selfTestRun);
+                    selfTestDiagnostic("core", "passed", null);
+                    selfTestDiagnostic("native-media", "running", null);
                     android.media.MediaPlayer player = new android.media.MediaPlayer();
                     java.util.concurrent.CountDownLatch complete = new java.util.concurrent.CountDownLatch(1);
                     try {
                         player.setDataSource(report.getString("private_audio_path"));
                         player.setOnCompletionListener(ignored -> complete.countDown());
                         player.prepare();player.start();
-                        report.put("native_media_completed", complete.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                        boolean completed = complete.await(5, java.util.concurrent.TimeUnit.SECONDS);
+                        report.put("native_media_completed", completed);
+                        if (!completed) throw new IllegalStateException();
                     } finally { player.release(); }
+                    selfTestDiagnostic("native-media", "passed", null);
                     report.remove("private_audio_path");
+                    selfTestDiagnostic("ocr", "running", null);
                     report.put("native_ocr", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_ocr", new File(getCacheDir(), "ocr-probe").getCanonicalPath(),
                             ocr.authoredProbe()).toString()));
+                    selfTestDiagnostic("ocr", "passed", null);
+                    selfTestDiagnostic("preview", "running", null);
                     report.put("native_preview", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_preview", ocr).toString()));
+                    selfTestDiagnostic("preview", "passed", null);
+                    selfTestDiagnostic("keystore", "running", null);
                     report.put("native_protected_storage", new org.json.JSONObject(AccountProtection.authoredProbe(getApplicationContext())));
+                    selfTestDiagnostic("keystore", "passed", null);
+                    selfTestDiagnostic("publish-proof", "running", null);
                     try (FileOutputStream output = new FileOutputStream(new File(getFilesDir(), "android-core-proof.json"))) {
                         output.write(report.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
                     }
+                    selfTestDiagnostic("complete", "passed", null);
                 }
                 runOnUiThread(() -> { if (!isFinishing() && !isDestroyed()) openReader(address, sessionCookie); });
-            } catch (Exception error) {
+            } catch (Throwable error) {
+                if (!BuildConfig.DEBUG && error instanceof Error) throw (Error)error;
+                selfTestDiagnostic(selfTestPhase, "failed", error);
                 runOnUiThread(() -> loading.setText("The local toolkit could not start. Your imported data has been preserved."));
-                if (BuildConfig.DEBUG) android.util.Log.e("ToolkitAndroid", "Local host startup failed", error);
+                if (BuildConfig.DEBUG) android.util.Log.e("ToolkitAndroid", "Local host startup failed at " + selfTestPhase + ": " + error.getClass().getName());
             }
         });
+    }
+
+    private void selfTestDiagnostic(String phase, String state, Throwable error) {
+        if (!BuildConfig.DEBUG || !getIntent().getBooleanExtra("toolkitSelfTest", false)) return;
+        selfTestPhase = phase;
+        android.util.AtomicFile file = new android.util.AtomicFile(new File(getFilesDir(), "android-selftest-diagnostic.json"));
+        FileOutputStream output = null;
+        try {
+            org.json.JSONObject value = new org.json.JSONObject().put("schema", "toolkit-android-selftest-diagnostic-v1")
+                .put("run_id", selfTestRun).put("phase", phase).put("state", state)
+                .put("version_code", BuildConfig.VERSION_CODE).put("pid", android.os.Process.myPid())
+                .put("elapsed_realtime_ms", android.os.SystemClock.elapsedRealtime());
+            if (error != null) {
+                org.json.JSONArray types = new org.json.JSONArray();Throwable cause = error;
+                for (int depth=0; cause != null && depth<6; depth++, cause=cause.getCause()) types.put(cause.getClass().getName());
+                value.put("exception_types", types);
+                // Keep only the Python exception TYPE, never its message,
+                // stack, provider response, credential or filesystem path.
+                String message = error.getMessage();
+                if (message != null) {
+                    java.util.regex.Matcher match = java.util.regex.Pattern.compile("(?:^|\\n)([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))(?=:|\\n|$)").matcher(message);
+                    String type = null;while (match.find()) type=match.group(1);
+                    if (type != null) value.put("python_exception_type", type);
+                }
+            }
+            output=file.startWrite();output.write(value.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            file.finishWrite(output);
+        } catch (Exception diagnosticFailure) {
+            if (output != null) file.failWrite(output);
+            android.util.Log.e("ToolkitAndroid", "Could not persist the authored self-test phase");
+        }
     }
 
     private File preparedReader() throws Exception {
