@@ -91,9 +91,12 @@ class _Context:
         self.cancel = threading.Event()
         self.index = None
         self.source_descriptor = None
+        self.activation_token = None
+        self.activation_required = False
         self.transfer_lock = threading.RLock()
         self.transfers_closed = False
         self.data_epoch = service.epochs.get((root, game), 0)
+        self.stage_handle = service._stage_handle(root, game, request) if phase == 'plan' else None
 
     def cancelled(self):
         try:
@@ -110,6 +113,8 @@ class _Context:
         if self.service.epochs.get((self.root, self.game), 0) != self.data_epoch:
             self.cancel.set()
             raise GameDataError('game_data_changed', 'The game data changed. Refresh Settings.', 409)
+        if self.activation_required and self.service.activations.get(self.root) != (self.owner, self.activation_token):
+            raise GameDataError('active_game_changed', 'A newer game selection was kept.', 409)
 
     def consume_bytes(self, count, *, kind='asset'):
         with self.transfer_lock:
@@ -150,7 +155,7 @@ class GameDataService:
         self.providers, self.owner_guard = dict(providers), owner_guard
         self.on_activate, self.retained_bytes, self.clock = on_activate, retained_bytes, clock
         self.lock = threading.RLock()
-        self.plans, self.jobs, self.errors, self.epochs = {}, {}, {}, {}
+        self.plans, self.jobs, self.errors, self.epochs, self.activations = {}, {}, {}, {}, {}
         self.closed = False
         self.pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='toolkit-game-data')
 
@@ -160,10 +165,12 @@ class GameDataService:
             raise GameDataError('invalid_data_owner', 'The current account is unavailable.', 409)
         return value
 
-    def _scope(self):
+    def _scope(self, expected_owner=None):
         if self.closed:
             raise GameDataError('game_data_closed', 'Game data preparation has stopped.', 503)
         before = self._owner()
+        if expected_owner is not None and expected_owner != before:
+            raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
         root = Path(self.root_getter()).absolute()
         if before != self._owner():
             raise GameDataError('game_data_owner_changed', 'The account changed. Retry with the current account.', 409)
@@ -182,6 +189,19 @@ class GameDataService:
         if value is None:
             return None
         return self._validate_metadata(value, game)
+
+    def _stage(self, root, game):
+        value = _read(root / game / 'stage.json')
+        if value is None:
+            return None
+        result = self._validate_metadata(value, game)
+        if result['ready']:
+            raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
+        return result
+
+    def _stage_handle(self, root, game, request):
+        stage = self._stage(root, game)
+        return private_handle(stage['handle']) if stage and stage['request'] == request.json() else None
 
     def _validate_metadata(self, value, game):
         if (not isinstance(value, dict) or value.get('schema') != 'game-data-source-v1' or value.get('game') != game
@@ -206,11 +226,16 @@ class GameDataService:
         except (GameDataError, ValueError, TypeError, KeyError, OSError):
             current = None
             metadata_error = 'Downloaded game information needs repair. Delete and download this game again; saved history stays.'
+        try: stage = self._stage(root, game)
+        except (GameDataError, ValueError, TypeError, KeyError, OSError):
+            stage = None
+            metadata_error = 'An unfinished download needs repair. Existing game data and saved history stay.'
         candidates = [item for item in self.plans.values() if item['root'] == root and item['owner'] == owner
                       and item['game'] == game and item['expires'] > self.clock()]
         latest = candidates[-1] if candidates else None
         plan = latest['plan'] if latest else None
-        request = latest['request'] if latest else GameDataRequest.parse(current['request']) if current else GameDataRequest('global', 'en')
+        request = (latest['request'] if latest else GameDataRequest.parse(current['request']) if current else
+            GameDataRequest.parse(stage['request']) if stage else GameDataRequest('global', 'en'))
         job = self.jobs.get((root, game))
         if job and job['context'].owner != owner:
             job['context'].cancel.set(); job = None
@@ -234,7 +259,9 @@ class GameDataService:
         can_download = bool(plan and plan.runtime_available and plan.download_bytes is not None
                             and plan.required_disk_bytes is not None and not active and not latest['used'])
         return {'id': game, 'title': GAME_TITLES[game], 'state': state,
-            'revision': plan.revision if plan else current['revision'] if current else None,
+            'revision': plan.revision if plan else current['revision'] if current else stage['revision'] if stage else None,
+            'installed_revision': current['revision'] if ready else None,
+            'can_activate': ready and game in self.providers,
             **request.json(), 'installed_bytes': installed, 'deletable_bytes': installed, 'retained_bytes': retained,
             'download_bytes': plan.download_bytes if plan else None,
             'download_is_upper_bound': plan.download_is_upper_bound if plan else False,
@@ -243,21 +270,21 @@ class GameDataService:
             'can_plan': game in self.providers and not active, 'can_download': can_download,
             'can_delete': installed > 0 and not active,
             'message': failure or (public_job['message'] if public_job else plan.message if plan else
-                'Original game data ready.' if ready else current.get('message', '') if current else
+                stage['message'] if stage else 'Original game data ready.' if ready else current.get('message', '') if current else
                 'Check the download size to begin.' if game in self.providers else
                 'This game’s original-data reader is unavailable on this device.')}
 
-    def snapshot(self):
-        root, owner = self._scope()
+    def snapshot(self, *, expected_owner=None):
+        root, owner = self._scope(expected_owner)
         with self.lock:
             result = {'schema': 'game-data-v1', 'games': [self._row(root, owner, game) for game in GAME_TITLES]}
             if owner != self._owner():
                 raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
             return result
 
-    def plan(self, game, request):
+    def plan(self, game, request, *, expected_owner=None):
         provider, selection = self._provider(game), GameDataRequest.parse(request)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         with self.lock:
             running = self.jobs.get((root, game))
             if running and running['status'] in {'queued', 'running'} and running['context'].owner == owner:
@@ -289,9 +316,9 @@ class GameDataService:
             with ctx.transfer_lock: ctx.transfers_closed = True
             _remove_owned(directory, root); raise
 
-    def download(self, game, request):
+    def download(self, game, request, *, expected_owner=None):
         provider = self._provider(game)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         if not isinstance(request, dict) or set(request) != {'plan_id', 'revision'}:
             raise GameDataError('download_plan_required', 'Check the download size before downloading.', 409)
         with self.lock:
@@ -313,6 +340,8 @@ class GameDataService:
             directory = root / game / 'cache' / '.staging' / secrets.token_hex(16)
             _no_links(directory); directory.mkdir(parents=True)
             ctx = _Context(self, root, owner, game, item['request'], directory, 'download', budget=item['plan'].download_bytes)
+            ctx.activation_token = secrets.token_hex(16)
+            self.activations[root] = (owner, ctx.activation_token)
             job = {'id': secrets.token_hex(16), 'plan_id': item['id'], 'status': 'queued', 'phase': item['plan'].stage,
                 'downloaded_bytes': 0, 'total_bytes': item['plan'].download_bytes, 'message': 'Preparing original game data.',
                 'context': ctx, 'reserved': item['plan'].required_disk_bytes, 'device': device}
@@ -388,7 +417,15 @@ class GameDataService:
                     raise GameDataError('source_restore_mismatch', 'The game source could not be restored locally.')
                 ctx.index = restore.index
             ctx.source_descriptor = metadata
-            pointer = ctx.root / ctx.game / 'current.json'
+            # A bootstrap/archive stage is not a ready source. Keep the last
+            # working pointer through every subsequent estimate/failure/restart.
+            pointer = ctx.root / ctx.game / ('current.json' if metadata['ready'] else 'stage.json')
+            stage_to_remove = None
+            if metadata['ready']:
+                try: stage = self._stage(ctx.root, ctx.game)
+                except (OSError, ValueError, TypeError, KeyError, GameDataError): stage = None
+                if stage and stage['revision'] == metadata['revision'] and stage['request'] == metadata['request']:
+                    stage_to_remove = ctx.root / ctx.game / 'stage.json'
             with self.lock:
                 ctx.check(); _no_links(pointer)
                 previous = pointer.read_bytes() if pointer.exists() else None
@@ -396,14 +433,23 @@ class GameDataService:
                     raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
                 _write(pointer, metadata)
                 try:
-                    if metadata['ready'] and self.on_activate:
+                    if (metadata['ready'] and self.on_activate
+                            and self.activations.get(ctx.root) == (ctx.owner, ctx.activation_token)):
+                        # The maintained callback checks and activates under
+                        # the owner's lock. Its return is the commit point:
+                        # an account switch AFTER that point must not delete
+                        # the just-committed source from the old profile.
                         self.on_activate(ctx, result)
-                    ctx.check()
+                    else:
+                        ctx.check()
                 except Exception:
                     if previous is None: pointer.unlink(missing_ok=True)
                     else: _write_bytes(pointer, previous)
                     raise
                 self.errors.pop((ctx.root, ctx.owner, ctx.game), None)
+                if stage_to_remove:
+                    try: stage_to_remove.unlink(missing_ok=True)
+                    except OSError: pass  # Housekeeping cannot undo a committed source.
                 job.update(status='complete' if metadata['ready'] else 'needs_plan', phase='ready' if metadata['ready'] else 'estimate',
                     downloaded_bytes=ctx.consumed, message=metadata['message'])
                 ctx.index = None
@@ -421,23 +467,59 @@ class GameDataService:
                 try: _remove_owned(ctx.directory, ctx.root)
                 except (OSError, ValueError, GameDataError): pass
 
-    def restore(self, game, *, expected_owner=None):
+    def activate(self, game, request, *, expected_owner=None):
+        """Explicitly select an already downloaded revision, without transfers."""
+        self._provider(game)
+        root, owner = self._scope(expected_owner)
+        with self.lock:
+            metadata = self._metadata(root, game)
+            if (not isinstance(request, dict) or set(request) != {'revision'} or not metadata
+                    or not metadata['ready'] or request['revision'] != metadata['revision']):
+                raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
+            token = secrets.token_hex(16)
+            self.activations[root] = (owner, token)
+        self.restore(game, expected_owner=owner, _metadata=metadata, _activation_token=token)
+        with self.lock:
+            if self._owner() != owner or self.activations.get(root) != (owner, token):
+                raise GameDataError('active_game_changed', 'A newer game selection was kept.', 409)
+            return {'game': self._row(root, owner, game)}
+
+    def restore(self, game, *, expected_owner=None, source_descriptor=None, _metadata=None, _activation_token=None):
         provider = self._provider(game)
-        root, owner = self._scope(); metadata = self._metadata(root, game)
+        root, owner = self._scope(expected_owner)
+        metadata = (self._validate_metadata(private_handle(source_descriptor), game)
+            if source_descriptor is not None else self._metadata(root, game))
         if expected_owner is not None and expected_owner != owner:
             raise GameDataError('game_data_owner_changed', 'The account changed. Refresh Settings.', 409)
         if not metadata or not metadata['ready']:
             return None
+        if _metadata is not None and metadata != _metadata:
+            raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
         ctx = _Context(self, root, owner, game, GameDataRequest.parse(metadata['request']),
             root / game / 'cache' / 'sources' / metadata['directory'], 'restore', budget=0)
         ctx.source_descriptor = metadata
+        with self.lock:
+            existing = self.activations.get(root)
+            if _activation_token is not None:
+                ctx.activation_token = _activation_token
+            else:
+                if existing is None or existing[0] != owner:
+                    existing = (owner, secrets.token_hex(16)); self.activations[root] = existing
+                ctx.activation_token = existing[1]
+            ctx.activation_required = True
+            ctx.explicit_activation = _activation_token is not None
         ctx.check(); source = provider.restore(metadata['handle'], ctx)
         if (self._validate_source(source, ctx) != metadata['snapshot_sha256']
                 or asdict(source.source_proof) != metadata['source_proof'] or source.restore_handle != metadata['handle']):
             raise GameDataError('source_restore_mismatch', 'Downloaded game data needs repair. Existing history is kept.')
-        if self.on_activate:
-            self.on_activate(ctx, source)
-        ctx.check()
+        with self.lock:
+            ctx.check()
+            if source_descriptor is None and metadata != self._metadata(root, game):
+                raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
+            if self.on_activate:
+                self.on_activate(ctx, source)
+            else:
+                ctx.check()
         ctx.index = None
         return source
 
@@ -456,9 +538,9 @@ class GameDataService:
         root, owner = self._scope()
         if owner != expected_owner or not metadata['ready']:
             raise GameDataError('game_data_owner_changed', 'The account changed before the recording could be opened.', 409)
-        current = self._metadata(root, game)
-        if current and current['request']['content_mode'] != 'text-audio':
-            raise GameDataError('audio_not_requested', 'Select Text + audio in Settings to download original recordings.', 409)
+        # An older explicitly downloaded original may still be needed to retain
+        # a saved line after choosing text-only. This restore context forbids
+        # every network byte; it cannot acquire an omitted or absent voice.
         directory = root / game / 'cache' / 'sources' / metadata['directory']
         if not directory.is_dir():
             raise GameDataError('original_source_not_downloaded', 'Download this game’s data to retrieve this original recording.', 409)
@@ -476,10 +558,10 @@ class GameDataService:
         ctx.check()
         return source.voice_source
 
-    def delete(self, game, request):
+    def delete(self, game, request, *, expected_owner=None):
         if game not in GAME_TITLES:
             raise GameDataError('unsupported_game', 'Choose a supported live-service game.', 404)
-        root, owner = self._scope()
+        root, owner = self._scope(expected_owner)
         with self.lock:
             row = self._row(root, owner, game)
             if not isinstance(request, dict) or set(request) != {'revision'} or request['revision'] != row['revision']:

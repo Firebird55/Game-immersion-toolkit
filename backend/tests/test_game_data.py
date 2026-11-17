@@ -314,3 +314,78 @@ def test_text_audio_cannot_be_ready_from_remote_bindings_without_materialized_or
         assert value['message'] == 'The requested original audio has not finished downloading.'
         assert not (tmp_path / 'zzz/current.json').exists()
     finally: service.close()
+
+
+def test_account_change_after_owner_locked_activation_does_not_delete_committed_source(tmp_path):
+    owner = ['A:1']; provider = Provider(); saved = []
+    def activate(ctx, source):
+        # A maintained host checks under its account lock, commits A, then
+        # releases that lock. A later switch is not a failed A publication.
+        ctx.check(); saved.append(source.snapshot_path)
+        owner[0] = 'B:2'
+    service = GameDataService(tmp_path, {'zzz': provider}, owner_guard=lambda: owner[0], on_activate=activate)
+    try:
+        download(service)
+        until = time.monotonic() + 3
+        while (not saved or service.jobs[(tmp_path, 'zzz')]['status'] == 'running') and time.monotonic() < until:
+            time.sleep(.01)
+        assert saved and saved[0].is_file()
+        assert service.jobs[(tmp_path, 'zzz')]['status'] == 'complete'
+        assert (tmp_path / 'zzz/current.json').is_file()
+    finally: service.close()
+
+
+def test_ready_source_survives_new_bootstrap_restart_failure_and_explicit_continuation(tmp_path):
+    provider = Provider(); activated = []
+    service = GameDataService(tmp_path, {'zzz': provider},
+        on_activate=lambda ctx, _: activated.append(ctx.source_descriptor['revision']))
+    try:
+        download(service); assert finish(service)['state'] == 'ready'
+        original = (tmp_path / 'zzz/current.json').read_bytes()
+        provider.revision, provider.stage = 'authored-two', True
+        download(service); assert finish(service)['job']['status'] == 'needs_plan'
+        assert (tmp_path / 'zzz/current.json').read_bytes() == original
+        assert json.loads((tmp_path / 'zzz/stage.json').read_text())['revision'] == 'authored-two'
+        assert row(service)['installed_revision'] == 'authored-one'
+        assert activated == ['authored-one']
+    finally: service.close()
+    provider.stage = False
+    continued = []
+    plan = provider.plan
+    def inspect(request, ctx):
+        continued.append(ctx.stage_handle)
+        return plan(request, ctx)
+    provider.plan = inspect
+    service = GameDataService(tmp_path, {'zzz': provider},
+        on_activate=lambda ctx, _: activated.append(ctx.source_descriptor['revision']))
+    try:
+        assert service.restore('zzz') is not None
+        assert activated == ['authored-one', 'authored-one']
+        provider.invalid = True
+        download(service); assert finish(service)['job']['status'] == 'failed'
+        assert (tmp_path / 'zzz/current.json').read_bytes() == original
+        assert continued[-1] == {'revision': 'authored-two', 'content_mode': 'text-audio'}
+        assert service.restore('zzz') is not None
+        provider.invalid = False
+        download(service); assert finish(service)['state'] == 'ready'
+        assert row(service)['installed_revision'] == 'authored-two'
+        assert not (tmp_path / 'zzz/stage.json').exists()
+        assert activated[-1] == 'authored-two'
+    finally: service.close()
+
+
+def test_stage_handle_never_crosses_language_region_or_content_mode(tmp_path):
+    provider = Provider(); provider.stage = True
+    service = GameDataService(tmp_path, {'zzz': provider})
+    try:
+        download(service); finish(service)
+        plan = provider.plan
+        def inspect(request, ctx):
+            assert ctx.stage_handle is None
+            return plan(request, ctx)
+        provider.plan = inspect
+        for changed in ({'region': 'cn'}, {'source_locale': 'ja'}, {'target_locales': []}, {'content_mode': 'text'}):
+            service.plan('zzz', {**REQUEST, **changed})
+        assert row(service)['installed_revision'] is None
+        assert not (tmp_path / 'zzz/current.json').exists()
+    finally: service.close()
