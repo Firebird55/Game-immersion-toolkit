@@ -246,13 +246,17 @@ export. Its pinned MIT managed decoder reproduces all nine ClientConfig fields
 through the unchanged owned description API for both versions, and the native
 string codec description for 4.7. Exact corresponding compiler source, build
 material and full licenses travel with the executable and are checked at
-runtime. Functional local builds used SDK 10.0.302; they are not pinned delivery
-acceptance. The shared builder requires SDK 10.0.403/runtime 10.0.14 and runs
-authored malformed-range/output-preservation probes. Ordinary provider
-integration and full update recovery remain unfinished. The
-complete current native-description preparation adapter is implemented; its
-ordinary two-version worker acceptance and pinned distributable still need their
-own checks. The GPL metadata decoder continues to use its frozen software
+runtime. Initial functional builds used SDK 10.0.302. A separate Windows delivery
+trial now builds the unchanged helper with the SHA-512-verified pinned SDK
+10.0.403/runtime 10.0.14, a closed package feed and the authored malformed-range/
+output-preservation probes. The actual 207-file helper payload passes the
+ordinary prebuilt resource resolver, including corresponding sources, notices
+and exact runtime package members. Its self-contained apphost regenerates fresh
+Global 4.7 metadata without an installed SDK or runtime, with output hashes equal
+to the initial control. See the [helper delivery proof](../../packaging/starrail-reader/README.md)
+for its exact source and build identities. Complete ordinary two-version worker,
+full desktop candidate and other-platform acceptance remain separate. The GPL
+metadata decoder continues to use its frozen software
 profiles; the separately demonstrated owned native-key derivation is not yet a
 complete metadata-profile recovery fallback. A newer third-party game-data
 publication is not needed for this frozen software path.
@@ -409,9 +413,9 @@ This provider does not poll a new third-party game-data publication. Current
 playback uses an explicitly supplied frozen movie-format revision; deriving
 future movie parameters from originals remains unfinished. The normal
 publisher default remains unchanged pending complete update/recovery and
-platform acceptance. Existing source-helper functional checks use SDK 10.0.302;
-they do not prove the separately pinned SDK 10.0.403 delivery build or Android
-helper execution.
+platform acceptance. The separate SDK 10.0.403 Windows delivery build and fresh
+self-contained metadata generation are now proved above; they do not establish
+Android helper execution or full desktop candidate acceptance.
 
 The composed live Japanese worker also succeeds with 307,455 records / 100,170
 voiced records and the same 3,118 film-caption records. A separate complete CN
