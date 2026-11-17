@@ -96,6 +96,37 @@ bounds; both containing source files passed their original whole-file hashes.
 This closes that finite source check without claiming the entries are active,
 unused, silent, or the complete set of runtime-injected NPC interactions.
 There is no continuing broad NPC/graph/native download hunt for the 333 paths.
+## November 17, 2026 · Original gateway key recovered; Android preparation remains open
+
+Bounded static analysis now establishes the original response guard's
+`content`/`sign` checks and its exact decoder. The decoder constructs an RSA
+provider and initializes a 944-byte array through 118 original constant stores.
+Its authored adjacent-byte XOR format produces 940 bytes of `RSAKeyValue` XML
+and four zero padding bytes. All private and CRT parameters pass consistency
+checks. Original framework metadata identifies the XML parser, Base64
+conversion and RSA parameter import; no original instruction or client was run.
+
+The native-derived 1024-bit key is canonically identical to both retained
+initial edition keys. It decrypts the already retained **10,957-byte Global**
+and **11,301-byte mainland** original gateway controls into **7,330** and
+**7,528 bytes** respectively. Both plaintext hashes equal their original source
+receipts; both parsed responses equal the earlier private controls and return
+success. This phase required **zero new transport**. No key, native bytes or
+response configuration is redistributed.
+
+This establishes an official source and its data format, not implemented
+automatic recovery. Production still needs a generation-independent locator
+and bounded acquisition for the original native initializer, plus official
+renewal of the remaining query/default-region parameters. Existing request
+success must not conceal these dependencies.
+
+The new requirement also includes on-device Android preparation. The accepted
+Android prepared-library runtime does not yet contain the ZZZ publisher,
+Node/Unity reader or original audio decoder path. Its prepared MP3/WAV playback
+does not establish independent official-source preparation. The
+[Android dependency and download-size audit](zzz-android-preflight.md) records
+the concrete portability gaps and manifest-based planning contract.
+
 ## November 17, 2026 · Official bootstrap renewal and remaining autonomy boundary
 
 Normal installation-free discovery now reads `app_version` and `login_setting`
