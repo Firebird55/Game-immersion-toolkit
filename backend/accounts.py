@@ -18,9 +18,10 @@ def accounts_path() -> Path:
 
 
 class AccountStore:
-    def __init__(self, path: Path | None = None, *, protect=_protect, transport=None):
+    def __init__(self, path: Path | None = None, *, protect=_protect, transport=None, trust_env=True):
         self.path = path or accounts_path()
         self.protect, self.transport = protect, transport
+        self.trust_env = trust_env
         self.lock = threading.RLock()
         self.generation = 0
         self._cached_signature = None
@@ -69,7 +70,7 @@ class AccountStore:
         # Verify identity before persisting a profile. Registration never edits
         # account settings, creates decks or performs dictionary operations.
         with httpx.Client(base_url=API_BASE, headers={'Authorization': f'Bearer {key}'},
-                          transport=self.transport, timeout=25, follow_redirects=False) as client:
+                          transport=self.transport, timeout=25, follow_redirects=False, trust_env=self.trust_env) as client:
             response = LexiriseService._request(client, 'GET', '/v1/me')
         user = response.get('user') or {}
         if not isinstance(user.get('id'), str) or not user['id']:

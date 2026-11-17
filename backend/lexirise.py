@@ -94,8 +94,10 @@ def save_api_key(directory: Path, key: str) -> None:
 
 
 class LexiriseService:
-    def __init__(self, directory: Path, *, transport=None, api_key: str | None = None, accounts=None, source_language: str = "zh"):
+    def __init__(self, directory: Path, *, transport=None, api_key: str | None = None, accounts=None, source_language: str = "zh",
+            legacy_credentials=True, trust_env=True):
         self.accounts = accounts
+        self.legacy_credentials, self.trust_env = legacy_credentials, trust_env
         self.source_language = source_language
         self._settings_cache = {}
         self.directory = directory
@@ -135,7 +137,10 @@ class LexiriseService:
         self._sql_lifetime.resume(fence)
 
     def _key(self) -> str:
-        key = self._api_key or REQUEST_KEY.get() or (self.accounts.active_key() if self.accounts else None) or os.environ.get("LEXIRISE_API_KEY")
+        key = self._api_key or (REQUEST_KEY.get() if self.legacy_credentials else None) or (self.accounts.active_key() if self.accounts else None)
+        if not key and not self.legacy_credentials:
+            raise LexiriseError('Choose a protected account saved on this device.')
+        key = key or os.environ.get("LEXIRISE_API_KEY")
         if key:
             return key.strip()
         # A synced project can be used on several Windows PCs, but a DPAPI
@@ -193,7 +198,7 @@ class LexiriseService:
 
     def _client(self):
         return httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self._key()}"},
-                            transport=self.transport, timeout=30, follow_redirects=False)
+                            transport=self.transport, timeout=30, follow_redirects=False, trust_env=self.trust_env)
 
     def _account(self, client):
         account = self._request(client, "GET", "/v1/me").get("user", {}).get("id")
@@ -239,7 +244,7 @@ class LexiriseService:
         scope = self._scope()
         with self._lock, self._connect() as db, httpx.Client(
                 base_url=API_BASE, headers={"Authorization": f"Bearer {key}"},
-                transport=self.transport, timeout=30) as client:
+                transport=self.transport, timeout=30, trust_env=self.trust_env) as client:
             account_id = self._request(client, "GET", "/v1/me").get("user", {}).get("id")
             if account_id is None:
                 raise LexiriseError("Could not verify ownership of existing game decks.")
@@ -358,7 +363,7 @@ class LexiriseService:
             # while the game continues. No paths or arbitrary URLs come from the browser.
             clip = audio.read_bytes() if audio is not None else None
             with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self._key()}"},
-                              timeout=60, follow_redirects=False, transport=self.transport) as client:
+                              timeout=60, follow_redirects=False, transport=self.transport, trust_env=self.trust_env) as client:
                 account = self._account(client)
                 deck = self._request(client, "GET", f"/v1/decks/{deck_id}", params={"limit": 1}).get("deck", {})
                 if (deck.get("lang") or deck.get("language")) != self.source_language or deck.get("unit_type") != "sentence" or deck.get("deck_type") != "snapshot":

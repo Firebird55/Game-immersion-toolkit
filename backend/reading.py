@@ -183,12 +183,12 @@ class LexiriseReadingService:
 
     def _post(self, path: str, payload: dict, timeout: float = 25) -> dict:
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
-                          timeout=timeout, follow_redirects=False, transport=self.lexirise.transport) as client:
+                          timeout=timeout, follow_redirects=False, transport=self.lexirise.transport, trust_env=getattr(self.lexirise, 'trust_env', True)) as client:
             return LexiriseService._request(client, "POST", path, json=payload)
 
     def _patch(self, path: str, payload: dict) -> dict:
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
-                          timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
+                          timeout=25, follow_redirects=False, transport=self.lexirise.transport, trust_env=getattr(self.lexirise, 'trust_env', True)) as client:
             return LexiriseService._request(client, "PATCH", path, json=payload)
 
     def _translations(self, response: dict) -> list[dict]:
@@ -407,7 +407,7 @@ class LexiriseReadingService:
         if not isinstance(saved_id, int) or saved_id <= 0:
             return {"notes": ""}
         with httpx.Client(base_url=API_BASE, headers={"Authorization": f"Bearer {self.lexirise._key()}"},
-                          timeout=25, follow_redirects=False, transport=self.lexirise.transport) as client:
+                          timeout=25, follow_redirects=False, transport=self.lexirise.transport, trust_env=getattr(self.lexirise, 'trust_env', True)) as client:
             result = LexiriseService._request(client, "GET", f"/v1/vocabulary/{saved_id}")
         return {"notes": result.get("notes") if isinstance(result.get("notes"), str) else ""}
 

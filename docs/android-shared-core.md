@@ -119,6 +119,19 @@ pinning and transcript/library isolation are actually integrated. Provider-backe
 storage follows the [Android Keystore system](https://developer.android.com/privacy-and-security/keystore);
 no claim of hardware backing is made for an emulator or untested device.
 
+The account-session component reuses `AccountStore` and `PreparedCaptureSession`
+with independent app-private settings, library pointers and SQLite histories.
+Selection stages a candidate outside the common session lock, then publishes
+only if its intent and credential generation still own activation. Source
+generation increases across replacements; an A→B→A switch cannot revive an old
+import or source callback. Native HTTP DTO line IDs reserve a bounded activation
+epoch above the unchanged uint32 SQLite ID, remaining safe JavaScript integers;
+all native line routes must validate and decode them before use. This component
+is not enabled by the existing HTTP host until its full scoped API is wired.
+Maintained account/reader transports accept explicit environment/protected-root
+policy; desktop defaults remain unchanged, while Android disables environment
+and desktop credential fallback.
+
 Build with the owned SDK/wheelhouse, Python 3.12 and Java 17 or later:
 
 ```text
