@@ -39,6 +39,7 @@ public final class FrameOcr {
     public FrameOcr(Context context) { this.context = context.getApplicationContext();protectedAccounts = new AccountProtection(this.context); }
     public String protect(String encoded, boolean decrypt) { return protectedAccounts.protect(encoded, decrypt); }
     public String protectAuthored(String encoded, boolean decrypt) { return AccountProtection.authored(context).protect(encoded, decrypt); }
+    public void assertAuthoredAccounts() { if (!BuildConfig.DEBUG) throw new IllegalStateException(); }
     private BitmapFactory.Options dimensions(byte[] bytes) {
         if (bytes.length == 0 || bytes.length > 10 * 1024 * 1024) throw new IllegalArgumentException();
         BitmapFactory.Options bounds = new BitmapFactory.Options();bounds.inJustDecodeBounds = true;

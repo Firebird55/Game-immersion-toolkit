@@ -47,8 +47,9 @@ public final class MainActivity extends Activity {
                 selfTestDiagnostic("host", "running", null);
                 FrameOcr ocr = new FrameOcr(getApplicationContext());
                 PyObject module = Python.getInstance().getModule("backend.android_host");
-                String address = module.callAttr("start", new File(getFilesDir(), "toolkit").getCanonicalPath(),
-                    web.getCanonicalPath(), ocr).toString();
+                boolean authoredAccounts = BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitAuthoredAccounts", false);
+                String address = module.callAttr("start", new File(getFilesDir(), authoredAccounts ? "authored-account-ui" : "toolkit").getCanonicalPath(),
+                    web.getCanonicalPath(), ocr, false, authoredAccounts).toString();
                 origin = address.substring(0, address.length() - 1);
                 String sessionCookie = module.callAttr("bootstrap_cookie").toString();
                 selfTestDiagnostic("host", "passed", null);

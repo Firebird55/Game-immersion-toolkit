@@ -63,3 +63,24 @@ dependency inventories, stable update identity, protected signing, restart/impor
 recovery, local voice playback and the iOS-sender route. The desktop-connected
 iOS reader retains its browser and physical-device verification requirements.
 See [issue #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81).
+
+## Authored Android account acceptance
+
+A DEBUG cold launch with `toolkitAuthoredAccounts=true` uses a separate
+`authored-account-ui` app-private root and the authored AndroidKeystore alias.
+The normal toolkit root and production account startup remain unchanged. The
+mode cannot be changed through HTTP or adopted by an already running host.
+Non-debug builds reject the native authorization method.
+
+Only the two synthetic keys defined in `backend/android_authored_accounts.py`
+are accepted. An immutable HTTPX MockTransport handles the maintained account,
+settings, reading, deck and sentence-export APIs; unknown keys, hosts and routes
+fail closed. Mock remote settings and deck contents live only in the process.
+Protected local profiles, imported libraries and transcript histories retain
+their ordinary app-private storage. This mode exercises real UI ownership and
+local lifecycle behavior, not real account writes or service availability.
+
+An emulator test must explicitly identify this authored mode and still prove
+account A-to-B-to-A isolation, original audio, stale request rejection and
+restart behavior. Desktop fixture tests or a successful APK construction do not
+establish that Android target result.

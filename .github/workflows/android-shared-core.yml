@@ -62,7 +62,7 @@ jobs:
           # a host-only reference prerequisite, never copied into the APK.
           python -m pip install -r requirements.lock.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
+          python -m pytest -q backend/tests/test_android_build_paths.py backend/tests/test_android_python_dependencies.py backend/tests/test_android_signing.py backend/tests/test_android_protected_storage.py backend/tests/test_android_presentation_evidence.py backend/tests/test_android_probe.py backend/tests/test_android_accounts.py backend/tests/test_android_account_http.py backend/tests/test_android_authored_accounts.py backend/tests/test_prepared_session.py backend/tests/test_prepared_capture_parity.py backend/tests/test_android_host.py backend/tests/test_android_receiver.py backend/tests/test_android_preview.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Acquire authenticated original Android compiler
         run: |
@@ -84,8 +84,17 @@ jobs:
         run: npm run desktop:build -- --output-root output/android-frontend
       - name: Construct signed debug candidate without a release identity
         run: |
-          ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot (Join-Path $pwd 'output/android-candidate') -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -DownloadGradle
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # Both versions use one temporary debug identity within this run.
+          # The owner's protected reusable signing identity never enters CI.
+          $build = Join-Path $pwd 'output/android-build'
+          $files = @('GameImmersionToolkit-android-debug.apk', 'ANDROID-PROVENANCE.json', 'apk-audit.json', 'apk-signature.txt', 'apk-owned-core-proof.json')
+          foreach ($code in @(1, 2)) {
+            ./scripts/build-android-app.ps1 -SdkRoot $env:ANDROID_HOME -Wheelhouse (Join-Path $pwd 'output/android-wheelhouse') -Frontend (Join-Path $pwd 'output/android-frontend') -BuildRoot $build -Python (Get-Command python).Source -JavaHome $env:JAVA_HOME -VersionCode $code -DownloadGradle
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $target = Join-Path $pwd $(if ($code -eq 1) { 'output/android-candidate' } else { 'output/android-update' })
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+            foreach ($name in $files) { Copy-Item -LiteralPath (Join-Path $build $name) -Destination (Join-Path $target $name) }
+          }
       - name: Write identical authored desktop reference and import fixture
         run: |
           python -c "import json;from pathlib import Path;from backend.android_probe import run,_library;p=Path('output/android-candidate');v=json.loads(run(p/'desktop-probe'));v.pop('private_audio_path');(p/'desktop-core-proof.json').write_text(json.dumps(v,sort_keys=True)+'\n');_library(p/'authored-input',duration=8).replace(p/'authored-library.zip')"
@@ -103,6 +112,11 @@ jobs:
             output/android-candidate/apk-owned-core-proof.json
             output/android-candidate/desktop-core-proof.json
             output/android-candidate/authored-library.zip
+            output/android-update/GameImmersionToolkit-android-debug.apk
+            output/android-update/ANDROID-PROVENANCE.json
+            output/android-update/apk-audit.json
+            output/android-update/apk-signature.txt
+            output/android-update/apk-owned-core-proof.json
             output/android-wheelhouse/python-wheels-receipt.json
   runtime:
     needs: construct
@@ -126,6 +140,8 @@ jobs:
         run: |
           mkdir -p output/android-candidate
           cp output/android-downloaded/android-candidate/* output/android-candidate/
+          mkdir -p output/android-update
+          cp output/android-downloaded/android-update/* output/android-update/
           node --input-type=module -e "import{readFileSync}from'node:fs';import{createHash}from'node:crypto';import assert from'node:assert/strict';const p=JSON.parse(readFileSync('output/android-candidate/ANDROID-PROVENANCE.json'));assert.equal(p.source_commit,process.env.ANDROID_SOURCE_COMMIT);assert.equal(p.source_dirty,false);assert.equal(createHash('sha256').update(readFileSync('output/android-candidate/GameImmersionToolkit-android-debug.apk')).digest('hex'),p.apk_sha256)"
       - name: Permit the hosted runner's existing KVM device
         run: |
@@ -141,7 +157,7 @@ jobs:
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
-          script: node scripts/probe-android-runtime.mjs output/android-candidate output/android-runtime
+          script: node scripts/probe-android-runtime.mjs output/android-candidate output/android-runtime output/android-update
       - uses: actions/upload-artifact@v4
         if: always()
         with:

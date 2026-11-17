@@ -53,15 +53,28 @@ def presentation_lines(value, width, height):
 
 
 class AndroidHost:
-    def __init__(self, root, frontend, native=None, *, port=0, enable_accounts=False, account_transport=None):
+    def __init__(self, root, frontend, native=None, *, port=0, enable_accounts=False, account_transport=None,
+            authored_accounts=False):
+        self.root = Path(root).absolute()
         self.receiver_owner = None
         self.account_sessions = None
+        self.authored_accounts = bool(authored_accounts)
+        protection = native
+        if authored_accounts:
+            if native is None or account_transport is not None:
+                raise ValueError('Authored accounts require the isolated native startup mode.')
+            native.assertAuthoredAccounts()
+            from types import SimpleNamespace
+            from .android_authored_accounts import transport
+            protection = SimpleNamespace(protect=native.protectAuthored)
+            account_transport = transport()
+            enable_accounts = True
         if enable_accounts:
             if native is None:
                 raise ValueError('Protected Android accounts require the native provider.')
             from .android_accounts import AndroidAccountSessions
             from .android_protected_storage import AndroidProtectedBlobs
-            self.account_sessions = AndroidAccountSessions(root, protect=AndroidProtectedBlobs(native).protect,
+            self.account_sessions = AndroidAccountSessions(root, protect=AndroidProtectedBlobs(protection).protect,
                 on_invalidate=self._release_receiver, transport=account_transport)
             self._session = None
         else:
@@ -162,6 +175,7 @@ class AndroidHost:
             'capture_source': 'remote-stream' if self.native else 'authored-observations',
             'message': 'Private prepared libraries and original audio are processed on this Android device.',
             'protected_accounts': self.account_sessions is not None,
+            'authored_account_fixture': self.authored_accounts,
             'account_protocol': 'scoped-accounts-v1' if self.account_sessions else None,
             'ocr': 'bundled-mlkit' if self.native else 'not-attached',
             'local_game_capture': False, 'max_frame_bytes': MAX_FRAME, 'max_frame_dimension': 4096,
@@ -663,7 +677,7 @@ class AndroidHost:
         return Handler
 
 
-def start(root, frontend, native=None, enable_accounts=False):
+def start(root, frontend, native=None, enable_accounts=False, authored_accounts=False):
     global _host
     with _host_lock:
         if _host is None:
@@ -673,10 +687,14 @@ def start(root, frontend, native=None, enable_accounts=False):
             port = json.loads(pointer.read_text())['port'] if pointer.is_file() else 0
             if type(port) is not int or port != 0 and not 1024 <= port <= 65535:
                 raise ValueError('Invalid app-local reader origin')
-            _host = AndroidHost(root, frontend, native, port=port, enable_accounts=enable_accounts)
+            _host = AndroidHost(root, frontend, native, port=port, enable_accounts=enable_accounts,
+                authored_accounts=authored_accounts)
             pending = pointer.with_suffix('.pending')
             pending.write_text(json.dumps({'port': _host.server.server_port}), encoding='utf8')
             pending.replace(pointer)
+        if (_host.authored_accounts != bool(authored_accounts) or Path(root).absolute() != _host.root
+                or bool(_host.account_sessions) != bool(enable_accounts or authored_accounts)):
+            raise ValueError('The native startup mode cannot change within this process.')
         return _host.origin + '/'
 
 
