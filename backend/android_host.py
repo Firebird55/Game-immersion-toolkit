@@ -179,13 +179,19 @@ class AndroidHost:
         if not self.preview_lock.acquire(blocking=False):
             return None
         try:
-            encoded = str(self.native.preview(frame['bytes'], *crop))
-            if len(encoded) > 2 * 1024**2:
-                raise ValueError('Native preview exceeds its bound')
-            image = base64.b64decode(encoded, validate=True)
-            if not image.startswith(b'\xff\xd8') or not image.endswith(b'\xff\xd9'):
-                raise ValueError('Invalid native preview')
-            return frame, image
+            try:
+                encoded = str(self.native.preview(frame['bytes'], *crop))
+                if len(encoded) > 2 * 1024**2:
+                    return None
+                image = base64.b64decode(encoded, validate=True)
+                if not image.startswith(b'\xff\xd8') or not image.endswith(b'\xff\xd9'):
+                    return None
+                return frame, image
+            except Exception:
+                # Header bounds can be readable in a truncated image which the
+                # bitmap decoder rejects. Keep it an unavailable image, without
+                # propagating platform/provider diagnostics to HTTP logs.
+                return None
         finally:
             self.preview_lock.release()
 

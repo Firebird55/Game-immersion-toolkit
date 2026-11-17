@@ -115,3 +115,14 @@ def test_old_frame_and_rotation_cannot_replace_current_preview(host, tmp_path):
     assert request(host, 'POST', '/api/capture/frame', rotated.getvalue(),
         headers={**headers, 'X-Toolkit-Frame': '2'})[0] == 409
     assert host.preview_frame is None and not host.session.running
+
+
+def test_native_decode_failure_is_an_unavailable_image_without_scope_change(host, tmp_path):
+    ready(host, tmp_path)
+    generation = host.session.generation
+    def failed(*args):
+        raise RuntimeError('authored private provider diagnostics')
+    host.native.preview = failed
+    status, result = request(host, 'GET', '/api/capture/preview.jpg')
+    assert status == 404 and 'provider' not in json.dumps(result)
+    assert host.session.generation == generation and host.session.running
