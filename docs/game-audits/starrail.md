@@ -450,8 +450,10 @@ The original named `_OnCmdGetVideoVersionKeyScRsp` handler now directly joins
 that successful response to the two registries. Native protobuf tag branches,
 primitive reads and stores prove an ID plus three uint64 values per record;
 the response status and both list roles are independently joined to their
-consumers. The fallback playback struct is explicitly initialized to zero, so
-an empty registry cannot supply replacement movie keys.
+consumers. The output playback struct is explicitly initialized to zero, but
+the input context used after a registry miss is loaded separately from static
+storage. Its initializer and native derivation remain under investigation;
+zero-initialized output alone does not establish the fallback key values.
 
 Tracing the original cached `SendGetVideoVersionKeyCsReq` delegate through its
 actual static-field accesses and original runtime-method usage records reaches
