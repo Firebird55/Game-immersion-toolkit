@@ -304,7 +304,8 @@ def collection_owner(view, owner, stream, usages, arrays):
                     continue
             _check(len(arguments) == 1)
             _check(len(methods) == 1)
-            nodes.append({**methods[0], 'node_argument': arguments[0]})
+            nodes.append({**methods[0], 'node_argument': arguments[0],
+                          'collection_call_rva': ins.address - view.image.base})
         except ValueError:
             continue
     _check(len(nodes) == 1, 'The actual typed root-array node registration is ambiguous.')

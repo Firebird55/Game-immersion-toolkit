@@ -126,6 +126,17 @@ and MainQuest. All 3,978 original NpcFree groups pass whole-object EOF with thei
 own derived descriptor contracts. Typed array tail calls, register-derived
 presence tests and full-width UInt64 values have explicit bounded readers.
 
+The [method-attribute reader](../../backend/genshin_native_attributes.py) follows
+the native MethodInfo constructor's actual table, row-index and attribute stores.
+All 741,021 original method attributes decode with independently agreeing
+after-parse results. Current attributes establish static/instance argument
+positions; unsupported value-type/floating ABI shapes are refused. Descriptor
+roles then follow the actual typed array callback and forwarded object to a
+UInt32-keyed native store and matching getter/cache. Its UInt64 field reaches
+a typed original stream opener through the proved Descriptor argument. These
+are source-format roles, rather than proof that every declaring overload is
+currently called or that full current routing is complete.
+
 The analysis follows authored root-array registration, separate raw/decoded
 presence flags, native transformations after initial field stores, and typed
 protected-value setters. Voice field roles follow actual input comparisons,

@@ -9,7 +9,7 @@ from collections import deque
 from .genshin_native_x64 import CS_OP_IMM, CS_OP_MEM, CS_OP_REG, Definitions, VOLATILE, register, _check
 from .genshin_native_metadata import pointer, root, owns_global_pointer
 from .genshin_native_words import Context
-from .genshin_native_voice import call_origin, class_of_call
+from .genshin_native_voice import call_origin, class_of_call, _field_load, _pointer_origin
 
 
 def index_reader(view, paths, stream):
@@ -287,3 +287,150 @@ def indexed_roots(view, getters, resource_definition, stream, allocator, usages,
         (result if roots else unresolved).append(item)
     _check(result, 'The native index identity getters have no owned root reader callers.')
     return {'roots': tuple(result), 'other_getter_callers': tuple(unresolved)}
+
+
+def _integer_origin(context, definitions, address, name, depth=0):
+    _check(depth < 16)
+    incoming = definitions.before(address, name)
+    if incoming == frozenset({None}):
+        return 'input', name
+    _check(incoming and None not in incoming)
+    values = set()
+    for at in incoming:
+        ins = context.by_address[at]
+        _check(ins.mnemonic == 'mov' and all(op.type == CS_OP_REG and op.size >= 4 for op in ins.operands))
+        values.add(_integer_origin(context, definitions, at, root(ins, ins.operands[1]), depth + 1))
+    _check(len(values) == 1)
+    return values.pop()
+
+
+def descriptor_identity(view, collection, attributes):
+    """Typed descriptor forwarding -> UInt32 store -> same nullable cache."""
+    node = collection['node_definition']
+    first = collection['node_registration']
+    positions = [index for index, p in enumerate(first['method']['parameters']) if p['type'].get('definition') == node]
+    _check(len(positions) == 1 and attributes.argument_register(first['method'], positions[0]) == first['node_argument'])
+    queue = deque(((first['method']['rva'], first['node_argument'], ()),))
+    seen, results = set(), []
+    while queue:
+        rva, argument, chain = queue.popleft()
+        if (rva, argument) in seen:
+            continue
+        _check(len(chain) <= 4 and len(seen) < 16)
+        seen.add((rva, argument))
+        context = Context(view.image, rva); definitions = Definitions(context.seq, context.noreturn)
+        for ins in context.seq:
+            if ins.mnemonic not in ('call', 'jmp') or ins.operands[0].type != CS_OP_IMM:
+                continue
+            target = ins.operands[0].imm - view.image.base
+            declared = [row for row in view.methods_at(target) if row['method']['return_type']['kind'] == 1
+                        and sum(p['type'].get('definition') == node for p in row['method']['parameters']) == 1]
+            for row in declared:
+                method = row['method']
+                if (len(method['parameters']) == 2 and method['parameters'][0]['type']['kind'] == 9
+                        and method['parameters'][1]['type'].get('definition') == node):
+                    try:
+                        key_arg, value_arg = (attributes.argument_register(method, n) for n in (0, 1))
+                        _check(_pointer_origin(context, definitions, ins.address, value_arg) == ('input', argument))
+                        key = _field_load(context, definitions, ins.address, key_arg)
+                        _check(_pointer_origin(context, definitions, key.address, key.reg_name(key.operands[1].mem.base)) == ('input', argument))
+                        fields = [f for f in view.field_offsets(node) if f['authored_offset_word'] == key.operands[1].mem.disp
+                                  and f['type']['kind'] == 9]
+                        _check(len(fields) == 1)
+                        store = Context(view.image, target); stores = Definitions(store.seq, store.noreturn)
+                        caches = []
+                        for write in store.seq:
+                            if write.mnemonic not in ('call', 'jmp') or write.operands[0].type != CS_OP_IMM:
+                                continue
+                            try:
+                                _check(_pointer_origin(store, stores, write.address, 'r8') == ('input', value_arg)
+                                       and _integer_origin(store, stores, write.address, 'rdx') == ('input', key_arg))
+                                receiver = _field_load(store, stores, write.address, 'rcx', 8)
+                                origin = _pointer_origin(store, stores, receiver.address, receiver.reg_name(receiver.operands[1].mem.base))
+                                _check(origin[0] == 'global')
+                                caches.append({'arena_global_rva': origin[1], 'cache_offset': receiver.operands[1].mem.disp,
+                                               'insert_rva': write.address - view.image.base})
+                            except ValueError:
+                                continue
+                        _check(len(caches) == 1)
+                        cache, getters = caches[0], []
+                        for getter in view.methods(row['owner']['definition']):
+                            if (not getter['rva'] or getter['return_type'].get('definition') != node
+                                    or [p['type']['kind'] for p in getter['parameters']] != [9]):
+                                continue
+                            current = Context(view.image, getter['rva']); defs = Definitions(current.seq, current.noreturn)
+                            reads = [i.address - view.image.base for i in current.seq for op in i.operands
+                                     if op.type == CS_OP_MEM and op.access & 1 and op.size == 8 and not op.mem.index
+                                     and op.mem.disp == cache['cache_offset'] and owns_global_pointer(view.image, current.seq,
+                                         i, op.mem, cache['arena_global_rva'], defs)]
+                            lookups = []
+                            for lookup in current.seq:
+                                if lookup.mnemonic != 'call' or lookup.operands[0].type != CS_OP_IMM:
+                                    continue
+                                try:
+                                    getter_argument = attributes.argument_register(getter, 0)
+                                    _check(_integer_origin(current, defs, lookup.address, 'rdx') == ('input', getter_argument))
+                                    receiver = _field_load(current, defs, lookup.address, 'rcx', 8)
+                                    origin = _pointer_origin(current, defs, receiver.address, receiver.reg_name(receiver.operands[1].mem.base))
+                                    _check(origin == ('global', cache['arena_global_rva'])
+                                           and receiver.operands[1].mem.disp == cache['cache_offset'])
+                                    lookups.append(lookup.address - view.image.base)
+                                except ValueError:
+                                    continue
+                            if reads and lookups:
+                                getters.append({'method': getter, 'reads': tuple(reads), 'key_lookups': tuple(lookups)})
+                        _check(getters)
+                        results.append({'identity_offset': fields[0]['authored_offset_word'], 'cache': cache,
+                                        'store_method': row, 'nullable_getters': tuple(getters),
+                                        'field_read_rva': key.address - view.image.base, 'chain': chain})
+                    except ValueError:
+                        pass
+                position = next(n for n, p in enumerate(method['parameters']) if p['type'].get('definition') == node)
+                try:
+                    forwarded = attributes.argument_register(method, position)
+                    _check(_pointer_origin(context, definitions, ins.address, forwarded) == ('input', argument))
+                    queue.append((target, forwarded, chain + ((rva, ins.address - view.image.base, target, forwarded),)))
+                except ValueError:
+                    continue
+    _check(results and len({(r['identity_offset'], r['cache']['arena_global_rva'], r['cache']['cache_offset'])
+                            for r in results}) == 1, 'The original descriptor identity/cache ownership is ambiguous.')
+    return {'definition': node, 'identity_offset': results[0]['identity_offset'], 'proofs': tuple(results)}
+
+
+def descriptor_asset(view, resource_definition, definition, stream, attributes):
+    """Exact native signature/field -> original UInt64 stream opening."""
+    results, unsupported = [], []
+    for method in view.methods(resource_definition):
+        positions = [n for n, p in enumerate(method['parameters']) if p['type'].get('definition') == definition]
+        if not method['rva'] or len(positions) != 1:
+            continue
+        try:
+            argument = attributes.argument_register(method, positions[0])
+        except ValueError:
+            unsupported.append(method)
+            continue
+        context = Context(view.image, method['rva']); definitions = Definitions(context.seq, context.noreturn)
+        for ins in context.seq:
+            if ins.mnemonic not in ('call', 'jmp') or ins.operands[0].type != CS_OP_IMM:
+                continue
+            methods = [row for row in view.methods_at(ins.operands[0].imm - view.image.base)
+                       if row['method']['return_type']['index'] == stream and row['method']['parameters']
+                       and row['method']['parameters'][0]['type']['kind'] == 11]
+            for opener in methods:
+                try:
+                    source_argument = attributes.argument_register(opener['method'], 0)
+                    source = _field_load(context, definitions, ins.address, source_argument, 8)
+                    _check(_pointer_origin(context, definitions, source.address, source.reg_name(source.operands[1].mem.base)) == ('input', argument))
+                    fields = [field for field in view.field_offsets(definition) if field['authored_offset_word'] == source.operands[1].mem.disp
+                              and field['type']['kind'] == 11]
+                    _check(len(fields) == 1)
+                    results.append({'asset_offset': fields[0]['authored_offset_word'], 'method': method,
+                                    'descriptor_argument': argument, 'native_method_flags': attributes.flags(method['index']),
+                                    'field_read_rva': source.address - view.image.base,
+                                    'stream_open_rva': ins.address - view.image.base, 'stream_opener': opener})
+                except ValueError:
+                    continue
+    _check(results and len({row['asset_offset'] for row in results}) == 1,
+           'The original descriptor UInt64 asset role has no unique native owner.')
+    return {'definition': definition, 'asset_offset': results[0]['asset_offset'], 'proofs': tuple(results),
+            'other_unsupported_signature_candidates': tuple(unsupported)}

@@ -17,8 +17,9 @@ from .genshin_native_view import View
 from .genshin_native_usage import table_reader, dispatcher, usage_profile, Usages, slot_arrays
 from .genshin_native_literals import literal_profile, Literals, path_callers
 from .genshin_native_contracts import Contracts, alias
-from .genshin_native_talk import root_owner, exact_reader, dialogue_roles
-from .genshin_native_sources import index_reader, index_caches, cache_getters, indexed_roots
+from .genshin_native_talk import root_owner, exact_reader, dialogue_roles, collection_owner
+from .genshin_native_sources import index_reader, index_caches, cache_getters, indexed_roots, descriptor_identity, descriptor_asset
+from .genshin_native_attributes import Attributes
 from .genshin_native_voice import (
     source_manager, path_hashes, lut_wrapper, dictionary_decoder,
     dictionary_value, lut_event_roles, lut_group_cache, items_prefix_field,
@@ -115,6 +116,7 @@ class NativeDialogue:
         self.view = View(Bindings(Image(executable), metadata))
         self.table = table_reader(self.view, 'MoleMole.Config', 'TalkExcelConfig')
         self.dispatch = dispatcher(self.view, self.table)
+        self.attributes = Attributes(self.view, self.dispatch)
         self.usages = Usages(self.view, usage_profile(self.view, self.dispatch))
         self.arrays = slot_arrays(self.view, self.dispatch, self.usages)
         self.literals = Literals(self.view, self.usages, literal_profile(self.view, self.dispatch))
@@ -126,6 +128,15 @@ class NativeDialogue:
         getters = cache_getters(self.view, self.source_caches, self.resource_definition)
         self.indexed_roots = indexed_roots(self.view, getters, self.resource_definition, self.table['stream'],
                                           self.allocator, self.usages, self.arrays)
+        groups = [route for route in self.indexed_roots['roots']
+                  if any(path.endswith('/NpcFreeTalkIndex') for path in route['paths'])]
+        _check(len(groups) == 1 and len(groups[0]['roots']) == 1)
+        group = groups[0]
+        self.source_collection = collection_owner(self.view, {'type': group['roots'][0]['type'], 'loader_rva': group['loader']['rva']},
+                                                 self.table['stream'], self.usages, self.arrays)
+        self.descriptor_identity = descriptor_identity(self.view, self.source_collection, self.attributes)
+        self.descriptor_asset = descriptor_asset(self.view, self.resource_definition, self.source_collection['node_definition'],
+                                                 self.table['stream'], self.attributes)
 
     def _derive(self):
         view, stream, usages, arrays = self.view, self.table['stream'], self.usages, self.arrays

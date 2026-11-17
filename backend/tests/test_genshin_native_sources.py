@@ -5,7 +5,7 @@ import sys
 import pytest
 
 from backend import genshin_native_x64 as native
-from backend.genshin_native_sources import index_caches
+from backend.genshin_native_sources import index_caches, descriptor_asset
 
 
 requires_decoder = pytest.mark.skipif(not (sys.platform == 'win32' and platform.machine().lower() in ('amd64', 'x86_64')),
@@ -119,3 +119,32 @@ def test_array_element_proof_rejects_scalar_and_wrong_stride(element):
     call = next(ins for ins in context.seq if ins.mnemonic == 'call')
     with pytest.raises(ValueError):
         array_element_origin(context, native.Definitions(context.seq), call.address)
+
+
+@requires_decoder
+@pytest.mark.parametrize('instance,offset', [(False, 40), (True, 72)])
+def test_descriptor_asset_role_uses_original_static_or_instance_argument(instance, offset):
+    from backend.genshin_native_attributes import Attributes, attribute_profile
+    from backend.tests.test_genshin_native_attributes import fixture
+    import struct
+    attribute_view, initializer, _ = fixture(1)
+    attributes = Attributes.__new__(Attributes)
+    attributes.view, attributes.profile = attribute_view, attribute_profile(attribute_view, initializer)
+    code = bytes.fromhex('4889d7' if instance else '4889cf') + bytes.fromhex('488b4f') + bytes([offset])
+    code += b'\xe8' + struct.pack('<i', 0x300 - 0x100 - len(code) - 5) + b'\xc3'
+    image = image_for({0x100: code.hex(), 0x300: 'c3'})
+    method = {'index': 1 if instance else 0, 'rva': 0x100, 'return_type': {'kind': 1},
+              'parameters': [{'type': {'definition': 7, 'kind': 18}}]}
+    opener = {'index': 0, 'rva': 0x300, 'return_type': {'index': 123, 'kind': 18},
+              'parameters': [{'type': {'kind': 11}}]}
+    view = SimpleNamespace(image=image, methods=lambda definition: [method],
+                           methods_at=lambda rva: [{'owner': {'definition': 8}, 'method': opener}] if rva == 0x300 else [],
+                           field_offsets=lambda definition: [{'authored_offset_word': offset, 'type': {'kind': 11}}])
+    role = descriptor_asset(view, 9, 7, 123, attributes)
+    assert role['asset_offset'] == offset
+    assert role['proofs'][0]['descriptor_argument'] == ('rdx' if instance else 'rcx')
+    # Identical native field syntax must not be assigned to Descriptor when
+    # current original metadata proves the opposite incoming argument slot.
+    method['index'] = 0 if instance else 1
+    with pytest.raises(ValueError, match='no unique native owner'):
+        descriptor_asset(view, 9, 7, 123, attributes)
