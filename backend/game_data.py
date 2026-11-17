@@ -114,8 +114,10 @@ class _Context:
     def consume_bytes(self, count, *, kind='asset'):
         with self.transfer_lock:
             self.check()
-            if type(count) is not int or count < 0 or kind not in {'metadata', 'asset'}:
+            if type(count) is not int or count < 0 or kind not in {'metadata', 'asset', 'audio'}:
                 raise GameDataError('invalid_transfer_count', 'The game source reported an invalid transfer.')
+            if kind == 'audio' and self.request.content_mode != 'text-audio':
+                raise GameDataError('audio_not_requested', 'Audio was not requested for this game.')
             if self.transfers_closed or self.phase not in {'plan', 'download'} or self.phase == 'plan' and kind != 'metadata':
                 raise GameDataError('unapproved_asset_transfer', 'Check the download size before acquiring game data.')
             maximum = MAX_METADATA_BYTES if self.phase == 'plan' else self.budget
@@ -331,13 +333,23 @@ class GameDataService:
         index = MultilingualTextIndex(ctx.game, path.parent, autoload=False); index.path = path
         if not index.load() or not index.ready or not 0 < index.entry_count <= MAX_ROWS or index.source_locale != ctx.request.source_locale:
             raise GameDataError('invalid_game_snapshot', 'The original game snapshot could not be validated.')
+        if index.snapshot_metadata.get('content_mode') != ctx.request.content_mode:
+            raise GameDataError('game_content_mode_changed', 'The prepared game data does not match the selected download mode.')
         allowed = {item.name for item in fields(LocalDialogue)}
         for row in index._records:
             if set(row) - allowed:
                 raise GameDataError('unsupported_game_snapshot', 'The game reader produced unsupported dialogue fields.')
-        if index.audio_count and (source.voice_source is None or not callable(getattr(source.voice_source, 'has', None))
+            if ctx.request.content_mode == 'text' and row.get('audio'):
+                raise GameDataError('unexpected_audio_preparation', 'Text-only preparation must not include playable audio.')
+            if ctx.request.content_mode == 'text-audio' and row.get('audio_omitted_by_request'):
+                raise GameDataError('incomplete_audio_preparation', 'The requested original audio has not been prepared.')
+        if ctx.request.content_mode == 'text-audio' and index.audio_count and (source.voice_source is None or not callable(getattr(source.voice_source, 'has', None))
                 or not callable(getattr(source.voice_source, 'resolve', None))):
             raise GameDataError('original_voice_unavailable', 'This device cannot retrieve the original voices yet.')
+        if ctx.request.content_mode == 'text-audio':
+            for row in index._records:
+                if row.get('audio') and source.voice_source.has(row) is not True:
+                    raise GameDataError('original_audio_incomplete', 'The requested original audio has not finished downloading.')
         ctx.check(); ctx.index = index
         with path.open('rb') as handle:
             digest = hashlib.file_digest(handle, 'sha256').hexdigest()
@@ -439,9 +451,14 @@ class GameDataService:
         if not isinstance(descriptor, dict) or descriptor.get('game') not in GAME_TITLES:
             raise GameDataError('invalid_original_reference', 'The original recording reference is unavailable.')
         game = descriptor['game']; metadata = self._validate_metadata(descriptor, game)
+        if metadata['request']['content_mode'] != 'text-audio':
+            raise GameDataError('audio_not_requested', 'Select Text + audio in Settings to download original recordings.', 409)
         root, owner = self._scope()
         if owner != expected_owner or not metadata['ready']:
             raise GameDataError('game_data_owner_changed', 'The account changed before the recording could be opened.', 409)
+        current = self._metadata(root, game)
+        if current and current['request']['content_mode'] != 'text-audio':
+            raise GameDataError('audio_not_requested', 'Select Text + audio in Settings to download original recordings.', 409)
         directory = root / game / 'cache' / 'sources' / metadata['directory']
         if not directory.is_dir():
             raise GameDataError('original_source_not_downloaded', 'Download this game’s data to retrieve this original recording.', 409)
@@ -470,7 +487,7 @@ class GameDataService:
             if row['state'] == 'downloading':
                 raise GameDataError('download_active', 'Wait for the game download to finish before deleting it.', 409)
             self.epochs[(root, game)] = self.epochs.get((root, game), 0) + 1
-            ctx = _Context(self, root, owner, game, GameDataRequest.parse({key: row[key] for key in ('region', 'source_locale', 'target_locales')}),
+            ctx = _Context(self, root, owner, game, GameDataRequest.parse({key: row[key] for key in ('region', 'source_locale', 'target_locales', 'content_mode')}),
                 root / game, 'delete')
             ctx.check()
             if self.on_activate:

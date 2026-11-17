@@ -53,7 +53,7 @@ class PreparedCaptureSession:
         self.records_by_id = {}
         self.context_kinds = set()
         self.last_ocr = ''
-        self.message = 'Import a private prepared library to begin'
+        self.message = 'Download game data in Settings to begin'
         self._activate_current()
 
     def _activate_current(self):
@@ -103,7 +103,7 @@ class PreparedCaptureSession:
     def start(self):
         with self.lock:
             if self.index is None:
-                raise ValueError('Import a prepared library before starting capture')
+                raise ValueError('Download game data in Settings before starting capture')
             self.stop()
             self.running = True
             self.message = 'Waiting for fresh screen frames'

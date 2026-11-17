@@ -69,9 +69,9 @@ def dispatch(host, method, path, query, headers, read_body):
         if method != 'POST' or values:
             return {'detail': 'Use the sentence export button.'}, 405, scope
         line = scope.presented_line()
-        if not line.voiced and line.voice_status != 'unvoiced' and not line.is_verified_missing_audio:
+        if not line.voiced and line.voice_status != 'unvoiced' and not line.is_verified_missing_audio and not line.is_requested_text_only:
             return {'detail': 'This line requires verified dialogue or original audio.'}, 409, scope
-        include_audio = line.voice_status != 'unvoiced' and not line.is_verified_missing_audio and line.audio_scope != 'paragraph'
+        include_audio = line.voice_status != 'unvoiced' and not line.is_verified_missing_audio and not line.is_requested_text_only and line.audio_scope != 'paragraph'
         audio = scope.session.audio_path(line.id) if include_audio else None
         if include_audio and audio is None:
             return {'detail': 'The prepared original recording is unavailable.'}, 409, scope

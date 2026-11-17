@@ -73,6 +73,8 @@ def _snapshot(raw, audio):
     if len(raw) > MAX_TEXT:
         raise ValueError('Prepared text is too large')
     value = _json(raw)
+    if value.get('content_mode') not in {None, 'text', 'text-audio'}:
+        raise ValueError('Invalid prepared game data content mode')
     if 'publisher_training_dialogue_ui' in value:
         from .endfield_training_presentation import validate_training_dialogue_ui
         if value.get('game') != 'endfield':
@@ -229,6 +231,10 @@ def write_prepared_library(snapshot, destination, clips, *, cancelled=lambda: Fa
             raise InterruptedError('Prepared library export cancelled')
     guard()
     payload = {key: snapshot[key] for key in ('format', 'game', 'source_locale')}
+    if 'content_mode' in snapshot:
+        if snapshot['content_mode'] not in {'text', 'text-audio'}:
+            raise ValueError('Invalid prepared game data content mode')
+        payload['content_mode'] = snapshot['content_mode']
     for key in ('fingerprint', 'source_region', 'source_mode', 'reader_revision'):
         if key not in snapshot:
             continue

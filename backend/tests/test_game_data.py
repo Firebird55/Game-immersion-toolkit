@@ -10,7 +10,7 @@ from backend.game_data_protocol import (GameDataPlan, SnapshotSource, Preparatio
     SourceProof, GameDataError, MAX_METADATA_BYTES)
 from backend.local_game import LocalDialogue
 
-REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Hans']}
+REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Hans'], 'content_mode': 'text-audio'}
 PROOF = SourceProof('official', 'a' * 64, True)  # Authored receipt, never a publisher claim.
 
 
@@ -33,15 +33,15 @@ class Provider:
         assert ctx.remaining_bytes(kind='metadata') == MAX_METADATA_BYTES - 4352
         if self.oversize: ctx.consume_bytes(MAX_METADATA_BYTES, kind='metadata')
         if self.asset_in_plan: ctx.consume_bytes(0, kind='asset')
-        return GameDataPlan(self.revision, None if self.unknown else 8192, 16384,
+        return GameDataPlan(self.revision, None if self.unknown else 8192 if request.content_mode == 'text-audio' else 2048, 16384,
             handle={'revision': self.revision}, runtime_available=True, download_is_upper_bound=True)
 
     def download(self, plan, ctx):
         self.downloads += 1; self.started.set()
         if self.gate: assert self.gate.wait(5)
         ctx.check(); ctx.consume_bytes(1000)
-        ctx.progress('download', 1000, 8192, 'Authored transfer.')
-        handle = {'revision': plan.revision}
+        ctx.progress('download', 1000, plan.download_bytes, 'Authored transfer.')
+        handle = {'revision': plan.revision, 'content_mode': ctx.request.content_mode}
         if self.stage:
             (ctx.directory / 'authored-bootstrap.bin').write_bytes(b'authored bootstrap')
             return PreparationStage(handle, 'Check the remaining download size.')
@@ -49,15 +49,19 @@ class Provider:
         row = asdict(LocalDialogue('authored:bridge', text, '沿着河流走过桥。',
             audio={'publisher': 'authored', 'file_id': 'original-bridge'}, source_locale='en',
             source_text=text, audio_locale='en', texts={'en': text, 'zh-Hans': '沿着河流走过桥。'}, ocr_texts={}, voice_status='voiced'))
-        payload = {'format': 2, 'game': 'zzz', 'fingerprint': plan.revision, 'source_locale': 'ja' if self.invalid else 'en', 'records': [row]}
+        if ctx.request.content_mode == 'text':
+            row.update(source_voice_binding=row['audio'], audio=None, audio_omitted_by_request=True, text_capture_verified=True)
+            with pytest.raises(GameDataError): ctx.consume_bytes(0, kind='audio')
+        payload = {'format': 2, 'game': 'zzz', 'fingerprint': plan.revision, 'content_mode': ctx.request.content_mode,
+            'source_locale': 'ja' if self.invalid else 'en', 'records': [row]}
         (ctx.directory / 'textmap.json').write_text(json.dumps(payload), encoding='utf8')
-        return SnapshotSource(ctx.directory / 'textmap.json', handle, PROOF, Voice())
+        return SnapshotSource(ctx.directory / 'textmap.json', handle, PROOF, Voice() if ctx.request.content_mode == 'text-audio' else None)
 
     def restore(self, handle, ctx):
         # Restore must have no permitted network bytes, including a zero-byte
         # preflight gate: the transport must fail before opening a connection.
         with pytest.raises(GameDataError): ctx.remaining_bytes(kind='metadata')
-        return SnapshotSource(ctx.directory / 'textmap.json', handle, PROOF, Voice())
+        return SnapshotSource(ctx.directory / 'textmap.json', handle, PROOF, Voice() if ctx.request.content_mode == 'text-audio' else None)
 
 
 def row(service):
@@ -264,4 +268,49 @@ def test_saved_source_reference_reopens_original_voice_without_index_recompilati
         with pytest.raises(GameDataError) as error:
             service.original_voice_source(descriptors[0], expected_owner='local')
         assert error.value.code == 'original_source_not_downloaded'
+    finally: service.close()
+
+
+def test_text_only_then_explicit_audio_plan_retains_data_and_requires_new_consent(tmp_path):
+    provider = Provider(); service = GameDataService(tmp_path, {'zzz': provider})
+    try:
+        text_request = {**REQUEST, 'content_mode': 'text'}
+        text = service.plan('zzz', text_request)['game']
+        assert text['content_mode'] == 'text' and text['download_bytes'] == 2048
+        service.download('zzz', {'plan_id': text['plan_id'], 'revision': text['revision']})
+        assert finish(service)['state'] == 'ready'
+        saved = tmp_path / 'outside-history.db'; saved.write_bytes(b'authored history retained')
+        audio = service.plan('zzz', REQUEST)['game']
+        assert audio['content_mode'] == 'text-audio' and audio['download_bytes'] == 8192
+        assert provider.downloads == 1  # Planning audio did not transfer it.
+        service.download('zzz', {'plan_id': audio['plan_id'], 'revision': audio['revision']})
+        assert finish(service)['state'] == 'ready'
+        assert saved.read_bytes() == b'authored history retained'
+    finally: service.close()
+
+
+def test_old_mode_less_metadata_is_rejected_without_original_audio_io(tmp_path):
+    provider = Provider(); service = GameDataService(tmp_path, {'zzz': provider})
+    try:
+        download(service); assert finish(service)['state'] == 'ready'
+        path = tmp_path / 'zzz/current.json'; value = json.loads(path.read_text())
+        value['request'].pop('content_mode'); path.write_text(json.dumps(value))
+        assert row(service)['state'] == 'error'
+        with pytest.raises(GameDataError): service.restore('zzz')
+        assert provider.downloads == 1
+    finally: service.close()
+
+
+def test_text_audio_cannot_be_ready_from_remote_bindings_without_materialized_originals(tmp_path):
+    class MissingAudio(Provider):
+        def restore(self, handle, ctx):
+            source = super().restore(handle, ctx)
+            source.voice_source.has = lambda _row: False
+            return source
+    service = GameDataService(tmp_path, {'zzz': MissingAudio()})
+    try:
+        download(service); value = finish(service)
+        assert value['job']['status'] == 'failed'
+        assert value['message'] == 'The requested original audio has not finished downloading.'
+        assert not (tmp_path / 'zzz/current.json').exists()
     finally: service.close()

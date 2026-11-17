@@ -15,7 +15,7 @@ async function until(read, label) {
  while (Date.now() < end) {if (await read()) return; await delay(100);}
  throw Error('Authored shared UI did not establish ' + label);
 }
-const initial = () => ({id:'zzz', title:'Zenless Zone Zero',state:'not_downloaded',revision:null,region:'global',source_locale:'ja',target_locales:['en'],
+const initial = () => ({id:'zzz', title:'Zenless Zone Zero',state:'not_downloaded',revision:null,region:'global',content_mode:'text',source_locale:'ja',target_locales:['en'],
  installed_bytes:0,deletable_bytes:0,retained_bytes:0,download_bytes:null,download_is_upper_bound:false,required_disk_bytes:null,plan_id:null,
  job:null,can_plan:true,can_download:false,can_delete:false,message:'Check size first.'});
 const sender = `<!doctype html><canvas width="1600" height="240"></canvas><script>
@@ -35,17 +35,18 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   const {origin,library,cookie} = JSON.parse(item.value);
   browser = await engine.launch({headless:true}); const page = await browser.newPage({viewport:{width:390,height:844}});
   await page.context().addCookies([{name:'toolkit_session',value:cookie,url:origin,httpOnly:true,sameSite:'Strict'}]);
-  let row=initial(), plans=0, transfers=0, deletes=0, frames=0;
+  let row=initial(), plans=0, transfers=0, deletes=0, frames=0, textOnlyLine=false, audioRequests=0;
+  page.on('request',request=>{if(/^\/api\/lines\/[0-9]+\/audio$/.test(new URL(request.url()).pathname))audioRequests++;});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route(origin+'/api/game-data**',async route=>{
    const request=route.request(),path=new URL(request.url()).pathname,body=request.postDataJSON();
    assert.equal(request.headers()['x-toolkit-account-generation'],'0');
    if(request.method()==='POST'&&path.endsWith('/plan')){
-    plans++;assert.deepEqual(body,{region:'global',source_locale:'ja',target_locales:['en']});
-    row={...row,...body,revision:'authored-revision',plan_id:'authored-plan',download_bytes:8192,
+    plans++;assert.deepEqual(body,{region:'global',source_locale:'ja',target_locales:['en'],content_mode:plans===1?'text':'text-audio'});
+    row={...row,...body,revision:'authored-revision',plan_id:'authored-plan-'+body.content_mode,download_bytes:body.content_mode==='text'?4096:8192,
      download_is_upper_bound:true,required_disk_bytes:16384,can_download:true,message:'Authored size checked.'};
    }else if(request.method()==='POST'&&path.endsWith('/download')){
-    transfers++;assert.deepEqual(body,{plan_id:'authored-plan',revision:'authored-revision'});
+    transfers++;assert.deepEqual(body,{plan_id:'authored-plan-text-audio',revision:'authored-revision'});
     row={...row,state:'downloading',can_download:false,job:{id:'authored-job',status:'running',phase:'download',downloaded_bytes:1024,total_bytes:8192,message:'Authored transfer in progress.'}};
    }else if(request.method()==='DELETE'){
     deletes++;assert.deepEqual(body,{revision:'authored-revision'});row={...initial(),revision:'authored-revision',retained_bytes:4096};
@@ -54,6 +55,18 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
     body:JSON.stringify(request.method()==='GET'?{schema:'game-data-v1',games:[row]}:{game:row,freed_bytes:8192})});
   });
   await page.route('https://vdo.ninja/**', route=>route.fulfill({contentType:'text/html',body:sender}));
+  await page.route(origin+'/api/snapshot',async route=>{
+   if(!textOnlyLine)return route.continue();
+   const response=await route.fetch(),value=await response.json();
+   value.lines=[{id:9000001,game:'zzz',created_at:new Date().toISOString(),session_id:value.status.session.id,text_id:'authored:only-text',
+    source_ocr:'A verified text-only caption remains readable.',english:'Official authored translation.',chinese:'已验证的纯文字对白。',
+    source_text:'A verified text-only caption remains readable.',source_locale:'en',source_language:'en',texts:{en:'A verified text-only caption remains readable.'},
+    translation_locale:'zh-Hans',translation_text:'已验证的纯文字对白。',audio_locale:'en',voice_status:'unknown',voiced:false,has_audio:false,
+    audio_omitted_by_request:true,source_voice_binding:null,text_capture_verified:true,channel:'dialogue',match_kind:'exact',score:100,favorite:false}];
+   value.status.capture.visible_text_ids=['authored:only-text'];
+   value.context.state_version++;value.status.session.line_count++;value.status.session.total_line_count++;
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(value)});
+  });
   await page.route(origin+'/api/capture/frame',async route=>{
    const request=route.request();assert.equal(request.headers()['content-type'],'image/png');
    assert.equal(request.headers()['x-toolkit-account-generation'],'0');
@@ -74,10 +87,15 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   assert.deepEqual(layout,{fits:true,inside:true});
   assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
   assert.equal(plans,0);assert.equal(transfers,0);
+  assert.equal(await panel.getByLabel('Game data content',{exact:true}).inputValue(),'text');
+  await panel.getByRole('button',{name:'Check download size',exact:true}).click();
+  await panel.getByText('4.0 KiB',{exact:true}).waitFor();assert.equal(plans,1);assert.equal(transfers,0);
+  await panel.getByLabel('Game data content',{exact:true}).selectOption('text-audio');
+  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
   await panel.getByRole('button',{name:'Check download size',exact:true}).click();
   await panel.getByText('8.0 KiB',{exact:true}).waitFor();
   await panel.getByText('Download size, up to',{exact:true}).waitFor();
-  await panel.getByText('16.0 KiB',{exact:true}).waitFor();assert.equal(plans,1);assert.equal(transfers,0);
+  await panel.getByText('16.0 KiB',{exact:true}).waitFor();assert.equal(plans,2);assert.equal(transfers,0);
   await panel.getByRole('button',{name:'Download',exact:true}).click();
   await panel.getByText(/Authored transfer in progress/).waitFor();assert.equal(transfers,1);
   row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,retained_bytes:4096,job:null,can_delete:true,message:'Authored data ready.'};
@@ -87,6 +105,12 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await panel.getByRole('button',{name:'Confirm delete',exact:true}).click();
   await panel.getByText('4.0 KiB',{exact:true}).waitFor();assert.equal(deletes,1);
   await page.keyboard.press('Escape');
+  textOnlyLine=true;
+  await page.locator('.current-line .current-chinese').getByText('A verified text-only caption remains readable.',{exact:true}).waitFor();
+  await page.locator('.current-line').getByText('Text only',{exact:true}).waitFor();
+  assert.equal(await page.locator('.current-line').getByRole('button',{name:'Original voice unavailable',exact:true}).count(),0);
+  assert.equal(audioRequests,0);
+  textOnlyLine=false;await page.reload();
   // Seed an authored library through the maintained HTTP seam. This is test
   // setup; production download/activation is tested with real providers later.
   const imported=await page.request.post(origin+'/api/library/import',{headers:{'Origin':origin,'Content-Type':'application/zip',
@@ -108,7 +132,7 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   const paused=frames;await delay(1000);assert.equal(frames,paused);
   await page.evaluate(()=>window.dispatchEvent(new Event('toolkit-host-resume')));await until(()=>frames>paused,'foreground fresh lease');
   assert.deepEqual(errors,[]);
-  console.log(name+': actual shared UI size consent/update/delete, plain account-free reader and paste/clear/background receiver passed (mocked provider/PNG admission).');
+  console.log(name+': actual shared UI text/audio mode consent, size/update/delete, readable omitted-unknown text with no audio request, plain reader and paste/clear/background passed (mocked provider/PNG admission).');
  } finally {
   await browser?.close();service.stdin.write(JSON.stringify({action:'close'})+'\n');
   await new Promise(resolve=>service.once('exit',resolve));

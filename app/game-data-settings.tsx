@@ -10,7 +10,7 @@ import catalog from '../public/mobile-capture/games-data.json';
 import {languageName} from '../public/mobile-capture/interface-language.mjs';
 import './game-data-settings.css';
 
-export type GameDataRow = {id: string; title: string; state: string; revision: string | null; region: string;
+export type GameDataRow = {id: string; title: string; state: string; revision: string | null; region: string; content_mode: 'text' | 'text-audio';
  source_locale: string; target_locales: string[]; installed_bytes: number; deletable_bytes: number; retained_bytes: number;
  download_bytes: number | null; download_is_upper_bound: boolean; required_disk_bytes: number | null; plan_id: string | null;
  job: null | {id: string; status: string; phase: string; downloaded_bytes: number; total_bytes: number | null; message: string};
@@ -25,6 +25,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
  const [open, setOpen] = useState(false), [rows, setRows] = useState<GameDataRow[]>([]);
  const [error, setError] = useState(''), [pending, setPending] = useState(false), [confirmDelete, setConfirmDelete] = useState(false);
  const [region, setRegion] = useState('global'), [source, setSource] = useState(''), [targets, setTargets] = useState<string[]>([]);
+ const [contentMode, setContentMode] = useState<'text' | 'text-audio'>('text');
  const requests = useRef(new Set<AbortController>()), epoch = useRef(0), live = useRef(true);
  const mutationPending = useRef(false);
  const callbacks = useRef({onChanged, onGames}); callbacks.current = {onChanged, onGames};
@@ -38,6 +39,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   setConfirmDelete(false);
   if (!row) return;
   setRegion(row.region || 'global');
+  setContentMode(row.content_mode);
   setSource(row.source_locale || sourceChoices.find(value => value.split('-')[0] === targetLanguage) || sourceChoices[0] || 'en');
   setTargets(row.target_locales.length ? row.target_locales : targetChoices.filter(value => value === 'en'));
   // Polling a job must not replace language edits in progress.
@@ -81,7 +83,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   if (!row || mutationPending.current) return;
   const owner = ++epoch.current; mutationPending.current = true; setPending(true); setError('');
   try {
-   const selection = {region, source_locale: source, target_locales: targets};
+   const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
    const value = await request(`/${encodeURIComponent(game)}/${action === 'delete' ? 'data' : action}`, action === 'delete' ? 'DELETE' : 'POST',
     action === 'plan' ? selection : action === 'download' ? {plan_id: row.plan_id, revision: row.revision} : {revision: row.revision});
    const updated = validateGameDataRow(value.game) as GameDataRow;
@@ -94,15 +96,18 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
   } finally {if (live.current && owner === epoch.current) {mutationPending.current = false; setPending(false);}}
  }
 
- const selection = {region, source_locale: source, target_locales: targets};
+ const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
  const busy = pending || row?.state === 'downloading' || row?.state === 'planning';
  return <>
   <Button variant="outline" onClick={() => setOpen(true)}>Settings</Button>
   <Dialog open={open} onOpenChange={setOpen}><DialogContent className="setup-dialog game-data-settings"><DialogHeader>
    <DialogTitle>{row?.title || info?.name || game} settings</DialogTitle>
-   <DialogDescription>Download and update this game’s original text and voices on this device.</DialogDescription>
+   <DialogDescription>Choose text only or text with the available original audio, then check the download size.</DialogDescription>
   </DialogHeader>
   {row ? <>
+   <label>Game data<select aria-label="Game data content" value={contentMode} disabled={busy} onChange={event => setContentMode(event.target.value as 'text' | 'text-audio')}>
+    <option value="text">Text only</option><option value="text-audio">Text + audio</option>
+   </select></label>
    <label>Region<select aria-label="Game data region" value={region} disabled={busy} onChange={event => setRegion(event.target.value)}>
     <option value="global">Global</option><option value="cn">Mainland China</option>
    </select></label>
@@ -119,7 +124,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    </dl>
    <div className="toolkit-setup-actions">
     <Button variant="outline" disabled={!online || busy || !row.can_plan || !source} onClick={() => void mutate('plan')}>Check download size</Button>
-    <Button disabled={!online || busy || !canDownloadGame(row, selection)} onClick={() => void mutate('download')}>{row.installed_bytes > 0 ? 'Update' : 'Download'}</Button>
+    <Button disabled={!online || busy || !canDownloadGame(row, selection)} onClick={() => void mutate('download')}>{row.installed_bytes > 0 && row.state !== 'not_downloaded' ? 'Update' : 'Download'}</Button>
     <Button variant="outline" disabled={!online || busy || !row.can_delete} onClick={() => setConfirmDelete(true)}>Delete downloaded data</Button>
    </div>
    {confirmDelete && <div role="alert"><p>Delete downloaded game data? History, favorites and saved recordings stay.</p>

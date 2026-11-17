@@ -5,7 +5,7 @@ from backend.game_data_protocol import (GameDataError, GameDataRequest, GameData
 
 
 def test_bounded_language_request_and_unknown_download_size():
-    request = GameDataRequest.parse({'region': 'global', 'source_locale': 'ja', 'target_locales': ['zh-Hans', 'en']})
+    request = GameDataRequest.parse({'region': 'global', 'source_locale': 'ja', 'target_locales': ['zh-Hans', 'en'], 'content_mode': 'text'})
     assert request.json()['target_locales'] == ['en', 'zh-Hans']
     plan = GameDataPlan('original-revision', None, None)
     assert plan.download_bytes is None and not plan.runtime_available
@@ -13,6 +13,8 @@ def test_bounded_language_request_and_unknown_download_size():
         with pytest.raises(GameDataError):
             GameDataPlan('revision', value, 100)
     assert MAX_METADATA_BYTES == 8 * 1024**2
+    with pytest.raises(GameDataError):
+        GameDataRequest.parse({'region': 'global', 'source_locale': 'en', 'target_locales': []})
 
 
 def test_original_content_and_exceptional_key_fallback_need_separate_receipts():

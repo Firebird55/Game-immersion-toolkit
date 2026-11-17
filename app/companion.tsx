@@ -146,6 +146,7 @@ type TranscriptLine = {
   voiced: boolean;
   voice_status?: 'voiced' | 'unvoiced' | 'unavailable' | 'unknown';
   text_capture_verified?: boolean;
+  audio_omitted_by_request?: boolean;
   dialogue_kind?: string | null;
   has_audio: boolean;
   audio_pending?: boolean;
@@ -164,10 +165,11 @@ function voicePlaybackLabel(line: TranscriptLine) {
     : line.dialogue_kind?.endsWith('_full_track') ? 'Original audio · full track' : 'Original voice';
 }
 function isReadableLine(line: TranscriptLine) {
-  return line.voiced || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
+  return line.voiced || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line) || line.game === 'hito' || isComicLine(line);
 }
+function isRequestedTextOnly(line: TranscriptLine) {return !!line.audio_omitted_by_request && !!line.text_capture_verified;}
 function isMissingAudioLine(line: TranscriptLine) {
-  return !!line.text_capture_verified && (line.voice_status === 'unknown' || line.voice_status === 'unavailable');
+  return !line.audio_omitted_by_request && !!line.text_capture_verified && (line.voice_status === 'unknown' || line.voice_status === 'unavailable');
 }
 function missingAudioLabel(line: TranscriptLine) {
   return line.voice_status === 'unavailable' ? 'Original voice unavailable' : 'Audio binding unresolved';
@@ -384,6 +386,7 @@ const TranscriptRow = memo(function TranscriptRow({
       {line.match_kind === 'browser_migration' && <small>{line.dialogue_kind === 'browser_history_excerpt' ? 'Imported browser excerpt' : 'Imported browser history'}</small>}
       {line.audio_scope === 'context' && <small>{uiText("Context clip")}</small>}
       {isMissingAudioLine(line) && <small>{uiText(missingAudioLabel(line))}</small>}
+      {isRequestedTextOnly(line) && <small>Text only</small>}
       {line.match_kind !== 'browser_migration' && <span className={line.score < 90 ? "is-low-score" : ''}>{Math.round(line.score)}%</span>}
       <div className="line-actions">
         <button type="button" onClick={() => onPlay(line)} disabled={!line.has_audio} aria-label={`${voicePlaybackLabel(line)}: ${line.english}`} title={voicePlaybackLabel(line)}><Volume2 size={16} /></button>
@@ -391,7 +394,7 @@ const TranscriptRow = memo(function TranscriptRow({
         <LexiriseButton
           sent={sentToLexirise}
           busy={sendingRef === ref}
-          disabled={!canUseLexirise || !(line.has_audio || line.voice_status === 'unvoiced' || isMissingAudioLine(line)) || (sendingRef !== null && sendingRef !== ref)}
+          disabled={!canUseLexirise || !(line.has_audio || isRequestedTextOnly(line) || line.voice_status === 'unvoiced' || isMissingAudioLine(line)) || (sendingRef !== null && sendingRef !== ref)}
           game={line.game}
           onClick={() => onSendToLexirise('line', line.id)}
           compact
@@ -1019,7 +1022,7 @@ function CompanionClient() {
           {latestLine ? (
             <StableInline
               className="match-label"
-              text={`${latestLine.channel === 'tip' ? 'Top-right' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay' : 'Dialogue'} · ${latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : isMissingAudioLine(latestLine) ? uiText(missingAudioLabel(latestLine)) : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
+              text={`${latestLine.channel === 'tip' ? 'Top-right' : latestLine.channel === 'cinematic' ? 'Cinematic / comic' : latestLine.channel === 'gameplay' ? 'Gameplay' : 'Dialogue'} · ${isRequestedTextOnly(latestLine) ? 'Text only' : latestLine.voice_status === 'unvoiced' ? 'Unvoiced' : isMissingAudioLine(latestLine) ? uiText(missingAudioLabel(latestLine)) : latestLine.voiced ? 'Voiced' : isComicLine(latestLine) ? 'Game-file text' : 'Checking voice…'} · ${Math.round(latestLine.score)}%`}
             />
           ) : null}
         </div>
@@ -1032,13 +1035,13 @@ function CompanionClient() {
             <EnglishTranslation line={latestLine} summary={currentReadingSummary} limit={readingMode === 'lexirise' ? readingOptions.hideEnglishAt : 'off'} current />
             {readingMode === 'lexirise' ? <ReadingText id={latestLine.id} text={latestLine.source_text??latestLine.chinese} sourceLanguage={latestLine.source_language??'zh'} sentenceTranslation={latestLine.translation_text??latestLine.english} options={readingOptions} current onSummary={setCurrentReadingSummary} /> : <StableText text={latestLine.source_text??latestLine.chinese} className="current-chinese" lang={latestLine.source_locale ?? latestLine.source_language ?? 'zh-Hans'} />}
             <div className="current-actions">
-              {latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine) ? <span className="text-muted">{uiText(latestLine.voice_status === 'unvoiced' ? 'Unvoiced dialogue' : missingAudioLabel(latestLine))}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'context' ? 'Play context clip' : latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
+              {isRequestedTextOnly(latestLine) || latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine) ? <span className="text-muted">{isRequestedTextOnly(latestLine) ? 'Text only' : uiText(latestLine.voice_status === 'unvoiced' ? 'Unvoiced dialogue' : missingAudioLabel(latestLine))}</span> : <button type="button" onClick={() => playLine(latestLine)} disabled={!latestLine.has_audio} aria-label={latestLine.has_audio ? latestLine.audio_scope === 'context' ? 'Play context clip' : latestLine.audio_scope === 'paragraph' ? 'Play full paragraph' : 'Play current voice line' : latestLine.audio_pending ? 'Preparing original voice' : 'Original voice unavailable'} title={latestLine.has_audio ? voicePlaybackLabel(latestLine) : latestLine.audio_pending ? 'Preparing original game audio' : 'Subtitle captured; original voice extraction is unavailable'}>
                 <Volume2 size={18} /> {latestLine.audio_pending ? 'Preparing voice…' : !latestLine.has_audio ? 'Voice unavailable' : latestLine.audio_source === 'original' ? voicePlaybackLabel(latestLine) : 'Play voice'}
               </button>}
               <button type="button" className={latestLine.favorite ? 'is-favorite' : ''} onClick={() => toggleFavorite(latestLine)} aria-label={latestLine.favorite ? 'Remove current line from favorites' : 'Favorite current line'} title={latestLine.favorite ? 'Remove favorite' : 'Keep forever'}>
                 <Star size={18} fill={latestLine.favorite ? 'currentColor' : 'none'} /> {latestLine.favorite ? 'Saved' : 'Favorite'}
               </button>
-              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine))}
+              {studyButton('line', latestLine.id, latestLine.game, latestLine.has_audio || isRequestedTextOnly(latestLine) || latestLine.voice_status === 'unvoiced' || isMissingAudioLine(latestLine))}
             </div>
           </div>
         ) : (

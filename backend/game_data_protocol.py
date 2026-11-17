@@ -57,9 +57,10 @@ class GameDataRequest:
     region: str
     source_locale: str
     target_locales: tuple[str, ...] = ()
+    content_mode: str = 'text'
 
     def __post_init__(self):
-        if (self.region not in {'global', 'cn'} or not isinstance(self.source_locale, str)
+        if (self.region not in {'global', 'cn'} or self.content_mode not in {'text', 'text-audio'} or not isinstance(self.source_locale, str)
                 or LOCALE.fullmatch(self.source_locale) is None or len(self.target_locales) > 128
                 or any(not isinstance(value, str) or LOCALE.fullmatch(value) is None for value in self.target_locales)
                 or len(set(self.target_locales)) != len(self.target_locales)):
@@ -68,13 +69,13 @@ class GameDataRequest:
 
     @classmethod
     def parse(cls, value):
-        if (not isinstance(value, dict) or set(value) != {'region', 'source_locale', 'target_locales'}
+        if (not isinstance(value, dict) or set(value) != {'region', 'source_locale', 'target_locales', 'content_mode'}
                 or not isinstance(value.get('target_locales'), list)):
             raise GameDataError('invalid_game_languages', 'Choose a region and game languages before checking the download.')
-        return cls(value['region'], value['source_locale'], tuple(value['target_locales']))
+        return cls(value['region'], value['source_locale'], tuple(value['target_locales']), value['content_mode'])
 
     def json(self):
-        return {'region': self.region, 'source_locale': self.source_locale, 'target_locales': list(self.target_locales)}
+        return {'region': self.region, 'source_locale': self.source_locale, 'target_locales': list(self.target_locales), 'content_mode': self.content_mode}
 
 
 @dataclass(frozen=True)
@@ -138,7 +139,9 @@ class PreparationContext(Protocol):
 
 
 class OriginalVoiceSource(Protocol):
-    # has is a pure original-binding check: no download/decoder/OCR work.
+    # has certifies a verified locally materialized original binding. Missing
+    # decoded MP3/WAV is fine; a mere remote URL is insufficient for text+audio
+    # readiness. No download/decoder/OCR work may run in this predicate.
     def has(self, row: Mapping[str, Any]) -> bool: ...
     # The shared native runtime performs authenticated original download/decode;
     # this callback is invoked outside the matching/confirmation lock.

@@ -38,11 +38,14 @@ def floating_caption_policy(game, index, *, capture_unvoiced, capture_missing_au
     song_voices = game == 'wuwa' and bool(metadata.get('publisher_song_voices', songs))
     spec = STEAM_GAMES.get(game)
     voice = bool((film or top or world or song_voices or (spec and spec.floating_dialogue))
-        and getattr(index, 'match_full_frame_voice_lines', None) and index.ready and index.audio_count)
+        and getattr(index, 'match_full_frame_voice_lines', None) and index.ready
+        and (index.audio_count or getattr(index, 'capture_text_only', False) and getattr(index, 'audio_omitted_count', 0)))
     silent = bool(capture_unvoiced and getattr(index, 'match_unvoiced_lines', None) and index.ready
         and index.status().get('unvoiced_count', 0))
-    missing = bool(capture_missing_audio and getattr(index, 'match_missing_audio_lines', None) and index.ready
-        and index.status().get('missing_audio_count', 0))
+    missing = bool(getattr(index, 'match_missing_audio_lines', None) and index.ready
+        and (capture_missing_audio and index.status().get('missing_audio_count', 0)
+        or getattr(index, 'capture_text_only', False) and getattr(index, 'audio_omitted_count', 0))
+        )
     return FloatingCaptionPolicy(film, top, world, songs, voice, silent, missing)
 
 
