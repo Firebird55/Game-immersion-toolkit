@@ -51,6 +51,36 @@ Totals of all text files are not story-coverage denominators. Classify active
 content, proven unused authoring and historical test content separately.
 Historical assets still called by the released game remain in scope.
 
+## Finite current-use boundary
+
+On November 17 the owner explicitly bounded the remaining investigation: old
+event references and possible cut content must not keep these tickets open
+indefinitely. Finish one bounded cross-check against the selected current
+publisher catalog and available typed current entry-point records. Reuse
+completed checks; do not recursively investigate every caller or obtain more
+assets merely to prove that an unused reference is unreachable.
+
+Record references with no demonstrated current use as **configuration-only;
+current use not demonstrated**. Keep their identifiers, provenance and completed
+checks in the research inventory. This is not proof of removal, cut content,
+silence or working audio. Such references are not closure blockers solely
+because their unused status cannot be proved. The 333 ZZZ catalog references and
+equivalent Endfield remnants follow this rule. A row in a localization table or
+prepared catalog alone does not establish that a released presentation uses it.
+
+Keep demonstrated current presentation failures separate: wrong recordings,
+available but unbound spoken audio, incomplete actual captions, player/dub
+mix-ups and failed installation-free update/recovery remain real blockers.
+Counts of unknown or unavailable records are an investigation inventory, not
+automatic evidence that all those records are active or all are historical.
+Later evidence of actual current use reopens that specific case.
+
+Finish the already running source and integration checks, then address the
+finite demonstrated blockers. Do not start another broad source, native-code,
+gameplay or listening round for configuration-only remnants. Existing fixed
+toolkit/helper/third-party-input update trials remain valid; new publisher
+content receives a delta check rather than restarting the old audit.
+
 ## Audio outcomes
 
 An individually recorded subtitle retains its original text, translations,
