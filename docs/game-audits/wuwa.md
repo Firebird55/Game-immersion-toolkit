@@ -1,8 +1,62 @@
 # Wuthering Waves dialogue audit
 
+## November 17, 2026 · State-only events and complete M3_10_08B context
+
+The original scene reader now follows an immediate same-bank PlayEvent only
+when its entire bounded child tree contains fully validated, immediate,
+non-Rover SetState leaves. Eight levels and sixteen total event nodes bound
+traversal. Cycles, repeated event traversal, nonzero cooldown/instance limits,
+audio/stop actions, delays, property/range bundles and song-state graphs remain
+rejected. Every voice source/ancestor still rejects state-driven properties and
+RTPCs. Independent WWiser fields agree with all eight original banks across the
+four dubs. No scene or media ID allowlist implements this shape.
+
+The native VideoView posts a separately flagged subtitle voice only when the
+exact `PlotAudioById.GetConfig(CaptionText)` lookup finds a configuration. Its
+missing-key branch only warns and posts nothing. Of twenty-five current flagged
+captions, twenty-three have a config; exactly the two M3_10_08B captions lack it.
+Their complete localized scene soundtrack contains both full sentences. A
+bounded local English diagnostic with the pinned **WSYue-ASR v2 Cantonese
+fine-tune** positively reproduces all their words and a known voiced control.
+This is research-only corroboration, not a multilingual quality/license claim
+or a production ASR dependency; no ASR is needed for routine preparation or cuts.
+
+The publisher reader now attests the exact complete original PlotAudio bytes.
+The scene reader verifies that hash and queries an immutable SQLite image with
+the native `WHERE Id=?` semantics, including its actual collation. Only a truly
+absent configuration can remove the separate-source veto. Existing empty/null,
+unresolved or missing-pack configurations retain it. Missing, changed, truncated
+or unreadable tables fail actionably, and an unattested table cannot establish
+absence. Ordinary content updates query the new table afresh: adding a config
+restores the veto. Other silent/written, scene, locale and player guards remain.
+
+All five ordinary workers add four complete-context variants for two caption
+identities while preserving every prior voiced record and every other record.
+Film totals are now **1,274 variants for 884 identities, 122 original sources and
+78 scenes per study locale**, with reader revision 11. The exact sixteen-member
+native cohort used 5,665,248 bytes including headers. Eight M3_10_08B originals
+are 48-kHz stereo with exactly **2,622,432 frames (54.634 seconds)**; the eight
+M0357 sources are six-channel and remain unavailable under the existing format
+guard. This does not count M0357 as covered. Five delayed/music event graphs
+still need independent ownership/timing proof.
+
+Actual matching/stability/storage and normal single/batch voice exports pass
+all twenty caption/Rover/study-locale variants, keeping every complete source
+frame. A fresh process with networking forbidden reproduces the same MP3 hashes.
+Both Chinese scripts share the same Mandarin PCM/MP3, and all four actual dubs
+have distinct PCM for each Rover branch. Unconfigured players remain refused.
+
+Independent Japanese/female-Rover gameplay corroborates the exact source. Two
+speech-bearing waveform controls give consistent upload offsets within one
+millisecond. Both untouched 360p caption frames pass the pinned PortableOcrEngine
+and the full 144,140-record Japanese index as **exact matches, score 100**; the
+unconfigured player still fails. This is real image replay, not physical window
+capture or word-cut timing. The complete source remains explicitly labeled as
+context. [Independent gameplay at the first caption](https://www.youtube.com/watch?v=Hgy7uIUwp2c&t=99s).
+
 ## November 17, 2026 · Frozen changed-content update and restart acceptance
 
-One clean toolkit revision, its backend/lock hashes, native decoder runtime and
+One clean toolkit revision (`d74f5f1`), its backend/lock hashes, native decoder runtime and
 frozen third-party input prepared **Global 3.7.19 → current Global 3.8.11** without
 a game installation. The older input is the authentic retained publisher
 catalogue, explicitly labeled as replay. The current input uses ordinary live

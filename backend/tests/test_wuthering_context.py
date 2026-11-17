@@ -1,4 +1,6 @@
 import copy
+from contextlib import closing
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
@@ -37,10 +39,10 @@ def record(locale='en', *, text='The whole associated utterance remains in its a
             'audio': None, 'voice_status': 'unavailable', 'dialogue_kind': 'cinematic', **changes}
 
 
-def assign(root, rows, sources=None, shapes=None, locale='en'):
+def assign(root, rows, sources=None, shapes=None, locale='en', **proof):
     context.assign_contexts(root, rows, locale,
         {'play_owned_scene': sources or (SceneSource(101, None, 0),)},
-        shapes if shapes is not None else {101: (2, 123457)})
+        shapes if shapes is not None else {101: (2, 123457)}, **proof)
 
 
 @pytest.mark.parametrize('locale', assets.SUPPORTED_LOCALES)
@@ -116,6 +118,98 @@ def test_separately_posted_caption_voice_cannot_be_replaced_by_scene_soundtrack(
     rows = [record()]
     assign(tmp_path, rows)
     assert rows[0]['audio'] is None
+
+
+def flagged_scene(root):
+    scene_db(root)
+    with closing(sqlite3.connect(root/'db_cgVedio.db')) as db, db:
+        db.execute('UPDATE videocaption SET BinData=?',
+                   (flat_blob({2:30,3:60,4:'caption',11:1}),))
+
+
+def complete_plot_table(root, *, identity=None, data=None, collation='BINARY'):
+    path=root/'db_plot_audio.db'
+    with closing(sqlite3.connect(path)) as db, db:
+        assert collation in ('BINARY','NOCASE')
+        db.execute(f'CREATE TABLE PlotAudio (Id TEXT COLLATE {collation}, BinData BLOB)')
+        if identity is not None:db.execute('INSERT INTO PlotAudio VALUES (?,?)',(identity,data))
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize('locale',assets.SUPPORTED_LOCALES)
+def test_flag_without_config_uses_only_independently_owned_complete_scene_after_full_table_proof(tmp_path,locale):
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path)
+    rows=[record(locale)];assign(tmp_path,rows,locale=locale,plot_audio_sha256=digest)
+    assert rows[0]['audio_scope']=='context' and rows[0]['voice_status']=='voiced'
+    assert rows[0]['audio']['depot']==films.MEDIA_ROOT+assets.VOICE_LOCALES[locale][0]+'/101.wem'
+    assert rows[0]['audio']['locale']==audio_locale(locale)
+
+
+@pytest.mark.parametrize('data',[None,b'',b'unknown-or-missing-pack-config'])
+def test_existing_empty_null_or_unresolved_external_config_keeps_its_veto(tmp_path,data):
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path,identity='caption',data=data)
+    rows=[record()];assign(tmp_path,rows,plot_audio_sha256=digest)
+    assert rows[0]['audio'] is None and rows[0]['voice_status']=='unavailable'
+
+
+def test_absence_uses_native_sql_key_collation_and_never_python_case_assumptions(tmp_path):
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path,identity='CaPtIoN',collation='NOCASE')
+    rows=[record()];assign(tmp_path,rows,plot_audio_sha256=digest)
+    assert rows[0]['audio'] is None
+
+
+def test_partial_or_unattested_table_is_never_treated_as_an_absence_inventory(tmp_path):
+    flagged_scene(tmp_path);complete_plot_table(tmp_path)
+    rows=[record()];assign(tmp_path,rows)
+    assert rows[0]['audio'] is None
+
+
+@pytest.mark.parametrize('fault',['unavailable','truncated','changed','malformed','wrong-schema'])
+def test_bad_complete_table_proof_fails_actionably_without_mutating_records(tmp_path,fault):
+    from backend.preparation_errors import PreparationFailure
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path);path=tmp_path/'db_plot_audio.db'
+    if fault=='unavailable':path.unlink()
+    elif fault=='truncated':path.write_bytes(path.read_bytes()[:128])
+    elif fault=='changed':path.write_bytes(path.read_bytes()+b'new source bytes')
+    elif fault=='malformed':path.write_bytes(b'not a database');digest=hashlib.sha256(path.read_bytes()).hexdigest()
+    else:
+        with closing(sqlite3.connect(path)) as db, db:db.execute('DROP TABLE PlotAudio')
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+    rows=[record()];before=copy.deepcopy(rows)
+    with pytest.raises(PreparationFailure) as error:assign(tmp_path,rows,plot_audio_sha256=digest)
+    assert error.value.code=='game_metadata_unavailable' and rows==before
+
+
+def test_ordinary_update_that_adds_config_invalidates_old_absence_without_negative_caching(tmp_path):
+    from backend.preparation_errors import PreparationFailure
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path);first=[record()]
+    assign(tmp_path,first,plot_audio_sha256=digest);assert first[0]['audio']
+    path=tmp_path/'db_plot_audio.db'
+    with closing(sqlite3.connect(path)) as db, db:db.execute('INSERT INTO PlotAudio VALUES (?,NULL)',('caption',))
+    with pytest.raises(PreparationFailure):assign(tmp_path,[record()],plot_audio_sha256=digest)
+    current=[record()];assign(tmp_path,current,plot_audio_sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+    assert current[0]['audio'] is None
+
+
+def test_proven_config_absence_does_not_default_rover_or_fill_missing_native_branch(tmp_path):
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path);rows=[record()]
+    assign(tmp_path,rows,(SceneSource(101,'female',0),SceneSource(102,'male',0)),{101:(2,123457)},
+           plot_audio_sha256=digest)
+    assert {r['player_voice']:r['voice_status'] for r in rows}=={'female':'voiced','male':'unavailable'}
+    (tmp_path/'textmap.json').write_text(json.dumps({'format':2,'game':'wuwa','source_locale':'en','records':rows}),encoding='utf-8')
+    index=MultilingualTextIndex('wuwa',tmp_path);assert index.ready
+    for gender in ['unconfigured','male']:
+        index.player_voice=gender;assert not index.match_lines([rows[0]['source_text']],channel='cinematic',exact_only=True)
+    index.player_voice='female';assert index.match_lines([rows[0]['source_text']],channel='cinematic',exact_only=True)
+
+
+@pytest.mark.parametrize('item',[{'TidTalkOption':'caption'},
+    {'TidTalk':'caption','PlayVoice':False},{'TidTalk':'caption','Type':'AvgNarration'}])
+def test_proven_config_absence_cannot_hide_a_silent_or_unknown_written_presentation(tmp_path,item):
+    flagged_scene(tmp_path);digest=complete_plot_table(tmp_path)
+    flow_database(tmp_path,[{'Name':'ShowTalk','Params':{'TalkItems':[item]}}])
+    rows=[record()];assign(tmp_path,rows,plot_audio_sha256=digest)
+    assert rows[0]['audio'] is None and rows[0]['voice_status']=='unavailable'
 
 
 @pytest.mark.parametrize('item', [
