@@ -490,8 +490,9 @@ No candidate method metadata or body is read in that phase, and no network or
 additional retained file is needed. Formal metadata alone does not establish
 the ARouter registration map. The next source-owned method candidate is this
 implementation's `createTapAppDownloadServiceProxy()`; its declared code location
-and actual return producer still require a separately bounded pass. A unique
-interface implementer is not treated as an anonymous game-download request.
+and actual return producer are checked in the separately bounded pass below.
+A unique interface implementer is not treated as an anonymous game-download
+request.
 
 ### Bounded concrete factory and conditional metadata-request chain
 
@@ -521,11 +522,78 @@ This is a conditional **level-info-update** branch, gated by the original
 `AppInfo.isLevel` and related-game state. Reverse:1999's actual branch value is
 unresolved, so the path is not claimed as its ordinary APK delivery route.
 The proxy also receives existing `download_id` and `app_info` values from an
-Android intent. Its separately instantiated normal-download callback `j$b`
-remains unread. The exact `ids` value comes through another source-owned
+Android intent. Its separately instantiated callback `j$b` is examined in the
+finite follow-up below. The exact `ids` value comes through another source-owned
 `AppInfo` helper whose body remains unread. These concrete boundaries do not
 establish a game-package URL, official GameConfig initializer or usable catalog;
 both content modes remain unavailable for preparation.
+
+The level-info branch stops without reading its HTTP builder or making a
+request. A separately approved normal-callback batch instead checks four exact
+methods, totaling 182 instruction bytes within its four-method / 2,048-byte cap:
+`j$b.invoke():Object`, `j$b.invoke():void`, `notification.b.l(downloadId, info)`
+and `notification.b.c(downloadId, AppInfo)`. Every step revalidates the signed
+member hash and register/invoke/instruction/branch bounds; no constructor or
+network operation is performed.
+
+The observed chain performs auxiliary notification bookkeeping with an already
+supplied ID: notification records, timestamps, `AppInfo` maps and a widget
+callback. It then calls `notification.b.p(downloadId)`, which remains unread.
+No APK/source request, URL construction or creation of a new download ID is
+observed in these four methods. This finite branch stops without a claim about
+the unread callee or the whole application.
+
+The notification callback does not construct its incoming task ID. The separate
+source-owned locator below establishes the service Intent's writer, while the
+actual task/descriptor origin remains unresolved. Neither auxiliary branch
+establishes impossible official derivation or activates a community-key fallback.
+
+### Exact service-Intent producer and download-center caller
+
+A metadata-only inventory of the exact `TapAppDownloadService` type finds only
+two carriers among all seven authenticated DEX members: `classes4.dex` and
+`classes6.dex`. One formal `const-class` operand lookup is restricted to those
+carriers. Their 111,648 code items and original method declarations pass numeric
+instruction, payload, branch and handler bounds; 5,999,758 instruction bytes are
+width-walked in 3.907 seconds. This is an exact type-operand index, without generic
+strings, endpoints, keys or semantic constructor/callee inspection. Gross existing
+source I/O is 83,551,012 bytes, including a recorded stopped reader preflight and
+repeated source-hash validation, within the separately approved 128 MiB ceiling.
+No server bytes are transferred.
+
+The lookup identifies three `notification.i` methods in `classes4.dex` and one
+separate store self-upgrade method in `classes6.dex`. Only the exact normal
+candidate `notification.i.d(Context, String, AppInfo)` is then inspected:
+280 instruction bytes, 24 try-table bytes and nine handler bytes. Its signed
+source and typed bounds pass. The other three candidate bodies remain unread.
+
+| Original service Intent field | Authored source |
+| --- | --- |
+| Target component | `TapAppDownloadService` |
+| `app_info` | The incoming `AppInfo` object as a Parcelable |
+| `download_id` | The incoming String argument, unchanged when nonempty |
+| `app_id` / `app_title` | Optional `AppInfo.mAppId` / `mTitle` compatibility fields |
+| `fg_service` | SDK/lifecycle-dependent service-start state |
+
+The method invokes the source-owned `notification.g.a(Context, Intent)` helper
+or Android `Context.startService`, including a direct start-service fallback.
+It creates the service Intent, **not a download URL or a new task ID**; no helper
+body is inspected.
+
+A second exact owner/signature inventory and formal invoke-operand lookup finds
+the service writer's single direct caller in the indexed DEX space:
+`com.taptap.game.downloader.impl.download.DownloadCenterImpl.x(String, AppInfo)`,
+method 52,041 in `classes4.dex`. Its header declares eight code units / sixteen
+instruction bytes; its semantic body remains unread at this checkpoint. This
+bounded pass revalidates 65,469,780 existing bytes, width-walks 3,114,348 instruction
+bytes and completes in 2.047 seconds, without network requests or other semantic
+body inspection.
+
+The genuine remaining upstream target is now that download-center caller's
+source for the supplied `AppInfo` and download ID. Starting the service with
+forwarded values does not prove their APK metadata origin. No official game APK,
+GameConfig initializer, English base/hotfix catalog or content preparation is
+accepted from these partial source proofs.
 
 ### Community key candidate: research only
 
