@@ -157,17 +157,16 @@ def _archive_parameters(tools=None, historical=False):
             'The protected Wuthering archive parameter cache is invalid. Restore the cache or retry '
             'preparation with valid original inputs; the previous index and recordings are retained.')
     try:
-        data = json.loads(download(PUBLIC_METADATA_URL, limit=512 * 1024))
-        values = tuple(bytes.fromhex(value) for value in dict.fromkeys(
-            re.findall(r'0x([0-9a-fA-F]{64})', json.dumps(data))))
-        pak.check(0 < len(values) <= 4096)
+        from . import wuthering_initial_seed
+        values = wuthering_initial_seed.parameters(tools, download)
         return tuple(dict.fromkeys((*retained, *(value for value in values if value not in excluded))))
     except (OSError, ValueError, TypeError) as error:
         if retained:
             return retained
         raise PreparationFailure('game_metadata_unavailable',
-            'Wuthering archive metadata is unavailable and no package-verified local parameters remain. '
-            'Retry when the metadata source is reachable; the previous index and recordings are retained.') from error
+            'The fixed Wuthering initial seed is unavailable and no package-verified local parameters remain. '
+            'Retry when the immutable source is reachable; the previous index and recordings are retained. '
+            'Unknown bootstrap/default-key rotations require an original-source resolver, not newer community keys.') from error
 
 
 def _package(tools, info, params):

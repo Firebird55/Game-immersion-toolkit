@@ -24,7 +24,8 @@ class EndfieldCaptionContext:
         def eligible(hit):
             return hit.voice_status == 'voiced' or (
                 getattr(index, 'capture_unvoiced', False) and hit.voice_status == 'unvoiced') or (
-                getattr(index, 'capture_missing_audio', False) and hit.is_verified_missing_audio)
+                getattr(index, 'capture_missing_audio', False) and hit.is_verified_missing_audio
+                or getattr(index, 'capture_text_only', False) and hit.is_requested_text_only)
         mission_text = groups[0] if kind == 'conversation' and getattr(index, 'game', None) == 'endfield' and len(groups) == 1 else None
         matches = {hit.text_id: hit for hit in visible if hit.kind == 'exact'
                    and hit.dialogue_kind == kind and eligible(hit)}

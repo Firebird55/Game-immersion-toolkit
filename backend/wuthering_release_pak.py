@@ -118,7 +118,7 @@ def _oodle(blocks):
     return result.stdout
 
 
-def _decompress(data, header, method, count, block_size, size, stored, encrypted, block_lengths):
+def _decompress(data, header, method, count, block_size, size, stored, encrypted, block_lengths, *, oodle=None):
     header_size = len(header)
     check(struct.unpack_from('<I', header, 48)[0] == count and block_size > 0
           and (size + block_size - 1) // block_size == count)
@@ -135,7 +135,9 @@ def _decompress(data, header, method, count, block_size, size, stored, encrypted
         position = (end + 15) // 16 * 16 if encrypted else end
     check(position == len(data))
     if method == b'Oodle':
-        return _oodle(blocks)
+        output = (oodle or _oodle)(blocks)
+        check(isinstance(output, bytes) and len(output) == size)
+        return output
     output = bytearray()
     for packed, expected in blocks:
         decoder = zlib.decompressobj()
@@ -147,8 +149,9 @@ def _decompress(data, header, method, count, block_size, size, stored, encrypted
 
 class Package:
     def __init__(self, url, size, identity, cache, parameters, *, native_parameters=None,
-                 verified_native_parameters=(), verified_default_parameters=None):
+                 verified_native_parameters=(), verified_default_parameters=None, oodle_decoder=None):
         self.url, self.size = url, size
+        self.oodle_decoder = oodle_decoder
         check(size >= 64)
         self.cache = cache / 'kuro-package-index' / identity
         tail = min(512, size)
@@ -281,7 +284,10 @@ class Package:
         check(found[wanted] >= 0)
         return self.extract(found[wanted])
 
-    def extract(self, position):
+    def member_plan(self, position):
+        """Plan bounded original ranges using the verified index, without body IO."""
+        from .wuthering_preflight import MemberPlan
+        check(type(position) is int and 0 <= position < len(self.entries))
         # Kuro v12 stores the encoded entry's length and offset in swapped slots.
         reader = io.BytesIO(self.entries)
         reader.seek(position)
@@ -301,9 +307,20 @@ class Package:
               (0 < method < len(self.methods) and self.methods[method] in (b'Zlib', b'Oodle') and blocks > 0))
         block_lengths = [number(reader, 'I') for _ in range(blocks)] if blocks > 1 else []
         header_size = 53 + (4 + 16 * blocks if method else 0)
+        length = (stored + 15) // 16 * 16 if encrypted else stored
+        check(0 <= offset <= self.size - header_size - length)
+        return MemberPlan(self.size, offset, header_size, length, size,
+                          self.methods[method].decode('ascii'), method, stored, blocks,
+                          block_size, tuple(block_lengths), encrypted, custom)
+
+    def extract(self, position):
+        plan = self.member_plan(position)
+        offset, header_size, length = plan.offset, plan.header_bytes, plan.body_bytes
+        stored, size, blocks = plan.stored_bytes, plan.plain_bytes, plan.blocks
+        method = plan.compression_index
+        encrypted, custom = plan.encrypted, plan.custom
         header = self.range(offset, header_size)
         check(struct.unpack_from('<QQI', header, 8) == (stored, size, method))
-        length = (stored + 15) // 16 * 16 if encrypted else stored
         data = b''.join(self.range(offset + header_size + part, min(LIMIT, length - part))
                         for part in range(0, length, LIMIT))
         protected = min(length, {0: length, 1: 0x200000, 2: 0x800, 4: 0}[custom]) if encrypted else length
@@ -319,6 +336,6 @@ class Package:
                     'Previous prepared data is kept. This is not proof of a changed package format.')
             data = self.cipher.decrypt(data[:protected]) + data[protected:]
         if method:
-            return _decompress(data, header, self.methods[method], blocks, size if blocks == 1 else block_size,
-                               size, stored, encrypted, block_lengths)
+            return _decompress(data, header, self.methods[method], blocks, size if blocks == 1 else plan.block_size,
+                               size, stored, encrypted, plan.block_lengths, oodle=getattr(self, 'oodle_decoder', None))
         return data[:size]

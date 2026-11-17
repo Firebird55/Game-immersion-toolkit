@@ -1,5 +1,44 @@
 # Wuthering Waves dialogue audit
 
+Independent Android publisher downloads require the remaining runtime and
+storage work in the [Android portability and size-preflight audit](wuwa-android-portability.md).
+PC-prepared library import does not establish that capability.
+
+## November 17, 2026 · Immutable initial seed, official ordinary refresh
+
+Publisher preparation no longer downloads the mutable `wuwa-keys` Pages feed
+on each discovery. Its initial candidate input is one immutable Git blob,
+`b1fb189eaf793066c6b242d6e4edd9860b232248`, decoded size 88,674 bytes and SHA256
+`a7c1e540b93e14b829967c2c5cb7e46d57d6a701cb7087e904ebe1c3f67679b5`.
+The original repository returned exactly the already retained frozen input;
+no newer candidate keys were imported. The bounded response used 122,461 bytes.
+[Immutable initial object](https://api.github.com/repos/yarik0chka/wuwa-keys/git/blobs/b1fb189eaf793066c6b242d6e4edd9860b232248).
+
+The helper checks the original Git object identity, complete decoded SHA256
+and size before retaining the opaque candidate input in protected storage.
+Every retained read repeats those checks. A failed or interrupted publication
+cannot authorize a new candidate. This cache is separate from independently
+package-verified legacy, native UUID and default ownership. Merely occurring
+in the initial seed never establishes original archive ownership, revives a
+revoked UUID or permits a native-only value to become a default key.
+
+After initial retention, normal discovery uses official regional launchers,
+resource/dub manifests and both native KeyLists/PakData inputs; it makes no
+GitHub or mutable community request. Independently package-verified local
+legacy/default values remain an outage fallback. This removes the recurring
+external-feed dependency while preserving exact retained historical inputs.
+It does **not** derive an unknown new bootstrap/default key or replacement
+manifest cryptographic constants from an original producer. Such rotations
+remain an explicit autonomy gap, even without a package-format change; failed
+preparation preserves the previous complete library and saved recordings.
+
+The one bounded original-client follow-up authenticated both executable chunks
+and the whole publisher MD5 before inspecting only the concrete native
+`Decrypt`/`LoadKeys` entry windows. Those windows remained opaque to the static
+probe; no game code, injection or runtime unpacking was used, and no resolver
+candidate was admitted. This negative result is not proof that a key or
+original derivation is absent.
+
 ## November 17, 2026 · Reader 13 source repair and finite remaining scope
 
 The original `M2_12_22_1` caller and complete event graph now establish the

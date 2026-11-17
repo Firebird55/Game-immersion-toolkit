@@ -35,6 +35,15 @@ INDEXES = {'res': ('res', 'res_versions_external'), 'base': ('res', 'base_revisi
            'silence': ('silence', 'AssetBundles/data_versions')}
 
 
+class PublisherBuild(dict):
+    """Helper provenance is separate from the publisher's resource identity."""
+    helper_provenance = None
+
+
+class DispatchFields(dict):
+    helper_provenance = None
+
+
 def check(condition):
     if not condition:
         raise ValueError('Inconsistent or unsupported released Genshin hotfix metadata.')
@@ -97,7 +106,10 @@ def _dispatch(region, version):
     check(all(isinstance(part, bytes) and part for part in chunks))
     root = fields(b''.join(chunks))
     check(root.get(1, 0) == 0 and isinstance(root.get(3), bytes))
-    return fields(root[3])
+    result = DispatchFields(fields(root[3]))
+    if hasattr(bootstrap, 'provenance'):
+        result.helper_provenance = bootstrap.provenance(config)
+    return result
 
 
 def _version(build):
@@ -163,7 +175,8 @@ def discover(build):
     hotfix = {'revisions': revisions | {'audio': revisions['res']},
               'indexes': {'res': indexes['res_versions_external'], 'base': indexes['base_revision'],
                           'design': design, 'silence': silence}}
-    candidate = build | {'hotfix': hotfix}
+    candidate = PublisherBuild(build | {'hotfix': hotfix})
+    candidate.helper_provenance = getattr(response, 'helper_provenance', None)
     # Verify every declared body before accepting a new resource generation.
     with ThreadPoolExecutor(max_workers=4) as pool:
         bodies = dict(pool.map(lambda name: (name, _index(candidate, name)), INDEXES))

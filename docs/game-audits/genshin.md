@@ -72,6 +72,90 @@ field values exist as keys in all 15 independently parsed original locale tables
 (225 matches); the accessor itself does not perform localization lookup.
 No mirror rows were used to derive or parse those records.
 
+## Experimental native reader foundations · November 17, 2026
+
+The [native metadata reader](../../backend/genshin_native_metadata.py),
+[contract builder](../../backend/genshin_native_contracts.py) and
+[Voice owner analysis](../../backend/genshin_native_voice.py) now derive inspected
+read contracts from supplied original executable and metadata bytes. Original
+client code remains inert data. Current method addresses, type/member indices,
+arithmetic operands, registration arrays and field offsets are discovered from
+those inputs. Retained layouts describe formats and bounded instruction forms;
+the repository contains no original game bytes, texts or codec keys.
+
+This experimental analysis requires a Windows amd64 host and the exact pinned
+Capstone 5.0.7 software decoder. Its native DLL and complete BSD notice are
+verified before loading. The [software receipt](../../packaging/native-codecs/genshin-capstone-5.0.7-windows-amd64.json)
+records the original wheel and every member digest; runtime collection retains
+the package, DLL and original license metadata. It excludes installer-generated
+local-wheel URLs. Other hosts refuse this experimental analysis while retaining
+the existing provider.
+
+On the held Global 7.2 originals, complete metadata parsing recovered 89,748
+types, 741,021 methods, 445,462 fields and 555,919 parameters. Subsequent
+development probes derive all 314,558 usage lists, 788,698 references and 87,253
+strict UTF-8 literals. Their generated TalkExcel contract reads all 45,699 rows
+with exact EOF and agrees with independently held original controls, opened
+after parsing. The original Talk100001, Talk100002 and GlobalDialog objects also
+pass exact EOF through the actual allocated type's native virtual reader.
+The original Lut contract reads all 154,113 rows. Whole-corpus development
+replays now read all 7,449 original Items groups / 154,113 entries and 47,121
+previously source-bound original Talk objects / 418,454 nodes, with complete
+catalog identities, payload hashes and exact EOF. Independent original controls
+are opened after all new parses; they show zero differences. These corpus
+replays explicitly reuse a private native-metadata intermediate and the held
+positive source cohort. They do not establish full current presentation routing.
+
+The [canonical bootstrap](../../backend/genshin_native_dialogue.py) connects those
+native roles to the existing explicit preparation profile and atomic snapshot
+writer. It acquires each original object once: exact Lut/Items bytes establish
+trigger correspondence and feed that same preparation. Changed generations,
+wrong read contracts and absent groups preserve the prior snapshot. Source-group
+routing contracts are still caller-supplied. A separate fresh
+original-executable/metadata trial derives metadata, usages, literals and the
+canonical inventory/Talk/Lut/Items readers without that intermediate. Exact
+original UUID-plus-argument joins derive all eight trigger names from current
+data: 154,111 bindings match, including 149,114 Dialog entries. The two missing
+UUID bindings remain unknown; event-only matches cannot replace them.
+
+The [source-index reader](../../backend/genshin_native_sources.py) derives the
+actual UInt32/UInt64 dictionary decoder, all five current index paths, their
+typed path/stream/out-pointer cache writes and matching native getters. Actual
+root allocations and called readers are recovered for NpcFree, MainQuestBrief
+and MainQuest. All 3,978 original NpcFree groups pass whole-object EOF with their
+own derived descriptor contracts. Typed array tail calls, register-derived
+presence tests and full-width UInt64 values have explicit bounded readers.
+
+The [method-attribute reader](../../backend/genshin_native_attributes.py) follows
+the native MethodInfo constructor's actual table, row-index and attribute stores.
+All 741,021 original method attributes decode with independently agreeing
+after-parse results. Current attributes establish static/instance argument
+positions; unsupported value-type/floating ABI shapes are refused. Descriptor
+roles then follow the actual typed array callback and forwarded object to a
+UInt32-keyed native store and matching getter/cache. Its UInt64 field reaches
+a typed original stream opener through the proved Descriptor argument. These
+are source-format roles, rather than proof that every declaring overload is
+currently called or that full current routing is complete.
+
+The analysis follows authored root-array registration, separate raw/decoded
+presence flags, native transformations after initial field stores, and typed
+protected-value setters. Voice field roles follow actual input comparisons,
+event-key construction, group-cache consumers and original source-name copies.
+The UUID role follows the converter's original ASCII case-folding/FNV-1 code.
+The configuration registry's byte type tag does not establish a Voice API call.
+Likewise, formatting a localization key does not prove every subsequent UI
+presentation or player-role decision.
+
+These readers do not activate an automatic original provider in normal
+preparation. Complete descriptor/MainQuest source routing, original package
+acquisition and its runtime codec closure, regional validation, and old/current
+update plus recovery acceptance remain open. The 219 source-unbound configured
+rows and direct-Global/player-role questions remain explicit research inventory;
+configuration references alone do not prove current use, removal or unvoiced
+status. Ten existing unused Action variants remain future content-support
+qualifications when new content uses them, rather than new package formats or
+proven current presentation blockers. Normal Setup retains its existing source.
+
 ## Explicit original Talk preparation API · November 17, 2026
 
 The [original dialogue reader](../../backend/genshin_original_dialogue.py)
@@ -1004,6 +1088,70 @@ same event line the four Global 4.8 sources decoded to 5.619 seconds in English,
 · [4.8 original voice binding](https://github.com/DimbreathBot/AnimeGameData/blob/411376ae92931a04d41ae5a9386d45c0d2deb8a8/BinOutput/Voice/Items/3238191112.json)
 
 ## Verification
+
+### Original TextMap source checkpoint — November 17, 2026
+
+The explicit `original_text=True` publisher/preparation API now connects official
+hotfix package acquisition, a complete design catalog, named original data
+objects and the existing original TextMap decoder. It authenticates complete
+publisher package sizes/MD5 values and the launcher-owned executable as data.
+Bounded unwind-range template discovery found two equivalent compiled readers
+and one numeric contract in the current original executable. Every matching
+method hash is retained; this is format discovery, not semantic method ownership.
+No native game code executes.
+
+The container helper compiles only an exact frozen MIT `BlbUtils` implementation
+and an owned adapter. The original upstream `CryptoHelper` is excluded from Git
+and the helper executable. An allowlisted immutable community description supplies
+bounded numerical arrays as private input data. A failed original-container read
+can request one controlled description refresh. Installed bundles resolve a closed
+helper apphost and its included .NET runtime; only source checkouts use a build
+SDK. The helper contract retains full upstream and runtime notices. UnityPy and
+Unity texture/mesh loading are not dependencies of this route.
+The original provider now derives BLB parameters directly from the authenticated
+official executable. A bounded, seed-free native reference/consumer pass yields
+complete candidates; strict original catalog parsing must select exactly one.
+All matching method hashes remain in its private provenance. No community-key
+refresh or fallback runs on this path. Dispatch bootstrap and dialogue bindings
+remain separate community dependencies, with last-resort eligibility unproven.
+Immutable provenance alone does not establish official autonomy.
+
+The seed-free current replay recovered four candidate contracts and rejected
+three against the original catalog. With community numeric-data reads and
+network denied, the accepted contract redecoded all 495 packages, then parsed
+all 15,360 original shards and 12,779,262 rows across fifteen locales. This is
+current retained-input evidence, not an old-to-new executable trial. Ordinary
+preparation validates all selected source/target locale shards; the all-locale
+format proof does not authorize hidden downloads of unselected locales.
+
+The actual current replay parsed all 15 official locale inventories: 15,360
+shards, 495 whole-verified publisher packages and 12,779,262 rows. Network was
+disabled and comparisons with retained original outputs happened after parsing.
+A separate ordinary acquisition-API replay read all 1,024 English shards and
+854,601 rows from the cached original generation, including automatic native
+template recovery, with no new game bytes. Synthetic regressions cover changed
+parameters/shard counts, full identity ownership, shortened-name ambiguity,
+truncation, missing shards, wrong editions/titles/hotfixes, immutable helper
+retries, complete receipts, failed-generation retention and offline reopen.
+
+This remains an explicit source route: **the normal provider is unchanged**.
+Whole ordinary dialogue/voice preparation, old-to-new original content/audio
+acceptance and packaged-runtime collection/native acceptance are still required
+before activation. The generation receipt expressly distinguishes original
+TextMap content from the existing community Readable/Subtitle text routes; those
+two routes must obtain original publisher bytes before all text can be called
+publisher-sourced. Existing verified snapshots keep their original provenance.
+An unknown compiled reader shape needs a controlled compatible parameter
+description or supported decoder; a normal compiler/key change is not silently
+treated as a new package format. Two missing original voice identities and
+conditional/direct-Global dialogue qualifications remain explicit.
+
+The pinned generic source and full MIT license are recorded in
+[the input policy](../../packaging/genshin-reader/inputs.json). The public code
+and synthetic fixtures contain no original codec arrays, game bytes or dialogue.
+The [direct Android data runtime audit](genshin-android-data-runtime.md) records
+the tested complete PC worker, reusable contracts, remaining platform work and
+the explicit official-manifest preflight size bounds.
 
 Synthetic regressions cover schema drift, global fallback precedence, conflicts,
 parallel card arrays, reminder hash collisions, player variants, missing versus

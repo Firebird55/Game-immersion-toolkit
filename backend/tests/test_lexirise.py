@@ -199,6 +199,20 @@ def test_wrong_deck_type_fails_before_upload(tmp_path):
     assert calls == ['GET','GET']
 
 
+@pytest.mark.parametrize('status', ['voiced', 'unknown', 'unavailable'])
+def test_explicit_text_download_omission_never_uploads_or_claims_unvoiced(tmp_path, status):
+    api, service, kwargs = fixture(tmp_path)
+    # Even a stale caller-supplied path must not be opened or uploaded when the
+    # saved line explicitly belongs to a text-only download.
+    kwargs.update(audio=tmp_path / 'not-downloaded.mp3', voice_status=status,
+                  audio_omitted_by_request=True)
+    assert service.send(**kwargs)['sent']
+    assert ('POST', '/v1/vocabulary/audio') not in api.calls
+    assert api.items[0]['audio_urls'] == []
+    assert 'audio omitted by download choice' in api.items[0]['notes']
+    assert 'Unvoiced' not in api.items[0]['notes']
+
+
 def test_rate_limit_is_safe_and_missing_audio_does_not_upload(tmp_path):
     _, service, kwargs = fixture(tmp_path)
     service.transport = httpx.MockTransport(lambda _: httpx.Response(429, text='secret key test-key'))
@@ -260,6 +274,12 @@ def test_api_uses_stored_game_and_requires_browser_header(tmp_path, monkeypatch)
         response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
         assert response.status_code == 200 and not response.json()['audio_included']
         assert sent[-1]['audio'] is None and sent[-1]['voice_status'] == status
+
+    line.voice_status, line.audio_omitted_by_request = 'voiced', True
+    response = client.post('/api/lines/1/lexirise', headers={'X-Proxy-Transcript': 'lexirise'})
+    assert response.status_code == 200 and not response.json()['audio_included']
+    assert sent[-1]['audio'] is None and sent[-1]['audio_omitted_by_request'] is True
+    assert sent[-1]['voice_status'] == 'voiced'
 
 def test_foreign_account_cannot_reuse_decks_or_export_markers(tmp_path):
     api, service, kwargs = fixture(tmp_path)

@@ -3,10 +3,10 @@ from functools import lru_cache
 import json
 import re
 
-from . import endfield_release as release, endfield_metadata as metadata
+from . import endfield_release as release
 from . import endfield_film_registry as registry, endfield_film_update as assets
 from .endfield_presentation_source import (_bindings, _object, _descendants, _check,
-    _function, _contains, decode_lua, PROFILE_LABELS)
+    _function, _contains, PROFILE_LABELS)
 from .endfield_training_presentation import validate_training_dialogue_ui
 from .textmaps import display_text
 
@@ -114,12 +114,9 @@ def original_ui(tools, stamp):
     base, files = release.group(tools, stamp, 17, frozenset(LUA_PATHS.values()))
     files = {file.name: file for file in files}
     _check(files.keys() == set(LUA_PATHS.values()))
-    secret = metadata._one(r'XxteaKey\s*=\s*(?:System\.Text\.)?Encoding.UTF8.GetBytes\("([^"\\]*)"\)',
-                           (metadata.cache_root(tools) / 'Keys.cs').read_text(encoding='utf-8-sig'))
-    key = secret.encode('utf8')[:16].ljust(16, b'\0')
-    scripts = {}
+    from .endfield_lua_parameters import scripts as original_scripts
+    scripts = original_scripts(tools, stamp, {role: (base, files[path]) for role, path in LUA_PATHS.items()})
     for role, path in LUA_PATHS.items():
-        scripts[role] = decode_lua(release._whole(tools, base, files[path], 256 * 1024), key)
         sources[role] = files[path].content_hashes[1]
     controller_ownership(scripts)
     return sources

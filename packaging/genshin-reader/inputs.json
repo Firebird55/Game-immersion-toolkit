@@ -1,0 +1,15 @@
+{
+  "schema": "toolkit-genshin-blb-software-v1",
+  "repository": "https://github.com/Escartem/AnimeStudio",
+  "revision": "76234e9f6f5a839504f41f9612719529fe2309a5",
+  "software": {
+    "path": "AnimeStudio/Crypto/BlbUtils.cs",
+    "sha256": "85629a412c466549f6e9ff0b3c4e1b7e6acbce251e024f90a6627c3849fe0a72"
+  },
+  "license": {
+    "path": "LICENSE",
+    "sha256": "e6a2268c715fce13cdf0979786c51d152b3e67d32a99a67dbbeb592c64d37e29",
+    "expression": "MIT"
+  },
+  "private_parameters": "Original CryptoHelper is excluded. Codec arrays are bounded data supplied at invocation and retained only in the private verified helper cache. No source is compiled or executed from that data."
+}

@@ -328,18 +328,22 @@ class LexiriseService:
 
     def send(self, *, ref: str, game: str, chinese: str, english: str, speaker: str,
              audio: Path | None, audio_source: str = "original", audio_scope: str = "line",
-             voice_status: str | None = None) -> dict:
+             voice_status: str | None = None, audio_omitted_by_request: bool = False) -> dict:
         if game not in GAME_TITLES or not chinese.strip():
             raise LexiriseError("This line has no supported game or study sentence.")
+        if type(audio_omitted_by_request) is not bool:
+            raise LexiriseError("This line has an invalid audio selection.")
         if not self._lock.acquire(blocking=False):
             raise LexiriseError("Another sentence is being sent. Please try again in a moment.")
         try:
             return self._send(ref, game, chinese.strip(), english, speaker,
-                              None if audio_scope == 'paragraph' else audio, audio_source, audio_scope, voice_status)
+                              None if audio_omitted_by_request or audio_scope == 'paragraph' else audio,
+                              audio_source, audio_scope, voice_status, audio_omitted_by_request)
         finally:
             self._lock.release()
 
-    def _send(self, ref, game, chinese, english, speaker, audio, audio_source, audio_scope, voice_status):
+    def _send(self, ref, game, chinese, english, speaker, audio, audio_source, audio_scope, voice_status,
+              audio_omitted_by_request=False):
         decks = self._decks()
         if game not in decks:
             raise LexiriseError("This game's Lexirise deck has not been configured yet.")
@@ -397,6 +401,7 @@ class LexiriseService:
                         payload = {"language": self.source_language, "text": chinese, "mode": "sentence",
                                    "notes": f"{game_title}{' — ' + speaker if speaker else ''}\n" +
                                             (f"Audio: {audio_source}" + (" — context clip; includes surrounding dialogue." if audio_scope == 'context' else "") if audio is not None else
+                                             "Game subtitle; audio omitted by download choice." if audio_omitted_by_request else
                                              "Game subtitle; original audio unavailable." if voice_status == 'unavailable' else
                                              "Game subtitle; audio binding unresolved." if voice_status == 'unknown' else
                                              "Voiced dialogue; full-paragraph recording omitted (individual subtitle timing unavailable)."

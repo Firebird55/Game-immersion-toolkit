@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import platform
 import sys
 
 root = Path(SPECPATH).parents[1]
@@ -75,6 +76,24 @@ if runtime:
                 'rapidocr_onnxruntime', 'pyclipper', 'shapely', 'zstandard']
     if sys.platform == 'win32':
         packages += ['windows_capture', 'pyaudiowpatch', 'oneocr']
+        if platform.machine().lower() in {'amd64', 'x86_64'}:
+            # A frozen software decoder, never an original game library.
+            # __init__ imports all architecture modules; retain its whole
+            # Python package, exact capstone/lib/capstone.dll and BSD notice.
+            packages += ['capstone', 'xxhash']
+            # Retain only reviewed wheel metadata through the ordinary collector
+            # seam; never include installer-generated local source locators.
+            for package, expected, members in (
+                    ('capstone', 'capstone-5.0.7.dist-info', ('METADATA', 'WHEEL', 'LICENSE.TXT')),
+                    ('xxhash', 'xxhash-4.1.0.dist-info', ('METADATA', 'WHEEL', 'licenses/LICENSE'))):
+                for origin, destination in copy_metadata(package):
+                    if Path(destination).name != expected:
+                        raise ValueError('The pinned static parameter metadata is unavailable.')
+                    for name in members:
+                        member = Path(origin) / name
+                        if not member.is_file():
+                            raise ValueError('The pinned static parameter metadata is incomplete.')
+                        data.append((str(member), str(Path(destination) / Path(name).parent)))
     elif sys.platform == 'linux':
         packages += ['Xlib', 'secretstorage', 'jeepney', 'cryptography', 'cffi']
         hidden += ['keyring.backends.SecretService', 'jaraco.classes',

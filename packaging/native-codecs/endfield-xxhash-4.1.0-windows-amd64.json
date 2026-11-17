@@ -1,0 +1,25 @@
+{
+  "schema": "proxy-static-parameter-hash-v1",
+  "purpose": "Original Endfield VFS directory derivation; fixed software, no game parameters",
+  "distribution": "xxhash",
+  "version": "4.1.0",
+  "host": "windows-amd64-python312",
+  "source": "https://pypi.org/project/xxhash/4.1.0/",
+  "upstream": "https://github.com/ifduyue/python-xxhash",
+  "license": "BSD-2-Clause",
+  "retained_license": "packaging/native-codecs/licenses/xxhash-LICENSE.txt",
+  "native_member": "xxhash/_xxhash.cp312-win_amd64.pyd",
+  "all_installed_wheel_members_sha256": {
+    "xxhash-4.1.0.dist-info/INSTALLER": "ceebae7b8927a3227e5303cf5e0f1f7b34bb542ad7250ac03fbcde36ec2f1508",
+    "xxhash-4.1.0.dist-info/METADATA": "8224f9577ecbda90fe37d09168c5b5df2265c3e4ca42dd693ade984f19ff910f",
+    "xxhash-4.1.0.dist-info/REQUESTED": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "xxhash-4.1.0.dist-info/WHEEL": "b2601f60075ce318a1cf4b08f2b52cc397e708f776ca360504cd2ea7a3a21031",
+    "xxhash-4.1.0.dist-info/licenses/LICENSE": "b76e99529f3e47372029e11914a8f4b95d6313463ed5a1a5c9afe96c3e015114",
+    "xxhash-4.1.0.dist-info/top_level.txt": "d4f3d204ffa09e31b9f44e5b8a0ccc4f3993e815568c7c27a733228ac3d66792",
+    "xxhash/__init__.py": "bf273ff37045c4e85b41e7d4bcedb6d34946fa0d792797911d9140746401100c",
+    "xxhash/__init__.pyi": "723ce2e52dee0b3789f13e4a88f2d0ae925c8a68d633e9c3fd2ac10f3c4c51b0",
+    "xxhash/_xxhash.cp312-win_amd64.pyd": "b93a04ab5bf2fdb05b3d000d56a42c000f4f2353aa78a431bdbed7463957e137",
+    "xxhash/py.typed": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "xxhash/version.py": "e611deb3eba25105422b1233d2b172ed756d68c09778fea53d73ce93f2593e65"
+  }
+}

@@ -1,11 +1,14 @@
 """Installation-free Genshin text and voice from the selected regional PC release."""
 from functools import lru_cache
+import hashlib
 from http.client import IncompleteRead
 import json
 import re
 import time
 from subprocess import SubprocessError
 from urllib.error import HTTPError, URLError
+from pathlib import PurePosixPath
+from urllib.parse import urlsplit
 
 from . import hoyo_publisher_voice as voices, sophon_assets as sophon, genshin_hotfix as hotfix
 from .dialogue_catalog import DialogueCatalog, matching_release_commit
@@ -20,6 +23,14 @@ INDEXES = ('data_versions_streaming', 'res_versions_streaming', 'silence_version
 NETWORK_ERRORS = (URLError, TimeoutError, ConnectionError, IncompleteRead)
 
 
+class CatalogSelection(str):
+    """Keep the immutable release-title acceptance separate from content rows."""
+    def __new__(cls, revision, receipt):
+        result = str.__new__(cls, revision)
+        result.receipt = receipt
+        return result
+
+
 class ReleaseCatalog(DialogueCatalog):
     """Retry public Genshin metadata at the very same immutable Git commit."""
     def raw_file(self, relative):
@@ -31,7 +42,23 @@ class ReleaseCatalog(DialogueCatalog):
             url = f'https://raw.githubusercontent.com/DimbreathBot/AnimeGameData/{self.revision}/{relative}'
             return self._bytes(relative, url)
 
+    def file(self, relative, *, optional=False):
+        if relative.startswith('TextMap/') and getattr(self, 'official_source', None) is not None:
+            return self.official_source.file(relative)
+        return super().file(relative, optional=optional)
+
     def _bytes(self, name, url, limit=128 * 1024 * 1024):
+        path = PurePosixPath(name)
+        source = urlsplit(url)
+        allowed = (source.scheme == 'https' and not source.query and source.netloc == 'raw.githubusercontent.com'
+                   and source.path.startswith(f'/DimbreathBot/AnimeGameData/{self.revision}/')
+                   or source.scheme == 'https' and source.netloc == 'gitlab.com'
+                   and (source.path.startswith('/Dimbreath/animegamedata2/-/raw/' + self.revision + '/')
+                        or source.path.startswith('/api/v4/projects/Dimbreath%2Fanimegamedata2/repository/archive.tar.gz')
+                        and ('sha=' + self.revision) in source.query))
+        if (not name or path.is_absolute() or path.as_posix() != name or '..' in path.parts or '\\' in name or ':' in name
+                or source.fragment or not allowed):
+            raise ValueError('The Genshin helper source is outside the allowlisted immutable catalog.')
         try:
             return super()._bytes(name, url, limit)
         except NETWORK_ERRORS:
@@ -96,9 +123,22 @@ def _catalog(directory, build, region):
         markers = tuple(str(revisions[name][0]) for name in ('res', 'silence', 'design'))
     revision = build['version'] + '_R%s_S%s_D%s' % markers
     mirror = None
+    repository = 'Dimbreath/animegamedata2'
+    reference_inventory = None
+
+    def selected(title, commit):
+        if not isinstance(commit, str) or not re.fullmatch('[a-f0-9]{40}', commit):
+            raise ValueError('Invalid immutable Genshin helper revision.')
+        narrative = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        return CatalogSelection(commit, {'schema': 'genshin-binding-selection-v1', 'game': 'genshin',
+            'publisher': voices.descriptor(build)[0], 'region': region, 'version': build['version'],
+            'markers': dict(zip(('res', 'silence', 'design'), markers)), 'narrative_sha256': narrative,
+            'repository': repository, 'revision': commit, 'title': title,
+            'source_region': 'global' if title.startswith('OSRELWin') else 'cn',
+            'reference_narrative_sha256': reference_inventory})
 
     def find(title):
-        nonlocal mirror
+        nonlocal mirror, repository
         if mirror is None:
             try:
                 return matching_release_commit('genshin', title)
@@ -111,34 +151,86 @@ def _catalog(directory, build, region):
                         'The Genshin translation catalog and its release mirror are unavailable. '
                         'Retry later, or install Git to enable the mirror and refresh.') from error
         if title in mirror:
+            repository = 'DimbreathBot/AnimeGameData'
             return mirror[title]
         raise PreparationFailure('publisher_unavailable',
             'The Genshin metadata mirror has no unique translation snapshot for the requested regional release.')
 
     if region == 'global':
         try:
-            return find('OSRELWin' + revision)
+            title = 'OSRELWin' + revision
+            return selected(title, find(title))
         except PreparationFailure as error:
             if error.code != 'publisher_unavailable':
                 raise
         reference = _release('cn') if 'hotfix' in build else sophon.release(CHANNELS['cn'])
+        reference_payload = _narrative_payload(directory, reference)
         if (reference['version'] != build['version']
-                or _narrative_payload(directory, reference) != _narrative_payload(directory, build)
+                or reference_payload != _narrative_payload(directory, build)
                 or 'hotfix' in build and reference['hotfix'] != build['hotfix']):
             raise PreparationFailure('publisher_unavailable',
                 'A matching Global Genshin translation snapshot is unavailable. Retry after the catalog updates.')
-    return find('CNRELWin' + revision)
+        reference_inventory = hashlib.sha256(json.dumps(reference_payload[1], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    title = 'CNRELWin' + revision
+    return selected(title, find(title))
 
 
-def prepare(data_dir, region='global'):
+def prepare(data_dir, region='global', *, original_text=False):
     build = _release(region)
     stamp, raw = voices.descriptor(build)
     directory = data_dir / 'tools' / 'sophon'
     for name in hotfix.INDEXES:
         hotfix.index(directory, build, name)
-    catalog = ReleaseCatalog('genshin', data_dir, revision=_catalog(directory, build, region))
+    selection = _catalog(directory, build, region)
+    catalog = ReleaseCatalog('genshin', data_dir, revision=selection)
+    catalog.selection_receipt = selection.receipt
+    catalog.bootstrap_receipt = getattr(build, 'helper_provenance', None)
+    if original_text:
+        from .genshin_official_source import prepare as prepare_original
+        catalog.official_source = prepare_original(data_dir / 'tools' / 'genshin-original-text', build)
     _atomic_file(directory / 'releases' / stamp, raw)
     return stamp, catalog, build['version']
+
+
+def preflight(data_dir, region='global', *, content_mode, study_locales, target_locales=(), catalog=None, catalog_publisher=None):
+    """Read only official discovery/manifests/indexes before large game data.
+
+    The optional catalog must already be authenticated for this exact publisher
+    generation. Without it the quote explicitly bounds all design packages.
+    """
+    from .genshin_download_plan import plan, VOICES, TEXT_CODES
+    from .hoyo_dialogue import voice_namespaces
+    allowed_studies = VOICES if content_mode == 'text-audio' else TEXT_CODES
+    if (content_mode not in {'text', 'text-audio'} or region not in CHANNELS or not study_locales
+            or any(locale not in allowed_studies for locale in study_locales)):
+        raise ValueError('Choose a supported Genshin publisher edition and study language.')
+    build = _release(region)
+    directory = data_dir / 'tools' / 'sophon'
+    native_name = 'GenshinImpact.exe' if region == 'global' else 'YuanShen.exe'
+    game_files = sophon.manifest(directory, build['channel'], tuple(build['manifests']['game']), ('.exe',))
+    if native_name not in game_files:
+        raise ValueError('The official Genshin native metadata input is missing.')
+    localized = {}
+    data_name = ROOTS[build['channel']].split('/')[0]
+    for locale in set(study_locales) if content_mode == 'text-audio' else ():
+        files = sophon.manifest(directory, build['channel'], tuple(build['manifests'][sophon.VOICE_FIELDS[locale]]), ('.pck',))
+        allowed = set(voice_namespaces('genshin', locale))
+        regular = {name: item for name, item in files.items()
+                   if len(PurePosixPath(name).parts) == 5 and PurePosixPath(name).parts[0] == data_name
+                   and PurePosixPath(name).parts[1] in {'StreamingAssets', 'Persistent'}
+                   and PurePosixPath(name).parts[2] == 'AudioAssets' and PurePosixPath(name).parts[3] in allowed}
+        localized[locale] = hotfix.files(directory, build, locale, regular)
+    designs = {}
+    for line in hotfix.index(directory, build, 'design').splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        name = row['remoteName']
+        if name in designs:
+            raise ValueError('The official Genshin design manifest has duplicate identities.')
+        designs[name] = row
+    return plan(build, game_files[native_name], localized, designs, content_mode=content_mode, study_locales=study_locales,
+                target_locales=target_locales, catalog=catalog, catalog_publisher=catalog_publisher)
 
 
 def inventory(data_dir, stamp, locale, *, unavailable_duplicates=None):

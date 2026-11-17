@@ -21,11 +21,22 @@ def _english_key(value: str) -> str:
     return normalize_english(unicodedata.normalize('NFKC', value))
 
 
-def dialogue_voice_status(audio, status=None):
+def dialogue_voice_status(audio, status=None, *, audio_omitted_by_request=False, source_voice_binding=None):
     status = status or ('voiced' if audio else 'unknown')
     if status not in {'voiced', 'unvoiced', 'unavailable', 'unknown'}:
         raise ValueError('Invalid dialogue voice status')
-    if bool(audio) != (status == 'voiced'):
+    if type(audio_omitted_by_request) is not bool or (source_voice_binding is not None and not isinstance(source_voice_binding, dict)):
+        raise ValueError('Invalid omitted original voice metadata')
+    if source_voice_binding is not None:
+        try:
+            binding = json.dumps(source_voice_binding, ensure_ascii=False, allow_nan=False).encode()
+        except (TypeError, ValueError, RecursionError) as error:
+            raise ValueError('Invalid original voice provenance') from error
+        if len(binding) > 65536:
+            raise ValueError('Original voice provenance exceeds its limit')
+    if audio_omitted_by_request and (audio or status == 'voiced' and not source_voice_binding):
+        raise ValueError('Omitted audio must retain its evidenced source status and non-playable binding')
+    if not audio_omitted_by_request and bool(audio) != (status == 'voiced'):
         raise ValueError('Dialogue voice status does not agree with its audio binding')
     return status
 
@@ -121,9 +132,12 @@ class LocalDialogue:
     # Only the adapter can establish that this is authored, displayed dialogue.
     # Generic localization/UI entries must never opt into text-only capture.
     text_capture_verified: bool = False
+    audio_omitted_by_request: bool = False
+    source_voice_binding: dict | None = None
 
     def __post_init__(self):
-        status = dialogue_voice_status(self.audio, self.voice_status)
+        status = dialogue_voice_status(self.audio, self.voice_status, audio_omitted_by_request=self.audio_omitted_by_request,
+            source_voice_binding=self.source_voice_binding)
         dialogue_capture_channels(self.channels)
         if type(self.text_capture_verified) is not bool:
             raise ValueError('Invalid authored text capture evidence')
