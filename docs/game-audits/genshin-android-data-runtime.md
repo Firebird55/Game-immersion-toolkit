@@ -251,9 +251,17 @@ shards. A cached profile never becomes an active descriptor or a partial
 dialogue library.
 
 The following plan remains unavailable at the original content reader. Original
-RSA ownership, complete request-value/response routing, response-signature
-verification and possible IFix or other later overrides remain open. The
-inspected `UseDispatchData` body reads six configuration fields and does not
+RSA operation, key role and parameter-source ownership, complete
+request-value/response routing, response-signature verification and possible
+IFix or other later overrides remain open. The toolkit adapter's private RSA
+decrypt contract does not prove the original client uses private parameters.
+The inspected original transport is synchronous `UnityEngine.WWW`; the
+successful body/error branch enters a protected continuation without a proved
+content-recovery or signature operation. Separate `content` and `sign` fields
+could have distinct roles, but public-key verification/recovery is also
+unproved. No additional parameter owner follows from the saved typed
+declarations. See the [response evidence matrix](genshin.md) for these limits.
+The inspected `UseDispatchData` body reads six configuration fields and does not
 write the seed, which does not exclude other replacement paths. The other
 original dialogue bindings, Subtitle
 acquisition, selected-dub materialization and full ordinary update acceptance
