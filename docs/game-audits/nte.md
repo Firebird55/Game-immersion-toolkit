@@ -1,5 +1,50 @@
 # Neverness to Everness audit
 
+## Complete original header dependency quotes · November 18, 2026
+
+A managed read of one missing container-header block now quotes the complete
+original header dependency before transfer. The publisher-authenticated TOC
+must contain exactly one UE5 `ContainerHeader` entry with its own nonzero
+container identity, index zero and type six. Its logical offset and length
+determine the selected compression blocks, including physically separated
+blocks. Large headers remain within the existing 64 MiB aggregate stage budget;
+receipt rows split only at block boundaries and keep the 4 MiB range limit.
+Unrelated neighboring entries, shared boundary blocks, duplicate owners,
+unsupported metadata and oversized dependencies keep the original narrow request.
+Processing still cannot fetch missing bytes.
+The maintained reader resolves this exact header identifier and reads its full
+declared chunk before parsing its package-store entries.
+[Chunk identifier contract](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/IO/Objects/FIoChunkId.cs),
+[header consumer](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/IO/IoStoreReader.cs),
+[package-store header](https://github.com/FabianFG/CUE4Parse/blob/6409f38e09e2a21aa839cd77b4515bca6c66f280/CUE4Parse/UE4/IO/Objects/FIoContainerHeader.cs).
+
+Retained single-block request receipts remain immutable. A new quote derives
+the proven extent from the same original TOC and keeps its source, reader,
+language and mode ownership. An older smaller approval cannot authorize the
+larger selection. Stored-block checksums, before/after source checks and
+previous-library retention remain required. Authored tests cover separated
+blocks, excluded neighbors, ambiguous owners, changed consent and corrupt data.
+The separate frozen producer trial completed one original header and then
+requested another container's metadata; it has not completed the current
+required closure or activated a new Text + audio source. This quote refinement
+does not expand the retained Android/native-reader or key-rotation claims.
+
+The subsequent ordinary Global Japanese request with a Simplified Chinese
+target acquired the complete Patch3 header in one approved selection: 40 blocks,
+10,452,176 data bytes and 10,768,202 bytes including original source checks.
+All stored-block hashes, the full plaintext length, header signature, version
+five and container identity passed verification. The unchanged owned reader
+then returned an explicit missing-dependency receipt during local authoring.
+This proves that source step, not the complete current required closure or a
+new Text + audio source.
+
+The exact next ordinary quote contains five authenticated ranges in the Patch0
+and Patch1 containers: 871,104 data bytes plus 316,026 source-check bytes,
+1,187,130 bytes total, with a 1,002,176-byte disk estimate. That quote remains
+unexecuted. The retained previous Global Text-only source, its active pointer
+and the saved-recording control remained byte-identical. No further dependency
+was acquired and no partial source was activated.
+
 ## Context-owned Text-only completion · November 18, 2026
 
 The shared game-data service now connects its separately quoted original

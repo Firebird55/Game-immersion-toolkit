@@ -24,6 +24,50 @@ def _base(ctx):
     return path
 
 
+def _container_header_range(source, first, stop):
+    """Expand only the exact UE5 header owned by this authenticated TOC.
+
+    The pinned reader requests ContainerId/index-zero/type-six as one logical
+    chunk, then reads its compression blocks individually. Quoting that one
+    complete dependency avoids discovering its blocks in separate attempts.
+    This inspects metadata only; it never reads or acquires package bodies.
+    """
+    raw = getattr(source, 'raw', None)
+    if not isinstance(raw, bytes) or len(raw) < 144:
+        return None
+    if len(raw) != source.toc.size or hashlib.md5(raw).hexdigest() != source.toc.digest:
+        raise _failure()
+    if raw[16] != 8 or int.from_bytes(raw[20:24], 'little') != 144:
+        return None
+    identity = raw[56:64]
+    count = int.from_bytes(raw[24:28], 'little')
+    if not any(identity) or count != len(source.locations):
+        return None
+    ids = raw[144:144+count*12]
+    if len(ids) != count*12:
+        return None
+    expected = identity+b'\0\0\0\x06'
+    owners = [i for i in range(count) if ids[i*12:(i+1)*12] == expected]
+    if len(owners) != 1:
+        return None
+    owner = owners[0]; offset, size = source.locations[owner]
+    if not 0 < size <= MAX_BYTES:
+        return None
+    begin = offset//source.block_size
+    end = (offset+size+source.block_size-1)//source.block_size
+    if not 0 <= begin <= first < stop <= end <= len(source.blocks) or end-begin > 4096:
+        return None
+    if sum(block.length for block in source.blocks[begin:end]) > MAX_BYTES:
+        return None
+    covered_start = begin*source.block_size
+    covered_end = (end-1)*source.block_size+source.blocks[end-1].expanded
+    if offset+size > covered_end or any(
+            index != owner and length > 0 and start < covered_end and start+length > covered_start
+            for index, (start, length) in enumerate(source.locations)):
+        return None
+    return begin, end
+
+
 class RequestedBlocks:
     def __init__(self, ctx):
         self.ctx, self.values, self.rows = ctx, {}, {}
@@ -41,9 +85,19 @@ class RequestedBlocks:
             if block.offset != end: raise _failure()
             end += block.length; stop += 1
         if end != at+size: raise _failure()
-        row = {'toc': names[0], 'toc_md5': source.toc.digest, 'ucas_md5': source.ucas.digest,
-            'first': first, 'stop': stop}
-        self.rows[(names[0], first, stop)] = row
+        header = _container_header_range(source, first, stop)
+        if header is not None:
+            first, stop = header
+        cursor = first
+        while cursor < stop:
+            begin, charged = cursor, 0
+            while cursor < stop and charged+source.blocks[cursor].length <= 4*1024**2:
+                charged += source.blocks[cursor].length
+                cursor += 1
+            if cursor == begin: raise _failure()
+            row = {'toc': names[0], 'toc_md5': source.toc.digest, 'ucas_md5': source.ucas.digest,
+                'first': begin, 'stop': cursor}
+            self.rows[(names[0], begin, cursor)] = row
         if len(self.rows) > 4096: raise _failure()
         raise GameDataError('nte_original_bytes_missing',
             'Additional original NTE dialogue information is required. Check the download size again.', 409)
@@ -90,6 +144,12 @@ def _runs(rows, values):
         if (row['toc_md5'] != source.toc.digest or row['ucas_md5'] != source.ucas.digest
                 or type(first) is not int or type(stop) is not int or not 0 <= first < stop <= len(source.blocks)
                 or sum(block.length for block in source.blocks[first:stop]) > 4*1024**2): raise _failure()
+        # A retained first-missing-block receipt from an earlier preparation
+        # may already prove the same header dependency. Derive a fresh quote;
+        # never mutate its receipt or consume an older, smaller consent.
+        header = _container_header_range(source, first, stop)
+        if header is not None:
+            first, stop = header
         selected.setdefault(row['toc'], set()).update(range(first, stop))
     runs, size = [], 0
     for name, indices in sorted(selected.items()):
