@@ -1059,8 +1059,11 @@ source-fixture, original-client-provenance and native-admission qualifications.
 
 The November 18 [engine/state-retention review](endfield-official-parameters.md#engine-registration-data-and-state-retention--november-18)
 finds the original engine's exact AssetBundle registration-name data but does
-not prove the native consumer/handler or accept a key. Its bounded operand
-locator is negative and stops without a new native-body hunt. A separate
+not prove the native AssetBundle producer/handler or accept a key. The bounded
+two-column locator is negative. A separate exact-name/result-slot investigation
+establishes the original named-export lookup and a complete argument-preserving
+dispatch thunk; actual module-name input, registration producer and key remain
+unproved. Neither result activates a library. A separate
 current-core synthetic service fixture verifies older-current/stage-pointer and
 recording retention on publication failure plus offline old activation; this
 does not establish actual Endfield Ready or resolve the remaining capture gates.

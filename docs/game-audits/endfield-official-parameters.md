@@ -719,6 +719,36 @@ no AES/header parameter is accepted. This bounded hypothesis stops unresolved,
 without treating packing, absent references or the negative locator as proof
 that official derivation is impossible.
 
+A separate, approved exact-name investigation uses the same retained module
+without another download. A bounded locator for the two already owned API/module
+literals identifies the named-export initializer; its complete 8,350-byte
+chained owner and 188-byte lookup helper establish an actual `GetProcAddress`
+call for `il2cpp_add_internal_call` and storage of its result. The complete
+514-byte module-handle helper has an original `LoadLibraryW` import on its
+cache-miss path. The caller's actual module-name argument and cached-table
+contents remain unproved; a nearby `GameAssembly.dll` literal alone does not
+establish either identity.
+
+An independently approved locator for that exact result slot finds one
+call/jump/load reference in the same `.text` interval: 53,141 prefix candidates
+in 0.8918 seconds, six initially decoded hit bytes and 456 ownership-metadata
+bytes. Complete decoding from the matching original/runtime chained entry then
+establishes a 110-byte dispatch thunk. It preserves the original name/pointer
+arguments across an optional callback loop and tail-jumps through the exact
+named-export slot. The real tail-jump includes a preceding instruction prefix,
+which the initial hit window alone did not prove. Callback bodies and the
+AssetBundle registration producer/handler are not followed. This establishes a
+concrete dispatch edge, not a positional handler alias, runtime pointer value,
+key or canonical-library admission. All analysis is static; no original module
+is loaded, executed or emulated.
+
+The separately frozen shared PE-signature extraction also passes a zero-download
+replay on the retained complete 3,587,464-byte `AkSoundEngine` original: the
+unchanged Endfield wrapper accepts its GRYPH signer, while a wrong publisher and
+a 512-byte limit are rejected. The file remains unchanged. The Endfield policy
+stays 16 MiB and Windows cache-only Authenticode; this supplies neither fresh
+online revocation status, UnityPlayer signature trust nor an Android verifier.
+
 The ordinary authored stage is also reviewed against immutable committed
 current shared-core code, including the later mode-selection fix. An explicit
 synthetic older-ready-source adapter seeds the state-machine fixture; the real
