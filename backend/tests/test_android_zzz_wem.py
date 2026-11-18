@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import importlib.util
 import io
@@ -5,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import threading
 from types import SimpleNamespace
 import wave
 import zipfile
@@ -77,6 +79,63 @@ def test_missing_or_changed_android_capability_has_no_desktop_fallback(monkeypat
     with pytest.raises(GameDataError) as error:
         create_android_zzz_codecs(native)
     assert error.value.code == 'zzz_audio_runtime_missing'
+
+
+@pytest.mark.parametrize('cancel_queued', [False, True])
+def test_concurrent_android_codecs_wait_for_their_own_native_ticket(tmp_path, monkeypatch, cancel_queued):
+    first_open = threading.Event()
+    allow_read = threading.Event()
+    queued_checked = threading.Event()
+    cancel = threading.Event()
+    ticket_count = []
+
+    class SingleTicketWorker(AuthoredJava):
+        def begin(self, raw, channels, rate, frames):
+            self.depth = getattr(self, 'depth', 0) + 1
+            assert self.depth == 1, 'Two recordings tried to open the one Android ticket'
+            ticket_count.append(True)
+            first_open.set()
+            return super().begin(raw, channels, rate, frames)
+
+        def readFrames(self, frames):
+            assert allow_read.wait(3), 'The holder did not resume'
+            return super().readFrames(frames)
+
+        def close(self):
+            self.depth -= 1
+            super().close()
+
+    worker = SingleTicketWorker(accepted_proof())
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda _: SingleTicketWorker))
+    native = SimpleNamespace(zzzWemCodec=lambda: worker)
+    first, second = (create_android_zzz_codecs(native) for _ in range(2))
+    raw = wem(channels=1, rate=48000, frames=3)
+
+    def queued_cancelled():
+        queued_checked.set()
+        return cancel.is_set()
+
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        holder = workers.submit(first.resolve, raw, {}, tmp_path / 'first', cancelled=lambda: False)
+        queued = None
+        try:
+            assert first_open.wait(3)
+            queued = workers.submit(second.resolve, raw, {}, tmp_path / 'second', cancelled=queued_cancelled)
+            assert queued_checked.wait(3)
+            if cancel_queued:
+                cancel.set()
+                with pytest.raises(GameDataError) as error:
+                    queued.result(timeout=3)
+                assert error.value.code == 'recording_cancelled'
+            assert len(ticket_count) == 1
+        finally:
+            allow_read.set()
+        assert holder.result(timeout=3).is_file()
+        if not cancel_queued:
+            assert queued.result(timeout=3).is_file()
+    assert worker.depth == 0 and worker.closed
+    assert len(ticket_count) == (1 if cancel_queued else 2)
+    assert (tmp_path / 'second.wav').is_file() == (not cancel_queued)
 
 
 def test_android_download_passes_the_installed_codec_and_gateway_to_original_audio(tmp_path, monkeypatch):

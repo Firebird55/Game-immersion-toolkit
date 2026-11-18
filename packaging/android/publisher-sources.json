@@ -160,8 +160,8 @@
       "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
     },
     "backend/android_zzz_wem.py": {
-      "sha256_lf": "5fcae50d9e4891f3730dbcf36cf22eb358bf25c2bb7aff9f09b20734235b4dcf",
-      "source_commit": "15714cebcd993ff5419868719334fd510ab48c83"
+      "sha256_lf": "802b80a0c978a3771c2a11b324cd58a6b9e10f79b84a651a2ee3224e4bfc0aef",
+      "source_commit": "7bbfe1445a1ee3f5c9029fe77d2b721af8b2867b"
     },
     "backend/genshin_android_runtime.py": {
       "sha256_lf": "33d635a79d46c7be2bb1214b6e051d45a4fe15f4642dca96779fac4648737954",

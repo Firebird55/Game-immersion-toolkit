@@ -2,6 +2,7 @@
 
 import json
 import re
+import threading
 
 from .game_data_protocol import GameDataError
 from .zzz_wav_codec import MAX_WEM, PCM_CHUNK, ZzzWavCodec
@@ -12,6 +13,7 @@ SOURCES = {
     'libvorbis-1.3.7.tar.xz': 'b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b',
     'libogg-1.3.5.tar.xz': 'c4d91be36fc8e54deae7575241e03f4211eb102afb3fc0775fbbc1b740016705',
 }
+_TICKET = threading.Lock()
 
 
 def _missing():
@@ -41,6 +43,19 @@ class _PcmTicket:
 
     def close(self):
         self._ticket.close()
+
+
+class _AndroidWavCodec(ZzzWavCodec):
+    def resolve(self, raw, audio, destination, *, cancelled):
+        # The app-owned Java worker has one bounded ticket across all provider
+        # and restored-snapshot codec instances.
+        while not _TICKET.acquire(timeout=.05):
+            if cancelled():
+                raise GameDataError('recording_cancelled', 'Original recording preparation stopped.', 409)
+        try:
+            return super().resolve(raw, audio, destination, cancelled=cancelled)
+        finally:
+            _TICKET.release()
 
 
 def create_android_zzz_codecs(native):
@@ -74,4 +89,4 @@ def create_android_zzz_codecs(native):
         except Exception:
             raise _failure() from None
 
-    return ZzzWavCodec(SCHEMA + ':' + proof['manifest_sha256'], open_stream)
+    return _AndroidWavCodec(SCHEMA + ':' + proof['manifest_sha256'], open_stream)
