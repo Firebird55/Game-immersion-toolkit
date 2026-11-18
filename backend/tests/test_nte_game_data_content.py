@@ -26,7 +26,7 @@ from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 class Originals:
     def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False,
-                 text_tail=False, study_locale='ja'):
+                 text_tail=False, study_locale='ja', voiced=False, bank_changes=None):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -59,6 +59,11 @@ class Originals:
                 'registry': ('', 'AssetRegistry.bin'),
                 'subtitles': ('Content/SrtFile/FFMpeg/Story/', 'owned.srt'),
                 'voice': ('Content/WwiseAudio/Media/Japanese/', '123.wem')}
+            if voiced:
+                from backend.nte_assets import VOICE_LOCALES
+                dub = VOICE_LOCALES[study_locale]
+                specs['bank'] = ('Content/WwiseAudio/Event/'+dub+'/', 'Play_Vo_owned.bnk')
+                specs['voice'] = ('Content/WwiseAudio/Media/'+dub+'/', '123.wem')
             for label, (folder, name) in specs.items():
                 payload = (label+' original source\n').encode()*18000
                 if processing and label in ('study', 'target'):
@@ -69,6 +74,16 @@ class Originals:
                     payload = ''.join(f'{i+1}\n00:{i//600:02}:{i//10%60:02},{i%10*100:03} --> '
                         f'00:{(i+1)//600:02}:{(i+1)//10%60:02},{(i+1)%10*100:03}\nowned\n\n'
                         for i in range(4000)).encode()
+                elif voiced and label == 'bank':
+                    from backend.tests.test_new_game_assets import bank
+                    from backend.nte_assets import wwise_hash
+                    options = dict(version=154, bank_id=wwise_hash('Play_Vo_owned'), language=wwise_hash(dub), event=wwise_hash('Play_Vo_owned'))
+                    options.update(bank_changes or {})
+                    payload = bank(**options)
+                    payload += b'JUNK'+struct.pack('<I', 180000)+bytes(180000)
+                elif voiced and label == 'voice':
+                    payload = b'authored original fixture\0'*18000
+                    payload = b'RIFF'+struct.pack('<I', len(payload)+4)+b'WAVE'+payload
                 raw = package([(name, payload, 0, False, False)], folder=folder)
                 owner = 'Client/WindowsNoEditor/HT/Content/Paks/'+label+'.pak'
                 data[owner], data[owner[:-4]+'.sig'] = raw, signature(raw)

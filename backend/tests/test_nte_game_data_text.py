@@ -21,8 +21,9 @@ from backend.tests.test_nte_seeded_schema import seed
 from backend import nte_updater_source as updater
 
 
-def setup(tmp_path, monkeypatch, locale='ja'):
-    original = Originals(tmp_path, monkeypatch, selected_metadata=True, processing=True, study_locale=locale)
+def setup(tmp_path, monkeypatch, locale='ja', *, voiced=False, bank_changes=None):
+    original = Originals(tmp_path, monkeypatch, selected_metadata=True, processing=True, study_locale=locale,
+        voiced=voiced, bank_changes=bank_changes)
     mapping = seed([]); digest = hashlib.sha256(mapping).hexdigest()
     monkeypatch.setattr(assets, 'TABLE_SCHEMA_SHA256', digest)
     monkeypatch.setattr(native, 'SEED_SHA256', digest)

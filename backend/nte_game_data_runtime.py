@@ -28,9 +28,10 @@ def _failure():
 class WindowsNteRuntime:
     """Explicit host selection of the existing immutable application resources."""
     layout: object
+    audio_layout: object | None = None
 
     def reader(self, context):
-        return resolve('windows', context, layout=self.layout)
+        return resolve('windows', context, layout=self.layout, audio_layout=self.audio_layout)
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,11 @@ class NteGameDataReader:
     executable: Path
     source_identity: str
     dependency_identity: str
+    audio_layout: object | None = None
+
+    @property
+    def codec_layout(self):
+        return self.layout if self.audio_layout is None else self.audio_layout
 
     @property
     def identity(self):
@@ -63,7 +69,7 @@ class NteGameDataReader:
             raise _failure()
         # Resolve the whole closed chain again immediately before invocation.
         # Missing/changed native or managed dependencies do not start a download.
-        refreshed = resolve('windows', ctx, layout=self.layout)
+        refreshed = resolve('windows', ctx, layout=self.layout, audio_layout=self.audio_layout)
         if refreshed.identity != self.identity or refreshed.executable != self.executable:
             raise _failure()
         from .nte_toolchain import command
@@ -196,7 +202,7 @@ class NteGameDataReader:
                     process.kill(); process.wait(timeout=5)
 
 
-def resolve(platform, context, *, layout=None):
+def resolve(platform, context, *, layout=None, audio_layout=None):
     """No Windows helper fallback on Android, and no implicit preparation."""
     context.check()
     if platform != 'windows':
@@ -213,6 +219,6 @@ def resolve(platform, context, *, layout=None):
             raise _failure()
         receipt = chain.dependencies/'dependencies.json'
         return NteGameDataReader(context, layout, chain.executable, helper.source_identity,
-                                 hashlib.sha256(receipt.read_bytes()).hexdigest())
+                                 hashlib.sha256(receipt.read_bytes()).hexdigest(), audio_layout)
     except (PreparationFailure, RuntimeBundleError, OSError, ValueError) as error:
         raise _failure() from error

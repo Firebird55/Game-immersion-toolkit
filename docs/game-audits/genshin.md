@@ -1310,6 +1310,33 @@ versus CN edition equivalence. Cloud-specific headers likewise do not establish
 ordinary game RSA or response-signature ownership. The original source route
 and Android runtime gates remain explicit; no default provider is replaced.
 
+The November 18 response review narrows the remaining bootstrap boundary to
+the original operation, key role, parameter source and verification contract.
+It does **not** establish that the original game requires a private RSA key:
+
+| Retained evidence | What it establishes | What remains unproved |
+| --- | --- | --- |
+| Toolkit `_key` / `_dispatch` adapter | Its frozen control imports private RSA parameters and decrypts `content` with PKCS#1 v1.5 | The original client's operation, key representation, direction or padding |
+| Original channel profile and query builder | `RSAParam` contains only `keyId`; the native query has a key selector | Selector-to-parameter ownership or a public/private key role |
+| Original request and response route | `GIECFGIOMCB` performs synchronous `UnityEngine.WWW` transport and stores body/error strings | An RSA callback, content-recovery operation or signature-verification call |
+| Successful original body/error branch | It reaches a file-backed protected continuation whose complete operation is not decoded | Which response field is consumed, the parameter source, or the verification result |
+
+The retained response has separate `content` and `sign` fields. Their names and
+Base64 shapes do not prove an algorithm or that they share a key. The controlled
+metadata experiment recovered a coherent descriptor and verified its declared
+publisher index hashes, but did not independently verify `sign`. Public-key
+verification or recovery remains an untested possibility; it is not an accepted
+replacement for the adapter's working private-control route.
+
+Review of the already saved manager fields, response DTO and typed downstream
+helper declarations identifies no exact additional RSA parameter owner. A type
+signature or protected continuation alone is insufficient to select one. The
+next distinguishing evidence must connect a response field to an operation,
+its parameter source and its output, including padding/hash and signed bytes
+where applicable. This is an unresolved source boundary, not evidence that
+official derivation is impossible. The review read no new original code bytes,
+made no network requests and performed no key or cryptographic experiment.
+
 The [direct Android data runtime audit](genshin-android-data-runtime.md) records
 the tested complete PC worker, reusable contracts, remaining platform work and
 the explicit official-manifest preflight size bounds.

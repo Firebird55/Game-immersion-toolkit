@@ -31,8 +31,8 @@
   },
   "files": {
     "backend/nte_game_data.py": {
-      "source_commit": "ce060d13306a0d39d72616d1b52364563877629f",
-      "sha256_lf": "36874d473adae2a2610cd04d23526d974a86020540900560aca74c4c2ad2f3bb"
+      "source_commit": "3219971ca1eb5cd19df4de3b63884fe638471795",
+      "sha256_lf": "aba1bb0dfa0c5c720db9d2ef533b976897b22f34f6b3f076c4b28a16158976a7"
     },
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
@@ -115,7 +115,10 @@
     "backend.prepared_library",
     "backend.nte_game_data_runtime",
     "backend.nte_game_data_content",
-    "backend.nte_game_data_ranges"
+    "backend.nte_game_data_ranges",
+    "backend.nte_game_data_audio",
+    "backend.nte_game_data_audio_snapshot",
+    "backend.nte_game_data_voice"
   ],
   "providers": {
     "nte": {

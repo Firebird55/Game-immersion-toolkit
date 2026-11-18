@@ -121,11 +121,14 @@ Ready result, 16-KiB runtime result or x86_64 execution proof. The static 16-KiB
 checks and the separate older-source hosted emulator run retain their own scope.
 
 The current reviewed baseline is source cohort `0624af55`; NTE's factory also
-includes the reviewed source snapshot `ce060d13` and its pure text-receipt reader
-from `b9acf749`. All ten late-stage branches call the non-Windows reader gate
+includes the reviewed voice-stage factory `3219971c` and its pure text-receipt reader
+from `b9acf749`. All fourteen late-stage branches call the non-Windows reader gate
 before importing their desktop-only dependencies. The isolated closed-source
 fixture exercises every branch without those dependencies present. Updating a source pin does
 not package the Windows managed reader, archive stages or their dependencies.
+Original-audio receipt restoration also stops at an explicit Android capability
+gate before importing its desktop reader or codecs. The closure remains 74
+modules; this source revision has no new APK/device acceptance.
 Sophon uses the same context-isolated source and byte-window fix as `8be26e32`.
 
 The remaining per-game Android gates are deliberately distinct:

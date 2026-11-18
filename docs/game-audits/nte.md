@@ -60,6 +60,142 @@ constructors/codecs. The earlier desktop publisher Setup and voice proofs below
 retain their own scope. The fixed initial descriptions remain explicitly planned
 prerequisites rather than updated external text/audio snapshots.
 
+## Staged original Text + audio preparation · November 18, 2026
+
+The shared provider now implements a separate Text + audio chain. Authenticated
+indices select the requested dub's `Play_Vo` bank members and quote their stored
+blocks before transfer. Each acquisition stage is limited to 64 MiB, with source
+checks budgeted separately. Larger selections continue through explicit stages;
+a successful partial download remains an unfinished preparation.
+
+Only acquired banks enter a zero-transfer local pass. The existing Wwise 154
+parser, authored event aliases, language/bank identifiers and protagonist switch
+rules establish playable references. Wrong bank versions or event/dub owners
+fail before media selection. A malformed header or changed Wwise version keeps
+the unsupported-format gate. A valid Wwise 154 bank with a mismatched event or
+language ID instead reports unverified voice ownership; this alone does not
+prove a format change. Both failures retain the previous library and prevent a
+new recording-selection receipt. The original media-name inventory is index-only;
+this pass never reads WEM bodies. An immutable receipt binds canonical prepared
+rows and their exact needed media members to the source, reader and audio-codec
+identities. That receipt supplies the following bounded WEM quotes.
+
+A further zero-transfer pass materializes each required original recording only
+after all its authenticated blocks are present. Exact RIFF/WAVE length and full
+SHA256 checks bind immutable raw-WEM objects to their original member owners.
+The final source contains only the emitted rows' required originals, linked by
+content hash, and passes the final original-pointer checks before activation.
+Every playable row must have a verified local original; a remote reference or
+partially downloaded voice pack cannot satisfy readiness. Unknown/unavailable
+rows keep their evidence and never become fabricated silence.
+
+Historical audio restoration reads its immutable snapshot, profile, receipt and
+original objects. It does not consult a current publisher manifest, archive key,
+native schema generator or legacy publisher catalog. The local `has` predicate
+checks exact row ownership and original hashes without executing a decoder.
+Playback uses only the separately inventoried bundled vgmstream/FFmpeg closure,
+rechecked before each child invocation and before publication, with the existing
+authored gain/timing rules. It cannot consult PATH, download tools or fetch an
+absent original. This Windows codec route is not Android preparation support.
+
+Authored original-format service fixtures cover all five study locales, corrupt
+bank/media downloads, wrong event/dub headers, partial media stages, final source
+changes, interrupted publication, changed codec identity and identical recovery.
+Separate inert codec-inventory fixtures cover changed companion libraries,
+original-file tampering, cancellation and exact row/player/locale ownership.
+Native schema acceptance and executable decoding are explicitly modeled in these
+fixtures. Complete real-source Text + audio acquisition/readiness and actual
+decoder playback through this new service remain separate acceptance work.
+Text-only preparation retains its existing route and reads no bank/WEM members.
+
+The retained Global Japanese/Chinese-target ordinary service then completed the
+real bank phase using an independently verified existing Windows codec closure.
+Its 496 missing bank blocks were all available in authenticated local source
+caches. Fourteen cache-served responses accounted for exactly 32,817,114 bytes,
+including 311,258 bytes of original-pointer checks. The single zero-transfer
+local pass validated all 28,959 banks (25,883,905 decoded bytes) and produced
+126,472 canonical rows: 27,718 voiced, 2,003 confirmed written, 1,727 unavailable
+and 95,024 unknown. The immutable binding receipt identifies 25,801 required WEM
+members totaling 1,396,753,700 raw bytes; these are prepared references, not a
+demonstrated gameplay or complete-story denominator.
+
+That trial stopped at the first bounded recording quote, 66,895,834 bytes
+including source checks. It acquired/read no WEM member, used no network/new
+original or software bytes, and did not mark partial audio ready. The complete
+previous Text-only pointer stayed byte-identical and restored normally offline.
+Missing packaged codecs remain an actionable pre-transfer gate; the separate
+explicit codec capability reuses its original inventory without copying software
+or changing supplier acceptance/redistribution flags. Complete real-source audio
+materialization, playback and recovery through this new route remain unfinished.
+
+The subsequent ordinary live-server trial acquired exactly the first recording
+stage: 66,584,576 original carrier bytes across 42 range responses, plus 311,258
+bytes of before/after source checks. All 1,016 carrier cells passed the original
+checksums. Initial and following plan discovery accounted separately for
+1,043,444 metadata bytes. The source remained the retained Global 1.5.4 recipe;
+this is not a changed-key or new-generation proof. The trial stopped at the next
+64,798,682-byte quote without starting it. It read no WEM member, materialized no
+recording and executed no codec. Extra disk use was 67,391,488 bytes; the previous
+Text-only pointer and snapshot remained byte-identical and restored offline.
+Partial carrier acquisition did not become Audio Ready.
+
+A separate metadata-only comparison explains the 4,272-row mode difference.
+Both modes retain exactly the same 121,302 authored namespace/key or caption
+roots, including every nonempty localized Japanese string in the selected
+corpus and the same Chinese translations. No subtitle root or nonempty wording
+is added by bank parsing. In Text + audio, 4,272 base records split into 8,544
+explicit female/male performance variants. Another 898 roots already have both
+variants in both modes; 117,928 exact record IDs remain unchanged. The 4,272 base
+IDs themselves are replaced by variant IDs in the new audio snapshot, while
+their existing caption-root identity and explicit player role remain available.
+Raw record-count equality is therefore not a coverage criterion. The retained
+old snapshot remains independently addressable; this trial did not open user
+history/recordings or demonstrate a completed new audio snapshot migration.
+
+The NTE voice resolver now uses parent-owned stdout writers for both tools:
+vgmstream's nonlooping WAV output and FFmpeg's explicit MP3 pipe output each
+have a hard 128 MiB staging-file limit. Overflow, cancellation, timeout, failed
+processes and incomplete PCM reject the entire result and retain an existing
+MP3. Diagnostic retention is bounded separately. A cancellable, time-limited
+queue permits one active NTE decode across sources in the normal backend
+process, limiting its two output files to 256 MiB in total. This is not a global
+quota across separate backend processes or an unlimited accumulated MP3 cache.
+An oversized clip fails explicitly; it is never accepted as a truncated clip.
+This change performs no migration or rewrite of stored MP3s. Newly pipe-muxed
+MP3 bytes may differ; finite real-source verification follows below.
+
+The subsequent bounded Global 1.5.4 Japanese trial verified one unambiguous
+ordinary conversation binding through its original 870-byte bank and complete
+65,609-byte WEM. Original manifest, whole-signature MD5, index SHA1, carrier CRC,
+member ownership and raw SHA256 checks passed. The additional member-header
+check used the previously evidenced size-derived hash normalization for the
+current unencrypted variant. That is empirical format evidence, not proof of
+the publisher's native hash policy or encrypted/padded variants.
+
+The unchanged original-voice resolver then ran the actual inventoried decoder
+and encoder under their hard output limits. Its full control PCM contains
+240,235 mono frames at 44,100 Hz, lasting 5.447505669 seconds. The resulting
+66,261-byte MP3 has 210 complete MPEG frames. Decoding that entire MP3 preserves
+all source frames after accounting for encoder lead and tail padding; full,
+first-quarter and last-quarter correlations exceed 0.998. These are recording
+integrity checks, not inferred word timestamps or a gameplay capture claim.
+
+A fresh process reopened the isolated real transcript database and served that
+saved MP3 using the actual `FileResponse` through the existing in-memory HTTPX
+ASGI transport. HTTP 200, Content-Length 66,261 and the complete response SHA256
+all matched. Native/key/current-discovery/provider imports and application
+socket connects were denied; replay needed no decoder or game-source reads.
+An explicit negative connect control still failed before its OS connect. Only
+the standard Windows event loop's own wakeup IPC was initialized before these
+guards; this does not establish an OS firewall or physical egress restriction.
+
+The old Text-only pointer and snapshot remained byte-identical throughout.
+Temporary control WAV and decoded PCM files were removed; the small original,
+saved clip and diagnostic database remain private. This proves one complete
+recording's resolver and saved-recording replay on the retained Japanese source.
+It does not complete the remaining WEM downloads, ordinary full audio-snapshot
+activation/recovery, other-dub trials or independent Android preparation.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before

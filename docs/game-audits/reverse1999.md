@@ -852,10 +852,10 @@ The exact base-URL getter reads its own static string. Its necessary original
 static initializer fills that string through
 `BaseAppContext -> IAppConfiguration.getUriConfig() ->
 IUriConfig.getDomain("DOMAIN_MAIN")`. It supplies no demonstrated literal
-hostname or verified default. The precise remaining host source is the actual
-registered `IUriConfig` implementation and its authored domain configuration.
-A broad search for URLs or the selector string is not substituted for that
-ownership chain. No accountless detail request is attempted.
+hostname or verified default. The next original-metadata pass below closes
+the domain-service implementation and generated registration, then reaches the
+separate environment configuration. A broad URL or selector-string search is
+not substituted for that ownership chain. No accountless request is attempted.
 
 The cumulative semantic phase closes at eight bodies / 1,392 instruction
 bytes, 56 try-table bytes, eleven handler bytes and 27,452 metered metadata
@@ -866,6 +866,251 @@ verified immutable `classes3.dex` in memory. The latter formal pass closes both
 positive carriers in 4.063 seconds. All later method reads reuse verified RAM
 and numeric owner/invoke indices; the counters are not reset to conceal prior
 reads. No new origin bytes, game/client execution, fallback or Ready state.
+
+### Concrete domain-service binding and environment source
+
+An exact formal interface/superclass graph over all 65,491 standard DEX class
+definitions finds two concrete `IUriConfig` implementations: `startup.dependency.e`
+and its subclass `k`. Both use the same original 38-byte `getDomain` method;
+the subclass does not override it. That method reads no instance configuration
+field. It obtains `TapOtherExportBisService` through its companion, delegates
+the selector unchanged, and returns an empty string if the service/result is
+absent. This is not a hostname or proof that two runtime environments have the
+same values.
+
+The companion's lazy supplier calls `ARouter.navigation` with that exact
+service interface. The candidate implementation's original annotation declares
+`/other_export_bis/service`, and it directly implements the export interfaces.
+Annotation/name agreement is not used alone as provider selection. A single
+compiler-owner hypothesis was absent from the retained two DEX members; this
+was not classified as whole-package absence. Formal `IProviderGroup` metadata
+then locates all 37 actual generated registries in the primary DEX, with their
+real interface-method declarations and bounded headers.
+
+A const-class operand pass over only those 37 methods, 5,392 instruction bytes,
+finds one reference owner for the exact implementation class. Only that positive
+344-byte registry body is read. Its original `Map.put` entries explicitly bind
+`com.taptap.other.export.TapOtherExportBisService` and the second export
+interface to `RouteType.PROVIDER`, `TapOtherExportBisServiceImpl.class` and the
+matching authored route. This proves the generated interface-to-provider
+binding; runtime activation is still not executed or inferred.
+
+Only after that binding, the implementation's ten-byte `getDomain` is read.
+It delegates to `other.basic.impl.net.r.b`. That method maps the already proved
+`DOMAIN_MAIN` selector to its own stored domain string. The original `r.d`
+initializer, called before the builder in the three retained initialization
+paths, populates that value directly from `IEnvConfig.getApiDomain()`, with
+exception handling. The precise remaining host producer is now that environment
+provider and its concrete selection. No fallback/static-initializer value or
+runtime hostname is assumed. OkHttp/header production and outer wire-response
+conversion remain separate open points.
+
+The URI-config metadata pass uses 53,039,663 combined verification/metadata
+bytes within 80 MiB; the registry pass uses 53,049,618 within 64 MiB. Both read
+metadata only and keep their allocations distinct. The shared 38-byte method
+and its owner quote use 3,123 metadata bytes within a separate 4 KiB bound. The
+registration/producer phase closes at eight bodies / 904 instruction bytes,
+40 try-table bytes, fourteen handler bytes and 20,232 metered metadata bytes.
+Its later method reads reuse verified immutable RAM and numeric indices. No
+new origin requests, game/client execution, whole-game-APK verification,
+community fallback or Ready state is claimed.
+
+The next environment-selection phase follows the exact `cl.a.b` getter. It
+reads a public static `IEnvConfig` field and throws if that field is unset;
+no default domain is established. A formal field-write pass over only the
+owner's thirteen methods (382 instruction bytes) finds its six-byte setter.
+The setter receives one of two explicit `IEnvConfig` parameters from the
+118-byte `init` method, selected by `isRND()`. This establishes the parameter
+selection, not the concrete objects supplied by initialization callers.
+
+The retained primary DEX has no reference to that exact `cl.a.init` signature.
+The already validated invoke indices for the third and sixth DEX members
+contain no caller. A separate, metadata-only check of the remaining four
+signed members also finds no reference to that concrete owner/signature,
+using 37,923,650 existing-file verification bytes and 2,290 metadata bytes.
+This closes only direct invokes of that concrete method in the seven standard
+DEX members. The original class metadata declares `IEnvConfigService`. An
+exact query for the same signature under that interface, using only retained
+metadata and the existing invoke indices, finds one concrete startup caller
+in the sixth DEX. That separate query uses 2,891 metadata bytes without a new
+source scan or cold read. Interface dispatch explains the earlier concrete-
+owner negative result; it is not evidence of missing initialization.
+
+The separate body phase closes at three bodies / 148 instruction bytes and
+9,909 metered metadata bytes, entirely from authenticated immutable RAM.
+The later four-member metadata pass reads no bodies and retains no additional
+source member because there is no positive carrier. Neither phase uses new
+origin bytes.
+
+The next bounded phase reads the positive 150-byte startup caller. It obtains
+the already bound export provider's environment service and passes the
+original `n3/a` and `n3/b` configuration fields, together with three explicit
+false Boolean arguments. The provider's six-byte `getEnvConfig` returns the
+same `cl.a` service. Its 46-byte `isRND` takes the false branch for these
+arguments without invoking the conditional runtime helper. Combined with the
+previously inspected `init` selection, this proves which supplied
+configuration this authored call selects; it does not assume a runtime
+default or assign the alternative configuration the same host.
+
+Only that selected configuration's 26-byte `getApiDomain` is then read. It
+uses `Context.getString` on the original `R$string.api_domin` field. Exact
+encoded-field metadata supplies its Android resource identifier. No hostname
+is inferred from the resource name, and the unselected configuration remains
+unread. This phase closes at four bodies / 228 instruction bytes, ten
+bytes of explicit already-approved constant-operand rereads and 6,700 metered
+metadata bytes. A failed private input-owner check and its bounded metadata
+reconstruction remain included in that count; the original source is intact.
+All reads in this phase reuse authenticated immutable RAM, with no new cold
+source or origin bytes.
+
+A separate resource-source phase rechecks the original 526,981-byte manifest
+against its already CMS-bound SHA-256 and obtains the exact signed
+`resources.arsc` member digest. Three strict same-owner/ETag range requests
+read 44 local-header/name bytes, two declared zero alignment bytes and the
+2,065,876-byte stored resource member: 2,065,922 transfer bytes in total.
+The complete member matches both that signed SHA-256 and its original ZIP
+CRC before resource interpretation. The two alignment bytes are qualified as
+padding, not incorrectly claimed to form a complete extra-field TLV.
+
+Formal lookup follows only resource identifier `0x7f100021`, already read
+from the signed DEX. It has one string entry with the default configuration
+and value `https://api.taptapdada.com`; no alternate configuration or alias is
+present for this identifier. The runtime table key is `_`, rather than the
+DEX field name `api_domin`. The binding is numeric, so equality of these
+symbolic names is not required. An initial private post-parse equality check
+was too strict; that reader limitation and both 2,713-byte interpretation
+passes remain recorded without classifying the original bytes as corrupt.
+No unrelated strings are decoded and no locale is guessed.
+
+This establishes the host supplied by this authored initialization and
+resource configuration. It does not prove runtime activation, request-header
+construction or the outer response envelope. The source remains the signed
+distribution tool, not a verified Reverse:1999 game APK. No whole-APK checksum,
+installation acceptance, game/client execution or live detail request is
+claimed; both preparation modes remain discovery-only.
+
+The following header-contract phase follows the exact OkHttp factory used by
+the proven Retrofit builder. Its original client getter delegates to its own
+builder, which registers concrete interceptors. One inspected interceptor
+passes the ordinary initial request unchanged to `proceed`; its exceptional
+recovery helper is not followed. Formal retained type metadata places two
+other concrete interceptors in the fifth DEX, which is not currently retained
+in RAM. No cold read or speculative method choice is made for those owners.
+
+The already inspected native request transport also invokes the exact
+`Le7/a.c` request callback. Its original registration constructs
+`common.net.b`; the constructor's actual field assignment binds the supplied
+`v3.e` provider. The three previously examined initialization paths all pass
+the same concrete `application.features.a` field as that provider. Its
+inspected `h` method has request-flag-dependent account handling, a nullable
+login/token path and further header delegates. The pass stops at these
+concrete configuration/account boundaries: login getters, account state,
+device values, delegated header generation and unretained interceptor code
+are not followed or reused. Conditional account code does not establish that
+the anonymous detail route requires an account; its actual request flags
+and remaining header contract still need proof.
+
+This separate phase closes at six bodies / 1,380 instruction bytes, forty
+try-table bytes, twelve handler bytes and 12,443 metered metadata bytes. All
+source reads reuse authenticated immutable RAM, with zero new cold or origin
+bytes. A failed cache precondition and a dependent missing-spec attempt read
+no source bytes and remain recorded as analysis-tool boundaries. No request
+header values are published, and no endpoint request, device/account data use
+or TLS/hostname/pinning change is introduced.
+
+A separate flag pass follows the actual detail route through the POST wrapper,
+its default-argument method, request-model construction and both original
+constructors. All four Boolean inputs are false at creation. The exact
+request getters used by the header callback read their corresponding stored
+fields and return false. This is proved parameter/field dataflow, not a
+Boolean default guessed from the anonymous endpoint name. The pass uses eight
+bodies / 302 instruction bytes and 11,403 metered metadata bytes, entirely
+from retained authenticated RAM. It does not alone establish the final
+anonymous request contract.
+
+The next phase closes the inspected default callback's optional-mutator
+assignment: the original registration wrapper passes exactly null. One
+two-byte operand in the previously checked callback also proves that its
+last Boolean argument to the header feature is false. That selects the
+ordinary SDK base-map branch. The SDK method constructs `time` and `nonce`
+entries using separate generators; their values and generator bodies are
+not read. The prefix-list-dependent parameter transformations in the
+feature's `w` method remain unresolved.
+
+The concrete header-finalization method `j` has a further source-owned
+boundary. For a nonempty header map it calls a map-to-byte helper and then
+`common.net.utils.NativeHttp.getSign(Context, byte[])`, storing the result in
+the `sign` header. Null results and failures retry up to three times before
+an exception; no unsigned fallback is inferred. Exact declaration metadata
+confirms that `getSign` is native with no DEX code body. The native library
+is not read or executed in this phase. This is a demonstrated native
+producer boundary, not proof that official derivation is impossible.
+
+The source-bound anonymous endpoint candidate is
+`https://api.taptapdada.com/apk/v1/detail`, with the already proved native APK
+identifier binding and a POST request model. Exact wire encoding,
+map-to-byte canonicalization, remaining header/transport producers,
+absent-login handling and the outer response envelope remain open before any
+live request. The later phase closes at four whole bodies plus the single
+two-byte operand: 372 instruction bytes, eight try-table bytes, three handler
+bytes and 5,939 metered metadata bytes. It uses zero cold source reads or
+origin bytes, follows no account/token/device contents, and introduces no
+endpoint request or preparation-ready claim.
+
+The next narrowly scoped pass reads only the native wrapper's 150-byte
+managed initializer. It supplies the exact `tap-net` library name to SoLoader
+and, on that loader's failure, to `System.loadLibrary`. Its environment
+selector is explicit and is not substituted with a guessed runtime value.
+The pass uses sixteen try-table bytes, five handler bytes and 1,441 metered
+metadata bytes from retained authenticated RAM, with no new cold or origin
+bytes and no native execution.
+
+The existing original APK directory has matching `libtap-net.so` members for
+both ARM64 and ARMv7. Rehashing the existing 526,981-byte manifest against its
+CMS-bound digest authenticates the two exact member-digest sections, 200
+bytes in total. The ABI members have distinct sizes/digests; equality between
+them is not assumed. At that metadata-quote checkpoint neither native payload
+had been acquired; neither a complete APK hash nor installation acceptance
+is asserted.
+
+The subsequent ARM64-only acquisition uses two strict same-owner/ETag range
+requests: 57 local-header/name bytes and 6,939 compressed bytes, with no
+extra field. Raw Deflate expands to exactly 17,768 bytes with strict EOF,
+and the whole member matches its original ZIP CRC and CMS-bound SHA-256.
+The ARMv7 payload is not acquired. Formal ELF metadata establishes an
+AArch64 ELF64 little-endian shared object with 24 sections, nine program
+headers and ten dynamic symbols. The 3,137-byte interpretation finds no
+exact short/long JNI `getSign` export, but does find an owned 248-byte
+`JNI_OnLoad` function; no native code is interpreted in this inventory pass.
+
+Only that 248-byte registration function is then statically decoded. Its
+PC-relative class/table references and 479 original relocation/class/method
+metadata bytes prove a four-row `RegisterNatives` table. The exact
+`NativeHttp.getSign(Context, byte[]) -> String` row identifies its original
+implementation address. JNI slots and structure layout are checked against
+the existing primary NDK headers. No generic string/key search or native
+execution is used. A separate 222-byte unwind-header pass proves the
+implementation's own 284-byte extent; a neighbouring exported function is
+not used to guess its end.
+
+The exact 284-byte implementation is then decoded as data only. It passes
+the supplied Java `Context` to two helpers and checks cached results before
+the direct byte-array helper. The returned buffer goes through the typed
+JNI `NewStringUTF` slot. No context/account/device values, comparison
+literals, helper bodies or signature algorithm are read in this pass.
+Three actually called PLT stubs, 48 code bytes and 283 formal
+relocation/symbol/name bytes, identify only `malloc`, `strcmp` and `free`;
+no C-library implementation is followed. Another 290-byte unwind-header pass
+quotes the three positive helper extents as 616, 216 and 388 bytes. All three
+bodies remain unread at this checkpoint.
+
+This closes the original signing-function owner chain, not the signer or
+the anonymous wire contract. Java-context dependence in this source does not
+establish a requirement for a real device, account or game installation.
+Portable derivation, the context-helper semantics, request/header
+canonicalization, other transport interceptors, absent-login handling and
+the response envelope still require proof. No live endpoint is requested,
+no unsigned fallback is enabled and no preparation-ready state is introduced.
 
 ### Community key candidate: research only
 

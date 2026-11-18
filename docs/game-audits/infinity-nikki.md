@@ -568,8 +568,10 @@ corrected against the original 20-byte descriptor, and preserved in the private
 receipt. Subsequent comparisons use parsed digest bytes directly.
 
 The already retained Global updater supplies a concrete official dynamic-key
-route: version/platform `PACDKCINFO_` parameters, followed by native Base64
-keychain creation, group refresh/deserialization and registration. Its referenced
+request route: version/platform `PACDKCINFO_` parameters and calls to methods
+named `CreateDynamicKeyChainByBase64String`, `GetKeyChainNonDynamicGroups`,
+`SerializeGroupFromBase64Data` and `RegisterDynamicKeyChain`. Mapping those names
+to particular native implementations remains unproven. Its referenced
 `PaperKVMgr` calls `/v1/gameconfig/parameter` through the original URL/signature
 builder and remote-JSON consumer. That builder consumes
 `UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
@@ -693,6 +695,179 @@ Those sizes remain unknown, not zero. The Global launcher and CN/common native
 are separate sources; equality with a Global game-native module is not assumed.
 These empty fields do not justify a new executable-preparation implementation.
 
+An alternative candidate-verification route can keep complete publisher-authored
+CMS triplets atomic and validate returned material against exact current Global
+archive GUIDs and complete index integrity, without claiming the active engine
+profile. Its first source steps are now bounded and recorded. Previously
+uninspected selected native wrappers consume 240 instruction bytes and lead to a
+shared input/container helper plus two other selected consumers. Their proposed
+chain/group roles depend on the still-unproven named association. Those
+downstream bodies, actual Base64 framing, GUID/group ownership and applicable
+dynamic-index cipher remain unproven; no layout or key is guessed.
+
+The native-probe scope needs three separate facts. First, the original Global
+Lua really calls the named creation and group methods. Second, associating those
+names with the selected ARM64 entries used name literals and adjacent executable
+pointers; a typed registration array, its class owner and its extent have not
+been proved. That association remains a hypothesis. Third, the physical branch
+edges from the selected executable candidate to its wrapper, input helper and
+other consumers are independently observed instructions. The Base64 algorithm
+observations below apply to that selected ARM64 helper, not a proven CMS or
+keychain caller. Likewise, `PaperAccessContentProtect` is a literal observed in
+the selected candidate's descendant lookup code. It does not establish that the
+actual CMS/keychain path uses that lookup or any particular service instance.
+
+The already retained 1,002,627-byte Bin carrier passes complete source-owned
+header, zlib/EOF and publisher data-SHA-1 checks again. Exactly 51,184 bytes of
+the current nonzero-GUID main-index ciphertext are retained with their complete
+source mapping and local hash, without decryption or a default-key trial. This
+acquires zero new game/network bytes and retains 54,862 additional bytes, below
+the 1,103,856-byte cap while keeping more than 8 GiB free on the cache volume.
+The directory descriptor, directory integrity, whole-PAK hash and keychain
+acceptance remain open. The current zero-GUID reader guard is not relaxed, no
+CMS request is made, and the native source remains CN/common rather than an
+assumed Global-equivalent module.
+
+The next three exact consumer windows inspect 468 code bytes and 1,897 metadata
+bytes, stopping at the declared boundaries. The two selected consumer paths
+dispatch through
+an unresolved returned object's table slots; the actual GUID/group serializer
+is not reached. The input helper reads 16-bit units, trims padding and calculates
+the familiar three-to-four output length, while observed count/capacity and
+byte-stride operations constrain the output container. These operations do not
+by themselves identify a C++ container type or prove the complete Base64
+alphabet, bit packing, rejection or flag rules. No additional callee or literal
+data is followed. The returned-object producer, its exact passed name literal
+and the remaining input helper are the separately quoted next edges. No
+serialization/integrity schema, key trial or CMS acceptance is implemented.
+
+A subsequent exact continuation reads 156 instruction bytes, 52 framed UTF-16
+literal bytes and 1,009 metadata bytes from the same retained source. The passed
+lookup name within the selected code is `PaperAccessContentProtect`. This proves
+the literal argument there, not a CMS/keychain caller, returned implementation or
+Global equivalence. The main lookup path
+reaches a further object producer and retains an unread cold branch. The input
+helper tail-calls a separate core with the original input, its length, the byte
+output and mode zero. Its exact alphabet, rejection rules and the downstream
+GUID/group serializer remain unresolved. The next three windows are quoted at
+792 instruction bytes plus at most 2 KiB metadata and remain paused.
+
+A bounded primary-source review on 2026-11-18 uses four targeted search queries
+and four code/document sources; it establishes no exact maintained CMS-keychain
+parser. This is not an exhaustive absence claim. The maintained
+[CUE4Parse Nikki decryptor](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/CUE4Parse/GameTypes/INikki/Encryption/Aes/InfinityNikkiAes.cs)
+performs archive decryption with an already supplied `reader.AesKey`; it does not
+discover or decode a CMS keychain, its GUIDs or groups. The repository's latest
+inspected commit is dated 2026-11-17 and that file's latest change 2026-09-12.
+Its [Apache-2.0 license](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/LICENSE)
+allows maintained algorithm software to be considered separately from community
+key data. The [full C# project](https://github.com/FabianFG/CUE4Parse/blob/ab45a72d1b36c4a570a027541b450afe81a50cb5/CUE4Parse/CUE4Parse.csproj)
+declares crypto, compression and optional native
+build dependencies; no new runtime or source is installed, executed or adopted.
+This reference cannot supply the missing official keychain parameters by itself.
+The search acquires no original game bytes and makes no CMS request.
+
+The separately approved three native edges consume 424 instruction bytes and
+1,465 receipt bytes, with no new literal reads or downloads. The input core
+returns zero for a padding-stripped length congruent to one modulo four at its
+early return; the remaining alphabet, bit packing and mode-zero rules are unread.
+The object producer compares the complete 64-bit lookup handle in a
+manager-owned lookup structure, but its returned service implementation remains
+unresolved.
+The resolver's other path tail-calls a further manager/name lookup. These are
+distinct input-validation and service-discovery observations, not a proven
+keychain serializer, GUID binding or concrete module implementation. The next
+exact continuations are quoted separately and not followed automatically.
+
+The next fixed-window control-flow probe follows reachable branches within the
+approved ranges, including paths beyond early returns. It consumes 644 unique
+instruction bytes and 1,185 receipt bytes. The separately approved mode-zero
+lookup table is exactly 128 original bytes with a 1,111-byte source receipt.
+Together these establish, for the selected ARM64 helper, standard Base64 alphabet
+mapping, four-to-three byte packing, two/three-character tails, removal of trailing
+padding, and zero return
+for invalid ASCII mappings or a remaining length congruent to one modulo four.
+Non-ASCII units fail; empty stripped input succeeds. No canonical padding-bit
+test appears in the complete core. No decoder or keychain parser is implemented
+from this evidence. The lookup fallback loads a pointer from its name-owned
+descriptor, but the concrete implementation and original construction remain
+unresolved. All evidence retains the CN/common source qualification; no CMS
+response, GUID/group serialization, dynamic-index decryption or Global service
+equivalence is accepted by establishing this selected helper's decoding contract.
+
+Two further fixed object branches consume 292 unique instruction bytes and a
+1,325-byte receipt. A separate producer/return probe consumes 352 instruction
+bytes and a 1,187-byte receipt. The final return confirms that the name-owned
+descriptor's field at offset 0x28 supplies the service-instance pointer. No
+runtime object or its vtable is read. The missing-record helper initializes a
+new descriptor with that field zero and passes the descriptor and original name
+to another helper; it is not evidence of the service implementation's actual
+constructor. Further descriptor helpers, reference-control paths and indirect cleanup
+targets are not followed. The original outer instance-load branch remains a
+separate exact source quote. There are no additional literal reads, downloads,
+client execution, CMS requests, dynamic-key trials or keychain-schema claims.
+
+The selected outer loading path then consumes 256 instruction bytes with a
+966-byte receipt. It searches a second name-keyed registry, distinct from the
+descriptor cache. The exact successful branch consumes only 28 more instruction
+bytes and a 586-byte receipt before reaching an indirect callback. This proves
+the generic module-manager registry/delegate route in that selected code, not the
+concrete
+`PaperAccessContentProtect` implementation: the matching entry supplies a
+pointer/count and a virtual call whose target is not yet source-owned. No
+indirect target is followed. A direct manager call immediately before this
+second lookup is a separately quoted producer lead; its actual relationship to
+registry population remains unproven. Keychain framing, original integrity,
+GUID/group ownership and current Global archive acceptance remain open.
+
+That exact lead reaches generic pending-module management: it transfers pending
+32-byte records into the named registry and clears the pending count. It does
+not establish a `PaperAccessContentProtect` registration or constructor. The
+bounded probe reads 356 instruction bytes; 280 belong to this owner and 76 are
+unproven fallthrough after a stack-failure call into a new prologue inside the
+approved window. The latter bytes are explicitly excluded from conclusions.
+This route is closed without following generic helper or vtable targets. The
+missing original source is the named pending-entry/initializer provenance that
+binds this service to its actual delegate target. This is an unresolved source
+ownership requirement, not proof of official unavailability or a package-format
+change. No keychain schema, CMS request or current-archive key acceptance follows
+from the generic module-manager path.
+
+A separate existing-note review resolves the original filename/version binding:
+`RequestDynamicKeysWithPaks` takes the clean filename, splits on underscores,
+skips fewer than three parts, takes the penultimate token unchanged and
+deduplicates it before requesting versions. This is a package-owned string,
+not an SDK default-version substitution or a numeric conversion. The approved
+review uses its already recorded 212 instruction bytes and 64 instruction bytes
+from `GetLatestDefaultVersion`, with no source reread, native body or VM. That
+getter obtains local and remote values with the same captured input and selects
+one through a captured comparator; those captures' origins remain unproven.
+The public group-refresh wrapper uses this latest-version getter. Binding groups
+directly to a single-version callback remains a separate operand-review question.
+The exact CMS platform token, native group ownership and keychain format remain
+open; Windows BuildPatch metadata alone proves no CMS platform token.
+
+The separately approved 232-byte existing callback review resolves that direct
+single-version route. Original capture descriptors bind its `Version` upvalue to
+the parent's version parameter, and the operand dataflow passes that exact value
+with the returned group list to the internal group-refresh helper. This path
+does not call the latest-version getter. The group list comes from original
+`GetKeyChainNonDynamicGroups(KeyChainName)` output, not inferred GUIDs or package
+names. This establishes how package-owned version strings can remain scoped
+through group requests; it does not establish the native group schema or admit
+unverified CMS responses. The native group-reader registration owner remains a
+separate metadata-discovery requirement; its method body remains unverified.
+
+A bounded exact-name metadata probe finds one group-reader name literal and
+three relocated references in the authenticated CN/common source. It selects
+176 neighboring slot bytes and no method bodies. Reviewing 49,736 bytes of
+existing reflection proofs establishes no formal registrar array extent or
+validated function/property layout: those proofs explicitly preserve their
+adjacency and unknown-layout limitations. The new nearby executable pointers
+therefore remain candidates. A typed original registrar descriptor/call must
+bind array base/count, class owner and native-exec field to identify the reader
+confidently. No generic registry or vtable search continues from these candidates.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
@@ -803,12 +978,13 @@ The PAK reader now accepts the same explicit platform cryptography object;
 desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
 from stored-size width. This removes that import barrier without proving an
 Android device runtime or admitting a nonzero-GUID archive.
-Separately bounded native registration work identifies two original
-consumers: creation receives `(chainName, Base64value)` and group serialization
-receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
-native call edges are identified; their bodies and serialized schema remain
-unread. Neither a cache-getter's direction nor a UClass owner is inferred from
-adjacency alone. No extra remote source bytes or CMS requests are acquired.
+Separately bounded native work selects two executable candidates with apparent
+creation/group argument flows. Their actual branch edges and selected helper
+algorithm are observed, but the names' typed registration and class ownership
+remain unproven. These are not established implementations of the Lua-named
+CMS/keychain methods. The serialized schema remains unread. No cache-getter
+direction or UClass owner follows from adjacency alone. No extra remote source
+bytes or CMS requests are acquired.
 
 A frozen ordinary launcher-stage replay uses the actual previously retained
 official NSIS/PE bytes, the normal provider and preparation contexts, the actual
