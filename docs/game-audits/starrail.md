@@ -1013,8 +1013,17 @@ binds the original source hashes to method names, flags and signature indices.
 Authored fixtures cover shuffled identities, nested ownership, cancellation
 and source changes. This lookup can return declarations when the complete
 census is unresolved. Native slot and extent discovery still requires the
-complete census. The image-scoped lookup awaits retained-original verification.
+complete census.
 [Image-scoped lookup](../../backend/starrail_declaration_census.py)
+
+A bounded Global 4.6 and 4.7 probe selected one root from each generation's
+original image ranges. It verified the encoded owners and decoded three
+MethodDefs per generation, with three and zero ParamDef rows respectively.
+The probe authenticated all three inputs in each generation and checked the
+source fences before publication. It read 16,660 and 16,746 selected bytes
+including bootstrap, with zero native pointer slot reads. Nested scopes have
+authored-fixture coverage. Independent signature parity and the complete
+method census remain open.
 
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
