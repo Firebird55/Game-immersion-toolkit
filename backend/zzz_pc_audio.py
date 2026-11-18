@@ -6,12 +6,14 @@ from pathlib import Path
 import re
 import struct
 
-from . import hoyo_publisher_voice as voice, zzz_assets, zzz_publisher as publisher
+from .atomic_files import write_bytes
+from .sophon_assets import descriptor
+from .zzz_dialogue_records import LANGUAGE_INDEX_VERSION, SCOPE, TEXT_LOCALES, _dialogue_records, _group_links
+from .zzz_source_bindings import original_bindings, voice_directory
 from . import zzz_publisher_cinematics as cinema
 from . import zzz_hotfix
 from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage, SnapshotSource, SourceProof
-from .game_tools import _atomic_file
-from .language_worker import write_payload
+from .language_snapshot import write_payload
 from .languages import audio_locale, resolve_locale
 from .private_data_paths import MAX_AUDIO, MAX_TEXT, MAX_ROWS
 from .zzz_audio_catalogue import Catalogue
@@ -38,7 +40,7 @@ def _store(ctx, category, value):
     maximum = MAX_TEXT if category == 'candidates' else MAX_PLAN
     if len(raw) > maximum:raise GameDataError('zzz_audio_stage_bounds', 'The selected original audio metadata exceeds its supported bounds.')
     digest = hashlib.sha256(raw).hexdigest();path = _path(ctx, category, digest)
-    path.parent.mkdir(parents=True, exist_ok=True);ctx.check();_atomic_file(path, raw)
+    path.parent.mkdir(parents=True, exist_ok=True);ctx.check();write_bytes(path, raw, check=ctx.check)
     return digest
 
 
@@ -125,16 +127,16 @@ def _banks(sources, files, catalogue, links, registry):
 
 def _payload(ctx, current, content, catalogue, registry):
     links, tables = content['links'], content['tables']
-    expanded, channels, evidence, kinds = zzz_assets._group_links(links)
+    expanded, channels, evidence, kinds = _group_links(links)
     consistent = [row for row in expanded if evidence[row['text_id']] == {'unavailable'}]
-    bindings = publisher.original_bindings(consistent, catalogue.externals(), catalogue.locale,
-        current['version'], publisher.voice_directory(content['voice_directory']))
+    bindings = original_bindings(consistent, catalogue.externals(), catalogue.locale,
+        current['version'], voice_directory(content['voice_directory']))
     contexts = catalogue.bindings(links, registry)
     for identity, value in contexts.items():bindings.setdefault(identity, value)
     for link in links:
         if 'start_ms' in link and (binding := bindings.get(link['text_id'])):
             bindings[link['text_id']] = {**binding, 'start_ms': link['start_ms'], 'end_ms': link['end_ms']}
-    rows = zzz_assets._dialogue_records(tables, ctx.request.source_locale, set(tables), channels, evidence, kinds, bindings)
+    rows = _dialogue_records(tables, ctx.request.source_locale, set(tables), channels, evidence, kinds, bindings)
     coverage = dict(content['coverage'])
     coverage['cinema_context_recordings'] = len({sound['event'] for sound in contexts.values()})
     coverage['cinema_context_subtitle_bindings'] = len(contexts)
@@ -143,12 +145,12 @@ def _payload(ctx, current, content, catalogue, registry):
     available = {locale for row in rows for locale in row['texts']}
     payload = {'format': 2, 'game': 'zzz', 'source_locale': ctx.request.source_locale, 'content_mode': 'text-audio',
         'source_mode': 'publisher', 'publisher_region': ctx.request.region, 'install': None,
-        'fingerprint': voice.descriptor(current)[0],
+        'fingerprint': descriptor(current)[0],
         'metadata_revision': current['build'] + '/' + current['hotfix']['revisions']['design'],
         'records': rows, 'coverage': coverage,
         'missing_translation_locales': [locale for locale in ctx.request.target_locales
-            if resolve_locale(locale, zzz_assets.TEXT_LOCALES) not in available],
-        'coverage_warnings': [publisher.SCOPE], 'message': 'Official ZZZ dialogue and selected original audio prepared.'}
+            if resolve_locale(locale, TEXT_LOCALES) not in available],
+        'coverage_warnings': [SCOPE], 'message': 'Official ZZZ dialogue and selected original audio prepared.'}
     from .zzz_cinema_occurrences import FIELD, build
     occurrences = build(payload, content['cinema_occurrences'], ctx.request.json()) if content.get('cinema_occurrences') else None
     if occurrences is not None:
@@ -158,7 +160,7 @@ def _payload(ctx, current, content, catalogue, registry):
 
 def _selection(ctx, current, content, sources):
     files = sources.assets()
-    catalogue = Catalogue(files, sources.locale, voice.descriptor(current)[0], sources.read)
+    catalogue = Catalogue(files, sources.locale, descriptor(current)[0], sources.read)
     registry = cinema.audio_registry(base64.b64decode(content['registry'], validate=True))
     metadata = _headers(files)
     if not sources.ranges_available(files, metadata):return 'audio-package-headers', files, metadata, None
@@ -207,7 +209,7 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     handle = planned.handle
     if (codecs is None or handle.get('request') != ctx.request.json() or ctx.request.content_mode != 'text-audio'
             or handle.get('revision') != planned.revision or handle.get('reader') != reader.identity
-            or voice.descriptor(handle['build'])[0] != planned.revision):
+            or descriptor(handle['build'])[0] != planned.revision):
         raise GameDataError('zzz_audio_stage_changed', 'Check the selected original audio download and runtime again.', 409)
     sources = AudioSources(ctx, handle['build'], audio_locale(ctx.request.source_locale),
                            transport_factory=transport_factory, verification=verification)
@@ -235,17 +237,17 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     # A successful index with only remote recording addresses is never Ready.
     verify_current(ctx, handle['build'], planned.revision, transport_factory)
     destination = _safe(ctx.directory / 'textmap.json')
-    write_payload('zzz', payload, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check)
+    write_payload('zzz', payload, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check, reader_revision=LANGUAGE_INDEX_VERSION)
     with destination.open('rb') as stream:snapshot_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
     keys = _binding_keys(payload)
     raw_keys = encoded({'schema': 'zzz-original-bindings-v1', 'revision': planned.revision, 'keys': sorted(keys)})
     if len(raw_keys) > MAX_TEXT:raise GameDataError('zzz_audio_binding_bounds', 'The selected original binding index exceeds its supported size.')
-    ctx.check();_atomic_file(_safe(ctx.directory / 'original-bindings.json'), raw_keys)
+    ctx.check();write_bytes(_safe(ctx.directory / 'original-bindings.json'), raw_keys, check=ctx.check)
     receipt = {'schema': SCHEMA, 'revision': planned.revision, 'request': ctx.request.json(), 'build': handle['build'],
         'reader': reader.identity, 'codecs': codecs.identity, 'candidate': handle['candidate'], 'audio_plan': handle['audio_plan'],
         'snapshot_sha256': snapshot_sha, 'bindings_sha256': hashlib.sha256(raw_keys).hexdigest()}
     raw = encoded(receipt);digest = hashlib.sha256(raw).hexdigest()
-    ctx.check();_atomic_file(_safe(ctx.directory / 'source-receipt.json'), raw)
+    ctx.check();write_bytes(_safe(ctx.directory / 'source-receipt.json'), raw, check=ctx.check)
     restored = {'schema': SCHEMA, 'game': 'zzz', 'revision': planned.revision, 'request': ctx.request.json(),
         'receipt_sha256': digest, 'snapshot_sha256': snapshot_sha}
     source = LocalOriginals(sources, files, planned.revision, keys, codecs)
@@ -312,7 +314,7 @@ def restore(ctx, handle, codecs, *, transport_factory, verification=None):
         raise GameDataError('zzz_audio_restore_integrity', 'The original audio source receipt failed validation.', 409)
     receipt = json.loads(raw)
     if (receipt.get('schema') != SCHEMA or receipt.get('request') != ctx.request.json()
-            or receipt.get('revision') != handle.get('revision') or voice.descriptor(receipt['build'])[0] != handle['revision']):
+            or receipt.get('revision') != handle.get('revision') or descriptor(receipt['build'])[0] != handle['revision']):
         raise GameDataError('zzz_audio_restore_integrity', 'The retained original audio source identity changed.', 409)
     snapshot = _safe(ctx.directory / 'textmap.json')
     with snapshot.open('rb') as stream:digest = hashlib.file_digest(stream, 'sha256').hexdigest()

@@ -9,7 +9,7 @@ import re
 from . import sophon_assets as sophon, zzz_hotfix as hotfix
 from .game_data_protocol import GameDataError
 from .publisher_transport import PublisherTransport
-from .zzz_assets import VOICE_FOLDERS
+from .zzz_dialogue_records import VOICE_FOLDERS
 from .zzz_game_data import _safe, _valid_file
 from .zzz_pc_sources import Sources, OriginalFile
 

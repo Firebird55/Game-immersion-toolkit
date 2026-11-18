@@ -8,15 +8,14 @@ import re
 import struct
 
 from . import zzz_publisher_cinematics as cinema
-from .honkai_assets import package_tables_from_reader, bank_sources_from_reader
-from .hoyo_dialogue import voice_namespace
-from .voice_assets import external_table, voice_hash
+from .wwise_tables import package_tables_from_reader, bank_sources_from_reader, external_table, voice_hash
+from .zzz_dialogue_records import voice_namespace
 
 
 class Catalogue:
     def __init__(self, files, locale, publisher, read):
         self.files, self.locale, self.publisher, self._read = files, locale, publisher, read
-        self.namespace = voice_namespace('zzz', locale).lower()
+        self.namespace = voice_namespace(locale).lower()
         folder = re.escape(cinema.VOICE_FOLDERS[locale])
         pattern = r'ZenlessZoneZero_Data/(?:StreamingAssets|Persistent)/Audio/Windows/Full/(?:' + folder + r'/)?[A-Za-z0-9_.-]+\.pck'
         if not files or any(not re.fullmatch(pattern, name) for name in files):

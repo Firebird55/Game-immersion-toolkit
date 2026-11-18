@@ -1,4 +1,4 @@
-"""Context cache writes must not import a desktop tool or default downloader."""
+"""Portable source staging must run without desktop tools or a default downloader."""
 import ast
 from pathlib import Path
 import shutil
@@ -11,7 +11,7 @@ import zstandard
 def test_actual_closed_package_imports_and_writes_without_desktop_or_default_network(tmp_path):
     root = Path(__file__).resolve().parents[2]
     # The base APK also owns the shared locale module's deferred Steam table.
-    selected, pending = set(), ['sophon_assets', 'game_data', 'zzz_pc_stages', 'steam_games']
+    selected, pending = set(), ['sophon_assets', 'game_data', 'zzz_pc_stages', 'zzz_pc_audio', 'steam_games']
     while pending:
         name = pending.pop()
         if name in selected: continue
@@ -21,7 +21,7 @@ def test_actual_closed_package_imports_and_writes_without_desktop_or_default_net
             if isinstance(node, ast.ImportFrom) and node.level == 1:
                 pending.extend([node.module.split('.')[0]] if node.module else [alias.name for alias in node.names])
     assert not {'game_tools', 'game_assets', 'publisher_http', 'runtime_bundle',
-                'prebuilt_readers', 'prebuilt_node_reader', 'voice_assets'} & selected
+                'prebuilt_readers', 'prebuilt_node_reader', 'voice_assets', 'honkai_assets', 'hoyo_publisher_voice'} & selected
     for name in selected | {'__init__'}:
         target = tmp_path / 'owned/backend' / (name + '.py')
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -33,7 +33,8 @@ root=Path(sys.argv[1]);sys.path.insert(0,str(root));sys.path.append(sys.argv[2])
 class NoDesktop(importlib.abc.MetaPathFinder):
  def find_spec(self,fullname,path=None,target=None):
   if fullname in {'backend.game_tools','backend.game_assets','backend.publisher_http','backend.runtime_bundle',
-                  'backend.prebuilt_readers','backend.prebuilt_node_reader','backend.voice_assets','backend.zzz_assets'}:
+                  'backend.prebuilt_readers','backend.prebuilt_node_reader','backend.voice_assets','backend.zzz_assets',
+                  'backend.honkai_assets','backend.hoyo_publisher_voice','backend.zzz_publisher'}:
    raise AssertionError('Imported a desktop/default transport dependency')
 sys.meta_path.insert(0,NoDesktop())
 def no_network(*a,**k):raise AssertionError('Unexpected network operation')
@@ -60,6 +61,13 @@ snapshot = cache / 'textmap.json'
 catalogue.write_payload('zzz', {'format': 2, 'game': 'zzz', 'source_locale': 'ja', 'records': rows},
                         'ja', (), snapshot, reader_revision=catalogue.LANGUAGE_INDEX_VERSION)
 assert snapshot.is_file()
+from backend import zzz_pc_audio as audio
+from types import SimpleNamespace
+context = SimpleNamespace(cache_directory=cache, check=lambda: None)
+candidate = {'schema': audio.SCHEMA, 'content': rows}
+identity = audio._store(context, 'candidates', candidate)
+assert identity == hashlib.sha256(audio.encoded(candidate)).hexdigest()
+assert audio._load(context, 'candidates', identity) == candidate
 for name,module in list(sys.modules.items()):
  if name=='backend' or name.startswith('backend.'):
   assert Path(module.__file__).is_relative_to(root),name

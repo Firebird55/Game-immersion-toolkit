@@ -12,13 +12,12 @@ from pathlib import Path
 from . import game_tools
 from .honkai_assets import package_tables
 from .languages import audio_locale, resolve_locale
-from .zzz_dialogue_records import LANGUAGE_INDEX_VERSION, TEXT_LOCALES, _dialogue_records, _group_links
+from .zzz_dialogue_records import LANGUAGE_INDEX_VERSION, TEXT_LOCALES, VOICE_FOLDERS, _dialogue_records, _group_links
 from .voice_assets import VoiceEntry, read_external_table, resolve_links, voice_hash
 from .zzz_cinematics import resolve_cinematic_links
 from .preparation_errors import PreparationFailure
 
 SUPPORTED_LOCALES = ('en', 'zh-Hans', 'zh-Hant', 'ja', 'ko')
-VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 VOICE_FAMILIES = {'en': 'english', 'zh-Hans': 'chinese', 'zh-Hant': 'chinese', 'ja': 'japanese', 'ko': 'korean'}
 # Authored TextMap ID, male alternative, female/default source fields. Unknown
 # schemas must fail instead of silently removing all free-roam dialogue.

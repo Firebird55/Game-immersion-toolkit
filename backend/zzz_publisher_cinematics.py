@@ -6,11 +6,11 @@ import struct
 
 from flatbuffers import flexbuffers
 
-from . import hoyo_publisher_voice as voice
-from .honkai_assets import PackageEntry, bank_metadata_from_reader, bank_sources_from_reader, package_tables_from_reader
-from .hoyo_dialogue import voice_namespace
-from .nte_assets import wwise_hash
-from .zzz_assets import VOICE_FOLDERS
+from .wwise_tables import (
+    PackageEntry, bank_metadata_from_reader, bank_sources_from_reader, package_tables_from_reader,
+    wwise_short_id as wwise_hash,
+)
+from .zzz_dialogue_records import VOICE_FOLDERS, voice_namespace
 from .zzz_cinematics import event_bank_links
 from .zzz_voice_layers import unconditional_voice_layers
 from .zzz_bus_routing import INITIAL_BANK_FILENAME, bus_parents_from_reader
@@ -45,19 +45,21 @@ def audio_registry(data):
 
 @lru_cache(maxsize=256)
 def _tables(directory, stamp, locale, name):
+    from . import hoyo_publisher_voice as voice
     source = voice._archive(directory, stamp, locale, name, 'zzz')
     return package_tables_from_reader(source.size, lambda start, size: source.read(directory, start, size))
 
 
 @lru_cache(maxsize=512)
 def _bank(directory, stamp, locale, name, bank_id, mode='direct'):
-    namespace = voice_namespace('zzz', locale).lower()
+    namespace = voice_namespace(locale).lower()
     languages, banks, _ = _tables(directory, stamp, locale, name)
     matches = [entry for (identifier, language), entry in banks.items()
                if identifier == bank_id and languages[language] == namespace]
     if len(matches) != 1 or not 0 < matches[0].size <= 64 * 1024**2:
         raise ValueError('Original ZZZ cinematic bank is missing or ambiguous.')
     entry, = matches
+    from . import hoyo_publisher_voice as voice
     source = voice._archive(directory, stamp, locale, name, 'zzz')
     return _read_bank(entry, lambda start, size: source.read(directory, start, size),
                       bank_id, namespace, mode, lambda: _initial_buses(directory, stamp, locale))
@@ -98,19 +100,21 @@ def _dependency(directory, stamp, locale, name, bank_id):
               if identifier == bank_id and languages[language] == 'sfx']
     if not 0 < entry.size <= 64 * 1024**2:
         raise ValueError('Unsupported original ZZZ common bank size.')
+    from . import hoyo_publisher_voice as voice
     source = voice._archive(directory, stamp, locale, name, 'zzz')
     bank_sources_from_reader(entry.size, lambda start, size: source.read(directory, entry.offset + start, size),
                              bank_id, language='sfx')
 
 
 def _inventory(directory, stamp, locale, wanted_banks):
+    from . import hoyo_publisher_voice as voice
     files = voice._files(directory, stamp, locale, 'zzz')
     return _inventory_from_files(files, locale, wanted_banks,
         lambda name: _tables(directory, stamp, locale, name))
 
 
 def _inventory_from_files(files, locale, wanted_banks, tables):
-    namespace = voice_namespace('zzz', locale).lower()
+    namespace = voice_namespace(locale).lower()
     folder = '/Audio/Windows/Full/' + VOICE_FOLDERS[locale] + '/'
     result = [{}, {}, {}]
     for layer in ('StreamingAssets', 'Persistent'):
@@ -146,6 +150,7 @@ def _initial_buses(directory, stamp, locale):
     if banks or set(common) != {identity}:
         raise ValueError('Original ZZZ initialization bank is missing or ambiguous.')
     name, entry = common[identity]
+    from . import hoyo_publisher_voice as voice
     source = voice._archive(directory, stamp, locale, name, 'zzz')
     return bus_parents_from_reader(entry.size,
         lambda start, size: source.read(directory, entry.offset + start, size), identity)
@@ -287,7 +292,7 @@ def recording(audio, tools, *, catalogue=None):
             raise ValueError('Original ZZZ bank recording size has changed.')
     else:
         languages, _, sounds = tables(audio['package'])
-        namespace = voice_namespace('zzz', locale).lower()
+        namespace = voice_namespace(locale).lower()
         entry, = [value for (identifier, language), value in sounds.items()
                   if identifier == media_id and languages[language] == namespace]
         if not (source.stream_type == 1 and 0 < source.memory_size < entry.size
@@ -298,6 +303,7 @@ def recording(audio, tools, *, catalogue=None):
 
 def extract(audio, tools, *, catalogue=None):
     name, entry = recording(audio, tools, catalogue=catalogue)
+    from . import hoyo_publisher_voice as voice
     data = (voice._archive(tools / 'sophon', audio['publisher'], audio['locale'], name, 'zzz').read(
                 tools / 'sophon', entry.offset, entry.size) if catalogue is None
             else catalogue.read(name, entry.offset, entry.size))

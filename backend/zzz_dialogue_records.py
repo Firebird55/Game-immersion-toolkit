@@ -6,6 +6,7 @@ from .models import is_comic_text_id
 from .textmaps import display_text, gender_variants
 
 LANGUAGE_INDEX_VERSION = 24
+VOICE_FOLDERS = {'en': 'En', 'zh-Hans': 'Cn', 'zh-Hant': 'Cn', 'ja': 'Jp', 'ko': 'Kr'}
 TEXT_LOCALES = {'en': 'EN', 'zh-Hans': '', 'zh-Hant': 'CHT', 'ja': 'JA', 'ko': 'KO',
     'fr': 'FR', 'de': 'DE', 'es-ES': 'ES', 'pt-BR': 'PT', 'ru': 'RU', 'th': 'TH', 'vi': 'VI', 'id': 'ID'}
 SCOPE = ('Publisher preparation covers catalogue-matched dialogue scenes, motion comics, phone messages, replies, gameplay tips, ongoing dialogue and timed clue recordings. '
