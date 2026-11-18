@@ -28,8 +28,8 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     policy = json.loads(POLICY.read_text())
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
-    assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa'}
-    assert len(policy['files']) == 36 and len(portable_sources()) == 94
+    assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa', 'zzz'}
+    assert len(policy['files']) == 40 and len(portable_sources()) == 98
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert 'backend/android_publisher_hash.py' in portable_sources()
@@ -40,6 +40,7 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     for name in ('nte', 'wuwa'):
         assert policy['providers'][name]['dependencies'] == ['python-stdlib','toolkit-publisher-crypto-v1']
     assert policy['providers']['reverse1999']['dependencies'] == ['python-stdlib']
+    assert policy['providers']['zzz']['dependencies'] == ['python-stdlib', 'zstandard==0.25.0']
     assert policy['providers']['nte']['stages'] == ['compatibility', 'manifest-verification']
     for name, receipt in policy['files'].items():
         assert re.fullmatch(r'backend/[a-z0-9_]+\.py', name)
@@ -85,7 +86,7 @@ from backend import nte_updater_source as source,nte_updater_baseline as baselin
 class UnusedNative:
  def __getattribute__(self,name):raise AssertionError('A pure stage queried a native service')
 providers=create_game_data_providers(platform='android',native=UnusedNative())
-assert set(providers)=={'nte','reverse1999','wuwa'}
+assert set(providers)=={'nte','reverse1999','wuwa','zzz'}
 assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
 # A mismatched late-stage call must fail at the Android gate before a desktop
 # source module import, including when these modules do not exist in the APK.
@@ -124,6 +125,7 @@ def open_(request,**kwargs):
  assert request.headers['Accept-encoding']=='identity'
  return Response(bodies[request.full_url],request.full_url)
 providers['nte'].opener=open_
+providers['zzz'].transport_factory=lambda ctx,**kwargs:PublisherTransport(ctx,opener=open_,**kwargs)
 inputs=source._inputs(data['inputs'])
 artifact_urls={artifact.url for artifact in inputs.artifacts}
 baseline.inputs=lambda:inputs
@@ -179,10 +181,30 @@ try:
     source.VERSION_URL,inputs.manifest_url,source.VERSION_URL,inputs.manifest_url]*2)
  assert not activated and not (owned.parent/'managed/nte/current.json').exists()
  assert not (owned.parent/'managed/nte/cache/tools/nte-publisher/format/original-updater/approvals').exists()
+
+ # The production ZZZ registry reaches the consented source stage with only
+ # its APK-owned imports and stops at the unavailable catalogue reader.
+ for region in ('global','cn'):
+  selection={**request,'region':region}
+  bootstrap=service.plan('zzz',selection)['game']
+  assert bootstrap['can_download'] and bootstrap['download_bytes']>0
+  service.download('zzz',{'plan_id':bootstrap['plan_id'],'revision':bootstrap['revision']})
+  end=time.monotonic()+5
+  while time.monotonic()<end:
+   row=next(value for value in service.snapshot()['games'] if value['id']=='zzz')
+   if row['job'] and row['job']['status'] not in {'queued','running'}:break
+   time.sleep(.01)
+  assert row['job']['status']=='needs_plan' and not row['can_activate']
+  assert row['job']['downloaded_bytes']==bootstrap['download_bytes']
+  following=service.plan('zzz',selection)['game']
+  assert following['download_bytes'] is None and not following['can_download']
+  assert 'Dialogue preparation' in following['message']
+ assert not activated and not (owned.parent/'managed/zzz/current.json').exists()
+ assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
  for name,module in list(sys.modules.items()):
   if name=='backend' or name.startswith('backend.'):
    assert Path(module.__file__).is_relative_to(owned),name
- print(json.dumps({'schema':'android-publisher-closed-source-host-v1','registry':['nte','reverse1999','wuwa'],
+ print(json.dumps({'schema':'android-publisher-closed-source-host-v1','registry':sorted(providers),
   'owned_modules':len(list((owned/'backend').glob('*.py'))),'no_external_network':True,'no_desktop_helper':True,
   'actual_context_transport':True,'stage_never_ready':True,'unknown_content_size_preserved':True,
   'asset_requests':sum(url in artifact_urls for url in calls),
@@ -191,12 +213,13 @@ finally:service.close()
 '''
 
 
-def test_exact_closed_namespace_authenticates_nte_manifest_without_desktop_or_network_fallback(tmp_path):
+def test_exact_closed_namespace_authenticates_original_sources_without_desktop_or_network_fallback(tmp_path):
     # These are authored PE/configuration fixtures from the game owner's tests,
     # never original game software or an alternative preparation implementation.
     from Crypto.Cipher import AES
     from backend.publisher_crypto import MAX_BYTES, SOURCE_SHA256
     from backend.tests.fixtures.nte_updater_inputs import Originals, release_responses
+    from backend.tests.test_zzz_game_data import publisher
     from backend.nte_updater_source import plan
     original = Originals();inputs = plan(fetch=original.fetch)
     members = {}
@@ -213,6 +236,8 @@ def test_exact_closed_namespace_authenticates_nte_manifest_without_desktop_or_ne
         'library_sha256':'a'*64,'manifest_sha256':'b'*64,'key_bytes':32,'nonce_bytes':12,'max_bytes':MAX_BYTES}
     bodies = {**original.bodies, original.base + '/Version.ini':original.version_body,
         original.manifest_url:ElementTree.tostring(original.root), **release}
+    for region in ('global', 'cn'):
+        bodies.update(publisher(region)[0])
     fixture = {'inputs':inputs.description(),'members':members,
         'release_urls':list(release),'crypto_proof':proof,
         'ciphertext':base64.b64encode(ciphertext).decode('ascii'),
@@ -226,7 +251,7 @@ def test_exact_closed_namespace_authenticates_nte_manifest_without_desktop_or_ne
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 94 and proof['registry'] == ['nte','reverse1999','wuwa']
+    assert proof['owned_modules'] == 98 and proof['registry'] == ['nte','reverse1999','wuwa','zzz']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['manifest_verified'] == 2
     assert proof['native_android_execution'] is False

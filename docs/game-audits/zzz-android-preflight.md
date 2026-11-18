@@ -19,8 +19,11 @@ source provenance. The desktop gateway still validates the key with its RSA
 backend before attempting a response decode. Both edition fixtures exercise
 the ordinary size quote, consented download and subsequent catalogue gate
 with desktop cryptography and compression imports denied. This removes a
-bootstrap dependency from the source path. APK registration, gateway
-execution and the full catalogue reader still require Android acceptance.
+bootstrap dependency from the source path. The reviewed APK policy now
+registers both editions with the existing Zstandard runtime. The closed
+namespace test checks the production registry and shared service with authored
+responses. Gateway execution, the full catalogue reader and actual APK runtime
+acceptance remain separate requirements.
 
 The later PC provider now continues through five explicit source stages to a
 ready **text-only** library when its verified compiler-free Node reader is

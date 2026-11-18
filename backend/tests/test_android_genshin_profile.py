@@ -109,7 +109,7 @@ try:AndroidGenshinRuntime(None)
 except ValueError:pass
 else:raise AssertionError('Missing actual Android decoder admitted')
 from backend.game_data_providers import create_game_data_providers
-assert set(create_game_data_providers(platform='android'))=={'nte','reverse1999','wuwa'}
+assert set(create_game_data_providers(platform='android'))=={'nte','reverse1999','wuwa','zzz'}
 assert 'backend.genshin_game_data' not in sys.modules
 for name,module in list(sys.modules.items()):
  if name=='backend' or name.startswith('backend.'):

@@ -224,6 +224,14 @@
       "sha256_lf": "f638d18bd7e4657e2e14ab8420d68d8d6b52b0c59e0f44c4c07dd05d287b5690",
       "source_commit": "dabb05368270f9931b9c4678989bb95747ba68c9"
     },
+    "backend/hoyo_dispatch_metadata.py": {
+      "sha256_lf": "fbe136452924ac7a947dedc9fe32491fb18def88b39d87f6d3f0b6aa69d95b96",
+      "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
+    },
+    "backend/hoyo_zzz_bootstrap.py": {
+      "sha256_lf": "6500b7e8726eb4a0d72bf7fa1ac11392e8f1838e1c610f23f7d8a7cc5d21e0fe",
+      "source_commit": "21c930e7844beb7d23892d0eb87cb1db0c9e2e11"
+    },
     "backend/nte_game_data.py": {
       "sha256_lf": "556bda0939eccdfac70b4856359624956a8deb29ea8dfcc2f2885e6c9f507cb0",
       "source_commit": "dbcee6c4926e7ab64dff7dfc3f05ab7ea2198cdc"
@@ -299,6 +307,14 @@
     "backend/wuwa_game_data.py": {
       "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/zzz_game_data.py": {
+      "sha256_lf": "0ab7b95c20d76f29c99c435cfc3ef6ada07eb26b1f3fcd8a2a76e7dbf7609cbd",
+      "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
+    },
+    "backend/zzz_native_key_data.py": {
+      "sha256_lf": "21e5dcfc9f2e538d3e7c051b7dcbf068a5a5a940349e3c66f76306e96a03f98c",
+      "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
     }
   },
   "forbidden_stage_imports": [
@@ -306,10 +322,11 @@
     "backend.runtime_paths",
     "backend.runtime_bundle",
     "backend.publisher_http",
-    "backend.production_zzz_reader",
+    "backend.prebuilt_node_reader",
+    "backend.zzz_pc_stages",
+    "backend.zzz_pc_audio",
     "Crypto",
     "brotli",
-    "zstandard",
     "numpy",
     "clr",
     "pythonnet",
@@ -377,6 +394,25 @@
       "snapshot_runtime": false,
       "stages": [
         "bootstrap"
+      ]
+    },
+    "zzz": {
+      "dependencies": [
+        "python-stdlib",
+        "zstandard==0.25.0"
+      ],
+      "download_runtime": true,
+      "factory": "backend.zzz_game_data:create_provider",
+      "modules": [
+        "hoyo_dispatch_metadata",
+        "hoyo_zzz_bootstrap",
+        "zzz_game_data",
+        "zzz_native_key_data"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "official-manifest",
+        "official-bootstrap"
       ]
     }
   },
