@@ -1,6 +1,7 @@
 import hashlib
 import os
 import struct
+from types import SimpleNamespace
 
 import pytest
 
@@ -333,3 +334,28 @@ def test_type_projection_rejects_cycles_and_overdeep_reference_graphs(tmp_path):
         with pytest.raises(MetadataFormatError, match='runtime type depth or cycle'):
             read_required(_sources(tmp_path, runtime_rows=rows, runtime_count=count),
                           runtime_type_indices=(0,), project_types=True)
+
+
+@pytest.mark.parametrize(('root_count', 'completes'), [(32, True), (33, False)])
+def test_type_projection_bounds_the_combined_requested_and_nested_definitions(root_count, completes):
+    child_indices = range(root_count, root_count + 32)
+
+    def definition(index):
+        return {'name': f'Type{index}', 'namespace': 'Demo', 'image_index': 0,
+                'declaring_type': 0 if index in child_indices else -1, 'generic_container': -1,
+                'nested_count': 32 if index == 0 else 0, 'nested_start': 0 if index == 0 else -1}
+
+    def read_children(role, offset, size):
+        assert (role, offset, size) == ('nested_types', 0, 128)
+        return struct.pack('<32i', *child_indices)
+
+    records = SimpleNamespace(type=definition, read=read_children, type_count=1, runtime_types_rva=0x800)
+    roots = {index: definition(index) for index in range(root_count)}
+    stage = portable._TypeProjection(records, 8, {0: {'tag': 0x08}}, roots, None)
+    if completes:
+        result = stage.project((0,), roots, {})
+        assert result['nested_types'] == {0: tuple(child_indices)}
+        assert len(result['definition_names']) == 64
+    else:
+        with pytest.raises(MetadataFormatError, match='projected type definition count'):
+            stage.project((0,), roots, {})

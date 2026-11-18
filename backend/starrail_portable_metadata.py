@@ -29,6 +29,7 @@ _MAX_INDEX = 1 << 24
 _MAX_SELECTED = 8192
 _MAX_PARAMETERS = 64
 _MAX_SELECTED_PARAMETERS = 65536
+_MAX_PROJECTED_DEFINITIONS = 64
 _MAX_LITERAL = 64 * 1024
 _LIMITS = {'native': 1024**3, 'metadata': 512 * 1024**2, 'startup': 64 * 1024**2}
 _PRIMITIVE_TYPES = {
@@ -524,7 +525,7 @@ class _TypeProjection:
         self.records = records
         self.stride = stride
         self.cancelled = cancelled
-        _require(len(runtime_rows) <= 16 and len(types) <= 32, 'type projection roots')
+        _require(len(runtime_rows) <= 16 and len(types) <= _MAX_PROJECTED_DEFINITIONS, 'type projection roots')
         self.rows = {self.type_rva(index): value for index, value in runtime_rows.items()}
         self.definitions = dict(types)
         self.names = {}
@@ -552,7 +553,8 @@ class _TypeProjection:
         return self.records.runtime_types_rva + self.stride * index
 
     def definition(self, index):
-        return self.cached(self.definitions, index, 32, 'projected type definition count', self.records.type)
+        return self.cached(self.definitions, index, _MAX_PROJECTED_DEFINITIONS,
+                           'projected type definition count', self.records.type)
 
     @staticmethod
     def qualified_name(record):
@@ -744,7 +746,8 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
     _require(type_indices or method_indices or literal_indices or runtime_type_indices, 'empty request')
     _require(type(project_types) is bool, 'type projection request')
     if project_types:
-        _require(0 < len(runtime_type_indices) <= 16 and len(type_indices) + len(method_indices) <= 32,
+        _require(0 < len(runtime_type_indices) <= 16
+                 and len(type_indices) + len(method_indices) <= _MAX_PROJECTED_DEFINITIONS,
                  'type projection roots')
     with ExitStack() as stack:
         files = {role: _Source(stack, role, inputs[role], cancelled) for role in _LIMITS}
