@@ -559,18 +559,28 @@ class AndroidHost:
             left, top, right, bottom = block['rect']
             if picture[0] <= left < right <= picture[0] + picture[2] and picture[1] <= top < bottom <= picture[1] + picture[3]:
                 texts.append(block['text'])
+        zzz_dialogue = []
         for channel, region in channels.items():
             groups = []
+            zzz_captions = []
             x, y, crop_width, crop_height = region_bounds(picture, region)
             for block in blocks:
                 left, top, right, bottom = block['rect']
                 # Only whole recognized blocks inside the calibrated region.
                 if x <= left < right <= x + crop_width and y <= top < bottom <= y + crop_height:
                     groups.append(block['text'])
+                    if (game == 'zzz' and channel == 'cinematic'
+                            and .22 <= ((left + right) / 2 - x) / crop_width <= .78
+                            and .60 <= (top - y) / crop_height < (bottom - y) / crop_height <= 1
+                            and (bottom - top) / crop_height < .10):
+                        zzz_captions.append(block['text'])
+            if game == 'zzz' and channel == 'dialogue':
+                zzz_dialogue = groups
             if game == 'nte' and channel == 'dialogue' and nte_layout is not None:
                 groups = list(nte_layout.groups)
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
-                dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))
+                dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
+                zzz_captions=zzz_captions, zzz_dialogue=zzz_dialogue))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
             dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))

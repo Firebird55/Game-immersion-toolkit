@@ -14,6 +14,20 @@ from .local_game import LocalDialogue, dialogue_capture_channels
 SCHEMA = 'zzz-cinema-occurrences-v1'
 FIELD = 'publisher_cinema_occurrences'
 LOCALES = frozenset(('en', 'zh-Hans', 'ja', 'ko'))
+# C055's two original movie events and their distinct performer captions.
+# Match both identifiers so an event reused by another timeline cannot opt in.
+_C055_PLAYERS = {
+    ('Play_vo_C055_EP020B', 'CS_05.5_02_060'): 'male',
+    ('Play_vo_C055_EP020G', 'CS_05.5_02_070'): 'female',
+}
+
+
+def presentation_player(presentation, records):
+    anchor = records[presentation['audio_anchor']]
+    if not any(caption['text_id'] == anchor['text_id'] for caption in presentation['captions']):
+        return None
+    player = _C055_PLAYERS.get((presentation['event'], anchor['text_id']), anchor.get('player_voice'))
+    return player if player in {'male', 'female'} else None
 
 
 def digest(value):
@@ -159,6 +173,7 @@ def compile_occurrences(payload, index=None):
                     or any(a['start'] + a['duration'] > b['start'] + 1e-6 for a, b in zip(captions, captions[1:]))):
                 continue
             variant = {**presentation, 'locale': locale, 'captions': captions,
+                'player': presentation_player(presentation, records),
                 'key': digest([metadata['generation'], metadata['request'], metadata['region'], metadata['dub'],
                     presentation['resource'], presentation['timeline'], locale])}
             variants.append(variant)
@@ -175,11 +190,22 @@ def compile_occurrences(payload, index=None):
                 key = normalize_text(text, locale)
                 if key in keys:
                     global_ids[locale][key].add(row['text_id'])
-    occurrences = defaultdict(set)
+    occurrences = defaultdict(list)
     for variant in variants:
-        for caption in variant['captions']:
+        for ordinal, caption in enumerate(variant['captions']):
             key = normalize_text(records[caption['text_id']]['texts'][variant['locale']], variant['locale'])
-            occurrences[variant['locale'], key].add(variant['key'])
+            occurrences[variant['locale'], key].append((variant, ordinal, caption))
+    player_anchors, shared_rows = {}, set()
+    for (locale, key), hits in occurrences.items():
+        if not key or len(hits) != 2 or {variant['player'] for variant, _, _ in hits} != {'female', 'male'}:
+            continue
+        cue_ids = {caption['text_id'] for _, _, caption in hits}
+        if (len(cue_ids) != 1 or global_ids[locale][key] != cue_ids
+                or len({variant['event'] for variant, _, _ in hits}) != 2):
+            continue
+        player_anchors[locale, key] = {variant['player']: (variant['key'], ordinal)
+            for variant, ordinal, _ in hits}
+        shared_rows.update(player_anchors[locale, key].values())
     rows, anchors = {}, defaultdict(list)
     for variant in variants:
         locale, eligible = variant['locale'], []
@@ -189,7 +215,7 @@ def compile_occurrences(payload, index=None):
             text = base['texts'][locale]
             key = normalize_text(text, locale)
             if (key and global_ids[locale][key] == {caption['text_id']}
-                    and occurrences[locale, key] == {variant['key']}
+                    and len(occurrences[locale, key]) == 1
                     and base.get('audio') == anchor_audio and base.get('voice_status') == 'voiced'):
                 # When compiling for capture, additionally require the actual
                 # full multilingual matcher to agree, without a context hint.
@@ -201,7 +227,7 @@ def compile_occurrences(payload, index=None):
         variant['rows'] = {}
         for ordinal, caption in enumerate(variant['captions']):
             base = records[caption['text_id']]
-            if (not any(anchor < ordinal for anchor in eligible)
+            if ((variant['key'], ordinal) not in shared_rows and not any(anchor < ordinal for anchor in eligible)
                     or base.get('audio') or base.get('voice_status') not in ('unknown', 'unavailable')
                     or base.get('text_binding_unresolved') or base.get('audio_omitted_by_request')):
                 continue
@@ -219,6 +245,7 @@ def compile_occurrences(payload, index=None):
             variant['rows'][ordinal] = row
             rows[row['text_id']] = row
     return {'metadata': metadata, 'request_sha256': digest(metadata['request']),
+        'player_anchors': player_anchors,
         'variants': {variant['key']: variant for variant in variants}, 'anchors': dict(anchors), 'rows': rows,
         'texts': {caption['text_id']: records[caption['text_id']]['texts']
             for variant in variants for caption in variant['captions']}}

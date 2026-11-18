@@ -21,6 +21,7 @@ from .caption_layout import NativeNteCaption
 from .languages import study_language
 from .models import AppSettings, CaptureSnapshot
 from .native_frame_admission import NativeFrameReceipt
+from .zzz_cinema_context import CinemaContext, ProxyEvidence, proxy_source_scope
 from .multilingual_index import MultilingualTextIndex
 from .prepared_library import CLIP, SHA, MAX_AUDIO, PreparedLibraryStore, _no_links
 from .storage import TranscriptStore
@@ -58,6 +59,8 @@ class PreparedCaptureSession:
         self.contexts = {}
         self.floating_contexts = {}
         self.nte_context = NteDialogueContext()
+        self.zzz_cinema = CinemaContext()
+        self.zzz_proxy = ProxyEvidence()
         self.index = self.directory = None
         self.records_by_id = {}
         self.context_kinds = set()
@@ -149,6 +152,10 @@ class PreparedCaptureSession:
         rows = [row for row in self.records_by_id.get(match.text_id, ())
                 if row.get('source_text') == match.source_text and row.get('audio_locale') == match.audio_locale
                 and row.get('voice_status') == match.voice_status]
+        if not rows and self.index.game == 'zzz' and self.index._zzz_cinema_occurrences:
+            row = self.index._zzz_cinema_occurrences['rows'].get(match.text_id)
+            if row and all(getattr(match, key) == value for key, value in self.index._publisher_context(row).items()):
+                return row
         if self.index.game != 'zzz' or len(rows) > 1:
             rows = [row for row in rows if not row.get('player_voice') or row['player_voice'] == self.index.player_voice]
         return rows[0] if len(rows) == 1 else None
@@ -216,6 +223,8 @@ class PreparedCaptureSession:
             self.processed_channels.clear()
             self.trackers.clear(); self.contexts.clear(); self.floating_contexts.clear()
             self.nte_context.reset()
+            self.zzz_cinema.reset()
+            self.zzz_proxy.prepare(None, None)
             self._independent_exact.clear();self._continuation_checks.clear();self._admission_key = None
             self.message = message
             self.state_version += 1
@@ -299,7 +308,8 @@ class PreparedCaptureSession:
         return line if line and self.recordings.matches(identity, self._recording_stamp(line)) else None
 
     def observe(self, generation, sequence, groups, *, channel='dialogue', now=None, dialogue_menu=False,
-            nte_layout=None, presentation_lines=None, frame_size=None, admission=None):
+            nte_layout=None, presentation_lines=None, frame_size=None, admission=None,
+            zzz_captions=None, zzz_dialogue=None):
         """Admit fresh host OCR only; late/replayed/rotated-source results lose scope.
 
         The host owns frame acquisition, calibration and OCR. This method uses
@@ -367,6 +377,29 @@ class PreparedCaptureSession:
             else:
                 matches = self.index.match_line_groups(groups, settings.fuzzy_threshold, channel=channel)
             matches = {hit.text_id: hit for hit in matches if eligible(hit)}
+            if (channel == 'cinematic' and self.index.game == 'zzz'
+                    and self.index._zzz_cinema_occurrences and admission is not None):
+                source_scope = proxy_source_scope(self.index, None, settings.zzz_proxy_voice)
+                proxy_scope = (generation, source_scope)
+                if self.zzz_proxy.scope != proxy_scope:
+                    self.zzz_proxy.prepare(proxy_scope, settings.previous_zzz_cinema_proxy(source_scope))
+                frame = admission.cinema_frame(self, generation, sequence, now)
+                prior_player = self.zzz_proxy.voice(settings.zzz_proxy_voice)
+                player = self.zzz_proxy.observe(self.index, [*(zzz_dialogue or []), *(zzz_captions or [])],
+                    frame=frame, now=now, stable_frames=settings.stable_frames)
+                if player and source_scope:
+                    self.settings.remember_zzz_cinema_proxy(source_scope, player)
+                if prior_player != self.zzz_proxy.voice(settings.zzz_proxy_voice):
+                    prior_player = None
+                hits = self.zzz_cinema.observe(self.index, zzz_captions or [],
+                    scope=(proxy_scope, admission_key), frame=frame, now=now,
+                    stable_frames=settings.stable_frames, player=prior_player)
+                for hit in hits:
+                    if eligible(hit):
+                        binding = self.index._zzz_cinema_occurrences['rows'][hit.text_id]
+                        for member in binding['member_text_ids']:
+                            matches.pop(member, None)
+                        matches[hit.text_id] = hit
             original_direct = matches
             matches, training = positioned_training_matches(self.index, matches, presentation_lines, frame_size,
                 enabled=policy.silent_enabled, dialogue_menu=dialogue_menu)

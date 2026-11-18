@@ -5,12 +5,12 @@ import pytest
 
 from backend.multilingual_index import MultilingualTextIndex
 from backend.zzz_cinema_occurrences import FIELD, build, digest, recording_rows
-from backend.zzz_cinema_context import CinemaContext, CinemaFrame
+from backend.zzz_cinema_context import CinemaContext, CinemaFrame, ProxyEvidence, proxy_source_scope
 from backend.zzz_pc_audio import LocalOriginals, _binding_keys
 from backend.desktop_original_audio import DesktopOriginalVoices, occurrence
 
 
-def source(tmp_path):
+def source(tmp_path, *, player_branches=False):
     generation = 'sophon-' + 'c' * 64
     request = {'region': 'global', 'source_locale': 'ja', 'target_locales': ['en', 'zh-Hans'], 'content_mode': 'text-audio'}
     values = {
@@ -29,12 +29,16 @@ def source(tmp_path):
             'audio': audio, 'audio_locale': 'ja', 'audio_scope': 'context' if audio else 'line',
             'voice_status': 'voiced' if audio else 'unavailable', 'dialogue_kind': 'cutscene',
             'channels': ['cinematic'], 'text_capture_verified': True})
+    if player_branches:
+        records[0]['player_voice'] = 'male'
+        records[1]['player_voice'] = 'female'
     payload = {'format': 2, 'game': 'zzz', 'fingerprint': generation, 'publisher_region': 'global',
         'source_locale': 'ja', 'content_mode': 'text-audio', 'records': records}
     raw = []
     for variant, anchor in enumerate(('anchor-one', 'anchor-two'), 1):
         for language, locale in enumerate(('ja', 'en', 'zh-Hans'), 1):
-            for ordinal, identity in enumerate((anchor, 'shared-one', 'shared-two')):
+            sequence = ('shared-one', anchor, 'shared-two') if player_branches else (anchor, 'shared-one', 'shared-two')
+            for ordinal, identity in enumerate(sequence):
                 raw.append({'resource': str(variant) * 64, 'timeline': str(variant * 100),
                     'event': records[variant - 1]['audio']['event'], 'text_id': identity, 'locale': locale,
                     'start': 1. + ordinal * 3, 'duration': 1., 'track': str(variant * 100 + language),
@@ -48,10 +52,10 @@ def source(tmp_path):
     return payload, index
 
 
-def observe(context, index, text, sequence, when, *, scope='session-one', fresh=True):
+def observe(context, index, text, sequence, when, *, scope='session-one', fresh=True, player=None):
     frame = CinemaFrame(sequence, when, when + .01, fresh)
     return context.observe(index, [text] if text else [], scope=scope, frame=frame,
-        now=when + .05, stable_frames=2)
+        now=when + .05, stable_frames=2, player=player)
 
 
 def arm(context, index, variant=0, *, locale='ja'):
@@ -81,6 +85,89 @@ def test_forward_context_keeps_base_ambiguous_and_selects_actual_event(tmp_path,
     assert hit.publisher_occurrence_sha256 == occurrence(row)
     assert payload['records'][2]['voice_status'] == 'unavailable' and payload['records'][2]['audio'] is None
     assert (row['text_id'], digest(row['audio'])) in _binding_keys(payload)
+
+
+@pytest.mark.parametrize('role, branch', [('male', 0), ('female', 1)])
+@pytest.mark.parametrize('locale', ['ja', 'en', 'zh-Hans'])
+def test_shared_opening_needs_two_fresh_frames_and_an_established_role(tmp_path, role, branch, locale):
+    payload, index = source(tmp_path, player_branches=True)
+    context = CinemaContext()
+    caption = payload['records'][2]['texts'][locale]
+    for ordinal in (1, 2):
+        assert not observe(context, index, caption, ordinal, 101 + ordinal * .2)
+    assert not observe(context, index, caption, 3, 101.6, player=role)
+    hit, = observe(context, index, caption, 4, 101.8, player=role)
+    row = index._zzz_cinema_occurrences['rows'][hit.text_id]
+    assert row['audio']['event'] == payload['records'][branch]['audio']['event']
+    assert row['member_text_ids'] == ['shared-one']
+    assert not observe(context, index, caption, 5, 102, player=None)
+
+
+def test_proxy_remembers_confirmed_previous_session_and_replaces_it_after_two_frames(tmp_path):
+    from backend.config import SettingsStore
+
+    payload, index = source(tmp_path, player_branches=True)
+    settings = SettingsStore(tmp_path / 'settings.json')
+    scope = proxy_source_scope(index, 'account-one', 'unconfigured')
+    context = ProxyEvidence()
+    context.prepare('first-session', None)
+    female_line = payload['records'][1]['texts']['en']
+    male_line = payload['records'][0]['texts']['en']
+
+    def role(text, seq, at, fresh=True):
+        return context.observe(index, [text], frame=CinemaFrame(seq, at, at, fresh),
+            now=at, stable_frames=2)
+
+    assert not role(male_line, 1, 1)
+    assert not role(male_line, 2, 1.2, fresh=False)
+    assert not role(male_line, 3, 1.4)
+    assert role(male_line, 4, 1.6) == 'male'
+    settings.remember_zzz_cinema_proxy(scope, 'male')
+    reopened = SettingsStore(settings.path).get()
+    context.prepare('second-session', reopened.previous_zzz_cinema_proxy(scope))
+    assert context.voice('unconfigured') == 'male'
+    assert not role(female_line, 5, 1.8)
+    assert context.voice('unconfigured') is None
+    assert role(female_line, 6, 2) == 'female'
+    assert context.voice('unconfigured') == 'female'
+    other_account = proxy_source_scope(index, 'account-two', 'unconfigured')
+    assert reopened.previous_zzz_cinema_proxy(other_account) is None
+
+
+def test_native_capture_reuses_scoped_previous_player_and_registers_original(tmp_path):
+    from backend.native_frame_admission import NativeFrameAdmissions
+    from backend.prepared_session import PreparedCaptureSession
+
+    payload, index = source(tmp_path, player_branches=True)
+    session = PreparedCaptureSession(tmp_path / 'host')
+    descriptor = {'game': 'zzz', 'request': payload[FIELD]['request'],
+        'revision': payload['fingerprint'], 'ready': True}
+    session.activate_source(tmp_path, index, descriptor, SimpleNamespace(has=lambda row: True), lambda *_: None)
+    session._queue_original = lambda _: None
+    generation = session.start()
+    clock = [101.]
+    admissions = NativeFrameAdmissions(clock=lambda: clock[0])
+    app_owner = ('a' * 32, 0, ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 1))
+
+    def frame(sequence, now, *, dialogue=(), cinema=(), scope=app_owner):
+        clock[0] = now
+        admissions.admit(session, generation, sequence, scope)
+        with admissions.result(session, generation, sequence, scope) as receipt:
+            return session.observe(generation, sequence, list(cinema), channel='cinematic',
+                now=now, admission=receipt, zzz_dialogue=dialogue, zzz_captions=cinema)
+
+    player_line = payload['records'][0]['texts']['en']
+    assert not frame(1, 101., dialogue=[player_line])
+    assert not frame(2, 101.2, dialogue=[player_line])
+    generation = session.start()
+    assert session.zzz_proxy.confirmed is None
+    caption = payload['records'][2]['texts']['en']
+    assert not frame(1, 201.1, cinema=[caption])
+    assert not frame(2, 201.3, cinema=[caption])
+    line, = frame(3, 201.5, cinema=[caption])
+    _, saved = session.recordings.reference(line['id'])
+    assert saved['source']['revision'] == descriptor['revision']
+    assert saved['row']['audio']['event'] == payload['records'][0]['audio']['event']
 
 
 def test_identical_chinese_anchors_never_choose_from_japanese_dub(tmp_path):

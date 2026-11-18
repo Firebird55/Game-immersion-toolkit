@@ -32,7 +32,11 @@ def is_comic_text_id(text_id: str) -> bool:
 class AppSettings(BaseModel):
     zzz_proxy_voice: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
     zzz_detected_proxy: Literal['unconfigured', 'female', 'male'] = 'unconfigured'
+    zzz_cinema_proxy: tuple[str, Literal['female', 'male']] | None = None
     preferred_game: Literal["auto", "zzz", "pragmata", "cyberpunk", "wuwa", "witcher3", "nte", "beyond", "heavyrain", "starrail", "genshin", "endfield", "riseofthetombraider", "shadowofthetombraider", "spyro", "mgsvtpp", "mgsvgz", "deathstranding", "plaguetaleinnocence", "detroit", "portal", "portal2", "halflife", "halflife2", "persona5royal", "deusexhrdc"] = "auto"
+
+    def previous_zzz_cinema_proxy(self, scope: str | None) -> str | None:
+        return self.zzz_cinema_proxy[1] if self.zzz_cinema_proxy and self.zzz_cinema_proxy[0] == scope else None
 
     @field_validator("preferred_game", mode="before")
     @classmethod

@@ -1,5 +1,34 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · C055 original context with a confirmed Proxy
+
+The two published gameplay recordings show Wise and Belle intervening in the
+same fight. Their English captions in the recordings last about 1.5 and 2.75
+seconds respectively. That distinguishes the retained English tracks, whose
+corresponding cues run for 1.467 seconds in the B timeline and 2.933 seconds in
+the G timeline. The original timeline and voice graph associate
+`CS_05.5_02_060` and `Play_vo_C055_EP020B` with Wise, and
+`CS_05.5_02_070` and `Play_vo_C055_EP020G` with Belle.
+[Wise gameplay](https://www.youtube.com/watch?v=Y_UoyktMMoc&t=59s) ·
+[Belle gameplay](https://www.youtube.com/watch?v=FxQ6yIHJJ4k&t=4987s)
+
+The five earlier captions can now match their original film context as soon
+as two fresh captures confirm the film and a previously confirmed Proxy
+selects one of its two authored branches. The app confirms a player-specific
+line on consecutive frames. A new capture may reuse the previous confirmation
+for the same account and prepared source when fresh evidence is absent.
+Conflicting evidence suppresses that hint until a new player is confirmed.
+An unassigned player or an unrelated occurrence stays ambiguous. The recording
+continues to use the authenticated selected dub and is labeled as context
+audio. Other paired films use the same mechanism when their original
+catalogue establishes both player branches.
+
+A replay against the full earlier Global Japanese catalogue and original
+timelines recovered all five early captions in each branch with English,
+Japanese and Simplified Chinese screen text. This measured matching and
+original event ownership. The video samples establish the branch identities.
+The owner will exercise gameplay on the physical Android installation.
+
 ## November 18, 2026 · Global 20574360 text update
 
 The normal Windows game-data provider discovered official Global design and
