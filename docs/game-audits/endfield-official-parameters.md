@@ -879,16 +879,45 @@ after `DT_NULL` are not interpreted as loader declarations; invalid symbol
 bounds remain explicit limitations.
 
 The actual `DT_INIT` declaration instead identifies an initializer in a unique
-file-backed executable load segment. Exactly 32 entry bytes, decoded with the
-existing verified Capstone 5.0.7 in AArch64 mode, show a normal prologue, a
-direct call and data references. No indirect branch or zero-fill code target
-appears within that window. The direct callee and referenced cells remain
-unread. This is not a complete function extent, an unprotected-image finding,
-a header producer, a key derivation or a VM/emulation result. The separate
-`libtprt.so` dependency is recorded only as loader metadata, without assigning
-it writer or decryption behavior. Further source work needs its own bounded
-owner/entry proposal. Canonical header, graph/UI/media and independent host
-admission remain open.
+file-backed executable load segment. The initial 32-byte entry diagnostic,
+decoded with the existing verified Capstone 5.0.7 in AArch64 mode, shows a
+normal prologue, a direct call and data references. No indirect branch or
+zero-fill code target appears within that initial window. The callee and
+referenced cells were unread at that checkpoint; this does not establish a
+complete function extent or an unprotected image.
+
+A subsequent bounded static follow-up distinguishes a saved TLS value, a
+conditional byte-guard writer and two possible branch legs. The guard occupies
+declared zero-fill space: it has no original file byte, and neither an initial
+runtime value nor an executed branch is assumed. The callback slot has an
+original file value of zero, but an exact `DT_RELA` record binds it to symbol
+338, an undefined weak, untyped symbol named `xxxxXXXXxxxx`. This relocation
+provides a distinct loader-owned reference; it does not admit that extra symbol
+as a defined export or reveal its actual provider. A conditional indirect call
+combines the loaded slot with two state fields, after pointer/state and
+alignment checks. Its runtime target and those fields' initializer/writers
+are not established from the retained source.
+
+The coherent final block interprets **148 new code bytes, 8 typed data bytes
+and 1,640 formal metadata bytes**, reusing earlier prefixes and following one
+direct source-owned initializer callee. Both branch legs remain qualified.
+The separate direct callee's 96-byte prefix reads fields and record widths
+consistent with ELF program-header inspection; it does not prove UnityFS
+header handling or a key contract. These are bounded instruction windows,
+not complete function extents. Analysis stops at the conditional indirect
+handoff without selecting an unowned target or bypassing it to expand the
+search. No network transfer, native execution, emulation, external dependency
+acquisition or general code/string scan occurs in this block.
+
+The missing source step is a proved provider/initializer for that weak callback
+and its target state, followed by an actual header/parameter handoff. No such
+owner is assigned to the separate `libtprt.so` dependency merely because it
+appears in loader metadata. This bounded source gap proves neither impossible
+official derivation nor a package-format change. Mainland/Global equivalence
+and whole-APK authenticity remain unproved; the selected member's original CRC
+and local SHA-256 do not supply either claim. No header key, canonical library,
+`SnapshotSource` or Ready state is accepted. Canonical graph/UI/media and
+independent host admission remain open.
 
 ## Android portability audit
 

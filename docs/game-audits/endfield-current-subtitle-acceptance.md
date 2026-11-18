@@ -1078,5 +1078,10 @@ The subsequent [official Android source probe](endfield-official-parameters.md#o
 establishes a publisher-linked mainland APK, its original Manifest identity and
 a complete CRC-checked AArch64 Unity member independently of a game installation.
 Global equivalence and whole-APK authenticity remain unproved. Qualified loader
-metadata and a 32-byte initializer diagnostic do not yet establish the header
-producer or key contract, and do not admit a canonical capture library.
+metadata and the bounded initializer follow-up identify a conditional weak
+callback whose actual provider and state initialization remain unproved. Both
+branch legs stay qualified; original zero-fill or pointer-file values do not
+select runtime behavior. A separate direct prefix shows ELF-header-shaped
+inspection, without establishing the UnityFS header producer or key contract.
+The route stops at that unowned indirect handoff and does not admit a canonical
+capture library, `SnapshotSource` or Ready state.
