@@ -28,6 +28,7 @@ export function authoredInsetsMetrics(xml, packageName, viewport = {}) {
   assert.ok(typeof xml === 'string' && xml.length < 1024 * 1024);
   const metrics = {hierarchy_rotation:Number(/<hierarchy[^>]*\brotation="([0-3])"/.exec(xml)?.[1]),
     hierarchy_bytes:Buffer.byteLength(xml),nodes:0,owned_nodes:0,webview_nodes:0,system_bar_nodes:0,
+    anr_wait_resource:false,error_close_resource:false,error_restart_resource:false,
     webview_rects:[],surface_rects:[],system_bar_rects:[],viewport:{}};
   if (!Number.isInteger(metrics.hierarchy_rotation)) metrics.hierarchy_rotation=null;
   const rect = value => {
@@ -38,6 +39,11 @@ export function authoredInsetsMetrics(xml, packageName, viewport = {}) {
   for (const match of xml.matchAll(/<node\s+([^>]+)>/g)) {
     metrics.nodes++;
     const attrs=Object.fromEntries([...match[1].matchAll(/([\w-]+)="([^"]*)"/g)].map(value=>[value[1],value[2]]));
+    if (attrs.package === 'android') {
+      if (attrs['resource-id'] === 'android:id/aerr_wait') metrics.anr_wait_resource = true;
+      if (attrs['resource-id'] === 'android:id/aerr_close') metrics.error_close_resource = true;
+      if (attrs['resource-id'] === 'android:id/aerr_restart') metrics.error_restart_resource = true;
+    }
     if (attrs.package === packageName) {
       metrics.owned_nodes++;
       if (attrs.class === 'android.webkit.WebView') {
@@ -58,6 +64,11 @@ export function authoredInsetsMetrics(xml, packageName, viewport = {}) {
 export function authoredNativeInsetsMetrics(window, power, packageName) {
   assert.ok(window.length<2*1024*1024 && power.length<2*1024*1024);
   const focus=/mCurrentFocus=([^\n]*)/.exec(window)?.[1];
+  const focusedPackage=focus && /(?:^|\s)([A-Za-z0-9_.]+)\/[A-Za-z0-9_.$]+/.exec(focus)?.[1];
+  const focusCategory=focus===undefined?null:focus.trim()==='null'?'none':focusedPackage===packageName?'own'
+    :focusedPackage==='com.android.systemui'?'systemui'
+    :['com.android.launcher3','com.google.android.apps.nexuslauncher'].includes(focusedPackage)?'launcher'
+    :['com.android.permissioncontroller','com.google.android.permissioncontroller'].includes(focusedPackage)?'permission-controller':'other';
   const rotation=/\b(?:mRotation=ROTATION_|SurfaceOrientation:\s*)([0-3])/.exec(window)?.[1];
   const keyguard=/\b(?:mKeyguardShowing|keyguardShowing|mShowingLockscreen)=(true|false)/.exec(window)?.[1];
   const awake=/\bmWakefulness=(Awake|Asleep|Dozing|Dreaming)/.exec(power)?.[1];
@@ -68,7 +79,7 @@ export function authoredNativeInsetsMetrics(window, power, packageName) {
     if(bounds.every(n=>Number.isSafeInteger(n)&&Math.abs(n)<=16384) && !rects.some(row=>JSON.stringify(row)===JSON.stringify(value)))rects.push(value);
     if(rects.length===8)break;
   }
-  return {focus_is_own:focus===undefined?null:focus.includes(packageName+'/'),
+  return {focus_is_own:focus===undefined?null:focus.includes(packageName+'/'),focus_category:focusCategory,
     native_rotation:rotation===undefined?null:Number(rotation),
     keyguard_showing:keyguard===undefined?null:keyguard==='true',awake:awake===undefined?null:awake==='Awake',system_bar_insets:rects};
 }
