@@ -31,6 +31,10 @@ _MAX_PARAMETERS = 64
 _MAX_SELECTED_PARAMETERS = 65536
 _MAX_LITERAL = 64 * 1024
 _LIMITS = {'native': 1024**3, 'metadata': 512 * 1024**2, 'startup': 64 * 1024**2}
+_PRIMITIVE_TYPE_TAGS = frozenset(range(1, 0x0f)) | {0x16, 0x18, 0x19, 0x1c}
+_LAYOUT_TYPE_TAGS = frozenset(range(1, 0x17)) | {
+    0x18, 0x19, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x40, 0x41, 0x45, 0x55, 0xff,
+}
 
 # Image and generic-class offsets refer to startup metadata. The global
 # table envelopes use the global payload coordinates after its file prefix.
@@ -129,7 +133,7 @@ class _Source:
         _no_links(self.path)
         info = self.path.stat()
         _require(stat.S_ISREG(info.st_mode) and info.st_size == value.size, f'{role} file')
-        self.stream = stack.enter_context(self.path.open('rb'))
+        self.stream = stack.enter_context(self.path.open('rb', buffering=0))
         self.size = value.size
         self.role = role
         self.path_stamp = _stamp(info)
@@ -190,11 +194,17 @@ class _Image:
                 a[1] <= b[0] for a, b in zip(intervals, intervals[1:])), 'PE section overlap')
         _require(0 < self.base <= _MASK64 - _MASK32, 'PE image base')
 
+    def span(self, rva, *, executable):
+        for start, length, offset, code in self.sections:
+            if code == executable and start <= rva < start + length:
+                delta = rva - start
+                return offset + delta, length - delta
+        raise MetadataFormatError('PE address ownership')
+
     def offset(self, rva, size, *, executable):
-        hits = [offset + rva - start for start, length, offset, code in self.sections
-                if code == executable and 0 < size <= length and start <= rva <= start + length - size]
-        _require(len(hits) == 1, 'PE address ownership')
-        return hits[0]
+        offset, available = self.span(rva, executable=executable)
+        _require(0 < size <= available, 'PE address ownership')
+        return offset
 
     def matches(self, pattern, width, *, executable, cancelled):
         for at in self.source.candidates[pattern]:
@@ -245,7 +255,7 @@ def _header(image, metadata, startup, cancelled):
                 windows['types'] = offsets['types'], type_count * 70
             except MetadataFormatError:
                 continue
-            yield windows, image_at, image_count
+            yield windows, image_at, image_count, generic_class_at
     return _unique(candidates(), 'metadata header locator')
 
 
@@ -264,6 +274,7 @@ def _registrations(image, cancelled):
                 tables = target(28, 0x68)
                 type_count = (_integer(metadata, 0x48) - 1455078204) & _MASK32
                 types = _integer(metadata, 0x80, 8) - image.base
+                arrays = _integer(metadata, 0x70, 8) - image.base
                 method_pointers = _integer(code, 0x40, 8) - image.base
                 literal_count = _integer(tables, 0x2c) ^ 0x0bd08dc8
                 _require(0 < type_count < _MAX_INDEX and 0 <= literal_count < _MAX_INDEX, 'registration counts')
@@ -271,7 +282,7 @@ def _registrations(image, cancelled):
                 image.offset(method_pointers, 8, executable=False)
             except MetadataFormatError:
                 continue
-            yield type_count, method_pointers, literal_count
+            yield type_count, types, arrays, method_pointers, literal_count
     return _unique(candidates(), 'registration locator')
 
 
@@ -286,14 +297,49 @@ def _xor_words(data, length, key, step):
         raise MetadataFormatError('metadata UTF-8') from error
 
 
+def _runtime_type_stride(image, table_offset, available, count, cancelled):
+    """Apply the pinned tag scoring to the table's file-backed PE owner."""
+    samples = min(count, 512)
+    scores = {}
+    for stride, tag_offset in ((8, 6), (16, 10)):
+        hits = unread = 0
+        for sample in range(samples):
+            _check_cancelled(cancelled)
+            index = sample * (count - 1) // (samples - 1) if samples > 1 else 0
+            at = index * stride + tag_offset
+            if at < available:
+                tag = image.source.read(table_offset + at, 1, component='runtime type tag')[0]
+                hits += tag in _LAYOUT_TYPE_TAGS
+            elif table_offset + at < image.source.size:
+                # Bytes in another part of the file cannot supply type tags.
+                # Do not let the lack of evidence make a competitor lose.
+                unread += 1
+        scores[stride] = hits / samples, (hits + unread) / samples
+    for stride, other in ((8, 16), (16, 8)):
+        score, _ = scores[stride]
+        _, other_upper_bound = scores[other]
+        if score >= 0.90 and score - other_upper_bound >= 0.20:
+            _require(count * stride <= available, 'runtime type table ownership')
+            return stride
+    raise MetadataFormatError('runtime type layout')
+
+
 class _Records:
     def __init__(self, files, cancelled):
         self.metadata = files['metadata']
         self.startup = files['startup']
         self.image = _Image(files['native'])
         _require(self.metadata.size >= _HEADER_SIZE and self.metadata.read(0, 4) == _MAGIC, 'global metadata prefix')
-        self.windows, images_at, image_count = _header(self.image, self.metadata, self.startup, cancelled)
-        self.type_count, self.method_pointers, self.literal_count = _registrations(self.image, cancelled)
+        self.windows, images_at, image_count, generic_classes_at = _header(
+            self.image, self.metadata, self.startup, cancelled)
+        self.type_count, self.runtime_types_rva, self.arrays_rva, self.method_pointers, self.literal_count = (
+            _registrations(self.image, cancelled))
+        if generic_classes_at < images_at:
+            self.generic_class_extent = images_at - generic_classes_at
+        elif generic_classes_at >= images_at + image_count * 40:
+            self.generic_class_extent = self.startup.size - generic_classes_at
+        else:
+            self.generic_class_extent = 0
         self.definition_count = self.windows['types'][1] // 70
         _require((self.literal_count + 1) * 4 <= self.windows['literals'][1], 'literal index ownership')
         self.images = []
@@ -402,6 +448,51 @@ class _Records:
         _require(type_index < self.type_count, 'parameter type index')
         return type_index, self.name(((_integer(raw, 4) ^ 0x7103092e) - key) & _MASK32)
 
+    def runtime_types(self, indices, cancelled):
+        _require(all(0 <= index < self.type_count for index in indices), 'runtime type index')
+        offset, available = self.image.span(self.runtime_types_rva, executable=False)
+        stride = _runtime_type_stride(self.image, offset, available, self.type_count, cancelled)
+        rows = {}
+        data_width = 4 if stride == 8 else 8
+        for index in indices:
+            _check_cancelled(cancelled)
+            raw = self.image.source.read(offset + index * stride, data_width + 4, component='runtime type row')
+            data = _integer(raw, 0, data_width)
+            attributes = _integer(raw, data_width, 2)
+            tag, flags = raw[data_width + 2:data_width + 4]
+            rows[index] = {'data': data, 'attributes': attributes, 'tag': tag, 'modifiers': flags & 0x3f,
+                           'by_reference': bool(flags & 0x40), 'pinned': bool(flags & 0x80),
+                           'target': self.runtime_target(tag, data, stride)}
+        return stride, rows
+
+    def runtime_target(self, tag, data, stride):
+        if tag in _PRIMITIVE_TYPE_TAGS or (tag == 0x0f and data == 0):
+            return None
+        if tag in {0x11, 0x12}:
+            _require(data < self.definition_count, 'runtime type definition index')
+            return 'type_definition', data
+        if tag in {0x13, 0x1e}:
+            _require(data < self.windows['generic_parameters'][1] // 14, 'runtime generic parameter index')
+            return 'generic_parameter', data
+        if tag == 0x15:
+            _require(data < self.generic_class_extent // 8, 'runtime generic class index')
+            return 'generic_class', data
+        if tag == 0x14:
+            rva = data - self.image.base
+            if stride == 8:
+                _require(self.arrays_rva > 0 and data < _MAX_INDEX, 'runtime array index')
+                rva = self.arrays_rva + data * 32
+            self.image.offset(rva, 32, executable=False)
+            return 'array_rva', rva
+        if tag in {0x0f, 0x10, 0x1d}:
+            if stride == 8 and tag != 0x10:
+                _require(data < self.type_count, 'runtime referenced type index')
+                return 'runtime_index', data
+            rva = data - self.image.base
+            self.image.offset(rva, stride, executable=False)
+            return 'runtime_rva', rva
+        raise MetadataFormatError('unsupported runtime type tag')
+
     def literal(self, index):
         _require(index < self.literal_count, 'literal index')
         raw = self.read('literals', index * 4, 8)
@@ -418,20 +509,23 @@ class _Records:
         return _xor_words(self.read('literal_data', at, (length + 7) & ~7), length, key, 0x464c46540f730312)
 
 
-def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices=(), cancelled=None):
+def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices=(), runtime_type_indices=(),
+                  cancelled=None):
     """Authenticate all three original inputs and return selected raw records.
 
     A requested type includes its fields. Methods independently identify their
     defining type and validate membership in that type's method range. Member
     type indices and nesting are preserved for subsequent runtime type joins.
+    Explicit runtime type requests decode the PE-backed nodes and validate
+    their direct references. They do not traverse referenced records.
     No output files or persistent state are created by this operation.
     """
     _require(isinstance(inputs, dict) and set(inputs) == set(_LIMITS), 'source inputs')
-    for indices in (type_indices, method_indices, literal_indices):
+    for indices in (type_indices, method_indices, literal_indices, runtime_type_indices):
         _require(isinstance(indices, (list, tuple)) and len(indices) <= _MAX_SELECTED
                  and all(type(index) is int and 0 <= index < _MAX_INDEX for index in indices)
                  and len(set(indices)) == len(indices), 'requested indices')
-    _require(type_indices or method_indices or literal_indices, 'empty request')
+    _require(type_indices or method_indices or literal_indices or runtime_type_indices, 'empty request')
     with ExitStack() as stack:
         files = {role: _Source(stack, role, inputs[role], cancelled) for role in _LIMITS}
         records = _Records(files, cancelled)
@@ -464,8 +558,12 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
             literal_bytes += len(value.encode('utf-8'))
             _require(literal_bytes <= 1024**2, 'selected literal bytes')
             literals[index] = value
+        runtime = {}
+        if runtime_type_indices:
+            stride, rows = records.runtime_types(runtime_type_indices, cancelled)
+            runtime = {'runtime_type_stride': stride, 'runtime_types': rows}
         for file in files.values():
             _check_cancelled(cancelled)
             file.check_source()
         return {'sha256': {role: file.sha256 for role, file in files.items()},
-                'types': types, 'fields': fields, 'methods': methods, 'literals': literals}
+                'types': types, 'fields': fields, 'methods': methods, 'literals': literals, **runtime}

@@ -857,9 +857,27 @@ validates it in the startup file separately and keeps the global field bounds.
 The authored fixture shares the numeric range between both files and verifies
 the field record can still be read. [Pinned generic-class accessor](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Runtime/Il2CppType.cs#L98-L112)
 
-Runtime type resolution, generic and nested joins, defaults and the required
-native-index projection remain open. The Android provider gate continues to
-require that projection and device evidence.
+An explicit runtime type request finds the inline native type table through
+metadata registration. The reader samples up to 512 evenly spaced tags for
+each of the two strides. It requires at least 90% known tags and a lead of at
+least 20 percentage points. A stride must fit the source PE section. Bytes
+outside that section cannot count as evidence, and an unread competitor cannot
+make a stride win. The reader returns selected rows with their type tags,
+attributes, flags and checked direct references. [Pinned layout scoring](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Runtime/Il2CppType.cs#L207-L252)
+
+Global 4.6 and 4.7 each produced 512 known tags out of 512 probes for the
+8-byte stride. The 16-byte hypothesis scored 262 and 252 respectively. Each
+generation decoded all 16 selected runtime rows referenced by the sampled
+types, fields and methods. The extra native reads were 1,024 tag bytes and
+128 record bytes per generation, after whole-input authentication. Both
+generations passed their before and after input checks. Authored fixtures
+exercise the 16-byte layout, ambiguous layouts, malformed pointers and stale
+inputs. These actual runtime rows have no independent C# row comparison.
+
+Runtime type name resolution, traversal of generic and array references,
+nested ownership, defaults and the required native-index projection remain
+open. The Android provider gate continues to require that projection and
+device evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
 

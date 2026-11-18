@@ -53,6 +53,7 @@ _GLOBAL_ROWS = (
 )
 _IMAGE_BASE = 0x180000000
 _DATA_RVA = 0x80000
+_TYPE_RVA = _DATA_RVA + 0x1000
 
 
 def _registration(native, at):
@@ -62,12 +63,14 @@ def _registration(native, at):
         native[at + i * 14:at + i * 14 + 14] = lea + b'\x48\x89\x05\0\0\0\0'
 
 
-def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, excess_parameters=False):
+def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, excess_parameters=False,
+             runtime_rows=bytes(48), runtime_count=3, overlay=b''):
     code_length = 0x40000 if seam else 0x200
     if seam:
         code_length += 0x200
     data_at = 0x400 + code_length
-    native = bytearray(data_at + 0x1000)
+    data_length = 0x1000 + len(runtime_rows)
+    native = bytearray(data_at + data_length)
     native[:2] = b'MZ'
     struct.pack_into('<I', native, 60, 0x80)
     struct.pack_into('<4sHH12xH', native, 0x80, b'PE\0\0', 0x8664, 2, 240)
@@ -79,7 +82,7 @@ def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, exc
     sections = optional_at + 240
     struct.pack_into('<III', native, sections + 12, 0x1000, code_length, 0x400)
     struct.pack_into('<I', native, sections + 36, 0x20000000)
-    struct.pack_into('<III', native, sections + 40 + 12, _DATA_RVA, 0x1000, data_at)
+    struct.pack_into('<III', native, sections + 40 + 12, _DATA_RVA, data_length, data_at)
     _registration(native, 0x40000 - 19 if seam else 0x470)
     native[0x410:0x414] = b'MHY\0'
     native[data_at + 0x40:data_at + 0x40 + len(_HEADER)] = _HEADER
@@ -89,11 +92,13 @@ def _sources(tmp_path, *, seam=False, ambiguous=None, invalid_pointer=False, exc
     elif ambiguous == 'header':
         native[data_at + 0x800:data_at + 0x800 + len(_HEADER)] = _HEADER
     struct.pack_into('<Q', native, data_at + 0x260 + 0x40, _IMAGE_BASE + _DATA_RVA + 0x560)
-    struct.pack_into('<I', native, data_at + 0x360 + 0x48, 1455078207)
-    struct.pack_into('<Q', native, data_at + 0x360 + 0x80, _IMAGE_BASE + _DATA_RVA + 0x520)
+    struct.pack_into('<I', native, data_at + 0x360 + 0x48, 1455078204 + runtime_count)
+    struct.pack_into('<Q', native, data_at + 0x360 + 0x80, _IMAGE_BASE + _TYPE_RVA)
     struct.pack_into('<I', native, data_at + 0x460 + 0x2c, 0x0bd08dca)
     target = _DATA_RVA + 0x5c0 if invalid_pointer else 0x1020
     struct.pack_into('<Q', native, data_at + 0x568, _IMAGE_BASE + target)
+    native[data_at + 0x1000:] = runtime_rows
+    native.extend(overlay)
     payload = bytearray(0x900)
     for at, row in _GLOBAL_ROWS:
         data = bytes.fromhex(row)
@@ -183,3 +188,85 @@ def test_input_changed_after_authentication_cannot_publish_records(tmp_path, mon
     monkeypatch.setattr(portable._Records, 'type', change_source_after_read)
     with pytest.raises(MetadataFormatError, match='metadata file changed'):
         read_required(sources, type_indices=(0,))
+
+
+def test_runtime_indices_and_native_pointers_follow_the_authenticated_generation(tmp_path):
+    compact = bytes.fromhex('01000000 1000 1d 43 00000000 0000 12 00 00000000 1200 08 81') + bytes(24)
+    old_source = _sources(tmp_path, runtime_rows=compact)
+    old = read_required(old_source, runtime_type_indices=(0, 1, 2))
+    assert old['runtime_type_stride'] == 8
+    assert old['runtime_types'] == {
+        0: {'data': 1, 'attributes': 16, 'tag': 0x1d, 'modifiers': 3,
+            'by_reference': True, 'pinned': False, 'target': ('runtime_index', 1)},
+        1: {'data': 0, 'attributes': 0, 'tag': 0x12, 'modifiers': 0,
+            'by_reference': False, 'pinned': False, 'target': ('type_definition', 0)},
+        2: {'data': 0, 'attributes': 18, 'tag': 0x08, 'modifiers': 1,
+            'by_reference': False, 'pinned': True, 'target': None},
+    }
+
+    pointer = _IMAGE_BASE + _TYPE_RVA + 16
+    wide = struct.pack('<QHBB4x', pointer, 0x1234, 0x0f, 0xc3) + bytes.fromhex(
+        '0100000000000000 0000 11 00 00000000 0000000000000000 0000 08 00 00000000')
+    current_source = _sources(tmp_path, runtime_rows=wide)
+    with pytest.raises(MetadataFormatError, match='native publisher digest'):
+        read_required(old_source, runtime_type_indices=(0,))
+    current = read_required(current_source, runtime_type_indices=(0, 1))
+    assert current['runtime_type_stride'] == 16
+    assert current['runtime_types'] == {
+        0: {'data': pointer, 'attributes': 0x1234, 'tag': 0x0f, 'modifiers': 3,
+            'by_reference': True, 'pinned': True, 'target': ('runtime_rva', _TYPE_RVA + 16)},
+        1: {'data': 1, 'attributes': 0, 'tag': 0x11, 'modifiers': 0,
+            'by_reference': False, 'pinned': False, 'target': ('type_definition', 1)},
+    }
+
+
+def test_runtime_layout_samples_both_ends_of_a_large_inline_table(tmp_path):
+    compact_int = bytes.fromhex('00000000 0000 08 00')
+    # Exactly 512 evenly spaced rows have valid compact tags. The other 511
+    # alternate with them, so a read of the first 512 rows cannot pass.
+    alternating = (compact_int + bytes(8)) * 511 + compact_int
+    selected = read_required(_sources(tmp_path, runtime_rows=alternating, runtime_count=1023),
+                             runtime_type_indices=(1022,))
+    assert selected['runtime_type_stride'] == 8
+    assert selected['runtime_types'][1022]['tag'] == 0x08
+
+
+def test_runtime_layout_rejects_two_plausible_strides(tmp_path):
+    rows = bytearray(48)
+    for at in (6, 14, 22, 10, 26, 42):
+        rows[at] = 0x08
+    sources = _sources(tmp_path, runtime_rows=bytes(rows))
+    with pytest.raises(MetadataFormatError, match='runtime type layout'):
+        read_required(sources, runtime_type_indices=(0,))
+
+
+def test_runtime_layout_cannot_settle_a_competitor_with_unowned_file_bytes(tmp_path):
+    rows = bytes.fromhex('00000000 0000 08 00 00000800 0000 08 00 00000000 0000 08 00')
+    sources = _sources(tmp_path, runtime_rows=rows, overlay=bytes(32))
+    with pytest.raises(MetadataFormatError, match='runtime type layout'):
+        read_required(sources, runtime_type_indices=(0,))
+
+
+def test_runtime_type_tag_known_to_the_scorer_can_still_be_unsupported(tmp_path):
+    rows = bytes.fromhex('00000000 0000 55 00 00000000 0000 08 00 00000000 0000 01 00')
+    sources = _sources(tmp_path, runtime_rows=rows)
+    with pytest.raises(MetadataFormatError, match='unsupported runtime type tag'):
+        read_required(sources, runtime_type_indices=(0,))
+    assert read_required(sources, runtime_type_indices=(1,))['runtime_type_stride'] == 8
+
+
+@pytest.mark.parametrize('target_rva', [0x1020, _TYPE_RVA + 40])
+def test_runtime_wide_pointer_needs_a_complete_non_executable_record(tmp_path, target_rva):
+    pointer = struct.pack('<QHBB4x', _IMAGE_BASE + target_rva, 0, 0x1d, 0)
+    rows = pointer + bytes.fromhex(
+        '0000000000000000 0000 08 00 00000000 0000000000000000 0000 01 00 00000000')
+    sources = _sources(tmp_path, runtime_rows=rows)
+    with pytest.raises(MetadataFormatError, match='PE address ownership'):
+        read_required(sources, runtime_type_indices=(0,))
+
+
+def test_runtime_wide_layout_requires_full_owner_even_when_the_last_tag_fits(tmp_path):
+    wide_int = bytes.fromhex('0000000000000000 0000 08 00 00000000')
+    rows = (wide_int * 3)[:43]
+    with pytest.raises(MetadataFormatError, match='runtime type table ownership'):
+        read_required(_sources(tmp_path, runtime_rows=rows), runtime_type_indices=(0,))
