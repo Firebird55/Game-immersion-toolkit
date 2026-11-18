@@ -806,6 +806,16 @@ temporary files are 272,730,445 bytes, below 300 MiB. Only exact temporary copie
 are removed. This replay uses the carrier's historical original ETag and does
 not establish a fresh configuration-server generation or companion RSA trust.
 
+The separately frozen ordinary index continuation also passes from those normal
+source receipts: freshly derived RAM-only native material verifies this Global
+configuration PAK's full indices and discovers nine settings members, 16,726
+decoded bytes, all Oodle. The inactive next plan shows zero additional download
+bytes and 16,726 bytes of member storage. No member is decoded and no profile is
+selected. This phase acquires zero new response bytes, retains the same historical
+source qualifications, stays below 300 MiB of temporary files and removes only
+its exact temporary copies. An accepted owned Oodle capability remains the next
+concrete runtime requirement.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
