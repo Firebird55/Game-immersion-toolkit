@@ -989,6 +989,35 @@ distribution tool, not a verified Reverse:1999 game APK. No whole-APK checksum,
 installation acceptance, game/client execution or live detail request is
 claimed; both preparation modes remain discovery-only.
 
+The following header-contract phase follows the exact OkHttp factory used by
+the proven Retrofit builder. Its original client getter delegates to its own
+builder, which registers concrete interceptors. One inspected interceptor
+passes the ordinary initial request unchanged to `proceed`; its exceptional
+recovery helper is not followed. Formal retained type metadata places two
+other concrete interceptors in the fifth DEX, which is not currently retained
+in RAM. No cold read or speculative method choice is made for those owners.
+
+The already inspected native request transport also invokes the exact
+`Le7/a.c` request callback. Its original registration constructs
+`common.net.b`; the constructor's actual field assignment binds the supplied
+`v3.e` provider. The three previously examined initialization paths all pass
+the same concrete `application.features.a` field as that provider. Its
+inspected `h` method has request-flag-dependent account handling, a nullable
+login/token path and further header delegates. The pass stops at these
+concrete configuration/account boundaries: login getters, account state,
+device values, delegated header generation and unretained interceptor code
+are not followed or reused. Conditional account code does not establish that
+the anonymous detail route requires an account; its actual request flags
+and remaining header contract still need proof.
+
+This separate phase closes at six bodies / 1,380 instruction bytes, forty
+try-table bytes, twelve handler bytes and 12,443 metered metadata bytes. All
+source reads reuse authenticated immutable RAM, with zero new cold or origin
+bytes. A failed cache precondition and a dependent missing-spec attempt read
+no source bytes and remain recorded as analysis-tool boundaries. No request
+header values are published, and no endpoint request, device/account data use
+or TLS/hostname/pinning change is introduced.
+
 ### Community key candidate: research only
 
 The original author repository
