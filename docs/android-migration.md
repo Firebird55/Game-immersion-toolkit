@@ -65,6 +65,17 @@ recovery, local voice playback and the iOS-sender route. The desktop-connected
 iOS reader retains its browser and physical-device verification requirements.
 See [issue #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81).
 
+## Native reader insets
+
+Native inset acceptance uses the production reader's actual Android window
+geometry. A debug-only launch records the focused WebView bounds, current
+rotation and visible system-bar/cutout insets. The hosted checks bind each
+portrait/landscape/portrait sample to the installed APK and live app process.
+The Android 14 runs through `fbac2920` reached their local reader service, but
+the accessibility hierarchy showed a system error dialog before the initial
+portrait measurement. Android 16 passed those authored runs. The geometry
+probe records an accessibility snapshot on failure for separate diagnosis.
+
 ## Authored Android account acceptance
 
 A DEBUG cold launch with `toolkitAuthoredAccounts=true` uses a separate

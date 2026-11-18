@@ -123,7 +123,7 @@ writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null
 // Measure the normal reader in its own process after the heavy DEBUG native
 // self-test. Both processes still use the same installed APK and offline rules.
 adb('shell', 'am', 'force-stop', packageName);
-adb('shell', 'am', 'start', '-W', '-n', component);
+adb('shell', 'am', 'start', '-W', '-n', component, '--ez', 'toolkitInsetsEvidence', 'true');
 
 async function connectReader() {
   const pid = await until(() => adb('shell', 'pidof', packageName).split(/\s+/)[0], 'app process');
@@ -167,6 +167,7 @@ assert.equal(normalStartup.accounts.active, 'legacy');assert.deepEqual(normalSta
 const normalAccountGeneration = normalStartup.snapshot.context.account_generation;
 assert.ok(Number.isSafeInteger(normalAccountGeneration));
 const insets = await verifyAuthoredReaderInsets({adb, page, until, packageName,
+  nativeWindowEvidence: true,
   report:value=>writeFileSync(join(output,'android-insets-before-restore.json'),JSON.stringify({...value,
     source_commit:provenance.source_commit,apk_sha256:provenance.apk_sha256},null,2)+'\n')});
 writeFileSync(join(output, 'android-reader-insets-proof.json'), JSON.stringify({
