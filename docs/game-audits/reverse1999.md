@@ -852,10 +852,10 @@ The exact base-URL getter reads its own static string. Its necessary original
 static initializer fills that string through
 `BaseAppContext -> IAppConfiguration.getUriConfig() ->
 IUriConfig.getDomain("DOMAIN_MAIN")`. It supplies no demonstrated literal
-hostname or verified default. The precise remaining host source is the actual
-registered `IUriConfig` implementation and its authored domain configuration.
-A broad search for URLs or the selector string is not substituted for that
-ownership chain. No accountless detail request is attempted.
+hostname or verified default. The next original-metadata pass below closes
+the domain-service implementation and generated registration, then reaches the
+separate environment configuration. A broad URL or selector-string search is
+not substituted for that ownership chain. No accountless request is attempted.
 
 The cumulative semantic phase closes at eight bodies / 1,392 instruction
 bytes, 56 try-table bytes, eleven handler bytes and 27,452 metered metadata
@@ -866,6 +866,54 @@ verified immutable `classes3.dex` in memory. The latter formal pass closes both
 positive carriers in 4.063 seconds. All later method reads reuse verified RAM
 and numeric owner/invoke indices; the counters are not reset to conceal prior
 reads. No new origin bytes, game/client execution, fallback or Ready state.
+
+### Concrete domain-service binding and environment source
+
+An exact formal interface/superclass graph over all 65,491 standard DEX class
+definitions finds two concrete `IUriConfig` implementations: `startup.dependency.e`
+and its subclass `k`. Both use the same original 38-byte `getDomain` method;
+the subclass does not override it. That method reads no instance configuration
+field. It obtains `TapOtherExportBisService` through its companion, delegates
+the selector unchanged, and returns an empty string if the service/result is
+absent. This is not a hostname or proof that two runtime environments have the
+same values.
+
+The companion's lazy supplier calls `ARouter.navigation` with that exact
+service interface. The candidate implementation's original annotation declares
+`/other_export_bis/service`, and it directly implements the export interfaces.
+Annotation/name agreement is not used alone as provider selection. A single
+compiler-owner hypothesis was absent from the retained two DEX members; this
+was not classified as whole-package absence. Formal `IProviderGroup` metadata
+then locates all 37 actual generated registries in the primary DEX, with their
+real interface-method declarations and bounded headers.
+
+A const-class operand pass over only those 37 methods, 5,392 instruction bytes,
+finds one reference owner for the exact implementation class. Only that positive
+344-byte registry body is read. Its original `Map.put` entries explicitly bind
+`com.taptap.other.export.TapOtherExportBisService` and the second export
+interface to `RouteType.PROVIDER`, `TapOtherExportBisServiceImpl.class` and the
+matching authored route. This proves the generated interface-to-provider
+binding; runtime activation is still not executed or inferred.
+
+Only after that binding, the implementation's ten-byte `getDomain` is read.
+It delegates to `other.basic.impl.net.r.b`. That method maps the already proved
+`DOMAIN_MAIN` selector to its own stored domain string. The original `r.d`
+initializer, called before the builder in the three retained initialization
+paths, populates that value directly from `IEnvConfig.getApiDomain()`, with
+exception handling. The precise remaining host producer is now that environment
+provider and its concrete selection. No fallback/static-initializer value or
+runtime hostname is assumed. OkHttp/header production and outer wire-response
+conversion remain separate open points.
+
+The URI-config metadata pass uses 53,039,663 combined verification/metadata
+bytes within 80 MiB; the registry pass uses 53,049,618 within 64 MiB. Both read
+metadata only and keep their allocations distinct. The shared 38-byte method
+and its owner quote use 3,123 metadata bytes within a separate 4 KiB bound. The
+registration/producer phase closes at eight bodies / 904 instruction bytes,
+40 try-table bytes, fourteen handler bytes and 20,232 metered metadata bytes.
+Its later method reads reuse verified immutable RAM and numeric indices. No
+new origin requests, game/client execution, whole-game-APK verification,
+community fallback or Ready state is claimed.
 
 ### Community key candidate: research only
 
