@@ -828,6 +828,17 @@ directly to a single-version callback remains a separate operand-review question
 The exact CMS platform token, native group ownership and keychain format remain
 open; Windows BuildPatch metadata alone proves no CMS platform token.
 
+The separately approved 232-byte existing callback review resolves that direct
+single-version route. Original capture descriptors bind its `Version` upvalue to
+the parent's version parameter, and the operand dataflow passes that exact value
+with the returned group list to the internal group-refresh helper. This path
+does not call the latest-version getter. The group list comes from original
+`GetKeyChainNonDynamicGroups(KeyChainName)` output, not inferred GUIDs or package
+names. This establishes how package-owned version strings can remain scoped
+through group requests; it does not establish the native group schema or admit
+unverified CMS responses. The native group-reader registration owner remains a
+separate metadata-discovery requirement, with no method-body permission implied.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
