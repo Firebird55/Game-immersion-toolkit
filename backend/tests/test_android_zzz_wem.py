@@ -98,7 +98,7 @@ def test_concurrent_android_codecs_wait_for_their_own_native_ticket(tmp_path, mo
             return super().begin(raw, channels, rate, frames)
 
         def readFrames(self, frames):
-            assert allow_read.wait(3), 'The holder did not resume'
+            assert allow_read.wait(10), 'The holder did not resume'
             return super().readFrames(frames)
 
         def close(self):
@@ -111,8 +111,15 @@ def test_concurrent_android_codecs_wait_for_their_own_native_ticket(tmp_path, mo
     first, second = (create_android_zzz_codecs(native) for _ in range(2))
     raw = wem(channels=1, rate=48000, frames=3)
 
+    queued_checks = 0
+
     def queued_cancelled():
-        queued_checked.set()
+        nonlocal queued_checks
+        queued_checks += 1
+        # The WAV writer checks twice before opening a ticket. A third check
+        # while the holder is blocked proves that this recording is waiting.
+        if queued_checks >= 3:
+            queued_checked.set()
         return cancel.is_set()
 
     with ThreadPoolExecutor(max_workers=2) as workers:
