@@ -60,6 +60,70 @@ constructors/codecs. The earlier desktop publisher Setup and voice proofs below
 retain their own scope. The fixed initial descriptions remain explicitly planned
 prerequisites rather than updated external text/audio snapshots.
 
+## Staged original Text + audio preparation · November 18, 2026
+
+The shared provider now implements a separate Text + audio chain. Authenticated
+indices select the requested dub's `Play_Vo` bank members and quote their stored
+blocks before transfer. Each acquisition stage is limited to 64 MiB, with source
+checks budgeted separately. Larger selections continue through explicit stages;
+a successful partial download remains an unfinished preparation.
+
+Only acquired banks enter a zero-transfer local pass. The existing Wwise 154
+parser, authored event aliases, language/bank identifiers and protagonist switch
+rules establish playable references. Wrong bank versions or event/dub owners
+fail before media selection. The original media-name inventory is index-only;
+this pass never reads WEM bodies. An immutable receipt binds canonical prepared
+rows and their exact needed media members to the source, reader and audio-codec
+identities. That receipt supplies the following bounded WEM quotes.
+
+A further zero-transfer pass materializes each required original recording only
+after all its authenticated blocks are present. Exact RIFF/WAVE length and full
+SHA256 checks bind immutable raw-WEM objects to their original member owners.
+The final source contains only the emitted rows' required originals, linked by
+content hash, and passes the final original-pointer checks before activation.
+Every playable row must have a verified local original; a remote reference or
+partially downloaded voice pack cannot satisfy readiness. Unknown/unavailable
+rows keep their evidence and never become fabricated silence.
+
+Historical audio restoration reads its immutable snapshot, profile, receipt and
+original objects. It does not consult a current publisher manifest, archive key,
+native schema generator or legacy publisher catalog. The local `has` predicate
+checks exact row ownership and original hashes without executing a decoder.
+Playback uses only the separately inventoried bundled vgmstream/FFmpeg closure,
+rechecked before each child invocation and before publication, with the existing
+authored gain/timing rules. It cannot consult PATH, download tools or fetch an
+absent original. This Windows codec route is not Android preparation support.
+
+Authored original-format service fixtures cover all five study locales, corrupt
+bank/media downloads, wrong event/dub headers, partial media stages, final source
+changes, interrupted publication, changed codec identity and identical recovery.
+Separate inert codec-inventory fixtures cover changed companion libraries,
+original-file tampering, cancellation and exact row/player/locale ownership.
+Native schema acceptance and executable decoding are explicitly modeled in these
+fixtures. Complete real-source Text + audio acquisition/readiness and actual
+decoder playback through this new service remain separate acceptance work.
+Text-only preparation retains its existing route and reads no bank/WEM members.
+
+The retained Global Japanese/Chinese-target ordinary service then completed the
+real bank phase using an independently verified existing Windows codec closure.
+Its 496 missing bank blocks were all available in authenticated local source
+caches. Fourteen cache-served responses accounted for exactly 32,817,114 bytes,
+including 311,258 bytes of original-pointer checks. The single zero-transfer
+local pass validated all 28,959 banks (25,883,905 decoded bytes) and produced
+126,472 canonical rows: 27,718 voiced, 2,003 confirmed written, 1,727 unavailable
+and 95,024 unknown. The immutable binding receipt identifies 25,801 required WEM
+members totaling 1,396,753,700 raw bytes; these are prepared references, not a
+demonstrated gameplay or complete-story denominator.
+
+That trial stopped at the first bounded recording quote, 66,895,834 bytes
+including source checks. It acquired/read no WEM member, used no network/new
+original or software bytes, and did not mark partial audio ready. The complete
+previous Text-only pointer stayed byte-identical and restored normally offline.
+Missing packaged codecs remain an actionable pre-transfer gate; the separate
+explicit codec capability reuses its original inventory without copying software
+or changing supplier acceptance/redistribution flags. Complete real-source audio
+materialization, playback and recovery through this new route remain unfinished.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before

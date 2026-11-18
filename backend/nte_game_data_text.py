@@ -64,8 +64,8 @@ def _parts(owner, receipt, ctx, reader):
 
 def plan(owner, retained, ctx, reader):
     if ctx.request.content_mode != 'text':
-        return GameDataPlan('nte-original-audio-'+content._identity(owner), None, None, stage='content',
-            message='Original NTE dialogue formats are verified. Selected original audio still needs its bounded download preparation.')
+        from . import nte_game_data_audio as audio
+        return audio.plan(owner, retained, ctx, reader)
     packet, _, _, _, _, _, sources, wanted, _ = _parts(owner, retained['receipt'], ctx, reader)
     checks = 2*sum(row['bytes'] for row in owner['metadata_recipe']['imports']['indices']['verification'].values())
     if wanted:

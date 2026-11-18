@@ -102,6 +102,18 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage in {'audio-member-ranges', 'process-audio-bindings', 'materialize-audio', 'finalize-audio'}:
+            reader = self._reader(ctx)
+            from . import nte_game_data_audio as audio
+            from .preparation_errors import PreparationFailure
+            try:
+                if plan.stage == 'process-audio-bindings': return audio.download_bindings(plan, ctx, reader)
+                if plan.stage == 'materialize-audio': return audio.download_materialize(plan, ctx, reader)
+                transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
+                if plan.stage == 'audio-member-ranges': return audio.download_ranges(plan, ctx, reader, transport)
+                return audio.download_finalize(plan, ctx, reader, transport)
+            except PreparationFailure as error:
+                raise GameDataError(error.code, str(error), 409) from error
         if plan.stage in {'authored-subtitle-ranges', 'normalize-text'}:
             reader = self._reader(ctx)
             from . import nte_game_data_text as text
@@ -205,6 +217,15 @@ class NteGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
+        if isinstance(handle, dict) and handle.get('schema') == 'nte-original-audio-snapshot-v1':
+            if self.platform != 'windows':
+                raise GameDataError('nte_audio_runtime_unavailable', 'A compatible original-voice runtime is required on this device.', 409)
+            from .nte_game_data_audio_snapshot import restore
+            from .runtime_bundle import discover_layout
+            from .nte_game_data_runtime import WindowsNteRuntime
+            layout = ((self.native.layout if self.native.audio_layout is None else self.native.audio_layout)
+                if isinstance(self.native, WindowsNteRuntime) else discover_layout())
+            return restore(handle, ctx, layout)
         if isinstance(handle, dict) and handle.get('schema') == 'nte-original-text-snapshot-v1':
             from .nte_game_data_snapshot import restore
             return restore(handle, ctx)

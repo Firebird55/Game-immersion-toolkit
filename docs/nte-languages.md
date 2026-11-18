@@ -15,8 +15,10 @@ packs and authoring-declared subtitles, without voice-bank or WEM member reads.
 Its completed snapshot restores offline without the native reader or current
 key/source discovery. The measured original-source trial is Japanese with a
 Simplified Chinese target; service fixtures cover all five study locales.
-Shared-service Text + audio acquisition, mainland bootstrap integration and an
-independent Android native reader remain separate gates. The existing Windows
+Shared-service Text + audio uses separately quoted voice banks and original
+recordings, and reports Ready only when every playable row has its verified local
+original. The complete real-source acquisition/playback trial, mainland bootstrap
+integration and an independent Android native reader remain separate gates. The existing Windows
 publisher Setup voice route below retains its own evidence and limitations.
 
 Study locales are English, Japanese, Korean, Simplified Chinese and Traditional
