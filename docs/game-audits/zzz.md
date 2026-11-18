@@ -62,6 +62,29 @@ comparison and does not prove that the early speech differs. The five captions
 remain unresolved; all seven saved recordings and their source fences stayed
 unchanged. No heuristic branch selection or relaxed context guard was added.
 
+The current Global `PerformTemplateTb` movie row `50600002` explicitly
+pairs `C055_EP020B.usm` and `C055_EP020G.usm` in columns 2 and 3.
+The earlier original getter check identifies the two column offsets.
+The selected player role for the movie consumer remains unknown. Row
+`50600001` points to the same `C055_EP010.usm` in both columns. Its six
+retained Japanese subtitle references have no uniquely resolved event in
+the current reader.
+
+One read of the **43 verified presentation frames (128,722 staged bytes)**
+found 42 timeline configurations and one `ConfigLanguageVideo` dictionary
+with 12 values. Its projected keys and values had zero C055 names or
+`50600001`/`50600002` references. A separate read of just the checksum-matched
+**2,017-byte frame** checked the complete typed tree, all 180 unnamed array
+members and the serialized path and ID tokens. The nested values hold
+language-keyed `ConfigVideo` URLs. This check also returned zero C055 aliases
+or references to either Perform row.
+
+Binding the five early shared captions still requires an original movie
+caller that joins a stable player role to the selected timeline and voice
+event, plus a capture observation that identifies the active selection
+before the first shared cue. These source checks leave the five captions
+unbound.
+
 ## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
 
 The original C055 subtitle tracks provide a safe forward relationship: each
