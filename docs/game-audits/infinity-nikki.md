@@ -649,9 +649,11 @@ the area abbreviations. Channel values differ; `OverseaRegion` is explicit in
 only two of the five latter variants. The retained successful anonymous Global
 launcher response reports `(region, channel, role)=(4, 3, 0)`, which matches one
 of these profiles by values. Original Global `FirstLoginViewModel` metadata
-independently maps `RegionId`, `ChannelId` and `Role` to those three patch-list
-request fields. That method has platform/audit predicates and is not claimed to
-run on PC. Other updater methods read `CMSConfig.Region/Channel` from
+maps `RegionId`, `ChannelId` and `Role` to those three patch-list request fields.
+The exact retained function's platform guard now resolves to lowercase `ios`
+or `mac`; `windows` returns before settings or URL construction. These aliases
+therefore do not bind a Windows profile. Other updater methods read
+`CMSConfig.Region/Channel` from
 `UPaperHotUpdateRuntimeSettings`; the build-version field named `Region` is not
 silently equated with `X6PackageSettings.RegionId`.
 
@@ -665,6 +667,16 @@ Agreement within the RegionId-4 group narrows that question; it does not justify
 using default/CN values or launcher credentials. No CMS request, original-code
 execution, nonzero-GUID default-key attempt, caption/voice binding or Ready
 snapshot is claimed by this checkpoint.
+
+A separately bounded read of two already parsed Global Lua prototypes totals
+95 instructions / 380 bytes and 1,588 metadata bytes, with no original reread or
+VM execution. `PaperSDKMgr` lines 1787-1809 maps an ISO/area code using the
+already loaded native `GameArea`, an ISO map and an unread `GetPackageArea`
+fallback. It does not establish the original CustomConfig selector or effective
+CMS candidate set. `FirstLoginViewModel` lines 667-690 supplies the audit/platform
+guard correction above. No additional callee, constructor or configuration
+merge order is inferred. The five equal Oversea CMS triplets remain insufficient
+until original dataflow proves that complete effective candidate set.
 
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
