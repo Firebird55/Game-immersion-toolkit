@@ -297,8 +297,10 @@ def download(ctx, planned, reader, *, transport_factory=PublisherTransport, code
     # metadata allowance. It has no permission to acquire a newer client key.
     _verify_current(ctx, handle['build'], planned.revision, transport_factory)
     destination = _safe(ctx.directory / 'textmap.json')
-    write_payload('zzz', result, ctx.request.source_locale, ctx.request.target_locales, destination)
-    snapshot_sha = hashlib.sha256(destination.read_bytes()).hexdigest()
+    write_payload('zzz', result, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check)
+    with destination.open('rb') as stream:
+        snapshot_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
+    ctx.check()
     receipt = {'schema': SCHEMA, 'revision': planned.revision, 'build': handle['build'], 'reader': reader.identity,
                'request': ctx.request.json(), 'snapshot_sha256': snapshot_sha,
                'source_files': [*operation.get('source_files', []), *selected]}

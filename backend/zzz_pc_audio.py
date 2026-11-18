@@ -235,7 +235,7 @@ def download(ctx, planned, reader, codecs, *, transport_factory, verify_current,
     # A successful index with only remote recording addresses is never Ready.
     verify_current(ctx, handle['build'], planned.revision, transport_factory)
     destination = _safe(ctx.directory / 'textmap.json')
-    write_payload('zzz', payload, ctx.request.source_locale, ctx.request.target_locales, destination)
+    write_payload('zzz', payload, ctx.request.source_locale, ctx.request.target_locales, destination, check=ctx.check)
     with destination.open('rb') as stream:snapshot_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
     keys = _binding_keys(payload)
     raw_keys = encoded({'schema': 'zzz-original-bindings-v1', 'revision': planned.revision, 'keys': sorted(keys)})

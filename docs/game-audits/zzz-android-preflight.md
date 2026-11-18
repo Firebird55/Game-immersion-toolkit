@@ -211,6 +211,14 @@ Japanese prepared payload is approximately 254 MB of generated JSON. That is
 neither a download estimate nor Android peak-memory evidence. A mobile adapter
 needs bounded staging, record publication and measured memory acceptance.
 
+The validated snapshot writer emits the existing UTF-8 JSON in writes of
+at most 64 KiB. The ZZZ preparation stages check cancellation during
+validation and publication.
+It replaces the target only after the private temporary file is complete.
+The ZZZ text stage hashes the saved file through a stream. Serialization
+still holds the current escaped JSON token and the prepared records.
+Catalogue assembly and matcher restoration still need peak-memory measurements.
+
 ## Manifest-driven preflight contract
 
 Download and Delete belong to the shared game-data service. The ZZZ provider

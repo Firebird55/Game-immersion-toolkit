@@ -1,6 +1,7 @@
 """Local restoration and explicit stage selection cannot masquerade as audio."""
 import hashlib
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -83,8 +84,9 @@ def test_restored_receipt_and_selection_cannot_be_replaced(tmp_path):
     with pytest.raises(GameDataError):stages.restore(wrong, handle)
 
 
-def test_final_publisher_change_refuses_snapshot_publication(tmp_path, monkeypatch):
-    """Reader success cannot publish a candidate after the official pointer moved."""
+@pytest.mark.parametrize('pointer_changed', [False, True])
+def test_final_publisher_guard_and_snapshot_digest(tmp_path, monkeypatch, pointer_changed):
+    """Only the current source can publish a snapshot and its streamed digest."""
     request = GameDataRequest('global', 'ja', ('en',))
     build = {'channel': 'zzz-global', 'version': '3.3.0', 'build': 'candidate'}
     reader = SimpleNamespace(identity='frozen-reader')
@@ -108,14 +110,36 @@ def test_final_publisher_change_refuses_snapshot_publication(tmp_path, monkeypat
     monkeypatch.setattr(stages, '_metadata', lambda *args: ({}, {}, {}))
     monkeypatch.setattr(stages, '_load_operations', lambda *args: {'operations': {}})
     monkeypatch.setattr(stages, '_mode_inputs', lambda *args: ('catalogue', []))
-    monkeypatch.setattr(stages, '_execute', lambda *args: {'records': ['successfully decoded candidate']})
+    payload = {'format': 2, 'game': 'zzz', 'source_locale': 'ja', 'records': [{
+        'text_id': 'AuthoredLine', 'source_locale': 'ja', 'source_text': '合成字幕',
+        'texts': {'ja': '合成字幕', 'en': 'Authored line'},
+        'english': 'Authored line', 'chinese': '', 'audio_locale': 'ja',
+    }]}
+    monkeypatch.setattr(stages, '_execute', lambda *args: payload)
     monkeypatch.setattr(stages.sophon_assets, 'release', lambda *args, **kwargs: build)
-    monkeypatch.setattr(stages, 'discover', lambda *args, **kwargs: {**build, 'build': 'new-generation'})
-    def forbidden(*args, **kwargs):raise AssertionError('Changed-source candidate reached snapshot publication')
-    monkeypatch.setattr(stages, 'write_payload', forbidden)
-    with pytest.raises(GameDataError) as failure:stages.download(ctx, planned, reader)
-    assert failure.value.code == 'zzz_publisher_changed'
-    assert not (tmp_path / 'textmap.json').exists() and not (tmp_path / 'source-receipt.json').exists()
+    monkeypatch.setattr(stages, 'discover', lambda *args, **kwargs:
+                        {**build, 'build': 'new-generation'} if pointer_changed else build)
+    destination = tmp_path / 'textmap.json'
+    receipt_path = tmp_path / 'source-receipt.json'
+    if pointer_changed:
+        with pytest.raises(GameDataError) as failure:
+            stages.download(ctx, planned, reader)
+        assert failure.value.code == 'zzz_publisher_changed'
+        assert not destination.exists() and not receipt_path.exists()
+        return
+
+    read_bytes = Path.read_bytes
+
+    def forbid_snapshot_read(path):
+        if path == destination:
+            pytest.fail('ZZZ loaded the complete written snapshot to compute its digest')
+        return read_bytes(path)
+
+    monkeypatch.setattr(Path, 'read_bytes', forbid_snapshot_read)
+    snapshot = stages.download(ctx, planned, reader)
+    digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode('utf-8')).hexdigest()
+    assert snapshot.restore_handle['snapshot_sha256'] == digest
+    assert json.loads(receipt_path.read_bytes())['snapshot_sha256'] == digest
 
 
 def test_stage_receipts_are_bound_to_current_request_reader_and_source(tmp_path):
