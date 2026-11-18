@@ -74,6 +74,11 @@ try {
      return respond(body);
     }
     if(path==='/api/setup')return respond({completed:true,version:'fixture',games:[],requirements:[],jobs:{},native:{},auto_start:false,lexirise_configured:true,free_gb:10});
+    if(path==='/api/lexirise/accounts'&&request.method()==='GET')return respond({active,profiles:[{id:'first',name:'First fixture account'},{id:'second',name:'Second fixture account'}]});
+    // A connected account now selects the Lexirise reader even with a legacy
+    // stored mode. Keep this ordering fixture on its explicit text fallback;
+    // successful preference/analysis flows belong to language-account-e2e.
+    if(path==='/api/lexirise/settings'&&request.method()==='GET')return respond({detail:'Authored preference outage; retain the visible transcript.'},503);
     if(path==='/api/lines/1/lexirise'&&request.method()==='POST')return respond({detail:'Synthetic failure; account was inspected without exporting'},409);
     errors.push('Unexpected fixture route: '+request.method()+' '+path);return respond({},500);
    });

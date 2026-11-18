@@ -760,22 +760,23 @@ Only necessary original initialization is read. The task factory takes
 through the task field, the exact downinfo constructor and the exact fetch
 constructor into the request's `id`. The earlier URL-model `md5` is a different
 value and is not substituted. The exact `AppInfo.apkId` annotation is only
-`Deprecated`, with no demonstrated JSON-name annotation. Therefore the retained
-page's numeric APK ID is **not yet accepted as the current native request ID**.
-The primary download getter's underlying field/schema still needs proof;
-absence of an annotation is not evidence of an impossible official route.
+`Deprecated`, with no demonstrated JSON-name annotation. That fallback does
+not establish the page-to-native ID binding. The next original-model pass below
+instead closes the primary download getter's own schema; absence of a fallback
+annotation is not evidence of an impossible official route.
 
 The complete response collector stores the typed file-info response. Its
 consumer `downinfo.a.m` delegates the ordinary source assignment to
 `downinfo.c.e`, which passes `fetch.b.a()` directly to `tc.b.setUrl`. The
 separate patch path has its own typed getter. This establishes an actual
-response-to-source assignment, rather than a title/icon update; the exact
-getter-to-JSON URL member still needs proof before consuming a live response.
+response-to-source assignment, rather than a title/icon update. The next
+original-model pass below identifies the exact nested JSON URL member before
+any live response is consumed.
 
-The last request edge inspected is the exact `compat.net.c.v` default wrapper;
-it delegates to `c.u(FlowCollector, e7.d, int, Continuation)`. The absolute
-host, wire headers and underlying transport/configuration are still unresolved,
-so no detail endpoint is called and no header, ID or hash URL is guessed.
+That eight-body phase reaches the exact `compat.net.c.v` default wrapper and
+its `c.u(FlowCollector, e7.d, int, Continuation)` delegate. The next bounded pass
+below covers that implementation and its external configuration boundary. No
+detail endpoint is called and no header, ID or hash URL is guessed.
 
 This phase stops at eight bodies / 2,302 instruction bytes, eight try-table
 bytes and six handler bytes. Explicit fail-fast metadata accounting records
@@ -786,6 +787,85 @@ earlier reader overrun remains recorded separately; this later metered pass
 does not erase it. New origin bytes and original-code execution remain zero.
 Preparation, all regional text/audio coverage and normal-update acceptance
 remain open, with no Ready state or community fallback.
+
+### Native primary ID, nested URL schema and injected transport
+
+The original primary `Download.getMApkId()` getter returns its own field with
+`@SerializedName("apk_id")`. That exact key is already present in the retained
+primary default `download` record: **1073124**, tied to the same package, MD5
+and size. This now establishes the native request-ID binding for that cached
+record through the previously proven constructors and input map. It does not
+use the deprecated fallback, website app ID, MD5 or absent native launch flag.
+This remains one retained generation, not a fresh live-detail response.
+
+The exact URL getter returns its original `@SerializedName("download")` field.
+The response-envelope getter returns the `@SerializedName("apk")` member, whose
+original subtype formally inherits that URL model. The ordinary assignment is
+therefore **`apk.download` within the typed file-info payload to the source's
+URL setter**, closed through original getters, annotations and inheritance.
+The outer wire-response conversion, whole game-APK verification and live
+consistency with the declared MD5/size remain pending.
+
+The exact `compat.net.c.u` implementation creates a Retrofit service from its
+stored Retrofit instance and calls its typed request interface. Registered
+interceptors receive the request maps before dispatch. This method does not
+construct the base host or establish the actual transmitted headers. A separate
+operand-only check of the exact owner's 30 methods finds the three writers of
+the two relevant private configuration fields: one constructor and two public
+configuration methods. Only those positive writers are then inspected. The
+constructor creates an empty interceptor list; `c.n(Retrofit, Retrofit)` and
+`c.A(Retrofit)` only store externally supplied instances. They do not supply a
+base URL. The next original-source pass below traces their concrete callers
+and first actual builder. No anonymous request succeeds merely because a
+non-user relative path exists.
+
+The separately approved writer locator validates exactly 4,942 instruction
+bytes and 344 try-table bytes in those 30 owned methods, with full formal
+instruction/payload/handler checks: 11,096,520 existing bytes including
+compressed input and full signed-source verification, 0.062 seconds. It reads
+no unrelated class bodies, generic strings, URLs or keys. The direct semantic
+phase stops at this configuration boundary after seven bodies / 2,288
+instruction bytes, 192 try-table bytes, 40 handler bytes and 37,087 metered
+metadata bytes. Previous failed or superseded interpretations remain recorded;
+no earlier overrun is recast as a pass. No origin request, game/client execution,
+Ready state or fallback activation occurs.
+
+### Original initialization callers and first Retrofit builder
+
+The exact configuration-method caller pass finds `common.net.g.c`, which
+forwards the two supplied Retrofit instances and registers a concretely named
+`common.net.b` interceptor. Its only ordinary caller is the original `g.b`
+wrapper. The latter has three original call owners: `other.basic.impl.c$a.a`,
+`InitHelper.doLiteTask` and `TapOtherExportBisServiceImpl.initTapApi`. These
+remain separate initialization paths; no lite or exported-service path is
+promoted to the active normal path on the strength of its name.
+
+All three exact caller bodies obtain **both** Retrofit arguments from the same
+`other.basic.impl.application.c.e()` method. That actual maker constructs a
+`Retrofit.Builder`, supplies `baseUrl` from the original common-library domain
+provider, adds a Gson converter, supplies an OkHttp client from its own `c()`
+helper and calls `build`. This closes the chain from the detail request to a
+real original builder, rather than stopping at parameter-forwarding wrappers.
+The OkHttp/helper and interceptor header production remain separately unread.
+
+The exact base-URL getter reads its own static string. Its necessary original
+static initializer fills that string through
+`BaseAppContext -> IAppConfiguration.getUriConfig() ->
+IUriConfig.getDomain("DOMAIN_MAIN")`. It supplies no demonstrated literal
+hostname or verified default. The precise remaining host source is the actual
+registered `IUriConfig` implementation and its authored domain configuration.
+A broad search for URLs or the selector string is not substituted for that
+ownership chain. No accountless detail request is attempted.
+
+The cumulative semantic phase closes at eight bodies / 1,392 instruction
+bytes, 56 try-table bytes, eleven handler bytes and 27,452 metered metadata
+bytes. Its two verification allocations remain separate and explicit: the
+first finishes at 128,450,214 bytes within 128 MiB; the later approved
+second-carrier pass reads 12,061,025 bytes within 16 MiB, reusing the already
+verified immutable `classes3.dex` in memory. The latter formal pass closes both
+positive carriers in 4.063 seconds. All later method reads reuse verified RAM
+and numeric owner/invoke indices; the counters are not reset to conceal prior
+reads. No new origin bytes, game/client execution, fallback or Ready state.
 
 ### Community key candidate: research only
 
