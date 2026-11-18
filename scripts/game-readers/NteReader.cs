@@ -119,7 +119,10 @@ internal static class NteReader
                         inventory["registry_bytes"]=new FileInfo(Path.Combine(destination,"dialogue-registry.bin")).Length;
                         inventory["registry_eof_verified"]=true;
                     }
-                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), JsonSerializer.Serialize(inventory));
+                    var inventoryJson = JsonSerializer.Serialize(inventory);
+                    if (System.Text.Encoding.UTF8.GetByteCount(inventoryJson) > 16*1024*1024)
+                        throw new IOException("Original dialogue inventory exceeds the toolkit output limit");
+                    File.WriteAllText(Path.Combine(destination, "dialogue-inventory.json"), inventoryJson);
                 }
                 else if (args[0] == "publisher-tables")
                 {
