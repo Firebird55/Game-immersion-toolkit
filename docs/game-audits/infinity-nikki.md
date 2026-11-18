@@ -837,7 +837,17 @@ does not call the latest-version getter. The group list comes from original
 names. This establishes how package-owned version strings can remain scoped
 through group requests; it does not establish the native group schema or admit
 unverified CMS responses. The native group-reader registration owner remains a
-separate metadata-discovery requirement, with no method-body permission implied.
+separate metadata-discovery requirement; its method body remains unverified.
+
+A bounded exact-name metadata probe finds one group-reader name literal and
+three relocated references in the authenticated CN/common source. It selects
+176 neighboring slot bytes and no method bodies. Reviewing 49,736 bytes of
+existing reflection proofs establishes no formal registrar array extent or
+validated function/property layout: those proofs explicitly preserve their
+adjacency and unknown-layout limitations. The new nearby executable pointers
+therefore remain candidates. A typed original registrar descriptor/call must
+bind array base/count, class owner and native-exec field to identify the reader
+confidently. No generic registry or vtable search continues from these candidates.
 
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
