@@ -1165,6 +1165,38 @@ and header canonicalization, time/nonce generation, other interceptors and
 the response envelope. It does not establish accepted anonymous delivery,
 derive the game's GameConfig key or make either preparation mode ready.
 
+The next bounded identity phase closes the 156-byte Java-call delegate. It
+preserves the supplied environment, object and method identifier, constructs
+the varargs representation and calls only the primary NDK's
+`CallObjectMethodV` slot on its normal path. No additional device, account,
+keystore or attestation lookup is introduced by that delegate.
+
+The original manifest package and the public certificate from the already
+authenticated CMS signer now join the native selector and guard. The
+certificate's derived fingerprint matches the default source guard. The
+manifest package takes the source's explicit default selector branch; it
+does not need to match one of the named special cases. This is an observed
+source branch, not an invented fallback. The original reader's one-match
+assumption was corrected with both passes retained. A missing optional local
+certificate-decoding module failed before source reads; the trusted platform
+CMS decoder subsequently processed only the public certificate.
+
+The identity phase uses 156 new code bytes, 252 exact PC-reference data
+bytes and 3,917 metadata bytes, including failed-pass/replay accounting.
+No real Java context, device/account value, private signing key, hardware
+secret or actual request signature is obtained. Source key/guard values
+stay private. The previous member-signature authority is retained without
+claiming a complete APK hash or installation acceptance.
+
+A separate retained-DEX metadata quote uses 5,167 bytes and reads no bodies
+or cold sources. It identifies the exact header-byte serializer, nonce and
+time generators, URL normalizer, parameter transforms/prefix initializer,
+response callback and abstract HTTP interface. These eight concrete body
+quotes total 808 bytes; the HTTP method annotations and other transport
+interceptors remain separate original-source gates. There is still no live
+endpoint request, completed anonymous wire contract, game-key derivation or
+preparation-ready claim.
+
 ### Community key candidate: research only
 
 The original author repository
