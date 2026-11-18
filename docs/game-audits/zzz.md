@@ -109,6 +109,32 @@ event, plus a capture observation that identifies the active selection
 before the first shared cue. These source checks leave the five captions
 unbound.
 
+## November 18, 2026 · Official Global 3.3.0 content update on one Windows runtime
+
+The ordinary Windows preparation service and the same frozen reader 24 resolved
+publisher design and resource revisions `20245314` → `20574360`. The probe
+revalidated its 38,777,589 cached original bootstrap bytes against official
+publisher metadata. The current gateway supplied the next authenticated source
+without a community endpoint or a game installation.
+
+An interrupted official scene transfer stopped after 65,536 bytes. The last
+prepared source and five saved recordings passed their retained hash checks.
+The retry fetched and verified five changed resources totaling 46,690,322
+bytes. Japanese Text only became Ready with English and Simplified Chinese
+translations. The offline old/current comparison found 450 changed Japanese
+texts among shared rows, 19 added rows and 25 removed rows. Text only retained
+82,031 authored original voice references and downloaded zero audio bytes.
+
+The Japanese Text + Audio selection reused locally authenticated originals.
+Its final attempt deliberately failed while publishing the current pointer.
+The previous Japanese Text only selection and both verified snapshots were
+retained. The ordinary retry became Ready after the final 139,577 bytes of
+publisher metadata and zero new original audio bytes. This trial covers one
+real content revision and one complete prepared dub. A publisher bootstrap
+key rotation, the remaining Global dubs on this source revision, and installed
+Android original preparation remain open. The C055 active-playback evidence
+still requires the role-to-movie binding and the five early cues.
+
 ## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
 
 The original C055 subtitle tracks provide a safe forward relationship: each
