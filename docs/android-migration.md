@@ -1,9 +1,9 @@
 # Android replacement and retired hosted application
 
 The owner retired the independent hosted gaming application on November 16,
-2026, allowing the old site to become unavailable while Android development
-continues. No Android release is currently delivered. A WebView loading the old
-hosted page does not satisfy the replacement.
+2026. The 0.24.0 Android prerelease is scoped to Global Zenless Zone Zero.
+It embeds the shared toolkit core and prepares original publisher data in the
+app. The owner is validating the physical gameplay flow after installation.
 
 The Android app must embed the shared toolkit core and use the maintained
 desktop reader components. Fresh setup uses per-game downloads to prepare and
@@ -17,7 +17,7 @@ provide separate evidence from acceptance on a physical Android device.
 | --- | --- |
 | Desktop game and desktop reader | Existing desktop toolkit. |
 | Desktop game and iPhone/iPad reader | Open the address and connection code shown by **Share** in the running desktop toolkit. The desktop owns processing, history and audio. |
-| iPhone/iPad game and Android reader | Android receiver under implementation. The gaming device must explicitly start its screen sender. |
+| iPhone/iPad game and Android reader | Global ZZZ in the first Android prerelease. Start screen sharing on the gaming device and paste the VDO.Ninja viewer link on Android. Physical gameplay validation is pending. |
 | Android local game capture | A separate MediaProjection adapter requires its own consent, foreground lifecycle and acceptance. It is not implied by receiving a remote stream. |
 | Standalone iOS or two iOS toolkit devices | Retired. |
 
@@ -58,11 +58,11 @@ write permission, upload or deployment job. Historical browser sources and
 authored fixtures remain available during migration; their tests are not Android
 app or physical iOS evidence.
 
-Android delivery still requires an actual installable app, closed runtime and
-dependency inventories, stable update identity, protected signing, restart/import
-recovery, local voice playback and the iOS-sender route. The desktop-connected
-iOS reader retains its browser and physical-device verification requirements.
-See [issue #81](https://github.com/Firebird55/Game-immersion-toolkit/issues/81).
+The first APK uses a stable package identity and owner-protected signing.
+The release receipt covers the physical ARM64 installation and records gameplay
+validation separately. The seven other live-service publishers remain tracked
+in their individual issues. The desktop-connected iOS reader continues to use
+the desktop's Share address. [Android release scope](https://github.com/Firebird55/Game-immersion-toolkit/issues/81)
 
 ## Native reader insets
 

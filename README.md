@@ -76,7 +76,7 @@ These six games are the targets for independent preparation and playback on Linu
 | :--- | :--- |
 | **Windows capture** | Capture game subtitles and read locally. Game files and account keys stay on your PC. |
 | **Desktop-connected reader** | Read the desktop transcript and play matched voices on a phone or tablet, including iPhone and iPad. Keep the desktop running. |
-| **Android app (planned)** | Android will run OCR, match dialogue and play the original voice locally. The shared-core app and iPhone/iPad screen-sender route still need device verification. |
+| **Android prerelease** | The initial app prepares original Global Zenless Zone Zero data directly on Android. Paste the viewer link from an iPhone or iPad screen share to capture subtitles. Physical gameplay validation is pending. |
 
 Lexirise is optional. Migaku remains an independent mode where the browser extension is supported. Existing Chinese transcripts keep their original language.
 

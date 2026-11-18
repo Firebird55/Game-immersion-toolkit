@@ -29,19 +29,20 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa', 'zzz'}
-    assert len(policy['files']) == 48 and len(portable_sources()) == 106
+    assert len(policy['files']) == 59 and len(portable_sources()) == 119
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert 'backend/android_publisher_hash.py' in portable_sources()
     assert not {'backend/endfield_vfs.py', 'backend/endfield_xxhash.py', 'backend/endfield_game_data.py', 'backend/genshin_game_data.py'} & portable_sources()
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
         module for provider in policy['providers'].values() for module in provider['modules']} | set(policy['context_modules'])
-    assert all(not provider['snapshot_runtime'] for provider in policy['providers'].values())
+    assert {name for name, provider in policy['providers'].items() if provider['snapshot_runtime']} == {'zzz'}
     for name in ('nte', 'wuwa'):
         assert policy['providers'][name]['dependencies'] == ['python-stdlib','toolkit-publisher-crypto-v1']
     assert policy['providers']['reverse1999']['dependencies'] == ['python-stdlib']
     assert policy['providers']['zzz']['dependencies'] == [
-        'python-stdlib', 'zstandard==0.25.0', 'toolkit-publisher-crypto-v1', 'toolkit-android-zzz-catalogue-v1']
+        'python-stdlib', 'zstandard==0.25.0', 'toolkit-publisher-crypto-v1', 'toolkit-android-zzz-catalogue-v1',
+        'flatbuffers==25.12.19', 'toolkit-zzz-wem-pcm-v1']
     assert policy['providers']['nte']['stages'] == ['compatibility', 'manifest-verification']
     for name, receipt in policy['files'].items():
         assert re.fullmatch(r'backend/[a-z0-9_]+\.py', name)
@@ -76,6 +77,10 @@ def deny(*a,**k):raise AssertionError('An unaccounted network or desktop executi
 socket.socket.connect=deny;socket.create_connection=deny
 import subprocess
 subprocess.Popen=deny
+# The reviewed Android wheelhouse has no NumPy. FlatBuffers tests availability
+# through PathFinder before attempting its optional optimization.
+installed=importlib.machinery.PathFinder.find_spec
+importlib.machinery.PathFinder.find_spec=staticmethod(lambda name,*a,**k: None if name=='numpy' else installed(name,*a,**k))
 class Block(importlib.abc.MetaPathFinder):
  def find_spec(self,name,path=None,target=None):
   if any(name==value or name.startswith(value+'.') for value in policy['forbidden_stage_imports']):deny()
@@ -84,7 +89,7 @@ from backend.game_data_providers import create_game_data_providers
 from backend.game_data import GameDataService
 from backend.publisher_transport import PublisherTransport
 from backend import nte_updater_source as source,nte_updater_baseline as baseline
-from backend import android_zzz_catalogue, zzz_pc_sources, zzz_pc_stages
+from backend import android_zzz_catalogue, android_zzz_wem, zzz_pc_audio, zzz_pc_sources, zzz_pc_stages
 class UnusedNative:
  def __getattribute__(self,name):raise AssertionError('A pure stage queried a native service')
 providers=create_game_data_providers(platform='android',native=UnusedNative())
@@ -254,7 +259,7 @@ def test_exact_closed_namespace_authenticates_original_sources_without_desktop_o
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 106 and proof['registry'] == ['nte','reverse1999','wuwa','zzz']
+    assert proof['owned_modules'] == 119 and proof['registry'] == ['nte','reverse1999','wuwa','zzz']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['manifest_verified'] == 2
     assert proof['native_android_execution'] is False

@@ -9,6 +9,7 @@ param(
     [Parameter(Mandatory=$true)][string]$PublisherCryptoSourceArchive,
     [Parameter(Mandatory=$true)][string]$PublisherHashSourceArchive,
     [string]$ZzzCatalogueAssets,
+    [string]$ZzzWemSources,
     [string]$DecoderSourceArchive,
     [string]$GradleUserHome,
     [ValidateSet('debug','ownerCandidate','release')][string]$Variant='debug',
@@ -41,6 +42,7 @@ $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build
 . (Join-Path $PSScriptRoot 'android-signing.ps1')
 if($Variant -ne 'debug' -and ($env:GITHUB_ACTIONS -eq 'true' -or -not $SigningIdentityRoot -or $VersionCode -lt 1)) {throw 'Owner builds require a protected local identity and explicit increasing version code on the owner host.'}
 if($Variant -eq 'debug' -and $SigningIdentityRoot){throw 'CI/debug candidates cannot use the owner signing identity.'}
+if($Variant -eq 'release' -and (-not $ZzzCatalogueAssets -or -not $ZzzWemSources)){throw 'The Android release requires the verified ZZZ catalogue and Wwise audio software.'}
 if($VersionCode -eq 0){$VersionCode=1}
 if($VersionCode -lt 1 -or $VersionCode -gt 2100000000){throw 'Invalid Android version code.'}
 $SdkRoot=Resolve-AndroidSupplierPath $SdkRoot 'Android SDK' @("platforms/android-$($policy.compile_sdk)/android.jar","build-tools/$($policy.build_tools)/aapt2.exe","build-tools/$($policy.build_tools)/zipalign.exe")
@@ -90,6 +92,14 @@ if($ZzzCatalogueAssets){
     & $Python (Join-Path $PSScriptRoot 'android-zzz-catalogue-assets.py') --input $ZzzCatalogueAssets --output $catalogueRoot
     if($LASTEXITCODE -ne 0){throw 'The reviewed Android ZZZ catalogue software and corresponding source did not verify.'}
     $env:ANDROID_ZZZ_CATALOGUE_ASSETS=$catalogueRoot
+}
+$env:ANDROID_ZZZ_WEM_BUNDLE=$null
+if($ZzzWemSources){
+    $ZzzWemSources=Resolve-AndroidSupplierPath $ZzzWemSources 'Reviewed Wwise Vorbis codec sources' @('vgmstream-r2168-source.tar.gz','libvorbis-1.3.7.tar.xz','libogg-1.3.5.tar.xz')
+    $zzzWemRoot=Join-Path $BuildRoot ('zzz-wem-'+[Guid]::NewGuid().ToString('N'))
+    & $Python (Join-Path $PSScriptRoot 'build-android-zzz-wem.py') --suppliers $ZzzWemSources --ndk (Join-Path $SdkRoot 'ndk/27.3.13750724') --ndk-archive $NdkArchive --output $zzzWemRoot
+    if($LASTEXITCODE -ne 0){throw 'The reviewed Android ZZZ Wwise Vorbis software failed verification.'}
+    $env:ANDROID_ZZZ_WEM_BUNDLE=$zzzWemRoot
 }
 $env:ANDROID_WUWA_FIXTURE=Join-Path $BuildRoot 'wuwa-authored-bootstrap.json'
 & $Python (Join-Path $PSScriptRoot 'prepare-android-wuwa-probe.py') --output $env:ANDROID_WUWA_FIXTURE
@@ -173,6 +183,9 @@ if([bool]$nativeAudit.zzz_catalogue_component.present -ne [bool]$ZzzCatalogueAss
 }
 if($nativeAudit.frontend_build_id -ne $frontendManifest.build_id){throw 'The APK reader differs from the verified shared frontend.'}
 if($Variant -eq 'release'){Assert-AndroidReleaseFrontend $nativeAudit.frontend $head $version}
+if([bool]$nativeAudit.zzz_wem_component.present -ne [bool]$ZzzWemSources) {
+    throw 'The APK differs from the requested ZZZ Wwise Vorbis software selection.'
+}
 $baseReceipt=Read-AndroidBoundBaseReceipt $Wheelhouse $receipt $policyHash
 foreach($abi in $policy.abis) {
     $nativeReceipt=$baseReceipt.native.PSObject.Properties[$abi].Value
@@ -214,6 +227,7 @@ $proof.native_publisher_hash_manifest_sha256=(Get-FileHash -LiteralPath (Join-Pa
 $proof.publisher_hash_authored_fixture=$nativeAudit.native_publisher_hash.authored_fixture
 $proof.genshin_profile_component=$nativeAudit.genshin_profile_component
 $proof.zzz_catalogue_component=$nativeAudit.zzz_catalogue_component
+$proof.zzz_wem_component=$nativeAudit.zzz_wem_component
 $proof.wuwa_authored_fixture=$nativeAudit.wuwa_authored_fixture
 [IO.File]::WriteAllText((Join-Path $BuildRoot 'ANDROID-PROVENANCE.json'),(ConvertTo-Json $proof -Depth 8)+"`n",[Text.UTF8Encoding]::new($false))
 Write-Output 'Built a verified Android candidate; release and physical acceptance remain separate.'

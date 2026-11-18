@@ -97,7 +97,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         if: steps.scope.outputs.full == 'true'
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '10.0.302'
       - name: Compile owned NTE reader without game assets
         if: steps.scope.outputs.full == 'true'
         run: dotnet build scripts/game-readers/NteReader.csproj -c Release -o data/ci-reader -p:BaseIntermediateOutputPath="${{ github.workspace }}/data/ci-reader-obj/" --nologo

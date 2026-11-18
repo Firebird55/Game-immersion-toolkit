@@ -13,8 +13,8 @@ import {LIVE_GAME_IDS} from '../lib/game-data-client.mjs';
 const API = desktopApiBase();
 const baseLanguage = (code: string) => code.toLowerCase().split('-')[0];
 export const voicedLanguages = [...new Set(catalog.games.filter(game => LIVE_GAME_IDS.includes(game.id)).flatMap(game => game.audio.map(baseLanguage)))];
-const accountLanguages = voicedLanguages.filter(isStudyLanguage);
-export const gamesForLanguage = (language: string) => catalog.games.filter(game => LIVE_GAME_IDS.includes(game.id) && game.audio.some(code => baseLanguage(code) === language));
+export const gamesForLanguage = (language: string, gameIds: readonly string[] = LIVE_GAME_IDS) =>
+  catalog.games.filter(game => gameIds.includes(game.id) && game.audio.some(code => baseLanguage(code) === language));
 
 type Preferences = {languages: string[]};
 async function preferences(account: string, signal: AbortSignal, languages?: string[], generation?: number | null): Promise<Preferences> {
@@ -29,7 +29,7 @@ async function preferences(account: string, signal: AbortSignal, languages?: str
   return {languages: value.languages as string[]};
 }
 
-export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, configured = false, accountGeneration?: number | null, accountStatePending = false) {
+export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, configured = false, accountGeneration?: number | null, accountStatePending = false, gameIds: readonly string[] = LIVE_GAME_IDS) {
   const [loaded, setLoaded] = useState<{account: string; languages: string[]} | null>(null);
   const [selection, setSelection] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -39,7 +39,9 @@ export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, 
   const addingRequest = useRef<AbortController | null>(null);
   const lexirise = mode === 'lexirise';
   const scope = lexirise ? `lexirise:${account ?? ''}` : 'plain';
-  const languages = accountStatePending ? [] : lexirise ? configured && loaded && loaded.account === account ? loaded.languages : [] : voicedLanguages;
+  const availableLanguages = voicedLanguages.filter(language => gamesForLanguage(language, gameIds).length > 0);
+  const accountLanguages = availableLanguages.filter(isStudyLanguage);
+  const languages = accountStatePending ? [] : lexirise ? configured && loaded && loaded.account === account ? loaded.languages : [] : availableLanguages;
   const target = languages.includes(selection[scope]) ? selection[scope] : languages.includes('zh') ? 'zh' : languages[0] ?? '';
   const select = (code: string) => setSelection(previous => ({...previous, [scope]: code}));
 
@@ -86,7 +88,7 @@ export function useTargetLanguage(mode: 'lexirise' | 'plain', account?: string, 
       if (!controller.signal.aborted) setError(error instanceof Error ? error.message : 'Could not add language.');
     } finally {if (addingRequest.current === controller) addingRequest.current = null; if (!controller.signal.aborted) setBusy(false);}
   }
-  return {target, select, languages, games: gamesForLanguage(target), error, busy, addLanguage,
+  return {target, select, languages, games: gamesForLanguage(target, gameIds), accountLanguages, error, busy, addLanguage,
     ready: !accountStatePending && configured && !!loaded && loaded.account === account,
     loading: lexirise && (accountStatePending || configured && !!account && loaded?.account !== account && !error),
     reload: () => setRevision(value => value + 1)};
@@ -100,7 +102,7 @@ export function GamePicker({picker, mode, selectedGame, onGameChange, sourceLoca
   const [search, setSearch] = useState('');
   const [adding, setAdding] = useState(false);
   const [addition, setAddition] = useState('');
-  const available: string[] = accountLanguages.filter(code => !picker.languages.includes(code));
+  const available: string[] = picker.accountLanguages.filter(code => !picker.languages.includes(code));
   const sorted = (codes: string[]) => [...codes].sort((a, b) => languageName(a, locale).localeCompare(languageName(b, locale), locale));
   const games = picker.games.filter(game => game.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const selected = picker.games.find(game => game.id === selectedGame);

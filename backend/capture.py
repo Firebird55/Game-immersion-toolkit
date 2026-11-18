@@ -34,7 +34,7 @@ from .zzz_dialogue_context import ZzzDialogueContext
 from .nte_dialogue_context import NteDialogueContext
 from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
-from .zzz_cinema_context import CinemaFrame
+from .zzz_cinema_context import CinemaFrame, ProxyEvidence, proxy_source_scope
 
 
 from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
@@ -130,6 +130,7 @@ class CaptureService:
         self._caption_context_tracker = StableMatchTracker()
         self._zzz_dialogue_context = ZzzDialogueContext()
         self._zzz_cutscene_context = ZzzCutsceneContext()
+        self._zzz_proxy_evidence = ProxyEvidence()
         self._unvoiced_scope = None
         self._unvoiced_trackers = {}
 
@@ -500,6 +501,7 @@ class CaptureService:
         ]
         self._excluded_screen = self._classify_screen_header(header_lines)
         image = self._capture(crop_bounds)
+        dialogue_frame = getattr(self._window_frame, 'cinema_frame', None)
         self._set_preview(image)
         dialogue_box_layout = self._has_dialogue_box(image)
         image = self._ocr_image(image, window)
@@ -538,11 +540,19 @@ class CaptureService:
                           getattr(self.textmaps, '_signature', None),
                           getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
                           getattr(self, 'context_scope', lambda: None)())
+        proxy_scope = proxy_source_scope(self.textmaps,
+            (getattr(self.voice_assets, 'descriptor', None) or {}).get('_desktop_profile'), settings.zzz_proxy_voice)
         if self._zzz_cutscene_context.scope != cutscene_scope:
             self._zzz_cutscene_context.prepare(self.textmaps, cutscene_scope,
-                self.transcript.list(limit=50), self.session_id)
+                () if proxy_scope else self.transcript.list(limit=50), self.session_id)
+        if self._zzz_proxy_evidence.scope != cutscene_scope:
+            self._zzz_proxy_evidence.prepare(cutscene_scope, settings.previous_zzz_cinema_proxy(proxy_scope))
+        prior_player = self._zzz_proxy_evidence.voice(settings.zzz_proxy_voice) if proxy_scope else None
+        if proxy_scope:
+            self.textmaps.player_voice = prior_player or 'unconfigured'
         if excluded_screen:
             self._zzz_cutscene_context.clear_scene()
+            self._zzz_proxy_evidence.clear()
             self._tip_tracker.observe(None)
             self._visible_text_by_channel.clear()
             self._visible_match_started.clear()
@@ -557,6 +567,7 @@ class CaptureService:
                           or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
         cinematic_lines = []
+        movie_groups = []
         # Resolve the broad region before publishing narrower crops: a comic
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
@@ -585,8 +596,12 @@ class CaptureService:
             movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
             movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
                 cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
-                configured=self.textmaps.player_voice, frame=cinema_frame)
-            cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
+                configured=self.textmaps.player_voice, frame=cinema_frame, player=prior_player)
+            occurrences = getattr(self.textmaps, '_zzz_cinema_occurrences', None)
+            replaced = {identity for hit in movie_matches
+                for identity in (occurrences or {}).get('rows', {}).get(hit.text_id, {}).get('member_text_ids', ())}
+            cinematic_matches = [hit for hit in cinematic_matches
+                if not cutscene_scene(hit.text_id) and hit.text_id not in replaced] + movie_matches
 
         # The broad gameplay scan still rejects short HUD labels such as INFO.
         # Confirmed movie captions and filmstrip comics can contain short lines.
@@ -612,6 +627,16 @@ class CaptureService:
                    getattr(self.textmaps, 'target_locale', None),
                    getattr(self, 'context_scope', lambda: None)()),
             now=time.monotonic(), stable_frames=settings.stable_frames)
+        if proxy_scope and not excluded_screen:
+            player_lines = list(movie_groups)
+            if dialogue_match and dialogue_match.kind == 'exact':
+                player_lines.append(dialogue_match.source_ocr)
+            elif dialogue_box_layout or self._visual_novel_layout:
+                player_lines.extend(self._spatial_text_groups(response))
+            player = self._zzz_proxy_evidence.observe(self.textmaps, player_lines, frame=dialogue_frame,
+                now=time.monotonic(), stable_frames=settings.stable_frames)
+            if player and epoch == self._scan_epoch:
+                self.settings.remember_zzz_cinema_proxy(proxy_scope, player)
         # Short voiced remarks during free-roam gameplay are rendered as white
         # outlined text directly over the scene. They use OngoingLevel TextMap
         # records rather than the normal GalGame dialogue family. Only consider
@@ -730,7 +755,7 @@ class CaptureService:
                     phase = "matched"
                     message = "Official top-right tip matched"
 
-        if not excluded_screen:
+        if not excluded_screen and not proxy_scope:
             detected = self._zzz_cutscene_context.observe_proxy(self.textmaps,
                 [*lines, *cinematic_lines, *tip_lines], now=monotonic_now, stable_frames=settings.stable_frames)
             if detected:

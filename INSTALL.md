@@ -100,12 +100,16 @@ For mobile use, **Setup → Games & Languages → Keep mobile library updated**
 maintains one private ZIP per selected voice language and translation while the
 companion runs. Choose an existing local folder, preferably synchronized with
 your phone through a cloud-storage application. The first-run wizard uses the
-same controls. Manual exports remain available. Keep the private ZIP for the
-Android replacement; the independent hosted browser gaming application is
-retired. Android import and device acceptance are still in development.
-See [mobile library setup, recovery and physical device checks](docs/mobile-library.md).
-The Android replacement must support local preparation-independent playback with
-the PC off; this is a required acceptance result, not a delivered app claim.
+same controls. Manual exports remain available for recovery. See
+[mobile library setup and recovery](docs/mobile-library.md).
+
+For the **Android prerelease**, install the signed APK from the Windows and
+Android release. In the app, open **Settings**, select Global Zenless Zone Zero
+and choose **Text only** or **Text + audio**. Review the size and download the
+library directly on Android. In **Game**, paste the viewer link from a manually
+started VDO.Ninja screen share on your gaming device. Use the separate recovery
+flow for earlier history and backups. Real gameplay on the phone is pending
+owner validation. [Android setup and migration](docs/android-migration.md)
 
 In **Setup → Capture**, check OCR/audio prerequisites and run the read-only OCR/display test. Its local console remains open until Enter is pressed. Start your game with the prepared study or translation subtitles, then open Capture setup to check the live crop, display scaling, and V/Rover/Zero voice selection. Automatic capture on startup is optional. A microphone is not needed.
 

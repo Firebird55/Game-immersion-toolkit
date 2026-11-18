@@ -21,6 +21,12 @@ class NativeFrameReceipt:
         self._issuer, self._segment = issuer, segment
         self._sequence, self._received = sequence, received
 
+    def cinema_frame(self, session, generation, sequence, now):
+        if self.authorize(session, generation, sequence) is None or not 0 <= now - self._received <= 1:
+            return None
+        from .zzz_cinema_context import CinemaFrame
+        return CinemaFrame(sequence, self._received, self._received, True)
+
     def authorize(self, session, generation, sequence):
         """Only the issuer's currently executing result can authorize a scan."""
         return self._issuer._authorize(self, session, generation, sequence)

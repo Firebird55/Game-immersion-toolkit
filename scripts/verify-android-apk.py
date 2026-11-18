@@ -352,6 +352,13 @@ def verify_zzz_catalogue_component(archive, repository):
     return proof
 
 
+def verify_zzz_wem_component(archive, repository):
+    spec = importlib.util.spec_from_file_location('apk_zzz_wem', repository / 'scripts/build-android-zzz-wem.py')
+    decoder = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(decoder)
+    return decoder.verify_apk(archive)
+
+
 def verify(path):
     result, abis, python_abis, rapidfuzz_abis = {}, set(), set(), {}
     with zipfile.ZipFile(path) as archive:
@@ -384,6 +391,7 @@ def verify(path):
         core = json.loads(archive.read('assets/core-source-manifest.json'))
         repository = Path(__file__).resolve().parents[1]
         zzz_catalogue = verify_zzz_catalogue_component(archive, repository)
+        zzz_wem = verify_zzz_wem_component(archive, repository)
         decoder = verify_decoder(archive, result, repository)
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
@@ -392,7 +400,14 @@ def verify(path):
         genshin_profile = verify_genshin_profile_component(archive,repository)
         wuwa_fixture = verify_wuwa_fixture(archive,repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
+        extension = json.loads((repository / 'packaging/android/python-runtime-extensions.json').read_bytes())
+        flatbuffers_license = archive.getinfo('assets/python-licenses/flatbuffers-LICENSE')
+        if (not 0 < flatbuffers_license.file_size <= 16 * 1024
+                or hashlib.sha256(archive.read(flatbuffers_license)).hexdigest() != extension['flatbuffers']['license_sha256']):
+            raise ValueError('The original FlatBuffers license is absent or changed')
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
+            if 'flatbuffers/flexbuffers.pyc' not in common.namelist():
+                raise ValueError('The verified FlatBuffers runtime is absent')
             for package in notices['packages'].values():
                 for name, digest in package['included_notices'].items():
                     if hashlib.sha256(common.read(name)).hexdigest() != digest:
@@ -423,6 +438,7 @@ def verify(path):
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'native_publisher_hash':hashing,
         'zzz_catalogue_component': zzz_catalogue,
+        'zzz_wem_component': zzz_wem,
         'genshin_profile_component':genshin_profile,
         'publisher_source_policy': publishers,
         'wuwa_authored_fixture':wuwa_fixture,

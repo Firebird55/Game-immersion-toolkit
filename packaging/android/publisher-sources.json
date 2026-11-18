@@ -159,6 +159,10 @@
       "sha256_lf": "667fb8fc2e9662b3bf035c70593dba2d5125b3232db60524938c732912608dbb",
       "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
     },
+    "backend/android_zzz_wem.py": {
+      "sha256_lf": "802b80a0c978a3771c2a11b324cd58a6b9e10f79b84a651a2ee3224e4bfc0aef",
+      "source_commit": "7bbfe1445a1ee3f5c9029fe77d2b721af8b2867b"
+    },
     "backend/genshin_android_runtime.py": {
       "sha256_lf": "33d635a79d46c7be2bb1214b6e051d45a4fe15f4642dca96779fac4648737954",
       "source_commit": "6d539c67dc9696fff838611ca946ee8acda01d33"
@@ -315,17 +319,37 @@
       "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
     },
+    "backend/wwise_tables.py": {
+      "sha256_lf": "15befbf2ff0c4d85ba90d14426a4b9f453fc5f2def46355fdd21df2a5ccf869d",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
     "backend/xxhash64.py": {
       "sha256_lf": "bdde27c3176f28b3314aaaf8e3745b84e1def1a31b38a28c9671217fef3e74db",
       "source_commit": "0de5adc1b345113d553031f823de3d35da157625"
+    },
+    "backend/zzz_audio_catalogue.py": {
+      "sha256_lf": "9954f908fe0b852e76b936dcca63e67475446b1524970169e1ad43f73eee46f5",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
+    "backend/zzz_audio_sources.py": {
+      "sha256_lf": "e638320fd6e55a2888104379c4e7a727bd0699bf9954907dab49604de3efe87a",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
+    "backend/zzz_bus_routing.py": {
+      "sha256_lf": "e68c47a7f0ddc6b05e78609194e14b566e2a00657ecf4bd1f32ea8c42cb75c30",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
+    "backend/zzz_cinematics.py": {
+      "sha256_lf": "2505ea8798d30d94aba433bf3ea32f8a13d1eb9a539c92c3ee81deac60d8c36b",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_dialogue_records.py": {
       "sha256_lf": "290650875bdd8fa0d061bfccf95848c77c17709f577d9525bd8c914d8ea15ea9",
       "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_game_data.py": {
-      "sha256_lf": "ec719083652d155136d1a0aab84825019faa01ec56cab4e7adc474620a738dcf",
-      "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
+      "sha256_lf": "f7d96c9d22e4801d6d3e25f33ef7335e1c669d8cccd21a181b49531b15f37319",
+      "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
     },
     "backend/zzz_hotfix.py": {
       "sha256_lf": "42e5ab33725a86abc38873bcec38547b4ee1d1aeaf787c8004271bbe03aff0cd",
@@ -335,17 +359,37 @@
       "sha256_lf": "21e5dcfc9f2e538d3e7c051b7dcbf068a5a5a940349e3c66f76306e96a03f98c",
       "source_commit": "73abb60bafba4213221b050a1be73d028c86f6ce"
     },
+    "backend/zzz_pc_audio.py": {
+      "sha256_lf": "ac895f668cc85b84ceb816844e116e43012eed078668b35fc72643e032e75fed",
+      "source_commit": "f6609ae5c0e1061760fcfdd4df268d6efd3183ef"
+    },
     "backend/zzz_pc_sources.py": {
       "sha256_lf": "df822e980354f832dc8e3ce0f9370f08f6ca3642251fdfb64307b6fad8c8ee48",
       "source_commit": "8966bb7a7e6f745e41f3ea35b7e2c5966c6677d3"
     },
     "backend/zzz_pc_stages.py": {
-      "sha256_lf": "e9546fa6dbe91d00b1b5830e791ceece56b34f638e65749885d5db7af887464b",
-      "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
+      "sha256_lf": "56a61d07a2818333194d2dd477ccee1ca29ad592ee74b2926ca3ddbc2eaed536",
+      "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
+    },
+    "backend/zzz_publisher_cinematics.py": {
+      "sha256_lf": "1b0d474654120abf1fd789b404d297fd2b64bf4f8e85188098f5ce08993d7b3b",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_scene_sources.py": {
       "sha256_lf": "d41d04424241c81e029dd90d77454430467980cff777e3557ee81c5942000302",
       "source_commit": "20e56350e13820a1d37b19c1a51feebd866caf60"
+    },
+    "backend/zzz_source_bindings.py": {
+      "sha256_lf": "8ed7e44a3c1afd32bbed404fce14c3ed4352d42dc966a232f0efbac5d646149d",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
+    "backend/zzz_voice_layers.py": {
+      "sha256_lf": "60cf11d9aa7567e8eba15b248396bb18cc443a6bb29f27d5678a6cd795229e99",
+      "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
+    },
+    "backend/zzz_wav_codec.py": {
+      "sha256_lf": "6734b9e5550f8f517a6607853307e3213a665b70f9274080a795a44ecd6641f0",
+      "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
     }
   },
   "forbidden_stage_imports": [
@@ -357,7 +401,6 @@
     "backend.game_assets",
     "backend.zzz_assets",
     "backend.zzz_publisher",
-    "backend.zzz_pc_audio",
     "Crypto",
     "brotli",
     "numpy",
@@ -369,7 +412,9 @@
     "backend.nte_game_data_ranges",
     "backend.nte_game_data_audio",
     "backend.nte_game_data_audio_snapshot",
-    "backend.nte_game_data_voice"
+    "backend.nte_game_data_voice",
+    "backend.zzz_owned_audio",
+    "backend.hoyo_publisher_voice"
   ],
   "providers": {
     "nte": {
@@ -434,30 +479,44 @@
         "python-stdlib",
         "zstandard==0.25.0",
         "toolkit-publisher-crypto-v1",
-        "toolkit-android-zzz-catalogue-v1"
+        "toolkit-android-zzz-catalogue-v1",
+        "flatbuffers==25.12.19",
+        "toolkit-zzz-wem-pcm-v1"
       ],
       "download_runtime": true,
       "factory": "backend.zzz_game_data:create_provider",
       "modules": [
         "android_zzz_catalogue",
+        "android_zzz_wem",
         "hoyo_dispatch_metadata",
         "hoyo_zzz_bootstrap",
         "language_snapshot",
+        "wwise_tables",
         "xxhash64",
+        "zzz_audio_catalogue",
+        "zzz_audio_sources",
+        "zzz_bus_routing",
+        "zzz_cinematics",
         "zzz_dialogue_records",
         "zzz_game_data",
         "zzz_hotfix",
         "zzz_native_key_data",
+        "zzz_pc_audio",
         "zzz_pc_sources",
         "zzz_pc_stages",
-        "zzz_scene_sources"
+        "zzz_publisher_cinematics",
+        "zzz_scene_sources",
+        "zzz_source_bindings",
+        "zzz_voice_layers",
+        "zzz_wav_codec"
       ],
-      "snapshot_runtime": false,
+      "snapshot_runtime": true,
       "stages": [
         "official-manifest",
         "official-bootstrap",
         "gateway-discovery",
-        "text-catalogue"
+        "text-catalogue",
+        "selected-original-audio"
       ]
     }
   },

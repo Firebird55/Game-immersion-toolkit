@@ -135,6 +135,24 @@ def test_windows_android_publication_includes_only_selected_binary_targets(tmp_p
     assert not (output / 'ANDROID-ACCEPTANCE.json').exists()
 
 
+def test_zzz_owner_gameplay_prerelease_requires_installation_and_explicit_opt_in(tmp_path, android_release):
+    source, native, output = releases(tmp_path)
+    root, apk, certificate, sdk, *_ = android_release
+    evidence = dict(schema='toolkit-android-physical-install-v1', source_commit=COMMIT,
+        installed_apk_sha256=assembly.digest(apk), abi='arm64-v8a', api=36, game='zzz',
+        version_code=123, checks={'installed_in_place': True})
+    (root / 'ANDROID-ACCEPTANCE.json').write_text(json.dumps(evidence))
+    with pytest.raises(ValueError, match='gameplay'):
+        assembly.assemble(source, native, output, COMMIT, VERSION,
+            android=root, certificate=certificate, sdk_commands=sdk)
+    assembly.assemble(source, native, output, COMMIT, VERSION,
+        android=root, certificate=certificate, sdk_commands=sdk, owner_gameplay_pending=True)
+    receipt = json.loads((output / 'ANDROID-PROVENANCE.json').read_text())
+    assert not receipt['release_eligible']
+    assert receipt['physical_device_acceptance'] == 'installation-verified'
+    assert receipt['gameplay_acceptance'] == 'owner-pending' and receipt['game_scope'] == ['zzz']
+
+
 @pytest.mark.parametrize('failure', ['debug-build', 'dirty-tree', 'wrong-tag', 'mutated-apk',
     'other-installed-apk', 'failed-offline', 'emulator-abi', 'third-party-signer', 'debuggable-manifest'])
 def test_windows_android_publication_requires_exact_non_debug_accepted_apk(tmp_path, android_release, failure):

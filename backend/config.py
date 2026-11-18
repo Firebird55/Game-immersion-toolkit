@@ -41,6 +41,13 @@ class SettingsStore:
             self._settings = settings.model_copy(deep=True)
             return self.get()
 
+    def remember_zzz_cinema_proxy(self, scope: str, voice: str):
+        with self._lock:
+            current = self.get()
+            if current.zzz_cinema_proxy != (scope, voice):
+                current.zzz_cinema_proxy = (scope, voice)
+                self.save(current)
+
     def remember_zzz_proxy(self, voice: str) -> AppSettings:
         """Persist conclusive scene evidence without overwriting concurrent edits."""
         with self._lock:

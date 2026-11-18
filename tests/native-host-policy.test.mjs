@@ -63,3 +63,10 @@ test('credential recovery retains only a complete locked and preserved-data stat
   {account_recovery:{...recovery,data_preserved:false}},{account_recovery:{...recovery,action:'reset'}}])
   assert.throws(()=>parseNativeCapabilities({...locked,...patch}),/complete device capability/);
 });
+
+test('available publisher games belong to the native host and are unique supported IDs',()=>{
+  assert.deepEqual(parseNativeCapabilities({...report(),publisher_games:['zzz']}).publisher_games,['zzz']);
+  assert.equal(parseNativeCapabilities(report()).publisher_games,undefined);
+  for(const value of [['invalid'],['zzz','zzz'],'zzz'])
+    assert.throws(()=>parseNativeCapabilities({...report(),publisher_games:value}),/complete device capability/);
+});

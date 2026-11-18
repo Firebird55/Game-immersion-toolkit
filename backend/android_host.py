@@ -117,8 +117,10 @@ class AndroidHost:
                 pass
         self.game_restore_lock = threading.RLock()
         self.game_restored = weakref.WeakKeyDictionary()
+        self.publisher_games = ('zzz',) if game_data_providers is None else tuple(GAME_TITLES)
         providers = (create_game_data_providers(platform='android', native=native)
             if game_data_providers is None else game_data_providers)
+        providers = {game: providers[game] for game in self.publisher_games if game in providers}
         self.game_data = GameDataService(self._game_root, providers, owner_guard=self._game_owner,
             on_activate=self._activate_game_data, retained_bytes=self._retained_game_bytes)
         self.server = ThreadingHTTPServer(('127.0.0.1', port), self._handler())
@@ -309,6 +311,7 @@ class AndroidHost:
     def platform(self):
         recovery = self.account_sessions.status().get('recovery') if self.account_sessions else None
         return {'platform': 'android', 'library_import': recovery is None,
+            'publisher_games': self.publisher_games,
             'history_migration': recovery is None,
             'capture_source': 'unavailable' if recovery else 'remote-stream' if self.native else 'authored-observations',
             'message': recovery['message'] if recovery else 'Manage original game data in Settings on this device.',
@@ -559,18 +562,28 @@ class AndroidHost:
             left, top, right, bottom = block['rect']
             if picture[0] <= left < right <= picture[0] + picture[2] and picture[1] <= top < bottom <= picture[1] + picture[3]:
                 texts.append(block['text'])
+        zzz_dialogue = []
         for channel, region in channels.items():
             groups = []
+            zzz_captions = []
             x, y, crop_width, crop_height = region_bounds(picture, region)
             for block in blocks:
                 left, top, right, bottom = block['rect']
                 # Only whole recognized blocks inside the calibrated region.
                 if x <= left < right <= x + crop_width and y <= top < bottom <= y + crop_height:
                     groups.append(block['text'])
+                    if (game == 'zzz' and channel == 'cinematic'
+                            and .22 <= ((left + right) / 2 - x) / crop_width <= .78
+                            and .60 <= (top - y) / crop_height < (bottom - y) / crop_height <= 1
+                            and (bottom - top) / crop_height < .10):
+                        zzz_captions.append(block['text'])
+            if game == 'zzz' and channel == 'dialogue':
+                zzz_dialogue = groups
             if game == 'nte' and channel == 'dialogue' and nte_layout is not None:
                 groups = list(nte_layout.groups)
             result.extend(self.session.observe(generation, sequence, groups, channel=channel, nte_layout=nte_layout,
-                dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))
+                dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission,
+                zzz_captions=zzz_captions, zzz_dialogue=zzz_dialogue))
         result.extend(self.session.observe(generation, sequence, texts, channel='fullframe',
             presentation_lines=positioned, frame_size=(width, height),
             dialogue_menu=bool(nte_layout and nte_layout.dialogue_menu), admission=admission))
@@ -677,12 +690,14 @@ class AndroidHost:
                     # Blocking provider I/O cannot hold the OCR/account lock.
                     if game_route:
                         game, action = game_route.groups()
+                        if game not in host.publisher_games:
+                            raise GameDataError('game_runtime_unavailable', 'This game is unavailable on Android.', 409)
                         operation = {'plan': host.game_data.plan, 'download': host.game_data.download,
                             'activate': host.game_data.activate, 'data': host.game_data.delete}[action]
                         payload = operation(game, value, expected_owner=owner)
                         status = 202 if action == 'download' else 200
                     else:
-                        payload, status = host.game_data.snapshot(expected_owner=owner), 200
+                        payload, status = host.game_data.snapshot(expected_owner=owner, games=host.publisher_games), 200
                     with session.lock:
                         host.guard_account(str(generation), session=session)
                         if owner != host._game_owner():

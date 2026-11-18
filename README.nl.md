@@ -76,7 +76,7 @@ Voor deze zes games werken we aan zelfstandige voorbereiding en weergave op Linu
 | :--- | :--- |
 | **Windows-opname** | Leg ondertitels vast en lees lokaal. Gamebestanden en accountsleutels blijven op je pc. |
 | **Reader gekoppeld aan de desktop** | Lees het desktoptranscript en speel gekoppelde stemmen af op een telefoon of tablet, ook op iPhone of iPad. Houd de desktop aan. |
-| **Android-app (gepland)** | Android gaat lokaal OCR uitvoeren, dialogen herkennen en de originele stem afspelen. De app met de gedeelde toolkitcode en het delen van een iPhone- of iPad-scherm moeten nog op apparaten worden getest. |
+| **Android-prerelease** | De eerste app bereidt originele gegevens voor Global Zenless Zone Zero rechtstreeks op Android voor. Plak de kijklink van een gedeeld iPhone- of iPad-scherm om ondertitels op te nemen. De praktijktest op de telefoon volgt. |
 
 Lexirise is optioneel. Migaku werkt zelfstandig waar de browserextensie wordt ondersteund. Bestaande Chinese transcripten behouden hun taal.
 

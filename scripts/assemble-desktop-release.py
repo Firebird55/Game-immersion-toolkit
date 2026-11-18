@@ -90,7 +90,7 @@ def _verify_apk(apk, code, version, certificate, sdk_commands):
         raise ValueError('Android release identity or debuggable state differs.')
 
 
-def _android_assets(root, commit, version, certificate, sdk_commands):
+def _android_assets(root, commit, version, certificate, sdk_commands, *, owner_gameplay_pending=False):
     apk = plain_file(root / 'GameImmersionToolkit-android-release.apk')
     provenance_path = plain_file(root / 'ANDROID-PROVENANCE.json')
     provenance = _json_file(provenance_path)
@@ -107,12 +107,18 @@ def _android_assets(root, commit, version, certificate, sdk_commands):
         raise ValueError('Android release build provenance differs from the selected tag, APK or signer.')
     evidence = _json_file(root / 'ANDROID-ACCEPTANCE.json')
     accepted = evidence.get('checks')
-    if (evidence.get('schema') != 'toolkit-android-physical-release-v1' or
-            evidence.get('source_commit') != commit or evidence.get('installed_apk_sha256') != apk_hash or
-            evidence.get('abi') != 'arm64-v8a' or type(evidence.get('api')) is not int or
-            evidence['api'] < 34 or not isinstance(accepted, dict) or
-            set(accepted) != ANDROID_ACCEPTANCE or any(value is not True for value in accepted.values())):
-        raise ValueError('Android release needs physical acceptance of the exact installed APK.')
+    if (evidence.get('source_commit') != commit or evidence.get('installed_apk_sha256') != apk_hash or
+            evidence.get('abi') != 'arm64-v8a' or type(evidence.get('api')) is not int or evidence['api'] < 34):
+        raise ValueError('Android release needs evidence from the exact installed APK.')
+    if owner_gameplay_pending:
+        if (evidence.get('schema') != 'toolkit-android-physical-install-v1'
+                or evidence.get('game') != 'zzz' or evidence.get('version_code') != code
+                or not isinstance(accepted, dict) or set(accepted) != {'installed_in_place'}
+                or accepted['installed_in_place'] is not True):
+            raise ValueError('The ZZZ prerelease needs the verified ARM64 installation.')
+    elif (evidence.get('schema') != 'toolkit-android-physical-release-v1' or not isinstance(accepted, dict)
+            or set(accepted) != ANDROID_ACCEPTANCE or any(value is not True for value in accepted.values())):
+        raise ValueError('Android release needs physical gameplay acceptance.')
     _verify_apk(apk, code, version, certificate, sdk_commands)
     name = 'Game-immersion-toolkit-' + version + '-android.apk'
     # The standalone build and physical reports stay intact. The public receipt
@@ -120,13 +126,17 @@ def _android_assets(root, commit, version, certificate, sdk_commands):
     public = dict(schema='toolkit-android-distribution-v1', repository=REPOSITORY,
         tag='v' + version, source_commit=commit, version=version, version_code=code,
         application_id=ANDROID_APPLICATION, signing_certificate_sha256=certificate,
-        release_eligible=True, physical_device_acceptance='approved',
+        release_eligible=not owner_gameplay_pending,
+        physical_device_acceptance='installation-verified' if owner_gameplay_pending else 'approved',
         physical_abi=evidence['abi'], physical_api=evidence['api'], checks=accepted,
         apk=dict(path=name, sha256=apk_hash, bytes=apk.stat().st_size))
+    if owner_gameplay_pending:
+        public.update(game_scope=['zzz'], gameplay_acceptance='owner-pending')
     return (name, apk, apk_hash), public
 
 
-def assemble(source, native, output, commit, version, *, android=None, certificate=None, sdk_commands=None):
+def assemble(source, native, output, commit, version, *, android=None, certificate=None, sdk_commands=None,
+        owner_gameplay_pending=False):
     if not re.fullmatch(r'[a-f0-9]{40}', commit) or not re.fullmatch(r'\d+\.\d+\.\d+', version):
         raise ValueError('Publication needs an exact commit and numeric version.')
     if output.exists():
@@ -143,6 +153,8 @@ def assemble(source, native, output, commit, version, *, android=None, certifica
         raise ValueError('Source release contains unchecked assets.')
     if android is not None and (not certificate or not sdk_commands or any(not item for item in sdk_commands)):
         raise ValueError('Android publication requires the expected signer and local APK verifiers.')
+    if owner_gameplay_pending and android is None:
+        raise ValueError('The owner gameplay handoff requires an Android prerelease.')
     targets = TARGETS if android is None else ('windows-x64',)
     for target in targets:
         root = native / ('tested-desktop-' + target)
@@ -186,7 +198,8 @@ def assemble(source, native, output, commit, version, *, android=None, certifica
         assets.update(target_assets)
     public_android = None
     if android is not None:
-        artifact, public_android = _android_assets(android, commit, version, certificate, sdk_commands)
+        artifact, public_android = _android_assets(android, commit, version, certificate, sdk_commands,
+            owner_gameplay_pending=owner_gameplay_pending)
         if {artifact[0].casefold(), 'android-provenance.json'} & set(assets):
             raise ValueError('Release targets contain colliding asset names.')
         assets[artifact[0].casefold()] = artifact
@@ -220,11 +233,13 @@ if __name__ == '__main__':
     parser.add_argument('--java', type=Path)
     parser.add_argument('--apksigner-jar', type=Path)
     parser.add_argument('--aapt2', type=Path)
+    parser.add_argument('--android-owner-gameplay-pending', action='store_true')
     args = parser.parse_args()
     try:
         count = assemble(args.source_release, args.native_root, args.output, args.commit, args.version,
             android=args.android, certificate=args.android_certificate,
-            sdk_commands=(args.java, args.apksigner_jar, args.aapt2))
+            sdk_commands=(args.java, args.apksigner_jar, args.aapt2),
+            owner_gameplay_pending=args.android_owner_gameplay_pending)
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print('Release assembly failed: ' + str(error), file=sys.stderr)
         raise SystemExit(1)

@@ -122,9 +122,9 @@ class ZzzCutsceneContext:
     def accepts(self, match):
         return self.authored.accepts(match) or bool(self.scene and cutscene_scene(match.text_id) == self.scene)
 
-    def match(self, index, groups, defaults, *, now, stable_frames, configured, frame=None):
+    def match(self, index, groups, defaults, *, now, stable_frames, configured, frame=None, player=None):
         contextual = self.authored.observe(index, groups, scope=self.scope, frame=frame,
-            now=now, stable_frames=stable_frames)
+            now=now, stable_frames=stable_frames, player=player)
         if contextual:
             return contextual
         if getattr(index, 'game', None) != 'zzz' or not hasattr(index, '_lookup'):
