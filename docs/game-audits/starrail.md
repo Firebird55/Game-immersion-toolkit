@@ -874,10 +874,17 @@ generations passed their before and after input checks. Authored fixtures
 exercise the 16-byte layout, ambiguous layouts, malformed pointers and stale
 inputs. These actual runtime rows have no independent C# row comparison.
 
-Runtime type name resolution, traversal of generic and array references,
-nested ownership, defaults and the required native-index projection remain
-open. The Android provider gate continues to require that projection and
-device evidence.
+The optional type projection follows selected runtime references to produce
+names and joins the requested generic containers, constraints and nested
+definitions. PE references, argument and depth limits, and cycles are checked
+before returning. Authored records exercise startup generic classes, native
+argument vectors and array ranks, global generic parameters and nested types.
+The projection keeps the selected metadata and namespace names alongside
+the original record identities.
+
+Field default ownership and the required native-index projection remain open.
+The Android provider gate continues to require that projection and device
+evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
 

@@ -31,7 +31,12 @@ _MAX_PARAMETERS = 64
 _MAX_SELECTED_PARAMETERS = 65536
 _MAX_LITERAL = 64 * 1024
 _LIMITS = {'native': 1024**3, 'metadata': 512 * 1024**2, 'startup': 64 * 1024**2}
-_PRIMITIVE_TYPE_TAGS = frozenset(range(1, 0x0f)) | {0x16, 0x18, 0x19, 0x1c}
+_PRIMITIVE_TYPES = {
+    0x01: 'void', 0x02: 'bool', 0x03: 'char', 0x04: 'sbyte', 0x05: 'byte', 0x06: 'short',
+    0x07: 'ushort', 0x08: 'int', 0x09: 'uint', 0x0a: 'long', 0x0b: 'ulong', 0x0c: 'float',
+    0x0d: 'double', 0x0e: 'string', 0x16: 'TypedReference', 0x18: 'IntPtr', 0x19: 'UIntPtr',
+    0x1c: 'object',
+}
 _LAYOUT_TYPE_TAGS = frozenset(range(1, 0x17)) | {
     0x18, 0x19, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20, 0x21, 0x40, 0x41, 0x45, 0x55, 0xff,
 }
@@ -275,6 +280,7 @@ def _registrations(image, cancelled):
                 type_count = (_integer(metadata, 0x48) - 1455078204) & _MASK32
                 types = _integer(metadata, 0x80, 8) - image.base
                 arrays = _integer(metadata, 0x70, 8) - image.base
+                generic_instances = _integer(metadata, 0x38, 8) - image.base
                 method_pointers = _integer(code, 0x40, 8) - image.base
                 literal_count = _integer(tables, 0x2c) ^ 0x0bd08dc8
                 _require(0 < type_count < _MAX_INDEX and 0 <= literal_count < _MAX_INDEX, 'registration counts')
@@ -282,7 +288,7 @@ def _registrations(image, cancelled):
                 image.offset(method_pointers, 8, executable=False)
             except MetadataFormatError:
                 continue
-            yield type_count, types, arrays, method_pointers, literal_count
+            yield type_count, types, arrays, generic_instances, method_pointers, literal_count
     return _unique(candidates(), 'registration locator')
 
 
@@ -332,8 +338,9 @@ class _Records:
         _require(self.metadata.size >= _HEADER_SIZE and self.metadata.read(0, 4) == _MAGIC, 'global metadata prefix')
         self.windows, images_at, image_count, generic_classes_at = _header(
             self.image, self.metadata, self.startup, cancelled)
-        self.type_count, self.runtime_types_rva, self.arrays_rva, self.method_pointers, self.literal_count = (
-            _registrations(self.image, cancelled))
+        self.generic_classes_at = generic_classes_at
+        (self.type_count, self.runtime_types_rva, self.arrays_rva, self.generic_instances_rva,
+         self.method_pointers, self.literal_count) = _registrations(self.image, cancelled)
         if generic_classes_at < images_at:
             self.generic_class_extent = images_at - generic_classes_at
         elif generic_classes_at >= images_at + image_count * 40:
@@ -453,20 +460,23 @@ class _Records:
         offset, available = self.image.span(self.runtime_types_rva, executable=False)
         stride = _runtime_type_stride(self.image, offset, available, self.type_count, cancelled)
         rows = {}
-        data_width = 4 if stride == 8 else 8
         for index in indices:
             _check_cancelled(cancelled)
-            raw = self.image.source.read(offset + index * stride, data_width + 4, component='runtime type row')
-            data = _integer(raw, 0, data_width)
-            attributes = _integer(raw, data_width, 2)
-            tag, flags = raw[data_width + 2:data_width + 4]
-            rows[index] = {'data': data, 'attributes': attributes, 'tag': tag, 'modifiers': flags & 0x3f,
-                           'by_reference': bool(flags & 0x40), 'pinned': bool(flags & 0x80),
-                           'target': self.runtime_target(tag, data, stride)}
+            rows[index] = self.runtime_row(offset + index * stride, stride)
         return stride, rows
 
+    def runtime_row(self, offset, stride):
+        data_width = 4 if stride == 8 else 8
+        raw = self.image.source.read(offset, data_width + 4, component='runtime type row')
+        data = _integer(raw, 0, data_width)
+        attributes = _integer(raw, data_width, 2)
+        tag, flags = raw[data_width + 2:data_width + 4]
+        return {'data': data, 'attributes': attributes, 'tag': tag, 'modifiers': flags & 0x3f,
+                'by_reference': bool(flags & 0x40), 'pinned': bool(flags & 0x80),
+                'target': self.runtime_target(tag, data, stride)}
+
     def runtime_target(self, tag, data, stride):
-        if tag in _PRIMITIVE_TYPE_TAGS or (tag == 0x0f and data == 0):
+        if tag in _PRIMITIVE_TYPES or (tag == 0x0f and data == 0):
             return None
         if tag in {0x11, 0x12}:
             _require(data < self.definition_count, 'runtime type definition index')
@@ -509,15 +519,221 @@ class _Records:
         return _xor_words(self.read('literal_data', at, (length + 7) & ~7), length, key, 0x464c46540f730312)
 
 
+class _TypeProjection:
+    def __init__(self, records, stride, runtime_rows, types, cancelled):
+        self.records = records
+        self.stride = stride
+        self.cancelled = cancelled
+        _require(len(runtime_rows) <= 16 and len(types) <= 32, 'type projection roots')
+        self.rows = {self.type_rva(index): value for index, value in runtime_rows.items()}
+        self.definitions = dict(types)
+        self.names = {}
+        self.active = set()
+        self.arrays = {}
+        self.classes = {}
+        self.instances = {}
+        self.containers = {}
+        self.parameters = {}
+        self.constraints = {}
+        self.constraint_count = 0
+        self.nested = {}
+        self.nested_parents = {}
+        self.nested_count = 0
+
+    def cached(self, cache, key, limit, component, load):
+        _check_cancelled(self.cancelled)
+        if key not in cache:
+            _require(len(cache) < limit, component)
+            cache[key] = load(key)
+        return cache[key]
+
+    def type_rva(self, index):
+        _require(0 <= index < self.records.type_count, 'projected runtime type index')
+        return self.records.runtime_types_rva + self.stride * index
+
+    def definition(self, index):
+        return self.cached(self.definitions, index, 32, 'projected type definition count', self.records.type)
+
+    @staticmethod
+    def qualified_name(record):
+        return f"{record['namespace']}.{record['name']}" if record['namespace'] else record['name']
+
+    def native_row(self, rva):
+        image = self.records.image
+        return self.records.runtime_row(image.offset(rva, self.stride, executable=False), self.stride)
+
+    def native_read(self, rva, width, size, component):
+        _require(0 < size <= width, component)
+        image = self.records.image
+        offset = image.offset(rva, width, executable=False)
+        return image.source.read(offset, size, component=component)
+
+    def array(self, rva):
+        row = self.native_read(rva, 32, 9, 'runtime array header')
+        rank = row[8]
+        _require(0 < rank <= 32, 'runtime array rank')
+        return _integer(row, 0, 8) - self.records.image.base, rank
+
+    def generic_class(self, index):
+        _require(0 <= index < self.records.generic_class_extent // 8, 'projected generic class index')
+        row = self.records.startup.read(self.records.generic_classes_at + 8 * index, 8,
+                                        component='startup generic class')
+        return _integer(row, 0, signed=True), _integer(row, 4, signed=True)
+
+    def generic_instance(self, index):
+        base = self.records.generic_instances_rva
+        _require(base > 0 and 0 <= index < _MAX_INDEX, 'generic instance index')
+        row = self.native_read(base + 16 * index, 16, 16, 'runtime generic instance')
+        count = _integer(row, 0, signed=True)
+        _require(0 <= count <= 8, 'generic instance arity')
+        if count == 0:
+            return ()
+        image_base = self.records.image.base
+        data = self.native_read(_integer(row, 8, 8) - image_base, count * 8, count * 8, 'runtime generic arguments')
+        return tuple(_integer(data, i * 8, 8) - image_base for i in range(count))
+
+    def parameter(self, index):
+        _require(0 <= index < _MAX_INDEX, 'projected generic parameter index')
+        row = self.records.read('generic_parameters', 14 * index, 14)
+        factor = (0x617fe3cc452c * index + 0x9dc5db71f0eb440) & _MASK64
+        factor = (((factor >> 9) + 718849585) ^ 0x5278374d)
+        key = ((1252900171 * factor) & _MASK64) >> 15
+        name = self.records.name((_integer(row, 0) - key - 1149796643) & _MASK32)
+        start = _signed(((_integer(row, 4, 2) ^ 0x69b4) - key) & 0xffff, 16)
+        count = _signed(((_integer(row, 6, 2) ^ 0x0fd1) - key) & 0xffff, 16)
+        _require(name and 0 <= count <= 32 and (count == 0 or start >= 0), 'generic parameter record')
+        return name, start, count
+
+    def generic_parameter(self, index):
+        return self.cached(self.parameters, index, 16, 'projected generic parameter count', self.parameter)
+
+    def named(self, rva, depth=0):
+        _require(depth <= 16 and rva not in self.active, 'runtime type depth or cycle')
+        if rva not in self.names:
+            self.active.add(rva)
+            try:
+                row = self.cached(self.rows, rva, 64, 'projected runtime node count', self.native_row)
+                value, height = self.describe(row, depth)
+                _require(len(value) <= 4096, 'projected runtime name length')
+                self.names[rva] = value, height
+            finally:
+                self.active.remove(rva)
+        value, height = self.names[rva]
+        _require(depth + height <= 16, 'runtime type depth or cycle')
+        return value, height
+
+    def describe(self, row, depth):
+        tag = row['tag']
+        if tag in _PRIMITIVE_TYPES:
+            return _PRIMITIVE_TYPES[tag], 0
+        if row['target'] is None:
+            return 'void*', 0  # The only other targetless tag is a null pointer.
+        role, index = row['target']
+        if role == 'type_definition':
+            return self.qualified_name(self.definition(index)), 0
+        if role == 'generic_parameter':
+            return self.generic_parameter(index)[0], 0
+        if role == 'generic_class':
+            definition, instance = self.cached(self.classes, index, 8, 'projected generic class count', self.generic_class)
+            stem = self.qualified_name(self.definition(definition)).split('`', 1)[0]
+            if instance == -1:
+                return stem, 0
+            args = self.cached(self.instances, instance, 8, 'projected generic instance count', self.generic_instance)
+            values = [self.named(rva, depth + 1) for rva in args]
+            return f"{stem}<{', '.join(name for name, _ in values)}>", 1 + max((height for _, height in values), default=-1)
+        if role == 'array_rva':
+            rva, rank = self.cached(self.arrays, index, 8, 'projected array count', self.array)
+            name, height = self.named(rva, depth + 1)
+            return name + '[' + ',' * (rank - 1) + ']', height + 1
+        rva = self.type_rva(index) if role == 'runtime_index' else index
+        name, height = self.named(rva, depth + 1)
+        suffix = {0x0f: '*', 0x10: '', 0x1d: '[]'}[tag]
+        return name + suffix, height + 1
+
+    def container(self, index):
+        _require(0 <= index < _MAX_INDEX, 'projected generic container index')
+        row = self.records.read('generic_containers', index * 16, 16)
+        factor = ((0x3d6913e0af40 * index + 0xa64cad60fa052c0) & _MASK64) >> 23
+        factor = ((1997422568 * factor) & _MASK64) >> 11
+        key = (((748293795 * factor) & _MASK64) >> 23) & _MASK32
+        count = ((_integer(row, 0) - 214875017) & _MASK32) ^ key
+        is_method = ((_integer(row, 4) - 1976395631) & _MASK32) ^ key
+        start = ((_integer(row, 12) - 248843855) & _MASK32) ^ key
+        _require(is_method in {0, 1} and 0 <= count <= 16 and start <= _MAX_INDEX - count,
+                 'generic container record')
+        return is_method, range(start, start + count)
+
+    def parameter_constraints(self, index):
+        name, start, count = self.generic_parameter(index)
+        _require(self.constraint_count + count <= 32, 'projected generic constraint count')
+        self.constraint_count += count
+        constraints = []
+        if count:
+            data = self.records.read('generic_constraints', start * 4, count * 4)
+            for at in range(0, len(data), 4):
+                target = _integer(data, at, signed=True)
+                constraints.append('' if target == -1 else self.named(self.type_rva(target))[0])
+        return name, tuple(constraints)
+
+    def generic(self, roots, *, methods):
+        result = {}
+        for owner, record in roots.items():
+            index = record['generic_container']
+            if index == -1:
+                continue
+            is_method, parameters = self.cached(self.containers, index, 8, 'projected generic container count', self.container)
+            _require(is_method == methods, 'generic container owner kind')
+            result[owner] = tuple(self.cached(self.constraints, i, 16, 'projected generic parameter count',
+                                              self.parameter_constraints) for i in parameters)
+        return result
+
+    def nesting(self, index, ancestors):
+        _require(index not in ancestors and len(ancestors) <= 16, 'nested type depth or cycle')
+        if index in self.nested:
+            _, height = self.nested[index]
+            _require(len(ancestors) + height <= 16, 'nested type depth or cycle')
+            return height
+        owner = self.definition(index)
+        count = owner['nested_count']
+        _require(self.nested_count + count <= 32, 'projected nested type count')
+        self.nested_count += count
+        start = owner['nested_start']
+        _require(count == 0 or start >= 0, 'nested type table index')
+        raw = self.records.read('nested_types', start * 4, count * 4) if count else b''
+        children = tuple(_integer(raw, at, signed=True) for at in range(0, len(raw), 4))
+        _require(len(set(children)) == len(children), 'nested type owner')
+        height = 0
+        for child in children:
+            nested = self.definition(child)
+            _require(nested['image_index'] == owner['image_index'] and nested['declaring_type'] != -1
+                     and self.nested_parents.setdefault(child, index) == index, 'nested type owner')
+            height = max(height, self.nesting(child, (*ancestors, index)) + 1)
+        self.nested[index] = children, height
+        return height
+
+    def project(self, runtime_indices, types, methods):
+        names = {index: self.named(self.type_rva(index))[0] for index in runtime_indices}
+        for index in types:
+            self.nesting(index, ())
+        requested_definitions = {index: self.definitions[index] for index in self.nested}
+        type_generics = self.generic(requested_definitions, methods=False)
+        method_generics = self.generic(methods, methods=True)
+        definitions = {index: self.qualified_name(row) for index, row in self.definitions.items()}
+        return {'runtime_names': names, 'definition_names': definitions,
+                'type_parameters': type_generics, 'method_parameters': method_generics,
+                'nested_types': {index: children for index, (children, _) in self.nested.items() if children}}
+
+
 def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices=(), runtime_type_indices=(),
-                  cancelled=None):
+                  project_types=False, cancelled=None):
     """Authenticate all three original inputs and return selected raw records.
 
     A requested type includes its fields. Methods independently identify their
     defining type and validate membership in that type's method range. Member
     type indices and nesting are preserved for subsequent runtime type joins.
     Explicit runtime type requests decode the PE-backed nodes and validate
-    their direct references. They do not traverse referenced records.
+    their direct references. Optionally project names, generics and nesting
+    through the bounded selected type graph.
     No output files or persistent state are created by this operation.
     """
     _require(isinstance(inputs, dict) and set(inputs) == set(_LIMITS), 'source inputs')
@@ -526,6 +742,10 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
                  and all(type(index) is int and 0 <= index < _MAX_INDEX for index in indices)
                  and len(set(indices)) == len(indices), 'requested indices')
     _require(type_indices or method_indices or literal_indices or runtime_type_indices, 'empty request')
+    _require(type(project_types) is bool, 'type projection request')
+    if project_types:
+        _require(0 < len(runtime_type_indices) <= 16 and len(type_indices) + len(method_indices) <= 32,
+                 'type projection roots')
     with ExitStack() as stack:
         files = {role: _Source(stack, role, inputs[role], cancelled) for role in _LIMITS}
         records = _Records(files, cancelled)
@@ -562,6 +782,9 @@ def read_required(inputs, *, type_indices=(), method_indices=(), literal_indices
         if runtime_type_indices:
             stride, rows = records.runtime_types(runtime_type_indices, cancelled)
             runtime = {'runtime_type_stride': stride, 'runtime_types': rows}
+            if project_types:
+                runtime['type_projection'] = _TypeProjection(records, stride, rows, types, cancelled).project(
+                    runtime_type_indices, types, methods)
         for file in files.values():
             _check_cancelled(cancelled)
             file.check_source()

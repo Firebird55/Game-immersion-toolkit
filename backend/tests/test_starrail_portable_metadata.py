@@ -270,3 +270,66 @@ def test_runtime_wide_layout_requires_full_owner_even_when_the_last_tag_fits(tmp
     rows = (wide_int * 3)[:43]
     with pytest.raises(MetadataFormatError, match='runtime type table ownership'):
         read_required(_sources(tmp_path, runtime_rows=rows), runtime_type_indices=(0,))
+
+
+def _projection_sources(tmp_path, *, array_rank=3, method_container=False):
+    rows = bytes.fromhex('00000000 0000 15 00 00000000 0000 08 00 00000000 0000 14 00')
+    sources = _sources(tmp_path, runtime_rows=rows)
+    native = bytearray(sources['native'].path.read_bytes())
+    metadata = bytearray(sources['metadata'].path.read_bytes())
+    startup = bytearray(sources['startup'].path.read_bytes())
+    data_at = 0x600
+    payload = len(_HEADER)
+    image_data = _IMAGE_BASE + _DATA_RVA
+    struct.pack_into('<Q', native, data_at + 0x360 + 0x38, image_data + 0x900)
+    struct.pack_into('<Q', native, data_at + 0x360 + 0x70, image_data + 0x980)
+    struct.pack_into('<i4xQ', native, data_at + 0x900, 2, image_data + 0x940)
+    struct.pack_into('<QQ', native, data_at + 0x940, _IMAGE_BASE + _TYPE_RVA + 8, _IMAGE_BASE + _TYPE_RVA + 16)
+    struct.pack_into('<QB', native, data_at + 0x980, _IMAGE_BASE + _TYPE_RVA + 8, array_rank)
+    struct.pack_into('<ii', startup, 0x20c, 0, 0)
+    # The two authored type definitions now own a generic container and a
+    # nested member. The parameter's one constraint is the native int row.
+    metadata[payload + 0x13a:payload + 0x13e] = bytes.fromhex('c0b2fcab')
+    metadata[payload + 0x143] = 0xfd
+    metadata[payload + 0x152:payload + 0x156] = bytes.fromhex('acd22a1c')
+    container = '616531a7471130100000000028b837a9' if method_container else '616531a7481130100000000028b837a9'
+    metadata[payload + 0x7d0:payload + 0x7e0] = bytes.fromhex(container)
+    struct.pack_into('<i', metadata, payload + 0x7e0, 1)
+    struct.pack_into('<i', metadata, payload + 0x7f0, 1)
+    metadata[payload + 0x800:payload + 0x80e] = bytes.fromhex('2f80a4e538975cf1000000000000')
+    for role, value in [('native', native), ('metadata', metadata), ('startup', startup)]:
+        path = sources[role].path
+        path.write_bytes(value)
+        sources[role] = OriginalInput(path, len(value), hashlib.md5(value).hexdigest())
+    return sources
+
+
+def test_selected_type_projection_joins_startup_generic_arguments_and_nested_owners(tmp_path):
+    projection = read_required(_projection_sources(tmp_path), type_indices=(0,), method_indices=(1,),
+                               runtime_type_indices=(0, 2), project_types=True)['type_projection']
+    assert projection == {
+        'runtime_names': {0: 'Demo.Actor<int, int[,,]>', 2: 'int[,,]'},
+        'definition_names': {0: 'Demo.Actor', 1: 'Demo.Other'},
+        'type_parameters': {0: (('Other', ('int',)),)},
+        'method_parameters': {},
+        'nested_types': {0: (1,)},
+    }
+
+
+@pytest.mark.parametrize(('defect', 'component'), [
+    ({'array_rank': 0}, 'runtime array rank'),
+    ({'method_container': True}, 'generic container owner kind'),
+])
+def test_type_projection_rejects_invalid_dependent_records(tmp_path, defect, component):
+    with pytest.raises(MetadataFormatError, match=component):
+        read_required(_projection_sources(tmp_path, **defect), type_indices=(0,), runtime_type_indices=(0,),
+                      project_types=True)
+
+
+def test_type_projection_rejects_cycles_and_overdeep_reference_graphs(tmp_path):
+    cycle = bytes.fromhex('01000000 0000 1d 00 00000000 0000 1d 00 00000000 0000 08 00')
+    deep = b''.join(struct.pack('<IHBB', i, 0, 0x1d, 0) for i in range(1, 18)) + bytes.fromhex('00000000 0000 08 00')
+    for rows, count in ((cycle, 3), (deep, 18)):
+        with pytest.raises(MetadataFormatError, match='runtime type depth or cycle'):
+            read_required(_sources(tmp_path, runtime_rows=rows, runtime_count=count),
+                          runtime_type_indices=(0,), project_types=True)
