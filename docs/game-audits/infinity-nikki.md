@@ -736,10 +736,19 @@ interrupted updates retain old data. Local restore reports the explicit
 configuration-reader gate. SDK region/channel values and `build.Region` stay
 separate; patch precedence is not inferred from role labels or `CustomFields`.
 
-Selected configuration carriers, full-file hashes, PAK indices and ordered INI
-members remain the next ordinary stage. The nine private research INIs cannot
-supply that missing preparation. CMS construction must consume its future
-verified source receipt and keep the response/keychain gate explicit.
+The next ordinary stage now selects the manifest-owned current
+`Default_Ini_<DefaultVersion>_P` package and all five companions as a single
+verified source group. Missing companions or multiple base/FastPatch owners
+stop before acquisition; overlay precedence is not guessed. The quote includes
+complete shared carriers, unused mixed content, temporary storage and generation
+checks. Complete chunk SHA-1 and all five file SHA-1 checks are required before
+retention; a companion file's checksum is not independent signature acceptance.
+Requote, interruption cleanup, modified consent and offline retained-file
+checks use the ordinary preparation contexts. The resulting stage remains
+inert: native-compatible PAK indices and ordered INI members are still required.
+The nine private research INIs cannot supply that missing preparation. CMS
+construction must consume its future verified source receipt and keep the
+response/keychain gate explicit.
 The PAK reader now accepts the same explicit platform cryptography object;
 desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
 from stored-size width. This removes that import barrier without proving an
@@ -764,6 +773,23 @@ is replaced only by an explicitly authored offline HTTP validator. This proves
 the frozen source-stage boundary, not a fresh server generation, real original
 ETag exchange, repeated cold APK stream, current SDK server reply or game data
 readiness. It fetches zero new source bytes and uses no research INI shortcut.
+
+A subsequent frozen metadata probe obtains one real anonymous SDK response,
+the source-returned plain BuildVersion JSON and two 32-byte manifest prefixes:
+11,522 new response bytes in total, with no software, PAK or voice acquisition.
+The current manifest pins match both earlier completely verified source files.
+Those whole manifests are replayed through ordinary contexts from retained
+bytes, checking 507 base and 188 FastPatch file owners. The manifest quote is
+42,448,925 bytes, including generation checks, with 42,597,252 bytes of additional
+disk. The final generation checks in this replay reuse the captured fresh
+prefixes; this is not a fresh whole-manifest download or an independent
+post-download server check. The prior native receipt and authored old launcher
+validator retain their qualifications. Peak additional files are 272,206,692
+bytes, below the approved 300 MiB cap; exact temporary copies are removed and
+original hashes stay unchanged. The initial wrapper-only assumption safely
+stopped on the original plain document and was corrected before replay; the
+actual SDK response and request timestamp were retained without a second POST.
+No snapshot, selected profile, dynamic keychain or language readiness is proved.
 
 ## Presentation inventory and finite completion boundary
 

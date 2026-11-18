@@ -126,9 +126,8 @@ def test_current_sdk_and_native_wrapper_quote_whole_manifests_and_preserve_regio
     assert [len(source.files) for source in retained[2]]==[3,1]
     before=len(fixture.calls)
     fixture.context('plan').stage_handle=result.restore_handle
-    gate=fixture.provider.plan(fixture.request,fixture.ctx)
-    assert not gate.runtime_available and gate.stage=='global-build-source' and gate.download_bytes==0
-    assert gate.source_proof is None and len(fixture.calls)==before
+    with pytest.raises(GameDataError) as next_stage:fixture.provider.plan(fixture.request,fixture.ctx)
+    assert next_stage.value.code=='publisher_configuration_precedence_unresolved' and len(fixture.calls)==before
     with pytest.raises(GameDataError) as failure:fixture.provider.restore(result.restore_handle,fixture.context('restore'))
     assert failure.value.code=='publisher_configuration_reader_unresolved' and len(fixture.calls)==before
 
