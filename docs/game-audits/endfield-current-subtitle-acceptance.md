@@ -1058,3 +1058,17 @@ with all original identities retained as members and no other identity delta.
 See the [ordinary continuation evidence](endfield-official-parameters.md#ordinary-authored-validation-continuation--november-17)
 for exact wire/disk quotes, actual transfer/recovery proof and the distinct
 source-fixture, original-client-provenance and native-admission qualifications.
+
+The November 18 [engine/state-retention review](endfield-official-parameters.md#engine-registration-data-and-state-retention--november-18)
+finds the original engine's exact AssetBundle registration-name data but does
+not prove the native AssetBundle producer/handler or accept a key. The bounded
+two-column locator is negative. A separate exact-name/result-slot investigation
+establishes the original named-export lookup and argument-preserving dispatch.
+The complete 57-caller proof then establishes the actual same-index AssetBundle
+registration and synchronous path/CRC/offset transfer. The bounded loader route
+stops at a concrete redirected header-reader entry without matching runtime
+ownership. No header key, canonical admission or library activation follows;
+actual module-name input and engine trust remain unproved. A separate
+current-core synthetic service fixture verifies older-current/stage-pointer and
+recording retention on publication failure plus offline old activation; this
+does not establish actual Endfield Ready or resolve the remaining capture gates.

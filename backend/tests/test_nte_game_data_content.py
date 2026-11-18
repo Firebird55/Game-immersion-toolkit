@@ -25,7 +25,8 @@ from backend.tests.test_nte_publisher_pak import package, signature, KEY
 
 
 class Originals:
-    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False, text_tail=False):
+    def __init__(self, tmp_path, monkeypatch, *, dense=False, selected_metadata=False, processing=False,
+                 text_tail=False, study_locale='ja'):
         self.sdk = originals(monkeypatch)
         self.old_native, old_manifest = baseline_source(monkeypatch)
         self.current_native = self.old_native+b'new original overlay'
@@ -47,10 +48,14 @@ class Originals:
         self.forbid_all_http = False
         self.metadata_archives = {}
         if selected_metadata:
+            from backend.nte_assets import TEXT_LOCALES
+            study = TEXT_LOCALES[study_locale]
+            target = 'en' if study_locale != 'en' else 'zh-CN'
+            other = next(code for code in ('ko', 'ja', 'en', 'zh-CN', 'zh-Hant') if code not in (study, target))
             specs = {
-                'study': ('Content/Localization/Game/ja/', 'Game.locres'),
-                'target': ('Content/Localization/Game/en/', 'Game.locres'),
-                'other-locale': ('Content/Localization/Game/ko/', 'Game.locres'),
+                'study': ('Content/Localization/Game/'+study+'/', 'Game.locres'),
+                'target': ('Content/Localization/Game/'+target+'/', 'Game.locres'),
+                'other-locale': ('Content/Localization/Game/'+other+'/', 'Game.locres'),
                 'registry': ('', 'AssetRegistry.bin'),
                 'subtitles': ('Content/SrtFile/FFMpeg/Story/', 'owned.srt'),
                 'voice': ('Content/WwiseAudio/Media/Japanese/', '123.wem')}
@@ -60,6 +65,10 @@ class Originals:
                     from backend.tests.test_nte_locres import resource
                     payload = resource([('story', 'owned', label+' text', 7)])
                     if text_tail and label == 'study': payload += b'!'
+                elif processing and label == 'subtitles':
+                    payload = ''.join(f'{i+1}\n00:{i//600:02}:{i//10%60:02},{i%10*100:03} --> '
+                        f'00:{(i+1)//600:02}:{(i+1)//10%60:02},{(i+1)%10*100:03}\nowned\n\n'
+                        for i in range(4000)).encode()
                 raw = package([(name, payload, 0, False, False)], folder=folder)
                 owner = 'Client/WindowsNoEditor/HT/Content/Paks/'+label+'.pak'
                 data[owner], data[owner[:-4]+'.sig'] = raw, signature(raw)
@@ -313,7 +322,7 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
             assert finish(service)['job']['status'] == 'needs_plan'
         else:
             pytest.fail('Original index metadata did not finish')
-        assert private['selection']['members_count'] == 4
+        assert private['selection']['members_count'] == (3 if mode == 'text' else 4)
         original.forbidden_assets.update(original.metadata_archives[label] for label in ('other-locale', 'voice'))
         monkeypatch.setattr(pak.Archive, 'read', lambda *_: pytest.fail('Preflight read a member'))
         monkeypatch.setattr(pak.Archive, '_parts', lambda *_: pytest.fail('Preflight requested body parts'))
@@ -322,6 +331,7 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
         repeated = service.plan('nte', request)['game']
         assert repeated['revision'] == plan['revision'] and repeated['download_bytes'] == plan['download_bytes']
         assert len([call for call in original.calls if call['range']]) == before
+        first = len(original.calls)
         service.download('nte', {'plan_id': repeated['plan_id'], 'revision': repeated['revision']})
         state = finish(service)
         assert state['job']['status'] == 'needs_plan'
@@ -332,8 +342,10 @@ def test_selected_locale_metadata_has_exact_owner_plan_and_no_member_reads_durin
         assert stage['handle']['plan_sha256'] == _identity(private)
         assert stage['handle']['ranges_sha256'] == _identity(private['ranges'])
         assert stage['handle']['transferred_bytes'] == repeated['download_bytes']
-        selected = {call['url'] for call in original.calls if call['range'] and call['url'] in original.metadata_archives.values()}
-        assert selected >= {original.metadata_archives[label] for label in ('study', 'target', 'registry', 'subtitles')}
+        selected = {call['url'] for call in original.calls[first:] if call['range'] and call['url'] in original.metadata_archives.values()}
+        expected = ('study', 'target', 'registry') if mode == 'text' else ('study', 'target', 'registry', 'subtitles')
+        assert selected >= {original.metadata_archives[label] for label in expected}
+        if mode == 'text': assert original.metadata_archives['subtitles'] not in selected
         following = service.plan('nte', request)['game']
         assert following['can_download'] and following['revision'].startswith('nte-global-metadata-')
         before = len([call for call in original.calls if call['range']])

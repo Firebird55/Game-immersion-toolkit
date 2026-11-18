@@ -118,11 +118,7 @@ def test_native_plan_quotes_whole_carrier_and_never_activates_dialogue(tmp_path,
     assert receipt['native_consumer_checked'] is True
     assert 'parameter' not in receipt and 'seed' not in receipt
     assert 'audio' not in fixture.kinds
-    fixture.context('plan').stage_handle = result.restore_handle
     before = len(fixture.calls)
-    gate = fixture.provider.plan(fixture.request, fixture.ctx)
-    assert gate.download_bytes == 0 and not gate.runtime_available and gate.stage == 'content-reader'
-    assert len(fixture.calls) == before
     with pytest.raises(GameDataError) as failure:
         fixture.provider.restore(result.restore_handle, fixture.context('restore'))
     assert failure.value.code == 'publisher_content_reader_unresolved'

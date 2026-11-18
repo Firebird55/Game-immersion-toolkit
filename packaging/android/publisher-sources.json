@@ -31,8 +31,8 @@
   },
   "files": {
     "backend/nte_game_data.py": {
-      "sha256_lf": "77aa697549fe92edb472f727ff43f8a14600e81438c199e4ea73f1b61cc95a5f",
-      "source_commit": "617be276759df4a46817486e15e6ecdcb96a5835"
+      "source_commit": "ce060d13306a0d39d72616d1b52364563877629f",
+      "sha256_lf": "36874d473adae2a2610cd04d23526d974a86020540900560aca74c4c2ad2f3bb"
     },
     "backend/nte_original_updater.py": {
       "sha256_lf": "1d1358439fe566f9f441698d26cf74110ffcc016d4a0faff149d138ff733b36c",
@@ -93,6 +93,10 @@
     "backend/wuwa_game_data.py": {
       "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
       "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/nte_game_data_snapshot.py": {
+      "source_commit": "b9acf7491e2d3d1214c56bfd4186590d3b499360",
+      "sha256_lf": "020c92b5ccf3320a9bed9a36dd5b61c9d56debab3795a5a9f1793e9df45f40dc"
     }
   },
   "forbidden_stage_imports": [
@@ -126,7 +130,8 @@
         "nte_updater_baseline",
         "nte_updater_native",
         "nte_original_updater",
-        "preparation_errors"
+        "preparation_errors",
+        "nte_game_data_snapshot"
       ],
       "snapshot_runtime": false,
       "stages": [

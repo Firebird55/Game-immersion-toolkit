@@ -51,7 +51,16 @@ function track(object) {
   if(r.count()!==0)throw Error('Unsupported ZZZ timeline markers');
   let language=null;
   if(object.type==='SubtitleTrack')language=r.u32();
-  else if(object.type==='WwiseAudioTrack')r.zero(12); // No parameters, locale or player exclusions.
+  else if(object.type==='WwiseAudioTrack') {
+    const count=r.count(); if(count>4)throw Error('Unsupported ZZZ voice exclusions');
+    const excluded=Array.from({length:count},()=>r.u32());
+    if(new Set(excluded).size!==excluded.length||excluded.some(value=>![1,2,3,4].includes(value)))throw Error('Invalid ZZZ voice exclusions');
+    r.zero(8); // Player exclusions remain unsupported, including on empty tracks.
+    // Original timelines retain empty per-language voice placeholders. Their
+    // filters cannot select a recording when there is no clip or child track.
+    // Active filtered tracks still require their own proven selection rules.
+    if(excluded.length&&(object.namespace!=='MoleMole.Timeline'||children.length||clips.length))throw Error('Unsupported active ZZZ voice exclusions');
+  }
   r.end(); return {parent,children,clips,language};
 }
 

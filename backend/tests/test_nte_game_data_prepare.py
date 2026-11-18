@@ -14,9 +14,33 @@ from backend.tests.test_nte_game_data_content import Originals
 from backend.tests.test_nte_game_data import REQUEST, finish
 
 
-@pytest.mark.parametrize('fault', [None, 'text-eof', 'registry-eof', 'nonce', 'publication'])
-def test_zero_transfer_processing_verifies_metadata_without_constructing_http(tmp_path, monkeypatch, fault):
-    original = Originals(tmp_path, monkeypatch, selected_metadata=True, processing=True, text_tail=fault == 'text-eof')
+def test_all_official_translation_targets_get_a_bounded_local_work_quote(tmp_path, monkeypatch):
+    from backend import nte_game_data_prepare as processing
+    from backend.private_data_paths import MAX_TEXT
+    monkeypatch.setattr(processing, '_localization', lambda _ctx: SimpleNamespace(revision='a'*40, digest='b'*64))
+    ctx = SimpleNamespace(cache_directory=tmp_path)
+    reader = SimpleNamespace(identity={'owned': 'reader'})
+    all_targets = ['en', 'zh-Hans', 'zh-Hant', 'ja', 'ko', 'fr', 'de', 'es-ES', 'ru']
+    quotes = []
+    for targets in ([], ['en'], all_targets):
+        request = {**REQUEST, 'target_locales': targets}
+        plan = processing.plan({'indices': {'request': request}}, {}, ctx, reader)
+        assert plan.download_bytes == 0 and plan.stage == 'process-metadata'
+        assert 0 < processing._text_budget(request) <= MAX_TEXT
+        assert 2*processing._text_budget(request) < plan.required_disk_bytes <= 2*1024**3
+        quotes.append(plan.required_disk_bytes)
+    assert quotes[0] < quotes[1] < quotes[2]
+    from backend.game_data_protocol import GameDataError
+    with pytest.raises(GameDataError):
+        processing.plan({'indices': {'request': {**REQUEST, 'target_locales': all_targets+['pt-BR']}}}, {}, ctx, reader)
+
+
+@pytest.mark.parametrize('locale,fault', [('ja', value) for value in (None, 'text-eof', 'registry-eof', 'nonce', 'publication')]
+    + [(locale, None) for locale in ('en', 'zh-Hans', 'zh-Hant', 'ko')])
+def test_zero_transfer_processing_verifies_metadata_without_constructing_http(tmp_path, monkeypatch, locale, fault):
+    original = Originals(tmp_path, monkeypatch, selected_metadata=True, processing=True,
+                         text_tail=fault == 'text-eof', study_locale=locale)
+    request = {**REQUEST, 'source_locale': locale, 'target_locales': ['en' if locale != 'en' else 'zh-Hans']}
     service = original.service(); executions = []
     def execute(self, source, destination, operation, request, *, timeout):
         assert operation == 'publisher-dialogue-inventory' and request['require_registry_eof'] is True
@@ -35,7 +59,7 @@ def test_zero_transfer_processing_verifies_metadata_without_constructing_http(tm
     monkeypatch.setattr(runtime.NteGameDataReader, 'execute', execute)
     try:
         for _ in range(10):
-            plan = service.plan('nte', REQUEST)['game']
+            plan = service.plan('nte', request)['game']
             stage = service.plans[plan['plan_id']]['plan'].stage
             if stage == 'process-metadata': break
             assert plan['can_download']

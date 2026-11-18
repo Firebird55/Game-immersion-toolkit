@@ -1,5 +1,65 @@
 # Neverness to Everness audit
 
+## Context-owned Text-only completion · November 18, 2026
+
+The shared game-data service now connects its separately quoted original
+bootstrap, indices, selected localization, registry, packages and required native
+closure to a complete Windows Text-only source. Local processing stages have a
+zero-byte transfer allowance. Missing original imports become explicit bounded
+quotes before the owned reader can continue; a diagnostic request inventory is
+never itself a completed preparation. All source processing uses the verified
+app-local reader, without an implicit build or game installation.
+
+Text-only selection now defers SRT bodies until the original authoring identifies
+their subtitle owners. The quote comes from authenticated archive indices and
+does not read selected member bodies. Only declared, available subtitle members
+are acquired; unresolved original declarations remain explicit. Selected locres
+and authored subtitles then pass the existing canonical row validation, keeping
+unknown, voiced and confirmed written statuses separate from intentional audio
+omission. Neither normalization nor restoration reads BNK/WEM members.
+
+The retained Global 1.5.4 Japanese/Simplified-Chinese-target trial completed the
+ordinary required closure after explicitly quoted cache-only import acquisition.
+The first 220-block acquisition accounted for 40,657,402 bytes including source
+checks. A fresh ordinary run needed 20 additional export blocks: 373,754 bytes
+including checks. The following ordinary native pass completed with 62 actual
+type lookups, two class lookups and 71 concrete-codec witnesses. Its stable
+authoring outputs matched the diagnostic control; the invocation nonce remained
+distinct. All responses reused authenticated originals already retained locally,
+with zero new original-server bytes and no audio member reads.
+
+Final normalization produced 122,200 Japanese rows and the selected official
+Chinese translations: 23,348 retain authored voice evidence, 2,003 remain
+confirmed written content and 96,849 remain unknown. Every row intentionally
+omits playable audio. The final source checks were quoted and accounted as
+311,258 bytes; normalization needed no additional asset response. These are
+prepared-source counts, not demonstrated gameplay or complete-story totals.
+
+The immutable source identity binds its exact request, original recipe,
+metadata/authoring receipts, native validation, owned reader, fixed initial
+descriptions and normalized payload. Historical restoration validates only the
+retained snapshot, profile and receipt, without current publisher discovery,
+native layout generation, key resolution or helper execution. Missing, swapped
+or interrupted receipts cannot become a provisional source. Modeled service and
+restore tests cover all five existing study locales; real source normalization
+here is specifically Japanese with a Chinese target.
+
+The final coherent retained-source service replay also passed actual recovery:
+a publisher-pointer change during final normalization prevented activation,
+and interruption before writing the snapshot receipt kept the complete previous
+source byte-identical. Healthy retry reproduced the exact new immutable source.
+A fresh provider restored it with desktop/native/key/current-discovery modules
+blocked. This is offline source restoration, not Android device execution or
+independent Android preparation. The complete replay used zero new original or
+network bytes and no BNK/WEM member reads.
+
+This completes the measured Text-only source path, not the separate shared-service
+Text + audio acquisition path, mainland bootstrap integration, Android native
+reader, unknown future archive/localization-key rotations or changed unsupported
+constructors/codecs. The earlier desktop publisher Setup and voice proofs below
+retain their own scope. The fixed initial descriptions remain explicitly planned
+prerequisites rather than updated external text/audio snapshots.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before
@@ -153,9 +213,10 @@ Whole global UCAS data is not selected merely from its filename; its later
 eligibility requires an authenticated parsed TOC. Synthetic fixtures cover both
 content modes, changed-source rejection before assets and corrupt-range failure.
 
-Authenticated archive footer/index/block planning and the final context-owned
-offline preparation remain open. No intermediate native/index stage is a ready
-game library. Android rejects the Windows capability before importing its reader
+At that bootstrap checkpoint, authenticated archive footer/index/block planning
+and final context-owned offline preparation were still open. The later stages
+below and November 18 Text-only completion extend that evidence; an intermediate
+native/index stage alone is never a ready game library. Android rejects the Windows capability before importing its reader
 modules. A separate managed/native host is still required there.
 These Global results do not establish mainland key derivation, archive or
 localization key rotation, new required schema constructors, a changed launcher
@@ -293,16 +354,18 @@ actual shared transport then completed all PAK indexes in three exact-accounted
 stages: **963,123**, **5,619,674** and **9,945,050 bytes**. Every preflight remained
 free of archive transfers; no voice-bank or WEM member was read. This was an
 offline replay of frozen official sources, not a fresh server/rotation trial.
-The selected package/text/audio stage and independent Android acceptance remain
-unfinished.
+The selected package/text/audio stages were still unfinished in that index-only
+trial. Independent Android reader acceptance remains open.
 
-The following PAK metadata stage selects the requested study/translation locres,
+The initial PAK metadata stage selected the requested study/translation locres,
 the existing Story SRT presentation route and the unique live AssetRegistry
 owner. It uses authenticated index entry layouts to quote stored ranges; planning
 does not read/decode a selected member. Retained compressed blocks are checked
 only to determine the remaining transfer. Other text locales and all voice-bank
 and WEM members are excluded from this stage in both content modes. The eventual
-text-and-audio route still needs its separate authored voice selection.
+text-and-audio route still needs its separate authored voice selection. Since
+November 18, Text-only defers SRT selection until original authoring identifies
+the subtitle members; the following 47-member trial retains its earlier scope.
 
 A frozen-original Global 1.5.4 Japanese/Mandarin-target replay selected **47**
 metadata members. Its **41,074,650-byte** plan completed through 13 checked
@@ -399,10 +462,27 @@ pointer checks, entirely from existing verified original caches. A changed
 source was rejected before any asset transfer, a corrupted block was rejected
 without publication, and a correct retry returned to local processing. All
 three trials kept the previous source on failure and downloaded no new network
-data or bank/WEM members. Required-closure validation, complete selected-language
-normalization, original audio readiness and final activation checks remain
-separate gates; this stage evidence is not a ready-library or Android-reader
-claim.
+data or bank/WEM members. At that import checkpoint, required-closure validation,
+complete selected-language normalization, original audio readiness and final
+activation checks remained separate gates. The later Text-only completion above
+does not turn this earlier stage into an Android-reader or audio-readiness claim.
+
+The retained current graph export is 132,656,568 bytes, already close to
+128 MiB. Local authoring preparation therefore reuses the graph consumer's
+existing 256 MiB file bound, with separate existing 64 MiB authoring and 8 MiB
+schema limits. Its 3 GiB temporary-space reservation covers the original
+registry, temporary export copies and immutable publication. This permits
+ordinary graph growth within the existing format contract; schema, source,
+closure and activation checks are unchanged.
+
+Localization processing budgets now follow the actual selected language set:
+at most 128 MiB per distinct selected locale and 512 MiB in aggregate, with
+space reserved for temporary and immutable copies plus registry processing.
+The retained Japanese/Mandarin-target normalization is 38,959,679 bytes; a
+fixed two-language aggregate should not exclude larger valid multi-target
+requests. Authored service fixtures cover all five existing study locales and
+the bounded nine-language request. This is format coverage; the real source
+trial remains the independently verified two-locale selection.
 
 ## Publisher Setup and immutable voice snapshots
 

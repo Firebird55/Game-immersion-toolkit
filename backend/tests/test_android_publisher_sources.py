@@ -29,7 +29,7 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa'}
-    assert len(policy['files']) == 16 and len(portable_sources()) == 73
+    assert len(policy['files']) == 17 and len(portable_sources()) == 74
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
@@ -94,11 +94,14 @@ except GameDataError as error:assert error.code=='game_runtime_unavailable'
 else:raise AssertionError('Wuwa admitted a missing maintained native crypto capability')
 for stage in ('original-indices','archive-index-ranges','authoring-import-ranges',
  'process-authoring','initial-descriptions','dialogue-package-ranges',
- 'process-metadata','global-import-metadata'):
+ 'process-metadata','global-import-metadata','authored-subtitle-ranges','normalize-text'):
  try:providers['nte'].download(SimpleNamespace(stage=stage),SimpleNamespace(check=lambda:None))
  except GameDataError as error:assert error.code=='nte_reader_unavailable'
  else:raise AssertionError('Android admitted a desktop-only continuation')
 assert all(name not in sys.modules for name in policy['forbidden_stage_imports'])
+try:providers['nte'].restore({'schema':'nte-original-text-snapshot-v1'},SimpleNamespace(check=lambda:None))
+except GameDataError as error:assert error.code=='nte_text_source_invalid'
+else:raise AssertionError('Android trusted an incomplete self-contained text receipt')
 class Response(io.BytesIO):
  status=200
  def __init__(self,body,url):
@@ -171,6 +174,6 @@ def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_netwo
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 73 and proof['registry'] == ['nte','reverse1999','wuwa']
+    assert proof['owned_modules'] == 74 and proof['registry'] == ['nte','reverse1999','wuwa']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
     assert proof['native_android_execution'] is False

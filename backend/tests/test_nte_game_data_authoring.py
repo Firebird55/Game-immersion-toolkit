@@ -23,7 +23,7 @@ def test_owned_authoring_failure_remains_actionable_without_a_retrying_legacy_ca
     assert str(error.value) == 'The original dialogue format changed. Your previous library is retained.'
 
 
-@pytest.mark.parametrize('fault', [None, 'output', 'validation', 'inventory', 'reader', 'pointer', 'schema'])
+@pytest.mark.parametrize('fault', [None, 'output', 'validation', 'inventory', 'reader', 'pointer', 'schema', 'graph-growth'])
 def test_completed_authoring_receipt_is_bound_to_eligible_closure_original_inventory_and_owned_reader(tmp_path, monkeypatch, fault):
     ctx = SimpleNamespace(cache_directory=tmp_path)
     reader = {'kind': 'nte-owned-windows-reader-v1', 'source_sha256': 'a'*64, 'dependencies_sha256': 'b'*64}
@@ -32,6 +32,11 @@ def test_completed_authoring_receipt_is_bound_to_eligible_closure_original_inven
         'metadata_receipt': 'c'*64, 'reader': reader}
     identity = authoring.content._identity(packet)
     outputs = {name: ('authored '+name).encode() for name in authoring.OUTPUTS}
+    if fault == 'graph-growth':
+        from backend import nte_dialogue_graph
+        monkeypatch.setattr(authoring, 'MAX_OUTPUT', 1024)
+        monkeypatch.setattr(nte_dialogue_graph, 'MAX_SOURCE_BYTES', 4096)
+        outputs['dialogue-graphs.json'] = b'{}'+b' '*2048
     schema = {'owned': 'schema-identity', 'sha256': hashlib.sha256(outputs['dialogue.usmap']).hexdigest()}
     if fault == 'schema': schema['sha256'] = '0'*64
     candidate = SimpleNamespace(receipt={'dependencies': {'reader': reader['source_sha256']},
@@ -55,6 +60,6 @@ def test_completed_authoring_receipt_is_bound_to_eligible_closure_original_inven
     if fault == 'reader': candidate.receipt['dependencies']['reader'] = '0'*64
     if fault == 'pointer': (base/(identity+'.json')).write_text(json.dumps({'recipe': identity, 'receipt': '0'*64}))
     result = authoring._read(packet, ctx)
-    assert (result is None) is bool(fault)
+    assert (result is None) is (fault not in (None, 'graph-growth'))
     if result is not None: assert result == {'receipt': digest, 'root': root}
     assert not (tmp_path/'current.json').exists()

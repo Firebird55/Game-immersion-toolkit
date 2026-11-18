@@ -72,8 +72,8 @@ def finish(service):
     raise AssertionError('Stage did not finish')
 
 
-def start(service):
-    row = service.plan('starrail', REQUEST)['game']
+def start(service, request=REQUEST):
+    row = service.plan('starrail', request)['game']
     service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
     return row
 
@@ -197,7 +197,9 @@ def test_default_runtime_uses_verified_prebuilt_closure_without_sdk_or_cache_fal
     assert error.value.code == 'starrail_reader_unavailable' and 'private-resource-location' not in str(error.value)
 
 
-def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch):
+@pytest.mark.parametrize('voice_choices', [None, {'choice_set_sha256': 'a'*64, 'choices': [
+    {'group_key': 'starrail:copyright-avatar:7001', 'alternative': 'copyright-dub'}]}])
+def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch, voice_choices):
     """Only native/catalog format boundaries are authored fixture substitutes."""
     from types import SimpleNamespace
     from backend import starrail_native_preparation, starrail_original_provider
@@ -205,6 +207,9 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
     from backend.starrail_original_tables import OriginalTables
     from backend.tests.test_starrail_text_only import Catalog
     from backend.xxhash64 import xxhash64
+    from backend import starrail_voice_choices
+    monkeypatch.setattr(starrail_voice_choices, 'discover', lambda *a: pytest.fail('Text-only must not acquire voice-choice metadata'))
+    request = REQUEST | ({'voice_choices': voice_choices} if voice_choices else {})
     provider, _, objects, _, calls, _ = fixture(tmp_path, monkeypatch)
     state = {'metadata_ready': False}
     reader = SimpleNamespace(identity='b' * 64)
@@ -262,7 +267,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
     try:
         phases = []
         for number in range(6):
-            row = start(service); result = finish(service)
+            row = start(service, request); result = finish(service)
             phases.append(result['job']['status'])
             assert result['job']['status'] in {'needs_plan', 'complete'}
             if number == 2:
@@ -278,6 +283,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
         assert all(asset.url in calls for asset in assets.values())
         before = len(calls)
         source = service.restore('starrail')
+        assert source.restore_handle['request'] == request
         assert len(calls) == before and source.voice_source is None
         payload = json.loads(source.snapshot_path.read_bytes())
         assert payload['content_mode'] == 'text' and all(not row['audio'] for row in payload['records'])
@@ -287,7 +293,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
         previous_sha = hashlib.sha256(source.snapshot_path.read_bytes()).hexdigest()
         next_provider, *_ = fixture(tmp_path, monkeypatch, generation=2)
         service.providers['starrail'] = next_provider
-        start(service)
+        start(service, request)
         assert finish(service)['job']['status'] == 'needs_plan'
         retained = service.restore('starrail')
         assert retained.snapshot_path == source.snapshot_path
@@ -404,7 +410,8 @@ def test_text_audio_inventory_is_explicitly_quoted_and_never_activates_partial_a
             if transfer is not None:
                 assert len(calls) == before + 1
         final = service.plan('starrail', request)['game']
-        assert not final['can_download'] and final['download_bytes'] is None
+        assert not final['can_download'] and final['download_bytes'] == 0
+        assert 'movie audio' in final['message']
         assert not list(tmp_path.rglob('textmap.json'))
     finally:
         service.close()
@@ -467,3 +474,109 @@ def test_missing_closed_audio_runtime_gates_recording_quote_before_transport(tmp
         SimpleNamespace(identity='c' * 64), SimpleNamespace(identity='d' * 64), {}, {})
     assert plan.stage == 'audio-runtime' and plan.runtime_available is False
     assert plan.download_bytes is None and not plan.handle
+
+
+@pytest.mark.parametrize('prior_mode', ['text', 'text-audio'])
+def test_known_binding_gate_preserves_quote_and_active_text_originals_without_asset_calls(tmp_path, monkeypatch, prior_mode):
+    from types import SimpleNamespace
+    from backend import starrail_game_audio as audio
+    from backend.tests.test_game_data import Provider
+    producer = game.create_provider(platform='windows')
+    owner = audio.Owner('English/External_new.pck', 8000, 'a'*32,
+        'https://autopatchos.starrails.com/test/External_new.pck', 'b'*64)
+    quote = audio.Quote('audio-external-members', (audio.Span(owner, 100, 1000),))
+    receipt = {'selection_sha256': 'c'*64, 'event_unresolved': 143,
+        'event_state_choices': 143, 'external_unbound': 1565, 'movie_audio_required': True}
+    monkeypatch.setattr(producer, '_audio_inventory', lambda *a: (quote, object(), receipt, ()))
+    monkeypatch.setattr(producer, '_transport', lambda *a: pytest.fail('A binding gate cannot open an asset'))
+    monkeypatch.setattr(producer, '_audio_runtime_available', lambda: True)
+    class Prior(Provider):
+        blocked = False
+        def plan(self, request, ctx):
+            if self.blocked and request.content_mode == 'text-audio':
+                self.gated_plan = producer._audio_plan(ctx, SimpleNamespace(build={'channel': 'starrail-global', 'version': '4.7.0'}),
+                    SimpleNamespace(identity='d'*64), SimpleNamespace(identity='e'*64), {}, {})
+                return self.gated_plan
+            return super().plan(request, ctx)
+        def download(self, plan, ctx):
+            assert not self.blocked
+            source = super().download(plan, ctx)
+            payload = json.loads(source.snapshot_path.read_bytes()); payload['game'] = 'starrail'
+            source.snapshot_path.write_text(json.dumps(payload))
+            (ctx.directory / 'original-control.wem').write_bytes(b'owned inert original fixture')
+            return source
+    prior = Prior(); service = GameDataService(tmp_path, {'starrail': prior})
+    try:
+        old_request = REQUEST | {'content_mode': prior_mode}
+        first = service.plan('starrail', old_request)['game']
+        service.download('starrail', {'plan_id': first['plan_id'], 'revision': first['revision']})
+        assert finish(service)['job']['status'] == 'complete'
+        old = service.restore('starrail'); body = old.snapshot_path.read_bytes()
+        original = old.snapshot_path.parent / 'original-control.wem'; original_bytes = original.read_bytes()
+        prior.blocked = True
+        blocked = service.plan('starrail', REQUEST | {'content_mode': 'text-audio'})['game']
+        assert prior.gated_plan.stage == 'original-audio-bindings' and not blocked['can_download']
+        assert prior.gated_plan.handle['audio'] == receipt
+        assert blocked['download_bytes'] == quote.download_bytes
+        assert '1,565 recording paths' in prior.gated_plan.message and '143 recording choices' in prior.gated_plan.message
+        assert blocked['message'] == prior.gated_plan.message and blocked['job'] is None
+        with pytest.raises(GameDataError):
+            service.download('starrail', {'plan_id': blocked['plan_id'], 'revision': blocked['revision']})
+        assert prior.downloads == 1
+        retained = service.restore('starrail')
+        assert retained.snapshot_path == old.snapshot_path and retained.snapshot_path.read_bytes() == body
+        assert original.read_bytes() == original_bytes
+        if prior_mode == 'text-audio':
+            assert retained.voice_source.has(json.loads(body)['records'][0])
+        text_plan = service.plan('starrail', REQUEST)['game']
+        assert text_plan['can_download']
+    finally:
+        service.close()
+
+
+@pytest.mark.parametrize('phase,receipt', [
+    ('audio-localized-banks', {'event_unresolved': 143, 'external_unbound': 1565}),
+    ('audio-external-members', {'event_unresolved': 0, 'external_unbound': 0, 'movie_audio_required': False})])
+def test_media_binding_gate_leaves_required_metadata_and_already_bound_fragments_quotable(monkeypatch, phase, receipt):
+    from types import SimpleNamespace
+    from backend import starrail_game_audio as audio
+    from backend.game_data_protocol import GameDataRequest
+    producer = game.create_provider(platform='windows')
+    owner = audio.Owner('English/new.pck', 10000, 'a'*32, 'https://autopatchos.starrails.com/test/new.pck', 'b'*64)
+    quote = audio.Quote(phase, (audio.Span(owner, 100, 20),))
+    monkeypatch.setattr(producer, '_audio_inventory', lambda *a: (quote, object(), receipt, ()))
+    monkeypatch.setattr(producer, '_audio_runtime_available', lambda: True)
+    ctx = SimpleNamespace(request=GameDataRequest('global', 'en', (), 'text-audio'))
+    plan = producer._audio_plan(ctx, SimpleNamespace(build={'channel': 'starrail-global', 'version': '4.7.0'}),
+        SimpleNamespace(identity='c'*64), SimpleNamespace(identity='d'*64), {}, {})
+    assert plan.runtime_available and plan.stage == phase and plan.download_bytes == 20
+    assert plan.handle['audio'] == receipt
+
+
+def test_direct_audio_download_rechecks_known_blockers_before_asset_transport(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from backend import starrail_game_audio as audio
+    from backend.game_data_protocol import GameDataRequest
+    producer = game.create_provider(platform='windows')
+    owner = audio.Owner('English/new.pck', 10000, 'a'*32, 'https://autopatchos.starrails.com/test/new.pck', 'b'*64)
+    quote = audio.Quote('audio-external-members', (audio.Span(owner, 100, 20),))
+    receipt = {'external_unbound': 1}
+    monkeypatch.setattr(producer, '_audio_inventory', lambda *a, **k: (quote, object(), receipt, ()))
+    monkeypatch.setattr(producer, '_transport', lambda *a: pytest.fail('Known blockers must precede the asset opener'))
+    monkeypatch.setattr(game, '_inputs', lambda *a: {})
+    monkeypatch.setattr(game, '_budget', lambda *a: (0, 0, True))
+    monkeypatch.setattr(game, '_required_text', lambda *a: ('text-snapshot', {}, {}))
+    reader, generation = SimpleNamespace(identity='c'*64), SimpleNamespace(identity='d'*64)
+    catalog = SimpleNamespace(build={'channel': 'starrail-global', 'version': '4.7.0'})
+    monkeypatch.setattr(producer, '_reader', lambda *a: reader)
+    monkeypatch.setattr(producer, '_text_context', lambda *a, **k: ('retained', catalog, generation))
+    ctx = SimpleNamespace(request=GameDataRequest('global', 'en', (), 'text-audio'), cache_directory=tmp_path, check=lambda: None)
+    blocked = producer._audio_plan(ctx, catalog, generation, reader, {}, {})
+    # A caller cannot bypass the service gate by presenting an older enabled
+    # plan with the same fully verified quote and source receipt.
+    forced = replace(blocked, stage=quote.phase, runtime_available=True)
+    with pytest.raises(GameDataError) as error:
+        producer._download_audio(forced, ctx)
+    assert error.value.code == 'starrail_audio_bindings_incomplete'
+    assert not list(tmp_path.rglob('*'))

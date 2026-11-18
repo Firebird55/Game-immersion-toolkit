@@ -167,6 +167,7 @@ def test_normal_factory_advances_state_and_full_external_quotes_without_network(
     monkeypatch.setattr(starrail_assets, 'authored_links', lambda *a: [
         {'audio_event': name}, {'source': source}, {'source': 'English/voice/unbound.wem'}])
     provider = game.create_provider(platform='windows')
+    monkeypatch.setattr(provider, '_required_movie_audio', lambda *a: False)
     monkeypatch.setattr(provider, '_transport', lambda *a: object())
     def forbidden(*a, **k): raise AssertionError('Source planning cannot download audio')
     monkeypatch.setattr(provider, '_metadata_fetch', lambda *a: forbidden)
@@ -175,6 +176,7 @@ def test_normal_factory_advances_state_and_full_external_quotes_without_network(
         'hotfix': {'indexes': {'audio': [123, 'a'*32, 100]}}}, tables=SimpleNamespace(directory=tmp_path))
     quote, _, receipt, members = provider._audio_inventory(ctx, catalog)
     assert quote.phase == 'audio-state-banks' and quote.spans and not members
+    assert receipt['external_unbound'] == 1 and receipt['event_state_choices'] == 0
     store.payloads.update(zip(spans[2:], raw_banks[2:]))
     quote, _, receipt, members = provider._audio_inventory(ctx, catalog)
     assert quote.phase == 'audio-external-members' and quote.download_bytes == 20

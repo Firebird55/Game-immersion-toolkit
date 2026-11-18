@@ -126,7 +126,7 @@ def decode_nsis_member(block: bytes) -> bytes:
     return _inflate(block[4:], MAX_MEMBER) if word & 0x80000000 else block[4:]
 
 
-def launcher_data_resources(member: bytes) -> tuple[bytes, bytes]:
+def launcher_data_resources(member: bytes, *, crypto=None) -> tuple[bytes, bytes]:
     """Find unique Qt identity/config data by stored lengths and actual schema.
 
     Identity and encoded config bytes are returned. Config semantics and the
@@ -169,7 +169,7 @@ def launcher_data_resources(member: bytes) -> tuple[bytes, bytes]:
             _require(candidates <= 64)
             encoded = member[start:end]
             try:
-                release.decode_launcher_config(encoded, identity)
+                release.decode_launcher_config(encoded, identity, crypto=crypto)
             except (ValueError, TypeError, KeyError, UnicodeError):
                 continue
             found.append(encoded)
@@ -238,7 +238,7 @@ def plan_bootstrap(region='global', *, opener=None) -> BootstrapPlan:
     return BootstrapPlan(pointer, total, etag, member_offset, member_bytes, hashlib.sha256(header).hexdigest())
 
 
-def load_bootstrap_config(plan: BootstrapPlan, *, opener=None) -> tuple[bytes, dict, str]:
+def load_bootstrap_config(plan: BootstrapPlan, *, opener=None, crypto=None) -> tuple[bytes, dict, str]:
     """Download only the planned member and derive its original data resources.
 
     HTTPS publisher identity and the strong response validator bind all ranges
@@ -252,5 +252,5 @@ def load_bootstrap_config(plan: BootstrapPlan, *, opener=None) -> tuple[bytes, d
     block = _range(open_request, plan.pointer.url, plan.total_installer_bytes, plan.etag,
                    plan.member_offset, plan.member_download_bytes)
     member = decode_nsis_member(block)
-    identity, encoded = launcher_data_resources(member)
-    return identity, release.decode_launcher_config(encoded, identity), hashlib.sha256(member).hexdigest()
+    identity, encoded = launcher_data_resources(member, crypto=crypto)
+    return identity, release.decode_launcher_config(encoded, identity, crypto=crypto), hashlib.sha256(member).hexdigest()

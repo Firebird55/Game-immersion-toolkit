@@ -1,7 +1,8 @@
-"""Context-owned original NTE bootstrap; never mistake it for a ready library.
+"""Context-owned original NTE downloads and verified offline text sources.
 
-The following content stage still needs an explicit owned-reader adapter and a
-bounded archive plan. No downloaded game/SDK code is executed by this provider.
+Bootstrap, archive and native processing are explicit preparation stages.
+Text + audio and non-Windows native reading retain their separate gates.
+No downloaded game/SDK code is executed by this provider.
 """
 from pathlib import Path
 
@@ -101,6 +102,17 @@ class NteGameDataProvider:
 
     def download(self, plan, ctx):
         ctx.check()
+        if plan.stage in {'authored-subtitle-ranges', 'normalize-text'}:
+            reader = self._reader(ctx)
+            from . import nte_game_data_text as text
+            transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
+            if plan.stage == 'authored-subtitle-ranges':
+                return text.download_subtitles(plan, ctx, reader, transport)
+            from .preparation_errors import PreparationFailure
+            try:
+                return text.download_text(plan, ctx, reader, transport)
+            except PreparationFailure as error:
+                raise GameDataError(error.code, str(error), 409) from error
         if plan.stage == 'authoring-import-ranges':
             reader = self._reader(ctx)
             from . import nte_game_data_imports as dependencies
@@ -193,6 +205,9 @@ class NteGameDataProvider:
 
     def restore(self, handle, ctx):
         ctx.check()
+        if isinstance(handle, dict) and handle.get('schema') == 'nte-original-text-snapshot-v1':
+            from .nte_game_data_snapshot import restore
+            return restore(handle, ctx)
         raise GameDataError('incomplete_game_source', 'NTE compatibility information alone is not a prepared game library.')
 
 

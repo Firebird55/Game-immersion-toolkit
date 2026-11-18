@@ -14,6 +14,7 @@ from .nte_seeded_schema import _seed_shapes
 
 MAX_GRAPHS = 8192
 MAX_EXPORTS = 200_000
+MAX_SOURCE_BYTES = 256*1024**2
 
 
 def _numeric_guard(schema_usmap):
@@ -69,7 +70,7 @@ def _numeric_guard(schema_usmap):
 
 
 def read_pairs(path, *, schema_usmap=None):
-    _check(path.is_file() and 0 < path.stat().st_size <= 256*1024**2)
+    _check(path.is_file() and 0 < path.stat().st_size <= MAX_SOURCE_BYTES)
     packet = json.loads(path.read_bytes())
     _check(isinstance(packet, dict) and set(packet) == {'schema', 'graph_count', 'graphs', 'namespaces'}
            and packet['schema'] == 'nte-original-dialogue-graphs-v1'

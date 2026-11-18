@@ -11,6 +11,7 @@ import importlib.util
 import json
 import marshal
 from pathlib import Path
+import re
 
 from . import sophon_assets as sophon
 from .game_data_protocol import GameDataError, GameDataPlan, PreparationStage
@@ -41,8 +42,13 @@ class GenshinRuntime:
         return Helper((str(reader.executable),), identity)
 
     def initial_seed(self, executable, metadata, *, expected_owner):
-        from .genshin_native_dispatch import read_initial_seed
-        return read_initial_seed(executable, metadata, expected_owner=expected_owner)
+        from .genshin_native_channel import read_bootstrap_inputs
+        return read_bootstrap_inputs(executable, metadata, expected_owner=expected_owner)
+
+    def channel_profile(self, executable, source, source_receipt, contract, *, directory, check_cancel):
+        from .genshin_original_bootstrap import prepare_profile
+        return prepare_profile(executable, source, source_receipt, contract, self.validate(),
+                               directory=directory, check_cancel=check_cancel)
 
 
 class _UnplannedTransfer(Exception):
@@ -146,10 +152,24 @@ def _record(ctx, handle):
     pending.replace(target)
     message = ('Official Genshin manifest verified. Check the native source download size next.'
         if handle['phase'] == 'official-manifest' else
+        'Original Genshin connection profile verified. Complete preparation still needs supported connection, dialogue and audio stages.'
+        if handle['phase'] == 'original-channel-profile' else
         'Original initial dispatch value verified. RSA, request template, signature ownership and later overrides remain unresolved.'
         if handle['phase'] == 'original-bootstrap-seed' else
         'Original Genshin native inputs verified. Dialogue and audio still need the next supported source stage.')
     return PreparationStage(handle, message)
+
+
+def _implementation(names):
+    implementation = hashlib.sha256()
+    for name in names:
+        spec = importlib.util.find_spec('backend.' + name)
+        code = spec.loader.get_code(spec.name) if spec is not None and hasattr(spec.loader, 'get_code') else None
+        if code is None:
+            raise GameDataError('genshin_bootstrap_reader_unavailable', 'Repair the original Genshin bootstrap reader.')
+        implementation.update(name.encode())
+        implementation.update(marshal.dumps(code))
+    return implementation.hexdigest()
 
 
 def _seed_owner(cache, files, runtime_identity):
@@ -162,19 +182,12 @@ def _seed_owner(cache, files, runtime_identity):
             digest = hashlib.file_digest(stream, 'sha256').hexdigest()
         sources.append({'name': name, 'md5': asset.digest, 'bytes': asset.size, 'sha256': digest})
     # Reader implementation changes require extraction again from original bytes.
-    implementation = hashlib.sha256()
     # Frozen Python loaders expose code objects; an installed app need not ship
     # editable .py files. Include the complete maintained parser closure.
-    for name in ('genshin_native_dispatch', 'genshin_original_excel', 'genshin_native_x64',
+    implementation = _implementation(('genshin_native_dispatch', 'genshin_native_channel', 'genshin_original_excel', 'genshin_native_x64',
                  'genshin_native_metadata', 'genshin_native_expression', 'genshin_native_registration',
-                 'genshin_native_view', 'genshin_native_usage', 'genshin_native_literals'):
-        spec = importlib.util.find_spec('backend.' + name)
-        code = spec.loader.get_code(spec.name) if spec is not None and hasattr(spec.loader, 'get_code') else None
-        if code is None:
-            raise GameDataError('genshin_bootstrap_reader_unavailable', 'Repair the original Genshin bootstrap reader.')
-        implementation.update(name.encode())
-        implementation.update(marshal.dumps(code))
-    return {'sources': sources, 'runtime_identity': runtime_identity, 'implementation_sha256': implementation.hexdigest()}
+                 'genshin_native_view', 'genshin_native_usage', 'genshin_native_literals'))
+    return {'sources': sources, 'runtime_identity': runtime_identity, 'implementation_sha256': implementation}
 
 
 def _seed_path(cache, owner):
@@ -187,6 +200,8 @@ def _seed_receipt(path, owner):
             return None
         receipt = json.loads(path.read_bytes())
         value, proof = receipt['value'], receipt['proof']
+        contract = proof['channel_loader']
+        contract_methods = contract['methods']
         expected = {'metadata_sha256' if row['name'].endswith('.dat') else 'executable_sha256': row['sha256']
                     for row in owner['sources']}
         if (receipt['owner'] != owner or proof['schema'] != 'genshin-original-initial-dispatch-seed-v1'
@@ -194,11 +209,141 @@ def _seed_receipt(path, owner):
                 or any(character not in '0123456789abcdef' for character in value)
                 or proof['value_sha256'] != hashlib.sha256(value.encode()).hexdigest()
                 or proof['later_override_excluded'] is not False or proof['complete_dispatch_bootstrap'] is not False
+                or contract['schema'] != 'genshin-original-channel-loader-v1' or contract['profile_only'] is not True
+                or contract['complete_dispatch_bootstrap'] is not False or contract['later_override_excluded'] is not False
+                or not isinstance(contract_methods, list) or len(contract_methods) != 2
+                or {row['name'] for row in contract_methods} != {'GetConfigChannel', 'LoadChannelConfigBlk'}
+                or not all(isinstance(row['sha256'], str) and re.fullmatch('[a-f0-9]{64}', row['sha256'])
+                           and type(row['rva']) is int and row['rva'] > 0 for row in contract_methods)
+                or contract['source_field']['field']['name'] != 'channelConfigBlkName'
+                or any(contract['source_field'][key] != digest for key, digest in expected.items())
                 or any(proof[key] != digest for key, digest in expected.items())):
             return None
         return receipt
     except (OSError, ValueError, TypeError, KeyError):
         return None
+
+
+def _accepted_seed(previous, handle, owner, receipt):
+    if not isinstance(previous, dict) or receipt is None:
+        return False
+    if any(previous.get(key) != handle[key] for key in ('schema', 'game', 'request', 'revision', 'runtime_identity')):
+        return False
+    phase = previous.get('phase')
+    if phase not in {'original-bootstrap-seed', 'original-channel-profile'} or previous.get('seed_owner') != owner:
+        return False
+    expected = previous.get('receipt_sha256' if phase == 'original-bootstrap-seed' else 'seed_receipt_sha256')
+    return expected == hashlib.sha256(_canonical(receipt)).hexdigest()
+
+
+def _profile_files(cache, build, basename, fetch):
+    from .genshin_original_bootstrap import MAX_PACKAGE
+    if not isinstance(basename, str) or not re.fullmatch('[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}', basename):
+        raise GameDataError('genshin_profile_source_unavailable', 'The original connection profile source is unavailable.')
+    files = sophon.manifest(cache, build['channel'], tuple(build['manifests']['game']), (basename,), fetch=fetch)
+    if len(files) != 1 or any(asset.name.rsplit('/', 1)[-1] != basename or not 0 < asset.size <= MAX_PACKAGE for asset in files.values()):
+        raise GameDataError('genshin_profile_source_unavailable', 'The complete original connection profile is unavailable or ambiguous.')
+    for asset in files.values():
+        for _, _, _, _, digest in asset.chunks:
+            _safe(cache / 'chunks' / digest)
+    return files
+
+
+def _profile_owner(handle, seed_owner, seed_receipt, files):
+    from .genshin_original_bootstrap import MAX_BODY, MAX_PACKAGE, MAX_RECEIPT, MAX_TEXT
+    asset, = files.values()
+    contract = seed_receipt['proof']['channel_loader']
+    return {'game': 'genshin', 'request': handle['request'], 'revision': handle['revision'],
+            'seed_owner': seed_owner, 'seed_receipt_sha256': hashlib.sha256(_canonical(seed_receipt)).hexdigest(),
+            'loader_contract_sha256': hashlib.sha256(_canonical(contract)).hexdigest(),
+            'source': {'name': asset.name, 'md5': asset.digest, 'bytes': asset.size},
+            'runtime_identity': handle['runtime_identity'],
+            'implementation_sha256': _implementation(('genshin_original_bootstrap', 'genshin_original_containers',
+                'genshin_blb_native', 'genshin_blb', 'genshin_native_x64', 'hoyo_bootstrap_assets')),
+            'bounds': {'package': MAX_PACKAGE, 'body': MAX_BODY, 'text': MAX_TEXT, 'receipt': MAX_RECEIPT}}
+
+
+def _profile_path(cache, owner):
+    return _safe(cache / 'channel-profiles' / (hashlib.sha256(_canonical(owner)).hexdigest() + '.json'))
+
+
+def _profile_quote(cache, files):
+    from .genshin_original_bootstrap import MAX_BODY, MAX_RECEIPT
+    ledger, transfer, disk = _quote(cache, files)
+    asset, = files.values()
+    # One sequential candidate's decoded file/body, all bounded parameter data,
+    # and an atomic private receipt; this is expressly a profile-only quote.
+    return ledger, transfer, disk + asset.size + MAX_BODY + 128 * 32 * 1024 + MAX_RECEIPT
+
+
+def _profile_receipt(path, owner, contract, source):
+    from .genshin_original_bootstrap import MAX_BODY, MAX_RECEIPT, SCHEMA as PROFILE_SCHEMA, parse_profile
+    try:
+        if not path.is_file() or path.stat().st_size > MAX_RECEIPT:
+            return None
+        receipt = json.loads(path.read_bytes())
+        proof = receipt['proof']
+        payload = receipt['payload'].encode('utf-8')
+        parameters = receipt['parameters'].encode('ascii')
+        methods = proof['codec_method_sha256s']
+        if (receipt['owner'] != owner or proof['schema'] != PROFILE_SCHEMA or proof['profile_only'] is not True
+                or proof['complete_dispatch_bootstrap'] is not False or proof['full_catalog_validated'] is not False
+                or proof['selected_shards_validated'] is not False or proof['later_override_excluded'] is not False
+                or proof['response_signature_verified'] is not False or proof['community_numeric_data_used'] is not False
+                or proof['source'] != source or proof['helper_identity'] != owner['runtime_identity']
+                or proof['native_executable_sha256'] != contract['source_field']['executable_sha256']
+                or proof['loader_contract_sha256'] != owner['loader_contract_sha256']
+                or proof['codec_parameters_sha256'] != hashlib.sha256(parameters).hexdigest()
+                or not isinstance(methods, list) or not 1 <= len(methods) <= 128 or methods != sorted(set(methods))
+                or not all(isinstance(item, str) and re.fullmatch('[a-f0-9]{64}', item) for item in methods)
+                or type(proof['original_codec_candidates_tested']) is not int or not 1 <= proof['original_codec_candidates_tested'] <= 128
+                or type(proof['body_bytes']) is not int or not 0 < proof['body_bytes'] <= MAX_BODY
+                or not isinstance(proof['body_sha256'], str) or not re.fullmatch('[a-f0-9]{64}', proof['body_sha256'])
+                or proof['complete_named_object_map'] is not True
+                or proof['strict_payload_eof'] is not True or proof['payload_bytes'] != len(payload)
+                or proof['payload_sha256'] != hashlib.sha256(payload).hexdigest()
+                or proof['object_id'] not in {row['id'] for row in contract['object_candidates']}):
+            return None
+        parse_profile(payload, contract)
+        return receipt
+    except (OSError, ValueError, TypeError, KeyError, RecursionError):
+        return None
+
+
+def _source_rows(cache, files):
+    result = []
+    for asset in files.values():
+        path = _source(cache, asset)
+        if not _valid(path, asset.digest, asset.size):
+            raise GameDataError('game_data_plan_changed', 'The original Genshin source changed. Check its size again.', 409)
+        with path.open('rb') as stream:
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        result.append({'name': asset.name, 'md5': asset.digest, 'bytes': asset.size, 'sha256': digest})
+    return result
+
+
+def _materialize_files(ctx, cache, files, fetch):
+    for asset in files.values():
+        ctx.check()
+        destination = _source(cache, asset)
+        if _valid(destination, asset.digest, asset.size):
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        pending = _safe(destination.with_suffix('.pending'))
+        try:
+            with pending.open('wb') as stream:
+                for offset in range(0, asset.size, 8 * 1024**2):
+                    ctx.check()
+                    stream.write(asset.read(cache, offset, min(8 * 1024**2, asset.size - offset), fetch=fetch))
+            if not _valid(pending, asset.digest, asset.size):
+                raise GameDataError('genshin_original_source_invalid', 'An original Genshin input failed its whole-file checksum.')
+            ctx.check()
+            pending.replace(destination)
+        except ValueError as error:
+            raise GameDataError('genshin_original_source_invalid', 'An original Genshin input failed its whole-file checksum.') from error
+        finally:
+            pending.unlink(missing_ok=True)
+    return _source_rows(cache, files)
 
 
 class GenshinGameDataProvider:
@@ -239,6 +384,52 @@ class GenshinGameDataProvider:
             return raw
         return fetch
 
+    def _download_profile(self, plan, ctx, cache, native_files, reader):
+        handle, build = plan.handle, plan.handle['build']
+        seed_owner = _seed_owner(cache, native_files, reader.identity)
+        seed = _seed_receipt(_seed_path(cache, seed_owner), seed_owner)
+        if (seed is None or handle.get('seed_owner') != seed_owner
+                or handle.get('seed_receipt_sha256') != hashlib.sha256(_canonical(seed)).hexdigest()):
+            raise GameDataError('game_data_plan_changed', 'The original connection inputs changed. Check their size again.', 409)
+        contract = seed['proof']['channel_loader']
+        try:
+            files = _profile_files(cache, build, contract['source_basename'], _offline)
+        except _UnplannedTransfer as error:
+            raise GameDataError('game_data_plan_changed', 'The original profile manifest changed. Check its size again.', 409) from error
+        ledger, transfer, disk = _profile_quote(cache, files)
+        owner = _profile_owner(handle, seed_owner, seed, files)
+        if handle.get('profile_ledger') != ledger or handle.get('profile_owner') != owner or (plan.download_bytes, plan.required_disk_bytes) != (transfer, disk):
+            raise GameDataError('game_data_plan_changed', 'The original profile source changed. Check its size again.', 409)
+        fetch = self._fetch(ctx, kind='asset', allowed={url for row in ledger['chunks'] if not row['cached'] for url in row['urls']})
+        source, = _materialize_files(ctx, cache, files, fetch)
+        executable = next(asset for asset in native_files.values() if asset.name.endswith('.exe'))
+        raw = _source(cache, executable).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != contract['source_field']['executable_sha256']:
+            raise GameDataError('game_data_plan_changed', 'The original Genshin native input changed.', 409)
+        ctx.check()
+        try:
+            result = self.runtime.channel_profile(raw, _source(cache, next(iter(files.values()))), source, contract,
+                directory=ctx.directory, check_cancel=ctx.check)
+        except (ValueError, RuntimeError) as error:
+            raise GameDataError('genshin_profile_reader_unavailable', 'The original connection profile cannot be verified for this build.') from error
+        receipt = {'owner': owner, 'payload': result.payload.decode('utf-8'),
+                   'parameters': result.parameters.decode('ascii'), 'proof': result.proof}
+        destination = _profile_path(cache, owner)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        pending = _safe(destination.with_suffix('.pending'))
+        try:
+            ctx.check()
+            pending.write_bytes(_canonical(receipt))
+            if _profile_receipt(pending, owner, contract, source) is None:
+                raise GameDataError('genshin_profile_reader_unavailable', 'The original connection profile receipt failed verification.')
+            ctx.check()
+            pending.replace(destination)
+            result_handle = {key: value for key, value in handle.items() if key not in {'profile_ledger', 'ledger'}}
+            return _record(ctx, {**result_handle, 'phase': 'original-channel-profile',
+                'profile_receipt_sha256': hashlib.sha256(_canonical(receipt)).hexdigest()})
+        finally:
+            pending.unlink(missing_ok=True)
+
     def plan(self, request, ctx):
         selection = _selection(request)
         if ctx.game != 'genshin' or ctx.request != request:
@@ -268,20 +459,28 @@ class GenshinGameDataProvider:
             if all(row['cached'] for row in ledger['files']):
                 owner = _seed_owner(cache, files, reader.identity)
                 receipt = _seed_receipt(_seed_path(cache, owner), owner)
-                previous = ctx.stage_handle
-                accepted = (isinstance(previous, dict) and previous.get('schema') == SCHEMA
-                    and previous.get('game') == 'genshin' and previous.get('request') == selection
-                    and previous.get('revision') == revision and previous.get('runtime_identity') == reader.identity
-                    and previous.get('phase') == 'original-bootstrap-seed' and previous.get('seed_owner') == owner
-                    and receipt is not None
-                    and previous.get('receipt_sha256') == hashlib.sha256(_canonical(receipt)).hexdigest())
-                if not accepted:
+                if not _accepted_seed(ctx.stage_handle, handle, owner, receipt):
                     handle.update(ledger=ledger, seed_owner=owner)
                     return GameDataPlan(revision, 0, 1024**2, handle=handle, runtime_available=True,
                         stage='original-bootstrap-seed',
                         message='Read the original initial dispatch value from verified publisher files. This local stage does not prepare dialogue or audio.')
-                return GameDataPlan(revision, None, None, handle=handle, stage='original-content-reader',
-                    message='The original initial dispatch value is verified. RSA, request template, signature ownership, later overrides, remaining dialogue bindings and film subtitles still need supported source stages.')
+                contract = receipt['proof']['channel_loader']
+                profile_files = _profile_files(cache, build, contract['source_basename'], self._fetch(ctx, kind='metadata'))
+                profile_ledger, profile_transfer, profile_disk = _profile_quote(cache, profile_files)
+                profile_owner = _profile_owner(handle, owner, receipt, profile_files)
+                if all(row['cached'] for row in profile_ledger['files']):
+                    source_row, = _source_rows(cache, profile_files)
+                    profile_receipt = _profile_receipt(_profile_path(cache, profile_owner), profile_owner, contract, source_row)
+                    if (profile_receipt is not None and ctx.stage_handle.get('phase') == 'original-channel-profile'
+                            and ctx.stage_handle.get('profile_owner') == profile_owner
+                            and ctx.stage_handle.get('profile_receipt_sha256') == hashlib.sha256(_canonical(profile_receipt)).hexdigest()):
+                        return GameDataPlan(revision, None, None, handle=handle, stage='original-content-reader',
+                            message='The original connection profile is verified. RSA, signature ownership, overrides, remaining dialogue bindings and film subtitles still need supported source stages.')
+                handle.update(seed_owner=owner, seed_receipt_sha256=hashlib.sha256(_canonical(receipt)).hexdigest(),
+                              profile_owner=profile_owner, profile_ledger=profile_ledger)
+                return GameDataPlan(revision, profile_transfer, profile_disk, handle=handle, runtime_available=True,
+                    download_is_upper_bound=True, stage='original-channel-profile',
+                    message='Prepare the complete original Genshin connection profile. This stage does not prepare dialogue or audio.')
             handle['ledger'] = ledger
             return GameDataPlan(revision, transfer, disk, handle=handle, download_is_upper_bound=True,
                 runtime_available=True, stage='official-native-inputs',
@@ -294,7 +493,7 @@ class GenshinGameDataProvider:
         if (ctx.game != 'genshin' or handle.get('schema') != SCHEMA or handle.get('game') != 'genshin'
                 or handle.get('request') != selection or build.get('channel') != 'genshin-' + ctx.request.region
                 or plan.revision != handle.get('revision') or plan.revision != _revision(build)
-                or plan.stage not in {'official-manifest', 'official-native-inputs', 'original-bootstrap-seed'} or not plan.runtime_available
+                or plan.stage not in {'official-manifest', 'official-native-inputs', 'original-bootstrap-seed', 'original-channel-profile'} or not plan.runtime_available
                 or reader is None or handle.get('runtime_identity') != reader.identity):
             raise GameDataError('game_data_plan_changed', 'Check the Genshin source download again.', 409)
         with ctx.transfer_lock:
@@ -312,6 +511,8 @@ class GenshinGameDataProvider:
             except _UnplannedTransfer as error:
                 raise GameDataError('game_data_plan_changed', 'The cached Genshin manifest changed. Check its size again.', 409) from error
             ledger, transfer, disk = _quote(cache, files)
+            if plan.stage == 'original-channel-profile':
+                return self._download_profile(plan, ctx, cache, files, reader)
             if plan.stage == 'original-bootstrap-seed':
                 owner = _seed_owner(cache, files, reader.identity)
                 if (not all(row['cached'] for row in ledger['files']) or handle.get('ledger') != ledger
@@ -350,29 +551,8 @@ class GenshinGameDataProvider:
             if handle.get('ledger') != ledger or (plan.download_bytes, plan.required_disk_bytes) != (transfer, disk):
                 raise GameDataError('game_data_plan_changed', 'The cached Genshin sources changed. Check their size again.', 409)
             fetch = self._fetch(ctx, kind='asset', allowed={url for row in ledger['chunks'] if not row['cached'] for url in row['urls']})
-            receipts = []
-            for asset in files.values():
-                destination = _source(cache, asset)
-                if not _valid(destination, asset.digest, asset.size):
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    pending = _safe(destination.with_suffix('.pending'))
-                    try:
-                        with pending.open('wb') as stream:
-                            for offset in range(0, asset.size, 8 * 1024**2):
-                                ctx.check()
-                                stream.write(asset.read(cache, offset, min(8 * 1024**2, asset.size - offset), fetch=fetch))
-                        if not _valid(pending, asset.digest, asset.size):
-                            raise GameDataError('genshin_original_source_invalid', 'An original Genshin native input failed its whole-file checksum.')
-                        ctx.check()
-                        pending.replace(destination)
-                    except ValueError as error:
-                        raise GameDataError('genshin_original_source_invalid',
-                            'An original Genshin native input failed its whole-file checksum.') from error
-                    finally:
-                        pending.unlink(missing_ok=True)
-                with destination.open('rb') as stream:
-                    content_sha = hashlib.file_digest(stream, 'sha256').hexdigest()
-                receipts.append({'name': asset.name, 'publisher_md5': asset.digest, 'bytes': asset.size, 'sha256': content_sha})
+            receipts = [{'name': row['name'], 'publisher_md5': row['md5'], 'bytes': row['bytes'], 'sha256': row['sha256']}
+                        for row in _materialize_files(ctx, cache, files, fetch)]
             return _record(ctx, {**{k: v for k, v in handle.items() if k != 'ledger'},
                                  'phase': 'official-native-inputs', 'sources': receipts})
 

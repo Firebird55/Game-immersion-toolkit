@@ -1,16 +1,19 @@
 # Reviewed Android publisher stages
 
 `packaging/android/publisher-sources.json` is the explicit maintained-source
-closure. It pins sixteen original toolkit modules from reviewed commits, by
+closure. It pins seventeen original toolkit modules from reviewed commits, by
 SHA-256 after UTF-8 CRLF-to-LF normalization. The ordinary APK source manifest
 separately binds every actually delivered Python source byte. The build refuses
 a changed producer until its closure policy is reviewed. No downloaded provider
 code or automatic dependency search is used.
 
 Together with the 57 core/host/decoder, explicit crypto and authored acceptance modules, this
-policy selects 73 owned modules. The shared `text_display` dependency
+policy selects 74 owned modules. The shared `text_display` dependency
 is required by `textmaps`. The six newest modules provide Wuthering's passive
 bootstrap factory, original ELF/source/locale readers and shared APK/ZIP readers.
+The additional NTE text-receipt reader uses only the existing protocol and private
+path guards. It makes retained-source validation self-contained, without adding
+the native authoring runtime or enabling Android text preparation.
 The generated acceptance provider is installed
 only by a separately named, explicitly opted-in native DEBUG startup; it never
 changes the production registry or establishes publisher-content coverage.
@@ -26,7 +29,7 @@ application libraries or shipped game code.
 | Game | Packaged stage | Remaining boundary |
 | --- | --- | --- |
 | Reverse: 1999 | Official Global launcher discovery through the shared bounded metadata transport; mainland selection retains its explicit source gap. Both content modes keep selected text/shared sizes unknown. | No asset download, source snapshot, key derivation, native/audio service or ready library. Optional voice inventory is not fetched by either mode. |
-| Neverness to Everness | Official Global updater metadata plus an explicitly sized SDK/configuration compatibility download. The frozen historical original pair remains independently authenticated. The bounded pure Python PE/instruction reader treats all original software as data. | Completion returns `PreparationStage`, never `SnapshotSource`. A new game-content plan remains unavailable until its separate reader/runtime exists. Mainland integration is unavailable. No .NET, game library execution or decoder fallback is used. |
+| Neverness to Everness | Official Global updater metadata plus an explicitly sized SDK/configuration compatibility download. The frozen historical original pair remains independently authenticated. The bounded pure Python PE/instruction reader treats all original software as data. Self-contained text-receipt validation is also packaged for offline restoration. | Android compatibility preparation returns `PreparationStage`; it does not produce a text snapshot. The separate native authoring runtime is still required before Android can prepare content. Mainland integration is unavailable. No .NET, game library execution or decoder fallback is used. |
 | Wuthering Waves | Explicit publisher-crypto capability, bounded original Android catalogue/range plan, then consented complete-carrier APK-v2 verification and retention of one authenticated native member. | Standard-library Deflate and read-only mmap inspect ARM64 code as data. Completion returns a native-source `PreparationStage`; the independent release-manifest ENTRY key/IV gate remains. No text snapshot, optional voice packs or ready library. |
 
 ZZZ remains excluded because its current bootstrap imports Android crypto and
@@ -43,6 +46,10 @@ exercise the real registry, service and context-owned transport against authored
 publisher responses. A successful host fixture is source/behavior evidence;
 Android stage execution still requires a new APK and an actual Android runtime
 proof. The earlier 54-module decoder candidate remains a separate artifact.
+
+The current 74-module composition has closed-namespace host validation only.
+It has not produced a newly audited APK or a device acceptance result. The
+73-module physical result below remains bound to its original source and APK.
 
 The Wuthering source pin is `4f2be4ba`. Its optional explicit transport factory
 receives the same context/allowed hosts and defaults to ordinary
@@ -104,8 +111,8 @@ Ready result, 16-KiB runtime result or x86_64 execution proof. The static 16-KiB
 checks and the separate older-source hosted emulator run retain their own scope.
 
 The current reviewed baseline is source cohort `0624af55`; NTE's factory also
-includes the reviewed source snapshot `617be276` from its later content-stage
-continuations. All eight late-stage branches call the non-Windows reader gate
+includes the reviewed source snapshot `ce060d13` and its pure text-receipt reader
+from `b9acf749`. All ten late-stage branches call the non-Windows reader gate
 before importing their desktop-only dependencies. The isolated closed-source
 fixture exercises every branch without those dependencies present. Updating a source pin does
 not package the Windows managed reader, archive stages or their dependencies.

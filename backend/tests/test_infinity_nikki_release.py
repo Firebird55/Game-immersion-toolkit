@@ -2,6 +2,9 @@ import base64
 import hashlib
 import hmac
 import json
+from pathlib import Path
+import subprocess
+import sys
 from urllib.parse import parse_qs
 from urllib.request import Request
 
@@ -227,6 +230,57 @@ def test_two_manifest_generations_are_fetched_anew_and_not_replaced_by_cached_su
     current['fail'] = True
     with pytest.raises(OSError):
         publisher.discover_patchlist(config, identity, opener=open_request, now=100)
+
+
+@pytest.mark.parametrize('aes,cbc', [(False, False), (False, True), (True, False), (True, True)])
+@pytest.mark.parametrize('instant', [100, 101])
+def test_pure_sdk_exchange_uses_the_explicit_crypto_capability_without_own_network(aes, cbc, instant, monkeypatch):
+    from backend.publisher_crypto import DesktopPublisherCrypto
+    reference = DesktopPublisherCrypto()
+    class Explicit:
+        def __init__(self): self.calls = []
+        def block_cipher(self, **kwargs):
+            self.calls.append((kwargs['algorithm'], kwargs['mode'], kwargs['decrypt']))
+            return reference.block_cipher(**kwargs)
+    crypto = Explicit()
+    config, identity = sdk_fixture(aes, cbc), encoded_config()[1]
+    value = {'game_config_apk': {'apk_version': '9000'}, 'game_config_patch': {'id': 12}}
+    wire = sdk_response(config['appConfig'], instant, aes, cbc, value)
+    monkeypatch.setattr(publisher.urllib.request, 'build_opener', lambda *_: pytest.fail('pure exchange cannot open a connection'))
+    monkeypatch.setattr('backend.publisher_crypto.DesktopPublisherCrypto', lambda: pytest.fail('explicit capability was bypassed'))
+    exchange = publisher.patchlist_request(config, identity, now=instant, crypto=crypto)
+    assert publisher.decode_patchlist_response(wire, config, exchange, crypto=crypto) == value
+    assert crypto.calls == [('AES' if aes else 'DES', 'CBC' if cbc else 'ECB', False),
+                            ('AES' if aes else 'DES', 'CBC' if cbc else 'ECB', True)]
+    assert 'ownedFixtureKey42' not in repr(exchange) and 'X-SDK-DEVICE-ID' not in repr(exchange)
+
+
+def test_explicit_launcher_crypto_imports_and_decodes_without_desktop_crypto_in_a_fresh_process():
+    script = r'''
+import base64,builtins,json,sys
+original=builtins.__import__
+def guarded(name,*args,**kwargs):
+    if name=='Crypto' or name.startswith('Crypto.'):
+        raise AssertionError('Desktop crypto fallback was imported')
+    return original(name,*args,**kwargs)
+builtins.__import__=guarded
+from backend import infinity_nikki_release as source
+class Explicit:
+    calls=0
+    def block_cipher(self,**kw):
+        assert kw['algorithm']=='AES' and kw['mode']=='CBC' and kw['decrypt']
+        self.calls+=1
+        return kw['data']
+cap=Explicit()
+identity=json.dumps({'launcherAppId':'12345','version':'9.2.7','time':'2026-02-03 04:05:06'}).encode()
+expected={'appConfig':{},'gameAuditConfig':{},'gameConfig':{}}
+plain=json.dumps(expected).encode();pad=16-len(plain)%16
+encoded=base64.b64encode(plain+bytes([pad])*pad)
+assert source.decode_launcher_config(encoded,identity,crypto=cap)==expected
+assert cap.calls==1 and not any(n=='Crypto' or n.startswith('Crypto.') for n in sys.modules)
+'''
+    subprocess.run([sys.executable, '-c', script], cwd=Path(__file__).resolve().parents[2],
+                   check=True, capture_output=True, timeout=30)
 
 
 @pytest.mark.parametrize('case', ['error', 'duplicate', 'oversize', 'short', 'redirect', 'bad-padding'])

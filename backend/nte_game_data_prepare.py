@@ -13,7 +13,15 @@ from .game_tools import _atomic_file
 
 STAGE = 'nte-original-local-metadata-v1'
 MAX_RECEIPT = 256*1024
-MAX_LOCALIZATION = 128*1024**2
+MAX_LOCALIZATION = 512*1024**2
+
+
+def _text_budget(request):
+    from .game_data_protocol import GameDataRequest
+    selected = GameDataRequest.parse(request)
+    count = len({selected.source_locale, *selected.target_locales})
+    if not 1 <= count <= 9: raise _failure()
+    return min(MAX_LOCALIZATION, count*128*1024**2)
 
 
 def _failure():
@@ -64,7 +72,8 @@ def _read(packet, ctx):
         if (receipt.get('schema') != STAGE or receipt.get('recipe') != identity
                 or receipt.get('reader') != packet['reader'] or receipt.get('registry_eof_verified') is not True):
             return None
-        for name, maximum in (('localization.json', MAX_LOCALIZATION), ('dialogue-inventory.json', 16*1024**2)):
+        for name, maximum in (('localization.json', _text_budget(packet['imports']['indices']['request'])),
+                              ('dialogue-inventory.json', 16*1024**2)):
             path = root/name; _no_links(path)
             if not path.is_file() or path.stat().st_size > maximum:
                 return None
@@ -83,7 +92,7 @@ def _read(packet, ctx):
                 or inventory['package_count'] != len(inventory['packages']) or not 0 < inventory['package_count'] <= 8192):
             return None
         return {'receipt': reference['receipt'], 'packages': inventory['packages'], 'root': root}
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError, GameDataError):
         return None
 
 
@@ -104,7 +113,9 @@ def plan(original, values, ctx, reader):
     if retained is not None:
         from . import nte_game_data_packages as packages
         return packages.plan(packet, retained, values, ctx, reader)
-    return GameDataPlan('nte-process-metadata-'+content._identity(packet), 0, 1024**3,
+    # Reserve both immutable/temporary text copies plus registry processing.
+    disk = 2*_text_budget(original['indices']['request'])+2*256*1024**2+64*1024**2
+    return GameDataPlan('nte-process-metadata-'+content._identity(packet), 0, disk,
         handle=packet, runtime_available=True, stage='process-metadata',
         message='Process downloaded NTE text and dialogue information locally. No game data is downloaded in this step.')
 
@@ -171,7 +182,7 @@ def download(plan, ctx, reader):
     hashes = {(r['ns'], r['key']): r['source_hash'] for r in source}
     filtered = {code: [r for r in rows if hashes.get((r['ns'], r['key'])) == r['source_hash']] for code, rows in tables.items()}
     encoded = _json(filtered)
-    if len(encoded) > MAX_LOCALIZATION: raise _failure()
+    if len(encoded) > _text_budget(handle['request']): raise _failure()
     context = Path(ctx.cache_directory)/'tools/nte-publisher/empty-context'; _no_links(context); context.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='nte-local-metadata-', dir=ctx.directory) as name:
         destination = Path(name)

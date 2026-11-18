@@ -575,8 +575,8 @@ builder and remote-JSON consumer. That builder consumes
 `UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
 explicitly overrides the baseline SDK configuration from these native fields;
 launcher values and baseline SDK values therefore cannot be substituted without
-proving ownership. The actual regional settings producer, exact signature
-dataflow and dynamic-chain deserializer remain open. No request using guessed
+proving ownership. Effective regional selection, final protocol validation and
+the dynamic-chain deserializer remain open. No request using guessed
 client material, community key, Lua VM or original game execution is made.
 
 ## Passive Android relocation metadata
@@ -607,6 +607,130 @@ original registration metadata. No native method body or original code is read
 or executed by that format proof. The source is the previously authenticated CN
 module; this does not establish Global settings, settings values or a complete
 fresh native preparation. Further owner-specific semantic work remains separate.
+
+## Original settings owner and regional-selection gate
+
+Separately approved, bounded static inspection follows that exact reflected
+registration through the native result store, class factory and default-object
+getter. The factory identifies `/Script/X6Game`, `X6PackageSettings` and the
+`X6PackageSettings` configuration category. Argument roles are checked against
+Epic's [class-factory declaration](https://dev.epicgames.com/documentation/unreal-engine/API/Runtime/CoreUObject/UObject/GetPrivateStaticClassBody?application_version=5.5):
+the fourth argument registers native methods; the constructor is a later stack
+argument. An earlier registration-callback/constructor interpretation is explicitly
+corrected in the private proof. The actual constructor initializes storage and
+calls a base helper; the inspected instructions do not provide regional CMS
+values. This remains a CN/common native owner, not proof of a Global default.
+
+The matching Global publisher inventory independently identifies the original
+`Default_Ini_2872_P.pak` configuration family. One approved 958,806-byte BuildPatch
+carrier supplies five complete selected files totaling 510,135 bytes, including
+the 508,202-byte PAK. Strict generation checks, complete chunk integrity and all
+five manifest-declared file SHA-1 checks pass. The companion signature's eight
+CRC blocks also agree with the complete PAK; that CRC check is not a new RSA
+signature verification. Native-derived default material verifies both complete
+plaintext indices and all 232 compact-entry references.
+
+Exactly nine source-owned settings INIs are then decoded from that verified
+whole PAK with zero new network bytes. Their combined 16,726 decoded bytes pass
+member-header, bounds, decoding and member-SHA-1 checks. Ordered sections,
+assignments and operators are preserved privately; application credentials and
+their values are not published. The relevant section is
+`/Script/X6Game.X6PackageSettings`. Each file explicitly assigns `CMSApiUrl`,
+`ClientID` and `ClientKey` once. The nine files form two different equivalence
+groups, so they cannot be treated as universally interchangeable:
+
+| Explicit source fields | Checked settings variants | CMS host and equality |
+| --- | --- | --- |
+| `GameArea=Cn`, `RegionId=1` | Default and `Area_CN`, `Area_CNB`, `Area_CNS` | `api-infinity.papegames.com`; the three CMS fields agree within this group. |
+| `GameArea=Oversea`, `RegionId=4` | `Area_ASG`, `Area_ENG`, `Area_OS`, `Area_OSE`, `Area_OSS` | `api.infoldgames.com`; the three CMS fields agree across all five variants. |
+
+These are literal source fields and directory names, not inferred meanings for
+the area abbreviations. Channel values differ; `OverseaRegion` is explicit in
+only two of the five latter variants. The retained successful anonymous Global
+launcher response reports `(region, channel, role)=(4, 3, 0)`, which matches one
+of these profiles by values. Original Global `FirstLoginViewModel` metadata
+independently maps `RegionId`, `ChannelId` and `Role` to those three patch-list
+request fields. That method has platform/audit predicates and is not claimed to
+run on PC. Other updater methods read `CMSConfig.Region/Channel` from
+`UPaperHotUpdateRuntimeSettings`; the build-version field named `Region` is not
+silently equated with `X6PackageSettings.RegionId`.
+
+Epic's [configuration hierarchy](https://dev.epicgames.com/documentation/en-us/unreal-engine/configuration-files-in-unreal-engine?application_version=5.5)
+defines later-layer overrides, and its [target reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-build-tool-target-reference)
+identifies `CustomConfig` as an additional build-selected configuration folder.
+Those generic rules do not identify Nikki's actual selected Global build or
+prove every game-specific merge/override. The current source-owned selection
+and effective-setting chain must still be bound before making a CMS request.
+Agreement within the RegionId-4 group narrows that question; it does not justify
+using default/CN values or launcher credentials. No CMS request, original-code
+execution, nonzero-GUID default-key attempt, caption/voice binding or Ready
+snapshot is claimed by this checkpoint.
+
+The retained Global request builder now supplies its exact static signature
+dataflow: the settings object's `ClientKey` followed by the formatted timestamp
+feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
+`timestamp` and `sig`; string parameter values use the original percent-escape
+rule. The single-chain parameter is `<platform>_PACDKCINFO_<version>`; a group
+uses `<platform>_<group-id>_<version>`. These orders come from instruction
+operands, rather than concatenating a guessed URL from constant names.
+
+The same authenticated native source's reflected string-parameter/result edge
+reaches a concrete hash and conversion owner. Bounded passive inspection proves
+ASCII byte preservation in scalar, 32-byte SIMD, 8-byte SIMD and remainder paths
+for the nine checked settings' ASCII signature inputs. The output formats 16
+digest bytes with `%02x`. The algorithm profile independently matches the
+[MD5 reference](https://www.rfc-editor.org/rfc/rfc1321.html): four initial state
+words, all 64 round constants, all 64 rotations in their canonical order,
+padding/length framing and little-endian digest serialization. This is stronger
+than a function name or IV alone; it is not a complete proof of every transform
+Boolean expression/message-word selection or execution of the original code.
+
+The final completion phase stops at its eight approved windows and 3,324 new
+instruction bytes, below the 4,096-byte cap, with zero network bytes. Its private
+ledger explicitly invalidates one 64-byte off-owner data read caused by a manual
+padding-pointer transcription. The corrected comparison derives the pointer
+from original instructions; no value from the mistaken range is published or
+used. The CMS response envelope exposes `gameConfigParameter.key/value`, not an
+independent current-edition assertion. Exact requested-key equality, native
+keychain/group framing and compatibility with the current Global package GUID
+and full plaintext index hash remain required before acceptance. No CMS request
+or new preparation capability is delivered by this static protocol checkpoint.
+
+The shared `publisher_pe_signature.py` now isolates the existing Windows offline
+Authenticode verifier behind explicit publisher identities and a selected-file
+size bound. It preserves locked-handle, reparse, offline trust, signer and
+post-verification hash checks. Endfield's wrapper retains its existing publisher,
+16 MiB limit, API, receipt and unavailable-host failure. This adds no Android PE
+chain capability; the shared APK/JCA RSA primitive is not a substitute.
+
+The ordinary Nikki provider now continues from the verified native stage to a
+context-owned Global launcher-source quote. It discovers the current official
+website/NSIS metadata, pins actual source size and strong ETag and quotes the
+complete selected member plus its final generation check before transfer. Disk
+requirements bound the temporary decode; an upper-bound label remains explicit.
+The consented download checks framing/Deflate EOF and complete PE publisher
+trust, retains the verified original source and a hashed receipt, and returns
+only `global-sdk-source`. Requote rediscovers changed validators; cancellation,
+source/signature failure and damaged receipts preserve prior data. Restore is
+local and reports the next SDK reader gate. Android's missing PE verification
+capability is disclosed before the native bootstrap download and cannot fall
+back to a verifier running on the development PC.
+
+Launcher config/SDK ciphers now accept the explicit shared cryptography object;
+their default desktop implementation is lazy. Pure anonymous SDK request and
+response functions are also used by the retained legacy discovery entry point;
+the next ordinary continuation still has to wire these through context-owned
+transport. The remaining steps are current SDK/build pointers, original
+base/FastPatch BuildPatch manifests and selected configuration carriers,
+full-file hashes, PAK indices and ordered INI members. The nine private research
+INIs cannot supply that missing preparation. CMS construction must consume its
+future verified source receipt and keep the response/keychain gate explicit.
+Separately bounded native registration work identifies two original
+consumers: creation receives `(chainName, Base64value)` and group serialization
+receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
+native call edges are identified; their bodies and serialized schema remain
+unread. Neither a cache-getter's direction nor a UClass owner is inferred from
+adjacency alone. No extra remote source bytes or CMS requests are acquired.
 
 ## Presentation inventory and finite completion boundary
 

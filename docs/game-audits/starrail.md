@@ -411,6 +411,96 @@ adopted into the production cache. This uses zero new source/software bytes and
 does not activate a one-row control as a complete current catalog or claim a
 cold factory, full audio snapshot, Android or release acceptance.
 
+A finite original-table owner pass retains all 1,568 localized rows affected by
+the 1,565 unresolved English paths: 1,482 TalkSentence rows and 86 VoiceAtlas
+archive rows. The former join to 51 `Story`, 1,427 `StoryNew`, two `NPC_Normal`
+and two `NPC_Near` VoiceConfig rows. TalkSentence has only its identity, text,
+speaker-name text and VoiceID fields; it supplies neither a per-content audio
+locale nor quest-activation ownership. Missing English hashes and absent actor
+credits therefore do not establish an authored English-audio absence or an
+inactive presentation. All 94,962 source paths and 3,678 event references have
+nonempty current English text; filtering missing localized text removes none
+of these audio gaps.
+
+All 143 unresolved HIRC/Lookup state-choice events join exactly to original
+AvatarCobrand group/on/off hashes and their owning VoiceAtlas AvatarID. The four
+owner populations are 35, 37, 35 and 36 events. This establishes a shared
+copyright-setting mechanism requiring an explicit choice; it does not select
+that setting or authorize a Japanese fallback. The frozen English catalog has
+309,044 localized rows, including 2,970 movie-owned caption rows across 306
+scenes and 500 distinct movie owners. A further 148 caption rows in 22 scenes
+have no movie owner and remain separate, nonblocking configuration inventory.
+These are finite current catalog counts, not a claim that every configured
+quest or branch has independently proved active runtime use.
+
+The normal audio producer now checks external-directory gaps and required movie
+ownership while preparing event metadata. Before standalone recording downloads,
+known required event choices, missing paths or movie-audio support block that
+audio preparation and report their counts. The complete quote and original
+source receipt remain available; incomplete bindings cannot turn a 14 GB
+recording download into a ready library. The downloader rechecks the gate before
+opening an asset even if an older enabled plan is supplied. Necessary metadata
+stages, independently bound recording sources and text-only preparation retain
+their existing behavior. Service regressions preserve an activated text or audio
+source and its original bytes while opening zero assets for the blocked plan;
+the new plan's message is visible with the shared selection/readiness fix.
+
+The backend request contract now has optional, immutable `voice_choices`:
+an exact `choice_set_sha256` and canonically sorted explicit group/alternative
+selections. With no selection, serialization retains the original four fields
+exactly. Nonempty Star Rail selections are rejected for the other seven games,
+including stored-source restoration. Typed plan metadata can describe groups
+discovered by joining original AvatarCobrand and VoiceAtlas rows, resolving each
+declared copyright language through AllowedAudioLanguage. Defaults remain
+explicitly unknown, and a missing selection never becomes an on/off choice.
+Generation, schema, complete rows and group membership bind the choice-set hash;
+source drift, a new group or conflicting owners invalidate an old selection.
+
+The canonical audio producer now augments the original 21-table reader with
+automatic AvatarCobrand/AllowedAudioLanguage descriptions. Original declared
+fields identify the row types; the owning dictionary, static string array and
+method declarations identify two constructors, two FromBinary methods and two
+string loaders. Their complete PE unwind bounds must be nonoverlapping and
+total at most 8 KiB before any function bytes are read. The existing generic
+table-binding and field-order recognizers remain unchanged. A typed original
+loader call must positively establish the prefix flag, with no intervening
+register clobber or branch bypass; trying alternate EOF layouts is forbidden.
+Missing or ambiguous owners and changed unsupported code stop with an explicit
+metadata-unavailable gate before audio inventory or recording acquisition.
+
+The auxiliary cache binds the complete original native receipt, base generation,
+decoder identity and owned logic. It leaves the base 21-table cache untouched;
+a failed refresh preserves the earlier auxiliary receipt. Only text+audio
+composes these 23 descriptions and quotes the two extra original resources.
+Text-only retains its existing 21-table path. No private table rows or fixed
+version addresses supply the ordinary loader.
+
+A zero-network production-API trial freshly derives the same six owners from
+each retained whole-authenticated Global 4.7 and 4.6 client: 1,928 and 1,986 code
+bytes respectively. Both complete original metadata/startup inputs and DLLs
+were rechecked; DLL MD5s are `2db87084b0383dbe7ce3556bb33db662` and
+`d33cb7b0781287362e7f3d8571b520aa`. The frozen SDK-403 helper build
+`c30cfd97613122bda90c8fd80b1c5a3c2a9fdacccd89ee0037075aef3e1a7f29`
+performs data-only disassembly. The original common packages are fully checked
+at 33,508,837 bytes/MD5 `2c0856f09fbc10734c0f146a92a0a6e7` and
+33,077,813 bytes/MD5 `1efaad7a4e7c92a8a12c66cffbe3b50a`. Each supplies four
+rows per extra table and four dynamic choice groups. Their two-table contents
+are identical across these generations; the complete VoiceAtlas/generation join
+produces distinct choice-set hashes. A warm auxiliary cache performs no native
+I/O. This is fresh auxiliary derivation with retained base descriptions, not a
+new complete ordinary-worker trial: the current base logic matches this source,
+while the previous base is an explicitly replayed older descriptor generation.
+
+Choices and selection provenance can be retained in the plan, but selected
+audio remains gated until its separate study, physical owner and actual
+spoken-locale binding is verified. Declared locale alternatives are metadata,
+not playable availability. Snapshot and restore reject unproved selected audio;
+the existing index and original-voice locale guards stay strict.
+Text-only requests can retain selection intent in their immutable request/source
+identity without consulting voice-choice tables or applying an audio override.
+Tests preserve an activated older text/audio source and its original bytes
+through blocked choice updates. No UI or vendor changes are included.
+
 A separate inventory covers every external VoiceConfig source exposed by the
 current supported English catalog, rather than only character-archive events.
 Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete
@@ -507,9 +597,9 @@ missing English path hashes is present. This supplies a concrete common-containe
 availability route, not an inferred Japanese fallback or a selected copyright
 state. Complete directory SHA256 and actual strong ETag/If-Match receipts bind
 the partial reads; they do not verify the whole PCK MD5. No recording is promoted
-to voiced or decoded by this metadata intake. Actual member/body acceptance for
-these common recordings remains unproved; the English request's language/state
-choices remain unchanged.
+to voiced or decoded by this metadata intake. Actual member/body acceptance is
+separate from that directory proof; the English request's language/state choices
+remain unchanged.
 
 Canonical planning now inventories all other manifest PCK candidates outside
 the other official dub folders, so future newly named shared containers are not
@@ -534,8 +624,78 @@ in total. The APIs reproduce all 86 unique Japanese archive memberships and
 zero hits for the 1,565 missing English paths; supplying Japanese paths to an
 English request is rejected. The remaining 273 prefixes in this isolated cache
 are quoted as 7,644 bytes, without fetching them. All 86 located members total
-27,853,355 bytes and remain quote-only. This proves metadata binding, not actual
+27,853,355 bytes and were quote-only in that phase. This proves metadata binding, not actual
 recording acceptance, a copyright-state selection or an audio-ready snapshot.
+
+A separately bounded explicit Japanese control on 2026-11-18 acquires only
+`Japanese/voice/archive_saber_2.wem`, authored by VoiceConfig 71014002, from
+`External0.pck`. The exact range is 84,801 bytes at offset 7,683,516 in the
+13,820,069-byte manifest owner, MD5 `bb76919a0784a3a83674f7b31180a4a3`.
+Fresh 66-byte AudioV guards before and after confirm the pinned current identity;
+the member uses strict HTTP 206, actual strong ETag/If-Match and exact full-owner
+size. Total response bodies are 84,933 bytes. The complete member's retained
+SHA256 is `fdd9d2c2bfae4c02cf021c1d36ee12e5ae621077eef22c5352fcc7fa8e780703`;
+this is local member integrity, while whole-PCK MD5 remains unverified.
+
+The closed owned codecs decode this member to nonempty 48 kHz mono PCM:
+267,687 frames, 535,374 bytes, SHA256
+`3276cab8a640949cb40baa550187b2a9634798dbbdb690ae5846a27a9f26d620`.
+Inert member pack/unpack and a separate fresh process restore the original and
+produce identical PCM without transport; wrong-locale and changed-reference
+controls reject. Encoded bytes/receipts add 85,312 bytes and retained PCM/proof
+outputs total 1,611,059 bytes. No new software, build or original game execution
+is involved. The codec closure retains its pending release-review labels.
+This proves one shared-container Japanese member's decode and offline retention,
+not a localized Japanese text snapshot, the other 85 recordings, a copyright
+setting, English fallback, a cold factory run or a complete audio-ready snapshot.
+
+A subsequent bounded metadata phase covers the other 64 common manifest owners,
+selected by the generic inventory difference rather than their filenames. It
+receives exactly 1,792 prefix bytes plus 132 AudioV guard bytes; the pinned
+generation remains unchanged. All 64 prefixes declare four-byte bank and
+external sections and a larger sound section. Actual strong ETags, strict 206
+and exact owner sizes bind these prefixes, with no directory or payload reads
+and no whole-PCK MD5 verification. This is a prefix classification, not an
+inferred voice role or a completed namespace-absence proof. Their complete
+directory quote is 183,088 bytes and is separate from that prefix phase.
+
+The approved directory follow-up then receives exactly 183,088 directory bytes
+plus 132 guard bytes. All 64 complete directories pass bounds, language IDs,
+section lengths, duplicate checks, directory SHA256 and EOF; they contain 9,052
+sound entries, zero banks and zero external members. Together with the previous
+68 common/neutral directories and the 177 English directories, the inventory
+covers all 309 English/shared owners. The earlier 209 primary directories and
+the common-directory cache are explicitly replayed read-only after rejoining
+each owner to the same full AudioV identity, URL, size and MD5; their cache
+generations are not adopted into production. None of the 1,565 missing English
+path hashes binds in this complete selected external namespace, while all 86
+Japanese archive paths remain uniquely present in the common owners. This
+establishes missing exact English paths, not an authored locale-absence policy,
+inactive quests or a Japanese fallback. The follow-up retains 223,256 bytes
+including its proof and acquires no bank, WEM, native code or complete PCK.
+
+The exact VoiceConfigRow filename overload called by AudioManager is then checked
+as one bounded original playback edge: the whole publisher DLL MD5 is verified
+first, and the owned unwind range contains 160 bytes. Its ordinary path returns
+VoicePath unchanged unless a nonempty path has IsPlayerInvolved; player-gender
+values 1 and 2 append the original `_m` and `_f` literals respectively. It does
+not inspect VoiceType or rewrite locale/extension components. Existing
+gender-suffixed or suffix-removal hash candidates therefore do not authorize
+new aliases under this rule. The same body also contains an IFix guard and
+patch-slot lookup; no callee body, patch execution or runtime state is inspected.
+This proves the ordinary filename branch, without claiming that current patch
+registration is absent or that a downloaded patch replaces this method.
+
+A metadata-only join places this exact formatter in `Assembly-CSharp.dll` and
+checks the already authenticated IFix index at retained revision 17148223. Its
+sole 27,725-byte `win-Assembly-CSharp.patch.bytes` carrier passes the advertised
+whole MD5. Complete typed framing has nine registration targets and 128 method
+references; neither section contains `RPG.GameCore.StoryExcelTableExt`. That
+exact cached advertised carrier therefore does not register a formatter override.
+The native patch-slot number is not interpreted as a VM-body ID or an invented
+serialized field. This check refreshes no dispatch/IFix response, reads no other
+native body, analyzes no patch callee and executes no bytecode; it makes no
+global runtime-input-context or other-generation absence claim.
 
 The owned metadata, native-description, original-bootstrap, index and complete
 DesignV-package APIs now accept an explicit context transport. Supplied contexts
