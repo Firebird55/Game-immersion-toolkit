@@ -635,6 +635,43 @@ explicit provenance gaps. No actual APK URL, request contract, game key or
 preparable catalog follows from the unresolved interface; both content modes
 remain unavailable.
 
+### Original routed delegate and APK-info refresh contract
+
+The next bounded metadata pass reads only the two exact candidates' original
+class annotations. It consumes 603 metadata bytes within a 64 KiB ceiling,
+apart from necessary full signed-source hash validation. `LoaderProxy` alone
+has the runtime-visible original `@Route(path="/game_downloader/service")`;
+`Impl` has only `SourceDebugExtension`. This establishes the authored route
+without choosing a class by its name. Generated provider-index activation and
+runtime router execution remain unverified.
+
+The authored proxy's exact `createApkInfo` reads its typed
+`$$delegate_0: GameDownloaderServiceImpl` field and directly calls the final
+implementation. That source-owned delegation resolves the former two-candidate
+body choice. The implementation's task factory calls `requestApkInfo`, which
+launches a concretely owned coroutine. Eight exact bodies total 1,248 instruction
+bytes within the eight-method / 8,192-byte ceiling; all signed hashes and typed
+bounds pass, with no constructor or exception-handler bodies needed.
+
+This actual APK-info-refresh chain passes `/app/v1/mini-multi-get`, parameter
+key `ids`, and response class `com.taptap.common.ext.support.bean.app.f`. This is
+new APK task provenance for that relative path, separate from the earlier
+conditional level-info branch. It is still not a verified live game download.
+
+The exact ID helper selects the `ButtonFlagItemV2` for literal `default`, then
+reads `appLaunch.appId`. It returns null when that launch metadata is absent;
+there is **no fallback to `AppInfo.mAppId`**. The coroutine aborts on a null or
+empty ID. The current Reverse:1999 default-launch value is not yet established,
+so the known website game ID is not silently substituted.
+
+The referenced network builder `common.net.f.e` first transforms the supplied
+map with `common.plugin.a.c(Map)` and delegates to
+`compat.net.c.s(path, map, Class, Continuation)`. Those exact parameter/transport
+owners and the response collector remain unread. No HTTP method, absolute host,
+headers, accountless availability, resulting APK URL or response binding is
+inferred. The phase stops at its eight-method limit without any new origin
+request, native/client execution, key fallback or Ready state.
+
 ### Community key candidate: research only
 
 The original author repository
