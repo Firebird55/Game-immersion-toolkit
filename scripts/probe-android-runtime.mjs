@@ -1,5 +1,7 @@
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
+import {assertNativeWuwaBootstrap} from './android-wuwa-bootstrap-proof.mjs';
+import {waitForOwnedOriginalAudio} from './android-original-audio-readiness.mjs';
 // Authored fixtures only. The APK runs the production shared Python core and UI.
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -111,6 +113,7 @@ assertProtectedStorage(core.native_protected_storage);
 assertNativeDataDecoder(core.native_x64_decoder, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_data_decoder, provenance.native_decoder_manifest_sha256);
 assertNativeZstandard(core.native_zstandard, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(core.native_publisher_crypto, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, provenance);
+assertNativeWuwaBootstrap(core.native_wuwa_bootstrap, JSON.parse(readFileSync(join(directory, 'apk-audit.json'), 'utf8')), provenance, core.native_publisher_crypto.runtime);
 writeFileSync(join(output, 'android-core-proof.json'), JSON.stringify(core, null, 2) + '\n');
 
 async function connectReader() {
@@ -177,9 +180,11 @@ await page.evaluate(async generation => {
 const screenLink = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
 await until(() => screenLink.isEnabled(), 'actual native receiver after direct preparation');
 await screenLink.fill('https://vdo.ninja/?view=authored');
-const snapshot = await until(() => page.evaluate(async () => {
-  const value = await (await fetch('/api/snapshot')).json();return value.lines.length ? value : null;
-}), 'native frame OCR into the actual reader transcript');
+const snapshot = await waitForOwnedOriginalAudio(() => page.evaluate(async () =>
+  (await fetch('/api/snapshot')).json()), until, {
+  accountGeneration:fixtureAccountGeneration,
+  report:value => writeFileSync(join(output,'android-original-audio-readiness.json'),JSON.stringify(value,null,2)+'\n'),
+});
 assert.equal(snapshot.lines[0].text_id, 'authored:bridge');
 assert.equal(snapshot.lines[0].has_audio, true);
 assert.equal(snapshot.status.capture.running, true);
@@ -270,6 +275,7 @@ assertProtectedStorage(upgradedCore.native_protected_storage);
 assertNativeDataDecoder(upgradedCore.native_x64_decoder, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_data_decoder, update.native_decoder_manifest_sha256);
 assertNativeZstandard(upgradedCore.native_zstandard, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_zstandard);
 assertNativePublisherCrypto(upgradedCore.native_publisher_crypto, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')).native_publisher_crypto, update);
+assertNativeWuwaBootstrap(upgradedCore.native_wuwa_bootstrap, JSON.parse(readFileSync(join(updateDirectory, 'apk-audit.json'), 'utf8')), update, upgradedCore.native_publisher_crypto.runtime);
 assert.equal(upgradedCore.native_protected_storage.previous_saved_blob_reopened, true);
 assert.equal(upgradedCore.result_sha256, core.result_sha256);
 assert.equal(new URL(page.url()).origin, originalOrigin);

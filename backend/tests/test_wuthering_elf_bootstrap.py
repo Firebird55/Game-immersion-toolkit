@@ -152,3 +152,38 @@ def test_truncated_and_unbounded_elf_metadata_is_rejected(tmp_path):
     path.write_bytes(raw)
     with pytest.raises(ValueError):
         default_output(path, hashlib.sha256(raw).hexdigest())
+
+
+
+def test_section_validation_never_copies_unconsumed_mapped_sections(tmp_path):
+    from backend.wuthering_elf_bootstrap import _Elf
+    path, _sha = original(tmp_path)
+    class Mapped:
+        def __init__(self, raw): self.raw = raw
+        def __len__(self): return len(self.raw)
+        def find(self, *args): return self.raw.find(*args)
+        def __getitem__(self, item):
+            if isinstance(item, slice) and ((item.start == 0x1000 and item.stop == 0x1100) or
+                    (item.start == 0x3000 and item.stop - item.start > 100)):
+                pytest.fail('Bounds and symbol selection must not copy whole mapped sections')
+            return self.raw[item]
+    elf = _Elf(Mapped(path.read_bytes()))
+    assert elf.output()[0] == bytes(range(32)) and elf.registration() == 0x10c0
+    raw = bytearray(path.read_bytes())
+    struct.pack_into('<Q', raw, 0x3500 + 2 * 64 + 32, len(raw))
+    with pytest.raises(ValueError): _Elf(Mapped(raw))
+
+
+@pytest.mark.parametrize('cancel_at', [1, 2, 3, 4, 5, 6, 7, 8])
+def test_cancellation_propagates_through_hash_parse_and_registration_and_closes_map(tmp_path, cancel_at):
+    path, sha = original(tmp_path)
+    class Cancelled(Exception): pass
+    calls = []
+    def check():
+        calls.append(True)
+        if len(calls) == cancel_at: raise Cancelled('cancelled')
+    with pytest.raises(Cancelled): default_output(path, sha, check=check)
+    assert len(calls) == cancel_at
+    # Windows cannot replace a file with a still-open mapping.
+    other = path.with_suffix('.retained'); path.replace(other)
+    assert hashlib.sha256(other.read_bytes()).hexdigest() == sha

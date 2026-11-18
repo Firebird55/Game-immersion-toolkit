@@ -1,5 +1,6 @@
 """Check an actual candidate APK as data, including nested Python native modules."""
 import argparse
+import base64
 import hashlib
 import importlib.util
 import io
@@ -25,6 +26,44 @@ def native(data, abi):
     if not loads or min(loads) < 16384:
         raise ValueError('The native library does not support 16-KiB pages')
     return {'machine': machine, 'minimum_load_alignment': min(loads), 'sha256': hashlib.sha256(data).hexdigest()}
+
+
+def verify_bootstrap_native(archive):
+    result = {}
+    prefix = 'assets/chaquopy/bootstrap-native/'
+    for name in archive.namelist():
+        if name.startswith(prefix) and name.endswith('.so'):
+            parts = name.removeprefix(prefix).split('/')
+            if (parts[0] not in {'arm64-v8a','x86_64'}
+                    or not (len(parts)==2 or parts[1:]==['java','chaquopy.so'])):
+                raise ValueError('Unexpected Android bootstrap-native namespace')
+            result[name] = native(archive.read(name),parts[0])
+    for abi in ('arm64-v8a','x86_64'):
+        if prefix+abi+'/mmap.cpython-312.so' not in result:
+            raise ValueError('The actual mmap Android bootstrap extension is required')
+    return result
+
+
+def verify_wuwa_fixture(archive, repository):
+    raw=archive.read('assets/wuwa-authored-bootstrap.json')
+    if not 1<=len(raw)<=65536:raise ValueError('Authored bootstrap fixture exceeds its bound')
+    value=json.loads(raw)
+    if value.get('schema')!='toolkit-authored-wuwa-bootstrap-v1':raise ValueError('Unknown authored bootstrap fixture')
+    apk=base64.b64decode(value['apk_base64'],validate=True)
+    if not 1024<=len(apk)<=32768 or len(apk)!=value['apk_bytes'] or hashlib.sha256(apk).hexdigest()!=value['apk_sha256']:
+        raise ValueError('Authored bootstrap carrier changed')
+    expected={'backend/tests/'+name for name in ('test_wuthering_elf_bootstrap.py','test_wuthering_native_bootstrap.py','test_publisher_apk.py')}
+    if set(value['fixture_sources'])!=expected:raise ValueError('Authored fixture source inventory changed')
+    for name,digest in value['fixture_sources'].items():
+        if hashlib.sha256((repository/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest()!=digest:
+            raise ValueError('Authored fixture no longer matches maintained source')
+    for name in ('module_sha256','default_output_sha256'):
+        if not isinstance(value.get(name),str) or not re.fullmatch('[0-9a-f]{64}',value[name]):raise ValueError('Invalid authored member identity')
+    if value['module_bytes']!=14336 or any(type(value[name]) is not int or not 0<=value[name]<2**64 for name in ('callback','initializer','source_address')):
+        raise ValueError('Authored source-data fixture contract changed')
+    return {'bytes':len(raw),'sha256':hashlib.sha256(raw).hexdigest(),'apk_sha256':value['apk_sha256'],
+        'apk_bytes':len(apk),'module_bytes':value['module_bytes'],'module_sha256':value['module_sha256'],
+        'original_game_bytes':False,'fixture_sources':value['fixture_sources']}
 
 
 def verify_decoder(archive, native_files, repository):
@@ -143,6 +182,7 @@ def verify(path):
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None or len(set(archive.namelist())) != len(archive.namelist()):
             raise ValueError('Corrupt or duplicate APK members')
+        result.update(verify_bootstrap_native(archive))
         for required in ('AndroidManifest.xml', 'classes.dex', 'assets/core-source-manifest.json', 'assets/reader.bundle'):
             if required not in archive.namelist():
                 raise ValueError('Incomplete native/shared-reader APK')
@@ -174,6 +214,7 @@ def verify(path):
         publishers = verify_publisher_sources(archive, core, repository)
         zstandard = verify_zstandard_package(archive, result, repository)
         crypto = verify_publisher_crypto(archive, result, repository)
+        wuwa_fixture = verify_wuwa_fixture(archive,repository)
         notices = json.loads((repository / 'packaging/android/account-python-notices.json').read_text(encoding='utf8'))
         with zipfile.ZipFile(io.BytesIO(archive.read('assets/chaquopy/requirements-common.imy'))) as common:
             for package in notices['packages'].values():
@@ -203,6 +244,7 @@ def verify(path):
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'publisher_source_policy': publishers,
+        'wuwa_authored_fixture':wuwa_fixture,
         'target_runtime_acceptance': 'not-established-by-archive-validation', 'release_eligibility': False}
 
 

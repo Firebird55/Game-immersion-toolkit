@@ -17,6 +17,147 @@ from .prepared_session import PreparedCaptureSession
 TEXT = 'Follow the river beyond the bridge.'
 
 
+def run_wuwa_bootstrap(root, native, fixture_json):
+    """DEBUG-authored source stage through real provider/crypto/mmap contracts.
+
+    The opener supplies only the small authored carrier; production transport,
+    budgets, APK authentication, selected-member decode and ELF derivation run
+    unchanged. This cannot establish official-server or language-library Ready.
+    """
+    import base64
+    from email.message import Message
+    import io
+    import re
+    from .game_data import GameDataService, _Context
+    from .game_data_protocol import GameDataError, GameDataRequest
+    from .publisher_transport import PublisherTransport
+    from .publisher_crypto import create_publisher_crypto
+    from .wuwa_game_data import create_provider
+    from . import wuthering_bootstrap_source as source
+    from .wuthering_elf_bootstrap import default_output
+    if not isinstance(fixture_json,str) or len(fixture_json)>65536:
+        raise ValueError('Authored bootstrap envelope exceeds its bound')
+    fixture=json.loads(fixture_json)
+    if fixture.get('schema')!='toolkit-authored-wuwa-bootstrap-v1':raise ValueError('Invalid authored bootstrap fixture')
+    apk=base64.b64decode(fixture['apk_base64'],validate=True)
+    if not 1024<=len(apk)<=32768 or len(apk)!=fixture['apk_bytes'] or hashlib.sha256(apk).hexdigest()!=fixture['apk_sha256']:
+        raise ValueError('Authored carrier identity changed')
+    for field in ('module_sha256','default_output_sha256'):
+        if not re.fullmatch('[0-9a-f]{64}',fixture[field]):raise ValueError('Invalid authored expected output')
+    # This deliberately rejects host substitutes in production; reference tests
+    # install an explicit simulated Java class, never a provider crypto bypass.
+    crypto=create_publisher_crypto(platform='android',native=native.publisherCrypto())
+    root=Path(root);root.mkdir(parents=True,exist_ok=True)
+    work=Path(tempfile.mkdtemp(prefix='wuwa-bootstrap-',dir=root))
+    url='https://owned.aki-game.com/client/download/original/game.apk'
+    cases=[]
+    for case in ('text','text-audio','corrupt','cancel'):
+        calls=[];controls={'offline':False};activated=[]
+        request={'region':'global','source_locale':'ja','target_locales':['en','zh-Hans'],
+            'content_mode':case if case in ('text','text-audio') else 'text'}
+        class Response(io.BytesIO):
+            def __init__(self,raw,target,status,headers,ctx):
+                super().__init__(raw);self.url,self.status,self.headers,self.ctx=target,status,Message(),ctx
+                for name,value in headers.items():self.headers[name]=str(value)
+            def geturl(self):return self.url
+            def read(self,size):
+                raw=super().read(min(size,173))
+                if raw and case=='cancel' and self.ctx.phase=='download':self.ctx.cancel.set()
+                return raw
+        def transport(ctx,**kwargs):
+            def open_(request,**unused):
+                if controls['offline']:raise AssertionError('An offline native stage attempted transport')
+                target=request.full_url;calls.append((target,ctx.phase))
+                if target.startswith(source.CATALOGUE+'?_t='):
+                    raw=json.dumps({'primary':url,'version':'1.0.0'}).encode()
+                    return Response(raw,target,200,{'Content-Length':len(raw)},ctx)
+                if target!=url:raise AssertionError('Unexpected authored source URL')
+                headers={'ETag':'"authored-bootstrap"'}
+                selected=request.get_header('Range')
+                if selected:
+                    low,high=map(int,selected.removeprefix('bytes=').split('-'))
+                    if not 0<=low<=high<len(apk):raise AssertionError('Invalid fixture range')
+                    raw=apk[low:high+1]
+                    headers.update({'Content-Range':f'bytes {low}-{high}/{len(apk)}','Content-Length':len(raw)})
+                    return Response(raw,target,206,headers,ctx)
+                raw=bytearray(apk)
+                if case=='corrupt':raw[-23]^=1
+                headers['Content-Length']=len(raw)
+                return Response(bytes(raw),target,200,headers,ctx)
+            return PublisherTransport(ctx,opener=open_,**kwargs)
+        provider=create_provider('android',native,transport_factory=transport)
+        directory=work/case;marker=directory/'retained-history';directory.mkdir()
+        marker.write_bytes(b'Authored old history and recording marker')
+        service=GameDataService(directory,{'wuwa':provider},on_activate=lambda *args:activated.append(True))
+        try:
+            quote=service.plan('wuwa',request)['game']
+            if not quote['can_download'] or quote['download_bytes']!=len(apk) or quote['can_activate']:
+                raise ValueError('Authored native source quote changed')
+            pending=service.plans[quote['plan_id']]
+            ctx=_Context(service,directory,'local','wuwa',GameDataRequest.parse(request),directory/'restore','restore')
+            before=len(calls)
+            try:provider.restore(pending['plan'].handle,ctx)
+            except GameDataError as error:
+                if error.code!='publisher_bootstrap_incomplete':raise
+            else:raise ValueError('A quote claimed verified native source')
+            if len(calls)!=before:raise ValueError('Quote restore performed transport')
+            service.download('wuwa',{'plan_id':quote['plan_id'],'revision':quote['revision']})
+            deadline=time.monotonic()+10
+            while time.monotonic()<deadline:
+                row=next(row for row in service.snapshot()['games'] if row['id']=='wuwa')
+                if row['job'] and row['job']['status'] not in ('queued','running'):break
+                time.sleep(.01)
+            if row['job'] is None or row['job']['status'] in ('queued','running'):
+                raise ValueError('Authored bootstrap worker did not finish')
+            if row['can_activate'] or row['state']=='ready' or activated or (directory/'wuwa/current.json').exists():
+                raise ValueError('Bootstrap stage incorrectly activated a language library')
+            if marker.read_bytes()!=b'Authored old history and recording marker':raise ValueError('Existing data changed')
+            if case in ('corrupt','cancel'):
+                if row['job']['status']=='needs_plan' or list(directory.rglob('module.so')) or (directory/'wuwa/stage.json').exists():
+                    raise ValueError('A failed native bootstrap was published')
+                if row['job']['downloaded_bytes']<=0:raise ValueError('Failed transfer lost its accounting')
+                cases.append({'case':case,'rejected':True,'retained_data':True,'charged_bytes':row['job']['downloaded_bytes']})
+                continue
+            if row['job']['status']!='needs_plan' or row['job']['downloaded_bytes']!=len(apk):
+                raise ValueError('Native bootstrap did not publish its bounded stage')
+            stage=service._stage_handle(directory,'wuwa',GameDataRequest.parse(request))
+            module=source._module(ctx.cache_directory,stage['source'])
+            if module.stat().st_size!=fixture['module_bytes']:raise ValueError('Retained native member size changed')
+            parsed=default_output(module,fixture['module_sha256'])
+            if (hashlib.sha256(parsed.parameter).hexdigest()!=fixture['default_output_sha256']
+                    or any(getattr(parsed,name)!=fixture[name] for name in ('callback','initializer','source_address'))):
+                raise ValueError('Original native source-data derivation changed')
+            controls['offline']=True;before=len(calls)
+            warm=service.plan('wuwa',request)['game']
+            if warm['can_download'] or warm['can_activate'] or len(calls)!=before:
+                raise ValueError('Cached native stage crossed its format gate')
+            service.close()
+            service=GameDataService(directory,{'wuwa':provider})
+            restarted=service.plan('wuwa',request)['game']
+            if restarted['can_download'] or restarted['can_activate'] or len(calls)!=before:
+                raise ValueError('Fresh service failed offline stage recovery')
+            ctx=_Context(service,directory,'local','wuwa',GameDataRequest.parse(request),directory/'restore','restore')
+            try:provider.restore(stage,ctx)
+            except GameDataError as error:
+                if error.code!='publisher_format_key_unresolved':raise
+            else:raise ValueError('Native stage incorrectly restored a prepared language library')
+            cases.append({'case':case,'stage':'manifest-format','downloaded_bytes':row['job']['downloaded_bytes'],
+                'module_sha256':parsed.module_sha256,'full_apk_verified':True,'mmap_data_parser':True,
+                'offline_restart':True,'snapshot_activated':False,'retained_data':True})
+        finally:service.close()
+    import mmap
+    mmap_file=getattr(mmap,'__file__',None)
+    mmap_runtime={'android_extension':False}
+    if mmap_file and Path(mmap_file).name=='mmap.cpython-312.so':
+        path=Path(mmap_file)
+        if not 0<path.stat().st_size<=128*1024:raise ValueError('Unexpected mmap native extension size')
+        mmap_runtime={'android_extension':True,'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+    return json.dumps({'schema':'toolkit-android-authored-wuwa-bootstrap-v1','passed':True,'cases':cases,
+        'fixture_sha256':hashlib.sha256(fixture_json.encode()).hexdigest(),'apk_sha256':fixture['apk_sha256'],
+        'original_game_bytes':False,'actual_network':False,'snapshot_ready':False,'crypto_proof':crypto._proof,
+        'mmap_runtime':mmap_runtime})
+
+
 def _library(root, text=TEXT, identity='authored:bridge', *, duration=0.2, game='zzz', records=None, metadata=None, clips=None):
     root.mkdir(parents=True, exist_ok=True)
     clip = root / 'authored-tone.wav'
