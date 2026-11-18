@@ -832,6 +832,22 @@ source qualifications, stays below 300 MiB of temporary files and removes only
 its exact temporary copies. An accepted owned Oodle capability remains the next
 concrete runtime requirement.
 
+A subsequent frozen normal member-stage replay uses the actual maintained
+source-built decoder and app-local Node, not a codec stand-in. Its independent
+source/license/recipe audit passes all 12 companions, 33,144,879 bytes. Through
+the normal provider, quotes and retained parent sources, all nine original
+members decode to 16,726 bytes and pass complete original member SHA-1, ordered
+section/assignment parsing, retained receipt and offline restore checks. It
+downloads zero new game or software bytes and executes no original client code.
+The zero-download member quote requires 149,582 bytes of additional storage,
+including receipts. Peak additional files are 272,769,195 bytes, below 300 MiB;
+all 18 exact temporary source/member copies are removed and originals remain
+unchanged. This is a verified component-layout replay of the existing software
+inventory, not a new complete packaged-app delivery, application-source equality
+or Android acceptance claim. Historical parent-source qualifications remain.
+The next explicit stage is effective settings/profile and CMS/keychain
+verification; no profile is merged and no CMS request, snapshot or Ready is made.
+
 ## Presentation inventory and finite completion boundary
 
 | Presentation | Primary evidence and remaining work |
