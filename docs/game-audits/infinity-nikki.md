@@ -740,6 +740,10 @@ Selected configuration carriers, full-file hashes, PAK indices and ordered INI
 members remain the next ordinary stage. The nine private research INIs cannot
 supply that missing preparation. CMS construction must consume its future
 verified source receipt and keep the response/keychain gate explicit.
+The PAK reader now accepts the same explicit platform cryptography object;
+desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
+from stored-size width. This removes that import barrier without proving an
+Android device runtime or admitting a nonzero-GUID archive.
 Separately bounded native registration work identifies two original
 consumers: creation receives `(chainName, Base64value)` and group serialization
 receives `(chainName, groupID, Base64value)`, both with no result. Their concrete

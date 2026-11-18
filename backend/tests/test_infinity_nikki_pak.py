@@ -2,7 +2,10 @@
 from dataclasses import replace
 import hashlib
 import struct
+import subprocess
+import sys
 import unittest
+from unittest.mock import patch
 import zlib
 
 from Crypto.Cipher import AES
@@ -139,6 +142,35 @@ def codec(blocks):
 
 
 class OriginalPakTests(unittest.TestCase):
+    def test_injected_platform_crypto_owns_all_index_and_member_decryption(self):
+        raw, rows = fixture()
+        calls = []
+        class Crypto:
+            def block_cipher(self, algorithm, mode, key, data):
+                calls.append((algorithm, mode, len(data)))
+                return AES.new(key, AES.MODE_ECB).decrypt(data)
+        with patch('backend.publisher_crypto.DesktopPublisherCrypto', side_effect=AssertionError('Desktop fallback used')):
+            pak = Archive(lambda at, size: raw[at:at + size], len(raw), MATERIAL, crypto=Crypto())
+            self.assertEqual(pak.read('X6Game/Content/Script/packed.lua', decompress=codec), rows[-1][1])
+        self.assertGreaterEqual(len(calls), 3)
+        self.assertTrue(all(algorithm == 'AES' and mode == 'ECB' and size % 16 == 0 for algorithm, mode, size in calls))
+        class BadCrypto:
+            def block_cipher(self, *args): return bytearray(len(args[-1]))
+        with self.assertRaises(ValueError):
+            Archive(lambda at, size: raw[at:at + size], len(raw), MATERIAL, crypto=BadCrypto())
+
+    def test_data_reader_import_has_no_desktop_crypto_dependency(self):
+        script = '''import sys
+class RejectCrypto:
+ def find_spec(self,name,path=None,target=None):
+  if name == 'Crypto' or name.startswith('Crypto.'):
+   raise AssertionError('Desktop-only crypto imported eagerly')
+sys.meta_path.insert(0,RejectCrypto())
+from backend.infinity_nikki_pak import Archive
+'''
+        result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_original_two_hash_headers_encoded_directory_and_batched_reads(self):
         for encrypted, index_encrypted, wide, long_fields in [(True, True, False, False),
                 (False, False, True, True), (True, False, True, False), (False, True, False, True)]:

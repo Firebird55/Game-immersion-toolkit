@@ -11,8 +11,6 @@ from pathlib import PurePosixPath
 import re
 import struct
 
-from Crypto.Cipher import AES
-
 from .infinity_nikki_pak_material import DefaultPakMaterial
 
 
@@ -98,10 +96,10 @@ class Archive:
     deletion positions and nonzero key GUIDs fail explicitly rather than being
     interpreted as missing or unvoiced resources.
     """
-    def __init__(self, read, size, material):
+    def __init__(self, read, size, material, *, crypto=None):
         _check(callable(read) and type(size) is int and 221 <= size <= 1024**4 and
                isinstance(material, DefaultPakMaterial) and len(material.parameter) == 32)
-        self.source, self.size, self.material = read, size, material
+        self.source, self.size, self.material, self.crypto = read, size, material, crypto
         footer = self._read(size - 221, 221)
         _check(footer[:16] == bytes(16) and footer[16] in (0, 1) and
                struct.unpack_from('<II', footer, 17) == (0x5a6f12e1, 12))
@@ -148,7 +146,12 @@ class Archive:
     def _decrypt(self, raw):
         _check(raw and len(raw) % 16 == 0)
         key = self.material.parameter
-        raw = bytearray(AES.new(key, AES.MODE_ECB).decrypt(raw))
+        if self.crypto is None:
+            from .publisher_crypto import DesktopPublisherCrypto
+            self.crypto = DesktopPublisherCrypto()
+        decoded = self.crypto.block_cipher('AES', 'ECB', key, raw)
+        _check(isinstance(decoded, bytes) and len(decoded) == len(raw))
+        raw = bytearray(decoded)
         for at in range(0, len(raw), 16):
             raw[at] ^= key[-1]
             raw[at + 15] ^= key[0]
