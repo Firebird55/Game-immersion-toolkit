@@ -74,9 +74,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q backend/tests/test_android_workflow_acquisition.py backend/tests/test_android_build_native_receipt.py backend/tests/test_android_crypto_probe.py backend/tests/test_android_publisher_crypto_bundle.py backend/tests/test_publisher_crypto.py backend/tests/test_publisher_apk.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q backend/tests/test_android_wuwa_bootstrap.py backend/tests/test_android_bootstrap_native.py backend/tests/test_wuwa_game_data.py backend/tests/test_publisher_apk_zip.py backend/tests/test_wuthering_elf_bootstrap.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node --test tests/android-zstandard-proof.test.mjs tests/android-runtime-diagnostics.test.mjs tests/android-authored-account-ui.test.mjs tests/android-browser-migration-ui.test.mjs tests/android-authored-document-picker.test.mjs tests/android-authored-reader-insets.test.mjs tests/android-authored-adb.test.mjs tests/browser-history-export.test.mjs tests/native-host-policy.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node --test tests/android-publisher-crypto-proof.test.mjs
+          node --test tests/android-publisher-crypto-proof.test.mjs tests/android-wuwa-bootstrap-proof.test.mjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()

@@ -83,6 +83,19 @@ public final class MainActivity extends Activity {
                     report.put("native_publisher_crypto", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
                         .callAttr("run_crypto", ocr, authoredCryptoAsset("capi"), authoredCryptoAsset("jca")).toString()));
                     selfTestDiagnostic("native-publisher-crypto", "passed", null);
+                    selfTestDiagnostic("native-wuwa-bootstrap", "running", null);
+                    try (InputStream input = getAssets().open("wuwa-authored-bootstrap.json")) {
+                        java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+                        byte[] chunk = new byte[4096]; int count;
+                        while ((count = input.read(chunk)) != -1) {
+                            if (buffer.size() + count > 65536) throw new IllegalStateException();
+                            buffer.write(chunk, 0, count);
+                        }
+                        report.put("native_wuwa_bootstrap", new org.json.JSONObject(Python.getInstance().getModule("backend.android_probe")
+                            .callAttr("run_wuwa_bootstrap", new File(getCacheDir(), "wuwa-bootstrap-probe").getCanonicalPath(),
+                                ocr, buffer.toString("UTF-8")).toString()));
+                    }
+                    selfTestDiagnostic("native-wuwa-bootstrap", "passed", null);
                     selfTestDiagnostic("core", "passed", null);
                     selfTestDiagnostic("native-media", "running", null);
                     android.media.MediaPlayer player = new android.media.MediaPlayer();

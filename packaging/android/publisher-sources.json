@@ -1,5 +1,19 @@
 {
   "context_modules": {
+    "publisher_apk": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "purpose": "Bounded original APK-v2 and ZIP metadata integrity; explicit maintained crypto, no package installation or game-code execution."
+    },
+    "publisher_apk_zip": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "purpose": "Bounded original APK-v2 and ZIP metadata integrity; explicit maintained crypto, no package installation or game-code execution."
+    },
     "sophon_assets": {
       "dependencies": [
         "python-stdlib",
@@ -13,7 +27,6 @@
     "genshin": "The actual game-data factory and full source/runtime closure are not packaged.",
     "infinitynikki": "The actual game-data factory and full source/runtime closure are not packaged.",
     "starrail": "The actual game-data factory and full source/runtime closure are not packaged.",
-    "wuwa": "The actual game-data factory and full source/runtime closure are not packaged.",
     "zzz": "The current bootstrap imports unverified Android crypto and compression dependencies."
   },
   "files": {
@@ -41,6 +54,14 @@
       "sha256_lf": "ec7734a89a70a52ac3abea952b72a668d62f068c3a971dfa1a1e8ff137c8490b",
       "source_commit": "ed9117fe42427710e44cd77f6b824d4c6c1dee3a"
     },
+    "backend/publisher_apk.py": {
+      "sha256_lf": "10dbf27a50c4efe59520807afa9b59ff08eb1b0a4e2af6275d3e9dee2b4c9b9e",
+      "source_commit": "91a7fa8c91bd18f34a7f7e0a35192f6188c2a096"
+    },
+    "backend/publisher_apk_zip.py": {
+      "sha256_lf": "1475113232243876b850cddf2d7cf2b2e1caa77f33509b85b639f856391c8b2c",
+      "source_commit": "91a7fa8c91bd18f34a7f7e0a35192f6188c2a096"
+    },
     "backend/reverse1999_game_data.py": {
       "sha256_lf": "47268867be6c082cb9b903611125fb797f7b325e53df609f559f55caf493fabc",
       "source_commit": "a30a15eccad65281d8ecb6e0f95bcbac4cecee20"
@@ -56,6 +77,22 @@
     "backend/sophon_assets.py": {
       "sha256_lf": "64befcb85bd84c351b11ec28b52af4095a99c83caee66c1e1729a8426b069f5d",
       "source_commit": "8be26e32d3a8992147d140d1ade3d45b2f7dbcd6"
+    },
+    "backend/wuthering_bootstrap_source.py": {
+      "sha256_lf": "affc7dd2527bb06a8ad088c5932da465d578fdd5dd216f715c2fc746780f4ce7",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuthering_elf_bootstrap.py": {
+      "sha256_lf": "7c0807fb6b14d3c70c70b137301dcd716f91f6140099aa2df18c10f84607249a",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuthering_locales.py": {
+      "sha256_lf": "b197198bfbdb3e6bd2ad0f4c32b49d0d196b5d980d1807df0569e0215ce994ca",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
+    },
+    "backend/wuwa_game_data.py": {
+      "sha256_lf": "7f4c006927a02a3cb3dedda5a5cbea96099853d2ed74251241f6ce103512f35c",
+      "source_commit": "4f2be4badaa6278ca533de45c46df1bfa2f6553f"
     }
   },
   "forbidden_stage_imports": [
@@ -110,6 +147,24 @@
       "snapshot_runtime": false,
       "stages": [
         "discovery"
+      ]
+    },
+    "wuwa": {
+      "dependencies": [
+        "python-stdlib",
+        "toolkit-publisher-crypto-v1"
+      ],
+      "download_runtime": true,
+      "factory": "backend.wuwa_game_data:create_provider",
+      "modules": [
+        "wuwa_game_data",
+        "wuthering_bootstrap_source",
+        "wuthering_elf_bootstrap",
+        "wuthering_locales"
+      ],
+      "snapshot_runtime": false,
+      "stages": [
+        "bootstrap"
       ]
     }
   },

@@ -6,6 +6,10 @@ def readerFrontend = System.getenv('ANDROID_FRONTEND_DIR')
 def decoderBundle = System.getenv('ANDROID_DATA_DECODERS')
 def cryptoBundle = System.getenv('ANDROID_PUBLISHER_CRYPTO')
 def cryptoFixtures = System.getenv('ANDROID_CRYPTO_FIXTURES')
+def wuwaFixture = System.getenv('ANDROID_WUWA_FIXTURE')
+if (!wuwaFixture || !new File(wuwaFixture).isFile()) {
+    throw new GradleException('Prepare the bounded authored publisher bootstrap data fixture first.')
+}
 if (!cryptoBundle || !new File(cryptoBundle, 'assets/publisher-crypto-manifest.json').isFile() ||
     !cryptoFixtures || !new File(cryptoFixtures, 'publisher-crypto-authored-jca.bin').isFile()) {
     throw new GradleException('Prepare the reviewed publisher cryptography bundle and authored fixtures first.')
@@ -114,6 +118,7 @@ tasks.register('prepareToolkitReader') {
     inputs.dir(new File(decoderBundle, 'assets'))
     inputs.dir(new File(cryptoBundle, 'assets'))
     inputs.dir(cryptoFixtures)
+    inputs.file(wuwaFixture)
     inputs.file(publisherPolicyFile)
     inputs.file(new File(wheelhouse, 'zstandard-build-receipt.json'))
     inputs.file(new File(repository, 'packaging/android/python-runtime-extensions.json'))
@@ -127,6 +132,7 @@ tasks.register('prepareToolkitReader') {
         copy { from new File(decoderBundle, 'assets'); into output }
         copy { from new File(cryptoBundle, 'assets'); into output }
         copy { from cryptoFixtures; include 'publisher-crypto-authored-capi.bin', 'publisher-crypto-authored-jca.bin'; into output }
+        copy { from wuwaFixture; into output; rename { 'wuwa-authored-bootstrap.json' } }
         copy { from publisherPolicyFile; into output; rename { 'publisher-source-policy.json' } }
         copy { from new File(wheelhouse, 'zstandard-build-receipt.json'); into output }
         copy { from new File(repository, 'packaging/android/python-runtime-extensions.json'); into output }

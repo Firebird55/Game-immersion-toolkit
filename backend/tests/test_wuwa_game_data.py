@@ -241,6 +241,7 @@ def test_android_explicit_capability_drives_full_pure_bootstrap_without_desktop_
                 'source_sha256':publisher_crypto.SOURCE_SHA256,'platform_primitives':'JCA',
                 'apk_entry_verified':True,'licenses_verified':True,'system_fallback':False,
                 'original_client_execution':False,'account_keys_reused':False,'pointer_bits':64,
+                'key_bytes':32,'nonce_bytes':12,'max_bytes':publisher_crypto.MAX_BYTES,
                 'library_sha256':'a'*64,'manifest_sha256':'b'*64})
         def rsaVerifySha256(self, spki, data, signature):
             operations.append('rsa')
