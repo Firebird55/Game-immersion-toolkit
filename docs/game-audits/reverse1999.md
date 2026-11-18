@@ -1037,11 +1037,12 @@ entries using separate generators; their values and generator bodies are
 not read. The prefix-list-dependent parameter transformations in the
 feature's `w` method remain unresolved.
 
-The concrete header-finalization method `j` has a further source-owned
-boundary. For a nonempty header map it calls a map-to-byte helper and then
+The concrete finalization method `j` has a further source-owned boundary.
+For a nonempty map it calls a map-to-byte helper and then
 `common.net.utils.NativeHttp.getSign(Context, byte[])`, storing the result in
-the `sign` header. Null results and failures retry up to three times before
-an exception; no unsigned fallback is inferred. Exact declaration metadata
+the same map's `sign` entry. The later transport pass identifies that map on
+the ordinary POST as its Retrofit form fields. Null results and failures
+retry up to three times before an exception. Exact declaration metadata
 confirms that `getSign` is native with no DEX code body. The native library
 is not read or executed in this phase. This is a demonstrated native
 producer boundary, not proof that official derivation is impossible.
@@ -1314,6 +1315,73 @@ bytes across eight bodies, plus 14 exception bytes, 357 annotation bytes and
 406 instruction bytes, 13 exception bytes and 3,187 related metadata bytes.
 These are static checks on signed distributor members, with no request,
 signature calculation, device access or game-key derivation.
+
+### Serializer inputs, HTTP headers and cold initialization
+
+The comparator body calls Java `String.compareTo` on the complete rendered
+entries. The original charset field is defined in the signed seventh DEX.
+Its initializer assigns UTF-8 to the exact field used by the serializer.
+The normal comparison and character encoding are both established from the
+original instructions.
+
+The Retrofit callback carries two distinct maps. The feature's ordinary
+parameter transforms write to the HTTP header map. The SDK time and nonce
+merge into the form map, which is then passed to native signing. This
+separates the signed form fields from transport headers such as the
+Fresco interceptor's `User-Agent`.
+
+The SDK string and clock offset use private static fields. Their owning
+setters write the supplied string and long directly. Before any setter, the
+string field is null and its accessor emits an empty string, while the
+clock offset is zero. An exact invoke-operand check of the six methods in
+the string setter's defining package in the third DEX finds no call to
+that setter. Neither of the two inspected response hooks directly calls
+the clock setter. These are scoped results. The cold defaults describe the
+fields before initialization and actual active-app values remain unknown.
+
+The Fresco constructor captures the application context in an assigned
+lazy supplier. Its renderer formats the application label, version name,
+version code, package, Android release and OkHttp version, with explicit
+fallbacks for selected inputs. Runtime platform and locale values are
+still inputs. The sampling interceptor's exact path selector returns a
+fixed route distinct from `/apk/v1/detail`. Its host rewrite is gated on
+that other route.
+
+A separate source pass establishes why the cold defaults alone leave the
+anonymous contract incomplete. The ordinary header feature calls its
+`b()` method before transforming the headers, including with the traced
+false account flags. The method returns cached SDK login information when
+available. Its cold background branch prepares a distinct signed request
+to `/oauth/v1/token` with `grant_type=client_credentials`, using application
+and Android platform descriptors. The typed owner is `common.net.logininfo.c.a`.
+It executes its Retrofit call when configured and passes the returned SDK
+login information to a storage delegate. The trace covers the client
+credentials grant and local SDK storage. Server-side account effects
+remain unverified.
+
+The method only returns a non-null cached or parsed login object. An
+unconfigured Retrofit token service takes the error path and throws. The
+error path also passes a recovered response time to a separate clock adapter.
+The ordinary request reaches its header transforms only after the login
+producer returns. Disabling the token service reaches the error before
+those transforms.
+
+The ordinary and fallback HTTP header transforms also delegate to the
+`common.net.d` interface through `features.a.f()` and `features.a.l()`.
+The evidence supports the form dispatch and successful `data.apk.download`
+schema. A standalone anonymous client still needs a verified route with
+its continuation conditions, initialization inputs and complete HTTP
+headers established. Server acceptance remains untested. The bounded
+passes processed 74,350,728 existing cache bytes across signed members and
+read 18 bodies totaling 1,746 instruction bytes. Exact operand searches
+were limited to the named owner sets. No original APK or client code was
+executed, no signature was calculated and no live request was sent.
+
+The verified Global Windows launcher discovery is available independently
+of the TapTap SDK flow. Mainland Android still needs a reachable original
+game APK for the correct release, with an exact length and independently
+verifiable package identity. [Global Windows evidence](#publisher-discovery-implemented),
+[mainland Android transfer evidence](#publisher-linked-game-apk-descriptor-and-transfer-stopping-point).
 
 ### Community key candidate: research only
 
