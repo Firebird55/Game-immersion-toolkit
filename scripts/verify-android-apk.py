@@ -44,6 +44,63 @@ def verify_bootstrap_native(archive):
     return result
 
 
+def verify_native_inventory(archive):
+    """Cover the actual Android software containers, including CPython stdlib.
+
+    No game archives belong here. New embedding/package namespaces require a
+    reviewed policy change instead of silently hiding an uninspected library.
+    """
+    abis={'arm64-v8a','x86_64'}
+    if len(archive.namelist())!=len(set(archive.namelist())):
+        raise ValueError('Duplicate native/software container member')
+    pure={'app','bootstrap','requirements-common','stdlib-common'}
+    containers={'assets/chaquopy/'+name+'.imy':(None,'pure') for name in pure}
+    containers.update({'assets/chaquopy/'+kind+'-'+abi+'.imy':(abi,kind)
+        for abi in abis for kind in ('requirements','stdlib')})
+    actual={name for name in archive.namelist() if name.endswith('.imy')}
+    if actual!=set(containers):raise ValueError('Unexpected or missing Android software container')
+    result=verify_bootstrap_native(archive)
+    summary={'apk-native':{'kind':'directory','native_count':0},
+        'assets/chaquopy/bootstrap-native':{'kind':'directory','native_count':len(result)}}
+    root_abis=set()
+    for name in archive.namelist():
+        if not name.endswith('.so') or name in result:continue
+        parts=name.split('/')
+        if len(parts)!=3 or parts[0]!='lib' or parts[1] not in abis or not re.fullmatch(r'lib[a-zA-Z0-9_+.-]+\.so',parts[2]):
+            raise ValueError('Unexpected native library outside reviewed Android software namespaces')
+        info=archive.getinfo(name)
+        if not 64<=info.file_size<=128*1024**2:raise ValueError('Native library exceeds its software bound')
+        result[name]=native(archive.read(name),parts[1]);root_abis.add(parts[1])
+        summary['apk-native']['native_count']+=1
+    if root_abis!=abis:raise ValueError('Both native APK ABI directories are required')
+    for container,(abi,kind) in sorted(containers.items()):
+        info=archive.getinfo(container)
+        if info.file_size>128*1024**2:raise ValueError('Android software container exceeds its bound')
+        count=0
+        with zipfile.ZipFile(io.BytesIO(archive.read(container))) as software:
+            names=software.namelist()
+            if len(names)!=len(set(names)):raise ValueError('Duplicate Android software member')
+            for member in names:
+                if not member.endswith('.so'):continue
+                if (kind=='pure' or member.startswith('/') or '\\' in member or
+                        any(part in ('','..','.') for part in member.split('/'))):
+                    raise ValueError('A native extension was placed in a pure or unsafe software namespace')
+                if kind=='stdlib' and not re.fullmatch(r'[a-z_][a-z0-9_]*\.cpython-312\.so',member):
+                    raise ValueError('Unexpected standard-library native namespace')
+                if kind=='requirements' and not (member=='pydantic_core/_pydantic_core.cpython-312.so'
+                        or member=='zstandard/backend_c.cpython-312.so'
+                        or re.fullmatch(r'rapidfuzz/(?:distance/)?[a-zA-Z0-9_]+\.so',member)):
+                    raise ValueError('Unexpected maintained dependency native namespace')
+                info=software.getinfo(member)
+                if not 64<=info.file_size<=128*1024**2:raise ValueError('Native extension exceeds its software bound')
+                result[container+'/'+member]=native(software.read(member),abi);count+=1
+            if kind=='stdlib' and not {'_ssl.cpython-312.so','_sqlite3.cpython-312.so'}<=set(names):
+                raise ValueError('The actual TLS and transcript standard-library extensions are required')
+        summary[container]={'kind':kind,'abi':abi,'native_count':count}
+    return {'schema':'toolkit-android-native-software-inventory-v1','files':result,
+        'containers':summary,'root_abis':sorted(root_abis)}
+
+
 def verify_wuwa_fixture(archive, repository):
     raw=archive.read('assets/wuwa-authored-bootstrap.json')
     if not 1<=len(raw)<=65536:raise ValueError('Authored bootstrap fixture exceeds its bound')
@@ -182,14 +239,13 @@ def verify(path):
     with zipfile.ZipFile(path) as archive:
         if archive.testzip() is not None or len(set(archive.namelist())) != len(archive.namelist()):
             raise ValueError('Corrupt or duplicate APK members')
-        result.update(verify_bootstrap_native(archive))
+        inventory=verify_native_inventory(archive)
+        result.update(inventory['files'])
+        abis.update(inventory['root_abis'])
         for required in ('AndroidManifest.xml', 'classes.dex', 'assets/core-source-manifest.json', 'assets/reader.bundle'):
             if required not in archive.namelist():
                 raise ValueError('Incomplete native/shared-reader APK')
         for name in archive.namelist():
-            if name.startswith('lib/') and name.endswith('.so'):
-                abi = name.split('/')[1];abis.add(abi)
-                result[name] = native(archive.read(name), abi)
             if name.startswith('assets/chaquopy/requirements-') and name.endswith('.imy'):
                 abi = name.removeprefix('assets/chaquopy/requirements-').removesuffix('.imy')
                 if abi not in {'arm64-v8a', 'x86_64'}:
@@ -197,7 +253,6 @@ def verify(path):
                 with zipfile.ZipFile(io.BytesIO(archive.read(name))) as requirements:
                     for member in requirements.namelist():
                         if member.endswith('.so'):
-                            result[name + '/' + member] = native(requirements.read(member), abi)
                             if '/_pydantic_core' in member:
                                 python_abis.add(abi)
                             if member.startswith('rapidfuzz/'):
@@ -241,6 +296,7 @@ def verify(path):
                     raise ValueError('A packaged shared reader resource changed')
     return {'schema': 'toolkit-android-apk-audit-v1', 'apk_sha256': hashlib.sha256(Path(path).read_bytes()).hexdigest(),
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
+        'native_software_inventory':{key:value for key,value in inventory.items() if key!='files'},
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'publisher_source_policy': publishers,

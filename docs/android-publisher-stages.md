@@ -79,10 +79,20 @@ Source `3029583d5ebd6f7982ac00df3d9b65bdef0ba49e` produced debug version 57,
 115,390,204 bytes, SHA-256
 `d49c9549dee1578fe8da2b828e5a5e1dc237b4547e6f71ffc6de4ec8826f881e`.
 The complete 73-source namespace, policy, generated fixture, native notices,
-signature and all 65 native ELF entries passed the candidate's static audit.
+signature and the then-enumerated 65 native ELF entries passed the candidate's
+source-specific static audit.
 The audit now includes the existing 24 Chaquopy bootstrap extensions; the nested
 `java/chaquopy.so` bridge is explicitly admitted, while unexpected nested
 libraries, missing mmap, wrong ABIs and insufficient alignment are rejected.
+An auditor-only follow-up found 96 further native entries inside the two
+standard-library IMY containers. The same machine/alignment parser separately
+passed all 96 actual APK entries, making 161 inspected native members; this
+supplement does not rewrite the older audit or runtime source identity.
+The maintained auditor now centrally inventories root libraries, bootstrap
+extensions and every requirements/stdlib IMY, including the four pure software
+containers. Unknown containers, native code in a pure container, unexpected
+native namespaces, missing TLS/SQLite modules, duplicates and wrong machine/page
+alignment fail closed. This changes audit coverage without rebuilding a runtime.
 
 That exact installed APK passed a normal version-56-to-57 update and two fresh
 cold self-tests on a Redmi ARM64 device running API 36 with 4-KiB pages. No
