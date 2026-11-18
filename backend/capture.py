@@ -1870,7 +1870,7 @@ class CaptureService:
         # Each worker/preview request owns its frame; a timed-out OCR worker
         # must not overwrite a replacement worker's capture or calibration.
         self._window_frame.image = None
-        self._window_frame.handle = window.handle
+        self._window_frame.handle = getattr(window, 'handle', None)
         self._window_frame.cinema_frame = None
         self._window_frame.bounds = window.bounds
         self._window_frame.image = self._background_capture.frame(window)

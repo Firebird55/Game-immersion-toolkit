@@ -25,8 +25,34 @@ test('native evidence contains only bounded known insets and focus/lock booleans
   const value=authoredNativeInsetsMetrics(`mCurrentFocus=Window{ignored ${app}/MainActivity}\nmRotation=ROTATION_1\nmKeyguardShowing=false\nInsetsSource: mType=statusBars mFrame=[0,0][2400,63] mVisible=true\n`,
     'mWakefulness=Awake\nPrivate unrelated window',app);
   assert.equal(value.focus_is_own,true);assert.equal(value.native_rotation,1);assert.equal(value.keyguard_showing,false);assert.equal(value.awake,true);
+  assert.equal(value.focus_category,'own');
   assert.deepEqual(value.system_bar_insets,[{type:'statusBars',bounds:[0,0,2400,63],visible:true}]);
   assert.equal(JSON.stringify(value).includes('ignored'),false);
+});
+
+test('focus classification is closed and never retains foreign activities or dialog text',()=>{
+ const cases=[[app,'own'],['com.android.systemui','systemui'],['com.android.launcher3','launcher'],
+  ['com.google.android.apps.nexuslauncher','launcher'],['com.android.permissioncontroller','permission-controller'],
+  ['com.google.android.permissioncontroller','permission-controller'],['private.secret.application','other']];
+ for(const [name,category] of cases){
+  const value=authoredNativeInsetsMetrics(`mCurrentFocus=Window{private-hash u0 ${name}/private.Activity}`, '', app);
+  assert.equal(value.focus_category,category);
+  for(const secret of ['private-hash','private.Activity','private.secret.application'])assert.equal(JSON.stringify(value).includes(secret),false);
+ }
+ assert.equal(authoredNativeInsetsMetrics('mCurrentFocus=null','',app).focus_category,'none');
+ assert.equal(authoredNativeInsetsMetrics('','',app).focus_category,null);
+ assert.equal(authoredNativeInsetsMetrics('mCurrentFocus=Window{Application Error: private.name}','',app).focus_category,'other');
+});
+
+test('only exact Android error-dialog resource IDs set the ANR and crash-resource flags',()=>{
+ const value=authoredInsetsMetrics('<hierarchy rotation="0">'+
+  '<node package="android" resource-id="android:id/aerr_wait" text="Private application name" />'+
+  '<node package="android" resource-id="android:id/aerr_close" />'+
+  '<node package="android" resource-id="android:id/aerr_restart" /></hierarchy>',app);
+ assert.equal(value.anr_wait_resource,true);assert.equal(value.error_close_resource,true);assert.equal(value.error_restart_resource,true);
+ assert.equal(JSON.stringify(value).includes('Private application name'),false);
+ const foreign=authoredInsetsMetrics('<hierarchy rotation="0"><node package="private.name" resource-id="android:id/aerr_wait" /></hierarchy>',app);
+ assert.equal(foreign.anr_wait_resource,false);assert.equal(foreign.error_close_resource,false);
 });
 
 test('failed strict bounds are captured before restoring rotations without widening the waiter',async()=>{

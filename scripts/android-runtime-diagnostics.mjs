@@ -3,9 +3,11 @@
 import {writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {authoredLibraryIdentity, inspectAuthoredLibrary} from './android-authored-library-check.mjs';
+import {createAuthoredRecoveryObservation, recoveryRoute} from './android-authored-recovery-observation.mjs';
 
 const paths = new Set(['/api/snapshot', '/api/platform', '/api/library/import', '/api/settings',
- '/api/capture/receiver', '/api/capture/frame', '/api/game-data', '/api/game-data/zzz/plan', '/api/game-data/zzz/download']);
+ '/api/capture/receiver', '/api/capture/frame', '/api/game-data', '/api/game-data/zzz/plan', '/api/game-data/zzz/download',
+ '/api/lexirise/accounts', '/api/lexirise/accounts/select', '/api/lexirise/accounts/recover']);
 const states = new Set(['receiver_frame_stale', 'receiver_document_changed', 'receiver_document_retired',
  'receiver_revision_stale', 'receiver_generation_changed', 'receiver_dimensions_changed', 'receiver_owned',
  'receiver_registry_full', 'account_generation_changed', 'account_recovery_required']);
@@ -69,6 +71,11 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
  let expectedLibrary = null;
  try {if (directory) expectedLibrary = authoredLibraryIdentity(join(directory, 'authored-library.zip'));} catch {}
  const requests = new Map(), controls = [];
+ const recovery = createAuthoredRecoveryObservation(), accountRequests = new WeakMap();
+ page.on('request', request => {
+  const path = recoveryRoute(request.url(), new URL(page.url()).origin);
+  if (path) accountRequests.set(request, recovery.request(path, request.method(), request.headers()['x-toolkit-account-generation']));
+ });
  let browserErrors = 0, consoleErrors = 0, cspConsoleErrors = 0;
  page.on('pageerror', () => browserErrors++);
  page.on('console', value => {
@@ -79,8 +86,17 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
   let path;
   try {path = new URL(response.url()).pathname;} catch {return;}
   if (!paths.has(path)) return;
+  if (path.startsWith('/api/lexirise/accounts') && !recoveryRoute(response.url(), new URL(page.url()).origin)) return;
   const status = response.status(), key = path + ':' + status;
   requests.set(key, (requests.get(key) ?? 0) + 1);
+  if (path === '/api/snapshot') {
+   void response.json().then(value => recovery.generation(value?.context?.account_generation)).catch(() => {});
+  }
+  const receipt = accountRequests.get(response.request());
+  if (receipt) {
+   void response.json().then(value => recovery.response(receipt, status, value?.state))
+    .catch(() => recovery.response(receipt, status, null));
+  }
   if (path === '/api/capture/receiver' || path === '/api/capture/frame') {
    void response.json().then(value => {
     controls.push({path, status, running: value?.running === true,
@@ -93,14 +109,15 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
  let newDocumentMetrics = true;
  try {await page.addInitScript(messageMetrics);} catch {newDocumentMetrics = false;}
  await page.evaluate(messageMetrics);
- return {async capture(label, filename = 'android-authored-runtime-failure.json') {
+ return {recovery, async capture(label, filename = 'android-authored-runtime-failure.json') {
   if (!['android-authored-runtime-failure.json', 'android-receiver-before-library-ready.json',
     'android-receiver-after-library-ready.json'].includes(filename)) throw Error('Unknown authored diagnostic filename');
   const report = {schema: 'toolkit-android-authored-runtime-failure-v1',
    // Labels are authored probe literals, never user errors.
    checkpoint: String(label).slice(0, 160), new_document_metrics: newDocumentMetrics,
    browser_errors: browserErrors, console_errors: consoleErrors, csp_console_errors: cspConsoleErrors,
-   requests: [...requests].map(([key, count]) => ({key, count})), controls: controls.slice()};
+   requests: [...requests].map(([key, count]) => ({key, count})), controls: controls.slice(),
+   account_recovery: recovery.snapshot()};
   if (directory) report.authored_library = {expected_fixture_valid: expectedLibrary !== null, inspected: false};
   try {
    const value = await bounded(page.evaluate(async () => {
@@ -140,6 +157,7 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
      startup_failure: logs.includes('Local host startup failed'), fatal_exception: logs.includes('FATAL EXCEPTION')};
    }
   } catch {report.native_log_unavailable = true;}
+  report.account_recovery = recovery.snapshot();
   writeFileSync(join(output, filename), JSON.stringify(report, null, 2) + '\n');
  }};
 }

@@ -1,5 +1,56 @@
 # Zenless Zone Zero dialogue audit
 
+## November 18, 2026 · Ordinary reader 24 preparation and fresh offline restore
+
+A new, closed reader 24 resource inventory was explicitly built from the
+retained, hash-verified software inputs and current toolkit helper source. Its
+44 reader files total **34,676,762 bytes**, accompanied by the same four verified
+Node runtime files. The new build identity differs from reader 23; the earlier
+resource inventory remains unchanged. This was maintainer artifact preparation,
+with no software download or runtime compilation.
+
+Both requests then completed the ordinary per-game service, using independently
+copied mutable source metadata and checksum-verified immutable original inputs.
+No older reader operations, candidates, protected parameters or analyst-derived
+data entered the new producer. The initial private intake omitted the earlier
+accepted source's hashed recording-selection plan and stopped safely before
+network access. Copying exactly that source-bound restore dependency restored
+the old library; the new producer generated a different candidate and plan.
+
+The text-only request published **Text Ready with all 289,967 prior records**,
+without playable audio or cinema-audio context metadata. The audio request ran
+its own five reader stages, received a zero-byte original-asset quote, passed
+the final ordinary publisher check and published **Audio Ready with all 77,895
+prior original-audio base bindings retained**. Its snapshot has **78,972
+authoritative recording keys**, including **1,077 conditional occurrences**.
+These additional keys require the guarded capture context described below;
+they are not independently voiced captions or an active-story census. The base
+inventory still reports 135,211 certified unvoiced, 72,705 unknown and 4,156
+unavailable records.
+
+The ordinary C055 context resolver retrieved both correct complete Japanese
+film sources from this new source, through the owned decoder, with the same
+MP3 hashes as the earlier controls. A separate fresh process restored both
+requests and the earlier accepted audio source with every network connection
+forbidden. Five earlier and two newly saved recordings replayed with identical
+hashes and no provider lookup. The original library's pointers, source files,
+original input hashes and saved recordings remained intact.
+
+Fresh discovery and final checks used exactly **84 official HTTP requests and
+1,954,078 response-body bytes**, including the initial six-request quote.
+There were **zero new original asset, audio or software downloads**. The two
+final download jobs each retained the actual 139,577 metadata bytes in their
+progress counters; cached reader stages correctly reported zero wire bytes.
+The independent file-data census peaked at 1,213,333,417 new bytes, and monitored
+free space stayed above 12,677,619,712 bytes, within the agreed storage limits.
+
+This closes the earlier cached-clone-only qualification for ordinary reader 24
+preparation of current Global Japanese. It does not establish a new game update,
+every story presentation, another complete dub, actual screen OCR, installer
+acceptance or Android preparation. The five C055 captions preceding the unique
+anchor remain unresolved; the two later shared captions retain their conditional
+context path and their ordinary base rows remain unavailable.
+
 ## November 18, 2026 · Conditional forward cinema occurrences (reader 24)
 
 The original C055 subtitle tracks provide a safe forward relationship: each
@@ -39,8 +90,9 @@ resolver; Chinese observations did not. Both selected original Japanese film
 contexts decoded through the owned codec closure to the same previously saved
 MP3 hashes, followed by fresh offline retained-recording replay. The original
 source pointers, snapshots and five old/new saved recordings were unchanged.
-This is cached same-generation source verification, not a new reader 24 normal
-service Ready or screenshot/OCR acceptance claim.
+That earlier control was cached same-generation source verification, without
+an ordinary reader 24 Ready or screenshot/OCR acceptance claim. The separate
+ordinary-service checkpoint above now establishes preparation and restoration.
 
 Synthetic tests additionally exercise the real capture scan, foreground frame
 adapter, contextual matcher, original resolver and retained recording service

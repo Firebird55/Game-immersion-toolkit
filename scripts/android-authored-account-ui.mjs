@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {authoredLibraryIdentity} from './android-authored-library-check.mjs';
 import {authoredReceiverLibraryReady, createAuthoredRuntimeDiagnostics} from './android-runtime-diagnostics.mjs';
 import {prepareAuthoredGameData} from './android-authored-game-data-ui.mjs';
+import {observeRecoveryForm, observeRecoveryPredicate} from './android-authored-recovery-observation.mjs';
 
 const firstKey = 'lx_first_authored_account_fixture_only';
 const secondKey = 'lx_second_authored_account_fixture_only';
@@ -54,7 +55,7 @@ export async function verifyAuthoredOwner(page, identity, expectedAudio, until) 
 
 // Shared UI steps can run against the desktop authored harness or a real WebView.
 // Storage, frame acquisition and controlled corruption are explicit host adapters.
-export async function exerciseAccountUi(page, {library, until, capture, corrupt, preserved}) {
+export async function exerciseAccountUi(page, {library, until, capture, corrupt, preserved, recoveryObservation}) {
   const expectedLibrary = authoredLibraryIdentity(library);
   assert.equal((await platform(page)).authored_account_fixture, true);
   await openAccountSettings(page);
@@ -137,12 +138,14 @@ export async function exerciseAccountUi(page, {library, until, capture, corrupt,
   await until(async () => (await platform(page)).capture_source === 'unavailable', 'locked native capture capability');
   await until(async () => await page.locator('.transcript-line').count() === 0, 'locked native history hidden');
   await openAccountSettings(page);
+  const recoveryInput = recoveryObservation ? await page.getByLabel('Lexirise API key', {exact: true}).elementHandle() : null;
+  await observeRecoveryForm(page, recoveryObservation, 'before-fill', recoveryInput);
   await page.getByLabel('Lexirise API key', {exact: true}).fill(firstKey);
+  await observeRecoveryForm(page, recoveryObservation, 'after-fill', recoveryInput);
+  await observeRecoveryForm(page, recoveryObservation, 'before-submit', recoveryInput);
   await page.getByRole('button', {name: 'Verify and restore local data', exact: true}).click();
-  await until(() => page.evaluate(async identity => {
-    const accounts = await (await fetch('/api/lexirise/accounts')).json();const capabilities = await (await fetch('/api/platform')).json();
-    return accounts.active === identity && !accounts.recovery && !capabilities.account_recovery && capabilities.library_import;
-  }, first), 'explicit native verified-owner recovery');
+  await until(() => observeRecoveryPredicate(page, first, recoveryObservation), 'explicit native verified-owner recovery');
+  await recoveryInput?.dispose();
   await page.getByRole('button', {name: 'Close Lexirise settings', exact: true}).click();
   await verifyAuthoredOwner(page, first, expectedAudio, until);
   assert.equal(await preserved(page), true);
@@ -170,7 +173,7 @@ export async function nativeAccountAcceptance({adb, component, packageName, conn
   const diagnostics = await createAuthoredRuntimeDiagnostics(page, {output, adb, packageName});
   let result;
   try {
-    result = await exerciseAccountUi(page, {library, until,
+    result = await exerciseAccountUi(page, {library, until, recoveryObservation: diagnostics.recovery,
       capture: page => connectAuthoredReceiver(page, until),
       corrupt: async page => {
         assert.equal(authoredCredentialPath(packageName, await platform(page)), path);
