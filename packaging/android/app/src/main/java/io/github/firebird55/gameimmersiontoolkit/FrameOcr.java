@@ -39,6 +39,11 @@ public final class FrameOcr {
     private NativeX64Decoder dataDecoder;
     private PublisherCrypto publisherCrypto;
     private PublisherHash publisherHash;
+    private ZzzCatalogueWorker zzzCatalogueWorker;
+    public synchronized ZzzCatalogueWorker zzzCatalogueWorker() {
+        if (zzzCatalogueWorker == null) zzzCatalogueWorker = new ZzzCatalogueWorker(context);
+        return zzzCatalogueWorker;
+    }
     public synchronized PublisherHash publisherHash() {
         if (publisherHash == null) publisherHash = new PublisherHash(context);
         return publisherHash;
