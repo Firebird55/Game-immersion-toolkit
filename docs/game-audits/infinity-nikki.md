@@ -814,6 +814,20 @@ ownership requirement, not proof of official unavailability or a package-format
 change. No keychain schema, CMS request or current-archive key acceptance follows
 from the generic module-manager path.
 
+A separate existing-note review resolves the original filename/version binding:
+`RequestDynamicKeysWithPaks` takes the clean filename, splits on underscores,
+skips fewer than three parts, takes the penultimate token unchanged and
+deduplicates it before requesting versions. This is a package-owned string,
+not an SDK default-version substitution or a numeric conversion. The approved
+review uses its already recorded 212 instruction bytes and 64 instruction bytes
+from `GetLatestDefaultVersion`, with no source reread, native body or VM. That
+getter obtains local and remote values with the same captured input and selects
+one through a captured comparator; those captures' origins remain unproven.
+The public group-refresh wrapper uses this latest-version getter. Binding groups
+directly to a single-version callback remains a separate operand-review question.
+The exact CMS platform token, native group ownership and keychain format remain
+open; Windows BuildPatch metadata alone proves no CMS platform token.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
