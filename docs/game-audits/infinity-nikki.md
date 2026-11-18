@@ -789,6 +789,31 @@ targets are not followed. The original outer instance-load branch remains a
 separate exact source quote. There are no additional literal reads, downloads,
 client execution, CMS requests, dynamic-key trials or keychain-schema claims.
 
+The original outer loading path then consumes 256 instruction bytes with a
+966-byte receipt. It searches a second name-keyed registry, distinct from the
+descriptor cache. The exact successful branch consumes only 28 more instruction
+bytes and a 586-byte receipt before reaching an indirect callback. This proves
+the generic module-manager registry/delegate route, not the concrete
+`PaperAccessContentProtect` implementation: the matching entry supplies a
+pointer/count and a virtual call whose target is not yet source-owned. No
+indirect target is followed. A direct manager call immediately before this
+second lookup is a separately quoted producer lead; its actual relationship to
+registry population remains unproven. Keychain framing, original integrity,
+GUID/group ownership and current Global archive acceptance remain open.
+
+That exact lead reaches generic pending-module management: it transfers pending
+32-byte records into the named registry and clears the pending count. It does
+not establish a `PaperAccessContentProtect` registration or constructor. The
+bounded probe reads 356 instruction bytes; 280 belong to this owner and 76 are
+unproven fallthrough after a stack-failure call into a new prologue inside the
+approved window. The latter bytes are explicitly excluded from conclusions.
+This route is closed without following generic helper or vtable targets. The
+missing original source is the named pending-entry/initializer provenance that
+binds this service to its actual delegate target. This is an unresolved source
+ownership requirement, not proof of official unavailability or a package-format
+change. No keychain schema, CMS request or current-archive key acceptance follows
+from the generic module-manager path.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
