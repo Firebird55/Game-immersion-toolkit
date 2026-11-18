@@ -1041,8 +1041,11 @@ The first Global candidate comparison tied both retained Windows controls to
 their historical helper and to the same retained source files as the portable
 query. The Global 4.6 control passed its output checksum and file fences. Its
 dictionary-field anchors exceeded the four-offset limit, so the probe stopped
-before reading selected control blocks or original payloads. Scoped catalogue
-parity remains unverified.
+before reading selected control blocks or original payloads. A follow-up
+required the constructor, static string array and dictionary shapes to appear
+in the same complete TypeDef block. The verified 4.6 control still produced
+more than four matching offsets. Both attempts stopped before the scoped
+catalogue comparison.
 
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
