@@ -15,12 +15,9 @@ import urllib.request
 import uuid
 import zlib
 
-import certifi
-
-from Crypto.Cipher import AES
-
 from .atomic_files import sharing_retry, write_bytes as _atomic_file
 from .preparation_errors import PreparationFailure
+from .publisher_crypto import DesktopPublisherCrypto
 
 LIMIT = 64 * 1024**2
 MEMBER_LIMIT = 512 * 1024**2
@@ -71,6 +68,8 @@ def _read_index_cache(path, size):
 
 @lru_cache(maxsize=1)
 def _publisher_tls():
+    import certifi
+
     # A conflicting intermediate in the Windows trust store can prevent chain
     # construction for all mainland CDNs even when the valid root is present.
     return ssl.create_default_context(cafile=certifi.where())
@@ -190,9 +189,10 @@ def _decompress(data, header, method, count, block_size, size, stored, encrypted
 
 class Package:
     def __init__(self, url, size, identity, cache, parameters, *, native_parameters=None,
-                 verified_native_parameters=(), verified_default_parameters=None, oodle_decoder=None):
+                 verified_native_parameters=(), verified_default_parameters=None, oodle_decoder=None, crypto=None):
         self.url, self.size = url, size
         self.oodle_decoder = oodle_decoder
+        self._crypto = DesktopPublisherCrypto() if crypto is None else crypto
         check(size >= 64)
         self.cache = cache / 'kuro-package-index' / identity
         tail = min(512, size)
@@ -201,13 +201,13 @@ class Package:
         check(1 <= magic <= len(footer)-108)
         version, offset, length = struct.unpack_from('<IQQ', footer, magic+4)
         check(version == 12 and footer[magic-1] in (0, 1))
-        self.cipher = None
+        self._key = None
         self._verify_original_indices = False
         selected_parameter = None
         selected_native_guid = None
         native_guid = None
         if footer[magic-1]:
-            sample = self.range(offset, 16)
+            sample = bytes(self.range(offset, 16))
             candidates = parameters
             check(magic >= 17)
             native_guid = uuid.UUID(hex=''.join(f'{part:08x}' for part in
@@ -224,12 +224,11 @@ class Package:
                 elif native_guid.int:
                     candidates = ()  # An absent/revoked native UUID cannot borrow a legacy/default key.
             for value in candidates:
-                candidate = AES.new(value, AES.MODE_ECB)
-                if candidate.decrypt(sample)[4:7] == b'../':
-                    self.cipher = candidate
+                if self._crypto.block_cipher('AES', 'ECB', value, sample)[4:7] == b'../':
+                    self._key = value
                     selected_parameter = value
                     break
-            if self.cipher is None:
+            if self._key is None:
                 raise PreparationFailure('archive_parameters_missing',
                     'This original Wuthering archive cannot be opened with the available parameters. '
                     'Retry metadata discovery; changed parameters require original-client investigation. '
@@ -264,6 +263,12 @@ class Package:
     def range(self, offset, size):
         return block(self.url, self.size, offset, size)
 
+    def _decrypt(self, data):
+        # ECB blocks are independent. Keep each crypto request within the native
+        # host limit even for a larger, completely encrypted archive member.
+        return b''.join(self._crypto.block_cipher('AES', 'ECB', self._key, bytes(data[at:at + LIMIT]))
+                        for at in range(0, len(data), LIMIT))
+
     def index(self, offset, size, digest):
         check(0 < size <= LIMIT and len(digest) == 20)
         path = self.cache / digest.hex()
@@ -271,7 +276,7 @@ class Package:
             # A previous plaintext cache authenticates content, not a new key.
             # Before that native UUID or default owner can enter the protected store,
             # decrypt BOTH complete original indices with this exact key.
-            data = self.cipher.decrypt(self.range(offset, size))
+            data = self._decrypt(self.range(offset, size))
             check(hashlib.sha1(data).digest() == digest)
             _publish_index(path, data)
             return data
@@ -294,8 +299,8 @@ class Package:
                     _publish_index(path, data)
                     return data
         data = self.range(offset, size)
-        if self.cipher:
-            data = self.cipher.decrypt(data)
+        if self._key is not None:
+            data = self._decrypt(data)
         check(hashlib.sha1(data).digest() == digest)
         _publish_index(path, data)
         return data
@@ -369,12 +374,12 @@ class Package:
         hashed = stored if method else min(stored, protected)
         check(hashlib.sha1(data[:hashed]).digest() == header[28:48])
         if encrypted and protected:
-            if self.cipher is None:
+            if self._key is None:
                 raise PreparationFailure('archive_parameters_missing',
                     'This original Wuthering archive cannot be opened with the available parameters. '
                     'Retry metadata discovery; changed parameters require original-client investigation. '
                     'Previous prepared data is kept. This is not proof of a changed package format.')
-            data = self.cipher.decrypt(data[:protected]) + data[protected:]
+            data = self._decrypt(data[:protected]) + data[protected:]
         if method:
             return _decompress(data, header, self.methods[method], blocks, size if blocks == 1 else plan.block_size,
                                size, stored, encrypted, plan.block_lengths, oodle=getattr(self, 'oodle_decoder', None))

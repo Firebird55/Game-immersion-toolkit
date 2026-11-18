@@ -12,6 +12,7 @@ from Crypto.Util.Padding import pad
 
 from backend import wuthering_release as release, wuthering_metadata as metadata
 from backend.preparation_errors import PreparationFailure, public_failure
+from backend.wuthering_manifest import decode_manifest
 from backend.tests.test_wuthering_metadata import protected
 
 
@@ -117,6 +118,22 @@ def test_invalid_wrapper_framing_does_not_request_an_entry_input(monkeypatch,raw
     monkeypatch.setattr(release,'_format',lambda *a:pytest.fail('Do not fetch keys for invalid wire framing'))
     with pytest.raises(PreparationFailure) as failure:release._json(raw)
     assert_public(failure.value,'publisher_metadata_invalid')
+
+
+@pytest.mark.parametrize('short', [False, True])
+def test_manifest_accepts_native_crypto_output_only_at_the_original_cipher_length(short):
+    content = pad(b'{"default":{"fixture":true}}', 16)
+    def decrypt(algorithm, mode, key, data, *, iv):
+        assert (algorithm, mode, key, iv) == ('AES', 'CBC', KEY, IV)
+        assert data == base64.b64decode(encrypted())
+        return content[:-1] if short else content
+    crypto = SimpleNamespace(block_cipher=decrypt)
+    if short:
+        with pytest.raises(PreparationFailure) as failure:
+            decode_manifest(encrypted(), lambda: (KEY, IV), crypto)
+        assert_public(failure.value, 'publisher_format_key_unresolved')
+    else:
+        assert decode_manifest(encrypted(), lambda: (KEY, IV), crypto) == {'default': {'fixture': True}}
 
 
 def test_valid_plain_metadata_does_not_require_entry(monkeypatch):

@@ -36,7 +36,7 @@ def index_reader(tmp_path):
     package = object.__new__(pak.Package)
     package.cache = tmp_path / 'kuro-package-index' / ('a' * 40)
     package.cache.mkdir(parents=True)
-    package._verify_original_indices, package.cipher = False, None
+    package._verify_original_indices, package._key = False, None
     data = b'complete original index'
     path = package.cache / hashlib.sha1(data).hexdigest()
     path.write_bytes(data)

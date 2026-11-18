@@ -7,6 +7,7 @@ from backend import wuthering_release_pak as pak
 from backend.wuthering_portable_pak import PortablePackage, _missing_oodle
 from backend.wuthering_preflight import manifest_upper_bound, selection_plan
 from backend.preparation_errors import PreparationFailure
+from backend.publisher_crypto import DesktopPublisherCrypto
 from backend.tests.test_wuthering_metadata import encrypted_package
 from backend.tests.test_wuthering_multiblock import compressed_member
 
@@ -39,8 +40,18 @@ def test_portable_constructor_uses_only_explicit_range_provider(tmp_path, monkey
         assert url == 'owned' and size == len(original)
         calls.append((offset, count))
         return bytes(original[offset:offset+count])
+    calls_to_crypto = []
+
+    class HostCrypto:
+        def block_cipher(self, algorithm, mode, value, data):
+            assert (algorithm, mode, value) == ('AES', 'ECB', key)
+            calls_to_crypto.append(len(data))
+            return DesktopPublisherCrypto().block_cipher(algorithm, mode, value, data)
+
+    monkeypatch.setattr(pak, 'DesktopPublisherCrypto', lambda: pytest.fail('No implicit desktop cryptography'))
     package = PortablePackage('owned', len(original), 'owned', tmp_path, (key,), range_reader=read,
-                              verified_default_parameters=())
+                              crypto=HostCrypto(), verified_default_parameters=())
+    assert calls_to_crypto == [16, calls[2][1], calls[3][1]]
     assert package.verified_parameter == key
     assert package.locations(wanted={'Client/voices/a.wem'}) == {'Client/voices/a.wem': 0}
     before = list(calls)

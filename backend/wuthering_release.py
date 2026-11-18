@@ -16,10 +16,9 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
-
 from . import wuthering_release_pak as pak
+from .publisher_crypto import DesktopPublisherCrypto
+from .wuthering_manifest import decode_manifest
 from .game_tools import _atomic_file, download as download_bytes
 from .wuthering_assets import PUBLIC_METADATA_URL
 
@@ -258,25 +257,7 @@ def _bootstrap_package(tools, info, region):
 
 
 def _json(raw, tools=None):
-    from .preparation_errors import PreparationFailure
-    try:
-        text = raw.decode('utf-8-sig')
-        if text.lstrip().startswith('{'):
-            return json.loads(text)
-        cipher = base64.b64decode(text.strip(), validate=True)
-        if not cipher or len(cipher) % 16:
-            raise ValueError('Invalid encrypted ENTRY framing')
-    except (UnicodeError, ValueError, binascii.Error) as error:
-        raise PreparationFailure('publisher_metadata_invalid',
-            'The Wuthering release-metadata response is invalid. Existing prepared text and audio are unchanged.',
-            previous_snapshot_retained=True) from error
-    key, iv = _format(tools)
-    try:
-        return json.loads(unpad(AES.new(key, AES.MODE_CBC, iv).decrypt(cipher), 16))
-    except (UnicodeError, ValueError) as error:
-        raise PreparationFailure('publisher_format_key_unresolved',
-            'The verified ENTRY input cannot read the current Wuthering release metadata. The current manifest key/IV source must be verified before updating; existing text and audio are unchanged.',
-            previous_snapshot_retained=True) from error
+    return decode_manifest(raw, lambda: _format(tools), DesktopPublisherCrypto())
 
 
 def _manifest(url, sha, cache=None):

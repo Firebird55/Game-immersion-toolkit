@@ -9,11 +9,12 @@ def _missing_oodle(_blocks):
 
 
 class PortablePackage(Package):
-    def __init__(self, *args, range_reader, oodle_decoder=None, **kwargs):
-        if not callable(range_reader) or oodle_decoder is not None and not callable(oodle_decoder):
+    def __init__(self, *args, range_reader, crypto, oodle_decoder=None, **kwargs):
+        if (not callable(range_reader) or not callable(getattr(crypto, 'block_cipher', None))
+                or oodle_decoder is not None and not callable(oodle_decoder)):
             raise ValueError('Portable providers must be callable.')
         self._range_reader = range_reader
-        super().__init__(*args, oodle_decoder=oodle_decoder or _missing_oodle, **kwargs)
+        super().__init__(*args, crypto=crypto, oodle_decoder=oodle_decoder or _missing_oodle, **kwargs)
 
     def range(self, offset, size):
         if type(offset) is not int or type(size) is not int or not 0 < size <= LIMIT or not 0 <= offset <= self.size - size:

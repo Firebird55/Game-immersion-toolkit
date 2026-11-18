@@ -1,5 +1,34 @@
 # Wuthering official bootstrap investigation
 
+## November 18, 2026 · Fresh Global Windows discovery and portable manifest reader
+
+Ordinary Windows publisher discovery completed from an empty toolkit cache
+with no installed game. The original 1,396,149,288-byte APK carrier passed
+APK-v2 verification. Its authenticated module supplied the archive default.
+The original Global bootstrap PAK passed both complete index hashes and
+supplied the live entry URL. The official 3.8.12 resource and English 3.8.6,
+Japanese 3.8.5, Korean 3.8.8 and Mandarin 3.8.5 dub inventories passed the
+publisher-declared SHA-1 checks. Discovery verified 598 manifest entries and
+rechecked three current pointers.
+
+The existing immutable community pin supplied the ENTRY parameters. Its URL
+and SHA-256 were verified. The reviewed v1.1.0 source declares the same
+parameters. A separate authenticated symbol-table check found four-byte
+Encrypt and Decrypt method entries and their reflection wrappers. Those
+entries still leave the original ENTRY parameter producer unresolved. The
+original publisher APK catalogue timed out earlier and later returned HTTP 200.
+
+The ordinary Windows manifest reader and portable PAK reader now use the
+toolkit publisher-crypto interface. The manifest reader validates PKCS#7
+padding before parsing a JSON object. The portable PAK reader requires
+explicit host cryptography and verifies both original index hashes before
+exposing a newly derived default. Android still requires a verified ENTRY
+input and the app-level manifest continuation before native acceptance.
+
+[Global launcher](https://prod-alicdn-gamestarter.kurogame.com/launcher/game/50004_P7xcUZnEr1AXIGON25E6KjpOgTlVrg6e/G153/official/index.json)
+· [Kuro Global 3.8 platform config](https://cdn-akamai-hw-mc.aki-game.net/prod/client/zXGBurT1FHY5eBpEhgbCw7n85imvi3XR/Windows/config.json)
+· [Reviewed compatibility revision](https://github.com/Yumeo0/mornye-tools/blob/36761bfe2618c7f28488abe457e162a711170290/src-tauri/crates/game-client/src/discovery.rs).
+
 ## November 17, 2026 checkpoint
 
 The original Android bootstrap/default producer is now implemented as a

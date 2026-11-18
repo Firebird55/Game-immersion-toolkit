@@ -7,6 +7,7 @@ from Crypto.Cipher import AES
 import pytest
 
 from backend import wuthering_release_pak as pak
+from backend.publisher_crypto import DesktopPublisherCrypto
 
 
 def compressed_member(method, *, corrupt_hash=False, shifted=False):
@@ -35,7 +36,8 @@ def compressed_member(method, *, corrupt_hash=False, shifted=False):
         archive = archive[:-1] + bytes([archive[-1] ^ 1])
     reader = object.__new__(pak.Package)
     reader.size = len(archive)
-    reader.cipher, reader.methods = cipher, [b'None', method]
+    reader._crypto = DesktopPublisherCrypto()
+    reader._key, reader.methods = bytes(range(16)), [b'None', method]
     reader.range = lambda offset, size: archive[offset:offset + size]
     flags = 0xf0400000 | (block_size // 2048) << 16 | len(blocks)
     reader.entries = struct.pack('<IBIII', flags, 2, len(data), 0, len(stored))
@@ -82,7 +84,8 @@ def test_uncompressed_whole_entry_hash_omits_cipher_alignment():
     header = struct.pack('<QQQI', 0, len(raw), len(raw), 0) + hashlib.sha1(stored[:len(raw)]).digest() + bytes(5)
     reader = object.__new__(pak.Package)
     reader.size = len(header + stored)
-    reader.cipher, reader.methods = cipher, [b'None']
+    reader._crypto = DesktopPublisherCrypto()
+    reader._key, reader.methods = bytes(range(16)), [b'None']
     reader.entries = struct.pack('<IBII', 0xb0000000, 0, len(raw), 0)
     reader.range = lambda pos, size: (header + stored)[pos:pos + size]
     assert reader.extract(0) == raw
