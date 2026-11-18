@@ -14,11 +14,9 @@ from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree
 from zipfile import ZipFile
 
-from .publisher_http import download as _download
-
-
 def download(url, *, limit=64 * 1024**2):
-    return _download(url, limit)
+    from .publisher_http import download as fetch
+    return fetch(url, limit)
 
 LIMIT = 16 * 1024**2
 HOSTS = {'nte-global': 'ntecdn1.perfectworld.com', 'nte-cn': 'yhcdn1.wmupd.com'}
@@ -52,19 +50,22 @@ class UpdaterParameterMismatch(ValueError):
     """A supported authenticated-envelope shape could not prove its parameter."""
 
 
-def _xml(raw, region, digest, *, parameters=None):
+def _xml(raw, region, digest, *, parameters=None, crypto=None):
     if not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{32}', digest):
         raise ValueError('Invalid NTE publisher resource-list checksum declaration.')
     encrypted = raw.startswith(b'PatcherXML0\0')
     if encrypted:
-        from Crypto.Cipher import AES
         if len(raw) < 32 or len(raw) % 16:
             raise ValueError('Invalid NTE resource-list envelope.')
         size = struct.unpack_from('<I', raw, 12)[0]
         if not 0 < size <= LIMIT:
             raise ValueError('Invalid NTE resource-list size.')
         key, iv = parameters if parameters is not None else _parameters(region)
-        payload = AES.new(key, AES.MODE_CBC, iv).decrypt(raw[16:])
+        if crypto is None:
+            from Crypto.Cipher import AES
+            payload = AES.new(key, AES.MODE_CBC, iv).decrypt(raw[16:])
+        else:
+            payload = crypto.block_cipher('AES', 'CBC', key, raw[16:], iv=iv)
         inflater = zlib.decompressobj()
         try:
             raw = inflater.decompress(payload, size + 1)
@@ -100,15 +101,14 @@ def _digest(value):
     return value
 
 
-def files(archive, region, version, sections, checksum, *, parameters=None):
+def files(archive, region, version, sections, checksum, *, parameters=None, crypto=None):
     """Include both independent CDN files and files embedded in patcher packages."""
     with ZipFile(io.BytesIO(archive)) as packed:
         entries = [entry for entry in packed.infolist() if entry.filename == 'ResList.bin']
         if len(entries) != 1 or not 0 < entries[0].file_size <= LIMIT:
             raise ValueError('Invalid NTE resource list.')
         raw = packed.read(entries[0])
-    root = (_xml(raw, region, checksum) if parameters is None else
-            _xml(raw, region, checksum, parameters=parameters))
+    root = _xml(raw, region, checksum, parameters=parameters, crypto=crypto)
     if root.tag != 'ResList' or root.get('version') != version or root.get('tag') != 'baseTag':
         raise ValueError('NTE manifest and launcher versions differ.')
     nodes = [root]
@@ -194,13 +194,15 @@ def _candidate_parameters(candidate, region, primary):
 
 
 def _manifest(archive, region, branch, version, sections, checksum, cache, metadata_out,
-              *, allow_community_fallback=False, official_cache=None, fetch=None):
+              *, allow_community_fallback=False, official_cache=None, fetch=None,
+              official_crypto=None, retain_approval=True):
     if region == 'nte-global' and official_cache is not None:
         from . import nte_updater_source as official
         read = fetch or download
         inputs = official.plan(region, fetch=read)
         result, reference = official.approve(inputs, official_cache, archive, region, branch, version,
-                                             sections, checksum, fetch=read)
+                                             sections, checksum, fetch=read, crypto=official_crypto,
+                                             retain_approval=retain_approval)
         if metadata_out is not None:
             metadata_out.update(reference)
         return result
@@ -239,7 +241,7 @@ def _json_manifest(result):
 
 
 def discover(region, *, community_cache=None, metadata_out=None, allow_community_fallback=False, official_cache=None, fetch=None,
-             initial_branch=None, host=None):
+             initial_branch=None, host=None, official_crypto=None, retain_approval=True):
     read = fetch or download
     source = ({'fetch': read} if fetch is not None else {})
     if initial_branch is not None: source['initial_branch'] = initial_branch
@@ -258,6 +260,7 @@ def discover(region, *, community_cache=None, metadata_out=None, allow_community
     items, previous['ResList.bin'] = _manifest(raw, region, branch, version, sections,
         cfg.findtext('Extra/listHash'), community_cache, metadata_out,
         allow_community_fallback=allow_community_fallback, official_cache=official_cache,
+        official_crypto=official_crypto, retain_approval=retain_approval,
         **({'fetch': read} if fetch is not None else {}))
     return branch, version, items, previous
 

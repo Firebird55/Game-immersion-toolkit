@@ -1,7 +1,7 @@
 """Context-owned original NTE downloads and verified offline text sources.
 
 Bootstrap, archive and native processing are explicit preparation stages.
-Text + audio and non-Windows native reading retain their separate gates.
+Android verifies its original release manifest before the content-reader gate.
 No downloaded game/SDK code is executed by this provider.
 """
 from pathlib import Path
@@ -63,6 +63,30 @@ class NteGameDataProvider:
             return self.native.reader(ctx)
         return resolve(self.platform, ctx)
 
+    def _android_manifest_plan(self, inputs, cache, fetch, ctx):
+        from .publisher_crypto import create_publisher_crypto
+        try:
+            crypto = create_publisher_crypto(platform='android', native=self.native.publisherCrypto())
+        except Exception:
+            return GameDataPlan('nte-content-'+inputs.identity, None, None, stage='content',
+                message='The verified NTE launcher information is available. Repair the toolkit publisher cryptography on this device to check the official game inventory. Your previous library is retained.')
+
+        from xml.etree.ElementTree import ParseError
+        from zipfile import BadZipFile
+        from . import nte_release as release
+
+        try:
+            host, branch = source.release_origin(inputs, cache)
+            approval = {}
+            release.discover('nte-global', official_cache=cache, metadata_out=approval, fetch=fetch,
+                initial_branch=branch, host=host, official_crypto=crypto, retain_approval=False)
+        except (ValueError, ParseError, BadZipFile) as error:
+            raise GameDataError('nte_resource_manifest_invalid',
+                'The official NTE game inventory could not be verified. Check the download size again. Your previous library is retained.', 409) from error
+        ctx.check()
+        return GameDataPlan('nte-content-'+approval['proof_sha256'], None, None, stage='content',
+            message='The official NTE game inventory is verified. This device still needs NTE archive and dialogue readers to prepare a library. Your previous library is retained.')
+
     def plan(self, request, ctx):
         ctx.check()
         if request.source_locale not in STUDY or set(request.target_locales) - TARGETS:
@@ -74,8 +98,11 @@ class NteGameDataProvider:
         transport = PublisherTransport(ctx, hosts=source.HOSTS, opener=self.opener)
         metadata = {}
         def fetch(url, *, limit):
-            body, _ = transport.fetch_bytes(url, limit=limit, kind='metadata')
-            metadata[url] = len(body)
+            body, receipt = transport.fetch_bytes(url, limit=limit, kind='metadata')
+            identity = (receipt.bytes, receipt.sha256)
+            if metadata.setdefault(url, identity) != identity:
+                raise GameDataError('game_source_changed',
+                    'NTE update information changed. Check the download size again. Your previous library is retained.', 409)
             return body
         inputs = source.plan(fetch=fetch)
         ctx.check()
@@ -83,6 +110,8 @@ class NteGameDataProvider:
         if costs['compressed_bytes'] == 0:
             source.resolve_retained(inputs, cache)
             baseline.parameters(cache)
+            if self.platform == 'android':
+                return self._android_manifest_plan(inputs, cache, fetch, ctx)
             try:
                 reader = self._reader(ctx)
             except GameDataError as error:
@@ -92,11 +121,12 @@ class NteGameDataProvider:
                     message='Official NTE compatibility information is verified. A compatible game-content reader is still required on this device.')
             from . import nte_game_data_content as content
             return content.plan(request, ctx, inputs, reader, transport)
+        verification_bytes = {url: count for url, (count, _) in metadata.items()}
         handle = {'schema': STAGE, 'inputs': inputs.description(), 'inputs_sha256': inputs.identity,
                   'baseline_inputs_sha256': baseline.inputs().identity,
-                  'verification_bytes': metadata, 'request': request.json()}
+                  'verification_bytes': verification_bytes, 'request': request.json()}
         return GameDataPlan('nte-bootstrap-'+inputs.identity,
-            costs['compressed_bytes'] + sum(metadata.values()), costs['decoded_bytes'] + 64 * 1024,
+            costs['compressed_bytes'] + sum(verification_bytes.values()), costs['decoded_bytes'] + 64 * 1024,
             handle=handle, download_is_upper_bound=True, runtime_available=True, stage='compatibility',
             message='Download official NTE compatibility information, then check the game-content download size.')
 

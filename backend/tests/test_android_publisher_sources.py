@@ -29,7 +29,7 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert policy['schema'] == 'toolkit-android-publisher-sources-v1'
     assert policy['source_normalization'] == 'utf8-lf'
     assert set(policy['providers']) == {'nte', 'reverse1999', 'wuwa'}
-    assert len(policy['files']) == 35 and len(portable_sources()) == 93
+    assert len(policy['files']) == 36 and len(portable_sources()) == 94
     assert 'backend/android_authored_game_data.py' in portable_sources()
     assert 'backend/text_display.py' in portable_sources()
     assert 'backend/android_publisher_hash.py' in portable_sources()
@@ -37,8 +37,10 @@ def test_policy_pins_only_reviewed_pure_factories_and_all_actual_source_bytes():
     assert {key.removeprefix('backend/').removesuffix('.py') for key in policy['files']} == {
         module for provider in policy['providers'].values() for module in provider['modules']} | set(policy['context_modules'])
     assert all(not provider['snapshot_runtime'] for provider in policy['providers'].values())
-    assert policy['providers']['wuwa']['dependencies'] == ['python-stdlib','toolkit-publisher-crypto-v1']
-    assert all(provider['dependencies'] == ['python-stdlib'] for name,provider in policy['providers'].items() if name != 'wuwa')
+    for name in ('nte', 'wuwa'):
+        assert policy['providers'][name]['dependencies'] == ['python-stdlib','toolkit-publisher-crypto-v1']
+    assert policy['providers']['reverse1999']['dependencies'] == ['python-stdlib']
+    assert policy['providers']['nte']['stages'] == ['compatibility', 'manifest-verification']
     for name, receipt in policy['files'].items():
         assert re.fullmatch(r'backend/[a-z0-9_]+\.py', name)
         assert hashlib.sha256((ROOT / name).read_bytes().replace(b'\r\n', b'\n')).hexdigest() == receipt['sha256_lf']
@@ -61,7 +63,7 @@ def test_apk_publisher_boundary_rejects_missing_module_and_changed_policy(tmp_pa
 
 
 BOOTSTRAP = r'''
-import sys,json,socket,builtins,time,hashlib,io
+import sys,json,socket,time,io,importlib.abc
 from pathlib import Path
 from email.message import Message
 from zipfile import ZipFile
@@ -72,11 +74,10 @@ def deny(*a,**k):raise AssertionError('An unaccounted network or desktop executi
 socket.socket.connect=deny;socket.create_connection=deny
 import subprocess
 subprocess.Popen=deny
-original_import=builtins.__import__
-def guarded(name,*args,**kwargs):
- if any(name==value or name.startswith(value+'.') for value in policy['forbidden_stage_imports']):deny()
- return original_import(name,*args,**kwargs)
-builtins.__import__=guarded
+class Block(importlib.abc.MetaPathFinder):
+ def find_spec(self,name,path=None,target=None):
+  if any(name==value or name.startswith(value+'.') for value in policy['forbidden_stage_imports']):deny()
+sys.meta_path.insert(0,Block())
 from backend.game_data_providers import create_game_data_providers
 from backend.game_data import GameDataService
 from backend.publisher_transport import PublisherTransport
@@ -124,6 +125,7 @@ def open_(request,**kwargs):
  return Response(bodies[request.full_url],request.full_url)
 providers['nte'].opener=open_
 inputs=source._inputs(data['inputs'])
+artifact_urls={artifact.url for artifact in inputs.artifacts}
 baseline.inputs=lambda:inputs
 baseline.MEMBER_SHA256=data['members']
 request={'region':'global','source_locale':'ja','target_locales':['en'],'content_mode':'text'}
@@ -147,31 +149,74 @@ try:
  assert (owned.parent/'managed/nte/stage.json').is_file()
  warm=service.plan('nte',request)['game']
  assert warm['download_bytes'] is None and not warm['can_download'] and warm['state']!='ready'
- assert len([url for url in calls if url.endswith('.zip')])==2
+ assert 'publisher cryptography' in warm['message']
+ assert sum(url in artifact_urls for url in calls)==2
+ assert not any(url in calls for url in data['release_urls'])
+
+ # The closed package uses the actual publisher-crypto adapter and provider
+ # with a host simulation of a single JCA operation. All desktop imports and
+ # original transfers remain denied. Target JNI evidence comes separately.
+ operations=[]
+ class AuthoredJava:
+  def proof(self):return json.dumps(data['crypto_proof'])
+  def blockCipher(self,algorithm,mode,key,iv,body,decrypt):
+   assert (algorithm,mode,decrypt)==('AES','CBC',True)
+   assert body==base64.b64decode(data['ciphertext'])
+   assert (key,iv)==(b'authored-demofix',b'fixture-iv000000')
+   operations.append(True)
+   return base64.b64decode(data['plaintext'])
+ sys.modules['java']=SimpleNamespace(jclass=lambda name:AuthoredJava)
+ providers['nte'].native=SimpleNamespace(publisherCrypto=AuthoredJava)
+ transfer_start=len(calls)
+ for mode in ('text','text-audio'):
+  verified=service.plan('nte',{**request,'content_mode':mode})['game']
+  assert not verified['can_download'] and verified['download_bytes'] is None and verified['required_disk_bytes'] is None
+  assert verified['revision']!=warm['revision']
+  assert 'inventory is verified' in verified['message'] and not verified['can_activate']
+  assert len(verified['revision'])==len('nte-content-')+64
+ assert operations==[True,True]
+ assert calls[transfer_start:]==([source.VERSION_URL,inputs.manifest_url,*data['release_urls'],
+    source.VERSION_URL,inputs.manifest_url,source.VERSION_URL,inputs.manifest_url]*2)
+ assert not activated and not (owned.parent/'managed/nte/current.json').exists()
+ assert not (owned.parent/'managed/nte/cache/tools/nte-publisher/format/original-updater/approvals').exists()
  for name,module in list(sys.modules.items()):
   if name=='backend' or name.startswith('backend.'):
    assert Path(module.__file__).is_relative_to(owned),name
  print(json.dumps({'schema':'android-publisher-closed-source-host-v1','registry':['nte','reverse1999','wuwa'],
   'owned_modules':len(list((owned/'backend').glob('*.py'))),'no_external_network':True,'no_desktop_helper':True,
   'actual_context_transport':True,'stage_never_ready':True,'unknown_content_size_preserved':True,
-  'asset_requests':len([url for url in calls if url.endswith('.zip')]),'native_android_execution':False}))
+  'asset_requests':sum(url in artifact_urls for url in calls),
+  'manifest_verified':len(operations),'native_android_execution':False}))
 finally:service.close()
 '''
 
 
-def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_network_fallback(tmp_path):
+def test_exact_closed_namespace_authenticates_nte_manifest_without_desktop_or_network_fallback(tmp_path):
     # These are authored PE/configuration fixtures from the game owner's tests,
     # never original game software or an alternative preparation implementation.
-    from backend.tests.fixtures.nte_updater_inputs import Originals
+    from Crypto.Cipher import AES
+    from backend.publisher_crypto import MAX_BYTES, SOURCE_SHA256
+    from backend.tests.fixtures.nte_updater_inputs import Originals, release_responses
     from backend.nte_updater_source import plan
     original = Originals();inputs = plan(fetch=original.fetch)
     members = {}
     for artifact in inputs.artifacts:
         with ZipFile(io.BytesIO(original.bodies[artifact.url])) as archive:
             members[artifact.role] = hashlib.sha256(archive.read(artifact.member)).hexdigest()
-    bodies = {**original.bodies, **{original.base + '/Version.ini':original.version_body,
-        original.manifest_url:ElementTree.tostring(original.root)}}
+    release = release_responses()
+    with ZipFile(io.BytesIO(next(raw for url, raw in release.items() if url.endswith('.zip')))) as archive:
+        ciphertext = archive.read('ResList.bin')[16:]
+    plaintext = AES.new(b'authored-demofix', AES.MODE_CBC, b'fixture-iv000000').decrypt(ciphertext)
+    proof = {'schema':'toolkit-publisher-crypto-v1','abi':'arm64-v8a','source_sha256':SOURCE_SHA256,
+        'platform_primitives':'JCA','apk_entry_verified':True,'licenses_verified':True,'system_fallback':False,
+        'original_client_execution':False,'account_keys_reused':False,'pointer_bits':64,
+        'library_sha256':'a'*64,'manifest_sha256':'b'*64,'key_bytes':32,'nonce_bytes':12,'max_bytes':MAX_BYTES}
+    bodies = {**original.bodies, original.base + '/Version.ini':original.version_body,
+        original.manifest_url:ElementTree.tostring(original.root), **release}
     fixture = {'inputs':inputs.description(),'members':members,
+        'release_urls':list(release),'crypto_proof':proof,
+        'ciphertext':base64.b64encode(ciphertext).decode('ascii'),
+        'plaintext':base64.b64encode(plaintext).decode('ascii'),
         'bodies':{url:base64.b64encode(raw).decode('ascii') for url,raw in bodies.items()}}
     owned = tmp_path / 'owned'
     for name in portable_sources():
@@ -181,6 +226,7 @@ def test_exact_closed_namespace_executes_real_bootstrap_without_desktop_or_netwo
         capture_output=True,text=True,timeout=30)
     assert result.returncode == 0,result.stderr[-3000:]
     proof = json.loads(result.stdout)
-    assert proof['owned_modules'] == 93 and proof['registry'] == ['nte','reverse1999','wuwa']
+    assert proof['owned_modules'] == 94 and proof['registry'] == ['nte','reverse1999','wuwa']
     assert proof['actual_context_transport'] and proof['stage_never_ready'] and proof['asset_requests'] == 2
+    assert proof['manifest_verified'] == 2
     assert proof['native_android_execution'] is False

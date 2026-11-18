@@ -2,6 +2,7 @@
 import time
 import hashlib
 import io
+import json
 import sys
 from xml.etree import ElementTree
 from zipfile import ZipFile
@@ -9,8 +10,13 @@ from zipfile import ZipFile
 import pytest
 
 from backend.game_data import GameDataService
-from backend.game_data_protocol import GameDataError
+from backend.game_data_protocol import GameDataError, GameDataPlan
+from backend import nte_game_data_snapshot as snapshot
 from backend.nte_game_data import NteGameDataProvider, create_provider
+from backend.publisher_crypto import DesktopPublisherCrypto, MAX_BYTES, SOURCE_SHA256
+from backend.atomic_files import write_bytes
+from backend.tests.fixtures.nte_updater_inputs import release_responses
+from backend.tests.test_nte_game_data_snapshot import fixture as text_snapshot
 from backend.tests.test_nte_updater_source import Originals
 from backend.tests.test_publisher_transport import Response
 from backend import nte_updater_baseline as baseline, nte_updater_source as updater_source
@@ -191,10 +197,94 @@ def test_android_retained_bootstrap_keeps_the_native_gate_without_importing_wind
     cache = tmp_path/'nte/cache/tools/nte-publisher/format'
     updater_source.resolve(baseline.inputs(), cache, fetch=original.fetch)
     monkeypatch.setitem(sys.modules, 'backend.nte_game_data_runtime', None)
-    service = GameDataService(tmp_path, {'nte': NteGameDataProvider(platform='android', opener=opener(original, []))})
+    calls = []
+    service = GameDataService(tmp_path, {'nte': NteGameDataProvider(platform='android', opener=opener(original, calls))})
     try:
         plan = service.plan('nte', REQUEST)['game']
         assert not plan['can_download'] and plan['download_bytes'] is None
-        assert 'reader' in plan['message'] and not (tmp_path/'nte/current.json').exists()
+        assert 'publisher cryptography' in plan['message'] and not (tmp_path/'nte/current.json').exists()
+        assert calls == [updater_source.VERSION_URL, original.manifest_url]
     finally:
         service.close()
+
+
+@pytest.mark.parametrize('fault,code', [('checksum', 'nte_resource_manifest_invalid'),
+    ('launcher changed', 'game_source_changed')])
+def test_android_manifest_failure_preserves_the_previous_library_for_offline_restore(tmp_path, monkeypatch, fault, code):
+    original = originals(monkeypatch)
+    managed = tmp_path/'managed'
+    cache = managed/'nte/cache/tools/nte-publisher/format'
+    updater_source.resolve(baseline.inputs(), cache, fetch=original.fetch)
+    payload, inputs, previous = text_snapshot(tmp_path/'prior')
+    request = previous.request.json()
+    saved_revision = 'authored-retained-nte'
+
+    class PreviousProducer(NteGameDataProvider):
+        def plan(self, request, ctx):
+            return GameDataPlan(saved_revision, 0, 128*1024, runtime_available=True)
+
+        def download(self, plan, ctx):
+            return snapshot.publish(payload, inputs, ctx, write_bytes)
+
+    seed = GameDataService(managed, {'nte': PreviousProducer(platform='android')})
+    try:
+        quote = seed.plan('nte', request)['game']
+        seed.download('nte', {'plan_id': quote['plan_id'], 'revision': quote['revision']})
+        assert finish(seed)['job']['status'] == 'complete'
+    finally:
+        seed.close()
+    pointer = managed/'nte/current.json'
+    retained = pointer.read_bytes()
+    release = release_responses(checksum='0'*32 if fault == 'checksum' else None)
+    original.bodies.update(release)
+    calls, operations = [], []
+    reference = DesktopPublisherCrypto()
+
+    class AuthoredJava:
+        def proof(self):
+            return json.dumps({'schema': 'toolkit-publisher-crypto-v1', 'abi': 'arm64-v8a',
+                'source_sha256': SOURCE_SHA256, 'platform_primitives': 'JCA', 'apk_entry_verified': True,
+                'licenses_verified': True, 'system_fallback': False, 'original_client_execution': False,
+                'account_keys_reused': False, 'pointer_bits': 64, 'library_sha256': 'a'*64,
+                'manifest_sha256': 'b'*64, 'key_bytes': 32, 'nonce_bytes': 12, 'max_bytes': MAX_BYTES})
+
+        def blockCipher(self, algorithm, mode, key, iv, data, decrypt):
+            operations.append((algorithm, mode))
+            return reference.block_cipher(algorithm, mode, key, data, iv=iv, decrypt=decrypt)
+
+    monkeypatch.setitem(sys.modules, 'java', SimpleNamespace(jclass=lambda _: AuthoredJava))
+    native = SimpleNamespace(publisherCrypto=AuthoredJava)
+    fetch = opener(original, calls)
+
+    def opened(request, **kwargs):
+        url = request.full_url
+        if fault == 'launcher changed' and url.endswith('/Version.ini') and calls.count(url) == 2:
+            response = fetch(request, **kwargs)
+            return Response(response.read().replace(b'1.2.3.4', b'1.2.3.5'), url=url)
+        return fetch(request, **kwargs)
+
+    provider = create_provider(platform='android', native=native)
+    provider.opener = opened
+    activated = []
+    service = GameDataService(managed, {'nte': provider}, on_activate=lambda *_: activated.append(True))
+    try:
+        with pytest.raises(GameDataError) as rejected:
+            service.plan('nte', request)
+        assert rejected.value.code == code and 'previous library is retained' in rejected.value.message
+        assert operations == [('AES', 'CBC')]
+        assert set(calls) == {updater_source.VERSION_URL, original.manifest_url, *release}
+        assert row(service)['installed_revision'] == saved_revision and row(service)['can_activate']
+        assert pointer.read_bytes() == retained and not activated
+        assert not (cache/'original-updater/approvals').exists()
+    finally:
+        service.close()
+    def unexpected_transfer(*_args, **_kwargs):
+        pytest.fail('Offline restoration reached the publisher')
+
+    reopened = GameDataService(managed, {'nte': NteGameDataProvider(platform='android', opener=unexpected_transfer)})
+    try:
+        source = reopened.restore('nte')
+        assert json.loads(source.snapshot_path.read_bytes())['records'] == payload['records']
+        assert pointer.read_bytes() == retained
+    finally:
+        reopened.close()
