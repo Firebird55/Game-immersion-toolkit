@@ -1066,8 +1066,9 @@ two-column locator is negative. A separate exact-name/result-slot investigation
 establishes the original named-export lookup and argument-preserving dispatch.
 The complete 57-caller proof then establishes the actual same-index AssetBundle
 registration and synchronous path/CRC/offset transfer. The bounded loader route
-stops at a concrete redirected header-reader entry without matching runtime
-ownership. No header key, canonical admission or library activation follows;
+reaches a file-backed redirected entry whose next call targets declared
+zero-fill space. The original initializer/writer supplying that target remains
+unidentified; the route stops there. No header key, canonical admission or library activation follows;
 actual module-name input and engine trust remain unproved. A separate
 current-core synthetic service fixture verifies older-current/stage-pointer and
 recording retention on publication failure plus offline old activation; this
