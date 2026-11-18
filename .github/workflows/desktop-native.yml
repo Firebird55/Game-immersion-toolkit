@@ -5,26 +5,25 @@ on:
 permissions:
   contents: read
 jobs:
+  targets:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.select.outputs.desktop_matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - id: select
+        run: node scripts/release-profile.mjs >> "$GITHUB_OUTPUT"
   construct:
+    needs: targets
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - runner: windows-2025
-            target: windows-x64
-            node_target: win-x64
-            dotnet_rid: win-x64
-          - runner: ubuntu-24.04
-            target: linux-x64
-            node_target: linux-x64
-            dotnet_rid: linux-x64
-          - runner: macos-15
-            target: macos-arm64
-            node_target: darwin-arm64
-            dotnet_rid: osx-arm64
-          # ONNX Runtime 1.24.4 publishes macOS arm64 wheels only. Intel
-          # requires a separately verified native build before joining CI.
+      matrix: ${{ fromJSON(needs.targets.outputs.matrix) }}
     runs-on: ${{ matrix.runner }}
     defaults:
       run:

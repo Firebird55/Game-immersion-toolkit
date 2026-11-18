@@ -10,7 +10,7 @@ param(
     [Parameter(Mandatory=$true)][string]$PublisherHashSourceArchive,
     [string]$DecoderSourceArchive,
     [string]$GradleUserHome,
-    [ValidateSet('debug','ownerCandidate')][string]$Variant='debug',
+    [ValidateSet('debug','ownerCandidate','release')][string]$Variant='debug',
     [string]$SigningIdentityRoot,
     [int]$VersionCode=0,
     [switch]$DownloadGradle,
@@ -33,7 +33,7 @@ $sourceRoot=Split-Path -Parent $PSScriptRoot
 $policy=Get-Content -LiteralPath (Join-Path $sourceRoot 'packaging/android/build-inputs.json') -Raw | ConvertFrom-Json
 . (Join-Path $PSScriptRoot 'android-build-paths.ps1')
 . (Join-Path $PSScriptRoot 'android-signing.ps1')
-if($Variant -eq 'ownerCandidate' -and ($env:GITHUB_ACTIONS -eq 'true' -or -not $SigningIdentityRoot -or $VersionCode -lt 1)) {throw 'Owner candidates require a protected local identity and explicit increasing version code on the owner host.'}
+if($Variant -ne 'debug' -and ($env:GITHUB_ACTIONS -eq 'true' -or -not $SigningIdentityRoot -or $VersionCode -lt 1)) {throw 'Owner builds require a protected local identity and explicit increasing version code on the owner host.'}
 if($Variant -eq 'debug' -and $SigningIdentityRoot){throw 'CI/debug candidates cannot use the owner signing identity.'}
 if($VersionCode -eq 0){$VersionCode=1}
 if($VersionCode -lt 1 -or $VersionCode -gt 2100000000){throw 'Invalid Android version code.'}
@@ -121,18 +121,31 @@ if($Variant -eq 'debug' -and -not (Test-Path -LiteralPath $env:ANDROID_DEBUG_KEY
 }
 $head=(& git -C $sourceRoot rev-parse HEAD).Trim()
 $dirty=!!(& git -C $sourceRoot status --porcelain)
+$version=(Get-Content -LiteralPath (Join-Path $sourceRoot 'package.json') -Raw | ConvertFrom-Json).version
+$versionName="$version-android-prototype"
+if($Variant -eq 'release') {
+    $record=Get-Content -LiteralPath (Join-Path $sourceRoot 'release-version.json') -Raw | ConvertFrom-Json
+    if($dirty -or $version -notmatch '^\d+\.\d+\.\d+$' -or $record.version -ne $version -or $record.profile -ne 'windows-android') {
+        throw 'The Android release requires a clean Windows and Android release checkout.'
+    }
+    $taggedHead=& git -C $sourceRoot rev-parse --verify "refs/tags/v$version^{commit}"
+    if($LASTEXITCODE -ne 0 -or $taggedHead -ne $head){throw 'The Android release must use its exact local release tag.'}
+    $versionName=$version
+}
 $identity=$null
 $previousPassword=$env:TOOLKIT_OWNER_KEY_PASSWORD
 $previousKeystore=$env:ANDROID_OWNER_KEYSTORE
 $previousVersion=$env:ANDROID_VERSION_CODE
+$previousVersionName=$env:TOOLKIT_ANDROID_VERSION_NAME
 try {
-if($Variant -eq 'ownerCandidate') {
+if($Variant -ne 'debug') {
     $identity=Reserve-AndroidSigningVersion $SigningIdentityRoot $VersionCode
     $env:TOOLKIT_OWNER_KEY_PASSWORD=$identity.password
     $env:ANDROID_OWNER_KEYSTORE=Join-Path $identity.root 'owner.p12'
 } else {$env:TOOLKIT_OWNER_KEY_PASSWORD=$null;$env:ANDROID_OWNER_KEYSTORE=$null}
 $env:ANDROID_VERSION_CODE=[string]$VersionCode
-$task=if($Variant -eq 'debug'){'assembleDebug'}else{'assembleOwnerCandidate'}
+$env:TOOLKIT_ANDROID_VERSION_NAME=$versionName
+$task=switch($Variant){'debug'{'assembleDebug'} 'ownerCandidate'{'assembleOwnerCandidate'} 'release'{'assembleRelease'}}
 & (Join-Path $gradleRoot 'bin/gradle.bat') --no-daemon -p (Join-Path $sourceRoot 'packaging/android') ":app:$task" --console=plain
 if($LASTEXITCODE -ne 0){throw 'Android candidate compilation failed.'}
 $apk=Join-Path $sourceRoot "packaging/android/app/build/outputs/apk/$Variant/app-$Variant.apk"
@@ -161,18 +174,21 @@ $certificate=$certificates[0].Groups[1].Value.ToLowerInvariant()
 if($identity -and $certificate -ne $identity.record.signing_certificate_sha256){throw 'The APK does not use the protected owner signing identity.'}
 $badging=& (Join-Path $SdkRoot ('build-tools/'+$policy.build_tools+'/aapt2.exe')) dump badging $apk
 if($LASTEXITCODE -ne 0){throw 'Could not verify the installed Android identity.'}
-$package=[regex]::Match(($badging -join "`n"),"(?m)^package: name='([^']+)' versionCode='([0-9]+)'")
+$package=[regex]::Match(($badging -join "`n"),"(?m)^package: name='([^']+)' versionCode='([0-9]+)' versionName='([^']+)'")
 $expectedApplication=if($Variant -eq 'debug'){'io.github.firebird55.gameimmersiontoolkit.debug'}else{$identity.record.application_id}
-if(-not $package.Success -or $package.Groups[1].Value -ne $expectedApplication -or $package.Groups[2].Value -ne [string]$VersionCode){throw 'The packaged application identity/version differs from the requested candidate.'}
+if(-not $package.Success -or $package.Groups[1].Value -ne $expectedApplication -or $package.Groups[2].Value -ne [string]$VersionCode -or $package.Groups[3].Value -ne $versionName){throw 'The packaged application identity/version differs from the requested build.'}
+if($Variant -eq 'release' -and ($badging -match '^application-debuggable')){throw 'A production APK cannot be debuggable.'}
 & (Join-Path $SdkRoot ('build-tools/'+$policy.build_tools+'/zipalign.exe')) -c -P 16 4 $apk
 if($LASTEXITCODE -ne 0){throw 'The candidate APK is not aligned for the declared target.'}
 & $Python (Join-Path $PSScriptRoot 'probe-android-closed-core.py') --apk $apk --work-dir (Join-Path $BuildRoot 'owned-package-work') --output (Join-Path $BuildRoot 'apk-owned-core-proof.json')
 if($LASTEXITCODE -ne 0){throw 'The actual APK-owned Python package failed desktop reference closure; Android runtime acceptance remains separate.'}
 if((& git -C $sourceRoot rev-parse HEAD).Trim() -ne $head){throw 'The source commit changed during the build.'}
+if($Variant -eq 'release' -and (& git -C $sourceRoot status --porcelain)){throw 'The release source changed during the build.'}
 $destination=Join-Path $BuildRoot "GameImmersionToolkit-android-$Variant.apk"
 Copy-Item -LiteralPath $apk -Destination $destination -Force
 $proof=[ordered]@{schema='toolkit-android-candidate-v1';source_commit=$head;source_dirty=$dirty;apk_sha256=(Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant();frontend_build_id=$frontendManifest.build_id;python_wheels_policy_sha256=$policyHash;python_runtime_extensions_policy_sha256=$receipt.extension_policy_sha256;zstandard_receipt_sha256=$receipt.zstandard_receipt_sha256;native_decoder_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $decoderRoot 'assets/native-decoder-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant();publisher_source_policy_sha256=(Get-FileHash -LiteralPath (Join-Path $sourceRoot 'packaging/android/publisher-sources.json') -Algorithm SHA256).Hash.ToLowerInvariant();application_id=$package.Groups[1].Value;version_code=$VersionCode;variant=$Variant;signing_certificate_sha256=$certificate;signing=if($identity){'owner-host-protected-reusable-identity'}else{'host-local-debug-candidate-only'};release_eligibility=$false;physical_device_acceptance='not-established'}
 $proof.native_publisher_crypto_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $cryptoRoot 'assets/publisher-crypto-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
+$proof.version_name=$versionName
 $proof.publisher_crypto_authored_fixtures=$nativeAudit.native_publisher_crypto.authored_fixtures
 $proof.native_publisher_hash_manifest_sha256=(Get-FileHash -LiteralPath (Join-Path $hashRoot 'assets/publisher-hash-manifest.json') -Algorithm SHA256).Hash.ToLowerInvariant()
 $proof.publisher_hash_authored_fixture=$nativeAudit.native_publisher_hash.authored_fixture
@@ -184,5 +200,6 @@ Write-Output 'Built a verified Android candidate; release and physical acceptanc
     $env:TOOLKIT_OWNER_KEY_PASSWORD=$previousPassword
     $env:ANDROID_OWNER_KEYSTORE=$previousKeystore
     $env:ANDROID_VERSION_CODE=$previousVersion
+    $env:TOOLKIT_ANDROID_VERSION_NAME=$previousVersionName
     if($identity){$identity.password=$null;$identity.lock.Dispose()}
 }
