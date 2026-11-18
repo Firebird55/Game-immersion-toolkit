@@ -143,6 +143,53 @@ def test_real_service_owned_banks_complete_download_and_offline_restore_retain_o
     finally:service.close()
 
 
+def test_normal_worker_publishes_conditional_occurrences_and_restores_original_keys(tmp_path, monkeypatch):
+    from backend.multilingual_index import MultilingualTextIndex
+    from backend.zzz_cinema_context import CinemaContext, CinemaFrame
+    from backend.zzz_cinema_occurrences import FIELD, digest
+    from backend.desktop_original_audio import DesktopOriginalVoices
+    provider = FixtureProvider(tmp_path, monkeypatch)
+    provider.content['links'] = [link(dialogue_kind='cutscene', channels=['cinematic']),
+        link(None, text_id='SharedCaption', dialogue_kind='cutscene', channels=['cinematic'])]
+    provider.content['tables']['en']['SharedCaption'] = 'The authored shared response.'
+    provider.content['tables']['zh-Hans']['SharedCaption'] = '合成共同回复。'
+    provider.content['cinema_occurrences'] = [{'text_id': identity, 'locale': 'en', 'start': start,
+        'duration': 1., 'resource': 'a' * 64, 'timeline': '10', 'track': '20', 'clip': clip,
+        'subtitle_position': 0, 'event': 'Play_vo_Synthetic_01'}
+        for identity, start, clip in [('SyntheticCaption', 1., '30'), ('SharedCaption', 4., '40')]]
+    root = tmp_path / 'host';service = GameDataService(root, {'zzz': provider})
+    try:
+        prepare(service)
+        source = service.restore('zzz');payload = json.loads(source.snapshot_path.read_bytes())
+        assert payload[FIELD]['generation'] == service._metadata(root, 'zzz')['revision']
+        shared = next(row for row in payload['records'] if row['text_id'] == 'SharedCaption')
+        assert shared['voice_status'] == 'unavailable' and not shared.get('audio')
+        index = MultilingualTextIndex('zzz', source.snapshot_path.parent)
+        index.publisher_generation = payload['fingerprint']
+        index.publisher_request_sha256 = digest(payload[FIELD]['request'])
+        context = CinemaContext()
+        def observe(text, sequence, when):
+            return context.observe(index, [text] if text else [], scope='actual-normal-worker',
+                frame=CinemaFrame(sequence, when, when + .01, True), now=when + .02, stable_frames=2)
+        assert not observe(provider.content['tables']['en']['SyntheticCaption'], 1, 101.1)
+        assert not observe(provider.content['tables']['en']['SyntheticCaption'], 2, 101.35)
+        for sequence in range(3, 12):assert not observe('', sequence, 101.35 + (sequence - 2) * .25)
+        hit, = observe(provider.content['tables']['en']['SharedCaption'], 12, 104.1)
+        host = SimpleNamespace(audio_pool=None)
+        voice = DesktopOriginalVoices(host, 'local', service._metadata(root, 'zzz'), index)
+        row = voice._row(hit);assert row and source.voice_source.has(row)
+        calls = list(provider.calls);service.close()
+        service = GameDataService(root, {'zzz': provider})
+        restored = service.restore('zzz');assert restored.voice_source.has(row)
+        assert restored.voice_source.resolve(row, tmp_path / 'conditional', cancelled=lambda: False).is_file()
+        assert provider.calls == calls
+        fresh = MultilingualTextIndex('zzz', restored.snapshot_path.parent)
+        fresh.publisher_generation, fresh.publisher_request_sha256 = index.publisher_generation, index.publisher_request_sha256
+        assert DesktopOriginalVoices(host, 'local', service._metadata(root, 'zzz'), fresh)._row(hit) == row
+        assert index.match_lines([shared['source_text']], exact_only=True, channel='cinematic') is None
+    finally:service.close()
+
+
 def test_interrupted_original_transfer_and_final_pointer_failure_preserve_ready_and_saved_recording(tmp_path, monkeypatch):
     provider = FixtureProvider(tmp_path, monkeypatch)
     root = tmp_path / 'host';service = GameDataService(root, {'zzz': provider})

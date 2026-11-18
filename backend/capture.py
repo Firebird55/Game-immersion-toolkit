@@ -34,6 +34,7 @@ from .zzz_dialogue_context import ZzzDialogueContext
 from .nte_dialogue_context import NteDialogueContext
 from .endfield_caption_context import EndfieldCaptionContext
 from .zzz_cutscene_context import ZzzCutsceneContext, cutscene_scene, subtitle_rows
+from .zzz_cinema_context import CinemaFrame
 
 
 from .capture_confirmation import StableMatchTracker, capture_match_eligible, capture_confirmation_frames
@@ -532,7 +533,8 @@ class CaptureService:
         # The menu's lower navigation may be more legible than its header.
         self._excluded_screen = self._classify_screen_header([*header_lines, *lines])
         excluded_screen = phone_screen or self._excluded_screen in {"story_recap", "hdd", "menu"}
-        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, self.session_id,
+        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
+        cutscene_scope = (epoch, window.handle, window.bounds, crop_bounds, cinematic_bounds, self.session_id,
                           getattr(self.textmaps, '_signature', None),
                           getattr(self.textmaps, 'source_locale', None), settings.zzz_proxy_voice,
                           getattr(self, 'context_scope', lambda: None)())
@@ -544,7 +546,6 @@ class CaptureService:
             self._tip_tracker.observe(None)
             self._visible_text_by_channel.clear()
             self._visible_match_started.clear()
-        cinematic_bounds = self._region_bounds(window, settings.cinematic_region)
         cinematic_raw_text = ""
         cinematic_confidence: float | None = None
         cinematic_match_score: float | None = None
@@ -552,6 +553,7 @@ class CaptureService:
         # Once the filmstrip layout is visible, inspect it on every pass; retain
         # the cheaper alternating cadence for ordinary gameplay/cutscenes.
         scan_cinematic = (self._visual_novel_layout or self._zzz_cutscene_context.scene is not None
+                          or self._zzz_cutscene_context.authored.active
                           or self._scan_index % 2 == 1)
         cinematic_matches: list[TextMatch] = []
         cinematic_lines = []
@@ -559,6 +561,7 @@ class CaptureService:
         # bubble can extend into the dialogue crop and expose only its last word.
         if not excluded_screen and scan_cinematic:
             cinematic_image = self._capture(cinematic_bounds)
+            cinema_frame = getattr(self._window_frame, 'cinema_frame', None)
             cinematic_image = self._ocr_image(cinematic_image, window)
             cinematic_response = engine.recognize_pil(cinematic_image)
             if epoch != self._scan_epoch:
@@ -582,7 +585,7 @@ class CaptureService:
             movie_groups = self._spatial_text_groups(subtitle_rows(cinematic_response, cinematic_image.size))
             movie_matches = self._zzz_cutscene_context.match(self.textmaps, movie_groups,
                 cinematic_matches, now=time.monotonic(), stable_frames=settings.stable_frames,
-                configured=self.textmaps.player_voice)
+                configured=self.textmaps.player_voice, frame=cinema_frame)
             cinematic_matches = [hit for hit in cinematic_matches if not cutscene_scene(hit.text_id)] + movie_matches
 
         # The broad gameplay scan still rejects short HUD labels such as INFO.
@@ -1867,19 +1870,44 @@ class CaptureService:
         # Each worker/preview request owns its frame; a timed-out OCR worker
         # must not overwrite a replacement worker's capture or calibration.
         self._window_frame.image = None
+        self._window_frame.handle = window.handle
+        self._window_frame.cinema_frame = None
         self._window_frame.bounds = window.bounds
         self._window_frame.image = self._background_capture.frame(window)
 
     def _capture(self, bounds: tuple[int, int, int, int]) -> Image.Image:
         left, top, width, height = bounds
         frame = getattr(getattr(self, '_window_frame', None), 'image', None)
+        self._window_frame.cinema_frame = None
         if frame is not None:
             origin_x, origin_y, _, _ = self._window_frame.bounds
             return frame.crop((left - origin_x, top - origin_y,
                                left - origin_x + width, top - origin_y + height))
+        handle = getattr(self._window_frame, 'handle', None)
+        before = self._foreground_capture_handle()
+        started = time.monotonic()
         with mss.mss() as capture:
             shot = capture.grab({"left": left, "top": top, "width": width, "height": height})
+        finished = time.monotonic()
+        if handle and before == handle == self._foreground_capture_handle():
+            self._window_frame.cinema_frame = CinemaFrame(self._scan_index, started, finished, True)
         return Image.frombytes("RGB", shot.size, shot.rgb)
+
+    @staticmethod
+    def _foreground_capture_handle():
+        # Only this actual foreground MSS path proves acquisition freshness.
+        # RGB1 background images carry no timestamp and never enter this guard.
+        import ctypes
+        import sys
+        if sys.platform != 'win32':
+            return None
+        try:
+            user = ctypes.WinDLL('user32', use_last_error=True)
+            user.GetForegroundWindow.argtypes = []
+            user.GetForegroundWindow.restype = ctypes.c_void_p
+            return user.GetForegroundWindow()
+        except (OSError, AttributeError):
+            return None
 
     def _set_preview(self, image: Image.Image) -> None:
         encoded = self._encode_preview(image)

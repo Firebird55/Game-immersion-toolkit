@@ -28,7 +28,9 @@ class DesktopOriginalVoices:
         self._executor = host.audio_pool
         self.saved_line = saved_line
         self.rows = {}
-        for row in index._records if index is not None else ():
+        original_rows = (index.original_recording_rows() if index is not None and
+            callable(getattr(index, 'original_recording_rows', None)) else index._records if index is not None else ())
+        for row in original_rows:
             if row.get('audio') and not row.get('audio_omitted_by_request') and row.get('voice_status') == 'voiced':
                 self.rows.setdefault(row['text_id'], []).append(row)
         self._slots, self._lock, self._working = threading.BoundedSemaphore(8), threading.Lock(), set()

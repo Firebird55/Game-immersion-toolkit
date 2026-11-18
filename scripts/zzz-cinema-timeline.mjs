@@ -2,6 +2,7 @@
 // whole-film Wwise event. Follow actual TimelineAsset/track/clip PPtrs. Names
 // and positions in the object table never establish ownership or voice order.
 import {unityObjects} from './cinematic-links.mjs';
+import {createHash} from 'node:crypto';
 
 class Reader {
   constructor(bytes, position=0) { this.bytes=bytes; this.position=position; }
@@ -65,7 +66,8 @@ function track(object) {
 }
 
 export function cinemaSubtitleTimeline(bytes) {
-  const objects=typedObjects(Buffer.from(bytes)), subtitles=[], events=[], failures=[];
+  const buffer=Buffer.from(bytes), objects=typedObjects(buffer), subtitles=[], events=[], failures=[], occurrences=[];
+  const resource=createHash('sha256').update(buffer).digest('hex');
   const timelines=[...objects.values()].filter(o=>o.type==='TimelineAsset'&&o.namespace==='UnityEngine.Timeline');
   for(const timeline of timelines) {
     const r=new Reader(timeline.bytes,timeline.body);
@@ -90,9 +92,10 @@ export function cinemaSubtitleTimeline(bytes) {
         if(!target)throw Error('External ZZZ cinema clip');
         const body=new Reader(target.bytes,target.body);
         if(object.type==='SubtitleTrack'&&target.type==='SubtitleClip') {
-          const text_id=body.string(), language=body.u32(); body.take(4); body.end();
+          const text_id=body.string(), language=body.u32(), subtitle_position=body.u32(); body.end();
           if(!/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(text_id)||language!==value.language||![1,2,3,4].includes(language))throw Error('Changed ZZZ cinema subtitle schema');
-          captions.push({text_id,locale:({1:'en',2:'zh-Hans',3:'ja',4:'ko'})[language],start:entry.start,duration:entry.duration});
+          captions.push({text_id,locale:({1:'en',2:'zh-Hans',3:'ja',4:'ko'})[language],start:entry.start,duration:entry.duration,
+            track:object.id,clip:target.id,subtitle_position});
         } else if(object.type==='WwiseAudioTrack'&&target.type==='WwiseAudioClip') {
           const event=body.string(); body.zero(64); body.end();
           posts.push({event,start:entry.start,duration:entry.duration,offset:entry.offset,speed:entry.speed});
@@ -109,12 +112,18 @@ export function cinemaSubtitleTimeline(bytes) {
       alternatives[0].offset===0&&alternatives[0].speed===1&&
       Math.abs(alternatives[0].start-primary[0].start)<1e-6&&Math.abs(alternatives[0].duration-primary[0].duration)<1e-6
       ? alternatives[0].event:null;
-    for(const caption of captions)subtitles.push({...caption,timeline:timeline.name,
-      event:complete&&unique.length===1?unique[0]:null,audio_scope:'context',
-      ...(alternate?{cinematic_alternates:[alternate]}:{})});
+    for(const caption of captions) {
+      const {track,clip,subtitle_position,...value}=caption;
+      const event=complete&&unique.length===1?unique[0]:null;
+      subtitles.push({...value,timeline:timeline.name,event,audio_scope:'context',
+        ...(alternate?{cinematic_alternates:[alternate]}:{})});
+      // The serialized resource and local PPtrs establish occurrence identity.
+      // A timeline display name or B/G suffix never identifies the protagonist.
+      if(event)occurrences.push({...caption,resource,timeline:timeline.id,event});
+    }
     events.push(...unique);
   }
-  return {subtitles,events:[...new Set(events)],unsupported:failures};
+  return {subtitles,events:[...new Set(events)],unsupported:failures,occurrences};
 }
 
 export function cinemaSubtitleLinks(result, namespace) {
