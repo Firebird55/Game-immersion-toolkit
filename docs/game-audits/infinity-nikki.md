@@ -568,8 +568,10 @@ corrected against the original 20-byte descriptor, and preserved in the private
 receipt. Subsequent comparisons use parsed digest bytes directly.
 
 The already retained Global updater supplies a concrete official dynamic-key
-route: version/platform `PACDKCINFO_` parameters, followed by native Base64
-keychain creation, group refresh/deserialization and registration. Its referenced
+request route: version/platform `PACDKCINFO_` parameters and calls to methods
+named `CreateDynamicKeyChainByBase64String`, `GetKeyChainNonDynamicGroups`,
+`SerializeGroupFromBase64Data` and `RegisterDynamicKeyChain`. Mapping those names
+to particular native implementations remains unproven. Its referenced
 `PaperKVMgr` calls `/v1/gameconfig/parameter` through the original URL/signature
 builder and remote-JSON consumer. That builder consumes
 `UX6PackageSettings.CMSApiUrl`, `ClientID` and `ClientKey`. The original SDK manager
@@ -697,10 +699,23 @@ An alternative candidate-verification route can keep complete publisher-authored
 CMS triplets atomic and validate returned material against exact current Global
 archive GUIDs and complete index integrity, without claiming the active engine
 profile. Its first source steps are now bounded and recorded. Previously
-uninspected native entry wrappers consume 240 instruction bytes and lead to a
-shared input/container helper plus separate chain and group consumers. Those
+uninspected selected native wrappers consume 240 instruction bytes and lead to a
+shared input/container helper plus two other selected consumers. Their proposed
+chain/group roles depend on the still-unproven named association. Those
 downstream bodies, actual Base64 framing, GUID/group ownership and applicable
 dynamic-index cipher remain unproven; no layout or key is guessed.
+
+The native-probe scope needs three separate facts. First, the original Global
+Lua really calls the named creation and group methods. Second, associating those
+names with the selected ARM64 entries used name literals and adjacent executable
+pointers; a typed registration array, its class owner and its extent have not
+been proved. That association remains a hypothesis. Third, the physical branch
+edges from the selected executable candidate to its wrapper, input helper and
+other consumers are independently observed instructions. The Base64 algorithm
+observations below apply to that selected ARM64 helper, not a proven CMS or
+keychain caller. Likewise, `PaperAccessContentProtect` is a literal observed in
+the selected candidate's descendant lookup code. It does not establish that the
+actual CMS/keychain path uses that lookup or any particular service instance.
 
 The already retained 1,002,627-byte Bin carrier passes complete source-owned
 header, zlib/EOF and publisher data-SHA-1 checks again. Exactly 51,184 bytes of
@@ -714,7 +729,8 @@ CMS request is made, and the native source remains CN/common rather than an
 assumed Global-equivalent module.
 
 The next three exact consumer windows inspect 468 code bytes and 1,897 metadata
-bytes, stopping at the declared boundaries. Chain/group paths dispatch through
+bytes, stopping at the declared boundaries. The two selected consumer paths
+dispatch through
 an unresolved returned object's table slots; the actual GUID/group serializer
 is not reached. The input helper reads 16-bit units, trims padding and calculates
 the familiar three-to-four output length, while observed count/capacity and
@@ -727,8 +743,9 @@ serialization/integrity schema, key trial or CMS acceptance is implemented.
 
 A subsequent exact continuation reads 156 instruction bytes, 52 framed UTF-16
 literal bytes and 1,009 metadata bytes from the same retained source. The passed
-lookup name is `PaperAccessContentProtect`; this identifies the requested service,
-not its returned implementation or Global equivalence. The main lookup path
+lookup name within the selected code is `PaperAccessContentProtect`. This proves
+the literal argument there, not a CMS/keychain caller, returned implementation or
+Global equivalence. The main lookup path
 reaches a further object producer and retains an unread cold branch. The input
 helper tail-calls a separate core with the original input, its length, the byte
 output and mode zero. Its exact alphabet, rejection rules and the downstream
@@ -766,8 +783,9 @@ The next fixed-window control-flow probe follows reachable branches within the
 approved ranges, including paths beyond early returns. It consumes 644 unique
 instruction bytes and 1,185 receipt bytes. The separately approved mode-zero
 lookup table is exactly 128 original bytes with a 1,111-byte source receipt.
-Together these establish standard Base64 alphabet mapping, four-to-three byte
-packing, two/three-character tails, removal of trailing padding, and zero return
+Together these establish, for the selected ARM64 helper, standard Base64 alphabet
+mapping, four-to-three byte packing, two/three-character tails, removal of trailing
+padding, and zero return
 for invalid ASCII mappings or a remaining length congruent to one modulo four.
 Non-ASCII units fail; empty stripped input succeeds. No canonical padding-bit
 test appears in the complete core. No decoder or keychain parser is implemented
@@ -775,7 +793,7 @@ from this evidence. The lookup fallback loads a pointer from its name-owned
 descriptor, but the concrete implementation and original construction remain
 unresolved. All evidence retains the CN/common source qualification; no CMS
 response, GUID/group serialization, dynamic-index decryption or Global service
-equivalence is accepted by establishing this input-decoding contract.
+equivalence is accepted by establishing this selected helper's decoding contract.
 
 Two further fixed object branches consume 292 unique instruction bytes and a
 1,325-byte receipt. A separate producer/return probe consumes 352 instruction
@@ -789,11 +807,12 @@ targets are not followed. The original outer instance-load branch remains a
 separate exact source quote. There are no additional literal reads, downloads,
 client execution, CMS requests, dynamic-key trials or keychain-schema claims.
 
-The original outer loading path then consumes 256 instruction bytes with a
+The selected outer loading path then consumes 256 instruction bytes with a
 966-byte receipt. It searches a second name-keyed registry, distinct from the
 descriptor cache. The exact successful branch consumes only 28 more instruction
 bytes and a 586-byte receipt before reaching an indirect callback. This proves
-the generic module-manager registry/delegate route, not the concrete
+the generic module-manager registry/delegate route in that selected code, not the
+concrete
 `PaperAccessContentProtect` implementation: the matching entry supplies a
 pointer/count and a virtual call whose target is not yet source-owned. No
 indirect target is followed. A direct manager call immediately before this
@@ -959,12 +978,13 @@ The PAK reader now accepts the same explicit platform cryptography object;
 desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
 from stored-size width. This removes that import barrier without proving an
 Android device runtime or admitting a nonzero-GUID archive.
-Separately bounded native registration work identifies two original
-consumers: creation receives `(chainName, Base64value)` and group serialization
-receives `(chainName, groupID, Base64value)`, both with no result. Their concrete
-native call edges are identified; their bodies and serialized schema remain
-unread. Neither a cache-getter's direction nor a UClass owner is inferred from
-adjacency alone. No extra remote source bytes or CMS requests are acquired.
+Separately bounded native work selects two executable candidates with apparent
+creation/group argument flows. Their actual branch edges and selected helper
+algorithm are observed, but the names' typed registration and class ownership
+remain unproven. These are not established implementations of the Lua-named
+CMS/keychain methods. The serialized schema remains unread. No cache-getter
+direction or UClass owner follows from adjacency alone. No extra remote source
+bytes or CMS requests are acquired.
 
 A frozen ordinary launcher-stage replay uses the actual previously retained
 official NSIS/PE bytes, the normal provider and preparation contexts, the actual
