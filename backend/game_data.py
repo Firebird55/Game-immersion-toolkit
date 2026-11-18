@@ -17,7 +17,7 @@ from .atomic_files import replace as atomic_replace
 from .atomic_files import sharing_retry
 from .game_data_protocol import (GAME_TITLES, MAX_METADATA_BYTES, MAX_ASSET_BYTES,
     GameDataError, GameDataRequest, GameDataPlan, SnapshotSource, PreparationStage,
-    SourceProof, bounded_text, private_handle)
+    SourceProof, bounded_text, private_handle, REQUEST_FIELDS)
 from .local_game import LocalDialogue
 from .multilingual_index import MultilingualTextIndex
 from .private_data_paths import MAX_TEXT, MAX_ROWS, _no_links
@@ -25,6 +25,13 @@ from .private_data_paths import MAX_TEXT, MAX_ROWS, _no_links
 
 def _json_bytes(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
+
+
+def _game_request(game, value):
+    request = GameDataRequest.parse(value)
+    if request.voice_choices is not None and game != 'starrail':
+        raise GameDataError('unsupported_game_voice_choices', 'These original voice choices belong to Star Rail.')
+    return request
 
 
 def _write_bytes(path, raw):
@@ -251,7 +258,7 @@ class GameDataService:
         if (type(value.get('ready')) is not bool or not bounded_text(value.get('revision'), 256)
                 or not bounded_text(value.get('message'), 1000, empty=True)):
             raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
-        GameDataRequest.parse(value['request'])
+        _game_request(game, value['request'])
         private_handle(value['handle'])
         if value.get('ready'):
             SourceProof(**value['source_proof'])
@@ -274,8 +281,8 @@ class GameDataService:
                       and item['game'] == game and item['expires'] > self.clock()]
         latest = candidates[-1] if candidates else None
         plan = latest['plan'] if latest else None
-        request = (latest['request'] if latest else GameDataRequest.parse(current['request']) if current else
-            GameDataRequest.parse(stage['request']) if stage else GameDataRequest('global', 'en'))
+        request = (latest['request'] if latest else _game_request(game, current['request']) if current else
+            _game_request(game, stage['request']) if stage else GameDataRequest('global', 'en'))
         job = self.jobs.get((root, game))
         if job and job['context'].owner != owner:
             job['context'].cancel.set(); job = None
@@ -306,6 +313,8 @@ class GameDataService:
             'installed_request': current['request'] if ready else None,
             'can_activate': ready and game in self.providers,
             **request.json(), 'installed_bytes': installed, 'deletable_bytes': installed, 'retained_bytes': retained,
+            **({'available_voice_choices': plan.available_voice_choices.json()}
+               if plan and plan.available_voice_choices is not None else {}),
             'download_bytes': plan.download_bytes if plan else None,
             'download_is_upper_bound': plan.download_is_upper_bound if plan else False,
             'required_disk_bytes': plan.required_disk_bytes if plan else None,
@@ -326,7 +335,7 @@ class GameDataService:
             return result
 
     def plan(self, game, request, *, expected_owner=None):
-        provider, selection = self._provider(game), GameDataRequest.parse(request)
+        provider, selection = self._provider(game), _game_request(game, request)
         root, owner = self._scope(expected_owner)
         with self.lock:
             running = self.jobs.get((root, game))
@@ -341,6 +350,14 @@ class GameDataService:
             with ctx.transfer_lock: ctx.transfers_closed = True
             if not isinstance(plan, GameDataPlan):
                 raise GameDataError('invalid_download_plan', 'The game reader did not provide a bounded download plan.')
+            if plan.available_voice_choices is not None and game != 'starrail':
+                raise GameDataError('unsupported_game_voice_choices', 'The game reader returned another game’s voice choices.')
+            if plan.available_voice_choices is not None and selection.voice_choices is not None:
+                available = plan.available_voice_choices
+                groups = {row[0] for row in available.groups}
+                if (selection.voice_choices.choice_set_sha256 != available.choice_set_sha256
+                        or any(key not in groups for key, _ in selection.voice_choices.choices)):
+                    raise GameDataError('voice_choices_changed', 'The original voice choices changed. Check the current choices again.', 409)
             with self.lock:
                 ctx.check()
                 for key, item in list(self.plans.items()):
@@ -538,7 +555,7 @@ class GameDataService:
             return None
         if _metadata is not None and metadata != _metadata:
             raise GameDataError('installed_game_changed', 'The downloaded game changed. Refresh Settings.', 409)
-        ctx = _Context(self, root, owner, game, GameDataRequest.parse(metadata['request']),
+        ctx = _Context(self, root, owner, game, _game_request(game, metadata['request']),
             root / game / 'cache' / 'sources' / metadata['directory'], 'restore', budget=0)
         ctx.source_descriptor = metadata
         with self.lock:
@@ -587,7 +604,7 @@ class GameDataService:
         directory = root / game / 'cache' / 'sources' / metadata['directory']
         if not directory.is_dir():
             raise GameDataError('original_source_not_downloaded', 'Download this game’s data to retrieve this original recording.', 409)
-        ctx = _Context(self, root, owner, game, GameDataRequest.parse(metadata['request']), directory, 'restore', budget=0)
+        ctx = _Context(self, root, owner, game, _game_request(game, metadata['request']), directory, 'restore', budget=0)
         ctx.source_descriptor = metadata; ctx.check()
         source = self._provider(game).restore(metadata['handle'], ctx)
         path = source.snapshot_path.absolute(); _no_links(path)
@@ -612,7 +629,7 @@ class GameDataService:
             if row['state'] == 'downloading':
                 raise GameDataError('download_active', 'Wait for the game download to finish before deleting it.', 409)
             self.epochs[(root, game)] = self.epochs.get((root, game), 0) + 1
-            ctx = _Context(self, root, owner, game, GameDataRequest.parse({key: row[key] for key in ('region', 'source_locale', 'target_locales', 'content_mode')}),
+            ctx = _Context(self, root, owner, game, _game_request(game, {key: row[key] for key in REQUEST_FIELDS if key in row}),
                 root / game, 'delete')
             ctx.check()
             if self.on_activate:

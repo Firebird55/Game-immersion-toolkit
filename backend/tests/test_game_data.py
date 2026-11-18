@@ -8,7 +8,7 @@ import pytest
 
 from backend.game_data import GameDataService
 from backend.game_data_protocol import (GameDataPlan, SnapshotSource, PreparationStage,
-    SourceProof, GameDataError, MAX_METADATA_BYTES)
+    SourceProof, GameDataError, MAX_METADATA_BYTES, VoiceChoiceSet)
 from backend.local_game import LocalDialogue
 
 REQUEST = {'region': 'global', 'source_locale': 'en', 'target_locales': ['zh-Hans'], 'content_mode': 'text-audio'}
@@ -131,6 +131,46 @@ def test_unknown_size_cannot_transfer_and_all_eight_games_are_reported(tmp_path)
         assert value['download_bytes'] is None and not value['can_download']
         with pytest.raises(GameDataError): service.download('zzz', {'plan_id': value['plan_id'], 'revision': value['revision']})
         assert provider.downloads == 0
+    finally: service.close()
+
+
+@pytest.mark.parametrize('game', ['zzz', 'genshin', 'endfield', 'wuwa', 'nte', 'reverse1999', 'infinitynikki'])
+def test_starrail_voice_choices_cannot_reach_another_game_provider_or_restore(game, tmp_path):
+    from types import SimpleNamespace
+    def forbidden(*a): pytest.fail('Foreign voice choices must be rejected before the provider')
+    service = GameDataService(tmp_path, {game: SimpleNamespace(plan=forbidden)})
+    selected = REQUEST | {'voice_choices': {'choice_set_sha256': 'a'*64,
+        'choices': [{'group_key': 'starrail:copyright-avatar:7001', 'alternative': 'copyright-dub'}]}}
+    try:
+        with pytest.raises(GameDataError) as error: service.plan(game, selected)
+        assert error.value.code == 'unsupported_game_voice_choices'
+        with pytest.raises(GameDataError):
+            service._validate_metadata({'schema': 'game-data-source-v1', 'game': game, 'directory': 'a'*64,
+                'ready': False, 'revision': 'authored', 'message': '', 'request': selected, 'handle': {}}, game)
+    finally: service.close()
+
+
+def test_available_choice_metadata_is_public_only_for_starrail_and_does_not_enable_download(tmp_path):
+    from types import SimpleNamespace
+    available = VoiceChoiceSet('a'*64, 'b'*64, 'c'*64, 'd'*64,
+        (('starrail:copyright-avatar:777001', 777001, 'en', 'ja'),))
+    def plan(*a): return GameDataPlan('choices', None, None, available_voice_choices=available)
+    deleted = []
+    service = GameDataService(tmp_path, {'starrail': SimpleNamespace(plan=plan), 'zzz': SimpleNamespace(plan=plan)},
+        on_activate=lambda ctx, source: deleted.append((ctx.request.json(), source)))
+    try:
+        selected = REQUEST | {'voice_choices': {'choice_set_sha256': available.choice_set_sha256,
+            'choices': [{'group_key': 'starrail:copyright-avatar:777001', 'alternative': 'copyright-dub'}]}}
+        actual = service.plan('starrail', selected)['game']
+        assert actual['available_voice_choices'] == available.json() and not actual['can_download']
+        for wrong in ({'choice_set_sha256': 'f'*64, 'choices': selected['voice_choices']['choices']},
+                      {'choice_set_sha256': available.choice_set_sha256, 'choices': [
+                          {'group_key': 'starrail:copyright-avatar:999001', 'alternative': 'selected-dub'}]}):
+            with pytest.raises(GameDataError) as error: service.plan('starrail', REQUEST | {'voice_choices': wrong})
+            assert error.value.code == 'voice_choices_changed'
+        service.delete('starrail', {'revision': actual['revision']})
+        assert deleted == [(selected, None)]
+        with pytest.raises(GameDataError): service.plan('zzz', REQUEST)
     finally: service.close()
 
 

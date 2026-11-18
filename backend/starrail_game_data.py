@@ -376,26 +376,37 @@ class StarRailProvider:
         return False
 
     def _audio_plan(self, ctx, catalog, generation, reader, selected, packages):
+        from . import starrail_voice_choices as choices
+        available = choices.discover(catalog, generation.identity, ctx.request.source_locale)
+        provenance = choices.selection_receipt(available, ctx.request.voice_choices) if available else None
+        if ctx.request.voice_choices is not None:
+            handle = {'request': ctx.request.json(), 'native': generation.identity,
+                      'voice_choice_provenance': provenance}
+            return GameDataPlan(catalog.build['version'] + '/voice-choices-' + _identity(handle)[:24], None, None,
+                handle, stage='voice-choice-locale-binding' if available else 'voice-choice-metadata', runtime_available=False,
+                message=choices.LOCALE_MESSAGE if available else choices.METADATA_MESSAGE, available_voice_choices=available)
         quote, _, audio, _ = self._audio_inventory(ctx, catalog)
+        if provenance is not None:
+            audio = audio | {'voice_choice_provenance': provenance}
         handle = {'schema': AUDIO_PLAN, 'request': ctx.request.json(), 'build': catalog.build,
             'files': _file_receipts(selected), 'helper': reader.identity, 'native': generation.identity,
             'packages': _package_receipts(packages), 'phase': quote.phase, 'audio': audio}
         if message := self._media_blocker_message(quote.phase, audio):
             return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
-                handle, stage='original-audio-bindings', runtime_available=False, message=message)
+                handle, stage='original-audio-bindings', runtime_available=False, message=message, available_voice_choices=available)
         if quote.phase == 'audio-snapshot' and self._audio_runtime_available():
             return GameDataPlan(_text_revision(handle), 0, 2 * MAX_TEXT + MAX_HANDLE_BYTES,
                 handle, stage=quote.phase, runtime_available=True,
-                message='Prepare the verified text and locally available original recordings. No further download is included.')
+                message='Prepare the verified text and locally available original recordings. No further download is included.', available_voice_choices=available)
         if not quote.spans and quote.phase != 'audio-snapshot':
             return GameDataPlan(_text_revision(handle), None, None, stage='original-audio-bindings', runtime_available=False,
-                message='The downloaded audio metadata is verified. More recording branches and movie audio need support before this library can be used. Your existing library is retained.')
+                message='The downloaded audio metadata is verified. More recording branches and movie audio need support before this library can be used. Your existing library is retained.', available_voice_choices=available)
         if quote.phase not in {'audio-inventory-prefixes', 'audio-inventory-headers', 'audio-event-lookup'} and not self._audio_runtime_available():
             return GameDataPlan(_text_revision(handle), None, None, stage='audio-runtime', runtime_available=False,
-                message='The verified audio reader is unavailable on this device. Repair or re-extract this toolkit build before downloading recordings. Your existing library is retained.')
+                message='The verified audio reader is unavailable on this device. Repair or re-extract this toolkit build before downloading recordings. Your existing library is retained.', available_voice_choices=available)
         return GameDataPlan(_text_revision(handle), quote.download_bytes, quote.disk_bytes + MAX_HANDLE_BYTES,
             handle, stage=quote.phase, runtime_available=True,
-            message='Download the next part of the selected official audio pack. Further recording preparation needs a separate estimate; this library will not become ready yet.')
+            message='Download the next part of the selected official audio pack. Further recording preparation needs a separate estimate; this library will not become ready yet.', available_voice_choices=available)
 
     @staticmethod
     def _media_blocker_message(phase, receipt):
@@ -427,6 +438,12 @@ class StarRailProvider:
 
     def plan(self, request, ctx):
         _valid_request(request); ctx.check()
+        if request.content_mode == 'text-audio' and request.voice_choices is not None:
+            from . import starrail_original_provider as original, starrail_voice_choices as choices
+            if not choices.TABLES <= original.TABLES:
+                return GameDataPlan('voice-choice-metadata-' + _identity(request.json())[:24], None, None,
+                    {'request': request.json()}, stage='voice-choice-metadata', runtime_available=False,
+                    message=choices.METADATA_MESSAGE)
         transport = self._transport(ctx)
         def fetch(url, *, limit):
             return transport.fetch_bytes(url, limit=limit, kind='metadata')[0]
@@ -569,7 +586,15 @@ class StarRailProvider:
         if (generation.identity != handle['native'] or phase != 'text-snapshot' or absent
                 or _package_receipts(packages) != handle['packages']):
             raise GameDataError('starrail_audio_inputs_changed', 'The original text generation changed. Check the audio size again.')
+        from . import starrail_voice_choices as choices
+        available = choices.discover(catalog, generation.identity, ctx.request.source_locale)
+        provenance = choices.selection_receipt(available, ctx.request.voice_choices) if available else None
+        if ctx.request.voice_choices is not None:
+            raise GameDataError('starrail_voice_choice_locale_unproven' if available else 'starrail_voice_choice_metadata_unavailable',
+                                choices.LOCALE_MESSAGE if available else choices.METADATA_MESSAGE, 409)
         quote, store, receipt, members = self._audio_inventory(ctx, catalog, offline=True)
+        if provenance is not None:
+            receipt = receipt | {'voice_choice_provenance': provenance}
         if (quote.phase != plan.stage or receipt != handle['audio'] or plan.download_bytes != quote.download_bytes
                 or plan.required_disk_bytes is None or plan.required_disk_bytes < quote.disk_bytes + MAX_HANDLE_BYTES):
             raise GameDataError('starrail_audio_plan_changed', 'The original audio inventory or cache changed. Check its size again.')
@@ -657,6 +682,9 @@ class StarRailProvider:
         return SnapshotSource(path, handle, SourceProof('official', handle['receipt_sha256'], True))
 
     def _snapshot_audio(self, ctx, handle, stamp, catalog, generation, packages, store):
+        if ctx.request.voice_choices is not None:
+            from .starrail_voice_choices import LOCALE_MESSAGE
+            raise GameDataError('starrail_voice_choice_locale_unproven', LOCALE_MESSAGE, 409)
         from . import starrail_game_snapshot as snapshot, starrail_game_bindings as bindings
         from . import starrail_game_audio as audio, starrail_events as events
         from .starrail_assets import index_text_catalog
@@ -718,6 +746,9 @@ class StarRailProvider:
         if (set(handle) != {'schema', 'request', 'receipt_sha256', 'snapshot_sha256', 'members_sha256'}
                 or handle['request'] != ctx.request.json() or ctx.request.content_mode != 'text-audio'):
             raise GameDataError('starrail_restore_changed', 'The original recordings do not match this request.')
+        if ctx.request.voice_choices is not None:
+            from .starrail_voice_choices import LOCALE_MESSAGE
+            raise GameDataError('starrail_voice_choice_locale_unproven', LOCALE_MESSAGE, 409)
         if self.platform == 'android' or not self._audio_runtime_available():
             raise GameDataError('starrail_audio_runtime_unavailable', 'The verified original audio reader is unavailable on this device.')
         paths = {'source-proof.json': (MAX_HANDLE_BYTES, handle['receipt_sha256']),

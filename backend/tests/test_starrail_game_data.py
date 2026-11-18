@@ -72,8 +72,8 @@ def finish(service):
     raise AssertionError('Stage did not finish')
 
 
-def start(service):
-    row = service.plan('starrail', REQUEST)['game']
+def start(service, request=REQUEST):
+    row = service.plan('starrail', request)['game']
     service.download('starrail', {'plan_id': row['plan_id'], 'revision': row['revision']})
     return row
 
@@ -197,7 +197,9 @@ def test_default_runtime_uses_verified_prebuilt_closure_without_sdk_or_cache_fal
     assert error.value.code == 'starrail_reader_unavailable' and 'private-resource-location' not in str(error.value)
 
 
-def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch):
+@pytest.mark.parametrize('voice_choices', [None, {'choice_set_sha256': 'a'*64, 'choices': [
+    {'group_key': 'starrail:copyright-avatar:7001', 'alternative': 'copyright-dub'}]}])
+def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_network(tmp_path, monkeypatch, voice_choices):
     """Only native/catalog format boundaries are authored fixture substitutes."""
     from types import SimpleNamespace
     from backend import starrail_native_preparation, starrail_original_provider
@@ -205,6 +207,9 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
     from backend.starrail_original_tables import OriginalTables
     from backend.tests.test_starrail_text_only import Catalog
     from backend.xxhash64 import xxhash64
+    from backend import starrail_voice_choices
+    monkeypatch.setattr(starrail_voice_choices, 'discover', lambda *a: pytest.fail('Text-only must not acquire voice-choice metadata'))
+    request = REQUEST | ({'voice_choices': voice_choices} if voice_choices else {})
     provider, _, objects, _, calls, _ = fixture(tmp_path, monkeypatch)
     state = {'metadata_ready': False}
     reader = SimpleNamespace(identity='b' * 64)
@@ -262,7 +267,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
     try:
         phases = []
         for number in range(6):
-            row = start(service); result = finish(service)
+            row = start(service, request); result = finish(service)
             phases.append(result['job']['status'])
             assert result['job']['status'] in {'needs_plan', 'complete'}
             if number == 2:
@@ -278,6 +283,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
         assert all(asset.url in calls for asset in assets.values())
         before = len(calls)
         source = service.restore('starrail')
+        assert source.restore_handle['request'] == request
         assert len(calls) == before and source.voice_source is None
         payload = json.loads(source.snapshot_path.read_bytes())
         assert payload['content_mode'] == 'text' and all(not row['audio'] for row in payload['records'])
@@ -287,7 +293,7 @@ def test_finite_text_stages_activate_real_shared_matcher_and_restore_without_net
         previous_sha = hashlib.sha256(source.snapshot_path.read_bytes()).hexdigest()
         next_provider, *_ = fixture(tmp_path, monkeypatch, generation=2)
         service.providers['starrail'] = next_provider
-        start(service)
+        start(service, request)
         assert finish(service)['job']['status'] == 'needs_plan'
         retained = service.restore('starrail')
         assert retained.snapshot_path == source.snapshot_path

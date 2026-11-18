@@ -445,6 +445,32 @@ their existing behavior. Service regressions preserve an activated text or audio
 source and its original bytes while opening zero assets for the blocked plan;
 the new plan's message is visible with the shared selection/readiness fix.
 
+The backend request contract now has optional, immutable `voice_choices`:
+an exact `choice_set_sha256` and canonically sorted explicit group/alternative
+selections. With no selection, serialization retains the original four fields
+exactly. Nonempty Star Rail selections are rejected for the other seven games,
+including stored-source restoration. Typed plan metadata can describe groups
+discovered by joining original AvatarCobrand and VoiceAtlas rows, resolving each
+declared copyright language through AllowedAudioLanguage. Defaults remain
+explicitly unknown, and a missing selection never becomes an on/off choice.
+Generation, schema, complete rows and group membership bind the choice-set hash;
+source drift, a new group or conflicting owners invalidate an old selection.
+
+This contract does not promote the private two-table research layouts into the
+ordinary source. The current automatic reader prepares 21 table descriptions;
+the additional AvatarCobrand/AllowedAudioLanguage loader remains required.
+A selected audio request therefore receives an explicit metadata-unavailable
+gate before publisher I/O. Where a trusted original reader does provide those
+tables, choices and selection provenance can be retained in the plan, but
+selected audio remains gated until its separate study, physical owner and
+actual spoken-locale binding is verified. Declared locale alternatives are
+metadata, not playable availability. Snapshot and restore reject unproved
+selected audio; the existing index and original-voice locale guards stay strict.
+Text-only requests can retain selection intent in their immutable request/source
+identity without consulting voice-choice tables or applying an audio override.
+Tests preserve an activated older text/audio source and its original bytes
+through blocked choice updates. No UI or vendor changes are included.
+
 A separate inventory covers every external VoiceConfig source exposed by the
 current supported English catalog, rather than only character-archive events.
 Of 94,962 distinct authored paths, 93,397 resolve uniquely in the complete

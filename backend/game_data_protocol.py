@@ -21,6 +21,10 @@ MAX_ASSET_BYTES = 256 * 1024**3
 MAX_SAFE_INTEGER = 2**53 - 1
 LOCALE = re.compile(r'[a-z]{2,3}(?:-[A-Za-z0-9]{2,8}){0,3}')
 SHA256 = re.compile(r'[0-9a-f]{64}')
+VOICE_GROUP = re.compile(r'starrail:copyright-avatar:([1-9][0-9]{0,9})')
+VOICE_ALTERNATIVES = frozenset({'selected-dub', 'copyright-dub'})
+REQUEST_REQUIRED = frozenset({'region', 'source_locale', 'target_locales', 'content_mode'})
+REQUEST_FIELDS = REQUEST_REQUIRED | {'voice_choices'}
 
 
 class GameDataError(Exception):
@@ -52,12 +56,82 @@ def private_handle(value):
     return json.loads(raw)
 
 
+def _voice_group(key):
+    match = VOICE_GROUP.fullmatch(key) if isinstance(key, str) else None
+    return bool(match and int(match[1]) < 2**32)
+
+
+@dataclass(frozen=True)
+class VoiceChoiceSelection:
+    """Only explicit user choices; no default or inferred selection."""
+    choice_set_sha256: str
+    choices: tuple[tuple[str, str], ...]
+
+    def __post_init__(self):
+        if (not isinstance(self.choice_set_sha256, str) or SHA256.fullmatch(self.choice_set_sha256) is None
+                or not isinstance(self.choices, (tuple, list)) or not 0 < len(self.choices) <= 256
+                or any(not isinstance(row, (tuple, list)) or len(row) != 2
+                       or not _voice_group(row[0]) or not isinstance(row[1], str) or row[1] not in VOICE_ALTERNATIVES for row in self.choices)
+                or len({row[0] for row in self.choices}) != len(self.choices)):
+            raise GameDataError('invalid_voice_choices', 'Choose each original voice variant once from the current choices.')
+        object.__setattr__(self, 'choices', tuple(sorted(tuple(row) for row in self.choices)))
+
+    @classmethod
+    def parse(cls, value):
+        if value is None:
+            return None
+        if (not isinstance(value, dict) or set(value) != {'choice_set_sha256', 'choices'}
+                or not isinstance(value['choice_set_sha256'], str) or SHA256.fullmatch(value['choice_set_sha256']) is None
+                or not isinstance(value['choices'], list) or len(value['choices']) > 256
+                or any(not isinstance(row, dict) or set(row) != {'group_key', 'alternative'} for row in value['choices'])):
+            raise GameDataError('invalid_voice_choices', 'Choose original voices from the current game choices.')
+        return cls(value['choice_set_sha256'], tuple((row['group_key'], row['alternative']) for row in value['choices'])) if value['choices'] else None
+
+    def json(self):
+        return {'choice_set_sha256': self.choice_set_sha256,
+                'choices': [{'group_key': key, 'alternative': alternative} for key, alternative in self.choices]}
+
+
+@dataclass(frozen=True)
+class VoiceChoiceSet:
+    """Public original-choice metadata, never proof of playable audio."""
+    choice_set_sha256: str
+    generation_sha256: str
+    schema_sha256: str
+    rows_sha256: str
+    groups: tuple[tuple[str, int, str, str], ...]
+
+    def __post_init__(self):
+        if (any(not isinstance(value, str) or SHA256.fullmatch(value) is None for value in
+                (self.choice_set_sha256, self.generation_sha256, self.schema_sha256, self.rows_sha256))
+                or not isinstance(self.groups, (tuple, list)) or not 0 < len(self.groups) <= 256
+                or any(not isinstance(row, (tuple, list)) or len(row) != 4 or not _voice_group(row[0])
+                       or type(row[1]) is not int or row[0] != f'starrail:copyright-avatar:{row[1]}'
+                       or not isinstance(row[2], str) or not isinstance(row[3], str)
+                       or row[2] not in {'en', 'ja', 'ko', 'zh-Hans'} or row[3] not in {'en', 'ja', 'ko', 'zh-Hans'}
+                       for row in self.groups)
+                or len({row[0] for row in self.groups}) != len(self.groups)):
+            raise GameDataError('invalid_voice_choice_metadata', 'The original voice choice metadata is unsupported.')
+        object.__setattr__(self, 'groups', tuple(sorted(tuple(row) for row in self.groups)))
+
+    def json(self):
+        return {'choice_set_sha256': self.choice_set_sha256, 'generation_sha256': self.generation_sha256,
+                'schema_sha256': self.schema_sha256, 'rows_sha256': self.rows_sha256,
+                'groups': [{'group_key': key, 'owner': {'kind': 'avatar', 'id': owner},
+                    'default_status': 'unknown', 'default_alternative': None,
+                    'alternatives': [{'alternative': alternative, 'declared_spoken_locale': locale,
+                                      'requires_authored_locale_receipt': True}
+                                     for alternative, locale in (('selected-dub', selected), ('copyright-dub', copyright))]}
+                           for key, owner, selected, copyright in self.groups]}
+
+
 @dataclass(frozen=True)
 class GameDataRequest:
     region: str
     source_locale: str
     target_locales: tuple[str, ...] = ()
     content_mode: str = 'text'
+    voice_choices: VoiceChoiceSelection | None = None
 
     def __post_init__(self):
         if (self.region not in {'global', 'cn'} or self.content_mode not in {'text', 'text-audio'} or not isinstance(self.source_locale, str)
@@ -66,16 +140,20 @@ class GameDataRequest:
                 or len(set(self.target_locales)) != len(self.target_locales)):
             raise GameDataError('invalid_game_languages', 'Choose a valid region and game languages.')
         object.__setattr__(self, 'target_locales', tuple(sorted(self.target_locales)))
+        if self.voice_choices is not None and not isinstance(self.voice_choices, VoiceChoiceSelection):
+            raise GameDataError('invalid_voice_choices', 'Choose original voices from the current game choices.')
 
     @classmethod
     def parse(cls, value):
-        if (not isinstance(value, dict) or set(value) != {'region', 'source_locale', 'target_locales', 'content_mode'}
+        if (not isinstance(value, dict) or not REQUEST_REQUIRED <= set(value) <= REQUEST_FIELDS
                 or not isinstance(value.get('target_locales'), list)):
             raise GameDataError('invalid_game_languages', 'Choose a region and game languages before checking the download.')
-        return cls(value['region'], value['source_locale'], tuple(value['target_locales']), value['content_mode'])
+        return cls(value['region'], value['source_locale'], tuple(value['target_locales']), value['content_mode'],
+                   VoiceChoiceSelection.parse(value.get('voice_choices')))
 
     def json(self):
-        return {'region': self.region, 'source_locale': self.source_locale, 'target_locales': list(self.target_locales), 'content_mode': self.content_mode}
+        return {'region': self.region, 'source_locale': self.source_locale, 'target_locales': list(self.target_locales), 'content_mode': self.content_mode,
+                **({'voice_choices': self.voice_choices.json()} if self.voice_choices is not None else {})}
 
 
 @dataclass(frozen=True)
@@ -112,6 +190,7 @@ class GameDataPlan:
     stage: str = 'content'
     message: str = ''
     source_proof: SourceProof | None = None
+    available_voice_choices: VoiceChoiceSet | None = None
 
     def __post_init__(self):
         if (not bounded_text(self.revision, 256) or not bounded_text(self.stage, 64)
@@ -121,6 +200,8 @@ class GameDataPlan:
                        for value in (self.download_bytes, self.required_disk_bytes))):
             raise GameDataError('invalid_download_plan', 'The game source did not provide a bounded download plan.')
         object.__setattr__(self, 'handle', private_handle(self.handle))
+        if self.available_voice_choices is not None and not isinstance(self.available_voice_choices, VoiceChoiceSet):
+            raise GameDataError('invalid_voice_choice_metadata', 'The original voice choices are unsupported.')
 
 
 class PreparationContext(Protocol):
