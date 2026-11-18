@@ -252,6 +252,10 @@ class GameDataService:
         stage = self._stage(root, game)
         return stage if stage and stage['request'] == request.json() else None
 
+    def _stage_handle(self, root, game, request):
+        stage = self._matching_stage(root, game, request)
+        return private_handle(stage['handle']) if stage else None
+
     def _validate_metadata(self, value, game):
         if (not isinstance(value, dict) or value.get('schema') != 'game-data-source-v1' or value.get('game') != game
                 or not isinstance(value.get('directory'), str) or len(value['directory']) != 64
