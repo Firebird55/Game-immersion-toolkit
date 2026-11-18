@@ -678,6 +678,21 @@ guard correction above. No additional callee, constructor or configuration
 merge order is inferred. The five equal Oversea CMS triplets remain insufficient
 until original dataflow proves that complete effective candidate set.
 
+The retained signed Global launcher configuration supplies `appConfig.area` and
+executable-path fields in `gameConfig`, but no startup-argument, `CustomConfig`
+or `GameArea` field. Neither existing BuildVersion descriptor supplies those
+selectors. Both name `X6Game-Win64-Shipping`, while the already parsed 507-file
+base manifest and the rechecked 188-file FastPatch manifest contain no matching
+executable or `.exe`/`.dll` file record. The manifests do expose
+`LaunchExeString` and `LaunchCommand`; both are empty in FastPatch and in the
+approved 4,096-byte base prefix. This check rereads only the 476,738-byte cached
+FastPatch metadata with full SHA-256 and that base prefix, acquiring zero network
+or native bytes. It identifies no actual Global startup/config-load producer,
+retained Global game-native owner or complete executable carrier/disk quote.
+Those sizes remain unknown, not zero. The Global launcher and CN/common native
+are separate sources; equality with a Global game-native module is not assumed.
+These empty fields do not justify a new executable-preparation implementation.
+
 The retained Global request builder now supplies its exact static signature
 dataflow: the settings object's `ClientKey` followed by the formatted timestamp
 feeds `UX6BlueprintLibrary.GetStringMD5`. Fixed query fields are `clientid`,
