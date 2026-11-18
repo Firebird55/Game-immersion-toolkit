@@ -1,4 +1,5 @@
 """The portable bootstrap stage must obey real transport and readiness fences."""
+import builtins
 from dataclasses import replace
 from email.message import Message
 import hashlib
@@ -111,6 +112,14 @@ def provider(objects, calls, platform='android', provider_type=game.ZzzGameDataP
 @pytest.mark.parametrize('region', ['global', 'cn'])
 def test_original_bootstrap_is_a_bounded_download_stage_and_never_ready(tmp_path, monkeypatch, region):
     objects, bodies, chunks, key = publisher(region)
+    original_import = builtins.__import__
+
+    def portable_import(name, *args, **kwargs):
+        if name.split('.')[0] in {'Crypto', 'brotli'}:
+            raise AssertionError('Original ZZZ bootstrap imported a desktop dependency')
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, '__import__', portable_import)
     calls = []
     reader = provider(objects, calls)
     request = GameDataRequest(region, 'ja', ('en',))
@@ -146,21 +155,15 @@ def test_original_bootstrap_is_a_bounded_download_stage_and_never_ready(tmp_path
     assert audio.revision == following.revision and audio.handle['request'] != following.handle['request']
 
 
-def test_missing_native_runtime_invalid_mode_and_cancel_do_not_open_body_connections(tmp_path, monkeypatch):
+def test_invalid_mode_and_cancel_do_not_open_body_connections(tmp_path):
     objects, _, _, _ = publisher('global')
     calls = []; reader = provider(objects, calls)
     request = GameDataRequest('global', 'en')
-    monkeypatch.setattr(game, '_runtime', lambda: False)
-    plan = reader.plan(request, Context(tmp_path, request))
-    assert not plan.runtime_available and plan.download_bytes > 0
-    before = len(calls)
-    with pytest.raises(GameDataError): reader.download(plan, Context(tmp_path, request, 'download', plan.download_bytes))
-    assert len(calls) == before
     cancelled = Context(tmp_path, request); cancelled.stopped = True
     with pytest.raises(GameDataError): reader.plan(request, cancelled)
     with pytest.raises(GameDataError):
         reader.plan(GameDataRequest('global', 'fr', content_mode='text-audio'), Context(tmp_path, request))
-    assert len(calls) == before
+    assert not calls
 
 
 def test_same_format_new_source_replans_and_failed_checksum_keeps_old_bootstrap(tmp_path):

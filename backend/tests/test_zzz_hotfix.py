@@ -11,6 +11,7 @@ from Crypto.PublicKey import RSA
 
 from backend import hoyo_publisher_voice as voice, language_worker, sophon_assets, zzz_assets, zzz_hotfix as live, zzz_publisher
 from backend.xxhash64 import xxhash64
+from backend.publisher_crypto import RsaPrivateNumbers
 from backend.voice_assets import voice_hash
 from backend.zzz_native_key_data import KeyCandidate
 
@@ -32,6 +33,10 @@ class Source:
 
 def encoded(value):
     return json.dumps(value, separators=(',', ':')).encode()
+
+
+def candidate(key, proof):
+    return KeyCandidate(RsaPrivateNumbers(key.n, key.e, key.d, key.p, key.q), proof)
 
 
 def inventory(rows):
@@ -69,7 +74,7 @@ def test_public_gateway_parameters_and_separate_revisions_are_source_driven(monk
                             for number in (1, 2)]}
     def settings(region, build=None):
         assert region == edition['region']
-        return values, (KeyCandidate(key, {'profile': 'owned-fixture'}),)
+        return values, (candidate(key, {'profile': 'owned-fixture'}),)
     monkeypatch.setattr(live, '_settings', settings)
     base = b'1000_abcdef'
     bodies = {name: (base if name == 'base' else b'owned fixture') for name in live.INDEXES}
@@ -144,12 +149,12 @@ def _official_protocol_values(key):
     return {'GameDispatchChannelName': 'OSPRODWin', 'ProtoDispatchKey': 'owned-fixture',
             'endpoints': ['https://globaldp-prod-os01.zenlesszonezero.com/query_dispatch'],
             'bootstrap_provenance': {'policy': 'official-current-client-data'},
-            'gateway_keys': (KeyCandidate(key, {'profile': 'owned-control'}),)}
+            'gateway_keys': (candidate(key, {'profile': 'owned-control'}),)}
 
 
 def test_original_ciphertext_selects_its_key_without_assuming_the_first_native_candidate():
     wrong, right = RSA.generate(1024), RSA.generate(1024)
-    candidates = (KeyCandidate(wrong, {'id': 'other-source'}), KeyCandidate(right, {'id': 'actual-source'}))
+    candidates = (candidate(wrong, {'id': 'other-source'}), candidate(right, {'id': 'actual-source'}))
     payload = {'retcode': 0, 'cdn_conf_ext': {}, 'client_secret_key': 'authored-control'}
     result, selected = live._gateway_reply(_owned_envelope(right, payload), candidates)
     assert result == payload and selected is candidates[1]

@@ -12,6 +12,16 @@ prepared-library/account modules. It includes matching, storage and prepared
 MP3/WAV playback; it does not package the ZZZ publisher preparation/export path.
 A desktop library import cannot satisfy the independent-download requirement.
 
+The original bootstrap path now reads the publisher's manifest, typed
+TextAssets and native key data without importing PyCryptodome or Brotli.
+It validates the bounded private-number structure in memory and records only
+source provenance. The desktop gateway still validates the key with its RSA
+backend before attempting a response decode. Both edition fixtures exercise
+the ordinary size quote, consented download and subsequent catalogue gate
+with desktop cryptography and compression imports denied. This removes a
+bootstrap dependency from the source path. APK registration, gateway
+execution and the full catalogue reader still require Android acceptance.
+
 The later PC provider now continues through five explicit source stages to a
 ready **text-only** library when its verified compiler-free Node reader is
 available. A current Global Japanese run retained 289,967 original records and

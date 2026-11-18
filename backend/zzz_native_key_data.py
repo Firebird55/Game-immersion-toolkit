@@ -13,6 +13,8 @@ import re
 import struct
 import xml.etree.ElementTree as ET
 
+from .publisher_crypto import RsaPrivateNumbers
+
 
 PROFILE = 'zzz-x64-rsa-xml-array-v1'
 MAX_SECTION = 256 * 1024**2
@@ -176,19 +178,15 @@ def _private_key(encoded, mask):
                 or values['DQ'] != values['D'] % (values['Q'] - 1)
                 or values['InverseQ'] != pow(values['Q'], -1, values['P'])):
             return None
-        from Crypto.PublicKey import RSA
-        key = RSA.construct((values['Modulus'], values['Exponent'], values['D'],
-                             *sorted((values['P'], values['Q']))), consistency_check=True)
-        if not 1024 <= key.size_in_bits() <= 4096:
-            return None
-        return key
+        return RsaPrivateNumbers(values['Modulus'], values['Exponent'], values['D'],
+                                 *sorted((values['P'], values['Q'])))
     except (ValueError, TypeError, ZeroDivisionError, ET.ParseError):
         return None
 
 
 @dataclass(frozen=True)
 class KeyCandidate:
-    key: object = field(repr=False, compare=False)
+    key: RsaPrivateNumbers = field(repr=False, compare=False)
     proof: dict
 
 
@@ -235,12 +233,11 @@ def candidates(data, plan, *, allow_empty=False):
                 key = _private_key(encoded, mask)
                 if key is None:
                     continue
-                identity = hashlib.sha256(key.export_key(format='DER')).hexdigest()
                 proof = {'profile': PROFILE, 'section': plan['name'],
                          'initializer_offset': plan['offset'] + match.start(),
                          'initializer_bytes': xor_end - match.start(), 'array_bytes': length,
                          'array_sha256': hashlib.sha256(encoded).hexdigest()}
-                result.setdefault(identity, KeyCandidate(key, proof))
+                result.setdefault(key, KeyCandidate(key, proof))
                 _check(len(result) <= MAX_CANDIDATES)
     _check(result or allow_empty)
     return tuple(result.values())
@@ -261,8 +258,7 @@ def read_candidates(plan, read):
         _check(isinstance(data, bytes) and len(data) == length)
         window = plan | {'offset': plan['offset'] + begin, 'bytes': length}
         for candidate in candidates(data, window, allow_empty=True):
-            identity = hashlib.sha256(candidate.key.export_key(format='DER')).hexdigest()
-            found.setdefault(identity, candidate)
+            found.setdefault(candidate.key, candidate)
             _check(len(found) <= MAX_CANDIDATES)
     _check(found)
     return tuple(found.values())

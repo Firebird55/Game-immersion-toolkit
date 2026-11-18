@@ -93,7 +93,7 @@ def test_distinct_candidates_are_preserved_for_response_join_and_identical_keys_
 def test_larger_original_rsa_key_uses_its_authored_array_length_and_parameters():
     key = RSA.generate(2048)
     candidate, = locate(image(initializer(key, 0x6a), rva=0x916000))
-    assert candidate.key.size_in_bits() == 2048 and candidate.key.n == key.n
+    assert candidate.key.n.bit_length() == 2048 and candidate.key.n == key.n
     assert candidate.proof['array_bytes'] > 1024
 
 

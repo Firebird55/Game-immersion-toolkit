@@ -97,17 +97,19 @@ def _gateway_reply(envelope, candidates):
     """Join official ciphertext to exactly one original native key candidate."""
     from .hoyo_dispatch_metadata import _json
     from Crypto.Cipher import PKCS1_v1_5
+    from Crypto.PublicKey import RSA
     check(isinstance(envelope, dict) and isinstance(envelope.get('content'), str)
           and isinstance(envelope.get('sign'), str))
     encrypted = base64.b64decode(envelope['content'], validate=True)
     check(0 < len(encrypted) <= 512 * 1024)
     results = []
     for candidate in candidates:
-        key = candidate.key
-        width = key.size_in_bytes()
+        numbers = candidate.key
+        width = (numbers.n.bit_length() + 7) // 8
         if len(encrypted) % width:
             continue
         try:
+            key = RSA.construct((numbers.n, numbers.e, numbers.d, numbers.p, numbers.q), consistency_check=True)
             cipher = PKCS1_v1_5.new(key)
             chunks = [cipher.decrypt(encrypted[pos:pos + width], b'')
                       for pos in range(0, len(encrypted), width)]
