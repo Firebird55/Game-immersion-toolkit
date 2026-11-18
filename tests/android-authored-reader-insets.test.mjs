@@ -1,9 +1,44 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {authoredReaderBounds,authoredInsetsMetrics,authoredNativeInsetsMetrics,authoredAnrEvents,verifyAuthoredReaderInsets} from '../scripts/android-authored-reader-insets.mjs';
+import {authoredReaderBounds,authoredInsetsMetrics,authoredNativeInsetsMetrics,authoredNativeReaderBounds,authoredAnrEvents,verifyAuthoredReaderInsets} from '../scripts/android-authored-reader-insets.mjs';
 
 const app = 'io.github.firebird55.gameimmersiontoolkit.debug';
 const xml = (rotation, bounds) => `<hierarchy rotation="${rotation}"><node package="${app}" class="android.webkit.WebView" bounds="${bounds}" /></hierarchy>`;
+const nativeSample = rotation => ({pid: 110, rotation, foreground: true, status_visible: true, navigation_visible: true,
+  window: rotation ? [0, 0, 2400, 1080] : [0, 0, 1080, 2400],
+  reader: rotation ? [0, 60, 2300, 1080] : [0, 60, 1080, 2300],
+  insets: rotation ? [0, 60, 100, 0] : [0, 60, 0, 100]});
+
+test('uses the attached foreground reader and fresh native safe bounds', () => {
+  const sample = nativeSample(0);
+  assert.deepEqual(authoredNativeReaderBounds(sample, '110', 0, 1080, 2400).reader, sample.reader);
+  assert.equal(authoredNativeReaderBounds(sample, '109', 0, 1080, 2400), null);
+  assert.equal(authoredNativeReaderBounds(sample, '110', 1, 1080, 2400), null);
+  assert.equal(authoredNativeReaderBounds({...sample, foreground: false}, '110', 0, 1080, 2400), null);
+  assert.equal(authoredNativeReaderBounds({...sample, navigation_visible: false}, '110', 0, 1080, 2400), null);
+  for (const reader of [[0, 12, 1080, 2300], [0, 60, 1080, 2310], [0, 60, 0, 2300]]) {
+    assert.throws(() => authoredNativeReaderBounds({...sample, reader}, '110', 0, 1080, 2400));
+  }
+});
+
+test('native rotation acceptance requires actual foreground samples for all three cases', async () => {
+  let rotation = 0;
+  const calls = [];
+  const adb = (...args) => {
+    calls.push(args.join(' '));
+    if (args.includes('wm')) return 'Physical size: 1080x2400';
+    if (args.includes('pidof')) return '110';
+    if (args.includes('get')) return '0';
+    if (args.includes('put') && args.includes('user_rotation')) rotation = Number(args.at(-1));
+    if (args.includes('run-as')) return JSON.stringify(nativeSample(rotation));
+    return '';
+  };
+  const result = await verifyAuthoredReaderInsets({adb, page: {evaluate: async () => true},
+    until: operation => operation(), packageName: app, nativeWindowEvidence: true});
+  assert.deepEqual(result.cases.map(value => value.rotation), [0, 1, 0]);
+  assert.ok(result.cases.every(value => value.evidence === 'focused-native-reader'));
+  assert.ok(calls.every(value => !value.includes('uiautomator')));
+});
 test('native insets proof rejects obscured, impossible or foreign reader bounds', () => {
   assert.deepEqual(authoredReaderBounds(xml(0, '[0,60][1080,2300]'), 1080, 2400, app).reader, [0, 60, 1080, 2300]);
   assert.deepEqual(authoredReaderBounds(xml(1, '[0,60][2300,1080]'), 1080, 2400, app).reader, [0, 60, 2300, 1080]);

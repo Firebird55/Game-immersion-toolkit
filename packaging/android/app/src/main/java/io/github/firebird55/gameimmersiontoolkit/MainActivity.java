@@ -27,6 +27,7 @@ public final class MainActivity extends Activity {
     private long lifecycleRevision;
     private String selfTestPhase = "created";
     private String selfTestRun;
+    private String lastInsetsEvidence;
     private final java.util.concurrent.ExecutorService worker = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
@@ -316,6 +317,9 @@ public final class MainActivity extends Activity {
             }
         });
         showInsetSurface(reader);
+        if (BuildConfig.DEBUG && getIntent().getBooleanExtra("toolkitInsetsEvidence", false)) {
+            reader.getViewTreeObserver().addOnGlobalLayoutListener(this::recordInsetsEvidence);
+        }
         CookieManager.getInstance().setCookie(origin, sessionCookie, accepted -> {
             if (reader != null && !isFinishing() && !isDestroyed()) reader.loadUrl(address);
         });
@@ -336,6 +340,51 @@ public final class MainActivity extends Activity {
         }
         setContentView(surface);
         surface.requestApplyInsets();
+    }
+
+    private void recordInsetsEvidence() {
+        if (!BuildConfig.DEBUG || !getIntent().getBooleanExtra("toolkitInsetsEvidence", false)
+                || android.os.Build.VERSION.SDK_INT < 30 || reader == null || !reader.isAttachedToWindow()
+                || worker.isShutdown()) return;
+        android.view.WindowInsets insets = getWindow().getDecorView().getRootWindowInsets();
+        if (insets == null || reader.getDisplay() == null) return;
+        android.graphics.Rect window = getWindowManager().getCurrentWindowMetrics().getBounds();
+        android.graphics.Insets safe = insets.getInsets(android.view.WindowInsets.Type.systemBars()
+                | android.view.WindowInsets.Type.displayCutout());
+        int[] position = new int[2];
+        reader.getLocationOnScreen(position);
+        try {
+            org.json.JSONObject proof = new org.json.JSONObject();
+            proof.put("pid", android.os.Process.myPid());
+            proof.put("rotation", reader.getDisplay().getRotation());
+            proof.put("foreground", foreground && hasWindowFocus() && reader.isShown());
+            proof.put("window", rect(window.left, window.top, window.right, window.bottom));
+            proof.put("reader", rect(position[0], position[1],
+                position[0] + reader.getWidth(), position[1] + reader.getHeight()));
+            proof.put("insets", rect(safe.left, safe.top, safe.right, safe.bottom));
+            proof.put("status_visible", insets.isVisible(android.view.WindowInsets.Type.statusBars()));
+            proof.put("navigation_visible", insets.isVisible(android.view.WindowInsets.Type.navigationBars()));
+            String sample = proof.toString();
+            if (sample.equals(lastInsetsEvidence)) return;
+            lastInsetsEvidence = sample;
+            worker.execute(() -> {
+                android.util.AtomicFile file = new android.util.AtomicFile(new File(getFilesDir(), "android-insets-evidence.json"));
+                FileOutputStream output = null;
+                try {
+                    output = file.startWrite();
+                    output.write(sample.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    file.finishWrite(output);
+                } catch (java.io.IOException error) {
+                    if (output != null) file.failWrite(output);
+                }
+            });
+        } catch (org.json.JSONException ignored) {
+            // The authored runner requires a complete sample for each rotation.
+        }
+    }
+
+    private static org.json.JSONArray rect(int a, int b, int c, int d) {
+        return new org.json.JSONArray().put(a).put(b).put(c).put(d);
     }
 
     @Override protected void onActivityResult(int request, int result, Intent intent) {
@@ -365,6 +414,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        recordInsetsEvidence();
         if (!hasFocus) {
             lifecycleRevision++;pauseReaderMedia();pauseCapture();
         } else resumeReader();
