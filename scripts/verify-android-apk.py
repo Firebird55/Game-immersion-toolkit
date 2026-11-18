@@ -401,6 +401,7 @@ def verify(path):
         'apk_bytes': Path(path).stat().st_size, 'abis': sorted(abis), 'native_files': result,
         'native_software_inventory':{key:value for key,value in inventory.items() if key!='files'},
         'core_sources': core, 'frontend_build_id': frontend['build_id'],
+        'frontend': {'source_commit': frontend['source_commit'], 'version': frontend['version']},
         'native_data_decoder': decoder, 'native_zstandard': zstandard, 'native_publisher_crypto': crypto,
         'native_publisher_hash':hashing,
         'genshin_profile_component':genshin_profile,
