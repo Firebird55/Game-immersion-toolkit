@@ -144,6 +144,28 @@ def test_new_normal_generation_comes_from_fresh_sdk_build_and_manifest_fields(tm
     assert isinstance(fixture.download(second),PreparationStage)
 
 
+def test_original_plain_build_json_needs_no_wrapper_parameter_or_native_decode(tmp_path,apk_fixture,monkeypatch):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch)
+    previous=fixture.source_stage()
+    fields={'DefaultVersion':fixture.version,'FastPatchVersion':fixture.patch,'Region':'1','Channel':'3','Role':'0'}
+    fixture.wrapped=json.dumps(fields).encode()
+    monkeypatch.setattr(native,'extract_wrapper_material',lambda *a,**kw:pytest.fail('A plain document must not acquire a wrapper key.'))
+    fixture.context('plan').stage_handle=previous
+    plan=fixture.provider.plan(fixture.request,fixture.ctx)
+    assert isinstance(fixture.download(plan),PreparationStage)
+
+
+@pytest.mark.parametrize('raw',[b'{"DefaultVersion":"3400","DefaultVersion":"3400","FastPatchVersion":"1"}',
+    b'{"DefaultVersion":"3400","FastPatchVersion":"1","extra":NaN}',
+    b'{"DefaultVersion":"3401","FastPatchVersion":"1"}',b'{"DefaultVersion":3400,"FastPatchVersion":"1"}',b'{"broken":'])
+def test_plain_build_ambiguity_invalid_json_or_pointer_mismatch_stops_before_manifest_quote(tmp_path,apk_fixture,monkeypatch,raw):
+    fixture=Fixture(tmp_path,apk_fixture,monkeypatch);previous=fixture.source_stage()
+    fixture.wrapped=raw
+    fixture.context('plan').stage_handle=previous
+    with pytest.raises(GameDataError):fixture.provider.plan(fixture.request,fixture.ctx)
+    assert fixture.body_urls==[] and not any('/PaperHttpChunkInstall.manifest' in url for url,_ in fixture.calls)
+
+
 @pytest.mark.parametrize('change',['download_bytes','required_disk_bytes','revision','artifact'])
 def test_modified_quote_or_source_fails_before_whole_manifest_transfer(tmp_path,apk_fixture,monkeypatch,change):
     fixture=Fixture(tmp_path,apk_fixture,monkeypatch)

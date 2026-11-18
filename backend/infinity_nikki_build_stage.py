@@ -94,6 +94,19 @@ def _pointer(packet):
 
 
 def _decode_build(raw,sdk_handle,crypto,ctx):
+    # BuildVersion is an original JSON document in the current Global response.
+    # Other original metadata uses _XYLUAP_; neither name nor directory implies
+    # that every document has that wrapper. Both paths remain source-bound.
+    _check(isinstance(raw,bytes) and 0<len(raw)<=native.MAX_WRAPPED)
+    if raw.lstrip().startswith(b'{'):
+        try:
+            value=json.loads(raw.decode('utf-8'),object_pairs_hook=release._unique_object,
+                parse_constant=lambda _: _check(False))
+            _check(isinstance(value,dict))
+            return value
+        except (UnicodeError,ValueError,RecursionError) as error:
+            raise GameDataError('publisher_source_unverified',
+                'Could not verify the current official Global build document.') from error
     sdk_receipt,_,_=sdk._retained(sdk_handle,ctx)
     native_receipt=_foundation()._retained(sdk_receipt['native_handle'],ctx)
     path=_foundation()._path(ctx,native_receipt['module_sha256']+'.so')

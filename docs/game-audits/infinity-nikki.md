@@ -722,9 +722,12 @@ response functions are also used by the retained legacy discovery entry point;
 the next ordinary continuation still has to wire these through context-owned
 transport. `infinity_nikki_build_stage.py` now supplies that ordinary continuation:
 it reconstructs the anonymous request from the verified PE, uses only
-context-owned POST/GET operations, follows the returned Global build pointer,
-and decodes the wrapper with material freshly derived from the retained,
-verified native source. It quotes both actual manifest sizes/strong ETags before
+context-owned POST/GET operations and follows the returned Global build pointer.
+The current original BuildVersion response is plain UTF-8 JSON; bounded unique
+fields, finite values and the source-owned version/path schema are checked.
+An actual wrapped response instead needs material freshly derived from the
+retained, verified native source. A directory name does not imply a wrapper.
+It quotes both actual manifest sizes/strong ETags before
 whole transfer. Complete local SHA-256, authored JSON/chunk/file ownership and
 final generation-prefix checks bind the retained base/FastPatch manifests.
 These local manifest hashes are not separately published publisher signatures.
