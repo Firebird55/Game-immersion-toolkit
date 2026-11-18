@@ -1018,6 +1018,100 @@ no source bytes and remain recorded as analysis-tool boundaries. No request
 header values are published, and no endpoint request, device/account data use
 or TLS/hostname/pinning change is introduced.
 
+A separate flag pass follows the actual detail route through the POST wrapper,
+its default-argument method, request-model construction and both original
+constructors. All four Boolean inputs are false at creation. The exact
+request getters used by the header callback read their corresponding stored
+fields and return false. This is proved parameter/field dataflow, not a
+Boolean default guessed from the anonymous endpoint name. The pass uses eight
+bodies / 302 instruction bytes and 11,403 metered metadata bytes, entirely
+from retained authenticated RAM. It does not alone establish the final
+anonymous request contract.
+
+The next phase closes the inspected default callback's optional-mutator
+assignment: the original registration wrapper passes exactly null. One
+two-byte operand in the previously checked callback also proves that its
+last Boolean argument to the header feature is false. That selects the
+ordinary SDK base-map branch. The SDK method constructs `time` and `nonce`
+entries using separate generators; their values and generator bodies are
+not read. The prefix-list-dependent parameter transformations in the
+feature's `w` method remain unresolved.
+
+The concrete header-finalization method `j` has a further source-owned
+boundary. For a nonempty header map it calls a map-to-byte helper and then
+`common.net.utils.NativeHttp.getSign(Context, byte[])`, storing the result in
+the `sign` header. Null results and failures retry up to three times before
+an exception; no unsigned fallback is inferred. Exact declaration metadata
+confirms that `getSign` is native with no DEX code body. The native library
+is not read or executed in this phase. This is a demonstrated native
+producer boundary, not proof that official derivation is impossible.
+
+The source-bound anonymous endpoint candidate is
+`https://api.taptapdada.com/apk/v1/detail`, with the already proved native APK
+identifier binding and a POST request model. Exact wire encoding,
+map-to-byte canonicalization, remaining header/transport producers,
+absent-login handling and the outer response envelope remain open before any
+live request. The later phase closes at four whole bodies plus the single
+two-byte operand: 372 instruction bytes, eight try-table bytes, three handler
+bytes and 5,939 metered metadata bytes. It uses zero cold source reads or
+origin bytes, follows no account/token/device contents, and introduces no
+endpoint request or preparation-ready claim.
+
+The next narrowly scoped pass reads only the native wrapper's 150-byte
+managed initializer. It supplies the exact `tap-net` library name to SoLoader
+and, on that loader's failure, to `System.loadLibrary`. Its environment
+selector is explicit and is not substituted with a guessed runtime value.
+The pass uses sixteen try-table bytes, five handler bytes and 1,441 metered
+metadata bytes from retained authenticated RAM, with no new cold or origin
+bytes and no native execution.
+
+The existing original APK directory has matching `libtap-net.so` members for
+both ARM64 and ARMv7. Rehashing the existing 526,981-byte manifest against its
+CMS-bound digest authenticates the two exact member-digest sections, 200
+bytes in total. The ABI members have distinct sizes/digests; equality between
+them is not assumed. At that metadata-quote checkpoint neither native payload
+had been acquired; neither a complete APK hash nor installation acceptance
+is asserted.
+
+The subsequent ARM64-only acquisition uses two strict same-owner/ETag range
+requests: 57 local-header/name bytes and 6,939 compressed bytes, with no
+extra field. Raw Deflate expands to exactly 17,768 bytes with strict EOF,
+and the whole member matches its original ZIP CRC and CMS-bound SHA-256.
+The ARMv7 payload is not acquired. Formal ELF metadata establishes an
+AArch64 ELF64 little-endian shared object with 24 sections, nine program
+headers and ten dynamic symbols. The 3,137-byte interpretation finds no
+exact short/long JNI `getSign` export, but does find an owned 248-byte
+`JNI_OnLoad` function; no native code is interpreted in this inventory pass.
+
+Only that 248-byte registration function is then statically decoded. Its
+PC-relative class/table references and 479 original relocation/class/method
+metadata bytes prove a four-row `RegisterNatives` table. The exact
+`NativeHttp.getSign(Context, byte[]) -> String` row identifies its original
+implementation address. JNI slots and structure layout are checked against
+the existing primary NDK headers. No generic string/key search or native
+execution is used. A separate 222-byte unwind-header pass proves the
+implementation's own 284-byte extent; a neighbouring exported function is
+not used to guess its end.
+
+The exact 284-byte implementation is then decoded as data only. It passes
+the supplied Java `Context` to two helpers and checks cached results before
+the direct byte-array helper. The returned buffer goes through the typed
+JNI `NewStringUTF` slot. No context/account/device values, comparison
+literals, helper bodies or signature algorithm are read in this pass.
+Three actually called PLT stubs, 48 code bytes and 283 formal
+relocation/symbol/name bytes, identify only `malloc`, `strcmp` and `free`;
+no C-library implementation is followed. Another 290-byte unwind-header pass
+quotes the three positive helper extents as 616, 216 and 388 bytes. All three
+bodies remain unread at this checkpoint.
+
+This closes the original signing-function owner chain, not the signer or
+the anonymous wire contract. Java-context dependence in this source does not
+establish a requirement for a real device, account or game installation.
+Portable derivation, the context-helper semantics, request/header
+canonicalization, other transport interceptors, absent-login handling and
+the response envelope still require proof. No live endpoint is requested,
+no unsigned fallback is enabled and no preparation-ready state is introduced.
+
 ### Community key candidate: research only
 
 The original author repository
