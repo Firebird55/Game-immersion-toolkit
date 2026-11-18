@@ -1085,3 +1085,7 @@ select runtime behavior. A separate direct prefix shows ELF-header-shaped
 inspection, without establishing the UnityFS header producer or key contract.
 The route stops at that unowned indirect handoff and does not admit a canonical
 capture library, `SnapshotSource` or Ready state.
+The separately checked `libtprt.so` dependency has no matching name in its
+complete 195-record dynamic symbol table. That specific provider hypothesis
+is negative; no other module or function body is searched, and the actual
+callback/state/header ownership remains unresolved.

@@ -919,6 +919,29 @@ and local SHA-256 do not supply either claim. No header key, canonical library,
 `SnapshotSource` or Ready state is accepted. Canonical graph/UI/media and
 independent host admission remain open.
 
+One subsequent dependency hypothesis is checked against the same official
+mainland APK: its directory owns `lib/arm64-v8a/libtprt.so`, matching the Unity
+member's declared dependency name. The exact 54-byte local header/name has no
+extra bytes and agrees with the directory. An owner/ETag-pinned range streams
+953,755 compressed bytes into exactly 1,879,688 bytes, passing full Deflate EOF
+and original CRC `8b192174`. Source checks before/after add 444 bytes; total
+response bodies are **954,253 bytes**. Only the decoded member is retained,
+within 2 MiB, with a local SHA-256 receipt. There is no native execution,
+compressed copy, other-member acquisition or stronger APK-authenticity claim.
+
+Its ELF64/AArch64 header, program/section/name tables and matching dynamic
+owner consume 3,144 local metadata bytes. A separately bounded **6,784-byte**
+symbol/name/hash-header probe checks the original loader declarations, linked
+string table and 24-byte symbol records. Here the section count and SysV
+`nchain` both equal 195, and the GNU hash header stays within its declared
+owner. The exact weak name `xxxxXXXXxxxx` is absent from all 195 records.
+No provider is accepted from this dependency, and no function body, unwind
+table or other module is searched to bypass that negative result. This rules
+out the specific declared-export hypothesis in this retained member, without
+proving absence of a runtime provider elsewhere or resolving the original
+Unity member's extra-symbol/count qualification. The callback/state/header
+handoff and canonical admission gates above remain open.
+
 ## Android portability audit
 
 The first `endfield_game_data.create_provider` integration is a bounded client-
