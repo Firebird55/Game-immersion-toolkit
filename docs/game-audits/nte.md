@@ -44,6 +44,15 @@ or interrupted receipts cannot become a provisional source. Modeled service and
 restore tests cover all five existing study locales; real source normalization
 here is specifically Japanese with a Chinese target.
 
+The final coherent retained-source service replay also passed actual recovery:
+a publisher-pointer change during final normalization prevented activation,
+and interruption before writing the snapshot receipt kept the complete previous
+source byte-identical. Healthy retry reproduced the exact new immutable source.
+A fresh provider restored it with desktop/native/key/current-discovery modules
+blocked. This is offline source restoration, not Android device execution or
+independent Android preparation. The complete replay used zero new original or
+network bytes and no BNK/WEM member reads.
+
 This completes the measured Text-only source path, not the separate shared-service
 Text + audio acquisition path, mainland bootstrap integration, Android native
 reader, unknown future archive/localization-key rotations or changed unsupported

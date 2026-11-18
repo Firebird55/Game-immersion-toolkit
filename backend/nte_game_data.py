@@ -1,7 +1,8 @@
-"""Context-owned original NTE bootstrap; never mistake it for a ready library.
+"""Context-owned original NTE downloads and verified offline text sources.
 
-The following content stage still needs an explicit owned-reader adapter and a
-bounded archive plan. No downloaded game/SDK code is executed by this provider.
+Bootstrap, archive and native processing are explicit preparation stages.
+Text + audio and non-Windows native reading retain their separate gates.
+No downloaded game/SDK code is executed by this provider.
 """
 from pathlib import Path
 
