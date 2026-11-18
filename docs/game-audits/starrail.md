@@ -539,7 +539,8 @@ an account or changed, no original code is executed, and no switch value is
 assumed. This establishes an explicit archive variant dependency, not a blanket
 Japanese fallback, an archive media binding, or the Fate story playback rule.
 The subsequent exact AvatarVoiceArchiveEntry.PostVoice body adds 873 original
-bytes: nonempty VoiceAtlas.AudioEvent goes to the event player, whereas the
+bytes: nonempty VoiceAtlas.AudioEvent goes to AudioManager._PostAfterBankPrepared,
+with a null external-source array and no explicit language parameter, whereas the
 AudioID branch passes GetWwiseAudioLanguageKey as AudioManager.PostVoice's final
 argument. The table adapter now preserves this event-first precedence even if
 a future row supplies both fields; an unused AudioID with NoVoice cannot turn
@@ -565,6 +566,31 @@ chain does not establish the Fate story playback rule. Production selection
 must preserve the user's explicit copyright variant and separate study/audio
 languages; the unresolved preference details and package availability remain
 explicit. No rule for Fate story playback is derived from this archive route.
+
+A separate 920-byte static pass proves the original state-output edge. The
+566-byte ArchiveModule._InitCobrandAvatarAudioState enumerates the typed
+AvatarCobrand table, uses each row's ID to obtain its AvatarArchiveEntry and
+calls the previously read IsUseCopyrightVoice predicate. A true result selects
+OnStateName, a false result OffStateName; both pass that same row's StateGroupName
+into the exact 354-byte AudioManager.SetState(string, string) wrapper. The
+wrapper hashes both strings through WwiseUtilities.GetIDFromString and passes
+the hashes to the declared WwiseUtilities.SetState(uint, uint). Its separate
+bank-dependency calls are retained as unexamined edges. No utility or bank-manager
+body is followed. Both complete unwind regions and the whole original DLL MD5
+are checked before reading; no original code or setter is executed.
+
+Neither body reads AvatarCobrand.AudioLanguage or calls a language-selection
+method. This proves which explicit state reaches the typed Wwise wrapper, not
+the event recording's spoken language. A localized PCK/BKHD language describes
+its owner and cannot independently certify the speech language of a copyright
+branch. The archive event call's null external-source array and absent explicit
+language also do not establish a Japanese override. The 143 event choices remain
+distinct from the 1,565 unresolved English external paths; neither is removed or
+reclassified by this state-output proof. A future per-row locale context must
+bind the explicit selection, original rows/native playback description, exact
+state/child/media and physical owner separately from study and spoken locales.
+Stored JSON alone cannot authorize that context. Existing locale guards and
+the selected-audio gate remain unchanged.
 
 The two previously uncached Japanese hotfix directories were then acquired as
 an explicitly separate metadata intake on frozen source `40419611`. Fresh
