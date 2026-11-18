@@ -25,15 +25,15 @@
         "reader": "A browser can connect to a desktop host."
       },
       "Android": {
-        "preparation": "Planned shared-core app. Installable app and device acceptance are pending.",
-        "playback": "Independent playback on the device awaits acceptance.",
-        "gameCapture": "Planned receiver for an explicitly started iPhone/iPad screen share. Capturing an Android game needs separate acceptance.",
-        "reader": "A browser can read a desktop transcript. The independent Android transcript host is planned."
+        "preparation": "Global Zenless Zone Zero in the Android prerelease, with direct official publisher preparation.",
+        "playback": "Downloaded original ZZZ voices play locally in the prerelease. Physical gameplay validation is pending.",
+        "gameCapture": "Receives an explicitly started iPhone/iPad screen share through VDO.Ninja.",
+        "reader": "Independent Android transcript and reading panel for Global ZZZ."
       },
       "iOS and iPadOS": {
         "preparation": "Standalone toolkit processing is unsupported.",
         "playback": "The desktop-connected reader can play matched audio from the host.",
-        "gameCapture": "Game device and explicit screen sender for the planned Android receiver.",
+        "gameCapture": "Game device and explicit screen sender for the Android prerelease receiver.",
         "reader": "Desktop-connected transcript panel."
       }
     },
