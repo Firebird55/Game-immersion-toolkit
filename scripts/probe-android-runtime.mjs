@@ -1,6 +1,7 @@
 import {assertNativeZstandard} from './android-zstandard-proof.mjs';
 import {assertNativePublisherCrypto} from './android-publisher-crypto-proof.mjs';
 import {assertNativeWuwaBootstrap} from './android-wuwa-bootstrap-proof.mjs';
+import {waitForOwnedOriginalAudio} from './android-original-audio-readiness.mjs';
 // Authored fixtures only. The APK runs the production shared Python core and UI.
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -179,9 +180,11 @@ await page.evaluate(async generation => {
 const screenLink = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
 await until(() => screenLink.isEnabled(), 'actual native receiver after direct preparation');
 await screenLink.fill('https://vdo.ninja/?view=authored');
-const snapshot = await until(() => page.evaluate(async () => {
-  const value = await (await fetch('/api/snapshot')).json();return value.lines.length ? value : null;
-}), 'native frame OCR into the actual reader transcript');
+const snapshot = await waitForOwnedOriginalAudio(() => page.evaluate(async () =>
+  (await fetch('/api/snapshot')).json()), until, {
+  accountGeneration:fixtureAccountGeneration,
+  report:value => writeFileSync(join(output,'android-original-audio-readiness.json'),JSON.stringify(value,null,2)+'\n'),
+});
 assert.equal(snapshot.lines[0].text_id, 'authored:bridge');
 assert.equal(snapshot.lines[0].has_audio, true);
 assert.equal(snapshot.status.capture.running, true);
