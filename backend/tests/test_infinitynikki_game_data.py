@@ -29,7 +29,7 @@ def apk_fixture():
 
 
 class Fixture:
-    def __init__(self, tmp_path, apk_fixture, *, mode='text', bad_native=False):
+    def __init__(self, tmp_path, apk_fixture, *, mode='text', bad_native=False, region='cn'):
         self.root = tmp_path
         native, _ = native_fixture(failure='unbound-producer' if bad_native else None)
         self.native = native
@@ -42,7 +42,7 @@ class Fixture:
         self.home = ('<script id="__NEXT_DATA__" type="application/json">' + json.dumps(page) + '</script>').encode()
         self.calls, self.kinds = [], []
         self.fail, self.corrupt, self.cancel_whole = False, False, False
-        self.request = GameDataRequest('global', 'en', ('ja',), mode)
+        self.request = GameDataRequest(region, 'en', ('ja',), mode)
         self.service = GameDataService(tmp_path, {})
         self.ctx = self.context('plan')
         self.provider = source.create_provider('windows', transport_factory=self.transport)
@@ -131,7 +131,7 @@ def test_stale_or_modified_consent_stops_before_whole_transfer(tmp_path, apk_fix
     fixture = Fixture(tmp_path, apk_fixture)
     plan = fixture.provider.plan(fixture.request, fixture.ctx)
     if change == 'request':
-        fixture.request = GameDataRequest('global', 'en', ('ja',), 'text-audio')
+        fixture.request = GameDataRequest('cn', 'en', ('ja',), 'text-audio')
     elif change == 'artifact':
         path = source._path(fixture.ctx, plan.handle['receipt_sha256'] + '.json')
         path.write_bytes(path.read_bytes() + b' ')
@@ -252,6 +252,6 @@ def test_bootstrap_handles_cannot_be_reused_for_other_locales_or_corrupt_native(
     module.write_bytes(b'corrupt' * 100)
     with pytest.raises(GameDataError):
         fixture.provider.restore(result.restore_handle, fixture.context('restore'))
-    fixture.request = GameDataRequest('global', 'ja', ('en',), 'text')
+    fixture.request = GameDataRequest('cn', 'ja', ('en',), 'text')
     with pytest.raises(GameDataError):
         fixture.provider.restore(result.restore_handle, fixture.context('restore'))

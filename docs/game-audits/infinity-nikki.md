@@ -1012,6 +1012,52 @@ The PAK reader now accepts the same explicit platform cryptography object;
 desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
 from stored-size width. This removes that import barrier without proving an
 Android device runtime or admitting a nonzero-GUID archive.
+
+### Cold Global planning through the game-data manager
+
+A new Global request starts with the current Global launcher and the complete
+selected PE's Windows offline Authenticode result. The verified launcher
+supplies the anonymous SDK request and the Global BuildVersion pointer. The
+previously observed original Global BuildVersion was plain UTF-8 JSON and its
+version, path and manifest selection can be checked without a mainland APK.
+The game-data manager now takes that same native-free path through manifest and
+configuration carrier verification. A host without the required signature
+runtime cannot quote a fresh Global download.
+
+Framed wrapped build metadata and verified zero-GUID PAK encryption each
+report their native-source requirement at the dependent stage. Plaintext PAK
+indices and selected plaintext members require no material. A nonzero GUID
+still requires its own current keychain. Historical Global receipts with an
+explicit mainland native parent still revalidate that exact parent before
+continuing, and the archive checks still establish compatibility per resource.
+The fresh Global path stops if it needs a native owner it has yet to accept.
+
+Authored fixtures exercised the normal registry and game-data manager across
+temporary SDK failure, corrupt manifest transfer, a newer manifest generation,
+and reopening retained progress offline. Those checks used no original
+publisher transfer. They establish staging as far as verified source metadata,
+with original dialogue capture and all dubs still unprepared.
+
+On November 18, an empty Windows game-data directory at source commit
+`dee4d21c` replayed the previously archived Global generation `2872.24` through
+the production registry and game-data manager. Windows reran offline Authenticode
+on the selected launcher PE. The archived anonymous SDK reply and plain
+BuildVersion selected both whole Global manifests, which then selected one
+configuration carrier. All five `Default_Ini_2872_P` files passed the original
+manifest SHA-1 checks. The replay used 51,619,018 distinct retained input bytes
+and reached an observed peak of 54,881,299 additional disk bytes in 29.391
+seconds. It transferred zero bytes over the network, used no mainland native
+input and left the archived inputs unchanged.
+
+The launcher ETag was explicitly authored for offline replay. Manifest checks
+reused recorded prefixes and original validators. The carrier checks used its
+original validator and the prefix of the archived whole carrier. This validates
+the cold route through file integrity for the archived generation. After an
+offline reopen, the verified configuration PAK's encrypted zero-GUID index
+triggered the native-owner requirement. The manager kept the
+verified configuration stage without selecting a profile, contacting CMS or
+preparing a language library.
+
 Separately bounded native work selects two executable candidates with apparent
 creation/group argument flows. Their actual branch edges and selected helper
 algorithm are observed, but the names' typed registration and class ownership
@@ -1107,9 +1153,10 @@ Sounds with no on-screen subtitle do not block subtitle coverage.
    the original native wrapper owner/decoder is now evidenced, and its
    address-independent reader has passed original-source replay. Independent
    mainland SDK acquisition and downstream current resource inventories remain
-   open. Automatic native-owner acquisition now has a canonical quoted stage;
-   a fresh end-to-end original-source run and actual Android runtime/device
-   acceptance remain open.
+   open. The independent mainland carrier has a canonical quoted stage. Cold
+   Global planning reaches its plain manifest path first. A fresh compatible
+   Global native continuation, end-to-end original-source run and actual
+   Android runtime/device acceptance remain open.
 2. Implement bounded manifest-based text-only versus text-plus-audio selection,
    size planning and download/deletion through the shared game-data manager on PC
    and fully independent Android. Preserve history, recordings and user settings

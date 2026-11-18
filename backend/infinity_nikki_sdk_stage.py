@@ -93,7 +93,9 @@ def _verify(path):
 def _parent(artifact, ctx):
     _check(ctx.request.region == 'global' and artifact.get('policy') == POLICY and
            artifact.get('request') == ctx.request.json())
-    native = artifact.get('native_handle')
+    native = artifact['native_handle']
+    if native is None:
+        return
     _foundation()._handle(native, ctx.request)
     _check(native['stage'] == 'content-reader')
     return _foundation()._retained(native, ctx)
@@ -170,18 +172,24 @@ def _retained(handle, ctx):
 
 def plan(provider, previous, ctx):
     ctx.check()
-    if previous['stage'] == 'global-sdk-source':
+    stage = previous['stage'] if previous is not None else None
+    if stage == 'global-sdk-source':
         from . import infinity_nikki_build_stage
         return infinity_nikki_build_stage.plan(provider, previous, ctx)
-    if previous['stage'] == 'global-launcher-bootstrap':
+    if stage == 'global-launcher-bootstrap':
         prior = _read(ctx, previous['receipt_sha256'])
         _selection(prior, ctx)
         previous = prior['native_handle']
-    _check(previous['stage'] == 'content-reader')
-    _foundation()._retained(previous, ctx)
+    if previous is not None:
+        _check(previous['stage'] == 'content-reader')
+        _foundation()._retained(previous, ctx)
     if ctx.request.region != 'global':
+        _check(previous is not None)
         return GameDataPlan('mainland-sdk-reader', 0, 0, previous, stage='content-reader',
             message='Independent current mainland metadata selection still requires verification. Existing data is retained.')
+    if previous is None and not _runtime(provider.platform):
+        return GameDataPlan('global-launcher-verification', None, None, {},
+            stage='global-launcher-bootstrap', message=SIGNATURE_GATE)
     transport = provider.transport_factory(ctx, hosts={'infinitynikki.infoldgames.com', release.REGIONS['global'][1]})
     raw, _ = transport.fetch_bytes(release.REGIONS['global'][0], limit=release.MAX_PAGE, kind='metadata')
     url = release.parse_launcher_link(raw, 'global')
