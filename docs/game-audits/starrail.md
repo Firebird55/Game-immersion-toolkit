@@ -898,9 +898,29 @@ remain unproved. The probe read zero default value bytes. Both generations
 passed whole-input hash and before and after identity checks, and both
 preserved the earlier strict UTF-8 failure.
 
-Field default ownership and the required native-index projection remain open.
-The Android provider gate continues to require that projection and device
-evidence.
+The follow-up kept the same samples and raised the selected definition limit
+to 64. Both generations completed all 16 runtime root names. Global 4.6
+reproduced its 19-definition projection. Global 4.7 completed across 36
+definitions, 19 runtime nodes and 15 nested references. The runtime node,
+nesting depth and generic argument limits remained in effect.
+
+The complete default-record windows contain 280,145 rows in Global 4.6 and
+290,284 in Global 4.7. Both begin at the header's `FieldDefaultValuesOffset`
+and end immediately before `IdxTableBaseOffset`. Each 12-byte row fits the
+registered runtime type and default data bounds, with strictly increasing
+field IDs. In each generation the first 12 bytes of the next table satisfy
+the field-offset index role and would terminate the pinned default loop on its
+runtime type check. The probes treated those bytes as an index-table witness
+and read zero default values. [Pinned default scan](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/MetadataCache.cs#L37-L50)
+· [Pinned field-offset lookup](https://github.com/im-remi/HSRGlobalMetadata/blob/bb66f7c59d73cadcd026d817a011598ea23c5313/HSRGlobalMetadata/Structs/Definitions/Il2CppTypeDefinition.cs#L89-L94)
+
+The remaining ownership gap is the field target. The portable field window
+ends at `AssemblyRelatedStuffOffset`, an unused header slot in the pinned
+source. In Global 4.6 and 4.7, 98,481 and 101,489 default rows respectively
+refer to field IDs beyond that cutoff. The assembly slot's coordinate still
+needs independent evidence before those field references can be accepted.
+The Android provider gate continues to require the native-index projection
+and device evidence.
 
 ## Original hotfix discovery prototype · November 16, 2026
 
