@@ -14,8 +14,8 @@ import './android-receiver.css';
 type ReceiverState = {status: string; message: string; active: boolean; paused?: boolean;
  width?: number; height?: number; acceptedFrames?: number};
 
-export function AndroidReceiver({online, libraryReady, capabilities, onChanged}: {
- online: boolean; libraryReady: boolean; capabilities: NativeCapabilities | null; onChanged: () => void;
+export function AndroidReceiver({online, libraryReady, libraryRevision, capabilities, onChanged}: {
+ online: boolean; libraryReady: boolean; libraryRevision: string | null; capabilities: NativeCapabilities | null; onChanged: () => void;
 }) {
  const accountGeneration = useNativeAccountGeneration();
  const viewer = useRef<HTMLDivElement>(null);
@@ -24,6 +24,7 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
  const privateLink = useRef('');
  const changed = useRef(onChanged); changed.current = onChanged;
  const enabled = useRef(false);
+ const previousLibrary = useRef(libraryRevision);
  const documentEpoch = useRef<string | null>(null);
  const [link, setLink] = useState(''), [ready, setReady] = useState(false);
  const [instructions, setInstructions] = useState(false);
@@ -32,6 +33,12 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
  const maximum = capabilities?.max_frame_bytes ?? 10 * 1024 ** 2;
 
  useEffect(() => {
+  if (previousLibrary.current !== libraryRevision) {
+   // Carry a draft into the first preparation. An existing library's source
+   // still retires immediately when that library is replaced or removed.
+   if (previousLibrary.current !== null) {privateLink.current = ''; setLink('');}
+   previousLibrary.current = libraryRevision;
+  }
   if (!supported || !viewer.current || accountGeneration === null) return;
   // Never adopt a later platform/snapshot nonce in an old document.
   if (documentEpoch.current === null)
@@ -74,16 +81,16 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
    document.removeEventListener('visibilitychange', visibility);
    window.removeEventListener('pagehide', pause);
   };
- }, [supported, maximum, accountGeneration]);
+ }, [supported, maximum, accountGeneration, libraryRevision]);
 
  enabled.current = ready && online && libraryReady;
- useEffect(() => {pasted.current?.replace(privateLink.current, {enabled: enabled.current && !document.hidden});}, [ready, online, libraryReady]);
+ useEffect(() => {pasted.current?.replace(privateLink.current, {enabled: enabled.current && !document.hidden});}, [ready, online, libraryReady, libraryRevision]);
 
- return <section className="android-screen-card game-start-card" aria-label="Receive game screen">
+ return <section className="android-screen-card game-start-card" aria-label="Receive game screen"
+  data-capture-ready={supported && enabled.current}>
   <h2>Game screen</h2>
-  <label className="sr-only" htmlFor="android-screen-link">Paste vdo.ninja link to start</label>
-  <input id="android-screen-link" type="password" value={link} placeholder="Paste vdo.ninja link to start"
-   disabled={!supported || !ready || !online || !libraryReady}
+  <label className="sr-only" htmlFor="android-screen-link">VDO.Ninja link or stream code</label>
+  <input id="android-screen-link" type="password" value={link} placeholder="VDO.Ninja link or stream code"
    onChange={event => {const value = event.target.value; privateLink.current = value; setLink(value);
     pasted.current?.replace(value, {enabled: enabled.current && !document.hidden});}}
    autoComplete="off" autoCapitalize="none" spellCheck={false} inputMode="url" maxLength={4096} />
@@ -91,12 +98,13 @@ export function AndroidReceiver({online, libraryReady, capabilities, onChanged}:
    <Button variant="outline" onClick={() => setInstructions(true)}>Instructions</Button>
   </div>
   <p role="status">{!supported ? 'Screen reception is unavailable in this app build.'
-   : !libraryReady ? 'Download this game’s data in Settings to start.' : link.trim() ? state.message : ''}</p>
+   : !libraryReady ? 'Finish preparing this game’s data in Settings to connect the stream.'
+   : !online ? 'Waiting for the app to reconnect.' : link.trim() || state.status === 'error' ? state.message : ''}</p>
   <div ref={viewer} className="android-screen-viewer" hidden={!state.active}
    style={{aspectRatio: state.width && state.height ? `${state.width}/${state.height}` : '16/9'}} />
   <Dialog open={instructions} onOpenChange={setInstructions}><DialogContent><DialogHeader>
    <DialogTitle>Game screen instructions</DialogTitle>
-   <DialogDescription>Start screen broadcasting in VDO.Ninja on your game device, then paste its viewer link here. Keep the broadcast running while you read. Clear the link to disconnect.</DialogDescription>
+   <DialogDescription>Start screen broadcasting in VDO.Ninja on your game device. Paste its viewer link or enter its stream code, for example iphone. Keep the broadcast running while you read. Clear the field to disconnect.</DialogDescription>
   </DialogHeader></DialogContent></Dialog>
  </section>;
 }

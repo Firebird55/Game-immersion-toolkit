@@ -223,10 +223,16 @@ class ZzzGameDataProvider:
                     ctx.check()
                     return GameDataPlan(handle['revision'], None, None, handle=handle, runtime_available=False,
                         stage='catalogue-runtime',
-                        message='Current ZZZ update metadata verified. Dialogue preparation still needs a supported reader.')
+                        message='The verified ZZZ dialogue reader is unavailable on this device. '
+                                'On Android, use the Android release with ZZZ support.')
                 ctx.check()
+                if self.platform == 'android':
+                    message = ('Dialogue preparation could not start because the Android ZZZ source verification '
+                               'runtime is unavailable. Use the Android release with ZZZ support.')
+                else:
+                    message = 'Dialogue preparation requires the verified ZZZ reader. Repair the app installation.'
                 return GameDataPlan(revision, None, None, handle=handle, runtime_available=False,
-                    stage='catalogue-runtime', message='Official ZZZ bootstrap verified. Dialogue preparation is not available on this device yet.')
+                    stage='catalogue-runtime', message=message)
             _, _, native = bootstrap.native_source_plan(build, cache, fetch=fetch)
             containers, network, disk = _quote(files, native, cache)
             handle['containers'], handle['native_source'] = containers, native
@@ -283,8 +289,10 @@ class ZzzGameDataProvider:
                       'build': build, 'bootstrap_proof': proof}
             # Only inert source identity/provenance is persisted; no RSA object,
             # plaintext XML, decoded seed/config, callable or host path escapes.
-            return _record_stage(ctx, result,
-                'Original ZZZ bootstrap verified. Dialogue preparation still needs a supported reader.')
+            message = 'Initial ZZZ files verified. Check the download size again to continue preparing dialogue.'
+            if ctx.request.content_mode == 'text-audio':
+                message += ' Audio size is estimated in a later step.'
+            return _record_stage(ctx, result, message)
 
     def restore(self, handle, ctx):
         ctx.check()

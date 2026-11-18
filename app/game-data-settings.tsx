@@ -102,6 +102,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
 
  const selection = {region, source_locale: source, target_locales: targets, content_mode: contentMode};
  const busy = pending || row?.state === 'downloading' || row?.state === 'planning';
+ const needsNextQuote = row?.job?.status === 'needs_plan';
  return <>
   <Button variant="outline" onClick={() => setOpen(true)}>{buttonLabel}</Button>
   <Dialog open={open} onOpenChange={setOpen}><DialogContent className="setup-dialog game-data-settings"><DialogHeader>
@@ -123,8 +124,9 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    </label>)}</fieldset>
    <dl><dt>Downloaded data</dt><dd>{formatGameBytes(row.installed_bytes)}</dd>
     {row.installed_request && <><dt>Downloaded contents</dt><dd>{row.installed_request.content_mode === 'text-audio' ? 'Text + audio' : 'Text only'} · {languageName(row.installed_request.source_locale, 'en')}</dd></>}
-    <dt>{row.download_is_upper_bound ? 'Download size, up to' : 'Download size'}</dt><dd>{formatGameBytes(row.download_bytes)}</dd>
-    <dt>Additional storage needed</dt><dd>{formatGameBytes(row.required_disk_bytes)}</dd>
+    <dt>{row.download_is_upper_bound && !needsNextQuote ? 'Download size, up to' : 'Download size'}</dt>
+    <dd>{needsNextQuote ? 'Check next stage' : formatGameBytes(row.download_bytes)}</dd>
+    <dt>Additional storage needed</dt><dd>{needsNextQuote ? 'Check next stage' : formatGameBytes(row.required_disk_bytes)}</dd>
     {row.retained_bytes > 0 && <><dt>Saved recordings kept with history</dt><dd>{formatGameBytes(row.retained_bytes)}</dd></>}
    </dl>
    <div className="toolkit-setup-actions">
@@ -136,7 +138,7 @@ export function GameDataSettings({game, targetLanguage, online, account, onChang
    {confirmDelete && <div role="alert"><p>Delete downloaded game data? History, favorites and saved recordings stay.</p>
     <Button variant="outline" onClick={() => setConfirmDelete(false)}>Keep data</Button><Button onClick={() => void mutate('delete')}>Confirm delete</Button></div>}
    {row.job && <p role="status">{row.job.message} · {formatGameBytes(row.job.downloaded_bytes)} / {formatGameBytes(row.job.total_bytes)}</p>}
-   {row.message && <p role="status">{row.message}</p>}
+   {row.message && row.message !== row.job?.message && <p role="status">{row.message}</p>}
   </> : <p>Game data information is unavailable.</p>}
   {error && <p role="alert">{error}</p>}
   {children}

@@ -192,9 +192,9 @@ await page.evaluate(async generation => {
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}, stable_frames: 2})});
   if (!response.ok) throw new Error('Authored full-frame calibration failed: ' + response.status + ' ' + (await response.text()).slice(0, 512));
 }, fixtureAccountGeneration);
-const screenLink = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
-await until(() => screenLink.isEnabled(), 'actual native receiver after direct preparation');
-await screenLink.fill('https://vdo.ninja/?view=authored');
+const screenLink = page.getByLabel('VDO.Ninja link or stream code', {exact: true});
+await until(() => authoredReceiverLibraryReady(page), 'actual native receiver after direct preparation');
+await screenLink.fill('authored');
 const snapshot = await waitForOwnedOriginalAudio(() => page.evaluate(async () =>
   (await fetch('/api/snapshot')).json()), until, {
   accountGeneration:fixtureAccountGeneration,
@@ -245,7 +245,7 @@ await page.evaluate(async ({id, generation}) => {
   localStorage.setItem('proxy-transcript-reading-options', JSON.stringify({fontSize: 31, pinyin: 'all'}));
 }, {id: lineId, generation: snapshot.context.account_generation});
 await page.reload();
-assert.equal(await page.getByLabel('Paste vdo.ninja link to start', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
+assert.equal(await page.getByLabel('VDO.Ninja link or stream code', {exact: true}).inputValue(), '', 'Viewer links must not survive document reload');
 await page.getByRole('button', {name: 'Connect Lexirise', exact: true}).waitFor();
 assert.equal(await page.getByRole('combobox', {name: 'Reading', exact: true}).count(), 0);
 await until(() => page.locator('select[aria-label="Voice playback speed"]').inputValue().then(value => value === '0.75'), 'production playback preference');

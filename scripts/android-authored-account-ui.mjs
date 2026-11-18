@@ -158,7 +158,7 @@ export async function connectAuthoredReceiver(page, until) {
     'Content-Type': 'application/json', 'X-Toolkit-Account-Generation': String(generation)},
     body: JSON.stringify({region: {left: 0, top: 0, width: 1, height: 1}})})).status, generation), 200);
   await until(() => authoredReceiverLibraryReady(page), 'authored native library activation');
-  const link = page.getByLabel('Paste vdo.ninja link to start', {exact: true});
+  const link = page.getByLabel('VDO.Ninja link or stream code', {exact: true});
   await until(() => link.isEnabled(), 'authored native account receiver');
   await link.fill('https://vdo.ninja/?view=authored');
   await until(async () => (await snapshot(page)).lines.length === 1, 'authored account native OCR transcript');

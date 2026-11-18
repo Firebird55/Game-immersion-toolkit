@@ -23,6 +23,13 @@ test('background, missing data and disposal reject pending connects', () => {
     const f = fixture(); f.source.replace(link('first')); action(f); f.fire(); assert.deepEqual(f.connections, []);
   }
 });
+test('a bare stream code connects once capture is ready', () => {
+  const f = fixture(), draft = ' iphone ';
+  f.source.replace(draft, {enabled: false}); f.fire();
+  assert.deepEqual(f.connections, []);
+  f.source.replace(draft); f.fire();
+  assert.deepEqual(f.connections, [link('iphone')]);
+});
 test('unsupported URLs stop the old source and never echo private parameters', () => {
   const f = fixture(); f.source.replace('https://unknown.example/?password=PRIVATE_SENTINEL'); f.fire();
   assert.equal(f.stops, 1); assert.equal(f.connections.length, 0); assert.equal(f.errors.length, 1);

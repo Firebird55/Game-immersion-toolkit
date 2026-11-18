@@ -246,6 +246,9 @@ class GameDataService:
         result = self._validate_metadata(value, game)
         if result['ready']:
             raise GameDataError('invalid_local_state', 'Downloaded game information needs repair.')
+        if (game == 'zzz' and result['handle'].get('schema') == 'zzz-official-bootstrap-stage-v1'
+                and result['message'] == 'Original ZZZ bootstrap verified. Dialogue preparation still needs a supported reader.'):
+            result['message'] = 'Initial ZZZ files verified. Check the download size again to continue preparing dialogue.'
         return result
 
     def _matching_stage(self, root, game, request):

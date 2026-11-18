@@ -287,12 +287,12 @@ def test_changed_request_or_cache_rejects_before_approved_transfer(tmp_path):
 def test_real_service_exposes_bootstrap_needs_plan_then_reader_unavailable(tmp_path):
     objects, _, _, _ = publisher('global')
     calls = []; reader = provider(objects, calls)
-    request = GameDataRequest('global', 'en')
+    request = GameDataRequest('global', 'zh-Hans', ('en',), 'text-audio')
     service = GameDataService(tmp_path / 'host', {'zzz': reader})
     def status():return next(row for row in service.snapshot()['games'] if row['id'] == 'zzz')
     try:
         planned = service.plan('zzz', request.json())['game']
-        assert planned['can_download'] and planned['download_bytes'] > 0 and planned['content_mode'] == 'text'
+        assert planned['can_download'] and planned['download_bytes'] > 0 and planned['content_mode'] == 'text-audio'
         service.download('zzz', {'plan_id': planned['plan_id'], 'revision': planned['revision']})
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
@@ -300,7 +300,20 @@ def test_real_service_exposes_bootstrap_needs_plan_then_reader_unavailable(tmp_p
             if row['job'] and row['job']['status'] not in {'running', 'queued'}:break
             time.sleep(.01)
         assert row['job']['status'] == 'needs_plan' and row['state'] != 'ready'
+        assert 'Check the download size again' in row['job']['message']
+        assert 'Audio size is estimated in a later step' in row['job']['message']
         assert row['installed_bytes'] > 0 and row['can_delete']
+        stage_path = tmp_path / 'host' / 'zzz' / 'stage.json'
+        stage = json.loads(stage_path.read_bytes())
+        stage['message'] = 'Original ZZZ bootstrap verified. Dialogue preparation still needs a supported reader.'
+        stage_path.write_text(json.dumps(stage), encoding='utf-8')
+        restarted = GameDataService(tmp_path / 'host', {'zzz': reader})
+        try:
+            recovered = restarted.snapshot(games=('zzz',))['games'][0]
+            assert 'Check the download size again' in recovered['message']
+            assert recovered['can_plan'] and not recovered['can_download']
+        finally:
+            restarted.close()
         following = service.plan('zzz', request.json())['game']
         assert not following['can_download'] and following['download_bytes'] is None
         assert following['state'] != 'ready' and 'Dialogue preparation' in following['message']

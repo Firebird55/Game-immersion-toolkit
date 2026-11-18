@@ -1051,7 +1051,8 @@ function CompanionClient() {
           else gameSelection.cancel();
         }} />
 
-      {nativeHost.android && !archivedHistory && <AndroidReceiver key={`${requestGeneration}:${selectedGame}:${capture?.library_revision ?? 'none'}`}
+      {nativeHost.android && !archivedHistory && <AndroidReceiver key={`${requestGeneration}:${selectedGame}`}
+        libraryRevision={capture?.active_game === selectedGame ? capture?.library_revision ?? null : null}
         online={online} libraryReady={!!mapStatus?.ready && capture?.active_game === selectedGame}
         capabilities={nativeHost.capabilities} onChanged={() => void loadSnapshot()} />}
 

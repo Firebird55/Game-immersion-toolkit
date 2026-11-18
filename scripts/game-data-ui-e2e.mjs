@@ -7,6 +7,7 @@ import {resolve, join} from 'node:path';
 import {createInterface} from 'node:readline';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium, firefox} from 'playwright';
+import {authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
 
 const frontend = resolve(process.argv[2] ?? 'output/game-data-ui-frontend');
 const output = resolve('output/checks/game-data-ui'); mkdirSync(output, {recursive: true});
@@ -101,6 +102,13 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await panel.getByText('16.0 KiB',{exact:true}).waitFor();assert.equal(plans,2);assert.equal(transfers,0);
   await panel.getByRole('button',{name:'Download',exact:true}).click();
   await panel.getByText(/Authored transfer in progress/).waitFor();assert.equal(transfers,1);
+  const nextStageMessage = 'Initial ZZZ files verified. Check the download size again to continue preparing dialogue.';
+  row={...row,state:'not_downloaded',installed_bytes:4096,message:nextStageMessage,
+   job:{...row.job,status:'needs_plan',phase:'estimate',downloaded_bytes:8192,message:nextStageMessage}};
+  await panel.getByText('Check next stage',{exact:true}).first().waitFor();
+  assert.equal(await panel.getByText(nextStageMessage,{exact:false}).count(),1);
+  assert.equal(await panel.getByRole('button',{name:'Download',exact:true}).isDisabled(),true);
+  assert.equal(await panel.getByRole('button',{name:'Check download size',exact:true}).isEnabled(),true);
   row={...row,state:'ready',installed_bytes:8192,deletable_bytes:8192,retained_bytes:4096,job:null,can_delete:true,message:'Authored data ready.'};
   await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).waitFor({state:'visible'});
   await until(async()=>!(await panel.getByRole('button',{name:'Delete downloaded data',exact:true}).isDisabled()),'download completion polling');
@@ -117,6 +125,13 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   await until(async()=>await page.locator('.current-line .current-chinese').getByText('A verified text-only caption remains readable.',{exact:true}).count()===0,'unknown non-dialogue remains hidden despite audio_pending false');
   unverifiedLine=false;
   textOnlyLine=false;await page.reload();
+  const link=page.getByLabel('VDO.Ninja link or stream code',{exact:true});
+  await link.fill('authored-first');
+  assert.equal(await link.inputValue(),'authored-first');
+  assert.equal(await authoredReceiverLibraryReady(page),false);
+  await delay(400);
+  assert.equal(frames,0,'Unprepared game data must not start capture');
+  assert.equal(await page.locator('.android-screen-viewer iframe').count(),0);
   // Seed an authored library through the maintained HTTP seam. This is test
   // setup; production download/activation is tested with real providers later.
   const imported=await page.request.post(origin+'/api/library/import',{headers:{'Origin':origin,'Content-Type':'application/zip',
@@ -124,18 +139,22 @@ for (const [name, engine] of Object.entries({chromium, firefox})) {
   assert.equal(imported.status(),200);
   await until(()=>page.evaluate(async()=>!!(await(await fetch('/api/snapshot')).json()).status.textmaps.ready),'authored prepared seed');
   assert.equal(activations,0);
+  await until(()=>authoredReceiverLibraryReady(page),'actual keyed receiver ready after library activation');
+  await until(()=>frames>=2,'draft stream code automatically connects after preparation');
+  await link.fill('');
+  await until(()=>page.evaluate(async()=>!(await(await fetch('/api/snapshot')).json()).status.capture.running),'clear draft native stop');
+  const beforeSelection = frames;
   row={...row,state:'error',revision:'authored-new-estimate',installed_revision:'authored-installed',can_activate:true};
   await page.getByRole('combobox',{name:'Game',exact:true}).selectOption('wuwa');
   await delay(500);assert.equal(activations,0);
   await page.getByRole('combobox',{name:'Game',exact:true}).selectOption('zzz');
   await until(()=>activations===1,'explicit installed revision activation');
-  assert.equal(frames,0);  // Choosing a game never starts a private screen link.
+  assert.equal(frames,beforeSelection);  // Choosing a game never starts a private screen link.
   await page.getByRole('button',{name:'Instructions',exact:true}).click();
   await page.getByRole('dialog',{name:'Game screen instructions',exact:true}).waitFor();await page.keyboard.press('Escape');
-  const link=page.getByLabel('Paste vdo.ninja link to start',{exact:true});
-  await until(async()=>!(await link.isDisabled()),'actual keyed receiver ready for pasted link');
+  await until(()=>authoredReceiverLibraryReady(page),'actual keyed receiver ready for pasted link');
   await link.fill('https://vdo.ninja/?view=authored-first');
-  await until(()=>frames>=2,'automatic pasted-link receiver frames');
+  await until(()=>frames>=beforeSelection+2,'automatic pasted-link receiver frames');
   await link.fill('');
   await until(()=>page.evaluate(async()=>!(await(await fetch('/api/snapshot')).json()).status.capture.running),'clear-link native stop');
   const stopped=frames;await delay(1000);assert.equal(frames,stopped);

@@ -1,6 +1,7 @@
 // Generated DEBUG source only. The ordinary UI and game-data service own all
 // planning, preparation, activation and restoration; no ZIP is imported.
 import assert from 'node:assert/strict';
+import {authoredReceiverLibraryReady} from './android-runtime-diagnostics.mjs';
 
 export async function prepareAuthoredGameData(page, until, {bothModes = false} = {}) {
  const platform = await page.evaluate(async () => (await fetch('/api/platform')).json());
@@ -47,7 +48,7 @@ export async function prepareAuthoredGameData(page, until, {bothModes = false} =
  }
  await settings.getByRole('button', {name: 'Close', exact: true}).click();
  await settings.waitFor({state: 'hidden'});
- await until(() => page.getByLabel('Paste vdo.ninja link to start', {exact: true}).isEnabled(),
+ await until(() => authoredReceiverLibraryReady(page),
   'direct-source React receiver activation');
  return downloaded;
 }

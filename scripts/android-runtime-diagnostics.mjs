@@ -25,9 +25,9 @@ export function safeMessageMetrics(value) {
 }
 
 export async function authoredReceiverLibraryReady(page) {
- // This enabled state is rendered from actual source readiness. HTTP download
- // completion alone does not prove React committed its new keyed receiver.
- return page.getByLabel('Paste vdo.ninja link to start', {exact: true}).isEnabled();
+ // The draft input stays editable before React enables the actual receiver.
+ return (await page.getByRole('region', {name: 'Receive game screen', exact: true})
+  .getAttribute('data-capture-ready')) === 'true';
 }
 
 export function safeReceiverState(value) {
@@ -126,7 +126,7 @@ export async function createAuthoredRuntimeDiagnostics(page, {output, adb, packa
     try {const response = await fetch('/api/snapshot', {signal: controller.signal});if (response.ok) snapshot = await response.json();}
     catch {} finally {clearTimeout(timer);}
     return {snapshot, hidden: document.hidden, iframe_count: document.querySelectorAll('.android-screen-viewer iframe').length,
-     library_ready: document.querySelector('#android-screen-link')?.disabled === false,
+     library_ready: document.querySelector('.android-screen-card')?.dataset.captureReady === 'true',
      viewer_link_present: !!document.querySelector('#android-screen-link')?.value,
      image_bitmap_available: typeof createImageBitmap === 'function', metrics: window.__toolkitAuthoredReceiverMetrics};
    }), 5000);

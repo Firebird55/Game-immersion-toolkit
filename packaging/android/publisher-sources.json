@@ -348,7 +348,7 @@
       "source_commit": "ab0201e7197f0ad59ba787970950d0988003c376"
     },
     "backend/zzz_game_data.py": {
-      "sha256_lf": "f7d96c9d22e4801d6d3e25f33ef7335e1c669d8cccd21a181b49531b15f37319",
+      "sha256_lf": "ad07ade537acf2105869d98e174e9316fe6500c54a8ccd9a35681bbdaa81d929",
       "source_commit": "43ce87ae97b7d4dbad7a2a5d7189ce12d9df84a1"
     },
     "backend/zzz_hotfix.py": {
