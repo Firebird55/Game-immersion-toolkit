@@ -1,4 +1,4 @@
-import {resourceCatalogBytes, sceneAssetPaths, sceneBundleRangesFromCatalog, sceneCatalog, unityObjectsOfType} from './scene-catalog.mjs';
+import {readResourceCatalog, sceneAssetPaths, sceneBundleRangesFromCatalog, sceneCatalog, unityObjectsOfType} from './scene-catalog.mjs';
 import {comicVoicePairs, uniqueComicLinks} from './comic-links.mjs';
 import {authoredDialogueFromCab, uniqueDialogueLinks} from './zzz-dialogue.mjs';
 import {AUTO_META_CONFIG_ASSET, autoPresentationConfig, typedPresentationObjects, presentationDictionary, timelineOwners} from './zzz-presentation-config.mjs';
@@ -84,19 +84,19 @@ export function performPresentationInventory(rows) {
         acquisition:'not-implemented', current_use:'unclassified'}]))};
 }
 
-function designTables(files, io, wanted, unpack) {
+async function designTables(files, io, wanted, unpack) {
   const tables = new Map();
   for (const file of files) {
-    const data = io.read(file);
+    const data = await io.read(file);
     if (data.toString('ascii', 0, 3) === 'BBL') continue;
     if (data[0] === 31 && data[1] === 139) {
       // Older design manifests include their gzip resource index alongside
       // the TextAsset bundles. Verify the catalog format before skipping it.
-      sceneCatalog(data, false, io.gunzip);
+      sceneCatalog(await readResourceCatalog(data, unpack, io.gunzip), true);
       continue;
     }
     for (let pos = 0; pos < data.length;) {
-      const bundle = unpack(data, pos);
+      const bundle = await unpack(data, pos);
       if (bundle.end <= pos || bundle.end > data.length) throw Error('Invalid ZZZ design bundle');
       pos = bundle.end;
       for (const cab of bundle.files) for (const object of unityObjectsOfType(cab, 49)) {
@@ -153,14 +153,14 @@ export function recordedMessages(rows) {
   return {messages, unresolved:unresolved.size};
 }
 
-function plan(io, input, reader) {
+async function plan(io, input, reader) {
   const key = name => String(reader.xxHash64(name.toLowerCase()));
   const names = Object.values(tags).flatMap(tag => ['TemplateTb', 'OverwriteTemplateTb'].map(s => key('TextMap' + tag + s)));
   const kind = input.kind || 'scene';
   const tableName = {scene:'PerformTemplateTb', message:'MessageConfigTemplateTb', ongoing:'OngoingTipsConfigTemplateTb'}[kind];
   if (!tableName) throw Error('Unknown released ZZZ dialogue presentation');
   const bindingTable = key(tableName);
-  const tables = designTables(input.design, io, new Set([...names, bindingTable]), reader.unpackMhyFile);
+  const tables = await designTables(input.design, io, new Set([...names, bindingTable]), reader.unpackMhyFile);
   if (!tables.has(bindingTable)) throw Error('The released ZZZ binding table is missing');
   const texts = {};
   for (const [locale, tag] of Object.entries(tags)) {
@@ -183,12 +183,12 @@ function plan(io, input, reader) {
     return {texts, source};
   }
   const paths = sceneAssetPaths([...tableStrings(tables.get(bindingTable), [2, 3])], 'dialogue');
-  return {texts, ...releasedRanges(io, input.catalogs, paths, reader)};
+  return {texts, ...await releasedRanges(io, input.catalogs, paths, reader)};
 }
 
-function releasedRanges(io, catalogs, paths, reader, category = 'dialogue') {
+async function releasedRanges(io, catalogs, paths, reader, category = 'dialogue') {
   const wanted = new Set(paths.map(path => reader.xxHash64(path)));
-  const result = catalogRanges(io, catalogs, wanted, reader, category === 'dialogue');
+  const result = await catalogRanges(io, catalogs, wanted, reader, category === 'dialogue');
   if (category === 'dialogue' && !result.ranges.length) throw Error('No released dialogue scene ranges');
   const unmatched = {};
   for (const path of paths) if (!result.matched.has(reader.xxHash64(path))) {
@@ -198,11 +198,11 @@ function releasedRanges(io, catalogs, paths, reader, category = 'dialogue') {
   return {ranges:result.ranges, scenePaths:{total:paths.length, matched:result.matched.size, unmatched}};
 }
 
-function catalogRanges(io, catalogs, wanted, reader, includeDependencies) {
+async function catalogRanges(io, catalogs, wanted, reader, includeDependencies) {
   const matched = new Set();
   const ranges = new Map();
   for (const candidate of catalogs) {
-    const catalog = resourceCatalogBytes(io.read(candidate), reader.unpackMhyFile, io.gunzip);
+    const catalog = await readResourceCatalog(await io.read(candidate), reader.unpackMhyFile, io.gunzip);
     if (!catalog) continue;
     const result = sceneBundleRangesFromCatalog(catalog, wanted, true, includeDependencies);
     for (const hash of result.matchedHashes) matched.add(hash);
@@ -215,15 +215,15 @@ function catalogRanges(io, catalogs, wanted, reader, includeDependencies) {
   return {ranges:[...ranges.values()], matched};
 }
 
-function* sceneCabs(io, blocks, reader) {
+async function* sceneCabs(io, blocks, reader) {
   for (const name of blocks) {
-    const data = io.read(name);
+    const data = await io.read(name);
     for (let pos = 0; pos < data.length;) {
       if (data.length - pos < 4) throw Error('Incomplete staged ZZZ scene');
       const size = data.readUInt32LE(pos);
       pos += 4;
       if (!size || size > 64 * 1024 * 1024 || pos + size > data.length) throw Error('Incomplete staged ZZZ scene');
-      const bundle = reader.unpackMhyFile(data.subarray(pos, pos + size), 0);
+      const bundle = await reader.unpackMhyFile(data.subarray(pos, pos + size), 0);
       if (bundle.end !== size) throw Error('Invalid ZZZ scene boundary');
       pos += size;
       yield* bundle.files;
@@ -231,9 +231,9 @@ function* sceneCabs(io, blocks, reader) {
   }
 }
 
-function bindings(io, input, reader) {
+async function bindings(io, input, reader) {
   const sources = new Set();
-  for (const cab of sceneCabs(io, input.blocks, reader)) {
+  for await (const cab of sceneCabs(io, input.blocks, reader)) {
     for (const row of authoredDialogueFromCab(cab, {})) if (row.text_id === input.id) sources.add(row.source);
   }
   if (sources.size !== 1 || ![...sources][0]) throw Error('No unique authored sentence recording for the requested subtitle');
@@ -246,47 +246,50 @@ function checkNames(names, pattern) {
   }
 }
 
-function scenePlan(io, input, reader) {
+async function scenePlan(io, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.catalogs, /^catalog-\d+\.blk$/);
   const key = String(reader.xxHash64('performtemplatetb'));
-  const tables = designTables(input.design, io, new Set([key]), reader.unpackMhyFile);
+  const tables = await designTables(input.design, io, new Set([key]), reader.unpackMhyFile);
   if (!tables.has(key)) throw Error('Released ZZZ Perform table is missing');
   const rows = [...tableStrings(tables.get(key), [0, 1, 2, 3], {integers:[0, 1]})];
   const scenes = rows.map(row => row.slice(2));
-  const dialogue = releasedRanges(io, input.catalogs, sceneAssetPaths(scenes, 'dialogue'), reader);
-  const comics = releasedRanges(io, input.catalogs, sceneAssetPaths(scenes, 'comic'), reader, 'comic');
-  const voiceDirectory = catalogRanges(io, input.catalogs,
+  const dialogue = await releasedRanges(io, input.catalogs, sceneAssetPaths(scenes, 'dialogue'), reader);
+  const comics = await releasedRanges(io, input.catalogs, sceneAssetPaths(scenes, 'comic'), reader, 'comic');
+  const voiceDirectory = await catalogRanges(io, input.catalogs,
     new Set([reader.xxHash64('assets/napresources/data/audio/voicedata.json')]), reader, false);
   return {...dialogue, comics, voiceDirectory:voiceDirectory.ranges,
     performPresentations:performPresentationInventory(rows),
     timelineKeys:[...new Set(rows.filter(row => row[1] === 6).flatMap(row => row.slice(2)).filter(Boolean))],
-    presentationConfigRoots:catalogRanges(io, input.catalogs, new Set([AUTO_META_CONFIG_ASSET]), reader, false).ranges};
+    presentationConfigRoots:(await catalogRanges(io, input.catalogs, new Set([AUTO_META_CONFIG_ASSET]), reader, false)).ranges};
 }
 
-function presentationConfigPlan(io, input, reader) {
+async function presentationConfigPlan(io, input, reader) {
   checkNames(input.catalogs, /^catalog-\d+\.blk$/);
   checkNames(input.roots, /^\d+\.blk\.presentation-roots$/);
-  const roots = [...sceneCabs(io, input.roots, reader)].flatMap(cab => typedPresentationObjects(cab, new Set(['NewAutoConfigMetaConfig'])));
+  const roots = [];
+  for await (const cab of sceneCabs(io, input.roots, reader)) {
+    roots.push(...typedPresentationObjects(cab, new Set(['NewAutoConfigMetaConfig'])));
+  }
   if (roots.length !== 1) throw Error('Missing or ambiguous original ZZZ presentation root');
   const fields = autoPresentationConfig(roots[0].bytes), wanted = new Set();
   for (const name of ['timelineDataPathes', 'languageVideoDataPaths']) for (const path of fields[name]) {
     if (!/^[1-9]\d{0,19}$/.test(path.hash) || BigInt(path.hash) > 0xffffffffffffffffn) throw Error('Invalid ZZZ presentation resource identity');
     wanted.add(BigInt(path.hash));
   }
-  const result = catalogRanges(io, input.catalogs, wanted, reader, false);
+  const result = await catalogRanges(io, input.catalogs, wanted, reader, false);
   if (result.matched.size !== wanted.size) throw Error('Original ZZZ presentation config is absent from the selected publisher');
   return {ranges:result.ranges, timelineConfigs:fields.timelineDataPathes.length,
     videoConfigs:fields.languageVideoDataPaths.length,
     extraConfigs:fields.timelineDataExtraPathes.length};
 }
 
-function presentationOwners(io, input, reader) {
+async function presentationOwners(io, input, reader) {
   checkNames(input.catalogs, /^catalog-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.presentation-configs$/);
   if (!Array.isArray(input.keys) || input.keys.length > 100000 || input.keys.some(key => typeof key !== 'string' || !key || key.length > 2048)) throw Error('Invalid ZZZ configured timeline selection');
   let timelineConfigs = 0, videoConfigs = 0; const entries = [], videos = [];
-  for (const cab of sceneCabs(io, input.blocks, reader)) for (const object of typedPresentationObjects(cab, new Set(['ConfigTimelineData', 'ConfigLanguageVideo']))) {
+  for await (const cab of sceneCabs(io, input.blocks, reader)) for (const object of typedPresentationObjects(cab, new Set(['ConfigTimelineData', 'ConfigLanguageVideo']))) {
     const timeline = object.type === 'ConfigTimelineData';
     const result = presentationDictionary(object.bytes, timeline ? 'timeline' : 'video');
     if (timeline) { timelineConfigs++; entries.push(...result.entries); }
@@ -296,10 +299,10 @@ function presentationOwners(io, input, reader) {
   const result = timelineOwners(entries, input.keys);
   const all = timelineOwners(entries, [...new Set(entries.map(row => row.key).filter(Boolean))]);
   const paths = new Set(all.owners.flatMap(owner => Object.values(owner.paths)).filter(Boolean));
-  const catalog = catalogRanges(io, input.catalogs, new Set([...paths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
+  const catalog = await catalogRanges(io, input.catalogs, new Set([...paths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
   const cinemaPaths = new Set(all.owners.flatMap(owner => [owner.paths.timelineResPath, owner.paths.timelineResPathFemale])
     .filter(path => /\.playable$/i.test(path)));
-  const cinema = catalogRanges(io, input.catalogs, new Set([...cinemaPaths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
+  const cinema = await catalogRanges(io, input.catalogs, new Set([...cinemaPaths].map(path => reader.xxHash64(path.toLowerCase()))), reader, false);
   return {owners:all.owners, videoKeys:videos.map(row => row.key), cinemaRanges:cinema.ranges, coverage:{...result.coverage,
     timeline_configs:timelineConfigs, video_configs:videoConfigs, configured_timeline_records:entries.length,
     all_original_owners:all.owners.length,
@@ -349,19 +352,19 @@ export function comicDependencyIds(object) {
   return ids;
 }
 
-function comicPlan(io, input, reader) {
+async function comicPlan(io, input, reader) {
   checkNames(input.catalogs, /^catalog-\d+\.blk$/);
   checkNames(input.roots, /^\d+\.blk\.comic-roots$/);
   const ids = new Set();
   let manifests = 0;
-  for (const cab of sceneCabs(io, input.roots, reader)) {
+  for await (const cab of sceneCabs(io, input.roots, reader)) {
     for (const object of unityObjectsOfType(cab, 142)) {
       for (const id of comicDependencyIds(object)) ids.add(id);
       manifests++;
     }
   }
   if (manifests !== input.rootCount) throw Error('Incomplete ZZZ comic bundle manifests');
-  const result = catalogRanges(io, input.catalogs, ids, reader, false);
+  const result = await catalogRanges(io, input.catalogs, ids, reader, false);
   if (result.matched.size !== ids.size) throw Error('Unresolved ZZZ comic dependency');
   return {ranges: result.ranges};
 }
@@ -450,10 +453,10 @@ export function tipRows(rows) {
 function writeJson(io, name, value, exclusive = true) {
   const json = JSON.stringify(value);
   if (Buffer.byteLength(json) > MAX_OUTPUT) throw Error('ZZZ operation output exceeds limit');
-  io.write(name, Buffer.from(json), {exclusive});
+  return io.write(name, Buffer.from(json), {exclusive});
 }
 
-function catalogue(io, input, reader) {
+async function catalogue(io, input, reader) {
   checkNames(input.design, /^design-\d+\.blk$/);
   checkNames(input.blocks, /^\d+\.blk\.scenes$/);
   if (input.comics.length) checkNames(input.comics, /^\d+\.blk\.comics$/);
@@ -462,7 +465,7 @@ function catalogue(io, input, reader) {
   const directoryBlocks = input.voiceDirectory || [];
   if (directoryBlocks.length) checkNames(directoryBlocks, /^\d+\.blk\.voice-directory$/);
   let directory = null;
-  for (const cab of sceneCabs(io, directoryBlocks, reader)) {
+  for await (const cab of sceneCabs(io, directoryBlocks, reader)) {
     for (const object of unityObjectsOfType(cab, 49)) {
       const match = voiceDirectoryObject(object);
       if (!match) continue;
@@ -471,7 +474,7 @@ function catalogue(io, input, reader) {
     }
   }
   if (directoryBlocks.length && !directory) throw Error('Released ZZZ voice directory is missing');
-  writeJson(io, 'voice-directory.json', directory);
+  await writeJson(io, 'voice-directory.json', directory);
   const locales = new Set(input.locales);
   if (!locales.size || [...locales].some(locale => !Object.hasOwn(tags, locale))) throw Error('Invalid ZZZ locales');
   const key = name => String(reader.xxHash64(name.toLowerCase()));
@@ -483,29 +486,30 @@ function catalogue(io, input, reader) {
   const includeAudio = input.includeAudio !== false;
   const wanted = new Set([...bindings.map(key), ...(includeAudio ? ['AudioResourceData'] : [])]);
   for (const locale of locales) for (const suffix of suffixes) wanted.add(key('TextMap' + tags[locale] + suffix));
-  const tables = designTables(input.design, io, wanted, reader.unpackMhyFile);
+  const tables = await designTables(input.design, io, wanted, reader.unpackMhyFile);
   if (bindings.some(name => !tables.has(key(name)))) throw Error('Released ZZZ binding table is missing');
   if (includeAudio) {
     const audioResource = tables.get('AudioResourceData');
     if(!audioResource?.length || audioResource.length > 32*1024*1024)throw Error('Released ZZZ cinematic bank registry is missing or changed');
-    io.write('audio-resource.flex', audioResource, {exclusive:true});
+    await io.write('audio-resource.flex', audioResource, {exclusive:true});
   }
   const links = [];
   const unsupported = {}, timelineKeys = new Set();
-  for (const cab of sceneCabs(io, input.blocks, reader)) {
+  for await (const cab of sceneCabs(io, input.blocks, reader)) {
     for (const link of authoredDialogueFromCab(cab, unsupported, timelineKeys)) links.push(link);
   }
   if (!links.length) throw Error('Released ZZZ scene selection contained no authored dialogue');
   const scenes = uniqueDialogueLinks(links);
   const comicPairs = [];
-  for (const cab of sceneCabs(io, input.comics, reader)) {
+  for await (const cab of sceneCabs(io, input.comics, reader)) {
     for (const pair of comicVoicePairs(cab)) comicPairs.push(pair);
   }
   const comics = uniqueComicLinks(comicPairs).map(link => ({...link, dialogue_kind:'comic', channels:['cinematic']}));
   const cinemaLinks = [], cinemaUnsupported = [], cinemaOccurrences=[];
   let cinemaTimelines = 0;
-  for(const cab of sceneCabs(io, cinemaBlocks, reader)) {
-    const result = cinemaSubtitleTimeline(cab, {includeOccurrences:includeAudio, sha256:io.sha256}); cinemaTimelines++;
+  for await (const cab of sceneCabs(io, cinemaBlocks, reader)) {
+    const digest = includeAudio ? await io.sha256(cab) : null;
+    const result = cinemaSubtitleTimeline(cab, {includeOccurrences:includeAudio, sha256:() => digest}); cinemaTimelines++;
     cinemaUnsupported.push(...result.unsupported);
     cinemaLinks.push(...cinemaSubtitleLinks(result,input.namespace));
     if(includeAudio)cinemaOccurrences.push(...result.occurrences.filter(row=>locales.has(row.locale)));
@@ -533,7 +537,7 @@ function catalogue(io, input, reader) {
   const all = [...scenes, ...comics, ...cinemaLinks, ...messageLinks.values(), ...ongoing, ...tips,
     ...clips.map(clip => ({...clip, dialogue_kind:'narration', voice_status:'unavailable', channels:['dialogue', 'cinematic']}))];
   const ids = new Set(all.map(link => link.text_id));
-  writeJson(io, 'links.json', all);
+  await writeJson(io, 'links.json', all);
   const cinemaTextSources = {subtitle_track_locale:cinemaLinks[0]?.locale ?? null, text_locale_lookups:{}};
   for (const locale of locales) {
     const values = Object.create(null);
@@ -550,7 +554,7 @@ function catalogue(io, input, reader) {
       }
     }
     cinemaTextSources.text_locale_lookups[locale] = cinemaTextSourceInventory(cinemaLinks, values);
-    writeJson(io, 'texts-' + locale + '.json', values);
+    await writeJson(io, 'texts-' + locale + '.json', values);
   }
   const knownTimelines = new Set(input.knownTimelineKeys || []);
   return {recorded_messages:recorded.messages.size, ambiguous_messages:recorded.unresolved,
@@ -568,7 +572,7 @@ const SOURCE_FILE = /^(?:(?:design-|catalog-|Blocks-(?:Data-)?)[0-9]+\.blk|[0-9]
 
 // Host I/O is restricted to the caller's authenticated, staged input and output
 // files. The executor supplies Buffer, TextDecoder and the pinned format reader.
-export function runPublisherOperation(mode, input, reader, host) {
+export async function runPublisherOperation(mode, input, reader, host) {
   if (!Object.hasOwn(OPERATIONS, mode)) throw Error('Unsupported ZZZ publisher query');
   if (typeof host?.read !== 'function' || typeof host.write !== 'function' || typeof host.gunzip !== 'function' ||
       (mode === 'catalogue' && input.includeAudio !== false && typeof host.sha256 !== 'function')) {
@@ -578,17 +582,17 @@ export function runPublisherOperation(mode, input, reader, host) {
     gunzip: (bytes, options) => host.gunzip(bytes, options),
     sha256: bytes => host.sha256(bytes),
     write: (name, bytes, options) => host.write(name, bytes, options),
-    read(name) {
+    async read(name) {
       if (typeof name !== 'string' || /[^A-Za-z0-9_.-]/.test(name) || !SOURCE_FILE.test(name)) {
         throw Error('Invalid staged ZZZ filename');
       }
-      const data = host.read(name);
+      const data = await host.read(name);
       if (!Buffer.isBuffer(data)) throw Error('Invalid staged ZZZ file data');
       return data;
     },
   };
-  const result = OPERATIONS[mode](io, input, reader);
-  writeJson(io, mode + '-output.json', result, false);
+  const result = await OPERATIONS[mode](io, input, reader);
+  await writeJson(io, mode + '-output.json', result, false);
 }
 
 if (import.meta.main ?? (globalThis.process?.argv?.[1] &&
@@ -620,7 +624,7 @@ if (import.meta.main ?? (globalThis.process?.argv?.[1] &&
     const {createHash} = await import('node:crypto');
     const reader = await import(pathToFileURL(resolve(readerPath)).href);
     const input = JSON.parse(readFileSync(join(work, mode + '-input.json')));
-    runPublisherOperation(mode, input, reader, {
+    await runPublisherOperation(mode, input, reader, {
       read: name => readFileSync(join(work, name)),
       write: (name, bytes, {exclusive}) => writeFileSync(join(work, name), bytes, {flag:exclusive ? 'wx' : 'w'}),
       gunzip: gunzipSync,

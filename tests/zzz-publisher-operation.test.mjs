@@ -219,18 +219,19 @@ const host = {
   sha256(bytes) { hashes++; return createHash('sha256').update(bytes).digest('hex'); },
 };
 for (const name of ['../1.blk.scenes', 'NUL', '1.blk.scenes\n', 'subdir/1.blk.scenes']) {
-  assert.throws(() => run('bindings', {blocks:[name]}, authored.namespace, host), /staged ZZZ filename/);
+  await assert.rejects(() => run('bindings', {blocks:[name]}, authored.namespace, host), /staged ZZZ filename/);
 }
-assert.throws(() => run('constructor', {}, authored.namespace, host), /Unsupported ZZZ publisher query/);
+await assert.rejects(() => run('constructor', {}, authored.namespace, host), /Unsupported ZZZ publisher query/);
 files.set('2.blk.scenes', Buffer.alloc(3));
-assert.throws(() => run('bindings', {blocks:['2.blk.scenes']}, authored.namespace, host), /Incomplete staged ZZZ scene/);
-const result = stages.map(([mode, input]) => {
+await assert.rejects(() => run('bindings', {blocks:['2.blk.scenes']}, authored.namespace, host), /Incomplete staged ZZZ scene/);
+const result = [];
+for (const [mode, input] of stages) {
   outputs = {};
   const before = hashes;
-  run(mode, input, authored.namespace, host);
+  await run(mode, input, authored.namespace, host);
   assert.equal(hashes - before, input.includeAudio ? 1 : 0);
-  return outputs;
-});
+  result.push(outputs);
+}
 process.stdout.write(JSON.stringify(result));
 `;
 

@@ -4,12 +4,14 @@ function nodeGunzip(bytes, options) {
   return globalThis.process.getBuiltinModule('node:zlib').gunzipSync(bytes, options);
 }
 
-function uncompress(bytes, gunzip) {
-  const data = gunzip(bytes, {maxOutputLength: CATALOG_LIMIT});
+function catalogData(data) {
   if (!Buffer.isBuffer(data) || data.length > CATALOG_LIMIT) throw Error('Resource catalog exceeds limit');
   return data;
 }
 
+function uncompress(bytes, gunzip) {
+  return catalogData(gunzip(bytes, {maxOutputLength: CATALOG_LIMIT}));
+}
 // Recent ZZZ builds store the resource catalog as a Unity serialized object
 // inside the untagged mhy1 bundle. Older installations use a standalone gzip.
 // Read only the known metadata layout, never infer a catalog from text matches.
@@ -98,15 +100,27 @@ export function serializedResourceCatalog(data) {
   return bytes;
 }
 
-export function resourceCatalogBytes(bytes, unpackMhyFile, gunzip = nodeGunzip) {
-  if(bytes[0]===31&&bytes[1]===139)return uncompress(bytes,gunzip);
-  if(bytes.toString('ascii',0,4)!=='mhy1')return null;
+function resourceBundle(bytes) {
+  if(bytes.toString('ascii',0,4)!=='mhy1')return false;
   if(bytes.length>128*1024*1024)throw Error('Resource catalog bundle exceeds limit');
-  const unpacked=unpackMhyFile(bytes,0);
+  return true;
+}
+
+function unpackedResourceCatalog(bytes, unpacked) {
   if(unpacked.end!==bytes.length)throw Error('Unsupported resource catalog bundle sequence');
   const catalogs=unpacked.files.map(unityResourceCatalog).filter(Boolean);
   if(catalogs.length>1)throw Error('Ambiguous resource catalog bundle');
   return catalogs[0]??null;
+}
+
+export function resourceCatalogBytes(bytes, unpackMhyFile, gunzip = nodeGunzip) {
+  if (bytes[0] === 31 && bytes[1] === 139) return uncompress(bytes, gunzip);
+  return resourceBundle(bytes) ? unpackedResourceCatalog(bytes, unpackMhyFile(bytes, 0)) : null;
+}
+
+export async function readResourceCatalog(bytes, unpack, gunzip) {
+  if (bytes[0] === 31 && bytes[1] === 139) return catalogData(await gunzip(bytes, {maxOutputLength: CATALOG_LIMIT}));
+  return resourceBundle(bytes) ? unpackedResourceCatalog(bytes, await unpack(bytes, 0)) : null;
 }
 
 export function sceneCatalog(bytes, raw=false, gunzip=nodeGunzip) {
