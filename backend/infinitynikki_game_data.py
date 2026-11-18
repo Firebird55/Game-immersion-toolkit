@@ -1,4 +1,4 @@
-"""Consent-bound original native bootstrap, never a prepared dialogue snapshot.
+"""Regional original-source preparation, never a prepared dialogue snapshot.
 
 The original mainland APK owns the evidenced wrapper/default PAK consumers.
 Its use as bootstrap data does not establish Global Android client acceptance;
@@ -273,6 +273,12 @@ class InfinityNikkiGameDataProvider:
             if previous['stage'] in ('content-reader', 'global-launcher-bootstrap', 'global-sdk-source'):
                 from . import infinity_nikki_sdk_stage
                 return infinity_nikki_sdk_stage.plan(self, previous, ctx)
+        if request.region == 'global':
+            from . import infinity_nikki_sdk_stage
+            return infinity_nikki_sdk_stage.plan(self, None, ctx)
+        return self._plan_native(request, ctx)
+
+    def _plan_native(self, request, ctx):
         crypto = _crypto(self.platform, self.native)
         from .infinity_nikki_release import parse_android_link, MAX_PAGE
         ApkMetadata, _ = _formats()

@@ -1,7 +1,7 @@
 """Bounded original Nikki v12 PAK directories and two-hash entry framing.
 
 The caller supplies generation-pinned, authenticated source reads and current
-native-derived default material. Index/member SHA-1 checks are format integrity,
+native-derived default material for encrypted data. Index/member SHA-1 checks are format integrity,
 not a replacement for source authentication. Compression is injected so this
 reader never loads an original library or assumes a desktop-only codec.
 """
@@ -17,6 +17,10 @@ from .infinity_nikki_pak_material import DefaultPakMaterial
 INDEX_LIMIT = 64 * 1024**2
 MEMBER_LIMIT = 128 * 1024**2
 BATCH_LIMIT = 16 * 1024**2
+
+
+class PakMaterialRequired(ValueError):
+    """An encrypted default-GUID index or member needs native material."""
 
 
 def _check(value):
@@ -96,9 +100,9 @@ class Archive:
     deletion positions and nonzero key GUIDs fail explicitly rather than being
     interpreted as missing or unvoiced resources.
     """
-    def __init__(self, read, size, material, *, crypto=None):
+    def __init__(self, read, size, material=None, *, crypto=None):
         _check(callable(read) and type(size) is int and 221 <= size <= 1024**4 and
-               isinstance(material, DefaultPakMaterial) and len(material.parameter) == 32)
+               (material is None or isinstance(material, DefaultPakMaterial) and len(material.parameter) == 32))
         self.source, self.size, self.material, self.crypto = read, size, material, crypto
         footer = self._read(size - 221, 221)
         _check(footer[:16] == bytes(16) and footer[16] in (0, 1) and
@@ -145,6 +149,8 @@ class Archive:
 
     def _decrypt(self, raw):
         _check(raw and len(raw) % 16 == 0)
+        if self.material is None:
+            raise PakMaterialRequired()
         key = self.material.parameter
         if self.crypto is None:
             from .publisher_crypto import DesktopPublisherCrypto
