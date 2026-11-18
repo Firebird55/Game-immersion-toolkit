@@ -882,6 +882,22 @@ argument vectors and array ranks, global generic parameters and nested types.
 The projection keeps the selected metadata and namespace names alongside
 the original record identities.
 
+The same two authenticated generations supplied the original type projection
+probe. Global 4.6 completed all 16 root names across 18 runtime nodes and 19
+type definitions. Its selected generic type owner supplied one parameter.
+Global 4.7 named 19 visited runtime nodes, including a generic instance with
+one argument, and reached the 32-definition limit after reading 15 nested
+references. It returned a typed projection limit failure and withheld the
+projection. These are selected original-input results. The 16-byte layout and
+the selected array and constraint fixtures retain their authored coverage.
+
+The separate default-table probe read 128 complete 12-byte records per
+generation inside the bounded global window. Field IDs increased strictly and
+the prefix contained no sentinel. The table end and complete owner mapping
+remain unproved. The probe read zero default value bytes. Both generations
+passed whole-input hash and before and after identity checks, and both
+preserved the earlier strict UTF-8 failure.
+
 Field default ownership and the required native-index projection remain open.
 The Android provider gate continues to require that projection and device
 evidence.
