@@ -5,6 +5,17 @@ import marshal
 from types import CodeType
 
 
+SEED_IMPLEMENTATION = (
+    'genshin_native_dispatch', 'genshin_native_channel', 'genshin_original_excel', 'genshin_native_x64',
+    'genshin_native_metadata', 'genshin_native_expression', 'genshin_native_registration',
+    'genshin_native_view', 'genshin_native_usage', 'genshin_native_literals',
+)
+PROFILE_IMPLEMENTATION = (
+    'genshin_original_bootstrap', 'genshin_original_containers', 'genshin_blb_native', 'genshin_blb_body',
+    'raw_lz4', 'genshin_blb_portable', 'genshin_native_x64', 'hoyo_bootstrap_assets',
+)
+
+
 def implementation_identity(names):
     result = hashlib.sha256()
     for name in names:

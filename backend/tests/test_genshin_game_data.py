@@ -4,6 +4,8 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
+import sys
 import threading
 from types import SimpleNamespace
 
@@ -11,6 +13,7 @@ import pytest
 import zstandard
 
 from backend import genshin_game_data as provider, sophon_assets as sophon
+from backend.genshin_android_runtime import AndroidGenshinRuntime
 from backend.game_data_protocol import GameDataError, GameDataRequest, PreparationStage
 from backend.publisher_transport import source_url
 from backend.tests.test_sophon_assets import field
@@ -513,6 +516,35 @@ def test_native_decoder_failure_still_gates_before_any_publisher_transfer(tmp_pa
     assert result.download_bytes is None and not calls and ctx.consumed == 0
 
 
+def test_standalone_android_runtime_imports_in_a_closed_namespace_without_a_genshin_factory():
+    program = '''
+import sys
+
+sys.path.insert(0, sys.argv[1])
+factory = 'backend.genshin_game_data'
+attempts = []
+
+class ClosedSources:
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == factory:
+            attempts.append(fullname)
+            raise ModuleNotFoundError('The game-data factory is outside the APK source set', name=fullname)
+
+sys.meta_path.insert(0, ClosedSources())
+from backend.genshin_android_runtime import AndroidGenshinRuntime
+assert AndroidGenshinRuntime.__module__ == 'backend.genshin_android_runtime'
+assert 'backend.game_data_providers' not in sys.modules and not attempts
+from backend.game_data_providers import create_game_data_providers
+
+assert 'genshin' not in create_game_data_providers(platform='android')
+assert factory not in sys.modules and attempts == [factory]
+'''
+    repository = Path(__file__).resolve().parents[2]
+    result = subprocess.run([sys.executable, '-I', '-B', '-c', program, str(repository)],
+                            capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+
+
 def authored_android_decoder():
     from backend.android_x64_decoder import PackagedX64Decoder, SOURCE_SHA256
     from backend.android_x64_fixtures import CASES, REGISTER_NAMES
@@ -538,7 +570,7 @@ def test_android_profile_runtime_rejects_uninstalled_decoder_without_windows_fal
     monkeypatch.setattr(genshin_native_x64, 'decoder', lambda: pytest.fail('Windows decoder fallback'))
     for candidate in (None, authored.proof(), authored):
         with pytest.raises(ValueError, match='verified Android decoder is unavailable'):
-            provider.AndroidGenshinRuntime(candidate)
+            AndroidGenshinRuntime(candidate)
     with pytest.raises(ValueError):
         genshin_native_x64.install_android_decoder(authored)
 
@@ -583,7 +615,7 @@ def test_runtime_prepares_whole_typed_profile_without_desktop_imports(tmp_path, 
         # Exercise the Python path after the installation boundary. This
         # authored runner cannot satisfy actual FrameOcr installation.
         monkeypatch.setattr(genshin_native_x64, 'require_android_decoder', installed_boundary)
-        runtime = provider.AndroidGenshinRuntime(decoder)
+        runtime = AndroidGenshinRuntime(decoder)
     else:
         runtime = provider.GenshinRuntime(SimpleNamespace(mode='bundle'))
     prior = tmp_path / 'accepted-library'; prior.write_bytes(b'previous complete library')

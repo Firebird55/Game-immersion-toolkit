@@ -267,8 +267,9 @@ decoder with the Witcher reader. The profile receipt fingerprints both modules,
 and the desktop original-text body cache includes their code digests. Existing
 source downloads and accepted libraries are retained.
 
-The explicit Android profile adapter accepts the decoder instance already
-installed by the Android host from its verified FrameOcr provider. Its profile
+The standalone Android profile adapter loads independently of the game-data
+factory and accepts the decoder instance already installed by the Android host
+from its verified FrameOcr provider. Its profile
 receipt binds APK-entry and license verification, ABI, native source, library
 and manifest digests, the 15-case decoder contract, and the portable codec and
 reader implementation. This evidence attests the decoder entry in the installed
