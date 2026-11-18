@@ -15,10 +15,12 @@ from backend.tests.test_publisher_transport import Response
 
 
 class Fixture(Build):
+    def settings_payload(self,numbered):return b'authored settings'+bytes([numbered])
+
     def generation(self,numbered):
         super().generation(numbered)
         pak,_=archive_fixture(revision=numbered,mount='../../../X6Game/Config/',
-            specs=[('DefaultX6PackageSettings.ini',b'authored settings'+bytes([numbered]),True)])
+            specs=[('DefaultX6PackageSettings.ini',self.settings_payload(numbered),True)])
         self.files=dict(zip(('pak','sig','ucas','udirhash','utoc'),(pak,b'authored-signature',b'ucas',b'hash',b'utoc')))
         self.basename='Default_Ini_'+self.version+'_P'
         rows=[];body=bytearray()

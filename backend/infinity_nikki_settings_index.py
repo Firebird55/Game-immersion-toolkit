@@ -6,7 +6,7 @@ from . import infinity_nikki_configuration_stage as configuration
 from . import infinity_nikki_build_stage as build
 
 
-def plan_members(provider,handle,ctx):
+def selection(provider,handle,ctx):
     """Verify this Global archive independently; never persist derived material."""
     from .infinity_nikki_pak import Archive
     from .infinity_nikki_pak_material import extract_default_pak_material
@@ -45,11 +45,20 @@ def plan_members(provider,handle,ctx):
     decoded=sum(entry.expanded_bytes for entry in entries)
     configuration._check(0<decoded<=1024**2 and all(entry.expanded_bytes<=128*1024 for entry in entries))
     methods=sorted({archive.methods[entry.method] for entry in entries})
+    return row,archive,paths,entries,decoded,methods
+
+
+def plan_members(provider,handle,ctx):
+    row,archive,paths,entries,decoded,methods=selection(provider,handle,ctx)
+    from . import infinity_nikki_settings_stage
+    compression=infinity_nikki_settings_stage.compression(provider,methods)
+    if compression is not None:
+        return infinity_nikki_settings_stage.begin(provider,handle,ctx,
+            selected=(row,archive,paths,entries,decoded,methods),codec=compression)
     message=(f'The current native-compatible configuration indices verify {len(paths)} settings members '
         f'({decoded} decoded bytes; compression: {", ".join(methods)}). '
         'An owned host decoder and ordered settings/profile/keychain preparation are still required. '
         'No settings member has been decoded or language library activated.')
-    # No neutral Oodle capability has been accepted for this provider. Index
-    # integrity is useful progress, but is not executable member preparation.
+    # No source/PATH/Android fallback may substitute for the accepted capability.
     return GameDataPlan('global-settings-members-'+row['sha256'][:16],0,decoded,handle,
         stage='global-configuration-source',message=message)

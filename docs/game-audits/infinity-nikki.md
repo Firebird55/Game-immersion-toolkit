@@ -749,12 +749,28 @@ the zero-GUID material afresh from the retained authenticated native consumer,
 checks this complete Global PAK's main/directory plaintext hashes, and sizes
 only index-owned settings-category members. Nonzero GUIDs stop before trying
 the default producer. CustomConfig variants are discovered from the directory,
-without a regional-label allowlist or profile selection. Members remain inert:
-the required decoded disk size and compression names are shown, but no neutral
-owned Oodle capability has been accepted for this provider. No member decode or
-desktop fallback occurs during that plan. Ordered INI preparation is still open.
-The nine private research INIs cannot supply that missing preparation. CMS
-construction must consume its future verified source receipt and keep the
+without a regional-label allowlist or profile selection. The required decoded
+disk size and compression names are shown before member preparation. Android
+retains the explicit owned-codec gate. The Windows continuation now accepts only
+the existing closed bundled software inventory and fixed app-local Node runtime:
+the maintained [ooz-wasm preferred source](https://github.com/SnosMe/ooz-wasm/tree/ebed82851988add824e092dc4db320c8fa39aaca)
+is GPL-3.0-or-later, with complete source archives, terms, Emscripten notices and
+the toolkit's source-build recipe retained. A separate read-only verification
+checks all 12 source-build companions and their independent policy hashes;
+this is a source-built embedded WASM decoder, not an original game DLL.
+
+The capability reuses the existing production software-container validator and
+checks the fixed Node/wrapper/generated-module hashes before and after bounded
+batch execution. It preserves the wrapper's copied output, removes developer
+loader/npm environment and has no PATH, source-node_modules, network, game-library
+or Android fallback. A missing capability keeps the inactive size plan. With
+the capability available, normal zero-download member preparation checks every
+original member SHA-1, preserves ordered sections, repeated assignments and
+operators, and retains raw INIs with hash-bound receipts. Requote, interruption,
+decoder failure and offline retained-data checks use the normal contexts. It
+returns only the next settings-profile stage; no CMS request or regional merge
+is performed. The nine private research INIs cannot supply this preparation.
+CMS construction must consume the normal source receipt and keep the
 response/keychain gate explicit.
 The PAK reader now accepts the same explicit platform cryptography object;
 desktop cryptography is lazy, and absent-pack fixtures distinguish encryption
