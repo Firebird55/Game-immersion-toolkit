@@ -1034,9 +1034,15 @@ declarations retain their TypeDef identities and make the candidate unresolved.
 The result includes constructor, field and row identities. Authored fixtures
 cover relocated identities, changed names, modifier differences and ambiguous
 ownership. Production table discovery still uses the existing index for
-candidate selection, literal binding and native verification. Global catalogue
-candidate parity awaits a retained-original comparison.
+candidate selection, literal binding and native verification.
 [Catalogue shadow query](../../backend/starrail_table_candidates.py)
+
+The first Global candidate comparison tied both retained Windows controls to
+their historical helper and to the same retained source files as the portable
+query. The Global 4.6 control passed its output checksum and file fences. Its
+dictionary-field anchors exceeded the four-offset limit, so the probe stopped
+before reading selected control blocks or original payloads. Scoped catalogue
+parity remains unverified.
 
 - Route derivation resolves its existing semantic names and signatures against
   original definitions. Table derivation starts with requested table names and
