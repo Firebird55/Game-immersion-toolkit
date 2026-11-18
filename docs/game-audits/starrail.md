@@ -928,8 +928,14 @@ control for their field owner, type, name and byte offset.
 The reader extends a field window only when complete authenticated type
 declarations tile to that distinct literal-data boundary. Authored fixtures
 exercise recovery across the opaque header slot and rejection of gaps,
-overlaps and out-of-range declarations. Selected default values, the required
-native-index projection and Android device acceptance remain open.
+overlaps and out-of-range declarations.
+
+A separate scalar probe checked eight source-owned fields per generation.
+One field in each had the original `Literal` flag and a matching default
+record. Both four-byte values decoded to the same digest. The seven other
+fields in each generation lacked the literal flag. This is selected scalar
+evidence. A production default resolver, the required native-index
+projection and Android device acceptance remain open.
 
 ## Original hotfix discovery prototype · November 16, 2026
 
