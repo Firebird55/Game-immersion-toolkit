@@ -115,6 +115,23 @@ def test_scope_cancellation_stops_worker_and_removes_only_pending_stage(tmp_path
     assert ticket.cancelled and not list(tmp_path.glob('zzz-catalogue-*'))
 
 
+def test_native_catalogue_deadline_reports_actionable_error_after_visible_phase(tmp_path):
+    receipts = input_digest(tmp_path)
+    ctx, worker, ticket, _ = authored(tmp_path, read_source())
+    phases = []
+    ctx.consumed, ctx.budget = 4, 20
+    ctx.progress = lambda *value: phases.append(value)
+    ticket.failurePhase = lambda: 'worker-deadline'
+
+    with pytest.raises(GameDataError, match='tap Download to resume') as raised:
+        run_stage(worker, 'scene-plan', {'design': ['design-1.blk']}, tmp_path, receipts, ctx)
+
+    assert raised.value.code == 'zzz_catalogue_timeout'
+    assert phases == [('catalogue', 4, 20, 'Reading the ZZZ dialogue catalogue…'),
+                      ('catalogue', 4, 20, 'Reading ZZZ catalogue files (1 of 1)…')]
+    assert ticket.cancelled and not list(tmp_path.glob('zzz-catalogue-*'))
+
+
 def test_reader_binds_verified_input_and_places_only_expected_output_in_workspace(tmp_path, monkeypatch):
     from backend import android_zzz_catalogue
     work = tmp_path / 'work'

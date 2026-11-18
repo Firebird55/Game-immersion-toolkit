@@ -156,7 +156,7 @@
   },
   "files": {
     "backend/android_zzz_catalogue.py": {
-      "sha256_lf": "667fb8fc2e9662b3bf035c70593dba2d5125b3232db60524938c732912608dbb",
+      "sha256_lf": "592367fffb735d92bf8b0aed175bbd6f90ecd44b37c85a8079c859495c0b1582",
       "source_commit": "85792ddc63152fdb91377f2655bd224fdce2568a"
     },
     "backend/android_zzz_wem.py": {

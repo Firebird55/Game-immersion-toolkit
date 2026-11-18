@@ -39,6 +39,20 @@ def _unavailable():
     return GameDataError('zzz_catalogue_worker_unavailable', 'The verified Android ZZZ catalogue worker is unavailable.', 503)
 
 
+def _worker_failure(ticket):
+    phase = str(ticket.failurePhase()) if ticket is not None and hasattr(ticket, 'failurePhase') else ''
+    if phase == 'worker-deadline':
+        return GameDataError('zzz_catalogue_timeout',
+                             'ZZZ catalogue preparation timed out. Keep the app open and tap Download to resume.', 503)
+    if phase == 'worker-start-timeout':
+        return GameDataError('zzz_catalogue_start_timeout',
+                             'The ZZZ catalogue reader did not start. Reopen the app and tap Download to resume.', 503)
+    if phase == 'worker-rejected':
+        return GameDataError('zzz_catalogue_rejected',
+                             'The ZZZ catalogue reader could not process the original game files.', 503)
+    return _unavailable()
+
+
 def create_android_catalogue(native):
     """Obtain the application-owned Java capability. The provider owns no WebView."""
     try:
@@ -150,12 +164,19 @@ def run_stage(worker, mode, spec, staged_directory, receipts, ctx):
     pending = Path(tempfile.mkdtemp(prefix='zzz-catalogue-', dir=root))
     ticket = None
     complete = False
+    progress = getattr(ctx, 'progress', None)
     try:
+        if progress:
+            progress('catalogue', ctx.consumed, ctx.budget, 'Reading the ZZZ dialogue catalogue…')
         ctx.check()
         _require(str(worker.proof()) == IDENTITY)
         ticket = worker.begin(mode, control)
-        _require(_message(ticket, ctx.check) == {'type': 'started', 'identity': IDENTITY})
+        started = _message(ticket, ctx.check)
+        if started.get('type') == 'failed':
+            raise _worker_failure(ticket)
+        _require(started == {'type': 'started', 'identity': IDENTITY})
         written, request, used = set(), 0, 0
+        read = set()
         while True:
             event = _message(ticket, ctx.check)
             kind = event.get('type')
@@ -165,14 +186,20 @@ def run_stage(worker, mode, spec, staged_directory, receipts, ctx):
                 complete = True
                 return pending
             if kind == 'failed':
-                raise _unavailable()
+                raise _worker_failure(ticket)
             name, identifier = event.get('name'), event.get('id')
             _require(type(identifier) is int and identifier == request + 1 and isinstance(name, str))
             request = identifier
             if kind == 'read':
                 _require(name in receipts)
+                read.add(name)
+                if progress:
+                    progress('catalogue', ctx.consumed, ctx.budget,
+                             f'Reading ZZZ catalogue files ({len(read)} of {len(receipts)})…')
                 _push(ticket, event, ctx.check, staged / name, receipts[name])
             elif kind == 'write':
+                if progress:
+                    progress('catalogue', ctx.consumed, ctx.budget, 'Saving verified ZZZ catalogue results…')
                 size = event.get('size')
                 _require(name in outputs and name not in written and type(size) is int and
                          0 < size <= MAX_FILE and used + size <= MAX_OUTPUT)
@@ -185,7 +212,7 @@ def run_stage(worker, mode, spec, staged_directory, receipts, ctx):
         # Owner/epoch changes and cancellation retain their existing public state.
         raise
     except Exception as error:
-        raise _unavailable() from error
+        raise _worker_failure(ticket) from error
     finally:
         try:
             if ticket is not None:

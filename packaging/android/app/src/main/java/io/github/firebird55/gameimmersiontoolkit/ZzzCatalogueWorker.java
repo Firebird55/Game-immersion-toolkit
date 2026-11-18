@@ -35,7 +35,9 @@ public final class ZzzCatalogueWorker {
     private static final String IDENTITY = "e2c8551d8841c7447689b356d09d77e6c72651d94b9bc9bf245634b3362bc24b";
     private static final int LIMIT = 128 * 1024;
     private static final int CHUNK_MESSAGE_LIMIT = 33_000;
-    private static final int TIMEOUT_MS = 180_000;
+    private static final long START_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(45);
+    private static final long IDLE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(6);
+    private static final long MAX_OPERATION_MS = TimeUnit.MINUTES.toMillis(45);
     private final Context context;
     private final Handler main = new Handler(Looper.getMainLooper());
     private volatile Ticket active;
@@ -138,7 +140,7 @@ public final class ZzzCatalogueWorker {
                 finish(ticket);
             }
         });
-        main.postDelayed(ticket.timeout, TIMEOUT_MS);
+        main.postDelayed(ticket.timeout, START_TIMEOUT_MS);
         return ticket;
     }
 
@@ -157,6 +159,9 @@ public final class ZzzCatalogueWorker {
         });
         active = null;
         ticket.closed = true;
+        if (!ticket.progress.phase.equals("worker-complete") && !ticket.cancelled) {
+            android.util.Log.w("ToolkitZzzCatalogue", ticket.progress.phase);
+        }
     }
 
     private static final class Progress {
@@ -167,13 +172,26 @@ public final class ZzzCatalogueWorker {
         private final String start;
         private final ArrayBlockingQueue<String> events = new ArrayBlockingQueue<>(2);
         private final Progress progress = new Progress();
-        private final Runnable timeout = () -> {
-            if (active == this) progress.phase = "worker-deadline";
-            finish(this);
-        };
+        private final long opened = android.os.SystemClock.elapsedRealtime();
+        private volatile long lastMessage = opened;
+        private volatile boolean started;
+        private volatile boolean cancelled;
+        private final Runnable timeout = this::checkDeadline;
         private volatile boolean closed;
 
         Ticket(String start) { this.start = start; }
+        private void checkDeadline() {
+            if (active != this) return;
+            long now = android.os.SystemClock.elapsedRealtime();
+            long startupOrIdle = started ? IDLE_TIMEOUT_MS : START_TIMEOUT_MS;
+            long remaining = Math.min(opened + MAX_OPERATION_MS - now, lastMessage + startupOrIdle - now);
+            if (remaining > 0) {
+                main.postDelayed(timeout, remaining);
+                return;
+            }
+            progress.phase = started ? "worker-deadline" : "worker-start-timeout";
+            finish(this);
+        }
 
         public String poll(int milliseconds) throws InterruptedException {
             if (milliseconds < 1 || milliseconds > 1000 || Looper.myLooper() == Looper.getMainLooper())
@@ -197,7 +215,9 @@ public final class ZzzCatalogueWorker {
             });
         }
 
-        public void cancel() { finish(this); }
+        public String failurePhase() { return progress.phase; }
+
+        public void cancel() { cancelled = true; finish(this); }
     }
 
     private static final class Software {
@@ -294,7 +314,7 @@ public final class ZzzCatalogueWorker {
                     return;
                 }
                 switch (type) {
-                    case "started": ticket.progress.phase = "worker-started"; break;
+                    case "started": ticket.started = true; ticket.progress.phase = "worker-started"; break;
                     case "read": ticket.progress.phase = "input-requested"; break;
                     case "pull": ticket.progress.phase = "input-streaming"; break;
                     case "write": ticket.progress.phase = "output-requested"; break;
@@ -304,6 +324,7 @@ public final class ZzzCatalogueWorker {
                     default: throw unavailable();
                 }
                 if (!ticket.events.offer(message)) throw unavailable();
+                ticket.lastMessage = android.os.SystemClock.elapsedRealtime();
                 if (type.equals("complete") || type.equals("failed")) finish(ticket);
             } catch (Exception error) {
                 ticket.progress.phase = "port-protocol-failed";

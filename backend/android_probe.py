@@ -88,7 +88,7 @@ def run_zzz_catalogue(root, native, fixture_json):
             try:
                 run_stage(worker, fixture['mode'], wanted, input_dir, wrong_receipt, context)
             except GameDataError as error:
-                if error.code != 'zzz_catalogue_worker_unavailable':
+                if error.code not in {'zzz_catalogue_worker_unavailable', 'zzz_catalogue_rejected'}:
                     raise
             else:
                 raise ValueError('The confined worker accepted an unauthenticated input')
