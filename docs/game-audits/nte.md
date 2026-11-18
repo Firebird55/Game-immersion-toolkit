@@ -225,6 +225,26 @@ changed captions/voices/keys or successful update recovery. Further preparation
 requires a new original-source plan; replacing only the old recipe's configuration
 checksum would not preserve its source contract.
 
+The newly declared resource-list ZIP subsequently passed its unique resource-list
+member CRC, complete original plaintext-MD5 and typed-inventory checks using the
+retained original updater parameters. Wrong-key and wrong-IV controls were
+rejected. Of 374 declared file identities, 333 remained identical and 41 changed;
+none were added or removed. This establishes an original-manifest transition,
+without proving changed subtitle/audio payloads or parameter rotation.
+
+A fresh ordinary shared-service plan then bound that new source to the same
+frozen reader and original SDK inputs. Its 10 metadata requests accounted for
+524,106 bytes. The separately authorized first acquisition stage transferred
+349,467,272 bytes including source guards: 18 missing native/index inputs used
+349,151,246 original bytes, while 26 retained inputs passed full hash validation.
+All 44 complete inputs and the final current-source guards verified. The native
+executable and libraries were only data; no helper, client or audio codec ran.
+Observed free-space reduction was 349,343,744 bytes and the previous source and
+recording fences remained intact. Preparation stopped after this stage. The new
+source's required native closure, selected localized text, voice inventory, complete
+audio readiness and changed-content recovery still require their own ordinary
+stages; the initial acquisition does not establish those results.
+
 ## Explicit text-only preparation
 
 November 17, 2026. The NTE provider accepts `content_mode='text'` before

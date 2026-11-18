@@ -33,6 +33,9 @@ One real Japanese recording passed complete resolver/saved replay checks. The
 later full audio trial stopped at a final publisher-configuration checksum guard
 after eighteen completed acquisition stages, preserving its prior Text-only
 library; it did not become an audio-ready source.
+The changed original manifest and a fresh ordinary plan then validated the first
+new native/index acquisition stage, with the retained library still intact.
+Required authoring, selected text/audio deltas and full readiness remain open.
 
 | Game | Implemented improvements | Evidence and limits |
 | --- | --- | --- |
