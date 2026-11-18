@@ -20,6 +20,7 @@ try{
    const writes=[],requests=[];
    const accountLanguages={first:['en','zh'],second:['en','zh'],legacy:['en','zh']};
    let failLanguageWrite=false,holdLanguageRead=false,releaseLanguageRead,captureGame='genshin',unvoiced=false,missingAudio=null;
+   let holdSnapshots=false;const heldSnapshots=[];
    let languageReadStatus=200,failPreparation=false,greekLine=false,selectedReadingLanguage='en';
    let initialLanguageGate=true;const initialLanguageReads=[];
    const preferences=()=>({languages:accountLanguages[active],global:{translationLanguage:'fr',effectiveTranslationLanguage:'fr',wordPopupOpenMode:'click'},
@@ -44,7 +45,11 @@ try{
     if(path==='/api/settings'){if(request.method()==='PATCH')Object.assign(settings,body);return respond(settings);}
     if(path==='/api/toolkit-update')return respond({installed_version:'fixture',enabled:true,state:'current',message:'Toolkit is up to date'});
     if((/^\/api\/lines\/\d+\/(reading|lexirise)/.test(path)||path==='/api/lexirise/decks'||path==='/api/lexirise/settings'&&request.headers()['x-proxy-transcript-account']!==undefined)&&request.headers()['x-proxy-transcript-account']!==active)return respond({detail:'Account changed. Retry with the selected account.'},409);
-    if(path==='/api/snapshot')return respond({context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:selectedReadingLanguage,source_locale:selectedReadingLanguage}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}});
+    if(path==='/api/snapshot'){
+     const result={context:stateContext(),status:{capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:selectedReadingLanguage,source_locale:selectedReadingLanguage}}},lines:[line()],lexirise:{configured,account:active,sent:sent[active],decks:{}}};
+     if(holdSnapshots){heldSnapshots.push(()=>respond(result));return;}
+     return respond(result);
+    }
     if(path==='/api/status')return respond({capture:{running:true,active_game:captureGame,visible_text_ids:['fixture'],phase:'matched',message:'Ready'},textmaps:{ready:true,entry_count:1},updates,audio:{ready:true},settings,session:{id:'fixture',line_count:1,total_line_count:1},selected_languages:{zzz:{source_language:selectedReadingLanguage,source_locale:selectedReadingLanguage}}});
     if(path==='/api/lines')return respond(url.searchParams.get('game')==='zzz'?[line()]:[]);
     if(path==='/api/favorites')return respond([]);
@@ -377,10 +382,15 @@ try{
    const waitForHeldRead=async()=>{for(let i=0;i<100;i++){if(releaseLanguageRead)return;await page.waitForTimeout(20);}throw Error('Expected held language read');};
    holdLanguageRead=true;releaseLanguageRead=null;
    await picker.getByRole('button',{name:'Reload languages',exact:true}).click();await waitForHeldRead();
+   holdSnapshots=true;
    active='first';generation++;
    await page.evaluate(()=>window.dispatchEvent(new Event('lexirise-credentials-changed')));
-   await target.locator('option[value="ja"]').waitFor({state:'attached'});
+   await target.getByRole('option',{name:'Loading languages…',exact:true}).waitFor({state:'attached'});
+   assert(await target.isDisabled(),'An unknown account state cannot expose the plain-mode language list');
+   assert.deepEqual(await targets(),[''],'Account changes clear all options until the new snapshot is known');
    await releaseLanguageRead();
+   assert.deepEqual(await targets(),[''],'The old response cannot populate options while the new account snapshot is held');
+   holdSnapshots=false;await Promise.all(heldSnapshots.splice(0).map(release=>release()));
    assert((await targets()).every(code=>['','en','ja','zh'].includes(code)),'Delayed foreign-account response permits only current owned languages or the empty loading option');
    // The new generation's snapshot may legitimately clear the picker while its
    // own read settles. Wait for semantic ownership, not a transient option.
@@ -436,5 +446,5 @@ try{
   await browser.close();browser=null;
  }
 }finally{
- await preview.stop();
+ try{await browser?.close();}finally{await preview.stop();}
 }

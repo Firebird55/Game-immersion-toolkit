@@ -457,6 +457,7 @@ function CompanionClient() {
   const playback = useRef<HTMLAudioElement | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [lexirise, setLexirise] = useState<LexiriseStatus>({ configured: false, sent: {} });
+  const [accountStatePending, setAccountStatePending] = useState(true);
   useEffect(() => {
     const stopPlayback = () => {
       const audio = playback.current;
@@ -481,7 +482,8 @@ function CompanionClient() {
   const settingsAdapter = useMemo(() => createSettingsAdapter(requestGeneration,
     () => accountScope.current.generation === requestOwner), [requestGeneration, requestOwner]);
   const readingMode: ReadingMode = lexirise.configured ? 'lexirise' : 'plain';
-  const gamePicker = useTargetLanguage(readingMode, lexirise.account, lexirise.configured, requestGeneration);
+  const pickerMode: ReadingMode = accountStatePending ? 'lexirise' : readingMode;
+  const gamePicker = useTargetLanguage(pickerMode, lexirise.account, lexirise.configured, requestGeneration, accountStatePending);
   const [readingOptions, setReadingOptions] = useState<LocalSettings>(restoreLocalSettings(DEFAULT_READING_OPTIONS));
   const [currentReadingSummary, setCurrentReadingSummary] = useState<ReadingSummary | null>(null);
   const [readerSettingsOpen, setReaderSettingsOpen] = useState<{language: import('@firebird55/lexirise-components').StudyLanguage; account: string} | null>(null);
@@ -549,6 +551,7 @@ function CompanionClient() {
       localScopeReady.current = false;
       explicitGame.current = null;
       accountScope.current.ready = false;
+      setAccountStatePending(true);
       setLexirise({ configured: false, sent: {} });
       setStudyMessage('');
       sendingStudy.current = null;
@@ -595,6 +598,7 @@ function CompanionClient() {
       accountScope.current.ready = value.lexirise.configured;
       if (nativeHost.android) setNativeGeneration(value.context.account_generation);
       setLexirise(value.lexirise);
+      setAccountStatePending(false);
       setOnline(true);
       setSnapshotLoaded(true);
     }, () => setOnline(false), value => events.reconcile(value, (snapshot,event) => {
@@ -1036,7 +1040,7 @@ function CompanionClient() {
         </div>
       </header>
 
-      <GamePicker picker={gamePicker} mode={readingMode} selectedGame={selectedGame}
+      <GamePicker picker={gamePicker} mode={pickerMode} selectedGame={selectedGame}
         sourceLocale={status?.selected_languages?.[selectedGame]?.source_locale ?? (lexirise.account === 'legacy' ? 'zh-Hans' : undefined)}
         onGameChange={game => {
           explicitGame.current = game;
